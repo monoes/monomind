@@ -7,7 +7,7 @@
 
 ## Executive Overview
 
-Monomind Monograph (`@monoes/monograph` `v1.5.6`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, HippoRAG-style PPR reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
+Monomind Monograph (`@monoes/monograph` `v1.5.6`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, one-hop neighbor-expansion reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
 
 Defined in `packages/@monomind/monograph/` ([package.json:3](packages/@monomind/monograph/package.json#L3)) and integrated into CLI MCP tools at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
 
@@ -31,7 +31,7 @@ Monograph uses Tree-sitter for deterministic, full-fidelity AST symbol extractio
 
 ## 2. Graph Database & SQLite Schema
 
-Monograph persists the codebase graph in an embedded SQLite database (`.monomind/monograph/graph.db`) with FTS5 trigram search and automated triggers.
+Monograph persists the codebase graph in an embedded SQLite database (`.monomind/monograph.db`) with FTS5 trigram search and automated triggers.
 
 Defined in `packages/@monomind/monograph/src/storage/schema.ts`:
 
@@ -80,7 +80,7 @@ Located at `packages/@monomind/monograph/src/graph/ripple-impact.ts` ([`rippleIm
 
 ## 5. Graph Freshness & Staleness Detection
 
-Monograph guarantees index accuracy through a three-layer freshness system:
+Monograph detects likely staleness through a three-layer system. It reduces the chance of serving an outdated graph; it does not guarantee the index matches the working tree — see the limitations below before relying on a freshness result:
 
 1. **Git Commit Hash Verification** ([`git-staleness.ts:13-66`](packages/@monomind/monograph/src/staleness/git-staleness.ts#L13-L66)):
    Compares `last_commit_hash` in `index_meta` against `git rev-parse HEAD`. If different, runs `git diff --name-only <indexed>..HEAD` to detect changed files and mark graph nodes as stale.
@@ -92,6 +92,26 @@ Monograph guarantees index accuracy through a three-layer freshness system:
    - **`FULL_REBUILD_IDLE_MS = 60_000`** ([`watch/watcher.ts:L42`](packages/@monomind/monograph/src/watch/watcher.ts#L42)) — after 60s of no further file-change events, the watcher schedules one deferred full rebuild to reconcile any drift from the incremental updates it applied in between.
 
    (This is unrelated to any separate watcher idle/auto-stop timeout elsewhere in the CLI — the two numbers above are the incremental-vs-full-rebuild mechanics specific to this watcher, not a "stop watching" timeout.)
+
+### Known freshness limitations
+
+Layer 1 compares committed revisions, so a "fresh" result does not mean the index
+matches what is currently on disk:
+
+- **Uncommitted working-tree edits are invisible to it.** A file edited but not yet
+  committed leaves `last_commit_hash` equal to `HEAD`, so the index reports fresh
+  while the graph still describes the pre-edit code.
+- **When Git is unavailable, staleness cannot be determined**, and the check does not
+  report the index as stale in that case — so a non-Git checkout, a missing `git`
+  binary, or a shallow/detached state yields a not-stale answer that carries no
+  evidence behind it.
+- **A watcher is not always running.** Layers 2 and 3 only narrow the window while a
+  build or an active watch session is in progress; neither runs continuously by
+  default.
+
+Treat a fresh result as "no committed change detected", not as a guarantee. When
+coverage or freshness matters for a decision, verify against the files themselves
+rather than relying on the graph alone.
 
 ---
 
@@ -105,7 +125,7 @@ category boundary (default vs. advanced-gated):
 
 1. `monograph_build` ([`build-tools.ts:L12`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#L12)): Rebuilds or incrementally updates the knowledge graph.
 2. `monograph_watch` ([`build-tools.ts:L42`](packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#L42)): Starts the live file-watcher described in §5.3 above.
-3. `monograph_query` ([`query-tools.ts:L9`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L9)): BM25/FTS search with HippoRAG Personalized PageRank (PPR) reranking.
+3. `monograph_query` ([`query-tools.ts:L9`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L9)): BM25/FTS search with optional one-hop neighbor-expansion reranking (a single outgoing hop taking the maximum propagated score — not iterative Personalized PageRank).
 4. `monograph_stats` ([`health-tools.ts:L8`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#L8)): Reports node/edge totals and graph density metrics.
 5. `monograph_health` ([`health-tools.ts:L29`](packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#L29)): Computes graph connectivity and complexity health scores.
 6. `monograph_god_nodes` ([`query-tools.ts:L350`](packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L350)): Identifies central high-degree nodes (architectural hubs).

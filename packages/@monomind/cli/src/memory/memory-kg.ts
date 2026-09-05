@@ -16,9 +16,11 @@
  * Every write carries `origin_refs` so a bad ingest can be rolled back per
  * run/session.
  *
- * // monolean: graph traversal is in-process over a full kg:edges list —
- * // fine to ~10k edges; upgrade path is a real SQLite edges table with
- * // indexed src/dst columns if orgs outgrow that.
+ * // monolean: graph traversal is in-process over a paged kg:edges scan. The
+ * // bridge exposes no indexed adjacency (src/dst) or origin lookup, so every
+ * // neighbourhood/provenance question is a namespace scan; the upgrade path is
+ * // a real SQLite edges table with indexed src/dst/origin columns, which turns
+ * // these O(namespace) scans into O(matches).
  *
  * @module v1/cli/memory/memory-kg
  */
@@ -37,7 +39,51 @@ export const RULES_NS = 'rules';
 
 const MAX_NAME_LEN = 200;
 const MAX_DESC_LEN = 2000;
-const MAX_LIST = 10_000;
+
+/** Rows per `bridgeListEntries` call while scanning a namespace.
+ *
+ *  A single list call cannot return more than the backend's own 10,000-row
+ *  ceiling (`MAX_QUERY_LIMIT` in sql-backend.ts), so the old `limit: MAX_LIST`
+ *  scans were not "large enough to be safe" — they were exactly the point past
+ *  which the graph goes silently invisible. Everything below pages instead.
+ *
+ *  1,000 balances the two costs: one page is at most ~1 MB even at the bridge's
+ *  16 KB value cap (typical KG entries are far smaller), and it takes a tenth
+ *  of the round trips a 100-row page would. */
+const SCAN_PAGE = 1_000;
+
+/** Edge rows `kgSearch` will read before giving up and reporting `truncated`.
+ *  Search is interactive and runs a full scan per query, so unlike rollback it
+ *  keeps a ceiling — five times the old silent one, and now stated in the
+ *  result rather than hidden. */
+const SEARCH_EDGE_SCAN_MAX = 50_000;
+
+type ScannedEntry = NonNullable<Awaited<ReturnType<typeof bridgeListEntries>>>['entries'][number];
+
+/** Page through an entire namespace, handing each page to `onPage` so callers
+ *  fold as they go instead of materializing the namespace.
+ *
+ *  `onPage` returning exactly `false` stops the scan early (only `kgSearch`
+ *  does that); any other return value continues. Returns false when the backend
+ *  was unavailable — an unreadable namespace must never be mistaken for an
+ *  empty one.
+ *
+ *  Callers that MUTATE what they find must collect during the scan and mutate
+ *  afterwards: the bridge's upsert writes a new row and drops the old one, so
+ *  rewriting an entry moves it to the head of the backend's `created_at DESC`
+ *  ordering and would shift rows past an advancing offset. */
+async function scanNamespace(
+  namespace: string,
+  dbPath: string | undefined,
+  onPage: (entries: ScannedEntry[]) => unknown,
+): Promise<boolean> {
+  for (let offset = 0; ; offset += SCAN_PAGE) {
+    const res = await bridgeListEntries({ namespace, limit: SCAN_PAGE, offset, dbPath });
+    if (!res) return false;
+    if (res.entries.length && onPage(res.entries) === false) return true;
+    if (res.entries.length < SCAN_PAGE) return true;
+  }
+}
 
 export interface KgNodeInput {
   name: string;
@@ -63,7 +109,64 @@ export interface KgIngestResult {
   nodesMerged: number;
   edgesAdded: number;
   edgesMerged: number;
+  /** Writes the bridge refused, one message each (capped at MAX_FAILURES).
+   *  Non-empty ⇒ `success` is false and the counters describe only what
+   *  actually persisted. */
+  failures?: string[];
   error?: string;
+}
+
+/** Cap on reported failure messages — a dead backend fails every write, and a
+ *  500-entry failure list is noise, not signal. `error` carries the true count. */
+const MAX_FAILURES = 20;
+
+/** `bridgeStoreEntry` never throws: it returns `null` when no backend is
+ *  reachable and `{ success: false, error }` when the write itself failed.
+ *  Both look like success to an `await` that ignores the result, which is how
+ *  the graph came to claim knowledge it had not persisted. Every write in this
+ *  module goes through here.
+ *
+ *  @returns a failure message, or null when the write landed. */
+function storeFailure(
+  res: Awaited<ReturnType<typeof bridgeStoreEntry>>,
+  what: string,
+): string | null {
+  if (!res) return `${what}: memory backend unavailable`;
+  if (!res.success) return `${what}: ${res.error ?? 'store rejected'}`;
+  return null;
+}
+
+/** Accumulates write failures across a multi-write operation. The memory
+ *  bridge exposes no transaction primitive, so ingest CANNOT be atomic: some
+ *  writes land and some do not. Rather than hide that, callers get exact
+ *  counters for what persisted plus the failure list for what did not. */
+class FailureLog {
+  readonly messages: string[] = [];
+  private count = 0;
+
+  /** @returns true when the write failed (caller should not count it). */
+  add(res: Awaited<ReturnType<typeof bridgeStoreEntry>>, what: string): boolean {
+    const msg = storeFailure(res, what);
+    if (!msg) return false;
+    this.count++;
+    if (this.messages.length < MAX_FAILURES) this.messages.push(msg);
+    return true;
+  }
+
+  note(message: string): void {
+    this.count++;
+    if (this.messages.length < MAX_FAILURES) this.messages.push(message);
+  }
+
+  get failed(): boolean {
+    return this.count > 0;
+  }
+
+  /** Summary for the result's `error` field; undefined when everything landed. */
+  summary(): string | undefined {
+    if (!this.count) return undefined;
+    return `${this.count} bridge operation(s) failed; graph state is partial`;
+  }
 }
 
 /** cognee DataPoint normalization: lowercase, spaces→_, strip apostrophes. */
@@ -91,7 +194,13 @@ function edgeKey(srcKey: string, relation: string, dstKey: string): string {
 
 /** Idempotently merge extracted nodes/edges into the KG. Same-name entities
  *  collapse onto one node (deterministic key + upsert); origin_refs accumulate
- *  so rollback can undo a single run's contribution. */
+ *  so rollback can undo a single run's contribution.
+ *
+ *  NOT ATOMIC — the memory bridge has no transaction primitive, so a failure
+ *  part-way through leaves earlier writes persisted. The counters therefore
+ *  report only what actually landed, `failures` lists what did not, and
+ *  `success` is false whenever anything was refused. A partial ingest is safe
+ *  to retry: every write is a keyed upsert. */
 export async function kgIngest(options: {
   nodes: KgNodeInput[];
   edges?: KgEdgeInput[];
@@ -100,6 +209,7 @@ export async function kgIngest(options: {
   dbPath?: string;
 }): Promise<KgIngestResult> {
   const { originRef, dbPath } = options;
+  const failures = new FailureLog();
   let nodesAdded = 0,
     nodesMerged = 0,
     edgesAdded = 0,
@@ -126,7 +236,7 @@ export async function kgIngest(options: {
         // overwrites an LLM-assigned type.
         const prevType = typeof md.type === 'string' ? md.type : 'entity';
         const bestType = prevType.toLowerCase() !== 'entity' ? prevType : type;
-        await bridgeStoreEntry({
+        const res = await bridgeStoreEntry({
           key,
           value: `${n.name} — ${bestDesc || bestType}`,
           namespace: KG_NODES_NS,
@@ -146,9 +256,9 @@ export async function kgIngest(options: {
             valid_to: null,
           },
         });
-        nodesMerged++;
+        if (!failures.add(res, `node ${key}`)) nodesMerged++;
       } else {
-        await bridgeStoreEntry({
+        const res = await bridgeStoreEntry({
           key,
           value: `${n.name} — ${desc || type}`,
           namespace: KG_NODES_NS,
@@ -167,7 +277,7 @@ export async function kgIngest(options: {
             valid_to: null,
           },
         });
-        nodesAdded++;
+        if (!failures.add(res, `node ${key}`)) nodesAdded++;
       }
     }
 
@@ -185,7 +295,7 @@ export async function kgIngest(options: {
         const md = existing.entry.metadata as Record<string, unknown>;
         const origins = Array.isArray(md.origin_refs) ? (md.origin_refs as string[]) : [];
         if (!origins.includes(originRef)) origins.push(originRef);
-        await bridgeStoreEntry({
+        const res = await bridgeStoreEntry({
           key,
           value: desc || `${e.source} ${e.relation} ${e.target}`,
           namespace: KG_EDGES_NS,
@@ -195,9 +305,9 @@ export async function kgIngest(options: {
           tags: ['kg', normalizeName(e.relation)],
           metadata: { ...md, origin_refs: origins.slice(-100) },
         });
-        edgesMerged++;
+        if (!failures.add(res, `edge ${key}`)) edgesMerged++;
       } else {
-        await bridgeStoreEntry({
+        const res = await bridgeStoreEntry({
           key,
           value: desc || `${e.source} ${e.relation} ${e.target}`,
           namespace: KG_EDGES_NS,
@@ -218,11 +328,18 @@ export async function kgIngest(options: {
             valid_to: null,
           },
         });
-        edgesAdded++;
+        if (!failures.add(res, `edge ${key}`)) edgesAdded++;
       }
     }
 
-    return { success: true, nodesAdded, nodesMerged, edgesAdded, edgesMerged };
+    return {
+      success: !failures.failed,
+      nodesAdded,
+      nodesMerged,
+      edgesAdded,
+      edgesMerged,
+      ...(failures.failed ? { failures: failures.messages, error: failures.summary() } : {}),
+    };
   } catch (err) {
     return {
       success: false,
@@ -230,6 +347,7 @@ export async function kgIngest(options: {
       nodesMerged,
       edgesAdded,
       edgesMerged,
+      ...(failures.messages.length ? { failures: failures.messages } : {}),
       error: err instanceof Error ? err.message : String(err),
     };
   }
@@ -248,7 +366,15 @@ export interface RuleVerdict {
  *  near-identical rule exists (embedding dedup — deterministic keys can't
  *  collapse paraphrases). Accepted rules are stored both as KG nodes
  *  (node_set=rules) and as plain `rules`-namespace entries so the existing
- *  injection/search surfaces pick them up with zero new plumbing. */
+ *  injection/search surfaces pick them up with zero new plumbing.
+ *
+ *  A candidate that dedups against an existing rule still ADDS its origin to
+ *  that rule's support set: two independent runs asserting the same rule mean
+ *  the rule survives either one being rolled back. Dropping the second origin
+ *  (as this used to) made rollback of the FIRST run delete knowledge the
+ *  second run independently vouched for.
+ *
+ *  Like `kgIngest`, NOT atomic — see that function's note. */
 export async function kgIngestRules(options: {
   rules: { rule: string; context?: string }[];
   originRef: string;
@@ -257,9 +383,16 @@ export async function kgIngestRules(options: {
    *  MiniLM paraphrases of the same rule commonly land 0.78-0.9; cognee's
    *  equivalent control is prompt-injected LLM judgment, which we approximate). */
   dedupThreshold?: number;
-}): Promise<{ success: boolean; verdicts: RuleVerdict[]; accepted: number; error?: string }> {
+}): Promise<{
+  success: boolean;
+  verdicts: RuleVerdict[];
+  accepted: number;
+  failures?: string[];
+  error?: string;
+}> {
   const verdicts: RuleVerdict[] = [];
   const threshold = options.dedupThreshold ?? 0.78;
+  const failures = new FailureLog();
   let accepted = 0;
 
   try {
@@ -297,40 +430,116 @@ export async function kgIngestRules(options: {
         const candidate = rule.replace(/\s+/g, ' ').trim().toLowerCase();
         isDuplicate = existing === candidate;
       }
-      if (isDuplicate) {
-        verdicts.push({ rule, verdict: 'already_known', similarTo: top?.key });
+      if (isDuplicate && top?.key) {
+        await reinforceRuleOrigin(
+          top.key,
+          top.content,
+          options.originRef,
+          options.dbPath,
+          failures,
+        );
+        verdicts.push({ rule, verdict: 'already_known', similarTo: top.key });
         continue;
       }
 
       const key = `rule:${normalizeName(rule).slice(0, 120)}`;
-      await bridgeStoreEntry({
+      const ruleName = rule.slice(0, MAX_NAME_LEN);
+      const stored = await bridgeStoreEntry({
         key,
         value: rule + (r.context ? `\n(context: ${r.context.slice(0, 500)})` : ''),
         namespace: RULES_NS,
         dbPath: options.dbPath,
         upsert: true,
         tags: ['rule'],
-        metadata: { origin_refs: [options.originRef], derived_from: options.originRef },
+        metadata: {
+          origin_refs: [options.originRef],
+          derived_from: options.originRef,
+          // Lets the dedup path reinforce the matching KG node without having
+          // to re-derive the node name from the stored value (which may carry
+          // an appended context block).
+          rule: ruleName,
+        },
       });
-      await kgIngest({
-        nodes: [
-          { name: rule.slice(0, MAX_NAME_LEN), type: 'Rule', description: rule, nodeSet: 'rules' },
-        ],
+      const nodeRes = await kgIngest({
+        nodes: [{ name: ruleName, type: 'Rule', description: rule, nodeSet: 'rules' }],
         originRef: options.originRef,
         dbPath: options.dbPath,
       });
+      const ruleFailed = failures.add(stored, `rule ${key}`);
+      if (nodeRes.failures?.length) for (const m of nodeRes.failures) failures.note(m);
+      // Only count a rule as accepted when BOTH of its writes landed; a rule
+      // present in one namespace only is not the state the caller was told about.
+      if (!ruleFailed && nodeRes.success) accepted++;
       verdicts.push({ rule, verdict: 'accepted' });
-      accepted++;
     }
-    return { success: true, verdicts, accepted };
+    return {
+      success: !failures.failed,
+      verdicts,
+      accepted,
+      ...(failures.failed ? { failures: failures.messages, error: failures.summary() } : {}),
+    };
   } catch (err) {
     return {
       success: false,
       verdicts,
       accepted,
+      ...(failures.messages.length ? { failures: failures.messages } : {}),
       error: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/** Add `originRef` to an already-stored rule's support set — both the
+ *  `rules`-namespace entry and its `node_set=rules` KG node. Idempotent in
+ *  effect: re-asserting an origin the rule already carries leaves the support
+ *  set unchanged. */
+async function reinforceRuleOrigin(
+  ruleKey: string,
+  matchedContent: string,
+  originRef: string,
+  dbPath: string | undefined,
+  failures: FailureLog,
+): Promise<void> {
+  const existing = await bridgeGetEntry({ key: ruleKey, namespace: RULES_NS, dbPath });
+  if (!existing?.found || !existing.entry) {
+    // The dedup hit came from search; if the entry can't be re-read by key the
+    // support set cannot be updated, and silently proceeding is exactly the
+    // provenance loss this function exists to prevent.
+    failures.note(`rule ${ruleKey}: matched by dedup but not readable by key`);
+    return;
+  }
+  const entry = existing.entry;
+  const md = entry.metadata as Record<string, unknown>;
+  const origins = Array.isArray(md.origin_refs) ? (md.origin_refs as string[]) : [];
+  // The KG node's name: recorded at accept time, else the first line of the
+  // stored value (any context block is appended after a newline).
+  const ruleName = (
+    typeof md.rule === 'string' && md.rule
+      ? md.rule
+      : (matchedContent || entry.content).split('\n')[0]
+  ).slice(0, MAX_NAME_LEN);
+
+  if (!origins.includes(originRef)) {
+    const res = await bridgeStoreEntry({
+      key: entry.key,
+      value: entry.content,
+      namespace: RULES_NS,
+      dbPath,
+      upsert: true,
+      generateEmbeddingFlag: entry.hasEmbedding,
+      tags: entry.tags,
+      metadata: { ...md, rule: ruleName, origin_refs: [...origins, originRef].slice(-100) },
+    });
+    failures.add(res, `rule ${entry.key}`);
+  }
+
+  // The rule's KG node needs the same origin — rollback walks nodes separately.
+  const nodeRes = await kgIngest({
+    nodes: [{ name: ruleName, type: 'Rule', description: ruleName, nodeSet: 'rules' }],
+    originRef,
+    dbPath,
+  });
+  if (nodeRes.failures?.length) for (const m of nodeRes.failures) failures.note(m);
 }
 
 /** List stored rules (for injection or review). */
@@ -354,6 +563,13 @@ export interface KgSearchResult {
   context: string;
   triplets: { source: string; relation: string; target: string; fact: string; score: number }[];
   seeds: { name: string; type: string; description: string; score: number; id: string }[];
+  /** True when the edge scan did NOT cover the whole namespace — the scan hit
+   *  `SEARCH_EDGE_SCAN_MAX`, or the backend became unreadable partway. A
+   *  relationship that exists may be missing from `triplets`; absence here is
+   *  not evidence of absence in the graph. */
+  truncated?: boolean;
+  /** Edge rows actually read, so a caller can see how close it ran to the cap. */
+  scannedEdges?: number;
   error?: string;
 }
 
@@ -384,40 +600,49 @@ export async function kgSearch(options: {
     const seedScore = new Map<string, number>();
     for (const s of seedResults) seedScore.set(s.key, s.score);
 
-    // Full edge scan (see monolean note in module header).
-    const edgesRes = await bridgeListEntries({
-      namespace: KG_EDGES_NS,
-      limit: MAX_LIST,
-      dbPath: options.dbPath,
-    });
-    const edges = (edgesRes?.entries ?? []).filter((e) => {
-      const md = e.metadata as Record<string, unknown>;
-      return md?.kg === 'edge' && md.valid_to == null;
-    });
-
-    const triplets = edges
-      .map((e) => {
+    // Paged edge scan (see monolean note in module header). Each page is folded
+    // into the running top-`limit` immediately, so memory stays at one page
+    // regardless of how many edges the namespace holds.
+    const triplets: KgSearchResult['triplets'] = [];
+    let scannedEdges = 0;
+    let truncated = false;
+    const covered = await scanNamespace(KG_EDGES_NS, options.dbPath, (page) => {
+      for (const e of page) {
+        scannedEdges++;
         const md = e.metadata as Record<string, unknown>;
+        if (md?.kg !== 'edge' || md.valid_to != null) continue;
         const src = String(md.src ?? '');
         const dst = String(md.dst ?? '');
         const sSrc = seedScore.get(src) ?? 0;
         const sDst = seedScore.get(dst) ?? 0;
-        if (sSrc === 0 && sDst === 0) return null;
+        if (sSrc === 0 && sDst === 0) continue;
         // Both endpoints seeded beats one; the unseeded endpoint contributes a
         // neutral 0.35 so bridging edges from a strong seed still surface.
         const score =
           (Math.max(sSrc, 0.35) + Math.max(sDst, 0.35)) / 2 + (sSrc > 0 && sDst > 0 ? 0.1 : 0);
-        return {
+        triplets.push({
           source: String(md.source_name ?? src),
           relation: String(md.relation ?? 'related_to'),
           target: String(md.target_name ?? dst),
           fact: e.content,
           score,
-        };
-      })
-      .filter((t): t is NonNullable<typeof t> => !!t)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+        });
+      }
+      // Scores are per-edge, so pruning to the running top-`limit` after each
+      // page yields exactly the same result as sorting the whole set at the end.
+      if (triplets.length > limit) {
+        triplets.sort((a, b) => b.score - a.score);
+        triplets.length = limit;
+      }
+      if (scannedEdges >= SEARCH_EDGE_SCAN_MAX) {
+        truncated = true;
+        return false;
+      }
+      return true;
+    });
+    // An unreadable namespace is an incomplete answer, not an empty graph.
+    if (!covered) truncated = true;
+    triplets.sort((a, b) => b.score - a.score);
 
     const seeds = seedResults.slice(0, limit).map((s) => {
       // metadata is not in search results; parse from rendered content "name — description"
@@ -439,7 +664,14 @@ export async function kgSearch(options: {
       ...(triplets.length ? [] : seeds.map((s) => `${s.name}: ${s.description}`)),
     ].join('\n');
 
-    return { success: true, context, triplets, seeds };
+    return {
+      success: true,
+      context,
+      triplets,
+      seeds,
+      scannedEdges,
+      ...(truncated && { truncated }),
+    };
   } catch (err) {
     return {
       success: false,
@@ -454,75 +686,127 @@ export async function kgSearch(options: {
 // ── Glossary (anti-duplicate-entity injection for extraction prompts) ──
 
 export async function kgGlossary(options?: { dbPath?: string; limit?: number }): Promise<string[]> {
-  const res = await bridgeListEntries({
-    namespace: KG_NODES_NS,
-    limit: MAX_LIST,
-    dbPath: options?.dbPath,
-  });
-  const nodes = (res?.entries ?? [])
-    // Glossary is for ENTITY name reuse — rule prose and extraction-source
-    // Session nodes would drown it.
-    .filter((e) => {
+  const limit = options?.limit ?? 40;
+  // Running top-`limit` by rank, deduplicated by normalized name. Folding each
+  // page in and pruning keeps the whole node namespace in scope without ever
+  // holding more than a page plus `limit` names.
+  let top: { name: string; norm: string; rank: number }[] = [];
+
+  await scanNamespace(KG_NODES_NS, options?.dbPath, (page) => {
+    for (const e of page) {
       const md = e.metadata as Record<string, unknown>;
+      // Glossary is for ENTITY name reuse — rule prose and extraction-source
+      // Session nodes would drown it.
       const t = String(md?.type ?? '').toLowerCase();
-      return md?.node_set !== 'rules' && t !== 'rule' && t !== 'session';
-    })
-    .map((e) => {
-      const md = e.metadata as Record<string, unknown>;
+      if (md?.node_set === 'rules' || t === 'rule' || t === 'session') continue;
       const fw = typeof md.feedback_weight === 'number' ? md.feedback_weight : 0.5;
       const freq = typeof md.frequency_weight === 'number' ? md.frequency_weight : 0;
       const version = typeof md.version === 'number' ? md.version : 1;
-      return { name: String(md.name ?? e.key), rank: version + freq + fw };
-    })
-    .sort((a, b) => b.rank - a.rank);
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const n of nodes) {
-    const norm = normalizeName(n.name);
-    if (seen.has(norm)) continue;
-    seen.add(norm);
-    out.push(n.name);
-    if (out.length >= (options?.limit ?? 40)) break;
-  }
-  return out;
+      const name = String(md.name ?? e.key);
+      top.push({ name, norm: normalizeName(name), rank: version + freq + fw });
+    }
+    top.sort((a, b) => b.rank - a.rank);
+    const seen = new Set<string>();
+    const pruned: typeof top = [];
+    for (const n of top) {
+      if (seen.has(n.norm)) continue;
+      seen.add(n.norm);
+      pruned.push(n);
+      if (pruned.length >= limit) break;
+    }
+    top = pruned;
+  });
+
+  return top.map((n) => n.name);
 }
 
 // ── Rollback (per-origin bad-ingest recovery) ───────────────────────
 
-/** Delete every node/edge/rule whose ONLY origin is `originRef`. Elements with
- *  other origins survive (shared knowledge isn't destroyed by one bad run);
- *  their origin lists retain the ref — acceptable residue.
- *  // monolean: no origin-list rewrite — needs an update-by-id bridge API */
-export async function kgRollback(options: {
-  originRef: string;
-  dbPath?: string;
-}): Promise<{ success: boolean; deleted: number; retained: number; error?: string }> {
+/** Withdraw `originRef`'s support from the graph: remove it from every
+ *  node/edge/rule it backs, and delete the element once no origin remains.
+ *
+ *  The withdrawn ref is REWRITTEN out of the surviving elements' origin lists,
+ *  not left behind. Retaining it (as this used to) meant a second rollback saw
+ *  a two-entry list and retained again — so an element could outlive the
+ *  withdrawal of every origin that ever supported it.
+ *
+ *  The scan is EXHAUSTIVE: it pages each namespace to the end rather than
+ *  reading one capped list. A capped scan let an element past the cap keep a
+ *  withdrawn origin while the caller was told the rollback succeeded.
+ *
+ *  Collect-then-mutate is deliberate. Mutating inside the page loop would be
+ *  wrong in both directions: deleting a row pulls later rows back under an
+ *  advancing offset (skipping them), and the bridge's upsert re-inserts the
+ *  rewritten entry with a fresh `created_at`, moving it to the head of the
+ *  backend's default ordering. Only origin-carrying entries are retained
+ *  during the scan, so memory tracks the rollback's own footprint, not the
+ *  namespace size. */
+export async function kgRollback(options: { originRef: string; dbPath?: string }): Promise<{
+  success: boolean;
+  deleted: number;
+  retained: number;
+  failures?: string[];
+  error?: string;
+}> {
+  const failures = new FailureLog();
   let deleted = 0,
     retained = 0;
   try {
     for (const ns of [KG_NODES_NS, KG_EDGES_NS, RULES_NS]) {
-      const res = await bridgeListEntries({
-        namespace: ns,
-        limit: MAX_LIST,
-        dbPath: options.dbPath,
+      const supported: { entry: ScannedEntry; remaining: string[] }[] = [];
+      const covered = await scanNamespace(ns, options.dbPath, (page) => {
+        for (const e of page) {
+          const origins = ((e.metadata ?? {}) as Record<string, unknown>).origin_refs;
+          if (!Array.isArray(origins) || !origins.includes(options.originRef)) continue;
+          supported.push({
+            entry: e,
+            remaining: (origins as string[]).filter((o) => o !== options.originRef),
+          });
+        }
       });
-      for (const e of res?.entries ?? []) {
-        const origins = (e.metadata as Record<string, unknown>)?.origin_refs;
-        if (!Array.isArray(origins) || !origins.includes(options.originRef)) continue;
-        if (origins.length <= 1) {
+      // A partial scan cannot be reported as a completed withdrawal.
+      if (!covered) {
+        failures.note(`${ns}: memory backend unavailable`);
+        continue;
+      }
+
+      for (const { entry: e, remaining } of supported) {
+        const md = (e.metadata ?? {}) as Record<string, unknown>;
+
+        if (remaining.length === 0) {
           const del = await bridgeDeleteEntry({ id: e.id, namespace: ns, dbPath: options.dbPath });
           if (del?.deleted) deleted++;
-        } else {
-          retained++;
+          else failures.note(`${ns}/${e.key}: delete failed`);
+          continue;
         }
+
+        const store = await bridgeStoreEntry({
+          key: e.key,
+          value: e.content,
+          namespace: ns,
+          dbPath: options.dbPath,
+          upsert: true,
+          // Edges are stored without embeddings; re-deriving one here would
+          // silently change how the entry behaves in search.
+          generateEmbeddingFlag: e.hasEmbedding,
+          tags: e.tags,
+          metadata: { ...md, origin_refs: remaining },
+        });
+        if (!failures.add(store, `${ns}/${e.key}: origin withdrawal`)) retained++;
       }
     }
-    return { success: true, deleted, retained };
+    return {
+      success: !failures.failed,
+      deleted,
+      retained,
+      ...(failures.failed ? { failures: failures.messages, error: failures.summary() } : {}),
+    };
   } catch (err) {
     return {
       success: false,
       deleted,
       retained,
+      ...(failures.messages.length ? { failures: failures.messages } : {}),
       error: err instanceof Error ? err.message : String(err),
     };
   }
@@ -550,57 +834,74 @@ export async function kgConsolidateCandidates(options?: {
   limit?: number;
 }): Promise<ConsolidationCandidate[]> {
   const minEdges = options?.minEdges ?? 3;
-  const [nodesRes, edgesRes] = await Promise.all([
-    bridgeListEntries({ namespace: KG_NODES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
-    bridgeListEntries({ namespace: KG_EDGES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
-  ]);
-  const edgesByNode = new Map<string, string[]>();
-  for (const e of edgesRes?.entries ?? []) {
-    const md = e.metadata as Record<string, unknown>;
-    for (const end of [String(md.src ?? ''), String(md.dst ?? '')]) {
-      if (!end) continue;
-      const list = edgesByNode.get(end) ?? [];
-      list.push(e.content);
-      edgesByNode.set(end, list);
+  const limit = options?.limit ?? 10;
+
+  // Degree index over the FULL edge namespace. Only the first 12 facts per node
+  // are kept (that is all the result exposes), so the index costs a bounded
+  // amount per node rather than one string per edge.
+  const degree = new Map<string, { count: number; facts: string[] }>();
+  await scanNamespace(KG_EDGES_NS, options?.dbPath, (page) => {
+    for (const e of page) {
+      const md = e.metadata as Record<string, unknown>;
+      for (const end of [String(md.src ?? ''), String(md.dst ?? '')]) {
+        if (!end) continue;
+        const slot = degree.get(end) ?? { count: 0, facts: [] };
+        slot.count++;
+        if (slot.facts.length < 12) slot.facts.push(e.content);
+        degree.set(end, slot);
+      }
     }
-  }
-  return (
-    (nodesRes?.entries ?? [])
-      .map((n) => {
-        const md = n.metadata as Record<string, unknown>;
-        const facts = edgesByNode.get(n.key) ?? [];
-        return {
-          name: String(md.name ?? n.key),
-          type: String(md.type ?? 'entity'),
-          description: String(md.description ?? ''),
-          edgeCount: facts.length,
-          neighborhood: facts.slice(0, 12),
-        };
-      })
+  });
+
+  let candidates: ConsolidationCandidate[] = [];
+  await scanNamespace(KG_NODES_NS, options?.dbPath, (page) => {
+    for (const n of page) {
+      const md = n.metadata as Record<string, unknown>;
+      const slot = degree.get(n.key);
+      if (!slot || slot.count < minEdges) continue;
+      const description = String(md.description ?? '');
       // Cap the growth target at MAX_DESC_LEN — a very-high-degree node whose
       // description is already at the cap can never "grow out" of candidacy and
       // would otherwise permanently occupy a slot.
-      .filter(
-        (c) =>
-          c.edgeCount >= minEdges &&
-          c.description.length < Math.min(40 * c.edgeCount, MAX_DESC_LEN),
-      )
-      .sort((a, b) => b.edgeCount - a.edgeCount)
-      .slice(0, options?.limit ?? 10)
-  );
+      if (description.length >= Math.min(40 * slot.count, MAX_DESC_LEN)) continue;
+      candidates.push({
+        name: String(md.name ?? n.key),
+        type: String(md.type ?? 'entity'),
+        description,
+        edgeCount: slot.count,
+        neighborhood: slot.facts,
+      });
+    }
+    // Ranking is per-node, so keeping only the running top-`limit` after each
+    // page gives the same answer as ranking every node at the end.
+    candidates.sort((a, b) => b.edgeCount - a.edgeCount);
+    candidates = candidates.slice(0, limit);
+  });
+  return candidates;
 }
 
 // ── Stats ───────────────────────────────────────────────────────────
 
+/** Real counts, not page lengths. `bridgeListEntries.total` reports how many
+ *  rows that one call returned, so the old capped list made a 10,001-node graph
+ *  report exactly 10,000 forever. Counting by paging costs one query per 1,000
+ *  rows but is exact; an indexed `COUNT(*)` on the bridge would replace it. */
 export async function kgStats(options?: {
   dbPath?: string;
 }): Promise<{ nodes: number; edges: number; rules: number }> {
-  const [n, e, r] = await Promise.all([
-    bridgeListEntries({ namespace: KG_NODES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
-    bridgeListEntries({ namespace: KG_EDGES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
-    bridgeListEntries({ namespace: RULES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
+  const count = async (namespace: string) => {
+    let n = 0;
+    await scanNamespace(namespace, options?.dbPath, (page) => {
+      n += page.length;
+    });
+    return n;
+  };
+  const [nodes, edges, rules] = await Promise.all([
+    count(KG_NODES_NS),
+    count(KG_EDGES_NS),
+    count(RULES_NS),
   ]);
-  return { nodes: n?.total ?? 0, edges: e?.total ?? 0, rules: r?.total ?? 0 };
+  return { nodes, edges, rules };
 }
 
 // ── Heuristic extraction (LLM-less fallback) ────────────────────────
