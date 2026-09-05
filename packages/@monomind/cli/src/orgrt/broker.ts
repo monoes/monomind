@@ -55,7 +55,9 @@ export function registerOrg(
   };
   const dest = entryPath(name, dir);
   const tmp = `${dest}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify(entry));
+  // SEC: the entry may carry the daemon's auth credential in plaintext —
+  // restrict to owner-only so other local users can't read it off disk.
+  writeFileSync(tmp, JSON.stringify(entry), { mode: 0o600 });
   renameSync(tmp, dest);
 }
 
