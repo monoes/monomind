@@ -159,7 +159,7 @@ export function gatedCanUseTool(
       return decision;
     }
     if (!beforeTool) return decision;
-    const approved = await beforeTool(roleId, toolName);
+    const approved = await beforeTool(roleId, toolName, input);
     if (approved === false) {
       const denied: Decision = {
         behavior: 'deny',
@@ -217,8 +217,15 @@ export interface SessionOpts {
   glossary?: string[];
   /** Search the user's Second Brain (project documents + personal global brain). */
   searchKnowledge?: (role: string, query: string) => Promise<string>;
-  /** Guardrail beforeTool hook: checks if a tool call requires approval before execution. */
-  beforeTool?: (role: string, toolName: string) => Promise<boolean | null>;
+  /** Guardrail beforeTool hook: checks if a tool call requires approval before execution.
+   *  `input` is the tool's actual call arguments — required so the approval cache can
+   *  key on what's actually being called (e.g. the Bash command, the WebFetch url),
+   *  not just the tool name; see approvals.ts's checkApproval for why. */
+  beforeTool?: (
+    role: string,
+    toolName: string,
+    input: Record<string, unknown>,
+  ) => Promise<boolean | null>;
   /** Called whenever gatedCanUseTool denies a tool call — wired to daemon.recordDecision()
    *  so those denials show up in `org decisions` traces. */
   onDecision?: (role: string, toolName: string, message: string) => void;
@@ -497,6 +504,12 @@ async function runOneSession(
   let sessionId: string | undefined = resume;
   let hitTurnLimit = false;
   let contextLimitFired = false;
+  // #budget-realtime: real tokens already accounted for the message CURRENTLY
+  // in flight, via the per-assistant-turn accounting below — reset to 0 each
+  // time a 'result' message ends one mailbox message and the next one starts.
+  // Exists purely so the 'result' branch never re-adds what this branch
+  // already added (see there for why it can't just always add).
+  let messageTurnTokens = 0;
   try {
     const stream = runner.run({
       tools,
@@ -673,9 +686,52 @@ async function runOneSession(
             opts.onContextLimit();
           }
         }
+        // #budget-realtime (HIGH): the SDK's 'result' message arrives once per
+        // WHOLE mailbox message in streaming-input mode — with
+        // max_turns_per_message defaulting to 100,000, a single message can
+        // internally loop through hundreds/thousands of tool-use turns before
+        // that 'result' ever arrives, during which policy.used never moved and
+        // policy.decide() allowed every one of those turns' tool calls
+        // regardless of real spend (the overspend was already done by the time
+        // overBudget could ever trip). Each 'assistant' SDK message DOES carry
+        // that ONE model turn's real usage (agent-runner.ts reads it off
+        // BetaMessage.usage) — accumulate it as turns actually happen and
+        // enforce the budget immediately, so overBudget can close the mailbox
+        // DURING a runaway message instead of only once it finally completes.
+        // (USD budget can't get the same real-time treatment: the SDK only
+        // exposes cost as a cumulative total on 'result', not per-turn on
+        // 'assistant' — verified against this project's Claude Agent SDK
+        // .d.ts, which puts `usage`/token counts on BetaMessage but cost only
+        // on SDKResultSuccess.total_cost_usd/modelUsage. overBudgetUsd is
+        // still checked below, once per message, same as before this fix.)
+        const turnTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+        if (turnTokens > 0) {
+          messageTurnTokens += turnTokens;
+          policy.addUsage(turnTokens);
+          if (policy.overBudget) {
+            bus.emit({
+              type: 'status',
+              from: role.id,
+              reason: 'budget-exhausted',
+              msg: 'token budget exhausted - closing session',
+            });
+            mailbox.close('token-budget');
+          }
+        }
       } else if (m.type === 'result') {
         const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
-        policy.addUsage(tokens);
+        // Per the SDK's own type docs, a 'result' message's usage is that
+        // message's own (effectively last-turn) usage in streaming-input mode,
+        // NOT a cumulative total across every turn of the mailbox message —
+        // and that last turn was already counted above via its own 'assistant'
+        // message, specifically so overBudget could trip mid-message. Adding
+        // `tokens` again here unconditionally would double-count it. Only make
+        // up the shortfall (never negative) so a turn whose usage somehow
+        // never reached the 'assistant' branch (e.g. a runner/test double that
+        // doesn't emit per-turn usage) still gets counted at least once.
+        const shortfall = Math.max(0, tokens - messageTurnTokens);
+        if (shortfall > 0) policy.addUsage(shortfall);
+        messageTurnTokens = 0;
         // Convert the SDK's cumulative-per-session total_cost_usd into a
         // per-result delta before emitting - downstream sums usage events.
         // costTotals is keyed by session_id, so a genuinely new/restarted
@@ -998,7 +1054,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     schema: { to: z.string(), subject: z.string(), message: z.string() },
     handler: async (args) => {
       if (opts.beforeTool) {
-        const approved = await opts.beforeTool(role.id, 'org_send');
+        const approved = await opts.beforeTool(role.id, 'org_send', args);
         if (approved === false) return text('Tool "org_send" was denied by guardrail approval');
         if (approved === null)
           return text(
