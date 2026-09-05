@@ -227,7 +227,9 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       };
 
       // Check running status: stop file absence AND (in-memory ctx.activeOrgRuns OR state-file agents OR active loop file)
-      const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
+      // Path must match what `org run`'s poll loop and `org serve`'s pollStopfiles()
+      // actually watch (.monomind/orgs/<name>/stop) — see the POST .../stop handler below.
+      const stopFile = path.join(orgsDir, orgName, 'stop');
       const _loopsDir = path.join(d, '.monomind', 'loops');
       const _loopRunning = (() => {
         try {
@@ -2619,11 +2621,15 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           `${JSON.stringify(stopEvent)}\n`,
         )
         .catch(() => {});
-      // Write stop marker file for boss agent to detect
+      // Write stop marker file at the path the REAL stop mechanisms poll:
+      // `org run`'s own poll loop and `org serve`'s pollStopfiles() both watch
+      // .monomind/orgs/<name>/stop (see clearStopfile/stopAction/pollStopfiles in
+      // commands/org.ts) — NOT .monomind/orgs/.stops/<name>.stop, which nothing
+      // in the CLI/daemon ever reads.
       try {
-        const stopDir = path.join(_stopOrgBase, '.monomind', 'orgs', '.stops');
+        const stopDir = path.join(_stopOrgBase, '.monomind', 'orgs', orgName);
         fs.mkdirSync(stopDir, { recursive: true });
-        fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
+        fs.writeFileSync(path.join(stopDir, 'stop'), new Date().toISOString());
       } catch (_) {}
       ctx.broadcastMm(stopEvent);
       res.writeHead(200, {
@@ -3019,6 +3025,12 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   // GET /api/org/:name/artifact — serve file content for chat "View" button
   if (req.method === 'GET' && /^\/api\/org\/[^/]+\/artifact/.test(url)) {
     try {
+      const _artOrgName = decodeURIComponent(url.split('/')[3] || '');
+      if (_artOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_artOrgName)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid org name' }));
+        return true;
+      }
       const _artQp = new URL(`http://x${req.url}`).searchParams;
       const _rawPath = _artQp.get('path');
       if (!_rawPath) {
@@ -3027,9 +3039,17 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
         return true;
       }
       const _filePath = path.resolve(decodeURIComponent(_rawPath));
-      // Path traversal guard: only allow reads within known project dirs
-      const _allowed = ctx._getAllowedArtifactDirs(ctx.projectDir || process.cwd());
-      const _safe = _allowed.some((d) => _filePath.startsWith(d + path.sep) || _filePath === d);
+      // Security: this endpoint used to allow reads anywhere under the project
+      // root or any data/known-projects.json entry — letting any dashboard
+      // client read .env, .git/config, or other arbitrary project files.
+      // Restrict it, like /api/file-content above, to this org's own
+      // .monomind/orgs/<name>/ directory — never outside .monomind.
+      const _artBaseDir = path.resolve(_artQp.get('dir') || ctx.projectDir || process.cwd());
+      const _artProjDir = ctx._resolveOrgProjectDir(_artOrgName, _artBaseDir) || _artBaseDir;
+      const _artMonoDir =
+        ctx._getGitMonomindDir(_artProjDir) || path.join(_artProjDir, '.monomind');
+      const _artOrgDir = path.join(_artMonoDir, 'orgs', _artOrgName);
+      const _safe = _filePath === _artOrgDir || _filePath.startsWith(_artOrgDir + path.sep);
       if (!_safe) {
         res.writeHead(403);
         res.end(JSON.stringify({ error: 'path not allowed' }));
