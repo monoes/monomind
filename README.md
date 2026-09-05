@@ -265,7 +265,7 @@ monomind org run sample-team      # run your first AI org (init writes a runnabl
 
 ## 📚 Second Brain — Your Documents, Retrieved by Meaning
 
-Drop documents (Markdown, TXT, PDF, DOCX) anywhere in your project and run `monomind init` — the Second Brain activates itself. No flags, no configuration, no accounts. Everything runs on your machine: a local embedding model (MiniLM via transformers.js) and a local SQLite vector store. **Your notes never leave your computer.**
+Drop documents (Markdown, TXT, PDF, DOCX) anywhere in your project and run `monomind init` — the Second Brain activates itself. No flags, no configuration, no accounts. Everything runs on your machine: a local embedding model (`Alibaba-NLP/gte-modernbert-base`, 768-dim, via transformers.js) and a local SQLite vector store. **Your notes never leave your computer.**
 
 From then on, every substantive prompt you type in Claude Code is automatically answered *with your own knowledge in context* — a hook retrieves the most relevant excerpts semantically (the always-on dashboard keeps the model warm, ~60ms per lookup) and injects them before Claude starts thinking. Ask "when do new parents get time off" and the parental-leave section of your handbook is already on the table, even though you never used the word "leave".
 
@@ -284,7 +284,7 @@ Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphra
 
 > **Privacy note:** the embedding model (~90MB) is fetched once from HuggingFace's CDN when your first document is indexed, then cached locally forever. That download is the only outbound request the Second Brain ever makes — your documents and queries never leave your machine. Offline at first index? Search degrades gracefully to keyword matching and `monomind doctor` tells you how to warm up later.
 
-> **Which model where?** Monomind uses three local embedding models, each scoped to one subsystem: `Snowflake/snowflake-arctic-embed-xs` (~88MB) for semantic task routing, MiniLM (~90MB) for Second Brain document retrieval, and `Alibaba-NLP/gte-modernbert-base` (768-dim) for the persistent memory store. See [Embeddings](./doc/commands/memory.md#hybrid-search-architecture--options) for which model each subsystem uses.
+> **Which model where?** Monomind uses two local embedding models. `Snowflake/snowflake-arctic-embed-xs` (~88MB) serves semantic task routing only. Everything the memory bridge embeds — both the Second Brain document index and the persistent memory store, which share that one bridge — uses `Alibaba-NLP/gte-modernbert-base` (768-dim, ~90MB); there is no separate document model. See [Embeddings](./doc/commands/memory.md#hybrid-search-architecture--options) for the per-subsystem detail.
 
 ---
 
