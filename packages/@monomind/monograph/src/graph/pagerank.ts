@@ -11,62 +11,94 @@ export interface PageRankOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Per-DB statement cache — avoids recompiling SQL on every pageRank() call.
+// Per-connection statement cache — avoids recompiling SQL on every pageRank()
+// call. Prepared statements belong to the connection that compiled them, so
+// this is keyed by the connection object (never by database name: a new
+// connection to the same path would otherwise reuse statements bound to a
+// closed one). A WeakMap also lets entries go when the connection is dropped.
 // ---------------------------------------------------------------------------
 interface StmtCache {
   selectNodes: Database.Statement;
   selectEdges: Database.Statement;
 }
 
-const _stmtCache = new Map<string, StmtCache>();
+const _stmtCache = new WeakMap<MonographDb, StmtCache>();
 
 function getStmts(db: MonographDb): StmtCache {
-  const key = (db as unknown as { name: string }).name ?? '__default__';
-  let cache = _stmtCache.get(key);
+  let cache = _stmtCache.get(db);
   if (!cache) {
-    if (_stmtCache.size >= MAX_STMT_CACHE) {
-      const oldest = _stmtCache.keys().next().value!;
-      _stmtCache.delete(oldest);
-    }
     cache = {
       selectNodes: db.prepare('SELECT id FROM nodes'),
       selectEdges: db.prepare('SELECT source_id, target_id FROM edges'),
     };
-    _stmtCache.set(key, cache);
+    _stmtCache.set(db, cache);
   }
   return cache;
 }
 
 // ---------------------------------------------------------------------------
-// Result cache — avoids re-running power iteration when the graph hasn't
-// changed. Keyed by (dbName, nodeCount, edgeCount) with a 5-second TTL.
+// Result cache — avoids re-running power iteration when the graph and the
+// algorithm options are both unchanged. Also keyed per connection, with an
+// inner key of (graph revision, options) and a 5-second TTL.
 // ---------------------------------------------------------------------------
 const PAGERANK_CACHE_TTL_MS = 5_000;
 const MAX_RESULT_CACHE = 50;
-const MAX_STMT_CACHE = 20;
 
 interface PageRankCacheEntry {
   result: Map<string, number>;
   expiresAt: number;
 }
 
-const _resultCache = new Map<string, PageRankCacheEntry>();
+const _resultCache = new WeakMap<MonographDb, Map<string, PageRankCacheEntry>>();
 
-function resultCacheKey(db: MonographDb, nodeCount: number, edgeCount: number): string {
-  const name = (db as unknown as { name: string }).name ?? '__default__';
-  return `${name}:${nodeCount}:${edgeCount}`;
+const FNV_OFFSET = 0x811c9dc5;
+const FNV_PRIME = 0x01000193;
+
+/**
+ * Cheap content revision for the graph that was just read.
+ *
+ * There is no persisted graph-generation counter in the schema, and node/edge
+ * counts alone are not a topology marker: a graph can be rewired (edges moved
+ * between nodes) without either count changing. Both row sets have already
+ * been fetched by the time this runs, so hashing them costs O(N+E) — the same
+ * order as the fetch itself, and far less than the power iteration it guards.
+ *
+ * Row order is not guaranteed by SQLite; a reordering only produces a cache
+ * miss (a recompute), never a stale hit.
+ */
+function graphRevision(
+  nodeRows: { id: string }[],
+  edgeRows: { source_id: string; target_id: string }[],
+): string {
+  let h1 = FNV_OFFSET;
+  let h2 = 0xcbf29ce4;
+  const byte = (c: number): void => {
+    h1 = Math.imul(h1 ^ c, FNV_PRIME);
+    h2 = Math.imul(h2 + c, 0x85ebca6b) ^ (h2 >>> 13);
+  };
+  const field = (s: string): void => {
+    for (let i = 0; i < s.length; i++) byte(s.charCodeAt(i));
+    byte(0x1f); // field separator — keeps ("ab","c") distinct from ("a","bc")
+  };
+  for (const r of nodeRows) field(r.id);
+  for (const e of edgeRows) {
+    field(e.source_id);
+    field(e.target_id);
+  }
+  const hex = ((h1 >>> 0).toString(36) + (h2 >>> 0).toString(36)).padStart(2, '0');
+  return `${hex}:${nodeRows.length}:${edgeRows.length}`;
 }
 
 /**
- * Evict cached statements and results for a given DB instance (call after writes).
+ * Evict cached statements and results for a given DB connection (call after writes).
+ *
+ * Closing a connection needs no explicit call: both caches are keyed by the
+ * connection object, so a reopened database gets freshly prepared statements
+ * and an empty result cache.
  */
 export function invalidatePageRankCache(db: MonographDb): void {
-  const key = (db as unknown as { name: string }).name ?? '__default__';
-  _stmtCache.delete(key);
-  // Purge all result-cache entries for this DB (they have the name as prefix)
-  for (const k of _resultCache.keys()) {
-    if (k.startsWith(`${key}:`)) _resultCache.delete(k);
-  }
+  _stmtCache.delete(db);
+  _resultCache.delete(db);
 }
 
 /**
@@ -76,8 +108,10 @@ export function invalidatePageRankCache(db: MonographDb): void {
  * After convergence the scores still sum to ~1 (standard normalized PageRank).
  * Dangling nodes (out-degree 0) distribute their rank equally to all nodes.
  *
- * Results are cached for 5 seconds when the graph's node+edge counts are
- * unchanged, making repeated calls (e.g. during context preloading) free.
+ * Results are cached for 5 seconds per connection when both the graph's
+ * content revision and the algorithm options are unchanged, making repeated
+ * calls (e.g. during context preloading) free. Each call returns its own Map,
+ * so a caller mutating the result cannot corrupt another caller's copy.
  *
  * @param db - The MonographDb instance
  * @param options - Optional tuning parameters
@@ -95,11 +129,14 @@ export function pageRank(db: MonographDb, options: PageRankOptions = {}): Map<st
 
   if (nodeRows.length === 0) return new Map();
 
-  // Check result cache before running power iteration
-  const cacheKey = resultCacheKey(db, nodeRows.length, edgeRows.length);
+  // Check result cache before running power iteration. The key covers both the
+  // graph's content revision and every option that changes the output, so a
+  // rewired graph or a different damping factor can never hit a stale entry.
+  const cacheKey = `${graphRevision(nodeRows, edgeRows)}|${dampingFactor}|${maxIterations}|${tolerance}`;
   const now = Date.now();
-  const cached = _resultCache.get(cacheKey);
-  if (cached && now < cached.expiresAt) return cached.result;
+  let dbCache = _resultCache.get(db);
+  const cached = dbCache?.get(cacheKey);
+  if (cached && now < cached.expiresAt) return new Map(cached.result);
 
   const nodes = nodeRows.map((r) => r.id);
   const n = nodes.length;
@@ -155,11 +192,16 @@ export function pageRank(db: MonographDb, options: PageRankOptions = {}): Map<st
     result.set(nodes[i], scores[i]);
   }
 
-  if (_resultCache.size >= MAX_RESULT_CACHE) {
-    const oldest = _resultCache.keys().next().value!;
-    _resultCache.delete(oldest);
+  if (!dbCache) {
+    dbCache = new Map();
+    _resultCache.set(db, dbCache);
   }
-  _resultCache.set(cacheKey, { result, expiresAt: now + PAGERANK_CACHE_TTL_MS });
+  if (dbCache.size >= MAX_RESULT_CACHE) {
+    const oldest = dbCache.keys().next().value!;
+    dbCache.delete(oldest);
+  }
+  dbCache.set(cacheKey, { result, expiresAt: now + PAGERANK_CACHE_TTL_MS });
 
-  return result;
+  // Hand out a copy so a caller mutating its result can't corrupt the cache.
+  return new Map(result);
 }
