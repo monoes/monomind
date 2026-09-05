@@ -119,8 +119,8 @@ mcp__monomind__monograph_suggest({ task: "..." })
 mcp__monomind__monograph_query({ query: "..." })
 
 // Swarm
-mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
-mcp__monomind__swarm_status({})
+mcp__monomind__monoswarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
+mcp__monomind__monoswarm_status({})
 
 // System
 mcp__monomind__system_health({})
