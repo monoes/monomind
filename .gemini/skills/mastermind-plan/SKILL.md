@@ -40,6 +40,7 @@ If the spec covers multiple independent subsystems, it should have been broken i
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
+- Check `brain_context` for relevant prior lessons or patterns for this domain/project — past task-granularity mistakes, file-organization conventions, known gotchas — and apply them to the decomposition below. Note when a decomposition choice is informed by recalled history.
 - Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
 - You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
 - Files that change together should live together. Split by responsibility, not by technical layer.
@@ -73,7 +74,7 @@ A task is the smallest unit that carries its own test cycle and is worth a fresh
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-taskdev")` (recommended) or `Skill("mastermind-execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -196,22 +197,12 @@ Wait for the user's response. If they request changes, make them inline and re-r
 
 After the plan is approved (or in auto mode, after self-review):
 
-**In confirm mode (default):** Ask the user to choose execution mode:
+**In confirm mode (default):** Ask the user to confirm execution:
 
-**"Plan complete and saved to `docs/mastermind/plans/<filename>.md`. Two execution options:**
+**"Plan complete and saved to `docs/mastermind/plans/<filename>.md`. Execute it now with `mastermind-execute`?"**
 
-**1. Subagent-Driven (recommended)** — Invoke `Skill("mastermind-taskdev")`: dispatches a fresh subagent per task, reviews between tasks, fast iteration.
+**In auto mode:** Skip the question — invoke `Skill("mastermind-execute")` immediately.
 
-**2. Inline Execution** — Invoke `Skill("mastermind-execute")`: batch execution with checkpoints.
-
-**Which approach?"**
-
-**In auto mode:** Skip the question. Default to subagent-driven — invoke `Skill("mastermind-taskdev")` immediately.
-
-**If Subagent-Driven chosen (or auto mode):**
-- Invoke `Skill("mastermind-taskdev")`
-- Fresh subagent per task + two-stage review
-
-**If Inline Execution chosen:**
+**On execution:**
 - Invoke `Skill("mastermind-execute")`
-- Batch execution with checkpoints for review
+- It loads the plan, reviews it critically, and works task-by-task with checkpoints for review
