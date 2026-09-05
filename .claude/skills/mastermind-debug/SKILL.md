@@ -157,7 +157,7 @@ Once you understand WHERE the break is, find existing working examples:
 
 1. **Write a failing test first** (before touching production code)
    - Automated test where possible; a one-off test script if no framework
-   - Use `Skill("mastermind-tdd")` for writing proper failing tests
+   - Write the test so it fails for the stated root cause, not for a setup error
    - The test MUST fail before the fix proves it
 
 2. **Implement a single fix**
@@ -266,8 +266,8 @@ If systematic investigation reveals the issue is truly environmental, timing-dep
 - **Condition-based waiting:** replace arbitrary sleeps/timeouts in flaky tests and scripts with polling for the actual condition ("wait until the file exists / the port answers"), with a hard cap. Timing guesses are bugs waiting for a slower machine.
 
 **Related skills:**
-- `Skill("mastermind-tdd")` — for creating the failing test case (Phase 4, Step 1)
-- `Skill("mastermind-verify")` — verify the fix worked before claiming success
+- `Skill("mastermind-review")` — verify the fix worked before claiming success
+- `Skill("mastermind-plan")` — when the root cause turns out to need a multi-file change
 
 ## Impact
 
