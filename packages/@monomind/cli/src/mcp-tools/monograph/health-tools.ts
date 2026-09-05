@@ -38,62 +38,81 @@ export const monographStatsTool: MCPTool = {
 
 // ── monograph_health ────────────────────────────────────────────────────────
 
+/**
+ * Anything other than `fresh` means the graph can be missing symbols the caller
+ * is asking about. Say so, and say what to do instead — graph-first guidance is
+ * only sound while coverage is adequate.
+ */
+function coverageNote(state: string): string[] {
+  if (state === 'fresh') return [];
+  if (state === 'building')
+    return ['A rebuild is in progress — results reflect the previous build until it finishes.'];
+  return [
+    'Coverage warning: the graph may be incomplete or out of date, so a missing result is not',
+    'evidence of absence. Ordinary code search (grep/rg over the working tree) is a legitimate',
+    'fallback here — use it rather than trusting an empty or partial graph answer.',
+  ];
+}
+
 export const monographHealthTool: MCPTool = {
   name: 'monograph_health',
-  description: 'Check index staleness: compares last indexed git commit vs current HEAD.',
+  description:
+    'Report index freshness as an explicit state (fresh / stale / building / partial / unknown) with the indexed revision, source scope, dirty-worktree status, parser warnings and last refresh error.',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
-    const { openDb, closeDb } = await import('@monoes/monograph');
-    const { execSync } = await import('node:child_process');
+    const { openDb, closeDb, checkStaleness } = await import('@monoes/monograph');
+    const repoPath = getProjectCwd();
     const db = openDb(getDbPath());
     try {
-      // The orchestrator writes the key as 'last_commit_hash' (orchestrator.ts:68).
-      // Fall back to legacy 'lastCommit' for indexes built with older versions.
-      const meta =
-        (db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() as
-          | { value: string }
-          | undefined) ??
-        (db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as
-          | { value: string }
-          | undefined);
-      const lastCommit = meta?.value ?? null;
-      if (!lastCommit) {
-        // last_commit_hash can be missing even when the index is populated
-        // (e.g. git rev-parse failed during build). Check actual data before
-        // claiming "never built".
-        const nodeCount = (db.prepare('SELECT COUNT(*) AS c FROM nodes').get() as { c: number }).c;
-        if (nodeCount > 0) {
-          const indexedAt = (
-            db.prepare("SELECT value FROM index_meta WHERE key = 'indexed_at'").get() as
-              | { value: string }
-              | undefined
-          )?.value;
-          return text(
-            `Index is built (${nodeCount} nodes${indexedAt ? `, indexed at ${indexedAt}` : ''}) but no commit hash was recorded — staleness tracking unavailable.\n` +
-              'Run monograph_build to fix commit tracking.',
-          );
-        }
+      const nodeCount = (db.prepare('SELECT COUNT(*) AS c FROM nodes').get() as { c: number }).c;
+      if (nodeCount === 0) {
         return text('Index has never been built. Run monograph_build first.');
       }
-      if (!/^[0-9a-f]{7,40}$/i.test(lastCommit)) {
-        return text(
-          'Index metadata is corrupt: invalid commit SHA. Run monograph_build to re-index.',
+
+      const report = checkStaleness(db, repoPath);
+      const lines = [
+        `Index status: ${report.state.toUpperCase()}`,
+        `Reason: ${report.reason}`,
+        `Nodes: ${nodeCount}`,
+        `Indexed revision: ${report.indexedRevision ?? 'not recorded'}${
+          report.indexedAt ? ` (built ${report.indexedAt})` : ''
+        }`,
+        `Current HEAD: ${report.currentCommit ?? 'unavailable'}`,
+        `Source scope: ${report.sourceScope ?? 'not recorded'}`,
+      ];
+
+      if (report.dirtyWorktree === null) {
+        lines.push('Working tree: could not be checked for uncommitted edits');
+      } else if (report.dirtyWorktree) {
+        const sample = report.dirtyPaths.slice(0, 10).join(', ');
+        lines.push(
+          `Working tree: ${report.dirtyFileCount} uncommitted path(s) not reflected in the graph — ${sample}${
+            (report.dirtyFileCount ?? 0) > 10 ? ', …' : ''
+          }`,
+        );
+      } else {
+        lines.push('Working tree: clean');
+      }
+
+      if (report.changedSince.length > 0) {
+        lines.push(`Files changed since the indexed revision: ${report.changedSince.length}`);
+      }
+      if (report.parserWarnings) {
+        lines.push(
+          `Parser warnings from the last build: ${report.parserWarnings.length} (e.g. ${report.parserWarnings[0]})`,
         );
       }
-
-      let commitsBehind = 0;
-      try {
-        const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
-          cwd: getProjectCwd(),
-          encoding: 'utf-8',
-        }).trim();
-        commitsBehind = parseInt(out, 10);
-      } catch {
-        return text('Cannot check staleness: git error');
+      if (report.lastRefreshError) {
+        lines.push(`Last refresh error: ${report.lastRefreshError}`);
+      }
+      if (!report.indexedRevision) {
+        lines.push('Run monograph_build to record a revision and enable staleness tracking.');
       }
 
-      const status = commitsBehind === 0 ? 'FRESH' : `STALE (${commitsBehind} commits behind)`;
-      return text(`Index status: ${status}\nLast indexed commit: ${lastCommit}`);
+      const note = coverageNote(report.state);
+      if (note.length > 0) lines.push('', ...note);
+
+      return text(lines.join('\n'));
     } finally {
       closeDb(db);
     }
@@ -105,7 +124,7 @@ export const monographHealthTool: MCPTool = {
 export const monographStalenessTool: MCPTool = {
   name: 'monograph_staleness',
   description:
-    'Git staleness detection: compares the commit hash at last index build against current HEAD. When the index is more than 3 commits behind HEAD it automatically triggers a background rebuild. Returns { commitsBehind, status, triggered }.',
+    'Index freshness detection. Returns { commitsBehind, status, triggered } plus the evidence behind the verdict: indexed revision, source scope, dirty-worktree status, parser warnings, last refresh error, and whether graph answers may be incomplete. `status` is one of fresh | stale | building | partial | unknown — "unknown" means freshness could not be determined, not that the index is up to date. Triggers a background rebuild when the index falls far enough behind HEAD.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -116,23 +135,58 @@ export const monographStalenessTool: MCPTool = {
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
     const result = await computeCommitsBehind(repoPath);
 
-    if (!result) {
-      return text(JSON.stringify({ commitsBehind: 0, status: 'unknown', triggered: false }));
+    const commitsBehind = result?.commitsBehind ?? 0;
+    const triggered = result
+      ? triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1)
+      : false;
+
+    // Evidence behind the verdict — a commit count alone cannot see uncommitted
+    // edits, a missing revision record, or a build that failed halfway.
+    let report: import('@monoes/monograph').StalenessReport | null = null;
+    const dbPath = getDbPath(input.path as string | undefined);
+    if (_isValidDb(dbPath)) {
+      const { openDb, closeDb, checkStaleness } = await import('@monoes/monograph');
+      const db = openDb(dbPath);
+      try {
+        report = checkStaleness(db, repoPath);
+      } finally {
+        closeDb(db);
+      }
     }
 
-    const { commitsBehind } = result;
-    const triggered = triggerBackgroundBuildIfNeeded(
-      repoPath,
-      commitsBehind,
-      STALENESS_THRESHOLD + 1,
-    );
-    const status: 'fresh' | 'stale' | 'building' = triggered
-      ? 'building'
-      : commitsBehind === 0
-        ? 'fresh'
-        : 'stale';
+    if (!report) {
+      return text(
+        JSON.stringify({
+          commitsBehind,
+          status: 'unknown',
+          triggered,
+          reason: 'No usable monograph index was found, so freshness cannot be determined.',
+          mayBeIncomplete: true,
+          grepFallbackAppropriate: true,
+        }),
+      );
+    }
 
-    return text(JSON.stringify({ commitsBehind, status, triggered }));
+    const status = triggered ? 'building' : report.state;
+    return text(
+      JSON.stringify({
+        commitsBehind,
+        status,
+        triggered,
+        reason: report.reason,
+        indexedRevision: report.indexedRevision,
+        indexedAt: report.indexedAt,
+        sourceScope: report.sourceScope,
+        dirtyWorktree: report.dirtyWorktree,
+        dirtyFileCount: report.dirtyFileCount,
+        dirtyPaths: report.dirtyPaths,
+        parserWarnings: report.parserWarnings,
+        lastRefreshError: report.lastRefreshError,
+        mayBeIncomplete: report.mayBeIncomplete,
+        // Graph-first guidance only holds while coverage does; say when it doesn't.
+        grepFallbackAppropriate: status !== 'fresh' && status !== 'building',
+      }),
+    );
   },
 };
 
