@@ -1,4 +1,5 @@
 import { readFileSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { rowToNode } from '../storage/node-store.js';
 import type { MonographNode } from '../types.js';
@@ -10,6 +11,25 @@ export interface MonographRenameResult {
   referencingFiles: string[];
   changes: Array<{ file: string; line: number; before: string; after: string }>;
   error?: string;
+}
+
+// ── Repo root resolution ───────────────────────────────────────────────────────
+
+/**
+ * Node rows store repo-relative paths, but this function is handed only the DB
+ * connection (the MCP adapter opens the DB and passes nothing else). The index
+ * always lives at `<repoRoot>/.monomind/monograph.db` — see
+ * `pipeline/orchestrator.ts` and `mcp/resources.ts`, which both derive the DB
+ * path that way — so the repo root is the DB file's grandparent directory.
+ *
+ * Without this, every filesystem read here resolved against `process.cwd()`,
+ * which is only the indexed repo by accident: the MCP server locates the DB via
+ * MONOMIND_CWD / the git root, not via cwd, so renames reported zero changes.
+ */
+function repoRootFromDb(db: Database.Database): string | null {
+  const dbPath = db.name;
+  if (!dbPath || dbPath === ':memory:') return null;
+  return dirname(dirname(resolve(dbPath)));
 }
 
 // ── Implementation ─────────────────────────────────────────────────────────────
@@ -58,16 +78,22 @@ export function getMonographRename(
 
   // File line cache to avoid re-reading the same file multiple times
   const fileLineCache = new Map<string, string[]>();
+  const repoRoot = repoRootFromDb(db);
 
   const getLines = (filePath: string): string[] => {
     if (fileLineCache.has(filePath)) return fileLineCache.get(filePath)!;
+    // Rows hold repo-relative paths; an absolute one resolves to itself.
+    const absPath = resolve(repoRoot ?? '.', filePath);
     try {
-      const st = statSync(filePath);
+      // A file recorded in the graph may have been deleted or moved since the
+      // last build — statSync/readFileSync throw, and the catch below records an
+      // empty file so the rename simply reports no changes for it.
+      const st = statSync(absPath);
       if (st.size > MAX_FILE_BYTES) {
         fileLineCache.set(filePath, []);
         return [];
       }
-      const content = readFileSync(filePath, 'utf-8');
+      const content = readFileSync(absPath, 'utf-8');
       const lines = content.split('\n');
       fileLineCache.set(filePath, lines);
       return lines;

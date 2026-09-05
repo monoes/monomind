@@ -1,7 +1,8 @@
 import { join } from 'node:path';
+import type { RetrievalMode } from '../search/hybrid-query.js';
+import { searchGraph } from '../search/hybrid-query.js';
 import type { MonographDb } from '../storage/db.js';
 import { closeDb, openDb } from '../storage/db.js';
-import { hybridSearch } from '../storage/fts-store.js';
 
 export interface QueryResult {
   id: string;
@@ -10,6 +11,7 @@ export interface QueryResult {
   filePath?: string;
   /** Line number where the symbol is defined — enables direct file:line navigation. */
   startLine?: number | null;
+  /** Higher is better, always ≥ 0 (monograph's single score convention). */
   score: number;
   isProcess: boolean;
 }
@@ -24,8 +26,9 @@ export interface MonographQueryOutput {
 export const monographQueryTool = {
   name: 'monograph_query',
   description:
-    'Keyword + fuzzy + LIKE hybrid search across the monograph knowledge graph. ' +
-    'Returns symbols and process nodes ranked by combined BM25 + subsequence + node-type bonus.',
+    'Lexical keyword search across the monograph knowledge graph. ' +
+    'mode=hybrid (default) ranks by BM25 + LIKE fallback + subsequence fuzzy + node-type bonus; ' +
+    'mode=bm25 is BM25 only. Higher score = better match.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -36,6 +39,11 @@ export const monographQueryTool = {
         type: 'boolean',
         description: 'Include Process nodes in results (default: true)',
       },
+      mode: {
+        type: 'string',
+        enum: ['bm25', 'hybrid'],
+        description: 'Retrieval mode (default: hybrid)',
+      },
     },
     required: ['query'],
   },
@@ -44,9 +52,10 @@ export const monographQueryTool = {
     repoPath?: string;
     topK?: number;
     includeProcesses?: boolean;
+    mode?: RetrievalMode;
     db?: MonographDb;
   }): Promise<MonographQueryOutput> {
-    const { query, repoPath, topK = 20, includeProcesses = true } = args;
+    const { query, repoPath, topK = 20, includeProcesses = true, mode = 'hybrid' } = args;
 
     let db: MonographDb | null = null;
     let shouldClose = false;
@@ -61,10 +70,10 @@ export const monographQueryTool = {
     }
 
     try {
-      // Route through hybridSearch (BM25 + LIKE + in-memory fuzzy + node-type bonus)
-      // — the same ranker the CLI uses. The previous hybridQuery call was BM25-only,
-      // so MCP users got weaker ranking than CLI users for the same graph.
-      const hits = hybridSearch(db, query, topK * 3);
+      // Route through the shared searchGraph service — the same retrieval the
+      // CLI-hosted monograph_query tool uses, so both adapters answer the same
+      // question the same way.
+      const hits = searchGraph(db, query, { limit: topK * 3, mode });
       const results: QueryResult[] = hits
         .filter((h) => includeProcesses || h.label !== 'Process')
         .map((h) => ({
@@ -73,7 +82,7 @@ export const monographQueryTool = {
           name: h.name ?? h.id,
           filePath: h.filePath ?? undefined,
           startLine: h.startLine ?? null,
-          score: h.combinedScore,
+          score: h.relevance,
           isProcess: h.label === 'Process',
         }))
         .slice(0, topK);

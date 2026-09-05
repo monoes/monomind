@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 // ── Node labels ───────────────────────────────────────────────────────────────
 
 export type NodeLabel =
@@ -239,6 +241,134 @@ export function makeId(...parts: string[]): string {
     .replace(/[^a-z0-9_]/gi, '_')
     .replace(/^_+|_+$/g, '')
     .toLowerCase();
+}
+
+// ── Symbol identity ───────────────────────────────────────────────────────────
+
+/**
+ * Version of the node identity scheme implemented by `symbolId` and `fileId`.
+ *
+ * Bump this whenever either derivation changes, so that anything caching
+ * extraction results keyed by node ID can detect that stored IDs are stale and
+ * rebuild. A rebuild that mixed cached old-format IDs with freshly minted
+ * new-format ones would produce edges pointing at nodes that no longer exist.
+ *
+ * Version 1 was the pre-`symbolId` scheme (`makeId(mangledPath, name, kind)`),
+ * which collided across files whose paths differed only in punctuation and
+ * across same-named symbols in different lexical scopes within one file.
+ * Version 2 fixed that for symbols only; File/Folder/Document nodes still used
+ * the lossy `makeId(path.replace(/\//g, '_'), kind)` scheme, so `src/a-b.ts` and
+ * `src/a_b.ts` shared one node and containment edges attached to whichever
+ * survived. Version 3 routes those through `fileId` as well.
+ */
+export const SYMBOL_ID_VERSION = 3;
+
+export interface SymbolIdParts {
+  /** Exact repository-relative path (e.g. `src/a-b.ts`), used verbatim. */
+  filePath: string;
+  /** Enclosing lexical scope names, outermost first (e.g. `['First']`). */
+  scope: readonly string[];
+  /** Symbol name as written in the source. */
+  name: string;
+  /** Symbol kind — the node label (e.g. `Method`). */
+  kind: string;
+  /** Discriminator for otherwise-identical declarations (overloads). 0 = first. */
+  overload?: number;
+}
+
+/**
+ * Build a collision-free ID for a code symbol.
+ *
+ * Every component is length-prefixed before hashing, so the serialization is
+ * injective: no component's content can masquerade as a delimiter or bleed into
+ * a neighbouring component, and no two distinct `SymbolIdParts` can produce the
+ * same input string. Path punctuation, lexical scope, kind, and overload index
+ * are therefore all preserved rather than normalized away.
+ *
+ * The result is restricted to `[a-z0-9_]` and never starts or ends with `_`, so
+ * that `makeId` — which callers use to derive edge IDs from node IDs — is the
+ * identity function on it and cannot re-introduce the collisions this function
+ * exists to prevent.
+ *
+ * The ID also keeps the `_<kind>` suffix the previous scheme ended with, because
+ * relationship resolution disambiguates same-name call targets by testing for
+ * `_method` / `_function` / `_class` on the ID (see
+ * `pipeline/phases/scope-resolution.ts`). Preserving the suffix keeps that
+ * working; it is not a substitute for reading the node's `label` column.
+ */
+export function symbolId(parts: SymbolIdParts): string {
+  const components = [
+    String(SYMBOL_ID_VERSION),
+    parts.filePath,
+    String(parts.scope.length),
+    ...parts.scope,
+    parts.name,
+    parts.kind,
+    String(parts.overload ?? 0),
+  ];
+  const canonical = components.map((c) => `${Buffer.byteLength(c, 'utf8')}:${c}`).join('');
+  const digest = createHash('sha256').update(canonical, 'utf8').digest('hex').slice(0, 32);
+  return `sym_${symbolIdSlug(parts.name)}_${digest}_${symbolIdSlug(parts.kind)}`;
+}
+
+/** Human-readable, `makeId`-stable prefix so IDs stay debuggable in logs. */
+function symbolIdSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40)
+    .replace(/_+$/, '');
+  return slug || 'anon';
+}
+
+// ── Path identity ─────────────────────────────────────────────────────────────
+
+/** Node kinds that are identified by a repository-relative path rather than a symbol. */
+export type PathNodeKind = 'file' | 'folder' | 'doc';
+
+/**
+ * Build a collision-free ID for a node identified by a repository-relative path.
+ *
+ * Like `symbolId`, every component is length-prefixed before hashing, so the
+ * serialization is injective and the exact path survives — `src/a-b.ts` and
+ * `src/a_b.ts` no longer collapse onto one node. The previous scheme,
+ * `makeId(path.replace(/\//g, '_'), kind)`, mapped every non-alphanumeric
+ * character to `_` and so merged those two files, silently overwriting one File
+ * node and re-pointing its containment edges at the survivor.
+ *
+ * The result is restricted to `[a-z0-9_]` and never starts or ends with `_`, so
+ * `makeId` — which callers use to compose edge IDs out of node IDs, e.g.
+ * `makeId(folderId, fileId, 'contains')` — is the identity function on it and
+ * cannot re-introduce the collisions this function exists to prevent.
+ *
+ * The `_<kind>` suffix is preserved because it is what keeps a File, Folder and
+ * Document node for the same path distinct (see `pipeline/phases/markdown.ts`,
+ * which deliberately gives a markdown file's Document node a `doc` kind so it
+ * does not collide with that file's File node). `kind` also participates in the
+ * hash, so the suffix is a readable restatement of the identity rather than the
+ * only thing separating the three.
+ */
+function pathId(repoRelativePath: string, kind: PathNodeKind): string {
+  const components = [String(SYMBOL_ID_VERSION), kind, repoRelativePath];
+  const canonical = components.map((c) => `${Buffer.byteLength(c, 'utf8')}:${c}`).join('');
+  const digest = createHash('sha256').update(canonical, 'utf8').digest('hex').slice(0, 32);
+  return `path_${symbolIdSlug(repoRelativePath.split('/').pop() ?? repoRelativePath)}_${digest}_${kind}`;
+}
+
+/** Collision-free ID for a File node, keyed on the exact repository-relative path. */
+export function fileId(repoRelativePath: string): string {
+  return pathId(repoRelativePath, 'file');
+}
+
+/** Collision-free ID for a Folder node, keyed on the exact repository-relative path. */
+export function folderId(repoRelativePath: string): string {
+  return pathId(repoRelativePath, 'folder');
+}
+
+/** Collision-free ID for a Document node, keyed on the exact repository-relative path. */
+export function docId(repoRelativePath: string): string {
+  return pathId(repoRelativePath, 'doc');
 }
 
 // ── Norm label ────────────────────────────────────────────────────────────────
