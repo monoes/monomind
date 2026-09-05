@@ -25,16 +25,15 @@ interface Spawned {
 }
 const spawned: Spawned[] = [];
 
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const s = http.createServer();
-    s.unref();
-    s.on('error', reject);
-    s.listen(0, '127.0.0.1', () => {
-      const p = (s.address() as { port: number }).port;
-      s.close(() => resolve(p));
-    });
-  });
+// Pass port 0 so the OS assigns a free ephemeral port atomically at bind
+// time. A separate "find a free port, close it, rebind to that number"
+// step (the previous approach) has a TOCTOU race — another test or
+// process can grab the port in the gap — which surfaced as sporadic
+// EADDRINUSE failures.
+async function startServer(): Promise<Awaited<ReturnType<typeof startOrgServer>>> {
+  const srv = await startOrgServer(stubDaemon(), 0, 'sekret');
+  spawned.push(srv);
+  return srv;
 }
 
 const stubDaemon = () =>
@@ -99,9 +98,8 @@ function getEvents(
 
 describe('SEC-3 — org server strict CORS + Host check', () => {
   it('does NOT reflect Access-Control-Allow-Origin for a foreign origin', async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     const r = await getEvents(port, {
       'x-monomind-cred': 'sekret',
       origin: 'http://evil.com',
@@ -113,9 +111,8 @@ describe('SEC-3 — org server strict CORS + Host check', () => {
   });
 
   it("reflects ACAO for the server's own loopback origin (localhost)", async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     const r = await getEvents(port, {
       'x-monomind-cred': 'sekret',
       origin: `http://localhost:${port}`,
@@ -126,9 +123,8 @@ describe('SEC-3 — org server strict CORS + Host check', () => {
   });
 
   it("reflects ACAO for the server's own loopback origin (127.0.0.1)", async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     const r = await getEvents(port, {
       'x-monomind-cred': 'sekret',
       origin: `http://127.0.0.1:${port}`,
@@ -139,9 +135,8 @@ describe('SEC-3 — org server strict CORS + Host check', () => {
   });
 
   it('rejects requests with a non-loopback Host header (DNS-rebinding defence)', async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     // Even with the correct cred, a foreign Host must be rejected before
     // any auth logic runs.
     const r = await get(port, {
@@ -152,9 +147,8 @@ describe('SEC-3 — org server strict CORS + Host check', () => {
   });
 
   it('rejects requests with an attacker-controlled subdomain Host', async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     const r = await get(port, {
       'x-monomind-cred': 'sekret',
       host: `evil.localhost:${port}`,
@@ -163,9 +157,8 @@ describe('SEC-3 — org server strict CORS + Host check', () => {
   });
 
   it('omits ACAO when no Origin header is present (no echo)', async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     const r = await getEvents(port, {
       'x-monomind-cred': 'sekret',
       host: `localhost:${port}`,
@@ -175,9 +168,8 @@ describe('SEC-3 — org server strict CORS + Host check', () => {
   });
 
   it('Host check fires before the auth gate (403 not 401 for bad Host + bad cred)', async () => {
-    const port = await freePort();
-    const srv = await startOrgServer(stubDaemon(), port, 'sekret');
-    spawned.push(srv);
+    const srv = await startServer();
+    const port = srv.port;
     const r = await get(port, {
       'x-monomind-cred': 'wrong',
       host: 'evil.com',
