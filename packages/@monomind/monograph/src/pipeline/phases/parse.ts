@@ -5,6 +5,7 @@ import { parseFile } from '../../parsers/loader.js';
 import { deleteEdgesForFile, insertEdges } from '../../storage/edge-store.js';
 import { deleteNodesForFile, insertNodes } from '../../storage/node-store.js';
 import type { MonographEdge, MonographNode } from '../../types.js';
+import { symbolId } from '../../types.js';
 import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 import { extractVariables, variableToNode } from './variables.js';
@@ -74,7 +75,12 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           const csNamespaces = extractCsharpNamespaces(source, fileNode.filePath ?? '');
           for (const ns of csNamespaces) {
             fileSymbols.push({
-              id: `${ns.filePath}::namespace::${ns.name}`,
+              id: symbolId({
+                filePath: ns.filePath,
+                scope: [],
+                name: ns.name,
+                kind: 'Namespace',
+              }),
               name: ns.name,
               label: 'Namespace',
               normLabel: 'namespace',
@@ -92,7 +98,7 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
           for (const fn of arrowFns) {
             fileSymbols.push({
-              id: `${fn.filePath}::fn::${fn.name}`,
+              id: symbolId({ filePath: fn.filePath, scope: [], name: fn.name, kind: 'Function' }),
               name: fn.name,
               label: 'Function',
               normLabel: 'function',
