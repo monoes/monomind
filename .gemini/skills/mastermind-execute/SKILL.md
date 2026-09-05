@@ -1,6 +1,6 @@
 ---
 name: mastermind-execute
-description: Load a written implementation plan, review it critically, execute all tasks step by step, and hand off to mastermind:finish when complete.
+description: Load a written implementation plan, review it critically, execute all tasks step by step, and hand off to mastermind:review when complete.
 type: domain-skill
 default_mode: confirm
 ---
@@ -11,7 +11,7 @@ Load plan, review critically, execute all tasks, report when complete.
 
 **Announce at start:** "I'm using the mastermind:execute skill to implement this plan."
 
-**Note:** This skill works best with subagent support (Claude Code). When subagents are available, prefer `Skill("mastermind-taskdev")` for parallel task execution.
+**Note:** This skill works best with subagent support (Claude Code). When subagents are available, dispatch one subagent per independent task in a single message.
 
 ---
 
@@ -48,17 +48,17 @@ For each task in the plan:
 4. Mark as `completed`
 
 When the plan references skills:
-- `mastermind:taskdev` → invoke `Skill("mastermind-taskdev")`
-- `mastermind:verify` → invoke `Skill("mastermind-verify")`
+- `mastermind:taskdev` → this skill; continue inline (no separate taskdev skill exists)
+- `mastermind:verify` → invoke `Skill("mastermind-review")`
 - Any other `mastermind:*` skill → invoke `Skill("mastermind-<name>")`
 
 ### Step 3: Complete Development
 
 After all tasks complete and are verified:
 
-- Announce: "All tasks complete. Handing off to mastermind:finish."
-- **REQUIRED SUB-SKILL:** invoke `Skill("mastermind-finish")`
-- Follow that skill to verify tests, present options, and execute the chosen finish action
+- Announce: "All tasks complete. Handing off to mastermind:review."
+- **REQUIRED SUB-SKILL:** invoke `Skill("mastermind-review")`
+- Follow that skill to verify the work before any merge, PR, or release step
 
 ---
 
@@ -99,6 +99,5 @@ After all tasks complete and are verified:
 
 **Skills used by this skill:**
 - `Skill("mastermind-plan")` — creates the plan this skill executes
-- `Skill("mastermind-taskdev")` — subagent-driven parallel task execution (preferred for complex plans)
-- `Skill("mastermind-finish")` — complete the development branch after all tasks
-- `Skill("mastermind-verify")` — verification gate before finishing
+- `Skill("mastermind-review")` — verification gate after all tasks complete
+- `Skill("mastermind-debug")` — when a task fails for a reason the plan did not anticipate
