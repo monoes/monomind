@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { startOrgServer } from '../../src/orgrt/server.js';
+import { registerOrg } from '../../src/orgrt/broker.js';
 
 const echoQuery = ({ prompt }: any) => (async function* () {
   for await (const m of prompt) {
@@ -24,7 +25,16 @@ describe('org xdeliver server', () => {
       name: 'alpha', goal: 'g',
       roles: [{ id: 'boss', title: 'B', type: 'boss', reports_to: null }],
     }));
-    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    // BUG 2 FIX: receiveRemote() now verifies the claimed fromOrg actually
+    // owns the credential registered for it in the broker — register
+    // "beta" here (as its own hosting process would) so the "valid
+    // delivery" and "unknown org" cases below can present a matching
+    // fromCredential instead of being rejected as an unverified sender.
+    const brokerDir = mkdtempSync(join(tmpdir(), 'srv-broker-'));
+    const betaCredential = 'beta-cred-123';
+    registerOrg('beta', 'http://127.0.0.1:1', brokerDir, betaCredential);
+
+    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, brokerDir });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
     const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
@@ -55,11 +65,21 @@ describe('org xdeliver server', () => {
     });
     expect(bad.status).toBe(400);
 
-    // valid delivery → 200
+    // unregistered/mismatched sender identity → 404 (rejected before recipient lookup)
+    const forged = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello', fromCredential: 'not-betas-credential' }),
+    });
+    expect(forged.status).toBe(404);
+    const forgedData = await forged.json() as { ok: boolean; error?: string };
+    expect(forgedData.ok).toBe(false);
+
+    // valid delivery with correct sender credential → 200
     const good = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello' }),
+      body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello', fromCredential: betaCredential }),
     });
     expect(good.status).toBe(200);
     const data = await good.json() as { ok: boolean; receipt?: string };
@@ -69,7 +89,7 @@ describe('org xdeliver server', () => {
     const miss = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ toOrg: 'nope', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello' }),
+      body: JSON.stringify({ toOrg: 'nope', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello', fromCredential: betaCredential }),
     });
     expect(miss.status).toBe(404);
 
