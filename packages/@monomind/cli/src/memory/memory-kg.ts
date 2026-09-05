@@ -10,9 +10,22 @@
  * feedback/frequency weighting for free — KG node ranking improves with use
  * automatically.
  *
+ * OWNERSHIP is carried by `KgScope`, not by the store path. Every org under
+ * one project root shares ONE org-memory store, so those three namespaces
+ * would otherwise be a single pool that any org can read, merge into, and roll
+ * back. A scope suffixes all three (`kg:nodes:org:<org>`, …) and stamps the
+ * asserting org onto every origin ref, so an org's reads, writes, glossary and
+ * rollback all resolve through `kgNamespaces()` and can only reach what that
+ * org asserted. An absent scope means PROJECT-SHARED knowledge — a scope in
+ * its own right, not "all scopes". Crossing from an org into the shared graph
+ * is `kgPromote`, an explicit operation, never a side effect of learning.
+ *
  * Identity is deterministic and NAME-ONLY (cognee's Entity.identity_fields):
  * the entry KEY is `n:<normalized-name>`, so the same entity extracted from
  * any session merges idempotently via upsert regardless of assigned type.
+ * Name-only keys are why scope has to live in the NAMESPACE: two orgs
+ * asserting different facts about the same name produce the same key, and
+ * only separate namespaces keep them from overwriting each other.
  * Every write carries `origin_refs` so a bad ingest can be rolled back per
  * run/session.
  *
@@ -190,6 +203,42 @@ function edgeKey(srcKey: string, relation: string, dstKey: string): string {
   return `e:${srcKey}|${normalizeName(relation)}|${dstKey}`;
 }
 
+// ── Scope (org ownership) ───────────────────────────────────────────
+
+/** Who owns a set of graph facts. `org` absent = project-shared knowledge. */
+export interface KgScope {
+  org?: string;
+}
+
+export interface KgNamespaces {
+  nodes: string;
+  edges: string;
+  rules: string;
+}
+
+/** The three namespaces a scope owns. Every read and write in this module
+ *  resolves through here, which is what makes ownership enforced rather than
+ *  advisory: there is no code path that reaches an org's facts without naming
+ *  that org, and none that reaches every org at once. */
+export function kgNamespaces(scope?: KgScope): KgNamespaces {
+  const org = scope?.org?.trim();
+  if (!org) return { nodes: KG_NODES_NS, edges: KG_EDGES_NS, rules: RULES_NS };
+  const suffix = `:org:${normalizeName(org)}`;
+  return { nodes: KG_NODES_NS + suffix, edges: KG_EDGES_NS + suffix, rules: RULES_NS + suffix };
+}
+
+/** Stamp the asserting org onto a provenance ref, so a claim's origin says WHO
+ *  asserted it and not merely which run id — `run:m4x2` alone is ambiguous
+ *  across orgs, and a promoted claim in the shared graph would otherwise carry
+ *  an origin no one owns.
+ *
+ *  Applied by the ingest/rollback entry points rather than by callers: a
+ *  caller that forgets is exactly how ownership stopped being enforced. */
+export function kgQualifyOrigin(originRef: string, scope?: KgScope): string {
+  const org = scope?.org?.trim();
+  return org ? `org:${normalizeName(org)}/${originRef}` : originRef;
+}
+
 // ── Ingest ──────────────────────────────────────────────────────────
 
 /** Idempotently merge extracted nodes/edges into the KG. Same-name entities
@@ -204,11 +253,16 @@ function edgeKey(srcKey: string, relation: string, dstKey: string): string {
 export async function kgIngest(options: {
   nodes: KgNodeInput[];
   edges?: KgEdgeInput[];
-  /** Provenance: run id, session id, or doc hash this extraction came from. */
+  /** Provenance: run id, session id, or doc hash this extraction came from.
+   *  Stored qualified by `scope` — see `kgQualifyOrigin`. */
   originRef: string;
+  /** Owner of these facts. Omit for project-shared knowledge. */
+  scope?: KgScope;
   dbPath?: string;
 }): Promise<KgIngestResult> {
-  const { originRef, dbPath } = options;
+  const { dbPath } = options;
+  const ns = kgNamespaces(options.scope);
+  const originRef = kgQualifyOrigin(options.originRef, options.scope);
   const failures = new FailureLog();
   let nodesAdded = 0,
     nodesMerged = 0,
@@ -224,7 +278,7 @@ export async function kgIngest(options: {
       keyByName.set(normalizeName(n.name), key);
       const desc = (n.description ?? '').slice(0, MAX_DESC_LEN);
 
-      const existing = await bridgeGetEntry({ key, namespace: KG_NODES_NS, dbPath });
+      const existing = await bridgeGetEntry({ key, namespace: ns.nodes, dbPath });
       if (existing?.found && existing.entry) {
         const md = existing.entry.metadata as Record<string, unknown>;
         const origins = Array.isArray(md.origin_refs) ? (md.origin_refs as string[]) : [];
@@ -239,7 +293,7 @@ export async function kgIngest(options: {
         const res = await bridgeStoreEntry({
           key,
           value: `${n.name} — ${bestDesc || bestType}`,
-          namespace: KG_NODES_NS,
+          namespace: ns.nodes,
           dbPath,
           upsert: true,
           tags: ['kg', normalizeName(bestType), ...(n.nodeSet ? [normalizeName(n.nodeSet)] : [])],
@@ -261,7 +315,7 @@ export async function kgIngest(options: {
         const res = await bridgeStoreEntry({
           key,
           value: `${n.name} — ${desc || type}`,
-          namespace: KG_NODES_NS,
+          namespace: ns.nodes,
           dbPath,
           upsert: true,
           tags: ['kg', normalizeName(type), ...(n.nodeSet ? [normalizeName(n.nodeSet)] : [])],
@@ -290,7 +344,7 @@ export async function kgIngest(options: {
       const key = edgeKey(srcKey, e.relation, dstKey);
       const desc = (e.description ?? '').slice(0, MAX_DESC_LEN);
 
-      const existing = await bridgeGetEntry({ key, namespace: KG_EDGES_NS, dbPath });
+      const existing = await bridgeGetEntry({ key, namespace: ns.edges, dbPath });
       if (existing?.found && existing.entry) {
         const md = existing.entry.metadata as Record<string, unknown>;
         const origins = Array.isArray(md.origin_refs) ? (md.origin_refs as string[]) : [];
@@ -298,7 +352,7 @@ export async function kgIngest(options: {
         const res = await bridgeStoreEntry({
           key,
           value: desc || `${e.source} ${e.relation} ${e.target}`,
-          namespace: KG_EDGES_NS,
+          namespace: ns.edges,
           dbPath,
           upsert: true,
           generateEmbeddingFlag: false,
@@ -310,7 +364,7 @@ export async function kgIngest(options: {
         const res = await bridgeStoreEntry({
           key,
           value: desc || `${e.source} ${e.relation} ${e.target}`,
-          namespace: KG_EDGES_NS,
+          namespace: ns.edges,
           dbPath,
           upsert: true,
           generateEmbeddingFlag: false,
@@ -378,6 +432,8 @@ export interface RuleVerdict {
 export async function kgIngestRules(options: {
   rules: { rule: string; context?: string }[];
   originRef: string;
+  /** Owner of these rules. Omit for project-shared knowledge. */
+  scope?: KgScope;
   dbPath?: string;
   /** Similarity above which a candidate is already_known (default 0.78 —
    *  MiniLM paraphrases of the same rule commonly land 0.78-0.9; cognee's
@@ -393,6 +449,10 @@ export async function kgIngestRules(options: {
   const verdicts: RuleVerdict[] = [];
   const threshold = options.dedupThreshold ?? 0.78;
   const failures = new FailureLog();
+  const ns = kgNamespaces(options.scope);
+  // Direct writes here store the qualified ref; nested kgIngest calls get the
+  // RAW ref plus the scope and qualify it themselves, so it is stamped once.
+  const originRef = kgQualifyOrigin(options.originRef, options.scope);
   let accepted = 0;
 
   try {
@@ -405,7 +465,7 @@ export async function kgIngestRules(options: {
 
       const similar = await bridgeSearchEntries({
         query: rule,
-        namespace: RULES_NS,
+        namespace: ns.rules,
         limit: 1,
         threshold,
         dbPath: options.dbPath,
@@ -435,6 +495,7 @@ export async function kgIngestRules(options: {
           top.key,
           top.content,
           options.originRef,
+          options.scope,
           options.dbPath,
           failures,
         );
@@ -447,13 +508,13 @@ export async function kgIngestRules(options: {
       const stored = await bridgeStoreEntry({
         key,
         value: rule + (r.context ? `\n(context: ${r.context.slice(0, 500)})` : ''),
-        namespace: RULES_NS,
+        namespace: ns.rules,
         dbPath: options.dbPath,
         upsert: true,
         tags: ['rule'],
         metadata: {
-          origin_refs: [options.originRef],
-          derived_from: options.originRef,
+          origin_refs: [originRef],
+          derived_from: originRef,
           // Lets the dedup path reinforce the matching KG node without having
           // to re-derive the node name from the stored value (which may carry
           // an appended context block).
@@ -463,6 +524,7 @@ export async function kgIngestRules(options: {
       const nodeRes = await kgIngest({
         nodes: [{ name: ruleName, type: 'Rule', description: rule, nodeSet: 'rules' }],
         originRef: options.originRef,
+        scope: options.scope,
         dbPath: options.dbPath,
       });
       const ruleFailed = failures.add(stored, `rule ${key}`);
@@ -496,11 +558,16 @@ export async function kgIngestRules(options: {
 async function reinforceRuleOrigin(
   ruleKey: string,
   matchedContent: string,
+  /** RAW ref — qualified here for the rules entry, and passed on unqualified
+   *  to `kgIngest`, which qualifies it once with the same scope. */
   originRef: string,
+  scope: KgScope | undefined,
   dbPath: string | undefined,
   failures: FailureLog,
 ): Promise<void> {
-  const existing = await bridgeGetEntry({ key: ruleKey, namespace: RULES_NS, dbPath });
+  const ns = kgNamespaces(scope);
+  const qualified = kgQualifyOrigin(originRef, scope);
+  const existing = await bridgeGetEntry({ key: ruleKey, namespace: ns.rules, dbPath });
   if (!existing?.found || !existing.entry) {
     // The dedup hit came from search; if the entry can't be re-read by key the
     // support set cannot be updated, and silently proceeding is exactly the
@@ -519,16 +586,16 @@ async function reinforceRuleOrigin(
       : (matchedContent || entry.content).split('\n')[0]
   ).slice(0, MAX_NAME_LEN);
 
-  if (!origins.includes(originRef)) {
+  if (!origins.includes(qualified)) {
     const res = await bridgeStoreEntry({
       key: entry.key,
       value: entry.content,
-      namespace: RULES_NS,
+      namespace: ns.rules,
       dbPath,
       upsert: true,
       generateEmbeddingFlag: entry.hasEmbedding,
       tags: entry.tags,
-      metadata: { ...md, rule: ruleName, origin_refs: [...origins, originRef].slice(-100) },
+      metadata: { ...md, rule: ruleName, origin_refs: [...origins, qualified].slice(-100) },
     });
     failures.add(res, `rule ${entry.key}`);
   }
@@ -537,6 +604,7 @@ async function reinforceRuleOrigin(
   const nodeRes = await kgIngest({
     nodes: [{ name: ruleName, type: 'Rule', description: ruleName, nodeSet: 'rules' }],
     originRef,
+    scope,
     dbPath,
   });
   if (nodeRes.failures?.length) for (const m of nodeRes.failures) failures.note(m);
@@ -546,9 +614,10 @@ async function reinforceRuleOrigin(
 export async function kgListRules(options?: {
   dbPath?: string;
   limit?: number;
+  scope?: KgScope;
 }): Promise<{ rule: string; key: string }[]> {
   const res = await bridgeListEntries({
-    namespace: RULES_NS,
+    namespace: kgNamespaces(options?.scope).rules,
     limit: options?.limit ?? 50,
     dbPath: options?.dbPath,
   });
@@ -580,12 +649,16 @@ export async function kgSearch(options: {
   dbPath?: string;
   limit?: number;
   nodeSet?: string;
+  /** Whose graph to search. Omit for project-shared knowledge; a scoped search
+   *  never reaches another org's facts, and never the shared graph either. */
+  scope?: KgScope;
 }): Promise<KgSearchResult> {
   try {
     const limit = options.limit ?? 8;
+    const ns = kgNamespaces(options.scope);
     const seedsRes = await bridgeSearchEntries({
       query: options.query,
-      namespace: KG_NODES_NS,
+      namespace: ns.nodes,
       limit: 15,
       threshold: 0.25,
       dbPath: options.dbPath,
@@ -606,7 +679,7 @@ export async function kgSearch(options: {
     const triplets: KgSearchResult['triplets'] = [];
     let scannedEdges = 0;
     let truncated = false;
-    const covered = await scanNamespace(KG_EDGES_NS, options.dbPath, (page) => {
+    const covered = await scanNamespace(ns.edges, options.dbPath, (page) => {
       for (const e of page) {
         scannedEdges++;
         const md = e.metadata as Record<string, unknown>;
@@ -685,14 +758,21 @@ export async function kgSearch(options: {
 
 // ── Glossary (anti-duplicate-entity injection for extraction prompts) ──
 
-export async function kgGlossary(options?: { dbPath?: string; limit?: number }): Promise<string[]> {
+export async function kgGlossary(options?: {
+  dbPath?: string;
+  limit?: number;
+  /** Whose entity names to offer. The coordinator glossary MUST be scoped:
+   *  suggesting another org's entity names is how one org's claims get merged
+   *  into another's graph under a shared name. */
+  scope?: KgScope;
+}): Promise<string[]> {
   const limit = options?.limit ?? 40;
   // Running top-`limit` by rank, deduplicated by normalized name. Folding each
   // page in and pruning keeps the whole node namespace in scope without ever
   // holding more than a page plus `limit` names.
   let top: { name: string; norm: string; rank: number }[] = [];
 
-  await scanNamespace(KG_NODES_NS, options?.dbPath, (page) => {
+  await scanNamespace(kgNamespaces(options?.scope).nodes, options?.dbPath, (page) => {
     for (const e of page) {
       const md = e.metadata as Record<string, unknown>;
       // Glossary is for ENTITY name reuse — rule prose and extraction-source
@@ -722,6 +802,32 @@ export async function kgGlossary(options?: { dbPath?: string; limit?: number }):
 
 // ── Rollback (per-origin bad-ingest recovery) ───────────────────────
 
+function originsOf(entry: ScannedEntry): string[] {
+  const origins = ((entry.metadata ?? {}) as Record<string, unknown>).origin_refs;
+  return Array.isArray(origins) ? (origins as string[]) : [];
+}
+
+/** Every entry in `namespace` that `originRef` supports, collected by an
+ *  EXHAUSTIVE paged scan. `covered` is false when the backend became
+ *  unreadable partway — an incomplete answer, never an empty one.
+ *
+ *  Collecting rather than streaming is required by the callers that mutate:
+ *  the bridge's upsert re-inserts under a fresh `created_at`, and deleting a
+ *  row pulls later rows back, so either would shift entries under an advancing
+ *  offset. Only origin-carrying entries are retained, so memory tracks the
+ *  operation's own footprint, not the namespace size. */
+async function collectByOrigin(
+  namespace: string,
+  originRef: string,
+  dbPath: string | undefined,
+): Promise<{ entries: ScannedEntry[]; covered: boolean }> {
+  const entries: ScannedEntry[] = [];
+  const covered = await scanNamespace(namespace, dbPath, (page) => {
+    for (const e of page) if (originsOf(e).includes(originRef)) entries.push(e);
+  });
+  return { entries, covered };
+}
+
 /** Withdraw `originRef`'s support from the graph: remove it from every
  *  node/edge/rule it backs, and delete the element once no origin remains.
  *
@@ -741,7 +847,14 @@ export async function kgGlossary(options?: { dbPath?: string; limit?: number }):
  *  backend's default ordering. Only origin-carrying entries are retained
  *  during the scan, so memory tracks the rollback's own footprint, not the
  *  namespace size. */
-export async function kgRollback(options: { originRef: string; dbPath?: string }): Promise<{
+export async function kgRollback(options: {
+  originRef: string;
+  /** Whose knowledge to withdraw from. A rollback can only reach the named
+   *  scope's namespaces — an org's rollback is an ownership boundary, not just
+   *  a label on the output. */
+  scope?: KgScope;
+  dbPath?: string;
+}): Promise<{
   success: boolean;
   deleted: number;
   retained: number;
@@ -749,26 +862,22 @@ export async function kgRollback(options: { originRef: string; dbPath?: string }
   error?: string;
 }> {
   const failures = new FailureLog();
+  const namespaces = kgNamespaces(options.scope);
+  const originRef = kgQualifyOrigin(options.originRef, options.scope);
   let deleted = 0,
     retained = 0;
   try {
-    for (const ns of [KG_NODES_NS, KG_EDGES_NS, RULES_NS]) {
-      const supported: { entry: ScannedEntry; remaining: string[] }[] = [];
-      const covered = await scanNamespace(ns, options.dbPath, (page) => {
-        for (const e of page) {
-          const origins = ((e.metadata ?? {}) as Record<string, unknown>).origin_refs;
-          if (!Array.isArray(origins) || !origins.includes(options.originRef)) continue;
-          supported.push({
-            entry: e,
-            remaining: (origins as string[]).filter((o) => o !== options.originRef),
-          });
-        }
-      });
+    for (const ns of [namespaces.nodes, namespaces.edges, namespaces.rules]) {
+      const found = await collectByOrigin(ns, originRef, options.dbPath);
       // A partial scan cannot be reported as a completed withdrawal.
-      if (!covered) {
+      if (!found.covered) {
         failures.note(`${ns}: memory backend unavailable`);
         continue;
       }
+      const supported = found.entries.map((e) => ({
+        entry: e,
+        remaining: originsOf(e).filter((o) => o !== originRef),
+      }));
 
       for (const { entry: e, remaining } of supported) {
         const md = (e.metadata ?? {}) as Record<string, unknown>;
@@ -812,6 +921,160 @@ export async function kgRollback(options: { originRef: string; dbPath?: string }
   }
 }
 
+// ── Promotion (org-owned → project-shared, explicit) ────────────────
+
+export interface KgPromoteResult {
+  success: boolean;
+  nodes: number;
+  edges: number;
+  rules: number;
+  /** Origin the shared copy carries, so the promotion can be withdrawn on its
+   *  own and the shared graph records who shared the claim. */
+  promotedAs: string;
+  failures?: string[];
+  error?: string;
+}
+
+/** Copy one origin's claims out of an org's scope into project-shared
+ *  knowledge.
+ *
+ *  Sharing is deliberate, never a side effect of learning: `kgIngest` under a
+ *  scope only ever writes that org's namespaces, and this is the one path a
+ *  claim takes across the boundary. The org keeps its own copy untouched — the
+ *  shared copy is an INDEPENDENT assertion under `promoted:<org-ref>`, so
+ *  rolling back either side leaves the other standing, and a shared claim
+ *  always names the org that vouched for it.
+ *
+ *  Like ingest, NOT atomic: the counters report what actually landed. */
+export async function kgPromote(options: {
+  /** The org-side ref to promote, unqualified (e.g. `run:m4x2`). */
+  originRef: string;
+  /** Owner the claims are promoted FROM. Promoting from the shared scope is a
+   *  no-op and is refused rather than silently duplicating. */
+  from: KgScope;
+  dbPath?: string;
+}): Promise<KgPromoteResult> {
+  const empty = { nodes: 0, edges: 0, rules: 0 };
+  if (!options.from?.org?.trim())
+    return {
+      success: false,
+      ...empty,
+      promotedAs: '',
+      error: 'promotion needs an owning org to promote from',
+    };
+
+  const ns = kgNamespaces(options.from);
+  const sourceRef = kgQualifyOrigin(options.originRef, options.from);
+  const promotedAs = `promoted:${sourceRef}`;
+  const failures = new FailureLog();
+
+  try {
+    const [nodeHits, edgeHits, ruleHits] = await Promise.all([
+      collectByOrigin(ns.nodes, sourceRef, options.dbPath),
+      collectByOrigin(ns.edges, sourceRef, options.dbPath),
+      collectByOrigin(ns.rules, sourceRef, options.dbPath),
+    ]);
+    // A partial read would promote a partial claim set while reporting the
+    // whole origin as shared.
+    for (const [name, hit] of [
+      ['nodes', nodeHits],
+      ['edges', edgeHits],
+      ['rules', ruleHits],
+    ] as const)
+      if (!hit.covered) failures.note(`${name}: memory backend unavailable`);
+    if (failures.failed)
+      return {
+        success: false,
+        ...empty,
+        promotedAs,
+        failures: failures.messages,
+        error: failures.summary(),
+      };
+
+    // Rule NODES are re-created by kgIngestRules; promoting them again through
+    // kgIngest would double-count and strip their rules-namespace entry.
+    const nodes: KgNodeInput[] = nodeHits.entries
+      .filter((e) => {
+        const md = (e.metadata ?? {}) as Record<string, unknown>;
+        return md.node_set !== 'rules' && String(md.type ?? '').toLowerCase() !== 'rule';
+      })
+      .map((e) => {
+        const md = (e.metadata ?? {}) as Record<string, unknown>;
+        return {
+          name: String(md.name ?? e.key),
+          type: String(md.type ?? 'entity'),
+          description: String(md.description ?? ''),
+          nodeSet: typeof md.node_set === 'string' ? md.node_set : undefined,
+        };
+      });
+    const edges: KgEdgeInput[] = edgeHits.entries.map((e) => {
+      const md = (e.metadata ?? {}) as Record<string, unknown>;
+      return {
+        source: String(md.source_name ?? md.src ?? ''),
+        target: String(md.target_name ?? md.dst ?? ''),
+        relation: String(md.relation ?? 'related_to'),
+        description: String(md.description ?? ''),
+      };
+    });
+    const rules = ruleHits.entries.map((e) => {
+      const md = (e.metadata ?? {}) as Record<string, unknown>;
+      return { rule: String(md.rule ?? e.content.split('\n')[0]) };
+    });
+
+    let promotedNodes = 0,
+      promotedEdges = 0,
+      promotedRules = 0;
+    // kgIngest caps a call at 500 nodes / 1000 edges, so a large origin has to
+    // be promoted in batches rather than silently truncated. Nodes go first so
+    // every edge endpoint already exists when the edges land.
+    for (let i = 0; i < nodes.length; i += 500) {
+      const res = await kgIngest({
+        nodes: nodes.slice(i, i + 500),
+        originRef: promotedAs,
+        dbPath: options.dbPath,
+      });
+      promotedNodes += res.nodesAdded + res.nodesMerged;
+      if (res.failures?.length) for (const m of res.failures) failures.note(m);
+    }
+    for (let i = 0; i < edges.length; i += 1000) {
+      const res = await kgIngest({
+        nodes: [],
+        edges: edges.slice(i, i + 1000),
+        originRef: promotedAs,
+        dbPath: options.dbPath,
+      });
+      promotedEdges += res.edgesAdded + res.edgesMerged;
+      if (res.failures?.length) for (const m of res.failures) failures.note(m);
+    }
+    for (let i = 0; i < rules.length; i += 50) {
+      const res = await kgIngestRules({
+        rules: rules.slice(i, i + 50),
+        originRef: promotedAs,
+        dbPath: options.dbPath,
+      });
+      promotedRules += res.accepted;
+      if (res.failures?.length) for (const m of res.failures) failures.note(m);
+    }
+
+    return {
+      success: !failures.failed,
+      nodes: promotedNodes,
+      edges: promotedEdges,
+      rules: promotedRules,
+      promotedAs,
+      ...(failures.failed ? { failures: failures.messages, error: failures.summary() } : {}),
+    };
+  } catch (err) {
+    return {
+      success: false,
+      ...empty,
+      promotedAs,
+      ...(failures.messages.length ? { failures: failures.messages } : {}),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 // ── Consolidation candidates (cognee consolidate_entity_descriptions) ──
 
 export interface ConsolidationCandidate {
@@ -832,15 +1095,17 @@ export async function kgConsolidateCandidates(options?: {
   /** Minimum edges for a node to qualify (default 3). */
   minEdges?: number;
   limit?: number;
+  scope?: KgScope;
 }): Promise<ConsolidationCandidate[]> {
   const minEdges = options?.minEdges ?? 3;
   const limit = options?.limit ?? 10;
+  const ns = kgNamespaces(options?.scope);
 
   // Degree index over the FULL edge namespace. Only the first 12 facts per node
   // are kept (that is all the result exposes), so the index costs a bounded
   // amount per node rather than one string per edge.
   const degree = new Map<string, { count: number; facts: string[] }>();
-  await scanNamespace(KG_EDGES_NS, options?.dbPath, (page) => {
+  await scanNamespace(ns.edges, options?.dbPath, (page) => {
     for (const e of page) {
       const md = e.metadata as Record<string, unknown>;
       for (const end of [String(md.src ?? ''), String(md.dst ?? '')]) {
@@ -854,7 +1119,7 @@ export async function kgConsolidateCandidates(options?: {
   });
 
   let candidates: ConsolidationCandidate[] = [];
-  await scanNamespace(KG_NODES_NS, options?.dbPath, (page) => {
+  await scanNamespace(ns.nodes, options?.dbPath, (page) => {
     for (const n of page) {
       const md = n.metadata as Record<string, unknown>;
       const slot = degree.get(n.key);
@@ -888,7 +1153,11 @@ export async function kgConsolidateCandidates(options?: {
  *  rows but is exact; an indexed `COUNT(*)` on the bridge would replace it. */
 export async function kgStats(options?: {
   dbPath?: string;
+  /** Whose graph to measure. Counting every org's facts under one org's name
+   *  is what made `org memory <name> stats` a fiction. */
+  scope?: KgScope;
 }): Promise<{ nodes: number; edges: number; rules: number }> {
+  const ns = kgNamespaces(options?.scope);
   const count = async (namespace: string) => {
     let n = 0;
     await scanNamespace(namespace, options?.dbPath, (page) => {
@@ -897,9 +1166,9 @@ export async function kgStats(options?: {
     return n;
   };
   const [nodes, edges, rules] = await Promise.all([
-    count(KG_NODES_NS),
-    count(KG_EDGES_NS),
-    count(RULES_NS),
+    count(ns.nodes),
+    count(ns.edges),
+    count(ns.rules),
   ]);
   return { nodes, edges, rules };
 }

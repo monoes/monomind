@@ -216,7 +216,11 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const glossary = await (async () => {
         try {
           const kg = await import('../memory/memory-kg.js');
-          return await kg.kgGlossary({ dbPath: join(process.cwd(), '.monomind', 'org-memory') });
+          const { orgKgScope } = await import('../orgrt/org-memory.js');
+          return await kg.kgGlossary({
+            dbPath: join(process.cwd(), '.monomind', 'org-memory'),
+            scope: orgKgScope(name),
+          });
         } catch {
           return [];
         }
@@ -2133,7 +2137,7 @@ export const orgCommand: Command = {
     {
       name: 'memory',
       description:
-        "Inspect an org's cross-run memory and knowledge graph (stats | search <query> | rules | rollback <run-ref>)",
+        "Inspect an org's cross-run memory and knowledge graph (stats | search <query> | rules | rollback <run-ref> | promote <run-ref>)",
       examples: [
         { command: 'monomind org memory growth stats', description: 'KG size and namespaces' },
         {
@@ -2142,7 +2146,11 @@ export const orgCommand: Command = {
         },
         {
           command: 'monomind org memory growth rollback run:m4x2',
-          description: 'Delete everything one run wrote to the KG',
+          description: "Withdraw one run's support from this org's KG",
+        },
+        {
+          command: 'monomind org memory growth promote run:m4x2',
+          description: "Share one run's claims with project-wide knowledge",
         },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -2150,24 +2158,44 @@ export const orgCommand: Command = {
         if (!v.ok) return v.result;
         const sub = String(ctx.args[1] ?? 'stats');
         const { join } = await import('node:path');
-        const dbPath = join(process.cwd(), '.monomind', 'org-memory');
+        const cwd = ctx.cwd || process.cwd();
+        const dbPath = join(cwd, '.monomind', 'org-memory');
         const kg = await import('../memory/memory-kg.js');
         const bridge = await import('../memory/memory-bridge.js');
+        const { orgKgScope, orgMemoryNamespace } = await import('../orgrt/org-memory.js');
+        // Every KG operation below is scoped to the requested org, so the org
+        // name in the output describes what was actually read, not just what
+        // was asked for. Reads of the shared store are unchanged.
+        const scope = orgKgScope(v.name);
+        const kgNs = kg.kgNamespaces(scope);
+        // Flat org memory is namespaced by the org DEFINITION, not by name —
+        // resolve it the way the runtime writes it (B4), so a configured
+        // `memory_namespace` is searched instead of a guessed `org:<name>`.
+        const defPath = join(cwd, ORG_DIR, `${v.name}.json`);
+        const flatNs = existsSync(defPath)
+          ? orgMemoryNamespace(
+              v.name,
+              OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8'))),
+            )
+          : `org:${v.name}`;
         try {
           if (sub === 'stats') {
             const [stats, glossary, backend] = await Promise.all([
-              kg.kgStats({ dbPath }),
-              kg.kgGlossary({ dbPath, limit: 15 }),
+              kg.kgStats({ dbPath, scope }),
+              kg.kgGlossary({ dbPath, limit: 15, scope }),
               bridge.bridgeGetBackendStats(dbPath),
             ]);
+            // The backend reports every namespace in the SHARED store, so
+            // listing it raw put other orgs' namespaces (and their counts)
+            // under this org's name. Keep only what this org owns.
+            const owned = new Set<string>([kgNs.nodes, kgNs.edges, kgNs.rules, flatNs]);
+            const byNs = Object.fromEntries(
+              Object.entries(backend?.entriesByNamespace ?? {}).filter(
+                ([ns]) => owned.has(ns) || ns.startsWith(`agent:${flatNs}:`),
+              ),
+            );
             if (ctx.flags.format === 'json') {
-              const payload = {
-                v: 1,
-                org: v.name,
-                ...stats,
-                glossary,
-                namespaces: backend?.entriesByNamespace ?? {},
-              };
+              const payload = { v: 1, org: v.name, ...stats, glossary, namespaces: byNs };
               process.stdout.write(`${JSON.stringify(payload)}\n`);
               return { success: true, data: payload };
             }
@@ -2177,7 +2205,6 @@ export const orgCommand: Command = {
               ),
             );
             if (glossary.length) log(output.info(`Top entities: ${glossary.join(', ')}`));
-            const byNs = backend?.entriesByNamespace ?? {};
             for (const [ns, count] of Object.entries(byNs))
               log(output.info(`  ${ns}: ${count} entries`));
             return {
@@ -2192,11 +2219,11 @@ export const orgCommand: Command = {
             const [mem, graph] = await Promise.all([
               bridge.bridgeSearchEntries({
                 query: q,
-                namespace: `org:${v.name}`,
+                namespace: flatNs,
                 limit: 5,
                 dbPath,
               }),
-              kg.kgSearch({ query: q, dbPath, limit: 8 }),
+              kg.kgSearch({ query: q, dbPath, limit: 8, scope }),
             ]);
             if (ctx.flags.format === 'json') {
               const payload = {
@@ -2219,7 +2246,7 @@ export const orgCommand: Command = {
             };
           }
           if (sub === 'rules') {
-            const rules = await kg.kgListRules({ dbPath, limit: 50 });
+            const rules = await kg.kgListRules({ dbPath, limit: 50, scope });
             if (ctx.flags.format === 'json') {
               const payload = { v: 1, org: v.name, items: rules };
               process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -2235,7 +2262,10 @@ export const orgCommand: Command = {
                 success: false,
                 message: 'usage: org memory <org> rollback <origin-ref> (e.g. run:m4x2)',
               };
-            const res = await kg.kgRollback({ originRef: ref, dbPath });
+            // Scoped: the ref is resolved inside this org's namespaces and
+            // origin space, so the org name in the command is an ownership
+            // restriction rather than a label on an unfiltered rollback.
+            const res = await kg.kgRollback({ originRef: ref, scope, dbPath });
             if (ctx.flags.format === 'json') {
               const payload = { v: 1, org: v.name, ref, ...res };
               process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -2243,14 +2273,36 @@ export const orgCommand: Command = {
             }
             log(
               output.info(
-                `Rolled back ${ref}: ${res.deleted} deleted, ${res.retained} retained (shared with other origins)`,
+                `Rolled back ${ref} for org ${v.name}: ${res.deleted} deleted, ${res.retained} retained (shared with other origins)`,
               ),
             );
             return { success: res.success, message: `rollback ${ref}`, data: res };
           }
+          if (sub === 'promote') {
+            const ref = ctx.args[2];
+            if (!ref)
+              return {
+                success: false,
+                message: 'usage: org memory <org> promote <origin-ref> (e.g. run:m4x2)',
+              };
+            const res = await kg.kgPromote({ originRef: ref, from: scope, dbPath });
+            if (ctx.flags.format === 'json') {
+              const payload = { v: 1, org: v.name, ref, ...res };
+              process.stdout.write(`${JSON.stringify(payload)}\n`);
+              return { success: res.success, data: payload };
+            }
+            log(
+              output.info(
+                res.success
+                  ? `Promoted ${ref} from org ${v.name} to project-shared knowledge: ${res.nodes} entities, ${res.edges} relations, ${res.rules} rules. Withdraw with origin ref ${res.promotedAs}.`
+                  : `Promotion of ${ref} failed: ${res.error ?? 'unknown error'}`,
+              ),
+            );
+            return { success: res.success, message: `promote ${ref}`, data: res };
+          }
           return {
             success: false,
-            message: `unknown subcommand "${sub}" — use stats | search | rules | rollback`,
+            message: `unknown subcommand "${sub}" — use stats | search | rules | rollback | promote`,
           };
         } finally {
           await bridge.shutdownBridge().catch(() => {

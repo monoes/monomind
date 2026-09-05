@@ -88,8 +88,27 @@ export async function checkMemoryKnowledgeGraph(): Promise<HealthCheck> {
     const kg = await import('../memory/memory-kg.js');
     const bridge = await import('../memory/memory-bridge.js');
     const project = await kg.kgStats();
+    // Org KG facts are namespaced per org (kg:nodes:org:<name> etc.), so an
+    // unscoped kgStats against the org store reads the now-unused flat
+    // namespaces and reports zero for every org. Sum each org's own scope
+    // instead — the org store holds all of them, keyed by scope.
     const orgDb = join(process.cwd(), '.monomind', 'org-memory');
-    const org = existsSync(orgDb) ? await kg.kgStats({ dbPath: orgDb }) : null;
+    let org: { nodes: number; edges: number; rules: number } | null = null;
+    if (existsSync(orgDb)) {
+      const { orgKgScope } = await import('../orgrt/org-memory.js');
+      const { listOrgConfigFiles } = await import('./org.js');
+      const orgsDir = join(process.cwd(), '.monomind', 'orgs');
+      const orgNames = existsSync(orgsDir)
+        ? listOrgConfigFiles(orgsDir).map((f) => f.replace(/\.json$/, ''))
+        : [];
+      org = { nodes: 0, edges: 0, rules: 0 };
+      for (const orgName of orgNames) {
+        const s = await kg.kgStats({ dbPath: orgDb, scope: orgKgScope(orgName) });
+        org.nodes += s.nodes;
+        org.edges += s.edges;
+        org.rules += s.rules;
+      }
+    }
     await bridge.shutdownBridge().catch(() => {
       /* best effort */
     });
