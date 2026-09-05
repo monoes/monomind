@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Language, Parser } from 'web-tree-sitter';
 import type { MonographEdge, MonographNode, NodeLabel } from '../types.js';
-import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../types.js';
+import { CONFIDENCE_SCORE, makeId, symbolId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
 import type { SymbolExtract } from './language-parsers.js';
 import { extractSymbolsForLanguage, LANGUAGE_EXTENSIONS } from './language-parsers.js';
@@ -354,9 +354,25 @@ function convertSymbolExtracts(
     language,
   });
 
+  // Regex extraction is flat — it recovers no enclosing scope — so the overload
+  // discriminator is what separates repeated `name`/`label` pairs in one file.
+  const overloadCounts = new Map<string, number>();
+
   for (const ex of extracts) {
     const label = ex.label as NodeLabel;
-    const id = makeId(repoRelativePath.replace(/\//g, '_'), ex.name, label.toLowerCase());
+    const first = symbolId({ filePath: repoRelativePath, scope: [], name: ex.name, kind: label });
+    const overload = overloadCounts.get(first) ?? 0;
+    overloadCounts.set(first, overload + 1);
+    const id =
+      overload === 0
+        ? first
+        : symbolId({
+            filePath: repoRelativePath,
+            scope: [],
+            name: ex.name,
+            kind: label,
+            overload,
+          });
     nodes.push({
       id,
       label,
