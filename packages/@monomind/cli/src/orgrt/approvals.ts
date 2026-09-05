@@ -24,6 +24,35 @@ function normalizeToolAction(rawAction: string): string {
   return rawAction.startsWith(prefix) ? rawAction.slice(prefix.length) : rawAction;
 }
 
+/** Deterministic string form of a value, with object keys sorted at every
+ *  depth so the same input always fingerprints the same way regardless of
+ *  key insertion order. Used as the fallback fingerprint (below) for actions
+ *  with no single well-known argument field. */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`;
+}
+
+/** Fingerprints the MEANINGFUL part of a tool call's arguments, so
+ *  checkApproval's pending-cache key can tell a materially different call
+ *  apart from one already approved/pending for the same (role, action) —
+ *  see the CRITICAL bug this fixes in checkApproval's doc comment below.
+ *  Falls back to a stable-stringify of the whole input for actions with no
+ *  single well-known field (org_complete) or a call whose expected field is
+ *  missing/non-string for some reason — never silently treats "unknown
+ *  shape" as "same as before". */
+function fingerprintAction(action: string, input: Record<string, unknown>): string {
+  if (action === 'Bash' && typeof input.command === 'string') return input.command;
+  if (action === 'WebFetch' || action === 'WebSearch') {
+    if (typeof input.url === 'string') return input.url;
+    if (typeof input.query === 'string') return input.query;
+  }
+  return stableStringify(input);
+}
+
 /** Discard every approval — pending or resolved — left over from a previous
  *  run. Call on a fresh (non-resume) startOrg.
  *
@@ -47,6 +76,20 @@ export function clearApprovalsForFreshStart(daemon: OrgDaemon, org: string): voi
 /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
  *  the approval decision: true = approved, false = denied, null = pending (requires human input).
  *
+ *  CRITICAL fix: the pending cache used to key ONLY on (role, action) — the tool's
+ *  bare name (e.g. "Bash"), never its actual arguments. Once a human approved ONE
+ *  call, `existing.approved !== null` short-circuited below and returned true for
+ *  EVERY future call to that tool by that role for the rest of the run, regardless
+ *  of what the new call's command/url/content actually was: approve role
+ *  "builder"'s `npm test`, and its very next Bash call — `rm -rf $HOME`, say —
+ *  was auto-approved with zero further human involvement. Same issue for repeated
+ *  WebFetch/WebSearch (exfiltration/SSRF) and org_complete. `input` (the tool's
+ *  actual call arguments, now threaded through from gatedCanUseTool/daemon.ts) is
+ *  fingerprinted (fingerprintAction, above) and folded into the cache key so a
+ *  materially different call always queues its OWN pending entry requiring fresh
+ *  human approval — only a literally identical repeat call may reuse a prior
+ *  decision, which is reasonable UX, not the bug.
+ *
  *  R5: serialized per-org via withApprovalLock() — concurrent checkApproval and
  *  setApproval calls previously raced on this.approvals + approvals.json. */
 export function checkApproval(
@@ -54,11 +97,15 @@ export function checkApproval(
   org: string,
   role: string,
   rawAction: string,
+  input: Record<string, unknown> = {},
 ): Promise<boolean | null> {
   const action = normalizeToolAction(rawAction);
+  const fingerprint = fingerprintAction(action, input);
   return withApprovalLock(daemon, org, async () => {
     const pending = daemon.approvals.get(org) ?? [];
-    const existing = pending.find((a) => a.roleId === role && a.action === action);
+    const existing = pending.find(
+      (a) => a.roleId === role && a.action === action && a.fingerprint === fingerprint,
+    );
 
     // If already approved/denied, return that decision
     if (existing && existing.approved !== null) return existing.approved;
@@ -76,6 +123,7 @@ export function checkApproval(
         pending.push({
           roleId: role,
           action,
+          fingerprint,
           question: `Approve ${action} tool call?`,
           ts: Date.now(),
           approved: null,
@@ -102,7 +150,17 @@ export function checkApproval(
 }
 
 /** Approve or deny a pending action (called by dashboard or CLI).
- *  R5: serialized per-org via withApprovalLock(). */
+ *  R5: serialized per-org via withApprovalLock().
+ *
+ *  Now that checkApproval fingerprints each call, more than one distinct
+ *  pending entry can exist under the same (role, action) at once (e.g. two
+ *  different Bash commands both awaiting approval). The CLI/dashboard only
+ *  identify a request by (role, action), not by which specific command — so
+ *  resolve every currently-UNRESOLVED entry for that (role, action) rather
+ *  than picking one arbitrarily via .find(). This still means what it always
+ *  meant ("yes, let the queued Bash/WebFetch/... call(s) through"): a NEW,
+ *  still-different future call queues its own fresh pending entry and is
+ *  unaffected by this decision. */
 export async function setApproval(
   daemon: OrgDaemon,
   org: string,
@@ -112,13 +170,17 @@ export async function setApproval(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   return withApprovalLock(daemon, org, async () => {
     const pending = daemon.approvals.get(org) ?? [];
-    const item = pending.find((a) => a.roleId === role && a.action === action);
+    const items = pending.filter(
+      (a) => a.roleId === role && a.action === action && a.approved === null,
+    );
 
-    if (!item)
+    if (items.length === 0)
       return { ok: false, error: `No pending approval found for ${role} action ${action}` };
 
-    item.approved = approved;
-    item.ts = Date.now();
+    for (const item of items) {
+      item.approved = approved;
+      item.ts = Date.now();
+    }
 
     // Persist updated approval state (C4: atomic write)
     const approvalsPath = join(daemon.root, ORG_DIR, org, 'approvals.json');
