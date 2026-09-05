@@ -38,6 +38,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "biome check",
     "lint:fix": "biome check --write",
+    "lint:skills": "node scripts/lint-skills.mjs",
     "format": "biome format --write",
     "security:audit": "pnpm audit --audit-level high",
     "security:fix": "pnpm audit --fix",

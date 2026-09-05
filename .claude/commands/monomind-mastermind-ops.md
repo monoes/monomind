@@ -1,0 +1,27 @@
+---
+description: mastermind ops command (monomind)
+---
+
+<!-- Mastermind ops domain — workflow automation, reporting, process optimization. Default mode: auto. -->
+
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+
+Parse `$ARGUMENTS` for:
+- `--auto` flag → mode = auto
+- `--confirm` flag → mode = confirm
+- `--project <name>` → project_name = <name>
+- Remaining text = prompt
+
+If prompt is empty: ask "What operations task would you like to automate or optimize?"
+
+Load brain context for the `ops` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure).
+
+Run intake if prompt is vague (follow mastermind-intake/SKILL.md — stop at Q3, domain is already known as `ops`).
+
+Default mode for this command: **auto** (unless `--confirm` flag present or intake Q4 says confirm).
+
+Invoke `Skill("mastermind-ops")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
+
+After skill returns: follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
+
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
