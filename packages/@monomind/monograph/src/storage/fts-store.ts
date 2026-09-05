@@ -190,6 +190,24 @@ export interface FtsResult {
 }
 
 /**
+ * THE single conversion from FTS5's `rank` to monograph's score convention.
+ *
+ * SCORE CONVENTION: every score that leaves the search layer is
+ * **higher-is-better and non-negative**. SQLite FTS5's `rank` is the opposite
+ * (negative, and *more* negative means a *better* match), so a raw rank must
+ * never escape this module — forwarding one into a ranker that takes maxima
+ * lets an unrelated node sitting at 0 outrank a genuine match at -0.656.
+ *
+ * Maps |rank| through x/(1+x) into (0, 1): monotonically increasing, so
+ * relative BM25 order is preserved, and bounded, so it composes with the
+ * additive fuzzy/node-type bonuses without one term swamping the others.
+ */
+export function relevanceFromFtsRank(rank: number): number {
+  const magnitude = Math.abs(rank);
+  return magnitude / (1 + magnitude);
+}
+
+/**
  * Quote a single FTS5 search term as a string literal when it contains characters
  * that would otherwise be parsed as FTS5 syntax (quotes, parens, boolean keywords
  * like AND/OR/NOT, colons, hyphens, etc). Wrapping in double-quotes forces FTS5 to
@@ -446,9 +464,7 @@ export function hybridSearch(
   // ── Strategy 1: FTS5 BM25 ──────────────────────────────────────────────────
   const ftsRows = ftsSearch(db, safeQuery, limit * 2, label);
   for (const row of ftsRows) {
-    // FTS5 rank is negative; larger magnitude = better match. Map to (0,1) with higher = better.
-    const absRank = Math.abs(row.rank);
-    const ftsScore = absRank / (1 + absRank);
+    const ftsScore = relevanceFromFtsRank(row.rank);
     const fuzz = computeFuzzyScore(row.name, safeQuery);
     const combined = ftsScore + fuzz + computeNodeTypeBonus(row.label);
     upsert({ ...row, combinedScore: combined, matchStrategy: 'fts' });
