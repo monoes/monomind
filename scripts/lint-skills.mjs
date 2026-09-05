@@ -24,6 +24,7 @@ const SKILL_TREES = [
 // these; for every other skill it stays the existing directory-presence WARNING
 // below, since not every skill in this repo is synced across all five trees.
 const SYNCED_SKILLS = new Set([
+  'mastermind',
   'mastermind-plan',
   'mastermind-execute',
   'mastermind-debug',
@@ -34,6 +35,7 @@ const SYNCED_SKILLS = new Set([
   'mastermind-plan-to-tasks',
   'mastermind-org',
   'mastermind-runorg',
+  'mastermind-createorg',
 ]);
 const CMD_PATTERN = /(?:npx\s+)?monomind(?:@[\w.]+)?\s+(\w[\w-]*)/g;
 const ALPHA_PATTERN = /monomind@alpha/g;
@@ -129,8 +131,11 @@ function lintTree(treePath, label) {
     // platform skills (loop, dataviz, schedule, ...) aren't in these trees
     // and this linter has no visibility into that catalog. Also skip
     // uppercase/placeholder names (e.g. "mastermind-X" in documentation
-    // showing the call syntax, not an actual invocation).
-    for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["']\)/g)) {
+    // showing the call syntax, not an actual invocation). Matches both
+    // Skill("name") and Skill("name", extraArgs...) — a trailing comma
+    // (e.g. Skill("mastermind-ideate", $ARGUMENTS)) previously made the
+    // whole call invisible to this check.
+    for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["'][,)]/g)) {
       if (/[A-Z]/.test(m[1])) continue;
       if (!KNOWN_SKILLS.has(m[1])) {
         errors.push(
@@ -192,7 +197,7 @@ function lintCommandTree(treePath) {
   for (const file of walkMarkdownFiles(treePath)) {
     const content = readFileSync(file, 'utf8');
     const rel = file.replace(`${ROOT}/`, '');
-    for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["']\)/g)) {
+    for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["'][,)]/g)) {
       if (/[A-Z]/.test(m[1])) continue;
       if (!KNOWN_SKILLS.has(m[1])) {
         errors.push(`${rel}: Skill("${m[1]}") does not exist in any skill tree`);
