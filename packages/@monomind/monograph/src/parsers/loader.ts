@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Language, Parser } from 'web-tree-sitter';
 import type { MonographEdge, MonographNode, NodeLabel } from '../types.js';
-import { CONFIDENCE_SCORE, makeId, symbolId, toNormLabel } from '../types.js';
+import { CONFIDENCE_SCORE, fileId, makeId, symbolId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
 import type { SymbolExtract } from './language-parsers.js';
 import { extractSymbolsForLanguage, LANGUAGE_EXTENSIONS } from './language-parsers.js';
@@ -342,7 +342,7 @@ function convertSymbolExtracts(
   const nodes: MonographNode[] = [];
   const edges: MonographEdge[] = [];
 
-  const fileNodeId = makeId(repoRelativePath.replace(/\//g, '_'), 'file');
+  const fileNodeId = fileId(repoRelativePath);
   const fileName = repoRelativePath.split('/').pop() ?? repoRelativePath;
   nodes.push({
     id: fileNodeId,

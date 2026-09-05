@@ -1,7 +1,7 @@
 import { parseFile } from '../../src/parsers/loader.js';
 import { SYMBOL_ID_VERSION, makeId, symbolId } from '../../src/types.js';
 
-/** Symbol nodes only — File nodes keep their own (unchanged) ID scheme. */
+/** Symbol nodes only — File nodes have their own scheme, covered by file-identity.test.ts. */
 async function symbolIdsOf(repoRelativePath: string, source: string): Promise<string[]> {
   const result = await parseFile(`/tmp/${repoRelativePath}`, source, repoRelativePath);
   return result.nodes.filter((n) => n.label !== 'File').map((n) => n.id);
@@ -72,7 +72,7 @@ describe('symbolId', () => {
   it('is stable across processes for a fixed tuple', () => {
     // A literal golden value: a hash-based scheme that varied per process (e.g.
     // by seeding from anything ambient) could not keep matching this.
-    expect(symbolId(base)).toBe('sym_run_c116cee4118b6d6db72c4d3b06020c6a_function');
+    expect(symbolId(base)).toBe('sym_run_5ceef7296835cd284ccaa515e7db47b5_function');
   });
 
   it('keeps the _<kind> suffix relationship resolution disambiguates on', () => {
@@ -122,6 +122,6 @@ describe('symbolId', () => {
 
   it('exports the identity scheme version consumers key caches on', () => {
     // Hashed into every ID, so the golden value above moves when this is bumped.
-    expect(SYMBOL_ID_VERSION).toBe(2);
+    expect(SYMBOL_ID_VERSION).toBe(3);
   });
 });
