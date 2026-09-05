@@ -170,10 +170,21 @@ export const memoryPatternSearch: MCPTool = {
         limit: validatePositiveInt(params.topK, 5, MAX_TOP_K),
       });
       if (!result) return { results: [], controller: 'unavailable' };
-      return {
-        ...result,
-        patterns: result.patterns.filter((p: { score: number }) => p.score >= minConfidence),
-      };
+      const patterns = result.patterns.filter((p: { score: number }) => p.score >= minConfidence);
+      // Usage tracking: every recall hit increments the entry's frequency_weight,
+      // which feeds both the ranking blend and weight-aware GC protection.
+      // Never let this block or fail the search response.
+      if (patterns.length) {
+        try {
+          const ids = patterns
+            .map((p: { id: string }) => p.id)
+            .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+          if (ids.length) await bridge.bridgeRecordUsage({ entryIds: ids });
+        } catch {
+          /* non-fatal: usage tracking must never break search */
+        }
+      }
+      return { ...result, patterns };
     } catch (error) {
       return { results: [], error: sanitizeError(error) };
     }
@@ -667,6 +678,19 @@ export const memoryHierarchicalRecall: MCPTool = {
         tier: tier ?? undefined,
         topK: validatePositiveInt(params.topK, 5, MAX_TOP_K),
       });
+      // Usage tracking: every recall hit increments the entry's frequency_weight,
+      // which feeds both the ranking blend and weight-aware GC protection.
+      // Never let this block or fail the recall response.
+      if (result?.results?.length) {
+        try {
+          const ids = result.results
+            .map((r: { id: string }) => r.id)
+            .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+          if (ids.length) await bridge.bridgeRecordUsage({ entryIds: ids });
+        } catch {
+          /* non-fatal: usage tracking must never break recall */
+        }
+      }
       return (
         result ?? {
           results: [],
