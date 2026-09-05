@@ -2023,7 +2023,15 @@ export class OrgDaemon {
     body: string,
     fromCredential?: string,
   ): { ok: true; receipt: string } | { ok: false; error: string } {
-    return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body, fromCredential);
+    return crossOrg.receiveRemote(
+      this,
+      toOrg,
+      toRole,
+      fromQualified,
+      subject,
+      body,
+      fromCredential,
+    );
   }
   private mailBody(
     orgName: string,
