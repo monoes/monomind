@@ -58,7 +58,15 @@ describe('scanPhase DEFAULT_IGNORE', () => {
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'scan-default-ignore-test-'));
     writeFileSync(join(tmpDir, 'app.ts'), 'export const x = 1;');
-    for (const dir of ['.next', '.nuxt', '.svelte-kit', '.turbo', '.vercel', '.wrangler', '.open-next']) {
+    for (const dir of [
+      '.next',
+      '.nuxt',
+      '.svelte-kit',
+      '.turbo',
+      '.vercel',
+      '.wrangler',
+      '.open-next',
+    ]) {
       mkdirSync(join(tmpDir, dir));
       writeFileSync(join(tmpDir, dir, 'generated.js'), 'module.exports = {};');
     }
@@ -71,7 +79,15 @@ describe('scanPhase DEFAULT_IGNORE', () => {
   it('skips framework build/cache directories by default', async () => {
     const out = await scanPhase.execute(makeCtx(tmpDir), new Map());
     const names = out.filePaths.map((p: string) => p.replace(tmpDir, ''));
-    for (const dir of ['.next', '.nuxt', '.svelte-kit', '.turbo', '.vercel', '.wrangler', '.open-next']) {
+    for (const dir of [
+      '.next',
+      '.nuxt',
+      '.svelte-kit',
+      '.turbo',
+      '.vercel',
+      '.wrangler',
+      '.open-next',
+    ]) {
       expect(names.some((n: string) => n.includes(dir))).toBe(false);
     }
     expect(names.some((n: string) => n.includes('app.ts'))).toBe(true);
