@@ -459,6 +459,15 @@ function _graphGateMarkQueried(sessionId) {
 // Returns 'block' (hard block, exitCode 2), 'warn' (allow but remind), or false (no action).
 function _graphGateShouldBlock(sessionId) {
   if (String(process.env.MONOMIND_GRAPH_GATE || '').toLowerCase() === 'off') return false;
+  // Persistent opt-out: .monomind/guidance/active-gates.json { graphGate: 'off' }
+  // (same override file gates-handler.cjs uses for destructive/secret patterns).
+  // Fails open on unreadable/invalid content — hooks never block on config errors.
+  try {
+    var gatesPath = path.join(CWD, '.monomind', 'guidance', 'active-gates.json');
+    var raw = fs.readFileSync(gatesPath, 'utf-8');
+    var cfg = JSON.parse(raw);
+    if (cfg && String(cfg.graphGate || '').toLowerCase() === 'off') return false;
+  } catch (e) { /* absent or unreadable — gate stays on */ }
   if (!sessionId || !_isGraphFresh()) return false;
   // Test-and-set blockedOnce atomically: two concurrent greps in the same
   // session must not both observe blockedOnce=false and both block.

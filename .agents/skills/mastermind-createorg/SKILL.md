@@ -71,11 +71,19 @@ Exactly one role must have `reports_to: null`. If the user's role list has none,
 
 A role is **persona-based** if its title is a named real person, a well-known fictional character, or a celebrity/historical figure referred to by name. An org is persona-based if ≥50% of its roles are character names, or the goal/prompt contains `panel`, `debate`, `simulation`, `roleplay`, `celebrity`, `character`, `virtual [name]`, `impersonate`, `as [name]`.
 
-Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (the only field `buildRolePrompt` — `orgrt/session.ts:27-39` — actually feeds into the agent's role briefing): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
+Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside `ui.icon`'s built-in archetype content and `instructions_file`, if either is set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
 
 ---
 
-## Step 2.3 — Optional Per-Role Settings
+## Step 2.3 — Built-in Archetype Best-Practices (fully optional — skip freely)
+
+createorg does **not** need to use these bundled archetypes for anything — a role built entirely from `responsibilities` is complete and normal. This step is a shortcut to reach for only when a role you're scaffolding happens to match one of the ~111 bundled role archetypes (the same set the MonoAgent Org Designer's palette offers — coder, security-auditor, devops-automator, sales-engineer, and so on; see `src/orgrt/role-skills/` for the full list of ids). When it does, set that role's `ui.icon` to the matching archetype id: `"ui": { "icon": "security-auditor" }`. At session start, `buildRolePrompt` then injects that archetype's bundled best-practices document into the role's briefing — real, researched guidance (tool checklists, common pitfalls, domain-specific techniques) for free, with zero extra fields to author. This is purely additive to `responsibilities` (which still carries the role's specific duties for THIS org) — don't duplicate general best-practices guidance into `responsibilities` when a matching `ui.icon` would supply it automatically; do still use `responsibilities` for anything specific to this particular org/goal.
+
+Skip `ui.icon` whenever there isn't a clean match — an unmatched or omitted `icon` is normal and not an error, it just means the role gets no bundled content (still fine; `responsibilities` alone is enough for most roles). Never force-fit a role into a nearby-but-wrong archetype just to get the bundled content.
+
+---
+
+## Step 2.4 — Optional Per-Role Settings
 
 For any role that needs non-default behavior, set (all optional — omit to inherit defaults):
 
@@ -88,7 +96,9 @@ For any role that needs non-default behavior, set (all optional — omit to inhe
   - `"codex"` — ChatGPT subscription via `codex login` (no env vars needed). Auto-resolves `runtime: 'codex'`.
   - `"antigravity"` — Google AI Pro/Ultra subscription via `agy` CLI (Google OAuth in OS keyring). Auto-resolves `runtime: 'antigravity'`. This is the replacement for the consumer-OAuth path of Gemini CLI (sunset June 18, 2026).
 - `runtime`: `"claude"` | `"kimicode"` | `"opencode"` | `"vercel"` | `"codex"` | `"antigravity"` — per-role override of the agent loop backend. Usually unnecessary (auto-resolved from `provider.kind`); set explicitly only when you need to force a specific runner regardless of provider.
-- `policy`: `{ allowTools?, denyTools?, fileWrite?, fileRead?, webAllow?, maxTokens? }` — glob-based tool/file/web restrictions for that role; leave unset unless the user asked for sandboxing
+- `policy`: `{ allowTools?, denyTools?, fileWrite?, fileRead?, webAllow?, autoApproveTools?, maxTokens? }` — leave the whole object unset for a role that doesn't need it (most roles). But `webAllow` unset/empty means **no web access at all**, and Bash/WebFetch/WebSearch/`org_complete` pause for human approval by default on every call — that's a restriction, not a neutral default, so don't leave it unset for a role whose responsibilities clearly require it (e.g. a role tasked with "gather headlines from news sources" needs `webAllow` populated, not omitted). Set proactively, at creation time, for any role whose stated responsibilities need it:
+  - `webAllow: ["*"]` (or specific domains) for a role that does WebSearch/WebFetch as part of its job — an empty/unset `webAllow` silently blocks the exact task you just assigned it.
+  - `autoApproveTools: [...]` — tool/action names this role may use without pausing for a human approval, even though they're normally on the sensitive-actions list (`Bash`, `WebFetch`, `WebSearch`, `org_complete`). **Mandatory, not optional, for any org with a `schedule` set** (an unattended/scheduled org): a role that pauses on `WebSearch` or `org_complete` waiting for a human who isn't there to click approve will deadlock forever on every scheduled run, repeatedly re-asking through both `ask_human` and `org_gate` with nothing to show for it. Grant every tool a scheduled org's roles routinely need — including `org_complete` for the boss role — rather than leaving the default human-approval gate in place for automation that's supposed to run with nobody watching.
 
 Do not invent values for these — only populate a field the user actually specified or clearly implied (e.g. "the researcher should use Opus" → that role's `adapter_config.model`).
 
@@ -125,7 +135,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
 
 `status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 
-Only include `adapter_config`, `provider`, or `policy` on a role when Step 2.3 populated them for it — leave them out entirely rather than writing empty objects.
+Only include `adapter_config`, `provider`, `policy`, or `ui` on a role when Step 2.3/2.4 populated them for it — leave them out entirely rather than writing empty objects.
 
 ---
 
