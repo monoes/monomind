@@ -66,8 +66,17 @@ export const CHECK_RULES: RuleDef[] = [
     id: 'low-cohesion',
     name: 'Low Community Cohesion',
     description: 'A module community with a low ratio of internal to possible edges.',
-    rationale: 'Low cohesion means the community is an arbitrary grouping, not a real module.',
-    remediation: 'Re-organize files so that related functionality is co-located.',
+    rationale:
+      'The members of this community are sparsely connected to each other in the clustered ' +
+      'graph. That graph is a deliberate projection — coupling edges (calls, imports, ' +
+      'inheritance) count fully, containment is down-weighted, and prose relations are ' +
+      'excluded — so the number measures structural connectivity under those weights, not ' +
+      'module quality. Weak connectivity is consistent with an arbitrary grouping, but also ' +
+      'with a genuine module whose cohesion is by convention, configuration, or a shared ' +
+      'concern the parser does not see.',
+    remediation:
+      'Read the members and decide whether they belong together. If they do not, co-locate ' +
+      'related functionality; if they do, no change is needed.',
     severity: 'info',
   },
 ];
