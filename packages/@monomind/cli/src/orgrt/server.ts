@@ -166,6 +166,7 @@ export async function startOrgServer(
           toRole,
           fromOrg,
           fromRole,
+          fromCredential,
           subject,
           body: b,
         } = payload as Record<string, string | undefined>;
@@ -179,6 +180,7 @@ export async function startOrgServer(
           `${fromOrg}:${fromRole}`,
           subject ?? '',
           b ?? '',
+          fromCredential,
         );
         json(res, result.ok ? 200 : 404, result);
       } else if (req.url === '/api/human-message') {

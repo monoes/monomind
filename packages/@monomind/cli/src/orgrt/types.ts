@@ -199,7 +199,7 @@ export const RoleSchema = z
       .optional(),
     adapter_config: z
       .object({
-        model: z.string().default('claude-sonnet-4-5'),
+        model: z.string().optional(),
         max_tokens: z.number().optional(),
         /** Reference by name to a provider configured via
          *  `monomind providers configure -p <name> -k <key> -e <endpoint>`.

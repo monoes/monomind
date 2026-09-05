@@ -40,7 +40,7 @@ import {
 } from './fence.js';
 import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
-import { drainInbox } from './inbox.js';
+import { drainInbox, queueMessage } from './inbox.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
@@ -312,6 +312,16 @@ export interface RunningOrg {
   fences?: Map<string, RoleFence>;
 }
 
+/** Bug 4: number of roles for this org that are actually spawned and running
+ *  right now — the live count run_config.max_concurrent_agents caps. A role
+ *  that crashed or ended no longer counts, so a slot frees up automatically
+ *  the moment that happens; nothing needs to explicitly decrement a counter. */
+export function activeRoleCount(org: RunningOrg): number {
+  let n = 0;
+  for (const rt of org.agents.values()) if (rt.status === 'running') n++;
+  return n;
+}
+
 export interface DaemonOpts {
   queryFn?: typeof query;
   /** Explicit agent runner (takes precedence over everything). When unset,
@@ -354,6 +364,12 @@ export class OrgDaemon {
   /** @internal */ private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
   /** @internal */ private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
   /** @internal */ stopping = new Map<string, Promise<void>>();
+  /** @internal Bug 2 (TOCTOU race): names currently reserved by an in-flight
+   *  startOrg() call, from the synchronous existence check through
+   *  registration in `orgs`. Closes the window where two concurrent
+   *  startOrg(name) calls could both pass the `orgs.has(name)` check before
+   *  either registered and spawn duplicate runs. */
+  /** @internal */ startingOrgs = new Set<string>();
   /** @internal */ approvals = new Map<
     string,
     Array<{
@@ -522,7 +538,36 @@ export class OrgDaemon {
     // run's worktree path while it's still being force-removed.
     const inflightStop = this.stopping.get(name);
     if (inflightStop) await inflightStop;
+    // Bug 2 (TOCTOU race): this existence check is synchronous, but the real
+    // registration into `this.orgs` doesn't happen until deep inside
+    // startOrgInner, after several genuine `await` points (the provider
+    // validation dynamic import, `git worktree add` for workspace:
+    // 'worktree'). Two concurrent startOrg(name) calls — e.g. the
+    // scheduler's tick, the runfile poll loop, and autoWake firing close
+    // together — could each pass this check before either registered,
+    // spawning two duplicate runs with separate budget/policy counters that
+    // both write the same shared per-org files. Reserve the name in
+    // `startingOrgs` synchronously, in the same tick as the check, so a
+    // second concurrent call sees the reservation and is rejected instead of
+    // racing ahead to spawn a duplicate.
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
+    if (this.startingOrgs.has(name)) throw new Error(`org ${name} already starting`);
+    this.startingOrgs.add(name);
+    try {
+      return await this.startOrgInner(name, taskOverride, options);
+    } finally {
+      this.startingOrgs.delete(name);
+    }
+  }
+
+  /** The actual startOrg implementation. Split out of startOrg() so the
+   *  reservation guard above runs synchronously, before any `await` in here —
+   *  see the bug 2 comment in startOrg(). */
+  private async startOrgInner(
+    name: string,
+    taskOverride?: string,
+    options?: { resume?: boolean },
+  ): Promise<RunningOrg> {
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
 
@@ -673,6 +718,10 @@ export class OrgDaemon {
     // boss that's genuinely out of ideas can loop forever making zero
     // progress without ever tripping the watchdog.
     let lastToolActivity = 0;
+    // Org-wide budget ceiling (bug 1): tracks whether run_config.budget_tokens
+    // has already been enforced this run, so the close-all-mailboxes sweep
+    // below only fires once instead of on every subsequent usage event.
+    let orgBudgetClosed = false;
     bus.subscribe((e) => {
       const slim: BusEvent =
         e.data?.content != null ? { ...e, data: { ...e.data, content: undefined } } : e;
@@ -710,6 +759,34 @@ export class OrgDaemon {
           const cost = Number((e.data as { cost_usd?: number }).cost_usd ?? 0);
           if (Number.isFinite(cost)) {
             runtime.metrics.costUsd += cost;
+          }
+        }
+      }
+      // Bug 1: run_config.budget_tokens is an org-wide ceiling, not just a
+      // per-role one — a role's explicit budget_tokens override lets IT spend
+      // more without raising what every other role can spend, so nothing
+      // upstream of this ever summed real usage across the whole roster and
+      // stopped the org when the declared total was reached. Mirror the
+      // per-role budget-exhausted handling (session.ts's mailbox.close('token-budget'))
+      // at the org level: once the sum of every role's PolicyEngine.usage
+      // reaches the ceiling, close every mailbox and stop lazy-spawning new
+      // ones so the org can't keep spending past its declared cap.
+      if (e.type === 'usage' && !orgBudgetClosed) {
+        const orgBudget = def.run_config.budget_tokens;
+        if (orgBudget != null) {
+          let orgUsage = 0;
+          for (const rt of running.agents.values()) orgUsage += rt.policy.usage;
+          if (orgUsage >= orgBudget) {
+            orgBudgetClosed = true;
+            running.pendingRoles?.clear(); // prevent lazy spawns after the org budget is exhausted
+            for (const rt of running.agents.values()) {
+              if (!rt.mailbox.isClosed) rt.mailbox.close('token-budget');
+            }
+            bus.emit({
+              type: 'status',
+              reason: 'org-budget-exhausted',
+              msg: `org-wide token budget exhausted (${orgUsage}/${orgBudget}) — closing all roles`,
+            });
           }
         }
       }
@@ -775,9 +852,21 @@ export class OrgDaemon {
     if (roleFences.size > 0) running.fences = roleFences;
 
     // Even-split budget; a role's own budget_tokens overrides it (roleTokenBudget).
-    const perRoleBudget = Math.floor(
-      (def.run_config.budget_tokens ?? 1_000_000) / def.roles.length,
-    );
+    // Bug 1: roles WITH an explicit override spend on top of the even split
+    // rather than out of it, so the roster's ceilings could sum to well over
+    // the declared org-wide budget (e.g. 4 roles @ 250k + one role overridden
+    // to 2M = 2.75M achievable against a declared 1M cap). Subtract the sum of
+    // every role's explicit override from the org-wide budget first, then
+    // split only the remainder among the roles WITHOUT an override, so the
+    // static split is honest about what's left. (Live usage is still tracked
+    // and enforced as a real ceiling above, independent of this static split.)
+    const orgBudgetTokens = def.run_config.budget_tokens ?? 1_000_000;
+    const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
+    const unoverriddenRoleCount = def.roles.filter((r) => r.budget_tokens == null).length;
+    const perRoleBudget =
+      unoverriddenRoleCount > 0
+        ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
+        : 0;
     // Single boss-selection rule for kickoff AND org_complete gating — the
     // session layer previously keyed the tool on reports_to===null while the
     // kickoff went to (type==='boss' || reports_to===null || roles[0]), so a
@@ -801,7 +890,6 @@ export class OrgDaemon {
     // and ungated — the org has no coordinator at all without it, so gating it
     // behind host memory pressure would make the whole org fail to start over a
     // condition workers are specifically designed to ride out.
-    const _limits = getResourceLimits();
 
     // Extracted so a role that fails its gate check can be spawned later by
     // scheduleDeferredSpawn() once resources free up, without re-running the
@@ -1343,6 +1431,17 @@ export class OrgDaemon {
           // A pending gate means the org is legitimately waiting for human input
           const pendingGates = this.readGates(name).gates.filter((g) => g.status === 'pending');
           if (pendingGates.length > 0) return;
+          // Bug 3: a pending ask_human question is the same kind of legitimate
+          // wait as a pending gate — askHuman()'s receipt tells the role to end
+          // its turn and wait for the resolution, so a role that follows that
+          // instruction and goes quiet looks identical to a genuinely stalled
+          // agent. Without this check the watchdog nudges (and, after enough
+          // nudges, idle-stops) an org that's simply waiting on a human answer
+          // that's already on its way.
+          const pendingQuestions = questionOps
+            .readQuestions(this.root, name)
+            .questions.filter((q) => q.answer === null);
+          if (pendingQuestions.length > 0) return;
           // Auto-resume any task whose org_task_block time has passed: flip it
           // back to 'running' and re-push it into the assignee's mailbox, same
           // as a fresh dispatch. This IS real activity, so fall through to the
@@ -1447,8 +1546,18 @@ export class OrgDaemon {
       // queueMessage had already reported them accepted.
       if (!running.agents.has(msg.toRole) && running.pendingRoles?.has(msg.toRole)) {
         const pending = running.pendingRoles.get(msg.toRole)!;
-        running.pendingRoles.delete(msg.toRole);
-        running.spawnRole?.(pending);
+        // Bug 4: don't spawn past run_config.max_concurrent_agents. Requeue
+        // this message (queueMessage, not a silent drop) and defer the spawn
+        // the same way a concurrency-gated lazy spawn defers elsewhere.
+        const concurrencyLimit = def.run_config.max_concurrent_agents;
+        if (concurrencyLimit != null && activeRoleCount(running) >= concurrencyLimit) {
+          running.pendingRoles.delete(msg.toRole);
+          queueMessage(this.root, name, msg);
+          this.scheduleConcurrencyDeferredSpawn(name, running, pending, running.spawnRole!);
+        } else {
+          running.pendingRoles.delete(msg.toRole);
+          running.spawnRole?.(pending);
+        }
       }
       const agent = running.agents.get(msg.toRole);
       if (agent && !agent.mailbox.isClosed) {
@@ -1912,8 +2021,9 @@ export class OrgDaemon {
     fromQualified: string,
     subject: string,
     body: string,
+    fromCredential?: string,
   ): { ok: true; receipt: string } | { ok: false; error: string } {
-    return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body);
+    return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body, fromCredential);
   }
   private mailBody(
     orgName: string,
@@ -1941,6 +2051,18 @@ export class OrgDaemon {
     spawnRole: (role: OrgRole) => void,
   ): void {
     scheduler.scheduleDeferredSpawn(this, name, running, role, spawnRole);
+  }
+  /** Bug 4: mirrors scheduleDeferredSpawn, but for a role deferred because the
+   *  org is already at run_config.max_concurrent_agents rather than under host
+   *  resource pressure — see scheduleConcurrencyDeferredSpawn's doc comment. */
+  /** @internal */
+  scheduleConcurrencyDeferredSpawn(
+    name: string,
+    running: RunningOrg,
+    role: OrgRole,
+    spawnRole: (role: OrgRole) => void,
+  ): void {
+    scheduler.scheduleConcurrencyDeferredSpawn(this, name, running, role, spawnRole);
   }
 
   // org-memory.ts
