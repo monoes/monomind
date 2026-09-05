@@ -505,11 +505,13 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
     if (toolName === 'Bash' && bashPrefixes.length > 0 && typeof input.command === 'string') {
       const cmd = input.command.trimStart();
       const matchesPrefix = bashPrefixes.some((p) => cmd === p || cmd.startsWith(`${p} `));
-      if (matchesPrefix && !hasUnsafeShellSyntax(cmd)) return { behavior: 'allow' as const, updatedInput: input };
+      if (matchesPrefix && !hasUnsafeShellSyntax(cmd))
+        return { behavior: 'allow' as const, updatedInput: input };
       if (matchesPrefix)
         return {
           behavior: 'deny' as const,
-          message: 'Bash command contains shell metacharacters (;, &, |, `, $(, <() — only a single literal invocation is allowed, no chaining/substitution/redirection.',
+          message:
+            'Bash command contains shell metacharacters (;, &, |, `, $(, <() — only a single literal invocation is allowed, no chaining/substitution/redirection.',
         };
     }
     return {

@@ -41,7 +41,6 @@ export function generateSettings(options: InitOptions): object {
     deny: ['Read(./.env)', 'Read(./.env.*)'],
   };
 
-
   // Note: Claude Code expects 'model' to be a string, not an object
   // Model preferences are stored in monomind settings instead
   // settings.model = 'claude-sonnet-4-5-20250929'; // Uncomment if you want to set a default model
