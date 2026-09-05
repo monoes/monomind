@@ -124,6 +124,41 @@ function liveServeDaemonPid(cwd: string): number | null {
   }
 }
 
+/** Result of {@link checkServeLock}. */
+export type ServeLockCheck =
+  | { ok: true; staleHeartbeatRemoved: boolean }
+  | { ok: false; pid: number };
+
+/** Mutual-exclusion check for `org serve` startup.
+ *
+ *  Two `org serve` processes started against the same project root have zero
+ *  visibility into each other — each builds its own in-memory `OrgDaemon` and
+ *  independently decides which orgs are "due now", so both can call
+ *  `daemon.startOrg(name)` for the same org and have both processes write to
+ *  the same on-disk state (runtime.json, decisions.jsonl, history.jsonl,
+ *  .mail/) at once. `liveServeDaemonPid` already knows how to read this
+ *  project's serve-heartbeat.json and tell a live daemon's heartbeat from a
+ *  stale one (dead pid, or aged past a few missed 30s beats) — reused here
+ *  as the actual pidfile lock, rather than inventing a second file, since it
+ *  already IS a pidfile (pid + timestamp, written at startup and every
+ *  heartbeat, removed on clean shutdown by `daemon.clearHeartbeat()`).
+ *
+ *  Call this before the daemon/server/scheduler are constructed, so a
+ *  refusal never opens a port, binds a broker lease, or touches any org's
+ *  state. */
+export function checkServeLock(cwd: string): ServeLockCheck {
+  const owner = liveServeDaemonPid(cwd);
+  if (owner != null) return { ok: false, pid: owner };
+  // liveServeDaemonPid() has already ruled out a live owner — any heartbeat
+  // file still on disk here is stale (dead pid, or a SIGKILLed daemon that
+  // never reached clearHeartbeat()). Remove it so it can't be misread by
+  // `org run`/`org status` before this daemon's own writeHeartbeat() lands.
+  const heartbeatPath = join(cwd, '.monomind', 'serve-heartbeat.json');
+  const staleHeartbeatRemoved = existsSync(heartbeatPath);
+  if (staleHeartbeatRemoved) rmSync(heartbeatPath, { force: true });
+  return { ok: true, staleHeartbeatRemoved };
+}
+
 const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // Org runs skip local embeddings entirely — on some machines
   // @huggingface/transformers' native ONNX runtime crashes the whole
@@ -1167,6 +1202,31 @@ WantedBy=default.target
 };
 
 const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  // Mutual exclusion: refuse to start a second `org serve` for this project
+  // root. Checked before anything else so a refusal never opens a port,
+  // registers a broker lease, or starts a scheduled org that a live daemon
+  // is already running — see checkServeLock's header for the failure mode
+  // this prevents.
+  const lock = checkServeLock(ctx.cwd);
+  if (!lock.ok) {
+    log(
+      output.error(
+        `org serve: another daemon (pid ${lock.pid}) is already running for this project root.`,
+      ),
+    );
+    log(output.info(`  Check what it's doing with: monomind org status`));
+    log(
+      output.info(`  Stop it first (Ctrl-C in its terminal, or "kill ${lock.pid}"), then retry.`),
+    );
+    return { success: false, message: `org serve already running (pid ${lock.pid})` };
+  }
+  if (lock.staleHeartbeatRemoved) {
+    log(
+      output.warning(
+        'org serve: cleaned up a stale heartbeat left by a previous daemon that did not shut down cleanly.',
+      ),
+    );
+  }
   // See the matching comment in runAction — same rationale, same guard.
   process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
   // The embedding-model crash above has a sibling: loadReranker() in
@@ -1187,12 +1247,26 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 
   // Crash handlers: log the reason and persist crashed state so `org status`
-  // shows what happened instead of a silent "pid is gone".
+  // shows what happened instead of a silent "pid is gone". A truly unknown
+  // uncaught exception's blast radius can't always be attributed to one org,
+  // so the whole process still exits (the safety-first default) — but naming
+  // which orgs were in flight at the moment it fired at least tells the
+  // operator the blast radius they actually hit, instead of leaving them to
+  // guess from an error with no org context.
   const crashExit = (label: string, err: unknown): void => {
     try {
-      console.error(`[org serve] ${label}:`, err);
+      const running = daemon.listRunning();
+      console.error(
+        `[org serve] ${label}:`,
+        err,
+        running.length ? `— orgs in flight: ${running.join(', ')}` : '— no orgs were running',
+      );
     } catch {
-      /* stderr gone */
+      try {
+        console.error(`[org serve] ${label}:`, err);
+      } catch {
+        /* stderr gone */
+      }
     }
     daemon.persistCrashStateAll(`${label}: ${err instanceof Error ? err.message : String(err)}`);
     daemon.clearHeartbeat();
@@ -1385,16 +1459,30 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
   }
 
+  // Each poll pass already wraps its own per-org daemon calls in try/catch,
+  // but a synchronous throw from something ahead of those (e.g.
+  // daemon.listRunning(), listOrgConfigFiles()) still rejects the async
+  // function itself. `void`-ing that call, as before, discards the promise
+  // without observing a rejection — which becomes an unhandled rejection at
+  // the process level and takes down every other org's in-flight run via
+  // crashExit, even though the failure was local to one poll pass. .catch()
+  // keeps it a per-pass, logged failure instead.
   const stopPoll = setInterval(() => {
-    void pollStopfiles(ctx.cwd, daemon);
+    pollStopfiles(ctx.cwd, daemon).catch((err) => {
+      console.error('[org serve] stopfile poll failed:', err);
+    });
   }, 2000);
   stopPoll.unref?.();
   const runPoll = setInterval(() => {
-    void pollRunfiles(ctx.cwd, daemon);
+    pollRunfiles(ctx.cwd, daemon).catch((err) => {
+      console.error('[org serve] runfile poll failed:', err);
+    });
   }, 2000);
   runPoll.unref?.();
   const reloadPoll = setInterval(() => {
-    void pollReloadfiles(ctx.cwd, daemon);
+    pollReloadfiles(ctx.cwd, daemon).catch((err) => {
+      console.error('[org serve] reloadfile poll failed:', err);
+    });
   }, 2000);
   reloadPoll.unref?.();
 
