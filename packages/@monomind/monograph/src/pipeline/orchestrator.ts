@@ -6,6 +6,7 @@ import { ExtractionCache } from '../cache/extraction-cache.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
 import { closeDb, openDb } from '../storage/db.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
+import { isWithinScope, readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
 import { crossFilePhase } from './phases/cross-file.js';
@@ -156,6 +157,17 @@ async function buildAsyncLocked(
 
   const db = openDb(dbPath);
 
+  // Source-scope continuity (issue: a code-only auto-refresh wiped every
+  // previously-indexed Document node). A caller that doesn't state a scope
+  // inherits whatever the index was last built with, so a refresh can never
+  // silently narrow coverage; an explicit `codeOnly` from the caller still wins.
+  const storedScope = readIndexScope(db);
+  if (options.codeOnly === undefined && storedScope !== null) {
+    fullOptions.codeOnly = storedScope === 'code';
+  }
+  const activeScope = scopeForOptions(fullOptions.codeOnly);
+  options.onProgress?.({ phase: 'scope', message: `Index scope: ${activeScope}` });
+
   // The whole build is one SQL transaction: a phase throwing (e.g. issue
   // #40's FK violation) used to leave whatever earlier phases had already
   // autocommitted sitting in the DB, silently corrupting the index into a
@@ -224,6 +236,12 @@ async function buildAsyncLocked(
     // (ctx.allFilesCached === true), a file may have been deleted from disk between
     // builds, which produces zero cache misses but still leaves ghost rows in the DB
     // unless we compare the DB's known file set against the current on-disk set.
+    //
+    // The sweep is confined to the current build's source domain (`activeScope`).
+    // A narrowed build never looked at files outside its domain, so their absence
+    // from `filePaths` says nothing about whether they still exist on disk —
+    // deleting those rows is how a code-only refresh used to erase every Document
+    // node in the graph.
     const scanOut = outputs.get('scan') as { filePaths: string[] } | undefined;
     if (scanOut) {
       const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
@@ -233,7 +251,7 @@ async function buildAsyncLocked(
         }[]
       )
         .map((r) => r.file_path)
-        .filter((f) => !liveFiles.has(resolve(ctx.repoPath, f)));
+        .filter((f) => isWithinScope(f, activeScope) && !liveFiles.has(resolve(ctx.repoPath, f)));
       if (staleFiles.length > 0) {
         const deleteStale = db.transaction((files: string[]) => {
           const deleteEdges = db.prepare(`
@@ -298,6 +316,7 @@ async function buildAsyncLocked(
     db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(
       new Date().toISOString(),
     );
+    writeIndexScope(db, activeScope);
     db.exec('COMMIT');
 
     // Skip expensive report regeneration when all files were cached (nothing changed) —

@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Database from 'better-sqlite3';
 import type { Application } from 'express';
+import { type IndexScope, readIndexScope } from '../pipeline/index-scope.js';
 import { ftsSearch } from '../storage/fts-store.js';
 import { globalJobRegistry } from './async-jobs.js';
 
@@ -55,6 +56,8 @@ export interface StatsData {
   edgeCount: number;
   communityCount: number;
   buildAt: string | null;
+  /** Source-selection domain the index was built with; null for indexes built before it was recorded. */
+  scope: IndexScope | null;
 }
 
 // ── Query helpers (testable in isolation) ─────────────────────────────────────
@@ -206,6 +209,7 @@ export function queryStats(db: Database.Database): StatsData {
     edgeCount,
     communityCount,
     buildAt: metaRow?.value ?? null,
+    scope: readIndexScope(db),
   };
 }
 
