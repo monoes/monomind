@@ -309,6 +309,40 @@ describe('KimiCodeAgentRunner streaming', () => {
     }
   }, 15000);
 
+  it('threads canUseTool through to executeToolCall — a deny decision blocks the real handler', async () => {
+    const { bin, logFile, tmpDir } = makeFakeKimi(FAKE_KIMI_FENCE_SCRIPT);
+    try {
+      const handled: string[] = [];
+      const canUseToolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
+      const args = makeRunArgs(bin, tmpDir, {
+        tools: [{
+          name: 'org_echo',
+          description: 'echo text back',
+          schema: { text: z.string() },
+          handler: async (a) => { handled.push(String(a.text)); return { text: `echo:${a.text}` }; },
+        }],
+        canUseTool: async (name, input) => {
+          canUseToolCalls.push({ name, input });
+          return { behavior: 'deny', message: 'blocked by policy' };
+        },
+      });
+      await collect(new KimiCodeAgentRunner(bin), args);
+
+      // canUseTool was consulted with the parsed tool call's name + args…
+      expect(canUseToolCalls).toEqual([{ name: 'org_echo', input: { text: 'hi' } }]);
+      // …and its deny decision short-circuited BEFORE the real handler ran.
+      expect(handled).toEqual([]);
+
+      // The denial (not the handler's echo result) is what got fed back as
+      // the next prompt.
+      const invocations = fs.readFileSync(logFile, 'utf-8').trim().split('\n').map((l) => JSON.parse(l) as string[]);
+      expect(invocations[1][1]).toContain('denied by policy');
+      expect(invocations[1][1]).not.toContain('echo:hi');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+
   it('captures the session id from stderr when stdout never carries one', async () => {
     const { bin, tmpDir } = makeFakeKimi(FAKE_KIMI_STDERR_SID_SCRIPT);
     try {
