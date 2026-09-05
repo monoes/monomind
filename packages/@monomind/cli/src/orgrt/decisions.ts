@@ -357,26 +357,66 @@ export function dagCompleteTask(
 export function dispatchReadyTasks(_daemon: OrgDaemon, _org: string, running: RunningOrg): void {
   if (!running.taskDag) return;
   for (const task of running.taskDag.ready()) {
-    running.taskDag.markRunning(task.id);
+    // Resolve the assignee BEFORE marking the task running: a task's status
+    // must not flip to 'running' unless we are actually about to hand it to
+    // a live recipient — otherwise it's stuck there forever with no way for
+    // anything else in this codebase to detect the orphaned state. Mirrors
+    // the `agent && !agent.mailbox.isClosed` guard used at every other
+    // `.mailbox.push(` call site in this file/daemon.ts (e.g. approvals.ts:130).
     const agent = running.agents.get(task.assignee);
-    if (agent) {
+    const pending = running.pendingRoles?.get(task.assignee);
+    if (agent && !agent.mailbox.isClosed) {
+      running.taskDag.markRunning(task.id);
       agent.mailbox.push(`[task:${task.id}] ${task.title}`);
-    } else if (running.pendingRoles?.has(task.assignee)) {
-      const pending = running.pendingRoles.get(task.assignee)!;
-      running.pendingRoles.delete(task.assignee);
+      running.bus.emit({
+        type: 'status',
+        from: 'dag',
+        reason: 'task-dispatched',
+        msg: `task ${task.id} dispatched to ${task.assignee}`,
+        data: { taskId: task.id, assignee: task.assignee },
+      });
+    } else if (agent) {
+      // Assignee resolves to a role that's crashed or otherwise closed its
+      // mailbox — pushing would silently no-op. Leave the task 'ready' (not
+      // 'running') so it stays visible and retriable instead of stuck in
+      // permanent limbo with a false "dispatched" audit trail.
+      running.bus.emit({
+        type: 'audit',
+        from: 'dag',
+        reason: 'dispatch-recipient-unavailable',
+        msg: `task ${task.id} not dispatched — assignee "${task.assignee}" is crashed or unreachable`,
+        data: { taskId: task.id, assignee: task.assignee },
+      });
+    } else if (pending) {
+      running.pendingRoles?.delete(task.assignee);
+      running.taskDag.markRunning(task.id);
       running.spawnRole?.(pending);
       setTimeout(() => {
         const spawned = running.agents.get(task.assignee);
         if (spawned) spawned.mailbox.push(`[task:${task.id}] ${task.title}`);
       }, 500);
+      running.bus.emit({
+        type: 'status',
+        from: 'dag',
+        reason: 'task-dispatched',
+        msg: `task ${task.id} dispatched to ${task.assignee}`,
+        data: { taskId: task.id, assignee: task.assignee },
+      });
+    } else {
+      // No live agent and no pending role for this assignee — it doesn't
+      // resolve to anything (typo at task-creation time, or the role was
+      // removed from the org definition since). Leave the task 'ready'
+      // instead of marking it 'running' with no owner: nothing else in this
+      // codebase can detect a "running but no owner" task, so it would be
+      // silently stuck forever with zero observability.
+      running.bus.emit({
+        type: 'audit',
+        from: 'dag',
+        reason: 'dispatch-assignee-unresolved',
+        msg: `task ${task.id} not dispatched — assignee "${task.assignee}" does not resolve to a known agent or role`,
+        data: { taskId: task.id, assignee: task.assignee },
+      });
     }
-    running.bus.emit({
-      type: 'status',
-      from: 'dag',
-      reason: 'task-dispatched',
-      msg: `task ${task.id} dispatched to ${task.assignee}`,
-      data: { taskId: task.id, assignee: task.assignee },
-    });
   }
 }
 

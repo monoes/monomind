@@ -88,4 +88,23 @@ describe('TaskDag', () => {
     const promoted = dag.complete(a.id);
     expect(promoted).toHaveLength(2);
   });
+
+  it('rejects a merge that would create a cycle, leaving the DAG unchanged', () => {
+    const dag = new TaskDag();
+    const a = dag.add('a', 'x');
+    const b = dag.add('b', 'y', [a.id]);
+    const c = dag.add('c', 'z', [b.id]);
+
+    expect(() => dag.merge(a.id, c.id)).toThrow('cycle');
+
+    expect(dag.get(b.id)!.deps).toEqual([a.id]);
+    expect(dag.get(c.id)!.deps).toEqual([b.id]);
+    expect(dag.get(a.id)!.status).toBe('ready');
+    expect(dag.get(b.id)!.status).toBe('pending');
+    expect(dag.get(c.id)!.status).toBe('pending');
+
+    const ready = dag.ready();
+    expect(ready).toHaveLength(1);
+    expect(ready[0].id).toBe(a.id);
+  });
 });

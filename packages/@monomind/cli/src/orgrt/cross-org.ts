@@ -14,6 +14,55 @@ const MAIL_BODY_MAX = 4096;
 /** How much of an oversized body stays inline in the digest. */
 const MAIL_DIGEST_CHARS = 1024;
 
+/** BUG 1 FIX: roles genuinely "in flight" toward spawning — pendingRoles
+ *  entry already consumed but the role not yet in `agents` (including the
+ *  whole resource-pressure deferred-spawn window, which can run for up to
+ *  ~30min via scheduler-integration's scheduleDeferredSpawn retry loop).
+ *  Without this, a message arriving for such a role fell through to
+ *  "unknown recipient" and was silently dropped — only the FIRST message
+ *  that triggered the lazy spawn got queued.
+ *
+ *  Deliberately module-scoped (not a RunningOrg field) so cross-org.ts owns
+ *  the whole lifecycle — mark, self-heal, and TTL — without touching
+ *  daemon.ts's RunningOrg type or scheduler-integration.ts. Keyed by
+ *  "orgName:role"; value is the deferral timestamp used for TTL cleanup so a
+ *  role that never spawns doesn't leak an entry forever. */
+const deferredSpawns = new Map<string, number>();
+const DEFERRED_SPAWN_TTL_MS = 35 * 60_000; // scheduler-integration retries for ~30min before giving up
+
+function deferredKey(orgName: string, role: string): string {
+  return `${orgName}:${role}`;
+}
+
+/** Call once a role's spawn has been kicked off (pendingRoles entry consumed). */
+function markDeferredSpawn(orgName: string, role: string): void {
+  deferredSpawns.set(deferredKey(orgName, role), Date.now());
+}
+
+/** Call once a role's spawn completes synchronously (no deferral needed). */
+function clearDeferredSpawn(orgName: string, role: string): void {
+  deferredSpawns.delete(deferredKey(orgName, role));
+}
+
+/** True if `role` is still genuinely in-flight toward spawning. Self-heals:
+ *  clears the entry if the role already made it into `agents`, or if it's
+ *  been deferred past the TTL (treated as abandoned — stop queuing into a
+ *  spawn that's never coming). */
+function isDeferredSpawn(org: RunningOrg | undefined, orgName: string, role: string): boolean {
+  const key = deferredKey(orgName, role);
+  const deferredAt = deferredSpawns.get(key);
+  if (deferredAt === undefined) return false;
+  if (org?.agents.has(role)) {
+    deferredSpawns.delete(key); // spawn completed since — stale flag
+    return false;
+  }
+  if (Date.now() - deferredAt >= DEFERRED_SPAWN_TTL_MS) {
+    deferredSpawns.delete(key); // never spawned within TTL — avoid leaking/queuing forever
+    return false;
+  }
+  return true;
+}
+
 /**
  * Resolves an org_send `to` address ("role" for same-org, "org:role" for
  * cross-org) into its parts. Centralizes the one addressing rule that
@@ -85,6 +134,7 @@ export async function deliver(
   ) {
     const role = targetOrg.pendingRoles.get(targetRole)!;
     targetOrg.pendingRoles.delete(targetRole);
+    markDeferredSpawn(targetOrgName, targetRole); // BUG 1 FIX: mark in-flight before any await
     spawning.add(targetRole); // Mark as spawning before async work
     // Bug 4: run_config.max_concurrent_agents caps how many roles can run at
     // once — defer the same way the host-resource-pressure check below defers,
@@ -155,6 +205,7 @@ export async function deliver(
       }
     }
     targetOrg.spawnRole?.(role);
+    clearDeferredSpawn(targetOrgName, targetRole); // BUG 1 FIX: spawn completed — no longer in-flight
     spawning.delete(targetRole); // Clear spawning flag after spawn completes
     targetOrg.bus.emit({
       type: 'status',
@@ -204,6 +255,30 @@ export async function deliver(
       });
       daemon.autoWake(targetOrgName);
       return `queued for ${toQualified} (org starting)`;
+    }
+    // BUG 1 FIX: the role's lazy spawn is genuinely in flight (deferred under
+    // resource pressure, pendingRoles already consumed) — queue this message
+    // like the first one that triggered the spawn, instead of falling
+    // through to "unknown recipient" and silently dropping it.
+    if (targetOrg && isDeferredSpawn(targetOrg, targetOrgName, targetRole)) {
+      const queued = queueMessage(daemon.root, targetOrgName, {
+        fromQualified: cross ? `${fromOrg}:${fromRole}` : fromRole,
+        toRole: targetRole,
+        subject,
+        body,
+        ts: Date.now(),
+      });
+      if (!queued) {
+        src?.bus.emit({
+          type: 'audit',
+          from: fromRole,
+          to: toQualified,
+          msg: `queue failed: ${subject}`,
+          reason: 'queue-failed',
+        });
+        return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
+      }
+      return `queued for ${toQualified} (role starting — waiting for resources)`;
     }
     src?.bus.emit({
       type: 'audit',
@@ -403,6 +478,12 @@ async function deliverRemote(
     return `ERROR: unknown recipient "${to}" (no local org, no process on this machine, and no SSH remote configured for "${targetOrgName}")`;
   }
   try {
+    // BUG 2 FIX: attach fromOrg's OWN registered credential as proof of
+    // sender identity — separate from the `x-monomind-cred` header above,
+    // which only proves the caller can reach the RECEIVING daemon, not who
+    // it claims to be. receiveRemote() looks this org up in the same broker
+    // registry and rejects the message if it doesn't match.
+    const fromEntry = lookupOrg(fromOrg, daemon.opts.brokerDir);
     const res = await fetch(`${remote.url}/api/xdeliver`, {
       method: 'POST',
       headers: {
@@ -412,6 +493,7 @@ async function deliverRemote(
       body: JSON.stringify({
         fromOrg,
         fromRole,
+        fromCredential: fromEntry?.credential,
         toOrg: targetOrgName,
         toRole: targetRole,
         subject,
@@ -459,7 +541,22 @@ export function receiveRemote(
   fromQualified: string,
   subject: string,
   body: string,
+  fromCredential?: string,
 ): { ok: true; receipt: string } | { ok: false; error: string } {
+  // BUG 2 FIX: the HTTP auth gate in server.ts (safeCred) only proves the
+  // caller knows this daemon's shared receiving credential — it says nothing
+  // about who the caller claims to be. Anyone holding that one credential
+  // (e.g. another org hosted by the same daemon) could otherwise POST here
+  // claiming any `fromOrg` it liked. Verify the claimed sender actually owns
+  // the credential registered for it in the broker before trusting anything else.
+  const claimedFromOrg = fromQualified.split(':', 1)[0];
+  const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
+  if (!fromEntry?.credential || fromEntry.credential !== fromCredential) {
+    return {
+      ok: false,
+      error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
+    };
+  }
   const org = daemon.orgs.get(toOrg);
   if (!org) {
     // Org not running — queue the message and auto-wake if the def exists
@@ -489,6 +586,7 @@ export function receiveRemote(
   if (!org.agents.has(toRole) && org.pendingRoles?.has(toRole) && !spawning.has(toRole)) {
     const role = org.pendingRoles.get(toRole)!;
     org.pendingRoles.delete(toRole);
+    markDeferredSpawn(toOrg, toRole); // BUG 1 FIX: mark in-flight before any await
     spawning.add(toRole); // Mark as spawning before async work
     // Bug 4: same max_concurrent_agents gate as deliver() — checked before the
     // host-resource-pressure gate below (prevents bypass in cross-process delivery).
@@ -552,12 +650,35 @@ export function receiveRemote(
       };
     }
     org.spawnRole?.(role);
+    clearDeferredSpawn(toOrg, toRole); // BUG 1 FIX: spawn completed — no longer in-flight
     spawning.delete(toRole); // Clear spawning flag after spawn completes
     org.bus.emit({
       type: 'status',
       from: toRole,
       msg: `lazy-spawned on remote delivery from ${fromQualified}`,
     });
+  }
+  // BUG 1 FIX: same in-flight check as deliver() — a second cross-process
+  // message arriving while the role's spawn is deferred under resource
+  // pressure must queue, not report "role not found".
+  if (isDeferredSpawn(org, toOrg, toRole)) {
+    const queued = queueMessage(daemon.root, toOrg, {
+      fromQualified,
+      toRole,
+      subject,
+      body,
+      ts: Date.now(),
+    });
+    if (!queued) {
+      return {
+        ok: false,
+        error: `could not queue message for ${toOrg}:${toRole} (disk full or permissions)`,
+      };
+    }
+    return {
+      ok: true,
+      receipt: `queued for ${toOrg}:${toRole} (role starting — waiting for resources)`,
+    };
   }
   const agent = org.agents.get(toRole);
   if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };

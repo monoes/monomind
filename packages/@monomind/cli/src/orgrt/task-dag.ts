@@ -207,6 +207,13 @@ export class TaskDag {
     if (!target) throw new Error(`task "${targetId}" not found`);
     if (sourceId === targetId) throw new Error(`cannot merge a task into itself`);
 
+    const sourceStatus = source.status;
+    const sourceMergedInto = source.mergedInto;
+    const sourceCompletedAt = source.completedAt;
+    const targetStatus = target.status;
+    const targetDeps = [...target.deps];
+    const otherDeps = new Map<string, string[]>();
+
     source.status = 'merged';
     source.mergedInto = targetId;
     source.completedAt = Date.now();
@@ -218,9 +225,23 @@ export class TaskDag {
     for (const t of this.tasks.values()) {
       if (t.id === sourceId || t.id === targetId) continue;
       if (t.deps.includes(sourceId)) {
+        otherDeps.set(t.id, [...t.deps]);
         t.deps = t.deps.filter((d) => d !== sourceId);
         if (!t.deps.includes(targetId)) t.deps.push(targetId);
       }
+    }
+
+    if (this.hasCycle()) {
+      source.status = sourceStatus;
+      source.mergedInto = sourceMergedInto;
+      source.completedAt = sourceCompletedAt;
+      target.status = targetStatus;
+      target.deps = targetDeps;
+      for (const [id, deps] of otherDeps) {
+        const t = this.tasks.get(id);
+        if (t) t.deps = deps;
+      }
+      throw new Error(`merging "${sourceId}" into "${targetId}" would create a cycle`);
     }
 
     if (

@@ -1,7 +1,8 @@
 /**
- * Dashboard server (src/ui/server.mjs) — security and cost-reporting correctness.
+ * Dashboard server (src/ui/server.mjs, incl. the org routes it mounts from
+ * src/ui/routes-org.mjs) — security and cost-reporting correctness.
  *
- * Three defects are pinned here:
+ * Five defects are pinned here:
  *
  *   (a) No Host-header validation. The server binds 127.0.0.1 and GET / embeds a
  *       live auth credential in the HTML. A page on attacker.example whose DNS
@@ -23,9 +24,21 @@
  *       ran. Verified by hand: a >24h-old .warm.jsonl was left untouched (no
  *       .cold.jsonl.gz) after POSTing a run:complete event.
  *
+ *   (d) POST /api/orgs/:name/stop wrote a marker file at
+ *       .monomind/orgs/.stops/<name>.stop — a path nothing in the CLI/daemon
+ *       ever polled (org run polls .monomind/orgs/<name>/stop; org serve's
+ *       pollStopfiles() watches the same path), so the dashboard's "Stop org"
+ *       button never actually stopped a running org.
+ *
+ *   (e) GET /api/org/:name/artifact allowed reading any path under the project
+ *       root or any data/known-projects.json entry, with no restriction to
+ *       .monomind — any dashboard client could read .env, .git/config, or other
+ *       arbitrary project files via this route.
+ *
  * The Host and compaction cases run against a REAL bound server on a real socket
  * — a unit test of the predicate alone would not prove the check is actually
- * wired ahead of the open routes, which is the whole point of (a).
+ * wired ahead of the open routes, which is the whole point of (a). (d) and (e)
+ * do the same for the org routes.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -279,4 +292,117 @@ describe('(c) cold-tier compaction actually runs', () => {
     // Warm file is removed once cold is written.
     expect(existsSync(warm)).toBe(false);
   }, 20_000);
+});
+
+describe('(d) POST /api/orgs/:name/stop writes the marker file the real poll loops watch', () => {
+  // `org run`'s poll loop and `org serve`'s pollStopfiles() (commands/org.ts) both
+  // watch .monomind/orgs/<name>/stop. The dashboard used to write
+  // .monomind/orgs/.stops/<name>.stop instead — a path nothing ever polled, so the
+  // "Stop org" button was a no-op against a real running org.
+  it('writes .monomind/orgs/<name>/stop, not the old .stops/<name>.stop path', async () => {
+    const orgName = 'stoptest';
+    const orgsDir = join(projectDir, '.monomind', 'orgs');
+    mkdirSync(orgsDir, { recursive: true });
+    writeFileSync(
+      join(orgsDir, `${orgName}.json`),
+      JSON.stringify({ name: orgName, goal: 'test org', roles: [] }),
+    );
+
+    const r = await fetch(`${baseUrl}/api/orgs/${orgName}/stop`, {
+      method: 'POST',
+      headers: auth(),
+    });
+    expect(r.status).toBe(200);
+
+    const realStopFile = join(orgsDir, orgName, 'stop');
+    expect(
+      existsSync(realStopFile),
+      'the path org run / org serve actually poll must exist after Stop',
+    ).toBe(true);
+
+    const legacyStopFile = join(orgsDir, '.stops', `${orgName}.stop`);
+    expect(existsSync(legacyStopFile), 'must not write the old, never-polled path').toBe(false);
+  });
+
+  it("GET /api/org/:name's running status flips to false at the same path Stop writes", async () => {
+    const orgName = 'stoptest2';
+    const orgsDir = join(projectDir, '.monomind', 'orgs');
+    mkdirSync(orgsDir, { recursive: true });
+    writeFileSync(
+      join(orgsDir, `${orgName}.json`),
+      JSON.stringify({ name: orgName, goal: 'test org', roles: [] }),
+    );
+    // Simulate an active run via runstate so `running` reads true before Stop —
+    // otherwise a false-negative "not running" would pass this test for the
+    // wrong reason (no stopfile checked at all).
+    writeFileSync(
+      join(orgsDir, `${orgName}-runstate.json`),
+      JSON.stringify({ status: 'running', lastEventAt: Date.now() }),
+    );
+
+    const before = await fetch(`${baseUrl}/api/org/${orgName}`, { headers: auth() });
+    expect((await before.json()).running, 'fixture must start running').toBe(true);
+
+    const stopRes = await fetch(`${baseUrl}/api/orgs/${orgName}/stop`, {
+      method: 'POST',
+      headers: auth(),
+    });
+    expect(stopRes.status).toBe(200);
+
+    const after = await fetch(`${baseUrl}/api/org/${orgName}`, { headers: auth() });
+    expect(
+      (await after.json()).running,
+      'status must observe the same stopfile path Stop just wrote',
+    ).toBe(false);
+  });
+});
+
+describe('(e) GET /api/org/:name/artifact is scoped to the org\'s own .monomind/orgs/<name>/ dir', () => {
+  // The endpoint used to allow any path under the project root or any
+  // data/known-projects.json entry, with no restriction to .monomind — any
+  // dashboard client could read .env, .git/config, or other arbitrary project
+  // files via this route.
+  it("serves a file that lives inside the org's own .monomind/orgs/<name>/ directory", async () => {
+    const orgName = 'artifacttest';
+    const orgDir = join(projectDir, '.monomind', 'orgs', orgName);
+    mkdirSync(orgDir, { recursive: true });
+    const legitFile = join(orgDir, 'report.md');
+    writeFileSync(legitFile, 'hello from the org runtime');
+
+    const r = await fetch(
+      `${baseUrl}/api/org/${orgName}/artifact?path=${encodeURIComponent(legitFile)}`,
+      { headers: auth() },
+    );
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.content).toBe('hello from the org runtime');
+  });
+
+  it('rejects a request for the project .env file', async () => {
+    const orgName = 'artifacttest';
+    const envFile = join(projectDir, '.env');
+    writeFileSync(envFile, 'DUMMY_ENV_VALUE=must-not-be-readable-via-artifact-route');
+
+    const r = await fetch(
+      `${baseUrl}/api/org/${orgName}/artifact?path=${encodeURIComponent(envFile)}`,
+      { headers: auth() },
+    );
+    expect(r.status).toBe(403);
+    const body = await r.json();
+    expect(body.error).toBe('path not allowed');
+  });
+
+  it("rejects a request for a sibling org's own data file outside this org's directory", async () => {
+    const orgName = 'artifacttest';
+    const orgsDir = join(projectDir, '.monomind', 'orgs');
+    mkdirSync(orgsDir, { recursive: true });
+    const otherOrgSecrets = join(orgsDir, 'otherorg-secrets.json');
+    writeFileSync(otherOrgSecrets, '{"token":"leak-me-not"}');
+
+    const r = await fetch(
+      `${baseUrl}/api/org/${orgName}/artifact?path=${encodeURIComponent(otherOrgSecrets)}`,
+      { headers: auth() },
+    );
+    expect(r.status).toBe(403);
+  });
 });
