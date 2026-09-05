@@ -1363,6 +1363,29 @@ export const replayAction = async (ctx: CommandContext, name: string): Promise<C
   return { success: true, message: `replayed events from checkpoint ${run} as ${resumed.run}` };
 };
 
+/** PID of a live `org serve` daemon for this project, or null. Mirrors
+ *  runAction's `liveServeDaemonPid` (commands/org.ts, ~line 107) — duplicated
+ *  rather than imported because that function isn't exported there and this
+ *  file is scoped to not touch org.ts. Liveness is confirmed against the pid
+ *  itself, not just heartbeat-file presence, since a SIGKILLed daemon leaves
+ *  a stale heartbeat behind; a stamp older than a few beats (daemon beats
+ *  every 30s) means it's gone or wedged. */
+function liveServeDaemonPid(cwd: string): number | null {
+  try {
+    const hb = JSON.parse(readFileSync(join(cwd, '.monomind', 'serve-heartbeat.json'), 'utf8')) as {
+      pid?: number;
+      updatedAt?: string;
+    };
+    if (typeof hb.pid !== 'number' || hb.pid === process.pid) return null;
+    const age = Date.now() - Date.parse(hb.updatedAt ?? '');
+    if (!Number.isFinite(age) || age > 3 * 60_000) return null;
+    process.kill(hb.pid, 0); // throws if the process is gone
+    return hb.pid;
+  } catch {
+    return null;
+  }
+}
+
 /** `org resume-from <org>` — resume live execution from the org's persisted
  *  checkpoint (runtime.json): restores mailbox queues, policy/token counters,
  *  and session state, subject to checkpoint TTL and checksum validation. Unlike
@@ -1371,6 +1394,38 @@ export const resumeFromAction = async (
   ctx: CommandContext,
   name: string,
 ): Promise<CommandResult> => {
+  // A live `org serve` daemon (or another `org run`) may already own this
+  // org's execution. Building a fresh in-process OrgDaemon and resuming
+  // unconditionally — as this action used to — puts two processes on one
+  // runtime.json/broker lease and spawns a second set of role sessions
+  // against the same shared git workspace, since the fresh daemon's
+  // duplicate-start guard (`this.orgs.has(name)`) is scoped to its own empty
+  // in-memory map and never sees the other process. `runAction` (org.ts)
+  // already guards this by handing the request to the live daemon via a
+  // runfile instead of racing it — but that runfile mechanism only carries a
+  // plain "start" request (pollRunfiles/org.ts calls `daemon.startOrg(name,
+  // task)` with no resume option), so it can't be reused for a resume
+  // request without also touching org.ts. Refuse instead of racing the live
+  // daemon.
+  const serveOwner = liveServeDaemonPid(ctx.cwd);
+  if (serveOwner != null) {
+    log(
+      output.error(
+        `org ${name}: a live serve daemon (pid ${serveOwner}) already owns this project's orgs — refusing to start a second execution here.`,
+      ),
+    );
+    log(
+      output.info(
+        `Check it against the live daemon instead: monomind org status ${name} / org decisions ${name} / org gates ${name}. ` +
+          `To resume from checkpoint yourself, stop the live daemon first (monomind org stop) or let it pick the org back up on its own schedule.`,
+      ),
+    );
+    return {
+      success: false,
+      message: `org ${name}: already owned by live serve daemon (pid ${serveOwner}) — refused to avoid a duplicate execution`,
+    };
+  }
+
   log(output.info(`Resuming org ${name} from checkpoint...`));
 
   const { OrgDaemon } = await import('../orgrt/daemon.js');
