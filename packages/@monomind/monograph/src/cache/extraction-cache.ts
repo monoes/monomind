@@ -10,8 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import type { MonographEdge, MonographNode } from '../types.js';
-import * as monographTypes from '../types.js';
+import { type MonographEdge, type MonographNode, SYMBOL_ID_VERSION } from '../types.js';
 
 /**
  * Bump this whenever the parser/extractor output format changes in a way that
@@ -22,15 +21,13 @@ import * as monographTypes from '../types.js';
  */
 export const EXTRACTION_CACHE_VERSION = 1;
 
-/**
- * Symbol-identity scheme version, owned by `../types.js`. Cached nodes/edges are
- * keyed by symbol ID, so an identity-scheme change makes every cached entry's
- * IDs incompatible with freshly-parsed ones — the cache must invalidate with it.
- * Read defensively so this module still compiles (and simply pins to 0) while
- * the constant is being introduced.
- */
-export const SYMBOL_ID_VERSION: number =
-  (monographTypes as unknown as { SYMBOL_ID_VERSION?: number }).SYMBOL_ID_VERSION ?? 0;
+// SYMBOL_ID_VERSION is imported from ../types.js, which owns it. Cached
+// nodes/edges are keyed by symbol ID, so an identity-scheme change makes every
+// cached entry's IDs incompatible with freshly-parsed ones — the cache must
+// invalidate with it (see isCurrentVersion below). It is deliberately NOT
+// re-exported here: src/index.ts does `export *` from both this module and
+// ../types.js, and exporting the same name from both is an ambiguous re-export
+// (TS2308).
 
 export interface CacheEntry {
   fileHash: string;
