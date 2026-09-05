@@ -79,6 +79,7 @@ Invoke Skill("mastermind-plan")  ← TERMINAL STATE
 ### Understanding the idea
 
 - Check current project state first (files, docs, recent commits)
+- Check `brain_context` for relevant prior decisions, lessons, or patterns for this domain/project before drafting questions — if it surfaces something relevant (a past constraint, a lesson from a similar feature, a decision already made), say so to the user and let it steer which questions actually need asking. Do not silently re-ask what's already answered in `brain_context`.
 - Before asking detailed questions, assess scope: if the request describes multiple independent subsystems, flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
 - If too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order to build? Then design the first sub-project through the normal flow. Each sub-project gets its own spec → plan → implementation cycle.
 - For appropriately-scoped projects, ask questions one at a time
@@ -88,6 +89,7 @@ Invoke Skill("mastermind-plan")  ← TERMINAL STATE
 
 ### Exploring approaches
 
+- Check `brain_context` for approaches tried (and their outcomes) on similar past work before proposing new ones — prefer what worked, flag what didn't, and say when a proposed approach is informed by recalled history
 - Propose 2-3 different approaches with trade-offs
 - Present options conversationally with your recommendation and reasoning
 - Lead with the recommended option and explain why

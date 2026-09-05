@@ -2,7 +2,7 @@
 description: mastermind brain command (monomind)
 ---
 
-<!-- Mastermind brain management — inspect, compact, refresh, and control the three-tier business memory (LanceDB + Monograph) -->
+<!-- Mastermind brain management — inspect, compact, refresh, and control the three-tier business memory (memory store + Monograph) -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing.
 
@@ -15,9 +15,9 @@ Parse `$ARGUMENTS` to determine the sub-command and flags.
 Show the current state of all brain tiers across all domains.
 
 For each domain that has data, call:
-- `mcp__monomind__lancedb_health` on namespace `mastermind:<domain>:raw` → Tier 1 entry count, last write date, archived count
-- `mcp__monomind__lancedb_health` on namespace `mastermind:<domain>:weekly` → Tier 2 summary count, last compaction date
-- `mcp__monomind__lancedb_health` on namespace `mastermind:principles` → Tier 3 principle count
+- `mcp__monomind__memory_health` on namespace `mastermind:<domain>:raw` → Tier 1 entry count, last write date, archived count
+- `mcp__monomind__memory_health` on namespace `mastermind:<domain>:weekly` → Tier 2 summary count, last compaction date
+- `mcp__monomind__memory_health` on namespace `mastermind:principles` → Tier 3 principle count
 
 Display as a table:
 
@@ -43,9 +43,9 @@ Avg memory score: 0.64 | Entries below archive threshold: 3
 Force immediate weekly distillation across all domains (or `--domain <name>` for one domain).
 
 For each domain (or the specified domain):
-1. Retrieve all Tier 1 raw entries since last compaction via `mcp__monomind__lancedb_hierarchical-recall` (namespace `mastermind:<domain>:raw`)
+1. Retrieve all Tier 1 raw entries since last compaction via `mcp__monomind__memory_hierarchical-recall` (namespace `mastermind:<domain>:raw`)
 2. Produce per-domain weekly summary: synthesize decisions, patterns, and lessons into ≤300 words
-3. Store to Tier 2 via `mcp__monomind__lancedb_hierarchical-store` (namespace `mastermind:<domain>:weekly`)
+3. Store to Tier 2 via `mcp__monomind__memory_hierarchical-store` (namespace `mastermind:<domain>:weekly`)
 4. Archive Tier 1 entries with score < 0.1 (update metadata: `{ archived: true }`)
 5. Report: "Compacted <domain>: <N> entries → <M> summary, <K> archived"
 
@@ -57,8 +57,8 @@ Re-cluster the knowledge graph for a specific domain and rebuild Tier 3 principl
 
 1. Call `mcp__monomind__monograph_community` for nodes matching `mastermind:<domain>`
 2. For any cluster of 3+ similar nodes: merge into a single principle (LLM synthesis)
-3. Store merged principle: `mcp__monomind__lancedb_hierarchical-store` namespace `mastermind:principles`
-4. For conflicting nodes: add `EXCEPTION` edge via `mcp__monomind__monograph_add_fact`
+3. Store merged principle: `mcp__monomind__memory_hierarchical-store` namespace `mastermind:principles`
+4. For conflicting nodes: add the exception relation via `mcp__monomind__memory_kg_ingest`
 5. Report: "Refreshed <domain>: <N> clusters found, <M> principles updated, <K> exceptions noted"
 
 ---
@@ -67,9 +67,9 @@ Re-cluster the knowledge graph for a specific domain and rebuild Tier 3 principl
 
 Show raw contents of a specific brain tier.
 
-- Tier 1: Call `mcp__monomind__lancedb_hierarchical-recall` on `mastermind:<domain>:raw`, display each entry with its score and date.
-- Tier 2: Call `mcp__monomind__lancedb_hierarchical-recall` on `mastermind:<domain>:weekly`, display summaries with dates.
-- Tier 3: Call `mcp__monomind__lancedb_hierarchical-recall` on `mastermind:principles`, display all principles.
+- Tier 1: Call `mcp__monomind__memory_hierarchical-recall` on `mastermind:<domain>:raw`, display each entry with its score and date.
+- Tier 2: Call `mcp__monomind__memory_hierarchical-recall` on `mastermind:<domain>:weekly`, display summaries with dates.
+- Tier 3: Call `mcp__monomind__memory_hierarchical-recall` on `mastermind:principles`, display all principles.
 
 Default limit: 10. Use `--limit N` to override.
 
@@ -79,7 +79,7 @@ Default limit: 10. Use `--limit N` to override.
 
 Find and archive all brain entries semantically matching the query.
 
-1. Call `mcp__monomind__lancedb_pattern-search` with query text across all mastermind namespaces
+1. Call `mcp__monomind__memory_pattern-search` with query text across all mastermind namespaces
 2. Display matching entries with their scores and domains
 3. Ask: "Archive these N entries? (yes/no)"
 4. If yes: update each entry's metadata to `{ archived: true }`
@@ -92,8 +92,8 @@ Find and archive all brain entries semantically matching the query.
 **Destructive.** Wipes all brain data for a specific domain. Requires `--confirm` flag explicitly — refuse if missing.
 
 If `--confirm` is present:
-1. Delete all Tier 1 entries: `mcp__monomind__memory_delete` on namespace `mastermind:<domain>:raw`
-2. Delete all Tier 2 entries: `mcp__monomind__memory_delete` on namespace `mastermind:<domain>:weekly`
+1. Delete all Tier 1 entries: `npx monomind@latest memory delete --namespace mastermind:<domain>:raw`
+2. Delete all Tier 2 entries: `npx monomind@latest memory delete --namespace mastermind:<domain>:weekly`
 3. Remove domain nodes from Monograph graph
 4. Report: "Reset complete for domain <name>. All memory wiped."
 
