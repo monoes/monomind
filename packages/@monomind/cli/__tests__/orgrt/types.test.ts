@@ -105,6 +105,21 @@ describe('OrgDefSchema', () => {
     expect(def.roles[1].adapter_config?.model).toBe('claude-haiku-4');
   });
 
+  it('omitted adapter_config.model stays undefined instead of defaulting to claude-sonnet-4-5', () => {
+    const def = OrgDefSchema.parse({
+      name: 'codex-org', goal: 'test',
+      roles: [
+        {
+          id: 'boss', type: 'boss', reports_to: null,
+          runtime: 'codex',
+          adapter_config: { max_tokens: 100000 },
+        },
+      ],
+    });
+    expect(def.roles[0].adapter_config?.model).toBeUndefined();
+    expect(def.roles[0].adapter_config?.max_tokens).toBe(100000);
+  });
+
   it('run_config.prechecks parses', () => {
     const def = OrgDefSchema.parse({
       name: 'pc-org', goal: 'test', roles: [{ id: 'boss', type: 'boss', reports_to: null }],
