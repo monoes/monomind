@@ -14,13 +14,42 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const SKILL_TREES = [
   join(ROOT, '.claude/skills'),
+  join(ROOT, '.agents/skills'),
+  join(ROOT, '.gemini/skills'),
+  join(ROOT, '.kimi-code/skills'),
   join(ROOT, 'packages/@monomind/cli/.claude/skills'),
 ];
+// Skills confirmed (2026-09-05 mastermind pipeline repair plan) to be maintained
+// byte-identical across all five trees. Cross-tree content drift is an ERROR for
+// these; for every other skill it stays the existing directory-presence WARNING
+// below, since not every skill in this repo is synced across all five trees.
+const SYNCED_SKILLS = new Set([
+  'mastermind-plan',
+  'mastermind-execute',
+  'mastermind-debug',
+  'mastermind-issues',
+  'mastermind-issue-detail',
+  'mastermind-my-issues',
+  'mastermind-liveness',
+  'mastermind-plan-to-tasks',
+  'mastermind-org',
+  'mastermind-runorg',
+]);
 const CMD_PATTERN = /(?:npx\s+)?monomind(?:@[\w.]+)?\s+(\w[\w-]*)/g;
 const ALPHA_PATTERN = /monomind@alpha/g;
 const VALID_COMMANDS = new Set();
 const errors = [];
 const warnings = [];
+
+// Union of skill directory names across all five trees — used to validate
+// every Skill("...") reference resolves to a real skill package.
+const KNOWN_SKILLS = new Set();
+for (const tree of SKILL_TREES) {
+  if (!existsSync(tree)) continue;
+  for (const d of readdirSync(tree)) {
+    if (existsSync(join(tree, d, 'SKILL.md'))) KNOWN_SKILLS.add(d);
+  }
+}
 
 // --- Gather valid commands from the built CLI ---
 try {
@@ -95,6 +124,30 @@ function lintTree(treePath, label) {
       );
     }
 
+    // Every Skill("mastermind-x") reference must name a real skill package.
+    // Scoped to mastermind-* names — Skill() calls to other Claude Code
+    // platform skills (loop, dataviz, schedule, ...) aren't in these trees
+    // and this linter has no visibility into that catalog. Also skip
+    // uppercase/placeholder names (e.g. "mastermind-X" in documentation
+    // showing the call syntax, not an actual invocation).
+    for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["']\)/g)) {
+      if (/[A-Z]/.test(m[1])) continue;
+      if (!KNOWN_SKILLS.has(m[1])) {
+        errors.push(
+          `[${label}] ${skill}/SKILL.md: Skill("${m[1]}") does not exist in any skill tree`,
+        );
+      }
+    }
+
+    // A SKILL.md must never contain its own body twice (managed-block append bug).
+    const body = content.replace(/^---\n[\s\S]*?\n---\n/, '');
+    const half = body.slice(0, Math.floor(body.length / 2)).trimEnd();
+    if (half.length > 200 && body.indexOf(half, half.length) !== -1) {
+      errors.push(
+        `[${label}] ${skill}/SKILL.md: body appears duplicated — managed-block merge appended instead of replacing`,
+      );
+    }
+
     // Check command references resolve
     if (VALID_COMMANDS.size > 0) {
       let match;
@@ -112,30 +165,53 @@ function lintTree(treePath, label) {
 }
 
 // --- Check cross-tree drift ---
+// Directory-presence drift stays a warning (root vs. the npm-shipped package
+// tree only — many skills are legitimately root-only, e.g. local dev tooling).
+// Content drift for SYNCED_SKILLS is an error, checked across all five trees.
 function checkDrift() {
   const tree1 = join(SKILL_TREES[0]);
-  const tree2 = join(SKILL_TREES[1]);
-  if (!existsSync(tree1) || !existsSync(tree2)) return;
-
-  const skills1 = new Set(readdirSync(tree1).filter((d) => existsSync(join(tree1, d, 'SKILL.md'))));
-  const skills2 = new Set(readdirSync(tree2).filter((d) => existsSync(join(tree2, d, 'SKILL.md'))));
-
-  const only1 = [...skills1].filter((s) => !skills2.has(s));
-  const only2 = [...skills2].filter((s) => !skills1.has(s));
-
-  if (only1.length > 0) {
-    warnings.push(`Cross-tree drift: ${only1.length} skill(s) only in root: ${only1.join(', ')}`);
-  }
-  if (only2.length > 0) {
-    warnings.push(
-      `Cross-tree drift: ${only2.length} skill(s) only in packages: ${only2.join(', ')}`,
+  const tree2 = SKILL_TREES[SKILL_TREES.length - 1];
+  if (existsSync(tree1) && existsSync(tree2)) {
+    const skills1 = new Set(
+      readdirSync(tree1).filter((d) => existsSync(join(tree1, d, 'SKILL.md'))),
     );
+    const skills2 = new Set(
+      readdirSync(tree2).filter((d) => existsSync(join(tree2, d, 'SKILL.md'))),
+    );
+
+    const only1 = [...skills1].filter((s) => !skills2.has(s));
+    const only2 = [...skills2].filter((s) => !skills1.has(s));
+
+    if (only1.length > 0) {
+      warnings.push(`Cross-tree drift: ${only1.length} skill(s) only in root: ${only1.join(', ')}`);
+    }
+    if (only2.length > 0) {
+      warnings.push(
+        `Cross-tree drift: ${only2.length} skill(s) only in packages: ${only2.join(', ')}`,
+      );
+    }
+  }
+
+  for (const skill of SYNCED_SKILLS) {
+    const contents = new Map();
+    for (const tree of SKILL_TREES) {
+      const f = join(tree, skill, 'SKILL.md');
+      if (existsSync(f)) contents.set(tree, readFileSync(f, 'utf8'));
+    }
+    const distinct = new Set(contents.values());
+    if (distinct.size > 1) {
+      const trees = [...contents.keys()].map((t) => t.replace(`${ROOT}/`, ''));
+      errors.push(
+        `${skill}/SKILL.md content differs across skill trees (checked: ${trees.join(', ')}) — this skill is expected to be byte-identical everywhere`,
+      );
+    }
   }
 }
 
 // --- Run ---
-lintTree(SKILL_TREES[0], 'root');
-lintTree(SKILL_TREES[1], 'packages');
+for (const tree of SKILL_TREES) {
+  lintTree(tree, tree.replace(`${ROOT}/`, ''));
+}
 checkDrift();
 
 // --- Report ---
