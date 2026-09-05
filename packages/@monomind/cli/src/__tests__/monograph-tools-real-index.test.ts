@@ -34,6 +34,15 @@ const textOf = async (name: string, input: Record<string, unknown> = {}): Promis
   return r?.content?.[0]?.text ?? JSON.stringify(r);
 };
 
+/**
+ * Some handlers emit the readable prose in block 0 and the structured result
+ * it was rendered from in block 1. Pull the structured block out.
+ */
+const dataOf = async (name: string, input: Record<string, unknown> = {}): Promise<any> => {
+  const r = (await tool(name).handler(input, undefined)) as { content?: Array<{ text?: string }> };
+  return JSON.parse(r?.content?.[1]?.text ?? 'null');
+};
+
 beforeAll(async () => {
   prevCwd = process.env.MONOMIND_CWD;
   repo = mkdtempSync(join(tmpdir(), 'mg-index-'));
@@ -109,10 +118,64 @@ describe('monograph tools against a real index', () => {
     expect(out).toMatch(/Neighbors:\s*[1-9]/);
   });
 
-  it('impact reports a blast radius and a risk score', async () => {
+  it('impact reports counts and a risk level that agree with the library', async () => {
+    // Regression guard for the adapter drift in finding 8: the tool used to
+    // print `affectedFiles.length` as a symbol count and recompute the risk
+    // label with its own thresholds, so both numbers and severity could
+    // disagree with what the library actually computed.
+    const { computeRiskLevel } = await import('@monoes/monograph');
     const out = await textOf('monograph_impact', { name: 'helper' });
-    expect(out).toMatch(/Blast radius:\s*\d+/);
-    expect(out).toMatch(/Risk score:/);
+    const data = await dataOf('monograph_impact', { name: 'helper' });
+
+    const counts = /Blast radius:\s*(\d+) symbols across (\d+) files/.exec(out);
+    expect(counts).not.toBeNull();
+    expect(Number(counts?.[1])).toBe(data.callers.length);
+    expect(Number(counts?.[2])).toBe(data.affectedFiles.length);
+    expect(data.affectedSymbolCount).toBe(data.callers.length);
+    expect(data.affectedFileCount).toBe(data.affectedFiles.length);
+
+    const risk = /Risk: (LOW|MEDIUM|HIGH|CRITICAL) \((\d+\.\d\d)\)/.exec(out);
+    expect(risk).not.toBeNull();
+    expect(risk?.[1]).toBe(data.riskLevel);
+    expect(data.riskLevel).toBe(computeRiskLevel(data.riskScore));
+
+    // Every listed caller keeps its source location and BFS depth.
+    for (const caller of data.callers) {
+      expect(typeof caller.name).toBe('string');
+      expect(caller.depth).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('rename reports the library-computed changes with before/after diffs', async () => {
+    // The adapter used to read `occurrences`/`references`, neither of which the
+    // library returns, so this always printed "Occurrences: 0".
+    //
+    // getMonographRename reads each referencing file with the repo-RELATIVE
+    // `file_path` straight off the node row, so it only finds changes when
+    // process.cwd() is the indexed repo root (MONOMIND_CWD is not enough).
+    // chdir for the call so this exercises the diff-rendering path.
+    const prevCwd = process.cwd();
+    process.chdir(repo);
+    let out: string;
+    let data: any;
+    try {
+      out = await textOf('monograph_rename', { oldName: 'helper', newName: 'assistant' });
+      data = await dataOf('monograph_rename', { oldName: 'helper', newName: 'assistant' });
+    } finally {
+      process.chdir(prevCwd);
+    }
+
+    expect(data.symbol.name).toBe('helper');
+    expect(data.changeCount).toBe(data.changes.length);
+    expect(data.changeCount).toBeGreaterThan(0);
+    expect(out).toContain(
+      `Changes: ${data.changeCount} across ${data.referencingFiles.length} files`,
+    );
+    for (const change of data.changes) {
+      expect(change.before).toContain('helper');
+      expect(change.after).toContain('assistant');
+      expect(out).toContain(`${change.file}:${change.line}`);
+    }
   });
 
   it('context resolves a symbol by its `name` parameter', async () => {
