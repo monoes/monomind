@@ -1,20 +1,12 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import Graph from 'graphology';
 import { analyzeChurn } from '../analysis/churn.js';
 import { ExtractionCache } from '../cache/extraction-cache.js';
-import { isSupportedExtension, parseFile } from '../parsers/loader.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
 import { closeDb, openDb } from '../storage/db.js';
-import { deleteEdgesForFile, insertEdges } from '../storage/edge-store.js';
-import { deleteNodesForFile, insertNodes } from '../storage/node-store.js';
-import type {
-  MonographEdge,
-  MonographNode,
-  PipelineProgress,
-  SuggestedQuestion,
-} from '../types.js';
+import type { PipelineProgress, SuggestedQuestion } from '../types.js';
+import { isWithinScope, readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
 import { crossFilePhase } from './phases/cross-file.js';
@@ -24,7 +16,7 @@ import { importResolverPhase } from './phases/import-resolver.js';
 import { markdownPhase } from './phases/markdown.js';
 import { mroPhase } from './phases/mro.js';
 import { ormPhase } from './phases/orm.js';
-import { extractArrowFunctions, extractCsharpNamespaces, parsePhase } from './phases/parse.js';
+import { parsePhase } from './phases/parse.js';
 import { processesPhase } from './phases/processes.js';
 import { routesPhase } from './phases/routes.js';
 import { scanPhase } from './phases/scan.js';
@@ -33,7 +25,6 @@ import { structurePhase } from './phases/structure.js';
 import { suggestPhase } from './phases/suggest.js';
 import { surprisesPhase } from './phases/surprises.js';
 import { toolsPhase } from './phases/tools.js';
-import { extractVariables, variableToNode } from './phases/variables.js';
 import { variablesPhase } from './phases/variables-phase.js';
 import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
 import { PipelineRunner } from './runner.js';
@@ -135,7 +126,15 @@ async function buildAsyncLocked(
       const tmpDb = openDb(dbPath);
       try {
         const report = checkStaleness(tmpDb, resolve(repoPath));
-        if (!report.isStale && report.currentCommit !== null) {
+        // Gate on the explicit state, not the legacy `isStale` boolean.
+        // `isStale` only reflects commit divergence, so it stays false for an
+        // index whose commit matches HEAD but whose worktree has uncommitted
+        // edits — this guard would then skip the very rebuild those edits
+        // require. It is also false when git is unavailable, where nothing is
+        // actually known. `state === 'fresh'` is true only when the commit
+        // matches AND the worktree is clean AND that was determinable, so it
+        // subsumes the old currentCommit !== null check.
+        if (report.state === 'fresh') {
           options.onProgress?.({ phase: 'skip', message: 'Index is fresh — skipping rebuild' });
           return; // Already up-to-date
         }
@@ -165,6 +164,17 @@ async function buildAsyncLocked(
   }
 
   const db = openDb(dbPath);
+
+  // Source-scope continuity (issue: a code-only auto-refresh wiped every
+  // previously-indexed Document node). A caller that doesn't state a scope
+  // inherits whatever the index was last built with, so a refresh can never
+  // silently narrow coverage; an explicit `codeOnly` from the caller still wins.
+  const storedScope = readIndexScope(db);
+  if (options.codeOnly === undefined && storedScope !== null) {
+    fullOptions.codeOnly = storedScope === 'code';
+  }
+  const activeScope = scopeForOptions(fullOptions.codeOnly);
+  options.onProgress?.({ phase: 'scope', message: `Index scope: ${activeScope}` });
 
   // The whole build is one SQL transaction: a phase throwing (e.g. issue
   // #40's FK violation) used to leave whatever earlier phases had already
@@ -234,6 +244,12 @@ async function buildAsyncLocked(
     // (ctx.allFilesCached === true), a file may have been deleted from disk between
     // builds, which produces zero cache misses but still leaves ghost rows in the DB
     // unless we compare the DB's known file set against the current on-disk set.
+    //
+    // The sweep is confined to the current build's source domain (`activeScope`).
+    // A narrowed build never looked at files outside its domain, so their absence
+    // from `filePaths` says nothing about whether they still exist on disk —
+    // deleting those rows is how a code-only refresh used to erase every Document
+    // node in the graph.
     const scanOut = outputs.get('scan') as { filePaths: string[] } | undefined;
     if (scanOut) {
       const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
@@ -243,7 +259,7 @@ async function buildAsyncLocked(
         }[]
       )
         .map((r) => r.file_path)
-        .filter((f) => !liveFiles.has(resolve(ctx.repoPath, f)));
+        .filter((f) => isWithinScope(f, activeScope) && !liveFiles.has(resolve(ctx.repoPath, f)));
       if (staleFiles.length > 0) {
         const deleteStale = db.transaction((files: string[]) => {
           const deleteEdges = db.prepare(`
@@ -308,6 +324,7 @@ async function buildAsyncLocked(
     db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(
       new Date().toISOString(),
     );
+    writeIndexScope(db, activeScope);
     db.exec('COMMIT');
 
     // Skip expensive report regeneration when all files were cached (nothing changed) —
@@ -340,138 +357,35 @@ async function buildAsyncLocked(
   }
 }
 
-const INCREMENTAL_THRESHOLD = 20;
-
+/**
+ * Re-index after files changed on disk.
+ *
+ * This runs the FULL pipeline, with extraction-cache reuse so unchanged files
+ * are not re-parsed. The previous partial implementation deleted the changed
+ * files' edges, re-parsed only those files, and stopped — it never reran
+ * relationship resolution (imports, cross-file calls, scope/bridge resolution)
+ * or the derived analyses (communities, processes, god-nodes). A one-line edit
+ * therefore dropped every CALLS/IMPORTS/REFERENCES edge incident to that file
+ * and left derived analysis stale. The watcher's deferred full rebuild repaired
+ * that eventually; direct callers silently kept the incomplete graph.
+ *
+ * A genuine incremental path is still worth having, but it has to track the
+ * changed files' dependents, recompute their relationships, and invalidate the
+ * affected derived analyses. Until such an implementation exists and is proven
+ * equivalent to a clean build, correctness wins over speed.
+ */
 export async function buildIncrementalAsync(
   repoPath: string,
   changedAbsPaths: string[],
   options: BuildOptions = {},
 ): Promise<void> {
   if (changedAbsPaths.length === 0) return;
-  if (changedAbsPaths.length > INCREMENTAL_THRESHOLD) {
-    return buildAsync(repoPath, options);
-  }
-
-  const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
-  if (!existsSync(dbPath)) {
-    return buildAsync(repoPath, options);
-  }
-
-  const releaseLock = await acquireBuildLock(dbPath);
-  if (!releaseLock) {
-    options.onProgress?.({
-      phase: 'skip',
-      message: 'Another build is in progress — skipping incremental',
-    });
-    return;
-  }
-  try {
-    await buildIncrementalLocked(resolve(repoPath), dbPath, changedAbsPaths, options);
-  } finally {
-    releaseLock();
-  }
-}
-
-async function buildIncrementalLocked(
-  resolvedRepo: string,
-  dbPath: string,
-  changedAbsPaths: string[],
-  options: BuildOptions,
-): Promise<void> {
-  const db = openDb(dbPath);
-  const maxSize = options.maxFileSizeBytes ?? DEFAULT_OPTIONS.maxFileSizeBytes;
-
-  db.exec('BEGIN');
-  try {
-    let parsed = 0;
-    let deleted = 0;
-
-    for (const absPath of changedAbsPaths) {
-      const ext = extname(absPath).toLowerCase();
-      if (!isSupportedExtension(ext)) continue;
-      if (ext === '.md' || ext === '.markdown') continue;
-
-      const relPath = absPath.startsWith(resolvedRepo)
-        ? absPath.slice(resolvedRepo.length + 1)
-        : absPath;
-
-      deleteEdgesForFile(db, relPath);
-      deleteNodesForFile(db, relPath);
-
-      if (!existsSync(absPath)) {
-        deleted++;
-        continue;
-      }
-
-      let source: string;
-      try {
-        const stat = statSync(absPath);
-        if (stat.size > maxSize) continue;
-        source = readFileSync(absPath, 'utf-8');
-      } catch {
-        continue;
-      }
-
-      const result = await parseFile(absPath, source, relPath);
-      const nodes: MonographNode[] = [...result.nodes];
-      const edges: MonographEdge[] = [...result.edges];
-
-      if (ext === '.cs') {
-        for (const ns of extractCsharpNamespaces(source, relPath)) {
-          nodes.push({
-            id: `${ns.filePath}::namespace::${ns.name}`,
-            name: ns.name,
-            label: 'Namespace',
-            normLabel: 'namespace',
-            filePath: ns.filePath,
-            line: ns.line,
-            isExported: true,
-          } as MonographNode);
-        }
-      }
-
-      if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
-        const varInfos = extractVariables(source, relPath);
-        nodes.push(...varInfos.map((v) => variableToNode(v)));
-        for (const fn of extractArrowFunctions(source, relPath)) {
-          nodes.push({
-            id: `${fn.filePath}::fn::${fn.name}`,
-            name: fn.name,
-            label: 'Function',
-            normLabel: 'function',
-            filePath: fn.filePath,
-            line: fn.line,
-            isExported: fn.isExported,
-          } as MonographNode);
-        }
-      }
-
-      insertNodes(db, nodes);
-      insertEdges(db, edges);
-      parsed++;
-    }
-
-    const hash = getCurrentCommitHash(resolvedRepo);
-    if (hash) {
-      db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
-    }
-    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(
-      new Date().toISOString(),
-    );
-    db.exec('COMMIT');
-
-    options.onProgress?.({
-      phase: 'incremental',
-      message: `Incremental: ${parsed} re-parsed, ${deleted} removed`,
-    });
-  } catch (err) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {
-      /* ignore */
-    }
-    throw err;
-  } finally {
-    closeDb(db);
-  }
+  // `incremental` means "skip when the index is already fresh", which is keyed on
+  // git HEAD. A working-tree edit doesn't move HEAD, so honouring the flag here
+  // would skip the very rebuild the caller just asked for.
+  await buildAsync(repoPath, { ...options, incremental: false });
+  options.onProgress?.({
+    phase: 'incremental',
+    message: `Rebuilt after ${changedAbsPaths.length} changed file(s)`,
+  });
 }
