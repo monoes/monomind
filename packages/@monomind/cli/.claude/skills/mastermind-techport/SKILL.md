@@ -54,7 +54,7 @@ IF health.commitsBehind > 0 OR health.status != "fresh":
 ```
 Call mcp__monomind__monograph_god_nodes({})         // load-bearing files — porting near them is dangerous
 Call mcp__monomind__monograph_community({})          // module cluster structure — boundary map
-Call mcp__monomind__monograph_bridge({})             // cross-community connectors — architectural seams
+Call mcp__monomind__monograph_surprises({})          // cross-community connectors — architectural seams
 Call mcp__monomind__monograph_stats({})              // fan-in/out percentile distribution
 Call mcp__monomind__monograph_query({ query: focus_hint OR "core architecture skills commands hooks agents" })
 ```

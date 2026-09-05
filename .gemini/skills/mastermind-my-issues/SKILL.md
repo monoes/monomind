@@ -18,7 +18,7 @@ This skill is invoked by `mastermind:my-issues` or directly via `/mastermind:my-
 - `action`: list | assign-self | unassign | close
 - `assignee_id`: user/agent id to filter by (default: local-operator)
 - `issue_id`: issue id (required for assign-self / unassign / close)
-- `status_filter`: open | in_progress | all (default: open+in_progress)
+- `status_filter`: active | todo | in_progress | blocked | in_review | done | cancelled | all (default: active = todo+in_progress)
 - `caller`: command | master
 
 ---
@@ -41,6 +41,38 @@ issuesFile=".monomind/orgs/${org_name}-issues.json"
 assigneeFilter="${assignee_id:-local-operator}"
 ```
 
+Normalize any legacy records written by a pre-2.10 version of these skills. Idempotent — safe to run on every load.
+
+```bash
+python3 - "$issuesFile" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+RENAME = {
+    "assignee_id": "assigneeId", "assigned_to": "assigneeId",
+    "created_at": "createdAt", "updated_at": "updatedAt",
+    "closed_at": "closedAt", "project_id": "projectId",
+    "parent_id": "parentId", "recovery_status": "recoveryStatus",
+    "lastActivityAt": "updatedAt",
+}
+changed = False
+for iss in data.get("issues", []):
+    for old, new in RENAME.items():
+        if old in iss:
+            iss.setdefault(new, iss.pop(old))
+            iss.pop(old, None)
+            changed = True
+    if iss.get("status") == "open":
+        iss["status"] = "todo"
+        changed = True
+if changed:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    import os; os.replace(tmp, path)
+PYEOF
+```
+
 ---
 
 ## Step 2 — Execute Action
@@ -57,19 +89,19 @@ echo "────────────────────────�
 jq -r --arg uid "$assigneeFilter" --arg sf "$statusFilter" '
   (.issues // [])[] |
   select(
-    (.assigneeId == $uid or .assigned_to == $uid) and
-    (if $sf == "active" then (.status == "open" or .status == "in_progress")
+    (.assigneeId == $uid) and
+    (if $sf == "active" then (.status == "todo" or .status == "in_progress")
      elif $sf == "all" then true
      else .status == $sf
      end)
   ) |
-  [.id, (.status // "open"), (.priority // "medium"), (.title // "(no title)")] | @tsv
+  [.id, (.status // "todo"), (.priority // "medium"), (.title // "(no title)")] | @tsv
 ' "$issuesFile" | while IFS=$'\t' read -r id st pri title; do
   printf "%-24s %-12s %-10s %s\n" "$id" "$st" "$pri" "$title"
 done
 
 total=$(jq -r --arg uid "$assigneeFilter" \
-  '[(.issues // [])[] | select(.assigneeId == $uid or .assigned_to == $uid)] | length' \
+  '[(.issues // [])[] | select(.assigneeId == $uid)] | length' \
   "$issuesFile")
 echo ""
 echo "Total assigned: $total"
@@ -88,7 +120,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$issue_id" --arg uid "$assigneeFilter" --arg ts "$ts" \
   '.issues = [(.issues // [])[] | if .id == $id then
-     .assigneeId = $uid | .lastActivityAt = $ts
+     .assigneeId = $uid | .assigneeUserId = $uid | .assigneeAgentId = null | .updatedAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
@@ -104,7 +136,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$issue_id" --arg ts "$ts" \
   '.issues = [(.issues // [])[] | if .id == $id then
-     .assigneeId = null | .lastActivityAt = $ts
+     .assigneeId = null | .assigneeUserId = null | .assigneeAgentId = null | .updatedAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
@@ -120,7 +152,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$issue_id" --arg ts "$ts" \
   '.issues = [(.issues // [])[] | if .id == $id then
-     .status = "done" | .closedAt = $ts | .lastActivityAt = $ts
+     .status = "done" | .closedAt = $ts | .updatedAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
