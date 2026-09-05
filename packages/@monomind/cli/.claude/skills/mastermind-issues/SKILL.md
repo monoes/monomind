@@ -18,13 +18,14 @@ This skill is invoked by `mastermind:issues` or directly via `/mastermind:issues
 - `action`: list | create | update | close | search
 - `issue_id`: issue ID (required for update/close)
 - `query`: search term (for search)
-- `status`: open | in_progress | in_review | done | cancelled (filter)
+- `status`: todo | in_progress | blocked | in_review | done | cancelled (filter)
 - `assignee`: agent ID filter
 - `workspace`: workspace ID filter
 - `title`: issue title (for create)
 - `description`: issue body (for create)
 - `priority`: low | medium | high | urgent (for create/update)
 - `limit`: max results (default: 50)
+- `parent_id`: parent issue id, making the new issue a sub-issue (for create)
 - `caller`: command | master
 
 ---
@@ -45,6 +46,38 @@ issuesFile=".monomind/orgs/${org_name}-issues.json"
 [ ! -f "$issuesFile" ] && echo '{"issues":[]}' > "$issuesFile"
 
 limit="${limit:-50}"
+```
+
+Normalize any legacy records written by a pre-2.10 version of these skills. Idempotent — safe to run on every load.
+
+```bash
+python3 - "$issuesFile" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+RENAME = {
+    "assignee_id": "assigneeId", "assigned_to": "assigneeId",
+    "created_at": "createdAt", "updated_at": "updatedAt",
+    "closed_at": "closedAt", "project_id": "projectId",
+    "parent_id": "parentId", "recovery_status": "recoveryStatus",
+    "lastActivityAt": "updatedAt",
+}
+changed = False
+for iss in data.get("issues", []):
+    for old, new in RENAME.items():
+        if old in iss:
+            iss.setdefault(new, iss.pop(old))
+            iss.pop(old, None)
+            changed = True
+    if iss.get("status") == "open":
+        iss["status"] = "todo"
+        changed = True
+if changed:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    import os; os.replace(tmp, path)
+PYEOF
 ```
 
 ---
@@ -82,7 +115,7 @@ else:
     print("  " + "─" * 102)
     for iss in issues:
         iid   = iss.get("id","?")[:28]
-        st    = iss.get("status","open")[:14]
+        st    = iss.get("status","todo")[:14]
         pri   = iss.get("priority","medium")[:8]
         title = (iss.get("title") or "-")[:38]
         asgn  = (iss.get("assigneeTitle") or iss.get("assigneeId") or "—")[:20]
@@ -137,24 +170,42 @@ PYEOF
 [ -z "$title" ] && { echo "ERROR: --title required."; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-newId="issue-$(python3 -c 'import time; print(int(time.time()*1000))')"
+newId="issue-$(python3 -c 'import time; print(int(time.time()*1000))')-001"
 
-python3 - "$issuesFile" "$newId" "$title" "${description:-}" "${priority:-medium}" "${assignee:-}" "${workspace:-}" "$ts" <<'PYEOF'
-import json, sys
-path, iid, title, desc, pri, asgn, ws, ts = sys.argv[1:]
+python3 - "$issuesFile" "$newId" "$title" "${description:-}" "${priority:-medium}" "${assignee:-}" "${workspace:-}" "${parent_id:-}" "$ts" <<'PYEOF'
+import json, os, sys
+path, iid, title, desc, pri, asgn, ws, parent, ts = sys.argv[1:]
+
+VALID_PRIORITY = {"low","medium","high","urgent"}
+if pri not in VALID_PRIORITY:
+    print(f"ERROR: priority '{pri}' must be one of {sorted(VALID_PRIORITY)}.")
+    sys.exit(1)
+
 data = json.load(open(path))
+issues = data.setdefault("issues", [])
+
+if parent and not any(i.get("id") == parent for i in issues):
+    print(f"ERROR: parent issue '{parent}' not found.")
+    sys.exit(1)
+
 issue = {
     "id": iid, "title": title, "description": desc,
-    "status": "open", "priority": pri,
-    "assigneeId": asgn or None, "workspaceId": ws or None,
-    "createdAt": ts, "updatedAt": ts
+    "status": "todo", "priority": pri,
+    "assigneeId": asgn or None,
+    "assigneeAgentId": None, "assigneeUserId": None,
+    "parentId": parent or None,
+    "projectId": None, "workspaceId": ws or None,
+    "blockedByIssueIds": [],
+    "createdAt": ts, "updatedAt": ts,
 }
-data.setdefault("issues", []).append(issue)
-with open(path, "w") as f:
+issues.append(issue)
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
     json.dump(data, f, indent=2)
+os.replace(tmp, path)
 print(f"  Created: {iid}")
 print(f"  Title:   {title}")
-print(f"  Status:  open  |  Priority: {pri}")
+print(f"  Status:  todo  |  Priority: {pri}" + (f"  |  Parent: {parent}" if parent else ""))
 PYEOF
 ```
 
@@ -165,8 +216,18 @@ PYEOF
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 python3 - "$issuesFile" "$issue_id" "${status:-}" "${priority:-}" "${title:-}" "$ts" <<'PYEOF'
-import json, sys
+import json, os, sys
 path, iid, new_st, new_pri, new_title, ts = sys.argv[1:]
+
+VALID_STATUS   = {"todo","in_progress","blocked","in_review","done","cancelled"}
+VALID_PRIORITY = {"low","medium","high","urgent"}
+if new_st and new_st not in VALID_STATUS:
+    print(f"ERROR: status '{new_st}' must be one of {sorted(VALID_STATUS)}.")
+    sys.exit(1)
+if new_pri and new_pri not in VALID_PRIORITY:
+    print(f"ERROR: priority '{new_pri}' must be one of {sorted(VALID_PRIORITY)}.")
+    sys.exit(1)
+
 data = json.load(open(path))
 issues = data.get("issues", [])
 found = False
@@ -182,8 +243,10 @@ if not found:
     print(f"ERROR: Issue '{iid}' not found.")
     sys.exit(1)
 data["issues"] = issues
-with open(path, "w") as f:
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
     json.dump(data, f, indent=2)
+os.replace(tmp, path)
 print(f"  Updated: {iid}  (updatedAt: {ts})")
 PYEOF
 ```
@@ -195,7 +258,7 @@ PYEOF
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 python3 - "$issuesFile" "$issue_id" "$ts" <<'PYEOF'
-import json, sys
+import json, os, sys
 path, iid, ts = sys.argv[1], sys.argv[2], sys.argv[3]
 data = json.load(open(path))
 issues = data.get("issues", [])
@@ -211,8 +274,10 @@ if not found:
     print(f"ERROR: Issue '{iid}' not found.")
     sys.exit(1)
 data["issues"] = issues
-with open(path, "w") as f:
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
     json.dump(data, f, indent=2)
+os.replace(tmp, path)
 print(f"  Closed: {iid}  (closedAt: {ts})")
 PYEOF
 ```
