@@ -75,8 +75,8 @@ mcp__monomind__hooks_intelligence_stats({})
 mcp__monomind__task_summary({})
 mcp__monomind__progress_summary({})
 
-// LanceDB health (memory integrity)
-mcp__monomind__lancedb_health({})
+// Memory store health (memory integrity)
+mcp__monomind__memory_health({})
 ```
 
 ### Performance
@@ -106,7 +106,7 @@ When invoked, run these checks in parallel:
 mcp__monomind__system_health({})
 mcp__monomind__agent_health({})
 mcp__monomind__neural_status({ verbose: true })
-mcp__monomind__lancedb_health({})
+mcp__monomind__memory_health({})
 mcp__monomind__performance_report({ format: "detailed" })
 ```
 

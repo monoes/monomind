@@ -187,7 +187,7 @@ These sequences are non-negotiable in all modes:
 - **When fixing bugs**: `mastermind:debug` first (root cause) → write failing test via `mastermind:tdd` → fix → `mastermind:verify`
 - **After building**: `mastermind:review` — at minimum one pass before reporting complete
 - **Consuming a review**: `mastermind:receive-review` — verify before implementing, clarify unclear items first
-- **After any run**: Brain Write Procedure — score decisions, append to LanceDB
+- **After any run**: Brain Write Procedure — score decisions, append to the memory store
 - **Before releasing**: `mastermind:review --tillend --auto` → `mastermind:verify` → `mastermind:finish`
 - **Isolated work**: `mastermind:worktree` before making changes to avoid contaminating main
 - **Before claiming complete**: Run `mastermind:verify` — never claim completion based on agent reports, linter passes, or partial checks
@@ -297,8 +297,8 @@ project_name="${project_name:-$(basename "$PWD")}"
 
 Follow the Brain Load Procedure from `mastermind-protocol/SKILL.md`:
 
-1. Call `mcp__monomind__lancedb_hierarchical-recall` namespace `mastermind:principles` (limit 20)
-2. For each domain that appears relevant to the prompt, call `mcp__monomind__lancedb_context-synthesize` namespace `mastermind:<domain>:weekly`
+1. Call `mcp__monomind__memory_hierarchical-recall` namespace `mastermind:principles` (limit 20)
+2. For each domain that appears relevant to the prompt, call `mcp__monomind__memory_context-synthesize` namespace `mastermind:<domain>:weekly`
 3. Call `mcp__monomind__monograph_query` with 3-5 keywords from the prompt
 
 Assemble the BRAIN CONTEXT block from results.
@@ -936,7 +936,7 @@ Monotask boards:
 
 Follow the Brain Write Procedure from `mastermind-protocol/SKILL.md` for each domain that ran:
 1. Score all decisions from this run
-2. Append to Tier 1 raw log (LanceDB)
+2. Append to Tier 1 raw log (the memory store)
 3. Check and trigger weekly compaction if threshold met
 4. Check and trigger graph consolidation if cluster detected
 
