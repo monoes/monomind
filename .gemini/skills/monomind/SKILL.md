@@ -12,7 +12,7 @@ Monomind extends Antigravity with a local codebase knowledge graph, persistent c
 ### 1. Codebase Knowledge Graph (Monograph)
 Before searching or modifying code touching 3+ files or exploring a new module:
 - Call `mcp__monomind__monograph_suggest` to discover relevant files, bridge nodes, and isolated nodes.
-- Call `mcp__monomind__monograph_query` for symbol/keyword search with HippoRAG-style PPR graph reranking.
+- Call `mcp__monomind__monograph_query` for symbol/keyword search, with optional one-hop neighbor-expansion reranking.
 - Call `mcp__monomind__monograph_impact` before editing to compute the exact blast radius of a symbol or class change.
 
 ### 2. Persistent Memory Loop
