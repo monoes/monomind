@@ -302,6 +302,11 @@ export interface IngestResult {
   scope: string;
   skipped: boolean;
   error?: string;
+  /** True when SOME but not all chunks stored. The new version was NOT
+   *  committed: the document keeps whatever version it had before (possibly
+   *  none), and re-ingesting repairs it. Absent means the ingest was complete —
+   *  a caller must not read `chunksIndexed > 0` alone as success. */
+  partial?: boolean;
 }
 
 export interface BatchIngestResult {
@@ -553,11 +558,12 @@ export async function ingestDocument(
     return { filePath: resolved, chunksIndexed: existing.chunkCount, scope, skipped: true };
   }
 
-  // Remove old data if re-indexing
-  if (existing) {
-    removeMetadataEntry(rootDir, resolved, scope);
-  }
-
+  // NOTE: the previous version's metadata record is deliberately NOT tombstoned
+  // here. `readMetadata` is last-wins per (filePath, scope), so appending the
+  // new record below already supersedes the old one — the tombstone was a no-op
+  // on the success path and destructive on the failure path: it retired a
+  // perfectly good previous index before knowing whether the replacement would
+  // land, so a failed re-ingest left the document with NO live version at all.
   const docId = `${scope}:${resolved}`;
   const rawChunks: TextChunk[] = await chunkDocument(docId, fullContent);
   // monolean: [re-enabled] item 2 shipped 768d gte-modernbert-base — capacity handles enrichment
@@ -590,12 +596,20 @@ export async function ingestDocument(
     }
   }
 
-  // Persist metadata — but ONLY when something was actually stored (or the
-  // document legitimately produced zero chunks). Recording the content hash
-  // after a total store failure (bridge unavailable, every store rejected)
-  // made the hash check skip the file on every future ingest: a permanent,
-  // silent search miss.
-  if (indexed > 0 || chunks.length === 0) {
+  // Commit the document version ONLY when EVERY chunk stored. Recording the
+  // content hash after a partial store was the worse half of this bug: the
+  // hash check above then skipped the file on every future ingest, so the
+  // chunks that failed were never retried — a permanently, silently
+  // half-indexed document feeding knowledge retrieval with no signal at all.
+  // (Total failure was already handled; partial success was not.)
+  //
+  // Not committing is what makes a retry work: chunk keys are
+  // `doc:<contentHash>:<index>` and stores are upserts, so re-ingesting the
+  // same bytes rewrites the same keys and fills the gaps. Until it succeeds the
+  // partially-written chunks sit under a hash that is not live, and superseded
+  // filtering keeps them out of search (see `liveContentHashes`).
+  const complete = indexed === chunks.length;
+  if (complete) {
     appendMetadata(rootDir, {
       filePath: resolved,
       contentHash: hash,
@@ -606,17 +620,23 @@ export async function ingestDocument(
     });
   }
 
-  const storeFailed = chunks.length > 0 && indexed === 0;
   return {
     filePath: resolved,
     chunksIndexed: indexed,
     scope,
     skipped: false,
-    ...(storeFailed
-      ? {
-          error: bridge ? 'all chunk stores failed' : 'memory bridge unavailable — nothing indexed',
-        }
-      : {}),
+    ...(complete
+      ? {}
+      : indexed > 0
+        ? {
+            partial: true,
+            error: `partial store: ${indexed}/${chunks.length} chunks — version not committed, re-ingest to repair`,
+          }
+        : {
+            error: bridge
+              ? 'all chunk stores failed'
+              : 'memory bridge unavailable — nothing indexed',
+          }),
   };
 }
 
