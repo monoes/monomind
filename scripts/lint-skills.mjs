@@ -180,10 +180,7 @@ function lintTree(treePath, label) {
 // this class of regression was structurally invisible to the guard even after
 // it was wired into CI. monomind-mastermind-master.md carried all 8 dangling
 // names for a full commit before this check existed.
-const COMMAND_TREES = [
-  join(ROOT, '.claude/commands'),
-  join(ROOT, '.kimi-code/plugin/commands'),
-];
+const COMMAND_TREES = [join(ROOT, '.claude/commands'), join(ROOT, '.kimi-code/plugin/commands')];
 
 function walkMarkdownFiles(dirPath) {
   if (!existsSync(dirPath)) return [];
