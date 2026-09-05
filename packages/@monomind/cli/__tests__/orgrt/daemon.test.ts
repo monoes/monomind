@@ -1056,3 +1056,162 @@ describe('OrgDaemon — oversized mailbox digest', () => {
     }
   }, 20_000);
 });
+
+describe('OrgDaemon — org runtime v2 review fixes', () => {
+  it('org-wide budget_tokens is enforced across all roles, even when a role\'s override lets it individually far exceed the even split', async () => {
+    // Bug 1: an org-wide budget_tokens of 5, with coder overridden to a
+    // 1000-token individual ceiling, used to let coder spend up to 1000
+    // tokens on its own without anything noticing the org-wide total blew
+    // past its declared 5-token cap. Real org-wide tracking (summed live
+    // from every role's PolicyEngine.usage) must catch this even though
+    // coder's OWN per-role check never trips.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-orgbudget-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { budget_tokens: 5 },
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', budget_tokens: 1000 },
+      ],
+    }));
+    // Each turn reports exactly 1 token for fine-grained control over when
+    // the org-wide ceiling is crossed.
+    const meteredQuery = ({ prompt }: any) => (async function* () {
+      for await (const m of prompt) {
+        yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] } };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 0 } };
+      }
+    })();
+    const d = new OrgDaemon(root, { queryFn: meteredQuery as any, forward: false });
+    const running = await d.startOrg('alpha'); // boss's kickoff turn: 1 token (org total 1)
+    await new Promise(r => setTimeout(r, 50));
+
+    // Four more coder turns push the org-wide total from 1 to 5 — well
+    // within coder's own 1000-token override, so its OWN per-role check
+    // never trips.
+    for (let i = 0; i < 4; i++) {
+      await d.deliver('alpha', 'boss', 'coder', `task${i}`, 'go');
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    const coder = running.agents.get('coder')!;
+    expect(coder.policy.usage).toBe(4);
+    expect(coder.policy.overBudget).toBe(false); // its own 1000-token ceiling is nowhere close
+    expect(coder.mailbox.isClosed).toBe(true); // but the org-wide ceiling closed it anyway
+    expect(running.busEvents().some(e => e.type === 'status' && e.reason === 'org-budget-exhausted')).toBe(true);
+
+    await d.stopAll();
+  }, 10_000);
+
+  it('two concurrent startOrg calls for the same name result in exactly one running org, not two', async () => {
+    // Bug 2 (TOCTOU race): startOrg's `this.orgs.has(name)` check used to be
+    // synchronous but registration into `this.orgs` happened many `await`
+    // points later, so two concurrent calls could both pass the check and
+    // both spawn a full duplicate run. The reservation must be synchronous
+    // and immediate so the second call is rejected instead of racing ahead.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-toctou-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+    const results = await Promise.allSettled([d.startOrg('alpha'), d.startOrg('alpha')]);
+    const fulfilled = results.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled');
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(String((rejected[0].reason as Error).message)).toMatch(/already (running|starting)/);
+    expect(d.getOrg('alpha')).toBeDefined();
+
+    await d.stopAll();
+  });
+
+  it('idle watchdog does not nudge or stop while a question is pending (mirrors pending-gate behavior)', async () => {
+    // Bug 3: askHuman()'s receipt tells the role to end its turn and wait
+    // for the resolution — a role that follows that instruction and goes
+    // quiet must not be nudged (or eventually idle-stopped) as if it were
+    // hung, exactly like a pending decision gate already protects.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-idle-question-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0.005 }, // 300ms idle window for the test
+      roles: [{ id: 'boss', title: 'Boss', type: 'boss', reports_to: null }],
+    }));
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    const running = await d.startOrg('alpha');
+    await d.askHuman('alpha', 'boss', 'ship it now or wait?');
+
+    // Several would-be idle windows (300ms) pass — without the fix this is
+    // long enough for the watchdog to have nudged and then idle-stopped.
+    await new Promise(r => setTimeout(r, 1500));
+    expect(d.getOrg('alpha')).toBeDefined();
+    const events = running.busEvents();
+    expect(events.some(e => e.type === 'audit' && e.reason === 'idle-nudge')).toBe(false);
+    expect(events.some(e => e.type === 'audit' && e.reason === 'idle-stop')).toBe(false);
+
+    await d.stopAll();
+  }, 10_000);
+
+  it('max_concurrent_agents caps concurrent role spawns and a crashed role frees the slot for the deferred one', async () => {
+    // Bug 4: run_config.max_concurrent_agents was schema-only — spawnRole was
+    // called unconditionally on every lazy first-message spawn, so nothing
+    // ever capped how many roles ran at once. A role that hits the ceiling
+    // must be deferred (not spawned, not dropped), and a slot freeing up
+    // (crash, in this test) must let the deferred role spawn automatically.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-maxconcurrent-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { max_concurrent_agents: 2 }, // boss + one worker at a time
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'workerA', title: 'A', type: 'specialist', reports_to: 'boss' },
+        { id: 'workerB', title: 'B', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    // workerA blocks on `crashGate` (released explicitly by the test below,
+    // not a real timing race) before throwing, so workerB's deferred-vs-spawned
+    // check below is deterministic instead of racing workerA's crash.
+    let releaseCrash: () => void = () => {};
+    const crashGate = new Promise<void>((resolve) => { releaseCrash = resolve; });
+    const perRoleQuery = ({ prompt, options }: any) => {
+      const roleId = /You are agent "([^"]+)"/.exec(options.systemPrompt)?.[1] ?? 'unknown';
+      if (roleId === 'workerA') {
+        return (async function* () {
+          for await (const _m of prompt) {
+            await crashGate;
+            throw new Error('workerA crashes to free a concurrency slot');
+          }
+        })();
+      }
+      return (async function* () { await new Promise(() => {}); })(); // boss & workerB just hang once spawned
+    };
+    const d = new OrgDaemon(root, { queryFn: perRoleQuery as any, forward: false, stopWaitMs: 200, crashBackoffsMs: [] });
+    const running = await d.startOrg('alpha'); // boss spawns ungated -> active = 1
+    expect(running.agents.has('boss')).toBe(true);
+
+    await d.deliver('alpha', 'boss', 'workerA', 'task', 'go'); // active = 2 (at the cap)
+    expect(running.agents.has('workerA')).toBe(true);
+
+    // workerB's lazy spawn must be deferred — the org is already at its
+    // max_concurrent_agents ceiling (boss + workerA, workerA still blocked
+    // on crashGate so it's genuinely occupying its slot).
+    const receipt = await d.deliver('alpha', 'boss', 'workerB', 'task', 'go');
+    expect(receipt).toMatch(/queued/);
+    expect(running.agents.has('workerB')).toBe(false);
+    expect(running.busEvents().some(e => e.type === 'audit' && e.reason === 'concurrency-limit')).toBe(true);
+
+    // Free workerA's slot; activeRoleCount recomputes live off role status,
+    // so nothing needs to explicitly release a counter.
+    releaseCrash();
+    expect(await waitUntil(() => running.agents.get('workerA')?.status === 'crashed')).toBe(true);
+
+    // The background poller must pick up the freed slot and spawn the
+    // previously-deferred workerB without another deliver() call.
+    expect(await waitUntil(() => running.agents.has('workerB'), 8000)).toBe(true);
+    expect(running.busEvents().some(e => e.type === 'audit' && e.reason === 'concurrency-recovered')).toBe(true);
+
+    await d.stopAll();
+  }, 15_000);
+});

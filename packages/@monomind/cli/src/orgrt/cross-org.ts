@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
 import { lookupOrg } from './broker.js';
-import type { OrgDaemon, RunningOrg } from './daemon.js';
+import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { scanMessage } from './fence.js';
 import { queueMessage } from './inbox.js';
 import { ORG_DIR } from './types.js';
@@ -136,6 +136,38 @@ export async function deliver(
     targetOrg.pendingRoles.delete(targetRole);
     markDeferredSpawn(targetOrgName, targetRole); // BUG 1 FIX: mark in-flight before any await
     spawning.add(targetRole); // Mark as spawning before async work
+    // Bug 4: run_config.max_concurrent_agents caps how many roles can run at
+    // once — defer the same way the host-resource-pressure check below defers,
+    // instead of spawning past the ceiling unconditionally.
+    const concurrencyLimit = targetOrg.def.run_config.max_concurrent_agents;
+    if (concurrencyLimit != null && activeRoleCount(targetOrg) >= concurrencyLimit) {
+      spawning.delete(targetRole);
+      targetOrg.bus.emit({
+        type: 'audit',
+        from: targetRole,
+        reason: 'concurrency-limit',
+        msg: `deferring lazy spawn of "${targetRole}": org is at its max_concurrent_agents ceiling (${concurrencyLimit})`,
+      });
+      const queued = queueMessage(daemon.root, targetOrgName, {
+        fromQualified: cross ? `${fromOrg}:${fromRole}` : fromRole,
+        toRole: targetRole,
+        subject,
+        body,
+        ts: Date.now(),
+      });
+      if (!queued) {
+        src?.bus.emit({
+          type: 'audit',
+          from: fromRole,
+          to: toQualified,
+          msg: `queue failed: ${subject}`,
+          reason: 'queue-failed',
+        });
+        return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
+      }
+      daemon.scheduleConcurrencyDeferredSpawn(targetOrgName, targetOrg, role, targetOrg.spawnRole!);
+      return `queued for ${toQualified} (role starting — waiting for a concurrency slot)`;
+    }
     const check = checkResources();
     if (!check.ok) {
       const waited = await waitForCapacity(60_000);
@@ -556,6 +588,36 @@ export function receiveRemote(
     org.pendingRoles.delete(toRole);
     markDeferredSpawn(toOrg, toRole); // BUG 1 FIX: mark in-flight before any await
     spawning.add(toRole); // Mark as spawning before async work
+    // Bug 4: same max_concurrent_agents gate as deliver() — checked before the
+    // host-resource-pressure gate below (prevents bypass in cross-process delivery).
+    const concurrencyLimit = org.def.run_config.max_concurrent_agents;
+    if (concurrencyLimit != null && activeRoleCount(org) >= concurrencyLimit) {
+      spawning.delete(toRole);
+      org.bus.emit({
+        type: 'audit',
+        from: toRole,
+        reason: 'concurrency-limit',
+        msg: `cross-process lazy spawn deferred: org is at its max_concurrent_agents ceiling (${concurrencyLimit})`,
+      });
+      const queued = queueMessage(daemon.root, toOrg, {
+        fromQualified,
+        toRole,
+        subject,
+        body,
+        ts: Date.now(),
+      });
+      if (!queued) {
+        return {
+          ok: false,
+          error: `could not queue message for ${toOrg}:${toRole} (disk full or permissions)`,
+        };
+      }
+      daemon.scheduleConcurrencyDeferredSpawn(toOrg, org, role, org.spawnRole!);
+      return {
+        ok: true,
+        receipt: `queued for ${toOrg}:${toRole} (role starting — waiting for a concurrency slot)`,
+      };
+    }
     // Resource gate check before spawning (prevents bypass in cross-process delivery)
     const check = checkResources();
     if (!check.ok) {
