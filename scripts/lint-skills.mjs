@@ -164,6 +164,43 @@ function lintTree(treePath, label) {
   }
 }
 
+// --- Lint command files (flat/nested .md, not skill packages) ---
+// Found 2026-09-05: a dangling Skill("mastermind-taskdev") etc. reference can
+// live in a .claude/commands/*.md file, not just a SKILL.md — lintTree() above
+// never sees these (it only walks SKILL_TREES' skill-package directories), so
+// this class of regression was structurally invisible to the guard even after
+// it was wired into CI. monomind-mastermind-master.md carried all 8 dangling
+// names for a full commit before this check existed.
+const COMMAND_TREES = [
+  join(ROOT, '.claude/commands'),
+  join(ROOT, '.kimi-code/plugin/commands'),
+];
+
+function walkMarkdownFiles(dirPath) {
+  if (!existsSync(dirPath)) return [];
+  const out = [];
+  for (const entry of readdirSync(dirPath)) {
+    const full = join(dirPath, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) out.push(...walkMarkdownFiles(full));
+    else if (entry.endsWith('.md')) out.push(full);
+  }
+  return out;
+}
+
+function lintCommandTree(treePath) {
+  for (const file of walkMarkdownFiles(treePath)) {
+    const content = readFileSync(file, 'utf8');
+    const rel = file.replace(`${ROOT}/`, '');
+    for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["']\)/g)) {
+      if (/[A-Z]/.test(m[1])) continue;
+      if (!KNOWN_SKILLS.has(m[1])) {
+        errors.push(`${rel}: Skill("${m[1]}") does not exist in any skill tree`);
+      }
+    }
+  }
+}
+
 // --- Check cross-tree drift ---
 // Directory-presence drift stays a warning (root vs. the npm-shipped package
 // tree only — many skills are legitimately root-only, e.g. local dev tooling).
@@ -211,6 +248,9 @@ function checkDrift() {
 // --- Run ---
 for (const tree of SKILL_TREES) {
   lintTree(tree, tree.replace(`${ROOT}/`, ''));
+}
+for (const tree of COMMAND_TREES) {
+  lintCommandTree(tree);
 }
 checkDrift();
 
