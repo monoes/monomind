@@ -1,6 +1,6 @@
 import type Parser from 'web-tree-sitter';
 import type { MonographEdge, MonographNode } from '../types.js';
-import { CONFIDENCE_SCORE, makeId, symbolId, toNormLabel } from '../types.js';
+import { CONFIDENCE_SCORE, fileId, makeId, symbolId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
 import type { ParseResult } from './loader.js';
 
@@ -28,7 +28,7 @@ export function extractSymbols(
     return overload === 0 ? first : symbolId({ filePath: repoPath, scope, name, kind, overload });
   }
 
-  const fileNodeId = makeId(repoPath.replace(/\//g, '_'), 'file');
+  const fileNodeId = fileId(repoPath);
   nodes.push({
     id: fileNodeId,
     label: 'File',
