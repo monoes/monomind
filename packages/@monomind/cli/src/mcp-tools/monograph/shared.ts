@@ -60,9 +60,21 @@ export function text(t: string) {
   return { content: [{ type: 'text' as const, text: t }] };
 }
 
-// ── Shared PPR rerank helper (HippoRAG-style, arXiv:2405.14831) ─────────────
-// Expands one hop through edges and boosts neighbor scores.
-export type PprScoredNode = {
+// ── Shared one-hop neighbor expansion ───────────────────────────────────────
+//
+// NAMING: this used to be called `applyPprRerank` and was described as
+// "HippoRAG-style personalized PageRank". It is not. It does ONE outgoing hop
+// and takes the maximum propagated score — no iteration to convergence, no
+// edge-confidence weighting, no relation-type weighting, no degree
+// normalization. Calling a one-hop heuristic "PPR" made it sound principled
+// and discouraged measuring it, so it is named for what it does. Whether
+// relation/confidence weighting actually helps should be settled against a
+// retrieval benchmark before any real PPR is introduced.
+//
+// Scores follow monograph's convention: higher is better, never negative.
+
+/** A direct search hit used to seed the expansion. */
+export type SeedNode = {
   id: string;
   name: string;
   label: string;
@@ -70,63 +82,114 @@ export type PprScoredNode = {
   startLine: number | null;
   score: number;
 };
-export function applyPprRerank(
+
+/** @deprecated Use {@link SeedNode}. */
+export type PprScoredNode = SeedNode;
+
+export type ExpandedNode = SeedNode & {
+  /**
+   * True when the node was NOT a direct search hit — it is in the result set
+   * only because a direct hit points at it. Supporting context, not a match.
+   */
+  isSupportingContext: boolean;
+  /**
+   * True when the displayed score is higher than the node's own direct-match
+   * score because a neighbor raised it. A node with this set must not be
+   * reported as a plain lexical match — its rank is not purely its own.
+   */
+  scoreRaisedByNeighbors: boolean;
+};
+
+/** Hard caps so expansion stays bounded regardless of graph shape. */
+export const MAX_EXPANSION_EDGES = 5_000;
+export const MAX_SUPPORTING_NODES = 200;
+export const DEFAULT_EXPANSION_DAMPING = 0.5;
+
+/**
+ * Coerce a caller-supplied damping factor into [0, 1].
+ * Non-finite input (NaN, Infinity, a non-number from an MCP client) falls back
+ * to the default rather than silently poisoning every propagated score.
+ */
+export function normalizeExpansionDamping(damping: unknown): number {
+  if (typeof damping !== 'number' || !Number.isFinite(damping)) return DEFAULT_EXPANSION_DAMPING;
+  return Math.min(1, Math.max(0, damping));
+}
+
+/**
+ * Expand one outgoing hop from `seedNodes` and merge the neighbors in as
+ * supporting context.
+ *
+ * `options.label`, when set, is reapplied AFTER expansion: a filtered query
+ * must not return an off-label node just because an on-label hit points at it.
+ */
+export function expandWithNeighbors(
   db: any,
-  seedNodes: PprScoredNode[],
+  seedNodes: SeedNode[],
   damping: number,
   maxResults: number,
-): Array<PprScoredNode & { boostedByNeighbors: boolean }> {
-  const propagated = new Map<string, number>();
-  for (const r of seedNodes) {
-    propagated.set(r.id, r.score);
-  }
+  options: { label?: string } = {},
+): ExpandedNode[] {
+  const factor = normalizeExpansionDamping(damping);
+  const { label } = options;
 
   // P3: batched edge lookup — was one SELECT per seed node (N+1 over the
   // default limit*2=40 seeds). Now a single WHERE source_id IN (?, ?, …)
   // pulls every neighbor in one round-trip. SQLite parameter limit is 999,
-  // well above the 40-seed default; fall back to chunking if a caller ever
-  // exceeds it.
+  // well above the 40-seed default; chunked for callers that exceed it.
   const seedIds = seedNodes.map((r) => r.id);
   const SEED_CHUNK = 500;
   const sourceToTargets = new Map<string, string[]>();
-  for (let i = 0; i < seedIds.length; i += SEED_CHUNK) {
+  let edgeCount = 0;
+  for (let i = 0; i < seedIds.length && edgeCount < MAX_EXPANSION_EDGES; i += SEED_CHUNK) {
     const chunk = seedIds.slice(i, i + SEED_CHUNK);
     const placeholders = chunk.map(() => '?').join(',');
     const rows = db
-      .prepare(`SELECT source_id, target_id FROM edges WHERE source_id IN (${placeholders})`)
-      .all(...chunk) as Array<{ source_id: string; target_id: string }>;
+      .prepare(
+        `SELECT source_id, target_id FROM edges WHERE source_id IN (${placeholders}) LIMIT ?`,
+      )
+      .all(...chunk, MAX_EXPANSION_EDGES - edgeCount) as Array<{
+      source_id: string;
+      target_id: string;
+    }>;
+    edgeCount += rows.length;
     for (const row of rows) {
       const arr = sourceToTargets.get(row.source_id) ?? [];
       arr.push(row.target_id);
       sourceToTargets.set(row.source_id, arr);
     }
   }
+
+  const seedIdSet = new Set(seedIds);
+  // Boost contributed by neighbors, keyed by node id. Kept separate from each
+  // seed's own score so we can tell "raised by a neighbor" from "ranked on its
+  // own merits" when reporting.
+  const neighborBoost = new Map<string, number>();
   for (const r of seedNodes) {
-    const neighbors = sourceToTargets.get(r.id) ?? [];
-    for (const n of neighbors) {
-      const boost = r.score * damping;
-      const current = propagated.get(n) ?? 0;
-      propagated.set(n, Math.max(current, boost));
+    const boost = r.score * factor;
+    for (const n of sourceToTargets.get(r.id) ?? []) {
+      neighborBoost.set(n, Math.max(neighborBoost.get(n) ?? 0, boost));
     }
   }
 
-  const seedIdSet = new Set(seedNodes.map((r) => r.id));
-  const ranked: Array<PprScoredNode & { combinedScore: number; boostedByNeighbors: boolean }> =
-    seedNodes.map((r) => ({
+  const ranked: ExpandedNode[] = seedNodes.map((r) => {
+    const boost = neighborBoost.get(r.id) ?? 0;
+    return {
       ...r,
-      combinedScore: Math.max(r.score, propagated.get(r.id) ?? 0),
-      boostedByNeighbors: false,
-    }));
+      score: Math.max(r.score, boost),
+      isSupportingContext: false,
+      scoreRaisedByNeighbors: boost > r.score,
+    };
+  });
 
-  // P3: batched node lookup for non-seed propagated nodes — was one SELECT
-  // per propagated id (~10 per call). Single WHERE id IN (?, ?, …) instead.
-  const nonSeedIds = [...propagated.keys()].filter((id) => !seedIdSet.has(id));
-  const nodeById = new Map<
-    string,
-    { id: string; name: string; label: string; file_path: string; start_line: number | null }
-  >();
-  for (let i = 0; i < nonSeedIds.length; i += SEED_CHUNK) {
-    const chunk = nonSeedIds.slice(i, i + SEED_CHUNK);
+  // Bound the expansion: keep only the highest-boosted non-seed nodes.
+  const supportingIds = [...neighborBoost.keys()]
+    .filter((id) => !seedIdSet.has(id))
+    .sort((a, b) => (neighborBoost.get(b) ?? 0) - (neighborBoost.get(a) ?? 0))
+    .slice(0, MAX_SUPPORTING_NODES);
+
+  // P3: batched node lookup for supporting nodes — was one SELECT per id.
+  for (let i = 0; i < supportingIds.length; i += SEED_CHUNK) {
+    const chunk = supportingIds.slice(i, i + SEED_CHUNK);
     const placeholders = chunk.map(() => '?').join(',');
     const rows = db
       .prepare(
@@ -139,36 +202,26 @@ export function applyPprRerank(
       file_path: string;
       start_line: number | null;
     }>;
-    for (const row of rows) nodeById.set(row.id, row);
-  }
-  for (const [id, score] of propagated) {
-    if (!seedIdSet.has(id)) {
-      const node = nodeById.get(id);
-      if (node) {
-        ranked.push({
-          id: node.id,
-          name: node.name,
-          label: node.label,
-          filePath: node.file_path,
-          startLine: node.start_line,
-          score: 0,
-          combinedScore: score,
-          boostedByNeighbors: true,
-        });
-      }
+    for (const row of rows) {
+      ranked.push({
+        id: row.id,
+        name: row.name,
+        label: row.label,
+        filePath: row.file_path,
+        startLine: row.start_line,
+        score: neighborBoost.get(row.id) ?? 0,
+        isSupportingContext: true,
+        scoreRaisedByNeighbors: true,
+      });
     }
   }
 
-  ranked.sort((a, b) => b.combinedScore - a.combinedScore);
-  return ranked.slice(0, maxResults).map((r) => ({
-    id: r.id,
-    name: r.name,
-    label: r.label,
-    filePath: r.filePath,
-    startLine: r.startLine,
-    score: r.combinedScore,
-    boostedByNeighbors: r.boostedByNeighbors,
-  }));
+  // Reapply the caller's label filter AFTER expansion — a `label: Function`
+  // query previously leaked a Document in via a neighbor edge.
+  const filtered = label ? ranked.filter((r) => r.label === label) : ranked;
+
+  filtered.sort((a, b) => b.score - a.score);
+  return filtered.slice(0, maxResults);
 }
 
 /** Guard against concurrent background buildAsync calls on the same DB. */
