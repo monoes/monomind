@@ -1310,6 +1310,17 @@ export class OrgDaemon {
         checkpoint.tasks && checkpoint.tasks.length > 0
           ? TaskDag.fromJSON(checkpoint.tasks)
           : new TaskDag();
+      // A 'running' task's "[task:…]" message was consumed by the session that
+      // was working it. If that role's SDK session is resumed (checkpointed
+      // sessionId) the task is still in its context; otherwise — role not
+      // restored at all, or restored into a fresh session — nothing knows
+      // about the task, so put it back to 'ready' and re-dispatch.
+      for (const task of running.taskDag.all()) {
+        if (task.status !== 'running') continue;
+        if (checkpoint.roleState[task.assignee]?.sessionId) continue;
+        running.taskDag.requeue(task.id);
+      }
+      decisionOps.dispatchReadyTasks(this, name, running);
       if (worktreePath) running.worktreePath = worktreePath;
     } else {
       spawnRole(bossRole); // always, ungated — see comment above

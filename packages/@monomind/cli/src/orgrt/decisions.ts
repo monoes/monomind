@@ -2,7 +2,7 @@
 // Extracted from daemon.ts — decision gates, decision trace, and task DAG operations.
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { OrgDaemon, RunningOrg } from './daemon.js';
+import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { type DecisionGate, ORG_DIR } from './types.js';
 
 // ── Decision gates ──────────────────────────────────────────────────────
@@ -354,7 +354,7 @@ export function dagCompleteTask(
   }
 }
 
-export function dispatchReadyTasks(_daemon: OrgDaemon, _org: string, running: RunningOrg): void {
+export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: RunningOrg): void {
   if (!running.taskDag) return;
   for (const task of running.taskDag.ready()) {
     // Resolve the assignee BEFORE marking the task running: a task's status
@@ -389,19 +389,48 @@ export function dispatchReadyTasks(_daemon: OrgDaemon, _org: string, running: Ru
       });
     } else if (pending) {
       running.pendingRoles?.delete(task.assignee);
-      running.taskDag.markRunning(task.id);
+      // Same max_concurrent_agents gate as deliver() / cross-org lazy spawns.
+      // The task stays 'ready'; the deferred spawn re-runs this dispatch once
+      // the role is actually up, so the task is picked up then.
+      const concurrencyLimit = running.def.run_config.max_concurrent_agents;
+      if (concurrencyLimit != null && activeRoleCount(running) >= concurrencyLimit) {
+        running.bus.emit({
+          type: 'audit',
+          from: task.assignee,
+          reason: 'concurrency-limit',
+          msg: `deferring lazy spawn of "${task.assignee}" for task ${task.id}: org is at its max_concurrent_agents ceiling (${concurrencyLimit})`,
+          data: { taskId: task.id, assignee: task.assignee },
+        });
+        daemon.scheduleConcurrencyDeferredSpawn(org, running, pending, (role) => {
+          running.spawnRole?.(role);
+          dispatchReadyTasks(daemon, org, running);
+        });
+        continue;
+      }
+      // spawnRole registers the runtime synchronously, so the agent is either
+      // live right now or the spawn failed — only mark 'running' in the former
+      // case, so a failed spawn leaves the task 'ready' and retriable.
       running.spawnRole?.(pending);
-      setTimeout(() => {
-        const spawned = running.agents.get(task.assignee);
-        if (spawned) spawned.mailbox.push(`[task:${task.id}] ${task.title}`);
-      }, 500);
-      running.bus.emit({
-        type: 'status',
-        from: 'dag',
-        reason: 'task-dispatched',
-        msg: `task ${task.id} dispatched to ${task.assignee}`,
-        data: { taskId: task.id, assignee: task.assignee },
-      });
+      const spawned = running.agents.get(task.assignee);
+      if (spawned && !spawned.mailbox.isClosed) {
+        running.taskDag.markRunning(task.id);
+        spawned.mailbox.push(`[task:${task.id}] ${task.title}`);
+        running.bus.emit({
+          type: 'status',
+          from: 'dag',
+          reason: 'task-dispatched',
+          msg: `task ${task.id} dispatched to ${task.assignee}`,
+          data: { taskId: task.id, assignee: task.assignee },
+        });
+      } else {
+        running.bus.emit({
+          type: 'audit',
+          from: 'dag',
+          reason: 'dispatch-recipient-unavailable',
+          msg: `task ${task.id} not dispatched — lazy spawn of "${task.assignee}" did not produce a live agent`,
+          data: { taskId: task.id, assignee: task.assignee },
+        });
+      }
     } else {
       // No live agent and no pending role for this assignee — it doesn't
       // resolve to anything (typo at task-creation time, or the role was

@@ -94,6 +94,18 @@ export class TaskDag {
     }
   }
 
+  /** Put a 'running' task back to 'ready' so dispatchReadyTasks re-sends it.
+   *  Used on checkpoint resume for tasks whose assignee's session was not
+   *  resumed: the "[task:…]" message was consumed by a session that no longer
+   *  exists, so nothing would ever pick the task up again otherwise. */
+  requeue(id: string): void {
+    const t = this.tasks.get(id);
+    if (t && t.status === 'running') {
+      t.status = 'ready';
+      t.startedAt = undefined;
+    }
+  }
+
   /** Mark a task as waiting on a real-world time, not on other tasks. Only
    *  valid from 'running' (a role already working it discovers it can't
    *  proceed further right now) — a 'ready'/'pending' task should just stay
@@ -206,6 +218,13 @@ export class TaskDag {
     if (!source) throw new Error(`task "${sourceId}" not found`);
     if (!target) throw new Error(`task "${targetId}" not found`);
     if (sourceId === targetId) throw new Error(`cannot merge a task into itself`);
+    // Same guard as split/cancel: a terminal source would lose its real outcome
+    // and a terminal target would let promoteReady() release the source's
+    // dependents for work that never happened.
+    if (TERMINAL.has(source.status))
+      throw new Error(`task "${sourceId}" is terminal (${source.status})`);
+    if (TERMINAL.has(target.status))
+      throw new Error(`task "${targetId}" is terminal (${target.status})`);
 
     const sourceStatus = source.status;
     const sourceMergedInto = source.mergedInto;
