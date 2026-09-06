@@ -1517,13 +1517,26 @@ export async function bridgeSearchPatterns(options: {
 
 // ===== Usage capture & feedback weighting (closed loop) =====
 
-async function recordUsageOnBackend(backend: any, entryIds: string[]): Promise<number> {
+/** Ids a usage/feedback pass could not train, with why — so `updated: 0` and
+ *  `applied: 0` are never a silent success. `not_found` means the id resolved
+ *  to no entry (deleted, or orphaned by an older re-ingest); `error` means the
+ *  entry existed but could not be updated. */
+type SkippedEntry = { id: string; reason: 'not_found' | 'error' };
+
+async function recordUsageOnBackend(
+  backend: any,
+  entryIds: string[],
+): Promise<{ updated: number; skipped: SkippedEntry[] }> {
   let updated = 0;
+  const skipped: SkippedEntry[] = [];
   for (const id of entryIds) {
     if (typeof id !== 'string' || !id) continue;
     try {
       const entry = await backend.get(id);
-      if (!entry) continue;
+      if (!entry) {
+        skipped.push({ id, reason: 'not_found' });
+        continue;
+      }
       const { frequency } = entryWeights(entry.metadata);
       await backend.update(id, {
         metadata: { frequency_weight: frequency + 1 },
@@ -1531,24 +1544,34 @@ async function recordUsageOnBackend(backend: any, entryIds: string[]): Promise<n
       });
       updated++;
     } catch (e) {
-      logBridgeError('recordUsageOnBackend.entryUpdate', e); /* skip unreadable entries */
+      logBridgeError('recordUsageOnBackend.entryUpdate', e);
+      skipped.push({ id, reason: 'error' });
     }
   }
-  return updated;
+  return { updated, skipped };
 }
 
 /** Record that these entries were actually USED (returned to and consumed by a
- *  caller) — increments frequency_weight, which feeds the ranking blend. */
+ *  caller) — increments frequency_weight, which feeds the ranking blend.
+ *
+ *  Unresolvable ids are REPORTED, not dropped: this used to `continue` past
+ *  every id it could not read, so a caller handing it a page of stale ids got
+ *  `{success: true, updated: 0}` with nothing to say whether those entries had
+ *  been deleted or the writes had failed. Same contract as
+ *  `bridgeApplyFeedback`. */
 export async function bridgeRecordUsage(options: {
   entryIds: string[];
   dbPath?: string;
-}): Promise<{ success: boolean; updated: number } | null> {
+}): Promise<{ success: boolean; updated: number; skipped?: SkippedEntry[] } | null> {
   const backend = await getBackend(options.dbPath);
   if (!backend) return null;
   try {
-    const updated = await recordUsageOnBackend(backend, (options.entryIds ?? []).slice(0, 100));
+    const { updated, skipped } = await recordUsageOnBackend(
+      backend,
+      (options.entryIds ?? []).slice(0, 100),
+    );
     if (updated) await flushBackend(backend);
-    return { success: true, updated };
+    return skipped.length ? { success: true, updated, skipped } : { success: true, updated };
   } catch (e) {
     logBridgeError('bridgeRecordUsage', e);
     return { success: false, updated: 0 };
