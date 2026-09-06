@@ -697,10 +697,12 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: `question "${questionId}" was already answered` };
 
   // Live path: the hosting daemon updates questions.json and pushes into the role's mailbox.
-  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
+  // SEC: answering a role's question is a human decision — authenticate with
+  // the operator credential, not the agent-facing one in the broker entry.
+  const { lookupOrg, readOperatorCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
   if (remote) {
-    const cred = normalizeCredential(remote.credential);
+    const cred = readOperatorCredential(name);
     try {
       const res = await fetch(`${remote.url}/api/answer-question`, {
         method: 'POST',
@@ -1220,10 +1222,12 @@ async function resolveApproval(
 ): Promise<CommandResult> {
   const verb = approved ? 'approved' : 'denied';
 
-  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
+  // SEC: approvals carry human authority — the operator credential, never the
+  // broker entry's agent credential (which any agent subprocess can read).
+  const { lookupOrg, readOperatorCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
   if (remote) {
-    const cred = normalizeCredential(remote.credential);
+    const cred = readOperatorCredential(name);
     try {
       const res = await fetch(`${remote.url}/api/set-approval`, {
         method: 'POST',
@@ -1623,10 +1627,11 @@ export const gateResolveAction = async (
   if (gate.status !== 'pending')
     return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
 
-  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
+  // SEC: gate resolution is a human decision — operator credential only.
+  const { lookupOrg, readOperatorCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
   if (remote) {
-    const cred = normalizeCredential(remote.credential);
+    const cred = readOperatorCredential(name);
     try {
       const res = await fetch(`${remote.url}/api/resolve-gate`, {
         method: 'POST',

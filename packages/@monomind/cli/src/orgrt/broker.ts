@@ -31,9 +31,56 @@ export function defaultRegistryDir(): string {
   return process.env.MONOMIND_ORGRT_BROKER_DIR || join(homedir(), '.monomind', 'orgrt-broker');
 }
 
+/** Where the OPERATOR credential lives — deliberately not the broker registry.
+ *  The registry entry is the agent-facing credential: every org process on the
+ *  machine reads it to deliver messages, so anything in it must be assumed
+ *  visible to agents. The operator credential authorizes human decisions
+ *  (approvals, gates, answers) and is only read by the `org` CLI. */
+export function defaultOperatorDir(): string {
+  return process.env.MONOMIND_ORGRT_OPERATOR_DIR || join(homedir(), '.monomind', 'orgrt-operator');
+}
+
 function entryPath(name: string, dir: string): string {
   if (!SAFE_NAME.test(name)) throw new Error(`invalid org name for broker registry: ${name}`);
   return join(dir, `${name}.json`);
+}
+
+/** Atomic owner-only write (tmp + same-directory rename) shared by both registries. */
+function writeEntry(dest: string, data: unknown): void {
+  const tmp = `${dest}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
+  renameSync(tmp, dest);
+}
+
+/** Publish the operator credential for org `name` so `org approve/deny/answer/gate-*`
+ *  can authenticate to the hosting daemon's human-decision routes. */
+export function writeOperatorCredential(
+  name: string,
+  credential: string,
+  dir = defaultOperatorDir(),
+): void {
+  mkdirSync(dir, { recursive: true });
+  writeEntry(entryPath(name, dir), { credential, pid: process.pid, updatedAt: Date.now() });
+}
+
+export function readOperatorCredential(
+  name: string,
+  dir = defaultOperatorDir(),
+): string | undefined {
+  try {
+    const entry = JSON.parse(readFileSync(entryPath(name, dir), 'utf8')) as { credential?: string };
+    return normalizeCredential(entry.credential);
+  } catch {
+    return undefined;
+  }
+}
+
+export function removeOperatorCredential(name: string, dir = defaultOperatorDir()): void {
+  try {
+    unlinkSync(entryPath(name, dir));
+  } catch {
+    /* already gone */
+  }
 }
 
 /** Publish that this process hosts org `name`, reachable via `url`. Call again periodically (heartbeat) — see BrokerLease.
@@ -53,12 +100,9 @@ export function registerOrg(
     updatedAt: Date.now(),
     ...(normalizedCred ? { credential: normalizedCred } : {}),
   };
-  const dest = entryPath(name, dir);
-  const tmp = `${dest}.${process.pid}.tmp`;
-  // SEC: the entry may carry the daemon's auth credential in plaintext —
+  // SEC: the entry carries this org's agent credential in plaintext —
   // restrict to owner-only so other local users can't read it off disk.
-  writeFileSync(tmp, JSON.stringify(entry), { mode: 0o600 });
-  renameSync(tmp, dest);
+  writeEntry(entryPath(name, dir), entry);
 }
 
 /** Remove this process's registration for `name` (best effort). */
@@ -85,7 +129,10 @@ export function lookupOrg(
   }
 }
 
-/** Keeps a broker registration alive with periodic heartbeats until stop() is called. */
+/** Keeps a broker registration alive with periodic heartbeats until stop() is called.
+ *  `credential` is the org's AGENT credential (published in the registry entry);
+ *  `operator` is the daemon's operator credential, written to its own directory
+ *  and never into the registry entry. */
 export class BrokerLease {
   private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -95,14 +142,18 @@ export class BrokerLease {
     private dir: string = defaultRegistryDir(),
     private intervalMs = 20_000,
     private credential?: string,
+    private operator?: { credential: string; dir?: string },
   ) {}
 
-  start(): void {
+  private publish(): void {
     registerOrg(this.name, this.url, this.dir, this.credential);
-    this.timer = setInterval(
-      () => registerOrg(this.name, this.url, this.dir, this.credential),
-      this.intervalMs,
-    );
+    if (this.operator)
+      writeOperatorCredential(this.name, this.operator.credential, this.operator.dir);
+  }
+
+  start(): void {
+    this.publish();
+    this.timer = setInterval(() => this.publish(), this.intervalMs);
     this.timer.unref?.();
   }
 
@@ -110,5 +161,6 @@ export class BrokerLease {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     unregisterOrg(this.name, this.dir);
+    if (this.operator) removeOperatorCredential(this.name, this.operator.dir);
   }
 }

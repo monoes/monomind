@@ -7,8 +7,22 @@ import type { OrgDaemon } from './daemon.js';
 export interface OrgServer {
   port: number;
   close: () => void;
-  credential: string;
+  /** Authorizes the human-decision routes (approvals, gates, answers, human
+   *  messages) and, as a superset, everything else. Never published to the
+   *  broker registry — see broker.ts's defaultOperatorDir(). */
+  operatorCredential: string;
 }
+
+/** Routes that act with HUMAN authority. Only the operator credential unlocks
+ *  them; a per-org agent credential (the one in the broker registry, readable
+ *  by every org process and agent subprocess on the machine) gets 403 so a role
+ *  can never approve its own gates. */
+const OPERATOR_ROUTES = new Set([
+  '/api/set-approval',
+  '/api/resolve-gate',
+  '/api/answer-question',
+  '/api/human-message',
+]);
 
 // CLI options for server behavior (currently unused but reserved for future CLI flags)
 export interface ServerOpts {
@@ -56,25 +70,35 @@ function json(res: http.ServerResponse, status: number, data: unknown): void {
 
 /** Minimal HTTP listener for cross-process org message delivery.
  *  Binds an ephemeral port (pass 0) so the daemon can register it with the broker.
- *  Requires an auth credential on all POST requests (generated at startup, shared via broker). */
+ *  Two credentials gate requests: each hosted org's agent credential (published
+ *  via the broker; unlocks delivery/status routes) and the operator credential
+ *  (generated here unless supplied; unlocks OPERATOR_ROUTES as well). */
 export async function startOrgServer(
   daemon: OrgDaemon,
   port = 0,
-  credential?: string,
+  operatorCredential?: string,
 ): Promise<OrgServer> {
   const { randomUUID, timingSafeEqual } = await import('node:crypto');
-  const cred = credential ?? randomUUID();
+  const operatorCred = operatorCredential ?? randomUUID();
 
   // SEC-2: timing-safe credential comparison. The previous `!==` compared
   // header-supplied bytes against the secret byte-for-byte and short-circuited
   // on the first mismatched character — a remote attacker could time the
   // response to recover the secret one byte at a time. Buffer.from + length
   // gate + timingSafeEqual runs in constant time.
-  const safeCred = (supplied: unknown): boolean => {
+  const safeEq = (supplied: unknown, expected: string): boolean => {
     const a = Buffer.from(String(supplied ?? ''));
-    const b = Buffer.from(cred);
+    const b = Buffer.from(expected);
     if (a.length !== b.length) return false;
     return timingSafeEqual(a, b);
+  };
+  const isOperator = (supplied: unknown): boolean => safeEq(supplied, operatorCred);
+  /** Operator, or any org currently hosted by this daemon. */
+  const isAgentOrOperator = (supplied: unknown): boolean => {
+    if (isOperator(supplied)) return true;
+    for (const org of daemon.orgs.values())
+      if (org.credential && safeEq(supplied, org.credential)) return true;
+    return false;
   };
 
   // SEC-3: DNS-rebinding / cross-origin defence. Mirrors ui/server.mjs's
@@ -115,7 +139,7 @@ export async function startOrgServer(
 
     // SSE endpoint for live bus event streaming (dashboard integration)
     if (req.method === 'GET' && req.url === '/api/events') {
-      if (!safeCred(req.headers['x-monomind-cred'])) {
+      if (!isAgentOrOperator(req.headers['x-monomind-cred'])) {
         json(res, 401, { ok: false, error: 'unauthorized' });
         return;
       }
@@ -136,7 +160,7 @@ export async function startOrgServer(
 
     // GET endpoint for org status snapshot (dashboard initial load)
     if (req.method === 'GET' && req.url?.startsWith('/api/status')) {
-      if (!safeCred(req.headers['x-monomind-cred'])) {
+      if (!isAgentOrOperator(req.headers['x-monomind-cred'])) {
         json(res, 401, { ok: false, error: 'unauthorized' });
         return;
       }
@@ -151,9 +175,15 @@ export async function startOrgServer(
       return;
     }
 
-    // Auth gate — all POST endpoints require the daemon credential
-    if (!safeCred(req.headers['x-monomind-cred'])) {
+    // Auth gate — every POST needs a credential this daemon recognizes, and
+    // the human-decision routes need the operator credential specifically.
+    const supplied = req.headers['x-monomind-cred'];
+    if (!isAgentOrOperator(supplied)) {
       json(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
+    if (OPERATOR_ROUTES.has(req.url ?? '') && !isOperator(supplied)) {
+      json(res, 403, { ok: false, error: 'forbidden: operator credential required' });
       return;
     }
 
@@ -174,7 +204,7 @@ export async function startOrgServer(
           json(res, 400, { ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' });
           return;
         }
-        const result = daemon.receiveRemote(
+        const result = await daemon.receiveRemote(
           toOrg,
           toRole,
           `${fromOrg}:${fromRole}`,
@@ -272,6 +302,6 @@ export async function startOrgServer(
       sseClients.clear();
       server.close();
     },
-    credential: cred,
+    operatorCredential: operatorCred,
   };
 }
