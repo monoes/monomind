@@ -1,4 +1,5 @@
 import type { MonographNode } from '../../types.js';
+import { symbolId } from '../../types.js';
 
 export interface VariableInfo {
   name: string;
@@ -55,7 +56,7 @@ export function extractVariables(source: string, filePath: string): VariableInfo
 
 export function variableToNode(v: VariableInfo): MonographNode {
   return {
-    id: `var:${v.filePath}:${v.name}`,
+    id: symbolId({ filePath: v.filePath, scope: [], name: v.name, kind: 'Variable' }),
     label: 'Variable',
     name: v.name,
     normLabel: v.name.toLowerCase(),
