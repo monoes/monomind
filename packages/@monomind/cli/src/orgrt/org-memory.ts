@@ -154,7 +154,13 @@ export async function recallOrgMemory(
       };
     }
 
-    const ids = results.map((r) => r.id).filter(Boolean);
+    // Graph seeds are rateable entries in their own right — that is why
+    // kgSearch returns their ids. Recording only the flat hits meant a run that
+    // succeeded on a graph fact never reinforced the fact it used (K9).
+    const ids = [
+      ...results.map((r) => r.id),
+      ...(graphContext ? (graph?.seeds ?? []).map((s) => s.id) : []),
+    ].filter(Boolean);
     if (ids.length) {
       let used = daemon.recallUsage.get(name);
       if (!used) {
@@ -339,6 +345,9 @@ export async function storeRunMemory(
           await kg.kgIngest({
             ...extracted,
             originRef: `run:${run}`,
+            // Recorded, not just described in this comment: consumers rank on
+            // it, and org_learn's own extraction is what `asserted` means.
+            method: 'heuristic',
             scope: orgKgScope(name),
             dbPath,
           });
