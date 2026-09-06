@@ -19,6 +19,84 @@ import path from 'node:path';
 
 export type RetrievalSurface = 'chunks' | 'kg' | 'rules' | 'memory';
 
+// ── Retrieval contract (graph-boundaries review B3) ──────────────────
+//
+// `knowledge_search` is a retrieval INTERFACE, not a store: the same tool name
+// is served by different implementations (MCP fuses four surfaces; the org
+// runtime's tool searches documents only). A caller could not tell which one
+// answered. Every retrieval result now names the surfaces it asked for, ran,
+// failed on, and cannot serve — using one vocabulary across implementations.
+
+/** A retrieval surface by its real identity, not by the tool that fronts it.
+ *  `code_graph` is Monograph (parsed code) and is never served by knowledge
+ *  search — it appears in a report precisely so its absence is stated. */
+export type KnowledgeSurface =
+  | 'documents' // Second Brain document index
+  | 'memory_graph' // memory knowledge graph — remembered claims, not code
+  | 'rules' // distilled rules
+  | 'memory' // flat memories / patterns
+  | 'code_graph'; // Monograph code graph
+
+/** Router surface names → contract names. The router's vocabulary predates the
+ *  contract and is still what `--surfaces` / `surfaces:[]` accept. */
+export const SURFACE_IDS: Record<RetrievalSurface, KnowledgeSurface> = {
+  chunks: 'documents',
+  kg: 'memory_graph',
+  rules: 'rules',
+  memory: 'memory',
+};
+
+export type SurfaceStatus =
+  /** Ran and returned something. */
+  | 'executed'
+  /** Ran and legitimately had nothing — distinct from unavailable. */
+  | 'empty'
+  /** Attempted and errored; absence here is not evidence of absence. */
+  | 'failed'
+  /** This implementation cannot search it at all. */
+  | 'unsupported'
+  /** Not part of this query's route. */
+  | 'not_requested';
+
+export interface SurfaceOutcome {
+  surface: KnowledgeSurface;
+  status: SurfaceStatus;
+  /** Which store/graph was actually read. */
+  scope?: { store?: 'project' | 'global' | 'all'; org?: string };
+  /** What retrieval actually ran — never what was requested. Propagated from
+   *  the memory bridge (`semantic` / `keyword` / `keyword-fallback`) so a
+   *  keyword fallback can never be presented as vector-seeded search. */
+  method?: string;
+  /** Why the vector path did not serve these results, when it did not. */
+  fallbackReason?: string;
+  results?: number;
+  /** The surface did not cover its whole namespace; results are incomplete. */
+  truncated?: boolean;
+  detail?: string;
+}
+
+export interface RetrievalReport {
+  requested: KnowledgeSurface[];
+  executed: KnowledgeSurface[];
+  failed: KnowledgeSurface[];
+  unsupported: KnowledgeSurface[];
+  surfaces: SurfaceOutcome[];
+}
+
+/** Roll per-surface outcomes into the four lists callers actually branch on.
+ *  `executed` covers 'empty' too: the surface answered, the answer was none. */
+export function buildRetrievalReport(outcomes: SurfaceOutcome[]): RetrievalReport {
+  const of = (...s: SurfaceStatus[]): KnowledgeSurface[] =>
+    outcomes.filter((o) => s.includes(o.status)).map((o) => o.surface);
+  return {
+    requested: of('executed', 'empty', 'failed', 'unsupported'),
+    executed: of('executed', 'empty'),
+    failed: of('failed'),
+    unsupported: of('unsupported'),
+    surfaces: outcomes,
+  };
+}
+
 interface RouteRule {
   surface: RetrievalSurface;
   pattern: RegExp;
@@ -35,10 +113,11 @@ const ROUTE_RULES: RouteRule[] = [
     weight: 2,
   },
   // KG: relationships, structure, "how does X relate to / depend on Y", who/what connects.
+  // NOTE: "what calls/imports/uses" is deliberately NOT here — see CODE_QUERY_RE.
   {
     surface: 'kg',
     pattern:
-      /\b(relat(e|es|ed|ionship)|depend(s|ency|encies)?|connect(s|ed|ion)?|link(s|ed)?|between|structure|architecture|who (owns|maintains|uses)|what (uses|calls|imports))\b/i,
+      /\b(relat(e|es|ed|ionship)|depend(s|ency|encies)?|connect(s|ed|ion)?|link(s|ed)?|between|structure|architecture|who (owns|maintains))\b/i,
     weight: 2,
   },
   { surface: 'kg', pattern: /\b(entity|entities|graph|triplet)\b/i, weight: 1.5 },
@@ -58,6 +137,15 @@ const ROUTE_RULES: RouteRule[] = [
   },
 ];
 
+/** Questions about what the CODE does — callers, imports, references. These
+ *  read like graph questions and used to score for `kg`, which is the MEMORY
+ *  knowledge graph: the query got answered from what someone once asserted
+ *  rather than from parsed code, and a non-empty result meant the chunks
+ *  fallback never corrected it. Monograph is the surface that can answer them;
+ *  knowledge search cannot, and must say so. */
+const CODE_QUERY_RE =
+  /\b(?:what|which|who|where)\s+(?:code\s+)?(?:calls?|imports?|references?|uses|requires?)\b|\bcall(?:ers?|ees?|[-\s]graph)\b|\b(?:imported|referenced|called)\s+by\b|\b(?:dependents?|dependencies|references?|callers?|usages?)\s+of\b|\bimpact\s+of\s+(?:changing|renaming)\b/i;
+
 /** Negated mentions must not vote: "not about the architecture" (cognee uses
  *  a 20-char pre-match negation window; same here). */
 const NEGATION_RE = /\b(not?|without|except|ignore|don'?t|excluding)\b[^.!?]{0,20}$/i;
@@ -69,6 +157,10 @@ export interface RouteDecision {
    *  routes should hit ALL surfaces and fuse. */
   confident: boolean;
   scores: Record<RetrievalSurface, number>;
+  /** The query asks about code structure (callers/imports/references). No
+   *  knowledge-search surface can answer it — Monograph can. Callers must
+   *  either route to Monograph or report `code_graph` as not searched. */
+  codeQuery: boolean;
 }
 
 const overrideCounts: Record<string, number> = {};
@@ -113,7 +205,16 @@ export function routeQuery(query: string): RouteDecision {
   const confident = winner[1] >= 2 * Math.max(runnerUp[1], 0.25);
 
   const surfaces = confident ? [winner[0]] : ranked.filter(([, s]) => s > 0).map(([k]) => k);
-  return { surfaces: surfaces.length ? surfaces : ['chunks'], confident, scores };
+
+  let codeQuery = false;
+  for (const m of q.matchAll(new RegExp(CODE_QUERY_RE.source, `${CODE_QUERY_RE.flags}g`))) {
+    const before = q.slice(Math.max(0, (m.index ?? 0) - 26), m.index ?? 0);
+    if (NEGATION_RE.test(before)) continue;
+    codeQuery = true;
+    break;
+  }
+
+  return { surfaces: surfaces.length ? surfaces : ['chunks'], confident, scores, codeQuery };
 }
 
 /** Call when a route proved wrong (caller retried another surface) — counts
