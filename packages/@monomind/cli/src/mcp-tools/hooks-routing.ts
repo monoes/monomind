@@ -806,6 +806,18 @@ export const hooksPreTask: MCPTool = {
   },
 };
 
+/** Provenance ref for the causal edge this hook writes.
+ *
+ *  Every post-task hook used to ingest under the bare string
+ *  `hooks-post-task`, so a graph rollback aimed at one bad task withdrew the
+ *  causal record of every task the hook had ever seen, and there was no ref
+ *  that named a single one. Keying on the task id makes the ref unique per
+ *  operation and stable for it: re-running post-task for the same task
+ *  re-asserts the same support rather than minting a second one. */
+export function postTaskOriginRef(taskId: string): string {
+  return `hooks-post-task:${taskId}`;
+}
+
 export const hooksPostTask: MCPTool = {
   name: 'hooks_post-task',
   description: 'Record task completion for learning',
@@ -931,7 +943,7 @@ export const hooksPostTask: MCPTool = {
             relation: success ? 'succeeded' : 'failed',
           },
         ],
-        originRef: 'hooks-post-task',
+        originRef: postTaskOriginRef(taskId),
       });
     } catch (e) {
       // Non-fatal
