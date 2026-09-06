@@ -9,6 +9,21 @@
  *
  * Auth: inherited from the CLI's own login flow. No env vars set here.
  *
+ * Streaming / liveness — WHY INCREMENTAL (#204):
+ *   This runner originally buffered ALL of qwen's stdout until the subprocess
+ *   exited before parsing anything, so any turn longer than session.ts's
+ *   4-minute silent-stream watchdog (SILENT_SESSION_MS) yielded zero messages
+ *   in time — abort, retry, kill, circuit breaker. Same bug class as the
+ *   kimi/antigravity/codex runners had (#204 audit). This runner now parses
+ *   stdout LINE BY LINE as it arrives: a liveness `tool_use` message is
+ *   yielded the moment the subprocess spawns (deterministically winning the
+ *   first-pull race regardless of model-thinking latency), and each
+ *   `assistant` event's text is yielded as its line lands (qwen's
+ *   stream-json sends whole messages per event, not per-token deltas —
+ *   confirmed live, #182 — so no accumulation is needed, unlike agy).
+ *   Tool_call fences are still collected from the raw texts and parsed at
+ *   end of turn (fence parsing needs the complete text).
+ *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners
  * (see tool-fence.ts).
  *
@@ -29,7 +44,10 @@
  *     every event.
  *   - `--yolo` auto-approves tool actions (org roles gate tool execution
  *     themselves via canUseTool/tool-fence, so CLI-level approval prompts
- *     would otherwise hang a non-interactive run).
+ *     would otherwise hang a non-interactive run). No distinct tool-call
+ *     wire event is documented/observed for this CLI, so — unlike codex's
+ *     command_execution items — there is nothing else here to forward as
+ *     mid-turn tool liveness beyond the spawn-time yield.
  */
 import { spawn } from 'node:child_process';
 import {
@@ -38,6 +56,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -71,9 +90,25 @@ interface QwenEvent {
   error?: { message?: string } | string;
 }
 
+/**
+ * One parsed qwen stream-json event, normalized for incremental streaming.
+ *   - 'assistant': rawText is one whole assistant message (fences intact) for
+ *     end-of-turn tool-call parsing; text is the fence-stripped prose,
+ *     present only when non-empty.
+ *   - 'tool':      liveness only — this runner has no live-verified wire
+ *     event for qwen's own tool activity, so the only 'tool' event is the
+ *     spawn-time yield (see header).
+ *   - 'meta':      any other event that only carries a session id.
+ */
+export interface QwenStreamEvent {
+  kind: 'assistant' | 'tool' | 'meta';
+  text?: string;
+  rawText?: string;
+  toolName?: string;
+  sessionId?: string;
+}
+
 interface TurnOutcome {
-  texts: string[];
-  rawTexts: string[];
   sessionId?: string;
   exitCode: number;
   stderrTail: string;
@@ -86,8 +121,49 @@ interface TurnOutcome {
   error?: string;
 }
 
+/**
+ * Normalize one parsed qwen wire event into a QwenStreamEvent (or null for
+ * events that carry nothing new). Usage/error facts are written into
+ * `outcome` since they apply to the whole turn, not to a single event.
+ */
+function handleQwenEvent(
+  ev: QwenEvent,
+  outcome: Pick<TurnOutcome, 'inputTokens' | 'outputTokens' | 'error'>,
+): QwenStreamEvent | null {
+  if (ev.type === 'assistant' && ev.message?.content) {
+    const text = ev.message.content
+      .filter((b) => b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text as string)
+      .join('\n');
+    if (!text) return ev.session_id ? { kind: 'meta', sessionId: ev.session_id } : null;
+    const stripped = text.replace(TOOL_CALL_RE, '').trim();
+    return {
+      kind: 'assistant',
+      rawText: text,
+      text: stripped || undefined,
+      sessionId: ev.session_id,
+    };
+  }
+
+  if (ev.type === 'result') {
+    if (ev.usage) {
+      outcome.inputTokens = ev.usage.input_tokens ?? 0;
+      outcome.outputTokens = ev.usage.output_tokens ?? 0;
+    }
+    if (ev.subtype === 'error') {
+      outcome.error =
+        typeof ev.error === 'string' ? ev.error : (ev.error?.message ?? 'qwen result: error');
+    }
+    return { kind: 'meta', sessionId: ev.session_id };
+  }
+
+  // 'system' events and anything else — only the session id (if any) matters.
+  return ev.session_id ? { kind: 'meta', sessionId: ev.session_id } : null;
+}
+
 /** Pure stream-json parser — exported for unit testing against fixture lines
- *  built from Qwen Code's documented event schema (qwen-runner.test.ts). */
+ *  built from Qwen Code's documented event schema (qwen-runner.test.ts).
+ *  Built on the same handleQwenEvent() the live streaming path uses. */
 export function parseQwenEvents(lines: string[]): {
   texts: string[];
   rawTexts: string[];
@@ -97,10 +173,12 @@ export function parseQwenEvents(lines: string[]): {
   error?: string;
 } {
   const rawTexts: string[] = [];
+  const texts: string[] = [];
   let sessionId: string | undefined;
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let error: string | undefined;
+  const outcome: Pick<TurnOutcome, 'inputTokens' | 'outputTokens' | 'error'> = {
+    inputTokens: 0,
+    outputTokens: 0,
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -112,30 +190,23 @@ export function parseQwenEvents(lines: string[]): {
       continue;
     }
 
-    if (ev.session_id) sessionId = ev.session_id;
-
-    if (ev.type === 'assistant' && ev.message?.content) {
-      const text = ev.message.content
-        .filter((b) => b.type === 'text' && typeof b.text === 'string')
-        .map((b) => b.text as string)
-        .join('\n');
-      if (text) rawTexts.push(text);
-    }
-
-    if (ev.type === 'result') {
-      if (ev.usage) {
-        inputTokens = ev.usage.input_tokens ?? 0;
-        outputTokens = ev.usage.output_tokens ?? 0;
-      }
-      if (ev.subtype === 'error') {
-        error =
-          typeof ev.error === 'string' ? ev.error : (ev.error?.message ?? 'qwen result: error');
-      }
+    const out = handleQwenEvent(ev, outcome);
+    if (!out) continue;
+    if (out.sessionId) sessionId = out.sessionId;
+    if (out.kind === 'assistant') {
+      if (out.rawText !== undefined) rawTexts.push(out.rawText);
+      if (out.text) texts.push(out.text);
     }
   }
 
-  const texts = rawTexts.map((t) => t.replace(TOOL_CALL_RE, '').trim());
-  return { texts, rawTexts, sessionId, inputTokens, outputTokens, error };
+  return {
+    texts,
+    rawTexts,
+    sessionId,
+    inputTokens: outcome.inputTokens,
+    outputTokens: outcome.outputTokens,
+    error: outcome.error,
+  };
 }
 
 export class QwenAgentRunner implements AgentRunner {
@@ -163,7 +234,38 @@ export class QwenAgentRunner implements AgentRunner {
             ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
             : nextPrompt;
 
-          const outcome = await this.runTurn(bin, promptWithSystem, sessionId, args);
+          // Filled in by streamTurn as the subprocess runs and when it exits.
+          const outcome: TurnOutcome = {
+            exitCode: 1,
+            stderrTail: '',
+            timedOut: false,
+            hangSuspected: false,
+            inputTokens: 0,
+            outputTokens: 0,
+          };
+          // Raw assistant texts (fences intact) for end-of-turn tool-call
+          // parsing — fence parsing needs the complete text, so fences are
+          // collected here while the stripped prose streams out live below.
+          const rawTexts: string[] = [];
+
+          for await (const ev of this.streamTurn(bin, promptWithSystem, sessionId, args, outcome)) {
+            if (ev.sessionId) sessionId = ev.sessionId;
+            if (ev.kind === 'assistant' && ev.rawText !== undefined) {
+              rawTexts.push(ev.rawText);
+              // Yield assistant prose AS IT ARRIVES (per event, not after
+              // process exit): a qwen turn can run many minutes, and
+              // session.ts's watchdog must see messages DURING the turn.
+              // Note this means partial output may already be yielded when
+              // a turn later exits non-zero — preferable to losing it
+              // entirely.
+              if (ev.text) yield { type: 'assistant', session_id: sessionId, text: ev.text };
+            } else if (ev.kind === 'tool') {
+              // Liveness only (see header): session.ts never renders
+              // tool_use as chat — it only feeds the StateDetector
+              // ('tool-call' state) and refreshes last-activity.
+              yield { type: 'tool_use', session_id: sessionId, text: ev.toolName };
+            }
+          }
           if (outcome.sessionId) sessionId = outcome.sessionId;
 
           if (outcome.hangSuspected) {
@@ -175,24 +277,13 @@ export class QwenAgentRunner implements AgentRunner {
             );
           }
           if (outcome.exitCode !== 0 || outcome.error) {
-            throw new Error(
-              `QwenAgentRunner: qwen failed (exit ${outcome.exitCode})` +
-                (outcome.timedOut
-                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
-                  : '') +
-                (outcome.error ? `: ${outcome.error}` : '') +
-                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
-            );
-          }
-
-          for (const t of outcome.texts) {
-            if (t.trim()) yield { type: 'assistant', session_id: sessionId, text: t };
+            throw turnError(outcome, round);
           }
           turnInputTokens += outcome.inputTokens;
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) =>
+          const calls = parseToolCalls(rawTexts, (raw, err) =>
             malformed.push(
               `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
             ),
@@ -236,131 +327,189 @@ export class QwenAgentRunner implements AgentRunner {
     }
   }
 
-  private runTurn(
+  /**
+   * Run one `qwen` invocation and stream its stream-json output
+   * INCREMENTALLY: each parsed event is yielded as soon as its line arrives
+   * on stdout (see the header's "Streaming / liveness" note for why
+   * buffering until process exit was a bug, #204). End-of-turn facts (exit
+   * code, stderr tail, session id, usage, error, timeout/hang flags) are
+   * written into `outcome`, which the caller reads after this generator
+   * completes.
+   */
+  private async *streamTurn(
     bin: string,
     prompt: string,
     sessionId: string | undefined,
     args: AgentRunArgs,
-  ): Promise<TurnOutcome> {
-    return new Promise<TurnOutcome>((resolve, reject) => {
-      const cliArgs: string[] = ['-p', prompt, '--output-format', 'stream-json', '--yolo'];
-      if (args.model) cliArgs.push('-m', args.model);
-      if (sessionId) cliArgs.push('--resume', sessionId);
+    outcome: TurnOutcome,
+  ): AsyncGenerator<QwenStreamEvent> {
+    const cliArgs: string[] = ['-p', prompt, '--output-format', 'stream-json', '--yolo'];
+    if (args.model) cliArgs.push('-m', args.model);
+    if (sessionId) cliArgs.push('--resume', sessionId);
 
-      const child = spawn(bin, cliArgs, {
-        cwd: args.cwd,
-        env: { ...process.env, ...args.env },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-
-      let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => {
-        stderrTail = (stderrTail + c.toString()).slice(-4000);
-      });
-
-      let sawOutput = false;
-      let timedOut = false;
-      let hangSuspected = false;
-      const KILL_GRACE_MS = 5000;
-      let killTimer: ReturnType<typeof setTimeout> | undefined;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            /* already gone */
-          }
-        }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, TURN_TIMEOUT_MS);
-
-      // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
-      let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-        hangSuspected = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            /* already gone */
-          }
-        }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, STARTUP_GRACE_MS);
-
-      const exitPromise = new Promise<number>((res, rej) => {
-        child.on('error', rej);
-        child.on('close', (code) => res(code ?? 1));
-      });
-      exitPromise.catch(() => {});
-      // Abort hook (see AgentRunArgs.signal): kill the child so the stdout
-      // read below completes instead of orphaning it on iterator.return().
-      const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
-
-      const readLines = (async () => {
-        const lines: string[] = [];
-        let buf = '';
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) {
-            sawOutput = true;
-            if (hangTimer) {
-              clearTimeout(hangTimer);
-              hangTimer = undefined;
-            }
-          }
-          buf += chunk.toString();
-          const parts = buf.split('\n');
-          buf = parts.pop() ?? '';
-          lines.push(...parts);
-        }
-        if (buf.trim()) lines.push(buf);
-        return lines;
-      })();
-
-      // Timer cleanup lives in a top-level .finally() (not nested inside a
-      // success-path .then()) so it runs on EITHER path — a stdout stream
-      // error would otherwise skip straight to reject() and leave the
-      // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
-      // process's actual lifetime.
-      Promise.all([readLines, exitPromise])
-        .then(
-          ([lines, exitCode]) => {
-            const parsed = parseQwenEvents(lines);
-            resolve({
-              texts: parsed.texts,
-              rawTexts: parsed.rawTexts,
-              sessionId: parsed.sessionId ?? sessionId,
-              exitCode,
-              stderrTail,
-              timedOut,
-              hangSuspected,
-              inputTokens: parsed.inputTokens,
-              outputTokens: parsed.outputTokens,
-              error: parsed.error,
-            });
-          },
-          (err) => {
-            // A stdout stream error (the reject path) means the process is
-            // still ALIVE and unmanaged — none of the timeout/hang timers
-            // would have fired to kill it. Without this, that error would
-            // orphan the child. child.kill() on an already-dead process is a
-            // documented no-op, so this is safe on every path.
-            try {
-              child.kill('SIGTERM');
-            } catch {
-              /* already gone */
-            }
-            reject(err);
-          },
-        )
-        .finally(() => {
-          unsubscribeAbort();
-          clearTimeout(timer);
-          if (hangTimer) clearTimeout(hangTimer);
-          if (killTimer) clearTimeout(killTimer);
-        });
+    const child = spawn(bin, cliArgs, {
+      cwd: args.cwd,
+      env: { ...process.env, ...args.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    let stderrTail = '';
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
+    });
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    let hangSuspected = false;
+    // SIGTERM→SIGKILL escalation, shared by the turn timeout, the startup
+    // hang check, the abort signal, and the abandoned-stream path in
+    // `finally` — a CLI that ignores SIGTERM must not leak a zombie per turn.
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const killChild = (): void => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* already gone */
+      }
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killChild();
+    }, TURN_TIMEOUT_MS);
+
+    // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
+    let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+      hangSuspected = true;
+      killChild();
+    }, STARTUP_GRACE_MS);
+    // Abort hook (see AgentRunArgs.signal): kill the child so the stdout
+    // loop below unblocks instead of orphaning it on iterator.return().
+    const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
+
+    // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+    // (ENOENT, bad binary) the 'error' event fires almost immediately — if
+    // no listener is attached yet it escapes as an unhandled 'error' event
+    // and crashes the process instead of reaching our catch block.
+    const exitPromise = new Promise<number>((res, rej) => {
+      child.on('error', rej);
+      child.on('close', (code) => res(code ?? 1));
+    });
+    // Prevent an unhandled-rejection crash if the stdout loop below throws
+    // before we await exitPromise (the await still sees the rejection).
+    exitPromise.catch(() => {});
+
+    let lastSessionId: string | undefined = sessionId;
+
+    try {
+      // Immediate liveness yield: session.ts races the FIRST pull against a
+      // 4-minute silent-stream watchdog, and qwen's first stdout line can
+      // itself take minutes (long thinking chains, large file reads).
+      // Yielding at spawn wins that race deterministically instead of
+      // depending on qwen's latency.
+      yield { kind: 'tool', toolName: 'turn started', sessionId };
+
+      let buf = '';
+      for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+        // Any stdout at all disarms the hang-suspicion timer — see
+        // STARTUP_GRACE_MS.
+        if (hangTimer) {
+          clearTimeout(hangTimer);
+          hangTimer = undefined;
+        }
+        buf += chunk.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed?.startsWith('{')) continue;
+          let ev: QwenEvent;
+          try {
+            ev = JSON.parse(trimmed) as QwenEvent;
+          } catch {
+            continue;
+          }
+          const out = handleQwenEvent(ev, outcome);
+          if (out) {
+            if (out.sessionId) lastSessionId = out.sessionId;
+            yield out;
+          }
+        }
+      }
+      const tail = buf.trim();
+      if (tail?.startsWith('{')) {
+        try {
+          const out = handleQwenEvent(JSON.parse(tail) as QwenEvent, outcome);
+          if (out) {
+            if (out.sessionId) lastSessionId = out.sessionId;
+            yield out;
+          }
+        } catch {
+          /* not JSON, skip */
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+      if (hangTimer) clearTimeout(hangTimer);
+      unsubscribeAbort();
+      if (child.exitCode === null && child.signalCode === null) {
+        // NOT confirmed dead. Either the consumer abandoned this stream
+        // mid-turn (session.ts's silent abort calls iterator.return(), the
+        // mailbox closes, or an error is thrown downstream) — kill it, WITH
+        // the SIGKILL escalation — or a SIGTERM from the timeout/hang/abort
+        // is still inside its grace period: leave that escalation armed,
+        // since clearing it here would orphan a CLI that ignores SIGTERM and
+        // then wait on `exitPromise` forever (same fix as codex/kimi/pi-rpc).
+        if (!child.killed) killChild();
+      } else if (killTimer) {
+        clearTimeout(killTimer);
+      }
+    }
+
+    const exitCode = await exitPromise;
+    if (killTimer) clearTimeout(killTimer);
+    outcome.sessionId = lastSessionId;
+    outcome.exitCode = exitCode;
+    outcome.stderrTail = stderrTail;
+    outcome.timedOut = timedOut;
+    outcome.hangSuspected = hangSuspected;
   }
+}
+
+/** Build the actionable error for a failed qwen turn. */
+function turnError(outcome: TurnOutcome, round: number): Error {
+  if (outcome.timedOut) {
+    return new Error(
+      `QwenAgentRunner: qwen turn (tool round ${round}) exceeded the ${TURN_TIMEOUT_MS / 3_600_000}h ` +
+        `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+    );
+  }
+  // Fatal provider errors (auth/permission/quota — classified from the error
+  // field AND stderr): report what actually happened, and tag the error so
+  // the daemon does NOT restart into the same guaranteed failure (a restart
+  // on quota exhaustion can only hang or fail again).
+  const cls = classifyStderr(`${outcome.error ?? ''}\n${outcome.stderrTail}`);
+  if (cls.fatal) {
+    const err = new Error(
+      `QwenAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
+        (outcome.error ? ` error: ${outcome.error}` : '') +
+        (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+    (err as Error & { fatal?: boolean }).fatal = true;
+    return err;
+  }
+  return new Error(
+    `QwenAgentRunner: qwen failed (exit ${outcome.exitCode})` +
+      (outcome.error ? `: ${outcome.error}` : '') +
+      (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+  );
 }

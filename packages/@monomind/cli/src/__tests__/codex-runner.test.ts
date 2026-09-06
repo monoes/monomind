@@ -1061,9 +1061,9 @@ describe('CodexAgentRunner subprocess lifecycle', () => {
       );
       vi.mocked(cp.spawn).mockReturnValue(child);
 
-      const gen = runner.run(makeRunArgs())[Symbol.asyncIterator]();
+      const gen = runner.run(makeRunArgs())[Symbol.asyncIterator]() as AsyncGenerator<any>;
       await gen.next(); // liveness — the generator is now parked at a yield
-      const returned = gen.return(undefined as never);
+      const returned = gen.return(undefined);
       returned.catch(() => {});
       await vi.advanceTimersByTimeAsync(10);
       expect(child.kill).toHaveBeenCalledWith('SIGTERM');
