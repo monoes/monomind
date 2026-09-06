@@ -1,8 +1,39 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import type { MCPTool } from '../types.js';
+import type {
+  MonographImpactResult,
+  MonographNode,
+  MonographRenameResult,
+} from '@monoes/monograph';
+import type { MCPTool, MCPToolResult } from '../types.js';
 import { getProjectCwd } from '../types.js';
 import { _isValidDb, getDbPath, text } from './shared.js';
+
+/**
+ * Human-readable text plus the machine-readable result it was rendered from.
+ *
+ * The adapters below used to `as any`-cast library results and read fields
+ * that did not exist on them (`rn.occurrences`, `rn.references`), so a valid
+ * result rendered as "Occurrences: 0". Typing the boundary against the real
+ * library types turns that class of drift into a compile error; emitting the
+ * structured payload alongside the prose means callers never have to re-parse
+ * the prose to recover counts, locations, risk level, or error state.
+ */
+function textWithData(readable: string, data: unknown, isError = false): MCPToolResult {
+  return {
+    content: [
+      { type: 'text', text: readable },
+      { type: 'text', text: JSON.stringify(data, null, 2) },
+    ],
+    ...(isError ? { isError: true } : {}),
+  };
+}
+
+/** Location suffix for a graph node: `file:line`, `file`, or empty. */
+function nodeLocation(node: Pick<MonographNode, 'filePath' | 'startLine'>): string {
+  if (!node.filePath) return '';
+  return node.startLine != null ? `${node.filePath}:${node.startLine}` : node.filePath;
+}
 
 // ── monograph_impact ──────────────────────────────────────────────────────────
 
@@ -44,56 +75,75 @@ export const monographImpactTool: MCPTool = {
           : typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
             ? Math.min(Math.floor(rawDepth), 6)
             : 3;
-      const result = getMonographImpact(db, {
+      const result: MonographImpactResult = getMonographImpact(db, {
         name: impactName,
         filePath: impactPath,
         depth,
       });
-      if (!result?.node) return text(`No symbol found: ${impactName}`);
+      const root = result.node;
+      if (!root) return text(`No symbol found: ${impactName}`);
 
-      // Format impact as structured text for direct LLM consumption
-      const root = result.node as any;
-      const rootLoc = root.filePath
-        ? root.startLine != null
-          ? `${root.filePath}:${root.startLine}`
-          : root.filePath
-        : '';
-      const lines: string[] = [
-        `[${root.label ?? '?'}] ${root.name}  ${rootLoc}`,
-        '',
-        `Blast radius: ${result.affectedFiles?.length ?? 0} symbols affected`,
+      // Depth lives on the transitiveCallers grouping, not on the nodes — pair
+      // each node with the depth the library reported it at.
+      const callers: Array<{ node: MonographNode; depth: number }> = [
+        ...result.directCallers.map((node) => ({ node, depth: 1 })),
+        ...result.transitiveCallers.flatMap((group) =>
+          group.nodes.map((node) => ({ node, depth: group.depth })),
+        ),
       ];
 
-      if (result.riskScore != null) {
-        const riskLabel =
-          (result.riskScore as number) >= 0.8
-            ? 'HIGH'
-            : (result.riskScore as number) >= 0.5
-              ? 'MEDIUM'
-              : 'LOW';
-        lines.push(`Risk score: ${(result.riskScore as number).toFixed(2)} (${riskLabel})`);
-      }
-      lines.push('');
+      const MAX_LISTED_CALLERS = 20;
+      const shown = callers.slice(0, MAX_LISTED_CALLERS);
+      const lines: string[] = [
+        `[${root.label}] ${root.name}  ${nodeLocation(root)}`,
+        '',
+        // affectedFiles counts FILES, not symbols — the caller lists are the symbols.
+        `Blast radius: ${callers.length} symbols across ${result.affectedFiles.length} files`,
+        // Risk label comes from the library's own computeRiskLevel thresholds so
+        // the severity shown here can never disagree with the score beside it.
+        `Risk: ${result.riskLevel} (${result.riskScore.toFixed(2)})`,
+        '',
+      ];
 
-      const affected = [
-        ...((result.directCallers as any[]) ?? []),
-        ...((result.transitiveCallers as Array<{ depth: number; nodes: any[] }>) ?? []).flatMap(
-          (t) => t.nodes ?? [],
-        ),
-      ] as any[];
-      if (affected.length > 0) {
-        lines.push(`Affected callers (${affected.length}):`);
-        for (const sym of affected.slice(0, 20)) {
-          const fp = sym.filePath ?? sym.file_path ?? '';
-          const ln = sym.startLine ?? sym.start_line;
-          const symLoc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
-          const depth_marker = sym.depth != null ? ` [depth ${sym.depth}]` : '';
-          lines.push(`  [${sym.label ?? '?'}] ${sym.name ?? sym.id}  ${symLoc}${depth_marker}`);
+      if (callers.length > 0) {
+        lines.push(`Callers (${callers.length}, showing ${shown.length}):`);
+        for (const { node, depth: callerDepth } of shown) {
+          lines.push(
+            `  [${node.label}] ${node.name}  ${nodeLocation(node)} [depth ${callerDepth}]`,
+          );
         }
-        if (affected.length > 20) lines.push(`  … ${affected.length - 20} more`);
+        if (callers.length > shown.length) {
+          lines.push(`  … ${callers.length - shown.length} more`);
+        }
       }
 
-      return text(lines.join('\n').trim());
+      return textWithData(lines.join('\n').trim(), {
+        symbol: {
+          id: root.id,
+          name: root.name,
+          label: root.label,
+          filePath: root.filePath ?? null,
+          startLine: root.startLine ?? null,
+        },
+        maxDepth: Math.min(depth ?? 3, 6),
+        riskScore: result.riskScore,
+        riskLevel: result.riskLevel,
+        affectedFileCount: result.affectedFiles.length,
+        affectedFiles: result.affectedFiles,
+        affectedSymbolCount: callers.length,
+        callers: callers.map(({ node, depth: callerDepth }) => ({
+          id: node.id,
+          name: node.name,
+          label: node.label,
+          filePath: node.filePath ?? null,
+          startLine: node.startLine ?? null,
+          depth: callerDepth,
+        })),
+        truncated: {
+          callersListedInText: shown.length,
+          callersOmittedFromText: callers.length - shown.length,
+        },
+      });
     } finally {
       closeDb(db);
     }
@@ -582,30 +632,70 @@ export const monographRenameTool: MCPTool = {
     const { getMonographRename } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const result = getMonographRename(db, {
-        oldName: input.oldName as string,
-        newName: input.newName as string,
+      const oldName = input.oldName as string;
+      const newName = input.newName as string;
+      const result: MonographRenameResult = getMonographRename(db, {
+        oldName,
+        newName,
         filePath: input.filePath as string | undefined,
         dryRun: (input.dryRun as boolean | undefined) ?? true,
       });
 
-      // Format as structured text for direct LLM navigation instead of raw JSON
-      const rn = result as any;
-      if (!rn) return text(`Symbol not found: ${input.oldName as string}`);
-      const occurrences: any[] = rn.occurrences ?? rn.references ?? [];
+      if (result.error) {
+        return textWithData(
+          `Rename failed: ${result.error}`,
+          { ...result, oldName, newName },
+          true,
+        );
+      }
+      const symbol = result.symbol;
+      if (!symbol) {
+        return textWithData(`Symbol not found: ${oldName}`, { ...result, oldName, newName });
+      }
+
+      // The library returns `changes` (file/line/before/after) — not
+      // `occurrences` or `references`. Reading either of those names yielded a
+      // permanent "Occurrences: 0" no matter how many changes were found.
+      const MAX_LISTED_CHANGES = 30;
+      const MAX_RENDERED_LINE = 200;
+      const shown = result.changes.slice(0, MAX_LISTED_CHANGES);
+      const clip = (s: string) =>
+        s.length > MAX_RENDERED_LINE ? `${s.slice(0, MAX_RENDERED_LINE)}…` : s;
+
       const lines: string[] = [
-        `Rename: ${input.oldName as string} → ${input.newName as string}  (dry-run)`,
-        `Occurrences: ${occurrences.length}`,
+        `Rename: ${oldName} → ${newName}  (dry-run, no files written)`,
+        `Symbol: [${symbol.label}] ${symbol.name}  ${nodeLocation(symbol)}`,
+        `Changes: ${result.changes.length} across ${result.referencingFiles.length} files`,
         '',
       ];
-      for (const occ of occurrences.slice(0, 30)) {
-        const fp = occ.filePath ?? occ.file_path ?? '';
-        const ln = occ.line ?? occ.startLine ?? occ.start_line;
-        const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
-        lines.push(`  ${loc || occ}`);
+      for (const change of shown) {
+        lines.push(`  ${change.file}:${change.line}`);
+        lines.push(`    - ${clip(change.before)}`);
+        lines.push(`    + ${clip(change.after)}`);
       }
-      if (occurrences.length > 30) lines.push(`  … ${occurrences.length - 30} more`);
-      return text(lines.join('\n').trim());
+      if (result.changes.length > shown.length) {
+        lines.push(`  … ${result.changes.length - shown.length} more`);
+      }
+
+      return textWithData(lines.join('\n').trim(), {
+        oldName,
+        newName,
+        dryRun: true,
+        symbol: {
+          id: symbol.id,
+          name: symbol.name,
+          label: symbol.label,
+          filePath: symbol.filePath ?? null,
+          startLine: symbol.startLine ?? null,
+        },
+        referencingFiles: result.referencingFiles,
+        changeCount: result.changes.length,
+        changes: result.changes,
+        truncated: {
+          changesListedInText: shown.length,
+          changesOmittedFromText: result.changes.length - shown.length,
+        },
+      });
     } finally {
       closeDb(db);
     }

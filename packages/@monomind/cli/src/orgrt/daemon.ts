@@ -874,13 +874,18 @@ export class OrgDaemon {
     // the tool.
     const bossRole =
       def.roles.find((r) => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
-    // Canonical entity names from the org KG — injected into the coordinator
+    // Canonical entity names from THIS org's KG — injected into the coordinator
     // prompt so org_learn extractions reuse them instead of minting duplicates.
+    // Scoped: an unscoped glossary handed every org's entity names to every
+    // coordinator, which is how one org's claims got merged into another's.
     const glossary = await (async () => {
       try {
         if (!(await this.orgMemoryUsable())) return [];
         const kg = await import('../memory/memory-kg.js');
-        return await kg.kgGlossary({ dbPath: this.orgMemoryDbPath() });
+        return await kg.kgGlossary({
+          dbPath: this.orgMemoryDbPath(),
+          scope: orgMemory.orgKgScope(name),
+        });
       } catch {
         return [];
       }

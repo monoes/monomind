@@ -3,7 +3,7 @@ import { basename, extname, join, relative } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
 import { insertNodes } from '../../storage/node-store.js';
 import type { MonographEdge, MonographNode } from '../../types.js';
-import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../../types.js';
+import { CONFIDENCE_SCORE, fileId, makeId, toNormLabel } from '../../types.js';
 import type { PipelineContext, PipelinePhase } from '../types.js';
 
 const IGNORE_DIRS = new Set([
@@ -86,7 +86,7 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
 
     for (const absPath of pdfPaths) {
       const rel = relative(ctx.repoPath, absPath);
-      const fileId = makeId(rel.replace(/\//g, '_'), 'file');
+      const relFileId = fileId(rel);
 
       let text: string;
       try {
@@ -112,7 +112,7 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
       for (let i = 0; i < chunks.length; i++) {
         const { content, startChar } = chunks[i];
         const title = `${docTitle} §${i + 1}`;
-        const sectionId = makeId('section', fileId, String(i));
+        const sectionId = makeId('section', relFileId, String(i));
 
         const node: MonographNode = {
           id: sectionId,
@@ -128,8 +128,8 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
         sectionNodes.push(node);
 
         allEdges.push({
-          id: makeId(fileId, sectionId, 'defines'),
-          sourceId: fileId,
+          id: makeId(relFileId, sectionId, 'defines'),
+          sourceId: relFileId,
           targetId: sectionId,
           relation: 'DEFINES',
           confidence: 'EXTRACTED',
