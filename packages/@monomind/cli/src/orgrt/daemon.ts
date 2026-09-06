@@ -2,6 +2,7 @@
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
 
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
@@ -310,6 +311,10 @@ export interface RunningOrg {
   workdir?: string;
   /** MonoFence guardrail instances keyed by role ID. */
   fences?: Map<string, RoleFence>;
+  /** This org's AGENT credential: unlocks delivery/status routes on the org
+   *  server and is published in the broker registry as its sender identity.
+   *  Per-org (not daemon-wide) so one org can't present itself as a sibling. */
+  credential?: string;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -350,8 +355,12 @@ export interface DaemonOpts {
   /** Override the whole-org restart backoff after the boss terminally crashes (tests only;
    *  default [10000,30000]ms). */
   bossRestartBackoffMs?: number[];
-  /** Auth credential for the org server (passed to broker so cross-process senders can authenticate). */
-  inboxCredential?: string;
+  /** The org server's OPERATOR credential — authorizes human-decision routes
+   *  (approvals, gates, answers). Published to the operator directory for the
+   *  `org` CLI, never to the broker registry (see broker.ts). */
+  operatorCredential?: string;
+  /** Override the operator credential directory (tests only). */
+  operatorDir?: string;
   /** Filter tool audit events by tool name or decision (allow|deny) before forwarding */
   auditFilter?: { tool?: string; decision?: 'allow' | 'deny' };
 }
@@ -410,9 +419,9 @@ export class OrgDaemon {
   ) {}
 
   /** Publish this daemon's inbox so orgs started AFTER this call register with the broker. */
-  setInboxUrl(url: string, credential?: string): void {
+  setInboxUrl(url: string, operatorCredential?: string): void {
     this.opts.inboxUrl = url;
-    if (credential !== undefined) this.opts.inboxCredential = credential;
+    if (operatorCredential !== undefined) this.opts.operatorCredential = operatorCredential;
   }
 
   /** subscribe to events from ALL running orgs (dashboard server uses this) */
@@ -555,6 +564,24 @@ export class OrgDaemon {
     this.startingOrgs.add(name);
     try {
       return await this.startOrgInner(name, taskOverride, options);
+    } catch (err) {
+      // startOrgInner registers the org in `this.orgs` (and spawns the boss,
+      // installs the exit listener, starts the broker lease) well before it
+      // returns; persistState (ENOSPC/EACCES) and BrokerLease.start() can
+      // still throw after that. Left alone, that was a live, unreachable org:
+      // sessions running, `this.orgs` still holding it, every later startOrg
+      // rejected with "already running", and nothing ever calling stopOrg.
+      // Only this call can have registered the name (the reservation above
+      // holds until `finally`), so anything in the map is ours to tear down.
+      if (this.orgs.has(name)) {
+        await this.stopOrg(name).catch((stopErr) =>
+          console.error(
+            `org ${name}: teardown after failed start failed:`,
+            stopErr instanceof Error ? stopErr.message : stopErr,
+          ),
+        );
+      }
+      throw err;
     } finally {
       this.startingOrgs.delete(name);
     }
@@ -818,6 +845,7 @@ export class OrgDaemon {
       agents: new Map(),
       busEvents: () => [...collected],
       workdir: cwd,
+      credential: randomUUID(),
     };
     this.orgs.set(name, running);
 
@@ -1310,6 +1338,17 @@ export class OrgDaemon {
         checkpoint.tasks && checkpoint.tasks.length > 0
           ? TaskDag.fromJSON(checkpoint.tasks)
           : new TaskDag();
+      // A 'running' task's "[task:…]" message was consumed by the session that
+      // was working it. If that role's SDK session is resumed (checkpointed
+      // sessionId) the task is still in its context; otherwise — role not
+      // restored at all, or restored into a fresh session — nothing knows
+      // about the task, so put it back to 'ready' and re-dispatch.
+      for (const task of running.taskDag.all()) {
+        if (task.status !== 'running') continue;
+        if (checkpoint.roleState[task.assignee]?.sessionId) continue;
+        running.taskDag.requeue(task.id);
+      }
+      decisionOps.dispatchReadyTasks(this, name, running);
       if (worktreePath) running.worktreePath = worktreePath;
     } else {
       spawnRole(bossRole); // always, ungated — see comment above
@@ -1530,12 +1569,14 @@ export class OrgDaemon {
     }
 
     if (this.opts.crossProcess && this.opts.inboxUrl) {
+      const operatorCred = normalizeCredential(this.opts.operatorCredential);
       const lease = new BrokerLease(
         name,
         this.opts.inboxUrl,
         this.opts.brokerDir,
         undefined,
-        normalizeCredential(this.opts.inboxCredential),
+        running.credential,
+        operatorCred ? { credential: operatorCred, dir: this.opts.operatorDir } : undefined,
       );
       lease.start();
       this.leases.set(name, lease);
@@ -1573,14 +1614,15 @@ export class OrgDaemon {
           subject: msg.subject,
           msg: msg.body,
         });
-        agent.mailbox.push(
-          this.mailBody(
-            name,
-            running,
-            `[message from ${msg.fromQualified}] subject: ${msg.subject}`,
-            msg.body,
-            `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
-          ),
+        await crossOrg.pushMessage(
+          this,
+          name,
+          running,
+          msg.toRole,
+          msg.fromQualified,
+          msg.subject,
+          msg.body,
+          `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
         );
       }
     }
@@ -1669,10 +1711,20 @@ export class OrgDaemon {
     const allDone = Promise.allSettled([...org.agents.values()].map((a) => a.done)).then(
       () => false,
     );
+    // Clear the ceiling timer once the sessions win the race: left pending, a
+    // COMPLETE_DRAIN_MS stop kept `org run` (which returns without
+    // process.exit on a clean completion) alive for up to five minutes after
+    // every session had already ended. Deliberately NOT unref'd — on the
+    // timed-out path this timer may be the only thing keeping the loop alive
+    // long enough to write 'stopped' to runtime.json and flush the bus.
+    let drainTimer: ReturnType<typeof setTimeout> | undefined;
     const timedOut = await Promise.race([
       allDone,
-      new Promise<boolean>((r) => setTimeout(() => r(true), stopWaitMs)),
+      new Promise<boolean>((r) => {
+        drainTimer = setTimeout(() => r(true), stopWaitMs);
+      }),
     ]);
+    clearTimeout(drainTimer);
     if (timedOut) {
       // #152: "proceeding anyway" alone didn't say WHO got cut off — a run
       // reviewer had no way to tell whether real, in-progress work (a
@@ -2027,7 +2079,7 @@ export class OrgDaemon {
     subject: string,
     body: string,
     fromCredential?: string,
-  ): { ok: true; receipt: string } | { ok: false; error: string } {
+  ): Promise<{ ok: true; receipt: string } | { ok: false; error: string }> {
     return crossOrg.receiveRemote(
       this,
       toOrg,
@@ -2038,16 +2090,6 @@ export class OrgDaemon {
       fromCredential,
     );
   }
-  private mailBody(
-    orgName: string,
-    org: RunningOrg | undefined,
-    header: string,
-    body: string,
-    id: string,
-  ): string {
-    return crossOrg.mailBody(this.root, orgName, org, header, body, id);
-  }
-
   // scheduler-integration.ts
   /** @internal */
   autoWake(name: string): void {

@@ -107,4 +107,42 @@ describe('TaskDag', () => {
     expect(ready).toHaveLength(1);
     expect(ready[0].id).toBe(a.id);
   });
+
+  // Rule: merge is only valid between two live tasks, same as split/cancel.
+  // A terminal source would lose its real outcome (a 'done' task silently
+  // becoming 'merged'), and a terminal target would make promoteReady() mark
+  // the source's dependents ready though the merged work never happened.
+  // Because a non-terminal source can only have 'pending' dependents (a task
+  // is promoted only once every dep is done/cancelled), rejecting terminal
+  // endpoints also means merge never rewires a running dependent.
+  it('rejects merging a terminal source, leaving its done state and dependents intact', () => {
+    const dag = new TaskDag();
+    const a = dag.add('a', 'x');
+    const b = dag.add('b', 'y');
+    const c = dag.add('c', 'z', [a.id]);
+    dag.complete(a.id, 'shipped');
+    expect(dag.get(c.id)!.status).toBe('ready');
+
+    expect(() => dag.merge(a.id, b.id)).toThrow('terminal');
+
+    expect(dag.get(a.id)!.status).toBe('done');
+    expect(dag.get(a.id)!.result).toBe('shipped');
+    expect(dag.get(a.id)!.mergedInto).toBeUndefined();
+    expect(dag.get(c.id)!.deps).toEqual([a.id]);
+    expect(dag.get(c.id)!.status).toBe('ready');
+  });
+
+  it('rejects merging into a terminal target so dependents are not promoted for work never done', () => {
+    const dag = new TaskDag();
+    const a = dag.add('a', 'x');
+    const b = dag.add('b', 'y');
+    const c = dag.add('c', 'z', [a.id]);
+    dag.cancel(b.id);
+
+    expect(() => dag.merge(a.id, b.id)).toThrow('terminal');
+
+    expect(dag.get(a.id)!.status).toBe('ready');
+    expect(dag.get(c.id)!.deps).toEqual([a.id]);
+    expect(dag.get(c.id)!.status).toBe('pending');
+  });
 });

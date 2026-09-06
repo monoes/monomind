@@ -41,7 +41,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonA = new OrgDaemon(rootA, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvA = await startOrgServer(daemonA, 0);
     cleanups.push(() => srvA.close());
-    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.credential);
+    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.operatorCredential);
     const alpha = await daemonA.startOrg('alpha');
     cleanups.push(() => daemonA.stopAll());
 
@@ -51,7 +51,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonB = new OrgDaemon(rootB, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvB = await startOrgServer(daemonB, 0);
     cleanups.push(() => srvB.close());
-    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.credential);
+    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.operatorCredential);
     const beta = await daemonB.startOrg('beta');
     cleanups.push(() => daemonB.stopAll());
 
@@ -83,7 +83,7 @@ describe('cross-process inter-org delivery', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srv = await startOrgServer(daemon, 0);
     cleanups.push(() => srv.close());
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.operatorCredential);
     await daemon.startOrg('gamma');
     cleanups.push(() => daemon.stopAll());
 
@@ -92,11 +92,11 @@ describe('cross-process inter-org delivery', () => {
     expect(receipt).toMatch(/no process on this machine/);
   });
 
-  it('receiveRemote rejects delivery to an org/role this process does not actually host', () => {
+  it('receiveRemote rejects delivery to an org/role this process does not actually host', async () => {
     const brokerDir = mkdtempSync(join(tmpdir(), 'xproc-broker3-'));
     const root = mkdtempSync(join(tmpdir(), 'projD-'));
     const daemon = new OrgDaemon(root, { forward: false, brokerDir });
-    const missingOrg = daemon.receiveRemote('nope', 'boss', 'other:boss', 's', 'b');
+    const missingOrg = await daemon.receiveRemote('nope', 'boss', 'other:boss', 's', 'b');
     expect(missingOrg.ok).toBe(false);
   });
 
@@ -109,7 +109,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonA = new OrgDaemon(rootA, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvA = await startOrgServer(daemonA, 0);
     cleanups.push(() => srvA.close());
-    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.credential);
+    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.operatorCredential);
     await daemonA.startOrg('alpha');
     cleanups.push(() => daemonA.stopAll());
 
@@ -152,7 +152,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonA = new OrgDaemon(rootA, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvA = await startOrgServer(daemonA, 0);
     cleanups.push(() => srvA.close());
-    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.credential);
+    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.operatorCredential);
     const alpha = await daemonA.startOrg('alpha');
     cleanups.push(() => daemonA.stopAll());
 
@@ -161,7 +161,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonB = new OrgDaemon(rootB, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvB = await startOrgServer(daemonB, 0);
     cleanups.push(() => srvB.close());
-    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.credential);
+    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.operatorCredential);
     const beta = await daemonB.startOrg('beta');
     cleanups.push(() => daemonB.stopAll());
 
@@ -194,7 +194,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonA = new OrgDaemon(rootA, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvA = await startOrgServer(daemonA, 0);
     cleanups.push(() => srvA.close());
-    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.credential);
+    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.operatorCredential);
     await daemonA.startOrg('alpha');
     cleanups.push(() => daemonA.stopAll());
 
@@ -203,7 +203,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonB = new OrgDaemon(rootB, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvB = await startOrgServer(daemonB, 0);
     cleanups.push(() => srvB.close());
-    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.credential);
+    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.operatorCredential);
     const beta = await daemonB.startOrg('beta');
     cleanups.push(() => daemonB.stopAll());
 
@@ -212,7 +212,7 @@ describe('cross-process inter-org delivery', () => {
     // alpha's own registered credential; it just claims to be "alpha".
     const forged = await fetch(`http://127.0.0.1:${srvB.port}/api/xdeliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': srvB.credential },
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': srvB.operatorCredential },
       body: JSON.stringify({
         toOrg: 'beta', toRole: 'boss', fromOrg: 'alpha', fromRole: 'boss',
         subject: 'forged', body: 'not really from alpha',
@@ -240,15 +240,22 @@ describe('cross-process inter-org delivery', () => {
     cleanups.push(() => daemon.stopAll());
 
     // "alpha" was never registered in this broker — its credential can't be verified.
-    const rejected = daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'whatever');
+    const rejected = await daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'whatever');
     expect(rejected.ok).toBe(false);
 
     // Register alpha with a real credential and retry with the matching value.
     registerOrg('alpha', 'http://127.0.0.1:1', brokerDir, 'alpha-secret');
-    const wrongCred = daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'wrong-secret');
+    const wrongCred = await daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'wrong-secret');
     expect(wrongCred.ok).toBe(false);
 
-    const accepted = daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'alpha-secret');
+    const accepted = await daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'alpha-secret');
     expect(accepted.ok).toBe(true);
+
+    // SEC: the compare is constant-time — a same-length near-miss, a prefix, a
+    // superstring, and an absent credential are all rejected, never matched.
+    for (const bad of ['alpha-secreT', 'alpha-secre', 'alpha-secret-', '', undefined]) {
+      const r = await daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', bad);
+      expect(r.ok, String(bad)).toBe(false);
+    }
   });
 });

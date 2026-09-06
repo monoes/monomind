@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/cross-org.ts
 // Extracted from daemon.ts — message delivery, cross-org routing, remote delivery.
+import { timingSafeEqual } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
@@ -103,6 +104,41 @@ export function mailBody(
   } catch {
     return `${header}\n\n${body}`; // digest write failed — deliver in full rather than lose content
   }
+}
+
+/** SEC: the ONE place an inter-agent message enters a role's mailbox. Every
+ *  inbound path — live deliver(), inbound cross-process receiveRemote(), and
+ *  the queued-inbox drains (startOrg, deferred spawns) — must go through here
+ *  so a role with `scanMessages` on is fenced on all of them, not just the
+ *  first. Returns false when the fence blocked the body (scanMessage already
+ *  emitted the audit event) or the recipient can't take mail. */
+export async function pushMessage(
+  daemon: OrgDaemon,
+  orgName: string,
+  org: RunningOrg,
+  toRole: string,
+  from: string,
+  subject: string,
+  body: string,
+  id: string,
+): Promise<boolean> {
+  const roleFence = org.fences?.get(toRole);
+  if (roleFence?.scanMessages) {
+    const safe = await scanMessage(
+      roleFence.instance,
+      body,
+      roleFence.abortThreshold,
+      org.bus,
+      from,
+    );
+    if (!safe) return false;
+  }
+  const agent = org.agents.get(toRole);
+  if (!agent || agent.mailbox.isClosed) return false;
+  agent.mailbox.push(
+    mailBody(daemon.root, orgName, org, `[message from ${from}] subject: ${subject}`, body, id),
+  );
+  return true;
 }
 
 /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
@@ -351,29 +387,17 @@ export async function deliver(
   // Also track the source agent's last sent message for cross-org visibility
   const srcAgent = src?.agents.get(fromRole);
   if (srcAgent && emitted) srcAgent.lastMessageId = emitted.id;
-  const roleFence = targetOrg.fences?.get(targetRole);
-  if (roleFence?.scanMessages) {
-    const safe = await scanMessage(
-      roleFence.instance,
-      body,
-      roleFence.abortThreshold,
-      targetOrg.bus,
-      evt.from ?? fromRole,
-    );
-    if (!safe) {
-      return `ERROR: message to ${toQualified} blocked by security fence`;
-    }
-  }
-  targetAgent.mailbox.push(
-    mailBody(
-      daemon.root,
-      targetOrgName,
-      targetOrg,
-      `[message from ${evt.from}] subject: ${subject}`,
-      body,
-      emitted?.id ?? `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    ),
+  const pushed = await pushMessage(
+    daemon,
+    targetOrgName,
+    targetOrg,
+    targetRole,
+    evt.from,
+    subject,
+    body,
+    emitted?.id ?? `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   );
+  if (!pushed) return `ERROR: message to ${toQualified} blocked by security fence`;
   // ORG-1: a cross-org deliver() is a "handoff" — work/context crossing an org
   // boundary — a natural decision point. Recorded here (not for every intra-org
   // org_send, which would be too noisy) so `org decisions` shows real traces.
@@ -531,10 +555,20 @@ async function deliverRemote(
   }
 }
 
+/** SEC: constant-time credential compare (same shape as server.ts's safeEq) —
+ *  a plain `!==` short-circuits on the first differing byte, which lets a
+ *  caller time responses to recover the sender credential byte by byte. */
+function credentialMatches(supplied: unknown, expected: string): boolean {
+  const a = Buffer.from(String(supplied ?? ''));
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 /** Inbound handler for cross-process delivery — called by the server's POST /api/xdeliver route
  *  when ANOTHER process's deliverRemote() reaches this daemon. Pushes straight into the target
  *  agent's mailbox; the agent picks it up on its own next turn (see Mailbox — never interrupts). */
-export function receiveRemote(
+export async function receiveRemote(
   daemon: OrgDaemon,
   toOrg: string,
   toRole: string,
@@ -542,16 +576,16 @@ export function receiveRemote(
   subject: string,
   body: string,
   fromCredential?: string,
-): { ok: true; receipt: string } | { ok: false; error: string } {
-  // BUG 2 FIX: the HTTP auth gate in server.ts (safeCred) only proves the
-  // caller knows this daemon's shared receiving credential — it says nothing
-  // about who the caller claims to be. Anyone holding that one credential
-  // (e.g. another org hosted by the same daemon) could otherwise POST here
-  // claiming any `fromOrg` it liked. Verify the claimed sender actually owns
-  // the credential registered for it in the broker before trusting anything else.
+): Promise<{ ok: true; receipt: string } | { ok: false; error: string }> {
+  // BUG 2 FIX: the HTTP auth gate in server.ts only proves the caller knows a
+  // credential this daemon accepts (the target org's, or the operator's) — it
+  // says nothing about who the caller claims to be. Verify the claimed sender
+  // actually owns the credential registered for it in the broker before
+  // trusting anything else. Credentials are per-org, so a sibling org hosted
+  // by the same daemon can't reuse its own to pass as `fromOrg`.
   const claimedFromOrg = fromQualified.split(':', 1)[0];
   const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
-  if (!fromEntry?.credential || fromEntry.credential !== fromCredential) {
+  if (!fromEntry?.credential || !credentialMatches(fromCredential, fromEntry.credential)) {
     return {
       ok: false,
       error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
@@ -697,15 +731,17 @@ export function receiveRemote(
     msg: body,
   });
   agent.lastMessageId = messageEvent.id; // Track last message ID for response threading
-  agent.mailbox.push(
-    mailBody(
-      daemon.root,
-      toOrg,
-      org,
-      `[message from ${fromQualified}] subject: ${subject}`,
-      body,
-      messageEvent.id,
-    ),
+  const pushed = await pushMessage(
+    daemon,
+    toOrg,
+    org,
+    toRole,
+    fromQualified,
+    subject,
+    body,
+    messageEvent.id,
   );
+  if (!pushed)
+    return { ok: false, error: `message to ${toOrg}:${toRole} blocked by security fence` };
   return { ok: true, receipt: `delivered to ${toOrg}:${toRole} (remote)` };
 }

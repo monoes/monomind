@@ -6,18 +6,22 @@
  * for the daemon to notice the file changed on its next poll.
  *
  * That inbox server (orgrt/server.ts) requires an `x-monomind-cred` header
- * on every POST endpoint, timing-safe-compared against a per-process
- * credential shared through the broker registry entry. The `/api/xdeliver`
- * call site attached it correctly, but `/api/answer-question`,
- * `/api/set-approval`, and `/api/resolve-gate` never did — so every live
- * delivery attempt 401'd and silently fell back to the offline file-write
- * path. Slower (bounded by the daemon's poll interval, not instant), but
- * easy to miss because the fallback always "worked" and only printed a
- * warning.
+ * on every POST endpoint. The `/api/xdeliver` call site attached it
+ * correctly, but `/api/answer-question`, `/api/set-approval`, and
+ * `/api/resolve-gate` never did — so every live delivery attempt 401'd and
+ * silently fell back to the offline file-write path. Slower (bounded by the
+ * daemon's poll interval, not instant), but easy to miss because the
+ * fallback always "worked" and only printed a warning.
+ *
+ * SEC: those three routes act with HUMAN authority, so they must present the
+ * OPERATOR credential — not the per-org agent credential published in the
+ * broker registry entry, which only unlocks delivery/status routes (and which
+ * any agent subprocess on the machine can read).
  *
  * These tests spin up a bare HTTP server standing in for the daemon's inbox,
- * register it in a temp broker registry with a credential, and assert the
- * client actually sends that credential on each of the three fixed paths.
+ * register it in a temp broker registry with an agent credential, publish a
+ * separate operator credential, and assert the client sends the OPERATOR
+ * credential on each of the three fixed paths.
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -33,12 +37,18 @@ import {
   gateResolveAction,
 } from '../commands/org-observe.js';
 import { checkApproval } from '../orgrt/approvals.js';
-import { registerOrg, unregisterOrg } from '../orgrt/broker.js';
+import {
+  registerOrg,
+  removeOperatorCredential,
+  unregisterOrg,
+  writeOperatorCredential,
+} from '../orgrt/broker.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
 import { ORG_DIR } from '../orgrt/types.js';
 import type { CommandContext } from '../types.js';
 
 const CRED = 'test-credential-abc123';
+const OPERATOR_CRED = 'test-operator-credential-xyz789';
 
 describe('org approve/deny/answer/gate — live delivery sends the auth credential', () => {
   let cwd: string;
@@ -46,7 +56,9 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
   let server: http.Server;
   let baseUrl: string;
   let receivedHeaders: Record<string, string | string[] | undefined>[];
+  let operatorDir: string;
   let prevBrokerDirEnv: string | undefined;
+  let prevOperatorDirEnv: string | undefined;
 
   function ctx(args: string[]): CommandContext {
     return { args, flags: { _: [] }, cwd, interactive: false };
@@ -57,6 +69,9 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
     brokerDir = mkdtempSync(join(tmpdir(), 'org-live-broker-'));
     prevBrokerDirEnv = process.env.MONOMIND_ORGRT_BROKER_DIR;
     process.env.MONOMIND_ORGRT_BROKER_DIR = brokerDir;
+    operatorDir = mkdtempSync(join(tmpdir(), 'org-live-operator-'));
+    prevOperatorDirEnv = process.env.MONOMIND_ORGRT_OPERATOR_DIR;
+    process.env.MONOMIND_ORGRT_OPERATOR_DIR = operatorDir;
     receivedHeaders = [];
 
     server = http.createServer((req, res) => {
@@ -74,18 +89,23 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
     const addr = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${addr.port}`;
     registerOrg('myorg', baseUrl, brokerDir, CRED);
+    writeOperatorCredential('myorg', OPERATOR_CRED, operatorDir);
   });
 
   afterEach(async () => {
     unregisterOrg('myorg', brokerDir);
+    removeOperatorCredential('myorg', operatorDir);
     await new Promise<void>((resolve) => server.close(() => resolve()));
     rmSync(cwd, { recursive: true, force: true });
     rmSync(brokerDir, { recursive: true, force: true });
+    rmSync(operatorDir, { recursive: true, force: true });
     if (prevBrokerDirEnv === undefined) delete process.env.MONOMIND_ORGRT_BROKER_DIR;
     else process.env.MONOMIND_ORGRT_BROKER_DIR = prevBrokerDirEnv;
+    if (prevOperatorDirEnv === undefined) delete process.env.MONOMIND_ORGRT_OPERATOR_DIR;
+    else process.env.MONOMIND_ORGRT_OPERATOR_DIR = prevOperatorDirEnv;
   });
 
-  it('org approve sends x-monomind-cred to /api/set-approval', async () => {
+  it('org approve sends the operator credential to /api/set-approval', async () => {
     const daemon = {
       root: cwd,
       approvals: new Map(),
@@ -98,10 +118,10 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
 
     const hit = receivedHeaders.find((h) => h.url === '/api/set-approval');
     expect(hit).toBeDefined();
-    expect(hit?.['x-monomind-cred']).toBe(CRED);
+    expect(hit?.['x-monomind-cred']).toBe(OPERATOR_CRED);
   });
 
-  it('org deny sends x-monomind-cred to /api/set-approval', async () => {
+  it('org deny sends the operator credential to /api/set-approval', async () => {
     const daemon = {
       root: cwd,
       approvals: new Map(),
@@ -114,10 +134,10 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
 
     const hit = receivedHeaders.find((h) => h.url === '/api/set-approval');
     expect(hit).toBeDefined();
-    expect(hit?.['x-monomind-cred']).toBe(CRED);
+    expect(hit?.['x-monomind-cred']).toBe(OPERATOR_CRED);
   });
 
-  it('org answer sends x-monomind-cred to /api/answer-question', async () => {
+  it('org answer sends the operator credential to /api/answer-question', async () => {
     const orgDir = join(cwd, ORG_DIR, 'myorg');
     mkdirSync(orgDir, { recursive: true });
     writeFileSync(
@@ -140,10 +160,10 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
 
     const hit = receivedHeaders.find((h) => h.url === '/api/answer-question');
     expect(hit).toBeDefined();
-    expect(hit?.['x-monomind-cred']).toBe(CRED);
+    expect(hit?.['x-monomind-cred']).toBe(OPERATOR_CRED);
   });
 
-  it('org gate-approve sends x-monomind-cred to /api/resolve-gate', async () => {
+  it('org gate-approve sends the operator credential to /api/resolve-gate', async () => {
     const orgDir = join(cwd, ORG_DIR, 'myorg');
     mkdirSync(orgDir, { recursive: true });
     writeFileSync(
@@ -166,6 +186,6 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
 
     const hit = receivedHeaders.find((h) => h.url === '/api/resolve-gate');
     expect(hit).toBeDefined();
-    expect(hit?.['x-monomind-cred']).toBe(CRED);
+    expect(hit?.['x-monomind-cred']).toBe(OPERATOR_CRED);
   });
 });

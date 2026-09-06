@@ -1,5 +1,5 @@
 // packages/@monomind/cli/__tests__/orgrt/fence.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,30 @@ import type { PolicyEngine, Decision } from '../../src/orgrt/policy.js';
 import type { FenceInstance, RoleFence } from '../../src/orgrt/fence.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import type { FenceConfig } from '../../src/orgrt/types.js';
+import { OrgDaemon, type RunningOrg } from '../../src/orgrt/daemon.js';
+import { pushMessage } from '../../src/orgrt/cross-org.js';
+import { registerOrg } from '../../src/orgrt/broker.js';
+import { queueMessage } from '../../src/orgrt/inbox.js';
+import { Mailbox } from '../../src/orgrt/mailbox.js';
+
+// The daemon builds per-role fences through `monofence-ai`; stand in a
+// deterministic detector so the chokepoint tests below can drive real
+// startOrg()/receiveRemote() paths without the ML model.
+vi.mock('monofence-ai', () => ({
+  createMonoDefence: () => ({
+    async detect(input: string) {
+      const hit = input.includes('INJECT');
+      return {
+        safe: !hit,
+        threats: hit ? [{ type: 'prompt_injection', confidence: 1 }] : [],
+        overallRisk: hit ? 1 : 0,
+      };
+    },
+    async scanOutput() { return { safe: true, leakageFound: false }; },
+    getContextState() { return { escalationState: 'clean' }; },
+    addAllowlistRule() {},
+  }),
+}));
 
 function fakePolicy(behavior: 'allow' | 'deny'): PolicyEngine {
   const decide = async (): Promise<Decision> =>
@@ -171,5 +195,96 @@ describe('gatedCanUseTool with fence', () => {
     const canUseTool = gatedCanUseTool(fakePolicy('allow'), undefined, 'coder');
     const decision = await canUseTool('Bash', { command: 'ls' });
     expect(decision.behavior).toBe('allow');
+  });
+});
+
+// SEC: scanMessage() only ran inside deliver(). The inbound cross-process path
+// (receiveRemote) and the queued-inbox drains pushed straight into the target
+// mailbox, so a role with scanMessages on was only protected on ONE of the
+// three ways a message reaches it. Every path now funnels through pushMessage().
+describe('message fence chokepoint — every inbound path is scanned', () => {
+  const echoQuery = ({ prompt }: any) => (async function* () {
+    for await (const m of prompt) {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] } };
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+    }
+  })();
+
+  function fixture(): string {
+    const root = mkdtempSync(join(tmpdir(), 'fence-chokepoint-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [{ id: 'boss', title: 'B', type: 'boss', reports_to: null }],
+    }));
+    writeFileSync(join(root, '.monomind/monofence.json'), JSON.stringify({ enabled: true, abortThreshold: 0.8 }));
+    return root;
+  }
+  const settle = () => new Promise(r => setTimeout(r, 300));
+
+  it('pushMessage() is the chokepoint: blocks a flagged body, delivers a clean one', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'fence-push-'));
+    const bus = new OrgBus('alpha', 'r', root);
+    const events: any[] = [];
+    bus.subscribe(e => events.push(e));
+    const mailbox = new Mailbox();
+    const org = {
+      bus,
+      agents: new Map([['boss', { mailbox }]]),
+      fences: new Map([['boss', {
+        instance: fakeFence({ safe: false, overallRisk: 0.95, threats: [{ type: 'jailbreak', confidence: 0.95 }] }),
+        abortThreshold: 0.8,
+        scanMessages: true,
+      }]]),
+    } as unknown as RunningOrg;
+    const daemon = { root } as unknown as OrgDaemon;
+
+    expect(await pushMessage(daemon, 'alpha', org, 'boss', 'x:y', 's', 'evil', 'id-1')).toBe(false);
+    expect(events.some(e => e.reason === 'fence-message')).toBe(true);
+    expect(mailbox.serialize().queue).toHaveLength(0);
+
+    org.fences!.get('boss')!.instance = fakeFence({ safe: true, overallRisk: 0 });
+    expect(await pushMessage(daemon, 'alpha', org, 'boss', 'x:y', 's', 'fine', 'id-2')).toBe(true);
+    expect(mailbox.serialize().queue[0]).toContain('fine');
+
+    // scanMessages off → no scan, straight through
+    org.fences!.get('boss')!.scanMessages = false;
+    org.fences!.get('boss')!.instance = fakeFence({ safe: false, overallRisk: 1 });
+    expect(await pushMessage(daemon, 'alpha', org, 'boss', 'x:y', 's', 'unscanned', 'id-3')).toBe(true);
+  });
+
+  it('receiveRemote (inbound cross-process delivery) is fenced', async () => {
+    const root = fixture();
+    const brokerDir = mkdtempSync(join(tmpdir(), 'fence-broker-'));
+    registerOrg('other', 'http://127.0.0.1:1', brokerDir, 'other-cred');
+    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, brokerDir });
+    const alpha = await daemon.startOrg('alpha');
+    expect(alpha.fences?.get('boss')?.scanMessages).toBe(true); // sanity: fence installed
+
+    const blocked = await daemon.receiveRemote('alpha', 'boss', 'other:boss', 's', 'INJECT payload', 'other-cred');
+    expect(blocked.ok).toBe(false);
+    expect(!blocked.ok && blocked.error).toMatch(/fence/);
+    await settle();
+    expect(alpha.busEvents().some(e => e.reason === 'fence-message')).toBe(true);
+    expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('INJECT'))).toBe(false);
+
+    const ok = await daemon.receiveRemote('alpha', 'boss', 'other:boss', 's', 'benign hello', 'other-cred');
+    expect(ok.ok).toBe(true);
+    await settle();
+    expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('benign hello'))).toBe(true);
+    await daemon.stopAll();
+  });
+
+  it('inbox drain on startOrg is fenced', async () => {
+    const root = fixture();
+    queueMessage(root, 'alpha', { fromQualified: 'other:boss', toRole: 'boss', subject: 's', body: 'INJECT queued payload', ts: Date.now() });
+    queueMessage(root, 'alpha', { fromQualified: 'other:boss', toRole: 'boss', subject: 's', body: 'queued benign', ts: Date.now() });
+    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const alpha = await daemon.startOrg('alpha');
+    await settle();
+    expect(alpha.busEvents().some(e => e.reason === 'fence-message')).toBe(true);
+    expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('INJECT'))).toBe(false);
+    expect(alpha.busEvents().some(e => e.type === 'chat' && (e.msg ?? '').includes('queued benign'))).toBe(true);
+    await daemon.stopAll();
   });
 });

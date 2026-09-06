@@ -50,7 +50,12 @@
  *     mid-turn tool liveness beyond the spawn-time yield.
  */
 import { spawn } from 'node:child_process';
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
@@ -132,7 +137,12 @@ function handleQwenEvent(
       .join('\n');
     if (!text) return ev.session_id ? { kind: 'meta', sessionId: ev.session_id } : null;
     const stripped = text.replace(TOOL_CALL_RE, '').trim();
-    return { kind: 'assistant', rawText: text, text: stripped || undefined, sessionId: ev.session_id };
+    return {
+      kind: 'assistant',
+      rawText: text,
+      text: stripped || undefined,
+      sessionId: ev.session_id,
+    };
   }
 
   if (ev.type === 'result') {
@@ -189,7 +199,14 @@ export function parseQwenEvents(lines: string[]): {
     }
   }
 
-  return { texts, rawTexts, sessionId, inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, error: outcome.error };
+  return {
+    texts,
+    rawTexts,
+    sessionId,
+    inputTokens: outcome.inputTokens,
+    outputTokens: outcome.outputTokens,
+    error: outcome.error,
+  };
 }
 
 export class QwenAgentRunner implements AgentRunner {
@@ -345,13 +362,17 @@ export class QwenAgentRunner implements AgentRunner {
     // killed while we're still reading, not after it finishes.
     let timedOut = false;
     let hangSuspected = false;
+    // SIGTERM→SIGKILL escalation, shared by the turn timeout, the startup
+    // hang check, the abort signal, and the abandoned-stream path in
+    // `finally` — a CLI that ignores SIGTERM must not leak a zombie per turn.
     const KILL_GRACE_MS = 5000;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
-      // escalate to SIGKILL after a short grace period.
+    const killChild = (): void => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* already gone */
+      }
       killTimer = setTimeout(() => {
         try {
           child.kill('SIGKILL');
@@ -360,21 +381,20 @@ export class QwenAgentRunner implements AgentRunner {
         }
       }, KILL_GRACE_MS);
       killTimer.unref?.();
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killChild();
     }, TURN_TIMEOUT_MS);
 
     // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
     let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
       hangSuspected = true;
-      child.kill('SIGTERM');
-      killTimer = setTimeout(() => {
-        try {
-          child.kill('SIGKILL');
-        } catch {
-          /* already gone */
-        }
-      }, KILL_GRACE_MS);
-      killTimer.unref?.();
+      killChild();
     }, STARTUP_GRACE_MS);
+    // Abort hook (see AgentRunArgs.signal): kill the child so the stdout
+    // loop below unblocks instead of orphaning it on iterator.return().
+    const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
 
     // Attach the exit promise BEFORE consuming stdout: on a spawn failure
     // (ENOENT, bad binary) the 'error' event fires almost immediately — if
@@ -440,20 +460,23 @@ export class QwenAgentRunner implements AgentRunner {
     } finally {
       clearTimeout(timer);
       if (hangTimer) clearTimeout(hangTimer);
-      if (killTimer) clearTimeout(killTimer);
-      // If the consumer abandons this stream mid-turn (session.ts's silent
-      // abort calls iterator.return(), the mailbox closes, or an error is
-      // thrown downstream), don't leak the CLI subprocess.
-      if (child.exitCode === null && !child.killed) {
-        try {
-          child.kill('SIGTERM');
-        } catch {
-          /* already gone */
-        }
+      unsubscribeAbort();
+      if (child.exitCode === null && child.signalCode === null) {
+        // NOT confirmed dead. Either the consumer abandoned this stream
+        // mid-turn (session.ts's silent abort calls iterator.return(), the
+        // mailbox closes, or an error is thrown downstream) — kill it, WITH
+        // the SIGKILL escalation — or a SIGTERM from the timeout/hang/abort
+        // is still inside its grace period: leave that escalation armed,
+        // since clearing it here would orphan a CLI that ignores SIGTERM and
+        // then wait on `exitPromise` forever (same fix as codex/kimi/pi-rpc).
+        if (!child.killed) killChild();
+      } else if (killTimer) {
+        clearTimeout(killTimer);
       }
     }
 
     const exitCode = await exitPromise;
+    if (killTimer) clearTimeout(killTimer);
     outcome.sessionId = lastSessionId;
     outcome.exitCode = exitCode;
     outcome.stderrTail = stderrTail;

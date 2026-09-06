@@ -510,6 +510,11 @@ async function runOneSession(
   // Exists purely so the 'result' branch never re-adds what this branch
   // already added (see there for why it can't just always add).
   let messageTurnTokens = 0;
+  // Abort hook for the runner (AgentRunArgs.signal): the silent-stream
+  // abort below used to call iterator.return() only, which queues behind a
+  // subprocess runner blocked in `for await (child.stdout)` — the child was
+  // never killed, so every supervisor retry stacked another live CLI.
+  const abort = new AbortController();
   try {
     const stream = runner.run({
       tools,
@@ -573,6 +578,7 @@ async function runOneSession(
                 policy.decide(name, input),
             },
           },
+      signal: abort.signal,
       // VercelAgentRunner-only fields — ignored by other runners.
       vendor: role.provider?.vendor,
       providerConfig: role.provider,
@@ -619,6 +625,10 @@ async function runOneSession(
         reason: 'session-silent',
         msg: `SDK stream open ${Math.round((Date.now() - openedAt) / 1000)}s with zero messages - aborting this attempt and retrying. Set MONOMIND_DEBUG=1 to log raw message types.`,
       });
+      // Kill the runner's subprocess FIRST: iterator.return() below cannot
+      // reach a runner blocked in its stdout loop, and the retry would
+      // otherwise spawn a second CLI next to the still-running first one.
+      abort.abort();
       try {
         await Promise.race([
           iterator.return?.(undefined) ?? Promise.resolve(),

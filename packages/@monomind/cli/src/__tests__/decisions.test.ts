@@ -20,7 +20,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../orgrt/bus.js';
 import { type AgentRuntime, OrgDaemon, type RunningOrg } from '../orgrt/daemon.js';
 import { dispatchReadyTasks } from '../orgrt/decisions.js';
@@ -157,5 +157,93 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
     const dispatched = events.find((e) => e.reason === 'task-dispatched');
     expect(dispatched).toBeTruthy();
     expect((dispatched?.data as any).assignee).toBe('worker');
+  });
+});
+
+describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
+  let tmp = '';
+  afterEach(() => {
+    vi.useRealTimers();
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('leaves the task ready when the spawn does not produce a live agent', () => {
+    tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-lazy-fail-'));
+    const daemon = new OrgDaemon(tmp);
+    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const events: BusEvent[] = [];
+    bus.subscribe((e) => events.push(e));
+
+    const taskDag = new TaskDag();
+    const task = taskDag.add('do the thing', 'worker', []);
+    const running: RunningOrg = {
+      def: minimalDef('alpha'),
+      run: 'run-1',
+      bus,
+      agents: new Map(),
+      busEvents: () => [],
+      taskDag,
+      pendingRoles: new Map([['worker', { id: 'worker' } as any]]),
+      spawnRole: () => {
+        /* spawn failed: no runtime registered */
+      },
+    };
+
+    dispatchReadyTasks(daemon, 'alpha', running);
+
+    expect(taskDag.get(task.id)?.status).toBe('ready');
+    expect(events.find((e) => e.reason === 'task-dispatched')).toBeUndefined();
+    expect(events.find((e) => e.reason === 'dispatch-recipient-unavailable')).toBeTruthy();
+  });
+
+  it('honors max_concurrent_agents: defers the spawn, keeps the task ready, dispatches once a slot frees', async () => {
+    vi.useFakeTimers();
+    tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-lazy-gate-'));
+    const daemon = new OrgDaemon(tmp);
+    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const events: BusEvent[] = [];
+    bus.subscribe((e) => events.push(e));
+
+    const boss = makeAgent();
+    const taskDag = new TaskDag();
+    const task = taskDag.add('do the thing', 'worker', []);
+    const spawned: string[] = [];
+    const running: RunningOrg = {
+      def: {
+        ...minimalDef('alpha'),
+        run_config: { max_concurrent_agents: 1 },
+      } as unknown as OrgDef,
+      run: 'run-1',
+      bus,
+      agents: new Map([['boss', boss]]),
+      busEvents: () => [],
+      taskDag,
+      pendingRoles: new Map([['worker', { id: 'worker' } as any]]),
+      spawnRole: (role) => {
+        spawned.push(role.id);
+        running.agents.set(role.id, makeAgent());
+      },
+    };
+    daemon.orgs.set('alpha', running);
+
+    dispatchReadyTasks(daemon, 'alpha', running);
+
+    // At the ceiling: nothing spawned, task still visibly 'ready', no false dispatch.
+    expect(spawned).toEqual([]);
+    expect(taskDag.get(task.id)?.status).toBe('ready');
+    expect(events.find((e) => e.reason === 'task-dispatched')).toBeUndefined();
+    expect(events.find((e) => e.reason === 'concurrency-limit')).toBeTruthy();
+
+    // Boss ends → slot frees → deferred spawn fires and the task is dispatched.
+    boss.status = 'ended';
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(spawned).toEqual(['worker']);
+    expect(taskDag.get(task.id)?.status).toBe('running');
+    expect(running.agents.get('worker')?.mailbox.serialize().queue).toEqual([
+      `[task:${task.id}] do the thing`,
+    ]);
+    expect(events.find((e) => e.reason === 'task-dispatched')).toBeTruthy();
+    daemon.orgs.delete('alpha');
   });
 });

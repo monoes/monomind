@@ -602,6 +602,44 @@ describe('agent exec: cancellation & limits', () => {
     expect(byType(h, 'result')).toHaveLength(0); // no success result on timeout
   });
 
+  it("terminate() aborts the runner's AgentRunArgs.signal so a runner blocked in its subprocess can kill it (return() alone never reaches it)", async () => {
+    const h = makeHarness({ timeoutMs: 80, returnGraceMs: 50 });
+    let seen: AbortSignal | undefined;
+    const runner: AgentRunner = {
+      async *run(a) {
+        seen = a.signal;
+        yield { type: 'assistant', text: 'starting' };
+        // Wedged in a subprocess read: only the abort signal can unblock it.
+        await new Promise<void>((resolve) => a.signal?.addEventListener('abort', () => resolve()));
+        throw new Error('child killed');
+      },
+    };
+    const code = await run(h, runner);
+    expect(code).toBe(124);
+    expect(seen).toBeDefined();
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it('a cancel frame also aborts the runner signal', async () => {
+    const h = makeHarness({ toolSpecs: [echoTool], returnGraceMs: 50 });
+    let seen: AbortSignal | undefined;
+    const runner: AgentRunner = {
+      async *run(a): AsyncGenerator<AgentMessage> {
+        seen = a.signal;
+        const r = await a.tools[0].handler({ count: 1 }); // never answered
+        yield { type: 'assistant', text: r.text };
+      },
+    };
+    const execDone = run(h, runner);
+    for (let i = 0; i < 100; i++) {
+      if (byType(h, 'tool_call').length) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    h.stdin.write(`${JSON.stringify({ v: 1, type: 'cancel' })}\n`);
+    await execDone;
+    expect(seen?.aborted).toBe(true);
+  });
+
   it('budget breach suppresses the success result and exits 1', async () => {
     const h = makeHarness({ budgetUsd: 0.5 });
     const code = await run(
