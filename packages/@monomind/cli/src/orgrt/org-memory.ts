@@ -93,9 +93,12 @@ export async function rememberOrgMemory(
   }
 }
 
-/** org_recall implementation: search the org's memory namespace via the
- *  memory bridge (semantic when the local model is available, tokenized
- *  keyword otherwise). Failures return a message, never throw into the tool. */
+/** org_recall implementation: searches the org's flat memory namespaces AND
+ *  the org's memory knowledge graph — independently, then merges. They used to
+ *  be chained: an empty flat-memory result returned early, so an org whose
+ *  knowledge lived only in the graph was told "nothing found" while the graph
+ *  held the answer (graph-boundaries B3 / memory-KG K6). Failures return a
+ *  message, never throw into the tool. */
 export async function recallOrgMemory(
   daemon: OrgDaemon,
   name: string,
@@ -107,9 +110,12 @@ export async function recallOrgMemory(
     if (!(await orgMemoryUsable(daemon.root)))
       return { text: 'org memory is not available in this environment.', hits: 0 };
     const bridge = await import('../memory/memory-bridge.js');
+    const kg = await import('../memory/memory-kg.js');
     const dbPath = orgMemoryDbPath(daemon.root);
-    // Shared org memory plus the caller's private agent scope, merged by score.
-    const [shared, priv] = await Promise.all([
+    // Shared org memory, the caller's private agent scope, and the org's
+    // knowledge graph — all three issued together. The graph is a peer surface,
+    // not a decoration on a non-empty flat result.
+    const [shared, priv, graph] = await Promise.all([
       bridge.bridgeSearchEntries({
         query,
         namespace: orgMemoryNamespace(name, def),
@@ -124,6 +130,7 @@ export async function recallOrgMemory(
             dbPath,
           })
         : null,
+      kg.kgSearch({ query, dbPath, limit: 5, scope: orgKgScope(name) }).catch(() => null),
     ]);
     const results = [
       ...(shared?.results ?? []),
@@ -131,35 +138,49 @@ export async function recallOrgMemory(
     ]
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
-    if (!results.length)
+    // `context` already renders standalone entities when there are no triplets,
+    // so an org whose graph holds only isolated entities still answers.
+    const graphContext = graph?.context ? graph.context.slice(0, 1024) : '';
+    const graphHits = (graph?.triplets?.length ?? 0) + (graph?.seeds?.length ?? 0);
+
+    if (!results.length && !graphContext) {
+      const why =
+        graph && graph.success === false
+          ? ' (the org knowledge graph could not be read, so this is not proof it holds nothing)'
+          : '';
       return {
-        text: 'No matching org memory found — this may be the first run covering this topic.',
+        text: `No matching org memory or knowledge-graph facts found${why} — this may be the first run covering this topic.`,
         hits: 0,
       };
+    }
+
     const ids = results.map((r) => r.id).filter(Boolean);
-    let used = daemon.recallUsage.get(name);
-    if (!used) {
-      used = new Set();
-      daemon.recallUsage.set(name, used);
+    if (ids.length) {
+      let used = daemon.recallUsage.get(name);
+      if (!used) {
+        used = new Set();
+        daemon.recallUsage.set(name, used);
+      }
+      for (const id of ids) used.add(id);
+      // Frequency reinforcement is immediate; the feedback rating waits for the
+      // run outcome (positive-only — see storeRunMemory).
+      bridge.bridgeRecordUsage({ entryIds: ids, dbPath }).catch(() => {
+        /* best effort */
+      });
     }
-    for (const id of ids) used.add(id);
-    // Frequency reinforcement is immediate; the feedback rating waits for the
-    // run outcome (positive-only — see storeRunMemory).
-    bridge.bridgeRecordUsage({ entryIds: ids, dbPath }).catch(() => {
-      /* best effort */
-    });
-    let text = results
-      .map((r, i) => `${i + 1}. [${r.key}] ${r.content.slice(0, 500)}`)
-      .join('\n\n');
-    // Structured knowledge: relationship triplets from the org KG, when any.
-    try {
-      const kg = await import('../memory/memory-kg.js');
-      const graph = await kg.kgSearch({ query, dbPath, limit: 5, scope: orgKgScope(name) });
-      if (graph.context) text += `\n\nKnowledge graph:\n${graph.context.slice(0, 1024)}`;
-    } catch {
-      /* best effort */
-    }
-    return { text, hits: results.length };
+
+    const sections: string[] = [];
+    if (results.length)
+      sections.push(
+        results.map((r, i) => `${i + 1}. [${r.key}] ${r.content.slice(0, 500)}`).join('\n\n'),
+      );
+    else sections.push('No matching flat org memory — answering from the org knowledge graph.');
+    if (graphContext) sections.push(`Knowledge graph:\n${graphContext}`);
+    if (graph?.truncated)
+      sections.push(
+        '(Knowledge-graph scan was incomplete — a relation that exists may be missing above.)',
+      );
+    return { text: sections.join('\n\n'), hits: results.length + graphHits };
   } catch (err) {
     return {
       text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`,
@@ -167,6 +188,16 @@ export async function recallOrgMemory(
     };
   }
 }
+
+/** The org runtime's `knowledge_search` tool is a DOCUMENT search — the MCP
+ *  tool of the same name fuses four surfaces. Same name, different retrieval
+ *  surface, and nothing in the answer said so (graph-boundaries B3). Every
+ *  answer now names what was searched and what was not, so an agent that got
+ *  nothing back knows where else to look rather than concluding the org knows
+ *  nothing. */
+const DOCUMENT_SEARCH_SURFACES =
+  'Searched: Second Brain document index (this project + the personal global brain). ' +
+  'Not searched: the org memory knowledge graph (use org_recall) or the Monograph code graph (use the monograph_* tools).';
 
 /** knowledge_search implementation for org agents: the user's Second Brain
  *  (this project's documents + the personal global brain), merged with the
@@ -180,17 +211,20 @@ export async function searchProjectKnowledge(
     const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
     const excerpts = await searchKnowledge(query, { rootDir: root, limit: 3, store: 'all' });
     if (!excerpts.length)
-      return { text: 'No matching documents in the Second Brain for that query.', hits: 0 };
+      return {
+        text: `No matching documents in the Second Brain for that query.\n\n${DOCUMENT_SEARCH_SURFACES}`,
+        hits: 0,
+      };
     const text = excerpts
       .map(
         (e, i) =>
           `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 400)}`,
       )
       .join('\n\n');
-    return { text, hits: excerpts.length };
+    return { text: `${text}\n\n${DOCUMENT_SEARCH_SURFACES}`, hits: excerpts.length };
   } catch (err) {
     return {
-      text: `knowledge search unavailable (${err instanceof Error ? err.message : 'error'})`,
+      text: `document search unavailable (${err instanceof Error ? err.message : 'error'}) — this is a failure, not an empty Second Brain. ${DOCUMENT_SEARCH_SURFACES}`,
       hits: 0,
     };
   }
@@ -231,7 +265,14 @@ export async function learnOrgKnowledge(
             dbPath,
           })
         : null;
-    daemon.orgLearnedRuns.add(`${name}:${run}`);
+    // kgIngest/kgIngestRules report what actually persisted. Believing them is
+    // the point: marking the run learned on a refused write both lied to the
+    // coordinator and suppressed the heuristic fallback in storeRunMemory, so
+    // the run ended with nothing in the graph and nothing to notice it
+    // (memory-KG K1, org side).
+    const failed = !graph.success || rules?.success === false;
+    if (!failed) daemon.orgLearnedRuns.add(`${name}:${run}`);
+
     const parts = [
       `entities: +${graph.nodesAdded} new, ${graph.nodesMerged} merged`,
       `relations: +${graph.edgesAdded} new, ${graph.edgesMerged} merged`,
@@ -240,7 +281,17 @@ export async function learnOrgKnowledge(
       parts.push(
         `rules: ${rules.accepted} accepted, ${rules.verdicts.filter((v) => v.verdict === 'already_known').length} already known`,
       );
-    return `Recorded in org knowledge graph — ${parts.join('; ')}. Rollback ref: ${originRef}.`;
+    if (!failed)
+      return `Recorded in org knowledge graph — ${parts.join('; ')}. Rollback ref: ${originRef}.`;
+
+    const problems = [...(graph.failures ?? []), ...(rules?.failures ?? [])];
+    const why = problems.length
+      ? ` Rejected writes: ${problems.slice(0, 5).join('; ')}${problems.length > 5 ? ` (+${problems.length - 5} more)` : ''}.`
+      : ` ${graph.error ?? rules?.error ?? 'the store refused one or more writes'}.`;
+    return (
+      `Partially recorded in org knowledge graph — counts below are what actually persisted: ${parts.join('; ')}.` +
+      `${why} The run is NOT marked learned, so end-of-run heuristic extraction will still run. Rollback ref: ${originRef}.`
+    );
   } catch (err) {
     return `org_learn failed (${err instanceof Error ? err.message : 'error'})`;
   }
