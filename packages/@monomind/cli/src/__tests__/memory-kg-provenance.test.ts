@@ -216,6 +216,82 @@ describe('memory KG write results and provenance', () => {
   });
 });
 
+// ── Per-rule verdicts describe what actually happened ───────────────
+//
+// The aggregate `accepted` count already excluded refused writes; the per-rule
+// verdict did not, so one result object said "accepted" for every rule while
+// its own count said zero landed.
+
+describe('rule verdicts match what the store did', () => {
+  beforeEach(() => {
+    store.clear();
+    byId.clear();
+    idSeq = 0;
+    failStoreWhen = null;
+    listCalls = [];
+  });
+
+  it('reports a refused rule entry as failed, not accepted', async () => {
+    failStoreWhen = (_key, namespace) => namespace === RULES_NS;
+
+    const res = await kgIngestRules({ rules: [{ rule: RULE }], originRef: 'run:A' });
+
+    expect(res.success).toBe(false);
+    expect(res.accepted).toBe(0);
+    // The half of the result a caller reads per-rule must not contradict the
+    // half it reads in aggregate.
+    expect(res.verdicts[0].verdict).toBe('failed');
+  });
+
+  it('reports a refused mirror node as failed even though the rule entry stored', async () => {
+    failStoreWhen = (_key, namespace, metadata) =>
+      namespace === KG_NODES_NS && metadata.name === RULE;
+
+    const res = await kgIngestRules({ rules: [{ rule: RULE }], originRef: 'run:A' });
+
+    // A rule present in one namespace only is not the state the caller asked
+    // for — rollback walks nodes separately.
+    expect(res.accepted).toBe(0);
+    expect(res.verdicts[0].verdict).toBe('failed');
+    expect(ruleEntry()).toBeDefined();
+    expect(ruleNode()).toBeUndefined();
+  });
+
+  it('does not call a rule already_known when its origin failed to attach', async () => {
+    const first = await kgIngestRules({ rules: [{ rule: RULE }], originRef: 'run:A' });
+    expect(first.verdicts[0].verdict).toBe('accepted');
+
+    // Second run dedups against the first, but reinforcement cannot be written.
+    failStoreWhen = (_key, namespace) => namespace === RULES_NS;
+    const second = await kgIngestRules({ rules: [{ rule: RULE }], originRef: 'run:B' });
+
+    expect(second.success).toBe(false);
+    // `already_known` asserts that run:B now supports the rule. It does not —
+    // and a later rollback of run:A would delete a rule run:B thinks it kept.
+    expect(second.verdicts[0].verdict).toBe('failed');
+    expect(second.verdicts[0].similarTo).toBeTruthy();
+    expect(ruleEntry()?.metadata.origin_refs).toEqual(['run:A']);
+  });
+
+  it('still reports accepted and already_known when the writes do land', async () => {
+    const first = await kgIngestRules({ rules: [{ rule: RULE }], originRef: 'run:A' });
+    const second = await kgIngestRules({ rules: [{ rule: RULE }], originRef: 'run:B' });
+
+    expect(first.verdicts[0].verdict).toBe('accepted');
+    expect(second.verdicts[0].verdict).toBe('already_known');
+    expect(second.success).toBe(true);
+  });
+
+  it('still blames the caller, not the store, for an unusable candidate', async () => {
+    const res = await kgIngestRules({ rules: [{ rule: 'short' }], originRef: 'run:A' });
+
+    // `invalid` and `failed` are different diagnoses: one is the input, the
+    // other is the backend.
+    expect(res.verdicts[0].verdict).toBe('invalid');
+    expect(res.success).toBe(true);
+  });
+});
+
 // ── Namespaces larger than one list page ────────────────────────────
 //
 // A single bridgeListEntries call cannot return more than the backend's
