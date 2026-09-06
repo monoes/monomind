@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/policy.ts
-import { relative, resolve, sep } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
 import type { RolePolicy } from './types.js';
 
@@ -18,6 +19,46 @@ const WEB_TOOLS = new Set(['WebFetch', 'WebSearch']);
 /** Cap for inline content snapshots on 'asset' events (bytes, UTF-16 chars) — keeps
  *  bus.jsonl / the dashboard's per-session event log from bloating on large writes. */
 const SNAPSHOT_MAX_CHARS = 20_000;
+/** SEC: files whose content is never snapshotted onto the bus (bus.jsonl, SSE):
+ *  dotfiles (.env*, .npmrc, .netrc, .git-credentials, ...), key/cert material,
+ *  SSH keys, and anything named like a secret/credential store. */
+const SENSITIVE_FILE =
+  /(^|[/\\])(\.[^/\\]*|id_(rsa|dsa|ecdsa|ed25519)[^/\\]*|[^/\\]*(secret|credential)[^/\\]*|[^/\\]*\.(pem|key|p12|pfx|jks|keystore|crt|cer|der|asc|gpg|kdbx))$/i;
+/** SEC: secret shapes scrubbed from every bus payload — the argument summary on
+ *  'tool' events and the content snapshot on 'asset' events. Prefix-keeping
+ *  patterns ($1) leave the surrounding context readable; the rest are replaced
+ *  whole. Deliberately loose: a false positive costs a readable value in an
+ *  audit log, a false negative persists a live credential to disk. */
+const SECRET_PATTERNS: Array<[RegExp, string]> = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED]'],
+  [/\b(bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, '$1[REDACTED]'],
+  [/\b(basic\s+)[A-Za-z0-9+/=]{16,}/gi, '$1[REDACTED]'],
+  [/\b(sk|rk)-[A-Za-z0-9_-]{16,}/g, '[REDACTED]'],
+  [/\bgh[pousr]_[A-Za-z0-9]{20,}/g, '[REDACTED]'],
+  [/\bgithub_pat_[A-Za-z0-9_]{20,}/g, '[REDACTED]'],
+  [/\bAKIA[0-9A-Z]{16}\b/g, '[REDACTED]'],
+  [/\bxox[abprs]-[A-Za-z0-9-]{10,}/g, '[REDACTED]'],
+  [/\bAIza[0-9A-Za-z_-]{30,}/g, '[REDACTED]'],
+  [/\bey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[REDACTED]'],
+  // .env / shell: SOME_API_KEY=value, DB_PASSWORD="value"
+  [
+    /(\b[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?)[A-Z0-9_]*\s*=\s*)(["']?)[^\s"']+\2/g,
+    '$1[REDACTED]',
+  ],
+  // json / yaml / cli: "apiKey": "value", password: value, api_key=value
+  [
+    /((?:api[_-]?key|access[_-]?token|auth[_-]?token|secret[_-]?key|client[_-]?secret|secret|password|passwd|token)["']?\s*[:=]\s*)(["']?)[^\s"',&]{6,}\2/gi,
+    '$1[REDACTED]',
+  ],
+  // url credentials: scheme://user:password@host
+  [/(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+@/gi, '$1[REDACTED]@'],
+];
+
+export function redactSecrets(text: string): string {
+  let out = text;
+  for (const [re, replacement] of SECRET_PATTERNS) out = out.replace(re, replacement);
+  return out;
+}
 
 const REGEX_METACHARS = new Set('.+^${}()|[]\\'.split(''));
 
@@ -131,8 +172,9 @@ export class PolicyEngine {
         const content =
           tool === 'Write' &&
           typeof input.content === 'string' &&
-          input.content.length <= SNAPSHOT_MAX_CHARS
-            ? input.content
+          input.content.length <= SNAPSHOT_MAX_CHARS &&
+          !SENSITIVE_FILE.test(String(input.file_path))
+            ? redactSecrets(input.content)
             : undefined;
         this.bus.emit({
           type: 'asset',
@@ -182,7 +224,9 @@ export class PolicyEngine {
         );
       }
       if (p !== null) {
-        const rel = relative(this.cwd, resolve(this.cwd, p));
+        // SEC: compare REAL paths — a symlink inside the scope pointing outside
+        // the workdir (or at an out-of-scope file) passed the lexical check.
+        const rel = relative(realPath(this.cwd), realPath(resolve(this.cwd, p)));
         if (rel.startsWith('..')) return deny(`path escapes org workdir: ${p}`);
         // fileWrite/fileRead globs are always authored with '/' separators (POSIX
         // convention, matches every example in types.ts and the skill docs) — but
@@ -255,46 +299,129 @@ const GIT_OPTS_WITH_VALUE = new Set([
   '--config-env',
 ]);
 
+/** `git`, `/usr/bin/git`, `git.exe` — but not `--foo=git` or `mygit`. */
+const GIT_BIN = /(^|\/)git(\.exe)?$/;
+/** A subcommand token the classifier can actually name. Anything else
+ *  (`$SUB`, `$(echo push)`, `` `echo push` ``, `${x}`) is indirection. */
+const GIT_SUBCOMMAND_SHAPE = /^[a-z][a-z0-9-]*$/;
+/** Command words that run whatever their arguments say — a `git` inside
+ *  their argument string is invisible to token classification. */
+const INTERPRETERS =
+  /^(sh|bash|zsh|dash|ksh|fish|eval|exec|python[0-9.]*|node|perl|ruby|php|xargs)$/;
+
 /**
- * Subcommands of every `git` invocation in a shell command.
- *
- * A naive "git followed by a lowercase word" regex missed anything with a
- * global option in front of the subcommand, and "no match" meant "no git",
- * i.e. allowed. All three of these slipped past a policy whose entire job is
- * to stop them:
- *
- *   git -C /repo push               → no match at all
- *   git -c user.name=x commit -m y  → no match at all
- *   GIT_DIR=.git git push           → matched "git git", read as subcommand "git"
- *
- * So: tokenize, find each `git` (bare or path-suffixed, and never as another
- * command's argument value), then walk forward past global options to the first
- * non-option token.
+ * Minimal quote-aware split of a shell command into segments (one per
+ * `;`, `|`, `&`, `(`, `)` or newline) of whitespace-separated tokens, with
+ * quotes and backslash escapes REMOVED from token text. Not a shell parser:
+ * it exists only so the classifier sees `sh -c "git push"` as the tokens
+ * `sh`, `-c`, `git push`, sees `git pu""sh` as `git push`, and does NOT see
+ * `git commit -m "fix: git push hook"` as a second git call.
  */
-function gitSubcommands(cmd: string): string[] {
-  const tokens = cmd.split(/[\s;|&()]+/).filter(Boolean);
-  const subs: string[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    // `git`, `/usr/bin/git`, `git.exe` — but not `--foo=git` or `mygit`
-    if (!/(^|\/)git(\.exe)?$/.test(tokens[i])) continue;
-    let j = i + 1;
-    while (j < tokens.length) {
-      const t = tokens[j];
-      if (!t.startsWith('-')) break; // found the subcommand
-      if (GIT_OPTS_WITH_VALUE.has(t)) {
-        j += 2;
-        continue;
-      } // `-C <path>`
-      j += 1; // `--bare`, `--git-dir=x`
+function shellSegments(cmd: string): string[][] {
+  const segments: string[][] = [];
+  let seg: string[] = [];
+  let cur = '';
+  let has = false; // current token has content (so `""` yields an empty token)
+  let quote: '"' | "'" | null = null;
+  const flush = () => {
+    if (has) seg.push(cur);
+    cur = '';
+    has = false;
+  };
+  const endSegment = () => {
+    flush();
+    if (seg.length) segments.push(seg);
+    seg = [];
+  };
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      else if (c === '\\' && quote === '"' && i + 1 < cmd.length) cur += cmd[++i];
+      else cur += c;
+      continue;
     }
-    // A `git` with no subcommand at all (`git`, `git --version`) mutates nothing.
-    if (j < tokens.length) subs.push(tokens[j]);
+    if (c === '"' || c === "'") {
+      quote = c;
+      has = true;
+    } else if (c === '\\' && i + 1 < cmd.length) {
+      cur += cmd[++i];
+      has = true;
+    } else if (c === '\n' || ';|&()'.includes(c)) endSegment();
+    else if (/\s/.test(c)) flush();
+    else {
+      cur += c;
+      has = true;
+    }
   }
-  return subs;
+  endSegment();
+  return segments;
+}
+
+/**
+ * Subcommands of every `git` invocation in a shell command — or, when the
+ * command hides git behind indirection the tokenizer can't see through, an
+ * `opaque` reason so checkGitPolicy can FAIL CLOSED instead of concluding
+ * "no git here". Each of these was once a live bypass:
+ *
+ *   git -C /repo push               → no regex match at all
+ *   GIT_DIR=.git git push           → matched "git git", read as subcommand "git"
+ *   g=git; $g push                  → `$g` isn't `git`, so no git call found
+ *   git pu""sh / git 'push'         → subcommand token wasn't `push`
+ *   sh -c "git push" / python -c …  → git lives inside a quoted argument
+ *   git -c alias.p=push p           → `p` is an unknown (allowed) subcommand
+ */
+function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
+  const subs: string[] = [];
+  for (const tokens of shellSegments(cmd)) {
+    // leading VAR=value assignments aren't the command word
+    let k = 0;
+    while (k < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[k])) k++;
+    const word = tokens[k];
+    if (word === undefined) continue;
+    if (/^[$`]/.test(word)) return { subs, opaque: `command word is a shell expansion (${word})` };
+    if (INTERPRETERS.test(basename(word))) {
+      const args = tokens.slice(k + 1);
+      if (args.some((t) => /\bgit\b/.test(t)))
+        return { subs, opaque: `${word} invokes git through an argument string` };
+      if (args.some((t) => /[$`]/.test(t)))
+        return { subs, opaque: `${word} runs an expanded argument the policy cannot inspect` };
+    }
+    for (let i = k; i < tokens.length; i++) {
+      if (!GIT_BIN.test(tokens[i])) continue;
+      let j = i + 1;
+      while (j < tokens.length) {
+        const t = tokens[j];
+        if (!t.startsWith('-')) break; // found the subcommand
+        if (GIT_OPTS_WITH_VALUE.has(t)) {
+          j += 2;
+          continue;
+        } // `-C <path>`
+        j += 1; // `--bare`, `--git-dir=x`
+      }
+      // An alias definition anywhere in the call (`-c alias.p=push`, `config
+      // alias.p push`) makes some later subcommand unclassifiable.
+      if (tokens.slice(i + 1).some((t) => /(^|=)alias\./.test(t)))
+        return { subs, opaque: 'git alias definition' };
+      // A `git` with no subcommand at all (`git`, `git --version`) mutates nothing.
+      if (j >= tokens.length) continue;
+      const sub = tokens[j];
+      if (!GIT_SUBCOMMAND_SHAPE.test(sub))
+        return { subs, opaque: `unparseable git subcommand (${sub})` };
+      subs.push(sub);
+    }
+  }
+  return { subs };
 }
 
 function checkGitPolicy(cmd: string, level: 'none' | 'read' | 'commit' | 'push'): string | null {
-  const gitCalls = gitSubcommands(cmd);
+  if (level === 'push') return null; // every git form is permitted — nothing to classify
+  const { subs: gitCalls, opaque } = gitSubcommands(cmd);
+  // SEC: fail closed. If the command reaches git in a way the tokenizer can't
+  // classify, the policy can't vouch for it — deny rather than let it through
+  // as "no git subcommand found".
+  if (opaque)
+    return `command denied: ${opaque} — policy.git: ${level} cannot verify git usage; write the git call out literally`;
   if (gitCalls.length === 0) return null; // no git subcommand in this command
 
   if (level === 'none') return `git commands are not allowed for this role (policy.git: none)`;
@@ -303,9 +430,7 @@ function checkGitPolicy(cmd: string, level: 'none' | 'read' | 'commit' | 'push')
     if (GIT_READ_CMDS.test(sub)) continue; // always allowed at 'read' and above
 
     if (GIT_PUSH_CMDS.test(sub)) {
-      if (level !== 'push')
-        return `git ${sub} denied (policy.git: ${level} — push-level commands require policy.git: 'push')`;
-      continue;
+      return `git ${sub} denied (policy.git: ${level} — push-level commands require policy.git: 'push')`;
     }
     if (GIT_COMMIT_CMDS.test(sub)) {
       if (level === 'read')
@@ -319,6 +444,25 @@ function checkGitPolicy(cmd: string, level: 'none' | 'read' | 'commit' | 'push')
   return null;
 }
 
+/** realpath of `p`, resolving through the nearest EXISTING ancestor when the
+ *  target itself doesn't exist yet (a Write into a symlinked directory), and
+ *  falling back to the lexical path when nothing on it exists. */
+function realPath(p: string): string {
+  const rest: string[] = [];
+  let cur = p;
+  for (;;) {
+    try {
+      return join(realpathSync(cur), ...rest);
+    } catch {
+      /* not there — try the parent */
+    }
+    const parent = dirname(cur);
+    if (parent === cur) return p;
+    rest.unshift(basename(cur));
+    cur = parent;
+  }
+}
+
 function safeHost(url: string): string | null {
   try {
     return new URL(url).hostname;
@@ -328,7 +472,13 @@ function safeHost(url: string): string | null {
 }
 function summarize(input: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(input))
-    out[k] = typeof v === 'string' && v.length > 200 ? `${v.slice(0, 200)}…` : v;
+  for (const [k, v] of Object.entries(input)) {
+    if (typeof v !== 'string') {
+      out[k] = v;
+      continue;
+    }
+    const clean = redactSecrets(v); // redact BEFORE truncating so a cut-off token can't leak
+    out[k] = clean.length > 200 ? `${clean.slice(0, 200)}…` : clean;
+  }
   return out;
 }

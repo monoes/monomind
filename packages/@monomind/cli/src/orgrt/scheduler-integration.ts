@@ -2,7 +2,7 @@
 // Extracted from daemon.ts — auto-wake, boss restart, deferred role spawns.
 
 import { waitForCapacity } from '../utils/resource-governor.js';
-import { mailBody } from './cross-org.js';
+import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
 import { drainInbox } from './inbox.js';
 import type { OrgRole } from './types.js';
@@ -11,13 +11,13 @@ import type { OrgRole } from './types.js';
  *  the role now that its gate has cleared, then deliver any messages queued
  *  for it while it was deferred (drained BEFORE spawning to avoid a race with
  *  messages arriving during the spawn window). */
-function spawnNowAndDrain(
+async function spawnNowAndDrain(
   daemon: OrgDaemon,
   name: string,
   running: RunningOrg,
   role: OrgRole,
   spawnRole: (role: OrgRole) => void,
-): void {
+): Promise<void> {
   const queued = drainInbox(daemon.root, name);
   spawnRole(role);
   for (const msg of queued) {
@@ -30,15 +30,15 @@ function spawnNowAndDrain(
         subject: msg.subject,
         msg: msg.body,
       });
-      agent.mailbox.push(
-        mailBody(
-          daemon.root,
-          name,
-          running,
-          `[message from ${msg.fromQualified}] subject: ${msg.subject}`,
-          msg.body,
-          `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
-        ),
+      await pushMessage(
+        daemon,
+        name,
+        running,
+        msg.toRole,
+        msg.fromQualified,
+        msg.subject,
+        msg.body,
+        `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
       );
     }
   }
@@ -148,7 +148,7 @@ export function scheduleDeferredSpawn(
         });
         // Drain messages queued while the role was deferred BEFORE spawning
         // to prevent race condition where messages arrive during spawn window
-        spawnNowAndDrain(daemon, name, running, role, spawnRole);
+        await spawnNowAndDrain(daemon, name, running, role, spawnRole);
         return;
       }
       running.bus.emit({
@@ -210,7 +210,7 @@ export function scheduleConcurrencyDeferredSpawn(
           reason: 'concurrency-recovered',
           msg: `a concurrency slot freed up after ${attempt} retr${attempt === 1 ? 'y' : 'ies'} — spawning deferred role "${role.id}"`,
         });
-        spawnNowAndDrain(daemon, name, running, role, spawnRole);
+        await spawnNowAndDrain(daemon, name, running, role, spawnRole);
         return;
       }
       running.bus.emit({
