@@ -631,7 +631,29 @@ export async function bridgeStoreEntry(options: {
       : [];
 
     const now = Date.now();
-    const id = generateId('entry');
+
+    // Upsert resolves the EXISTING identity BEFORE minting anything: a
+    // re-ingest must update the row in place and keep the id the caller was
+    // already handed. The old store-new-then-delete-old order silently
+    // orphaned every outstanding reference — feedback against a
+    // previously-returned id then matched nothing and reported
+    // `success: true, applied: 0`, i.e. success while training nothing (K5).
+    let existing: {
+      id: string;
+      createdAt: number;
+      metadata?: Record<string, unknown>;
+      version?: number;
+      accessCount?: number;
+      lastAccessedAt?: number;
+    } | null = null;
+    if (options.upsert) {
+      try {
+        existing = await backend.getByKey(namespace, key);
+      } catch (e) {
+        logBridgeError('bridgeStoreEntry.upsertLookup', e); /* treat as no existing entry */
+      }
+    }
+    const id = existing?.id ?? generateId('entry');
 
     // Generate embedding
     let embedding: Float32Array | undefined;
@@ -656,23 +678,27 @@ export async function bridgeStoreEntry(options: {
       content: value,
       namespace,
       tags,
-      metadata: options.metadata,
+      // On a revision the stored metadata merges UNDER the caller's, so
+      // learned signal (feedback_weight, frequency_weight) survives while every
+      // field the caller states explicitly still wins. Same merge semantics the
+      // backend's own update() uses.
+      metadata: existing
+        ? { ...(existing.metadata ?? {}), ...(options.metadata ?? {}) }
+        : options.metadata,
       expiresAt: options.ttl ? now + options.ttl * 1000 : undefined,
     });
     // Override id and set embedding
     entry.id = id;
     if (embedding) entry.embedding = embedding;
-
-    // Upsert: find any existing entry with the same key+namespace — deleted
-    // only AFTER the new entry stores successfully, so a failed store() can't
-    // destroy the existing data (old order was delete-then-store).
-    let upsertVictim: { id: string } | null = null;
-    if (options.upsert) {
-      try {
-        upsertVictim = await backend.getByKey(namespace, key);
-      } catch (e) {
-        logBridgeError('bridgeStoreEntry.upsertLookup', e); /* treat as no existing entry */
-      }
+    if (existing) {
+      // Carry the record's history forward. createdAt in particular anchors the
+      // entry in the backend's `created_at DESC` ordering: a revision keeps its
+      // position instead of jumping to the head of every scan.
+      entry.createdAt = existing.createdAt;
+      entry.updatedAt = now;
+      entry.version = (existing.version ?? 1) + 1;
+      entry.accessCount = existing.accessCount ?? 0;
+      entry.lastAccessedAt = existing.lastAccessedAt ?? now;
     }
 
     // Dedup gate: skip if a near-duplicate already exists IN THIS NAMESPACE —
@@ -699,18 +725,10 @@ export async function bridgeStoreEntry(options: {
       }
     }
 
+    // store() is INSERT OR REPLACE keyed on id, so reusing the existing id
+    // rewrites that row in place — there is no old row left to delete, and no
+    // window in which a failed store leaves the previous data destroyed.
     await backend.store(entry);
-    if (upsertVictim && upsertVictim.id !== id) {
-      try {
-        await backend.delete(upsertVictim.id);
-      } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-          console.error(
-            '[memory-bridge] upsert stored new entry but failed to delete the old one — duplicate may remain:',
-            e,
-          );
-      }
-    }
     await flushBackend(backend);
 
     return { success: true, id, embedding: embeddingInfo };
@@ -1550,6 +1568,11 @@ export async function bridgeApplyFeedback(options: {
 }): Promise<{
   success: boolean;
   applied: number;
+  /** Ids that trained nothing, with why — so `applied: 0` is never a silent
+   *  success. `not_found` means the id resolved to no entry (it was deleted, or
+   *  it predates the in-place upsert fix and was orphaned by a re-ingest);
+   *  `error` means the entry existed but could not be updated. */
+  skipped?: { id: string; reason: 'not_found' | 'error' }[];
   alreadyApplied?: boolean;
   error?: string;
 } | null> {
@@ -1570,17 +1593,22 @@ export async function bridgeApplyFeedback(options: {
     }
 
     let applied = 0;
+    const skipped: { id: string; reason: 'not_found' | 'error' }[] = [];
     for (const id of (options.entryIds ?? []).slice(0, 100)) {
       if (typeof id !== 'string' || !id) continue;
       try {
         const entry = await backend.get(id);
-        if (!entry) continue;
+        if (!entry) {
+          skipped.push({ id, reason: 'not_found' });
+          continue;
+        }
         const { feedback } = entryWeights(entry.metadata);
         const next = Math.max(0, Math.min(1, feedback + alpha * (score - feedback)));
         await backend.update(id, { metadata: { feedback_weight: next } });
         applied++;
       } catch (e) {
-        logBridgeError('bridgeApplyFeedback.entryUpdate', e); /* skip unreadable entries */
+        logBridgeError('bridgeApplyFeedback.entryUpdate', e);
+        skipped.push({ id, reason: 'error' });
       }
     }
 
@@ -1592,6 +1620,7 @@ export async function bridgeApplyFeedback(options: {
           entryIds: options.entryIds.slice(0, 100),
           appliedAt: Date.now(),
           applied,
+          skipped,
         }),
         namespace: 'feedback',
         generateEmbeddingFlag: false,
@@ -1600,7 +1629,7 @@ export async function bridgeApplyFeedback(options: {
       });
     }
     if (applied) await flushBackend(backend);
-    return { success: true, applied };
+    return skipped.length ? { success: true, applied, skipped } : { success: true, applied };
   } catch (err: unknown) {
     logBridgeError('bridgeApplyFeedback', err);
     const message = err instanceof Error ? err.message : String(err);
