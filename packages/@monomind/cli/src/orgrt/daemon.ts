@@ -555,6 +555,24 @@ export class OrgDaemon {
     this.startingOrgs.add(name);
     try {
       return await this.startOrgInner(name, taskOverride, options);
+    } catch (err) {
+      // startOrgInner registers the org in `this.orgs` (and spawns the boss,
+      // installs the exit listener, starts the broker lease) well before it
+      // returns; persistState (ENOSPC/EACCES) and BrokerLease.start() can
+      // still throw after that. Left alone, that was a live, unreachable org:
+      // sessions running, `this.orgs` still holding it, every later startOrg
+      // rejected with "already running", and nothing ever calling stopOrg.
+      // Only this call can have registered the name (the reservation above
+      // holds until `finally`), so anything in the map is ours to tear down.
+      if (this.orgs.has(name)) {
+        await this.stopOrg(name).catch((stopErr) =>
+          console.error(
+            `org ${name}: teardown after failed start failed:`,
+            stopErr instanceof Error ? stopErr.message : stopErr,
+          ),
+        );
+      }
+      throw err;
     } finally {
       this.startingOrgs.delete(name);
     }
@@ -1669,10 +1687,20 @@ export class OrgDaemon {
     const allDone = Promise.allSettled([...org.agents.values()].map((a) => a.done)).then(
       () => false,
     );
+    // Clear the ceiling timer once the sessions win the race: left pending, a
+    // COMPLETE_DRAIN_MS stop kept `org run` (which returns without
+    // process.exit on a clean completion) alive for up to five minutes after
+    // every session had already ended. Deliberately NOT unref'd — on the
+    // timed-out path this timer may be the only thing keeping the loop alive
+    // long enough to write 'stopped' to runtime.json and flush the bus.
+    let drainTimer: ReturnType<typeof setTimeout> | undefined;
     const timedOut = await Promise.race([
       allDone,
-      new Promise<boolean>((r) => setTimeout(() => r(true), stopWaitMs)),
+      new Promise<boolean>((r) => {
+        drainTimer = setTimeout(() => r(true), stopWaitMs);
+      }),
     ]);
+    clearTimeout(drainTimer);
     if (timedOut) {
       // #152: "proceeding anyway" alone didn't say WHO got cut off — a run
       // reviewer had no way to tell whether real, in-progress work (a

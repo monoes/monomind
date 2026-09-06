@@ -1215,3 +1215,54 @@ describe('OrgDaemon — org runtime v2 review fixes', () => {
     await d.stopAll();
   }, 15_000);
 });
+
+describe('OrgDaemon — start/stop lifecycle hygiene', () => {
+  it('startOrg tears down a half-started org when a post-registration step throws, so a retry is not "already running"', async () => {
+    // startOrgInner registers the org in `this.orgs` and spawns the boss well
+    // before it finishes; persistState (writeJsonFileAtomic → ENOSPC/EACCES)
+    // and BrokerLease.start() run after that. A throw there used to leave a
+    // live, unreachable org: boss session and process 'exit' listener alive,
+    // `this.orgs` still holding it, every later startOrg rejected with
+    // "already running", and nothing ever calling stopOrg.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-start-fail-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, stopWaitMs: 200 });
+    vi.spyOn(d as any, 'persistState').mockImplementationOnce(() => {
+      throw new Error('ENOSPC: no space left on device');
+    });
+    const exitListenersBefore = process.listenerCount('exit');
+
+    await expect(d.startOrg('alpha')).rejects.toThrow('ENOSPC');
+
+    expect(d.getOrg('alpha')).toBeUndefined();
+    expect(process.listenerCount('exit')).toBe(exitListenersBefore);
+    // The failed start must not poison the name: a retry starts a fresh run.
+    const retry = await d.startOrg('alpha');
+    expect(retry.agents.get('boss')?.status).toBe('running');
+    await d.stopAll();
+  });
+
+  it('stopOrg clears its drain-window timer once every session has ended, instead of holding the process open for the whole window', async () => {
+    // The org_complete path stops with COMPLETE_DRAIN_MS (5 min). The timer
+    // racing allDone was neither cleared nor unref'd, so `org run` — which
+    // returns without process.exit on a clean completion — sat alive for up
+    // to five minutes after every session had already ended.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-drain-timer-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    await d.startOrg('alpha');
+    const DRAIN_MS = 123_456; // distinctive: identifies the drain timer among the others
+    const setSpy = vi.spyOn(globalThis, 'setTimeout');
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
+    try {
+      await d.stopOrg('alpha', { drainMs: DRAIN_MS });
+      const idx = setSpy.mock.calls.findIndex(([, ms]) => ms === DRAIN_MS);
+      expect(idx).toBeGreaterThanOrEqual(0);
+      const handle = setSpy.mock.results[idx].value;
+      expect(clearSpy.mock.calls.some(([h]) => h === handle)).toBe(true);
+    } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
+    }
+  });
+});
