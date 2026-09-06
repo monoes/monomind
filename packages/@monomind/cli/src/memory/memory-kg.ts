@@ -74,13 +74,24 @@
  * // bridge exposes no indexed adjacency (src/dst) or origin lookup, so every
  * // neighbourhood/provenance question is a namespace scan; the upgrade path is
  * // a real SQLite edges table with indexed src/dst/origin columns, which turns
- * // these O(namespace) scans into O(matches).
+ * // these O(namespace) scans into O(matches). `kgStats` uses a real
+ * // `bridgeCountEntries` (SELECT COUNT(*) WHERE namespace = ?) instead of a
+ * // scan — that needs no history, a count is correct regardless of when a row
+ * // was written. Adjacency/origin, in contrast, is NOT filled in here: an
+ * // index built only from now on would silently miss every edge/claim written
+ * // before it existed (there is no legacy-key probe for an arbitrary historical
+ * // edge, unlike resolveEntity's single fallback key), so kgSearch/kgRollback
+ * // would go from an honest, complete scan to an INcomplete indexed answer —
+ * // a regression, not the fix. Closing this needs a real backfill/migration
+ * // decision (how to populate the index for existing namespaces, and how to
+ * // know when one is complete enough to trust), not more code here.
  *
  * @module v1/cli/memory/memory-kg
  */
 
 import { createHash } from 'node:crypto';
 import {
+  bridgeCountEntries,
   bridgeDeleteEntry,
   bridgeGetEntry,
   bridgeListEntries,
@@ -327,6 +338,29 @@ class FailureLog {
     if (!this.count) return undefined;
     return `${this.count} bridge operation(s) failed; graph state is partial`;
   }
+}
+
+/** Attempts a compare-and-swap claim write, retrying while the bridge reports
+ *  a version conflict (K5): a concurrent writer applied its own claim to the
+ *  same row between our read and our write. `attempt()` must re-read,
+ *  re-merge (via `applyClaim`), and re-attempt the write itself on every call
+ *  — retrying with the SAME stale write would just lose the update again,
+ *  the exact bug this exists to close.
+ *
+ *  Exhausting `maxAttempts` under sustained contention is returned as-is (the
+ *  last conflict response) rather than retried forever: the caller's
+ *  `FailureLog` reports it as a real, visible failure — never a silent lost
+ *  update — same as any other write the bridge refused. */
+async function withCasRetry(
+  attempt: () => Promise<Awaited<ReturnType<typeof bridgeStoreEntry>>>,
+  maxAttempts = 3,
+): Promise<Awaited<ReturnType<typeof bridgeStoreEntry>>> {
+  let res: Awaited<ReturnType<typeof bridgeStoreEntry>> = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    res = await attempt();
+    if (!res?.conflict) return res;
+  }
+  return res;
 }
 
 /** cognee DataPoint normalization: lowercase, spaces→_, strip apostrophes. */
@@ -874,42 +908,52 @@ export async function kgIngest(options: {
 
       // New key first, then the pre-KG_ID_VERSION shape: a legacy edge between
       // two adopted legacy endpoints keeps its own key rather than being
-      // duplicated under a new one.
+      // duplicated under a new one. Resolved once — a CAS retry re-reads this
+      // same key, it does not re-run legacy resolution.
       let key = edgeKey(srcKey, e.relation, dstKey);
-      let existing = await bridgeGetEntry({ key, namespace: ns.edges, dbPath });
-      if (!existing?.found) {
+      const probe = await bridgeGetEntry({ key, namespace: ns.edges, dbPath });
+      if (!probe?.found) {
         const legacy = legacyEdgeKey(srcKey, e.relation, dstKey);
         const hit = await bridgeGetEntry({ key: legacy, namespace: ns.edges, dbPath });
-        if (hit?.found && hit.entry) {
-          key = legacy;
-          existing = hit;
-        }
+        if (hit?.found && hit.entry) key = legacy;
       }
 
-      const isNew = !(existing?.found && existing.entry);
-      const md = (existing?.entry?.metadata ?? {}) as Record<string, unknown>;
-      const derived = applyClaim(md, originRef, desc, Date.now(), method);
-      const res = await bridgeStoreEntry({
-        key,
-        value: derived.description || fallbackFact,
-        namespace: ns.edges,
-        dbPath,
-        upsert: true,
-        generateEmbeddingFlag: false,
-        tags: ['kg', normalizeName(e.relation)],
-        metadata: {
-          ...md,
-          kg: 'edge',
-          id_version: KG_ID_VERSION,
-          src: srcKey,
-          dst: dstKey,
-          relation: normalizeName(e.relation),
-          source_name: e.source,
-          target_name: e.target,
-          ...derived,
-          valid_from: md.valid_from ?? Date.now(),
-          valid_to: null,
-        },
+      // Re-read and re-merge on every CAS attempt (see withCasRetry): a stale
+      // `md`/`derived` retried against a fresh row would silently re-lose
+      // whatever a concurrent writer just added (K5).
+      let md: Record<string, unknown> = {};
+      let derived!: DerivedClaims;
+      let isNew = false;
+      const res = await withCasRetry(async () => {
+        const existing = await bridgeGetEntry({ key, namespace: ns.edges, dbPath });
+        isNew = !(existing?.found && existing.entry);
+        md = (existing?.entry?.metadata ?? {}) as Record<string, unknown>;
+        derived = applyClaim(md, originRef, desc, Date.now(), method);
+        const ver = existing?.entry?.version;
+
+        return bridgeStoreEntry({
+          key,
+          value: derived.description || fallbackFact,
+          namespace: ns.edges,
+          dbPath,
+          upsert: true,
+          generateEmbeddingFlag: false,
+          tags: ['kg', normalizeName(e.relation)],
+          metadata: {
+            ...md,
+            kg: 'edge',
+            id_version: KG_ID_VERSION,
+            src: srcKey,
+            dst: dstKey,
+            relation: normalizeName(e.relation),
+            source_name: e.source,
+            target_name: e.target,
+            ...derived,
+            valid_from: md.valid_from ?? Date.now(),
+            valid_to: null,
+          },
+          ifVersion: isNew ? 'absent' : typeof ver === 'number' ? ver : undefined,
+        });
       });
       if (failures.add(res, `edge ${key}`)) continue;
       report.noteProvenanceLoss(md, derived);
@@ -959,38 +1003,53 @@ async function writeEntity(o: {
   failures: FailureLog;
   report: IngestReport;
 }): Promise<boolean | null> {
-  const existing = await bridgeGetEntry({ key: o.id, namespace: o.ns.nodes, dbPath: o.dbPath });
-  const isNew = !(existing?.found && existing.entry);
-  const md = (existing?.entry?.metadata ?? {}) as Record<string, unknown>;
-  const derived = applyClaim(md, o.originRef, o.description, Date.now(), o.method);
+  // Re-read and re-merge on every CAS attempt (see withCasRetry) rather than
+  // once up front: a stale `md`/`derived` retried against a fresh row would
+  // silently re-lose whatever a concurrent writer just added (K5).
+  let md: Record<string, unknown> = {};
+  let derived!: DerivedClaims;
+  let isNew = false;
+  const res = await withCasRetry(async () => {
+    const existing = await bridgeGetEntry({ key: o.id, namespace: o.ns.nodes, dbPath: o.dbPath });
+    isNew = !(existing?.found && existing.entry);
+    md = (existing?.entry?.metadata ?? {}) as Record<string, unknown>;
+    derived = applyClaim(md, o.originRef, o.description, Date.now(), o.method);
 
-  // Keep the most specific type: a generic heuristic 'entity' never overwrites
-  // an LLM-assigned one, and a specific one promotes an untyped entity.
-  const prevType = typeof md.type === 'string' ? md.type : '';
-  const bestType = typeBucket(prevType) ? prevType : o.type;
-  const nodeSet = o.nodeSet ?? (typeof md.node_set === 'string' ? md.node_set : null);
+    // Keep the most specific type: a generic heuristic 'entity' never
+    // overwrites an LLM-assigned one, and a specific one promotes an untyped
+    // entity.
+    const prevType = typeof md.type === 'string' ? md.type : '';
+    const bestType = typeBucket(prevType) ? prevType : o.type;
+    const nodeSet = o.nodeSet ?? (typeof md.node_set === 'string' ? md.node_set : null);
+    const ver = existing?.entry?.version;
 
-  const res = await bridgeStoreEntry({
-    key: o.id,
-    value: `${o.name} — ${derived.description || bestType}`,
-    namespace: o.ns.nodes,
-    dbPath: o.dbPath,
-    upsert: true,
-    tags: ['kg', normalizeName(bestType), ...(nodeSet ? [normalizeName(nodeSet)] : [])],
-    metadata: {
-      ...md,
-      kg: 'node',
-      id_version: KG_ID_VERSION,
-      type: bestType,
-      name: o.name,
-      node_set: nodeSet,
-      ...derived,
-      // A placeholder stops being one the moment a real assertion describes it.
-      placeholder: o.placeholder === true && !derived.description ? true : undefined,
-      version: (typeof md.version === 'number' ? md.version : 0) + 1,
-      valid_from: md.valid_from ?? Date.now(),
-      valid_to: null,
-    },
+    return bridgeStoreEntry({
+      key: o.id,
+      value: `${o.name} — ${derived.description || bestType}`,
+      namespace: o.ns.nodes,
+      dbPath: o.dbPath,
+      upsert: true,
+      tags: ['kg', normalizeName(bestType), ...(nodeSet ? [normalizeName(nodeSet)] : [])],
+      metadata: {
+        ...md,
+        kg: 'node',
+        id_version: KG_ID_VERSION,
+        type: bestType,
+        name: o.name,
+        node_set: nodeSet,
+        ...derived,
+        // A placeholder stops being one the moment a real assertion describes it.
+        placeholder: o.placeholder === true && !derived.description ? true : undefined,
+        version: (typeof md.version === 'number' ? md.version : 0) + 1,
+        valid_from: md.valid_from ?? Date.now(),
+        valid_to: null,
+      },
+      // isNew ⇒ this row must not already exist; otherwise it must still be at
+      // the version we just read. Absent when the loaded backend/test double
+      // does not report a version, so behaviour is unchanged there (see
+      // bridgeGetEntry's `version` field).
+      ifVersion: isNew ? 'absent' : typeof ver === 'number' ? ver : undefined,
+    });
   });
   // Name first: the ID is a digest, and a failure message a human cannot map
   // back to the thing that failed is not a diagnosis.
@@ -1351,6 +1410,13 @@ export interface KgSearchResult {
     method?: KgExtractionMethod;
     /** Live origins disagree about what this edge says. Present only when true. */
     conflict?: boolean;
+    /** The edge's bridge entry id — feed this straight to `memory_feedback`
+     *  (`bridgeApplyFeedback`/`bridgeRecordUsage`) to rate THIS relationship
+     *  directly, rather than only the seed entity that surfaced it (K5). */
+    id: string;
+    /** The edge's stable graph key (`e:<hash>`, see `edgeKey`), for direct
+     *  `bridgeGetEntry` lookup or diagnostics — distinct from `id` above. */
+    key: string;
   }[];
   seeds: { name: string; type: string; description: string; score: number; id: string }[];
   /** True when the edge scan did NOT cover the whole namespace — the scan hit
@@ -1478,6 +1544,8 @@ export async function kgSearch(options: {
           score,
           ...(method ? { method } : {}),
           ...(conflict ? { conflict } : {}),
+          id: e.id,
+          key: e.key,
         });
       }
       // Scores are per-edge, so pruning to the running top-`limit` after each
@@ -2024,8 +2092,14 @@ export async function kgConsolidateCandidates(options?: {
 
 /** Real counts, not page lengths. `bridgeListEntries.total` reports how many
  *  rows that one call returned, so the old capped list made a 10,001-node graph
- *  report exactly 10,000 forever. Counting by paging costs one query per 1,000
- *  rows but is exact; an indexed `COUNT(*)` on the bridge would replace it. */
+ *  report exactly 10,000 forever.
+ *
+ *  Tries a real indexed `SELECT COUNT(*) WHERE namespace = ?` first
+ *  (`bridgeCountEntries`, K7) — cheap and exact, since every row in a KG
+ *  namespace is exactly one node/edge/rule (the name index lives in its own
+ *  namespace). Falls back to the paginated scan — one query per 1,000 rows,
+ *  still exact — when the loaded bridge predates `bridgeCountEntries`, or a
+ *  test double doesn't stub it. */
 export async function kgStats(options?: {
   dbPath?: string;
   /** Whose graph to measure. Counting every org's facts under one org's name
@@ -2034,6 +2108,13 @@ export async function kgStats(options?: {
 }): Promise<{ nodes: number; edges: number; rules: number }> {
   const ns = kgNamespaces(options?.scope);
   const count = async (namespace: string) => {
+    try {
+      const real = await bridgeCountEntries(namespace, options?.dbPath);
+      if (real !== null) return real;
+    } catch {
+      /* bridgeCountEntries unavailable on this loaded bridge (or a test
+         double that doesn't stub it) — fall back to the exhaustive scan. */
+    }
     let n = 0;
     await scanNamespace(namespace, options?.dbPath, (page) => {
       n += page.length;
