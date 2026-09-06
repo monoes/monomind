@@ -133,6 +133,97 @@ describe('AgentRunArgs.signal — per-turn spawn runners kill their child on abo
   }
 });
 
+/**
+ * SIGTERM→SIGKILL ladder in the per-turn streaming runners (the same
+ * finding as codex/kimi/antigravity): once a watchdog has sent SIGTERM, the
+ * escalation must survive stdout ending; and an abandoned stream must
+ * escalate rather than send a bare SIGTERM.
+ */
+describe('per-turn spawn runners — kill ladder survives stdout end and abandonment', () => {
+  /** A live child whose fake CLI closes stdout on SIGTERM but only exits on
+   *  SIGKILL (or ignores SIGTERM entirely when `ignoreTerm`). */
+  function makeStubbornChild(ignoreTerm: boolean): cp.ChildProcess {
+    const child = new EventEmitter() as any;
+    child.exitCode = null;
+    child.signalCode = null;
+    child.killed = false;
+    child.stdin = { on: vi.fn(), end: vi.fn(), write: vi.fn() };
+    let endStdout: () => void = () => {};
+    const blocked = new Promise<void>((r) => {
+      endStdout = r;
+    });
+    child.stdout = new EventEmitter();
+    child.stdout[Symbol.asyncIterator] = async function* () {
+      await blocked;
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn((signal: string) => {
+      child.killed = true;
+      if (signal === 'SIGTERM' && !ignoreTerm) endStdout();
+      if (signal === 'SIGKILL') {
+        child.signalCode = 'SIGKILL';
+        endStdout();
+        child.emit('close', null);
+      }
+      return true;
+    });
+    return child as cp.ChildProcess;
+  }
+
+  const cases: Array<[string, () => AgentRunner]> = [
+    ['PiAgentRunner', () => new PiAgentRunner('/usr/bin/pi')],
+    ['QwenAgentRunner', () => new QwenAgentRunner('/usr/bin/qwen')],
+    ['GrokAgentRunner', () => new GrokAgentRunner('/usr/bin/grok')],
+    ['CopilotAgentRunner', () => new CopilotAgentRunner('/usr/bin/copilot')],
+    ['CrushAgentRunner', () => new CrushAgentRunner({ crushBin: '/usr/bin/crush' })],
+  ];
+
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.useRealTimers());
+
+  for (const [name, make] of cases) {
+    it(`${name}: watchdog SIGTERM keeps its SIGKILL escalation armed after stdout ends`, async () => {
+      vi.useFakeTimers();
+      const child = makeStubbornChild(false);
+      vi.mocked(cp.spawn).mockReturnValue(child);
+      const abort = new AbortController();
+      const gen = make().run(runArgs(abort.signal))[Symbol.asyncIterator]();
+      await gen.next(); // liveness
+      const pending = gen.next(); // blocked in stdout
+      pending.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10);
+
+      // The startup-hang watchdog (45s, no output yet) fires SIGTERM; the
+      // fake CLI closes stdout but stays alive, so the runner's finally runs
+      // while the SIGKILL escalation is still pending.
+      await vi.advanceTimersByTimeAsync(45_000 + 10);
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(child.kill).not.toHaveBeenCalledWith('SIGKILL');
+      await vi.advanceTimersByTimeAsync(5000 + 10);
+      expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+      await expect(pending).rejects.toThrow();
+    });
+
+    it(`${name}: iterator.return() mid-turn escalates SIGTERM→SIGKILL against a CLI that ignores SIGTERM`, async () => {
+      vi.useFakeTimers();
+      const child = makeStubbornChild(true);
+      vi.mocked(cp.spawn).mockReturnValue(child);
+      const abort = new AbortController();
+      const gen = make().run(runArgs(abort.signal))[Symbol.asyncIterator]();
+      await gen.next(); // liveness — parked at a yield
+      const returned = gen.return(undefined as never);
+      returned.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10);
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(child.kill).not.toHaveBeenCalledWith('SIGKILL');
+
+      await vi.advanceTimersByTimeAsync(5000 + 10);
+      expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+      await returned;
+    });
+  }
+});
+
 describe('AgentRunArgs.signal — ClaudeAgentRunner forwards it to the SDK abortController', () => {
   it('aborting args.signal aborts the controller handed to query(), which ends the in-process agent loop', async () => {
     let sdkSignal: AbortSignal | undefined;
