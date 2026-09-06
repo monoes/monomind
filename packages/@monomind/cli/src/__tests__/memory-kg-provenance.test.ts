@@ -37,8 +37,12 @@ interface FakeEntry {
 /** namespace → key → entry */
 const store = new Map<string, Map<string, FakeEntry>>();
 let idSeq = 0;
-/** Set to make the next matching store() reject, mimicking a backend refusal. */
-let failStoreWhen: ((key: string, namespace: string) => boolean) | null = null;
+/** Set to make the next matching store() reject, mimicking a backend refusal.
+ *  Entity IDs are digests, so a test selects the write to fail by the entry's
+ *  metadata (its name) rather than by key. */
+let failStoreWhen:
+  | ((key: string, namespace: string, metadata: Record<string, unknown>) => boolean)
+  | null = null;
 /** Mirrors sql-backend.ts's MAX_QUERY_LIMIT — one list call can never exceed it. */
 const BACKEND_MAX_ROWS = 10_000;
 let listCalls: { namespace: string; limit?: number; offset?: number }[] = [];
@@ -66,7 +70,7 @@ vi.mock('../memory/memory-bridge.js', () => ({
     generateEmbeddingFlag?: boolean;
   }) => {
     const namespace = o.namespace ?? 'default';
-    if (failStoreWhen?.(o.key, namespace))
+    if (failStoreWhen?.(o.key, namespace, o.metadata ?? {}))
       return { success: false, id: '', error: 'disk full (simulated)' };
     const id = `entry_${++idSeq}`;
     // Upsert replaces the row: the bridge stores a new id and drops the old one.
@@ -131,7 +135,6 @@ import {
   kgIngestRules,
   kgRollback,
   kgStats,
-  normalizeName,
   RULES_NS,
 } from '../memory/memory-kg.js';
 
@@ -140,8 +143,10 @@ const RULE = 'Always run the build before committing a refactor';
 function ruleEntry() {
   return entriesIn(RULES_NS).find((e) => e.content.startsWith(RULE));
 }
+/** Entity IDs are digests of the (type, name) tuple, so entities are located by
+ *  the name they record rather than by a key the test can spell. */
 function ruleNode() {
-  return entriesIn(KG_NODES_NS).find((e) => e.key === `n:${normalizeName(RULE)}`);
+  return entriesIn(KG_NODES_NS).find((e) => e.metadata.name === RULE);
 }
 
 describe('memory KG write results and provenance', () => {
@@ -154,7 +159,7 @@ describe('memory KG write results and provenance', () => {
   });
 
   it('reports a rejected bridge write as a failure instead of silent success', async () => {
-    failStoreWhen = (key) => key === 'n:beta';
+    failStoreWhen = (_key, _namespace, metadata) => metadata.name === 'Beta';
 
     const res = await kgIngest({
       nodes: [{ name: 'Alpha' }, { name: 'Beta' }],
@@ -162,11 +167,11 @@ describe('memory KG write results and provenance', () => {
     });
 
     expect(res.success).toBe(false);
-    expect(res.failures?.join(' ')).toContain('n:beta');
+    expect(res.failures?.join(' ')).toContain('Beta');
     expect(res.error).toMatch(/failed/i);
     // The counter must describe what actually persisted, not what was asked for.
     expect(res.nodesAdded).toBe(1);
-    expect(entriesIn(KG_NODES_NS).map((e) => e.key)).toEqual(['n:alpha']);
+    expect(entriesIn(KG_NODES_NS).map((e) => e.metadata.name)).toEqual(['Alpha']);
   });
 
   it('keeps a rule alive after rolling back one of its two supporting origins', async () => {
