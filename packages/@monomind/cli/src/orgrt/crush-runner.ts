@@ -52,10 +52,32 @@
  * deciding how to safely merge into a user's existing crush.json rather
  * than just confirming a fact.
  *
+ * Streaming / liveness — WHY INCREMENTAL (#204):
+ *   This runner originally buffered ALL of crush's stdout in a local
+ *   variable until the subprocess closed, so any turn longer than
+ *   session.ts's 4-minute silent-stream watchdog (SILENT_SESSION_MS)
+ *   yielded zero messages in time — abort, retry, kill, circuit breaker.
+ *   Same bug class the codex/kimi/antigravity runners had. Unlike those,
+ *   crush's `run` subcommand has no documented JSON event stream — it's
+ *   plain text, so there's no structured envelope to segment "messages" by.
+ *   This runner now parses stdout LINE BY LINE as it arrives: a liveness
+ *   `tool_use` message is yielded the moment the subprocess spawns
+ *   (deterministically winning the first-pull race regardless of
+ *   model-thinking latency), and every non-fence line is yielded as an
+ *   `assistant` message as soon as it lands rather than after the process
+ *   exits. Lines inside a ```tool_call fence are withheld from the visible
+ *   stream (same as the old end-of-turn fence stripping) but still
+ *   accumulated into the turn's raw text for end-of-turn fence parsing —
+ *   fence parsing needs the complete, un-split fence body. The fence's
+ *   OPENING line is forwarded as a `tool_use` liveness message (crush has no
+ *   tool-execution events of its own to forward, so the org tool-call fence
+ *   itself is the closest available "tool starting" boundary).
+ *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
 import { spawn } from 'node:child_process';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -81,8 +103,22 @@ export function parseCrushOutput(stdout: string): { text: string; rawText: strin
   return { text, rawText };
 }
 
+/**
+ * One incremental chunk of a streamed crush turn.
+ *   - 'assistant': one line of plain-text output, outside any tool_call
+ *     fence — yielded by run() as an assistant AgentMessage as it lands.
+ *   - 'tool': liveness — either the spawn-time "turn started" yield, or a
+ *     ```tool_call fence's opening line (the closest thing crush's plain-text
+ *     output has to a tool-execution start boundary).
+ */
+export interface CrushStreamEvent {
+  kind: 'assistant' | 'tool';
+  text?: string;
+}
+
 interface TurnOutcome {
-  text: string;
+  /** Full raw stdout (fences intact, trimmed) — used for end-of-turn fence
+   *  parsing once the turn completes. */
   rawText: string;
   exitCode: number;
   stderrTail: string;
@@ -146,7 +182,27 @@ export class CrushAgentRunner implements AgentRunner {
         proxy?.reset();
 
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-          const outcome = await this.runTurn(bin, nextPrompt, args, proxy, sessionStarted);
+          // Filled in by streamTurn as the subprocess runs and when it exits.
+          const outcome: TurnOutcome = {
+            rawText: '',
+            exitCode: 1,
+            stderrTail: '',
+            timedOut: false,
+            hangSuspected: false,
+          };
+
+          for await (const ev of this.streamTurn(bin, nextPrompt, args, proxy, sessionStarted, outcome)) {
+            if (ev.kind === 'assistant' && ev.text) {
+              // Yield each line of prose AS IT ARRIVES (not after process
+              // exit) — a crush turn can run many minutes, and session.ts's
+              // watchdog must see messages DURING the turn.
+              yield { type: 'assistant', text: ev.text };
+            } else if (ev.kind === 'tool') {
+              // Liveness only: session.ts never renders tool_use as chat —
+              // it feeds the StateDetector and refreshes last-activity.
+              yield { type: 'tool_use', text: ev.text };
+            }
+          }
           sessionStarted = true;
 
           if (outcome.hangSuspected) {
@@ -158,16 +214,8 @@ export class CrushAgentRunner implements AgentRunner {
             );
           }
           if (outcome.exitCode !== 0) {
-            throw new Error(
-              `CrushAgentRunner: crush run failed (exit ${outcome.exitCode})` +
-                (outcome.timedOut
-                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
-                  : '') +
-                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
-            );
+            throw turnError(outcome, round);
           }
-
-          if (outcome.text) yield { type: 'assistant', text: outcome.text };
 
           const malformed: string[] = [];
           const calls = parseToolCalls([outcome.rawText], (raw, err) =>
@@ -203,7 +251,7 @@ export class CrushAgentRunner implements AgentRunner {
           }
 
           // sessionStarted is true by now (set right after the first
-          // runTurn call above) — the retry continues the same crush
+          // streamTurn call above) — the retry continues the same crush
           // session via --continue instead of re-sending the system prompt.
           const results: string[] = [];
           for (const call of calls)
@@ -225,132 +273,199 @@ export class CrushAgentRunner implements AgentRunner {
     }
   }
 
-  private runTurn(
+  /**
+   * Run one `crush run` invocation and stream its plain-text stdout
+   * INCREMENTALLY: each line is yielded as soon as it arrives (see the
+   * header's "Streaming / liveness" note for why buffering until process
+   * close was a bug, #204). End-of-turn facts (exit code, stderr tail, raw
+   * text, hang/timeout flags) are written into `outcome`, which the caller
+   * reads after this generator completes.
+   */
+  private async *streamTurn(
     bin: string,
     prompt: string,
     args: AgentRunArgs,
     proxy: UsageProxyServer | undefined,
     continueSession: boolean,
-  ): Promise<TurnOutcome> {
-    return new Promise<TurnOutcome>((resolve, reject) => {
-      // No --yolo here: confirmed against a live v0.89.0 install that `crush
-      // run` rejects it outright ("Unknown flag: --yolo") — --yolo/-y is a
-      // root-only flag for the interactive TUI, not propagated to `run`.
-      // Non-interactive `run` mode auto-approves tool calls without it
-      // (confirmed live: a file-write tool call completed with no prompt),
-      // so this isn't a missing-permission gap either — passing it just
-      // made every single invocation fail with a non-zero exit. See #180.
-      const cliArgs: string[] = ['run', prompt];
-      if (args.model) cliArgs.push('--model', args.model);
-      if (continueSession) cliArgs.push('--continue');
+    outcome: TurnOutcome,
+  ): AsyncGenerator<CrushStreamEvent> {
+    // No --yolo here: confirmed against a live v0.89.0 install that `crush
+    // run` rejects it outright ("Unknown flag: --yolo") — --yolo/-y is a
+    // root-only flag for the interactive TUI, not propagated to `run`.
+    // Non-interactive `run` mode auto-approves tool calls without it
+    // (confirmed live: a file-write tool call completed with no prompt),
+    // so this isn't a missing-permission gap either — passing it just
+    // made every single invocation fail with a non-zero exit. See #180.
+    const cliArgs: string[] = ['run', prompt];
+    if (args.model) cliArgs.push('--model', args.model);
+    if (continueSession) cliArgs.push('--continue');
 
-      // CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: confirmed via crush's own docs —
-      // suppresses a first-run/periodic provider-list update check that would
-      // otherwise add an unpredictable network round-trip to a headless turn.
-      const env: Record<string, string | undefined> = {
-        ...process.env,
-        CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: '1',
-        ...args.env,
-      };
-      if (proxy && this.usageProxyOpts) env[this.usageProxyOpts.baseUrlEnvVar] = proxy.url();
+    // CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: confirmed via crush's own docs —
+    // suppresses a first-run/periodic provider-list update check that would
+    // otherwise add an unpredictable network round-trip to a headless turn.
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: '1',
+      ...args.env,
+    };
+    if (proxy && this.usageProxyOpts) env[this.usageProxyOpts.baseUrlEnvVar] = proxy.url();
 
-      const child = spawn(bin, cliArgs, { cwd: args.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(bin, cliArgs, { cwd: args.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
 
-      let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => {
-        stderrTail = (stderrTail + c.toString()).slice(-4000);
-      });
-
-      let sawOutput = false;
-      let timedOut = false;
-      let hangSuspected = false;
-      const KILL_GRACE_MS = 5000;
-      let killTimer: ReturnType<typeof setTimeout> | undefined;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            /* already gone */
-          }
-        }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, TURN_TIMEOUT_MS);
-
-      // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
-      let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-        hangSuspected = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            /* already gone */
-          }
-        }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, STARTUP_GRACE_MS);
-
-      const exitPromise = new Promise<number>((res, rej) => {
-        child.on('error', rej);
-        child.on('close', (code) => res(code ?? 1));
-      });
-      exitPromise.catch(() => {});
-
-      const readStdout = (async () => {
-        let stdout = '';
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) {
-            sawOutput = true;
-            if (hangTimer) {
-              clearTimeout(hangTimer);
-              hangTimer = undefined;
-            }
-          }
-          stdout += chunk.toString();
-        }
-        return stdout;
-      })();
-
-      // Timer cleanup lives in a top-level .finally() (not nested inside a
-      // success-path .then()) so it runs on EITHER path — a stdout stream
-      // error would otherwise skip straight to reject() and leave the
-      // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
-      // process's actual lifetime.
-      Promise.all([readStdout, exitPromise])
-        .then(
-          ([stdout, exitCode]) => {
-            const parsed = parseCrushOutput(stdout);
-            resolve({
-              text: parsed.text,
-              rawText: parsed.rawText,
-              exitCode,
-              stderrTail,
-              timedOut,
-              hangSuspected,
-            });
-          },
-          (err) => {
-            // A stdout stream error (the reject path) means the process is
-            // still ALIVE and unmanaged — none of the timeout/hang timers
-            // would have fired to kill it. Without this, that error would
-            // orphan the child. child.kill() on an already-dead process is a
-            // documented no-op, so this is safe on every path.
-            try {
-              child.kill('SIGTERM');
-            } catch {
-              /* already gone */
-            }
-            reject(err);
-          },
-        )
-        .finally(() => {
-          clearTimeout(timer);
-          if (hangTimer) clearTimeout(hangTimer);
-          if (killTimer) clearTimeout(killTimer);
-        });
+    let stderrTail = '';
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
     });
+
+    let sawOutput = false;
+    let timedOut = false;
+    let hangSuspected = false;
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
+      // escalate to SIGKILL after a short grace period.
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, TURN_TIMEOUT_MS);
+
+    // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
+    let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+      hangSuspected = true;
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, STARTUP_GRACE_MS);
+
+    // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+    // (ENOENT, bad binary) the 'error' event fires almost immediately — if
+    // no listener is attached yet it escapes as an unhandled 'error' event
+    // and crashes the process instead of reaching our catch block.
+    const exitPromise = new Promise<number>((res, rej) => {
+      child.on('error', rej);
+      child.on('close', (code) => res(code ?? 1));
+    });
+    // Prevent an unhandled-rejection crash if the stdout loop below throws
+    // before we await exitPromise (the await still sees the rejection).
+    exitPromise.catch(() => {});
+
+    let fullRaw = '';
+    // Whether we're currently inside a ```tool_call ... ``` fence — lines in
+    // between are withheld from the visible assistant stream (same content
+    // TOOL_CALL_RE strips at the end) but still folded into fullRaw so
+    // end-of-turn fence parsing sees the complete, un-split fence body.
+    let fenceOpen = false;
+
+    // Normalize one complete line of crush's plain-text stdout into the
+    // CrushStreamEvent to yield (or null for a blank/fence-interior line).
+    const handleLine = (line: string): CrushStreamEvent | null => {
+      const trimmed = line.trim();
+      if (!fenceOpen) {
+        if (trimmed.startsWith('```tool_call')) {
+          // The model just started emitting a tool_call fence — forward as
+          // tool_use liveness at this start boundary (crush has no tool
+          // execution events of its own; this fence IS the closest analog).
+          fenceOpen = true;
+          return { kind: 'tool', text: 'tool_call' };
+        }
+        return trimmed ? { kind: 'assistant', text: line } : null;
+      }
+      if (trimmed === '```') fenceOpen = false;
+      return null;
+    };
+
+    try {
+      // Immediate liveness yield: session.ts races the FIRST pull against a
+      // 4-minute silent-stream watchdog, and crush's first byte of output
+      // can itself take minutes. Yielding at spawn wins that race
+      // deterministically instead of depending on crush's latency.
+      yield { kind: 'tool', text: 'turn started' };
+
+      let buf = '';
+      for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+        if (!sawOutput) {
+          sawOutput = true;
+          if (hangTimer) {
+            clearTimeout(hangTimer);
+            hangTimer = undefined;
+          }
+        }
+        buf += chunk.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const line of parts) {
+          fullRaw += `${line}\n`;
+          const out = handleLine(line);
+          if (out) yield out;
+        }
+      }
+      if (buf) {
+        fullRaw += buf;
+        const out = handleLine(buf);
+        if (out) yield out;
+      }
+    } finally {
+      clearTimeout(timer);
+      if (hangTimer) clearTimeout(hangTimer);
+      if (killTimer) clearTimeout(killTimer);
+      // If the consumer abandons this stream mid-turn (session.ts's silent
+      // abort calls iterator.return(), the mailbox closes, or an error is
+      // thrown downstream), don't leak the CLI subprocess.
+      if (child.exitCode === null && !child.killed) {
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+
+    const exitCode = await exitPromise;
+    outcome.rawText = parseCrushOutput(fullRaw).rawText;
+    outcome.exitCode = exitCode;
+    outcome.stderrTail = stderrTail;
+    outcome.timedOut = timedOut;
+    outcome.hangSuspected = hangSuspected;
   }
+}
+
+/** Build the actionable error for a failed crush turn. */
+function turnError(outcome: TurnOutcome, round: number): Error {
+  if (outcome.timedOut) {
+    return new Error(
+      `CrushAgentRunner: crush run failed (exit ${outcome.exitCode}) — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` +
+        (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+  }
+  // Fatal provider errors (auth/permission/quota — classified from stderr):
+  // report what actually happened, and tag the error so the daemon does NOT
+  // restart into the same guaranteed failure (a restart on quota exhaustion
+  // can only hang or fail again).
+  const cls = classifyStderr(outcome.stderrTail);
+  if (cls.fatal) {
+    const err = new Error(
+      `CrushAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
+        (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+    (err as Error & { fatal?: boolean }).fatal = true;
+    return err;
+  }
+  return new Error(
+    `CrushAgentRunner: crush run failed (exit ${outcome.exitCode})` +
+      (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+  );
 }
