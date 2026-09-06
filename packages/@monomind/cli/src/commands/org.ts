@@ -2188,7 +2188,11 @@ export const orgCommand: Command = {
             // The backend reports every namespace in the SHARED store, so
             // listing it raw put other orgs' namespaces (and their counts)
             // under this org's name. Keep only what this org owns.
-            const owned = new Set<string>([kgNs.nodes, kgNs.edges, kgNs.rules, flatNs]);
+            // Spread kgNs rather than listing namespaces: the identity work
+            // added `names` (the entity name index), and a hand-written list
+            // silently omits any namespace added later, hiding rows this org
+            // does own.
+            const owned = new Set<string>([...Object.values(kgNs), flatNs]);
             const byNs = Object.fromEntries(
               Object.entries(backend?.entriesByNamespace ?? {}).filter(
                 ([ns]) => owned.has(ns) || ns.startsWith(`agent:${flatNs}:`),

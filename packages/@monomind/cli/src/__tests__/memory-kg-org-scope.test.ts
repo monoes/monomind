@@ -121,7 +121,6 @@ import {
   kgRollback,
   kgSearch,
   kgStats,
-  normalizeName,
 } from '../memory/memory-kg.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
 import { learnOrgKnowledge, orgKgScope, orgMemoryDbPath } from '../orgrt/org-memory.js';
@@ -134,8 +133,10 @@ const SHARED_NAME = 'Ledger';
 const ALPHA_FACT = 'Ledger is the double-entry accounting service owned by alpha';
 const BETA_FACT = 'Ledger is the append-only audit log owned by beta';
 
+/** Entity IDs are digests of the (type, name) tuple, so entities are located by
+ *  the name they record rather than by a key the test can spell. */
 function nodeIn(scope: { org?: string }, name: string): FakeEntry | undefined {
-  return ns(kgNamespaces(scope).nodes).get(`n:${normalizeName(name)}`);
+  return [...ns(kgNamespaces(scope).nodes).values()].find((e) => e.metadata.name === name);
 }
 
 /** Minimal daemon surface `learnOrgKnowledge` touches. */
@@ -160,13 +161,14 @@ describe('org ownership of memory KG facts', () => {
       nodes: [{ name: SHARED_NAME, type: 'Service', description: BETA_FACT }],
     });
 
-    // Identity is name-only, so BOTH orgs produce key `n:ledger`. Only the
-    // namespace keeps them apart — unscoped, the second write overwrote the
-    // first and one org silently inherited the other's fact.
+    // Identity is the (type, name) tuple, so BOTH orgs derive the SAME entity
+    // ID for the same claim. Only the namespace keeps them apart — unscoped,
+    // the second write overwrote the first and one org silently inherited the
+    // other's fact.
     const a = nodeIn(ALPHA, SHARED_NAME);
     const b = nodeIn(BETA, SHARED_NAME);
-    expect(a?.key).toBe('n:ledger');
-    expect(b?.key).toBe('n:ledger');
+    expect(a?.key).toBeDefined();
+    expect(b?.key).toBe(a?.key);
     expect(a?.metadata.description).toBe(ALPHA_FACT);
     expect(b?.metadata.description).toBe(BETA_FACT);
 
@@ -304,10 +306,18 @@ describe('org ownership of memory KG facts', () => {
   it('leaves project-shared knowledge on the unscoped namespaces', async () => {
     // The MCP `memory_kg_*` surface passes no scope; it must keep writing where
     // it always did, or every existing project graph becomes unreachable.
-    expect(kgNamespaces()).toEqual({ nodes: 'kg:nodes', edges: 'kg:edges', rules: 'rules' });
+    // `names` joined the set when identity moved off the key into a name index;
+    // it holds the index, not claims, which is why it is a namespace of its own
+    // rather than rows mixed into `kg:nodes`.
+    expect(kgNamespaces()).toEqual({
+      nodes: 'kg:nodes',
+      edges: 'kg:edges',
+      rules: 'rules',
+      names: 'kg:names',
+    });
     expect(kgQualifyOrigin('session:abc')).toBe('session:abc');
 
     await kgIngest({ nodes: [{ name: 'ProjectWide' }], originRef: 'session:abc' });
-    expect(ns('kg:nodes').get('n:projectwide')?.metadata.origin_refs).toEqual(['session:abc']);
+    expect(nodeIn({}, 'ProjectWide')?.metadata.origin_refs).toEqual(['session:abc']);
   });
 });
