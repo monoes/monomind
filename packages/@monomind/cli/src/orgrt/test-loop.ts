@@ -313,7 +313,7 @@ export async function runTestLoop(
 
     const daemon = new OrgDaemon(root, { forward: false });
     const srv = await startOrgServer(daemon, 0);
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.operatorCredential);
 
     try {
       return await runScenario(daemon, scenario, root);
@@ -334,7 +334,7 @@ export async function runTestLoop(
     const daemon = new OrgDaemon(root, { queryFn: queryFn as any, forward: false });
     // xdeliver server for cross-process delivery (tested via the xorg check)
     const srv = await startOrgServer(daemon, 0);
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.operatorCredential);
 
     // Queue a message for partner:boss BEFORE starting it — verifies inbox drain on startup
     queueMessage(root, 'partner', {

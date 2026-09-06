@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { registerOrg, unregisterOrg, lookupOrg, BrokerLease } from '../../src/orgrt/broker.js';
+import {
+  registerOrg, unregisterOrg, lookupOrg, BrokerLease,
+  writeOperatorCredential, readOperatorCredential, removeOperatorCredential,
+} from '../../src/orgrt/broker.js';
 
 describe('broker registry', () => {
   let dir: string;
@@ -85,5 +88,48 @@ describe('BrokerLease', () => {
     registerOrg('test2', 'http://127.0.0.1:9002', dir, '  ');
     const entry2 = lookupOrg('test2', dir);
     expect(entry2?.credential).toBeUndefined();
+  });
+});
+
+// The broker entry is the AGENT-facing credential: it authorizes delivery only
+// and is deliberately readable by every org process on the machine. The
+// operator credential authorizes human decisions (approvals, gates, answers)
+// and must never ride in that entry.
+describe('operator credential', () => {
+  it('round-trips through its own directory, never the broker registry', () => {
+    const brokerDir = mkdtempSync(join(tmpdir(), 'broker-op-'));
+    const operatorDir = mkdtempSync(join(tmpdir(), 'operator-op-'));
+    writeOperatorCredential('alpha', 'op-secret-123', operatorDir);
+    expect(readOperatorCredential('alpha', operatorDir)).toBe('op-secret-123');
+    expect(readOperatorCredential('alpha', brokerDir)).toBeUndefined();
+    expect(lookupOrg('alpha', brokerDir)).toBeNull();
+    removeOperatorCredential('alpha', operatorDir);
+    expect(readOperatorCredential('alpha', operatorDir)).toBeUndefined();
+  });
+
+  it('rejects unsafe org names the same way the broker does', () => {
+    const operatorDir = mkdtempSync(join(tmpdir(), 'operator-safe-'));
+    expect(() => writeOperatorCredential('../../etc/passwd', 'x', operatorDir)).toThrow();
+    expect(readOperatorCredential('../../etc/passwd', operatorDir)).toBeUndefined();
+  });
+
+  it('BrokerLease publishes the agent credential to the broker and the operator credential elsewhere, and removes both on stop', () => {
+    const brokerDir = mkdtempSync(join(tmpdir(), 'broker-lease-op-'));
+    const operatorDir = mkdtempSync(join(tmpdir(), 'operator-lease-op-'));
+    const lease = new BrokerLease('alpha', 'http://127.0.0.1:9001', brokerDir, 50, 'agent-cred', {
+      credential: 'operator-cred',
+      dir: operatorDir,
+    });
+    lease.start();
+    const entry = lookupOrg('alpha', brokerDir);
+    expect(entry?.credential).toBe('agent-cred');
+    expect(JSON.stringify(entry)).not.toContain('operator-cred');
+    expect(readOperatorCredential('alpha', operatorDir)).toBe('operator-cred');
+    expect(existsSync(join(brokerDir, 'alpha.json'))).toBe(true);
+    expect(existsSync(join(operatorDir, 'alpha.json'))).toBe(true);
+
+    lease.stop();
+    expect(lookupOrg('alpha', brokerDir)).toBeNull();
+    expect(readOperatorCredential('alpha', operatorDir)).toBeUndefined();
   });
 });
