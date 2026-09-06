@@ -1055,7 +1055,12 @@ class IngestReport {
 
 export interface RuleVerdict {
   rule: string;
-  verdict: 'accepted' | 'already_known' | 'invalid';
+  /** `failed` — the candidate was fine, but a write the caller was told about
+   *  did not land. It is neither `invalid` (which blames the caller's input)
+   *  nor `accepted`/`already_known` (which claim the graph now holds it). Both
+   *  of those used to be reported unconditionally, so a caller reading verdicts
+   *  saw every rule land while the aggregate `accepted` count said zero. */
+  verdict: 'accepted' | 'already_known' | 'invalid' | 'failed';
   similarTo?: string;
 }
 
@@ -1141,7 +1146,11 @@ export async function kgIngestRules(options: {
         isDuplicate = existing === candidate;
       }
       if (isDuplicate && top?.key) {
-        await reinforceRuleOrigin(
+        // `already_known` is a claim that this origin now supports the existing
+        // rule. If reinforcement did not land, it does not — and a later
+        // rollback of the OTHER origin would delete a rule this run believes it
+        // vouched for.
+        const reinforced = await reinforceRuleOrigin(
           top.key,
           top.content,
           options.originRef,
@@ -1149,7 +1158,11 @@ export async function kgIngestRules(options: {
           options.dbPath,
           failures,
         );
-        verdicts.push({ rule, verdict: 'already_known', similarTo: top.key });
+        verdicts.push({
+          rule,
+          verdict: reinforced ? 'already_known' : 'failed',
+          similarTo: top.key,
+        });
         continue;
       }
 
@@ -1205,9 +1218,12 @@ export async function kgIngestRules(options: {
       const ruleFailed = failures.add(stored, `rule ${key}`);
       if (nodeRes.failures?.length) for (const m of nodeRes.failures) failures.note(m);
       // Only count a rule as accepted when BOTH of its writes landed; a rule
-      // present in one namespace only is not the state the caller was told about.
-      if (!ruleFailed && nodeRes.success) accepted++;
-      verdicts.push({ rule, verdict: 'accepted' });
+      // present in one namespace only is not the state the caller was told
+      // about. The per-rule verdict now says the same thing — it read
+      // `accepted` unconditionally, so the two halves of one result disagreed.
+      const landed = !ruleFailed && nodeRes.success;
+      if (landed) accepted++;
+      verdicts.push({ rule, verdict: landed ? 'accepted' : 'failed' });
     }
     return {
       success: !failures.failed,
@@ -1231,7 +1247,11 @@ export async function kgIngestRules(options: {
 /** Add `originRef` to an already-stored rule's support set — both the
  *  `rules`-namespace entry and its `node_set=rules` KG node. Idempotent in
  *  effect: re-asserting an origin the rule already carries leaves the support
- *  set unchanged. */
+ *  set unchanged.
+ *
+ *  @returns true when the rule genuinely carries this origin afterwards —
+ *  including the no-op case where it already did. False means the support set
+ *  is not what the caller is about to be told it is. */
 async function reinforceRuleOrigin(
   matchedKey: string,
   matchedContent: string,
@@ -1241,7 +1261,7 @@ async function reinforceRuleOrigin(
   scope: KgScope | undefined,
   dbPath: string | undefined,
   failures: FailureLog,
-): Promise<void> {
+): Promise<boolean> {
   const ns = kgNamespaces(scope);
   const qualified = kgQualifyOrigin(originRef, scope);
   const existing = await bridgeGetEntry({ key: matchedKey, namespace: ns.rules, dbPath });
@@ -1250,7 +1270,7 @@ async function reinforceRuleOrigin(
     // support set cannot be updated, and silently proceeding is exactly the
     // provenance loss this function exists to prevent.
     failures.note(`rule ${matchedKey}: matched by dedup but not readable by key`);
-    return;
+    return false;
   }
   const entry = existing.entry;
   const md = entry.metadata as Record<string, unknown>;
@@ -1262,6 +1282,10 @@ async function reinforceRuleOrigin(
       ? md.rule
       : (matchedContent || entry.content).split('\n')[0];
 
+  // Both writes are attempted regardless: skipping the node write because the
+  // entry write failed would leave the two halves disagreeing about who
+  // supports this rule. Only the REPORT changes.
+  let ok = true;
   if (!origins.includes(qualified)) {
     const res = await bridgeStoreEntry({
       key: entry.key,
@@ -1282,7 +1306,7 @@ async function reinforceRuleOrigin(
         ...applyClaim(md, qualified, '', Date.now()),
       },
     });
-    failures.add(res, `rule ${entry.key}`);
+    if (failures.add(res, `rule ${entry.key}`)) ok = false;
   }
 
   // The rule's KG node needs the same origin — rollback walks nodes separately.
@@ -1293,6 +1317,7 @@ async function reinforceRuleOrigin(
     dbPath,
   });
   if (nodeRes.failures?.length) for (const m of nodeRes.failures) failures.note(m);
+  return ok && nodeRes.success;
 }
 
 /** List stored rules (for injection or review). */
