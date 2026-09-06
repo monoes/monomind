@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/cross-org.ts
 // Extracted from daemon.ts — message delivery, cross-org routing, remote delivery.
+import { timingSafeEqual } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
@@ -554,6 +555,16 @@ async function deliverRemote(
   }
 }
 
+/** SEC: constant-time credential compare (same shape as server.ts's safeEq) —
+ *  a plain `!==` short-circuits on the first differing byte, which lets a
+ *  caller time responses to recover the sender credential byte by byte. */
+function credentialMatches(supplied: unknown, expected: string): boolean {
+  const a = Buffer.from(String(supplied ?? ''));
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 /** Inbound handler for cross-process delivery — called by the server's POST /api/xdeliver route
  *  when ANOTHER process's deliverRemote() reaches this daemon. Pushes straight into the target
  *  agent's mailbox; the agent picks it up on its own next turn (see Mailbox — never interrupts). */
@@ -574,7 +585,7 @@ export async function receiveRemote(
   // by the same daemon can't reuse its own to pass as `fromOrg`.
   const claimedFromOrg = fromQualified.split(':', 1)[0];
   const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
-  if (!fromEntry?.credential || fromEntry.credential !== fromCredential) {
+  if (!fromEntry?.credential || !credentialMatches(fromCredential, fromEntry.credential)) {
     return {
       ok: false,
       error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,

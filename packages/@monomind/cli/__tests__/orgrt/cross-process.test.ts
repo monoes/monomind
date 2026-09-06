@@ -250,5 +250,12 @@ describe('cross-process inter-org delivery', () => {
 
     const accepted = await daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'alpha-secret');
     expect(accepted.ok).toBe(true);
+
+    // SEC: the compare is constant-time — a same-length near-miss, a prefix, a
+    // superstring, and an absent credential are all rejected, never matched.
+    for (const bad of ['alpha-secreT', 'alpha-secre', 'alpha-secret-', '', undefined]) {
+      const r = await daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', bad);
+      expect(r.ok, String(bad)).toBe(false);
+    }
   });
 });
