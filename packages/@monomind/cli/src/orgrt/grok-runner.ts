@@ -3,12 +3,33 @@
  * GrokAgentRunner — AgentRunner impl backed by the Grok Build CLI (`grok`,
  * xAI's agentic coding CLI: https://docs.x.ai/build/cli).
  *
- * Architectural pattern: SAME as CodexAgentRunner/KimiCodeAgentRunner — spawn
- * the vendor's CLI binary, parse its NDJSON stream, normalize to
- * AgentMessage. No SDK dependency.
+ * Architectural pattern: SAME as CodexAgentRunner/AntigravityAgentRunner/
+ * KimiCodeAgentRunner — spawn the vendor's CLI binary, parse its NDJSON
+ * stream, normalize to AgentMessage. No SDK dependency.
  *
  * Auth: inherited from the CLI's own login flow (subscription/API key
  * managed by `grok` itself). No env vars set by this runner.
+ *
+ * Streaming / liveness — WHY INCREMENTAL (#204):
+ *   This runner originally buffered ALL of grok's stdout until the
+ *   subprocess exited before parsing anything, so any turn longer than
+ *   session.ts's 4-minute silent-stream watchdog (SILENT_SESSION_MS) yielded
+ *   zero messages in time — abort, retry, kill, circuit breaker. Same bug
+ *   class the codex/kimi/antigravity runners had (#204 audit). This runner
+ *   now parses stdout LINE BY LINE as data arrives: a liveness `tool_use`
+ *   message is yielded the instant the subprocess spawns (deterministically
+ *   winning the watchdog's first-pull race regardless of model latency), and
+ *   each parsed assistant event is yielded as its line lands rather than
+ *   accumulated until process exit. Unlike codex/agy, grok's guessed wire
+ *   shapes (see below) carry no distinct "tool execution" event of their
+ *   own — org tools only ever arrive via the ```tool_call fence protocol —
+ *   so there is nothing else to forward as tool_use liveness besides the
+ *   spawn-time yield. Fatal provider errors (auth/quota) are classified via
+ *   the shared classifyStderr helper (same as kimi/codex/antigravity) and
+ *   tagged non-retryable. The STARTUP_GRACE_MS first-run-prompt hang
+ *   detection below is unrelated to #204 (it guards a different failure
+ *   mode — a stuck interactive trust prompt, not a slow-but-alive turn) and
+ *   is unchanged by this fix.
  *
  * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
  *   Same approach as codex/kimi/opencode. Tools are rendered INTO the first
@@ -29,15 +50,15 @@
  * in): grok's `--output-format` has FOUR documented values — `plain`,
  * `json`, `streaming-json` (NDJSON of native ACP session updates), and
  * `streaming-messages-json` (NDJSON in the Anthropic Messages API wire
- * format). This runner uses plain `json`, but `parseGrokEvents()` parses
- * stdout as one-JSON-object-per-line (NDJSON) — worth checking live
- * whether `json` actually emits NDJSON, or a single (possibly
- * multi-line-formatted) JSON blob that would break the line-based parser.
- * If it's the latter, `streaming-messages-json` looks like the better fit
- * (NDJSON, and a documented wire format this codebase already knows how to
- * parse elsewhere) — untested, flagging rather than guessing. The exact
- * NDJSON event field names for whichever format is correct were STILL not
- * available at fix time, so parseGrokEvents() tolerates several plausible
+ * format). This runner uses plain `json`, but events are parsed as
+ * one-JSON-object-per-line (NDJSON) — worth checking live whether `json`
+ * actually emits NDJSON, or a single (possibly multi-line-formatted) JSON
+ * blob that would break the line-based parser. If it's the latter,
+ * `streaming-messages-json` looks like the better fit (NDJSON, and a
+ * documented wire format this codebase already knows how to parse
+ * elsewhere) — untested, flagging rather than guessing. The exact NDJSON
+ * event field names for whichever format is correct were STILL not
+ * available at fix time, so event parsing tolerates several plausible
  * shapes (codex-style `item.type === 'agent_message'`, a flat `role:
  * 'assistant'` shape, and a flat `type: 'assistant'`/`'message'` shape)
  * rather than committing to one. Verify against a real XAI_API_KEY and
@@ -53,6 +74,7 @@
  */
 import { spawn } from 'node:child_process';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -70,8 +92,6 @@ const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching the other subpr
 const STARTUP_GRACE_MS = 45_000;
 
 interface TurnOutcome {
-  texts: string[];
-  rawTexts: string[];
   sessionId?: string;
   exitCode: number;
   stderrTail: string;
@@ -144,8 +164,20 @@ function extractUsage(ev: Record<string, unknown>): { input: number; output: num
   return undefined;
 }
 
+/** Pull a fatal error message out of a parsed event, tolerating an
+ *  `error`/`turn.failed` event with either a nested `error.message` or a
+ *  flat `message` field. */
+function extractError(ev: Record<string, unknown>): string | undefined {
+  if (ev.type !== 'error' && ev.type !== 'turn.failed') return undefined;
+  const errMsg = (ev.error as Record<string, unknown> | undefined)?.message ?? ev.message;
+  return typeof errMsg === 'string' ? errMsg : undefined;
+}
+
 /** Pure NDJSON parser — exported so it can be unit tested against fixture
- *  lines without spawning the real CLI (see grok-runner.test.ts). */
+ *  lines without spawning the real CLI (see grok-runner.test.ts). The
+ *  streaming path below (GrokAgentRunner.streamTurn) parses one line at a
+ *  time via the same extract* helpers, so both share the shape-tolerance
+ *  logic. */
 export function parseGrokEvents(lines: string[]): {
   texts: string[];
   rawTexts: string[];
@@ -182,14 +214,28 @@ export function parseGrokEvents(lines: string[]): {
       outputTokens = usage.output;
     }
 
-    if (ev.type === 'error' || ev.type === 'turn.failed') {
-      const errMsg = (ev.error as Record<string, unknown> | undefined)?.message ?? ev.message;
-      if (typeof errMsg === 'string') error = errMsg;
-    }
+    const errMsg = extractError(ev);
+    if (errMsg) error = errMsg;
   }
 
   const texts = rawTexts.map((t) => t.replace(TOOL_CALL_RE, '').trim());
   return { texts, rawTexts, sessionId, inputTokens, outputTokens, error };
+}
+
+/**
+ * One parsed grok event, normalized for incremental streaming.
+ *   - 'assistant': rawText is one whole assistant text (fences intact) for
+ *     end-of-turn tool-call parsing; text is the fence-stripped prose,
+ *     present only when non-empty.
+ *   - 'tool':      liveness only — the spawn-time yield (see header: grok's
+ *     guessed wire shapes carry no distinct tool-execution event to forward).
+ */
+export interface GrokStreamEvent {
+  kind: 'assistant' | 'tool';
+  text?: string;
+  rawText?: string;
+  toolName?: string;
+  sessionId?: string;
 }
 
 export class GrokAgentRunner implements AgentRunner {
@@ -219,36 +265,45 @@ export class GrokAgentRunner implements AgentRunner {
             ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
             : nextPrompt;
 
-          const outcome = await this.runTurn(bin, promptWithSystem, sessionId, args);
+          // Filled in by streamTurn as the subprocess runs and when it exits.
+          const outcome: TurnOutcome = {
+            exitCode: 1,
+            stderrTail: '',
+            timedOut: false,
+            hangSuspected: false,
+            inputTokens: 0,
+            outputTokens: 0,
+          };
+          // Raw assistant texts (fences intact) for end-of-turn tool-call
+          // parsing — fence parsing needs the complete text, so fences are
+          // collected here while the stripped prose streams out live below.
+          const rawTexts: string[] = [];
+
+          for await (const ev of this.streamTurn(bin, promptWithSystem, sessionId, args, outcome)) {
+            if (ev.sessionId) sessionId = ev.sessionId;
+            if (ev.kind === 'assistant' && ev.rawText !== undefined) {
+              rawTexts.push(ev.rawText);
+              // Yield assistant prose AS IT ARRIVES (per parsed line, not
+              // after process exit): a grok turn can run many minutes, and
+              // session.ts's watchdog must see messages DURING the turn.
+              if (ev.text) yield { type: 'assistant', session_id: sessionId, text: ev.text };
+            } else if (ev.kind === 'tool') {
+              // Liveness only (see header) — session.ts never renders
+              // tool_use as chat, it only feeds the StateDetector
+              // ('tool-call' state) and refreshes last-activity.
+              yield { type: 'tool_use', session_id: sessionId, text: ev.toolName };
+            }
+          }
           if (outcome.sessionId) sessionId = outcome.sessionId;
 
-          if (outcome.hangSuspected) {
-            throw new Error(
-              `GrokAgentRunner: grok produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
-                'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
-                'that headless mode has no way to answer. Run `grok` once manually in a real terminal in ' +
-                `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
-            );
-          }
-          if (outcome.exitCode !== 0 || outcome.error) {
-            throw new Error(
-              `GrokAgentRunner: grok failed (exit ${outcome.exitCode})` +
-                (outcome.timedOut
-                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
-                  : '') +
-                (outcome.error ? `: ${outcome.error}` : '') +
-                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
-            );
-          }
-
-          for (const t of outcome.texts) {
-            if (t.trim()) yield { type: 'assistant', session_id: sessionId, text: t };
+          if (outcome.hangSuspected || outcome.exitCode !== 0 || outcome.error) {
+            throw turnError(outcome, round);
           }
           turnInputTokens += outcome.inputTokens;
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) =>
+          const calls = parseToolCalls(rawTexts, (raw, err) =>
             malformed.push(
               `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
             ),
@@ -292,136 +347,221 @@ export class GrokAgentRunner implements AgentRunner {
     }
   }
 
-  private runTurn(
+  /**
+   * Run one `grok` invocation and stream its NDJSON output INCREMENTALLY:
+   * each parsed event is yielded as soon as its line arrives on stdout (see
+   * the header's "Streaming / liveness" note for why buffering until process
+   * exit was a bug, #204). End-of-turn facts (exit code, stderr tail,
+   * session id, usage, error, timeout/hang flags) are written into
+   * `outcome`, which the caller reads after this generator completes.
+   */
+  private async *streamTurn(
     bin: string,
     prompt: string,
     sessionId: string | undefined,
     args: AgentRunArgs,
-  ): Promise<TurnOutcome> {
-    return new Promise<TurnOutcome>((resolve, reject) => {
-      // --output-format, not --format: confirmed against a live v1.0.5
-      // install (`npm install -g @xai-official/grok`) — `--format` doesn't
-      // exist ("unexpected argument '--format' found") and would have made
-      // every single invocation fail before even reaching auth. Confirmed
-      // the corrected flag is right: with it, the same invocation (no
-      // XAI_API_KEY available to test past this point) gets to a "Not
-      // signed in" auth error instead of a flag-parsing error, proving the
-      // flag itself is now accepted. See #178.
-      const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '--always-approve'];
-      if (args.model) cliArgs.push('--model', args.model);
-      cliArgs.push('--cwd', args.cwd);
-      if (sessionId) cliArgs.push('--resume', sessionId);
+    outcome: TurnOutcome,
+  ): AsyncGenerator<GrokStreamEvent> {
+    // --output-format, not --format: confirmed against a live v1.0.5
+    // install (`npm install -g @xai-official/grok`) — `--format` doesn't
+    // exist ("unexpected argument '--format' found") and would have made
+    // every single invocation fail before even reaching auth. Confirmed
+    // the corrected flag is right: with it, the same invocation (no
+    // XAI_API_KEY available to test past this point) gets to a "Not
+    // signed in" auth error instead of a flag-parsing error, proving the
+    // flag itself is now accepted. See #178.
+    const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '--always-approve'];
+    if (args.model) cliArgs.push('--model', args.model);
+    cliArgs.push('--cwd', args.cwd);
+    if (sessionId) cliArgs.push('--resume', sessionId);
 
-      const child = spawn(bin, cliArgs, {
-        cwd: args.cwd,
-        env: { ...process.env, ...args.env },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
+    const child = spawn(bin, cliArgs, {
+      cwd: args.cwd,
+      env: { ...process.env, ...args.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
-      let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => {
-        stderrTail = (stderrTail + c.toString()).slice(-4000);
-      });
+    let stderrTail = '';
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
+    });
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    let hangSuspected = false;
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
+      // escalate to SIGKILL after a short grace period.
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, TURN_TIMEOUT_MS);
+
+    // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
+    let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+      hangSuspected = true;
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, STARTUP_GRACE_MS);
+
+    // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+    // (ENOENT, bad binary) the 'error' event fires almost immediately — if
+    // no listener is attached yet it escapes as an unhandled 'error' event
+    // and crashes the process instead of reaching our catch block.
+    const exitPromise = new Promise<number>((res, rej) => {
+      child.on('error', rej);
+      child.on('close', (code) => res(code ?? 1));
+    });
+    // Prevent an unhandled-rejection crash if the stdout loop below throws
+    // before we await exitPromise (the await still sees the rejection).
+    exitPromise.catch(() => {});
+
+    let lastSessionId: string | undefined = sessionId;
+
+    // Normalize one parsed wire event: capture the session id from ANY event
+    // that carries it (resume needs it on the next turn), record
+    // error/usage state, and return the GrokStreamEvent to yield (or null).
+    // Reuses the same shape-tolerant helpers as the batch parseGrokEvents.
+    const handleEvent = (ev: Record<string, unknown>): GrokStreamEvent | null => {
+      const sid = extractSessionId(ev);
+      if (sid) lastSessionId = sid;
+
+      const usage = extractUsage(ev);
+      if (usage) {
+        outcome.inputTokens = usage.input;
+        outcome.outputTokens = usage.output;
+      }
+
+      const errMsg = extractError(ev);
+      if (errMsg) outcome.error = errMsg;
+
+      const text = extractText(ev);
+      if (text) {
+        const stripped = text.replace(TOOL_CALL_RE, '').trim();
+        return {
+          kind: 'assistant',
+          rawText: text,
+          text: stripped || undefined,
+          sessionId: lastSessionId,
+        };
+      }
+      return null;
+    };
+
+    try {
+      // Immediate liveness yield: session.ts races the FIRST pull against a
+      // 4-minute silent-stream watchdog, and grok's first event can itself
+      // take minutes. Yielding at spawn wins that race deterministically
+      // instead of depending on grok's latency.
+      yield { kind: 'tool', toolName: 'turn started', sessionId };
 
       let sawOutput = false;
-      let timedOut = false;
-      let hangSuspected = false;
-      const KILL_GRACE_MS = 5000;
-      let killTimer: ReturnType<typeof setTimeout> | undefined;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            /* already gone */
+      let buf = '';
+      for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+        if (!sawOutput) {
+          sawOutput = true;
+          if (hangTimer) {
+            clearTimeout(hangTimer);
+            hangTimer = undefined;
           }
-        }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, TURN_TIMEOUT_MS);
-
-      // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
-      let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-        hangSuspected = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            /* already gone */
-          }
-        }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, STARTUP_GRACE_MS);
-
-      const exitPromise = new Promise<number>((res, rej) => {
-        child.on('error', rej);
-        child.on('close', (code) => res(code ?? 1));
-      });
-      exitPromise.catch(() => {});
-
-      const readLines = (async () => {
-        const lines: string[] = [];
-        let buf = '';
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) {
-            sawOutput = true;
-            if (hangTimer) {
-              clearTimeout(hangTimer);
-              hangTimer = undefined;
-            }
-          }
-          buf += chunk.toString();
-          const parts = buf.split('\n');
-          buf = parts.pop() ?? '';
-          lines.push(...parts);
         }
-        if (buf.trim()) lines.push(buf);
-        return lines;
-      })();
+        buf += chunk.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed?.startsWith('{')) continue;
+          let ev: Record<string, unknown>;
+          try {
+            ev = JSON.parse(trimmed);
+          } catch {
+            continue;
+          }
+          const out = handleEvent(ev);
+          if (out) yield out;
+        }
+      }
+      const tail = buf.trim();
+      if (tail?.startsWith('{')) {
+        try {
+          const out = handleEvent(JSON.parse(tail) as Record<string, unknown>);
+          if (out) yield out;
+        } catch {
+          /* not JSON, skip */
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+      if (hangTimer) clearTimeout(hangTimer);
+      if (killTimer) clearTimeout(killTimer);
+      // If the consumer abandons this stream mid-turn (session.ts's silent
+      // abort calls iterator.return(), the mailbox closes, or an error is
+      // thrown downstream), don't leak the CLI subprocess.
+      if (child.exitCode === null && !child.killed) {
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* already gone */
+        }
+      }
+    }
 
-      // Timer cleanup lives in a top-level .finally() (not nested inside a
-      // success-path .then()) so it runs on EITHER path — a stdout stream
-      // error would otherwise skip straight to reject() and leave the
-      // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
-      // process's actual lifetime.
-      Promise.all([readLines, exitPromise])
-        .then(
-          ([lines, exitCode]) => {
-            const parsed = parseGrokEvents(lines);
-            resolve({
-              texts: parsed.texts,
-              rawTexts: parsed.rawTexts,
-              sessionId: parsed.sessionId ?? sessionId,
-              exitCode,
-              stderrTail,
-              timedOut,
-              hangSuspected,
-              inputTokens: parsed.inputTokens,
-              outputTokens: parsed.outputTokens,
-              error: parsed.error,
-            });
-          },
-          (err) => {
-            // A stdout stream error (the reject path) means the process is
-            // still ALIVE and unmanaged — none of the timeout/hang timers
-            // would have fired to kill it. Without this, that error would
-            // orphan the child. child.kill() on an already-dead process is a
-            // documented no-op, so this is safe on every path.
-            try {
-              child.kill('SIGTERM');
-            } catch {
-              /* already gone */
-            }
-            reject(err);
-          },
-        )
-        .finally(() => {
-          clearTimeout(timer);
-          if (hangTimer) clearTimeout(hangTimer);
-          if (killTimer) clearTimeout(killTimer);
-        });
-    });
+    const exitCode = await exitPromise;
+    outcome.sessionId = lastSessionId;
+    outcome.exitCode = exitCode;
+    outcome.stderrTail = stderrTail;
+    outcome.timedOut = timedOut;
+    outcome.hangSuspected = hangSuspected;
   }
+}
+
+/** Build the actionable error for a failed grok turn. */
+function turnError(outcome: TurnOutcome, round: number): Error {
+  if (outcome.hangSuspected) {
+    return new Error(
+      `GrokAgentRunner: grok produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
+        'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
+        'that headless mode has no way to answer. Run `grok` once manually in a real terminal in ' +
+        `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+    );
+  }
+  // Fatal provider errors (auth/permission/quota — classified from the error
+  // field AND stderr): report what actually happened, and tag the error so
+  // the daemon does NOT restart into the same guaranteed failure (a restart
+  // on quota exhaustion can only hang or fail again).
+  const cls = classifyStderr(`${outcome.error ?? ''}\n${outcome.stderrTail}`);
+  if (cls.fatal) {
+    const err = new Error(
+      `GrokAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
+        (outcome.error ? ` error: ${outcome.error}` : '') +
+        (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+    (err as Error & { fatal?: boolean }).fatal = true;
+    return err;
+  }
+  return new Error(
+    `GrokAgentRunner: grok failed (exit ${outcome.exitCode})` +
+      (outcome.timedOut
+        ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
+        : '') +
+      (outcome.error ? `: ${outcome.error}` : '') +
+      (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+  );
 }
