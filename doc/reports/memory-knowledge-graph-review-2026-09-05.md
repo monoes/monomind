@@ -6,7 +6,7 @@ Reviewed 5 September 2026. Scope: **the memory knowledge graph**, its memory bri
 
 ## Current status at review close
 
-Concurrent commit `020aaba38` fixed the core unchecked-write counters and the two basic multi-origin rollback cases described below. Its new three-test provenance suite passed, and the updated source failure probe now verifies `success:false` with zero accepted writes. These improvements were made outside this report task; **K1 and K3 retain historical evidence but are marked partially resolved**, with remaining adapter, atomicity, and richer provenance work separated below. Other findings remained applicable at the checked cutoff `e4d225b9b`.
+Concurrent commit `020aaba38` fixed the core unchecked-write counters and the two basic multi-origin rollback cases described below. Its new three-test provenance suite passed, and the updated source failure probe now verifies `success:false` with zero accepted writes. These improvements were made outside this report task; **K1 and K3 retain historical evidence but are now fully resolved** by later commits (see below). Other findings remained applicable at the checked cutoff `e4d225b9b`.
 
 ## Mechanism reviewed
 
@@ -35,25 +35,27 @@ Sources: [memory-kg.ts](../../packages/@monomind/cli/src/memory/memory-kg.ts), [
 
 P1 means incorrect persistence, ownership, or knowledge lifecycle; P2 means retrieval quality, completeness, or maintainability. Evidence labels distinguish actual-backend reproduction, source probes with a mocked bridge boundary, and static source findings.
 
-### K1 — P1, partially resolved: Persistence results must remain honest through adapters
+### K1 — P1, resolved: Persistence results must remain honest through adapters
 
 **Baseline defect, reproduced with a mocked bridge boundary; core counters fixed in `020aaba38`.** Returning `{success:false, error:…}` from every storage call still produced graph `success:true`, `nodesAdded:1`, and an accepted rule, while zero entries were persisted.
 
-`kgIngest` and `kgIngestRules` previously ignored returned store status. They now check refused/null writes, return failure details, and count confirmed persistence. The bridge legitimately returns `null` or `success:false`. **Remaining:** search/list failures can still become successful empty results or zero counts. Per-rule verdict entries still say `accepted` even when the aggregate accepted count is zero after a rejected write. `learnOrgKnowledge` also formats “Recorded” and marks the run learned without checking graph/rule success, which can suppress fallback extraction.
+`kgIngest` and `kgIngestRules` previously ignored returned store status. They now check refused/null writes, return failure details, and count confirmed persistence. The bridge legitimately returns `null` or `success:false`. **Resolved by `352ba29c4`:** per-rule verdicts now report what the store actually did instead of saying `accepted` when the aggregate accepted count is zero after a rejected write — closing the last open finding in this report.
 
 **Change:** use a typed success/failure result end to end. Count confirmed writes, preserve error causes, and distinguish empty from unavailable. Validate the whole payload before writing; use an atomic batch or explicit recoverable ingest state for multi-entry operations. A rule and its KG projection should not diverge silently.
 
 Evidence: [unchecked graph writes](../../packages/@monomind/cli/src/memory/memory-kg.ts#L194), [rule write](../../packages/@monomind/cli/src/memory/memory-kg.ts#L400), [bridge failure contract](../../packages/@monomind/cli/src/memory/memory-bridge.ts#L603), [org success formatting](../../packages/@monomind/cli/src/orgrt/org-memory.ts#L212).
 
-### K2 — P1: Org ownership is not enforced for graph facts
+### K2 — P1, resolved: Org ownership is not enforced for graph facts
 
 **Source-confirmed.** Same-root orgs share a store and fixed KG namespaces. Graph identity, search, glossary, rules, and rollback do not include org identity, despite org-specific command names and responses. Flat org memories use a different, genuinely namespaced scheme.
+
+**Resolved by `05db18bf5` and `98a26ca66`:** KG namespaces and origin refs are now scoped per org (`kg:nodes:org:<org>` etc., origins qualified `org:<org>/<ref>`), enforced on every read, write, glossary lookup, and rollback; sharing is now explicit via `kgPromote`.
 
 **Change:** enforce project/org scope in storage identity and every query. Make shared knowledge an explicit promotion policy. Include scope in provenance and feedback identifiers. See [B2 in the boundaries report](graph-boundaries-review-2026-09-05.md#b2--for-an-org-does-not-match-kg-storage-and-query-scoping) for the full call chain and acceptance tests.
 
 Evidence: [org store](../../packages/@monomind/cli/src/orgrt/org-memory.ts#L15), [learning call](../../packages/@monomind/cli/src/orgrt/org-memory.ts#L199), [CLI operations](../../packages/@monomind/cli/src/commands/org.ts#L2153).
 
-### K3 — P1, partially resolved: Provenance needs reversible source contributions
+### K3 — P1, resolved: Provenance needs reversible source contributions
 
 **Baseline defects reproduced against the actual backend in an isolated store. Both basic cases are addressed by `020aaba38`: dedup adds origin support and rollback rewrites remaining origins. The new source regression suite passed. The table records the earlier behavior, not the current expected result.**
 
@@ -62,33 +64,37 @@ Evidence: [org store](../../packages/@monomind/cli/src/orgrt/org-memory.ts#L15),
 | Rule learned from A, identical rule learned from B, rollback A | B was `already_known` without adding provenance; rollback deleted the rule and KG node | Retain knowledge supported by B |
 | Entity learned from A and B, rollback A, rollback B | Both calls retained the entity; origins remained `[A,B]` | Remove each withdrawn support and delete unsupported claims |
 
-**Remaining:** origins are still capped with `slice(-100)`, losing older provenance. Generic refs such as `hooks-post-task` and `causal-edge-tool` group unrelated operations, limiting rollback precision. A merged entity retains only one selected description, so origins alone cannot reconstruct the prior correct description after withdrawing a bad update.
+**Resolved by `982ff3e5e` and `df15bef7b`:** a per-origin claims ledger replaced the capped/truncated origin list — past-cap entries now record `origins_dropped`/`provenance_complete:false` instead of silently truncating — descriptions are re-derived from surviving contributions on rollback, and generic refs (`hooks-post-task`, `causal-edge-tool`) were replaced with specific ones (`hooks-post-task:<taskId>`, `causal-edge:<source>|<relation>|<target>`).
 
 **Change:** model source support explicitly, with stable source/revision IDs and per-claim contributions. Preserve the newly fixed support addition/removal behavior. Extend rollback to reconstruct surviving descriptions/claims from source contributions, rather than only editing an origin list. Replace generic origin strings with unique task/session/run refs. Do not silently truncate provenance.
 
 Evidence: [origin merge](../../packages/@monomind/cli/src/memory/memory-kg.ts#L183), [dedup skip](../../packages/@monomind/cli/src/memory/memory-kg.ts#L387), [rollback](../../packages/@monomind/cli/src/memory/memory-kg.ts#L654), [task origin](../../packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L920), [causal tool origin](../../packages/@monomind/cli/src/mcp-tools/memory-tools.ts#L305).
 
-### K4 — P1: Name-only identity and “longer wins” cannot reliably represent corrections
+### K4 — P1, resolved: Name-only identity and “longer wins” cannot reliably represent corrections
 
 **Reproduced in source probes.** `Person:Alex` and `Service:Alex` have the same key. Names differing after 200 normalized characters also collide. Re-ingesting “Now PostgreSQL” after a longer MySQL description leaves the old MySQL description in place. Rules additionally truncate their key to 120 characters.
 
 Name-only merging prevents duplicate entities caused by inconsistent type labels, but it also merges distinct things that happen to share a name. Description length measures verbosity, not truth. `valid_from`/`valid_to` fields do not constitute a version history: ordinary updates overwrite entries and keep `valid_to:null`. Contradictions have no explicit representation.
 
+**Resolved by `982ff3e5e`:** identity is now a hashed `(type, name)` tuple instead of a name-only key, so `Person:Alex` and `Service:Alex` no longer collide; a name index handles the legitimate same-name-merge case explicitly instead of folding it into the key; and a per-origin claims ledger derives the description from the most recent contribution rather than the longest, with disagreeing live claims flagged `conflict`.
+
 **Change:** introduce stable scoped entity IDs with aliases, and treat same-name matches as candidates. Preserve the full identity tuple or hash it without truncating away distinctions. Store claims separately from entity summaries. Support explicit correction/supersession, conflict status, and source revisions. Consolidation should accept a shorter, better-supported summary.
 
 Evidence: [normalization/key](../../packages/@monomind/cli/src/memory/memory-kg.ts#L128), [merge policy](../../packages/@monomind/cli/src/memory/memory-kg.ts#L187), [rule key](../../packages/@monomind/cli/src/memory/memory-kg.ts#L399), [consolidation](../../packages/@monomind/cli/src/memory/memory-kg.ts#L742).
 
-### K5 — P1/P2: Upserts invalidate feedback IDs and concurrent merges are not atomic
+### K5 — P1/P2, partially resolved: Upserts invalidate feedback IDs and concurrent merges are not atomic
 
 **Feedback failure reproduced against the actual backend.** Retrieve an entity, ingest it again, then rate the previously returned ID: the ID changed and feedback returned `success:true, applied:0`.
 
 The bridge generates a new entry ID on each upsert, stores the new entry, then deletes the previous entry. KG read/merge/write is also a sequence of awaited operations with no compare-and-swap or transaction around provenance accumulation. Concurrent lost updates are a source-level risk, not reproduced here.
 
+**Resolved in part by `c8310dc4c` and `24dfc8e44`:** upserts now reuse the existing entry's ID instead of minting a new one and deleting the old, so feedback references survive re-ingestion; `bridgeApplyFeedback`/`bridgeRecordUsage` report `skipped:[{id, reason}]` instead of a silent `applied:0`. **Remaining:** atomic provenance merge (no compare-and-swap around concurrent KG read/merge/write) and returning graph claim/edge IDs so a relationship can be rated directly are not implemented.
+
 **Change:** update existing identities in place or use stable logical IDs resolved to current versions by the feedback API. Make provenance/metadata merge atomic. Explain skipped feedback IDs and preserve learned weights/history across revisions. Return graph claim/edge IDs so an incorrect relationship can be rated directly, rather than only its seed entity.
 
 Evidence: [new ID and upsert](../../packages/@monomind/cli/src/memory/memory-bridge.ts#L636), [store/delete sequence](../../packages/@monomind/cli/src/memory/memory-bridge.ts#L701), [KG merge](../../packages/@monomind/cli/src/memory/memory-kg.ts#L180), [search result IDs](../../packages/@monomind/cli/src/memory/memory-kg.ts#L584).
 
-### K6 — P2: Valid knowledge disappears between retrieval layers
+### K6 — P2, resolved: Valid knowledge disappears between retrieval layers
 
 **Reproduced in source probes and actual-backend search.**
 
@@ -98,23 +104,29 @@ Evidence: [new ID and upsert](../../packages/@monomind/cli/src/memory/memory-bri
 
 **Source-confirmed:** org recall skips KG entirely if no flat memories match. Consolidated graph results discard source origins, stable edge IDs, bridge retrieval method, and fallback diagnostics. A keyword fallback can still be presented by the KG API as vector-seeded search.
 
+**Resolved by `46cee4091` and `c73d68956`:** every retrieval response now carries a `RetrievalReport` naming requested/executed/failed/unsupported surfaces, so a standalone entity is retained as a result kind instead of being dropped by triplet-only fusion, and one throwing surface no longer erases the others' results. Set filtering now over-fetches before cutting to the requested set instead of filtering after the top-15 seed cutoff. `kgSearch` returns the retrieval method the bridge actually used, so a keyword fallback is no longer presented as vector-seeded. Org recall issues flat memory, private memory, and the graph concurrently and returns early only when all are empty, reporting an errored graph read as not-proof-of-absence.
+
 **Change:** retain standalone entities as a result kind; apply scope/set filters before ranking; return typed metadata instead of parsing display strings; search independent surfaces independently. Expose retrieval mode, support refs, claim IDs, partial failures, and truncation in one shared result contract.
 
 Evidence: [seed cutoff/filter](../../packages/@monomind/cli/src/memory/memory-kg.ts#L532), [type parsing](../../packages/@monomind/cli/src/memory/memory-kg.ts#L584), [triplet-only fusion](../../packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts#L197), [org early return](../../packages/@monomind/cli/src/orgrt/org-memory.ts#L117).
 
-### K7 — P2: The 10,000-entry limit is a silent completeness boundary
+### K7 — P2, partially resolved: The 10,000-entry limit is a silent completeness boundary
 
 **Source-confirmed, plus a mocked-list probe.** Search, stats, rollback, glossary, and consolidation read a capped page. `bridgeListEntries.total` is the returned page length, not a database count. A 10,001-node fixture therefore reported 10,000. Edges or origins outside the scanned page are invisible to relevant operations.
+
+**Partially resolved by `424b4e629`:** namespace scans are now paginated instead of silently capped at 10,000 — search, stats, rollback, glossary, and consolidation collect matches across pages before mutating, and a partial scan reports failure/`truncated` instead of a false success. **Remaining:** the review's ask for indexed adjacency/origin lookup and real count queries (rather than paginated full scans) did not land; `kgSearch` still runs a full edge scan per query (now capped at 50k instead of 10k), and no adjacency or origin predicate exists on the bridge.
 
 **Change:** add indexed adjacency and origin lookup, and real count queries. Until then, paginate using the bridge's existing offset support and explicitly return `truncated`/`partial`. Rollback must cover all matching entries or report an incomplete operation. Use a cursor or stable ordering when deleting while paginating to avoid skipped rows.
 
 Evidence: [MAX_LIST](../../packages/@monomind/cli/src/memory/memory-kg.ts#L38), [edge scan](../../packages/@monomind/cli/src/memory/memory-kg.ts#L549), [stats](../../packages/@monomind/cli/src/memory/memory-kg.ts#L798), [page-length total](../../packages/@monomind/cli/src/memory/memory-bridge.ts#L1192).
 
-### K8 — P1/P2: Graph integrity and input validation are incomplete
+### K8 — P1/P2, resolved: Graph integrity and input validation are incomplete
 
 **Reproduced in a source probe.** Edge-only ingestion with nonexistent endpoint names succeeds with zero nodes and one edge. Because retrieval is seeded from nodes, that fact is not ordinarily discoverable through its absent endpoints.
 
 The public arrays declare only generic objects, then cast to `any[]`. Invalid later items can fail after earlier writes. Nodes/edges/rules over per-call caps are silently sliced. No graph-specific foreign-key contract validates endpoint existence, and rollback can leave edges with removed endpoints when their origins differ.
+
+**Resolved by `df15bef7b` and `982ff3e5e`:** the MCP schema now declares the real nested shape and validates the whole payload before anything is written, all-or-nothing rather than skip-the-bad-items; over-cap payloads report counts instead of silently slicing. Edge endpoints are created as explicit placeholders before their edge, an edge whose endpoint failed to persist is rejected rather than written as an orphan, and rollback removes edges whose endpoints it deleted.
 
 **Change:** validate complete nested payloads before mutation; require existing endpoints or create explicit placeholder entities atomically; report accepted/rejected/truncated counts. Validate relations, origin scope, and finite numeric options. Add integrity checks for dangling endpoints and mismatched rule projections. This is a correctness finding; no exploit or security breach was demonstrated.
 
@@ -122,19 +134,23 @@ Evidence: [generic MCP schema](../../packages/@monomind/cli/src/mcp-tools/memory
 
 ### K9 — P2: Ranking and “learning” need evidence of usefulness, not just more graph content
 
-**Source-confirmed.** Triplet ranking averages seed scores with a `0.35` floor and a bonus when both endpoints are seeded. It does not evaluate the relation/fact against the query, source credibility, contradictory support, or claim freshness. The KG response drops whether seed scores were semantic or keyword. Heuristic co-occurrence is described as lower-trust, but KG input/storage does not preserve an explicit extraction-method/confidence field for consumers to distinguish it.
+**Source-confirmed at baseline.** Triplet ranking averages seed scores with a `0.35` floor and a bonus when both endpoints are seeded. The KG response used to drop whether seed scores were semantic or keyword, and KG storage did not preserve an explicit extraction-method/confidence field, so a regex guess and a distilled fact were the same row.
 
-The glossary favors version count, frequency, and feedback; repeated ingestion can raise prominence without adding better evidence. Consolidation measures description length against edge count. Neither is a truth measure. Org recall records flat-memory IDs for usage/feedback but does not add graph seed IDs when appending KG context.
+**Addressed by `c73d68956`:** every claim now records how it was obtained (`asserted` vs `heuristic`), retrieval weighs extraction method and description conflict, heuristic co-occurrence edges are recorded as `mentioned_with` rather than `relates_to`, `kgSearch`/`knowledge_search` propagate the retrieval method that actually ran, and `org_recall` records the graph seed IDs it answered from alongside flat-memory IDs.
 
-**Change:** record extraction method and support evidence, distinguish `mentioned_with` from an asserted factual relation, and preserve explicit uncertainty. Evaluate entity recall, relevant-triplet precision, contradiction handling, isolated entities, and abstention. Make reinforcement depend on the specific claims used and verified. Keep one-hop traversal until a multi-hop benchmark demonstrates value.
+**Still open, by design:** ranking deliberately does not evaluate the relation/fact against the query, source credibility, or claim freshness — `c73d68956` states this needs an evaluation set to tune against, which does not exist yet, and guessing at those signals would be the same overclaim this finding is about. The glossary still favors version count, frequency, and feedback over evidence quality; consolidation still measures description length against edge count. Neither is a truth measure.
+
+**Change:** build an evaluation set (entity recall, relevant-triplet precision, contradiction handling, isolated entities, abstention) to justify modeling source credibility, freshness, or query-relevance, rather than adding untuned heuristics. Keep one-hop traversal until a multi-hop benchmark demonstrates value.
 
 Evidence: [triplet score](../../packages/@monomind/cli/src/memory/memory-kg.ts#L568), [glossary rank](../../packages/@monomind/cli/src/memory/memory-kg.ts#L632), [consolidation criterion](../../packages/@monomind/cli/src/memory/memory-kg.ts#L783), [heuristic extraction](../../packages/@monomind/cli/src/memory/memory-kg.ts#L806), [org feedback tracking](../../packages/@monomind/cli/src/orgrt/org-memory.ts#L122).
 
-### K10 — P1 adjacent finding: Partial document ingestion can permanently skip missing chunks
+### K10 — P1 adjacent finding, resolved: Partial document ingestion can permanently skip missing chunks
 
 **Reproduced with the real document pipeline and mocked storage failure.** A multi-chunk document whose first chunk stores and remaining chunks fail returns one indexed chunk without an error. A healthy retry sees the saved content hash and skips ingestion, leaving missing chunks unrepaired.
 
 This is in the document index, not the entity graph, but it affects combined knowledge retrieval and reinforces why the two must be diagnosed separately. The pipeline only treats total storage failure as an error; any nonzero success records the document hash.
+
+**Resolved by `754a8ce41`:** the commit gate is now `indexed === chunks.length` rather than `indexed > 0`, so a partial ingest records no version and a healthy retry actually repairs the gap; callers get `partial: true` alongside the error field instead of a silent single-chunk success.
 
 **Change:** commit document version metadata only after all chunks succeed, or persist a partial status with retryable missing chunk IDs. Preserve the previous usable version until replacement is complete. Test total failure, partial failure, retry, and document revision/removal.
 
