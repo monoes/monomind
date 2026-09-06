@@ -256,9 +256,12 @@ const knowledgeSearch: MCPTool = {
           graphRes,
           entities.length + (graph?.triplets?.length ?? 0),
           {
-            // kgSearch does not surface which retrieval its seed search used —
-            // memory-kg.ts owns that (K6 follow-up), so it is left unstated
-            // rather than guessed at.
+            // The seed retrieval kgSearch actually ran, not the one its name
+            // suggests: a keyword fallback reported as vector search is the
+            // overclaim this field exists to prevent. kgSearch names it `method`
+            // (it is the graph's own answer, not a bridge passthrough).
+            ...(graph?.method ? { method: graph.method } : {}),
+            ...(graph?.fallbackReason ? { fallbackReason: graph.fallbackReason } : {}),
             ...(graph?.truncated ? { truncated: true } : {}),
             ...(graph?.error ? { detail: graph.error } : {}),
           },
