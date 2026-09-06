@@ -64,7 +64,12 @@
  */
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -146,7 +151,11 @@ export function extractPiRpcText(message: PiRpcMessage): string {
  *  file's header, testing the orchestration logic itself — not just the
  *  pure JSONL/extraction helpers — is the point of this seam. */
 export interface PiRpcProcess {
-  stdin: { write(data: string): void } | null;
+  stdin: {
+    write(data: string): void;
+    /** Optional so the test fakes stay minimal; the real ChildProcess has it. */
+    on?(event: 'error', cb: (err: Error) => void): void;
+  } | null;
   stdout: { on(event: 'data', cb: (chunk: Buffer) => void): void } | null;
   stderr: { on(event: 'data', cb: (chunk: Buffer) => void): void } | null;
   on(event: 'close', cb: (code: number | null) => void): void;
@@ -232,6 +241,19 @@ export class PiRpcAgentRunner implements AgentRunner {
       closed = true;
       pushEvents([{ type: '__error__', error: err }]);
     });
+    // A write to a stdin the process has already closed (EPIPE — it exited
+    // or crashed between our last event and this write) surfaces as a
+    // stream 'error'; without a listener that is an uncaught exception
+    // that takes the whole daemon down instead of failing this turn.
+    child.stdin?.on?.('error', (err) => {
+      closed = true;
+      pushEvents([
+        {
+          type: '__error__',
+          error: new Error(`PiRpcAgentRunner: failed to write to pi stdin: ${err.message}`),
+        },
+      ]);
+    });
 
     const nextEvent = (): Promise<Record<string, unknown>> => {
       const queued = eventQueue.shift();
@@ -264,6 +286,18 @@ export class PiRpcAgentRunner implements AgentRunner {
       }, KILL_GRACE_MS);
       killTimer.unref?.();
     };
+
+    // Abort hook (see AgentRunArgs.signal): kill the session's long-lived
+    // child and unblock whichever nextEvent() wait is in flight, so an
+    // abandoned runner does not leave the process running.
+    const unsubscribeAbort = killOnAbort(args.signal, {
+      kill: () => {
+        if (closed) return;
+        closed = true;
+        killChild();
+        pushEvents([{ type: '__aborted__' }]);
+      },
+    });
 
     // Startup-hang detection — same rationale as the other subprocess
     // runners' STARTUP_GRACE_MS, applied once at process start rather than
@@ -354,7 +388,12 @@ export class PiRpcAgentRunner implements AgentRunner {
               disarmHang();
               const kind = ev.type as string | undefined;
 
-              if (kind === '__closed__' || kind === '__error__' || kind === '__hang__') {
+              if (
+                kind === '__closed__' ||
+                kind === '__error__' ||
+                kind === '__hang__' ||
+                kind === '__aborted__'
+              ) {
                 if (kind === '__error__') {
                   // Rethrow the ORIGINAL spawn error (not a fresh generic one)
                   // so the outer catch's `err.code === 'ENOENT'` check below
@@ -369,7 +408,9 @@ export class PiRpcAgentRunner implements AgentRunner {
                     ? `PiRpcAgentRunner: pi produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
                         'This usually means it is stuck on a prompt headless mode has no way to answer. Run `pi` ' +
                         `once manually in a real terminal in this project to check, then retry.${stderrTail ? `\nstderr: ${stderrTail.slice(-500)}` : ''}`
-                    : `PiRpcAgentRunner: pi rpc process ended unexpectedly (${kind})` +
+                    : kind === '__aborted__'
+                      ? `PiRpcAgentRunner: pi turn aborted by the caller; the pi process was killed`
+                      : `PiRpcAgentRunner: pi rpc process ended unexpectedly (${kind})` +
                         (stderrTail ? `\nstderr: ${stderrTail.slice(-500)}` : ''),
                 );
               }
@@ -464,6 +505,7 @@ export class PiRpcAgentRunner implements AgentRunner {
       }
       throw err;
     } finally {
+      unsubscribeAbort();
       if (hangTimer) clearTimeout(hangTimer);
       clearInterval(silenceWatchdog);
       if (processExited) {
