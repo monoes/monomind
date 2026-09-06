@@ -120,3 +120,131 @@ describe('PiAgentRunner invocation', () => {
     }
   }, 15000);
 });
+
+// Regression coverage for #204: PiAgentRunner used to buffer ALL of pi's
+// stdout until the subprocess exited before parsing anything, so a turn
+// longer than session.ts's 4-minute silent-stream watchdog yielded zero
+// messages in time. Mirrors codex-runner.test.ts's streaming describe block,
+// adapted to pi's own event shape (whole message_end/tool_execution_start
+// lines, not per-token deltas or codex's item.* envelope).
+describe('PiAgentRunner streaming (#204)', () => {
+  function writeFakePi(tmpDir: string, script: string): string {
+    const bin = path.join(tmpDir, 'fake-pi.cjs');
+    fs.writeFileSync(bin, `#!/usr/bin/env node\n${script}`);
+    fs.chmodSync(bin, 0o755);
+    return bin;
+  }
+
+  function makeArgs(cwd: string): AgentRunArgs {
+    return {
+      tools: [],
+      prompt: (async function* () {
+        yield 'do work';
+      })(),
+      systemPrompt: 'test role',
+      cwd,
+      env: {},
+      maxTurns: 5,
+    } as any;
+  }
+
+  it('yields a liveness message immediately, then streams messages DURING the turn (not after exit)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-pi-'));
+    try {
+      const bin = writeFakePi(
+        tmpDir,
+        [
+          "console.log(JSON.stringify({ type: 'tool_execution_start', toolCallId: 'c1', toolName: 'bash' }));",
+          'setTimeout(() => {',
+          "  console.log(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'partial reply' }], usage: { input: 10, output: 5 } } }));",
+          '  setTimeout(() => { process.exit(0); }, 300);',
+          '}, 50);',
+        ].join('\n'),
+      );
+
+      const start = Date.now();
+      const messages: any[] = [];
+      const times: number[] = [];
+      for await (const m of new PiAgentRunner(bin).run(makeArgs(tmpDir))) {
+        messages.push(m);
+        times.push(Date.now());
+      }
+      const end = Date.now();
+
+      // First message must be the spawn-time liveness yield — this wins
+      // session.ts's first-pull watchdog race deterministically.
+      expect(messages[0]).toEqual({ type: 'tool_use', text: 'turn started' });
+      expect(times[0] - start).toBeLessThan(300);
+
+      // pi's own tool_execution_start is forwarded as tool_use liveness.
+      const toolMsgs = messages.filter((m) => m.type === 'tool_use');
+      expect(toolMsgs.some((m) => m.text === 'bash')).toBe(true);
+
+      const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+      expect(texts).toEqual(['partial reply']);
+
+      // Regression guard: the assistant text must arrive well BEFORE the
+      // subprocess exits (the fake pi sleeps 300ms after printing it).
+      // Under the old buffered design every message arrived at process exit.
+      const firstAssistantIdx = messages.findIndex((m) => m.type === 'assistant');
+      expect(end - times[firstAssistantIdx]).toBeGreaterThanOrEqual(200);
+
+      const result = messages.find((m) => m.type === 'result');
+      expect(result?.subtype).toBe('success');
+      expect(result?.input_tokens).toBe(10);
+      expect(result?.output_tokens).toBe(5);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+
+  it('classifies auth/permission stderr as FATAL (non-retryable)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-pi-'));
+    try {
+      const bin = writeFakePi(
+        tmpDir,
+        ["process.stderr.write('auth_error: 401 Unauthorized\\n');", 'process.exit(1);'].join(
+          '\n',
+        ),
+      );
+
+      let caught: any;
+      try {
+        for await (const _m of new PiAgentRunner(bin).run(makeArgs(tmpDir))) {
+          /* consume */
+        }
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeDefined();
+      expect(String(caught)).toContain('FATAL');
+      expect(caught.fatal).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+
+  it('leaves transient failures retryable (no fatal flag)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-pi-'));
+    try {
+      const bin = writeFakePi(
+        tmpDir,
+        ["process.stderr.write('connection reset by peer\\n');", 'process.exit(1);'].join('\n'),
+      );
+
+      let caught: any;
+      try {
+        for await (const _m of new PiAgentRunner(bin).run(makeArgs(tmpDir))) {
+          /* consume */
+        }
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeDefined();
+      expect(String(caught)).toContain('pi failed (exit 1)');
+      expect(caught.fatal).toBeUndefined();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+});
