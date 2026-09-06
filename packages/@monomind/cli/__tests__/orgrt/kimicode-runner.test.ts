@@ -147,14 +147,29 @@ describe('parseStreamJsonLine', () => {
  */
 
 /** Write an executable fake-kimi script into a temp dir and return its path
- *  plus the argv log file the script appends each invocation to. */
+ *  plus the invocation log file the script appends each invocation to. Each
+ *  log line is `{ argv, prompt }` — the prompt is read from stdin, which is
+ *  how the runner passes it (print mode reads stdin when no -p is given). */
 function makeFakeKimi(body: string): { bin: string; logFile: string; tmpDir: string } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-kimi-'));
   const logFile = path.join(tmpDir, 'argv.log');
   const bin = path.join(tmpDir, 'fake-kimi.cjs');
-  fs.writeFileSync(bin, '#!/usr/bin/env node\n' + body);
+  fs.writeFileSync(bin, '#!/usr/bin/env node\n' + FAKE_KIMI_PRELUDE + body);
   fs.chmodSync(bin, 0o755);
   return { bin, logFile, tmpDir };
+}
+
+// Shared prelude: read the prompt from stdin (like kimi's print mode) and
+// log `{ argv, prompt }` for the invocation.
+const FAKE_KIMI_PRELUDE = `
+const argv = process.argv.slice(2);
+const prompt = require('fs').readFileSync(0, 'utf8');
+require('fs').appendFileSync(process.env.FAKE_KIMI_LOG, JSON.stringify({ argv, prompt }) + '\\n');
+`;
+
+/** Parse the fake binary's invocation log. */
+function readInvocations(logFile: string): Array<{ argv: string[]; prompt: string }> {
+  return fs.readFileSync(logFile, 'utf-8').trim().split('\n').map((l) => JSON.parse(l));
 }
 
 // Fake turn: first stdout line is delayed (model "thinking"), then a tool
@@ -163,7 +178,6 @@ function makeFakeKimi(body: string): { bin: string; logFile: string; tmpDir: str
 const FAKE_KIMI_SCRIPT = `
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
-  require('fs').appendFileSync(process.env.FAKE_KIMI_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');
   await sleep(200);
   console.log(JSON.stringify({ role: 'assistant', content: 'working on it' }));
   await sleep(200);
@@ -179,8 +193,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const FAKE_KIMI_FENCE_SCRIPT = `
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
-  require('fs').appendFileSync(process.env.FAKE_KIMI_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');
-  const prompt = process.argv[3] || '';
   await sleep(50);
   if (prompt.includes('tool_result')) {
     console.log(JSON.stringify({ role: 'assistant', content: 'final answer' }));
@@ -195,7 +207,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // appears on stderr (kimi 0.33+ behaviour).
 const FAKE_KIMI_STDERR_SID_SCRIPT = `
 (async () => {
-  require('fs').appendFileSync(process.env.FAKE_KIMI_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');
   console.error(JSON.stringify({ role: 'meta', type: 'session.resume_hint', session_id: 'session_from_stderr' }));
   console.log(JSON.stringify({ role: 'assistant', content: 'quiet turn' }));
 })();
@@ -290,15 +301,18 @@ describe('KimiCodeAgentRunner streaming', () => {
       expect(texts.every((t) => !t?.includes('tool_call'))).toBe(true);
 
       // Two CLI invocations: first with --agent-file (fresh session), second
-      // with --session <id> (resume) and the tool_result fence as prompt.
-      const invocations = fs.readFileSync(logFile, 'utf-8').trim().split('\n').map((l) => JSON.parse(l) as string[]);
+      // with --session <id> (resume) and the tool_result fence as the prompt
+      // (over stdin, in print mode — never as a `-p` argv element).
+      const invocations = readInvocations(logFile);
       expect(invocations).toHaveLength(2);
-      expect(invocations[0]).toContain('--agent-file');
-      expect(invocations[0]).not.toContain('--session');
-      expect(invocations[1]).toContain('--session');
-      expect(invocations[1][invocations[1].indexOf('--session') + 1]).toBe('session_fake_fence');
-      expect(invocations[1][1]).toContain('tool_result');
-      expect(invocations[1][1]).toContain('echo:hi');
+      expect(invocations[0].argv).toContain('--agent-file');
+      expect(invocations[0].argv).not.toContain('--session');
+      expect(invocations[1].argv).toContain('--session');
+      expect(invocations[1].argv[invocations[1].argv.indexOf('--session') + 1]).toBe('session_fake_fence');
+      expect(invocations[1].argv).toContain('--print');
+      expect(invocations[1].argv).not.toContain('-p');
+      expect(invocations[1].prompt).toContain('tool_result');
+      expect(invocations[1].prompt).toContain('echo:hi');
 
       // One synthesized result per mailbox prompt, carrying the session id.
       const results = messages.filter((m) => m.type === 'result');
@@ -335,9 +349,9 @@ describe('KimiCodeAgentRunner streaming', () => {
 
       // The denial (not the handler's echo result) is what got fed back as
       // the next prompt.
-      const invocations = fs.readFileSync(logFile, 'utf-8').trim().split('\n').map((l) => JSON.parse(l) as string[]);
-      expect(invocations[1][1]).toContain('denied by policy');
-      expect(invocations[1][1]).not.toContain('echo:hi');
+      const invocations = readInvocations(logFile);
+      expect(invocations[1].prompt).toContain('denied by policy');
+      expect(invocations[1].prompt).not.toContain('echo:hi');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -363,8 +377,6 @@ describe('KimiCodeAgentRunner streaming', () => {
   it('never writes an --agent-file with an empty body, even with no systemPrompt and no tools', async () => {
     const { bin, tmpDir } = makeFakeKimi(`
       const fs = require('fs');
-      const argv = process.argv.slice(2);
-      fs.appendFileSync(process.env.FAKE_KIMI_LOG, JSON.stringify(argv) + '\\n');
       const agentFilePath = argv[argv.indexOf('--agent-file') + 1];
       const contents = fs.readFileSync(agentFilePath, 'utf-8');
       const body = contents.replace(/^---[\\s\\S]*?---\\n\\n/, '').trim();
@@ -382,3 +394,97 @@ describe('KimiCodeAgentRunner streaming', () => {
     }
   }, 15000);
 });
+
+/**
+ * Child-process lifecycle, driven by REAL fake binaries so the OS-level
+ * behaviours (E2BIG on a >128 KiB argv element, SIGTERM/SIGKILL delivery)
+ * are exercised for real rather than mocked.
+ */
+describe('KimiCodeAgentRunner subprocess lifecycle', () => {
+  it('passes a >128 KiB prompt over stdin (a single argv element that large fails with E2BIG on Linux)', async () => {
+    const { bin, logFile, tmpDir } = makeFakeKimi(`
+      console.log(JSON.stringify({ role: 'assistant', content: 'prompt-length:' + prompt.length }));
+    `);
+    try {
+      const bigPrompt = 'y'.repeat(200 * 1024);
+      const args = makeRunArgs(bin, tmpDir, {
+        prompt: (async function* () { yield bigPrompt; })(),
+      });
+      const { messages } = await collect(new KimiCodeAgentRunner(bin), args);
+      const text = messages.find((m) => m.type === 'assistant')?.text ?? '';
+      expect(text).toBe(`prompt-length:${bigPrompt.length}`);
+      const [inv] = readInvocations(logFile);
+      expect(inv.argv).toContain('--print');
+      expect(inv.argv).not.toContain('-p');
+      expect(inv.argv.some((a) => a.length > 100_000)).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+
+  it('abort: args.signal kills a running kimi turn and the run fails instead of orphaning the child', async () => {
+    // Fake kimi that would run for a minute; the runner is blocked in its
+    // stdout loop the whole time, which iterator.return() alone cannot reach.
+    const { bin, tmpDir } = makeFakeKimi(`
+      console.log(JSON.stringify({ role: 'assistant', content: 'started' }));
+      setTimeout(() => {}, 60_000);
+    `);
+    try {
+      const abort = new AbortController();
+      const runner = new KimiCodeAgentRunner(bin);
+      const gen = runner.run(makeRunArgs(bin, tmpDir, { signal: abort.signal }))[Symbol.asyncIterator]();
+      await gen.next(); // liveness
+      await gen.next(); // 'started' — the fake is now alive and idle
+      const pending = gen.next(); // blocked in stdout
+      const start = Date.now();
+      abort.abort();
+
+      const outcome = await Promise.race([
+        pending.then(() => 'resolved', (e) => `rejected: ${String(e)}`),
+        new Promise<string>((r) => setTimeout(() => r('hung'), 5000)),
+      ]);
+      expect(outcome).toMatch(/^rejected: .*kimi exited with code/);
+      expect(Date.now() - start).toBeLessThan(4000); // SIGTERM took it down; no 5s SIGKILL wait needed
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+
+  it('abandoned stream: a child that ignores SIGTERM is SIGKILLed after the grace period, not left running', async () => {
+    const pidFile = path.join(os.tmpdir(), `monomind-kimi-pid-${process.pid}-${Date.now()}`);
+    const { bin, tmpDir } = makeFakeKimi(`
+      require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));
+      process.on('SIGTERM', () => {}); // wedged CLI: ignores SIGTERM
+      console.log(JSON.stringify({ role: 'assistant', content: 'started' }));
+      setTimeout(() => {}, 60_000);
+    `);
+    try {
+      const runner = new KimiCodeAgentRunner(bin);
+      const gen = runner.run(makeRunArgs(bin, tmpDir))[Symbol.asyncIterator]();
+      await gen.next(); // liveness
+      await gen.next(); // 'started' — generator parked at a yield, child alive
+      const pid = Number(fs.readFileSync(pidFile, 'utf-8'));
+      expect(isAlive(pid)).toBe(true);
+
+      await gen.return(undefined); // consumer abandons the stream mid-turn
+
+      // SIGTERM was ignored; the SIGKILL escalation fires after ~5s.
+      const deadline = Date.now() + 8000;
+      while (isAlive(pid) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+      expect(isAlive(pid)).toBe(false);
+    } finally {
+      try { process.kill(Number(fs.readFileSync(pidFile, 'utf-8')), 'SIGKILL'); } catch { /* already gone */ }
+      fs.rmSync(pidFile, { force: true });
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
+});
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}

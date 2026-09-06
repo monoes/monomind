@@ -50,7 +50,8 @@
  *
  *   - Invocation: `codex exec --json [--model X] [--cd Y]
  *                 [--skip-git-repo-check] [--sandbox danger-full-access]
- *                 [resume <sessionId> "<prompt>"]`. `--experimental-json`
+ *                 [resume <sessionId>] -- -` with the prompt on STDIN
+ *     (see streamTurn for why argv is not used). `--experimental-json`
  *     (the old flag name) doesn't exist in v0.21.0 — confirmed live
  *     ("unexpected argument '--experimental-json' found"); `--json` is
  *     correct in both v0.21.0 and the current v0.147.0 (where
@@ -137,7 +138,12 @@
  * already covers unchanged.
  */
 import { spawn } from 'node:child_process';
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
@@ -372,7 +378,13 @@ export class CodexAgentRunner implements AgentRunner {
     // ARG ORDER — see file header for the live-verified citation:
     //   codex exec --json [--model X] [--cd Y]
     //              [--skip-git-repo-check] [--sandbox danger-full-access]
-    //              [resume <threadId>] "<prompt>"
+    //              [resume <threadId>] -- -
+    // The prompt goes over STDIN, not argv: a single argv element is capped
+    // at 128 KiB on Linux (E2BIG), and a system prompt + tool protocol +
+    // tool results routinely exceeds that. `-` is codex's documented "read
+    // instructions from stdin" marker on both `exec` and `exec resume`
+    // (confirmed live, v0.153.2); `--` ends option parsing so nothing
+    // positional is ever mistaken for a flag.
     const cliArgs: string[] = ['exec', '--json'];
     if (args.model) cliArgs.push('--model', args.model);
     cliArgs.push('--cd', args.cwd);
@@ -381,29 +393,35 @@ export class CodexAgentRunner implements AgentRunner {
     if (threadId) {
       cliArgs.push('resume', threadId);
     }
-    cliArgs.push(prompt);
+    cliArgs.push('--', '-');
 
     const child = spawn(bin, cliArgs, {
       cwd: args.cwd,
       env: { ...process.env, ...args.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
+    // A CLI that exits before reading stdin (bad args, auth failure) makes
+    // this write EPIPE — surfaced via the exit code/stderr below, not as an
+    // unhandled stream error.
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(prompt);
 
     let stderrTail = '';
     child.stderr?.on('data', (c: Buffer) => {
       stderrTail = (stderrTail + c.toString()).slice(-4000);
     });
 
-    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
-    // killed while we're still reading, not after it finishes.
-    let timedOut = false;
+    // SIGTERM→SIGKILL escalation, shared by the turn timeout, the abort
+    // signal, and the abandoned-stream path in `finally` — a CLI that
+    // ignores SIGTERM must not leak a zombie per turn.
     const KILL_GRACE_MS = 5000;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
-      // escalate to SIGKILL after a short grace period.
+    const killChild = (): void => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* already gone */
+      }
       killTimer = setTimeout(() => {
         try {
           child.kill('SIGKILL');
@@ -412,7 +430,16 @@ export class CodexAgentRunner implements AgentRunner {
         }
       }, KILL_GRACE_MS);
       killTimer.unref?.();
+    };
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killChild();
     }, TURN_TIMEOUT_MS);
+    const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
 
     // Attach the exit promise BEFORE consuming stdout: on a spawn failure
     // (ENOENT, bad binary) the 'error' event fires almost immediately — if
@@ -543,20 +570,23 @@ export class CodexAgentRunner implements AgentRunner {
       }
     } finally {
       clearTimeout(timer);
-      if (killTimer) clearTimeout(killTimer);
-      // If the consumer abandons this stream mid-turn (session.ts's silent
-      // abort calls iterator.return(), the mailbox closes, or an error is
-      // thrown downstream), don't leak the CLI subprocess.
-      if (child.exitCode === null && !child.killed) {
-        try {
-          child.kill('SIGTERM');
-        } catch {
-          /* already gone */
-        }
+      unsubscribeAbort();
+      if (child.exitCode === null && child.signalCode === null) {
+        // NOT confirmed dead. Either the consumer abandoned this stream
+        // mid-turn (session.ts's silent abort calls iterator.return(), the
+        // mailbox closes, or an error is thrown downstream) — kill it, WITH
+        // the SIGKILL escalation — or a SIGTERM from the timeout/abort is
+        // still inside its grace period: leave that escalation armed, since
+        // clearing it here would orphan a CLI that ignores SIGTERM and then
+        // wait on `exitPromise` forever (same fix as pi-rpc-runner.ts).
+        if (!child.killed) killChild();
+      } else if (killTimer) {
+        clearTimeout(killTimer);
       }
     }
 
     const exitCode = await exitPromise;
+    if (killTimer) clearTimeout(killTimer);
     outcome.threadId = lastThreadId;
     outcome.exitCode = exitCode;
     outcome.stderrTail = stderrTail;

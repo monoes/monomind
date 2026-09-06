@@ -57,7 +57,12 @@
  *   - Headless requires cached creds — must authenticate interactively first
  */
 import { spawn } from 'node:child_process';
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
@@ -318,6 +323,9 @@ export class AntigravityAgentRunner implements AgentRunner {
       }, KILL_GRACE_MS);
       killTimer.unref?.();
     }, TURN_TIMEOUT_MS);
+    // Abort hook (see AgentRunArgs.signal): kill the child so the stdout
+    // loop below unblocks instead of orphaning it on iterator.return().
+    const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
 
     // Attach the exit promise BEFORE consuming stdout: on a spawn failure
     // (ENOENT, bad binary) the 'error' event fires almost immediately —
@@ -472,6 +480,7 @@ export class AntigravityAgentRunner implements AgentRunner {
       }
     } finally {
       clearTimeout(timer);
+      unsubscribeAbort();
       if (killTimer) clearTimeout(killTimer);
       // If the consumer abandons this stream mid-turn (session.ts's
       // silent-abort calls iterator.return(), the mailbox closes, or an
