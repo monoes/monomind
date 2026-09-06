@@ -230,6 +230,18 @@ describe('a result states which surfaces actually ran', () => {
     // is the dishonesty K6 called out.
     expect(rules?.method).toBe('keyword-fallback');
   });
+
+  it('states the memory graph’s retrieval method too, not just the flat surfaces', async () => {
+    await kgIngest({
+      nodes: [{ name: 'Kestrel', description: 'Kestrel handles billing reconciliation' }],
+      originRef: 'test:method',
+    });
+    const res = await knowledgeSearch({ query: 'Kestrel reconciliation', surfaces: ['kg'] });
+    const kg = (res.retrieval as Retrieval).surfaces.find((s) => s.surface === 'memory_graph');
+    // The graph seeds through the same bridge, so it inherits the same answer —
+    // this surface used to be the one that left `method` unstated.
+    expect(kg?.method).toBe('keyword-fallback');
+  });
 });
 
 describe('code-dependency questions', () => {
@@ -308,6 +320,21 @@ describe('org recall searches flat memory and the org knowledge graph independen
     const res = await recallOrgMemory(stubDaemon(), 'alpha', DEF, 'zzqx unmatchable');
     expect(res.hits).toBe(0);
     expect(res.text).toMatch(/No matching org memory or knowledge-graph facts/);
+  });
+
+  it('records the graph seeds it answered from, so the run can reinforce them', async () => {
+    const daemon = stubDaemon();
+    await learnOrgKnowledge(daemon, 'alpha', 'r1', {
+      nodes: [{ name: 'Peregrine', description: 'Peregrine caps refunds at 40 percent' }],
+    });
+    const seed = entriesIn('kg:nodes:org:alpha').find((e) => e.metadata.name === 'Peregrine');
+
+    const res = await recallOrgMemory(daemon, 'alpha', DEF, 'Peregrine refunds');
+
+    expect(res.hits).toBeGreaterThan(0);
+    // Only flat-memory ids were recorded before, so a run that succeeded on a
+    // graph fact never rated the fact it actually used.
+    expect([...(daemon.recallUsage.get('alpha') ?? [])]).toContain(seed?.id);
   });
 
   it('scopes the graph read to the asking org', async () => {
