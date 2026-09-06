@@ -96,8 +96,8 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 |---|---|---|---|
 | **Episodic & Semantic** | Namespace `default` (or custom) in `memory_entries` | [`memory-crud.ts:28-115`](packages/@monomind/cli/src/memory/memory-crud.ts#L28-L115), [`memory-bridge.ts:167-270`](packages/@monomind/cli/src/memory/memory-bridge.ts#L167-L270) | Temporal decay (`decay_rate = 0.01`), access frequency tracking, confidence score, importance weighting (`0.5` default). |
 | **Pattern Store** | `patterns` table & `.swarm/sona-patterns.json` | [`sona-optimizer.ts:43-58`](packages/@monomind/cli/src/memory/sona-optimizer.ts#L43-L58), [`memory-schema.ts:61-76`](packages/@monomind/cli/src/memory/memory-schema.ts#L61-L76) | Learned task routing patterns based on keyword extraction, success/failure counts, and EWC-inspired importance weighting (squared-embedding proxy — not Fisher information) (`.swarm/ewc-fisher.json`). |
-| **Document Store** | `memory_entries` (`doc:<hash>:<chunk>`) | [`document-pipeline.ts:120-180`](packages/@monomind/cli/src/knowledge/document-pipeline.ts#L120-L180), [`bm25-index.ts:71-75`](packages/@monomind/cli/src/memory/bm25-index.ts#L71-L75) | Multi-format document ingestion, content-hash chunking, Okapi BM25 lexical indexing. |
-| **Knowledge Graph (KG)** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg.ts:34-36`](packages/@monomind/cli/src/memory/memory-kg.ts#L34-L36), [`memory-kg.ts:70-84`](packages/@monomind/cli/src/memory/memory-kg.ts#L70-L84) | Cognee-style concept triplets. Nodes: `n:<normalized-name>`, Edges: `e:<src>\|<rel>\|<dst>`. Deterministic entity keys and rule deduplication threshold (`0.78`). |
+| **Second Brain document index** | `memory_entries` (`doc:<hash>:<chunk>`) in namespace `knowledge:<scope>` | [`document-pipeline.ts:120-180`](packages/@monomind/cli/src/knowledge/document-pipeline.ts#L120-L180), [`bm25-index.ts:71-75`](packages/@monomind/cli/src/memory/bm25-index.ts#L71-L75) | Multi-format document ingestion, content-hash chunking, Okapi BM25 lexical indexing. Stores chunks and metadata only — no entity extraction. |
+| **Memory knowledge graph** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg.ts:34-36`](packages/@monomind/cli/src/memory/memory-kg.ts#L34-L36), [`memory-kg.ts:70-84`](packages/@monomind/cli/src/memory/memory-kg.ts#L70-L84) | Cognee-style concept triplets. Nodes: `n:<normalized-name>`, Edges: `e:<src>\|<rel>\|<dst>`. Deterministic entity keys and rule deduplication threshold (`0.78`). Populated only by explicit ingestion — see [The two graphs](#the-two-graphs). |
 
 ---
 
@@ -239,12 +239,57 @@ monomind monograph watch
 
 ---
 
-## 4. Second Brain — Document Knowledge Base
+## 4. Second Brain — Document Index
 
-Second Brain indexes your project's documents into a searchable knowledge base with its own knowledge graph. During `monomind init`, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored for retrieval.
+The Second Brain **document index** turns your project's documents into searchable excerpts. During `monomind init`, the directory scanner detects document files and auto-ingests them — extracted, chunked, hashed for dedup, and stored for retrieval.
 
-**Files:** `.monomind/knowledge/` (chunks.jsonl, doc-metadata.jsonl) + `.monomind/memory/memory.db`
-**Global brain:** `~/.monomind/global-brain` persists knowledge across projects.
+Ingestion produces **chunks and document metadata only**. It does not extract entities or relationships, and it does not write to the memory knowledge graph: `document-pipeline.ts` never calls `kgIngest`. Getting a document's claims into the graph is a separate, explicit step — see [The two graphs](#the-two-graphs) below.
+
+**Chunks:** `memory_entries` rows keyed `doc:<content-hash>:<chunk-index>` in namespace `knowledge:<scope>` (default scope `shared`), inside the project memory store ([`document-pipeline.ts:569-580`](packages/@monomind/cli/src/knowledge/document-pipeline.ts#L569-L580)). The store's on-disk location is **not** `.monomind/memory/` — see [Storage layout](#5-cross-session-persistence).
+**Document metadata:** `<project>/.monomind/knowledge/doc-metadata.jsonl` ([`document-pipeline.ts:377-380`](packages/@monomind/cli/src/knowledge/document-pipeline.ts#L377-L380)).
+**Global brain:** scope `global` routes to `~/.monomind/global-brain`, persisting documents across projects.
+
+### The two graphs
+
+The two graphs that matter operationally are the **Monograph code graph** and the **memory knowledge graph**. The Second Brain document index is not a third one — it holds chunks, not entities and edges. (A third, smaller graph-shaped store does exist: the Memory Palace's temporal triples in `.monomind/palace/kg.json`, described in [§1](#1-memory-palace). It is a separate helper-level store and is **not** synchronized with the memory knowledge graph — `memory_kg_*` never reads or writes it.)
+
+|  | Monograph code graph | Memory knowledge graph |
+|---|---|---|
+| **What it holds** | Parsed repository structure — files, functions, classes, and their import/call/dependency edges. Monograph can also index repository documentation. | Entities, relations, and distilled rules that something asserted. Entries may well describe code elements — `heuristicExtract` types a node `CodeElement` when its name looks like code ([`memory-kg.ts:994`](packages/@monomind/cli/src/memory/memory-kg.ts#L994)). |
+| **How it gets there** | `monomind monograph build` parses the repository | Explicit ingestion only: `memory_kg_ingest`, the post-task hook's causal edges ([`hooks-routing.ts:925`](packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L925)), and org runs via `org_learn` or its run-summary heuristic fallback ([`org-memory.ts:198`](packages/@monomind/cli/src/orgrt/org-memory.ts#L198), [`:266`](packages/@monomind/cli/src/orgrt/org-memory.ts#L266)) |
+| **Producer** | tree-sitter grammars plus a regex fallback tier (see the monograph README for the grammar count) | Whatever the caller supplies: LLM-extracted triples, or `rawText` run through the built-in regex `heuristicExtract` |
+| **Storage** | `.monomind/monograph.db` (SQLite, nodes + edges) | `kg:nodes`, `kg:edges`, `rules` namespaces in a memory store — the project store by default, the org store for org runs |
+| **Query tools** | `monograph_query`, `monograph_suggest`, `monograph_impact` | `memory_kg_search`, `memory_kg_stats`; also fused into `knowledge_search` when the router selects the `kg` surface |
+| **Rebuild / undo** | Rebuild from source at any time — the repository is the truth | No rebuild: claims accumulate. `memory_kg_rollback` withdraws one `originRef` from every element's origin list and deletes an element only once no origin remains ([`memory-kg.ts:744`](packages/@monomind/cli/src/memory/memory-kg.ts#L744)) — which is why every ingest requires an `originRef` |
+| **Best for** | "What depends on X?", blast radius, dead code | "What did we conclude about auth?", durable rules and decisions carried across sessions and runs |
+
+The boundary is **how knowledge is obtained, validated, owned, and queried** — not "code files versus other files". Monograph derives facts from source it can re-parse; the memory knowledge graph accumulates remembered claims whose only guarantee is their provenance ref. Treat graph triplets as *asserted*, not verified.
+
+### Two flows: indexing and extraction
+
+Documents can feed either surface, but they are separate operations and only the first one happens automatically:
+
+```
+                    ┌─ ingest (automatic) ─▶ chunks + doc-metadata ─▶ knowledge search
+                    │                        namespace knowledge:<scope>   (excerpt surface)
+   Document ────────┤
+                    │
+                    └─ extraction (separate, explicit step)
+                             you or an agent supply nodes/edges/rules
+                             (or rawText for regex extraction)
+                                      │
+                                      ▼
+                             memory_kg_ingest ──▶ memory knowledge graph
+                                                  kg:nodes / kg:edges / rules
+```
+
+Consequences worth knowing:
+
+- **Ingesting a document adds nothing to the graph.** `monomind doc ingest` and the init auto-ingest write chunks; entity counts stay at zero.
+- **The graph fills up in projects with no documents at all.** Post-task hooks and org runs write to it regardless of whether Second Brain is active.
+- **`memory_kg_ingest` has no document reader.** To move a document's claims into the graph, read or search the document first and pass `nodes`/`edges`/`rules`, or pass the text as `rawText` — which falls back to regex `heuristicExtract`, noticeably lower quality than LLM extraction.
+- **`knowledge_search` is a retrieval interface, not a store.** Its rule-based router picks among the `chunks`, `kg`, `rules`, and `memory` surfaces and fuses them by reciprocal rank ([`knowledge-tools.ts:152-168`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts#L152-L168)). Passing `store: 'global'` searches the personal cross-project brain's documents only — the KG, rules, and pattern surfaces are project-scoped and are deliberately excluded. Ask for `surfaces` explicitly when you need a specific one.
+- **The router can send code questions to the wrong graph.** Phrases like "what calls X" or "what imports X" classify as the `kg` surface — the *memory* graph, not Monograph ([`query-router.ts:37-43`](packages/@monomind/cli/src/memory/query-router.ts#L37-L43)). For real code dependencies call `monograph_query` / `monograph_impact` directly.
 
 ### Supported Document Formats (22 extensions)
 
@@ -262,21 +307,6 @@ Second Brain indexes your project's documents into a searchable knowledge base w
 | Apple Pages | `.pages` | textutil — **macOS only**; returns empty text on Linux/Windows |
 
 Legacy binary `.doc`/`.ppt` and `.pages` shell out to macOS's `textutil`, which has no cross-platform equivalent — on Linux/Windows those three extensions index with empty content rather than failing. `monomind doctor -c documents` reports this per-extractor, including whether `textutil` is actually available on the current machine.
-
-### Second Brain KG vs Monograph
-
-Monomind has **two knowledge graphs** that serve different purposes:
-
-|  | Monograph (Code KG) | Second Brain KG (Document KG) |
-|---|---|---|
-| **What it indexes** | Source code — functions, classes, imports, dependencies | Documents — PDFs, Office files, Markdown, specs, policies |
-| **Parser** | tree-sitter (static analysis — see monograph README for the grammar count) | Text extraction + chunking (format-specific parsers) |
-| **Storage** | `.monomind/monograph.db` (nodes + edges) | `.monomind/knowledge/` + `.monomind/memory/memory.db` |
-| **Query tools** | `monograph_query`, `monograph_suggest`, `monograph_impact` | `knowledge_search`, `memory_kg_search`, `monomind doc search` |
-| **Entities** | Files, functions, classes, methods, variables | Concepts, decisions, people, rules, relationships |
-| **Best for** | "What depends on X?", blast radius, dead code | "What was decided about auth?", compliance, design specs |
-
-Use `memory_kg_ingest` to extract entities and relationships from documents into the Second Brain KG. Use `memory_kg_search` to query them. Monograph handles code; Second Brain KG handles everything else.
 
 ### Pipeline
 
@@ -312,15 +342,18 @@ monomind doc ingest ./bundle -s shared       # Import
 
 Cross-session memory capture is handled by the mechanisms already described above — the pattern store / episodic recall in section 2, and the Memory Palace in section 1 — not by a separate `AutoMemoryBridge` class. That class has been removed from source entirely (no file, no export); the only remaining trace is two dead-stub log lines in `helpers-generator.ts` ("Auto memory import/sync skipped — AutoMemoryBridge removed"). Don't reference `AutoMemoryBridge` as a live component.
 
-All memory persists across sessions in `.monomind/`:
+Memory does **not** all live in the project's `.monomind/`, despite what earlier revisions of this page said. Flat files, the Monograph code graph, and the org runtime's own store live in the project; the SQLite store that backs the *project's* document index, memory knowledge graph, rules, and patterns lives under your home directory, keyed by a hash of the project path. Which store a given operation touches depends on the `dbPath` it was handed.
+
+### In the project
 
 ```
-.monomind/
+<project>/.monomind/
 ├── palace/
 │   ├── identity.md          ← L0: static project identity (edit manually)
 │   ├── drawers.jsonl        ← L1-L3: scored verbatim chunks
 │   ├── closets.jsonl        ← topic index
-│   └── kg.json              ← temporal knowledge graph triples
+│   └── kg.json              ← Memory Palace temporal triples (its own store —
+│                              not synchronized with the memory knowledge graph)
 ├── data/
 │   ├── auto-memory-store.json  ← intelligence patterns
 │   ├── ranked-context.json     ← pre-computed context rankings
@@ -328,12 +361,37 @@ All memory persists across sessions in `.monomind/`:
 ├── episodic/
 │   └── episodes.jsonl       ← episodic memories, keyword-matched at prompt time
 ├── knowledge/
-│   ├── doc-metadata.jsonl   ← Second Brain: indexed document metadata
-│   └── chunks.jsonl         ← Second Brain: document text chunks
-├── memory/
-│   └── memory.db            ← Second Brain: SQLite store (embeddings, KG entities)
-└── monograph.db             ← code knowledge graph
+│   ├── doc-metadata.jsonl   ← Second Brain: indexed-document metadata log
+│   └── chunks.jsonl         ← NOT the document store: a single monograph
+│                              god-node summary chunk written per working
+│                              directory by the session-restore hook
+├── org-memory/
+│   └── memory.db            ← org runtime memory store, shared by every org
+│                              rooted here (`orgMemoryDbPath`)
+└── monograph.db             ← Monograph code graph
 ```
+
+### In your home directory
+
+```
+~/.monomind/
+├── projects/<dir-name>-<sha256-prefix>/
+│   ├── lancedb/
+│   │   └── memory.db        ← the project memory store: document chunks
+│   │                          (knowledge:<scope>), kg:nodes, kg:edges,
+│   │                          rules, patterns, embeddings
+│   └── origin.json          ← which project path this directory belongs to
+└── global-brain/
+    └── memory.db            ← personal cross-project brain (scope `global`)
+```
+
+**Why `lancedb`?** LanceDB was replaced by SQLite in July 2026. The directory keeps its old name purely for back-compat path resolution — it holds a `better-sqlite3` database (or a `sql.js` WASM one if the native binding will not load), never LanceDB data. Renaming it would strand existing installs, so the name stays and this note explains it ([`memory-bridge.ts:4-7`](packages/@monomind/cli/src/memory/memory-bridge.ts#L4-L7), [`:178`](packages/@monomind/cli/src/memory/memory-bridge.ts#L178)).
+
+**Why a home directory at all?** The store is namespaced by a hash of the resolved project root ([`memory-bridge.ts:142-152`](packages/@monomind/cli/src/memory/memory-bridge.ts#L142-L152)) so it always lands on the home volume — exFAT/SMB project volumes broke the original engine's atomic renames. Run `monomind memory stats` if you need the resolved path for the current project rather than deriving it by hand — it reports the real on-disk location ([`memory-admin.ts:229-243`](packages/@monomind/cli/src/commands/memory-admin.ts#L229-L243)). There is no single command that maps every subsystem to its store yet.
+
+**Path overrides.** A caller may pass a custom store path, but a traversal guard accepts it only if it resolves inside the project root, that project's home data directory, or the global brain — anything else silently falls back to the project default ([`memory-bridge.ts:177-193`](packages/@monomind/cli/src/memory/memory-bridge.ts#L177-L193)). This is why org memory lives at `<project>/.monomind/org-memory` rather than somewhere outside the tree.
+
+**Scoping caveat.** The memory knowledge graph's `kg:nodes`, `kg:edges`, and `rules` namespaces are fixed strings within whichever store is addressed. Org identity is *not* part of node identity or namespace, so every org rooted at the same project shares one graph in `org-memory`. Do not rely on an org name passed to a KG command as an ownership boundary.
 
 ---
 

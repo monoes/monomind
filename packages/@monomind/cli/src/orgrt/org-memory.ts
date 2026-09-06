@@ -1,12 +1,28 @@
 // packages/@monomind/cli/src/orgrt/org-memory.ts
 // Extracted from daemon.ts — org cross-run memory, recall, learn, knowledge search.
 import { join } from 'node:path';
+import type { KgScope } from '../memory/memory-kg.js';
 import type { OrgDaemon } from './daemon.js';
 import type { RunSummary } from './reporting.js';
 import type { OrgDef } from './types.js';
 
+/** THE resolver for an org's flat-memory namespace. Runtime writes and the
+ *  `org memory <name> search` CLI both go through it — when the CLI hardcoded
+ *  `org:<name>` instead, an org with a configured `memory_namespace` was
+ *  searched in a namespace nothing had ever written to. */
 export function orgMemoryNamespace(name: string, def: OrgDef): string {
   return def.run_config.memory_namespace ?? `org:${name}`;
+}
+
+/** Ownership scope for everything this org puts in the knowledge graph.
+ *
+ *  All orgs under one root share the org-memory store, so the KG needs the org
+ *  named explicitly: without it, org A's entities, rules, glossary and
+ *  rollbacks all reach org B's. Unlike flat memory this is keyed on the ORG
+ *  NAME, not on `memory_namespace` — a shared or renamed flat namespace must
+ *  not silently merge two orgs' graph claims. */
+export function orgKgScope(name: string): KgScope {
+  return { org: name };
 }
 
 /** Store dir for org cross-run memory — inside the org root so the bridge's
@@ -138,7 +154,7 @@ export async function recallOrgMemory(
     // Structured knowledge: relationship triplets from the org KG, when any.
     try {
       const kg = await import('../memory/memory-kg.js');
-      const graph = await kg.kgSearch({ query, dbPath, limit: 5 });
+      const graph = await kg.kgSearch({ query, dbPath, limit: 5, scope: orgKgScope(name) });
       if (graph.context) text += `\n\nKnowledge graph:\n${graph.context.slice(0, 1024)}`;
     } catch {
       /* best effort */
@@ -195,10 +211,15 @@ export async function learnOrgKnowledge(
     const kg = await import('../memory/memory-kg.js');
     const dbPath = orgMemoryDbPath(daemon.root);
     const originRef = `run:${run}`;
+    // Scoped: this org's claims land in this org's namespaces, and their
+    // origin refs record which org asserted them. Nothing here reaches the
+    // project-shared graph — that takes an explicit `kgPromote`.
+    const scope = orgKgScope(name);
     const graph = await kg.kgIngest({
       nodes: (payload.nodes ?? []) as import('../memory/memory-kg.js').KgNodeInput[],
       edges: (payload.edges ?? []) as import('../memory/memory-kg.js').KgEdgeInput[],
       originRef,
+      scope,
       dbPath,
     });
     const rules =
@@ -206,6 +227,7 @@ export async function learnOrgKnowledge(
         ? await kg.kgIngestRules({
             rules: payload.rules as { rule: string; context?: string }[],
             originRef,
+            scope,
             dbPath,
           })
         : null;
@@ -263,7 +285,12 @@ export async function storeRunMemory(
         const kg = await import('../memory/memory-kg.js');
         const extracted = kg.heuristicExtract(lines.join('\n'), { sourceName: `run:${run}` });
         if (extracted.nodes.length) {
-          await kg.kgIngest({ ...extracted, originRef: `run:${run}`, dbPath });
+          await kg.kgIngest({
+            ...extracted,
+            originRef: `run:${run}`,
+            scope: orgKgScope(name),
+            dbPath,
+          });
         }
       } catch {
         /* best effort */
