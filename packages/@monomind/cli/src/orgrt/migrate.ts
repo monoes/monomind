@@ -3,7 +3,8 @@
  * IO orchestration for the `org migrate` subcommand — kept out of org.ts to
  * stay under the 500-line file cap; org.ts's migrateAction is a thin wrapper
  * that only does the name-validation / isOrgRunning guard and delegates here. */
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { parseSchedule } from './scheduler.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 
@@ -142,9 +143,11 @@ export function migrateOrgFile(
   if (result.dropped.length === 0 && result.notes.length === 0) {
     return { status: 'already-v2', dropped: [], notes: [] };
   }
-  if (!existsSync(backupPath)) writeFileSync(backupPath, JSON.stringify(raw, null, 2));
-  const tmpPath = `${cfgPath}.tmp`;
-  writeFileSync(tmpPath, JSON.stringify(result.def, null, 2));
-  renameSync(tmpPath, cfgPath);
+  // Both writes are atomic (tmp + rename). The backup especially: a crash
+  // mid-write used to leave a truncated file at backupPath, and the
+  // existsSync guard then treated it as a finished backup on every rerun
+  // while the live config was overwritten.
+  if (!existsSync(backupPath)) writeJsonFileAtomic(backupPath, raw);
+  writeJsonFileAtomic(cfgPath, result.def);
   return { status: 'migrated', dropped: result.dropped, notes: result.notes };
 }

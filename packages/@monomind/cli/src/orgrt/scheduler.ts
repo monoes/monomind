@@ -13,6 +13,10 @@ export function parseSchedule(s: string | number | null | undefined): number | n
 /** Fires runFn(name, intervalMs) every intervalMs per org. Real timer loop — no ScheduleWakeup, no prompts. */
 export class OrgScheduler {
   private timers = new Map<string, ReturnType<typeof setInterval>>();
+  /** Current interval per org. A catch-up fired from an old run's `finally`
+   *  reads this rather than the intervalMs its closure captured, so an org
+   *  rescheduled mid-run gets its new interval, not the replaced one. */
+  private intervals = new Map<string, number>();
   private running = new Set<string>();
   /** Orgs whose tick arrived mid-run. A dropped tick meant an org that overruns
    *  its interval — a 200m cycle on a 2h schedule — idled until the *next*
@@ -32,6 +36,7 @@ export class OrgScheduler {
    *  everything at once. */
   add(name: string, intervalMs: number, runNow = false, sinceLastRunMs?: number): void {
     this.remove(name);
+    this.intervals.set(name, intervalMs);
     const fire = async (): Promise<void> => {
       if (this.running.has(name)) {
         this.pending.add(name);
@@ -39,7 +44,7 @@ export class OrgScheduler {
       } // catch up when it ends
       this.running.add(name);
       try {
-        await this.runFn(name, intervalMs);
+        await this.runFn(name, this.intervals.get(name) ?? intervalMs);
       } catch (err) {
         console.error(`[org-scheduler] ${name}: scheduled run failed:`, err);
       } finally {
@@ -84,6 +89,7 @@ export class OrgScheduler {
     const t = this.timers.get(name);
     if (t) clearInterval(t);
     this.timers.delete(name);
+    this.intervals.delete(name);
     this.pending.delete(name); // an unscheduled org has no tick to catch up on
   }
 
