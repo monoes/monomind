@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { startOrgServer } from '../../src/orgrt/server.js';
-import { registerOrg } from '../../src/orgrt/broker.js';
+import { lookupOrg, readOperatorCredential, registerOrg } from '../../src/orgrt/broker.js';
+import { checkApproval } from '../../src/orgrt/approvals.js';
 
 const echoQuery = ({ prompt }: any) => (async function* () {
   for await (const m of prompt) {
@@ -37,7 +38,7 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, brokerDir });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
-    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.operatorCredential };
 
     await daemon.startOrg('alpha');
 
@@ -110,7 +111,7 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
-    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.operatorCredential };
     await daemon.startOrg('alpha');
     await daemon.askHuman('alpha', 'boss', 'proceed?');
     const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
@@ -168,7 +169,7 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
-    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.operatorCredential };
     await daemon.startOrg('alpha');
 
     // no auth → 401
@@ -224,7 +225,7 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
-    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.operatorCredential };
     await daemon.startOrg('alpha');
 
     // Create payload larger than 1MB - use streaming to avoid memory issues in test
@@ -250,6 +251,114 @@ describe('org xdeliver server', () => {
       expect(err.cause?.code).toBe('ECONNRESET');
     }
 
+    await daemon.stopAll();
+  });
+});
+
+// SEC: one credential used to authorize EVERY route, and it was published to
+// the broker registry — a file any org process (and any agent subprocess with
+// Bash) on the machine can read. So a role could approve its own gates, and
+// one org could present the shared credential as a sibling's identity. Now the
+// broker carries a per-org AGENT credential that only unlocks delivery/status
+// routes, and human decisions need the separate operator credential, which
+// never appears in the broker entry.
+describe('credential separation: agent (delivery) vs operator (approvals/gates)', () => {
+  let close: (() => void) | undefined;
+  afterEach(() => close?.());
+
+  async function boot() {
+    const root = mkdtempSync(join(tmpdir(), 'srv-sep-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    for (const name of ['alpha', 'beta']) {
+      writeFileSync(join(root, `.monomind/orgs/${name}.json`), JSON.stringify({
+        name, goal: 'g',
+        roles: [{ id: 'boss', title: 'B', type: 'boss', reports_to: null }],
+      }));
+    }
+    const brokerDir = mkdtempSync(join(tmpdir(), 'srv-sep-broker-'));
+    const operatorDir = mkdtempSync(join(tmpdir(), 'srv-sep-operator-'));
+    const daemon = new OrgDaemon(root, {
+      queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir, operatorDir,
+    });
+    const srv = await startOrgServer(daemon, 0);
+    close = srv.close;
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.operatorCredential);
+    await daemon.startOrg('alpha');
+    await daemon.startOrg('beta');
+    const base = `http://127.0.0.1:${srv.port}`;
+    const post = (route: string, cred: string | undefined, body: unknown) =>
+      fetch(`${base}${route}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
+        body: JSON.stringify(body),
+      });
+    return { daemon, srv, brokerDir, operatorDir, base, post };
+  }
+
+  it('publishes a distinct agent credential per org, and keeps the operator credential out of the broker', async () => {
+    const { daemon, srv, brokerDir, operatorDir } = await boot();
+    const alpha = lookupOrg('alpha', brokerDir)!;
+    const beta = lookupOrg('beta', brokerDir)!;
+    expect(alpha.credential).toBeTruthy();
+    expect(beta.credential).toBeTruthy();
+    expect(alpha.credential).not.toBe(beta.credential);
+    expect(alpha.credential).not.toBe(srv.operatorCredential);
+    expect(beta.credential).not.toBe(srv.operatorCredential);
+    expect(readOperatorCredential('alpha', operatorDir)).toBe(srv.operatorCredential);
+    expect(readFileSync(join(brokerDir, 'alpha.json'), 'utf8')).not.toContain(srv.operatorCredential);
+    await daemon.stopAll();
+  });
+
+  it('an org agent credential cannot approve or resolve gates; the operator credential can', async () => {
+    const { daemon, srv, brokerDir, post } = await boot();
+    const agentCred = lookupOrg('alpha', brokerDir)!.credential!;
+    await checkApproval(daemon, 'alpha', 'boss', 'Bash', { command: 'rm -rf /' });
+
+    const selfApprove = await post('/api/set-approval', agentCred, { org: 'alpha', role: 'boss', action: 'Bash', approved: true });
+    expect(selfApprove.status).toBe(403);
+    expect(daemon.approvals.get('alpha')![0].approved).toBeNull(); // still pending
+
+    const gate = await post('/api/resolve-gate', agentCred, { org: 'alpha', gateId: 'g1', approved: true });
+    expect(gate.status).toBe(403);
+
+    const answer = await post('/api/answer-question', agentCred, { org: 'alpha', role: 'boss', questionId: 'q', answer: 'yes' });
+    expect(answer.status).toBe(403);
+
+    const human = await post('/api/human-message', agentCred, { org: 'alpha', role: 'boss', text: 'hi' });
+    expect(human.status).toBe(403);
+
+    const approve = await post('/api/set-approval', srv.operatorCredential, { org: 'alpha', role: 'boss', action: 'Bash', approved: true });
+    expect(approve.status).toBe(200);
+    expect(daemon.approvals.get('alpha')![0].approved).toBe(true);
+    await daemon.stopAll();
+  });
+
+  it('an org agent credential still unlocks delivery and status routes', async () => {
+    const { daemon, brokerDir, base, post } = await boot();
+    const alphaCred = lookupOrg('alpha', brokerDir)!.credential!;
+    const betaCred = lookupOrg('beta', brokerDir)!.credential!;
+
+    // alpha (hosted here) delivering to beta (hosted here) over the wire, as a
+    // separate process would: header = target's credential, body = own credential.
+    const good = await post('/api/xdeliver', betaCred, {
+      toOrg: 'beta', toRole: 'boss', fromOrg: 'alpha', fromRole: 'boss',
+      subject: 'hi', body: 'hello', fromCredential: alphaCred,
+    });
+    expect(good.status).toBe(200);
+
+    // beta presenting alpha's identity with its OWN credential is rejected —
+    // the credentials are per-org now, not one shared secret.
+    const forged = await post('/api/xdeliver', betaCred, {
+      toOrg: 'beta', toRole: 'boss', fromOrg: 'alpha', fromRole: 'boss',
+      subject: 'forged', body: 'not alpha', fromCredential: betaCred,
+    });
+    expect(forged.status).toBe(404);
+
+    const status = await fetch(`${base}/api/status`, { headers: { 'x-monomind-cred': alphaCred } });
+    expect(status.status).toBe(200);
+
+    const unknown = await fetch(`${base}/api/status`, { headers: { 'x-monomind-cred': 'nope' } });
+    expect(unknown.status).toBe(401);
     await daemon.stopAll();
   });
 });
