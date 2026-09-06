@@ -50,6 +50,17 @@
  * unaffected. Support is never silently truncated: past `MAX_CLAIMS` the entry
  * records `origins_dropped` and `provenance_complete:false`.
  *
+ * EVIDENCE travels with the claim. Each contribution records how it was
+ * obtained — `asserted` when someone stated it, `heuristic` when
+ * `heuristicExtract` inferred it from two names sharing a sentence — and the
+ * element's standing is projected from its live claims, with one asserted claim
+ * outranking any number of guesses. A claim written before this recording
+ * leaves the projection UNKNOWN rather than voting: reading an unrecorded
+ * method as `asserted` would relabel the entire pre-existing graph as stated
+ * fact. Retrieval uses exactly this and the `conflict` flag to rank, and
+ * nothing else — source credibility and claim freshness need an evaluation set
+ * to tune against, and guessing at them is the overclaim this replaced.
+ *
  * MIGRATION: nothing is re-keyed, deleted, or orphaned. An entry written under
  * the old `n:<normalized-name>` scheme is still found — resolution falls back to
  * probing the legacy key — and is then adopted IN PLACE under its existing key
@@ -397,6 +408,15 @@ export function kgQualifyOrigin(originRef: string, scope?: KgScope): string {
 
 // ── Claims (per-origin support, from which summaries are derived) ────
 
+/** How a claim came to exist.
+ *
+ *  `asserted` — someone stated it: an LLM distillation, an explicit
+ *  `memory_kg_ingest`, an org's `org_learn`.
+ *  `heuristic` — `heuristicExtract` inferred it from two names appearing in one
+ *  sentence. Nobody asserted it, and the module header has always called it
+ *  lower-trust; until now nothing downstream could tell the two apart. */
+export type KgExtractionMethod = 'asserted' | 'heuristic';
+
 /** One origin's assertion about an element. An origin re-asserting replaces its
  *  own contribution — a run stands behind its latest word, not its first. */
 export interface KgClaim {
@@ -404,6 +424,10 @@ export interface KgClaim {
   description: string;
   /** Assertion time, and the ordering that decides which claim is current. */
   at: number;
+  /** Absent on rows written before extraction method was recorded. Absent means
+   *  UNKNOWN, never `asserted` — defaulting an unrecorded method to the higher
+   *  trust would relabel every old co-occurrence guess as a stated fact. */
+  method?: KgExtractionMethod;
 }
 
 /** The stored fields derived from a claim ledger. `description` is DERIVED, so
@@ -419,6 +443,10 @@ interface DerivedClaims {
    *  summary is still the latest one; this says the graph knows it is disputed
    *  rather than settled. */
   conflict: boolean;
+  /** The element's standing, projected from its claims. Absent when any live
+   *  claim predates method recording — "not recorded", which is not the same
+   *  answer as `asserted`. */
+  method?: KgExtractionMethod;
 }
 
 function claimsOf(md: Record<string, unknown>): KgClaim[] {
@@ -430,6 +458,7 @@ function claimsOf(md: Record<string, unknown>): KgClaim[] {
         origin: c.origin,
         description: typeof c.description === 'string' ? c.description : '',
         at: typeof c.at === 'number' ? c.at : 0,
+        ...(c.method === 'asserted' || c.method === 'heuristic' ? { method: c.method } : {}),
       }));
   // Pre-ledger row (including every entry written before KG_ID_VERSION 2):
   // seed one contribution per recorded origin, all carrying the one description
@@ -450,6 +479,7 @@ function applyClaim(
   origin: string,
   description: string,
   now: number,
+  method: KgExtractionMethod = 'asserted',
 ): DerivedClaims {
   const existing = claimsOf(md);
   const dropped = typeof md.origins_dropped === 'number' ? md.origins_dropped : 0;
@@ -462,8 +492,19 @@ function applyClaim(
   if (!description.trim() && prior?.description.trim()) return deriveClaims(existing, dropped);
 
   const claims = existing.filter((c) => c.origin !== origin);
-  claims.push({ origin, description, at: now });
+  claims.push({ origin, description, at: now, method });
   return deriveClaims(claims, dropped);
+}
+
+/** The element's standing, from its surviving claims.
+ *
+ *  One asserted claim outranks any number of co-occurrence guesses: a fact
+ *  someone stated does not become less stated because a heuristic also stumbled
+ *  onto it. A claim with no recorded method makes the whole projection UNKNOWN
+ *  rather than voting — an old row cannot be read as evidence either way. */
+function deriveMethod(claims: KgClaim[]): KgExtractionMethod | undefined {
+  if (!claims.length || claims.some((c) => !c.method)) return undefined;
+  return claims.some((c) => c.method === 'asserted') ? 'asserted' : 'heuristic';
 }
 
 function deriveClaims(claims: KgClaim[], alreadyDropped: number): DerivedClaims {
@@ -482,6 +523,7 @@ function deriveClaims(claims: KgClaim[], alreadyDropped: number): DerivedClaims 
     provenance_complete: dropped === 0,
     origins_dropped: dropped,
     conflict: new Set(claims.map((c) => c.description.trim()).filter(Boolean)).size > 1,
+    method: deriveMethod(claims),
   };
 }
 
@@ -700,9 +742,15 @@ export async function kgIngest(options: {
   originRef: string;
   /** Owner of these facts. Omit for project-shared knowledge. */
   scope?: KgScope;
+  /** How this payload was produced. Defaults to `asserted`; `heuristicExtract`
+   *  callers must pass `heuristic` so a co-occurrence guess is not stored as a
+   *  stated fact. Recorded per origin, so the same element can hold a heuristic
+   *  claim from one run and an asserted one from another. */
+  method?: KgExtractionMethod;
   dbPath?: string;
 }): Promise<KgIngestResult> {
   const { dbPath } = options;
+  const method = options.method ?? 'asserted';
   const ns = kgNamespaces(options.scope);
   const originRef = kgQualifyOrigin(options.originRef, options.scope);
   const failures = new FailureLog();
@@ -764,6 +812,7 @@ export async function kgIngest(options: {
         description: desc,
         nodeSet: n.nodeSet,
         originRef,
+        method,
         ns,
         dbPath,
         failures,
@@ -800,6 +849,7 @@ export async function kgIngest(options: {
         description: '',
         placeholder: true,
         originRef,
+        method,
         ns,
         dbPath,
         failures,
@@ -838,7 +888,7 @@ export async function kgIngest(options: {
 
       const isNew = !(existing?.found && existing.entry);
       const md = (existing?.entry?.metadata ?? {}) as Record<string, unknown>;
-      const derived = applyClaim(md, originRef, desc, Date.now());
+      const derived = applyClaim(md, originRef, desc, Date.now(), method);
       const res = await bridgeStoreEntry({
         key,
         value: derived.description || fallbackFact,
@@ -903,6 +953,7 @@ async function writeEntity(o: {
   nodeSet?: string;
   placeholder?: boolean;
   originRef: string;
+  method: KgExtractionMethod;
   ns: KgNamespaces;
   dbPath: string | undefined;
   failures: FailureLog;
@@ -911,7 +962,7 @@ async function writeEntity(o: {
   const existing = await bridgeGetEntry({ key: o.id, namespace: o.ns.nodes, dbPath: o.dbPath });
   const isNew = !(existing?.found && existing.entry);
   const md = (existing?.entry?.metadata ?? {}) as Record<string, unknown>;
-  const derived = applyClaim(md, o.originRef, o.description, Date.now());
+  const derived = applyClaim(md, o.originRef, o.description, Date.now(), o.method);
 
   // Keep the most specific type: a generic heuristic 'entity' never overwrites
   // an LLM-assigned one, and a specific one promotes an untyped entity.
@@ -1264,7 +1315,18 @@ export interface KgSearchResult {
   success: boolean;
   /** Rendered triplet lines, best first. */
   context: string;
-  triplets: { source: string; relation: string; target: string; fact: string; score: number }[];
+  triplets: {
+    source: string;
+    relation: string;
+    target: string;
+    fact: string;
+    score: number;
+    /** How this edge came to exist. Absent means the edge predates method
+     *  recording — not recorded, which is not the same as `asserted`. */
+    method?: KgExtractionMethod;
+    /** Live origins disagree about what this edge says. Present only when true. */
+    conflict?: boolean;
+  }[];
   seeds: { name: string; type: string; description: string; score: number; id: string }[];
   /** True when the edge scan did NOT cover the whole namespace — the scan hit
    *  `SEARCH_EDGE_SCAN_MAX`, or the backend became unreadable partway. A
@@ -1273,11 +1335,43 @@ export interface KgSearchResult {
   truncated?: boolean;
   /** Edge rows actually read, so a caller can see how close it ran to the cap. */
   scannedEdges?: number;
+  /** What the seed retrieval ACTUALLY ran, straight from the bridge — never what
+   *  was hoped for. `keyword-fallback` means the vector path was tried and did
+   *  not serve these results. Absent only when the bridge reported nothing. */
+  method?: 'semantic' | 'keyword' | 'keyword-fallback';
+  /** Why the vector path did not serve the seeds (absent when it did). */
+  fallbackReason?: string;
   error?: string;
 }
 
-/** Vector-seed → neighborhood → triplet ranking (cognee's brute-force triplet
- *  search, scaled down). Seed scores already carry the Phase 1 feedback blend. */
+/** Seed candidates pulled before filtering and ranking. */
+const SEARCH_SEED_LIMIT = 15;
+/** Extra candidates fetched when a `nodeSet` narrows the graph.
+ *
+ *  The bridge has no tag filter, so set membership can only be tested after
+ *  retrieval. Filtering the unfiltered top-15 meant a node that IS in the set
+ *  but ranks 16th overall was missed — the set made results scarcer instead of
+ *  more precise. Over-fetching moves the cutoff after the filter. */
+const SEARCH_NODE_SET_OVERFETCH = 4;
+
+/** How far a co-occurrence guess drops below an equally-seeded stated fact.
+ *  Enough to lose a tie, not enough to hide it: `mentioned_with` between two
+ *  strong seeds is still worth surfacing when nothing better was asserted. */
+const HEURISTIC_PENALTY = 0.15;
+/** Live origins disagree about what this edge says. Still returned — a disputed
+ *  fact is information — but it does not outrank a settled one. */
+const CONFLICT_PENALTY = 0.1;
+
+/** Seeded retrieval → neighborhood → triplet ranking (cognee's brute-force
+ *  triplet search, scaled down). Seed scores already carry the Phase 1 feedback
+ *  blend, and the seed retrieval may be vector or keyword — `method` on the
+ *  result says which actually ran.
+ *
+ *  Ranking weighs exactly two evidence signals, both read off the claim ledger:
+ *  extraction method and description conflict. It deliberately does NOT model
+ *  source credibility, claim freshness, or whether the relation itself answers
+ *  the query — those need an evaluation set to tune against, and guessing at
+ *  them would be the same overclaim this weighting exists to correct. */
 export async function kgSearch(options: {
   query: string;
   dbPath?: string;
@@ -1293,16 +1387,25 @@ export async function kgSearch(options: {
     const seedsRes = await bridgeSearchEntries({
       query: options.query,
       namespace: ns.nodes,
-      limit: 15,
+      // Over-fetch when a set filter follows, so the cutoff lands AFTER it.
+      limit: options.nodeSet ? SEARCH_SEED_LIMIT * SEARCH_NODE_SET_OVERFETCH : SEARCH_SEED_LIMIT,
       threshold: 0.25,
       dbPath: options.dbPath,
     });
+    // What the retrieval actually was, carried on every return below: a keyword
+    // fallback presented as vector-seeded search is the overclaim B5 names.
+    const retrieval = {
+      ...(seedsRes?.searchMethod ? { method: seedsRes.searchMethod } : {}),
+      ...(seedsRes?.fallbackReason ? { fallbackReason: seedsRes.fallbackReason } : {}),
+    };
     let seedResults = seedsRes?.results ?? [];
     if (options.nodeSet) {
-      const ns = normalizeName(options.nodeSet);
-      seedResults = seedResults.filter((r) => (r.tags ?? []).includes(ns));
+      const setTag = normalizeName(options.nodeSet);
+      seedResults = seedResults.filter((r) => (r.tags ?? []).includes(setTag));
     }
-    if (!seedResults.length) return { success: true, context: '', triplets: [], seeds: [] };
+    seedResults = seedResults.slice(0, SEARCH_SEED_LIMIT);
+    if (!seedResults.length)
+      return { success: true, context: '', triplets: [], seeds: [], ...retrieval };
 
     const seedScore = new Map<string, number>();
     for (const s of seedResults) seedScore.set(s.key, s.score);
@@ -1325,14 +1428,31 @@ export async function kgSearch(options: {
         if (sSrc === 0 && sDst === 0) continue;
         // Both endpoints seeded beats one; the unseeded endpoint contributes a
         // neutral 0.35 so bridging edges from a strong seed still surface.
-        const score =
+        const relevance =
           (Math.max(sSrc, 0.35) + Math.max(sDst, 0.35)) / 2 + (sSrc > 0 && sDst > 0 ? 0.1 : 0);
+        // Evidence, from the claim ledger. An edge whose method was never
+        // recorded is left at its relevance score — unknown is not evidence
+        // against it, and penalizing it would demote the entire pre-existing
+        // graph relative to anything written today.
+        const method =
+          md.method === 'asserted' || md.method === 'heuristic'
+            ? (md.method as KgExtractionMethod)
+            : undefined;
+        const conflict = md.conflict === true;
+        const score = Math.max(
+          0,
+          relevance -
+            (method === 'heuristic' ? HEURISTIC_PENALTY : 0) -
+            (conflict ? CONFLICT_PENALTY : 0),
+        );
         triplets.push({
           source: String(md.source_name ?? src),
           relation: String(md.relation ?? 'related_to'),
           target: String(md.target_name ?? dst),
           fact: e.content,
           score,
+          ...(method ? { method } : {}),
+          ...(conflict ? { conflict } : {}),
         });
       }
       // Scores are per-edge, so pruning to the running top-`limit` after each
@@ -1381,6 +1501,7 @@ export async function kgSearch(options: {
       seeds,
       scannedEdges,
       ...(truncated && { truncated }),
+      ...retrieval,
     };
   } catch (err) {
     return {
@@ -1985,9 +2106,13 @@ export async function kgIntegrityCheck(options?: {
 
 /** Regex extraction for when no LLM is in the loop (memory-palace lineage):
  *  proper-noun phrases and `code identifiers` become entities, sentence
- *  co-occurrence becomes relates_to edges. Lower-trust by design — real
+ *  co-occurrence becomes `mentioned_with` edges. Lower-trust by design — real
  *  entity/relation quality comes from the LLM path (memory_kg_ingest called
- *  by the live agent, or the org coordinator's org_learn tool). */
+ *  by the live agent, or the org coordinator's org_learn tool).
+ *
+ *  Callers MUST ingest this with `method: 'heuristic'`. "Lower-trust by design"
+ *  was true and unenforced: nothing downstream could tell these edges from
+ *  facts an agent stated, so ranking treated them identically. */
 export function heuristicExtract(
   text: string,
   opts?: { sourceName?: string },
@@ -2074,11 +2199,14 @@ export function heuristicExtract(
       }
     }
     // Co-occurrence edges within a sentence (first mention chains to the rest).
+    // `mentioned_with`, not `relates_to`: all this observed is two names in one
+    // sentence. `relates_to` reads as an asserted relation, and a reader cannot
+    // tell one that an agent stated from one this regex inferred.
     for (let i = 1; i < uniq.length && i < 4; i++) {
       edges.push({
         source: uniq[0],
         target: uniq[i],
-        relation: 'relates_to',
+        relation: 'mentioned_with',
         description: sentence.trim().slice(0, 300),
       });
     }

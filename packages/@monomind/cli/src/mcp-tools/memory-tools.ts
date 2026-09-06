@@ -564,6 +564,10 @@ export const memoryKgIngest: MCPTool = {
 
       const kg = await import('../memory/memory-kg.js');
       let { nodes, edges } = payload;
+      // A caller-supplied payload is an assertion; text run through the
+      // extractor is an inference. Which one produced these elements is stored
+      // on the claim, so retrieval can weigh them differently.
+      let method: 'asserted' | 'heuristic' = 'asserted';
       if (
         !nodes.length &&
         !edges.length &&
@@ -573,11 +577,12 @@ export const memoryKgIngest: MCPTool = {
         const extracted = kg.heuristicExtract(params.rawText, { sourceName: originRef });
         nodes = extracted.nodes.slice(0, KG_MAX_NODES);
         edges = extracted.edges.slice(0, KG_MAX_EDGES);
+        method = 'heuristic';
       }
 
       const graph =
         nodes.length || edges.length
-          ? await kg.kgIngest({ nodes: nodes as any[], edges: edges as any[], originRef })
+          ? await kg.kgIngest({ nodes: nodes as any[], edges: edges as any[], originRef, method })
           : { success: true, nodesAdded: 0, nodesMerged: 0, edgesAdded: 0, edgesMerged: 0 };
       const rules = payload.rules.length
         ? await kg.kgIngestRules({ rules: payload.rules as any[], originRef })
@@ -609,7 +614,7 @@ export const memoryKgIngest: MCPTool = {
 export const memoryKgSearch: MCPTool = {
   name: 'memory_kg_search',
   description:
-    'Search the memory knowledge graph (remembered entities and relations — not the Monograph code graph): entities are seeded via the memory bridge (semantic when embeddings are available, keyword otherwise) and expanded to ranked relationship triplets. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
+    'Search the memory knowledge graph (remembered entities and relations — not the Monograph code graph): entities are seeded via the memory bridge (semantic when embeddings are available, keyword otherwise) and expanded to ranked relationship triplets. `method` reports which retrieval actually ran. Each triplet carries how it was obtained — `asserted` (someone stated it) or `heuristic` (inferred from co-occurrence, lower trust) — and `conflict` when its origins disagree; absent `method` means the edge predates that recording. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -664,7 +669,7 @@ export const memoryKgRollback: MCPTool = {
 export const memoryKgConsolidate: MCPTool = {
   name: 'memory_kg_consolidate',
   description:
-    "List knowledge-graph entities whose descriptions lag their connectivity, with neighborhood facts. YOU do the consolidation: rewrite each candidate's description as one canonical paragraph merging the facts, then resubmit via memory_kg_ingest (richer descriptions win on merge).",
+    "List knowledge-graph entities whose descriptions lag their connectivity, with neighborhood facts. YOU do the consolidation: rewrite each candidate's description as one canonical paragraph merging the facts, then resubmit via memory_kg_ingest. Your resubmission becomes the current description because it is the most recent claim from your origin — not because it is longer, so do not pad it.",
   inputSchema: {
     type: 'object',
     properties: {
