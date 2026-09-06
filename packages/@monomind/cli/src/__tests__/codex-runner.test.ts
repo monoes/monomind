@@ -34,6 +34,21 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
 }));
 
+/** Fake stdin: records what the runner writes (the prompt travels over
+ *  stdin, not argv) and exposes it as `stdinData`. */
+function makeMockStdin(child: any) {
+  child.stdinData = '';
+  child.stdin = {
+    on: vi.fn(),
+    end: (data?: string) => {
+      if (data) child.stdinData += data;
+    },
+    write: (data: string) => {
+      child.stdinData += data;
+    },
+  };
+}
+
 /** Create a mock child process that emits the given JSONL lines on stdout. */
 function makeMockChild(stdoutLines: string[], exitCode = 0): cp.ChildProcess {
   const child = new EventEmitter() as any;
@@ -45,6 +60,7 @@ function makeMockChild(stdoutLines: string[], exitCode = 0): cp.ChildProcess {
   };
   child.stderr = new EventEmitter();
   child.kill = vi.fn();
+  makeMockStdin(child);
   setTimeout(() => child.emit('close', exitCode), 5);
   return child as cp.ChildProcess;
 }
@@ -295,6 +311,7 @@ describe('CodexAgentRunner', () => {
       };
       child.stderr = new EventEmitter();
       child.kill = vi.fn();
+      makeMockStdin(child);
       setTimeout(() => child.emit('error', err), 1);
       return child;
     });
@@ -640,6 +657,7 @@ describe('CodexAgentRunner streaming (#204)', () => {
     };
     child.stderr = new EventEmitter();
     child.kill = vi.fn();
+    makeMockStdin(child);
     const total = lines.reduce((s, l) => s + (l.delayMs ?? 0), 0);
     setTimeout(() => child.emit('close', exitCode), total + 50);
     return child as cp.ChildProcess;
@@ -818,7 +836,10 @@ describe('CodexAgentRunner streaming (#204)', () => {
     expect(argv0).not.toContain('resume');
     const argv1 = calls[1][1] as string[];
     expect(argv1[argv1.indexOf('resume') + 1]).toBe('thread-fence-1');
-    const prompt1 = argv1[argv1.length - 1];
+    // The tool_result prompt travels over stdin (argv ends with the `-- -`
+    // stdin marker), never as an argv element — see the E2BIG test below.
+    expect(argv1.slice(-2)).toEqual(['--', '-']);
+    const prompt1 = (finalTurn as any).stdinData as string;
     expect(prompt1).toContain('tool_result');
     expect(prompt1).toContain('echo:hi');
 
@@ -870,5 +891,189 @@ describe('CodexAgentRunner streaming (#204)', () => {
     expect(caught).toBeDefined();
     expect(String(caught)).toContain('codex exec failed (exit 1)');
     expect(caught.fatal).toBeUndefined();
+  });
+});
+
+/**
+ * Child-process lifecycle: the prompt over stdin (E2BIG / leading-dash
+ * safety), the abort hook, and the SIGTERM→SIGKILL ladder surviving both the
+ * timeout path and an abandoned stream.
+ */
+describe('CodexAgentRunner subprocess lifecycle', () => {
+  let runner: CodexAgentRunner;
+
+  beforeEach(() => {
+    runner = new CodexAgentRunner('/usr/bin/codex');
+    vi.clearAllMocks();
+  });
+
+  function makeRunArgs(overrides?: Record<string, unknown>) {
+    return {
+      tools: [],
+      prompt: (async function* () {
+        yield 'do work';
+      })(),
+      systemPrompt: 'test role',
+      cwd: '/tmp',
+      env: {},
+      maxTurns: 5,
+      ...overrides,
+    } as any;
+  }
+
+  /** A "live" mock child: stdout stays open until the runner kills it.
+   *  `onKill` decides what the fake CLI does with each signal. */
+  function makeLiveMockChild(
+    onKill: (child: any, signal: string, endStdout: () => void) => void,
+    stdoutLines: string[] = [],
+  ): cp.ChildProcess {
+    const child = new EventEmitter() as any;
+    child.exitCode = null;
+    child.signalCode = null;
+    child.killed = false;
+    let endStdout: () => void = () => {};
+    const blocked = new Promise<void>((r) => {
+      endStdout = r;
+    });
+    child.stdout = new EventEmitter();
+    child.stdout[Symbol.asyncIterator] = async function* () {
+      for (const line of stdoutLines) yield Buffer.from(`${line}\n`);
+      await blocked;
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn((signal: string) => {
+      child.killed = true;
+      onKill(child, signal, endStdout);
+      return true;
+    });
+    makeMockStdin(child);
+    return child as cp.ChildProcess;
+  }
+
+  it('passes the prompt over stdin behind `-- -`, never as an argv element (E2BIG at 128 KiB; a leading `-` would parse as an option)', async () => {
+    const child = makeMockChild([
+      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
+      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }),
+    ]);
+    vi.mocked(cp.spawn).mockReturnValue(child);
+
+    // Bigger than Linux's single-argv cap, AND starting with a dash.
+    const bigPrompt = `--not-an-option ${'x'.repeat(200 * 1024)}`;
+    const args = makeRunArgs({
+      systemPrompt: '',
+      prompt: (async function* () {
+        yield bigPrompt;
+      })(),
+    });
+    for await (const _m of runner.run(args)) {
+      /* consume */
+    }
+
+    const [, argv, spawnOpts] = vi.mocked(cp.spawn).mock.calls[0] as unknown as [
+      string,
+      string[],
+      { stdio: string[] },
+    ];
+    expect(argv.slice(-2)).toEqual(['--', '-']);
+    expect(argv.some((a) => a.includes('--not-an-option'))).toBe(false);
+    expect(spawnOpts.stdio[0]).toBe('pipe');
+    expect((child as any).stdinData).toContain(bigPrompt);
+  });
+
+  it('abort: args.signal kills the child while the runner is blocked in stdout, and the turn fails instead of orphaning it', async () => {
+    // Fake CLI that dies on SIGTERM: closes stdout, then exits with a signal.
+    const child = makeLiveMockChild((c, signal, endStdout) => {
+      if (signal === 'SIGTERM') {
+        c.signalCode = 'SIGTERM';
+        endStdout();
+        setTimeout(() => c.emit('close', null), 5);
+      }
+    });
+    vi.mocked(cp.spawn).mockReturnValue(child);
+
+    const abort = new AbortController();
+    const gen = runner.run(makeRunArgs({ signal: abort.signal }))[Symbol.asyncIterator]();
+    // First pull is the spawn-time liveness yield; the second blocks in
+    // `for await (child.stdout)` — exactly where return() alone can't reach.
+    await gen.next();
+    const pending = gen.next();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(child.kill).not.toHaveBeenCalled();
+
+    abort.abort();
+
+    const outcome = await Promise.race([
+      pending.then(
+        () => 'resolved',
+        (e) => `rejected: ${String(e)}`,
+      ),
+      new Promise<string>((r) => setTimeout(() => r('hung'), 2000)),
+    ]);
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    expect(outcome).toMatch(/^rejected: .*codex exec failed/);
+  }, 10000);
+
+  it('turn timeout: the SIGKILL escalation stays armed after stdout ends, so a CLI that ignores SIGTERM cannot pin the turn open forever', async () => {
+    vi.useFakeTimers();
+    try {
+      // Fake CLI that reacts to SIGTERM by closing stdout but NOT exiting;
+      // only SIGKILL ends it.
+      const child = makeLiveMockChild((c, signal, endStdout) => {
+        if (signal === 'SIGTERM') endStdout();
+        if (signal === 'SIGKILL') {
+          c.signalCode = 'SIGKILL';
+          c.emit('close', null);
+        }
+      });
+      vi.mocked(cp.spawn).mockReturnValue(child);
+
+      const gen = runner.run(makeRunArgs())[Symbol.asyncIterator]();
+      await gen.next(); // liveness
+      const pending = gen.next(); // blocked in stdout
+      pending.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10);
+
+      await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); // TURN_TIMEOUT_MS
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      // stdout has now ended and the runner's finally has run — the
+      // escalation must still fire after the grace period.
+      await vi.advanceTimersByTimeAsync(5000 + 10);
+      expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+      await expect(pending).rejects.toThrow(/turn timeout and was killed/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('abandoned stream: iterator.return() mid-turn sends SIGTERM and escalates to SIGKILL if the CLI ignores it', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = makeLiveMockChild(
+        (c, signal, endStdout) => {
+          // Ignores SIGTERM entirely; only SIGKILL ends it.
+          if (signal === 'SIGKILL') {
+            c.signalCode = 'SIGKILL';
+            endStdout();
+            c.emit('close', null);
+          }
+        },
+        [JSON.stringify({ type: 'thread.started', thread_id: 't1' })],
+      );
+      vi.mocked(cp.spawn).mockReturnValue(child);
+
+      const gen = runner.run(makeRunArgs())[Symbol.asyncIterator]();
+      await gen.next(); // liveness — the generator is now parked at a yield
+      const returned = gen.return(undefined as never);
+      returned.catch(() => {});
+      await vi.advanceTimersByTimeAsync(10);
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(child.kill).not.toHaveBeenCalledWith('SIGKILL');
+
+      await vi.advanceTimersByTimeAsync(5000 + 10);
+      expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+      await returned;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

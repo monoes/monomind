@@ -401,9 +401,16 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
     pid: process.pid,
   });
 
+  // Abort hook for the runner (AgentRunArgs.signal): return() alone queues
+  // behind a runner blocked in `for await (child.stdout)` and never reaches
+  // its finally/kill before process.exit() orphans the child — the signal
+  // makes the runner kill its subprocess right now.
+  const abort = new AbortController();
+
   const terminate = (code: ExecErrorCode, exitCode: number) => {
     if (state.terminal) return;
     state.terminal = { code, exitCode };
+    abort.abort();
     // Ladder the runner's return() (its finally-blocks kill the child) with
     // a grace bound — a wedged runner may not propagate until its own
     // 2h/45s ladders fire, and the exec must not wait for that.
@@ -548,6 +555,7 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
         maxTurns: opts.maxTurns,
         resume: opts.resume,
         canUseTool,
+        signal: abort.signal,
       }) as AsyncGenerator<AgentMessage>;
 
       for await (const m of stream) {

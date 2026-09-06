@@ -72,12 +72,16 @@ describe('extractPiRpcText', () => {
 /** A minimal fake PiRpcProcess: an EventEmitter-backed duplex that records
  *  every command written to stdin and lets the test script server-side
  *  events onto stdout on its own schedule. */
-function fakeProcess(): PiRpcProcess & { written: string[]; emitStdout: (line: string) => void; emitClose: (code: number) => void; emitError: (err: Error) => void } {
+function fakeProcess(): PiRpcProcess & { written: string[]; emitStdout: (line: string) => void; emitClose: (code: number) => void; emitError: (err: Error) => void; emitStdinError: (err: Error) => void } {
   const emitter = new EventEmitter();
   const stdoutEmitter = new EventEmitter();
+  const stdinEmitter = new EventEmitter();
   const written: string[] = [];
   return {
-    stdin: { write: (data: string) => { written.push(data); } },
+    stdin: {
+      write: (data: string) => { written.push(data); },
+      on: (event: string, cb: (err: Error) => void) => { stdinEmitter.on(event, cb); },
+    },
     stdout: { on: (event, cb) => { stdoutEmitter.on(event, cb); } },
     stderr: { on: () => {} },
     on: (event: string, cb: (...a: unknown[]) => void) => { emitter.on(event, cb); },
@@ -86,6 +90,7 @@ function fakeProcess(): PiRpcProcess & { written: string[]; emitStdout: (line: s
     emitStdout: (line: string) => stdoutEmitter.emit('data', Buffer.from(line)),
     emitClose: (code: number) => emitter.emit('close', code),
     emitError: (err: Error) => emitter.emit('error', err),
+    emitStdinError: (err: Error) => stdinEmitter.emit('error', err),
   };
 }
 
@@ -328,5 +333,31 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('a stdin write error (EPIPE: pi exited between events) fails the turn instead of escaping as an uncaught exception', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(proc.written.length).toBe(1); // the prompt went out; now the pipe breaks
+
+    proc.emitStdinError(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
+
+    await expect(resultsPromise).rejects.toThrow(/failed to write to pi stdin: write EPIPE/);
+  });
+
+  it('abort: args.signal kills the long-lived pi process and fails the in-flight turn', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const abort = new AbortController();
+    const resultsPromise = collect(runner.run({ ...baseArgs(singlePrompt('hello')), signal: abort.signal }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(proc.kill).not.toHaveBeenCalled();
+
+    abort.abort();
+
+    expect(proc.kill).toHaveBeenCalledWith('SIGTERM');
+    await expect(resultsPromise).rejects.toThrow(/turn aborted by the caller/);
   });
 });

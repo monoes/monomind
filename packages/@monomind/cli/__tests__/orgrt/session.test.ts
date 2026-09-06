@@ -254,6 +254,43 @@ describe('runAgentSession', () => {
     }
   });
 
+  it('the silent-stream abort fires the runner\'s AgentRunArgs.signal before throwing, so a subprocess runner kills its child instead of stacking a live CLI per retry', async () => {
+    vi.useFakeTimers();
+    try {
+      const bus = new OrgBus('o', 'r', dir());
+      const mailbox = new Mailbox();
+      mailbox.push('do the thing');
+
+      // A subprocess-style runner: blocked on its child's stdout, which only
+      // the abort signal can unblock (iterator.return() queues behind it).
+      let seen: AbortSignal | undefined;
+      const runner = {
+        async *run(a: { signal?: AbortSignal }) {
+          seen = a.signal;
+          await new Promise<void>((resolve) => a.signal?.addEventListener('abort', () => resolve()));
+          throw new Error('child killed');
+        },
+      };
+
+      const policy = new PolicyEngine('coder', {}, bus, '/work');
+      const donePromise = runAgentSession({
+        org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+        bus, policy, mailbox, cwd: '/work',
+        deliver: async () => 'delivered',
+        runner: runner as any,
+      });
+      donePromise.catch(() => { /* asserted via rejects below */ });
+
+      await vi.advanceTimersByTimeAsync(4 * 60_000 + 3_000);
+
+      expect(seen).toBeDefined();
+      expect(seen?.aborted).toBe(true);
+      await expect(donePromise).rejects.toThrow(/silent/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('emits per-result cost DELTAS, not the SDK\'s cumulative session total_cost_usd', async () => {
     // Regression: in streaming-input mode one query() call emits one result
     // per mailbox message, and each result's total_cost_usd is the CUMULATIVE

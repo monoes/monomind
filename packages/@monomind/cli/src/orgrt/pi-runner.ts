@@ -46,7 +46,12 @@
  */
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -291,6 +296,9 @@ export class PiAgentRunner implements AgentRunner {
         child.on('close', (code) => res(code ?? 1));
       });
       exitPromise.catch(() => {});
+      // Abort hook (see AgentRunArgs.signal): kill the child so the stdout
+      // read below completes instead of orphaning it on iterator.return().
+      const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
 
       const readLines = (async () => {
         const lines: string[] = [];
@@ -347,6 +355,7 @@ export class PiAgentRunner implements AgentRunner {
           },
         )
         .finally(() => {
+          unsubscribeAbort();
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);
           if (killTimer) clearTimeout(killTimer);

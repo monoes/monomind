@@ -8,13 +8,13 @@
  *     can register org tools (org_send, ask_human, …) directly via
  *     createSdkMcpServer.
  *   - Kimi Code has no embeddable SDK. The CLI is driven as a subprocess:
- *     `kimi -p "<prompt>" --output-format stream-json` runs one non-interactive
- *     turn and emits JSONL events on stdout (verified against kimi 0.29.2:
+ *     `kimi --print --output-format stream-json` with the prompt on stdin
+ *     runs one non-interactive turn and emits JSONL events on stdout
+ *     (event shapes verified against kimi 0.29.2:
  *     {"role":"assistant","content":...} per reply, then a
  *     {"role":"meta","type":"session.resume_hint",session_id} event).
  *     Session continuity comes from `--session <id>` on later turns.
- *     ARG ORDER MATTERS: the prompt must immediately follow `-p` — flags in
- *     between are consumed as the prompt text.
+ *     The prompt is NOT passed as `-p <text>` — see streamTurn for why.
  *
  * Streaming / liveness — WHY INCREMENTAL:
  *   Kimi turns routinely run 10-20+ minutes when the model chains many
@@ -66,7 +66,12 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -76,7 +81,7 @@ import {
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
-/** How long a single `kimi -p` invocation may run before we kill it (2 hours,
+/** How long a single `kimi --print` invocation may run before we kill it (2 hours,
  *  matching kimi's own subagent default). */
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -260,13 +265,14 @@ export class KimiCodeAgentRunner implements AgentRunner {
     agentFile: string,
     outcome: TurnOutcome,
   ): AsyncGenerator<KimiStreamEvent> {
-    // ARG ORDER MATTERS: -p consumes the IMMEDIATELY following argument as
-    // the prompt. Putting flags in between (e.g. `-p --session <id> text`)
-    // makes kimi consume the flag as the prompt and fail with
-    // "unknown command". Prompt first, flags after.
+    // The prompt goes over STDIN, not `-p <text>`: a single argv element is
+    // capped at 128 KiB on Linux (E2BIG), and a tool-results prompt can
+    // exceed that. In `--print` mode kimi reads all of stdin as the prompt
+    // when no `-p` is given (kimi-cli ui/print: `command is None and not
+    // sys.stdin.isatty()` → `sys.stdin.read()`); `--output-format` is only
+    // accepted in print mode anyway.
     const cliArgs: string[] = [
-      '-p',
-      promptText,
+      '--print',
       '--output-format',
       'stream-json',
       '--skills-dir',
@@ -299,24 +305,30 @@ export class KimiCodeAgentRunner implements AgentRunner {
         // mailbox + session history carry the state.
         KIMI_MODEL_THINKING_KEEP: process.env.KIMI_MODEL_THINKING_KEEP || 'off',
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
+    // A CLI that exits before reading stdin (bad args, auth failure) makes
+    // this write EPIPE — surfaced via the exit code/stderr below, not as an
+    // unhandled stream error.
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(promptText);
 
     let stderrTail = '';
     child.stderr?.on('data', (c: Buffer) => {
       stderrTail = (stderrTail + c.toString()).slice(-4000);
     });
 
-    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
-    // killed while we're still reading, not after it finishes.
-    let timedOut = false;
+    // SIGTERM→SIGKILL escalation, shared by the turn timeout, the abort
+    // signal, and the abandoned-stream path in `finally` — a CLI that
+    // ignores SIGTERM must not leak a zombie per turn.
     const KILL_GRACE_MS = 5000;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
-      // escalate to SIGKILL after a short grace period.
+    const killChild = (): void => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* already gone */
+      }
       killTimer = setTimeout(() => {
         try {
           child.kill('SIGKILL');
@@ -325,7 +337,16 @@ export class KimiCodeAgentRunner implements AgentRunner {
         }
       }, KILL_GRACE_MS);
       killTimer.unref?.();
+    };
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killChild();
     }, TURN_TIMEOUT_MS);
+    const unsubscribeAbort = killOnAbort(args.signal, child, KILL_GRACE_MS);
 
     // Attach the exit promise BEFORE consuming stdout: on a spawn failure
     // (ENOENT, bad binary) the 'error' event fires almost immediately —
@@ -368,20 +389,23 @@ export class KimiCodeAgentRunner implements AgentRunner {
       }
     } finally {
       clearTimeout(timer);
-      if (killTimer) clearTimeout(killTimer);
-      // If the consumer abandons this stream mid-turn (session.ts's
-      // silent-abort calls iterator.return(), the mailbox closes, or an
-      // error is thrown downstream), don't leak the CLI subprocess.
-      if (child.exitCode === null && !child.killed) {
-        try {
-          child.kill('SIGTERM');
-        } catch {
-          /* already gone */
-        }
+      unsubscribeAbort();
+      if (child.exitCode === null && child.signalCode === null) {
+        // NOT confirmed dead. Either the consumer abandoned this stream
+        // mid-turn (session.ts's silent abort calls iterator.return(), the
+        // mailbox closes, or an error is thrown downstream) — kill it, WITH
+        // the SIGKILL escalation — or a SIGTERM from the timeout/abort is
+        // still inside its grace period: leave that escalation armed, since
+        // clearing it here would orphan a CLI that ignores SIGTERM and then
+        // wait on `exitPromise` forever (same fix as pi-rpc-runner.ts).
+        if (!child.killed) killChild();
+      } else if (killTimer) {
+        clearTimeout(killTimer);
       }
     }
 
     const exitCode = await exitPromise;
+    if (killTimer) clearTimeout(killTimer);
     // Also scan stderr for session_id — kimi 0.33+ may emit
     // session.resume_hint on stderr instead of stdout. The stdout parser
     // already captures session_id from any event that carries it; this

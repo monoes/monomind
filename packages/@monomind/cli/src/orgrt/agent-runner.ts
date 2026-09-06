@@ -46,6 +46,50 @@ export interface AgentRunArgs {
    *  SDK options verbatim (e.g. the `_orgTest` seam used by test-loop.ts).
    *  Other runners ignore it. */
   extras?: Record<string, unknown>;
+  /** Abort hook. An async generator's return() queues behind its in-flight
+   *  next(), so a subprocess runner blocked in `for await (child.stdout)`
+   *  never reaches its finally/kill on return() alone — the child is
+   *  orphaned. Aborting this signal makes every subprocess runner kill its
+   *  child (SIGTERM, then SIGKILL) so the blocked pull unblocks and the
+   *  turn fails; the in-process Claude runner forwards it to the SDK's
+   *  abortController. Fired by agent-exec.ts's terminate() and session.ts's
+   *  silent-stream abort. */
+  signal?: AbortSignal;
+}
+
+/** Wire `signal` to a child-process kill ladder: SIGTERM on abort, SIGKILL
+ *  after `graceMs` if the child is still alive. If the signal is already
+ *  aborted the ladder fires immediately (the runner was asked to stop before
+ *  this turn spawned). Returns an unsubscribe for the runner's cleanup path;
+ *  the escalation timer is unref'd and a kill() on an exited ChildProcess
+ *  is a no-op, so it needs no clearing. */
+export function killOnAbort(
+  signal: AbortSignal | undefined,
+  child: { kill(signal?: NodeJS.Signals): unknown },
+  graceMs = 5000,
+): () => void {
+  if (!signal) return () => {};
+  const onAbort = () => {
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      /* already gone */
+    }
+    const t = setTimeout(() => {
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        /* already gone */
+      }
+    }, graceMs);
+    t.unref?.();
+  };
+  if (signal.aborted) {
+    onAbort();
+    return () => {};
+  }
+  signal.addEventListener('abort', onAbort, { once: true });
+  return () => signal.removeEventListener('abort', onAbort);
 }
 
 /** Normalized message every runner yields. Carries `session_id` on whatever
@@ -101,6 +145,13 @@ export class ClaudeAgentRunner implements AgentRunner {
     );
     const orgServer = createSdkMcpServer({ name: 'org', version: '1.0.0', tools: sdkTools });
 
+    // Forward args.signal to the SDK: aborting its controller stops the
+    // in-process agent loop (no further tool calls) and ends the stream.
+    const abortController = new AbortController();
+    const unsubscribe = killOnAbort(args.signal, {
+      kill: () => abortController.abort(),
+    });
+
     const stream = this.queryFn({
       prompt: args.prompt,
       options: {
@@ -141,38 +192,43 @@ export class ClaudeAgentRunner implements AgentRunner {
         permissionMode: 'default',
         resume: args.resume,
         canUseTool: args.canUseTool,
+        abortController,
         ...(args.extras || {}),
       } as any,
     });
 
-    for await (const m of stream as AsyncIterable<any>) {
-      const session_id = m.session_id;
-      if (m.type === 'assistant') {
-        const text = (m.message?.content ?? [])
-          .filter((b: any) => b.type === 'text')
-          .map((b: any) => b.text)
-          .join('\n');
-        yield {
-          type: 'assistant',
-          session_id,
-          text,
-          input_tokens: m.message?.usage?.input_tokens,
-          output_tokens: m.message?.usage?.output_tokens,
-        };
-      } else if (m.type === 'result') {
-        yield {
-          type: 'result',
-          session_id,
-          subtype: m.subtype,
-          is_error: m.is_error,
-          input_tokens: m.usage?.input_tokens ?? 0,
-          output_tokens: m.usage?.output_tokens ?? 0,
-          cost_usd: m.total_cost_usd,
-        };
+    try {
+      for await (const m of stream as AsyncIterable<any>) {
+        const session_id = m.session_id;
+        if (m.type === 'assistant') {
+          const text = (m.message?.content ?? [])
+            .filter((b: any) => b.type === 'text')
+            .map((b: any) => b.text)
+            .join('\n');
+          yield {
+            type: 'assistant',
+            session_id,
+            text,
+            input_tokens: m.message?.usage?.input_tokens,
+            output_tokens: m.message?.usage?.output_tokens,
+          };
+        } else if (m.type === 'result') {
+          yield {
+            type: 'result',
+            session_id,
+            subtype: m.subtype,
+            is_error: m.is_error,
+            input_tokens: m.usage?.input_tokens ?? 0,
+            output_tokens: m.usage?.output_tokens ?? 0,
+            cost_usd: m.total_cost_usd,
+          };
+        }
+        // Other message kinds (tool_use, tool_result, system, …) carry no
+        // signal session.ts previously acted on, so they're dropped here —
+        // matching the prior code which only branched on assistant/result.
       }
-      // Other message kinds (tool_use, tool_result, system, …) carry no
-      // signal session.ts previously acted on, so they're dropped here —
-      // matching the prior code which only branched on assistant/result.
+    } finally {
+      unsubscribe();
     }
   }
 }

@@ -127,6 +127,10 @@ export class VercelAgentRunner implements AgentRunner {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           tools: buildTools(),
           stopWhen: isStepCount(args.maxTurns),
+          // Abort hook (see AgentRunArgs.signal): no subprocess here, but
+          // the SDK cancels the in-flight HTTP stream and stops issuing
+          // further tool steps.
+          abortSignal: args.signal,
         });
 
         let assistantText = '';
