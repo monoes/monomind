@@ -590,6 +590,16 @@ export async function bridgeStoreEntry(options: {
   upsert?: boolean;
   /** Structured metadata persisted on the entry (KG nodes/edges, weights, provenance). */
   metadata?: Record<string, unknown>;
+  /** Compare-and-swap guard for a read-merge-write caller (memory-kg.ts's
+   *  claim-ledger merge, K5). `'absent'` requires no row to exist yet at this
+   *  key; a number requires the row's CURRENT stored version to still equal
+   *  it. Either way, the check and the write are one atomic SQL statement
+   *  (see SqlBackend.storeIfVersion/storeIfAbsent) — a caller that read this
+   *  row (or found it absent) moments ago finds out here, via `conflict`,
+   *  whether a concurrent writer beat it, instead of silently overwriting (or
+   *  being overwritten by) that writer's update. Omit for the plain
+   *  last-write-wins upsert every other caller already relies on. */
+  ifVersion?: number | 'absent';
 }): Promise<{
   success: boolean;
   id: string;
@@ -598,6 +608,11 @@ export async function bridgeStoreEntry(options: {
   cached?: boolean;
   attested?: boolean;
   duplicate?: boolean;
+  /** True when `ifVersion` did not match the row's current state — the row
+   *  changed (or was created) concurrently. `success` is false alongside this;
+   *  nothing was written. The caller must re-read and retry, not treat this
+   *  as a transient error. */
+  conflict?: boolean;
   error?: string;
 } | null> {
   const backend = await getBackend(options.dbPath);
@@ -723,6 +738,49 @@ export async function bridgeStoreEntry(options: {
       } catch (e) {
         logBridgeError('bridgeStoreEntry.dedupSearch', e); /* non-fatal — store anyway */
       }
+    }
+
+    // Compare-and-swap path (K5): a caller merging onto a row it read earlier
+    // (or asserting the row is still absent) asks for that check to be part of
+    // the write, atomically, instead of trusting its own stale read.
+    if (options.ifVersion !== undefined) {
+      if (options.ifVersion === 'absent') {
+        if (existing)
+          return {
+            success: false,
+            id: existing.id,
+            conflict: true,
+            error: 'ifVersion=absent but entry already exists',
+          };
+        const created =
+          typeof backend.storeIfAbsent === 'function' ? await backend.storeIfAbsent(entry) : null;
+        if (created === null) {
+          // Backend predates storeIfAbsent (or is a test double) — fall back to
+          // the plain unconditional write rather than fail every caller.
+          await backend.store(entry);
+        } else if (!created) {
+          return { success: false, id: '', conflict: true, error: 'entry created concurrently' };
+        }
+      } else {
+        if (!existing)
+          return { success: false, id: '', conflict: true, error: 'entry no longer exists' };
+        const written =
+          typeof backend.storeIfVersion === 'function'
+            ? await backend.storeIfVersion(entry, options.ifVersion)
+            : null;
+        if (written === null) {
+          await backend.store(entry);
+        } else if (!written) {
+          return {
+            success: false,
+            id,
+            conflict: true,
+            error: `version conflict: entry changed concurrently (expected version ${options.ifVersion})`,
+          };
+        }
+      }
+      await flushBackend(backend);
+      return { success: true, id, embedding: embeddingInfo };
     }
 
     // store() is INSERT OR REPLACE keyed on id, so reusing the existing id
@@ -1215,6 +1273,32 @@ export async function bridgeListEntries(options: {
   }
 }
 
+/** A real database count for one namespace — `SELECT COUNT(*) WHERE
+ *  namespace = ?` against the existing `idx_namespace` index — as opposed to
+ *  `bridgeListEntries.total`, which is only the returned page's length (K7:
+ *  "bridgeListEntries.total is the returned page length, not a database
+ *  count"). Every row in a KG namespace (`kg:nodes`, `kg:edges`, `rules`) is
+ *  exactly one node/edge/rule — the name/adjacency index namespaces are
+ *  separate — so this count needs no per-row filtering to be exact, and costs
+ *  one indexed query instead of paging the whole namespace.
+ *
+ *  @returns null when the backend is unavailable, or when the loaded backend
+ *  predates `count()` — callers fall back to the paginated scan they already
+ *  had rather than fail. */
+export async function bridgeCountEntries(
+  namespace: string,
+  dbPath?: string,
+): Promise<number | null> {
+  const backend = await getBackend(dbPath);
+  if (!backend || typeof backend.count !== 'function') return null;
+  try {
+    return await backend.count(namespace);
+  } catch (e) {
+    logBridgeError('bridgeCountEntries', e);
+    return null;
+  }
+}
+
 export async function bridgeGetEntry(options: {
   key: string;
   namespace?: string;
@@ -1234,6 +1318,13 @@ export async function bridgeGetEntry(options: {
     hasEmbedding: boolean;
     tags: string[];
     metadata: Record<string, unknown>;
+    /** The row's own revision counter (bumped on every store()/upsert),
+     *  distinct from any KG-level metadata.version. A caller doing a
+     *  read-merge-write passes this straight back as `bridgeStoreEntry`'s
+     *  `ifVersion` to detect a concurrent writer instead of silently
+     *  overwriting it (K5). Absent only when the underlying entry predates
+     *  version tracking. */
+    version?: number;
   };
   cacheHit?: boolean;
   error?: string;
@@ -1261,6 +1352,7 @@ export async function bridgeGetEntry(options: {
         hasEmbedding: !!(entry.embedding && (entry.embedding as any).length > 0),
         tags: entry.tags ?? [],
         metadata: entry.metadata ?? {},
+        ...(typeof entry.version === 'number' ? { version: entry.version } : {}),
       },
     };
   } catch (e) {
