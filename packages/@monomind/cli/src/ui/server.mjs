@@ -5624,7 +5624,6 @@ export async function startServer({
     try {
       const chokidar = _require('chokidar');
       const _chokidarWatcher = chokidar.watch(_orgsDir, {
-        persistent: false,
         ignoreInitial: true,
         depth: 3,
         ignored: (p) => {
