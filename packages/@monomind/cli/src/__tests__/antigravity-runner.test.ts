@@ -17,7 +17,7 @@
 
 import * as cp from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { AntigravityAgentRunner } from '../orgrt/antigravity-runner.js';
 
@@ -784,5 +784,120 @@ describe('AntigravityAgentRunner streaming', () => {
     expect(caught).toBeDefined();
     expect(String(caught)).toContain('agy failed (exit 1)');
     expect(caught.fatal).toBeUndefined();
+  });
+});
+
+/**
+ * Child-process kill ladder (same findings as codex/kimi): the SIGKILL
+ * escalation must survive stdout ending, and an abandoned stream must
+ * escalate SIGTERM→SIGKILL instead of sending a bare SIGTERM.
+ */
+describe('AntigravityAgentRunner subprocess kill ladder', () => {
+  let runner: AntigravityAgentRunner;
+
+  beforeEach(() => {
+    runner = new AntigravityAgentRunner('/usr/bin/agy');
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function makeRunArgs() {
+    return {
+      tools: [],
+      prompt: (async function* () {
+        yield 'do work';
+      })(),
+      systemPrompt: 'test role',
+      cwd: '/tmp',
+      env: {},
+      maxTurns: 5,
+    } as any;
+  }
+
+  /** A "live" mock child: stdout stays open until the fake CLI decides to
+   *  close it; `onKill` scripts what it does with each signal. */
+  function makeLiveMockChild(
+    onKill: (child: any, signal: string, endStdout: () => void) => void,
+    stdoutLines: string[] = [],
+  ): cp.ChildProcess {
+    const child = new EventEmitter() as any;
+    child.exitCode = null;
+    child.signalCode = null;
+    child.killed = false;
+    let endStdout: () => void = () => {};
+    const blocked = new Promise<void>((r) => {
+      endStdout = r;
+    });
+    child.stdout = new EventEmitter();
+    child.stdout[Symbol.asyncIterator] = async function* () {
+      for (const line of stdoutLines) yield Buffer.from(`${line}\n`);
+      await blocked;
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn((signal: string) => {
+      child.killed = true;
+      onKill(child, signal, endStdout);
+      return true;
+    });
+    return child as cp.ChildProcess;
+  }
+
+  it('turn timeout: the SIGKILL escalation stays armed after stdout ends, so a CLI that ignores SIGTERM cannot pin the turn open forever', async () => {
+    vi.useFakeTimers();
+    // Fake CLI that reacts to SIGTERM by closing stdout but NOT exiting;
+    // only SIGKILL ends it.
+    const child = makeLiveMockChild((c, signal, endStdout) => {
+      if (signal === 'SIGTERM') endStdout();
+      if (signal === 'SIGKILL') {
+        c.signalCode = 'SIGKILL';
+        c.emit('close', null);
+      }
+    });
+    vi.mocked(cp.spawn).mockReturnValue(child);
+
+    const gen = runner.run(makeRunArgs())[Symbol.asyncIterator]();
+    await gen.next(); // liveness
+    const pending = gen.next(); // blocked in stdout
+    pending.catch(() => {});
+    await vi.advanceTimersByTimeAsync(10);
+
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); // TURN_TIMEOUT_MS
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    // stdout has now ended and the runner's finally has run — the
+    // escalation must still fire after the grace period.
+    await vi.advanceTimersByTimeAsync(5000 + 10);
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+    await expect(pending).rejects.toThrow(/turn timeout and was killed/);
+  });
+
+  it('abandoned stream: iterator.return() mid-turn sends SIGTERM and escalates to SIGKILL if the CLI ignores it', async () => {
+    vi.useFakeTimers();
+    const child = makeLiveMockChild(
+      (c, signal, endStdout) => {
+        // Ignores SIGTERM entirely; only SIGKILL ends it.
+        if (signal === 'SIGKILL') {
+          c.signalCode = 'SIGKILL';
+          endStdout();
+          c.emit('close', null);
+        }
+      },
+      [JSON.stringify({ type: 'system', subtype: 'init', conversation_id: 'c1' })],
+    );
+    vi.mocked(cp.spawn).mockReturnValue(child);
+
+    const gen = runner.run(makeRunArgs())[Symbol.asyncIterator]();
+    await gen.next(); // liveness — the generator is now parked at a yield
+    const returned = gen.return(undefined as never);
+    returned.catch(() => {});
+    await vi.advanceTimersByTimeAsync(10);
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    expect(child.kill).not.toHaveBeenCalledWith('SIGKILL');
+
+    await vi.advanceTimersByTimeAsync(5000 + 10);
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+    await returned;
   });
 });

@@ -304,16 +304,17 @@ export class AntigravityAgentRunner implements AgentRunner {
       stderrTail = (stderrTail + c.toString()).slice(-4000);
     });
 
-    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
-    // killed while we're still reading, not after it finishes.
-    let timedOut = false;
+    // SIGTERM→SIGKILL escalation, shared by the turn timeout, the abort
+    // signal, and the abandoned-stream path in `finally` — a CLI that
+    // ignores SIGTERM must not leak a zombie per turn.
     const KILL_GRACE_MS = 5000;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
-      // escalate to SIGKILL after a short grace period.
+    const killChild = (): void => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* already gone */
+      }
       killTimer = setTimeout(() => {
         try {
           child.kill('SIGKILL');
@@ -322,6 +323,14 @@ export class AntigravityAgentRunner implements AgentRunner {
         }
       }, KILL_GRACE_MS);
       killTimer.unref?.();
+    };
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killChild();
     }, TURN_TIMEOUT_MS);
     // Abort hook (see AgentRunArgs.signal): kill the child so the stdout
     // loop below unblocks instead of orphaning it on iterator.return().
@@ -481,20 +490,22 @@ export class AntigravityAgentRunner implements AgentRunner {
     } finally {
       clearTimeout(timer);
       unsubscribeAbort();
-      if (killTimer) clearTimeout(killTimer);
-      // If the consumer abandons this stream mid-turn (session.ts's
-      // silent-abort calls iterator.return(), the mailbox closes, or an
-      // error is thrown downstream), don't leak the CLI subprocess.
-      if (child.exitCode === null && !child.killed) {
-        try {
-          child.kill('SIGTERM');
-        } catch {
-          /* already gone */
-        }
+      if (child.exitCode === null && child.signalCode === null) {
+        // NOT confirmed dead. Either the consumer abandoned this stream
+        // mid-turn (session.ts's silent abort calls iterator.return(), the
+        // mailbox closes, or an error is thrown downstream) — kill it, WITH
+        // the SIGKILL escalation — or a SIGTERM from the timeout/abort is
+        // still inside its grace period: leave that escalation armed, since
+        // clearing it here would orphan a CLI that ignores SIGTERM and then
+        // wait on `exitPromise` forever (same fix as codex/kimi/pi-rpc).
+        if (!child.killed) killChild();
+      } else if (killTimer) {
+        clearTimeout(killTimer);
       }
     }
 
     const exitCode = await exitPromise;
+    if (killTimer) clearTimeout(killTimer);
     outcome.conversationId = lastConversationId;
     outcome.exitCode = exitCode;
     outcome.stderrTail = stderrTail;
