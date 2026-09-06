@@ -266,6 +266,23 @@ export const memoryFeedback: MCPTool = {
 
 // ===== memory_causal_edge — Record causal relationships =====
 
+/** Provenance ref for one causal-edge assertion.
+ *
+ *  Every call used to ingest under the bare string `causal-edge-tool`, which
+ *  made all of them one indivisible provenance bucket: a rollback aimed at one
+ *  wrong edge withdrew every causal edge the tool had ever recorded. Keying on
+ *  the asserted triple makes the ref unique per assertion and stable for it —
+ *  re-asserting the same edge reinforces its existing support instead of
+ *  minting a second ref that rollback would then have to chase separately.
+ *
+ *  Components are bounded like the graph's own name key (`normalizeName`
+ *  slices at 200), so this inherits that identity resolution and adds no new
+ *  collision class. */
+export function causalEdgeOriginRef(source: string, relation: string, target: string): string {
+  const part = (s: string, max: number) => s.trim().toLowerCase().slice(0, max);
+  return `causal-edge:${part(source, 100)}|${part(relation, 50)}|${part(target, 100)}`;
+}
+
 export const memoryCausalEdge: MCPTool = {
   name: 'memory_causal-edge',
   description:
@@ -277,21 +294,26 @@ export const memoryCausalEdge: MCPTool = {
       targetId: { type: 'string', description: 'Target entity name (or entry ID)' },
       relation: {
         type: 'string',
-        description: 'Relationship type (e.g., causes, preceded, fixed_by)',
+        description: 'Relationship type — a snake_case label (e.g. causes, preceded, fixed_by)',
       },
-      weight: { type: 'number', description: 'Edge weight (0-1)' },
+      // `weight` used to be declared here and then dropped on the floor: the
+      // graph's edge input has no weight field, so nothing could carry it.
+      // Declaring an option the store cannot honour is the same boundary
+      // dishonesty as declaring an unvalidated payload shape.
       description: { type: 'string', description: 'One-sentence concrete fact for this edge' },
     },
     required: ['sourceId', 'targetId', 'relation'],
   },
   handler: async (params: Record<string, unknown>) => {
     try {
-      const sourceId = validateString(params.sourceId, 'sourceId', 500);
-      const targetId = validateString(params.targetId, 'targetId', 500);
-      const relation = validateString(params.relation, 'relation', 200);
+      const sourceId = validateString(params.sourceId, 'sourceId', KG_MAX_NAME);
+      const targetId = validateString(params.targetId, 'targetId', KG_MAX_NAME);
+      const relation = validateString(params.relation, 'relation', KG_MAX_RELATION);
       if (!sourceId) return { success: false, error: 'sourceId is required (non-empty string)' };
       if (!targetId) return { success: false, error: 'targetId is required (non-empty string)' };
       if (!relation) return { success: false, error: 'relation is required (non-empty string)' };
+      if (!KG_RELATION_RE.test(relation.trim()))
+        return { success: false, error: relationReason(relation) };
       const kg = await import('../memory/memory-kg.js');
       const result = await kg.kgIngest({
         nodes: [{ name: sourceId }, { name: targetId }],
@@ -300,10 +322,11 @@ export const memoryCausalEdge: MCPTool = {
             source: sourceId,
             target: targetId,
             relation,
-            description: validateString(params.description, 'description', 2000) ?? undefined,
+            description:
+              validateString(params.description, 'description', KG_MAX_TEXT) ?? undefined,
           },
         ],
-        originRef: 'causal-edge-tool',
+        originRef: causalEdgeOriginRef(sourceId, relation, targetId),
       });
       return result;
     } catch (error) {
@@ -314,28 +337,204 @@ export const memoryCausalEdge: MCPTool = {
 
 // ===== memory_kg_* — Conversation/org knowledge graph =====
 
+// ── KG payload contract (K8) ────────────────────────────────────────
+//
+// This is the public write boundary of the knowledge graph. It used to declare
+// nodes/edges/rules as bare `{type: 'object'}` arrays and cast them to `any[]`,
+// which meant three things at once: a caller could not see the shape it was
+// supposed to send, an item that the store rejected part-way through left the
+// items ahead of it already persisted, and anything past the per-call caps was
+// sliced off with the result reporting exactly as it would have for a payload
+// that fit. Everything below exists so a caller can tell "all 40 nodes stored"
+// from "20 stored, 20 dropped", and so a malformed payload never becomes a
+// partial graph.
+
+/** Per-call ceilings enforced by kgIngest/kgIngestRules. Mirrored here so an
+ *  over-cap payload is reported as truncated instead of silently sliced.
+ *  Keep in sync with the `.slice()` bounds in memory-kg.ts. */
+const KG_MAX_NODES = 500;
+const KG_MAX_EDGES = 1000;
+const KG_MAX_RULES = 50;
+const KG_MAX_NAME = 500;
+const KG_MAX_TEXT = 2000;
+const KG_MAX_RULE = 4000;
+const KG_MAX_RELATION = 200;
+
+/** A relation is a short label, not prose: alphanumeric words joined by `_`,
+ *  `-` or single spaces. kgIngest normalizes whatever it gets into an edge KEY,
+ *  so free text silently becomes a different relation than the caller wrote —
+ *  and an unbounded one partitions the graph into unqueryable singletons. */
+const KG_RELATION_RE = /^[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$/;
+
+const relationReason = (v: string) =>
+  `relation must be a label such as "causes" or "fixed_by", not ${JSON.stringify(v.slice(0, 60))}`;
+
+/** One item the boundary refused. `index: -1` means the container itself
+ *  (e.g. `nodes` was not an array) rather than an element of it. */
+interface KgReject {
+  field: 'nodes' | 'edges' | 'rules';
+  index: number;
+  reason: string;
+}
+
+const textReason = (field: string, max: number) =>
+  `${field} must be a non-empty string of at most ${max} characters, without control characters`;
+
+/** Optional string field: absent/null/'' is fine, anything else must be a
+ *  clean bounded string. Returns a reason on failure, null when acceptable. */
+function checkOptionalText(
+  obj: Record<string, unknown>,
+  field: string,
+  max: number,
+): string | null {
+  const value = obj[field];
+  if (value === undefined || value === null || value === '') return null;
+  if (!validateString(value, field, max)) return textReason(field, max);
+  return null;
+}
+
+function checkNode(item: unknown): string | null {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return 'must be an object';
+  const o = item as Record<string, unknown>;
+  if (!validateString(o.name, 'name', KG_MAX_NAME)) return textReason('name', KG_MAX_NAME);
+  return (
+    checkOptionalText(o, 'type', KG_MAX_NAME) ??
+    checkOptionalText(o, 'description', KG_MAX_TEXT) ??
+    checkOptionalText(o, 'nodeSet', KG_MAX_NAME)
+  );
+}
+
+function checkEdge(item: unknown): string | null {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return 'must be an object';
+  const o = item as Record<string, unknown>;
+  if (!validateString(o.source, 'source', KG_MAX_NAME)) return textReason('source', KG_MAX_NAME);
+  if (!validateString(o.target, 'target', KG_MAX_NAME)) return textReason('target', KG_MAX_NAME);
+  const relation = validateString(o.relation, 'relation', KG_MAX_RELATION);
+  if (!relation) return textReason('relation', KG_MAX_RELATION);
+  if (!KG_RELATION_RE.test(relation.trim())) return relationReason(relation);
+  return (
+    checkOptionalText(o, 'description', KG_MAX_TEXT) ??
+    checkOptionalText(o, 'sourceType', KG_MAX_NAME) ??
+    checkOptionalText(o, 'targetType', KG_MAX_NAME)
+  );
+}
+
+function checkRule(item: unknown): string | null {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return 'must be an object';
+  const o = item as Record<string, unknown>;
+  if (!validateString(o.rule, 'rule', KG_MAX_RULE)) return textReason('rule', KG_MAX_RULE);
+  return checkOptionalText(o, 'context', KG_MAX_TEXT);
+}
+
+const KG_CHECKS: Record<KgReject['field'], { check: (i: unknown) => string | null; cap: number }> =
+  {
+    nodes: { check: checkNode, cap: KG_MAX_NODES },
+    edges: { check: checkEdge, cap: KG_MAX_EDGES },
+    rules: { check: checkRule, cap: KG_MAX_RULES },
+  };
+
+interface KgPayload {
+  nodes: unknown[];
+  edges: unknown[];
+  rules: unknown[];
+  /** Items dropped for exceeding a per-call cap, by field. Only present when
+   *  something was actually dropped. */
+  truncated?: Partial<Record<KgReject['field'], number>>;
+}
+
+/** Validate the WHOLE nested payload up front. Any bad item rejects the entire
+ *  call — including one past a cap that would have been dropped anyway, since
+ *  a caller sending malformed items deserves to hear about them rather than
+ *  have them quietly vanish. Nothing here writes; the first mutation only
+ *  happens once this returns `ok`. */
+function validateKgPayload(params: Record<string, unknown>): KgPayload & { rejected: KgReject[] } {
+  const rejected: KgReject[] = [];
+  const accepted: Record<KgReject['field'], unknown[]> = { nodes: [], edges: [], rules: [] };
+  const truncated: Partial<Record<KgReject['field'], number>> = {};
+
+  for (const field of ['nodes', 'edges', 'rules'] as const) {
+    const raw = params[field];
+    if (raw === undefined || raw === null) continue;
+    if (!Array.isArray(raw)) {
+      rejected.push({ field, index: -1, reason: `${field} must be an array` });
+      continue;
+    }
+    const { check, cap } = KG_CHECKS[field];
+    for (let i = 0; i < raw.length; i++) {
+      const reason = check(raw[i]);
+      if (reason) rejected.push({ field, index: i, reason });
+    }
+    accepted[field] = raw.slice(0, cap);
+    if (raw.length > cap) truncated[field] = raw.length - cap;
+  }
+
+  return {
+    ...accepted,
+    ...(Object.keys(truncated).length ? { truncated } : {}),
+    rejected,
+  };
+}
+
 export const memoryKgIngest: MCPTool = {
   name: 'memory_kg_ingest',
   description:
-    'Merge LLM-extracted entities/relations/rules into the persistent knowledge graph; same-name entities merge idempotently.',
+    'Merge LLM-extracted entities/relations/rules into the persistent knowledge graph; same-name entities merge idempotently. The whole payload is validated before anything is written, and the result reports accepted/rejected/truncated counts.',
   inputSchema: {
     type: 'object',
     properties: {
       nodes: {
         type: 'array',
-        items: { type: 'object' },
-        description: 'Entities: [{name, type?, description?, nodeSet?}]',
+        maxItems: KG_MAX_NODES,
+        description: `Entities (max ${KG_MAX_NODES} per call; the excess is reported as truncated)`,
+        items: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Entity name — this IS the identity; same name merges',
+            },
+            type: { type: 'string', description: "Basic type: 'Person', 'Service', 'Tool'" },
+            description: { type: 'string', description: 'One-sentence concrete fact' },
+            nodeSet: { type: 'string', description: "Optional grouping, e.g. 'rules'" },
+          },
+          required: ['name'],
+        },
       },
       edges: {
         type: 'array',
-        items: { type: 'object' },
-        description: 'Relations: [{source, target, relation, description?}]',
+        maxItems: KG_MAX_EDGES,
+        description: `Relations (max ${KG_MAX_EDGES} per call; the excess is reported as truncated)`,
+        items: {
+          type: 'object',
+          properties: {
+            source: { type: 'string', description: 'Source entity name' },
+            target: { type: 'string', description: 'Target entity name' },
+            relation: {
+              type: 'string',
+              description: "snake_case label, e.g. 'causes', 'fixed_by' — not free text",
+            },
+            description: {
+              type: 'string',
+              description: 'One-sentence concrete fact using the endpoint names',
+            },
+            sourceType: { type: 'string' },
+            targetType: { type: 'string' },
+          },
+          required: ['source', 'target', 'relation'],
+        },
       },
       rules: {
         type: 'array',
-        items: { type: 'object' },
-        description:
-          'Distilled durable rules: [{rule, context?}] — deduped semantically against existing rules',
+        maxItems: KG_MAX_RULES,
+        description: `Distilled durable rules, deduped semantically against existing rules (max ${KG_MAX_RULES} per call)`,
+        items: {
+          type: 'object',
+          properties: {
+            rule: { type: 'string', description: 'The durable rule, in one sentence' },
+            context: { type: 'string', description: 'When the rule applies' },
+          },
+          required: ['rule'],
+        },
       },
       rawText: {
         type: 'string',
@@ -343,19 +542,28 @@ export const memoryKgIngest: MCPTool = {
       },
       originRef: {
         type: 'string',
-        description: 'Provenance ref (session/run/doc id) — enables memory_kg_rollback',
+        description:
+          'Provenance ref (session/run/doc id) — enables memory_kg_rollback. Use a ref unique to this operation so a rollback withdraws only its work.',
       },
     },
     required: ['originRef'],
   },
   handler: async (params: Record<string, unknown>) => {
     try {
-      const originRef = validateString(params.originRef, 'originRef', 500);
-      if (!originRef) return { success: false, error: 'originRef is required' };
-      const kg = await import('../memory/memory-kg.js');
+      const originRef = validateString(params.originRef, 'originRef', KG_MAX_NAME);
+      if (!originRef)
+        return { success: false, error: textReason('originRef', KG_MAX_NAME), rejected: [] };
 
-      let nodes = Array.isArray(params.nodes) ? (params.nodes as any[]) : [];
-      let edges = Array.isArray(params.edges) ? (params.edges as any[]) : [];
+      const payload = validateKgPayload(params);
+      if (payload.rejected.length)
+        return {
+          success: false,
+          error: `payload rejected before any write: ${payload.rejected.length} invalid item(s)`,
+          rejected: payload.rejected,
+        };
+
+      const kg = await import('../memory/memory-kg.js');
+      let { nodes, edges } = payload;
       if (
         !nodes.length &&
         !edges.length &&
@@ -363,19 +571,35 @@ export const memoryKgIngest: MCPTool = {
         params.rawText.trim()
       ) {
         const extracted = kg.heuristicExtract(params.rawText, { sourceName: originRef });
-        nodes = extracted.nodes;
-        edges = extracted.edges;
+        nodes = extracted.nodes.slice(0, KG_MAX_NODES);
+        edges = extracted.edges.slice(0, KG_MAX_EDGES);
       }
 
       const graph =
         nodes.length || edges.length
-          ? await kg.kgIngest({ nodes, edges, originRef })
+          ? await kg.kgIngest({ nodes: nodes as any[], edges: edges as any[], originRef })
           : { success: true, nodesAdded: 0, nodesMerged: 0, edgesAdded: 0, edgesMerged: 0 };
-      const rules =
-        Array.isArray(params.rules) && (params.rules as any[]).length
-          ? await kg.kgIngestRules({ rules: params.rules as any[], originRef })
-          : null;
-      return { ...graph, rules };
+      const rules = payload.rules.length
+        ? await kg.kgIngestRules({ rules: payload.rules as any[], originRef })
+        : null;
+
+      // Honesty over the whole call, not just the entity half: a refused rule
+      // write must not be flattened into a graph-only `success: true`, and the
+      // caller gets the rule verdicts and aggregate `accepted` count alongside
+      // them so an `accepted` verdict with `accepted: 0` is visible.
+      const rulesFailed = rules ? !rules.success : false;
+      return {
+        ...graph,
+        success: graph.success && !rulesFailed,
+        ...(graph.error || rulesFailed
+          ? { error: graph.error ?? rules?.error ?? 'rule ingestion failed' }
+          : {}),
+        rules,
+        /** How many items passed validation and were submitted to the store.
+         *  Compare against nodesAdded+nodesMerged to see what actually landed. */
+        accepted: { nodes: nodes.length, edges: edges.length, rules: payload.rules.length },
+        ...(payload.truncated ? { truncated: payload.truncated } : {}),
+      };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
