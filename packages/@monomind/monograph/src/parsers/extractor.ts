@@ -1,6 +1,6 @@
 import type Parser from 'web-tree-sitter';
 import type { MonographEdge, MonographNode } from '../types.js';
-import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../types.js';
+import { CONFIDENCE_SCORE, fileId, makeId, symbolId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
 import type { ParseResult } from './loader.js';
 
@@ -16,11 +16,19 @@ export function extractSymbols(
   const parseErrors: string[] = [];
   const language = config.name;
 
-  function nodeId(name: string, filePath: string, extra?: string): string {
-    return makeId(filePath.replace(/\//g, '_'), name, extra ?? '');
+  // Same (scope, name, kind) can legitimately recur in one file — C++/Java
+  // overloads, conditionally compiled or repeated definitions. Count occurrences
+  // in walk order (deterministic) so each gets a distinct overload discriminator.
+  const overloadCounts = new Map<string, number>();
+
+  function symbolNodeId(scope: readonly string[], name: string, kind: string): string {
+    const first = symbolId({ filePath: repoPath, scope, name, kind });
+    const overload = overloadCounts.get(first) ?? 0;
+    overloadCounts.set(first, overload + 1);
+    return overload === 0 ? first : symbolId({ filePath: repoPath, scope, name, kind, overload });
   }
 
-  const fileNodeId = makeId(repoPath.replace(/\//g, '_'), 'file');
+  const fileNodeId = fileId(repoPath);
   nodes.push({
     id: fileNodeId,
     label: 'File',
@@ -31,7 +39,7 @@ export function extractSymbols(
     language,
   });
 
-  function walk(node: Parser.Node, parentId?: string): void {
+  function walk(node: Parser.Node, parentId?: string, scope: readonly string[] = []): void {
     // Skip anonymous keyword tokens — some grammars type them identically to
     // declaration nodes (tree-sitter-ruby's class keyword is a node of type
     // 'class'), which would otherwise produce spurious symbols named after the
@@ -78,7 +86,7 @@ export function extractSymbols(
                   ? 'Constructor'
                   : 'Function';
       const label = config.labelRefiner ? config.labelRefiner(node, rawLabel) : rawLabel;
-      const id = nodeId(name, repoPath, label.toLowerCase());
+      const id = symbolNodeId(scope, name, label);
       const isExported = config.exportDetector
         ? config.exportDetector(node, source)
         : isNodeExported(node, source);
@@ -107,14 +115,15 @@ export function extractSymbols(
 
       handleInheritance(node, id, edges, repoPath, config, source);
 
+      const childScope = [...scope, name];
       for (let i = 0; i < node.childCount; i++) {
-        walk(node.child(i)!, id);
+        walk(node.child(i)!, id, childScope);
       }
       return;
     }
 
     for (let i = 0; i < node.childCount; i++) {
-      walk(node.child(i)!, parentId);
+      walk(node.child(i)!, parentId, scope);
     }
   }
 
