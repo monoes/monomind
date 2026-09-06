@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -201,6 +201,55 @@ describe('org migrate subcommand', () => {
       expect(backup.sentinel).toBe(true);
       const live = JSON.parse(readFileSync(join(orgsDir, 'growth.json'), 'utf8'));
       expect(live.schedule).toBe('30m');
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+});
+
+describe('migrateOrgFile backup atomicity', () => {
+  it('a crash mid-backup leaves no truncated backup behind, so a rerun writes a complete one', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-migrate-crash-'));
+    try {
+      const cfgPath = join(cwd, 'growth.json');
+      const backupPath = join(cwd, 'growth.v1.json');
+      writeFileSync(cfgPath, JSON.stringify(V1));
+
+      // Simulate a crash partway through writing the backup: whatever path the
+      // migrator hands to writeFileSync for the backup gets a truncated body,
+      // then the process "dies". A plain writeFileSync(backupPath) leaves that
+      // truncated file AT backupPath, and the existsSync guard then treats it
+      // as a finished backup forever.
+      vi.resetModules();
+      let crashOnce = true;
+      vi.doMock('node:fs', async (importOriginal) => {
+        const real = await importOriginal<typeof import('node:fs')>();
+        return {
+          ...real,
+          writeFileSync: (p: any, data: any, ...rest: any[]) => {
+            if (crashOnce && String(p).includes('growth.v1.json')) {
+              crashOnce = false;
+              real.writeFileSync(p, String(data).slice(0, 12), ...rest);
+              throw new Error('simulated crash mid-backup');
+            }
+            return real.writeFileSync(p, data, ...rest);
+          },
+        };
+      });
+      try {
+        const { migrateOrgFile } = await import('../../src/orgrt/migrate.js');
+        expect(() => migrateOrgFile(cfgPath, backupPath)).toThrow('simulated crash');
+        // Live config untouched by the failed run, and no half-written backup.
+        expect(JSON.parse(readFileSync(cfgPath, 'utf8')).topology).toBe('hierarchical');
+        expect(existsSync(backupPath)).toBe(false);
+
+        const res = migrateOrgFile(cfgPath, backupPath);
+        expect(res.status).toBe('migrated');
+        const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
+        expect(backup.topology).toBe('hierarchical');
+        expect(JSON.parse(readFileSync(cfgPath, 'utf8')).schedule).toBe('30m');
+      } finally {
+        vi.doUnmock('node:fs');
+        vi.resetModules();
+      }
     } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 });

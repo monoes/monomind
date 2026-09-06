@@ -310,4 +310,41 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     expect(resumed).toBeDefined();
     expect(resumed!.taskDag?.all()).toHaveLength(2);
   });
+
+  it('re-dispatches a running task whose role session was not resumed, and leaves one whose session was', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const def = createTestDef('Running-task resume test');
+    writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(def));
+
+    const running = await daemon.startOrg(orgName);
+    // Boss task: its role checkpoints with a session id, so the resumed SDK
+    // session still carries the task — it must NOT be re-sent.
+    const bossTask = running.taskDag!.add('Boss task', 'boss');
+    running.taskDag!.markRunning(bossTask.id);
+    running.agents.get('boss')!.sessionId = 'sess-boss';
+    // Worker task: the worker never spawned (pending), so nothing on resume
+    // knows about the task unless it is put back to 'ready' and dispatched.
+    const workerTask = running.taskDag!.add('Worker task', 'worker');
+    running.taskDag!.markRunning(workerTask.id);
+    expect(running.taskDag!.get(workerTask.id)!.status).toBe('running');
+
+    await daemon.stopOrg(orgName);
+
+    const resumed = await daemon.resumeOrg(orgName);
+    expect(resumed).toBeDefined();
+    expect(resumed!.taskDag!.get(bossTask.id)!.status).toBe('running');
+    expect(
+      resumed!.busEvents().find(
+        (e) => e.reason === 'task-dispatched' && (e.data as any)?.taskId === bossTask.id,
+      ),
+    ).toBeUndefined();
+
+    const dispatched = resumed!
+      .busEvents()
+      .find((e) => e.reason === 'task-dispatched' && (e.data as any)?.taskId === workerTask.id);
+    expect(dispatched).toBeTruthy();
+    expect(resumed!.agents.has('worker')).toBe(true);
+    expect(resumed!.taskDag!.get(workerTask.id)!.status).toBe('running');
+    await daemon.stopOrg(orgName);
+  });
 });

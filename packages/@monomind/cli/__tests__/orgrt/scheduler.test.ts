@@ -114,6 +114,24 @@ describe('OrgScheduler', () => {
     vi.useRealTimers();
   });
 
+  it('a catch-up run after add() replaced the schedule uses the NEW interval, not the old closure', async () => {
+    vi.useFakeTimers();
+    const intervals: number[] = [];
+    const s = new OrgScheduler(async (_name, intervalMs) => {
+      intervals.push(intervalMs);
+      await new Promise<void>(r => setTimeout(r, 400_000));
+    });
+    s.add('alpha', 60_000, true);            // run #1 starts at t0 with 60s
+    await vi.advanceTimersByTimeAsync(30_000);
+    s.add('alpha', 300_000);                 // rescheduled mid-run to 300s
+    // New timer ticks at t0+330s while run #1 (ends t0+400s) is still going →
+    // recorded as pending; run #1's finally fires the catch-up.
+    await vi.advanceTimersByTimeAsync(400_000);
+    expect(intervals).toEqual([60_000, 300_000]);
+    s.stop();
+    vi.useRealTimers();
+  });
+
   it('logs runFn errors instead of swallowing them silently', async () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
