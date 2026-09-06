@@ -23,8 +23,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SQLiteBackend } from './sqlite-backend.js';
 import { SqlJsBackend } from './sqljs-backend.js';
-import type { IMemoryBackend } from './types.js';
+import type { IMemoryBackend, MemoryEntry } from './types.js';
 import { createDefaultEntry } from './types.js';
+
+/** storeIfVersion/storeIfAbsent (K5) are SqlBackend-only additions, not part
+ *  of IMemoryBackend — both concrete backends here extend SqlBackend, so both
+ *  have them; this local type just gives the tests below a typed handle. */
+interface CasBackend extends IMemoryBackend {
+  storeIfVersion(entry: MemoryEntry, expectedVersion: number): Promise<boolean>;
+  storeIfAbsent(entry: MemoryEntry): Promise<boolean>;
+}
 
 interface BackendCase {
   name: string;
@@ -195,6 +203,73 @@ for (const backendCase of BACKENDS) {
         const found = await backend.getByKey('conformance', 'with-embedding');
         expect(found?.embedding).toBeDefined();
         expect(Array.from(found?.embedding!)).toEqual(Array.from(embedding));
+      });
+    });
+
+    // ---- Compare-and-swap primitives (K5) --------------------------------
+    // memory-KG review 2026-09-05: a getByKey() + store() read-merge-write has
+    // no atomicity guarantee, so two concurrent callers merging onto (or
+    // creating) the same row can silently lose one's update. These are the
+    // single-statement SQL primitives memory-kg.ts's claim-ledger merge is
+    // built on to detect that instead.
+    describe('compare-and-swap primitives (K5)', () => {
+      it('storeIfAbsent creates a row that did not exist yet', async () => {
+        const entry = createDefaultEntry({
+          key: 'cas-new',
+          content: 'first',
+          namespace: 'conformance',
+          tags: [],
+        });
+        const created = await (backend as CasBackend).storeIfAbsent(entry);
+        expect(created).toBe(true);
+        expect((await backend.getByKey('conformance', 'cas-new'))?.content).toBe('first');
+      });
+
+      it('storeIfAbsent refuses a row a concurrent writer already created at the same key', async () => {
+        const first = createDefaultEntry({
+          key: 'cas-race',
+          content: 'winner',
+          namespace: 'conformance',
+          tags: [],
+        });
+        await (backend as CasBackend).storeIfAbsent(first);
+
+        // A second caller minted a DIFFERENT random row id for the same
+        // deterministic namespace+key — exactly what two concurrent creators
+        // of the same new KG entity do.
+        const second = createDefaultEntry({
+          key: 'cas-race',
+          content: 'loser',
+          namespace: 'conformance',
+          tags: [],
+        });
+        const created = await (backend as CasBackend).storeIfAbsent(second);
+
+        expect(created).toBe(false);
+        expect((await backend.getByKey('conformance', 'cas-race'))?.content).toBe('winner');
+      });
+
+      it('storeIfVersion writes only when the row is still at the expected version', async () => {
+        const entry = await store('cas-versioned', ['t']);
+        const casBackend = backend as CasBackend;
+
+        const stale = await casBackend.storeIfVersion(
+          { ...entry, content: 'stale-write', version: 2 },
+          99,
+        );
+        expect(stale).toBe(false);
+        expect((await backend.getByKey('conformance', 'cas-versioned'))?.content).toBe(
+          'content for cas-versioned',
+        );
+
+        const fresh = await casBackend.storeIfVersion(
+          { ...entry, content: 'fresh-write', version: 2 },
+          1,
+        );
+        expect(fresh).toBe(true);
+        expect((await backend.getByKey('conformance', 'cas-versioned'))?.content).toBe(
+          'fresh-write',
+        );
       });
     });
   });
