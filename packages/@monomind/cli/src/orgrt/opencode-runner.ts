@@ -36,7 +36,12 @@
  *     clear actionable error instead of crashing at import time.
  */
 
-import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  type AgentMessage,
+  type AgentRunArgs,
+  type AgentRunner,
+  killOnAbort,
+} from './agent-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -109,6 +114,20 @@ export class OpencodeAgentRunner implements AgentRunner {
       client = started.client;
       server = started.server;
     }
+
+    // Abort hook (see AgentRunArgs.signal): the only child this runner owns
+    // is the ephemeral server it spawned — close it so its process dies and
+    // the in-flight prompt() call fails instead of running on unobserved.
+    // (Attached servers are the user's — never close those.)
+    const unsubscribeAbort = killOnAbort(args.signal, {
+      kill: () => {
+        try {
+          server?.close();
+        } catch {
+          /* best-effort */
+        }
+      },
+    });
 
     try {
       // One opencode session per role run. The system prompt (plus the fence
@@ -223,6 +242,7 @@ export class OpencodeAgentRunner implements AgentRunner {
         };
       }
     } finally {
+      unsubscribeAbort();
       // Termination path: close the ephemeral server we spawned. (Attached
       // servers are the user's — never close those.)
       try {
