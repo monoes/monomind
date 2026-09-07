@@ -30,6 +30,20 @@ export interface RoleCheckpoint {
   error?: string;
   /** Terminal scrollback — last N lines of agent output. */
   scrollback?: string[];
+  /** Role-slot generation this checkpoint was captured at (0 = never replaced). */
+  generation: number;
+  /** Accepted org_respawn_role attempts for this role so far this run. */
+  respawnCount: number;
+  /** Currently-applied overrides on top of the org definition's role config —
+   *  omitted fields mean "keep the org-definition value", not "unset it". */
+  effectiveRoleOverrides: { runtime?: string; model?: string; providerName?: string };
+  /** Messages that arrived while the role was mid-replacement, not yet
+   *  delivered into a live mailbox. */
+  queuedDuringSwap: string[];
+  /** Usage retired from a previous (replaced) incarnation of this role —
+   *  kept separate from the live PolicyEngine's usage so org-wide budget
+   *  enforcement can sum both without double-counting or resetting spend. */
+  retiredUsage: { tokens: number; costUsd: number };
 }
 
 /** Full checkpoint state for an org */
@@ -53,8 +67,11 @@ export interface OrgCheckpoint {
   checksum: string;
 }
 
-/** Current checkpoint format version. Bump on breaking shape changes. */
-export const CHECKPOINT_VERSION = 1;
+/** Current checkpoint format version. Bump on breaking shape changes.
+ *  v2 (this bump): added generation, respawnCount, effectiveRoleOverrides,
+ *  queuedDuringSwap, retiredUsage per RoleCheckpoint for mid-run role
+ *  replacement — see migrateCheckpoint() for the v1→v2 upgrade path. */
+export const CHECKPOINT_VERSION = 2;
 
 /** Checkpoint TTL config */
 export const CHECKPOINT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default
@@ -83,6 +100,11 @@ export function captureCheckpoint(
       status: runtime.status,
       error: runtime.error,
       scrollback: runtime.scrollback?.snapshot(),
+      generation: 0,
+      respawnCount: 0,
+      effectiveRoleOverrides: {},
+      queuedDuringSwap: [],
+      retiredUsage: { tokens: 0, costUsd: 0 },
     };
   }
 
@@ -143,6 +165,49 @@ export function isCheckpointExpired(
   const updated = new Date(checkpoint.updated).getTime();
   const now = Date.now();
   return now - updated > ttlMs;
+}
+
+/** Verify a checkpoint's checksum against its OWN stored version/shape,
+ *  without gating on CHECKPOINT_VERSION. generateChecksum is schema-agnostic
+ *  (it hashes whatever object shape it's given), so this correctly validates
+ *  an old-shape checkpoint on its own terms before any migration touches it. */
+function verifyStoredChecksum(checkpoint: OrgCheckpoint): boolean {
+  const { checksum, ...state } = checkpoint;
+  return checksum === generateChecksum(state);
+}
+
+/** Migrate a checkpoint from a known older schema version to
+ *  CHECKPOINT_VERSION. Returns the checkpoint unchanged if already current,
+ *  or null if its own integrity check fails or its version is neither
+ *  current nor a version this build knows how to migrate from — callers
+ *  must treat null the same as "no usable checkpoint" (see resumeOrg /
+ *  daemon.ts's resume path, which call this before validateCheckpoint).
+ *
+ *  v1→v2: old per-role state never went through a replacement, so the only
+ *  correct defaults are generation 0, zero respawns, no config overrides
+ *  (the org definition's own role config still applies), no swap-queued
+ *  messages, and zero retired usage. */
+export function migrateCheckpoint(checkpoint: OrgCheckpoint): OrgCheckpoint | null {
+  if (checkpoint.version === CHECKPOINT_VERSION) return checkpoint;
+  if (checkpoint.version !== 1) return null;
+  if (!verifyStoredChecksum(checkpoint)) return null;
+  const roleState: Record<string, RoleCheckpoint> = {};
+  for (const [roleId, old] of Object.entries(checkpoint.roleState)) {
+    roleState[roleId] = {
+      ...old,
+      generation: 0,
+      respawnCount: 0,
+      effectiveRoleOverrides: {},
+      queuedDuringSwap: [],
+      retiredUsage: { tokens: 0, costUsd: 0 },
+    };
+  }
+  const migrated: Omit<OrgCheckpoint, 'checksum'> = {
+    ...checkpoint,
+    version: CHECKPOINT_VERSION,
+    roleState,
+  };
+  return { ...migrated, checksum: generateChecksum(migrated) };
 }
 
 /**
