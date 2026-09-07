@@ -1209,6 +1209,9 @@ export class OrgDaemon {
       // status chatter) so a dead agent surfaces instead of a run that
       // silently never progresses.
       const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
+      const myGeneration = running.roleSlots.get(role.id)?.generation ?? 0;
+      const isStaleGeneration = (): boolean =>
+        (running.roleSlots.get(role.id)?.generation ?? 0) !== myGeneration;
       if (!mailbox.isClosed && runtime.status !== 'crashed') {
         runtime.done = (async () => {
           for (let attempt = 0; ; attempt++) {
@@ -1217,6 +1220,15 @@ export class OrgDaemon {
               runtime.status = 'ended';
               return;
             } catch (err) {
+              // A deliberate respawn (see respawnRole) bumps the slot's
+              // generation and force-stops this incarnation via its
+              // externalAbort - that abort makes runAgentSession reject here
+              // exactly like a real crash would. Recognize supersession
+              // FIRST: this generation's retry loop must never restart,
+              // never run terminal crash handling, and never notify the
+              // boss - the replacement (a new generation, spawned
+              // separately) already owns this role id.
+              if (isStaleGeneration()) return;
               // Drop the crashed session's stale waker immediately: a push()
               // during the backoff window must queue for the NEXT session, not
               // wake the dead generator to swallow it.
@@ -1338,6 +1350,7 @@ export class OrgDaemon {
                 const t = setTimeout(r, BACKOFFS_MS[attempt]);
                 (t as { unref?: () => void }).unref?.();
               });
+              if (isStaleGeneration()) return; // superseded during the backoff wait
               if (mailbox.isClosed) {
                 crash();
                 return;
