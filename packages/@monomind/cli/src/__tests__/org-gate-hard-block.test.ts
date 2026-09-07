@@ -103,6 +103,10 @@ describe('ORG-9: daemon.listGates()-backed hasPendingGate wiring', () => {
       bus,
       agents: new Map([['boss', makeAgent()]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     daemon.orgs.set('alpha', running);
 

@@ -62,6 +62,10 @@ describe('finishStop reports which roles were still active at the drain timeout 
         ['done-worker', fakeAgent('ended', Promise.resolve())],
       ]),
       busEvents: () => events,
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     daemon.orgs.set('testorg', running);
 
@@ -94,6 +98,10 @@ describe('finishStop reports which roles were still active at the drain timeout 
         ['worker-a', fakeAgent('ended', new Promise<void>((r) => setTimeout(r, 200)))],
       ]),
       busEvents: () => events,
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     daemon.orgs.set('testorg2', running);
 
