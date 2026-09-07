@@ -22,6 +22,7 @@ import {
   captureCheckpoint,
   generateChecksum,
   isCheckpointExpired,
+  migrateCheckpoint,
   type OrgCheckpoint,
   type RoleCheckpoint,
   restoreMailboxQueue,
@@ -609,8 +610,13 @@ export class OrgDaemon {
         throw new Error(`cannot resume org "${name}": no valid checkpoint found`);
       if (isCheckpointExpired(rt.checkpoint))
         throw new Error(`cannot resume org "${name}": checkpoint expired`);
-      if (!validateCheckpoint(rt.checkpoint))
+      // Migrate an older-schema checkpoint (verifying ITS OWN stored checksum
+      // first) before validating it against CHECKPOINT_VERSION — see
+      // migrateCheckpoint's doc comment in checkpoint.ts.
+      const migrated = migrateCheckpoint(rt.checkpoint);
+      if (!migrated || !validateCheckpoint(migrated))
         throw new Error(`cannot resume org "${name}": checkpoint validation failed`);
+      rt.checkpoint = migrated;
       run = rt.run;
       checkpoint = rt.checkpoint;
       if (rt.abandonedRoles) {

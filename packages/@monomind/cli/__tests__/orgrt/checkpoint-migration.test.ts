@@ -1,4 +1,8 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { resumeOrg } from '../../src/orgrt/checkpoint-ops.js';
 import {
   CHECKPOINT_VERSION,
   captureCheckpoint,
@@ -7,6 +11,8 @@ import {
   type OrgCheckpoint,
   type RoleCheckpoint,
 } from '../../src/orgrt/checkpoint.js';
+import { OrgDaemon } from '../../src/orgrt/daemon.js';
+import { OrgDefSchema } from '../../src/orgrt/types.js';
 
 function v1RoleState(): Omit<
   RoleCheckpoint,
@@ -69,5 +75,37 @@ describe('migrateCheckpoint', () => {
     const cp = v1Checkpoint();
     (cp as any).version = 999;
     expect(migrateCheckpoint(cp)).toBeNull();
+  });
+
+  it('resumeOrg accepts a v1 runtime.json by migrating it in place first', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'orgrt-resume-migrate-'));
+    const orgDir = join(root, '.monomind', 'orgs', 'migrate-org');
+    mkdirSync(orgDir, { recursive: true });
+    const def = OrgDefSchema.parse({
+      name: 'migrate-org',
+      roles: [{ id: 'boss' }],
+      run_config: { idle_minutes: 0 },
+    });
+    writeFileSync(join(root, '.monomind', 'orgs', 'migrate-org.json'), JSON.stringify(def));
+    // Fresh `updated` timestamp (not v1Checkpoint()'s epoch-0 default) so this
+    // integration test exercises migration, not the unrelated TTL check.
+    const partial = {
+      version: 1,
+      status: 'running' as const,
+      run: 'run-1',
+      pid: 123,
+      updated: new Date().toISOString(),
+      roleState: { boss: v1RoleState() as RoleCheckpoint },
+      pendingRoles: [],
+    };
+    const cp: OrgCheckpoint = { ...partial, checksum: generateChecksum(partial) };
+    writeFileSync(
+      join(orgDir, 'runtime.json'),
+      JSON.stringify({ status: 'stopped', run: cp.run, checkpoint: cp }),
+    );
+    const daemon = new OrgDaemon(root, { stopWaitMs: 100, crossProcess: false });
+    const running = await resumeOrg(daemon, 'migrate-org');
+    expect(running).not.toBeNull();
+    await daemon.stopOrg('migrate-org');
   });
 });

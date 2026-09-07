@@ -4,7 +4,12 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'node:path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { OrgBus } from './bus.js';
-import { isCheckpointExpired, type OrgCheckpoint, validateCheckpoint } from './checkpoint.js';
+import {
+  isCheckpointExpired,
+  migrateCheckpoint,
+  type OrgCheckpoint,
+  validateCheckpoint,
+} from './checkpoint.js';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
 import { type BusEvent, ORG_DIR, OrgDefSchema } from './types.js';
 
@@ -140,10 +145,16 @@ export async function resumeOrg(daemon: OrgDaemon, name: string): Promise<Runnin
     return null;
   }
 
-  // Pattern 3: Checksum validation - detect corrupted state
-  if (rt.checkpoint && !validateCheckpoint(rt.checkpoint)) {
-    console.error('resumeOrg failed: checkpoint validation failed for', name);
-    return null;
+  // Pattern 3: Checksum validation - detect corrupted state. Migrate an
+  // older-schema checkpoint (verifying ITS OWN stored checksum first) before
+  // checking it against the current version — see migrateCheckpoint's doc.
+  if (rt.checkpoint) {
+    const migrated = migrateCheckpoint(rt.checkpoint);
+    if (!migrated || !validateCheckpoint(migrated)) {
+      console.error('resumeOrg failed: checkpoint validation failed for', name);
+      return null;
+    }
+    rt.checkpoint = migrated;
   }
 
   // Load the org definition
