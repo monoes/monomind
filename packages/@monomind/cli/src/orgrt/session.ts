@@ -240,6 +240,12 @@ export interface SessionOpts {
    *  session.ts builds a ClaudeAgentRunner from queryFn (or the default),
    *  preserving the previous Claude-only behaviour exactly. */
   runner?: AgentRunner;
+  /** Caller-owned cancellation handle for THIS incarnation. When supplied,
+   *  runAgentSession uses it instead of creating its own internal
+   *  AbortController — lets the daemon force-stop a specific incarnation
+   *  (mid-run role replacement's forced-stop step) without reaching into
+   *  runAgentSession's internals. */
+  externalAbort?: AbortController;
   /** ID of the last message received by this agent (for threading responses). Function to ensure live reading. */
   lastMessageId?: () => string | undefined;
   /** Callback for each output line — feeds ScrollbackBuffer. */
@@ -432,7 +438,12 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     // push() before the next stream() starts only queues instead of being
     // consumed by the abandoned generator (silent message loss).
     mailbox.detach();
-    if (mailbox.isClosed) return;
+    // A draining mailbox (mid-run role replacement's graceful quiesce, see
+    // Mailbox.beginDrain) is the same terminal condition as closed for THIS
+    // loop's purposes: stream() already returned cleanly instead of throwing,
+    // so without this check the loop would just keep calling runOneSession
+    // forever, since isClosed alone stays false for a deliberate drain.
+    if (mailbox.isClosed || mailbox.isDraining) return;
     const madeProgress = mailbox.consumedRealCount > realBefore;
     if (hitTurnLimit && madeProgress) consecutiveSpin = 0;
     if (hitTurnLimit) {
@@ -514,7 +525,7 @@ async function runOneSession(
   // abort below used to call iterator.return() only, which queues behind a
   // subprocess runner blocked in `for await (child.stdout)` — the child was
   // never killed, so every supervisor retry stacked another live CLI.
-  const abort = new AbortController();
+  const abort = opts.externalAbort ?? new AbortController();
   try {
     const stream = runner.run({
       tools,
