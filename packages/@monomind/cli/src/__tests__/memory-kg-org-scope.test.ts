@@ -308,12 +308,16 @@ describe('org ownership of memory KG facts', () => {
     // it always did, or every existing project graph becomes unreachable.
     // `names` joined the set when identity moved off the key into a name index;
     // it holds the index, not claims, which is why it is a namespace of its own
-    // rather than rows mixed into `kg:nodes`.
+    // rather than rows mixed into `kg:nodes`. `adj`/`originIdx`/`indexStatus`
+    // (K7) are the same kind of derived, no-claims namespace.
     expect(kgNamespaces()).toEqual({
       nodes: 'kg:nodes',
       edges: 'kg:edges',
       rules: 'rules',
       names: 'kg:names',
+      adj: 'kg:adj',
+      originIdx: 'kg:origin-idx',
+      indexStatus: 'kg:index-status',
     });
     expect(kgQualifyOrigin('session:abc')).toBe('session:abc');
 

@@ -106,6 +106,12 @@ export const RULES_NS = 'rules';
  *  three claim namespaces: putting them in `kg:nodes` would make them seed
  *  candidates for `kgSearch` and rows in `kgStats`. */
 export const KG_NAMES_NS = 'kg:names';
+/** Derived adjacency index namespace (K7). See `KgNamespaces.adj`. */
+export const KG_ADJ_NS = 'kg:adj';
+/** Derived origin-support index namespace (K7). See `KgNamespaces.originIdx`. */
+export const KG_ORIGIN_IDX_NS = 'kg:origin-idx';
+/** Derived-index status namespace (K7). See `KgNamespaces.indexStatus`. */
+export const KG_INDEX_STATUS_NS = 'kg:index-status';
 
 const MAX_NAME_LEN = 200;
 const MAX_DESC_LEN = 2000;
@@ -233,6 +239,27 @@ async function scanNamespace(
     if (res.entries.length && onPage(res.entries) === false) return true;
     if (res.entries.length < SCAN_PAGE) return true;
   }
+}
+
+/** Delete every entry in `namespace`. Used only to reset a DERIVED-index
+ *  namespace (`kg:adj`/`kg:origin-idx`) before a fresh `kgRebuildIndex` —
+ *  never a canonical one. Collect-then-delete, same reason `kgRollback`
+ *  does: deleting mid-scan pulls later rows back under an advancing offset.
+ *  Returns false (nothing deleted) on an unreadable or partially-deletable
+ *  namespace, so the caller never proceeds as if a clear that didn't fully
+ *  happen did. */
+async function clearNamespace(namespace: string, dbPath: string | undefined): Promise<boolean> {
+  const doomed: ScannedEntry[] = [];
+  const covered = await scanNamespace(namespace, dbPath, (page) => {
+    for (const e of page) doomed.push(e);
+  });
+  if (!covered) return false;
+  let ok = true;
+  for (const e of doomed) {
+    const del = await bridgeDeleteEntry({ id: e.id, namespace, dbPath });
+    if (!del?.deleted) ok = false;
+  }
+  return ok;
 }
 
 export interface KgNodeInput {
@@ -410,6 +437,14 @@ export interface KgNamespaces {
   rules: string;
   /** Name → entity index backing `resolveEntity`. Holds no claims. */
   names: string;
+  /** Derived adjacency index: entity id -> edge keys touching it (K7). Holds
+   *  no claims either — every entry is rebuildable from `edges`. */
+  adj: string;
+  /** Derived origin-support index: origin ref -> {ns,key} refs it supports,
+   *  across nodes/edges/rules (K7). Rebuildable from all three. */
+  originIdx: string;
+  /** This scope's derived-index build/readiness state (K7). One row. */
+  indexStatus: string;
 }
 
 /** The namespaces a scope owns. Every read and write in this module resolves
@@ -418,13 +453,25 @@ export interface KgNamespaces {
  *  and none that reaches every org at once. */
 export function kgNamespaces(scope?: KgScope): KgNamespaces {
   const org = scope?.org?.trim();
-  if (!org) return { nodes: KG_NODES_NS, edges: KG_EDGES_NS, rules: RULES_NS, names: KG_NAMES_NS };
+  if (!org)
+    return {
+      nodes: KG_NODES_NS,
+      edges: KG_EDGES_NS,
+      rules: RULES_NS,
+      names: KG_NAMES_NS,
+      adj: KG_ADJ_NS,
+      originIdx: KG_ORIGIN_IDX_NS,
+      indexStatus: KG_INDEX_STATUS_NS,
+    };
   const suffix = `:org:${normalizeName(org)}`;
   return {
     nodes: KG_NODES_NS + suffix,
     edges: KG_EDGES_NS + suffix,
     rules: RULES_NS + suffix,
     names: KG_NAMES_NS + suffix,
+    adj: KG_ADJ_NS + suffix,
+    originIdx: KG_ORIGIN_IDX_NS + suffix,
+    indexStatus: KG_INDEX_STATUS_NS + suffix,
   };
 }
 
@@ -857,6 +904,7 @@ export async function kgIngest(options: {
       else nodesMerged++;
       resolved.set(memoKey(n.name, type), target.id);
       if (target.index) await writeNameIndex(n.name, target.index, ns, dbPath, failures);
+      await onEntrySupported(ns, ns.nodes, target.id, originRef, dbPath);
     }
 
     /** Resolve an edge endpoint, creating an explicit placeholder entity when
@@ -893,6 +941,7 @@ export async function kgIngest(options: {
       if (wrote) report.placeholders++;
       if (target.index) await writeNameIndex(name, target.index, ns, dbPath, failures);
       resolved.set(memo, target.id);
+      await onEntrySupported(ns, ns.nodes, target.id, originRef, dbPath);
       return target.id;
     };
 
@@ -959,6 +1008,8 @@ export async function kgIngest(options: {
       report.noteProvenanceLoss(md, derived);
       if (isNew) edgesAdded++;
       else edgesMerged++;
+      await onEntrySupported(ns, ns.edges, key, originRef, dbPath);
+      if (isNew) await onEdgeWritten(ns, key, srcKey, dstKey, dbPath);
     }
 
     return {
@@ -1275,6 +1326,7 @@ export async function kgIngestRules(options: {
         dbPath: options.dbPath,
       });
       const ruleFailed = failures.add(stored, `rule ${key}`);
+      if (!ruleFailed) await onEntrySupported(ns, ns.rules, key, originRef, options.dbPath);
       if (nodeRes.failures?.length) for (const m of nodeRes.failures) failures.note(m);
       // Only count a rule as accepted when BOTH of its writes landed; a rule
       // present in one namespace only is not the state the caller was told
@@ -1366,6 +1418,7 @@ async function reinforceRuleOrigin(
       },
     });
     if (failures.add(res, `rule ${entry.key}`)) ok = false;
+    else await onEntrySupported(ns, ns.rules, entry.key, qualified, dbPath);
   }
 
   // The rule's KG node needs the same origin — rollback walks nodes separately.
@@ -1501,65 +1554,104 @@ export async function kgSearch(options: {
     const seedScore = new Map<string, number>();
     for (const s of seedResults) seedScore.set(s.key, s.score);
 
-    // Paged edge scan (see monolean note in module header). Each page is folded
-    // into the running top-`limit` immediately, so memory stays at one page
-    // regardless of how many edges the namespace holds.
     const triplets: KgSearchResult['triplets'] = [];
     let scannedEdges = 0;
     let truncated = false;
-    const covered = await scanNamespace(ns.edges, options.dbPath, (page) => {
-      for (const e of page) {
-        scannedEdges++;
-        const md = e.metadata as Record<string, unknown>;
-        if (md?.kg !== 'edge' || md.valid_to != null) continue;
-        const src = String(md.src ?? '');
-        const dst = String(md.dst ?? '');
-        const sSrc = seedScore.get(src) ?? 0;
-        const sDst = seedScore.get(dst) ?? 0;
-        if (sSrc === 0 && sDst === 0) continue;
-        // Both endpoints seeded beats one; the unseeded endpoint contributes a
-        // neutral 0.35 so bridging edges from a strong seed still surface.
-        const relevance =
-          (Math.max(sSrc, 0.35) + Math.max(sDst, 0.35)) / 2 + (sSrc > 0 && sDst > 0 ? 0.1 : 0);
-        // Evidence, from the claim ledger. An edge whose method was never
-        // recorded is left at its relevance score — unknown is not evidence
-        // against it, and penalizing it would demote the entire pre-existing
-        // graph relative to anything written today.
-        const method =
-          md.method === 'asserted' || md.method === 'heuristic'
-            ? (md.method as KgExtractionMethod)
-            : undefined;
-        const conflict = md.conflict === true;
-        const score = Math.max(
-          0,
-          relevance -
-            (method === 'heuristic' ? HEURISTIC_PENALTY : 0) -
-            (conflict ? CONFLICT_PENALTY : 0),
-        );
-        triplets.push({
-          source: String(md.source_name ?? src),
-          relation: String(md.relation ?? 'related_to'),
-          target: String(md.target_name ?? dst),
-          fact: e.content,
-          score,
-          ...(method ? { method } : {}),
-          ...(conflict ? { conflict } : {}),
-          id: e.id,
-          key: e.key,
-        });
-      }
-      // Scores are per-edge, so pruning to the running top-`limit` after each
-      // page yields exactly the same result as sorting the whole set at the end.
+
+    /** Score one edge against the seeded entities and, if relevant, push its
+     *  triplet — shared by the indexed and exhaustive gathering paths below
+     *  so ranking never depends on which one ran (K7). */
+    const considerEdge = (e: ScannedEntry): void => {
+      scannedEdges++;
+      const md = (e.metadata ?? {}) as Record<string, unknown>;
+      if (md?.kg !== 'edge' || md.valid_to != null) return;
+      const src = String(md.src ?? '');
+      const dst = String(md.dst ?? '');
+      const sSrc = seedScore.get(src) ?? 0;
+      const sDst = seedScore.get(dst) ?? 0;
+      if (sSrc === 0 && sDst === 0) return;
+      // Both endpoints seeded beats one; the unseeded endpoint contributes a
+      // neutral 0.35 so bridging edges from a strong seed still surface.
+      const relevance =
+        (Math.max(sSrc, 0.35) + Math.max(sDst, 0.35)) / 2 + (sSrc > 0 && sDst > 0 ? 0.1 : 0);
+      // Evidence, from the claim ledger. An edge whose method was never
+      // recorded is left at its relevance score — unknown is not evidence
+      // against it, and penalizing it would demote the entire pre-existing
+      // graph relative to anything written today.
+      const method =
+        md.method === 'asserted' || md.method === 'heuristic'
+          ? (md.method as KgExtractionMethod)
+          : undefined;
+      const conflict = md.conflict === true;
+      const score = Math.max(
+        0,
+        relevance -
+          (method === 'heuristic' ? HEURISTIC_PENALTY : 0) -
+          (conflict ? CONFLICT_PENALTY : 0),
+      );
+      triplets.push({
+        source: String(md.source_name ?? src),
+        relation: String(md.relation ?? 'related_to'),
+        target: String(md.target_name ?? dst),
+        fact: e.content,
+        score,
+        ...(method ? { method } : {}),
+        ...(conflict ? { conflict } : {}),
+        id: e.id,
+        key: e.key,
+      });
+    };
+    // Scores are per-edge, so pruning to the running top-`limit` after every
+    // batch yields exactly the same result as sorting the whole set at the end.
+    const pruneToLimit = (): void => {
       if (triplets.length > limit) {
         triplets.sort((a, b) => b.score - a.score);
         triplets.length = limit;
       }
-      if (scannedEdges >= SEARCH_EDGE_SCAN_MAX) {
-        truncated = true;
-        return false;
+    };
+
+    // K7: gather candidate edges via each seed's adjacency entry — O(seeds ×
+    // degree) instead of a full namespace scan — when the scope's index is
+    // ready and every seed's adjacency entry resolves. Any seed that misses
+    // (index not ready, or an unresolvable ref) falls the WHOLE query back to
+    // the exhaustive scan rather than silently searching only some seeds.
+    let covered = false;
+    let usedIndex = false;
+    if ((await readIndexStatus(ns, options.dbPath)).state === 'ready') {
+      const candidateKeys = new Set<string>();
+      let indexOk = true;
+      for (const s of seedResults) {
+        const adj = await readAdj(ns, s.key, options.dbPath);
+        if (adj === null) {
+          indexOk = false;
+          break;
+        }
+        for (const key of adj.edgeKeys) candidateKeys.add(key);
       }
-      return true;
-    });
+      if (indexOk) {
+        for (const key of candidateKeys) {
+          const res = await bridgeGetEntry({ key, namespace: ns.edges, dbPath: options.dbPath });
+          if (res?.found && res.entry) considerEdge(res.entry as ScannedEntry);
+        }
+        pruneToLimit();
+        usedIndex = true;
+        covered = true;
+      }
+    }
+    // Paged edge scan (see monolean note in module header). Each page is folded
+    // into the running top-`limit` immediately, so memory stays at one page
+    // regardless of how many edges the namespace holds.
+    if (!usedIndex) {
+      covered = await scanNamespace(ns.edges, options.dbPath, (page) => {
+        for (const e of page) considerEdge(e);
+        pruneToLimit();
+        if (scannedEdges >= SEARCH_EDGE_SCAN_MAX) {
+          truncated = true;
+          return false;
+        }
+        return true;
+      });
+    }
     // An unreadable namespace is an incomplete answer, not an empty graph.
     if (!covered) truncated = true;
     triplets.sort((a, b) => b.score - a.score);
@@ -1726,8 +1818,27 @@ export async function kgRollback(options: {
   const removedIds = new Set<string>();
   const removedNames = new Set<string>();
   try {
+    // K7: one indexed read across all three namespaces, tried before the
+    // exhaustive per-namespace scan. Only trusted when the scope's index is
+    // `ready` AND every ref it names still resolves — `kgIndexedByOrigin`
+    // returns null otherwise, and this falls straight back to the scan.
+    let indexedByNs: Map<string, ScannedEntry[]> | null = null;
+    if ((await readIndexStatus(namespaces, options.dbPath)).state === 'ready') {
+      const indexed = await kgIndexedByOrigin(namespaces, originRef, options.dbPath);
+      if (indexed !== null) {
+        indexedByNs = new Map([
+          [namespaces.nodes, []],
+          [namespaces.edges, []],
+          [namespaces.rules, []],
+        ]);
+        for (const { ns, entry } of indexed) indexedByNs.get(ns)?.push(entry);
+      }
+    }
+
     for (const ns of [namespaces.nodes, namespaces.edges, namespaces.rules]) {
-      const found = await collectByOrigin(ns, originRef, options.dbPath);
+      const found = indexedByNs
+        ? { entries: indexedByNs.get(ns) ?? [], covered: true }
+        : await collectByOrigin(ns, originRef, options.dbPath);
       // A partial scan cannot be reported as a completed withdrawal.
       if (!found.covered) {
         failures.note(`${ns}: memory backend unavailable`);
@@ -1745,8 +1856,18 @@ export async function kgRollback(options: {
 
         if (remaining === null) {
           const del = await bridgeDeleteEntry({ id: e.id, namespace: ns, dbPath: options.dbPath });
-          if (del?.deleted) deleted++;
-          else failures.note(`${ns}/${e.key}: delete failed`);
+          if (del?.deleted) {
+            deleted++;
+            await onOriginWithdrawn(namespaces, ns, e.key, originRef, options.dbPath);
+            await onEntryDeleted(
+              namespaces,
+              e.key,
+              options.dbPath,
+              ns === namespaces.edges
+                ? { src: String(md.src ?? ''), dst: String(md.dst ?? '') }
+                : undefined,
+            );
+          } else failures.note(`${ns}/${e.key}: delete failed`);
           if (ns === namespaces.nodes && del?.deleted) {
             removedIds.add(e.key);
             if (typeof md.name === 'string') removedNames.add(md.name);
@@ -1766,7 +1887,10 @@ export async function kgRollback(options: {
           tags: e.tags,
           metadata: { ...md, ...remaining },
         });
-        if (!failures.add(store, `${ns}/${e.key}: origin withdrawal`)) retained++;
+        if (!failures.add(store, `${ns}/${e.key}: origin withdrawal`)) {
+          retained++;
+          await onOriginWithdrawn(namespaces, ns, e.key, originRef, options.dbPath);
+        }
       }
     }
 
@@ -1830,11 +1954,13 @@ async function removeEdgesMissingEndpoints(
   dbPath: string | undefined,
   failures: FailureLog,
 ): Promise<number> {
-  const doomed: ScannedEntry[] = [];
+  const doomed: { entry: ScannedEntry; src: string; dst: string }[] = [];
   const covered = await scanNamespace(ns.edges, dbPath, (page) => {
     for (const e of page) {
       const md = (e.metadata ?? {}) as Record<string, unknown>;
-      if (removedIds.has(String(md.src)) || removedIds.has(String(md.dst))) doomed.push(e);
+      const src = String(md.src ?? '');
+      const dst = String(md.dst ?? '');
+      if (removedIds.has(src) || removedIds.has(dst)) doomed.push({ entry: e, src, dst });
     }
   });
   if (!covered) {
@@ -1842,10 +1968,17 @@ async function removeEdgesMissingEndpoints(
     return 0;
   }
   let removed = 0;
-  for (const e of doomed) {
+  for (const { entry: e, src, dst } of doomed) {
     const del = await bridgeDeleteEntry({ id: e.id, namespace: ns.edges, dbPath });
-    if (del?.deleted) removed++;
-    else failures.note(`${ns.edges}/${e.key}: dangling-edge delete failed`);
+    if (del?.deleted) {
+      removed++;
+      // Only the surviving endpoint needs its adjacency entry pruned — the
+      // removed one's own entry is moot, its entity is gone too.
+      await onEntryDeleted(ns, e.key, dbPath, {
+        src: removedIds.has(src) ? dst : src,
+        dst: removedIds.has(src) ? dst : src,
+      });
+    } else failures.note(`${ns.edges}/${e.key}: dangling-edge delete failed`);
   }
   return removed;
 }
@@ -2186,6 +2319,609 @@ export async function kgReferenceEdges(options: {
     return { success: true, edges, ...(covered ? {} : { truncated: true }) };
   } catch (err) {
     return { success: false, edges, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── Derived index (K7): adjacency + origin-support, rebuildable ─────
+//
+// kgSearch's edge scan and kgRollback's origin scan read via an EXHAUSTIVE
+// scan (`kgReferenceEdges`/`collectByOrigin`) because there is no legacy-key
+// fallback probe for an arbitrary historical edge or origin, the way K4's
+// identity migration has one for entity names (see the module header). An
+// index built only from writes made after it exists would silently miss
+// everything written before — a regression, not a fix.
+//
+// So this index is REBUILDABLE, not incrementally bootstrapped: `kgRebuildIndex`
+// runs one full canonical scan (nodes, then edges, then rules) and writes
+// every adjacency/origin-support entry from scratch, validates the result
+// against the same reference reads this module already trusts, and only then
+// flips the scope to `ready`. Both index namespaces hold REFERENCES (edge
+// keys / {ns,key} pairs), never duplicated claim content — an edge's
+// description or claims changing never desyncs the index; only a structural
+// add/remove does, which the dual-write hooks below cover.
+//
+// `ready` is per SCOPE and per SCHEMA VERSION: a scope that has never been
+// rebuilt, or was rebuilt under an older schema, reads exactly as it always
+// has (the exhaustive scan) — this index degrades to a no-op, never to a
+// silently incomplete answer. A dual-write hiccup downgrades the scope to
+// `failed` rather than letting the index silently drift out of sync.
+
+export type KgIndexState = 'absent' | 'building' | 'validating' | 'ready' | 'failed';
+
+export interface KgIndexStatus {
+  state: KgIndexState;
+  schemaVersion: number;
+  /** Resume point for an interrupted `kgRebuildIndex`. */
+  cursor?: { phase: 'nodes' | 'edges' | 'rules'; offset: number };
+  counts?: { nodes: number; edges: number; rules: number };
+  startedAt?: number;
+  updatedAt?: number;
+  error?: string;
+  /** Only meaningful when `state === 'failed'`. True for a build-phase
+   *  failure (the backend went unavailable mid-scan, or a dual-write hook
+   *  hit an error after `ready`): everything already written is still
+   *  correct, just incomplete, so the next call RESUMES from `cursor`. False
+   *  for a validation-phase failure (the built index disagreed with an
+   *  independent reference read): something already written is wrong, not
+   *  merely incomplete, so the next call restarts a fresh scan — resuming
+   *  would re-derive the same mistake instead of correcting it. */
+  resumable?: boolean;
+}
+
+const KG_INDEX_SCHEMA_VERSION = 1;
+const INDEX_STATUS_KEY = 'status';
+/** Edge keys recorded per adjacency entry before the index refuses to grow it
+ *  further and fails the SCOPE's index rather than risk an oversized or
+ *  silently truncated row. A hub node past this reads via the exhaustive
+ *  scan, exactly as before the index existed — this only gates the fast
+ *  path, never correctness. */
+const MAX_ADJ_EDGES_PER_NODE = 2000;
+/** Refs recorded per origin-support entry before the same refusal applies. */
+const MAX_ORIGIN_INDEX_REFS = 5000;
+
+async function readIndexStatus(
+  ns: KgNamespaces,
+  dbPath: string | undefined,
+): Promise<KgIndexStatus> {
+  const res = await bridgeGetEntry({ key: INDEX_STATUS_KEY, namespace: ns.indexStatus, dbPath });
+  if (!res?.found || !res.entry) return { state: 'absent', schemaVersion: KG_INDEX_SCHEMA_VERSION };
+  const md = (res.entry.metadata ?? {}) as Partial<KgIndexStatus>;
+  // An older/foreign schema is not a resumable build — start over rather than
+  // trust rows shaped by a version this code no longer understands.
+  if (md.schemaVersion !== KG_INDEX_SCHEMA_VERSION) {
+    return { state: 'absent', schemaVersion: KG_INDEX_SCHEMA_VERSION };
+  }
+  return { ...(md as KgIndexStatus), schemaVersion: KG_INDEX_SCHEMA_VERSION };
+}
+
+async function writeIndexStatus(
+  ns: KgNamespaces,
+  status: KgIndexStatus,
+  dbPath: string | undefined,
+): Promise<boolean> {
+  const res = await bridgeStoreEntry({
+    key: INDEX_STATUS_KEY,
+    value: `kg index: ${status.state}`,
+    namespace: ns.indexStatus,
+    dbPath,
+    upsert: true,
+    generateEmbeddingFlag: false,
+    metadata: { ...status, updatedAt: Date.now() },
+  });
+  return Boolean(res?.success);
+}
+
+/** Downgrade a scope's index to `failed` after a dual-write hiccup, so reads
+ *  fall back to the exhaustive scan instead of silently drifting. Never
+ *  throws — this runs from inside a best-effort maintenance path. */
+async function markIndexFailed(
+  ns: KgNamespaces,
+  dbPath: string | undefined,
+  error: string,
+): Promise<void> {
+  try {
+    const current = await readIndexStatus(ns, dbPath);
+    if (current.state === 'absent' || current.state === 'failed') return; // nothing to protect
+    // Not resumable: the cursor here is stale (either a completed build's end
+    // position, or mid-build), and a dual-write hiccup means something is
+    // missing from an UNKNOWN part of the index — only a fresh rescan finds it.
+    await writeIndexStatus(ns, { ...current, state: 'failed', resumable: false, error }, dbPath);
+  } catch {
+    /* best-effort: if even the downgrade write fails, the next rebuild's
+       validation step still catches an inconsistent index before it is
+       ever trusted for a read. */
+  }
+}
+
+/** This scope's derived-index build/readiness state. `absent` means no one
+ *  has ever called `kgRebuildIndex` for it — every read behaves exactly as
+ *  it did before this index existed. */
+export async function kgIndexStatus(options?: {
+  scope?: KgScope;
+  dbPath?: string;
+}): Promise<KgIndexStatus> {
+  return readIndexStatus(kgNamespaces(options?.scope), options?.dbPath);
+}
+
+// ── Adjacency entries (entity id -> edge keys) ───────────────────────
+
+interface KgAdjEntry {
+  edgeKeys: string[];
+}
+
+async function readAdj(
+  ns: KgNamespaces,
+  entityId: string,
+  dbPath: string | undefined,
+): Promise<KgAdjEntry | null> {
+  const res = await bridgeGetEntry({ key: entityId, namespace: ns.adj, dbPath });
+  if (!res) return null; // backend unavailable, distinct from "no entry yet"
+  if (!res.found || !res.entry) return { edgeKeys: [] };
+  const md = (res.entry.metadata ?? {}) as Partial<KgAdjEntry>;
+  return { edgeKeys: Array.isArray(md.edgeKeys) ? (md.edgeKeys as string[]) : [] };
+}
+
+async function addToAdj(
+  ns: KgNamespaces,
+  entityId: string,
+  edgeKey: string,
+  dbPath: string | undefined,
+): Promise<boolean> {
+  const current = await readAdj(ns, entityId, dbPath);
+  if (current === null) return false;
+  if (current.edgeKeys.includes(edgeKey)) return true; // already present, idempotent
+  if (current.edgeKeys.length >= MAX_ADJ_EDGES_PER_NODE) return false;
+  const res = await bridgeStoreEntry({
+    key: entityId,
+    value: `kg adjacency: ${entityId}`,
+    namespace: ns.adj,
+    dbPath,
+    upsert: true,
+    generateEmbeddingFlag: false,
+    metadata: { edgeKeys: [...current.edgeKeys, edgeKey] },
+  });
+  return Boolean(res?.success);
+}
+
+async function removeFromAdj(
+  ns: KgNamespaces,
+  entityId: string,
+  edgeKey: string,
+  dbPath: string | undefined,
+): Promise<boolean> {
+  const current = await readAdj(ns, entityId, dbPath);
+  if (current === null) return false;
+  if (!current.edgeKeys.includes(edgeKey)) return true; // already absent
+  const res = await bridgeStoreEntry({
+    key: entityId,
+    value: `kg adjacency: ${entityId}`,
+    namespace: ns.adj,
+    dbPath,
+    upsert: true,
+    generateEmbeddingFlag: false,
+    metadata: { edgeKeys: current.edgeKeys.filter((k) => k !== edgeKey) },
+  });
+  return Boolean(res?.success);
+}
+
+// ── Origin-support entries (origin ref -> {namespace,key} refs) ─────
+
+interface KgOriginIndexRef {
+  ns: string;
+  key: string;
+}
+
+interface KgOriginIndexEntry {
+  refs: KgOriginIndexRef[];
+}
+
+async function readOriginIndex(
+  ns: KgNamespaces,
+  originRef: string,
+  dbPath: string | undefined,
+): Promise<KgOriginIndexEntry | null> {
+  const res = await bridgeGetEntry({ key: originRef, namespace: ns.originIdx, dbPath });
+  if (!res) return null;
+  if (!res.found || !res.entry) return { refs: [] };
+  const md = (res.entry.metadata ?? {}) as Partial<KgOriginIndexEntry>;
+  return { refs: Array.isArray(md.refs) ? (md.refs as KgOriginIndexRef[]) : [] };
+}
+
+async function addToOriginIndex(
+  ns: KgNamespaces,
+  originRef: string,
+  ref: KgOriginIndexRef,
+  dbPath: string | undefined,
+): Promise<boolean> {
+  const current = await readOriginIndex(ns, originRef, dbPath);
+  if (current === null) return false;
+  if (current.refs.some((r) => r.ns === ref.ns && r.key === ref.key)) return true;
+  if (current.refs.length >= MAX_ORIGIN_INDEX_REFS) return false;
+  const res = await bridgeStoreEntry({
+    key: originRef,
+    value: `kg origin index: ${originRef}`,
+    namespace: ns.originIdx,
+    dbPath,
+    upsert: true,
+    generateEmbeddingFlag: false,
+    metadata: { refs: [...current.refs, ref] },
+  });
+  return Boolean(res?.success);
+}
+
+async function removeFromOriginIndex(
+  ns: KgNamespaces,
+  originRef: string,
+  ref: KgOriginIndexRef,
+  dbPath: string | undefined,
+): Promise<boolean> {
+  const current = await readOriginIndex(ns, originRef, dbPath);
+  if (current === null) return false;
+  const next = current.refs.filter((r) => !(r.ns === ref.ns && r.key === ref.key));
+  if (next.length === current.refs.length) return true; // already absent
+  const res = await bridgeStoreEntry({
+    key: originRef,
+    value: `kg origin index: ${originRef}`,
+    namespace: ns.originIdx,
+    dbPath,
+    upsert: true,
+    generateEmbeddingFlag: false,
+    metadata: { refs: next },
+  });
+  return Boolean(res?.success);
+}
+
+// ── Dual-write hooks ──────────────────────────────────────────────────
+//
+// Best-effort and self-gating: a no-op (one status read) while the scope's
+// index is `absent`, so ordinary ingest/rollback pay nothing extra until
+// someone opts in by calling `kgRebuildIndex`. A failure here fails the
+// INDEX (downgrades the scope to `failed`), never the canonical write or
+// delete it accompanies — the index is a cache, not a second source of truth.
+
+/** After a node/edge/rule write lands, record that `originRef` supports it. */
+async function onEntrySupported(
+  ns: KgNamespaces,
+  entryNs: string,
+  entryKey: string,
+  originRef: string,
+  dbPath: string | undefined,
+): Promise<void> {
+  const status = await readIndexStatus(ns, dbPath);
+  if (status.state === 'absent' || status.state === 'failed') return;
+  const ok = await addToOriginIndex(ns, originRef, { ns: entryNs, key: entryKey }, dbPath);
+  if (!ok) await markIndexFailed(ns, dbPath, `origin index write failed for ${originRef}`);
+}
+
+/** After an edge write lands, record it in both endpoints' adjacency. */
+async function onEdgeWritten(
+  ns: KgNamespaces,
+  edgeKey: string,
+  src: string,
+  dst: string,
+  dbPath: string | undefined,
+): Promise<void> {
+  const status = await readIndexStatus(ns, dbPath);
+  if (status.state === 'absent' || status.state === 'failed') return;
+  const okSrc = await addToAdj(ns, src, edgeKey, dbPath);
+  const okDst = src === dst ? true : await addToAdj(ns, dst, edgeKey, dbPath);
+  if (!okSrc || !okDst) await markIndexFailed(ns, dbPath, `adjacency write failed for ${edgeKey}`);
+}
+
+/** After `kgRollback` deletes an entry outright (no origin left to support
+ *  it), remove it from every index it could appear in. */
+async function onEntryDeleted(
+  ns: KgNamespaces,
+  entryKey: string,
+  dbPath: string | undefined,
+  endpoints?: { src: string; dst: string },
+): Promise<void> {
+  const status = await readIndexStatus(ns, dbPath);
+  if (status.state === 'absent' || status.state === 'failed') return;
+  let ok = true;
+  if (endpoints) {
+    ok = (await removeFromAdj(ns, endpoints.src, entryKey, dbPath)) && ok;
+    if (endpoints.dst !== endpoints.src)
+      ok = (await removeFromAdj(ns, endpoints.dst, entryKey, dbPath)) && ok;
+  }
+  if (!ok) await markIndexFailed(ns, dbPath, `adjacency removal failed for ${entryKey}`);
+}
+
+/** After `kgRollback` withdraws one origin's support from an entry that
+ *  survives (another origin still supports it), drop just that origin's ref. */
+async function onOriginWithdrawn(
+  ns: KgNamespaces,
+  entryNs: string,
+  entryKey: string,
+  originRef: string,
+  dbPath: string | undefined,
+): Promise<void> {
+  const status = await readIndexStatus(ns, dbPath);
+  if (status.state === 'absent' || status.state === 'failed') return;
+  const ok = await removeFromOriginIndex(ns, originRef, { ns: entryNs, key: entryKey }, dbPath);
+  if (!ok) await markIndexFailed(ns, dbPath, `origin index removal failed for ${originRef}`);
+}
+
+// ── Indexed reads (used by kgSearch/kgRollback only when state === 'ready') ─
+
+/** The indexed equivalent of `kgReferenceEdges({ endpointId })`: edges
+ *  touching one entity, read via its adjacency entry instead of a namespace
+ *  scan. Returns `null` when any edge key it names cannot be resolved — a
+ *  torn index must never be presented as a complete answer. */
+async function kgIndexedEdgesByEndpoint(
+  ns: KgNamespaces,
+  entityId: string,
+  dbPath: string | undefined,
+): Promise<KgReferenceEdge[] | null> {
+  const adj = await readAdj(ns, entityId, dbPath);
+  if (adj === null) return null;
+  const edges: KgReferenceEdge[] = [];
+  for (const key of adj.edgeKeys) {
+    const res = await bridgeGetEntry({ key, namespace: ns.edges, dbPath });
+    if (!res?.found || !res.entry) return null; // stale ref — do not half-answer
+    const md = (res.entry.metadata ?? {}) as Record<string, unknown>;
+    edges.push({
+      key,
+      src: String(md.src ?? ''),
+      dst: String(md.dst ?? ''),
+      relation: String(md.relation ?? 'related_to'),
+      originRefs: originsOf(res.entry),
+    });
+  }
+  return edges;
+}
+
+/** The indexed equivalent of `collectByOrigin`: every {namespace,key} entry
+ *  one origin supports, read via its origin-index entry instead of scanning
+ *  every namespace. Returns `null` on any unresolvable ref, same reasoning
+ *  as `kgIndexedEdgesByEndpoint`. */
+/** Returns each entry paired with the namespace it was read from (from the
+ *  index's own ref, not trusted from the entry itself) so a caller can sort
+ *  results back into per-namespace buckets without guessing. */
+async function kgIndexedByOrigin(
+  ns: KgNamespaces,
+  originRef: string,
+  dbPath: string | undefined,
+): Promise<{ ns: string; entry: ScannedEntry }[] | null> {
+  const idx = await readOriginIndex(ns, originRef, dbPath);
+  if (idx === null) return null;
+  const entries: { ns: string; entry: ScannedEntry }[] = [];
+  for (const ref of idx.refs) {
+    const res = await bridgeGetEntry({ key: ref.key, namespace: ref.ns, dbPath });
+    if (!res?.found || !res.entry) return null;
+    entries.push({ ns: ref.ns, entry: res.entry as ScannedEntry });
+  }
+  return entries;
+}
+
+// ── Rebuild (K7): the one function that builds/repairs the derived index ──
+
+/** Entities/origins sampled for post-build validation. A scan that saw fewer
+ *  than this many distinct entities AND origins gets FULL validation, not a
+ *  sample — most real scopes will. `KgRebuildResult.status.validation` says
+ *  which happened, honestly, rather than letting "validated" imply "all". */
+const VALIDATE_SAMPLE = 200;
+
+export interface KgRebuildResult {
+  success: boolean;
+  status: KgIndexStatus;
+  validation?: { sampledEntities: number; sampledOrigins: number; full: boolean };
+  error?: string;
+}
+
+function phaseOrder(phase: 'nodes' | 'edges' | 'rules' | undefined): number {
+  return phase === 'edges' ? 1 : phase === 'rules' ? 2 : 0;
+}
+
+function sameEdgeKeySet(a: KgReferenceEdge[], b: KgReferenceEdge[]): boolean {
+  const ak = new Set(a.map((e) => e.key));
+  const bk = new Set(b.map((e) => e.key));
+  if (ak.size !== bk.size) return false;
+  for (const k of ak) if (!bk.has(k)) return false;
+  return true;
+}
+
+/** (Re)build a scope's derived index from canonical data — nodes, then
+ *  edges, then rules, that fixed order, resuming from the last checkpointed
+ *  `{phase, offset}` rather than restarting when a prior call was
+ *  interrupted mid-build. Every write here (`addToAdj`/`addToOriginIndex`)
+ *  is idempotent, so a page reprocessed after an interruption cannot
+ *  duplicate an entry.
+ *
+ *  A concurrent ingest/rollback during the build is safe, not just tolerated:
+ *  the dual-write hooks run whenever state is not `absent`/`failed`, so a
+ *  write made mid-build is captured whether or not the scan has reached that
+ *  row yet — at worst twice, which idempotency absorbs for free. The one
+ *  residual race (a row deleted between the scan reading it and the scan's
+ *  own write landing) can leave a dangling ref in the index; it is never
+ *  observable as wrong data, because every indexed READ
+ *  (`kgIndexedEdgesByEndpoint`/`kgIndexedByOrigin`) returns `null` — and the
+ *  caller falls back to the exhaustive scan — the instant it cannot resolve
+ *  a ref it holds. This is the backend's real capability (single-row CAS,
+ *  no cross-row transaction), used honestly rather than claiming atomicity
+ *  it cannot provide.
+ *
+ *  Ends in `validating`: samples up to `VALIDATE_SAMPLE` of the entities and
+ *  origins the scan actually saw, and re-reads them through the just-built
+ *  index, comparing against a FRESH, independent reference read
+ *  (`kgReferenceEdges`/`collectByOrigin`) — not the in-memory data the build
+ *  itself computed, which would only prove the build agrees with itself. A
+ *  write that silently failed, or a concurrent change the dual-write hooks
+ *  missed, is exactly what this catches before the index is ever trusted. */
+export async function kgRebuildIndex(options?: {
+  scope?: KgScope;
+  dbPath?: string;
+}): Promise<KgRebuildResult> {
+  const ns = kgNamespaces(options?.scope);
+  const dbPath = options?.dbPath;
+  let status = await readIndexStatus(ns, dbPath);
+  // Resume from the checkpointed cursor for an interrupted build or a
+  // resumable (build-phase) failure; a fresh scan for everything else —
+  // `absent`, `ready` (this call IS the deliberate re-verify), and a
+  // validation-phase failure, where something already written was wrong.
+  const resume = status.state === 'building' || (status.state === 'failed' && status.resumable);
+  if (!resume) {
+    status = {
+      state: 'building',
+      schemaVersion: KG_INDEX_SCHEMA_VERSION,
+      cursor: { phase: 'nodes', offset: 0 },
+      counts: { nodes: 0, edges: 0, rules: 0 },
+      startedAt: Date.now(),
+    };
+    if (!(await writeIndexStatus(ns, status, dbPath))) {
+      return { success: false, status, error: 'could not persist initial build status' };
+    }
+  }
+
+  const seenEntities: string[] = [];
+  const seenOrigins: string[] = [];
+  const noteEntity = (id: string) => {
+    if (id && !seenEntities.includes(id) && seenEntities.length < VALIDATE_SAMPLE) {
+      seenEntities.push(id);
+    }
+  };
+  const noteOrigin = (ref: string) => {
+    if (!seenOrigins.includes(ref) && seenOrigins.length < VALIDATE_SAMPLE) seenOrigins.push(ref);
+  };
+
+  // `addToAdj`/`addToOriginIndex` only APPEND onto whatever is already
+  // there. That's exactly right for a RESUME (everything present was
+  // written earlier in this same build attempt), but wrong for a FRESH
+  // build: a stale or corrupted entry left over from a PRIOR build (e.g.
+  // the exact thing a failed validation just caught) would never be
+  // cleared, only added to. So a fresh build clears both derived-index
+  // namespaces up front, once, before touching any phase — every write for
+  // the rest of THIS build attempt, in this call or a later one resuming
+  // it, can then safely append, because the namespace is known to hold only
+  // rows this attempt wrote.
+  if (!resume) {
+    const adjCleared = await clearNamespace(ns.adj, dbPath);
+    const originCleared = await clearNamespace(ns.originIdx, dbPath);
+    if (!adjCleared || !originCleared) {
+      status = { ...status, state: 'failed', error: 'could not clear prior index before rebuild' };
+      await writeIndexStatus(ns, status, dbPath);
+      return { success: false, status, error: status.error };
+    }
+  }
+
+  const phases: { phase: 'nodes' | 'edges' | 'rules'; namespace: string }[] = [
+    { phase: 'nodes', namespace: ns.nodes },
+    { phase: 'edges', namespace: ns.edges },
+    { phase: 'rules', namespace: ns.rules },
+  ];
+
+  try {
+    for (const { phase, namespace } of phases) {
+      if (phaseOrder(status.cursor?.phase) > phaseOrder(phase)) continue; // already scanned
+      let offset = status.cursor?.phase === phase ? (status.cursor.offset ?? 0) : 0;
+      let count = status.counts?.[phase] ?? 0;
+      for (;;) {
+        const page = await bridgeListEntries({ namespace, limit: SCAN_PAGE, offset, dbPath });
+        if (!page) {
+          // The cursor stays exactly where it was: everything indexed before
+          // this page is still correct, only incomplete, so a retry resumes.
+          status = {
+            ...status,
+            state: 'failed',
+            resumable: true,
+            error: `${namespace}: backend unavailable during rebuild`,
+          };
+          await writeIndexStatus(ns, status, dbPath);
+          return { success: false, status, error: status.error };
+        }
+        for (const e of page.entries) {
+          const md = (e.metadata ?? {}) as Record<string, unknown>;
+          count++;
+          if (phase === 'edges' && md.kg === 'edge') {
+            const src = String(md.src ?? '');
+            const dst = String(md.dst ?? '');
+            if (src) {
+              await addToAdj(ns, src, e.key, dbPath);
+              noteEntity(src);
+            }
+            if (dst && dst !== src) {
+              await addToAdj(ns, dst, e.key, dbPath);
+              noteEntity(dst);
+            }
+          }
+          if (phase === 'nodes') noteEntity(e.key);
+          for (const originRef of originsOf(e)) {
+            await addToOriginIndex(ns, originRef, { ns: namespace, key: e.key }, dbPath);
+            noteOrigin(originRef);
+          }
+        }
+        offset += page.entries.length;
+        status = {
+          ...status,
+          cursor: { phase, offset },
+          counts: { ...status.counts, [phase]: count } as KgIndexStatus['counts'],
+        };
+        await writeIndexStatus(ns, status, dbPath);
+        if (page.entries.length < SCAN_PAGE) break; // last page of this namespace
+      }
+    }
+
+    status = { ...status, state: 'validating' };
+    await writeIndexStatus(ns, status, dbPath);
+
+    const mismatches: string[] = [];
+    for (const id of seenEntities) {
+      const indexed = await kgIndexedEdgesByEndpoint(ns, id, dbPath);
+      const reference = await kgReferenceEdges({ endpointId: id, scope: options?.scope, dbPath });
+      if (indexed === null || !reference.success || reference.truncated) {
+        mismatches.push(`entity ${id}: reference read incomplete`);
+        continue;
+      }
+      if (!sameEdgeKeySet(indexed, reference.edges)) mismatches.push(`entity ${id}: adjacency mismatch`);
+    }
+    for (const originRef of seenOrigins) {
+      const indexed = await kgIndexedByOrigin(ns, originRef, dbPath);
+      if (indexed === null) {
+        mismatches.push(`origin ${originRef}: index unreadable`);
+        continue;
+      }
+      const refA = await collectByOrigin(ns.nodes, originRef, dbPath);
+      const refB = await collectByOrigin(ns.edges, originRef, dbPath);
+      const refC = await collectByOrigin(ns.rules, originRef, dbPath);
+      if (!refA.covered || !refB.covered || !refC.covered) {
+        mismatches.push(`origin ${originRef}: reference scan incomplete`);
+        continue;
+      }
+      const expected = new Set([
+        ...refA.entries.map((e) => `${ns.nodes}|${e.key}`),
+        ...refB.entries.map((e) => `${ns.edges}|${e.key}`),
+        ...refC.entries.map((e) => `${ns.rules}|${e.key}`),
+      ]);
+      const indexedKeys = new Set(indexed.map((e) => `${e.ns}|${e.entry.key}`));
+      if (expected.size !== indexedKeys.size || [...expected].some((k) => !indexedKeys.has(k))) {
+        mismatches.push(`origin ${originRef}: support-index mismatch`);
+      }
+    }
+
+    const full = seenEntities.length < VALIDATE_SAMPLE && seenOrigins.length < VALIDATE_SAMPLE;
+    const validation = { sampledEntities: seenEntities.length, sampledOrigins: seenOrigins.length, full };
+    if (mismatches.length) {
+      const summary = mismatches.slice(0, 5).join('; ');
+      status = {
+        ...status,
+        state: 'failed',
+        error: `validation failed: ${summary}${mismatches.length > 5 ? ` (+${mismatches.length - 5} more)` : ''}`,
+      };
+      await writeIndexStatus(ns, status, dbPath);
+      return { success: false, status, validation, error: status.error };
+    }
+
+    status = { ...status, state: 'ready', error: undefined };
+    await writeIndexStatus(ns, status, dbPath);
+    return { success: true, status, validation };
+  } catch (err) {
+    status = { ...status, state: 'failed', error: err instanceof Error ? err.message : String(err) };
+    try {
+      await writeIndexStatus(ns, status, dbPath);
+    } catch {
+      /* best-effort — see markIndexFailed */
+    }
+    return { success: false, status, error: status.error };
   }
 }
 
