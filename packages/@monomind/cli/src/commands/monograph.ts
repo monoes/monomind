@@ -404,12 +404,16 @@ const searchCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    output.writeln();
-    output.writeln(output.bold(`Monograph Search — "${query}"`));
-    output.writeln(
-      output.dim(`  mode: ${mode}${label ? `  label: ${label}` : ''}  limit: ${limit}`),
-    );
-    output.writeln();
+    const jsonOutput = ctx.flags.format === 'json';
+
+    if (!jsonOutput) {
+      output.writeln();
+      output.writeln(output.bold(`Monograph Search — "${query}"`));
+      output.writeln(
+        output.dim(`  mode: ${mode}${label ? `  label: ${label}` : ''}  limit: ${limit}`),
+      );
+      output.writeln();
+    }
 
     try {
       const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
@@ -458,6 +462,11 @@ const searchCommand: Command = {
       }
 
       closeDb(db);
+
+      if (jsonOutput) {
+        output.printJson({ query, mode, label, limit, count: results.length, results });
+        return { success: true, data: results };
+      }
 
       if (results.length === 0) {
         output.printWarning('No results found.');
