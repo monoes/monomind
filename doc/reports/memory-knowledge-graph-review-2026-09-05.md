@@ -6,7 +6,7 @@ Reviewed 5 September 2026. Scope: **the memory knowledge graph**, its memory bri
 
 ## Current status at review close
 
-Concurrent commit `020aaba38` fixed the core unchecked-write counters and the two basic multi-origin rollback cases described below. Its new three-test provenance suite passed, and the updated source failure probe now verifies `success:false` with zero accepted writes. These improvements were made outside this report task; **K1 and K3 retain historical evidence but are now fully resolved** by later commits (see below). Other findings remained applicable at the checked cutoff `e4d225b9b`.
+Concurrent commit `020aaba38` fixed the core unchecked-write counters and the two basic multi-origin rollback cases described below. Its new three-test provenance suite passed, and the updated source failure probe now verifies `success:false` with zero accepted writes. These improvements were made outside this report task; **K1, K3, and K5 retain historical evidence but are now fully resolved**, and K7 is resolved except for one item deliberately deferred pending a backfill/migration decision (see below). Other findings remained applicable at the checked cutoff `e4d225b9b`.
 
 ## Mechanism reviewed
 
@@ -82,13 +82,13 @@ Name-only merging prevents duplicate entities caused by inconsistent type labels
 
 Evidence: [normalization/key](../../packages/@monomind/cli/src/memory/memory-kg.ts#L128), [merge policy](../../packages/@monomind/cli/src/memory/memory-kg.ts#L187), [rule key](../../packages/@monomind/cli/src/memory/memory-kg.ts#L399), [consolidation](../../packages/@monomind/cli/src/memory/memory-kg.ts#L742).
 
-### K5 — P1/P2, partially resolved: Upserts invalidate feedback IDs and concurrent merges are not atomic
+### K5 — P1/P2, resolved: Upserts invalidate feedback IDs and concurrent merges are not atomic
 
 **Feedback failure reproduced against the actual backend.** Retrieve an entity, ingest it again, then rate the previously returned ID: the ID changed and feedback returned `success:true, applied:0`.
 
 The bridge generates a new entry ID on each upsert, stores the new entry, then deletes the previous entry. KG read/merge/write is also a sequence of awaited operations with no compare-and-swap or transaction around provenance accumulation. Concurrent lost updates are a source-level risk, not reproduced here.
 
-**Resolved in part by `c8310dc4c` and `24dfc8e44`:** upserts now reuse the existing entry's ID instead of minting a new one and deleting the old, so feedback references survive re-ingestion; `bridgeApplyFeedback`/`bridgeRecordUsage` report `skipped:[{id, reason}]` instead of a silent `applied:0`. **Remaining:** atomic provenance merge (no compare-and-swap around concurrent KG read/merge/write) and returning graph claim/edge IDs so a relationship can be rated directly are not implemented.
+**Resolved in part by `c8310dc4c` and `24dfc8e44`:** upserts now reuse the existing entry's ID instead of minting a new one and deleting the old, so feedback references survive re-ingestion; `bridgeApplyFeedback`/`bridgeRecordUsage` report `skipped:[{id, reason}]` instead of a silent `applied:0`. **Closed by `021cac61a`:** `SqlBackend.storeIfVersion()`/`storeIfAbsent()` add a real compare-and-swap primitive (single-statement UPDATE/INSERT OR IGNORE, atomic against every writer); `memory-kg.ts`'s node and edge claim-ledger merges now retry through `withCasRetry`, re-reading and re-merging against the current row instead of a stale one, and report a reportable failure rather than a silent lost update when retries are exhausted. `kgSearch` triplets now carry the edge's bridge `id` and graph `key`, so a relationship can be rated directly via `memory_feedback` instead of only its seed entity.
 
 **Change:** update existing identities in place or use stable logical IDs resolved to current versions by the feedback API. Make provenance/metadata merge atomic. Explain skipped feedback IDs and preserve learned weights/history across revisions. Return graph claim/edge IDs so an incorrect relationship can be rated directly, rather than only its seed entity.
 
@@ -114,7 +114,7 @@ Evidence: [seed cutoff/filter](../../packages/@monomind/cli/src/memory/memory-kg
 
 **Source-confirmed, plus a mocked-list probe.** Search, stats, rollback, glossary, and consolidation read a capped page. `bridgeListEntries.total` is the returned page length, not a database count. A 10,001-node fixture therefore reported 10,000. Edges or origins outside the scanned page are invisible to relevant operations.
 
-**Partially resolved by `424b4e629`:** namespace scans are now paginated instead of silently capped at 10,000 — search, stats, rollback, glossary, and consolidation collect matches across pages before mutating, and a partial scan reports failure/`truncated` instead of a false success. **Remaining:** the review's ask for indexed adjacency/origin lookup and real count queries (rather than paginated full scans) did not land; `kgSearch` still runs a full edge scan per query (now capped at 50k instead of 10k), and no adjacency or origin predicate exists on the bridge.
+**Partially resolved by `424b4e629`:** namespace scans are now paginated instead of silently capped at 10,000 — search, stats, rollback, glossary, and consolidation collect matches across pages before mutating, and a partial scan reports failure/`truncated` instead of a false success. **Real counts closed by `021cac61a`:** `bridgeCountEntries()` runs a real `SELECT COUNT(*) WHERE namespace = ?` against the existing namespace index; `kgStats` uses it and falls back to the paginated scan only when unavailable. **Remaining, by design:** indexed adjacency/origin lookup for `kgSearch`'s edge scan and `kgRollback`'s origin scan was investigated but not implemented — mirroring the existing `kg:names` index for edges-by-endpoint or claims-by-origin would only cover writes made after the index exists, and there is no legacy-key probe for an arbitrary historical edge, so an index-only lookup would silently miss pre-existing data. `kgSearch` still runs a full edge scan per query (capped at 50k instead of 10k). Closing this needs a backfill/migration decision for existing namespaces before it is safe to implement.
 
 **Change:** add indexed adjacency and origin lookup, and real count queries. Until then, paginate using the bridge's existing offset support and explicitly return `truncated`/`partial`. Rollback must cover all matching entries or report an incomplete operation. Use a cursor or stable ordering when deleting while paginating to avoid skipped rows.
 
