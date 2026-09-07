@@ -523,4 +523,45 @@ describe('OrgDaemon.respawnRole — end to end', () => {
 
     await daemon.stopOrg('e2e-tools-org');
   });
+
+  it('hot reload picks up an increased max_role_respawns for the NEXT respawn request', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'reload-cap-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 1 },
+    });
+    const defPath = join(testRoot, '.monomind', 'orgs', 'reload-cap-org.json');
+    writeFileSync(defPath, JSON.stringify(def));
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: turnCompletingRunner() as any,
+    });
+    await daemon.startOrg('reload-cap-org');
+    await daemon.deliver('reload-cap-org', 'boss', 'worker', 'go', 'start working');
+    await daemon.respawnRole('reload-cap-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r1',
+      briefing: 'b',
+    });
+    const second = await daemon.respawnRole('reload-cap-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r2',
+      briefing: 'b',
+    });
+    expect(second.success).toBe(false); // cap of 1 already used
+
+    const raised = { ...def, run_config: { ...def.run_config, max_role_respawns: 5 } };
+    writeFileSync(defPath, JSON.stringify(raised));
+    daemon.reloadOrgDef('reload-cap-org');
+
+    const third = await daemon.respawnRole('reload-cap-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r3',
+      briefing: 'b',
+    });
+    expect(third.success).toBe(true);
+
+    await daemon.stopOrg('reload-cap-org');
+  });
 });
