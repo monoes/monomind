@@ -53,7 +53,7 @@ import { PolicyEngine } from './policy.js';
 import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import { QwenAgentRunner } from './qwen-runner.js';
-import type { RoleSlot } from './role-slot.js';
+import { mergeEffectiveRoleConfig, type RoleOverrides, type RoleSlot } from './role-slot.js';
 import {
   historyFile,
   type RunSummary,
@@ -1366,13 +1366,17 @@ export class OrgDaemon {
       }
       running.agents.set(role.id, runtime);
       running.roleSlots.set(role.id, {
-        generation: 0,
+        generation: roleCheckpoint?.generation ?? 0,
         phase: 'running',
         runtime,
-        effectiveRole: role,
-        respawnCount: 0,
-        queuedDuringSwap: [],
-        retiredUsage: { tokens: 0, costUsd: 0 },
+        effectiveRole:
+          roleCheckpoint?.effectiveRoleOverrides &&
+          Object.keys(roleCheckpoint.effectiveRoleOverrides).length > 0
+            ? mergeEffectiveRoleConfig(role, roleCheckpoint.effectiveRoleOverrides as RoleOverrides)
+            : role,
+        respawnCount: roleCheckpoint?.respawnCount ?? 0,
+        queuedDuringSwap: roleCheckpoint?.queuedDuringSwap ?? [],
+        retiredUsage: roleCheckpoint?.retiredUsage ?? { tokens: 0, costUsd: 0 },
       });
     };
 

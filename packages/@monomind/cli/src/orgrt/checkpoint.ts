@@ -76,6 +76,29 @@ export const CHECKPOINT_VERSION = 2;
 /** Checkpoint TTL config */
 export const CHECKPOINT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default
 
+/** Diff the slot's effective role against the org definition's original role
+ *  for the same id, producing exactly the override triple org_respawn_role
+ *  could have applied — this is what gets persisted and restored on resume,
+ *  since the org definition itself is not rewritten by a replacement. */
+function diffRoleOverrides(
+  original: { runtime?: string; adapter_config?: { model?: string; provider?: string } } | undefined,
+  effective: { runtime?: string; adapter_config?: { model?: string; provider?: string } },
+): { runtime?: string; model?: string; providerName?: string } {
+  const out: { runtime?: string; model?: string; providerName?: string } = {};
+  if (effective.runtime !== original?.runtime && effective.runtime) out.runtime = effective.runtime;
+  if (
+    effective.adapter_config?.model !== original?.adapter_config?.model &&
+    effective.adapter_config?.model
+  )
+    out.model = effective.adapter_config.model;
+  if (
+    effective.adapter_config?.provider !== original?.adapter_config?.provider &&
+    effective.adapter_config?.provider
+  )
+    out.providerName = effective.adapter_config.provider;
+  return out;
+}
+
 /**
  * Extract full checkpoint state from a RunningOrg
  * Called by persistState() to capture complete state for resume
@@ -89,6 +112,7 @@ export function captureCheckpoint(
 
   // Capture state for each running agent
   for (const [roleId, runtime] of org.agents) {
+    const slot = org.roleSlots?.get(roleId);
     roleState[roleId] = {
       mailboxQueue: runtime.mailbox.serialize().queue,
       mailboxClosed: runtime.mailbox.isClosed,
@@ -100,11 +124,13 @@ export function captureCheckpoint(
       status: runtime.status,
       error: runtime.error,
       scrollback: runtime.scrollback?.snapshot(),
-      generation: 0,
-      respawnCount: 0,
-      effectiveRoleOverrides: {},
-      queuedDuringSwap: [],
-      retiredUsage: { tokens: 0, costUsd: 0 },
+      generation: slot?.generation ?? 0,
+      respawnCount: slot?.respawnCount ?? 0,
+      effectiveRoleOverrides: slot
+        ? diffRoleOverrides(org.def.roles.find((r) => r.id === roleId), slot.effectiveRole)
+        : {},
+      queuedDuringSwap: slot?.queuedDuringSwap ?? [],
+      retiredUsage: slot?.retiredUsage ?? { tokens: 0, costUsd: 0 },
     };
   }
 
