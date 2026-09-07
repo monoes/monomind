@@ -391,3 +391,94 @@ describe('OrgDaemon.respawnRole — quiesce and force-stop', () => {
     await daemon.stopOrg('drain-queue-org');
   });
 });
+
+describe('OrgDaemon.respawnRole — end to end', () => {
+  let testRoot: string;
+
+  beforeEach(() => {
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-respawn-e2e-'));
+    mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
+  });
+
+  function turnCompletingRunner() {
+    return {
+      run: async function* (args: any) {
+        for await (const _ of args.prompt) {
+          // one instantaneous "turn" per mailbox message, no SDK messages emitted
+        }
+      },
+    };
+  }
+
+  it('replaces a worker: new generation, fresh policy budget, briefing delivered, receipt reports success', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'e2e-respawn-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3, budget_tokens: 1_000_000 },
+    });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', 'e2e-respawn-org.json'), JSON.stringify(def));
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: turnCompletingRunner() as any,
+    });
+    const running = await daemon.startOrg('e2e-respawn-org');
+    await daemon.deliver('e2e-respawn-org', 'boss', 'worker', 'go', 'start working');
+    const oldRuntime = running.agents.get('worker')!;
+
+    const receipt = await daemon.respawnRole('e2e-respawn-org', 'boss', {
+      roleId: 'worker',
+      runtime: 'opencode',
+      reason: 'crashed',
+      briefing: 'continue where you left off',
+    });
+
+    expect(receipt.success).toBe(true);
+    expect(receipt.generation).toBe(1);
+    expect(receipt.respawnCount).toBe(1);
+    const slot = running.roleSlots.get('worker')!;
+    expect(slot.generation).toBe(1);
+    expect(slot.phase).toBe('running');
+    expect(slot.effectiveRole.runtime).toBe('opencode');
+    expect(running.agents.get('worker')).not.toBe(oldRuntime);
+    expect(running.respawning.has('worker')).toBe(false);
+
+    await daemon.stopOrg('e2e-respawn-org');
+  });
+
+  it('rejects a fourth request once the configured cap of three is reached', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'e2e-cap-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3 },
+    });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', 'e2e-cap-org.json'), JSON.stringify(def));
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: turnCompletingRunner() as any,
+    });
+    await daemon.startOrg('e2e-cap-org');
+    await daemon.deliver('e2e-cap-org', 'boss', 'worker', 'go', 'start working');
+    for (let i = 0; i < 3; i++) {
+      const r = await daemon.respawnRole('e2e-cap-org', 'boss', {
+        roleId: 'worker',
+        reason: `attempt ${i}`,
+        briefing: 'continue',
+      });
+      expect(r.success).toBe(true);
+    }
+    const fourth = await daemon.respawnRole('e2e-cap-org', 'boss', {
+      roleId: 'worker',
+      reason: 'attempt 4',
+      briefing: 'continue',
+    });
+    expect(fourth.success).toBe(false);
+    expect(fourth.error).toMatch(/respawn limit/i);
+    await daemon.stopOrg('e2e-cap-org');
+  });
+});
