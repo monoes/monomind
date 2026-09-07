@@ -877,7 +877,17 @@ export async function kgIngest(options: {
     /** Entity IDs this call has already resolved AND confirmed to exist, so an
      *  edge does not re-resolve an endpoint the node loop just wrote. */
     const resolved = new Map<string, string>();
-    const memoKey = (name: string, type: string) => `${typeBucket(type)} ${canonicalName(name)}`;
+    // Length-prefix the type so the split point is unambiguous regardless of
+    // what characters `name` contains (it can hold arbitrary text, including
+    // whatever separator a naive join might pick) — same discipline
+    // hashTuple() above uses for the same reason. A bare `\0`-joined string
+    // here was written as an actual NUL byte, not the literal two-character
+    // escape text, which is harmless at runtime (this key is an in-memory
+    // Map key only, never persisted) but made git treat this file as binary.
+    const memoKey = (name: string, type: string) => {
+      const t = typeBucket(type);
+      return `${t.length}:${t}${canonicalName(name)}`;
+    };
 
     for (const { input: n, type, desc } of validNodes) {
       const target = await resolveEntity(n.name, type, ns, dbPath);

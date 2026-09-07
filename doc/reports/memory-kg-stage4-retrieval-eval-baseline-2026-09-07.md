@@ -73,7 +73,7 @@ DIAG u1 seeds: [
 ]
 ```
 
-The canonical row itself is correct (one id, one row, `bridgeGetEntry`-reachable) — this is specifically `bridgeSearchEntries`' keyword-index result set carrying two hits for one row after an upsert. **Not fixed here** — this K9 deliverable measures, it does not modify ranking or retrieval code (see the doc's operating rule: "prove preservation and correctness first; measure usefulness second"). Filed as a finding for a follow-up investigation into the search backend's index-update path (likely FTS5 external-content sync on `UPDATE`, unconfirmed — not investigated further here). Recommend a dedicated correctness fixture and fix as its own small, scoped change, separate from any ranking evaluation work.
+The canonical row itself is correct (one id, one row, `bridgeGetEntry`-reachable) — this was specifically `bridgeSearchEntries`' keyword-index result set carrying two hits for one row after an upsert. **Fixed** as its own small, scoped change, separate from ranking work, in [memory-kg-followup-fixes-2026-09-07.md](memory-kg-followup-fixes-2026-09-07.md): root cause was `SqlBackend.store()`'s `INSERT OR REPLACE` upsert not reliably firing the FTS5 `AFTER DELETE` sync trigger for its conflict-resolution delete, confirmed by direct inspection of the raw `memory_entries_fts` table. This re-run of the K9 baseline (below) now shows `anomaly-rate=0.000`.
 
 ### Paraphrase note (p1)
 
@@ -84,7 +84,7 @@ The canonical row itself is correct (one id, one row, `bridgeGetEntry`-reachable
 - **18 fixtures, not 60–100.** That count in section 4.1 was specified for the representative-question half, which is deferred here (see Scope above) — the synthetic half is deliberately "small, deterministic fixtures," and 1–3 per category is consistent with that framing, not a shortfall against it.
 - **Embeddings mode unevaluated.** Every fixture ran keyword-only. A second pass with the local model loaded is a distinct, separate measurement.
 - **Metrics are per-fixture booleans/counts, not aggregated ranking statistics over a large query set.** MRR/recall@k/precision@k are computed correctly per the standard definitions, but each category has only 1–3 data points — enough to establish presence/absence of a behavior (as intended here), not enough to be a statistically stable ranking benchmark. Section 5's eventual ranking-comparison work should size its own held-out set independently.
-- **The u1b anomaly is unconfirmed root cause.** Reported as an observed symptom (duplicate search hits, stale+current) with a plausible mechanism (FTS index sync on upsert) noted but not verified against `sql-backend.ts`'s actual implementation.
+- ~~**The u1b anomaly is unconfirmed root cause.**~~ Fixed and confirmed — see [memory-kg-followup-fixes-2026-09-07.md](memory-kg-followup-fixes-2026-09-07.md). The root cause (the FTS5 sync trigger, not `PRAGMA recursive_triggers`) was found by direct inspection of the raw SQLite tables, not left as a guess.
 
 ## Recommendation
 

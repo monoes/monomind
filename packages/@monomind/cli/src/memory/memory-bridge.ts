@@ -979,18 +979,35 @@ export async function bridgeSearchEntries(options: {
             : null;
 
         if (fts5Results !== null && fts5Results.length > 0) {
-          // FTS5 rank is negative (lower = better); normalise to 0–1.
-          const maxRank = Math.max(...fts5Results.map((r: any) => Math.abs(r.rank)), 1);
-          keywordHits = fts5Results.map((r: any) => ({
-            id: r.id,
-            key: r.key,
-            content: capResultContent(r.content || ''),
-            score: Math.abs(r.rank) / maxRank, // normalised 0–1
-            namespace: r.namespace,
-            provenance: `keyword-fts5:${(Math.abs(r.rank) / maxRank).toFixed(2)}`,
-            tags: [] as string[],
-            _createdAt: 0,
-          }));
+          // FTS5 rank is negative (lower = better); normalise to 0–1 against
+          // the BEST (largest-magnitude) result, not a hard floor of 1
+          // (issue #224). BM25 IDF goes to zero/negative when a query term
+          // appears in most or all of the matched rows — a small or
+          // lexically-homogeneous result set (a duplicated FTS row for one
+          // entry, per sql-schema.ts's `ensureFTS5Triggers`, was one way to
+          // reach exactly this) — so a genuinely-best (or sole) match can
+          // legitimately have |rank| < 1. A hard `Math.max(…,
+          // 1)` floor then divides that down toward 0, displaying the
+          // correct top match as ~0.00 instead of its best-available 1.0.
+          // Mirrors the identical fix already applied to the JS BM25
+          // fallback below (#126-review): only fall back to a floor of 1
+          // when every rank is genuinely 0 (nothing to normalise against),
+          // never merely because the raw magnitude is under 1.
+          const rawMaxRank = Math.max(...fts5Results.map((r: any) => Math.abs(r.rank)));
+          const maxRank = rawMaxRank > 0 ? rawMaxRank : 1;
+          keywordHits = fts5Results.map((r: any) => {
+            const score = rawMaxRank > 0 ? Math.abs(r.rank) / maxRank : 1;
+            return {
+              id: r.id,
+              key: r.key,
+              content: capResultContent(r.content || ''),
+              score,
+              namespace: r.namespace,
+              provenance: `keyword-fts5:${score.toFixed(2)}`,
+              tags: [] as string[],
+              _createdAt: 0,
+            };
+          });
         } else {
           // ── JS fallback (no FTS5 or empty FTS5 result) ────────────
           const entries = await backend.query({

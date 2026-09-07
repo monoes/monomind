@@ -216,60 +216,122 @@ export function hasFTS5Table(driver: SqlDriver): boolean {
  * Returns true if the FTS5 table is usable after this call.
  */
 export function createFTS5Index(driver: SqlDriver): boolean {
-  if (hasFTS5Table(driver)) return true;
+  const alreadyExists = hasFTS5Table(driver);
 
-  try {
-    driver.exec(`
-      CREATE VIRTUAL TABLE memory_entries_fts USING fts5(
-        entry_id UNINDEXED,
-        key,
-        content,
-        tokenize = 'porter unicode61'
-      );
-    `);
-  } catch {
-    // FTS5 extension not available on this build (common for sql.js WASM).
-    return false;
+  if (!alreadyExists) {
+    try {
+      driver.exec(`
+        CREATE VIRTUAL TABLE memory_entries_fts USING fts5(
+          entry_id UNINDEXED,
+          key,
+          content,
+          tokenize = 'porter unicode61'
+        );
+      `);
+    } catch {
+      // FTS5 extension not available on this build (common for sql.js WASM).
+      return false;
+    }
+
+    try {
+      // Populate from existing data.
+      driver.exec(`
+        INSERT INTO memory_entries_fts(entry_id, key, content)
+          SELECT id, key, content FROM memory_entries;
+      `);
+    } catch {
+      // Populate failed — drop the half-built FTS table so the next init
+      // attempt gets a clean retry rather than a corrupt partial index.
+      try {
+        driver.exec('DROP TABLE IF EXISTS memory_entries_fts');
+      } catch {
+        /* ignore */
+      }
+      return false;
+    }
   }
 
   try {
-    // Populate from existing data.
-    driver.exec(`
-      INSERT INTO memory_entries_fts(entry_id, key, content)
-        SELECT id, key, content FROM memory_entries;
-    `);
-
-    // Keep in sync via triggers.
-    driver.exec(`
-      CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ai
-      AFTER INSERT ON memory_entries BEGIN
-        INSERT INTO memory_entries_fts(entry_id, key, content)
-          VALUES (NEW.id, NEW.key, NEW.content);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ad
-      AFTER DELETE ON memory_entries BEGIN
-        DELETE FROM memory_entries_fts WHERE entry_id = OLD.id;
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS memory_entries_fts_au
-      AFTER UPDATE OF key, content ON memory_entries BEGIN
-        DELETE FROM memory_entries_fts WHERE entry_id = OLD.id;
-        INSERT INTO memory_entries_fts(entry_id, key, content)
-          VALUES (NEW.id, NEW.key, NEW.content);
-      END;
-    `);
+    ensureFTS5Triggers(driver);
+    if (alreadyExists) dedupeFTS5Rows(driver);
     return true;
   } catch {
-    // Trigger or populate failed — drop the half-built FTS table so the next
-    // init attempt gets a clean retry rather than a corrupt partial index.
-    try {
-      driver.exec('DROP TABLE IF EXISTS memory_entries_fts');
-    } catch {
-      /* ignore */
+    if (!alreadyExists) {
+      try {
+        driver.exec('DROP TABLE IF EXISTS memory_entries_fts');
+      } catch {
+        /* ignore */
+      }
     }
     return false;
   }
+}
+
+/**
+ * (Re)define the FTS5 sync triggers to the current, correct SQL — always,
+ * even when the FTS5 table already existed (so a database created before a
+ * trigger fix still gets it, not just brand-new ones). `DROP … IF EXISTS` +
+ * `CREATE` rather than `CREATE … IF NOT EXISTS`: cheap (triggers hold no
+ * data) and idempotent, and it is what makes a trigger DEFINITION change
+ * actually reach an existing store instead of being silently skipped
+ * forever because the table (not the trigger body) is what `createFTS5Index`
+ * checks for existence.
+ *
+ * `memory_entries_fts_ai` deletes any pre-existing row for `NEW.id` before
+ * inserting — not just an insert. `SqlBackend.store()`'s plain upsert writes
+ * via `INSERT OR REPLACE`, whose internal conflict-resolution delete does
+ * NOT reliably fire `memory_entries_fts_ad`'s `AFTER DELETE` trigger (an
+ * `INSERT OR REPLACE` never really is an UPDATE statement, and empirically —
+ * see the regression test — even `PRAGMA recursive_triggers = ON` does not
+ * change this for the conflict-resolution delete specifically). Without the
+ * self-heal here, updating an entry left its STALE fts row behind alongside
+ * the new one: a search then returned the same entry id twice, once scored
+ * against its old content and once against its current content — and
+ * because the query term then appears in "most" of the (duplicated, near-
+ * identical) matched rows, BM25's IDF degenerates toward zero, displaying
+ * the correct, sole match at a misleadingly low score close to 0.00.
+ * `memory_entries_fts_ai` fires reliably for `INSERT OR REPLACE` (its insert
+ * half is a genuine top-level INSERT), which is what makes this the trigger
+ * to make self-healing rather than trying to fix the DELETE side. */
+function ensureFTS5Triggers(driver: SqlDriver): void {
+  driver.exec(`
+    DROP TRIGGER IF EXISTS memory_entries_fts_ai;
+    CREATE TRIGGER memory_entries_fts_ai
+    AFTER INSERT ON memory_entries BEGIN
+      DELETE FROM memory_entries_fts WHERE entry_id = NEW.id;
+      INSERT INTO memory_entries_fts(entry_id, key, content)
+        VALUES (NEW.id, NEW.key, NEW.content);
+    END;
+
+    DROP TRIGGER IF EXISTS memory_entries_fts_ad;
+    CREATE TRIGGER memory_entries_fts_ad
+    AFTER DELETE ON memory_entries BEGIN
+      DELETE FROM memory_entries_fts WHERE entry_id = OLD.id;
+    END;
+
+    DROP TRIGGER IF EXISTS memory_entries_fts_au;
+    CREATE TRIGGER memory_entries_fts_au
+    AFTER UPDATE OF key, content ON memory_entries BEGIN
+      DELETE FROM memory_entries_fts WHERE entry_id = OLD.id;
+      INSERT INTO memory_entries_fts(entry_id, key, content)
+        VALUES (NEW.id, NEW.key, NEW.content);
+    END;
+  `);
+}
+
+/**
+ * One-time repair for a database that already has the FTS5 table: remove any
+ * duplicate rows the pre-fix `memory_entries_fts_ai` trigger left behind for
+ * the same `entry_id` (fixing the trigger only stops NEW duplicates; it does
+ * not retroactively clean up ones already written). Keeps the row with the
+ * largest `rowid` per `entry_id` — FTS5 rowids are monotonically increasing
+ * on insert, so that is the most-recently-written (current) content; run
+ * every `initializeSchema()` call, so it is also a no-op once clean. */
+function dedupeFTS5Rows(driver: SqlDriver): void {
+  driver.exec(`
+    DELETE FROM memory_entries_fts
+    WHERE rowid NOT IN (SELECT MAX(rowid) FROM memory_entries_fts GROUP BY entry_id);
+  `);
 }
 
 /**
