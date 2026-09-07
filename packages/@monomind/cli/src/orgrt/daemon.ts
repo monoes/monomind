@@ -1886,8 +1886,32 @@ export class OrgDaemon {
       },
     });
 
-    // Step 6: quiesce the old incarnation.
+    // Step 6: quiesce the old incarnation. Bump the generation NOW, before
+    // draining starts — not at the final publish (step 11-13) — so the OLD
+    // generation's crash-retry loop (spawnRoleIncarnation's isStaleGeneration
+    // check) recognizes supersession immediately. Without this, a backoff
+    // timer firing during the drain/force-stop window, or the forced abort's
+    // own rejection, would still see itself as the current generation:
+    // the abort's rejection doesn't match killedByStop's SIGTERM-only regex,
+    // so it would run full terminal crash handling — a duplicate live runner
+    // (mid-backoff restart) or a false worker-crashed notification, exactly
+    // what the guard exists to prevent.
+    const newGeneration = slot.generation + 1;
+    slot.generation = newGeneration;
     slot.phase = 'draining';
+    // Every await from here on can race a stop/restart of this org — verify
+    // ownership before EVERY subsequent step, not just once before the final
+    // publish, so a stale operation can never mutate accounting, force-stop
+    // a runtime, or spawn into an org that's no longer the live one.
+    const stillOwned = (): boolean =>
+      this.orgs.get(name) === running && running.roleSlots.get(input.roleId) === slot;
+    const abandonedReceipt = (): RespawnReceipt => {
+      running.respawning.delete(input.roleId);
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `org "${name}" stopped or restarted during replacement`,
+      });
+    };
     const oldRuntime = slot.runtime!;
     const sweptQueue = oldRuntime.mailbox.beginDrain();
     slot.queuedDuringSwap.push(...sweptQueue);
@@ -1896,6 +1920,7 @@ export class OrgDaemon {
       oldRuntime.done.then(() => true),
       new Promise<boolean>((r) => setTimeout(() => r(false), drainTimeoutMs)),
     ]);
+    if (!stillOwned()) return abandonedReceipt();
     let drainTimedOut = false;
     if (!drained) {
       drainTimedOut = true;
@@ -1906,6 +1931,7 @@ export class OrgDaemon {
         oldRuntime.done.then(() => true).catch(() => true),
         new Promise<boolean>((r) => setTimeout(() => r(false), forceStopMs)),
       ]);
+      if (!stillOwned()) return abandonedReceipt();
       if (!stopped) {
         slot.phase = 'stuck';
         running.respawning.delete(input.roleId);
@@ -1934,8 +1960,7 @@ export class OrgDaemon {
       costUsd: slot.retiredUsage.costUsd + oldRuntime.metrics.costUsd,
     };
 
-    // Step 10: spawn generation N+1.
-    const newGeneration = slot.generation + 1;
+    // Step 10: spawn generation N+1 (generation already bumped in step 6).
     const { runtime: newRuntime, abort: newAbort } = this.spawnRoleIncarnation(
       name,
       running,
@@ -1955,20 +1980,26 @@ export class OrgDaemon {
     if (running.def.roles.find((r) => r.id === input.roleId)?.budget_usd !== undefined) {
       newRuntime.policy.setUsageUsd(slot.retiredUsage.costUsd);
     }
+    // "Ready" here means "did not crash within the startup window" — a
+    // silent-but-healthy runner (one that never emits a chat/tool/usage
+    // event, e.g. because it hasn't finished its first turn yet) must not be
+    // misreported as a startup failure, so this does NOT wait for a positive
+    // signal. It races the new incarnation's own crash-retry loop (which
+    // shares this generation, so it is NOT superseded and behaves normally)
+    // against the timeout: a config that fails immediately (bad model,
+    // missing runtime binary, auth failure) crashes fast and newRuntime.done
+    // resolves with status 'crashed' well before startTimeoutMs, correctly
+    // failing readiness and triggering rollback.
     const startTimeoutMs = running.def.run_config.respawn_start_timeout_ms ?? 60_000;
     const ready = await Promise.race([
-      Promise.resolve(true), // AgentRuntime is already live the instant spawnRoleIncarnation returns
-      new Promise<boolean>((r) => setTimeout(() => r(false), startTimeoutMs)),
+      newRuntime.done.then(() => newRuntime.status !== 'crashed'),
+      new Promise<boolean>((r) => setTimeout(() => r(true), startTimeoutMs)),
     ]);
 
     // Step 11: publish atomically — verify ownership is still current.
-    if (this.orgs.get(name) !== running || running.roleSlots.get(input.roleId) !== slot) {
+    if (!stillOwned()) {
       newAbort.abort();
-      running.respawning.delete(input.roleId);
-      return buildRespawnReceipt(slot, maxRespawns, false, {
-        roleId: input.roleId,
-        error: `org "${name}" stopped or restarted during replacement`,
-      });
+      return abandonedReceipt();
     }
     if (!ready) {
       // Step 12: rollback — one attempt with the prior effective config.
