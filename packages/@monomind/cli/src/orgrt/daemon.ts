@@ -53,6 +53,7 @@ import { PolicyEngine } from './policy.js';
 import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import { QwenAgentRunner } from './qwen-runner.js';
+import type { RoleSlot } from './role-slot.js';
 import {
   historyFile,
   type RunSummary,
@@ -316,6 +317,22 @@ export interface RunningOrg {
    *  server and is published in the broker registry as its sender identity.
    *  Per-org (not daemon-wide) so one org can't present itself as a sibling. */
   credential?: string;
+  /** Authoritative role lifecycle state for mid-run replacement — see
+   *  role-slot.ts. `agents` remains a compatibility view kept in sync (every
+   *  write to a slot's `runtime` is mirrored into `agents`); NEW lifecycle
+   *  logic (crash-retry generation guard, budget accounting, respawn) reads
+   *  and writes roleSlots, not agents, directly. */
+  roleSlots: Map<string, RoleSlot>;
+  /** The role id startup's single boss-selection rule picked (daemon.ts's
+   *  bossRole). Stored so respawnRole() (called long after startOrg returns)
+   *  doesn't need to re-derive it. */
+  bossRoleId: string;
+  /** Canonical entity names from this org's KG, computed once at startup —
+   *  reused by respawnRole() when it spawns a replacement incarnation. */
+  glossary: string[];
+  /** Role ids currently undergoing replacement — rejects a concurrent
+   *  respawnRole() call for the same role id. */
+  respawning: Set<string>;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -849,6 +866,10 @@ export class OrgDaemon {
       run,
       bus,
       agents: new Map(),
+      roleSlots: new Map(),
+      bossRoleId: '', // set below, once bossRole is computed
+      glossary: [],
+      respawning: new Set(),
       busEvents: () => [...collected],
       workdir: cwd,
       credential: randomUUID(),
@@ -908,6 +929,7 @@ export class OrgDaemon {
     // the tool.
     const bossRole =
       def.roles.find((r) => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+    running.bossRoleId = bossRole.id;
     // Canonical entity names from THIS org's KG — injected into the coordinator
     // prompt so org_learn extractions reuse them instead of minting duplicates.
     // Scoped: an unscoped glossary handed every org's entity names to every
@@ -924,6 +946,7 @@ export class OrgDaemon {
         return [];
       }
     })();
+    running.glossary = glossary;
     // Resource-gated staggered spawn: check memory/process limits before each
     // NON-BOSS agent, wait if under pressure. The boss always spawns immediately
     // and ungated — the org has no coordinator at all without it, so gating it
@@ -1324,6 +1347,15 @@ export class OrgDaemon {
         })();
       }
       running.agents.set(role.id, runtime);
+      running.roleSlots.set(role.id, {
+        generation: 0,
+        phase: 'running',
+        runtime,
+        effectiveRole: role,
+        respawnCount: 0,
+        queuedDuringSwap: [],
+        retiredUsage: { tokens: 0, costUsd: 0 },
+      });
     };
 
     if (options?.resume && checkpoint) {
