@@ -2129,6 +2129,66 @@ export async function kgStats(options?: {
   return { nodes, edges, rules };
 }
 
+// ── Reference lookup (K7 ground truth) ───────────────────────────────
+
+export interface KgReferenceEdge {
+  key: string;
+  src: string;
+  dst: string;
+  relation: string;
+  originRefs: string[];
+}
+
+/** Complete, uncapped read of every edge touching `endpointId` (as either
+ *  src or dst) and/or asserted by `originRef` — at least one filter is
+ *  required. This is the ground truth an indexed adjacency/origin lookup
+ *  (K7) must agree with once one exists: an exhaustive paged scan, the same
+ *  mechanism `kgRollback` already trusts for origin withdrawal, so it never
+ *  depends on an index and never inherits the old first-page cap.
+ *
+ *  `truncated: true` means the scan did not finish — an incomplete answer,
+ *  never an empty one. Callers comparing this against a future index must
+ *  treat a truncated reference read as "unknown", not as "no matches". */
+export async function kgReferenceEdges(options: {
+  endpointId?: string;
+  originRef?: string;
+  scope?: KgScope;
+  dbPath?: string;
+}): Promise<{ success: boolean; edges: KgReferenceEdge[]; truncated?: boolean; error?: string }> {
+  if (!options.endpointId && !options.originRef) {
+    return { success: false, edges: [], error: 'endpointId or originRef is required' };
+  }
+  const ns = kgNamespaces(options.scope);
+  const originRef = options.originRef
+    ? kgQualifyOrigin(options.originRef, options.scope)
+    : undefined;
+  const edges: KgReferenceEdge[] = [];
+  try {
+    const covered = await scanNamespace(ns.edges, options.dbPath, (page) => {
+      for (const e of page) {
+        const md = (e.metadata ?? {}) as Record<string, unknown>;
+        if (md.kg !== 'edge') continue;
+        const src = String(md.src ?? '');
+        const dst = String(md.dst ?? '');
+        if (options.endpointId && src !== options.endpointId && dst !== options.endpointId)
+          continue;
+        const originRefs = originsOf(e);
+        if (originRef && !originRefs.includes(originRef)) continue;
+        edges.push({
+          key: e.key,
+          src,
+          dst,
+          relation: String(md.relation ?? 'related_to'),
+          originRefs,
+        });
+      }
+    });
+    return { success: true, edges, ...(covered ? {} : { truncated: true }) };
+  } catch (err) {
+    return { success: false, edges, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ── Integrity ───────────────────────────────────────────────────────
 
 export interface KgIntegrityResult {
