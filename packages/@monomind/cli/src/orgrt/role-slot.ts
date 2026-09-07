@@ -5,7 +5,7 @@
  */
 import type { AgentRuntime } from './daemon.js';
 import type { RuntimeKind } from './daemon.js';
-import type { OrgRole } from './types.js';
+import type { OrgDef, OrgRole } from './types.js';
 
 export type RoleSlotPhase =
   | 'pending'
@@ -74,4 +74,23 @@ export function mergeEffectiveRoleConfig(current: OrgRole, overrides: RoleOverri
     };
   }
   return merged;
+}
+
+/** The role's per-incarnation token ceiling when org_respawn_role omits
+ *  `budgetTokens`: reuse the SAME allocator startup uses (daemon.ts's
+ *  perRoleBudget computation), not the older even-split-only
+ *  roleTokenBudget() helper. A role with its own budget_tokens override
+ *  always gets that value; otherwise the remaining org budget (after
+ *  subtracting every override) is split evenly across every role WITHOUT
+ *  an override. */
+export function computeReplacementBudget(def: OrgDef, roleId: string): number {
+  const role = def.roles.find((r) => r.id === roleId);
+  if (!role) throw new Error(`computeReplacementBudget: unknown role "${roleId}"`);
+  if (role.budget_tokens != null) return role.budget_tokens;
+  const orgBudgetTokens = def.run_config.budget_tokens ?? 1_000_000;
+  const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
+  const unoverriddenRoleCount = def.roles.filter((r) => r.budget_tokens == null).length;
+  return unoverriddenRoleCount > 0
+    ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
+    : 0;
 }
