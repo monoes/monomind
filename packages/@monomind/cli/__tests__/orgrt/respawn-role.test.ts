@@ -90,4 +90,31 @@ describe('RunningOrg.roleSlots', () => {
     expect(bossAudits).toHaveLength(0);
     await daemon.stopOrg('stale-gen-org');
   });
+
+  it('org-wide budget accounting includes retired usage from replaced incarnations', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'retired-usage-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, budget_tokens: 100 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'retired-usage-org.json'),
+      JSON.stringify(def),
+    );
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const running = await daemon.startOrg('retired-usage-org');
+    await daemon.deliver('retired-usage-org', 'boss', 'worker', 'go', 'start working');
+    // Simulate 90 tokens already retired from a previous incarnation of "worker".
+    running.roleSlots.get('worker')!.retiredUsage.tokens = 90;
+    let orgBudgetExhausted = false;
+    running.bus.subscribe((e) => {
+      if (e.type === 'status' && e.reason === 'org-budget-exhausted') orgBudgetExhausted = true;
+    });
+    // 15 more live tokens pushes the effective total (90 retired + 15 live = 105) over 100.
+    running.agents.get('worker')!.policy.addUsage(15);
+    running.bus.emit({ type: 'usage', from: 'worker', data: { tokens: 15 } });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(orgBudgetExhausted).toBe(true);
+    await daemon.stopOrg('retired-usage-org');
+  });
 });

@@ -826,6 +826,11 @@ export class OrgDaemon {
         if (orgBudget != null) {
           let orgUsage = 0;
           for (const rt of running.agents.values()) orgUsage += rt.policy.usage;
+          // Mid-run role replacement retires a policy engine's usage into the
+          // slot instead of discarding it (see role-slot.ts / respawnRole) -
+          // include it here or a replacement could silently reset spend and
+          // let the org exceed its declared ceiling.
+          for (const slot of running.roleSlots.values()) orgUsage += slot.retiredUsage.tokens;
           if (orgUsage >= orgBudget) {
             orgBudgetClosed = true;
             running.pendingRoles?.clear(); // prevent lazy spawns after the org budget is exhausted
