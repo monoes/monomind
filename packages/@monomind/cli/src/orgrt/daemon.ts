@@ -50,12 +50,17 @@ import * as orgMemory from './org-memory.js';
 import { PiRpcAgentRunner } from './pi-rpc-runner.js';
 import { PiAgentRunner } from './pi-runner.js';
 import { PolicyEngine } from './policy.js';
+import { resolveRoleProvider } from './provider.js';
 import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import { QwenAgentRunner } from './qwen-runner.js';
 import {
+  buildRespawnReceipt,
   computeReplacementBudget,
   mergeEffectiveRoleConfig,
+  redactRoleConfig,
+  validateRespawnInput,
+  type RespawnReceipt,
   type RoleOverrides,
   type RoleSlot,
 } from './role-slot.js';
@@ -1721,6 +1726,152 @@ export class OrgDaemon {
       })();
     }
     return runtime;
+  }
+
+  /** org_respawn_role's daemon-owned implementation. See the design doc's
+   *  "Replacement algorithm" (13 steps) — this method's body follows those
+   *  steps in order, numbered in comments. */
+  async respawnRole(name: string, callerId: string, rawInput: unknown): Promise<RespawnReceipt> {
+    const running = this.orgs.get(name);
+    if (!running) {
+      return {
+        success: false,
+        roleId: '',
+        generation: 0,
+        respawnCount: 0,
+        respawnsRemaining: 0,
+        error: `org "${name}" is not running`,
+      };
+    }
+    // Step 1: authorize (defense in depth — buildOrgTools only ever wires
+    // onRespawnRole for the selected coordinator, but re-check here too).
+    if (callerId !== running.bossRoleId) {
+      return {
+        success: false,
+        roleId: '',
+        generation: 0,
+        respawnCount: 0,
+        respawnsRemaining: 0,
+        error: 'only the selected coordinator may call org_respawn_role',
+      };
+    }
+    if (this.stopping.has(name)) {
+      return {
+        success: false,
+        roleId: '',
+        generation: 0,
+        respawnCount: 0,
+        respawnsRemaining: 0,
+        error: `org "${name}" is stopping`,
+      };
+    }
+    const validated = validateRespawnInput(rawInput);
+    if (!validated.ok) {
+      return {
+        success: false,
+        roleId: '',
+        generation: 0,
+        respawnCount: 0,
+        respawnsRemaining: 0,
+        error: validated.error,
+      };
+    }
+    const input = validated.value;
+    if (input.roleId === running.bossRoleId) {
+      return {
+        success: false,
+        roleId: input.roleId,
+        generation: 0,
+        respawnCount: 0,
+        respawnsRemaining: 0,
+        error: 'cannot replace the selected coordinator',
+      };
+    }
+    const slot = running.roleSlots.get(input.roleId);
+    if (!slot) {
+      return {
+        success: false,
+        roleId: input.roleId,
+        generation: 0,
+        respawnCount: 0,
+        respawnsRemaining: 0,
+        error: `unknown or not-yet-started role "${input.roleId}"`,
+      };
+    }
+    const maxRespawns = running.def.run_config.max_role_respawns ?? 0;
+    if (slot.phase === 'removed') {
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `role "${input.roleId}" was removed from this org`,
+      });
+    }
+    // Step 2: acquire the role slot (reject a concurrent replacement).
+    if (running.respawning.has(input.roleId) || slot.respawnPromise) {
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `role "${input.roleId}" is already undergoing replacement`,
+      });
+    }
+    if (slot.respawnCount >= maxRespawns) {
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `role "${input.roleId}" has reached its respawn limit (${slot.respawnCount}/${maxRespawns}) for this run`,
+      });
+    }
+    // Step 3: resolve the candidate configuration.
+    if (input.providerName !== undefined && slot.effectiveRole.provider) {
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `role "${input.roleId}" has an inline provider, which always takes precedence over adapter_config.provider — replacing an inline provider is a separate design`,
+      });
+    }
+    const candidateRole = mergeEffectiveRoleConfig(slot.effectiveRole, {
+      runtime: input.runtime,
+      model: input.model,
+      providerName: input.providerName,
+    });
+    const budgetTokens = input.budgetTokens ?? computeReplacementBudget(running.def, input.roleId);
+
+    // Step 4: preflight — must not mutate the old runtime.
+    try {
+      resolveRoleProvider(candidateRole, this.root);
+    } catch (err) {
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `preflight failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+    // resolveRoleRunner's undefined return is the valid Claude default, not
+    // an error — nothing further to validate for the runtime dimension here.
+    resolveRoleRunner(
+      candidateRole.runtime,
+      running.def.runtime,
+      candidateRole.provider?.kind,
+      undefined,
+      candidateRole.provider,
+    );
+
+    // Step 5: consume one attempt — only after validation/preflight succeed.
+    running.respawning.add(input.roleId);
+    slot.respawnCount++;
+    running.bus.emit({
+      type: 'audit',
+      from: callerId,
+      reason: 'role-respawn-started',
+      msg: `replacing role "${input.roleId}": ${input.reason}`,
+      data: {
+        roleId: input.roleId,
+        from: redactRoleConfig(slot.effectiveRole),
+        to: redactRoleConfig(candidateRole),
+        generation: slot.generation,
+        caller: callerId,
+      },
+    });
+
+    // Steps 6-13 continue in Task 19/20.
+    void budgetTokens;
+    void candidateRole;
+    throw new Error('respawnRole: steps 6-13 not yet implemented (Task 19/20)');
   }
 
   /** @internal */
