@@ -53,7 +53,12 @@ import { PolicyEngine } from './policy.js';
 import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import { QwenAgentRunner } from './qwen-runner.js';
-import { mergeEffectiveRoleConfig, type RoleOverrides, type RoleSlot } from './role-slot.js';
+import {
+  computeReplacementBudget,
+  mergeEffectiveRoleConfig,
+  type RoleOverrides,
+  type RoleSlot,
+} from './role-slot.js';
 import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import {
   historyFile,
@@ -964,411 +969,9 @@ export class OrgDaemon {
     // gate logic or duplicating the session-wiring below.
     const spawnRole = (role: OrgRole, roleCheckpoint?: RoleCheckpoint): void => {
       if (running.agents.has(role.id)) return;
-      let roleCwd = cwd;
-      if (ws === 'worktree-per-role' && role.id !== bossRole.id) {
-        const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
-        try {
-          // Q7: top-level `import { execFileSync }` replaces the inlined
-          // `require('node:child_process')` that broke ESM at runtime —
-          // vitest's CJS shim masked it in tests but the built package
-          // threw "require is not defined" in real Node ESM execution.
-          // SEC-5: argv-array form, no shell.
-          if (existsSync(wtPath)) {
-            try {
-              execFileSync('git', ['worktree', 'remove', '--force', wtPath], {
-                cwd: this.root,
-                stdio: 'ignore',
-                timeout: 30_000,
-              });
-            } catch {
-              /* best-effort */
-            }
-          }
-          execFileSync('git', ['worktree', 'add', wtPath, 'HEAD', '--detach'], {
-            cwd: this.root,
-            stdio: 'ignore',
-            timeout: 30_000,
-          });
-          roleCwd = wtPath;
-        } catch {
-          /* fallback to shared cwd if git worktree fails */
-        }
-      }
-      const mailbox = new Mailbox();
-      if (roleCheckpoint?.mailboxQueue?.length) {
-        restoreMailboxQueue({ mailbox } as any, roleCheckpoint.mailboxQueue);
-      }
-      // A recoverable close (budget exhaustion) is left open on resume — see
-      // isRecoverableCloseReason's doc comment. Re-closing it here would
-      // make the idle watchdog's "raise the budget and resume" remedy a
-      // no-op, since nothing in this codebase ever reopens a closed mailbox.
-      if (
-        roleCheckpoint?.mailboxClosed &&
-        !isRecoverableCloseReason(roleCheckpoint.mailboxCloseReason)
-      ) {
-        mailbox.close(roleCheckpoint.mailboxCloseReason);
-      }
-      const policy = new PolicyEngine(
-        role.id,
-        {
-          maxTokens: role.budget_tokens ?? perRoleBudget,
-          maxUsd: role.budget_usd,
-          ...(role.policy ?? {}),
-        },
-        bus,
-        roleCwd,
-      );
-      if (roleCheckpoint?.tokensUsed) {
-        policy.setUsage(roleCheckpoint.tokensUsed);
-      }
-      // ORG-7: restore accumulated USD spend across resume so a stop/resume
-      // cycle can't reset a role's USD budget back to zero.
-      if (roleCheckpoint?.costUsd) {
-        policy.setUsageUsd(roleCheckpoint.costUsd);
-      }
-      const runtime: AgentRuntime = {
-        mailbox,
-        policy,
-        status: roleCheckpoint?.status ?? 'running',
-        done: Promise.resolve(),
-        metrics: { tokens: roleCheckpoint?.tokensUsed ?? 0, costUsd: roleCheckpoint?.costUsd ?? 0 },
-        lastMessageId: roleCheckpoint?.lastMessageId,
-        error: roleCheckpoint?.error,
-        sessionId: roleCheckpoint?.sessionId,
-        worktreePath: roleCwd !== cwd ? roleCwd : undefined,
-        scrollback: new ScrollbackBuffer(),
-      };
-      if (roleCheckpoint?.scrollback?.length) {
-        for (const line of roleCheckpoint.scrollback) runtime.scrollback.push(line);
-      }
-      const sessionOpts = {
-        org: name,
-        role,
-        bus,
-        policy,
-        mailbox,
-        cwd: roleCwd,
-        def,
-        // Pass the org state directory so runners that persist per-role state
-        // (VercelAgentRunner session files) write under .monomind/orgs/<name>
-        // instead of polluting the workspace cwd.
-        orgDir: join(this.root, ORG_DIR, name),
-        // Project root for named-provider (`adapter_config.provider`) config
-        // lookup — role cwd may be an isolated workspace with no config file.
-        orgRoot: this.root,
-        maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
-        resumeSessionId: roleCheckpoint?.sessionId,
-        lastMessageId: () => runtime.lastMessageId,
-        onOutput: (line: string) => runtime.scrollback.push(line),
-        onSessionId: (id: string) => {
-          runtime.sessionId = id;
-        },
-        deliver: (from: string, to: string, subject: string, body: string) =>
-          this.deliver(name, from, to, subject, body),
-        askHuman: (r: string, question: string) => this.askHuman(name, r, question),
-        onGate: (r: string, gateName: string, gateDesc: string) =>
-          this.createGate(name, r, gateName, gateDesc),
-        circuitBreaker: (() => {
-          const cb = (def.run_config as Record<string, unknown>).circuit_breaker as
-            | { failure_threshold?: number; cooldown_ms?: number }
-            | undefined;
-          if (!cb) return undefined;
-          return { threshold: cb.failure_threshold ?? 5, state: { failures: 0, tripped: false } };
-        })(),
-        beforeTool: (r: string, toolName: string, input: Record<string, unknown>) =>
-          this.checkApproval(name, r, toolName, input),
-        fence: roleFences.get(role.id),
-        // ORG-1: gatedCanUseTool denials are a natural decision point — record them so
-        // `org decisions` shows real traces instead of always reporting none.
-        onDecision: (r: string, toolName: string, message: string) => {
-          this.recordDecision(name, r, {
-            type: 'tool',
-            context: `tool call: ${toolName}`,
-            reasoning: message,
-            outcome: 'denied',
-          });
-        },
-        // ORG-9: decision gates are documented as "hard-blocking" — make that
-        // true by actually denying tool use while this role has a pending gate,
-        // the same way pending approvals already do.
-        hasPendingGate: () => this.listGates(name, 'pending').some((g) => g.roleId === role.id),
-        onComplete:
-          role.id === bossRole.id
-            ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
-                bus.emit({
-                  type: 'status',
-                  from: r,
-                  reason: 'org-complete',
-                  msg: `run outcome: ${outcome}`,
-                  data: { outcome, summary },
-                });
-              }
-            : undefined,
-        // #11: a boss that overflows its context window isn't a crash (it keeps
-        // returning +0-token errors forever), so without this the idle watchdog
-        // just nudges it for ~30 min before idle-stopping. Restart the whole org
-        // with fresh sessions instead — bounded by MAX_BOSS_RESTARTS.
-        onContextLimit: role.id === bossRole.id ? () => this.scheduleBossRestart(name) : undefined,
-        onListRuntimeOptions:
-          role.id === bossRole.id && (def.run_config.max_role_respawns ?? 0) > 0
-            ? () => this.listRuntimeOptions()
-            : undefined,
-        recall: async (r: string, q: string) => {
-          const answer = await this.recallOrgMemory(name, def, q, r);
-          bus.emit({
-            type: 'status',
-            from: r,
-            reason: 'org-recall',
-            msg: `recall: ${q.slice(0, 80)}`,
-            data: { hits: answer.hits },
-          });
-          return answer.text;
-        },
-        searchKnowledge: async (r: string, q: string) => {
-          const answer = await this.searchProjectKnowledge(q);
-          bus.emit({
-            type: 'status',
-            from: r,
-            reason: 'knowledge-search',
-            msg: `knowledge: ${q.slice(0, 80)}`,
-            data: { hits: answer.hits },
-          });
-          return answer.text;
-        },
-        glossary,
-        remember: async (r: string, content: string, scope: 'org' | 'agent') => {
-          const text = await this.rememberOrgMemory(name, def, r, content, scope, run);
-          bus.emit({
-            type: 'status',
-            from: r,
-            reason: 'org-remember',
-            msg: `remember (${scope}): ${content.slice(0, 80)}`,
-            data: { scope },
-          });
-          return text;
-        },
-        learn: async (
-          r: string,
-          payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] },
-        ) => {
-          const text = await this.learnOrgKnowledge(name, run, payload);
-          bus.emit({
-            type: 'status',
-            from: r,
-            reason: 'org-learn',
-            msg: `learn: ${text.slice(0, 120)}`,
-            data: {
-              nodes: payload.nodes?.length ?? 0,
-              edges: payload.edges?.length ?? 0,
-              rules: payload.rules?.length ?? 0,
-            },
-          });
-          return text;
-        },
-        createTask: (r: string, title: string, assignee: string, deps: string[]) => {
-          return this.dagCreateTask(name, r, title, assignee, deps);
-        },
-        completeTask: (r: string, taskId: string, result?: string) => {
-          return this.dagCompleteTask(name, r, taskId, result);
-        },
-        listTasks: () => {
-          const running = this.orgs.get(name);
-          return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
-        },
-        splitTask: (
-          r: string,
-          parentId: string,
-          children: { title: string; assignee: string }[],
-        ) => {
-          return this.dagSplitTask(name, r, parentId, children);
-        },
-        mergeTask: (r: string, sourceId: string, targetId: string) => {
-          return this.dagMergeTask(name, r, sourceId, targetId);
-        },
-        cancelTask: (r: string, taskId: string, reason?: string) => {
-          return this.dagCancelTask(name, r, taskId, reason);
-        },
-        blockTask: (r: string, taskId: string, untilIso: string, reason?: string) => {
-          return this.dagBlockTask(name, r, taskId, untilIso, reason);
-        },
-        planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
-          return this.dagPlanGraph(name, r, specs);
-        },
-        queryFn: this.opts.queryFn,
-        // Runner resolution: explicit opts.runner > role `runtime` field >
-        // org def `runtime` field > MONOMIND_RUNTIME env (opencode/kimicode) >
-        // undefined (session.ts falls back to ClaudeAgentRunner via queryFn).
-        // Leaving it undefined for the default path is what keeps
-        // Claude/Antigravity orgs byte-for-byte unchanged. Session opts are
-        // built per role here in spawnRole, so each role gets its own runner.
-        runner:
-          this.opts.runner ??
-          resolveRoleRunner(
-            role.runtime,
-            def.runtime,
-            role.provider?.kind,
-            undefined,
-            role.provider,
-          ),
-      };
-      // Supervised session: transient crashes (provider blips, network) restart
-      // with backoff; a crash with the mailbox already closed, or one that
-      // exhausts the retry budget, is terminal. runAgentSession already emits a
-      // 'status' event for the raw error; the terminal 'audit' event is for
-      // dashboards/alerts that filter on actionable failures (not routine
-      // status chatter) so a dead agent surfaces instead of a run that
-      // silently never progresses.
-      const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
-      const myGeneration = running.roleSlots.get(role.id)?.generation ?? 0;
-      const isStaleGeneration = (): boolean =>
-        (running.roleSlots.get(role.id)?.generation ?? 0) !== myGeneration;
-      if (!mailbox.isClosed && runtime.status !== 'crashed') {
-        runtime.done = (async () => {
-          for (let attempt = 0; ; attempt++) {
-            try {
-              await runAgentSession(sessionOpts);
-              runtime.status = 'ended';
-              return;
-            } catch (err) {
-              // A deliberate respawn (see respawnRole) bumps the slot's
-              // generation and force-stops this incarnation via its
-              // externalAbort - that abort makes runAgentSession reject here
-              // exactly like a real crash would. Recognize supersession
-              // FIRST: this generation's retry loop must never restart,
-              // never run terminal crash handling, and never notify the
-              // boss - the replacement (a new generation, spawned
-              // separately) already owns this role id.
-              if (isStaleGeneration()) return;
-              // Drop the crashed session's stale waker immediately: a push()
-              // during the backoff window must queue for the NEXT session, not
-              // wake the dead generator to swallow it.
-              mailbox.detach();
-              // #203: if the crashed session's mailbox generator was abandoned
-              // mid-yield (message already shift()ed for it, turn never
-              // finished), put that message back on the queue — otherwise the
-              // replacement session's stream() finds an empty queue and parks
-              // forever, since the "delivered" message is gone for good.
-              mailbox.reclaimInFlight();
-              const message = err instanceof Error ? err.message : String(err);
-              const isTurnLimit = /Reached maximum number of turns|error_max_turns/i.test(message);
-              // Bounded like every other recovery: attempt counts every pass
-              // through this loop, so a role that keeps surfacing max-turns
-              // errors here (session.ts already swallows the normal ones)
-              // falls through to crash handling instead of looping forever.
-              if (isTurnLimit && !mailbox.isClosed && attempt < BACKOFFS_MS.length) {
-                sessionOpts.resumeSessionId = undefined;
-                mailbox.push(
-                  `${Mailbox.CONTINUE_PREFIX} You reached the turn limit on your task. Continue your in-progress work from where you left off; if finished, end your turn.`,
-                );
-                bus.emit({
-                  type: 'status',
-                  from: role.id,
-                  reason: 'turn-limit-recover',
-                  msg: `agent "${role.id}" hit turn limit error — continuing with fresh session`,
-                });
-                continue;
-              }
-              // Exit 143 = SIGTERM. If the mailbox is already closed, we
-              // sent the signal ourselves during stop — not a crash.
-              const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
-              const crash = (): void => {
-                if (killedByStop) {
-                  runtime.status = 'ended';
-                  bus.emit({
-                    type: 'status',
-                    from: role.id,
-                    msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
-                    reason: 'terminated-by-stop',
-                  });
-                  return;
-                }
-                runtime.status = 'crashed';
-                runtime.error = message;
-                // Close the mailbox so deliver()/receiveRemote() report a real
-                // error instead of pushing into a queue no session will read
-                // (and returning a false "delivered" receipt to the sender).
-                mailbox.close();
-                const isContextLimit = OrgDaemon.CONTEXT_LIMIT_RE.test(message);
-                bus.emit({
-                  type: 'audit',
-                  from: role.id,
-                  msg: `agent "${role.id}" crashed: ${message}`,
-                  reason: isContextLimit ? 'agent-context-limit' : 'agent-session-crash',
-                  data: {
-                    agentId: role.id,
-                    error: message,
-                    restarts: attempt,
-                    contextLimit: isContextLimit,
-                  },
-                });
-                if (role.id !== bossRole.id) {
-                  // #2/#3: a worker is gone for the rest of this run. Without this
-                  // notice the coordinator keeps messaging a corpse (observed: four
-                  // unanswered org_send calls to a developer that had crashed on a
-                  // context-window limit). Tell the boss to reassign — and if the
-                  // crash was a context overflow, tell it to chunk smaller, since
-                  // re-dispatching the same task verbatim fails the same way.
-                  const bossRt = running.agents.get(bossRole.id);
-                  if (bossRt && !bossRt.mailbox.isClosed) {
-                    const guidance = isContextLimit
-                      ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
-                      : '';
-                    bossRt.mailbox.push(
-                      `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`,
-                    );
-                    bus.emit({
-                      type: 'audit',
-                      from: bossRole.id,
-                      reason: 'worker-crashed',
-                      msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign`,
-                    });
-                  }
-                } else {
-                  // #4: the coordinator itself died. Don't go silent and wait for a
-                  // human — attempt a bounded whole-org restart with fresh sessions
-                  // (which also sheds whatever bloated context caused the crash).
-                  this.scheduleBossRestart(name);
-                }
-              };
-              // Fatal errors (provider auth/quota/billing — tagged with
-              // err.fatal by the runner) can NEVER be fixed by a restart: the
-              // same call fails identically or hangs. Skip the backoff loop
-              // and go straight to terminal crash handling instead of burning
-              // the retry budget and wall-clock on a guaranteed failure.
-              const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
-              if (fatal) {
-                bus.emit({
-                  type: 'status',
-                  from: role.id,
-                  reason: 'agent-fatal',
-                  msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
-                });
-                crash();
-                return;
-              }
-              if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) {
-                crash();
-                return;
-              }
-              bus.emit({
-                type: 'status',
-                from: role.id,
-                reason: 'agent-restart',
-                msg: `agent "${role.id}" crashed (${message}) — restarting in ${BACKOFFS_MS[attempt]}ms (attempt ${attempt + 1}/${BACKOFFS_MS.length})`,
-              });
-              await new Promise<void>((r) => {
-                const t = setTimeout(r, BACKOFFS_MS[attempt]);
-                (t as { unref?: () => void }).unref?.();
-              });
-              if (isStaleGeneration()) return; // superseded during the backoff wait
-              if (mailbox.isClosed) {
-                crash();
-                return;
-              } // org stopped during backoff — never recovered
-            }
-          }
-        })();
-      }
+      const runtime = this.spawnRoleIncarnation(name, running, role, roleCheckpoint?.generation ?? 0, {
+        roleCheckpoint,
+      });
       running.agents.set(role.id, runtime);
       running.roleSlots.set(role.id, {
         generation: roleCheckpoint?.generation ?? 0,
@@ -1695,6 +1298,429 @@ export class OrgDaemon {
       bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
 
     return running;
+  }
+
+  /** Build one role incarnation: mailbox, policy, AgentRuntime, sessionOpts,
+   *  and the supervised crash-retry loop. Used by BOTH the startup lazy-spawn
+   *  path (generation 0, via the `spawnRole` closure inside startOrgInner)
+   *  and respawnRole() (generation N+1). Does not touch running.agents or
+   *  running.roleSlots — callers publish the result themselves. */
+  spawnRoleIncarnation(
+    name: string,
+    running: RunningOrg,
+    role: OrgRole,
+    generation: number,
+    opts: { roleCheckpoint?: RoleCheckpoint } = {},
+  ): AgentRuntime {
+    const { roleCheckpoint } = opts;
+    const { def, bus, run } = running;
+    const cwd = running.workdir!;
+    const ws = this.workspaceSetting(def);
+    const perRoleBudget = computeReplacementBudget(def, role.id);
+    let roleCwd = cwd;
+    const existingSlot = running.roleSlots.get(role.id);
+    if (ws === 'worktree-per-role' && role.id !== running.bossRoleId) {
+      const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
+      if (existingSlot?.runtime?.worktreePath === wtPath && existsSync(wtPath)) {
+        // A replacement (generation > 0) reuses the SAME worktree path —
+        // recreating it here would delete any uncommitted work the old
+        // incarnation left behind (design constraint #5).
+        roleCwd = wtPath;
+      } else {
+        try {
+          // Q7: top-level `import { execFileSync }` replaces the inlined
+          // `require('node:child_process')` that broke ESM at runtime —
+          // vitest's CJS shim masked it in tests but the built package
+          // threw "require is not defined" in real Node ESM execution.
+          // SEC-5: argv-array form, no shell.
+          if (existsSync(wtPath)) {
+            try {
+              execFileSync('git', ['worktree', 'remove', '--force', wtPath], {
+                cwd: this.root,
+                stdio: 'ignore',
+                timeout: 30_000,
+              });
+            } catch {
+              /* best-effort */
+            }
+          }
+          execFileSync('git', ['worktree', 'add', wtPath, 'HEAD', '--detach'], {
+            cwd: this.root,
+            stdio: 'ignore',
+            timeout: 30_000,
+          });
+          roleCwd = wtPath;
+        } catch {
+          /* fallback to shared cwd if git worktree fails */
+        }
+      }
+    }
+    const mailbox = new Mailbox();
+    if (roleCheckpoint?.mailboxQueue?.length) {
+      restoreMailboxQueue({ mailbox } as any, roleCheckpoint.mailboxQueue);
+    }
+    // A recoverable close (budget exhaustion) is left open on resume — see
+    // isRecoverableCloseReason's doc comment. Re-closing it here would
+    // make the idle watchdog's "raise the budget and resume" remedy a
+    // no-op, since nothing in this codebase ever reopens a closed mailbox.
+    if (
+      roleCheckpoint?.mailboxClosed &&
+      !isRecoverableCloseReason(roleCheckpoint.mailboxCloseReason)
+    ) {
+      mailbox.close(roleCheckpoint.mailboxCloseReason);
+    }
+    const policy = new PolicyEngine(
+      role.id,
+      {
+        maxTokens: role.budget_tokens ?? perRoleBudget,
+        maxUsd: role.budget_usd,
+        ...(role.policy ?? {}),
+      },
+      bus,
+      roleCwd,
+    );
+    if (roleCheckpoint?.tokensUsed) {
+      policy.setUsage(roleCheckpoint.tokensUsed);
+    }
+    // ORG-7: restore accumulated USD spend across resume so a stop/resume
+    // cycle can't reset a role's USD budget back to zero.
+    if (roleCheckpoint?.costUsd) {
+      policy.setUsageUsd(roleCheckpoint.costUsd);
+    }
+    const runtime: AgentRuntime = {
+      mailbox,
+      policy,
+      status: roleCheckpoint?.status ?? 'running',
+      done: Promise.resolve(),
+      metrics: { tokens: roleCheckpoint?.tokensUsed ?? 0, costUsd: roleCheckpoint?.costUsd ?? 0 },
+      lastMessageId: roleCheckpoint?.lastMessageId,
+      error: roleCheckpoint?.error,
+      sessionId: roleCheckpoint?.sessionId,
+      worktreePath: roleCwd !== cwd ? roleCwd : undefined,
+      scrollback: new ScrollbackBuffer(),
+    };
+    if (roleCheckpoint?.scrollback?.length) {
+      for (const line of roleCheckpoint.scrollback) runtime.scrollback.push(line);
+    }
+    const sessionOpts = {
+      org: name,
+      role,
+      bus,
+      policy,
+      mailbox,
+      cwd: roleCwd,
+      def,
+      // Pass the org state directory so runners that persist per-role state
+      // (VercelAgentRunner session files) write under .monomind/orgs/<name>
+      // instead of polluting the workspace cwd.
+      orgDir: join(this.root, ORG_DIR, name),
+      // Project root for named-provider (`adapter_config.provider`) config
+      // lookup — role cwd may be an isolated workspace with no config file.
+      orgRoot: this.root,
+      maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
+      resumeSessionId: roleCheckpoint?.sessionId,
+      lastMessageId: () => runtime.lastMessageId,
+      onOutput: (line: string) => runtime.scrollback.push(line),
+      onSessionId: (id: string) => {
+        runtime.sessionId = id;
+      },
+      deliver: (from: string, to: string, subject: string, body: string) =>
+        this.deliver(name, from, to, subject, body),
+      askHuman: (r: string, question: string) => this.askHuman(name, r, question),
+      onGate: (r: string, gateName: string, gateDesc: string) =>
+        this.createGate(name, r, gateName, gateDesc),
+      circuitBreaker: (() => {
+        const cb = (def.run_config as Record<string, unknown>).circuit_breaker as
+          | { failure_threshold?: number; cooldown_ms?: number }
+          | undefined;
+        if (!cb) return undefined;
+        return { threshold: cb.failure_threshold ?? 5, state: { failures: 0, tripped: false } };
+      })(),
+      beforeTool: (r: string, toolName: string, input: Record<string, unknown>) =>
+        this.checkApproval(name, r, toolName, input),
+      fence: running.fences?.get(role.id),
+      // ORG-1: gatedCanUseTool denials are a natural decision point — record them so
+      // `org decisions` shows real traces instead of always reporting none.
+      onDecision: (r: string, toolName: string, message: string) => {
+        this.recordDecision(name, r, {
+          type: 'tool',
+          context: `tool call: ${toolName}`,
+          reasoning: message,
+          outcome: 'denied',
+        });
+      },
+      // ORG-9: decision gates are documented as "hard-blocking" — make that
+      // true by actually denying tool use while this role has a pending gate,
+      // the same way pending approvals already do.
+      hasPendingGate: () => this.listGates(name, 'pending').some((g) => g.roleId === role.id),
+      onComplete:
+        role.id === running.bossRoleId
+          ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
+              bus.emit({
+                type: 'status',
+                from: r,
+                reason: 'org-complete',
+                msg: `run outcome: ${outcome}`,
+                data: { outcome, summary },
+              });
+            }
+          : undefined,
+      // #11: a boss that overflows its context window isn't a crash (it keeps
+      // returning +0-token errors forever), so without this the idle watchdog
+      // just nudges it for ~30 min before idle-stopping. Restart the whole org
+      // with fresh sessions instead — bounded by MAX_BOSS_RESTARTS.
+      onContextLimit: role.id === running.bossRoleId ? () => this.scheduleBossRestart(name) : undefined,
+      onListRuntimeOptions:
+        role.id === running.bossRoleId && (def.run_config.max_role_respawns ?? 0) > 0
+          ? () => this.listRuntimeOptions()
+          : undefined,
+      recall: async (r: string, q: string) => {
+        const answer = await this.recallOrgMemory(name, def, q, r);
+        bus.emit({
+          type: 'status',
+          from: r,
+          reason: 'org-recall',
+          msg: `recall: ${q.slice(0, 80)}`,
+          data: { hits: answer.hits },
+        });
+        return answer.text;
+      },
+      searchKnowledge: async (r: string, q: string) => {
+        const answer = await this.searchProjectKnowledge(q);
+        bus.emit({
+          type: 'status',
+          from: r,
+          reason: 'knowledge-search',
+          msg: `knowledge: ${q.slice(0, 80)}`,
+          data: { hits: answer.hits },
+        });
+        return answer.text;
+      },
+      glossary: running.glossary,
+      remember: async (r: string, content: string, scope: 'org' | 'agent') => {
+        const text = await this.rememberOrgMemory(name, def, r, content, scope, run);
+        bus.emit({
+          type: 'status',
+          from: r,
+          reason: 'org-remember',
+          msg: `remember (${scope}): ${content.slice(0, 80)}`,
+          data: { scope },
+        });
+        return text;
+      },
+      learn: async (
+        r: string,
+        payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] },
+      ) => {
+        const text = await this.learnOrgKnowledge(name, run, payload);
+        bus.emit({
+          type: 'status',
+          from: r,
+          reason: 'org-learn',
+          msg: `learn: ${text.slice(0, 120)}`,
+          data: {
+            nodes: payload.nodes?.length ?? 0,
+            edges: payload.edges?.length ?? 0,
+            rules: payload.rules?.length ?? 0,
+          },
+        });
+        return text;
+      },
+      createTask: (r: string, title: string, assignee: string, deps: string[]) => {
+        return this.dagCreateTask(name, r, title, assignee, deps);
+      },
+      completeTask: (r: string, taskId: string, result?: string) => {
+        return this.dagCompleteTask(name, r, taskId, result);
+      },
+      listTasks: () => {
+        const running = this.orgs.get(name);
+        return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
+      },
+      splitTask: (r: string, parentId: string, children: { title: string; assignee: string }[]) => {
+        return this.dagSplitTask(name, r, parentId, children);
+      },
+      mergeTask: (r: string, sourceId: string, targetId: string) => {
+        return this.dagMergeTask(name, r, sourceId, targetId);
+      },
+      cancelTask: (r: string, taskId: string, reason?: string) => {
+        return this.dagCancelTask(name, r, taskId, reason);
+      },
+      blockTask: (r: string, taskId: string, untilIso: string, reason?: string) => {
+        return this.dagBlockTask(name, r, taskId, untilIso, reason);
+      },
+      planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
+        return this.dagPlanGraph(name, r, specs);
+      },
+      queryFn: this.opts.queryFn,
+      // Runner resolution: explicit opts.runner > role `runtime` field >
+      // org def `runtime` field > MONOMIND_RUNTIME env (opencode/kimicode) >
+      // undefined (session.ts falls back to ClaudeAgentRunner via queryFn).
+      // Leaving it undefined for the default path is what keeps
+      // Claude/Antigravity orgs byte-for-byte unchanged. Session opts are
+      // built per role here, so each role gets its own runner.
+      runner:
+        this.opts.runner ??
+        resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined, role.provider),
+    };
+    // Supervised session: transient crashes (provider blips, network) restart
+    // with backoff; a crash with the mailbox already closed, or one that
+    // exhausts the retry budget, is terminal. runAgentSession already emits a
+    // 'status' event for the raw error; the terminal 'audit' event is for
+    // dashboards/alerts that filter on actionable failures (not routine
+    // status chatter) so a dead agent surfaces instead of a run that
+    // silently never progresses.
+    const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
+    const myGeneration = generation;
+    const isStaleGeneration = (): boolean =>
+      (running.roleSlots.get(role.id)?.generation ?? 0) !== myGeneration;
+    if (!mailbox.isClosed && runtime.status !== 'crashed') {
+      runtime.done = (async () => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            await runAgentSession(sessionOpts);
+            runtime.status = 'ended';
+            return;
+          } catch (err) {
+            // A deliberate respawn (see respawnRole) bumps the slot's
+            // generation and force-stops this incarnation via its
+            // externalAbort - that abort makes runAgentSession reject here
+            // exactly like a real crash would. Recognize supersession
+            // FIRST: this generation's retry loop must never restart,
+            // never run terminal crash handling, and never notify the
+            // boss - the replacement (a new generation, spawned
+            // separately) already owns this role id.
+            if (isStaleGeneration()) return;
+            // Drop the crashed session's stale waker immediately: a push()
+            // during the backoff window must queue for the NEXT session, not
+            // wake the dead generator to swallow it.
+            mailbox.detach();
+            // #203: if the crashed session's mailbox generator was abandoned
+            // mid-yield (message already shift()ed for it, turn never
+            // finished), put that message back on the queue — otherwise the
+            // replacement session's stream() finds an empty queue and parks
+            // forever, since the "delivered" message is gone for good.
+            mailbox.reclaimInFlight();
+            const message = err instanceof Error ? err.message : String(err);
+            const isTurnLimit = /Reached maximum number of turns|error_max_turns/i.test(message);
+            // Bounded like every other recovery: attempt counts every pass
+            // through this loop, so a role that keeps surfacing max-turns
+            // errors here (session.ts already swallows the normal ones)
+            // falls through to crash handling instead of looping forever.
+            if (isTurnLimit && !mailbox.isClosed && attempt < BACKOFFS_MS.length) {
+              sessionOpts.resumeSessionId = undefined;
+              mailbox.push(
+                `${Mailbox.CONTINUE_PREFIX} You reached the turn limit on your task. Continue your in-progress work from where you left off; if finished, end your turn.`,
+              );
+              bus.emit({
+                type: 'status',
+                from: role.id,
+                reason: 'turn-limit-recover',
+                msg: `agent "${role.id}" hit turn limit error — continuing with fresh session`,
+              });
+              continue;
+            }
+            // Exit 143 = SIGTERM. If the mailbox is already closed, we
+            // sent the signal ourselves during stop — not a crash.
+            const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
+            const crash = (): void => {
+              if (killedByStop) {
+                runtime.status = 'ended';
+                bus.emit({
+                  type: 'status',
+                  from: role.id,
+                  msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
+                  reason: 'terminated-by-stop',
+                });
+                return;
+              }
+              runtime.status = 'crashed';
+              runtime.error = message;
+              // Close the mailbox so deliver()/receiveRemote() report a real
+              // error instead of pushing into a queue no session will read
+              // (and returning a false "delivered" receipt to the sender).
+              mailbox.close();
+              const isContextLimit = OrgDaemon.CONTEXT_LIMIT_RE.test(message);
+              bus.emit({
+                type: 'audit',
+                from: role.id,
+                msg: `agent "${role.id}" crashed: ${message}`,
+                reason: isContextLimit ? 'agent-context-limit' : 'agent-session-crash',
+                data: {
+                  agentId: role.id,
+                  error: message,
+                  restarts: attempt,
+                  contextLimit: isContextLimit,
+                },
+              });
+              if (role.id !== running.bossRoleId) {
+                // #2/#3: a worker is gone for the rest of this run. Without this
+                // notice the coordinator keeps messaging a corpse (observed: four
+                // unanswered org_send calls to a developer that had crashed on a
+                // context-window limit). Tell the boss to reassign — and if the
+                // crash was a context overflow, tell it to chunk smaller, since
+                // re-dispatching the same task verbatim fails the same way.
+                const bossRt = running.agents.get(running.bossRoleId);
+                if (bossRt && !bossRt.mailbox.isClosed) {
+                  const guidance = isContextLimit
+                    ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
+                    : '';
+                  bossRt.mailbox.push(
+                    `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`,
+                  );
+                  bus.emit({
+                    type: 'audit',
+                    from: running.bossRoleId,
+                    reason: 'worker-crashed',
+                    msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign`,
+                  });
+                }
+              } else {
+                // #4: the coordinator itself died. Don't go silent and wait for a
+                // human — attempt a bounded whole-org restart with fresh sessions
+                // (which also sheds whatever bloated context caused the crash).
+                this.scheduleBossRestart(name);
+              }
+            };
+            // Fatal errors (provider auth/quota/billing — tagged with
+            // err.fatal by the runner) can NEVER be fixed by a restart: the
+            // same call fails identically or hangs. Skip the backoff loop
+            // and go straight to terminal crash handling instead of burning
+            // the retry budget and wall-clock on a guaranteed failure.
+            const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
+            if (fatal) {
+              bus.emit({
+                type: 'status',
+                from: role.id,
+                reason: 'agent-fatal',
+                msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
+              });
+              crash();
+              return;
+            }
+            if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) {
+              crash();
+              return;
+            }
+            bus.emit({
+              type: 'status',
+              from: role.id,
+              reason: 'agent-restart',
+              msg: `agent "${role.id}" crashed (${message}) — restarting in ${BACKOFFS_MS[attempt]}ms (attempt ${attempt + 1}/${BACKOFFS_MS.length})`,
+            });
+            await new Promise<void>((r) => {
+              const t = setTimeout(r, BACKOFFS_MS[attempt]);
+              (t as { unref?: () => void }).unref?.();
+            });
+            if (isStaleGeneration()) return; // superseded during the backoff wait
+            if (mailbox.isClosed) {
+              crash();
+              return;
+            } // org stopped during backoff — never recovered
+          }
+        }
+      })();
+    }
+    return runtime;
   }
 
   /** @internal */
