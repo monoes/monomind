@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildRespawnReceipt,
   computeReplacementBudget,
   mergeEffectiveRoleConfig,
+  redactRoleConfig,
   validateRespawnInput,
 } from '../../src/orgrt/role-slot.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
@@ -153,5 +155,47 @@ describe('validateRespawnInput', () => {
   it('accepts a positive integer budgetTokens', () => {
     const result = validateRespawnInput({ ...valid, budgetTokens: 50_000 });
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('redactRoleConfig', () => {
+  it('exposes only runtime/model/providerName, never provider secrets', () => {
+    const r = role({
+      runtime: 'codex',
+      adapter_config: { model: 'gpt-5', provider: 'named' },
+      provider: { kind: 'api-key', apiKey: 'sk-secret' },
+    });
+    const redacted = redactRoleConfig(r);
+    expect(redacted).toEqual({ runtime: 'codex', model: 'gpt-5', providerName: 'named' });
+    expect(JSON.stringify(redacted)).not.toContain('sk-secret');
+  });
+
+  it('omits fields the role does not set', () => {
+    expect(redactRoleConfig(role())).toEqual({});
+  });
+});
+
+describe('buildRespawnReceipt', () => {
+  it('computes respawnsRemaining from the cap and current count', () => {
+    const receipt = buildRespawnReceipt({ generation: 2, respawnCount: 1 }, 3, true);
+    expect(receipt).toEqual({
+      success: true,
+      roleId: '',
+      generation: 2,
+      respawnCount: 1,
+      respawnsRemaining: 2,
+    });
+  });
+
+  it('merges extra fields (roleId, error, drainTimedOut)', () => {
+    const receipt = buildRespawnReceipt({ generation: 1, respawnCount: 1 }, 3, false, {
+      roleId: 'worker',
+      error: 'boom',
+      drainTimedOut: true,
+    });
+    expect(receipt.roleId).toBe('worker');
+    expect(receipt.error).toBe('boom');
+    expect(receipt.drainTimedOut).toBe(true);
+    expect(receipt.success).toBe(false);
   });
 });

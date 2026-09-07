@@ -179,3 +179,31 @@ export function validateRespawnInput(
     value: { roleId, reason, briefing, runtime, model, providerName, budgetTokens },
   };
 }
+
+/** Audit/status-safe view of a role's runtime config — never includes
+ *  role.provider (which may carry apiKey/authToken/baseUrl). */
+export function redactRoleConfig(
+  role: OrgRole,
+): { runtime?: string; model?: string; providerName?: string } {
+  const out: { runtime?: string; model?: string; providerName?: string } = {};
+  if (role.runtime) out.runtime = role.runtime;
+  if (role.adapter_config?.model) out.model = role.adapter_config.model;
+  if (role.adapter_config?.provider) out.providerName = role.adapter_config.provider;
+  return out;
+}
+
+export function buildRespawnReceipt(
+  slot: Pick<RoleSlot, 'generation' | 'respawnCount'>,
+  maxRespawns: number,
+  success: boolean,
+  extra: Partial<RespawnReceipt> = {},
+): RespawnReceipt {
+  return {
+    success,
+    roleId: '',
+    generation: slot.generation,
+    respawnCount: slot.respawnCount,
+    respawnsRemaining: Math.max(0, maxRespawns - slot.respawnCount),
+    ...extra,
+  };
+}
