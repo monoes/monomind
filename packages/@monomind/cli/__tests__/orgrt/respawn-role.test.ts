@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureCheckpoint } from '../../src/orgrt/checkpoint.js';
@@ -180,5 +181,28 @@ describe('RunningOrg.roleSlots', () => {
     const options = await daemon.listRuntimeOptions();
     expect(options.runtimes.length).toBeGreaterThan(0);
     await daemon.stopOrg('runtime-opts-gate-org').catch(() => {});
+  });
+
+  it('spawnRoleIncarnation reuses an existing worktree-per-role path instead of recreating it', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'incarnation-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, workspace: 'worktree-per-role' },
+    });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', 'incarnation-org.json'), JSON.stringify(def));
+    execFileSync('git', ['init'], { cwd: testRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: testRoot });
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const running = await daemon.startOrg('incarnation-org');
+    await daemon.deliver('incarnation-org', 'boss', 'worker', 'go', 'start working');
+    const before = running.agents.get('worker')!.worktreePath!;
+    writeFileSync(join(before, 'uncommitted.txt'), 'do not delete me');
+
+    const generation = 1;
+    const newRuntime = daemon.spawnRoleIncarnation('incarnation-org', running, def.roles[1], generation);
+    expect(newRuntime.worktreePath).toBe(before);
+    expect(existsSync(join(before, 'uncommitted.txt'))).toBe(true); // not recreated/wiped
+
+    await daemon.stopOrg('incarnation-org');
   });
 });
