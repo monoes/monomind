@@ -51,6 +51,11 @@ export class Mailbox {
    *  finished). If a session dies with this still set, the generator was
    *  abandoned mid-yield — see reclaimInFlight(). */
   private inFlight: string | null = null;
+  /** Set by beginDrain(): stream() stops yielding further queued messages
+   *  (letting only the current in-flight one finish) instead of pulling the
+   *  next one or parking on wake. Sticky for the life of this Mailbox
+   *  instance — a draining mailbox is being retired, not reused. */
+  private draining = false;
 
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
   get consumedRealCount(): number {
@@ -108,6 +113,27 @@ export class Mailbox {
     this.wake = null;
   }
 
+  get isDraining(): boolean {
+    return this.draining;
+  }
+
+  /** Begin a graceful drain: the current in-flight message (already yielded,
+   *  awaiting the consumer's next pull) is allowed to finish, but no further
+   *  queued message will ever be yielded. Synchronously sweeps and returns
+   *  everything NOT currently in flight so the caller can hand it to the
+   *  replacement incarnation without a race — anything still queued when
+   *  this returns will never be seen by this mailbox's stream() again.
+   *  Wakes a parked stream() (empty queue, nothing in flight) so it can
+   *  observe `draining` and return immediately instead of waiting forever. */
+  beginDrain(): string[] {
+    this.draining = true;
+    const swept = this.queue;
+    this.queue = [];
+    this.wake?.();
+    this.wake = null;
+    return swept;
+  }
+
   /**
    * One live generator at a time: each stream() call bumps `generation`, and
    * a stale generator that ever resumes exits immediately without touching
@@ -128,6 +154,7 @@ export class Mailbox {
     while (true) {
       while (this.queue.length > 0) {
         if (gen !== this.generation) return; // superseded — leave the queue for the live generator
+        if (this.draining) return;
         const content = this.queue.shift()!;
         if (!content.startsWith(Mailbox.CONTINUE_PREFIX)) this.consumedReal++;
         this.inFlight = content;
@@ -142,8 +169,9 @@ export class Mailbox {
         // which only happens once it's done with this one — proof the prior
         // turn completed rather than the session dying mid-processing.
         this.inFlight = null;
+        if (this.draining) return;
       }
-      if (this.closed || gen !== this.generation) return;
+      if (this.closed || gen !== this.generation || this.draining) return;
       await new Promise<void>((r) => {
         this.wake = r;
       });
