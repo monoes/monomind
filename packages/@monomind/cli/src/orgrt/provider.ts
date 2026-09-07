@@ -132,6 +132,25 @@ export function lookupConfiguredProvider(
   };
 }
 
+/** Every named provider configured for this project (`agents.providers`),
+ *  redaction left to the caller — org_list_runtime_options strips secrets
+ *  before returning (see runtime-options.ts). */
+export function listConfiguredProviders(
+  searchFrom: string = process.cwd(),
+): ConfiguredProviderEntry[] {
+  const config = configManager.load(searchFrom);
+  const agents = (config?.agents ?? {}) as Record<string, unknown>;
+  const providers = (agents.providers ?? []) as Array<Record<string, unknown>>;
+  return providers
+    .filter((p) => typeof p.name === 'string')
+    .map((p) => ({
+      name: p.name as string,
+      apiKey: typeof p.apiKey === 'string' ? p.apiKey : undefined,
+      model: typeof p.model === 'string' ? p.model : undefined,
+      baseUrl: typeof p.baseUrl === 'string' ? p.baseUrl : undefined,
+    }));
+}
+
 /** Effective provider config for a role. Precedence:
  *  1. explicit role-level `provider` block (unchanged behaviour),
  *  2. `adapter_config.provider` — a named provider resolved from
