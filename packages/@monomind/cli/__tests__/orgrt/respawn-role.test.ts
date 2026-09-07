@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureCheckpoint } from '../../src/orgrt/checkpoint.js';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
+import { buildOrgTools } from '../../src/orgrt/session.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 
 describe('RunningOrg.roleSlots', () => {
@@ -480,5 +481,46 @@ describe('OrgDaemon.respawnRole — end to end', () => {
     expect(fourth.success).toBe(false);
     expect(fourth.error).toMatch(/respawn limit/i);
     await daemon.stopOrg('e2e-cap-org');
+  });
+
+  it('the boss session actually receives working org_respawn_role and org_list_runtime_options tools end-to-end', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'e2e-tools-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3 },
+    });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', 'e2e-tools-org.json'), JSON.stringify(def));
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: turnCompletingRunner() as any,
+    });
+    await daemon.startOrg('e2e-tools-org');
+    await daemon.deliver('e2e-tools-org', 'boss', 'worker', 'go', 'start working');
+
+    const bossSessionOpts: any = {
+      role: def.roles[0],
+      deliver: async () => 'ok',
+      onRespawnRole: (callerId: string, args: any) =>
+        daemon.respawnRole('e2e-tools-org', callerId, args),
+      onListRuntimeOptions: () => daemon.listRuntimeOptions(),
+    };
+    const tools = buildOrgTools(bossSessionOpts);
+    const respawnTool = tools.find((t) => t.name === 'org_respawn_role')!;
+    const listTool = tools.find((t) => t.name === 'org_list_runtime_options')!;
+    expect(respawnTool).toBeDefined();
+    expect(listTool).toBeDefined();
+
+    const listResult = await listTool.handler({});
+    expect(JSON.parse(listResult.text).runtimes.length).toBeGreaterThan(0);
+
+    const respawnResult = await respawnTool.handler({
+      roleId: 'worker',
+      reason: 'r',
+      briefing: 'b',
+    });
+    expect(JSON.parse(respawnResult.text).success).toBe(true);
+
+    await daemon.stopOrg('e2e-tools-org');
   });
 });
