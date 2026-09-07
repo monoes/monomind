@@ -54,6 +54,9 @@ export interface RoleSlot {
    *  to a live mailbox. */
   queuedDuringSwap: string[];
   retiredUsage: RetiredUsage;
+  /** The live incarnation's cancellation handle — set whenever
+   *  spawnRoleIncarnation is given one, so a later respawn can force-stop it. */
+  abort?: AbortController;
 }
 
 /** Fold only the SUPPLIED override fields onto `current`; every omitted

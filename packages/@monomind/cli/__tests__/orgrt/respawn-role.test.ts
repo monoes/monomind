@@ -199,7 +199,12 @@ describe('RunningOrg.roleSlots', () => {
     writeFileSync(join(before, 'uncommitted.txt'), 'do not delete me');
 
     const generation = 1;
-    const newRuntime = daemon.spawnRoleIncarnation('incarnation-org', running, def.roles[1], generation);
+    const { runtime: newRuntime } = daemon.spawnRoleIncarnation(
+      'incarnation-org',
+      running,
+      def.roles[1],
+      generation,
+    );
     expect(newRuntime.worktreePath).toBe(before);
     expect(existsSync(join(before, 'uncommitted.txt'))).toBe(true); // not recreated/wiped
 
@@ -326,5 +331,63 @@ describe('OrgDaemon.respawnRole — validation and preflight', () => {
     expect(receipt.success).toBe(false);
     expect(receipt.error).toMatch(/already/i);
     await daemon.stopOrg('reject-concurrent-org');
+  });
+});
+
+describe('OrgDaemon.respawnRole — quiesce and force-stop', () => {
+  let testRoot: string;
+
+  beforeEach(() => {
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-respawn-drain-'));
+    mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
+  });
+
+  function fakeRunner(behavior: 'graceful' | 'hangs') {
+    return {
+      run: async function* (args: any) {
+        for await (const _ of args.prompt) {
+          // Each prompt message "completes a turn" instantly; the generator
+          // only stops pulling once the mailbox itself stops yielding
+          // (graceful drain) or is aborted (force-stop).
+        }
+        if (behavior === 'hangs') {
+          // Simulate a wedged turn: never returns until aborted.
+          await new Promise((_, reject) => {
+            args.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          });
+        }
+      },
+    };
+  }
+
+  it('messages sent while a slot is draining land in queuedDuringSwap, not the old mailbox', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'drain-queue-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: {
+        idle_minutes: 0,
+        max_role_respawns: 3,
+        respawn_drain_timeout_ms: 50,
+        respawn_force_stop_timeout_ms: 200,
+      },
+    });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', 'drain-queue-org.json'), JSON.stringify(def));
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: fakeRunner('hangs') as any,
+    });
+    const running = await daemon.startOrg('drain-queue-org');
+    await daemon.deliver('drain-queue-org', 'boss', 'worker', 'go', 'start working');
+    const slot = running.roleSlots.get('worker')!;
+    slot.phase = 'draining';
+    const receipt = await daemon.deliver('drain-queue-org', 'boss', 'worker', 'subj', 'body');
+    expect(receipt).toBeTruthy();
+    expect(slot.queuedDuringSwap.length).toBe(1);
+    await daemon.stopOrg('drain-queue-org');
   });
 });
