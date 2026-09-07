@@ -94,3 +94,88 @@ export function computeReplacementBudget(def: OrgDef, roleId: string): number {
     ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
     : 0;
 }
+
+const RUNTIME_KINDS = new Set<string>([
+  'claude',
+  'kimicode',
+  'opencode',
+  'vercel',
+  'codex',
+  'antigravity',
+  'grok',
+  'qwen',
+  'crush',
+  'copilot',
+  'pi',
+  'pi-rpc',
+  'qwen-rpc',
+]);
+
+export interface RespawnInput {
+  roleId: string;
+  runtime?: RuntimeKind;
+  model?: string;
+  providerName?: string;
+  budgetTokens?: number;
+  reason: string;
+  briefing: string;
+}
+
+function boundedString(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max) return null;
+  return trimmed;
+}
+
+/** Validate and bound every field of an org_respawn_role call before any
+ *  state change or preflight is attempted. See the design doc's "Validation
+ *  rules" — limits chosen there: roleId 128, reason 1000, briefing 20000. */
+export function validateRespawnInput(
+  input: unknown,
+): { ok: true; value: RespawnInput } | { ok: false; error: string } {
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const roleId = boundedString(raw.roleId, 128);
+  if (!roleId) return { ok: false, error: 'roleId is required (1-128 characters)' };
+  const reason = boundedString(raw.reason, 1000);
+  if (!reason) return { ok: false, error: 'reason is required (1-1000 characters)' };
+  const briefing = boundedString(raw.briefing, 20_000);
+  if (!briefing) return { ok: false, error: 'briefing is required (1-20000 characters)' };
+
+  let runtime: RuntimeKind | undefined;
+  if (raw.runtime !== undefined) {
+    if (typeof raw.runtime !== 'string' || !RUNTIME_KINDS.has(raw.runtime)) {
+      return { ok: false, error: `runtime must be one of: ${[...RUNTIME_KINDS].join(', ')}` };
+    }
+    runtime = raw.runtime as RuntimeKind;
+  }
+
+  let model: string | undefined;
+  if (raw.model !== undefined) {
+    const m = boundedString(raw.model, 256);
+    if (!m) return { ok: false, error: 'model must be a non-empty string (max 256 characters)' };
+    model = m;
+  }
+
+  let providerName: string | undefined;
+  if (raw.providerName !== undefined) {
+    const p = boundedString(raw.providerName, 128);
+    if (!p)
+      return { ok: false, error: 'providerName must be a non-empty string (max 128 characters)' };
+    providerName = p;
+  }
+
+  let budgetTokens: number | undefined;
+  if (raw.budgetTokens !== undefined) {
+    const b = raw.budgetTokens;
+    if (typeof b !== 'number' || !Number.isSafeInteger(b) || b <= 0) {
+      return { ok: false, error: 'budgetTokens must be a positive integer' };
+    }
+    budgetTokens = b;
+  }
+
+  return {
+    ok: true,
+    value: { roleId, reason, briefing, runtime, model, providerName, budgetTokens },
+  };
+}
