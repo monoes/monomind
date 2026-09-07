@@ -206,3 +206,125 @@ describe('RunningOrg.roleSlots', () => {
     await daemon.stopOrg('incarnation-org');
   });
 });
+
+describe('OrgDaemon.respawnRole — validation and preflight', () => {
+  let testRoot: string;
+
+  beforeEach(() => {
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-respawn-validate-'));
+    mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
+  });
+
+  async function startSimpleOrg(daemon: OrgDaemon, name: string, extraRunConfig = {}) {
+    const def = OrgDefSchema.parse({
+      name,
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3, ...extraRunConfig },
+    });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', `${name}.json`), JSON.stringify(def));
+    return daemon.startOrg(name);
+  }
+
+  it('rejects targeting the selected coordinator', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    await startSimpleOrg(daemon, 'reject-boss-org');
+    const receipt = await daemon.respawnRole('reject-boss-org', 'boss', {
+      roleId: 'boss',
+      reason: 'test',
+      briefing: 'test',
+    });
+    expect(receipt.success).toBe(false);
+    expect(receipt.error).toMatch(/coordinator/i);
+    await daemon.stopOrg('reject-boss-org');
+  });
+
+  it('rejects an unknown role id', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    await startSimpleOrg(daemon, 'reject-unknown-org');
+    const receipt = await daemon.respawnRole('reject-unknown-org', 'boss', {
+      roleId: 'ghost',
+      reason: 'test',
+      briefing: 'test',
+    });
+    expect(receipt.success).toBe(false);
+    expect(receipt.error).toMatch(/unknown/i);
+    await daemon.stopOrg('reject-unknown-org');
+  });
+
+  it('rejects invalid input without touching state', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const running = await startSimpleOrg(daemon, 'reject-invalid-org');
+    await daemon.deliver('reject-invalid-org', 'boss', 'worker', 'go', 'start working');
+    const before = running.roleSlots.get('worker')!.respawnCount;
+    const receipt = await daemon.respawnRole('reject-invalid-org', 'boss', {
+      roleId: 'worker',
+      reason: '',
+      briefing: 'test',
+    });
+    expect(receipt.success).toBe(false);
+    expect(running.roleSlots.get('worker')!.respawnCount).toBe(before);
+    await daemon.stopOrg('reject-invalid-org');
+  });
+
+  it('rejects when the cap is already reached, without consuming another attempt', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const running = await startSimpleOrg(daemon, 'reject-cap-org', { max_role_respawns: 1 });
+    await daemon.deliver('reject-cap-org', 'boss', 'worker', 'go', 'start working');
+    running.roleSlots.get('worker')!.respawnCount = 1; // already at the cap
+    const receipt = await daemon.respawnRole('reject-cap-org', 'boss', {
+      roleId: 'worker',
+      reason: 'test',
+      briefing: 'test',
+    });
+    expect(receipt.success).toBe(false);
+    expect(receipt.error).toMatch(/respawn limit/i);
+    expect(running.roleSlots.get('worker')!.respawnCount).toBe(1);
+    await daemon.stopOrg('reject-cap-org');
+  });
+
+  it('rejects a providerName override when the effective role has an inline provider', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const def = OrgDefSchema.parse({
+      name: 'reject-inline-provider-org',
+      roles: [
+        { id: 'boss' },
+        { id: 'worker', reports_to: 'boss', provider: { kind: 'subscription' } },
+      ],
+      run_config: { idle_minutes: 0, max_role_respawns: 3 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'reject-inline-provider-org.json'),
+      JSON.stringify(def),
+    );
+    await daemon.startOrg('reject-inline-provider-org');
+    await daemon.deliver('reject-inline-provider-org', 'boss', 'worker', 'go', 'start working');
+    const receipt = await daemon.respawnRole('reject-inline-provider-org', 'boss', {
+      roleId: 'worker',
+      providerName: 'named',
+      reason: 'test',
+      briefing: 'test',
+    });
+    expect(receipt.success).toBe(false);
+    expect(receipt.error).toMatch(/inline provider/i);
+    await daemon.stopOrg('reject-inline-provider-org');
+  });
+
+  it('rejects a request already undergoing replacement (respawning lock)', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const running = await startSimpleOrg(daemon, 'reject-concurrent-org');
+    await daemon.deliver('reject-concurrent-org', 'boss', 'worker', 'go', 'start working');
+    running.respawning.add('worker');
+    const receipt = await daemon.respawnRole('reject-concurrent-org', 'boss', {
+      roleId: 'worker',
+      reason: 'test',
+      briefing: 'test',
+    });
+    expect(receipt.success).toBe(false);
+    expect(receipt.error).toMatch(/already/i);
+    await daemon.stopOrg('reject-concurrent-org');
+  });
+});
