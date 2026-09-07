@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeReplacementBudget, mergeEffectiveRoleConfig } from '../../src/orgrt/role-slot.js';
+import {
+  computeReplacementBudget,
+  mergeEffectiveRoleConfig,
+  validateRespawnInput,
+} from '../../src/orgrt/role-slot.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 
 function role(overrides: Record<string, unknown> = {}) {
@@ -90,5 +94,64 @@ describe('computeReplacementBudget', () => {
   it('throws for an unknown role id', () => {
     const def = OrgDefSchema.parse({ name: 'x', roles: [{ id: 'boss' }] });
     expect(() => computeReplacementBudget(def, 'ghost')).toThrow();
+  });
+});
+
+describe('validateRespawnInput', () => {
+  const valid = { roleId: 'worker', reason: 'crashed', briefing: 'continue the build' };
+
+  it('accepts a minimal valid request', () => {
+    const result = validateRespawnInput(valid);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects a missing roleId', () => {
+    const result = validateRespawnInput({ ...valid, roleId: '' });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a roleId over 128 chars', () => {
+    const result = validateRespawnInput({ ...valid, roleId: 'x'.repeat(129) });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a reason over 1000 chars', () => {
+    const result = validateRespawnInput({ ...valid, reason: 'x'.repeat(1001) });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a briefing over 20000 chars', () => {
+    const result = validateRespawnInput({ ...valid, briefing: 'x'.repeat(20_001) });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects an unknown runtime value', () => {
+    const result = validateRespawnInput({ ...valid, runtime: 'not-a-real-runtime' });
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts a known runtime value', () => {
+    const result = validateRespawnInput({ ...valid, runtime: 'opencode' });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects an empty model string when supplied', () => {
+    const result = validateRespawnInput({ ...valid, model: '' });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a non-positive budgetTokens', () => {
+    const result = validateRespawnInput({ ...valid, budgetTokens: 0 });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a non-integer budgetTokens', () => {
+    const result = validateRespawnInput({ ...valid, budgetTokens: 1.5 });
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts a positive integer budgetTokens', () => {
+    const result = validateRespawnInput({ ...valid, budgetTokens: 50_000 });
+    expect(result.ok).toBe(true);
   });
 });
