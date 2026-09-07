@@ -294,6 +294,16 @@ export const OrgDefSchema = z
           })
           .partial()
           .optional(),
+        /** Non-negative cap on accepted org_respawn_role calls per run; 0 disables
+         *  the tool entirely (initial default — see rollout plan in the design doc). */
+        max_role_respawns: z.number().int().nonnegative().default(0),
+        /** How long a draining role's mailbox gets to finish its in-flight message
+         *  before a forced stop. */
+        respawn_drain_timeout_ms: z.number().int().nonnegative().default(30_000),
+        /** How long a forced stop gets to confirm the old runner terminated. */
+        respawn_force_stop_timeout_ms: z.number().int().nonnegative().default(5_000),
+        /** How long the replacement incarnation gets to reach its readiness boundary. */
+        respawn_start_timeout_ms: z.number().int().positive().default(60_000),
         failure_routing: FailureRoutingSchema.optional(),
         /** Stale-base drift detection: warn (or refuse) when the working tree is
          *  too many commits behind its tracking branch. 0 disables. */
@@ -318,6 +328,10 @@ export const OrgDefSchema = z
         max_turns_per_message: DEFAULT_MAX_TURNS_PER_MESSAGE,
         workspace: 'repo' as string,
         stale_base_threshold: 0,
+        max_role_respawns: 0,
+        respawn_drain_timeout_ms: 30_000,
+        respawn_force_stop_timeout_ms: 5_000,
+        respawn_start_timeout_ms: 60_000,
         ...rc,
       })),
     fence: FenceConfigSchema.optional(),

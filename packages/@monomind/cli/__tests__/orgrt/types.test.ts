@@ -139,4 +139,29 @@ describe('OrgDefSchema', () => {
     expect(cb.failure_threshold).toBe(3);
     expect(cb.cooldown_ms).toBe(10_000);
   });
+
+  it('defaults the role-respawn run_config fields', () => {
+    const def = OrgDefSchema.parse({ name: 'x', roles: [{ id: 'boss' }] });
+    expect(def.run_config.max_role_respawns).toBe(0);
+    expect(def.run_config.respawn_drain_timeout_ms).toBe(30_000);
+    expect(def.run_config.respawn_force_stop_timeout_ms).toBe(5_000);
+    expect(def.run_config.respawn_start_timeout_ms).toBe(60_000);
+  });
+
+  it('accepts explicit role-respawn run_config overrides', () => {
+    const def = OrgDefSchema.parse({
+      name: 'x',
+      roles: [{ id: 'boss' }],
+      run_config: {
+        max_role_respawns: 3,
+        respawn_drain_timeout_ms: 1000,
+        respawn_force_stop_timeout_ms: 500,
+        respawn_start_timeout_ms: 2000,
+      },
+    });
+    expect(def.run_config.max_role_respawns).toBe(3);
+    expect(def.run_config.respawn_drain_timeout_ms).toBe(1000);
+    expect(def.run_config.respawn_force_stop_timeout_ms).toBe(500);
+    expect(def.run_config.respawn_start_timeout_ms).toBe(2000);
+  });
 });
