@@ -1320,14 +1320,18 @@ export class OrgDaemon {
     running: RunningOrg,
     role: OrgRole,
     generation: number,
-    opts: { roleCheckpoint?: RoleCheckpoint; abort?: AbortController } = {},
+    opts: {
+      roleCheckpoint?: RoleCheckpoint;
+      abort?: AbortController;
+      budgetTokensOverride?: number;
+    } = {},
   ): { runtime: AgentRuntime; abort: AbortController } {
     const { roleCheckpoint } = opts;
     const abort = opts.abort ?? new AbortController();
     const { def, bus, run } = running;
     const cwd = running.workdir!;
     const ws = this.workspaceSetting(def);
-    const perRoleBudget = computeReplacementBudget(def, role.id);
+    const perRoleBudget = opts.budgetTokensOverride ?? computeReplacementBudget(def, role.id);
     let roleCwd = cwd;
     const existingSlot = running.roleSlots.get(role.id);
     if (ws === 'worktree-per-role' && role.id !== running.bossRoleId) {
@@ -1484,6 +1488,10 @@ export class OrgDaemon {
       onListRuntimeOptions:
         role.id === running.bossRoleId && (def.run_config.max_role_respawns ?? 0) > 0
           ? () => this.listRuntimeOptions()
+          : undefined,
+      onRespawnRole:
+        role.id === running.bossRoleId && (def.run_config.max_role_respawns ?? 0) > 0
+          ? (callerId: string, args: any) => this.respawnRole(name, callerId, args)
           : undefined,
       recall: async (r: string, q: string) => {
         const answer = await this.recallOrgMemory(name, def, q, r);
@@ -1926,11 +1934,119 @@ export class OrgDaemon {
       costUsd: slot.retiredUsage.costUsd + oldRuntime.metrics.costUsd,
     };
 
-    // Steps 10-13 continue in Task 20.
-    void budgetTokens;
-    void candidateRole;
-    void drainTimedOut;
-    throw new Error('respawnRole: steps 10-13 not yet implemented (Task 20)');
+    // Step 10: spawn generation N+1.
+    const newGeneration = slot.generation + 1;
+    const { runtime: newRuntime, abort: newAbort } = this.spawnRoleIncarnation(
+      name,
+      running,
+      candidateRole,
+      newGeneration,
+      { budgetTokensOverride: budgetTokens },
+    );
+    // Seed the new mailbox with everything swapped/reclaimed, delivered
+    // FIFO, plus a delimited coordinator briefing appended last so it reads
+    // as the newest context once the replacement starts its first turn.
+    for (const queued of slot.queuedDuringSwap) newRuntime.mailbox.push(queued);
+    newRuntime.mailbox.push(
+      `[system: role replacement briefing — not a system prompt] You are a fresh session replacing the previous incarnation of role "${input.roleId}". Reason: ${input.reason}\n\n${input.briefing}`,
+    );
+    // Seed USD accounting from retained totals so a respawn cannot reset
+    // role.budget_usd.
+    if (running.def.roles.find((r) => r.id === input.roleId)?.budget_usd !== undefined) {
+      newRuntime.policy.setUsageUsd(slot.retiredUsage.costUsd);
+    }
+    const startTimeoutMs = running.def.run_config.respawn_start_timeout_ms ?? 60_000;
+    const ready = await Promise.race([
+      Promise.resolve(true), // AgentRuntime is already live the instant spawnRoleIncarnation returns
+      new Promise<boolean>((r) => setTimeout(() => r(false), startTimeoutMs)),
+    ]);
+
+    // Step 11: publish atomically — verify ownership is still current.
+    if (this.orgs.get(name) !== running || running.roleSlots.get(input.roleId) !== slot) {
+      newAbort.abort();
+      running.respawning.delete(input.roleId);
+      return buildRespawnReceipt(slot, maxRespawns, false, {
+        roleId: input.roleId,
+        error: `org "${name}" stopped or restarted during replacement`,
+      });
+    }
+    if (!ready) {
+      // Step 12: rollback — one attempt with the prior effective config.
+      newAbort.abort();
+      running.bus.emit({
+        type: 'audit',
+        from: callerId,
+        reason: 'role-respawn-failed',
+        msg: `role "${input.roleId}" replacement did not become ready within ${startTimeoutMs}ms — attempting rollback`,
+      });
+      try {
+        const { runtime: rolledBack, abort: rolledBackAbort } = this.spawnRoleIncarnation(
+          name,
+          running,
+          slot.effectiveRole,
+          newGeneration + 1,
+          {},
+        );
+        for (const queued of slot.queuedDuringSwap) rolledBack.mailbox.push(queued);
+        running.agents.set(input.roleId, rolledBack);
+        slot.runtime = rolledBack;
+        slot.abort = rolledBackAbort;
+        slot.generation = newGeneration + 1;
+        slot.phase = 'running';
+        slot.queuedDuringSwap = [];
+        running.respawning.delete(input.roleId);
+        running.bus.emit({
+          type: 'audit',
+          from: callerId,
+          reason: 'role-respawn-failed',
+          msg: `role "${input.roleId}" replacement failed; rolled back to prior config`,
+        });
+        return buildRespawnReceipt(slot, maxRespawns, false, {
+          roleId: input.roleId,
+          drainTimedOut,
+          error: `replacement failed to start; rolled back to prior configuration`,
+        });
+      } catch (rollbackErr) {
+        slot.phase = 'crashed';
+        running.respawning.delete(input.roleId);
+        running.bus.emit({
+          type: 'audit',
+          from: callerId,
+          reason: 'role-respawn-rollback-failed',
+          msg: `role "${input.roleId}" replacement AND rollback both failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
+        });
+        return buildRespawnReceipt(slot, maxRespawns, false, {
+          roleId: input.roleId,
+          drainTimedOut,
+          error: `replacement and rollback both failed; role "${input.roleId}" is unavailable`,
+        });
+      }
+    }
+
+    running.agents.set(input.roleId, newRuntime);
+    slot.runtime = newRuntime;
+    slot.abort = newAbort;
+    slot.generation = newGeneration;
+    slot.effectiveRole = candidateRole;
+    slot.phase = 'running';
+    slot.queuedDuringSwap = [];
+    running.respawning.delete(input.roleId);
+
+    // Step 13: audit and persist.
+    running.bus.emit({
+      type: 'audit',
+      from: callerId,
+      reason: 'role-respawned',
+      msg: `role "${input.roleId}" replaced (generation ${newGeneration})`,
+      data: {
+        roleId: input.roleId,
+        generation: newGeneration,
+        respawnCount: slot.respawnCount,
+        drainTimedOut,
+      },
+    });
+    this.persistState(name, 'running', running.run);
+    return buildRespawnReceipt(slot, maxRespawns, true, { roleId: input.roleId, drainTimedOut });
   }
 
   /** @internal */
