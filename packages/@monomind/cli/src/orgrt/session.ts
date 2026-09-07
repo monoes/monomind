@@ -199,6 +199,24 @@ export interface SessionOpts {
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
   onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
+  /** Present only for the selected coordinator (same gating pattern as
+   *  onComplete) — mid-run role replacement. Returns the JSON-shaped
+   *  RespawnReceipt (see role-slot.ts). */
+  onRespawnRole?: (
+    callerId: string,
+    args: {
+      roleId: string;
+      runtime?: string;
+      model?: string;
+      providerName?: string;
+      budgetTokens?: number;
+      reason: string;
+      briefing: string;
+    },
+  ) => Promise<unknown>;
+  /** Present only for the selected coordinator. Returns the JSON-shaped
+   *  runtime/named-provider listing (see runtime-options.ts). */
+  onListRuntimeOptions?: () => Promise<unknown>;
   /** Search the org's accumulated cross-run memory (memory_namespace). */
   recall?: (role: string, query: string) => Promise<string>;
   /** Write a memory deliberately: scope 'org' (shared, default) or 'agent' (private to this role). */
@@ -929,6 +947,37 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         );
         return text(`outcome "${args.outcome}" recorded`);
       },
+    });
+  }
+  const onRespawnRole = opts.onRespawnRole;
+  if (onRespawnRole) {
+    tools.push({
+      name: 'org_respawn_role',
+      description:
+        'Replace one crashed, exhausted, or unsuitable WORKER role with a fresh session — keeping its role id, workspace, task ownership, and queued messages. Cannot target the coordinator (yourself) or an unknown/removed/not-yet-started role. Omit runtime/model/providerName to keep their current values. Omitted budgetTokens uses the normal per-role allocation for this run; it cannot raise the org-wide token budget. reason is a short operational reason for the audit log; briefing is what the replacement should know to continue the work — it starts a FRESH model session with no memory of the old one\'s conversation, so include everything it needs.',
+      schema: {
+        roleId: z.string(),
+        runtime: z.string().optional(),
+        model: z.string().optional(),
+        providerName: z.string().optional(),
+        budgetTokens: z.number().optional(),
+        reason: z.string(),
+        briefing: z.string(),
+      },
+      handler: async (args) => {
+        const receipt = await onRespawnRole(role.id, args as any);
+        return text(JSON.stringify(receipt));
+      },
+    });
+  }
+  const onListRuntimeOptions = opts.onListRuntimeOptions;
+  if (onListRuntimeOptions) {
+    tools.push({
+      name: 'org_list_runtime_options',
+      description:
+        'List every runtime this daemon knows how to run a role on (availability, detected binary/version, install hint) and every named provider configured for this project (name and default model only — never keys, tokens, or endpoints). Use before org_respawn_role to pick a real runtime/providerName. "available" means locally resolvable/detected, not that login, quota, or a remote model is valid.',
+      schema: {},
+      handler: async () => text(JSON.stringify(await onListRuntimeOptions())),
     });
   }
   const onGate = opts.onGate;
