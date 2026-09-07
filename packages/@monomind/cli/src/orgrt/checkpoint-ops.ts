@@ -69,6 +69,10 @@ export async function replayFrom(
     run: replayRun,
     bus,
     agents: new Map(),
+    roleSlots: new Map(),
+    bossRoleId: '',
+    glossary: [],
+    respawning: new Set(),
     busEvents: () => [...collected],
   };
 
