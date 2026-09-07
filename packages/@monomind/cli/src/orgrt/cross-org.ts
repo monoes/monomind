@@ -133,11 +133,25 @@ export async function pushMessage(
     );
     if (!safe) return false;
   }
+  const mail = mailBody(
+    daemon.root,
+    orgName,
+    org,
+    `[message from ${from}] subject: ${subject}`,
+    body,
+    id,
+  );
+  // A slot mid-replacement has no live mailbox to deliver into safely —
+  // route into the slot's swap queue so the REPLACEMENT incarnation gets it
+  // instead of it landing in a mailbox about to be torn down (design step 6).
+  const slot = org.roleSlots?.get(toRole);
+  if (slot?.phase === 'draining') {
+    slot.queuedDuringSwap.push(mail);
+    return true;
+  }
   const agent = org.agents.get(toRole);
   if (!agent || agent.mailbox.isClosed) return false;
-  agent.mailbox.push(
-    mailBody(daemon.root, orgName, org, `[message from ${from}] subject: ${subject}`, body, id),
-  );
+  agent.mailbox.push(mail);
   return true;
 }
 

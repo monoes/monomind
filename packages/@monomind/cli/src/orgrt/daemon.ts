@@ -974,14 +974,19 @@ export class OrgDaemon {
     // gate logic or duplicating the session-wiring below.
     const spawnRole = (role: OrgRole, roleCheckpoint?: RoleCheckpoint): void => {
       if (running.agents.has(role.id)) return;
-      const runtime = this.spawnRoleIncarnation(name, running, role, roleCheckpoint?.generation ?? 0, {
-        roleCheckpoint,
-      });
+      const { runtime, abort } = this.spawnRoleIncarnation(
+        name,
+        running,
+        role,
+        roleCheckpoint?.generation ?? 0,
+        { roleCheckpoint },
+      );
       running.agents.set(role.id, runtime);
       running.roleSlots.set(role.id, {
         generation: roleCheckpoint?.generation ?? 0,
         phase: 'running',
         runtime,
+        abort,
         effectiveRole:
           roleCheckpoint?.effectiveRoleOverrides &&
           Object.keys(roleCheckpoint.effectiveRoleOverrides).length > 0
@@ -1315,9 +1320,10 @@ export class OrgDaemon {
     running: RunningOrg,
     role: OrgRole,
     generation: number,
-    opts: { roleCheckpoint?: RoleCheckpoint } = {},
-  ): AgentRuntime {
+    opts: { roleCheckpoint?: RoleCheckpoint; abort?: AbortController } = {},
+  ): { runtime: AgentRuntime; abort: AbortController } {
     const { roleCheckpoint } = opts;
+    const abort = opts.abort ?? new AbortController();
     const { def, bus, run } = running;
     const cwd = running.workdir!;
     const ws = this.workspaceSetting(def);
@@ -1566,6 +1572,10 @@ export class OrgDaemon {
       runner:
         this.opts.runner ??
         resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined, role.provider),
+      // Lets respawnRole force-stop THIS specific incarnation (mid-run role
+      // replacement's forced-stop step) without reaching into runAgentSession's
+      // internals.
+      externalAbort: abort,
     };
     // Supervised session: transient crashes (provider blips, network) restart
     // with backoff; a crash with the mailbox already closed, or one that
@@ -1725,7 +1735,7 @@ export class OrgDaemon {
         }
       })();
     }
-    return runtime;
+    return { runtime, abort };
   }
 
   /** org_respawn_role's daemon-owned implementation. See the design doc's
@@ -1868,10 +1878,59 @@ export class OrgDaemon {
       },
     });
 
-    // Steps 6-13 continue in Task 19/20.
+    // Step 6: quiesce the old incarnation.
+    slot.phase = 'draining';
+    const oldRuntime = slot.runtime!;
+    const sweptQueue = oldRuntime.mailbox.beginDrain();
+    slot.queuedDuringSwap.push(...sweptQueue);
+    const drainTimeoutMs = running.def.run_config.respawn_drain_timeout_ms ?? 30_000;
+    const drained = await Promise.race([
+      oldRuntime.done.then(() => true),
+      new Promise<boolean>((r) => setTimeout(() => r(false), drainTimeoutMs)),
+    ]);
+    let drainTimedOut = false;
+    if (!drained) {
+      drainTimedOut = true;
+      // Step 7: force stop.
+      slot.abort?.abort();
+      const forceStopMs = running.def.run_config.respawn_force_stop_timeout_ms ?? 5_000;
+      const stopped = await Promise.race([
+        oldRuntime.done.then(() => true).catch(() => true),
+        new Promise<boolean>((r) => setTimeout(() => r(false), forceStopMs)),
+      ]);
+      if (!stopped) {
+        slot.phase = 'stuck';
+        running.respawning.delete(input.roleId);
+        running.bus.emit({
+          type: 'audit',
+          from: callerId,
+          reason: 'role-respawn-failed',
+          msg: `role "${input.roleId}" forced stop did not confirm termination — refusing to spawn a replacement`,
+        });
+        return buildRespawnReceipt(slot, maxRespawns, false, {
+          roleId: input.roleId,
+          error: `role "${input.roleId}" could not be confirmed stopped; not replaced`,
+        });
+      }
+    }
+    // Step 8: preserve durable role state (worktree path, task ownership, and
+    // the DAG survive untouched — they live outside AgentRuntime/Mailbox
+    // entirely, keyed by role.id, which never changes). Reclaim any message
+    // abandoned mid-yield by a forced stop for at-least-once redelivery.
+    oldRuntime.mailbox.reclaimInFlight();
+    const reclaimedQueue = oldRuntime.mailbox.serialize().queue;
+    slot.queuedDuringSwap.push(...reclaimedQueue);
+    // Step 9: retire accounting BEFORE replacing the runtime.
+    slot.retiredUsage = {
+      tokens: slot.retiredUsage.tokens + oldRuntime.policy.usage,
+      costUsd: slot.retiredUsage.costUsd + oldRuntime.metrics.costUsd,
+    };
+
+    // Steps 10-13 continue in Task 20.
     void budgetTokens;
     void candidateRole;
-    throw new Error('respawnRole: steps 6-13 not yet implemented (Task 19/20)');
+    void drainTimedOut;
+    throw new Error('respawnRole: steps 10-13 not yet implemented (Task 20)');
   }
 
   /** @internal */
