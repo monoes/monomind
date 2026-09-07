@@ -248,3 +248,80 @@ describe('session tool integration — all 4 playbook tools are registered', () 
     expect(names).not.toContain('org_task');
   });
 });
+
+describe('session tool integration — org_respawn_role / org_list_runtime_options', () => {
+  function baseOpts(dir: string) {
+    const bus = new OrgBus('test-org', 'run-1', dir);
+    const policy = new PolicyEngine('boss', { maxTokens: 1000 }, bus, dir);
+    const role: OrgRole = {
+      id: 'boss',
+      title: 'Boss',
+      type: 'boss',
+      reports_to: null,
+      responsibilities: [],
+    } as OrgRole;
+    return {
+      org: 'test-org',
+      role,
+      bus,
+      policy,
+      mailbox: new Mailbox(),
+      cwd: dir,
+      deliver: async () => 'ok',
+    };
+  }
+
+  it('exposes org_respawn_role and org_list_runtime_options only when their callbacks are present', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mono-session-respawn-'));
+    const withCallbacks = buildOrgTools({
+      ...baseOpts(dir),
+      onRespawnRole: async () => ({ text: 'ok' }),
+      onListRuntimeOptions: async () => ({ text: 'ok' }),
+    } as never);
+    expect(withCallbacks.some((t) => t.name === 'org_respawn_role')).toBe(true);
+    expect(withCallbacks.some((t) => t.name === 'org_list_runtime_options')).toBe(true);
+
+    const without = buildOrgTools(baseOpts(dir) as never);
+    expect(without.some((t) => t.name === 'org_respawn_role')).toBe(false);
+    expect(without.some((t) => t.name === 'org_list_runtime_options')).toBe(false);
+  });
+
+  it("org_respawn_role handler forwards args and returns the callback's JSON receipt as text", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mono-session-respawn-'));
+    const receipt = {
+      success: true,
+      roleId: 'worker',
+      generation: 1,
+      respawnCount: 1,
+      respawnsRemaining: 2,
+    };
+    let seenArgs: any;
+    const tools = buildOrgTools({
+      ...baseOpts(dir),
+      onRespawnRole: async (_callerId: string, args: unknown) => {
+        seenArgs = args;
+        return receipt;
+      },
+    } as never);
+    const tool = getTool(tools as never, 'org_respawn_role');
+    const result = await tool.handler({
+      roleId: 'worker',
+      reason: 'crashed',
+      briefing: 'continue',
+    });
+    expect(JSON.parse(result.text)).toEqual(receipt);
+    expect(seenArgs.roleId).toBe('worker');
+  });
+
+  it('org_list_runtime_options handler returns the callback\'s JSON receipt as text', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mono-session-respawn-'));
+    const receipt = { runtimes: [{ id: 'claude', available: true }], namedProviders: [] };
+    const tools = buildOrgTools({
+      ...baseOpts(dir),
+      onListRuntimeOptions: async () => receipt,
+    } as never);
+    const tool = getTool(tools as never, 'org_list_runtime_options');
+    const result = await tool.handler({});
+    expect(JSON.parse(result.text)).toEqual(receipt);
+  });
+});
