@@ -57,6 +57,10 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
       bus,
       agents: new Map([['dev', makeAgent()]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     daemon.orgs.set('alpha', running);
     daemon.approvals.set('alpha', [
@@ -92,6 +96,10 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
       bus: alphaBus,
       agents: new Map([['dev', makeAgent()]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     const betaBus = new OrgBus('beta', 'run-1', join(tmp, ORG_DIR, 'beta', 'run-1'));
     const beta: RunningOrg = {
@@ -100,6 +108,10 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
       bus: betaBus,
       agents: new Map([['worker', makeAgent()]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     daemon.orgs.set('alpha', alpha);
     daemon.orgs.set('beta', beta);
@@ -138,6 +150,10 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
       bus,
       agents: new Map([['dev', makeAgent()]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
     };
     daemon.orgs.set('alpha', running);
 

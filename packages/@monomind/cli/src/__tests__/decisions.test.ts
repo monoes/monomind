@@ -68,6 +68,10 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
       bus,
       agents: new Map(),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
       taskDag,
     };
 
@@ -109,6 +113,10 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
       bus,
       agents: new Map([['worker', crashedAgent]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
       taskDag,
     };
 
@@ -147,6 +155,10 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
       bus,
       agents: new Map([['worker', agent]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
       taskDag,
     };
 
@@ -182,6 +194,10 @@ describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
       bus,
       agents: new Map(),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
       taskDag,
       pendingRoles: new Map([['worker', { id: 'worker' } as any]]),
       spawnRole: () => {
@@ -217,6 +233,10 @@ describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
       bus,
       agents: new Map([['boss', boss]]),
       busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
       taskDag,
       pendingRoles: new Map([['worker', { id: 'worker' } as any]]),
       spawnRole: (role) => {
