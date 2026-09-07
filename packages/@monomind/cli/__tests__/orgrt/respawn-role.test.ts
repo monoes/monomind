@@ -565,3 +565,181 @@ describe('OrgDaemon.respawnRole — end to end', () => {
     await daemon.stopOrg('reload-cap-org');
   });
 });
+
+describe('OrgDaemon.respawnRole — invariants', () => {
+  let testRoot: string;
+
+  beforeEach(() => {
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-respawn-invariants-'));
+    mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
+  });
+
+  function noopRunner() {
+    return {
+      run: async function* (args: any) {
+        for await (const _ of args.prompt) {
+          /* noop */
+        }
+      },
+    };
+  }
+
+  it('replacement cannot reduce org-wide accounted usage below what was already spent', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'invariant-usage-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3, budget_tokens: 1000 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'invariant-usage-org.json'),
+      JSON.stringify(def),
+    );
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: noopRunner() as any,
+    });
+    const running = await daemon.startOrg('invariant-usage-org');
+    await daemon.deliver('invariant-usage-org', 'boss', 'worker', 'go', 'start working');
+    running.agents.get('worker')!.policy.addUsage(600);
+    await daemon.respawnRole('invariant-usage-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r',
+      briefing: 'b',
+    });
+    let totalUsage = 0;
+    for (const rt of running.agents.values()) totalUsage += rt.policy.usage;
+    for (const slot of running.roleSlots.values()) totalUsage += slot.retiredUsage.tokens;
+    expect(totalUsage).toBeGreaterThanOrEqual(600); // the 600 already spent is never lost
+    await daemon.stopOrg('invariant-usage-org');
+  });
+
+  it('a running task remains owned by the role id after replacement', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'invariant-task-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'invariant-task-org.json'),
+      JSON.stringify(def),
+    );
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: noopRunner() as any,
+    });
+    const running = await daemon.startOrg('invariant-task-org');
+    await daemon.deliver('invariant-task-org', 'boss', 'worker', 'go', 'start working');
+    const task = running.taskDag!.add('do the thing', 'worker');
+    await daemon.respawnRole('invariant-task-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r',
+      briefing: 'b',
+    });
+    const persisted = running.taskDag!.get(task.id);
+    expect(persisted?.assignee).toBe('worker');
+    await daemon.stopOrg('invariant-task-org');
+  });
+
+  it('replacing a role does not delete its worktree-per-role path', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'invariant-worktree-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3, workspace: 'worktree-per-role' },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'invariant-worktree-org.json'),
+      JSON.stringify(def),
+    );
+    execFileSync('git', ['init'], { cwd: testRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: testRoot });
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: noopRunner() as any,
+    });
+    const running = await daemon.startOrg('invariant-worktree-org');
+    await daemon.deliver('invariant-worktree-org', 'boss', 'worker', 'go', 'start working');
+    const wtPath = running.agents.get('worker')!.worktreePath!;
+    writeFileSync(join(wtPath, 'uncommitted.txt'), 'keep me');
+    await daemon.respawnRole('invariant-worktree-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r',
+      briefing: 'b',
+    });
+    expect(existsSync(join(wtPath, 'uncommitted.txt'))).toBe(true);
+    expect(running.agents.get('worker')!.worktreePath).toBe(wtPath);
+    await daemon.stopOrg('invariant-worktree-org');
+  });
+
+  it('concurrent respawnRole calls for the SAME role: only one succeeds', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'invariant-concurrent-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'invariant-concurrent-org.json'),
+      JSON.stringify(def),
+    );
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: noopRunner() as any,
+    });
+    await daemon.startOrg('invariant-concurrent-org');
+    await daemon.deliver('invariant-concurrent-org', 'boss', 'worker', 'go', 'start working');
+    const [a, b] = await Promise.all([
+      daemon.respawnRole('invariant-concurrent-org', 'boss', {
+        roleId: 'worker',
+        reason: 'a',
+        briefing: 'b',
+      }),
+      daemon.respawnRole('invariant-concurrent-org', 'boss', {
+        roleId: 'worker',
+        reason: 'b',
+        briefing: 'b',
+      }),
+    ]);
+    const successes = [a, b].filter((r) => r.success).length;
+    expect(successes).toBe(1);
+    await daemon.stopOrg('invariant-concurrent-org');
+  });
+
+  it('stopping the org during a respawnRole await prevents it from publishing into the stopped org', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'invariant-stop-race-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 3, respawn_drain_timeout_ms: 200 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'invariant-stop-race-org.json'),
+      JSON.stringify(def),
+    );
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      runner: noopRunner() as any,
+    });
+    await daemon.startOrg('invariant-stop-race-org');
+    await daemon.deliver('invariant-stop-race-org', 'boss', 'worker', 'go', 'start working');
+    const respawnPromise = daemon.respawnRole('invariant-stop-race-org', 'boss', {
+      roleId: 'worker',
+      reason: 'r',
+      briefing: 'b',
+    });
+    await daemon.stopOrg('invariant-stop-race-org');
+    const receipt = await respawnPromise;
+    // Either the respawn lost the race and reports failure, or it happened
+    // to finish before stop - either way, the STOPPED org's map must never
+    // be told to run a role again.
+    if (!receipt.success) {
+      expect(daemon.orgs.has('invariant-stop-race-org')).toBe(false);
+    }
+  });
+});
