@@ -54,6 +54,7 @@ import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import { QwenAgentRunner } from './qwen-runner.js';
 import { mergeEffectiveRoleConfig, type RoleOverrides, type RoleSlot } from './role-slot.js';
+import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import {
   historyFile,
   type RunSummary,
@@ -1108,6 +1109,10 @@ export class OrgDaemon {
         // just nudges it for ~30 min before idle-stopping. Restart the whole org
         // with fresh sessions instead — bounded by MAX_BOSS_RESTARTS.
         onContextLimit: role.id === bossRole.id ? () => this.scheduleBossRestart(name) : undefined,
+        onListRuntimeOptions:
+          role.id === bossRole.id && (def.run_config.max_role_respawns ?? 0) > 0
+            ? () => this.listRuntimeOptions()
+            : undefined,
         recall: async (r: string, q: string) => {
           const answer = await this.recallOrgMemory(name, def, q, r);
           bus.emit({
@@ -2150,6 +2155,12 @@ export class OrgDaemon {
       fromCredential,
     );
   }
+
+  // runtime-options.ts
+  listRuntimeOptions(): Promise<RuntimeOptionsReceipt> {
+    return buildRuntimeOptions(this.root);
+  }
+
   // scheduler-integration.ts
   /** @internal */
   autoWake(name: string): void {

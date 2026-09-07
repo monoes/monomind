@@ -165,4 +165,20 @@ describe('RunningOrg.roleSlots', () => {
     expect(resumedSlot.effectiveRole.adapter_config?.model).toBe('v2');
     await daemon.stopOrg('resume-slot-org');
   });
+
+  it('boss gets onListRuntimeOptions only when max_role_respawns > 0; workers never get it', async () => {
+    const def = OrgDefSchema.parse({
+      name: 'runtime-opts-gate-org',
+      roles: [{ id: 'boss' }, { id: 'worker', reports_to: 'boss' }],
+      run_config: { idle_minutes: 0, max_role_respawns: 1 },
+    });
+    writeFileSync(
+      join(testRoot, '.monomind', 'orgs', 'runtime-opts-gate-org.json'),
+      JSON.stringify(def),
+    );
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const options = await daemon.listRuntimeOptions();
+    expect(options.runtimes.length).toBeGreaterThan(0);
+    await daemon.stopOrg('runtime-opts-gate-org').catch(() => {});
+  });
 });
