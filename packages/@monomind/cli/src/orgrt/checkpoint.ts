@@ -202,8 +202,9 @@ export function migrateCheckpoint(checkpoint: OrgCheckpoint): OrgCheckpoint | nu
       retiredUsage: { tokens: 0, costUsd: 0 },
     };
   }
+  const { checksum: _oldChecksum, ...rest } = checkpoint;
   const migrated: Omit<OrgCheckpoint, 'checksum'> = {
-    ...checkpoint,
+    ...rest,
     version: CHECKPOINT_VERSION,
     roleState,
   };
