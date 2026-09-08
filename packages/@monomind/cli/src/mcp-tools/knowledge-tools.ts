@@ -317,9 +317,9 @@ const knowledgeSearch: MCPTool = {
             kind: 'excerpt' as const,
           })),
           (graph?.triplets ?? []).map((t, i) => ({
+            ...t,
             id: `kg:${i}:${t.source}|${t.relation}|${t.target}`,
             kind: 'triplet' as const,
-            ...t,
           })),
           entities.map((s) => ({
             id: `kgent:${s.id || s.name}`,
