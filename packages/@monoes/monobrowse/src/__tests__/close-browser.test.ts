@@ -176,11 +176,19 @@ describe('#115 review follow-up: closeBrowser() cross-process PID-kill fallback'
 
     const client = await connectedClient(true);
     const closePromise = closeBrowser(client, port);
-    // The exit poll chains one timer per tick, so drive them to exhaustion
-    // rather than assuming a single advance covers the whole deadline.
-    await vi.runAllTimersAsync();
+    // The exit poll schedules one timer per tick, each from the previous
+    // tick's callback. How far a single advance carries through a chain like
+    // that is a fake-timer implementation detail that differs by Node version
+    // (runAllTimersAsync hung this test on Node 22 while passing on 26), so
+    // step the clock until the promise settles instead of assuming.
+    let settled = false;
+    void closePromise.then(() => {
+      settled = true;
+    });
+    for (let i = 0; i < 200 && !settled; i++) await vi.advanceTimersByTimeAsync(100);
     await closePromise;
 
+    expect(settled).toBe(true);
     expect(killSpy).toHaveBeenCalledWith(33333, 'SIGKILL');
   });
 
