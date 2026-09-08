@@ -143,6 +143,9 @@ importers:
         specifier: ^4.0.0
         version: 4.4.3
     devDependencies:
+      chokidar:
+        specifier: ^3.6.0
+        version: 3.6.0
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
