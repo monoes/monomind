@@ -1107,6 +1107,24 @@ export async function bridgeSearchEntries(options: {
           }
         }
 
+        // Issue #223/#224 follow-up: FTS5/BM25 ranks above are normalised
+        // RELATIVE to the best result in this call's own small candidate set
+        // (score = |rank| / maxRank), so the top — or sole — hit always
+        // lands at ~1.0 by construction, no matter how weak the actual
+        // match is. `options.threshold` compared against that already-
+        // inflated score can never reject a top/sole hit, so a single
+        // coincidental partial-token overlap looks exactly as confident as
+        // a genuine strong match. Gate on independent evidence instead: how
+        // much of the QUERY the candidate actually covers. This can only
+        // narrow the result set (never rescue something already excluded),
+        // and doesn't touch the rank-normalisation math other callers rely on.
+        keywordHits = keywordHits.filter((h: any) => {
+          if (h.score < threshold) return false;
+          const haystack = `${h.key || ''} ${h.content || ''}`.toLowerCase();
+          const matchedFraction = tokens.filter((t) => haystack.includes(t)).length / tokens.length;
+          return matchedFraction >= threshold;
+        });
+
         if (results.length === 0) {
           // No semantic results — keyword is all we have.
           results = keywordHits;
