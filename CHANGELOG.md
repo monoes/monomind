@@ -18,6 +18,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   nearest-neighbour triplets for a never-ingested query. Correct semantic
   behaviour, wrong path for these assertions to measure. Both files now set
   the flag for real and restore it afterwards (issue #228).
+- monodesign: the monobrowse driver's `close()` waited for the CDP port to stop
+  *accepting connections*, but Chrome closes its listener early in shutdown
+  while the process is still alive holding both the port and the
+  `--user-data-dir` singleton lock for it. On Windows that socket stays
+  unbindable across the gap (node sets no `SO_REUSEADDR` there), so `close()`
+  reported success and the next launch on the same forced port hung until its
+  timeout — `Chrome failed to start on port N within 30000ms`, the
+  intermittent `monodesign (windows)` CI failure. The release wait now probes
+  whether the port can actually be **bound**, which is the question the next
+  launch asks, and gets more runway on CI where teardown is slowest.
 
 ## [2.10.13] — 2026-09-08
 

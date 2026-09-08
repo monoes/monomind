@@ -28,10 +28,15 @@
 // Selection: MONODESIGN_BROWSER_DRIVER=monobrowse|puppeteer forces one;
 // otherwise monobrowse is tried first and puppeteer is the fallback.
 
-import { Socket } from 'node:net';
+import { createServer } from 'node:net';
 
 const DRIVER_ENV = 'MONODESIGN_BROWSER_DRIVER';
-const CDP_PORT_RELEASE_TIMEOUT_MS = 5_000;
+// Windows CI teardown is the slow case: Chrome acknowledges Browser.close long
+// before the process exits and hands the socket back, and closeBrowser()'s
+// force-kill safety net is itself a deferred 1s timer. 5s is comfortable
+// locally but cuts into a loaded runner's teardown, so give CI more runway —
+// same reasoning as launchTimeoutMs below.
+const CDP_PORT_RELEASE_TIMEOUT_MS = process.env.CI ? 15_000 : 5_000;
 const CDP_PORT_RELEASE_POLL_MS = 25;
 
 // Ports we launch headless Chrome on for detection runs. Deliberately away
@@ -60,25 +65,28 @@ function withTimeout(promise, ms, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(handle));
 }
 
-function isPortListening(port) {
+// "Released" has to mean BINDABLE, not merely unreachable. A connect probe
+// stops succeeding as soon as Chrome's listener socket closes, which happens
+// early in its shutdown — while the process is still alive holding both the
+// port and the --user-data-dir singleton lock for this port. On Windows that
+// gap is wide and the socket stays unbindable across it (node does not set
+// SO_REUSEADDR there), so close() reported success and the next launch on the
+// same forced port sat until its timeout: "Chrome failed to start on port N
+// within 30000ms". Binding is the question the next launch actually asks, so
+// ask it directly. A listener that never accepted a connection leaves no
+// TIME_WAIT behind, so probing this way does not itself hold the port.
+function isPortBindable(port) {
   return new Promise((resolve) => {
-    const socket = new Socket();
-    const done = (listening) => {
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(listening);
-    };
-    socket.once('connect', () => done(true));
-    socket.once('error', () => done(false));
-    socket.setTimeout(250, () => done(false));
-    socket.connect(port, '127.0.0.1');
+    const server = createServer();
+    server.once('error', () => resolve(false));
+    server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
   });
 }
 
 async function waitForCdpPortRelease(port) {
   const deadline = Date.now() + CDP_PORT_RELEASE_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if (!(await isPortListening(port))) return;
+    if (await isPortBindable(port)) return;
     await new Promise(resolve => setTimeout(resolve, CDP_PORT_RELEASE_POLL_MS));
   }
   throw new Error(`Chrome did not release CDP port ${port} within ${CDP_PORT_RELEASE_TIMEOUT_MS}ms`);
