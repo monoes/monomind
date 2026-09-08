@@ -29,6 +29,9 @@
 // otherwise monobrowse is tried first and puppeteer is the fallback.
 
 import { createServer } from 'node:net';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const DRIVER_ENV = 'MONODESIGN_BROWSER_DRIVER';
 // Windows CI teardown is the slow case: Chrome acknowledges Browser.close long
@@ -38,6 +41,7 @@ const DRIVER_ENV = 'MONODESIGN_BROWSER_DRIVER';
 // same reasoning as launchTimeoutMs below.
 const CDP_PORT_RELEASE_TIMEOUT_MS = process.env.CI ? 15_000 : 5_000;
 const CDP_PORT_RELEASE_POLL_MS = 25;
+const PROFILE_CLEANUP_RETRY_MS = 2_000;
 
 // Ports we launch headless Chrome on for detection runs. Deliberately away
 // from 9222 (the default `monomind browse` port): we must never attach to a
@@ -81,6 +85,14 @@ function isPortBindable(port) {
     server.once('error', () => resolve(false));
     server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
   });
+}
+
+function removeProfileDir(dir) {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* reclaimed by the OS's temp cleanup instead */
+  }
 }
 
 async function waitForCdpPortRelease(port) {
@@ -186,7 +198,20 @@ async function launchMonobrowseBrowser(options = {}) {
   // browser starts fine, just later. Give CI more runway; local dev keeps
   // the tighter default so a genuinely broken launch still fails fast.
   const launchTimeoutMs = options.launchTimeoutMs ?? (process.env.CI ? 30000 : undefined);
-  const launchedPort = await mb.launchBrowser({ port, headless, args: launchArgs, launchTimeoutMs });
+  // Throwaway profile per launch. monobrowse defaults --user-data-dir to
+  // tmpdir()/monomind-browser-<port>, which is right for `monomind browse`
+  // (a later process reattaches to the same session by port) but wrong here:
+  // detection launches are stateless, and keying the profile on the port
+  // means two launches on the SAME port share one profile. Chrome enforces
+  // single-instance-per-profile, so the second launch rendezvouses with the
+  // first instead of starting its own — it hands over its command line and
+  // exits without ever opening a debugging port, which surfaces as "Chrome
+  // failed to start on port N" after the full launch timeout. Windows is
+  // where this bites: its singleton lock survives the previous Chrome being
+  // force-killed, and outlives the port being released. A unique dir removes
+  // the sharing entirely rather than racing the lock's cleanup.
+  const userDataDir = mkdtempSync(join(tmpdir(), 'monodesign-cdp-'));
+  const launchedPort = await mb.launchBrowser({ port, headless, args: launchArgs, launchTimeoutMs, userDataDir });
   // Control connection (to the initial about:blank tab) — used for lifecycle
   // commands; detection pages get their own dedicated connections.
   const control = await mb.connectToTarget(launchedPort);
@@ -225,6 +250,14 @@ async function launchMonobrowseBrowser(options = {}) {
         await waitForCdpPortRelease(launchedPort);
       } finally {
         control.client.close();
+        // Best effort, twice: Chrome is still flushing profile data when the
+        // port comes back, so an immediate delete gets a few files recreated
+        // under it. The unref'd retry lands after that (same pattern as
+        // monobrowse's own post-close force-kill net) and never holds the
+        // process open. Whatever still survives is a few KB under tmpdir that
+        // nothing reuses, so neither attempt may fail close().
+        removeProfileDir(userDataDir);
+        setTimeout(() => removeProfileDir(userDataDir), PROFILE_CLEANUP_RETRY_MS).unref?.();
       }
     },
   };
