@@ -1107,6 +1107,19 @@ export async function bridgeSearchEntries(options: {
           }
         }
 
+        if (/Quixotic|xyzzy-plugh|^routes$/.test(queryStr)) {
+          console.error(
+            `[DEBUG-CI-INVESTIGATION] query=${JSON.stringify(queryStr)} fts5Available=${typeof backend.keywordSearch === 'function'} fts5ResultCount=${fts5Results?.length ?? 'n/a'} preFilterHitCount=${keywordHits.length}`,
+          );
+          for (const h of keywordHits) {
+            const haystack = `${h.key || ''} ${h.content || ''}`.toLowerCase();
+            const matched = tokens.filter((t) => haystack.includes(t));
+            console.error(
+              `[DEBUG-CI-INVESTIGATION] candidate key=${JSON.stringify(h.key)} content=${JSON.stringify((h.content || '').slice(0, 200))} score=${h.score} provenance=${h.provenance} matchedTokens=${JSON.stringify(matched)} matchedFraction=${matched.length / tokens.length}`,
+            );
+          }
+        }
+
         // Issue #223/#224 follow-up: FTS5/BM25 ranks above are normalised
         // RELATIVE to the best result in this call's own small candidate set
         // (score = |rank| / maxRank), so the top — or sole — hit always

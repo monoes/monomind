@@ -288,6 +288,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
 
     this.migrationReport = initializeSchema(this.driver);
     this._fts5Available = hasFTS5Table(this.driver);
+    console.error(`[DEBUG-CI-INVESTIGATION] fts5Available=${this._fts5Available} platform=${process.platform} arch=${process.arch} nodeVersion=${process.version}`);
     if (this.config.verbose && this.migrationReport.legacyColumnFound) {
       console.log(
         `[SqlBackend] migrated ${this.migrationReport.migrated} inline embedding(s); ` +
@@ -502,6 +503,19 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
         entry.lastAccessedAt,
       ] as SqlParam[],
     );
+
+    if (entry.key === 'upsert-target' || entry.key === 'marker') {
+      try {
+        const ftsRows = d.all('SELECT rowid, entry_id, key, content FROM memory_entries_fts WHERE entry_id = ?', [
+          entry.id,
+        ]);
+        console.error(
+          `[DEBUG-CI-INVESTIGATION] after store key=${entry.key} entry.id=${entry.id} ftsRowCount=${ftsRows.length} ftsRows=${JSON.stringify(ftsRows)}`,
+        );
+      } catch (e) {
+        console.error('[DEBUG-CI-INVESTIGATION] fts row check failed:', e);
+      }
+    }
 
     d.run('DELETE FROM memory_entry_tags WHERE entry_id = ?', [entry.id]);
     for (const tag of entry.tags) {
