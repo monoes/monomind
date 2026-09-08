@@ -463,6 +463,11 @@ async function loadEmbedder(): Promise<void> {
 
 async function getBackend(dbPath?: string): Promise<any | null> {
   const dir = getDbPath(dbPath);
+  if (dbPath && /\.tmp-(kg-eval|fts-sync)-/.test(dbPath)) {
+    console.error(
+      `[DEBUG-CI-INVESTIGATION] getBackend dbPath=${JSON.stringify(dbPath)} resolvedDir=${JSON.stringify(dir)} projectRoot=${JSON.stringify(getProjectRoot())} cwd=${JSON.stringify(process.cwd())} slotCount=${backendSlots.size} slotKeys=${JSON.stringify([...backendSlots.keys()])}`,
+    );
+  }
   let slot = backendSlots.get(dir);
   if (!slot) {
     if (backendSlots.size >= MAX_BACKEND_SLOTS) {
@@ -1109,7 +1114,7 @@ export async function bridgeSearchEntries(options: {
 
         if (/Quixotic|xyzzy-plugh|^routes$/.test(queryStr)) {
           console.error(
-            `[DEBUG-CI-INVESTIGATION] query=${JSON.stringify(queryStr)} fts5Available=${typeof backend.keywordSearch === 'function'} fts5ResultCount=${fts5Results?.length ?? 'n/a'} preFilterHitCount=${keywordHits.length}`,
+            `[DEBUG-CI-INVESTIGATION] query=${JSON.stringify(queryStr)} dbPathOption=${JSON.stringify(options.dbPath)} resolvedDir=${JSON.stringify(getDbPath(options.dbPath))} projectRoot=${JSON.stringify(getProjectRoot())} cwd=${JSON.stringify(process.cwd())} fts5Available=${typeof backend.keywordSearch === 'function'} fts5ResultCount=${fts5Results?.length ?? 'n/a'} preFilterHitCount=${keywordHits.length}`,
           );
           for (const h of keywordHits) {
             const haystack = `${h.key || ''} ${h.content || ''}`.toLowerCase();
