@@ -4,6 +4,70 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.12] — 2026-09-08
+
+### Added
+
+- orgrt: mid-run role replacement — `org_respawn_role` lets a boss/coordinator
+  swap a role's adapter/model or spawn a replacement sub-agent live, on crash
+  or budget exhaustion, instead of retrying the same config. Backed by new
+  `RunningOrg.roleSlots` per-role lifecycle state, a bounded replacement
+  budget allocator, drain/force-stop/state-preservation for the outgoing
+  agent, checkpoint v2 (round-trips role-slot generation, respawn count,
+  overrides, retired usage), and an audited receipt of each respawn.
+  `org_list_runtime_options` reports available adapters/models for a role.
+  Boss-only, config-gated.
+- memory-kg: scoped entity identity, a claims ledger recording how each
+  claim was obtained (and ranking on that), enforced graph integrity,
+  indexed adjacency, and origin-support lookups.
+
+### Fixed
+
+- monograph: collision-resistant symbol IDs (File/Folder/Document node IDs
+  keyed on exact path; namespace/arrow-fn/variable nodes minted via
+  symbolId), consistent cache/DB recovery, PageRank caches correctly scoped
+  to connection + graph revision, community clustering over the committed
+  graph instead of raw parse output, one consistent higher-is-better score
+  convention across query paths, rename paths resolved against the repo
+  root, and `GRAPH_REPORT.md` no longer indexes itself into the graph it
+  describes.
+- orgrt: `TaskDag.merge()` now rejects cycles instead of silently
+  deadlocking, and correctly allows merging into a `done` target (previously
+  every terminal target was rejected, including completed work) while still
+  rejecting `cancelled`/`failed`/`split`/`merged` targets. Fixed cross-org
+  message drop and sender-identity spoofing under deferred spawn, an
+  org-wide budget bug, a `startOrg` race, a pending-question watchdog gap,
+  a concurrency-cap bug, approval-cache keys colliding across different
+  call args for the same tool, tasks being marked `running` before their
+  assignee was resolved/verified, and `org resume-from` now refuses to
+  double-run against a live `serve` daemon (with a pidfile lock added to
+  `org serve` itself).
+- knowledge/doc search: the `doc search` and `knowledge_search` KG-triplet
+  result fusion silently discarded the synthetic result id — a spread
+  ordering bug (`{ id, kind, ...raw }` let `raw`'s own `id` win) meant the
+  id returned for feedback/citation was `raw`'s bridge-entry id in a
+  different namespace, not the intended `kg:<i>:source|relation|target`
+  key. Fixed in both `doc.ts` and `knowledge-tools.ts`, with regression
+  coverage for each.
+- ui: dashboard org-stop now writes to the actual polled stopfile path
+  (was writing to a location `org serve` never checked), and artifact
+  reads are scoped to `.monomind`.
+- **#222**: the orgs run-log watcher crashed with `Cannot read properties
+  of undefined (reading 'close')` whenever the underlying `fs.watch()`
+  failed synchronously (ENOSPC/EMFILE/a watched path disappearing) — its
+  `chokidar.watch()` call passed `persistent: false`, routing into
+  chokidar's one `setFsWatchListener()` branch that doesn't null-check a
+  failed watch. Dropped `persistent: false` so it takes the already-guarded
+  default branch instead. Regression test added.
+- **#223**: `monograph search --format json` was returning the ASCII-table
+  output instead of structured JSON.
+- **#224**: `memory search` keyword-fallback scoring returned 0.00 instead
+  of a real score when the vector path fell back to keyword matching.
+- A stale test-only stub (`orgrt-server-auth.test.ts`) was missing the
+  `orgs` field a since-merged per-org credential check now reads, crashing
+  5/6 of its tests with an uncaught exception (mis-presenting as an
+  180+ second "hang" rather than a fast failure).
+
 ## [2.10.11] — 2026-09-05
 
 ### Security
