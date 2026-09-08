@@ -219,11 +219,14 @@ export class TaskDag {
     if (!target) throw new Error(`task "${targetId}" not found`);
     if (sourceId === targetId) throw new Error(`cannot merge a task into itself`);
     // Same guard as split/cancel: a terminal source would lose its real outcome
-    // and a terminal target would let promoteReady() release the source's
-    // dependents for work that never happened.
+    // and a non-satisfying terminal target (failed/split/merged) would let
+    // promoteReady() release the source's dependents for work that never
+    // happened. A satisfied terminal target (done/cancelled) is a legitimate
+    // merge target — it represents accepted work, same as SATISFIED deps do
+    // for promoteReady() elsewhere.
     if (TERMINAL.has(source.status))
       throw new Error(`task "${sourceId}" is terminal (${source.status})`);
-    if (TERMINAL.has(target.status))
+    if (TERMINAL.has(target.status) && !SATISFIED.has(target.status))
       throw new Error(`task "${targetId}" is terminal (${target.status})`);
 
     const sourceStatus = source.status;
