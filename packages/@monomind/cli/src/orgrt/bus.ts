@@ -16,6 +16,7 @@ export class OrgBus {
   private seq = 0;
   private pending: Promise<void> = Promise.resolve();
   private dirReady = false;
+  private sealed = false;
   readonly file: string;
 
   constructor(
@@ -40,6 +41,21 @@ export class OrgBus {
       ...partial,
     };
     // serialize writes; never block emitters
+    if (this.sealed) {
+      // Post-seal: still fan out to listeners below (nothing silently lost
+      // from anyone still watching), but never schedule a new disk write —
+      // a late emit from a subscriber the caller couldn't wait for (see
+      // seal()'s doc comment) must not be able to recreate bus.jsonl inside
+      // a run directory that's already being torn down.
+      for (const fn of this.listeners) {
+        try {
+          fn(e);
+        } catch {
+          /* listener errors never break the bus */
+        }
+      }
+      return e;
+    }
     this.pending = this.pending
       .then(async () => {
         if (!this.dirReady) {
@@ -91,6 +107,17 @@ export class OrgBus {
    *  (see daemon.ts stopOrg(), which awaits forwarder.settle() alongside bus.flush()). */
   flush(): Promise<void> {
     return this.pending;
+  }
+
+  /** Await the final queued disk write, then permanently stop scheduling new
+   *  ones — emit() keeps fanning out to in-memory listeners after this, it
+   *  just never touches disk again. For a caller that's about to delete the
+   *  run directory (a test's afterEach, or a real stop/cleanup path): a late
+   *  emit() from work that outlived flush()'s snapshot (per flush()'s own
+   *  doc comment) would otherwise recreate bus.jsonl mid-delete. Idempotent. */
+  async seal(): Promise<void> {
+    await this.pending;
+    this.sealed = true;
   }
 
   static readHistory(dir: string): BusEvent[] {

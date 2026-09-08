@@ -1733,6 +1733,23 @@ export class OrgDaemon {
             await new Promise<void>((r) => {
               const t = setTimeout(r, BACKOFFS_MS[attempt]);
               (t as { unref?: () => void }).unref?.();
+              // Org stop (finishStop) aborts every active slot's controller —
+              // without racing it here, this wait wouldn't notice for up to
+              // BACKOFFS_MS[attempt] (default up to 15s), well past finishStop's
+              // own bounded drain window. That let this loop's crash() —
+              // and the bus.emit() it triggers — fire AFTER finishStop had
+              // already declared the org stopped and returned, capable of
+              // recreating files in a run directory a caller was already
+              // deleting.
+              if (abort.signal.aborted) {
+                clearTimeout(t);
+                r();
+                return;
+              }
+              abort.signal.addEventListener('abort', () => {
+                clearTimeout(t);
+                r();
+              }, { once: true });
             });
             if (isStaleGeneration()) return; // superseded during the backoff wait
             if (mailbox.isClosed) {
@@ -2146,6 +2163,13 @@ export class OrgDaemon {
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     for (const a of org.agents.values()) a.mailbox.close();
+    // Closing the mailbox stops new work being handed to a session, but does
+    // NOT cancel a turn already in flight (e.g. mid provider call) — that
+    // session can keep running, and eventually crash/finish, well past this
+    // function's own bounded drain below. Abort each slot's live incarnation
+    // too, reusing respawnRole's existing force-stop handle, so in-flight
+    // work is told to stop now instead of merely being denied new input.
+    for (const slot of org.roleSlots.values()) slot.abort?.abort();
     // Bounded: a genuinely hung agent session (stuck mid-tool-call, not just
     // idle) must not make stopOrg() hang forever — callers like the scheduler
     // already race their own timeout around a run, and this wait re-blocking
@@ -2207,6 +2231,13 @@ export class OrgDaemon {
     }
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();
+    // flush() only awaits a snapshot of writes queued at call time (see its
+    // own doc comment) — it has no visibility into a session that crashes
+    // after the abort signal above but before this function returns. Seal
+    // the bus now so any such late bus.emit() still reaches in-memory
+    // listeners but can never schedule a new disk write into a run
+    // directory a caller (e.g. a test's afterEach) may already be deleting.
+    await org.bus.seal();
     // Append this run's summary to <org>/history.jsonl — read back from the
     // flushed bus.jsonl (the full durable record) rather than the bounded
     // in-memory buffer, so long runs summarize completely.
