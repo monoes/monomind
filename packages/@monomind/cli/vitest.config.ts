@@ -13,7 +13,13 @@ export default defineConfig({
     // test slows 5-10x, and even 60-90s timeouts trip variably. 4 workers
     // keeps peak memory sane; the suite wall-time is unchanged in practice
     // because the thrash was already serializing everything.
-    maxWorkers: 4,
+    // DEBUG-CI-INVESTIGATION (issue #228): temporarily force full process
+    // isolation + single worker to test whether the KG/FTS5 CI-only failures
+    // are caused by native-module (better-sqlite3) state not being safely
+    // shared across concurrent workers. Revert before merging.
+    pool: 'forks',
+    poolOptions: { forks: { maxForks: 1 } },
+    maxWorkers: 1,
     // 30s default: this suite intentionally runs real-fs / real-subprocess
     // tests (init, doctor, memory backends with first-use embedding-model
     // loads). At 15s those tests were green in isolation but timed out
