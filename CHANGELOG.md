@@ -4,6 +4,36 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.13] — 2026-09-08
+
+### Fixed
+
+- orgrt: `respawn-role.test.ts`'s git fixtures relied on the runner's ambient
+  global `user.name`/`user.email` — always present on a dev machine, never
+  set on a clean CI runner, so both tests failed "Author identity unknown"
+  on every CI run. Fixtures now pass identity explicitly via `git -c`.
+- memory: keyword-search results (FTS5 and BM25 paths) are ranked relative
+  to the best match in each call's own small candidate set, so the top —
+  or sole — result always normalised to ~1.0 regardless of true relevance;
+  `threshold` compared against that already-inflated score could never
+  reject it. A query matching nothing relevant could still surface a
+  coincidental single-token overlap with full confidence. Results are now
+  also gated on how much of the query they actually cover, independent of
+  the rank-based score (issues #223/#224 follow-up).
+- orgrt: `finishStop()`/`stopOrg()` closed each agent's mailbox and awaited
+  `bus.flush()` but never cancelled work already in flight. A session mid-
+  turn when the stop's drain bound elapsed kept running in the background;
+  a late crash/completion after `stopOrg()` had already resolved could
+  recreate a file inside a run directory a caller was already deleting
+  (observed as `ENOTEMPTY` on the parent `rmdir` under CI's tighter
+  timing). `finishStop()` now aborts each role's live incarnation via the
+  same handle `org_respawn_role` already uses to force-stop a session, and
+  the crash-retry backoff wait races that same signal instead of only
+  noticing a stop once the full backoff duration elapses. `OrgBus` gains
+  `seal()`, called right after `flush()`, so a late `emit()` still reaches
+  in-memory listeners but can never schedule a new disk write into a run
+  directory that's already being torn down.
+
 ## [2.10.12] — 2026-09-08
 
 ### Added
