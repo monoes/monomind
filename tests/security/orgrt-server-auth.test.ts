@@ -36,8 +36,12 @@ const spawned: Spawned[] = [];
 // The server only invokes daemon methods on the success path beyond the auth
 // gate. For auth tests we never reach them (401 short-circuits), and for the
 // success case we only call /api/status which uses the optional getStatusSnapshot.
+// isAgentOrOperator itself (part of the auth gate, not beyond it) also reads
+// daemon.orgs directly to check per-org credentials before falling through
+// to the operator credential check - the stub needs an (empty) Map for that.
 const stubDaemon = () =>
   ({
+    orgs: new Map(),
     getStatusSnapshot: () => ({ orgs: [] }),
   }) as unknown as Parameters<typeof startOrgServer>[0];
 
