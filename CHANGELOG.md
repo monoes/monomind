@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.14] — 2026-09-08
+
 ### Fixed
 
 - init/doctor: `init upgrade` restored `.claude/helpers/handlers/` and
