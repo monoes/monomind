@@ -2,11 +2,21 @@
 // Retrieval-quality golden set for the Second Brain memory path.
 //
 // Two tiers:
-//  1. Always-run: tokenized keyword fallback + namespace scoping + persistence,
-//     via the bridge with embeddings disabled (works in any CI).
+//  1. Always-run: tokenized keyword fallback + namespace scoping + persistence.
+//     These assert only that the right key comes back, which holds on either
+//     retrieval path, so they pass with or without a local model.
 //  2. Semantic tier: runs only when @huggingface/transformers and its local
 //     model actually load — asserts paraphrase recall that keyword search
 //     cannot deliver. Skipped (not faked) when the model is unavailable.
+//
+// Tier 1 used to claim it ran "with embeddings disabled". Nothing ever set
+// MONOMIND_NO_LOCAL_EMBEDDINGS here, so that was only ever true by accident on
+// a machine without the model cached — the same unset-flag trap that made
+// kg-eval-retrieval and memory-bridge-fts-sync fail CI-only (issue #228).
+// Setting it for real is NOT the fix here: this file's whole point is that
+// tier 2 exercises the vector path, and disabling embeddings file-wide would
+// silently turn that tier into a permanent skip. Tier 1 is path-agnostic by
+// construction instead, which is what the wording above now says.
 
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
