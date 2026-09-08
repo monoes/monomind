@@ -262,14 +262,14 @@ const searchDocCommand: Command = {
     const fused = rrfFuse(
       [
         chunkExcerpts.map((e) => ({
+          ...e,
           id: e.id || `${e.filePath}#${e.chunkIndex}`,
           kind: 'excerpt' as const,
-          ...e,
         })),
         (graph?.triplets ?? []).map((t, i) => ({
+          ...t,
           id: `kg:${i}:${t.source}|${t.relation}|${t.target}`,
           kind: 'triplet' as const,
-          ...t,
         })),
         (rules?.results ?? []).map((r) => ({
           id: r.id,
