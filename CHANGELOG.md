@@ -6,6 +6,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [2.10.14] — 2026-09-08
 
+Ships alongside `@monoes/monobrowse@1.0.8` and `@monoes/monodesign@1.2.5` —
+the browser fixes below live in those packages, and `@monoes/monomindcli`
+picks them up through its semver ranges.
+
 ### Fixed
 
 - init/doctor: `init upgrade` restored `.claude/helpers/handlers/` and
