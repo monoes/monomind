@@ -28,6 +28,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   intermittent `monodesign (windows)` CI failure. The release wait now probes
   whether the port can actually be **bound**, which is the question the next
   launch asks, and gets more runway on CI where teardown is slowest.
+- monodesign: detection launches now get a throwaway `--user-data-dir` instead
+  of monobrowse's default `tmpdir()/monomind-browser-<port>`. That default is
+  right for `monomind browse`, where a later process reattaches by port, but
+  it means two detection launches on the same port share one Chrome profile —
+  and Chrome allows only one instance per profile, so the second hands its
+  command line to the first and exits without opening a debugging port. On
+  Windows the singleton lock outlives both the force-kill of the previous
+  Chrome and the release of the port, which is what kept `monodesign
+  (windows)` red after the port-probe fix above. Profile dirs are removed on
+  close, with one deferred retry for the files Chrome recreates while exiting.
 
 ## [2.10.13] — 2026-09-08
 
