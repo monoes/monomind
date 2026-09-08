@@ -14,6 +14,11 @@ const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
 const POLL_INTERVAL = 200;
 const BROWSER_CLOSE_TIMEOUT_MS = 3000;
+// How long closeBrowser() waits for the process to actually disappear before
+// forcing it, and again after forcing. Bounded so a wedged Chrome cannot hang
+// a caller indefinitely.
+const PROCESS_EXIT_TIMEOUT_MS = 5000;
+const PROCESS_EXIT_POLL_MS = 50;
 // A cross-process persisted PID older than this is not trusted for the
 // SIGKILL fallback in closeBrowser() — see the call site for why.
 const PERSISTED_PID_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -285,6 +290,15 @@ export async function connectToTarget(port: number, targetId?: string): Promise<
  * falls back to killing the tracked PID directly so a headed/interactive
  * browser window (e.g. one spawned for a login/CAPTCHA flow) never lingers
  * as a visible, authenticated, still-debuggable orphan process.
+ *
+ * On the graceful path this resolves only once the process is actually gone,
+ * or after force-killing it when it outlasts PROCESS_EXIT_TIMEOUT_MS. Chrome
+ * acknowledges `Browser.close` well before it exits, and this used to return
+ * on the ack with an unref'd 1s timer as the only force-kill — so it resolved
+ * while Chrome was still running and holding its port and its profile's
+ * singleton lock, and if the caller's process exited first the kill never
+ * happened at all. Callers reasonably read a resolved close() as "that
+ * browser is gone"; on the graceful path it now means that.
  */
 export async function closeBrowser(client: CdpClient, port: number): Promise<void> {
   let gracefullyClosed = false;
@@ -341,17 +355,33 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
     return;
   }
 
-  // Browser.close was acknowledged — give the process a moment to exit on
-  // its own, then verify and force-kill as a safety net in case it hung.
-  const t = setTimeout(() => {
+  // Browser.close was acknowledged — wait for the process to actually go away,
+  // then force-kill as a safety net in case it hung.
+  if (await waitForProcessExit(pid)) return;
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    /* raced us to exit — expected */
+  }
+}
+
+/** Poll until `pid` is gone or PROCESS_EXIT_TIMEOUT_MS elapses. Returns
+ *  whether it exited. `process.kill(pid, 0)` throws once the process is no
+ *  longer there, on Windows as well as POSIX. */
+async function waitForProcessExit(pid: number): Promise<boolean> {
+  const deadline = Date.now() + PROCESS_EXIT_TIMEOUT_MS;
+  for (;;) {
     try {
-      process.kill(pid, 0); // throws if the process is already gone
-      process.kill(pid, 'SIGKILL');
+      process.kill(pid, 0);
     } catch {
-      /* already exited — expected path */
+      return true;
     }
-  }, 1000);
-  t.unref?.();
+    if (Date.now() >= deadline) return false;
+    await new Promise((resolve) => {
+      const t = setTimeout(resolve, PROCESS_EXIT_POLL_MS);
+      t.unref?.();
+    });
+  }
 }
 
 export async function openUrl(client: CdpClient, sessionId: string, url: string): Promise<void> {

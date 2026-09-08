@@ -5,17 +5,23 @@ import fs from 'node:fs';
 
 import { launchMonobrowseBrowser } from '../cli/engine/engines/browser/drivers.mjs';
 
-async function reserveThenReleasePort() {
-  const server = createServer();
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const address = server.address();
-  assert.ok(address && typeof address !== 'string');
-  const { port } = address;
-  await new Promise(resolve => server.close(resolve));
-  return port;
+// Pick a forced port from the same band the driver uses for its own picks
+// (MONOBROWSE_PORT_MIN..+RANGE in drivers.mjs), NOT an OS-assigned ephemeral
+// one. Binding :0 hands back a port out of the dynamic range, which the host
+// is actively churning through for every outbound connection — so between
+// releasing it here and Chrome binding it there, something else can take it.
+// That window is widest on Windows, which is exactly where this test runs
+// against the slowest teardown.
+async function findFreeForcedPort() {
+  for (let port = 9520; port < 9900; port++) {
+    const free = await new Promise(resolve => {
+      const server = createServer();
+      server.once('error', () => resolve(false));
+      server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
+    });
+    if (free) return port;
+  }
+  throw new Error('No free port in 9520-9899 to force the CDP endpoint onto');
 }
 
 let monobrowseAvailable = false;
@@ -29,7 +35,7 @@ try {
 describe('monobrowse detection driver lifecycle', { skip: monobrowseAvailable ? false : 'no local Chrome/Chromium available' }, () => {
   it('releases a forced CDP port before the next browser launch', async () => {
     const previousPort = process.env.MONODESIGN_MONOBROWSE_PORT;
-    process.env.MONODESIGN_MONOBROWSE_PORT = String(await reserveThenReleasePort());
+    process.env.MONODESIGN_MONOBROWSE_PORT = String(await findFreeForcedPort());
     let browser;
     try {
       browser = await launchMonobrowseBrowser();

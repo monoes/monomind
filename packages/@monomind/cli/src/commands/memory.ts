@@ -332,7 +332,7 @@ export const memoryCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monomind memory store -k "key" -v "value"', description: 'Store data' },
+    { command: 'monomind memory store -k "key" --value "value"', description: 'Store data' },
     { command: 'monomind memory search -q "auth patterns"', description: 'Search memory' },
     { command: 'monomind memory stats', description: 'Show statistics' },
   ],

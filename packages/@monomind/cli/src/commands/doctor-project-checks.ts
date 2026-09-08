@@ -519,11 +519,32 @@ function _allTrackedHelperNames(): string[] {
   return names;
 }
 
+// Top-level helpers the bundle ships. Their mere ABSENCE is a defect no
+// matter which one it is — handlers/ scripts require() some of them at module
+// load, and a missing one fails the hook closed (issue #225: doctor reported
+// "helpers match bundled version" while audit-log-writer.cjs was absent and
+// every PreToolUse hook was crashing). Existence is checked for all of them;
+// content is still only hash-compared for _allTrackedHelperNames(), because
+// the rest are user-editable scaffolds (memory.cjs, session.cjs) whose local
+// edits are legitimate and must not be reported as staleness.
+function _bundledTopLevelHelperNames(): string[] {
+  const bundledDir = _resolveBundledHelper(join('.claude', 'helpers'));
+  if (!bundledDir) return [];
+  try {
+    return readdirSync(bundledDir, { withFileTypes: true })
+      .filter((e) => e.isFile() && !e.name.startsWith('._'))
+      .map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
 async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string[] }> {
   const stale: string[] = [];
   const missing: string[] = [];
   const crypto = await import('node:crypto');
-  for (const name of _allTrackedHelperNames()) {
+  const hashChecked = new Set(_allTrackedHelperNames());
+  for (const name of new Set([..._allTrackedHelperNames(), ..._bundledTopLevelHelperNames()])) {
     const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
     // Oversized-bundled is reported the same as missing-bundled: doctor can't
     // verify freshness either way, and silently excluding it from both `stale`
@@ -538,6 +559,7 @@ async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string
       stale.push(name);
       continue;
     } // bundled has it, project doesn't — needs creating
+    if (!hashChecked.has(name)) continue; // existence-only (see above)
     if (statSync(local).size > MAX_DOCTOR_HELPER_BYTES) continue;
     try {
       const hashLocal = crypto.createHash('sha256').update(readFileSync(local)).digest('hex');

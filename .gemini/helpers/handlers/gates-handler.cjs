@@ -18,7 +18,19 @@
 
 const fs = require('fs');
 const path = require('path');
-const { appendAuditEvent } = require('../audit-log-writer.cjs');
+// Audit logging must never be able to take the gates down with it. This
+// handler runs inside hook-handler.cjs's fail-closed PreToolUse path, so a
+// throw at module load — MODULE_NOT_FOUND when audit-log-writer.cjs is absent
+// (issue #225) — blocked every Bash and Write call for the rest of the
+// session, including the write that would have restored the file. The gate
+// decisions themselves do not depend on the audit log, so degrade to a no-op
+// writer and keep enforcing them.
+let appendAuditEvent;
+try {
+  ({ appendAuditEvent } = require('../audit-log-writer.cjs'));
+} catch {
+  appendAuditEvent = () => {};
+}
 
 // ─── monofence-ai integration (additional layer on top of regex gates) ───────
 //

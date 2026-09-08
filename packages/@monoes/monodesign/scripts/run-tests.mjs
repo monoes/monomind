@@ -46,9 +46,14 @@ child.on('close', (code, signal) => {
     process.exit(1);
   }
 
-  // TAP summary line: "# tests 1027". Absent means the runner never got far
-  // enough to summarise, which is itself a failure.
-  const match = /^# tests (\d+)$/m.exec(stdout);
+  // Summary line. node:test picks its default reporter by Node version and
+  // TTY-ness, and the two shapes differ: the tap reporter prints "# tests
+  // 1027", the spec reporter prints "\u2139 tests 1027". Matching only the TAP
+  // form made this wrapper fail every local run on a Node that defaults to
+  // spec — 0 failures, "the suite did not complete" — while passing in CI on
+  // Node 22. Accept either; absence of both still means the runner never got
+  // far enough to summarise, which is itself a failure.
+  const match = /^(?:#|\u2139) tests (\d+)$/m.exec(stdout);
   if (!match) {
     console.error(
       '\nCould not find a "# tests N" summary in the runner output — ' +
