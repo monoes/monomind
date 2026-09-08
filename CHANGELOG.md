@@ -6,6 +6,49 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
+- init/doctor: `init upgrade` restored `.claude/helpers/handlers/` and
+  `utils/` recursively but could only ever (re)create the seven TOP-LEVEL
+  helpers on the force-sync list. `audit-log-writer.cjs` is not one of them and
+  `handlers/gates-handler.cjs` `require()`s it at module load, so upgrading a
+  project that was missing it produced a gates handler that threw
+  `MODULE_NOT_FOUND` on every PreToolUse hook — and `hook-handler.cjs` fails
+  closed, blocking every Bash and Write/Edit call for the rest of the session,
+  including the write that would have restored the file. Twelve other shipped
+  helpers were in the same blind spot. The upgrade now also creates (never
+  overwrites) any other top-level helper the bundle ships, so user-edited
+  scaffolds like `memory.cjs` keep their edits. `doctor` reported a false
+  "Project helpers match bundled version" for the same reason — its top-level
+  list was the curated tracked set — and now checks every bundled top-level
+  helper for existence (content is still only hash-compared for the tracked
+  set, so local edits to scaffolds are not reported as staleness);
+  `doctor --fix` restores what is missing. Defence in depth:
+  `gates-handler.cjs` no longer lets an audit-logging import failure take the
+  gates down with it — the decisions do not depend on the audit log, so it
+  degrades to a no-op writer and keeps enforcing (issue #225).
+- CLI: `memory store`'s own `--help` examples advertised `-k "key" -v "value"`,
+  but `-v` is the global verbose flag, not a short form of `--value` — the
+  value only survived by falling through to a positional argument. Examples now
+  use `--value`, and the command warns when it takes a positional value while
+  `-v` is set instead of leaving the user to guess (issue #226). The silent
+  data loss also reported in #226 does not reproduce on 2.10.13: all four
+  invocation shapes persist correctly when checked against the resolved store.
+- monobrowse: `closeBrowser()` resolved on the `Browser.close` acknowledgement,
+  which Chrome sends well before it exits — its only force-kill was an unref'd
+  1s timer that never fired at all if the caller's process exited first. It now
+  waits for the process to actually go away on the graceful path and force-kills
+  what outlasts the bound, so a resolved `close()` means the browser is gone.
+  This is the upstream cause of the monodesign port/profile-lock races patched
+  downstream in 2.10.13's driver.
+- monodesign: `scripts/run-tests.mjs` looked for node:test's TAP summary line
+  (`# tests N`) only. Newer Node defaults to the spec reporter, which prints
+  `ℹ tests N`, so every local `npm test` reported "the suite did not
+  complete" and exited 1 with zero failures, while CI on Node 22 passed. It now
+  accepts either, and still fails on a suite that ran nothing.
+- monodesign: the driver-lifecycle test forced Chrome onto an OS-assigned
+  ephemeral port, which the host is actively churning for outbound connections
+  — a TOCTOU window between releasing it and Chrome binding it. It now picks
+  from the same quiet 9520+ band the driver uses for its own choices.
+
 - tests: `kg-eval-retrieval.test.ts` and `memory-bridge-fts-sync.test.ts` both
   document themselves as keyword-mode suites, but nothing ever set
   `MONOMIND_NO_LOCAL_EMBEDDINGS=1` — the claim only held on a machine where

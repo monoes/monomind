@@ -243,6 +243,31 @@ export async function executeUpgrade(
           result.created.push(`.claude/helpers/${helperName}`);
         }
       }
+      // Restore any OTHER top-level helper the bundle ships but the project
+      // is missing (issue #225). The force-sync list above is a curated set of
+      // files we overwrite on every upgrade; it was also — wrongly — the only
+      // way a top-level helper could ever be (re)created here, so a project
+      // missing e.g. audit-log-writer.cjs never got it back. That one is
+      // require()d at module load by handlers/gates-handler.cjs, which the
+      // recursive handlers/ sync below faithfully restores, so the upgrade
+      // produced a gates handler that threw MODULE_NOT_FOUND on every
+      // PreToolUse hook — and hook-handler.cjs fails closed, deadlocking every
+      // Bash and Write call with no in-session way out. Create-if-missing only:
+      // never overwrite, so user-edited scaffolds (memory.cjs, session.cjs)
+      // keep their edits, which is exactly why they are not force-synced.
+      for (const entry of fs.readdirSync(sourceHelpersForUpgrade, { withFileTypes: true })) {
+        if (!entry.isFile() || entry.name.startsWith('._')) continue;
+        if (criticalHelpers.includes(entry.name)) continue;
+        const targetPath = path.join(destHelpersDir, entry.name);
+        if (fs.existsSync(targetPath)) continue;
+        const tmp = `${targetPath}.${process.pid}.tmp`;
+        fs.copyFileSync(path.join(sourceHelpersForUpgrade, entry.name), tmp);
+        try {
+          fs.chmodSync(tmp, 0o755);
+        } catch {}
+        fs.renameSync(tmp, targetPath);
+        result.created.push(`.claude/helpers/${entry.name}`);
+      }
       // Always recursively sync subdirectories (utils/, handlers/) — required by hook-handler.cjs.
       // Uses recursive copy so any future nested subdirs are also covered.
       for (const subdir of ['utils', 'handlers']) {

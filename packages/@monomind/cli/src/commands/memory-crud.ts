@@ -58,7 +58,7 @@ export const storeCommand: Command = {
   ],
   examples: [
     {
-      command: 'monomind memory store -k "api/auth" -v "JWT implementation"',
+      command: 'monomind memory store -k "api/auth" --value "JWT implementation"',
       description: 'Store text',
     },
     {
@@ -66,13 +66,26 @@ export const storeCommand: Command = {
       description: 'Store vector',
     },
     {
-      command: 'monomind memory store -k "pattern" -v "updated" --upsert',
+      command: 'monomind memory store -k "pattern" --value "updated" --upsert',
       description: 'Update existing',
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string;
     let value = (ctx.flags.value as string) || ctx.args[0];
+    // Issue #226: `-v` is the GLOBAL verbose flag, not a short form of
+    // --value, so `store -k k -v "text"` sets verbose and leaves "text" as a
+    // positional. The positional fallback above still stores it, so nothing is
+    // lost — but the user believes they passed --value, and every later
+    // surprise (a differently-quoted value, an extra word arriving as args[1]
+    // and being dropped) reads as the store having silently failed. Say so
+    // once, at the point the fallback actually fires.
+    if (!ctx.flags.value && ctx.args[0] && ctx.flags.verbose) {
+      output.printWarning(
+        '-v is the global verbose flag, not --value. Storing the positional argument ' +
+          `"${String(ctx.args[0]).slice(0, 40)}" as the value — pass --value to be explicit.`,
+      );
+    }
     const namespace = (ctx.flags.namespace as string) || 'default';
     const ttl = ctx.flags.ttl as number;
     const tags = ctx.flags.tags ? (ctx.flags.tags as string).split(',') : [];

@@ -419,7 +419,7 @@ This is an **environment issue, not a code bug** — and for current installs it
 
 ```bash
 npm install @monoes/memory@latest   # or update monomind, which depends on it
-monomind memory store -k smoke -v "test"   # succeeds; SQLiteBackend active
+monomind memory store -k smoke --value "test"   # succeeds; SQLiteBackend active
 ```
 
 If you are pinned to an old `@monoes/memory` (<1.0.14), the workaround is Node 22 (LTS) + `pnpm rebuild better-sqlite3`. Confirm the active backend with `monomind doctor` — it should report the native SQLite path, not sql.js.
