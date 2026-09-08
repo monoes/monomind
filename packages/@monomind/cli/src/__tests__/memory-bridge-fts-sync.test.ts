@@ -29,11 +29,24 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { bridgeSearchEntries, bridgeStoreEntry, shutdownBridge } from '../memory/memory-bridge.js';
 
+// Issue #228: both bugs above live in the FTS5 KEYWORD path, so the semantic
+// path must be off for these assertions to measure it. Without this, a machine
+// with the embedding model cached (every CI runner — `doc eval
+// --provision-model` is a build step) took the vector path, whose hits win the
+// merge in `bridgeSearchEntries`: the sole match came back at its real cosine
+// (~0.82, not the keyword score of 1.0), and `routes` matched the unrelated
+// `marker` entry above the 0.3 default threshold, making it 2 hits, not 1.
+// Restored afterwards so a later test file sharing this worker is unaffected.
+const PRIOR_NO_EMBEDDINGS = process.env.MONOMIND_NO_LOCAL_EMBEDDINGS;
+process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
+
 const STORE = mkdtempSync(join(process.cwd(), '.tmp-fts-sync-'));
 
 afterAll(async () => {
   await shutdownBridge();
   rmSync(STORE, { recursive: true, force: true });
+  if (PRIOR_NO_EMBEDDINGS === undefined) delete process.env.MONOMIND_NO_LOCAL_EMBEDDINGS;
+  else process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = PRIOR_NO_EMBEDDINGS;
 });
 
 describe('FTS5 index stays in sync with an upsert (no duplicate/stale hit)', () => {

@@ -33,6 +33,16 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { kgIngest, kgIngestRules, kgListRules, kgRollback, kgSearch } from '../memory/memory-kg.js';
 
+// Issue #228: the header above has always CLAIMED keyword mode, but nothing
+// actually set this — it only held where the model happened not to be cached
+// (a dev box that never ran `doc eval --provision-model`). CI provisions it,
+// so the semantic path ran, and `m1` got 5 nearest-neighbour triplets for a
+// never-ingested query: correct semantic behaviour, wrong thing to measure in
+// a keyword-mode baseline. Set it for real, and restore it so a later test
+// file sharing this worker still sees the semantic path.
+const PRIOR_NO_EMBEDDINGS = process.env.MONOMIND_NO_LOCAL_EMBEDDINGS;
+process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
+
 const STORE = mkdtempSync(join(process.cwd(), '.tmp-kg-eval-'));
 
 /** One row per measured fixture, printed as a summary table at the end —
@@ -52,6 +62,8 @@ function record(category: string, id: string, metric: string, value: number, not
 
 afterAll(() => {
   rmSync(STORE, { recursive: true, force: true });
+  if (PRIOR_NO_EMBEDDINGS === undefined) delete process.env.MONOMIND_NO_LOCAL_EMBEDDINGS;
+  else process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = PRIOR_NO_EMBEDDINGS;
   // eslint-disable-next-line no-console
   console.log('\n=== K9 memory-KG retrieval evaluation baseline (keyword mode) ===');
   const byCategory = new Map<string, EvalRow[]>();

@@ -4,6 +4,21 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- tests: `kg-eval-retrieval.test.ts` and `memory-bridge-fts-sync.test.ts` both
+  document themselves as keyword-mode suites, but nothing ever set
+  `MONOMIND_NO_LOCAL_EMBEDDINGS=1` — the claim only held on a machine where
+  the embedding model happened not to be cached. CI provisions it (`doc eval
+  --provision-model` is a build step), so `bridgeSearchEntries` took the
+  semantic path and merged its hits over the keyword ones: the sole FTS5 match
+  reported its real cosine (~0.821) instead of the keyword score of 1.0, a
+  `routes` query also matched an unrelated entry above the 0.3 default
+  threshold (2 hits, not 1), and the KG missing-answer fixture got 5
+  nearest-neighbour triplets for a never-ingested query. Correct semantic
+  behaviour, wrong path for these assertions to measure. Both files now set
+  the flag for real and restore it afterwards (issue #228).
+
 ## [2.10.13] — 2026-09-08
 
 ### Fixed
