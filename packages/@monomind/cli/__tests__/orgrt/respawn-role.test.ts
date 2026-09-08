@@ -192,7 +192,11 @@ describe('RunningOrg.roleSlots', () => {
     });
     writeFileSync(join(testRoot, '.monomind', 'orgs', 'incarnation-org.json'), JSON.stringify(def));
     execFileSync('git', ['init'], { cwd: testRoot });
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: testRoot });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '--allow-empty', '-m', 'init'],
+      { cwd: testRoot },
+    );
     const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
     const running = await daemon.startOrg('incarnation-org');
     await daemon.deliver('incarnation-org', 'boss', 'worker', 'go', 'start working');
@@ -672,7 +676,11 @@ describe('OrgDaemon.respawnRole — invariants', () => {
       JSON.stringify(def),
     );
     execFileSync('git', ['init'], { cwd: testRoot });
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: testRoot });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '--allow-empty', '-m', 'init'],
+      { cwd: testRoot },
+    );
     const daemon = new OrgDaemon(testRoot, {
       stopWaitMs: 100,
       crossProcess: false,
