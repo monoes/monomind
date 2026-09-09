@@ -4,6 +4,7 @@ type: flow
 name: mastermind-brain
 ---
 
+<!-- Mastermind brain management — inspect, compact, refresh, and control the three-tier business memory (memory store + Monograph) -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing.
 

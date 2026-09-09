@@ -1,6 +1,11 @@
 {
   "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v1 implementation with security-first development, 15-agent monoswarm coordination, phased performance optimization, and cross-platform helper automation.",
-  "env": {},
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "MONOMIND_V1_ENABLED": "true",
+    "MONOMIND_HOOKS_ENABLED": "true",
+    "MONOMIND_HOOK_QUIET": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(npx @monomind*)",
@@ -25,7 +30,12 @@
       "Bash(pwd)",
       "Bash(ls:*)",
       "Bash(npx:*)",
-      "mcp__monomind__*"
+      "mcp__monomind__*",
+      "Bash(npx @monomind/*)",
+      "Bash(npx monomind *)",
+      "Bash(npx -y monomind *)",
+      "Bash(npx monomind@*)",
+      "Bash(node .claude/helpers/*)"
     ],
     "deny": [
       "Read(./.env)",
@@ -152,7 +162,13 @@
     "UserPromptSubmit": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-tracker.cjs\"", "timeout": 3000 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-tracker.cjs\"",
+            "timeout": 3000
+          }
+        ]
       },
       {
         "hooks": [
@@ -176,11 +192,23 @@
     "SessionStart": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/mastermind-activate.cjs\"", "timeout": 5000 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/mastermind-activate.cjs\"",
+            "timeout": 5000
+          }
+        ]
       },
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-activate.cjs\"", "timeout": 5000 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-activate.cjs\"",
+            "timeout": 5000
+          }
+        ]
       },
       {
         "hooks": [
@@ -282,7 +310,13 @@
     "SubagentStart": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-propagate.cjs\"", "timeout": 3000 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-propagate.cjs\"",
+            "timeout": 3000
+          }
+        ]
       },
       {
         "hooks": [

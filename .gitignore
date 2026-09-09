@@ -57,7 +57,6 @@ eval-row6-*.json
 *.tsbuildinfo
 *~
 # .monomind — entire dir is local runtime state, never tracked
-.monomind/
 
 .monomind/orgs/*.jsonl
 .monomind/orgs/*/
@@ -306,3 +305,12 @@ GRAPH_REPORT.md
 
 # monomind runtime state
 .monomind/monoswarm/
+# monomind runtime — exclude sensitive and machine-specific data
+.monomind/sessions/
+.monomind/security/
+.monomind/*.tmp
+.monomind/*.log
+.monomind/daemon.pid
+.monomind/*.db
+.monomind/*.db-wal
+.monomind/*.db-shm
