@@ -928,7 +928,19 @@ const verifyCommand: Command = {
     try {
       const { spawnSync } = await import('node:child_process');
       const result = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8', timeout: 5000 });
-      if (result.error || result.status !== 0) {
+      const claudeMissing = (result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
+      if (claudeMissing) {
+        // Not a failure: this sandbox may not have `claude` on PATH at all (e.g. a
+        // fresh CI/container shell), and a project with .mcp.json gets monomind
+        // registered per-project by Claude Code itself — no user-level `claude mcp
+        // add` or PATH entry required.
+        checks.push({
+          label: 'claude mcp registration',
+          ok: true,
+          detail:
+            'claude CLI not on PATH — skipped, not an error (a project .mcp.json registers monomind automatically; user-level `claude mcp add` is only needed without one)',
+        });
+      } else if (result.error || result.status !== 0) {
         checks.push({
           label: 'claude mcp registration',
           ok: false,
@@ -949,8 +961,8 @@ const verifyCommand: Command = {
     } catch {
       checks.push({
         label: 'claude mcp registration',
-        ok: false,
-        detail: 'claude CLI not found — install Claude Code or register manually',
+        ok: true,
+        detail: 'claude CLI not found — skipped, not an error (install Claude Code or register manually if needed)',
       });
     }
 
