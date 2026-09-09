@@ -7,6 +7,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { formatErrorWithCause } from '../utils/native-error.js';
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.rst', '.pdf']);
 const IGNORE_DIRS = new Set([
@@ -166,7 +167,7 @@ const buildCommand: Command = {
       return { success: true };
     } catch (err) {
       spinner.fail('Build failed');
-      output.printError(err instanceof Error ? err.message : String(err));
+      output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },
@@ -324,7 +325,7 @@ const wikiCommand: Command = {
       return { success: true };
     } catch (err) {
       spinner.fail('Build failed');
-      output.printError(err instanceof Error ? err.message : String(err));
+      output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },
@@ -498,7 +499,7 @@ const searchCommand: Command = {
       output.writeln(output.dim(`\n  ${results.length} results`));
       return { success: true, data: results };
     } catch (err) {
-      output.printError(err instanceof Error ? err.message : String(err));
+      output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },
@@ -543,7 +544,7 @@ const statsCommand: Command = {
       await printStats(root, top, true);
       return { success: true };
     } catch (err) {
-      output.printError(err instanceof Error ? err.message : String(err));
+      output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },
@@ -596,7 +597,7 @@ const watchCommand: Command = {
       watcher.on('monograph:updated', () => {
         output.writeln(output.dim('  [watch] File change detected, rebuilding…'));
         buildAsync(root, { codeOnly: false, llmMaxSections }).catch((err: Error) => {
-          output.writeln(output.dim(`  [watch] Rebuild error: ${err.message}`));
+          output.writeln(output.dim(`  [watch] Rebuild error: ${formatErrorWithCause(err)}`));
         });
       });
       await watcher.start();
@@ -635,7 +636,7 @@ const watchCommand: Command = {
 
       return { success: true };
     } catch (err) {
-      output.printError(err instanceof Error ? err.message : String(err));
+      output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },
@@ -774,7 +775,7 @@ const lspCommand: Command = {
       // startLspServer blocks on stdin until the editor disconnects
       return { success: true };
     } catch (err) {
-      output.printError(err instanceof Error ? err.message : String(err));
+      output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },

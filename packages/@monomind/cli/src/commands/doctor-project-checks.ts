@@ -19,6 +19,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
+import { classifyNativeModuleError } from '../utils/native-error.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
   MAX_DOCTOR_CONFIG_BYTES,
@@ -260,7 +261,7 @@ export async function checkApiKeys(): Promise<HealthCheck> {
       name: 'API Keys',
       status: 'warn',
       message: `Found: ${found.join(', ')} (no Claude key)`,
-      fix: 'export ANTHROPIC_API_KEY=your_key',
+      fix: 'export ANTHROPIC_API_KEY=...',
     };
   }
   return {
@@ -367,14 +368,94 @@ export async function checkMonograph(): Promise<HealthCheck> {
   };
 }
 
+function formatAge(ms: number): string {
+  // Filesystem mtime can round to whole seconds and land a hair ahead of
+  // Date.now() for a file written moments ago — clamp so that never reads
+  // as a negative, nonsensical age.
+  const minutes = Math.floor(Math.max(0, ms) / 60000);
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
+}
+
 export async function checkMonographFreshness(): Promise<HealthCheck> {
   try {
     const cwd = process.cwd();
     const dbPath = join(cwd, '.monomind', 'monograph.db');
-    const lockPath = join(cwd, '.monomind', 'graph', '.rebuild-lock');
+    const lockPath = join(cwd, '.monomind', 'graph', 'build.lock');
     const statsPath = join(cwd, '.monomind', 'graph', 'stats.json');
+    const logPath = join(cwd, '.monomind', 'graph', 'build.log');
     const hasDb = existsSync(dbPath);
     if (!hasDb && !existsSync(statsPath)) {
+      // No graph yet — but that's one of three very different situations: a
+      // build is genuinely still running, one already ran and crashed (e.g.
+      // executor.ts's initKnowledgeGraph or graphify-freshen.cjs's detached
+      // spawn hit a native-module ABI mismatch), or nothing was ever
+      // attempted. Both spawners share this same build.lock/build.log pair,
+      // so this one check covers either origin.
+      //
+      // Lock existence (not freshness) is the right signal here: both
+      // spawners write build.lock with their OWN pid (the short-lived parent
+      // that immediately exits after spawning a detached child — not the
+      // child actually doing the build, so checking that pid's liveness
+      // would be checking the wrong process) and unlink it in a `finally`
+      // that runs on both success and a thrown/rejected build — so it's only
+      // ever left behind while the child is still actually running, or in
+      // the rare case of a hard OS-level kill that bypassed the `finally`.
+      // A large monorepo's first index can legitimately run well past any
+      // fixed "freshness" window, so age must not turn a live build into a
+      // false failure report. Neither spawner passes buildAsync an
+      // onProgress callback, so a clean run writes nothing to build.log
+      // until it's done — there's no heartbeat to check the log against, so
+      // this is worded to cover both "still running" and "was killed
+      // without cleaning up" rather than asserting liveness that can't
+      // actually be confirmed from disk.
+      if (existsSync(lockPath)) {
+        const ageMs = (() => {
+          try {
+            return Date.now() - statSync(lockPath).mtimeMs;
+          } catch {
+            return 0;
+          }
+        })();
+        return {
+          name: 'Graph freshness',
+          status: 'warn',
+          message: `Monograph build in progress, or was interrupted — started ${formatAge(ageMs)} ago`,
+        };
+      }
+      if (existsSync(logPath)) {
+        let logTail = '';
+        try {
+          const raw = readFileSync(logPath, 'utf8');
+          logTail = raw.length > 4000 ? raw.slice(-4000) : raw;
+        } catch {
+          /* unreadable log — treat as no evidence, fall through below */
+        }
+        // build.log only proves a build ran at some point — a *successful*
+        // build also writes into it before producing monograph.db, so its
+        // mere existence isn't evidence of failure (e.g. monograph.db was
+        // deleted afterward, leaving a clean run's log behind). Only treat
+        // this as a failure when the tail actually looks error-shaped;
+        // otherwise this isn't distinguishable from "never built" and
+        // should read that way rather than as an unsupported "fail".
+        const classified = logTail ? classifyNativeModuleError(logTail) : null;
+        const looksLikeFailure = classified !== null || /error|exception|traceback/i.test(logTail);
+        if (looksLikeFailure) {
+          let logAgeStr = '';
+          try {
+            logAgeStr = ` (${formatAge(Date.now() - statSync(logPath).mtimeMs)} ago)`;
+          } catch {
+            /* ignore */
+          }
+          return classified
+            ? { name: 'Graph freshness', status: 'fail', message: `${classified}${logAgeStr}` }
+            : {
+                name: 'Graph freshness',
+                status: 'fail',
+                message: `Monograph build failed${logAgeStr} — see .monomind/graph/build.log for details`,
+                fix: 'cat .monomind/graph/build.log',
+              };
+        }
+      }
       return {
         name: 'Graph freshness',
         status: 'warn',
@@ -382,6 +463,10 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
         fix: 'mcp__monomind__monograph_build codeOnly:true',
       };
     }
+    // Deliberately NOT folding build.lock's mtime into this — a lock only
+    // means "a build started," not "the graph was built at this time," and
+    // counting it here would report a stale graph as freshly-built the
+    // moment a rebuild kicks off, before it's actually produced anything.
     let buildMs = 0;
     if (hasDb) {
       try {
@@ -389,11 +474,6 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
       } catch {
         /* ignore */
       }
-    }
-    try {
-      buildMs = Math.max(buildMs, statSync(lockPath).mtimeMs);
-    } catch {
-      /* ignore */
     }
     try {
       buildMs = Math.max(buildMs, statSync(statsPath).mtimeMs);
@@ -420,8 +500,7 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
       /* git unavailable */
     }
 
-    const ageMinutes = Math.floor((Date.now() - buildMs) / 60000);
-    const ageStr = ageMinutes < 60 ? `${ageMinutes}m ago` : `${Math.floor(ageMinutes / 60)}h ago`;
+    const ageStr = `${formatAge(Date.now() - buildMs)} ago`;
     if (commitsBehind === 0)
       return {
         name: 'Graph freshness',
