@@ -1,0 +1,36 @@
+# Monomind Runtime Configuration
+# Generated: 2026-09-09T08:52:00.620Z
+
+version: "3.0.0"
+
+swarm:
+  topology: hierarchical-mesh
+  maxAgents: 15
+  autoScale: true
+  coordinationStrategy: consensus
+
+memory:
+  backend: hybrid
+  persistPath: .monomind/data
+  cacheSize: 100
+  # ADR-049: Self-Learning Memory
+  learningBridge:
+    enabled: true
+    confidenceDecayRate: 0.005
+    accessBoostAmount: 0.03
+    consolidationThreshold: 10
+  agentScopes:
+    enabled: true
+    defaultScope: project
+
+neural:
+  enabled: true
+  modelPath: .monomind/neural
+
+hooks:
+  enabled: true
+  autoExecute: true
+
+mcp:
+  autoStart: false
+  port: 3000

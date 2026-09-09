@@ -1,0 +1,56 @@
+{
+  "name": "sample-team",
+  "goal": "Produce and publish high-quality content on a steady cadence",
+  "status": "stopped",
+  "schedule": null,
+  "run_config": {
+    "max_concurrent_agents": 4,
+    "budget_tokens": 1000000,
+    "max_turns_per_message": 100000,
+    "workspace": "repo",
+    "stale_base_threshold": 0,
+    "max_role_respawns": 0,
+    "respawn_drain_timeout_ms": 30000,
+    "respawn_force_stop_timeout_ms": 5000,
+    "respawn_start_timeout_ms": 60000,
+    "memory_namespace": "org:sample-team"
+  },
+  "roles": [
+    {
+      "id": "editor-in-chief",
+      "title": "Editor in Chief",
+      "type": "boss",
+      "reports_to": null,
+      "responsibilities": [
+        "Own the content calendar and quality bar",
+        "Assign pieces to the writer and route drafts to review",
+        "Approve final drafts for publishing"
+      ]
+    },
+    {
+      "id": "writer",
+      "title": "Staff Writer",
+      "type": "specialist",
+      "reports_to": "editor-in-chief",
+      "responsibilities": [
+        "Draft articles from assigned briefs",
+        "Incorporate review feedback",
+        "Hand finished drafts to the reviewer"
+      ]
+    },
+    {
+      "id": "reviewer",
+      "title": "Content Reviewer",
+      "type": "reviewer",
+      "reports_to": "editor-in-chief",
+      "responsibilities": [
+        "Review drafts for accuracy, clarity, and tone",
+        "Return actionable feedback to the writer",
+        "Flag anything needing human judgment via ask_human"
+      ],
+      "adapter_config": {
+        "model": "claude-haiku-4-5-20251001"
+      }
+    }
+  ]
+}

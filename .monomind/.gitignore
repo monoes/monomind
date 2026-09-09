@@ -1,0 +1,14 @@
+# Monomind — exclude files that may contain secrets or sensitive prompt data
+# Sessions contain conversation history (prompts, code snippets, user data)
+sessions/
+# Security scan results may expose vulnerability details
+security/
+# Temporary and machine-specific files
+*.tmp
+*.log
+daemon.pid
+# Never commit credentials or keys
+*.key
+*.token
+*.secret
+.env

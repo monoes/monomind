@@ -197,17 +197,17 @@ mcp__monomind__memory_pattern-store({ key: "pattern/auth", value: "JWT + refresh
 // Search
 mcp__monomind__memory_pattern-search({ query: "authentication", namespace: "patterns" })
 
-// Retrieve
-mcp__monomind__memory_retrieve({ key: "pattern/auth", namespace: "patterns" })
+// Retrieve (CLI only — no MCP tool)
+// npx monomind@latest memory retrieve --key "pattern/auth" --namespace patterns
 
-// List
-mcp__monomind__memory_list({ namespace: "patterns" })
+// List (CLI only — no MCP tool)
+// npx monomind@latest memory list --namespace patterns
 
-// Delete
-mcp__monomind__memory_delete({ key: "pattern/auth", namespace: "patterns" })
+// Delete (CLI only — no MCP tool)
+// npx monomind@latest memory delete --key "pattern/auth" --namespace patterns
 
-// Stats
-mcp__monomind__memory_stats({})
+// Stats (CLI only — no MCP tool)
+// npx monomind@latest memory stats
 ```
 
 ## Common Workflows
