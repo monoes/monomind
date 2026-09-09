@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.15] — 2026-09-09
+
+Ships alongside `@monoes/monograph@1.6.2`.
+
 ### Fixed
 
 - monograph: `@monoes/monograph@1.6.1` was published with a stale
@@ -17,6 +21,27 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   that scans the CLI's actual imports from the package and fails the publish
   if the built `dist/src/index.js` doesn't export all of them, as a backstop
   against however a stale build slips through again (issue #232).
+- monograph: `monograph build` failing with a bare "Failed to open database"
+  error hid the real cause (e.g. a `better-sqlite3` native binary built
+  against the wrong Node ABI) in `.monomind/graph/build.log`, unread. All 7
+  catch sites in `commands/monograph.ts` now surface the preserved `.cause`
+  instead of dropping it, and a new `classifyNativeModuleError()` turns a
+  recognized ABI-mismatch message into actionable guidance. `doctor`'s
+  freshness check could not tell "still building" from "already crashed"
+  from "never attempted" — it now reads `build.lock`/`build.log` (fixing a
+  dead `.rebuild-lock` path nothing ever wrote to) to distinguish the three,
+  and a real failure is reported as `fail` so fresh-install quieting can't
+  soften it into an easy-to-miss info line. `init -y`'s automatic background
+  build now also prints where to check on it (`monomind doctor` or the log
+  directly) instead of implying unconditional success (issue #231).
+- CLI: the graph-gate hook blocks the first grep/find attempt per session
+  until `monograph_query` is called, then permanently degrades to a
+  non-blocking reminder for the rest of the session — even reported this way,
+  the block message read like a stuck session requiring a restart rather than
+  a simple retry. `mcp verify`'s "claude mcp registration" check also treated
+  `claude` missing from PATH the same as registration actually failing,
+  failing the whole command even though per-project MCP registration needs
+  neither. Both now say what's actually going on.
 
 ## [2.10.14] — 2026-09-08
 
