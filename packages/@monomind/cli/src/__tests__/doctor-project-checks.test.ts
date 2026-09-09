@@ -230,7 +230,7 @@ describe('doctor-project-checks', () => {
       const result = await checkApiKeys();
       expect(result.status).toBe('warn');
       expect(result.message).toBe(`Found: ${OPENAI_KEY_NAME} (no Claude key)`);
-      expect(result.fix).toBe(`export ${ANTHROPIC_KEY_NAME}=your_key`);
+      expect(result.fix).toBe(`export ${ANTHROPIC_KEY_NAME}=...`);
     });
 
     it('warns with an install suggestion when nothing is available at all', async () => {
@@ -341,6 +341,91 @@ describe('doctor-project-checks', () => {
       expect(result.status).toBe('warn');
       expect(result.message).toBe('No monograph graph built yet');
       expect(result.fix).toBe('mcp__monomind__monograph_build codeOnly:true');
+    });
+
+    it('reports an in-progress build when build.lock exists, instead of "no graph built yet"', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      writeFileSync(join(dir, '.monomind', 'graph', 'build.lock'), String(process.pid));
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('warn');
+      expect(result.message).toMatch(/^Monograph build in progress, or was interrupted — started \d+m ago$/);
+    });
+
+    it('still reports in-progress (not failed) for a lock older than 5 minutes — a large repo\'s first index can legitimately take that long', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      const lockPath = join(dir, '.monomind', 'graph', 'build.lock');
+      writeFileSync(lockPath, String(process.pid));
+      const old = new Date(Date.now() - 20 * 60 * 1000);
+      utimesSync(lockPath, old, old);
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('warn');
+      expect(result.message).toMatch(/^Monograph build in progress, or was interrupted — started \d+m ago$/);
+    });
+
+    it('classifies a NODE_MODULE_VERSION ABI mismatch from build.log as a failure with a specific fix', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      writeFileSync(
+        join(dir, '.monomind', 'graph', 'build.log'),
+        [
+          'MonographError: Failed to open database at .../.monomind/monograph.db',
+          "  cause: Error: The module '.../better-sqlite3/build/Release/better_sqlite3.node'",
+          'was compiled against a different Node.js version using',
+          'NODE_MODULE_VERSION 141. This version of Node.js requires',
+          'NODE_MODULE_VERSION 147. Please try re-compiling or re-installing',
+          'the module (for instance, using `npm rebuild` or `npm install`).',
+        ].join('\n'),
+      );
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('NODE_MODULE_VERSION mismatch');
+      expect(result.message).toContain('ABI 141');
+      expect(result.message).toContain('ABI 147');
+    });
+
+    it('does not report a failure when build.log exists but looks clean (e.g. monograph.db was deleted after a successful build)', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      writeFileSync(
+        join(dir, '.monomind', 'graph', 'build.log'),
+        'Indexed 412 files, 3891 nodes, 7203 edges in 4.2s\n',
+      );
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('warn');
+      expect(result.message).toBe('No monograph graph built yet');
+    });
+
+    it('reports a generic build failure pointing at build.log when the failure is unrecognized', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      writeFileSync(join(dir, '.monomind', 'graph', 'build.log'), 'TypeError: something unrelated blew up\n');
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('fail');
+      expect(result.message).toMatch(
+        /^Monograph build failed \(\d+m ago\) — see \.monomind\/graph\/build\.log for details$/,
+      );
+      expect(result.fix).toBe('cat .monomind/graph/build.log');
+    });
+
+    it('does not fold a stale build.lock into the built-time of a graph that already exists (would misreport a stale graph as freshly FRESH)', async () => {
+      git('init -q');
+      git('commit --allow-empty -q -m c0');
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      const dbPath = join(dir, '.monomind', 'monograph.db');
+      writeFileSync(dbPath, 'db');
+      const old = new Date(Date.now() - 60 * 60 * 1000);
+      utimesSync(dbPath, old, old);
+      git('commit --allow-empty -q -m c1');
+      // A rebuild just started (fresh lock) while the OLD db is still the one
+      // on disk — the graph is still exactly as stale as before the rebuild
+      // began, and must not be reported FRESH just because the lock is new.
+      writeFileSync(join(dir, '.monomind', 'graph', 'build.lock'), String(process.pid));
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('warn');
+      expect(result.message).toMatch(/^\d+ commit\(s\) behind — built/);
     });
 
     it('reports FRESH with 0 commits behind when the graph was built after the last commit', async () => {

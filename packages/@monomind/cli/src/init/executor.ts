@@ -434,6 +434,18 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
   }
 
   result.created.files.push('.monomind/graph/ (Monograph code graph building in background)');
+  // result.created.files only ever surfaces as a bare count in init's own
+  // summary box (see commands/init.ts) — print this directly so the one
+  // thing pointing at how to check on a background build that might have
+  // already failed is actually visible in the foreground output.
+  try {
+    const { output } = await import('../output.js');
+    output.printInfo(
+      'Monograph code graph building in background — check `monomind doctor` in a minute, or .monomind/graph/build.log if it never shows up',
+    );
+  } catch {
+    /* non-fatal */
+  }
 }
 
 /**
