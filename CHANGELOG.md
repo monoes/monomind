@@ -4,6 +4,20 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- monograph: `@monoes/monograph@1.6.1` was published with a stale
+  `dist/src/search/hybrid-query.js` missing the `searchGraph` export, even
+  though the package's own `prebuild` clears `dist/` first — every consumer
+  of `monograph_query`/`monograph_suggest` etc. hit `searchGraph is not a
+  function` at runtime no matter how clean their own install was. A rebuild
+  from the identical source produces the correct file, so the cause was a
+  bad publish, not bad source. Republished as `1.6.2` from a clean rebuild,
+  and added a `prepublishOnly` guard (`scripts/check-monograph-exports.mjs`)
+  that scans the CLI's actual imports from the package and fails the publish
+  if the built `dist/src/index.js` doesn't export all of them, as a backstop
+  against however a stale build slips through again (issue #232).
+
 ## [2.10.14] — 2026-09-08
 
 Ships alongside `@monoes/monobrowse@1.0.8` and `@monoes/monodesign@1.2.5` —
