@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monograph",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "type": "module",
   "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
   "main": "dist/src/index.js",
@@ -37,7 +37,7 @@
   "scripts": {
     "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc && node ../../../scripts/build-fs.mjs clean dist/wasm && node ../../../scripts/build-fs.mjs copy-dir wasm dist/wasm",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && node ../../../scripts/check-monograph-exports.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
