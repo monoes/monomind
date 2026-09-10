@@ -15,6 +15,7 @@ export const MAX_DOCTOR_CONFIG_BYTES = 10 * 1024 * 1024; // 10 MB
 export const MAX_DOCTOR_GITIGNORE_BYTES = 512 * 1024; // 512 KB
 export const MAX_DOCTOR_PID_BYTES = 64; // 64 bytes
 export const MAX_DOCTOR_HELPER_BYTES = 2 * 1024 * 1024; // 2 MB
+export const MAX_DOCTOR_BUILD_LOG_SCAN_BYTES = 64 * 1024; // 64 KB
 
 const execAsync = promisify(exec);
 

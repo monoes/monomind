@@ -43,5 +43,28 @@ export function classifyNativeModuleError(text: string): string | null {
       'currently running. Try re-compiling or re-installing it (npm rebuild or npm install).'
     );
   }
+  // The `bindings` package's own message when a native addon's .node binary
+  // was never produced at all (as opposed to built for the wrong ABI) —
+  // typically because the install script that compiles/downloads it was
+  // blocked (npm's script-approval prompts, --ignore-scripts, an
+  // allowScripts policy) or failed silently. Different root cause from the
+  // ABI-mismatch case above, so it gets its own message and remediation.
+  const bindingsIdx = text.search(/Could not locate the bindings file\.\s*Tried:/i);
+  if (bindingsIdx !== -1) {
+    // Extract the module name from the FIRST candidate path listed after the
+    // trigger phrase (not the first node_modules/ reference anywhere in the
+    // text — a wrapping stack trace, e.g. through @monoes/monograph, would
+    // otherwise be mistaken for the module that's actually missing). Handles
+    // both scoped (@scope/name) and unscoped package directory names.
+    const moduleMatch = text.slice(bindingsIdx).match(/node_modules[\\/](@[^\\/]+[\\/][^\\/]+|[^\\/]+)[\\/]/);
+    const moduleName = moduleMatch?.[1];
+    return (
+      `${moduleName ? `\`${moduleName}\`` : 'A native module'}'s binary was never built for ` +
+      'this platform (not an ABI mismatch — it simply doesn\'t exist). This usually means its ' +
+      'install script was blocked or failed silently. Try: ' +
+      `\`npm rebuild ${moduleName ?? '<module>'}\`, or check \`npm install-scripts ls\` for ` +
+      'scripts still pending approval.'
+    );
+  }
   return null;
 }
