@@ -22,6 +22,7 @@ import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
 import { classifyNativeModuleError } from '../utils/native-error.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
+  MAX_DOCTOR_BUILD_LOG_SCAN_BYTES,
   MAX_DOCTOR_CONFIG_BYTES,
   MAX_DOCTOR_GITIGNORE_BYTES,
   MAX_DOCTOR_HELPER_BYTES,
@@ -426,7 +427,22 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
         let logTail = '';
         try {
           const raw = readFileSync(logPath, 'utf8');
-          logTail = raw.length > 4000 ? raw.slice(-4000) : raw;
+          // Bound the scan to the last MAX_BUILD_LOG_SCAN_BYTES, not the last
+          // 4000 — that window was cutting the actual "Error:"/"Exception:"
+          // text out of real Node uncaught-exception dumps. A native-module
+          // load failure (e.g. `bindings` walking a dozen candidate .node
+          // paths before giving up) prints its message and stack FIRST, then
+          // a long list of tried paths — a single such dump easily runs
+          // 7-8KB, so a 4000-char tail can land entirely inside the path
+          // list and see no error keyword at all, even though the log is
+          // nothing but a crash report. 64KB comfortably fits many realistic
+          // crash dumps (including chained causes) while still bounding this
+          // append-only, never-truncated file for a long-lived project that
+          // has failed and retried many times.
+          logTail =
+            raw.length > MAX_DOCTOR_BUILD_LOG_SCAN_BYTES
+              ? raw.slice(-MAX_DOCTOR_BUILD_LOG_SCAN_BYTES)
+              : raw;
         } catch {
           /* unreadable log — treat as no evidence, fall through below */
         }

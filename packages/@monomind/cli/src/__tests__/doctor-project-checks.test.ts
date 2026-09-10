@@ -409,6 +409,38 @@ describe('doctor-project-checks', () => {
       expect(result.fix).toBe('cat .monomind/graph/build.log');
     });
 
+    it('detects a failure whose error text sits outside the last 4000 characters — the actual bug found live-testing 2.10.15', async () => {
+      // Real crash hit running `monomind init` against the published
+      // 2.10.15 package: a `bindings`-style "could not locate the bindings
+      // file" dump prints its error message and stack FIRST, then a long
+      // list of candidate .node paths — so the message text sits well
+      // before the end of the file. A naive `raw.slice(-4000)` (the old,
+      // buggy window) lands entirely inside the path list and finds no
+      // "error" keyword at all, so doctor wrongly reported "No monograph
+      // graph built yet" for a build that had actually crashed. Padding
+      // this fixture past 4000 total characters reproduces exactly that:
+      // it must fail with the OLD window and pass with the current one.
+      const header = [
+        'MonographError: Failed to open database at /project/.monomind/monograph.db',
+        '  cause: Error: Could not locate the bindings file. Tried:',
+      ].join('\n');
+      const candidatePaths = Array.from(
+        { length: 80 },
+        (_, i) => `   → /project/node_modules/better-sqlite3/candidate-path-${i}/better_sqlite3.node`,
+      ).join('\n');
+      const log = `${header}\n${candidatePaths}\n`;
+      expect(log.length).toBeGreaterThan(4000); // must exceed the OLD window to be a real regression test
+      expect(log.slice(-4000)).not.toMatch(/error|exception|traceback/i); // confirms the old window would have missed it
+
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      writeFileSync(join(dir, '.monomind', 'graph', 'build.log'), log);
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('better-sqlite3');
+      expect(result.message).toContain('never built');
+    });
+
     it('does not fold a stale build.lock into the built-time of a graph that already exists (would misreport a stale graph as freshly FRESH)', async () => {
       git('init -q');
       git('commit --allow-empty -q -m c0');
