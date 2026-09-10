@@ -4,6 +4,27 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.16] — 2026-09-10
+
+### Fixed
+
+- doctor: `checkMonographFreshness()` only scanned the last 4000 characters
+  of `.monomind/graph/build.log` for an error signal. A real native-module
+  load failure (the `bindings` package's own "Could not locate the bindings
+  file. Tried:" message, printed when a `.node` binary was never built at
+  all) writes its error text first, then a dozen-plus candidate file paths —
+  easily 7-8KB total — so the last-4000-char tail landed entirely inside the
+  path list and found no error keyword, and doctor reported the soft "No
+  monograph graph built yet" for a build that had actually crashed. Found
+  live-testing 2.10.15's `monomind init` in a bare directory (the `npx
+  monomind@latest` shape the docs recommend), where the auto-installed
+  `@monoes/monograph`'s `better-sqlite3` dependency didn't get its install
+  script run. Widened the scan window to 64KB and added a distinct
+  `classifyNativeModuleError()` pattern for this "binary never built" shape,
+  separate from the existing NODE_MODULE_VERSION ABI-mismatch case, naming
+  the actual missing module and pointing at `npm rebuild`/blocked install
+  scripts (issue #231's underlying visibility work, follow-up to 2.10.15).
+
 ## [2.10.15] — 2026-09-09
 
 Ships alongside `@monoes/monograph@1.6.2`.
