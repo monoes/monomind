@@ -3,9 +3,10 @@
   "version": "1.2.5",
   "description": "Frontend design intelligence for AI agents — design tokens, antipattern detection, and the monodesign skill",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
+    ".": "./dist/index.js",
     "./tokens": "./src/tokens.css",
     "./engine": "./cli/engine/detect-antipatterns.mjs",
     "./engine/browser": "./cli/engine/detect-antipatterns-browser.js"
@@ -15,11 +16,13 @@
   },
   "files": [
     "cli/",
+    "dist/",
     "skill/",
-    "src/",
+    "src/tokens.css",
     "NOTICE.md"
   ],
   "scripts": {
+    "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc",
     "test": "node scripts/run-tests.mjs",
     "sync": "node scripts/sync-skill.mjs"
