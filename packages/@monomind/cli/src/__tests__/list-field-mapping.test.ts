@@ -144,6 +144,27 @@ describe('session list renders the real sessionId and real stats, not undefined'
     expect(String(row.updated)).not.toMatch(/Invalid Date/);
   });
 
+  it('`session list` renders zero counts instead of throwing when a session record has no `stats` (e.g. a much older on-disk format)', async () => {
+    sessionListImpl.mockResolvedValueOnce({
+      sessions: [
+        {
+          sessionId: 'session-no-stats-789',
+          name: 'legacy-session',
+          savedAt: new Date().toISOString(),
+          // stats intentionally omitted
+        },
+      ],
+      total: 1,
+    });
+    const listCmd = findSub(sessionCommand, 'list');
+    const result = await listCmd.action?.(makeCtx());
+    expect(result).toMatchObject({ success: true });
+    const [row] = lastPrintTableData();
+    expect(row.id).toBe('session-no-stats-789');
+    expect(row.agents).toBe(0);
+    expect(row.tasks).toBe(0);
+  });
+
   it('interactive `session restore` picker offers the real sessionId as the value', async () => {
     const restoreCmd = findSub(sessionCommand, 'restore');
     // No sessionId arg + interactive:true drives the picker path that calls
