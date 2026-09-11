@@ -32,6 +32,21 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   the 2.10.16 field test, investigating a HIGH-severity self-flagged CVE
   that looked like a scan bug but was a real, unpatched transitive
   dependency.
+- Same stale-override pattern as `sharp`, found while auditing the rest of
+  the dependency tree: bumped `hono` from `>=4.12.34` to `>=4.13.5` (fixes
+  three moderate advisories — an incomplete `toSSG()` path-traversal fix,
+  unbounded `parseBody()` nesting, and a query-parser/URL-fragment
+  cache-key differential) and `vitest`/`@vitest/mocker` to `>=4.1.11`
+  (fixes a moderate path-traversal/arbitrary-file-read advisory in
+  `@vitest/mocker`'s redirect-mock handling) — added as explicit overrides
+  since several workspace packages' own `^4.1.4` ranges were each
+  resolving independently and not converging on the patched version.
+  `adm-zip` (flagged for a symlink-following extraction issue,
+  GHSA-vwc7-r8mq-g2x9) has **no upstream fix yet** as of this release —
+  `0.6.0`, the latest published version, is itself in the vulnerable range,
+  so there is no version to bump to. Left as-is; the dependency is only
+  reachable via `onnxruntime-node`'s install-time extraction, not any
+  user-facing ZIP handling.
 
 ## [2.10.16] — 2026-09-10
 
