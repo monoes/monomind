@@ -180,17 +180,23 @@ describe('#115 review follow-up: closeBrowser() cross-process PID-kill fallback'
     // tick's callback. How far a single advance carries through a chain like
     // that is a fake-timer implementation detail that differs by Node version
     // (runAllTimersAsync hung this test on Node 22 while passing on 26), so
-    // step the clock until the promise settles instead of assuming. The exit
-    // poll only needs PROCESS_EXIT_TIMEOUT_MS / PROCESS_EXIT_POLL_MS (5000/50
-    // = 100) ticks to reach its deadline, but a slower/busier runner can need
-    // more than one real advance per simulated poll tick — 200 iterations cut
-    // it too close and intermittently timed out in CI; 600 gives real margin
-    // without slowing the passing case, which still exits as soon as settled.
+    // step the clock until the promise settles instead of assuming.
+    //
+    // Each `advanceTimersByTimeAsync` call has real (non-fake) overhead of
+    // its own — a previous fix here just raised the iteration count at a
+    // fixed 100ms step (100ms x 600 = enough fake-time headroom, but up to
+    // 600 real await round-trips), which still intermittently timed out on a
+    // slow/busy CI runner because that overhead is per CALL, not per fake-ms
+    // advanced. Stepping by a much larger 2000ms per call reaches the same
+    // (and greater) fake-time coverage in a fraction of the calls — the exit
+    // poll's PROCESS_EXIT_TIMEOUT_MS deadline (5000ms) is comfortably inside
+    // even a handful of iterations — without giving up the settle-and-stop
+    // loop that avoids the Node 22 hang a single unbounded advance hit.
     let settled = false;
     void closePromise.then(() => {
       settled = true;
     });
-    for (let i = 0; i < 600 && !settled; i++) await vi.advanceTimersByTimeAsync(100);
+    for (let i = 0; i < 60 && !settled; i++) await vi.advanceTimersByTimeAsync(2000);
     await closePromise;
 
     expect(settled).toBe(true);
