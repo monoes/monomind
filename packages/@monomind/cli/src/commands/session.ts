@@ -87,7 +87,7 @@ const listCommand: Command = {
           name?: string;
           description?: string;
           savedAt: string;
-          stats: {
+          stats?: {
             tasks: number;
             agents: number;
             memoryEntries: number;
@@ -126,8 +126,8 @@ const listCommand: Command = {
         data: result.sessions.map((s) => ({
           id: s.sessionId,
           name: s.name || '-',
-          agents: s.stats.agents,
-          tasks: s.stats.tasks,
+          agents: s.stats?.agents ?? 0,
+          tasks: s.stats?.tasks ?? 0,
           updated: formatDate(s.savedAt),
         })),
       });
