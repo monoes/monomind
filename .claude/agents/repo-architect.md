@@ -1,8 +1,7 @@
 ---
 name: repo-architect
-description: |
+description: Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows
 mode: subagent
-  Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows
 ---
 
 # GitHub Repository Architect

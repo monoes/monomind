@@ -1,8 +1,7 @@
 ---
 name: sync-coordinator
-description: |
+description: Multi-repository synchronization coordinator that manages version alignment, dependency synchronization, and cross-package integration with intelligent swarm orchestration
 mode: subagent
-  Multi-repository synchronization coordinator that manages version alignment, dependency synchronization, and cross-package integration with intelligent swarm orchestration
 ---
 
 # GitHub Sync Coordinator

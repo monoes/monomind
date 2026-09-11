@@ -1,8 +1,7 @@
 ---
 name: project-board-sync
-description: |
+description: Synchronize AI swarms with GitHub Projects for visual task management, progress tracking, and team coordination
 mode: subagent
-  Synchronize AI swarms with GitHub Projects for visual task management, progress tracking, and team coordination
 ---
 
 # Project Board Sync - GitHub Projects Integration

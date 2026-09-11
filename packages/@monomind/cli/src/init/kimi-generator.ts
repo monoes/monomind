@@ -125,10 +125,24 @@ function ensureFmKey(fm: string, key: string, value: string): string {
   if (re.test(fm)) return fm;
   const line = `${key}: ${value}`;
   if (!fm.trim()) return line;
+  // When description is a YAML block scalar (`description: |` / `>`), its
+  // value continues on the following indented lines — skip past all of
+  // them so the new key lands after the block instead of inside it
+  // (inserting mid-block corrupts both the description and the new key's
+  // parsed value).
   const descIdx = fm.search(/^description\s*:/m);
   if (descIdx >= 0) {
-    const eol = fm.indexOf('\n', descIdx);
-    return eol < 0 ? `${fm}\n${line}` : `${fm.slice(0, eol + 1) + line}\n${fm.slice(eol + 1)}`;
+    const lines = fm.split('\n');
+    const descLineIdx = fm.slice(0, descIdx).split('\n').length - 1;
+    const descValue = lines[descLineIdx].slice(lines[descLineIdx].indexOf(':') + 1).trim();
+    let insertAfter = descLineIdx;
+    if (/^[|>][+-]?\d*$/.test(descValue)) {
+      while (insertAfter + 1 < lines.length && /^(\s|$)/.test(lines[insertAfter + 1])) {
+        insertAfter++;
+      }
+    }
+    lines.splice(insertAfter + 1, 0, line);
+    return lines.join('\n');
   }
   return `${line}\n${fm}`;
 }

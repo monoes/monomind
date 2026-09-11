@@ -1,8 +1,7 @@
 ---
 name: monoswarm-issue
-description: |
+description: GitHub issue-based swarm coordination agent that transforms issues into intelligent multi-agent tasks with automatic decomposition and progress tracking
 mode: subagent
-  GitHub issue-based swarm coordination agent that transforms issues into intelligent multi-agent tasks with automatic decomposition and progress tracking
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination

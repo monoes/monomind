@@ -1,8 +1,7 @@
 ---
 name: monoswarm-code-review
-description: |
+description: Deploy specialized AI agents to perform comprehensive, intelligent code reviews that go beyond traditional static analysis
 mode: subagent
-  Deploy specialized AI agents to perform comprehensive, intelligent code reviews that go beyond traditional static analysis
 ---
 
 # Code Review Swarm - Automated Code Review with AI Agents

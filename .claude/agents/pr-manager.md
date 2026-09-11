@@ -1,8 +1,7 @@
 ---
 name: pr-manager
-description: |
+description: Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows
 mode: subagent
-  Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows
 ---
 
 # GitHub PR Manager

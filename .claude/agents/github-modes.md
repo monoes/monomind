@@ -1,8 +1,7 @@
 ---
 name: github-modes
-description: |
+description: Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
 mode: subagent
-  Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
 ---
 
 # GitHub Integration Modes

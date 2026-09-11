@@ -1,8 +1,7 @@
 ---
 name: issue-tracker
-description: |
+description: Intelligent issue management and project coordination with automated tracking, progress monitoring, and team coordination
 mode: subagent
-  Intelligent issue management and project coordination with automated tracking, progress monitoring, and team coordination
 ---
 
 # GitHub Issue Tracker

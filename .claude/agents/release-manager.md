@@ -1,8 +1,7 @@
 ---
 name: release-manager
-description: |
+description: Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages
 mode: subagent
-  Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages
 ---
 
 # GitHub Release Manager
