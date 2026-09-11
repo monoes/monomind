@@ -4,6 +4,38 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.20] — 2026-09-11
+
+### Fixed
+
+- `monomind init` double-wrote the body of every skill that appears in both
+  the legacy skill copier and the newer evidence-gated platform-adapter
+  installer (`mastermind`, `mastermind-plan`, `mastermind-execute`,
+  `mastermind-debug`, `mastermind-org`, `mastermind-review`,
+  `mastermind-research`, `mastermind-memory`) — the copier's raw, unwrapped
+  write ran first, and the installer's managed-block merge then treated
+  that as foreign content to preserve and appended a second, marker-wrapped
+  copy of the same body after it. Every real `init` shipped these skills at
+  roughly double their real length. Fixed at the merge step: content that
+  already matches what's about to be installed is treated as if the file
+  were new, not as text to preserve around the block.
+- Agents run through the fence-protocol path (`antigravity-runner.ts`, and
+  any other runner built on `tool-fence.ts`'s `executeToolCall`) had every
+  tool call silently denied: `canUseTool`'s allowlist only ever contained
+  the `mcp__org__`-prefixed name the native Claude SDK path registers,
+  never the bare name a `\`\`\`tool_call` fence uses. Those turns fell back
+  to the model's own native tools instead of the ones actually supplied,
+  and the stdio bridge's `tool_call`/`tool_result` events (which drive
+  desktop-app tool-call UI) never fired. `allowedToolNames` now includes
+  both forms.
+- `@monoes/monodesign`'s published package pointed its main entry at raw
+  `.ts` source with no compiled `dist/` — `import '@monoes/monodesign'`
+  crashed in any plain Node runtime ("Stripping types is currently
+  unsupported for files under node_modules"). Not a live bug for this CLI,
+  which only ever shells out to monodesign's CLI binary, but a real one for
+  anyone depending on the package directly. Now ships a real `dist/` build
+  with a `prepublishOnly` that rebuilds it fresh on every publish.
+
 ## [2.10.19] — 2026-09-11
 
 ### Fixed
