@@ -451,7 +451,21 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
   // approving every tool in that already-scoped list is the correct
   // default, not a laxer one: this narrows the SDK's own default-deny-all
   // down to exactly what was asked for, nothing broader.
-  const allowedToolNames = new Set(tools.map((t) => `mcp__org__${t.name}`));
+  //
+  // Both name forms are included because this same canUseTool is shared by
+  // two different calling conventions: the native SDK path
+  // (ClaudeAgentRunner) registers these as real MCP tools and the SDK
+  // always prefixes the server name, so it calls canUseTool with
+  // "mcp__org__<name>"; fence-protocol runners (antigravity-runner.ts and
+  // any other AgentRunner built on tool-fence.ts's executeToolCall) never
+  // register real tools at all — the model calls them by emitting a
+  // ```tool_call fence, and executeToolCall passes canUseTool the bare name
+  // straight off that fence. Checking only the prefixed form denied every
+  // fence-protocol call outright ("was not in the tool list this exec call
+  // was given"), which silently broke tool use for those runtimes:
+  // tool.handler (the stdio bridge that actually emits tool_call/tool_result
+  // on the wire) was never reached, since canUseTool denies before it runs.
+  const allowedToolNames = new Set(tools.flatMap((t) => [`mcp__org__${t.name}`, t.name]));
   const bashPrefixes = opts.allowBashPrefixes ?? [];
   // A prefix match on its own only checks the FIRST token — the whole
   // string still runs through a real shell, so `monomind org list; rm -rf

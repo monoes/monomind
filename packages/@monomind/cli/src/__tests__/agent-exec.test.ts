@@ -263,6 +263,41 @@ describe('agent exec: canUseTool gate', () => {
     });
   });
 
+  // Regression for the antigravity/fence-protocol path: unlike the native
+  // SDK path above, fence-protocol runners (antigravity-runner.ts, and any
+  // other AgentRunner built on tool-fence.ts's executeToolCall) call
+  // canUseTool with the BARE tool name straight from the model's
+  // ```tool_call fence -- never mcp__org__-prefixed, since these tools were
+  // never registered as real SDK MCP tools to begin with. Before this fix,
+  // allowedToolNames only ever contained the prefixed form, so every
+  // fence-protocol tool call was denied with "was not in the tool list this
+  // exec call was given" regardless of --tools-file/--tool-names --
+  // antigravity chat turns silently fell back to the model's own native
+  // Bash/Write tools instead of ever reaching save_document et al., and the
+  // stdio bridge's tool_call/tool_result events (which drive the desktop
+  // app's tool-call UI) never fired since tool.handler was never reached.
+  it('also allows the bare (unprefixed) tool name, for fence-protocol runners that never register real MCP tools', async () => {
+    const h = makeHarness({ toolSpecs: [echoTool] });
+    let captured:
+      | ((toolName: string, input: Record<string, unknown>) => Promise<unknown>)
+      | undefined;
+    const runner: AgentRunner = {
+      async *run(a) {
+        captured = a.canUseTool;
+        yield { type: 'result', session_id: 's1', subtype: 'success' };
+      },
+    };
+    await run(h, runner);
+
+    expect(captured).toBeTypeOf('function');
+    await expect(captured!('create_nodes', {})).resolves.toMatchObject({
+      behavior: 'allow',
+    });
+    await expect(captured!('delete_everything', {})).resolves.toMatchObject({
+      behavior: 'deny',
+    });
+  });
+
   // Regression for the mono-agent Chat panel's "let it shell out to
   // monomind/monoagentcli directly" fallback (measured to be far more
   // reliable for the model to actually use than the mcp__org__* tool
