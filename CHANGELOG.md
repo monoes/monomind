@@ -4,6 +4,35 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- `task list`, `session list`, and `status tasks` rendered a blank ID column
+  (and `session list` also showed blank Status/Agents/Tasks and "Invalid
+  Date"): the CLI's type annotations for the `task_list`/`session_list` MCP
+  tool results had drifted from what the handlers actually return
+  (`task_list` returns `taskId`, not `id`; `session_list` returns
+  `sessionId`/`savedAt`/`stats: {tasks, agents, ...}`, not
+  `id`/`status`/`updatedAt`/`agentCount`/`taskCount` — sessions have no
+  status concept at all). The interactive `session restore` picker had the
+  same bug in a more severe shape: every option's `value` was `undefined`,
+  so restoring by selection always tried to restore session `undefined`.
+  Found via a fresh-install field test of 2.10.16, reproduced and fixed
+  against the real handler shapes in `commands/task.ts`, `commands/status.ts`,
+  and `commands/session.ts`.
+
+### Security
+
+- Bumped the `sharp` dependency override from `>=0.35.0` to `>=0.35.4` —
+  `0.35.3` (the version that floor actually resolved to) carries an
+  unpatched libheif vulnerability (GHSA-rgj7-g3m4-5g8c, high severity) that
+  `npm audit`/`security scan` propagated all the way up through
+  `@huggingface/transformers` → `@monoes/monomindcli` → `monomind` itself,
+  flagging the `monomind` package as vulnerable in its own scan output.
+  `0.35.4` is the current published release and fixes it; also found via
+  the 2.10.16 field test, investigating a HIGH-severity self-flagged CVE
+  that looked like a scan bug but was a real, unpatched transitive
+  dependency.
+
 ## [2.10.16] — 2026-09-10
 
 ### Fixed

@@ -83,15 +83,16 @@ const listCommand: Command = {
     try {
       const result = await callMCPTool<{
         sessions: Array<{
-          id: string;
+          sessionId: string;
           name?: string;
           description?: string;
-          status: 'active' | 'saved' | 'archived';
-          createdAt: string;
-          updatedAt: string;
-          agentCount: number;
-          taskCount: number;
-          memorySize: number;
+          savedAt: string;
+          stats: {
+            tasks: number;
+            agents: number;
+            memoryEntries: number;
+            totalSize: number;
+          };
         }>;
         total: number;
       }>('session_list', {
@@ -118,18 +119,16 @@ const listCommand: Command = {
         columns: [
           { key: 'id', header: 'ID', width: 20 },
           { key: 'name', header: 'Name', width: 20 },
-          { key: 'status', header: 'Status', width: 10 },
           { key: 'agents', header: 'Agents', width: 8, align: 'right' },
           { key: 'tasks', header: 'Tasks', width: 8, align: 'right' },
           { key: 'updated', header: 'Last Updated', width: 18 },
         ],
         data: result.sessions.map((s) => ({
-          id: s.id,
+          id: s.sessionId,
           name: s.name || '-',
-          status: formatStatus(s.status),
-          agents: s.agentCount,
-          tasks: s.taskCount,
-          updated: formatDate(s.updatedAt),
+          agents: s.stats.agents,
+          tasks: s.stats.tasks,
+          updated: formatDate(s.savedAt),
         })),
       });
 
@@ -322,7 +321,7 @@ const restoreCommand: Command = {
       // Show list to select from
       try {
         const sessions = await callMCPTool<{
-          sessions: Array<{ id: string; name?: string; status: string; updatedAt: string }>;
+          sessions: Array<{ sessionId: string; name?: string; savedAt: string }>;
         }>('session_list', { status: 'saved', limit: 20 });
 
         if (sessions.sessions.length === 0) {
@@ -333,9 +332,9 @@ const restoreCommand: Command = {
         sessionId = await select({
           message: 'Select session to restore:',
           options: sessions.sessions.map((s) => ({
-            value: s.id,
-            label: s.name || s.id,
-            hint: formatDate(s.updatedAt),
+            value: s.sessionId,
+            label: s.name || s.sessionId,
+            hint: formatDate(s.savedAt),
           })),
         });
       } catch (error) {
