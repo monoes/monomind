@@ -34,12 +34,19 @@ const { taskListImpl, sessionListImpl } = vi.hoisted(() => {
     total: 1,
   }));
 
-  const sessionListImpl = vi.fn(async () => ({
+  type MockSession = {
+    sessionId: string;
+    name?: string;
+    description?: string;
+    savedAt: string;
+    stats?: { tasks: number; agents: number; memoryEntries: number; totalSize: number };
+  };
+
+  const sessionListImpl = vi.fn(async (): Promise<{ sessions: MockSession[]; total: number }> => ({
     sessions: [
       {
         sessionId: 'session-real-id-456',
         name: 'my-checkpoint',
-        description: undefined,
         savedAt: new Date().toISOString(),
         stats: { tasks: 2, agents: 3, memoryEntries: 0, totalSize: 510 },
       },
