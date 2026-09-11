@@ -24,6 +24,7 @@
   "scripts": {
     "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "node scripts/run-tests.mjs",
     "sync": "node scripts/sync-skill.mjs"
   },
