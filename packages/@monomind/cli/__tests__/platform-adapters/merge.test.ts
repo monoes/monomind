@@ -107,4 +107,23 @@ describe('portable skill packages', () => {
     expect(result.content).toBe(foreign);
     expect(result.diagnostics[0]).toMatch(/^ERROR: foreign SKILL\.md/);
   });
+
+  it('does not duplicate the body when the legacy skill copier already wrote it unwrapped', () => {
+    const rendered = '---\nname: mastermind-plan\ndescription: Plan safely.\n---\n\n# Plan\n';
+    const marker = 'skills:claude:mastermind-plan';
+
+    // executor.ts always runs copySkills — a raw, unwrapped copy of this same
+    // canonical source — before installPlatform's managed-block install for
+    // any skill that appears in both SKILLS_MAP and MASTERMIND_SKILLS. So
+    // `existing` here is exactly `rendered`, not ''.
+    const first = mergeSkillManagedBlock(rendered, marker, rendered);
+    expect(first.diagnostics).toEqual([]);
+    expect(first.content.match(/# Plan/g)).toHaveLength(1);
+    expect(first.content).toContain('# monomind:start skills:claude:mastermind-plan');
+
+    // A second `init` run: the legacy copier clobbers the file back to the
+    // raw canonical source again before the merge runs, every time.
+    const second = mergeSkillManagedBlock(rendered, marker, rendered);
+    expect(second.content).toBe(first.content);
+  });
 });
