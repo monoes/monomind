@@ -147,7 +147,7 @@ vi.mock('../src/mcp-client.js', () => ({
       return {
         tasks: [
           {
-            id: 'task-1',
+            taskId: 'task-1',
             type: 'implementation',
             description: 'Add user auth',
             priority: 'high',
@@ -156,7 +156,7 @@ vi.mock('../src/mcp-client.js', () => ({
             createdAt: new Date().toISOString()
           },
           {
-            id: 'task-2',
+            taskId: 'task-2',
             type: 'testing',
             description: 'Write unit tests',
             priority: 'normal',
@@ -233,24 +233,16 @@ vi.mock('../src/mcp-client.js', () => ({
       return {
         sessions: [
           {
-            id: 'session-1',
+            sessionId: 'session-1',
             name: 'dev-session',
-            status: 'saved',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            agentCount: 3,
-            taskCount: 5,
-            memorySize: 1024
+            savedAt: new Date().toISOString(),
+            stats: { tasks: 5, agents: 3, memoryEntries: 0, totalSize: 1024 }
           },
           {
-            id: 'session-2',
+            sessionId: 'session-2',
             name: 'test-session',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            agentCount: 2,
-            taskCount: 3,
-            memorySize: 512
+            savedAt: new Date().toISOString(),
+            stats: { tasks: 3, agents: 2, memoryEntries: 0, totalSize: 512 }
           }
         ],
         total: 2
