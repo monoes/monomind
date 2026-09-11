@@ -180,17 +180,22 @@ describe('#115 review follow-up: closeBrowser() cross-process PID-kill fallback'
     // tick's callback. How far a single advance carries through a chain like
     // that is a fake-timer implementation detail that differs by Node version
     // (runAllTimersAsync hung this test on Node 22 while passing on 26), so
-    // step the clock until the promise settles instead of assuming.
+    // step the clock until the promise settles instead of assuming. The exit
+    // poll only needs PROCESS_EXIT_TIMEOUT_MS / PROCESS_EXIT_POLL_MS (5000/50
+    // = 100) ticks to reach its deadline, but a slower/busier runner can need
+    // more than one real advance per simulated poll tick — 200 iterations cut
+    // it too close and intermittently timed out in CI; 600 gives real margin
+    // without slowing the passing case, which still exits as soon as settled.
     let settled = false;
     void closePromise.then(() => {
       settled = true;
     });
-    for (let i = 0; i < 200 && !settled; i++) await vi.advanceTimersByTimeAsync(100);
+    for (let i = 0; i < 600 && !settled; i++) await vi.advanceTimersByTimeAsync(100);
     await closePromise;
 
     expect(settled).toBe(true);
     expect(killSpy).toHaveBeenCalledWith(33333, 'SIGKILL');
-  });
+  }, 20_000);
 
   it('no persisted port file at all — closeBrowser is a no-op, no kill attempted', async () => {
     vi.resetModules();
