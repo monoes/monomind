@@ -28,7 +28,7 @@ overrides:
   '@anthropic-ai/claude-code': '>=2.1.163'
   handlebars: '>=4.7.9'
   onnxruntime-node: '>=1.27.0'
-  sharp: '>=0.35.0'
+  sharp: '>=0.35.4'
   adm-zip: '>=0.6.0'
   body-parser: '>=1.20.6'
   better-sqlite3: '>=12.0.0'
