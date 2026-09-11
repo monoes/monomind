@@ -129,7 +129,14 @@ export function mergeSkillManagedBlock(
   const header = existing.slice(0, existingEnd);
   const body = existing.slice(existingEnd);
   const renderedBody = rendered.slice(renderedEnd).replace(/^\n/, '');
-  return { content: `${header}${mergeManagedBlock(body, marker, renderedBody)}`, diagnostics: [] };
+  // The legacy skill copier (copySkills) writes this same canonical source
+  // unwrapped to this same path before the managed-block install runs. That
+  // is Monomind's own content, not foreign text surrounding the block — merge
+  // as if the file were new, or the block ends up wrapped around a second,
+  // redundant copy of the body it already matches.
+  const normalize = (value: string): string => value.replace(/\r\n|\r/g, '\n').trim();
+  const base = normalize(body) === normalize(renderedBody) ? '' : body;
+  return { content: `${header}${mergeManagedBlock(base, marker, renderedBody)}`, diagnostics: [] };
 }
 
 function isJsonObject(value: unknown): value is JsonObject {
