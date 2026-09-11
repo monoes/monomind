@@ -52,14 +52,13 @@ monomind monograph wiki
 ## Programmatic usage
 
 ```typescript
-import { MonographEngine } from '@monoes/monograph';
+import { buildAsync, openDb, queryGraph, getMonographImpact } from '@monoes/monograph';
 
-const engine = new MonographEngine({ projectRoot: process.cwd() });
-await engine.build();
+await buildAsync(process.cwd());
 
-const results = engine.query('authenticate');
-const impact = engine.impact('src/auth/login.ts');
-const godNodes = engine.godNodes({ limit: 10 });
+const db = openDb('.monomind/monograph.db');
+const results = queryGraph(db, { query: 'authenticate' });
+const impact = getMonographImpact(db, { name: 'login', filePath: 'src/auth/login.ts' });
 ```
 
 ## MCP tools

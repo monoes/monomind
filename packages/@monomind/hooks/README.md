@@ -34,6 +34,8 @@ metrics files under `.monomind/metrics/` that the statusline, router, and
 npm install @monoes/hooks
 ```
 
+> **Native module install blocked?** The SQLite-backed background workers depend on `better-sqlite3`. If it fails to load with `Could not locate the bindings file`, your npm's `allowScripts` policy blocked its native build — run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`.
+
 ## Quick start
 
 ```typescript

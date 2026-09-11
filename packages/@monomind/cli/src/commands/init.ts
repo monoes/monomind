@@ -637,7 +637,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       `     ${output.highlight('/mastermind:understand')}   ${output.dim('# analyze your project with an LLM')}`,
     );
     output.writeln('');
-    output.writeln(output.dim('  The /mastermind:* slash commands are the primary way to use'));
+    output.writeln(output.dim('  The /mastermind:* slash commands are the primary way to use Monomind once'));
     output.writeln(output.dim('  the MCP server is registered (step 1) and Claude Code is open.'));
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
 

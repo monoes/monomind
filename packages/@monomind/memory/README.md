@@ -16,10 +16,11 @@
 
 ```bash
 npm install @monoes/memory
-
-# optional: native SQLite (faster than the sql.js WASM fallback)
-npm install better-sqlite3
 ```
+
+`better-sqlite3` ships as a direct dependency (native SQLite; `sql.js` WASM is the fallback storage engine) — no separate install needed.
+
+> **Native module install blocked?** If initialization throws `Could not locate the bindings file`, your npm's `allowScripts` policy blocked `better-sqlite3`'s native build — run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`.
 
 ## Core Architecture & Schema v3.0.0
 
