@@ -303,7 +303,7 @@ const listCommand: Command = {
     try {
       const result = await callMCPTool<{
         tasks: Array<{
-          id: string;
+          taskId: string;
           type: string;
           description: string;
           priority: string;
@@ -346,7 +346,7 @@ const listCommand: Command = {
           { key: 'progress', header: 'Progress', width: 10 },
         ],
         data: result.tasks.map((t) => ({
-          id: t.id,
+          id: t.taskId,
           type: t.type,
           description:
             t.description.length > 27 ? `${t.description.slice(0, 27)}...` : t.description,
