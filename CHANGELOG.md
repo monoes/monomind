@@ -4,6 +4,21 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.18] — 2026-09-11
+
+### Fixed
+
+- `session list` threw instead of rendering a blank/zero row if a session
+  record ever had no `stats` object — a harder failure than the bug it
+  replaced in 2.10.17 (which rendered blank cells rather than crashing).
+  2.10.17 itself was verified clean against a real session file, but the
+  read side had no defensive fallback for the case. Guarded with optional
+  chaining and a `0` default.
+- Bounded the `vitest`/`@vitest/mocker` override introduced in 2.10.17 to
+  `>=4.1.11 <5` (it was unbounded, and 5.0.0 is already published) so a
+  future dependency refresh can't silently jump a major version and break
+  the test suite.
+
 ## [2.10.17] — 2026-09-11
 
 ### Fixed
