@@ -4,6 +4,32 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.19] — 2026-09-11
+
+### Fixed
+
+- `monomind init`'s completion banner had a dropped clause ("...primary way
+  to use the MCP server is registered..."); restored the missing "Monomind
+  once" so the sentence reads correctly.
+- `@monoes/monograph`'s README "Programmatic usage" example imported a
+  `MonographEngine` class that has never existed — the package exports
+  ~285 flat functions instead. Replaced with a real, runnable example
+  (`buildAsync`, `openDb`, `queryGraph`, `getMonographImpact`).
+- `@monoes/memory`'s README said `better-sqlite3` was an optional separate
+  install ("faster than the sql.js WASM fallback"); it's been a mandatory
+  dependency since 1.0.14, so that framing was stale and obscured why a
+  fresh install can crash instead of silently falling back.
+- Added a troubleshooting note (root README, `@monoes/hooks`,
+  `@monoes/memory`) for the "Could not locate the bindings file" crash
+  caused by npm's `allowScripts` policy blocking `better-sqlite3`'s native
+  build — hit independently on monomind's own `doctor`, `@monoes/hooks`,
+  and `@monoes/memory` during a full install/init field test across all
+  10 published packages.
+
+Also published this cycle as part of the same sweep: `@monoes/monograph`
+1.6.3, `@monoes/hooks` 1.0.6, `@monoes/memory` 1.0.17 (all three are
+README-only fixes, no code changes).
+
 ## [2.10.18] — 2026-09-11
 
 ### Fixed
