@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.17] — 2026-09-11
+
 ### Fixed
 
 - `task list`, `session list`, and `status tasks` rendered a blank ID column
