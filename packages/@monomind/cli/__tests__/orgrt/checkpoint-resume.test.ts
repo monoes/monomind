@@ -126,6 +126,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(receivedPrompts.some((p) => p.includes('Queued message 1'))).toBe(true);
     expect(receivedPrompts.some((p) => p.includes('Queued message 2'))).toBe(true);
+    await daemon.stopOrg(orgName);
   });
 
   it('should persist policy counters (budget tracking)', async () => {
@@ -169,6 +170,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     const resumedPolicy = resumed!.agents.get('boss')?.policy;
     expect(resumedPolicy).toBeDefined();
     expect(resumedPolicy!.usage).toBe(7500);
+    await daemon.stopOrg(orgName);
   });
 
   it('should restore session state (lastMessageId)', async () => {
@@ -196,6 +198,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     const resumedAgent = resumed!.agents.get('boss');
     expect(resumedAgent).toBeDefined();
     expect(resumedAgent!.lastMessageId).toBeDefined();
+    await daemon.stopOrg(orgName);
   });
 
   it('should enforce checkpoint TTL (expire stale checkpoints)', async () => {
@@ -267,6 +270,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
       // If worker wasn't in checkpoint, it should be in pending roles
       expect(resumed!.pendingRoles?.has('worker')).toBe(true);
     }
+    await daemon.stopOrg(orgName);
   });
 
   it('should restore pendingRoles for lazy spawn', async () => {
@@ -288,6 +292,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     expect(resumed!.agents.has('boss')).toBe(true);
     expect(resumed!.agents.has('worker')).toBe(false);
     expect(resumed!.pendingRoles?.has('worker')).toBe(true);
+    await daemon.stopOrg(orgName);
   });
 
   it('should restore the TaskDag on resume instead of discarding task state', async () => {
@@ -309,6 +314,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     const resumed = await daemon.resumeOrg(orgName);
     expect(resumed).toBeDefined();
     expect(resumed!.taskDag?.all()).toHaveLength(2);
+    await daemon.stopOrg(orgName);
   });
 
   it('re-dispatches a running task whose role session was not resumed, and leaves one whose session was', async () => {
