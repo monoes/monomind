@@ -62,6 +62,18 @@ function _requireMonograph() {
     if (parent === dir) break;
     dir = parent;
   }
+  // Global npm install fallback (e.g. `npm install -g @monoes/monograph`).
+  // Mirrors graphify-freshen.cjs's resolveMonographEntry(), which already
+  // checks this — without it, a global-only install builds the graph fine
+  // (via that script) but every hook-side consumer of this function
+  // (graph-status, inline suggestions, micro-agents) can never find it.
+  try {
+    var { execSync } = require('child_process');
+    var globalRoot = execSync('npm root -g', { encoding: 'utf-8', timeout: 5000 }).trim();
+    var globalPkgDir = path.join(globalRoot, '@monoes', 'monograph');
+    var globalEntry = fs.existsSync(globalPkgDir) ? _resolvePkgEntryFile(globalPkgDir) : null;
+    if (globalEntry) return require(globalEntry);
+  } catch (e) {}
   return null;
 }
 
