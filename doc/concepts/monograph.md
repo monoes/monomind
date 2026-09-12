@@ -11,6 +11,22 @@ Monomind Monograph (`@monoes/monograph` `v1.5.6`) is an in-process, SQLite-backe
 
 Defined in `packages/@monomind/monograph/` ([package.json:3](packages/@monomind/monograph/package.json#L3)) and integrated into CLI MCP tools at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
 
+### Optional AI review layer
+
+`monomind monograph review` runs after a graph has been built. It selects a
+bounded one-hop neighborhood around high-connectivity code nodes, includes only
+line-bounded source snippets, and asks the configured Claude CLI for strict JSON
+findings. This layer is explicit and disabled during normal builds.
+
+The static graph remains authoritative. The review validator accepts only
+existing node IDs, displayed repository files, valid displayed line ranges,
+listed symbols, and an allowlist of existing relations. Persisted relationships
+are always `INFERRED`, use conservative scores, and carry `ai-review` reason and
+evidence provenance in the existing edge columns. `EXTRACTED` relationships are
+never overwritten. `--dry-run` performs model analysis and validation without
+writing edges. The model may still be wrong; validation prevents fabricated
+graph references, not semantic misunderstanding.
+
 ---
 
 ## 1. Tree-sitter AST Parsers & Extractor Infrastructure

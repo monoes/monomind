@@ -13,6 +13,7 @@ Alias: `monomind kg`
 
 | Subcommand | Description |
 |---|---|
+| `monograph review` | Review bounded code-graph neighborhoods with Claude; use `--dry-run` to preview |
 | `monograph build` | Build knowledge graph from code + docs + PDFs |
 | `monograph wiki` | Scan all docs and PDFs into a searchable knowledge graph |
 | `monograph search` | Search the graph (BM25 / semantic / hybrid) |
@@ -34,6 +35,10 @@ npx monomind monograph search -q "pipeline" --mode semantic --label Section
 
 # Stats
 npx monomind monograph stats --top 20
+
+# AI code-graph review (explicit opt-in)
+npx monomind monograph review --dry-run
+npx monomind monograph review --max-units 4 --max-files 4 --format json
 
 # Auto-rebuild on changes
 npx monomind monograph watch

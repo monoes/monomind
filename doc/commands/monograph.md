@@ -13,10 +13,11 @@ Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@mon
 
 ---
 
-## CLI Subcommands (6)
+## CLI Subcommands (7)
 
 | Subcommand | Description | Key Flags | Source Reference |
 |---|---|---|---|
+| `review` | Reviews bounded existing code-graph neighborhoods with Claude | `--dry-run`, `--max-units N`, `--max-files N`, `--timeout N` | [`monograph.ts`](packages/@monomind/cli/src/commands/monograph.ts) |
 | `build` | Builds or rebuilds knowledge graph using Tree-sitter parsers | `--force`, `--incremental`, `--concurrency N` | [`monograph.ts:592`](packages/@monomind/cli/src/commands/monograph.ts#L592) |
 | `wiki` | Generates architectural Markdown wiki documentation from graph | `--output-dir`, `--format md` | [`wiki-build.ts`](packages/@monomind/monograph/src/mcp-tools/wiki-build.ts) |
 | `search` | FTS5 trigram + vector search across codebase symbols | `--query`, `--limit N`, `--type symbol\|file` | [`query.ts`](packages/@monomind/monograph/src/mcp-tools/query.ts) |
@@ -25,6 +26,41 @@ Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@mon
 | `impact` | Calculates blast radius and ripple impact for a target node or file | `--target "..."`, `--depth N` | [`monograph-tools.ts:1104`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1104) |
 
 ---
+
+## AI code graph review
+
+`monomind monograph review` is an explicit, post-build enrichment command. It
+does not rebuild the graph and is not part of normal `monograph build` or watch
+execution. The command ranks existing graph neighborhoods, sends bounded graph
+metadata and source snippets through the configured Claude CLI, and validates
+the structured response before considering any write.
+
+```bash
+# Validate and display findings without writing edges
+monomind monograph review --dry-run
+
+# Review fewer neighborhoods and files
+monomind monograph review --max-units 4 --max-files 4
+
+# Machine-readable result
+monomind monograph review --format json
+```
+
+The initial implementation only permits relationships between nodes already in
+the graph. Every accepted relationship is `INFERRED`, capped at a conservative
+confidence score, and carries an AI-review reason plus repository-relative file
+and line evidence in the existing `edges.evidence` JSON column. `EXTRACTED`
+edges are protected. Existing `INFERRED` edges are updated only when the new
+score and evidence are clearly stronger. Non-relationship findings are returned
+by the command/API but are not persisted yet.
+
+The graph must exist first. Claude CLI must be installed and authenticated; if
+it is unavailable, review is skipped with an actionable message. Selected code
+snippets leave the local machine through that configured Claude runtime, so
+privacy policy and repository sensitivity must be considered. Validation blocks
+invented node IDs, unsafe or missing files, out-of-range or undisplayed lines,
+unsupported relations, self-links, duplicates, and malformed output, but it
+cannot prove that a semantically plausible inference is correct.
 
 ## Native MCP Tools (14)
 

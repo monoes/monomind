@@ -550,7 +550,157 @@ const statsCommand: Command = {
   },
 };
 
-// ── watch subcommand ──────────────────────────────────────────────────────────
+// ── review subcommand ─────────────────────────────────────────────────────────
+
+const reviewCommand: Command = {
+  name: 'review',
+  description: 'Review an existing code graph with bounded Claude context',
+  options: [
+    { name: 'path', short: 'p', type: 'string', description: 'Root path (default: cwd)' },
+    {
+      name: 'max-units',
+      type: 'number',
+      description: 'Maximum bounded graph neighborhoods to review (default 8, hard max 32)',
+      default: '8',
+    },
+    {
+      name: 'max-files',
+      type: 'number',
+      description: 'Maximum source files per neighborhood (default 6, hard max 12)',
+      default: '6',
+    },
+    {
+      name: 'timeout',
+      type: 'number',
+      description: 'Claude timeout per neighborhood in seconds (default 60, hard max 180)',
+      default: '60',
+    },
+    {
+      name: 'dry-run',
+      type: 'boolean',
+      description: 'Review and validate findings without writing graph edges',
+    },
+  ],
+  examples: [
+    {
+      command: 'monomind monograph review --dry-run',
+      description: 'Preview evidence-backed findings without changing the graph',
+    },
+    {
+      command: 'monomind monograph review --max-units 4 --max-files 4',
+      description: 'Review four small graph neighborhoods',
+    },
+    {
+      command: 'monomind monograph review --format json',
+      description: 'Emit validated findings and persistence results as JSON',
+    },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const root = resolve((ctx.flags.path as string | undefined) ?? process.cwd());
+    const dbPath = getDbPath(root);
+    const jsonOutput = ctx.flags.format === 'json';
+    const dryRun = ctx.flags['dry-run'] === true;
+    const maxUnits = Number(ctx.flags['max-units']);
+    const maxFiles = Number(ctx.flags['max-files']);
+    const timeoutSeconds = Number(ctx.flags.timeout);
+    const timeoutMs =
+      Number.isFinite(timeoutSeconds) && timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined;
+
+    if (!existsSync(dbPath)) {
+      const message = 'No monograph database found. Run `monomind monograph build` first.';
+      if (jsonOutput) output.printJson({ status: 'failed', dryRun, warnings: [message] });
+      else output.printError(message);
+      return { success: false, exitCode: 1 };
+    }
+
+    if (!jsonOutput) {
+      output.writeln();
+      output.writeln(output.bold('Monograph — AI Graph Review'));
+      output.writeln(
+        output.dim('The deterministic graph remains authoritative; AI findings are inferred only.'),
+      );
+      output.writeln(output.dim(`  Path: ${root}`));
+      if (dryRun) output.writeln(output.warning('  DRY RUN — no graph changes will be written'));
+      output.writeln();
+    }
+
+    const spinner = jsonOutput
+      ? undefined
+      : output.createSpinner({ text: 'Reviewing bounded graph neighborhoods…', spinner: 'dots' });
+    spinner?.start();
+
+    try {
+      const { reviewCodeGraph } = await import('@monoes/monograph');
+      const result = await reviewCodeGraph(root, {
+        maxUnits: Number.isFinite(maxUnits) ? maxUnits : undefined,
+        maxFilesPerUnit: Number.isFinite(maxFiles) ? maxFiles : undefined,
+        timeoutMs,
+        dryRun,
+        onProgress: (progress) => {
+          if (progress.message) spinner?.setText(progress.message.slice(0, 80));
+        },
+      });
+
+      if (result.status === 'skipped' || result.status === 'failed') {
+        spinner?.fail('AI graph review did not complete');
+        if (jsonOutput) output.printJson(result);
+        else for (const warning of result.warnings) output.printWarning(warning);
+        return { success: false, exitCode: 1, data: result };
+      }
+
+      spinner?.succeed('AI graph review complete');
+      if (jsonOutput) {
+        output.printJson(result);
+        return { success: true, data: result };
+      }
+
+      output.writeln();
+      output.writeln(output.bold('Review summary'));
+      output.writeln(`  Reviewed units       : ${result.reviewedUnits}`);
+      output.writeln(`  Findings             : ${result.findingCount}`);
+      output.writeln(`  Validated findings   : ${result.validatedFindingCount}`);
+      output.writeln(`  Rejected findings    : ${result.rejectedFindings.length}`);
+      output.writeln(`  Edges proposed       : ${result.edgesProposed.length}`);
+      output.writeln(`  New inferred edges   : ${result.newInferredEdges.length}`);
+      output.writeln(`  Updated inferred     : ${result.updatedInferredEdges.length}`);
+      output.writeln(`  Edges persisted      : ${result.edgesPersisted.length}`);
+      output.writeln(`  Existing confirmed   : ${result.existingEdgesConfirmed}`);
+      output.writeln(`  Existing protected   : ${result.existingEdgesProtected}`);
+      if (dryRun) output.writeln(output.warning('  DRY RUN — no graph changes were written'));
+
+      if (result.findings.length > 0) {
+        output.writeln();
+        output.writeln(output.bold('Validated findings'));
+        const visibleFindings = result.findings.slice(0, 20);
+        for (const finding of visibleFindings) {
+          const relationship =
+            finding.targetNodeId && finding.relation
+              ? ` —[${finding.relation}]→ ${finding.targetNodeId}`
+              : '';
+          output.writeln(
+            `  - [${finding.type}] ${finding.sourceNodeId}${relationship}: ${finding.summary}`,
+          );
+        }
+        if (result.findings.length > visibleFindings.length) {
+          output.writeln(
+            output.dim(
+              `  … ${result.findings.length - visibleFindings.length} more findings in --format json output`,
+            ),
+          );
+        }
+      }
+
+      for (const warning of result.warnings) output.printWarning(warning);
+      return { success: true, data: result };
+    } catch (err) {
+      spinner?.fail('AI graph review failed');
+      if (jsonOutput) {
+        output.printJson({ status: 'failed', dryRun, warnings: [formatErrorWithCause(err)] });
+      } else output.printError(formatErrorWithCause(err));
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
 
 const watchCommand: Command = {
   name: 'watch',
@@ -787,7 +937,15 @@ export const monographCommand: Command = {
   name: 'monograph',
   description: 'Knowledge graph for code and documents — build, search, explore',
   aliases: ['kg'],
-  subcommands: [buildCommand, wikiCommand, searchCommand, statsCommand, watchCommand, lspCommand],
+  subcommands: [
+    buildCommand,
+    wikiCommand,
+    searchCommand,
+    statsCommand,
+    reviewCommand,
+    watchCommand,
+    lspCommand,
+  ],
   examples: [
     { command: 'monomind monograph wiki', description: 'Build KG from all docs and PDFs' },
     {
@@ -800,6 +958,10 @@ export const monographCommand: Command = {
       description: 'Search the knowledge graph',
     },
     { command: 'monomind monograph stats', description: 'Show graph statistics' },
+    {
+      command: 'monomind monograph review --dry-run',
+      description: 'Preview bounded, evidence-backed AI findings',
+    },
     { command: 'monomind monograph watch', description: 'Watch for changes and rebuild' },
     { command: 'monomind monograph lsp', description: 'Start LSP server for editor integration' },
   ],
@@ -810,6 +972,7 @@ export const monographCommand: Command = {
     output.writeln();
     output.writeln('Commands:');
     output.printList([
+      'review    - Review bounded graph neighborhoods with Claude',
       'wiki      — Scan all docs & PDFs → searchable knowledge graph',
       'build     — Full build (code + docs + PDFs)',
       'search    — Search across code, sections, and concepts',

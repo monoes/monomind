@@ -135,6 +135,15 @@ export interface EvidenceEntry {
   kind: string; // e.g., 'import', 'call', 'heuristic', 'inferred'
   weight: number; // 0-1
   note?: string; // human-readable explanation
+  /** Repository-relative source file supporting the evidence, when available. */
+  file?: string;
+  /** Inclusive source line range supporting the evidence, when available. */
+  startLine?: number;
+  endLine?: number;
+  /** Existing graph symbol used when the evidence is symbol-specific. */
+  symbolId?: string;
+  /** Producer of the evidence, e.g. `ai-review`. */
+  source?: string;
 }
 
 // ── Edges ─────────────────────────────────────────────────────────────────────

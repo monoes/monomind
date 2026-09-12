@@ -84,6 +84,7 @@ export * from './pipeline/runner.js';
 export * from './pipeline/types.js';
 export * from './registry/repo-registry.js';
 export * from './reporting/graph-report.js';
+export * from './review/index.js';
 export * from './scope-resolution/evidence-weights.js';
 export * from './search/ast-chunker.js';
 export * from './search/diacritic.js';

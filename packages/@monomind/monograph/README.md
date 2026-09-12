@@ -43,11 +43,55 @@ monomind monograph watch
 # Start the LSP server for editor integration
 monomind monograph lsp
 
+# Review bounded code-graph neighborhoods with Claude (explicit opt-in)
+monomind monograph review --dry-run
+
 # Build a document knowledge graph from docs & PDFs (separate from the code graph above)
 monomind monograph wiki
 ```
 
 > `impact` (blast radius), `god-nodes` (high-centrality files), and freshness/staleness checks have no CLI subcommand — they're MCP-tool-only (`monograph_impact`, `monograph_god_nodes`, `monograph_health`, `monograph_staleness`), see [MCP tools](#mcp-tools) below. `stats` above reports graph size, not freshness — don't confuse the two.
+
+## AI code graph review
+
+`monomind monograph review` is an optional post-build review layer. It reads an
+existing `.monomind/monograph.db`, selects bounded one-hop neighborhoods, and
+sends only the selected graph metadata and source snippets to the configured
+Claude CLI. It never runs as part of `monograph build` and never replaces
+Tree-sitter, static analysis, import resolution, or call resolution.
+
+```bash
+# Preview validated findings without changing the graph
+monomind monograph review --dry-run
+
+# Limit the review scope
+monomind monograph review --max-units 4 --max-files 4
+
+# Consume machine-readable results
+monomind monograph review --format json
+```
+
+The deterministic graph remains authoritative. AI findings are validated
+against existing node IDs, displayed files, real line ranges, symbols, and an
+allowlist of existing relationship types. Accepted relationships are stored
+only as `INFERRED`, with a conservative score, reason, and source evidence
+under the existing edge schema. Existing `EXTRACTED` edges are never replaced;
+weaker `INFERRED` proposals are ignored. Non-relationship findings are returned
+in the review result and are not persisted in this first version.
+
+The review requires a graph built first and the `claude` executable on `PATH`.
+Claude CLI authentication is used; Monograph does not add a SaaS dependency or
+require an `ANTHROPIC_API_KEY`. If Claude is unavailable, the command reports
+an actionable skip and does not claim that review ran. `--dry-run` still calls
+Claude and validates its response, but performs zero edge writes.
+
+Privacy and limitations: source snippets selected for each bounded unit are
+sent through the configured Claude CLI and its authenticated model/runtime.
+Review sensitive repositories only under a policy that permits this transfer.
+The layer can miss relationships, misunderstand behavior, or produce plausible
+but incorrect explanations. Strict validation prevents unsupported IDs,
+files, lines, relations, self-links, and extracted-edge changes from entering
+the graph; it cannot prove that a validated inference is semantically correct.
 
 ## Programmatic usage
 
@@ -61,6 +105,17 @@ const results = engine.query('authenticate');
 const impact = engine.impact('src/auth/login.ts');
 const godNodes = engine.godNodes({ limit: 10 });
 ```
+
+For an explicit AI review of an already-built graph:
+
+```typescript
+import { reviewCodeGraph } from '@monoes/monograph';
+
+const review = await reviewCodeGraph(process.cwd(), { dryRun: true, maxUnits: 4 });
+```
+
+The API does not build a missing graph. It returns validated findings and
+proposed/persisted inferred edges, including provenance and warnings.
 
 ## MCP tools
 
