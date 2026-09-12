@@ -58,30 +58,44 @@ agree, and the pin itself is generated — never hand-written:
 `npm run check:versions` (wired into root `prepublishOnly`) blocks the publish on
 drift, on a hand-written pin, and on publishing root with the wrong tool.
 
-**Publish root with `pnpm publish`, never `npm publish`.** npm does not understand
-the workspace protocol — it copies package.json verbatim, so the published tarball
-would depend on the literal string `workspace:*`, which no consumer can resolve.
-Nothing looks wrong at publish time; the package simply installs for nobody. The
-guard blocks this (override with `MONOMIND_ALLOW_NPM_PUBLISH=1` only if you are
-certain). Only root is affected — it is the only package using the protocol.
+**Publish both the CLI and root with `pnpm publish`, never `npm publish`.** npm
+does not understand the workspace protocol — it copies package.json verbatim, so
+a published tarball would depend on the literal string `workspace:*`, which no
+consumer can resolve. Nothing looks wrong at publish time; the package simply
+installs for nobody. Root has always used `workspace:*` to pin the CLI. Since
+issue #130, the CLI package *itself* also uses `workspace:*` for five sibling
+deps (`@monoes/monograph`, `@monoes/hooks`, `@monoes/mcp`, `@monoes/memory`,
+`@monoes/routing`) — both packages are affected, not just root. Each has its own
+`prepublishOnly` guard (`scripts/check-publish-versions.mjs` for root,
+`packages/@monomind/cli/scripts/check-workspace-deps.mjs` for the CLI) that
+blocks a non-pnpm publish (override with `MONOMIND_ALLOW_NPM_PUBLISH=1` only if
+you are certain).
 
 **Publish the CLI before the umbrella,** and do not push the version bump until the
 CLI is on npm: the pin resolves against the registry for anyone outside this
 workspace, so a bump pushed early breaks CI with `ERR_PNPM_NO_MATCHING_VERSION`.
 
+Fresh clone or fresh worktree: the CLI's `tsc` build needs its workspace deps'
+`dist/` output to already exist, which a bare `pnpm install` does not build.
+Build them first with the same filter the root `build` script uses.
+
 ```bash
+# 0. Fresh checkout only: build the CLI's workspace deps before its own build
+pnpm --filter "@monoes/monomindcli^..." run build
+
 # 1. Bump the version in BOTH package.json files. Leave the pin alone.
 #    Direct edit — `npm version` chokes on workspace:* protocol entries.
 npm run check:versions          # verify before going further
 
-# 2. Build + publish the CLI (the real payload)
+# 2. Build + publish the CLI (the real payload) — pnpm, not npm
 cd packages/@monomind/cli && npm run build
-npm publish --tag latest
+pnpm publish --tag latest --no-git-checks
 
 # 3. Publish the umbrella shim from repo root — pnpm, not npm
 cd ../../.. && pnpm publish --tag latest --no-git-checks
 
-# Verify — these two must report the SAME version
+# Verify — these two must report the SAME version (registry propagation can lag
+# a few minutes behind a successful publish; re-check rather than re-publish)
 npm view @monoes/monomindcli dist-tags --json
 npm view monomind dist-tags --json
 ```
