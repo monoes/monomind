@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-bash",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-bash",
             "timeout": 5000
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-search",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-search",
             "timeout": 4000
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-write",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-write",
             "timeout": 3000
           }
         ]
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" pre-tool",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" pre-tool",
             "timeout": 2000
           }
         ]
@@ -90,7 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" pretool",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/handlers/capture-handler.cjs\" pretool",
             "timeout": 2000
           }
         ]
@@ -102,7 +102,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-edit",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" post-edit",
             "timeout": 10000
           }
         ]
@@ -112,7 +112,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/loop-tracker.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/loop-tracker.cjs\"",
             "timeout": 3000
           }
         ]
@@ -122,7 +122,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-graph-tool",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" post-graph-tool",
             "timeout": 2000
           }
         ]
@@ -132,7 +132,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" post-tool",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" post-tool",
             "timeout": 2000
           }
         ]
@@ -142,7 +142,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" posttool",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/handlers/capture-handler.cjs\" posttool",
             "timeout": 3000
           }
         ]
@@ -153,7 +153,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" notification",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" notification",
             "timeout": 2000
           }
         ]
@@ -165,7 +165,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-tracker.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/monolean-tracker.cjs\"",
             "timeout": 3000
           }
         ]
@@ -174,7 +174,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" route",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" route",
             "timeout": 10000
           }
         ]
@@ -183,7 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" user-prompt",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" user-prompt",
             "timeout": 2000
           }
         ]
@@ -195,7 +195,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/mastermind-activate.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/mastermind-activate.cjs\"",
             "timeout": 5000
           }
         ]
@@ -205,7 +205,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-activate.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/monolean-activate.cjs\"",
             "timeout": 5000
           }
         ]
@@ -214,22 +214,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-restore",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-restore",
             "timeout": 15000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/graphify-freshen.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/graphify-freshen.cjs\"",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/control-start.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/control-start.cjs\"",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" session-start",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" session-start",
             "timeout": 2000
           }
         ]
@@ -240,17 +240,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 10000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/control-stop.cjs\" --session",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/control-stop.cjs\" --session",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" session-end",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" session-end",
             "timeout": 2000
           }
         ]
@@ -261,7 +261,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" stop",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" stop",
             "timeout": 2000
           }
         ]
@@ -273,16 +273,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-manual"
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" compact-manual"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" compact",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" compact",
             "timeout": 2000
           }
         ]
@@ -292,16 +292,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-auto"
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" compact-auto"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 6000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" compact",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" compact",
             "timeout": 2000
           }
         ]
@@ -313,7 +313,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-propagate.cjs\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/monolean-propagate.cjs\"",
             "timeout": 3000
           }
         ]
@@ -322,22 +322,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" agent-start",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" agent-start",
             "timeout": 3000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-task",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-task",
             "timeout": 3000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" subagent-start",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/handlers/capture-handler.cjs\" subagent-start",
             "timeout": 4000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-start",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" subagent-start",
             "timeout": 2000
           }
         ]
@@ -348,12 +348,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" subagent-stop",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/handlers/capture-handler.cjs\" subagent-stop",
             "timeout": 8000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-stop",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/event-logger.cjs\" subagent-stop",
             "timeout": 2000
           }
         ]
@@ -458,7 +458,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/statusline.cjs\""
+    "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/statusline.cjs\""
   },
   "mcpServers": {
     "monomind": {
