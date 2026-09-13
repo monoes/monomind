@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 4)
+# Agent Exec Protocol — v1 (rev 5)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -21,6 +21,21 @@
     `child_pid` is omitted in v1 (§3.2); org JSON rides the global `--format json` flag and is
     compact single-line (§7.1); `agent test` emits the same NDJSON stream (§6); fixtures published
     at §8.4 with a contract test; `stop_reason:"tool_round_cap"` detection is best-effort (§3.2).
+  - rev 5 (2026-09-13): **`streams_incrementally` capability** — added to `start` (§3.2) and
+    `agent scan --json` (§6), sourced from the new `RunnerSpec.streamsIncrementally` static field
+    (`runner-registry.ts`). Lets a caller (e.g. a chat UI) set the user's expectations honestly
+    instead of a live turn on a whole-message-only runtime looking stuck. `claude`, `vercel`, and
+    `opencode` stream real incremental text (`claude` via the SDK's `includePartialMessages`,
+    opt-in per caller via `AgentRunArgs.extras.includePartialMessages` — `agent exec` sets it, the
+    org runtime (`session.ts`) does not, since it needs one complete message per turn, not
+    fragments; `opencode` switched from a blocking `session.prompt()` to
+    `session.promptAsync()` + `client.event.subscribe()`, whose real per-token event —
+    `message.part.delta` — turned out to be undocumented in the installed SDK's own `.d.ts`,
+    caught only by live-verifying against a real server rather than trusting the types). `qwen-rpc`
+    also stopped buffering a whole multi-round turn into one blob (now yields each complete
+    `assistant` event as it lands) but stays `false` — see §9 step 3, this is a promptness fix at
+    the wire format's own whole-message granularity, not per-token streaming. New §9 gives future
+    runner authors a checklist for deciding and wiring this field.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
 - **Purpose**: Expose monomind's `AgentRunner` engine (13 local agent CLI runners) and org
@@ -99,7 +114,7 @@ tool_result]* → [usage]* → result → done`. On failure: `start → … → 
 
 | Event | Fields | Notes |
 |---|---|---|
-| `start` | `v, runtime, model?, cwd, resume?, pid, child_pid?` | `pid` = the monomind process; `child_pid` = the agent-CLI subprocess when the runner spawns one (omitted for in-process runners). **rev 4**: v1 always omits `child_pid` — the `AgentRunner` interface does not surface child pids; add it if/when runners expose them |
+| `start` | `v, runtime, model?, cwd, resume?, pid, child_pid?, streams_incrementally` | `pid` = the monomind process; `child_pid` = the agent-CLI subprocess when the runner spawns one (omitted for in-process runners). **rev 4**: v1 always omits `child_pid` — the `AgentRunner` interface does not surface child pids; add it if/when runners expose them. **rev 5**: `streams_incrementally` (bool) — whether this runtime delivers real incremental `assistant` text as a turn streams, vs. only ever a complete message at a step/turn boundary (see §9) |
 | `session` | `v, session_id` | Runner's session/thread/conversation id; pass back via `--resume` |
 | `assistant` | `v, text` | Incremental assistant text (may be multi-line; callers append) |
 | `tool_call` | `v, id, name, args` | Only with `--tools stdio` — caller must execute and reply (§4) |
@@ -203,16 +218,18 @@ Rules:
 ```
 $ monomind agent scan --json
 {"v":1,"agents":[
-  {"id":"claude","installed":true,"binary":"/usr/local/bin/claude","version":"1.0.58","install_hint":""},
+  {"id":"claude","installed":true,"binary":"/usr/local/bin/claude","version":"1.0.58","install_hint":"","streams_incrementally":true},
   {"id":"codex","installed":false,"binary":null,"version":null,
-   "install_hint":"npm install -g @openai/codex && codex login"},
+   "install_hint":"npm install -g @openai/codex && codex login","streams_incrementally":false},
   …
 ]}
 ```
 
 One entry per known runner (set grows with monomind releases). Honors `<NAME>_CLI_BIN`
 overrides. Binary probes run in parallel with a 5s per-binary timeout so a hung `--version`
-probe cannot stall the scan. Exit 0 always (detection, not a test).
+probe cannot stall the scan. Exit 0 always (detection, not a test). **rev 5**: `streams_incrementally`
+is static per-runtime metadata (`RunnerSpec.streamsIncrementally`, §9) — unlike `installed`/`version`,
+it never depends on probing the binary, so it's always present even when `installed:false`.
 
 `agent scan --installed --json` = installed-only view (the name `agent list` is reserved by the
 pre-existing swarm command, §1). `agent test <id>` = one smoke turn via `agent exec`
@@ -292,3 +309,49 @@ round-trips in both tool modes), `src/__tests__/runner-registry.test.ts` (scan +
 `src/__tests__/org-json-contracts.test.ts` (§7.2/§7.3 snapshots), and the six fixtures above
 (validated by `src/__tests__/agent-exec-fixtures.test.ts`). Item 5 is a manual/CI gate —
 run `monomind agent test <id>` for two installed runtimes before release.
+
+## 9. Adding a new `AgentRunner`
+
+Every runner ends up wrapping a different vendor CLI or SDK, each with its own idea of whether
+(and how) it can report a turn's text as it's generated rather than only once it's complete. This
+section is the checklist for deciding that honestly and wiring it in consistently — added in rev 5
+after an audit found most runners silently buffered to a step/turn boundary even when their own
+protocol already supported better.
+
+1. **Determine whether the wire format has real per-token/per-chunk deltas.** Check the CLI/SDK's
+   own docs or type definitions first. If those are ambiguous or silent, confirm empirically
+   against the live binary — this codebase's convention (several runner headers already do this)
+   is to note "confirmed live, vX.Y.Z" once checked, so a future reader knows it was actually
+   observed, not assumed. A whole-message wire format (one complete item/event per turn, no delta
+   field anywhere) is a hard limitation — nothing to fix, see step 3.
+2. **If yes — wire it using the decouple-and-diff pattern**, not by trying to unify streaming and
+   the runner's own bookkeeping into one code path:
+   - Keep whatever full/authoritative text the rest of the runner needs (tool-call fence parsing,
+     the final result) completely unchanged, computed exactly as before.
+   - Separately track how much of that text has already been shown to the caller.
+   - On each new chunk, compute what's newly safe to reveal and yield only that increment.
+   - At the turn's true completion, diff the authoritative full text against what's already been
+     shown and yield only the remainder (normally empty — already fully streamed). This is what
+     makes the design self-correcting instead of needing every edge case handled up front: any gap
+     between the fast incremental path and the slow authoritative one resolves itself here.
+   - Reference implementations: `antigravity-runner.ts`'s `computeSafeChunk`/`emitVisible`/
+     `flushText` (needs fence-boundary awareness — a `` ```tool_call `` fence must never appear,
+     complete or partial, in visible text) and `agent-runner.ts`'s `ClaudeAgentRunner` (content-
+     block-index awareness instead of fence-boundary awareness — no fence concern there, since
+     Claude's content blocks are already cleanly delimited).
+   - **Check who else consumes this runner before making it stream unconditionally.**
+     `ClaudeAgentRunner` is also driven by `session.ts` (the org runtime), which expects exactly
+     one `assistant` AgentMessage per turn — it feeds the full text into `StateDetector`'s regex
+     pattern-matching and emits one org chat-bus event per turn. Fragmenting that would corrupt
+     both. If a runner has more than one consumer with different needs, gate the new behavior
+     behind `AgentRunArgs.extras` (already a "provider-specific escape hatch, other runners ignore
+     it") rather than making it the only behavior — `agent-exec.ts` opts in per its own call site;
+     `session.ts` doesn't.
+   - Set `streamsIncrementally: true` in `runner-registry.ts`'s `RunnerSpec`.
+3. **If no — set `streamsIncrementally: false`** and make sure the runner still yields each
+   complete message the instant it lands, with zero added buffering — waiting for a step boundary
+   or the whole turn to finish when the message was already complete earlier is its own bug,
+   independent of whether real streaming is possible (this was true of `qwen-rpc-runner.ts` and
+   `pi-rpc-runner.ts` at rev 5 — see their `RunnerSpec` comments). Callers use the flag to set the
+   user's expectations honestly (§3.2/§6) rather than a live UI implying a turn is stuck when it
+   was never going to show partial output.

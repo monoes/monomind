@@ -135,6 +135,76 @@ export interface AgyStreamEvent {
   conversationId?: string;
 }
 
+// The opening marker TOOL_CALL_RE looks for (see tool-fence.ts:
+// /```tool_call\s*\n([\s\S]*?)```/g). computeSafeChunk matches on this
+// literal substring rather than the full regex (including its \s*\n
+// requirement) — a deliberate simplification: the only cost of being
+// slightly less strict is that literal prose containing "```tool_call" not
+// followed by a real fence body would be held back until the step ends,
+// at which point it flushes as-is (matching TOOL_CALL_RE's own behavior
+// for anything that never forms a complete, well-closed fence). That is
+// an acceptable, self-correcting edge case for something the model is
+// never instructed to write outside the real fence protocol.
+const FENCE_OPEN = '```tool_call';
+
+/**
+ * Fence-boundary-aware incremental streaming cursor. Given the full text
+ * accumulated so far for one in-progress agent_response step and how much
+ * of it (from the start) has already been surfaced as visible text, returns
+ * the additional prefix that is now also safe to surface, plus the new
+ * high-water mark to pass back in on the next call.
+ *
+ * "Safe" means: never any part of an unclosed ```tool_call fence (its
+ * content must never reach the user, complete or not — same as
+ * TOOL_CALL_RE's own stripping), and never a trailing partial match of the
+ * "```tool_call" opening marker itself, which could still complete into a
+ * real fence as more text arrives on the next call. A complete fence found
+ * along the way is skipped in its entirety — scanning resumes right after
+ * its closing ``` — so the fence never appears in the returned chunk.
+ *
+ * Pure and only ever reads forward from flushedUpTo, so calling it once
+ * per accumulated string or once per tiny incremental slice (as real
+ * per-token deltas arrive) converges on the identical assembled output —
+ * exercised directly in this file's own test suite.
+ */
+export function computeSafeChunk(
+  text: string,
+  flushedUpTo: number,
+): { chunk: string; safeEnd: number } {
+  let cursor = flushedUpTo;
+  let visibleStart = flushedUpTo;
+  let chunk = '';
+  for (;;) {
+    const openIdx = text.indexOf(FENCE_OPEN, cursor);
+    if (openIdx === -1) {
+      // No complete opening marker ahead. The tail might still be the
+      // start of one forming — hold back the longest suffix of the
+      // unscanned text that exactly matches a prefix of FENCE_OPEN.
+      const tail = text.slice(cursor);
+      let holdBack = 0;
+      for (let n = Math.min(FENCE_OPEN.length - 1, tail.length); n > 0; n--) {
+        if (FENCE_OPEN.startsWith(tail.slice(-n))) {
+          holdBack = n;
+          break;
+        }
+      }
+      const safeEnd = text.length - holdBack;
+      chunk += text.slice(visibleStart, safeEnd);
+      return { chunk, safeEnd };
+    }
+    // Everything before the opening marker is safe.
+    chunk += text.slice(visibleStart, openIdx);
+    const closeIdx = text.indexOf('```', openIdx + FENCE_OPEN.length);
+    if (closeIdx === -1) {
+      // Opened but not yet closed — nothing from here on is safe yet.
+      return { chunk, safeEnd: openIdx };
+    }
+    // Fully closed — skip the entire fence, keep scanning after it.
+    cursor = closeIdx + 3;
+    visibleStart = cursor;
+  }
+}
+
 interface TurnOutcome {
   conversationId?: string;
   exitCode: number;
@@ -192,14 +262,20 @@ export class AntigravityAgentRunner implements AgentRunner {
             outcome,
           )) {
             if (ev.conversationId) conversationId = ev.conversationId;
-            if (ev.kind === 'assistant' && ev.rawText !== undefined) {
-              rawTexts.push(ev.rawText);
-              // Yield assistant prose AS IT ARRIVES (per agent_response DONE
-              // boundary, not after process exit): an agy turn can run many
-              // minutes, and session.ts's watchdog must see messages DURING
-              // the turn. Note this means partial output may already be
+            if (ev.kind === 'assistant') {
+              // rawText bookkeeping (fence-parsing input) and visible text
+              // are independent: an incremental event carries text with no
+              // rawText (must NOT feed rawTexts — it's a fragment, not the
+              // step's accumulated text), while a flush event carries
+              // rawText and, only if emitVisible hasn't already shown
+              // everything, a final text remainder too. Yield assistant
+              // prose AS IT ARRIVES (per safe increment or step boundary,
+              // not after process exit): an agy turn can run many minutes,
+              // and session.ts's watchdog must see messages DURING the
+              // turn. Note this means partial output may already be
               // yielded when a turn later exits non-zero — preferable to
               // losing it entirely.
+              if (ev.rawText !== undefined) rawTexts.push(ev.rawText);
               if (ev.text) yield { type: 'assistant', session_id: conversationId, text: ev.text };
             } else if (ev.kind === 'tool') {
               // Liveness for agy's own tool activity: session.ts never
@@ -350,39 +426,83 @@ export class AntigravityAgentRunner implements AgentRunner {
 
     let lastConversationId: string | undefined = conversationId;
     // Per-token text_delta fragments are accumulated per agent_response step
-    // and flushed as ONE assistant event at the step's DONE boundary (or at
-    // end of stream if no DONE arrives). Fence stripping needs the complete
-    // text — per-token deltas would split a ```tool_call fence across events.
+    // (pendingText, raw, fences intact) so fence stripping at flush time
+    // always sees the complete text — a per-token delta could split a
+    // ```tool_call fence across events. rawText bookkeeping (what
+    // parseToolCalls sees) is therefore still computed exactly once per
+    // step, at the same DONE/step-change/end-of-stream boundaries as
+    // before. visibleSoFar decouples FROM that: it is the fence-safe
+    // prefix of pendingText already shown to the user (via computeSafeChunk
+    // — see its header for the safety definition), and lets emitVisible()
+    // stream new safe text live, mid-step, instead of waiting for the
+    // step's rawText flush.
     let pendingText = '';
     let pendingStepIndex: number | undefined;
+    let visibleSoFar = '';
     let sawStreamedText = false;
     let resultResponse: string | undefined;
 
-    // Flush the accumulated agent_response text as one assistant event.
-    // Defined as a closure returning the event (or null) so both the DONE
-    // boundary and the end-of-stream path share the exact same logic.
-    const flushText = (): AgyStreamEvent | null => {
-      if (!pendingText) return null;
+    // Stream any NEWLY safe text since the last call, as its own event
+    // (rawText intentionally omitted — this must never feed rawTexts,
+    // which needs one accumulated-per-step string, not fragments).
+    // Recomputes computeSafeChunk(pendingText, 0) from scratch each call
+    // rather than tracking a raw-text cursor: computeSafeChunk's chunk is
+    // provably prefix-stable as pendingText grows (exercised directly by
+    // this file's own "handles a fence delivered across many small
+    // incremental calls" test), so diffing against visibleSoFar is both
+    // correct and — for chat-sized text — cheap enough not to matter.
+    const emitVisible = (): AgyStreamEvent | null => {
+      const { chunk } = computeSafeChunk(pendingText, 0);
+      // Trailing whitespace is held back rather than shown immediately:
+      // it might be interior (more text follows, e.g. the blank line
+      // before a fence) or truly trailing (nothing follows, and old
+      // behavior's whole-text `.trim()` would have dropped it) — which
+      // one it is isn't known until the step ends, so flushText's own
+      // finalStripped diff (also `.trim()`-ed) is what ultimately
+      // resolves it, one way or the other.
+      const trimmed = chunk.replace(/\s+$/, '');
+      if (trimmed.length <= visibleSoFar.length) return null;
+      const increment = trimmed.slice(visibleSoFar.length);
+      visibleSoFar = trimmed;
+      return { kind: 'assistant', text: increment, conversationId: lastConversationId };
+    };
+
+    // Flush the accumulated agent_response text as one assistant event:
+    // rawText is the full accumulated text (fence parsing's input, UNCHANGED
+    // from before incremental streaming existed), text is whatever fence-safe
+    // content hasn't already been streamed by emitVisible (undefined once
+    // emitVisible has already shown everything there is to show). Using the
+    // same TOOL_CALL_RE + trim as the old single-shot design — rather than
+    // computeSafeChunk — for this final reveal is deliberate: an unclosed
+    // fence must still leak through unchanged at true end-of-stream (matching
+    // TOOL_CALL_RE leaving it untouched — computeSafeChunk withholds it
+    // forever, since it can never be told a step is truly over), and
+    // trailing whitespace must still be dropped exactly the way the old
+    // whole-text `.trim()` dropped it.
+    const flushText = (): AgyStreamEvent[] => {
+      if (!pendingText) return [];
       const raw = pendingText;
+      const finalStripped = raw.replace(TOOL_CALL_RE, '').trim();
+      const remainder =
+        finalStripped.length > visibleSoFar.length ? finalStripped.slice(visibleSoFar.length) : undefined;
       pendingText = '';
       pendingStepIndex = undefined;
-      const stripped = raw.replace(TOOL_CALL_RE, '').trim();
-      return {
-        kind: 'assistant',
-        rawText: raw,
-        text: stripped || undefined,
-        conversationId: lastConversationId,
-      };
+      visibleSoFar = '';
+      return [{ kind: 'assistant', rawText: raw, text: remainder, conversationId: lastConversationId }];
     };
 
     // Normalize one parsed wire event: capture the conversation id from ANY
     // event that carries it (resume needs it on the next turn), record result
-    // envelope state, and return the AgyStreamEvent to yield (or null).
+    // envelope state, and return the AgyStreamEvents to yield (zero, one, or
+    // — on a step-index change that both flushes the old step AND streams
+    // the new step's first delta — two).
     // init and other event kinds matter only for the conversation id.
-    const handleEvent = (ev: AgyEvent): AgyStreamEvent | null => {
+    const handleEvent = (ev: AgyEvent): AgyStreamEvent[] => {
       const cid =
         ev.conversation_id ?? ev.step_update?.conversation_id ?? ev.result?.conversation_id;
       if (cid) lastConversationId = cid;
+
+      const events: AgyStreamEvent[] = [];
 
       if (ev.event === 'step_update' && ev.step_update) {
         const step = ev.step_update;
@@ -392,14 +512,20 @@ export class AntigravityAgentRunner implements AgentRunner {
             step.step_index !== undefined &&
             step.step_index !== pendingStepIndex
           ) {
-            // A new response step started — flush the previous one.
-            const flushed = flushText();
-            if (step.step_index !== undefined) pendingStepIndex = step.step_index;
+            // A new response step started — flush the previous one. rawText
+            // bookkeeping timing is UNCHANGED from before incremental
+            // streaming: still exactly one flush for the OLD step here: the
+            // new step's own delta (if any) just joins pendingText for a
+            // LATER event to flush, same as before.
+            events.push(...flushText());
+            pendingStepIndex = step.step_index;
             if (typeof step.text_delta === 'string') {
               sawStreamedText = true;
               pendingText += step.text_delta;
+              const inc = emitVisible();
+              if (inc) events.push(inc);
             }
-            return flushed;
+            return events;
           }
           if (step.step_index !== undefined) pendingStepIndex = step.step_index;
           if (typeof step.text_delta === 'string') {
@@ -414,13 +540,20 @@ export class AntigravityAgentRunner implements AgentRunner {
               pendingText += step.text_delta;
             }
           }
-          if (step.state === 'DONE') return flushText();
+          if (step.state === 'DONE') {
+            events.push(...flushText());
+          } else {
+            const inc = emitVisible();
+            if (inc) events.push(inc);
+          }
+          return events;
         } else if (step.step_type === 'tool' && step.tool_info?.name) {
-          return {
+          events.push({
             kind: 'tool',
             toolName: step.tool_info.name.slice(0, 200),
             conversationId: lastConversationId,
-          };
+          });
+          return events;
         }
       } else if (ev.event === 'result' && ev.result) {
         const result = ev.result;
@@ -433,7 +566,7 @@ export class AntigravityAgentRunner implements AgentRunner {
         }
         if (result.response) resultResponse = result.response;
       }
-      return null;
+      return events;
     };
 
     try {
@@ -458,23 +591,20 @@ export class AntigravityAgentRunner implements AgentRunner {
           } catch {
             continue;
           }
-          const out = handleEvent(ev);
-          if (out) yield out;
+          for (const out of handleEvent(ev)) yield out;
         }
       }
       const tail = buf.trim();
       if (tail?.startsWith('{')) {
         try {
-          const out = handleEvent(JSON.parse(tail) as AgyEvent);
-          if (out) yield out;
+          for (const out of handleEvent(JSON.parse(tail) as AgyEvent)) yield out;
         } catch {
           /* not JSON, skip */
         }
       }
 
       // Flush any trailing text whose DONE boundary never arrived.
-      const flushed = flushText();
-      if (flushed) yield flushed;
+      for (const flushed of flushText()) yield flushed;
 
       // Fallback for agy versions that only return result.response (no
       // streaming): surface it as the turn's assistant text.

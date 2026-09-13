@@ -83,6 +83,17 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+// Reused, not reimplemented: this protocol's `assistant` events are already
+// whole, complete messages (no per-token deltas — see this file's header),
+// but a ```tool_call fence can still legitimately arrive inside one of them,
+// and — per the header's own "NOT verified live" caveat about multi-event
+// native tool-use cycles — nothing here rules out a fence someday spanning
+// two separate assistant events. computeSafeChunk already handles both
+// cases correctly (skips a complete fence entirely, withholds an unclosed
+// one) by scanning the FULL accumulated text each time, not each event's
+// text in isolation, so reuse it exactly as antigravity-runner.ts does
+// rather than re-deriving the same fence-boundary logic here.
+import { computeSafeChunk } from './antigravity-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -340,6 +351,10 @@ export class QwenRpcAgentRunner implements AgentRunner {
             send(nextMessage);
 
             const collectedText: string[] = [];
+            // Fence-safe visible prefix already streamed for this round —
+            // see the computeSafeChunk import comment above. Reset per
+            // round, same cadence as collectedText.
+            let visibleSoFar = '';
             let sawResult = false;
             let resultError: string | undefined;
 
@@ -377,7 +392,27 @@ export class QwenRpcAgentRunner implements AgentRunner {
                 const message = ev.message as QwenRpcMessage | undefined;
                 if (message) {
                   const t = extractQwenRpcText(message);
-                  if (t) collectedText.push(t);
+                  if (t) {
+                    collectedText.push(t);
+                    // Stream this event's fence-safe text NOW rather than
+                    // waiting for `result` to release one combined blob —
+                    // collectedText itself (the fence-parsing input below)
+                    // is untouched by this. Trailing whitespace is held
+                    // back (not counted into visibleSoFar) exactly like
+                    // antigravity-runner.ts's emitVisible: computeSafeChunk
+                    // does no trimming of its own, and whether a trailing
+                    // newline is meaningful (more text follows) or should
+                    // be dropped (the round ends here) isn't known yet —
+                    // the final TOOL_CALL_RE + trim reconciliation below
+                    // resolves it either way.
+                    const { chunk } = computeSafeChunk(collectedText.join('\n'), 0);
+                    const trimmed = chunk.replace(/\s+$/, '');
+                    if (trimmed.length > visibleSoFar.length) {
+                      const increment = trimmed.slice(visibleSoFar.length);
+                      visibleSoFar = trimmed;
+                      yield { type: 'assistant', session_id: sessionId, text: increment };
+                    }
+                  }
                 }
                 continue;
               }
@@ -411,8 +446,17 @@ export class QwenRpcAgentRunner implements AgentRunner {
             if (!sawResult) break; // process closed before result — nothing to extract this round
 
             const rawText = collectedText.join('\n');
-            const visibleText = rawText.replace(TOOL_CALL_RE, '').trim();
-            if (visibleText) yield { type: 'assistant', session_id: sessionId, text: visibleText };
+            // Reveal only whatever the incremental stream above hasn't
+            // already shown (normally nothing — see antigravity-runner.ts's
+            // flushText for why TOOL_CALL_RE + trim, not computeSafeChunk,
+            // is correct for this final reconciliation: an unclosed fence
+            // must still leak through unchanged here, matching TOOL_CALL_RE
+            // leaving it untouched, since computeSafeChunk itself withholds
+            // it forever with no way to know the round is truly over).
+            const finalStripped = rawText.replace(TOOL_CALL_RE, '').trim();
+            const remainder =
+              finalStripped.length > visibleSoFar.length ? finalStripped.slice(visibleSoFar.length) : undefined;
+            if (remainder) yield { type: 'assistant', session_id: sessionId, text: remainder };
 
             const malformed: string[] = [];
             const calls = parseToolCalls([rawText], (raw, err) =>

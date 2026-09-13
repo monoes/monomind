@@ -127,7 +127,7 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     expect(result?.output_tokens).toBe(5);
   });
 
-  it('consolidates text from multiple assistant events before a single result (native tool-use cycle)', async () => {
+  it('streams each assistant event as its own incremental message instead of buffering to a single result-triggered blob (native tool-use cycle)', async () => {
     const proc = fakeProcess();
     const runner = new QwenRpcAgentRunner('qwen', () => proc);
     const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
@@ -139,8 +139,13 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     proc.emitClose(0);
 
     const messages = await resultsPromise;
+    // Whole-message-per-event is this protocol's own granularity (confirmed
+    // live, see this file's header) — but each COMPLETE event must ship the
+    // instant it lands rather than waiting for `result` to release one
+    // combined blob. Same '\n' join as before, just delivered incrementally.
     const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
-    expect(assistant).toEqual(['working on it\ndone now']);
+    expect(assistant).toEqual(['working on it', '\ndone now']);
+    expect(assistant.join('')).toBe('working on it\ndone now');
   });
 
   it('extracts an org tool_call fence, executes it, and continues the same session', async () => {

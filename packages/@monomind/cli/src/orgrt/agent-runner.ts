@@ -152,6 +152,23 @@ export class ClaudeAgentRunner implements AgentRunner {
       kill: () => abortController.abort(),
     });
 
+    // Incremental text streaming is opt-in via extras, not unconditional:
+    // this runner has two independent consumers. agent-exec.ts (the Agent
+    // Exec Protocol) wants incremental `assistant` messages — its own
+    // protocol doc already documents the `assistant` frame as "Incremental
+    // assistant text ... callers append" (doc/agent-exec-protocol.md §3.2)
+    // — and sets this. session.ts (the org runtime) treats each
+    // `assistant` AgentMessage as ONE COMPLETE TURN: it feeds the full text
+    // into StateDetector's regex pattern-matching and emits ONE org
+    // chat-bus event per turn (`bus.emit({type:'chat', ..., msg: text})`).
+    // Streaming there unconditionally would fragment the chat log into
+    // per-token pieces and pattern-match against incomplete prose.
+    // session.ts never sets this (verified: its only `extras` use is the
+    // `_orgTest` test seam, and only when no real runner is configured) —
+    // so leaving this opt-in, rather than always-on, keeps the org runtime
+    // byte-for-byte unchanged.
+    const streamPartials = args.extras?.includePartialMessages === true;
+
     const stream = this.queryFn({
       prompt: args.prompt,
       options: {
@@ -197,14 +214,75 @@ export class ClaudeAgentRunner implements AgentRunner {
       } as any,
     });
 
+    // Per-turn incremental-streaming state (only meaningfully used when
+    // streamPartials — see above). blockTexts accumulates each text
+    // content-block's own text by index; visibleSoFar is the fence-free
+    // equivalent of antigravity-runner.ts's own visibleSoFar: the fully
+    // assembled, already-yielded prefix, recomputed and diffed against on
+    // every delta so the incremental and complete-message reconstructions
+    // (both index-sorted-join-with-'\n') always agree — see
+    // antigravity-runner.ts's computeSafeChunk/emitVisible/flushText for
+    // the sibling pattern this mirrors (no fence-safety concern here,
+    // since Claude's content blocks are already cleanly delimited by
+    // index rather than needing to be scanned out of raw text).
+    let blockTexts = new Map<number, string>();
+    let visibleSoFar = '';
+
+    const assembleVisible = (): string =>
+      [...blockTexts.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, t]) => t)
+        .join('\n');
+
     try {
       for await (const m of stream as AsyncIterable<any>) {
         const session_id = m.session_id;
-        if (m.type === 'assistant') {
-          const text = (m.message?.content ?? [])
+        if (streamPartials && m.type === 'stream_event') {
+          const event = m.event;
+          if (event?.type === 'message_start') {
+            // Defends against a turn that errors/aborts without ever
+            // reaching the 'assistant' branch below (which normally does
+            // this reset) — without it, leftover block text from an
+            // incomplete turn would contaminate the next turn's indices.
+            blockTexts = new Map();
+            visibleSoFar = '';
+          } else if (event?.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+            const idx = event.index ?? 0;
+            const deltaText = event.delta.text ?? '';
+            if (deltaText) {
+              blockTexts.set(idx, (blockTexts.get(idx) ?? '') + deltaText);
+              const assembled = assembleVisible();
+              if (assembled.length > visibleSoFar.length) {
+                const increment = assembled.slice(visibleSoFar.length);
+                visibleSoFar = assembled;
+                yield { type: 'assistant', session_id, text: increment };
+              }
+            }
+          }
+          // Other stream_event subtypes (content_block_start/stop,
+          // message_delta/stop, and non-text deltas like input_json_delta
+          // for tool-call args or thinking_delta) carry no additional
+          // visible-text signal — ignored, matching how they were never
+          // surfaced in the pre-streaming design either (the complete
+          // message's own content array, filtered to text blocks, was
+          // always the sole source of visible text).
+        } else if (m.type === 'assistant') {
+          const fullText = (m.message?.content ?? [])
             .filter((b: any) => b.type === 'text')
             .map((b: any) => b.text)
             .join('\n');
+          // Without streamPartials, `text` is always the complete fullText
+          // (including '' for a text-less, e.g. tool-use-only, turn) —
+          // byte-for-byte the prior behavior session.ts depends on. With
+          // it, this yields only whatever safe increment hasn't already
+          // been streamed above (normally undefined — already fully shown).
+          const text = streamPartials
+            ? fullText.length > visibleSoFar.length
+              ? fullText.slice(visibleSoFar.length)
+              : undefined
+            : fullText;
+          blockTexts = new Map();
+          visibleSoFar = '';
           yield {
             type: 'assistant',
             session_id,

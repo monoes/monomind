@@ -19,7 +19,98 @@ import * as cp from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { AntigravityAgentRunner } from '../orgrt/antigravity-runner.js';
+import { AntigravityAgentRunner, computeSafeChunk } from '../orgrt/antigravity-runner.js';
+
+/**
+ * computeSafeChunk is the fence-boundary-aware cursor behind incremental
+ * streaming: given the full text accumulated so far for one agent_response
+ * step and how much of it has already been shown, it returns how much MORE
+ * is now safe to show — never inside an unclosed ```tool_call fence, and
+ * never ending on a partial match of the "```tool_call" opening marker
+ * (which could still turn into a real fence as more text arrives next).
+ */
+describe('computeSafeChunk', () => {
+  it('treats plain text with no backticks at all as fully safe', () => {
+    const { chunk, safeEnd } = computeSafeChunk('hello world', 0);
+    expect(chunk).toBe('hello world');
+    expect(safeEnd).toBe(11);
+  });
+
+  it('returns nothing new when called again at the same position', () => {
+    const text = 'hello world';
+    const { chunk, safeEnd } = computeSafeChunk(text, text.length);
+    expect(chunk).toBe('');
+    expect(safeEnd).toBe(text.length);
+  });
+
+  it('only returns the NEW portion since flushedUpTo, not the whole text again', () => {
+    const { chunk, safeEnd } = computeSafeChunk('hello world', 6);
+    expect(chunk).toBe('world');
+    expect(safeEnd).toBe(11);
+  });
+
+  it('holds back a trailing partial prefix of the fence marker', () => {
+    // "``" could still become "```tool_call" once more text arrives.
+    const { chunk, safeEnd } = computeSafeChunk('hello ``', 0);
+    expect(chunk).toBe('hello ');
+    expect(safeEnd).toBe(6);
+  });
+
+  it('holds back progressively longer partial prefixes as the marker builds up', () => {
+    expect(computeSafeChunk('x```', 0)).toEqual({ chunk: 'x', safeEnd: 1 });
+    expect(computeSafeChunk('x```t', 0)).toEqual({ chunk: 'x', safeEnd: 1 });
+    expect(computeSafeChunk('x```tool_ca', 0)).toEqual({ chunk: 'x', safeEnd: 1 });
+  });
+
+  it('releases held-back text the moment it can no longer become the marker', () => {
+    // "```py" diverges from "```tool_call" at the 4th character (p vs t) —
+    // it can never become a tool_call fence, so nothing needs holding back
+    // (a legitimate ```python code fence must stream normally).
+    const { chunk, safeEnd } = computeSafeChunk('```python', 0);
+    expect(chunk).toBe('```python');
+    expect(safeEnd).toBe(9);
+  });
+
+  it('does not surface any text inside a fence that opened but has not closed yet', () => {
+    const text = 'Sending.\n```tool_call\n{"name":"x"}';
+    const { chunk, safeEnd } = computeSafeChunk(text, 0);
+    expect(chunk).toBe('Sending.\n');
+    expect(safeEnd).toBe('Sending.\n'.length);
+  });
+
+  it('skips a complete fence entirely and resumes safety scanning right after its closing fence', () => {
+    // One newline before the fence, one after its closing ``` — both are
+    // real text either side of the excised fence and are preserved as-is;
+    // computeSafeChunk does no trimming of its own.
+    const text = 'Sending.\n```tool_call\n{"name":"x"}\n```\nDone.';
+    const { chunk, safeEnd } = computeSafeChunk(text, 0);
+    expect(chunk).toBe('Sending.\n\nDone.');
+    expect(chunk).not.toContain('tool_call');
+    expect(safeEnd).toBe(text.length);
+  });
+
+  it('handles a fence delivered across many small incremental calls the same as one big call', () => {
+    const full = 'Before.\n```tool_call\n{"a":1}\n```\nAfter.';
+    // Feed it one character at a time, exactly like real per-token deltas.
+    let flushedUpTo = 0;
+    let assembled = '';
+    for (let i = 1; i <= full.length; i++) {
+      const { chunk, safeEnd } = computeSafeChunk(full.slice(0, i), flushedUpTo);
+      assembled += chunk;
+      flushedUpTo = safeEnd;
+    }
+    expect(assembled).toBe('Before.\n\nAfter.');
+    // Must match a single non-incremental call over the complete text too.
+    expect(assembled).toBe(computeSafeChunk(full, 0).chunk);
+  });
+
+  it('a fence that never closes leaves everything from its opening withheld (final flush handles it, matching TOOL_CALL_RE leaving an unclosed fence untouched)', () => {
+    const text = 'Before.\n```tool_call\n{"a":1}';
+    const { chunk, safeEnd } = computeSafeChunk(text, 0);
+    expect(chunk).toBe('Before.\n');
+    expect(safeEnd).toBe('Before.\n'.length);
+  });
+});
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -126,7 +217,7 @@ describe('AntigravityAgentRunner', () => {
     expect(resultMsg.session_id).toBe('test-conv-123');
   });
 
-  it('accumulates agent_response text_delta into one message', async () => {
+  it('streams each fence-safe agent_response text_delta as its own incremental message instead of buffering to DONE', async () => {
     vi.mocked(cp.spawn).mockReturnValue(
       makeMockChild([
         JSON.stringify({ event: 'init', conversation_id: 'c1', init: {} }),
@@ -177,13 +268,15 @@ describe('AntigravityAgentRunner', () => {
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    // agy streams per-token; the runner accumulates deltas per agent_response
-    // step and emits one clean message at the step's DONE boundary (fence
-    // stripping needs the full text — per-token deltas would split fences
-    // across events).
+    // agy streams per-token; this is the whole point of computeSafeChunk —
+    // each delta reaches the caller as soon as it arrives (real-time
+    // streaming), not buffered until the step's DONE boundary. Fence safety
+    // is what still needs the full accumulated text, and that is what
+    // computeSafeChunk's own withholding logic (tested separately above)
+    // exists to preserve incrementally rather than by buffering everything.
     const assistantMsgs = messages.filter((m) => m.type === 'assistant');
-    expect(assistantMsgs).toHaveLength(1);
-    expect(assistantMsgs[0].text).toBe('Hello world');
+    expect(assistantMsgs.map((m) => m.text)).toEqual(['Hello', ' world']);
+    expect(assistantMsgs.map((m) => m.text).join('')).toBe('Hello world');
   });
 
   it('extracts usage from result event', async () => {
@@ -633,8 +726,12 @@ describe('AntigravityAgentRunner streaming', () => {
     const messages: any[] = [];
     for await (const m of runner.run(makeRunArgs())) messages.push(m);
 
+    // 'Hello' and ' world' each stream as their own increment (as soon as
+    // their ACTIVE delta arrives); the DONE step's repeat of the full text
+    // must not add a THIRD, duplicate message on top of those two.
     const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
-    expect(texts).toEqual(['Hello world']);
+    expect(texts).toEqual(['Hello', ' world']);
+    expect(texts.join('')).toBe('Hello world');
   });
 
   it('fence protocol: executes tool_call fences and feeds results back into the SAME conversation', async () => {

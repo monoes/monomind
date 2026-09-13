@@ -96,12 +96,25 @@ describe('agent exec: success', () => {
     expect(byType(h, 'done')[0]).toMatchObject({ exit_code: 0 });
   });
 
-  it('carries runtime/model/cwd/pid on start', async () => {
+  it('carries runtime/model/cwd/pid/streams_incrementally on start', async () => {
     const h = makeHarness({ model: 'test-model' });
     await run(h, scriptedRunner([{ type: 'result', subtype: 'success' }]));
     const start = byType(h, 'start')[0];
-    expect(start).toMatchObject({ v: 1, runtime: 'claude', model: 'test-model', pid: process.pid });
+    expect(start).toMatchObject({
+      v: 1,
+      runtime: 'claude',
+      model: 'test-model',
+      pid: process.pid,
+      streams_incrementally: true,
+    });
     expect(typeof start.cwd).toBe('string');
+  });
+
+  it('start.streams_incrementally is false for a runtime whose runner has no incremental yields', async () => {
+    const h = makeHarness({ runtime: 'codex' });
+    await run(h, scriptedRunner([{ type: 'result', subtype: 'success' }]));
+    const start = byType(h, 'start')[0];
+    expect(start.streams_incrementally).toBe(false);
   });
 
   it('emits result.text when the runner provides one', async () => {

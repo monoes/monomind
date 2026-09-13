@@ -399,6 +399,12 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
     cwd: opts.cwd ?? process.cwd(),
     ...(opts.resume ? { resume: opts.resume } : {}),
     pid: process.pid,
+    // rev 5: lets a caller (e.g. a chat UI) set the user's expectations
+    // honestly BEFORE assuming a quiet turn is stuck — see runner-registry.ts's
+    // RunnerSpec.streamsIncrementally doc comment and doc/agent-exec-protocol.md
+    // §3.2/§9. Absent runtime (shouldn't happen — resolveExecRunner already
+    // failed above for an unknown id) defaults to false, the safe assumption.
+    streams_incrementally: runnerSpec(opts.runtime)?.streamsIncrementally ?? false,
   });
 
   // Abort hook for the runner (AgentRunArgs.signal): return() alone queues
@@ -570,6 +576,13 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
         resume: opts.resume,
         canUseTool,
         signal: abort.signal,
+        // Opts ClaudeAgentRunner into per-token incremental `assistant`
+        // yields (agent-runner.ts's `streamPartials`) — this protocol's own
+        // `assistant` frame is documented as incremental (§3.2), unlike
+        // session.ts's org-runtime usage, which needs one complete message
+        // per turn and never sets this. Every other runner ignores
+        // unrecognized `extras` keys (AgentRunArgs.extras's own contract).
+        extras: { includePartialMessages: true },
       }) as AsyncGenerator<AgentMessage>;
 
       for await (const m of stream) {
