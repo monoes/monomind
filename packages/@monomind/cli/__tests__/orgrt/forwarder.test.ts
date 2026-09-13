@@ -8,6 +8,24 @@ import { OrgBus } from '../../src/orgrt/bus.js';
 import { attachForwarder, translate, companionEvents } from '../../src/orgrt/forwarder.js';
 import type { BusEvent } from '../../src/orgrt/types.js';
 
+/**
+ * `done.settle()` resolves once the forwarder's fire-and-forget POST chain
+ * finishes — including when a request timed out and was silently swallowed
+ * (attachForwarder is deliberately best-effort: a slow/dead dashboard must
+ * never block or crash the org, see forwarder.ts's `post()`). Under heavy
+ * parallel test-suite load the in-process HTTP round trip can occasionally
+ * take longer than usual without ever truly failing, so poll briefly for
+ * delivery instead of trusting settle() alone to mean "arrived." A genuine
+ * non-delivery still fails the assertion that follows — this only adds
+ * tolerance for slowness, not for an event that never arrives.
+ */
+async function waitForReceived(received: unknown[], minLength: number): Promise<void> {
+  const deadline = Date.now() + 2000;
+  while (received.length < minLength && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
 describe('attachForwarder', () => {
   let server: http.Server;
   afterEach(() => server?.close());
@@ -31,6 +49,7 @@ describe('attachForwarder', () => {
     const done = attachForwarder(bus, join(root, 'control.json'));
     bus.emit({ type: 'message', from: 'boss', to: 'coder', msg: 'go', subject: 's' });
     await done.settle();
+    await waitForReceived(received, 1);
 
     expect(received).toHaveLength(1);
     expect(received[0].url).toBe('/api/mastermind/event');
@@ -91,6 +110,7 @@ describe('attachForwarder', () => {
     const done = attachForwarder(bus, join(root, 'control.json'));
     bus.emit({ type: 'status', msg: 'org started (1 agents)', data: { goal: 'ship it' } });
     await done.settle();
+    await waitForReceived(received, 2);
     server.close();
 
     expect(received.map(r => r.type)).toEqual(['session:start', 'org:start']);
@@ -134,6 +154,7 @@ describe('attachForwarder', () => {
     const done = attachForwarder(bus, join(root, 'control.json'));
     bus.emit({ type: 'chat', from: 'boss', msg: 'hi' });
     await done.settle();
+    await waitForReceived(received, 1);
 
     expect(received).toHaveLength(1);
     expect(received[0].authHeader).toBe(fixtureAuthValue);

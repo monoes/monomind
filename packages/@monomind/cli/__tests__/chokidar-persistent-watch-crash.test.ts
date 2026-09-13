@@ -108,7 +108,25 @@ describe('chokidar orgs watcher — #222 fs.watch-failure crash', () => {
 
     // Same options shape as server.mjs's PRE-FIX call:
     // chokidar.watch(_orgsDir, { persistent: false, ... }).
-    watcher = new FSWatcher({ persistent: false, ignoreInitial: true, depth: 3 });
+    // useFsEvents: false forces chokidar's generic nodefs handler (the one
+    // with the bug from issue #222) on every platform, including macOS,
+    // where FSWatcher otherwise defaults to its native fsevents handler
+    // (_fsEventsHandler) and _nodeFsHandler is never created at all.
+    // usePolling: false is also required on macOS specifically: chokidar's
+    // own option resolution (index.js) sets `usePolling = isMacos` whenever
+    // useFsEvents is disabled and usePolling wasn't explicitly given, since
+    // raw fs.watch() is considered even less reliable than polling on Mac.
+    // Left at its macOS default, _watchWithNodeFs takes the fs.watchFile
+    // polling branch instead of the setFsWatchListener/fs.watch branch this
+    // test exists to exercise, so the mocked fs.watch() failure below is
+    // silently never reached.
+    watcher = new FSWatcher({
+      persistent: false,
+      ignoreInitial: true,
+      depth: 3,
+      useFsEvents: false,
+      usePolling: false,
+    });
     watcher.on('error', () => {}); // an 'error' listener (like watchSafely) can't help — this throw never reaches it.
 
     // The exact internal entry point named in the issue's stack trace:
@@ -128,7 +146,14 @@ describe('chokidar orgs watcher — #222 fs.watch-failure crash', () => {
     watchSpy = makeWatchFailFor(fixture.dir);
 
     // Same options shape as server.mjs's CURRENT call: no `persistent: false`.
-    watcher = new FSWatcher({ ignoreInitial: true, depth: 3 });
+    // useFsEvents/usePolling: false again force the nodefs handler's raw
+    // fs.watch() branch — see comment above.
+    watcher = new FSWatcher({
+      ignoreInitial: true,
+      depth: 3,
+      useFsEvents: false,
+      usePolling: false,
+    });
     watcher.on('error', () => {});
 
     expect(() => {

@@ -247,8 +247,11 @@ describe('org xdeliver server', () => {
       // If we get a response, it should be 400
       expect(oversized.status).toBe(400);
     } catch (err: any) {
-      // Connection reset is acceptable - server closed connection to reject oversized payload
-      expect(err.cause?.code).toBe('ECONNRESET');
+      // Connection reset is acceptable - server closed connection to reject oversized payload.
+      // Which errno the client observes is a timing race, not a behavioral difference: ECONNRESET
+      // if the reset lands while reading the response, EPIPE if it lands while still writing the
+      // body (more likely under system load, since writing 1MB+ takes longer).
+      expect(['ECONNRESET', 'EPIPE']).toContain(err.cause?.code);
     }
 
     await daemon.stopAll();
