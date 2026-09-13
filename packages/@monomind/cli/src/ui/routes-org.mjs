@@ -3,6 +3,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { getMmClientCount } from './sse-manager.mjs';
+// forwarder.js is compiled from orgrt/forwarder.ts (dist/src/orgrt/forwarder.js
+// sits alongside this file's own compiled dist/src/ui/routes-org.mjs after
+// build; under vitest the .js specifier resolves straight to the .ts source,
+// same as every other cross-reference in this codebase). translate()/
+// companionEvents() are pure — no filesystem or process side effects — so
+// importing them here doesn't pull in attachForwarder's spawn/heal logic.
+import { translate, companionEvents } from '../orgrt/forwarder.js';
 
 export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   // ------------------------------------------------- Org management
@@ -2787,9 +2794,70 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           return null;
         }
       };
+      // Org Runtime v2 (#238): each run's raw BusEvents live under a
+      // per-run directory named for the run itself — orgs/<org>/<runId>/bus.jsonl
+      // — never the flat orgs/<org>/runs/<runId>.jsonl layout _parseRun above
+      // expects. Translate through the same translate()/companionEvents()
+      // forwarder.ts uses for the live view, so historical and live event
+      // shapes always match.
+      const _parseV2RunDir = (orgDir, runId) => {
+        try {
+          const busFile = path.join(orgDir, runId, 'bus.jsonl');
+          if (!fs.existsSync(busFile)) return null;
+          const raw = fs
+            .readFileSync(busFile, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
+          if (!raw.length) return null;
+          const translated = raw.flatMap((e) => [...companionEvents(e), translate(e)]);
+          const done = translated.find(
+            (e) => e.type === 'session:complete' || e.type === 'org:complete',
+          );
+          const start = translated.find((e) => e.type === 'org:start');
+          const firstComms = translated.find((e) => e.type === 'org:comms' && e.msg);
+          return {
+            runId,
+            startedAt: raw[0]?.ts || 0,
+            endedAt: done?.ts || 0,
+            status: done ? 'complete' : 'running',
+            eventCount: raw.length,
+            cycleCount: translated.filter((e) => e.type === 'org:checkpoint').length,
+            goal: start?.goal || firstComms?.msg?.slice(0, 80) || '',
+            bossRole: '',
+          };
+        } catch (_) {
+          return null;
+        }
+      };
       for (const _rpd of _rProjDirs) {
         // Check both .monomind and .git/monomind locations
         const _rMonoDir = ctx._getGitMonomindDir(_rpd) || path.join(_rpd, '.monomind');
+        const _rOrgDirs = [path.join(_rMonoDir, 'orgs', _rOrgName)];
+        if (_rMonoDir !== path.join(_rpd, '.monomind'))
+          _rOrgDirs.push(path.join(_rpd, '.monomind', 'orgs', _rOrgName));
+        for (const _rOrgDir of _rOrgDirs) {
+          if (!fs.existsSync(_rOrgDir)) continue;
+          const runDirs = fs
+            .readdirSync(_rOrgDir)
+            .filter((d) => d.startsWith('run-') && fs.statSync(path.join(_rOrgDir, d)).isDirectory())
+            .sort()
+            .reverse();
+          for (const runId of runDirs.slice(0, 50)) {
+            if (_rSeenFiles.has(runId)) continue;
+            const r = _parseV2RunDir(_rOrgDir, runId);
+            if (!r) continue;
+            _rSeenFiles.add(runId);
+            runs.push(r);
+          }
+        }
         const _rSearchDirs = [path.join(_rMonoDir, 'orgs', _rOrgName, 'runs')];
         if (_rMonoDir !== path.join(_rpd, '.monomind'))
           _rSearchDirs.push(path.join(_rpd, '.monomind', 'orgs', _rOrgName, 'runs'));
@@ -2949,6 +3017,43 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
             fs.readFileSync(path.join(_rvServerRoot, 'data', 'known-projects.json'), 'utf8'),
           ).forEach((p) => _rvProjDirs.add(p));
         } catch (_) {}
+      }
+      // Org Runtime v2 (#238): try the per-run-directory bus.jsonl layout
+      // first — orgs/<org>/<runId>/bus.jsonl — translated to the same
+      // dashboard vocabulary the live view gets from forwarder.ts, before
+      // falling back to the v1 flat orgs/<org>/runs/<runId>.jsonl lookup
+      // below (v1 files are already stored pre-translated).
+      for (const _rvpd of _rvProjDirs) {
+        const _rvMonoDir = ctx._getGitMonomindDir(_rvpd) || path.join(_rvpd, '.monomind');
+        const _v2Candidates = [path.join(_rvMonoDir, 'orgs', _rvOrgName, _rvRunId, 'bus.jsonl')];
+        if (_rvMonoDir !== path.join(_rvpd, '.monomind'))
+          _v2Candidates.push(
+            path.join(_rvpd, '.monomind', 'orgs', _rvOrgName, _rvRunId, 'bus.jsonl'),
+          );
+        for (const _v2File of _v2Candidates) {
+          if (!fs.existsSync(_v2File)) continue;
+          const raw = fs
+            .readFileSync(_v2File, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
+          const events = raw.flatMap((e) => [...companionEvents(e), translate(e)]);
+          events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+            'Cache-Control': 'no-cache',
+          });
+          res.end(JSON.stringify(events));
+          return true;
+        }
       }
       let _rvFile = null;
       for (const _rvpd of _rvProjDirs) {
@@ -3452,11 +3557,39 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       }
       const runId = ctx.activeOrgRuns.get(orgName);
       const monoDir = ctx._getGitMonomindDir(root) || path.join(root, '.monomind');
-      // Try active run first, then fall back to most recent run file
+      // Try active run first, then fall back to most recent run file.
+      // Org Runtime v2 (#238): the active run's own events live under
+      // orgs/<org>/<runId>/bus.jsonl, never the v1 flat orgs/<org>/runs/
+      // layout — check that shape (and translate it) before the v1 lookup.
       let runFile = null;
+      let isV2 = false;
       if (runId) {
-        const candidate = path.join(monoDir, 'orgs', orgName, 'runs', `${runId}.jsonl`);
-        if (fs.existsSync(candidate)) runFile = candidate;
+        const v2Candidate = path.join(monoDir, 'orgs', orgName, runId, 'bus.jsonl');
+        if (fs.existsSync(v2Candidate)) {
+          runFile = v2Candidate;
+          isV2 = true;
+        } else {
+          const candidate = path.join(monoDir, 'orgs', orgName, 'runs', `${runId}.jsonl`);
+          if (fs.existsSync(candidate)) runFile = candidate;
+        }
+      }
+      if (!runFile) {
+        const orgDir = path.join(monoDir, 'orgs', orgName);
+        const runDirs = fs.existsSync(orgDir)
+          ? fs
+              .readdirSync(orgDir)
+              .filter(
+                (d) =>
+                  d.startsWith('run-') &&
+                  fs.existsSync(path.join(orgDir, d, 'bus.jsonl')),
+              )
+              .sort()
+              .reverse()
+          : [];
+        if (runDirs.length) {
+          runFile = path.join(orgDir, runDirs[0], 'bus.jsonl');
+          isV2 = true;
+        }
       }
       if (!runFile) {
         const runsDir = path.join(monoDir, 'orgs', orgName, 'runs');
@@ -3475,13 +3608,13 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
         res.end('{"events":[],"runId":null}');
         return true;
       }
-      const detectedRunId = path.basename(runFile, '.jsonl');
+      const detectedRunId = isV2 ? path.basename(path.dirname(runFile)) : path.basename(runFile, '.jsonl');
       const lines = fs
         .readFileSync(runFile, 'utf8')
         .split('\n')
         .filter((l) => l.trim())
         .slice(-100);
-      const events = lines
+      const rawEvents = lines
         .map((l) => {
           try {
             return JSON.parse(l);
@@ -3490,6 +3623,11 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           }
         })
         .filter(Boolean);
+      // v1's stored events are already dashboard-native; v2's raw BusEvents
+      // need the same translate()/companionEvents() pass the live view gets.
+      const events = isV2
+        ? rawEvents.flatMap((e) => [...companionEvents(e), translate(e)])
+        : rawEvents;
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
