@@ -142,7 +142,25 @@ export function generateSettings(options: InitOptions): object {
 }
 
 /**
- * Build a hook command with reliable $CLAUDE_PROJECT_DIR expansion.
+ * POSIX shell snippet assigning the real project directory to $p.
+ *
+ * $CLAUDE_PROJECT_DIR can come up empty (observed in a live session after an
+ * EnterWorktree/ExitWorktree cycle) or stale/wrong — blindly trusting it (or
+ * blindly falling back to a bare `.`) breaks every hook with a cryptic Node
+ * MODULE_NOT_FOUND before the script even starts, on every tool call. This
+ * validates the env var against the actual helpers directory, falls back to
+ * $PWD (same validation), and — since a hook can fire with cwd inside a
+ * subdirectory of the project — walks up parent directories (the same way
+ * git looks for `.git`) until `.claude/helpers` is found or the filesystem
+ * root is hit. `dirname` shortens the path monotonically, so this always
+ * terminates in at most a few iterations; it never loops.
+ */
+const RESOLVE_PROJECT_DIR_ASSIGN =
+  'p="$CLAUDE_PROJECT_DIR"; [ -d "$p/.claude/helpers" ] || p="$PWD"; ' +
+  'while [ ! -d "$p/.claude/helpers" ] && [ "$p" != "/" ]; do p=$(dirname "$p"); done;';
+
+/**
+ * Build a hook command with reliable project-directory resolution.
  *
  * Uses portable `node` (resolved from PATH at runtime) instead of baking
  * the absolute `process.execPath` from the machine that ran `monomind init`.
@@ -154,9 +172,7 @@ export function generateSettings(options: InitOptions): object {
  * on PATH for nvm/fnm/volta-managed installs that load via shell profile.
  */
 function hookCmd(script: string, subcommand: string): string {
-  // eslint-disable-next-line no-template-curly-in-string
-  const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `sh -c 'exec node "${dir}/${script}" ${subcommand}'`;
+  return `sh -c '${RESOLVE_PROJECT_DIR_ASSIGN} exec node "$p/${script}" ${subcommand}'`;
 }
 
 /** Shorthand for CJS hook-handler commands */
@@ -171,17 +187,15 @@ function autoMemoryCmd(subcommand: string): string {
 
 /** Shorthand for capture-handler (agent telemetry for org dashboard) */
 function captureHandlerCmd(subcommand: string): string {
-  // capture-handler reads stdin directly — no sh -c wrapper
-  // eslint-disable-next-line no-template-curly-in-string
-  const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
+  // capture-handler reads stdin directly — no sh -c/exec wrapper, so the
+  // directory is resolved in a nested subshell instead of the outer
+  // invocation, keeping `node` itself as the one and only process.
+  return `node "$(${RESOLVE_PROJECT_DIR_ASSIGN} echo "$p")/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
 }
 
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script: string): string {
-  // eslint-disable-next-line no-template-curly-in-string
-  const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `sh -c 'exec node "${dir}/.claude/helpers/${script}"'`;
+  return `sh -c '${RESOLVE_PROJECT_DIR_ASSIGN} exec node "$p/.claude/helpers/${script}"'`;
 }
 
 /**
@@ -192,11 +206,9 @@ function generateStatusLineConfig(_options: InitOptions): object {
   // Claude Code pipes JSON session data to the script via stdin.
   // Valid fields: type, command, padding (optional).
   // The script runs after each assistant message (debounced 300ms).
-  // eslint-disable-next-line no-template-curly-in-string
-  const dir = '${CLAUDE_PROJECT_DIR:-.}';
   return {
     type: 'command',
-    command: `sh -c 'exec node "${dir}/.claude/helpers/statusline.cjs"'`,
+    command: `sh -c '${RESOLVE_PROJECT_DIR_ASSIGN} exec node "$p/.claude/helpers/statusline.cjs"'`,
   };
 }
 
