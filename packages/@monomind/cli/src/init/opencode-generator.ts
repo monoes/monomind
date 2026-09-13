@@ -156,6 +156,36 @@ function slugifyName(name: string): string {
   return s || 'agent';
 }
 
+/** Default category write-opencode.ts assigns to any source command that
+ *  sits directly in `.claude/commands/` with no subdirectory. */
+const DEFAULT_CATEGORY = 'monomind';
+
+/**
+ * Join a category and base name into a slug without re-stacking the default
+ * 'monomind' prefix onto a name that already carries it. Same fix as
+ * kimi-generator.ts's namespacedSlug — see its doc comment for the full root
+ * cause: `category` defaults to 'monomind' for any source command sitting
+ * flat in `.claude/commands/`, and re-running `--force` init against a
+ * project whose `.claude/commands/` already contains a flat,
+ * previously-namespaced file stacked another "monomind-" on top every
+ * single run.
+ *
+ * Only guards the DEFAULT_CATEGORY case — a real, non-default category (e.g.
+ * 'github') is left alone even when `base` happens to start with that same
+ * word, since that's a legitimate nested-command name, not the confirmed bug.
+ */
+function namespacedSlug(category: string, base: string): string {
+  const slugCategory = slugifyName(category);
+  const slugBase = slugifyName(base);
+  if (
+    slugCategory === DEFAULT_CATEGORY &&
+    (slugBase === slugCategory || slugBase.startsWith(`${slugCategory}-`))
+  ) {
+    return slugBase;
+  }
+  return slugifyName(`${category}-${base}`);
+}
+
 function getFmScalar(fm: string, key: string): string | null {
   const m = fm.match(new RegExp(`^${key}\\s*:\\s*(.+?)\\s*$`, 'm'));
   return m ? m[1].replace(/^["']|["']$/g, '') : null;
@@ -218,7 +248,7 @@ export function convertCommandMd(src: string, category: string, fallbackName: st
 /** Namespace-prefixed command filename: "mastermind-build.md". */
 export function opencodeCommandFilename(category: string, file: string): string {
   const base = file.replace(/\.md$/i, '');
-  return `${category}-${base}.md`;
+  return `${namespacedSlug(category, base)}.md`;
 }
 
 /**

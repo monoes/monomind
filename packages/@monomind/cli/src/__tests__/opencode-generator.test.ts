@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convertAgentMd } from '../init/opencode-generator.js';
+import { convertAgentMd, opencodeCommandFilename } from '../init/opencode-generator.js';
 
 describe('convertAgentMd (regression: mode: inserted inside a block-literal description)', () => {
   it('does not insert mode: between "description: |" and its indented content', () => {
@@ -39,5 +39,28 @@ describe('convertAgentMd (regression: mode: inserted inside a block-literal desc
 
     expect(descIdx).toBeGreaterThanOrEqual(0);
     expect(lines[descIdx + 1]).toBe('mode: subagent');
+  });
+});
+
+describe('opencodeCommandFilename (regression: prefix compounding on repeat --force init)', () => {
+  // Same root cause as kimi-generator.ts's namespacedSlug: write-opencode.ts
+  // defaults category to 'monomind' for any flat (non-nested) source command,
+  // and re-running --force init against a project whose .claude/commands/
+  // already contains a flat, previously-namespaced file stacked another
+  // "monomind-" prefix on top every single run.
+
+  it('does not stack another "monomind-" prefix onto an already-namespaced filename', () => {
+    expect(opencodeCommandFilename('monomind', 'monomind-truth-start')).toBe('monomind-truth-start.md');
+  });
+
+  it('still adds the prefix normally for a genuinely unprefixed filename', () => {
+    expect(opencodeCommandFilename('monomind', 'truth-start')).toBe('monomind-truth-start.md');
+  });
+
+  it('leaves a real, non-default category alone even when the base name starts with it', () => {
+    // 'github-modes' under a nested `github/` source directory is a legitimate
+    // name, not an instance of the default-category compounding bug — only
+    // the literal 'monomind' default category is guarded against restacking.
+    expect(opencodeCommandFilename('github', 'github-modes')).toBe('github-github-modes.md');
   });
 });

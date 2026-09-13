@@ -164,6 +164,43 @@ function slugifyName(name: string): string {
   return s || 'agent';
 }
 
+/** Default category write-kimicode.ts assigns to any source command that
+ *  sits directly in `.claude/commands/` with no subdirectory:
+ *  `segs.length > 1 ? segs[0] : 'monomind'`. */
+const DEFAULT_CATEGORY = 'monomind';
+
+/**
+ * Join a category and base name into a slug without re-stacking the default
+ * 'monomind' prefix onto a name that already carries it.
+ *
+ * Only guards the DEFAULT_CATEGORY case. On a repeat `--force` init run
+ * against a project whose `.claude/commands/` already contains a flat,
+ * previously-namespaced file — e.g. from an older generator version, or
+ * before this fix shipped — `base` IS that already-prefixed name, and
+ * blindly re-joining stacked another "monomind-" on top every single run
+ * (observed live: "monomind-truth-start" -> "monomind-monomind-truth-start"
+ * -> "monomind-monomind-monomind-truth-start" ...). Used for both the
+ * plugin command filename (kimiCommandFilename) and the flow-skill's own
+ * `name:` field (convertKimiCommandToFlowSkill) — both must stay in sync
+ * since a mismatch resurrects the "conflicts with a real skill" skip path.
+ *
+ * A real, non-default category (e.g. 'github') is deliberately left alone
+ * even when `base` happens to start with that same word (e.g. 'github-modes'
+ * under a `github/` subdirectory) — that's a legitimate nested-command name,
+ * not an instance of the confirmed default-category compounding bug.
+ */
+function namespacedSlug(category: string, base: string): string {
+  const slugCategory = slugifyName(category);
+  const slugBase = slugifyName(base);
+  if (
+    slugCategory === DEFAULT_CATEGORY &&
+    (slugBase === slugCategory || slugBase.startsWith(`${slugCategory}-`))
+  ) {
+    return slugBase;
+  }
+  return slugifyName(`${category}-${base}`);
+}
+
 function getFmScalar(fm: string, key: string): string | null {
   const m = fm.match(new RegExp(`^${key}\\s*:\\s*(.+?)\\s*$`, 'm'));
   return m ? m[1].replace(/^["']|["']$/g, '') : null;
@@ -229,7 +266,7 @@ export function convertKimiCommandToFlowSkill(
     .replace(/^model\s*:\s*(?!.*\/).*/im, '') // drop bare claude model names
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const name = slugifyName(`${category}-${fallbackName}`);
+  const name = namespacedSlug(category, fallbackName);
   out = setFmKey(out, 'name', name);
   if (!getFmScalar(out, 'description')) {
     out = ensureFmKey(out, 'description', `${category} ${fallbackName} command (monomind)`);
@@ -265,7 +302,7 @@ export function convertKimiPluginCommandMd(
 /** Namespace-prefixed command filename: "mastermind-build.md". */
 export function kimiCommandFilename(category: string, file: string): string {
   const base = file.replace(/\.md$/i, '');
-  return `${slugifyName(`${category}-${base}`)}.md`;
+  return `${namespacedSlug(category, base)}.md`;
 }
 
 /**

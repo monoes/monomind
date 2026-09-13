@@ -4,6 +4,19 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- `monomind init --force`, when re-run against a project whose
+  `.claude/commands/` already contained a flat command file previously
+  namespaced by the kimi-code/opencode generators (e.g.
+  `monomind-truth-start.md`), stacked another `monomind-` prefix onto the
+  kimi-code and opencode mirror filenames on every single run with no
+  bound (`monomind-truth-start` → `monomind-monomind-truth-start` → ...).
+  `kimiCommandFilename`/`opencodeCommandFilename` now recognize an
+  already-namespaced name for the default `monomind` category and leave it
+  as-is instead of re-joining. Real, non-default categories (e.g. a nested
+  `github/github-modes.md` command) are unaffected.
+
 ## [2.10.20] — 2026-09-11
 
 ### Fixed
