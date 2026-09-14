@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MASTERMIND_SKILLS } from '../mastermind/manifest-data.js';
+import type { InitResult } from './types.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +54,50 @@ export function atomicWriteFile(
     fs.writeFileSync(tmp, content);
   }
   fs.renameSync(tmp, target);
+}
+
+/**
+ * Guard for the write-opencode.ts / write-kimicode.ts converters, which read
+ * `.claude/{agents,commands,skills}` and write the converted result into what
+ * is expected to be a separate platform directory (`.opencode/...`,
+ * `.kimi-code/...`). If that destination has been symlinked back into
+ * `.claude/` (observed live: a committed `.opencode/command -> ../.claude/commands`
+ * symlink), the atomic write-then-rename in `atomicWriteFile` resolves through
+ * the symlink and lands the converted, flattened, field-injected output
+ * straight back in the Claude source tree it was just read from — silently
+ * corrupting hand-authored agent/skill/command files and resurrecting
+ * "deleted" flattened command duplicates on every `--force` run.
+ *
+ * Checked once per destination directory (not per file) before its copy loop.
+ * Returns false and records one `result.errors` entry when `destDir` resolves
+ * inside `claudeDir`; the caller should skip the whole loop rather than write
+ * file-by-file into the wrong place.
+ */
+export function isSafeConversionTarget(
+  destDir: string,
+  claudeDir: string,
+  result: InitResult,
+  label: string,
+): boolean {
+  let realDest: string;
+  try {
+    realDest = fs.realpathSync(destDir);
+  } catch {
+    return true; // doesn't exist yet — mkdirSync will create a real directory
+  }
+  let realClaude: string;
+  try {
+    realClaude = fs.realpathSync(claudeDir);
+  } catch {
+    return true; // no .claude/ to collide with
+  }
+  if (realDest === realClaude || realDest.startsWith(`${realClaude}${path.sep}`)) {
+    result.errors.push(
+      `${label} resolves inside .claude/ (likely a symlink) — skipping to avoid writing converted files back into the Claude source tree. Remove or repoint the symlink and re-run.`,
+    );
+    return false;
+  }
+  return true;
 }
 
 /**

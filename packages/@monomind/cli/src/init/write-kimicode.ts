@@ -20,6 +20,7 @@ import {
   atomicWriteFile,
   extractFmName,
   isLikelyUserFile,
+  isSafeConversionTarget,
   previouslyGenerated,
   recordGenerated,
   walkMdFiles,
@@ -95,18 +96,20 @@ export async function writeKimiFiles(
   const srcAgents = path.join(claudeDir, 'agents');
   if (fs.existsSync(srcAgents)) {
     const destAgents = path.join(kimiDir, 'agents');
-    for (const rel of walkMdFiles(srcAgents)) {
-      const abs = path.join(srcAgents, rel);
-      if (!isLikelyUserFile(rel)) continue;
-      const src = fs.readFileSync(abs, 'utf-8');
-      const fallback = path.basename(rel, '.md');
-      const converted = convertKimiAgentMd(src, fallback);
-      const name = extractFmName(converted) || fallback;
-      if (seenAgents.has(name)) continue;
-      seenAgents.add(name);
-      fs.mkdirSync(destAgents, { recursive: true });
-      atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
-      agentCount++;
+    if (isSafeConversionTarget(destAgents, claudeDir, result, '.kimi-code/agents')) {
+      for (const rel of walkMdFiles(srcAgents)) {
+        const abs = path.join(srcAgents, rel);
+        if (!isLikelyUserFile(rel)) continue;
+        const src = fs.readFileSync(abs, 'utf-8');
+        const fallback = path.basename(rel, '.md');
+        const converted = convertKimiAgentMd(src, fallback);
+        const name = extractFmName(converted) || fallback;
+        if (seenAgents.has(name)) continue;
+        seenAgents.add(name);
+        fs.mkdirSync(destAgents, { recursive: true });
+        atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
+        agentCount++;
+      }
     }
   }
 
@@ -115,8 +118,17 @@ export async function writeKimiFiles(
   // overwrite a REAL skill that happens to share the <category>-<name> slug
   // (e.g. a skill dir "mastermind-debug" vs a command "mastermind/debug.md").
   const writtenSkillDirs = new Set<string>();
+  // Shared destination for both this loop and the commands loop's flow-skill
+  // branch below — checked once since both write into the same directory.
+  const kimiSkillsRoot = path.join(kimiDir, 'skills');
+  const skillsDestSafe = isSafeConversionTarget(
+    kimiSkillsRoot,
+    claudeDir,
+    result,
+    '.kimi-code/skills',
+  );
   const srcSkills = path.join(claudeDir, 'skills');
-  if (fs.existsSync(srcSkills)) {
+  if (fs.existsSync(srcSkills) && skillsDestSafe) {
     for (const rel of walkMdFiles(srcSkills)) {
       const segs = rel.split(path.sep);
       if (segs.length < 2 || segs[segs.length - 1] !== 'SKILL.md') continue;
@@ -124,7 +136,7 @@ export async function writeKimiFiles(
       const abs = path.join(srcSkills, rel);
       const src = fs.readFileSync(abs, 'utf-8');
       const converted = convertKimiSkillMd(src, skillName);
-      const destDir = path.join(kimiDir, 'skills', skillName);
+      const destDir = path.join(kimiSkillsRoot, skillName);
       fs.mkdirSync(destDir, { recursive: true });
       atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
       writtenSkillDirs.add(skillName);
@@ -144,6 +156,12 @@ export async function writeKimiFiles(
   // runs where no commands were converted).
   const destPluginCommands = path.join(pluginDir, 'commands');
   fs.mkdirSync(destPluginCommands, { recursive: true });
+  const pluginCommandsDestSafe = isSafeConversionTarget(
+    destPluginCommands,
+    claudeDir,
+    result,
+    '.kimi-code/plugin/commands',
+  );
   const writtenPluginCommands = new Set<string>();
   if (fs.existsSync(srcCommands)) {
     for (const rel of walkMdFiles(srcCommands)) {
@@ -157,27 +175,31 @@ export async function writeKimiFiles(
       // (a) flow skill — skipped when a real skill already owns this directory
       // name (real skills win; the plugin command below still provides the
       // command under /monomind:<name>).
-      const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
-      const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
-      if (writtenSkillDirs.has(flowName)) {
-        result.skipped.push(
-          `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
-        );
-      } else {
-        const flowDir = path.join(kimiDir, 'skills', flowName);
-        fs.mkdirSync(flowDir, { recursive: true });
-        atomicWriteFile(path.join(flowDir, 'SKILL.md'), flowSkill);
-        writtenSkillDirs.add(flowName);
-        skillCount++;
+      if (skillsDestSafe) {
+        const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
+        const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
+        if (writtenSkillDirs.has(flowName)) {
+          result.skipped.push(
+            `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
+          );
+        } else {
+          const flowDir = path.join(kimiSkillsRoot, flowName);
+          fs.mkdirSync(flowDir, { recursive: true });
+          atomicWriteFile(path.join(flowDir, 'SKILL.md'), flowSkill);
+          writtenSkillDirs.add(flowName);
+          skillCount++;
+        }
       }
 
       // (b) plugin command
-      const pluginCmd = convertKimiPluginCommandMd(src, category, fileBase);
-      fs.mkdirSync(destPluginCommands, { recursive: true });
-      const pluginCommandFilename = kimiCommandFilename(category, fileBase);
-      atomicWriteFile(path.join(destPluginCommands, pluginCommandFilename), pluginCmd);
-      writtenPluginCommands.add(pluginCommandFilename);
-      commandCount++;
+      if (pluginCommandsDestSafe) {
+        const pluginCmd = convertKimiPluginCommandMd(src, category, fileBase);
+        fs.mkdirSync(destPluginCommands, { recursive: true });
+        const pluginCommandFilename = kimiCommandFilename(category, fileBase);
+        atomicWriteFile(path.join(destPluginCommands, pluginCommandFilename), pluginCmd);
+        writtenPluginCommands.add(pluginCommandFilename);
+        commandCount++;
+      }
     }
   }
 
@@ -192,7 +214,7 @@ export async function writeKimiFiles(
   // they can never match a stale-sweep candidate.
   const kimiSkillsDir = path.join(kimiDir, 'skills');
   const priorKimiSkills = previouslyGenerated(targetDir, 'kimiSkills');
-  if (fs.existsSync(kimiSkillsDir)) {
+  if (fs.existsSync(kimiSkillsDir) && skillsDestSafe) {
     for (const existing of fs.readdirSync(kimiSkillsDir)) {
       if (!writtenSkillDirs.has(existing) && priorKimiSkills.has(existing)) {
         fs.rmSync(path.join(kimiSkillsDir, existing), { recursive: true, force: true });
@@ -206,7 +228,7 @@ export async function writeKimiFiles(
   recordGenerated(targetDir, 'kimiSkills', [...writtenSkillDirs, ...retainedKimiSkills]);
 
   const priorKimiPluginCommands = previouslyGenerated(targetDir, 'kimiPluginCommands');
-  if (fs.existsSync(destPluginCommands)) {
+  if (fs.existsSync(destPluginCommands) && pluginCommandsDestSafe) {
     for (const existing of fs.readdirSync(destPluginCommands)) {
       if (!writtenPluginCommands.has(existing) && priorKimiPluginCommands.has(existing)) {
         fs.rmSync(path.join(destPluginCommands, existing), { recursive: true, force: true });

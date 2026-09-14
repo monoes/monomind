@@ -14,7 +14,13 @@ import {
   generateStatusCommand,
   opencodeCommandFilename,
 } from './opencode-generator.js';
-import { atomicWriteFile, extractFmName, isLikelyUserFile, walkMdFiles } from './shared.js';
+import {
+  atomicWriteFile,
+  extractFmName,
+  isLikelyUserFile,
+  isSafeConversionTarget,
+  walkMdFiles,
+} from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**
@@ -87,18 +93,20 @@ export async function writeOpencodeFiles(
   const srcAgents = path.join(claudeDir, 'agents');
   if (fs.existsSync(srcAgents)) {
     const destAgents = path.join(targetDir, '.opencode', 'agent');
-    for (const rel of walkMdFiles(srcAgents)) {
-      const abs = path.join(srcAgents, rel);
-      if (!isLikelyUserFile(rel)) continue; // skip READMEs etc.
-      const src = fs.readFileSync(abs, 'utf-8');
-      const fallback = path.basename(rel, '.md');
-      const converted = convertAgentMd(src, fallback);
-      const name = extractFmName(converted) || fallback;
-      if (seenAgents.has(name)) continue;
-      seenAgents.add(name);
-      fs.mkdirSync(destAgents, { recursive: true });
-      atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
-      agentCount++;
+    if (isSafeConversionTarget(destAgents, claudeDir, result, '.opencode/agent')) {
+      for (const rel of walkMdFiles(srcAgents)) {
+        const abs = path.join(srcAgents, rel);
+        if (!isLikelyUserFile(rel)) continue; // skip READMEs etc.
+        const src = fs.readFileSync(abs, 'utf-8');
+        const fallback = path.basename(rel, '.md');
+        const converted = convertAgentMd(src, fallback);
+        const name = extractFmName(converted) || fallback;
+        if (seenAgents.has(name)) continue;
+        seenAgents.add(name);
+        fs.mkdirSync(destAgents, { recursive: true });
+        atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
+        agentCount++;
+      }
     }
   }
 
@@ -106,38 +114,43 @@ export async function writeOpencodeFiles(
   const srcCommands = path.join(claudeDir, 'commands');
   if (fs.existsSync(srcCommands)) {
     const destCommands = path.join(targetDir, '.opencode', 'command');
-    for (const rel of walkMdFiles(srcCommands)) {
-      const abs = path.join(srcCommands, rel);
-      if (!isLikelyUserFile(rel)) continue;
-      const segs = rel.split(path.sep);
-      const category = segs.length > 1 ? segs[0] : 'monomind';
-      const fileBase = path.basename(rel, '.md');
-      const src = fs.readFileSync(abs, 'utf-8');
-      const converted = convertCommandMd(src, category, fileBase);
-      fs.mkdirSync(destCommands, { recursive: true });
-      atomicWriteFile(
-        path.join(destCommands, opencodeCommandFilename(category, fileBase)),
-        converted,
-      );
-      commandCount++;
+    if (isSafeConversionTarget(destCommands, claudeDir, result, '.opencode/command')) {
+      for (const rel of walkMdFiles(srcCommands)) {
+        const abs = path.join(srcCommands, rel);
+        if (!isLikelyUserFile(rel)) continue;
+        const segs = rel.split(path.sep);
+        const category = segs.length > 1 ? segs[0] : 'monomind';
+        const fileBase = path.basename(rel, '.md');
+        const src = fs.readFileSync(abs, 'utf-8');
+        const converted = convertCommandMd(src, category, fileBase);
+        fs.mkdirSync(destCommands, { recursive: true });
+        atomicWriteFile(
+          path.join(destCommands, opencodeCommandFilename(category, fileBase)),
+          converted,
+        );
+        commandCount++;
+      }
     }
   }
 
   // Skills → .opencode/skills/<name>/SKILL.md (same shape)
   const srcSkills = path.join(claudeDir, 'skills');
   if (fs.existsSync(srcSkills)) {
-    for (const rel of walkMdFiles(srcSkills)) {
-      // rel looks like "<skillName>/SKILL.md"
-      const segs = rel.split(path.sep);
-      if (segs.length < 2 || segs[segs.length - 1] !== 'SKILL.md') continue;
-      const skillName = segs[0];
-      const abs = path.join(srcSkills, rel);
-      const src = fs.readFileSync(abs, 'utf-8');
-      const converted = convertSkillMd(src, skillName);
-      const destDir = path.join(targetDir, '.opencode', 'skills', skillName);
-      fs.mkdirSync(destDir, { recursive: true });
-      atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
-      skillCount++;
+    const destSkillsRoot = path.join(targetDir, '.opencode', 'skills');
+    if (isSafeConversionTarget(destSkillsRoot, claudeDir, result, '.opencode/skills')) {
+      for (const rel of walkMdFiles(srcSkills)) {
+        // rel looks like "<skillName>/SKILL.md"
+        const segs = rel.split(path.sep);
+        if (segs.length < 2 || segs[segs.length - 1] !== 'SKILL.md') continue;
+        const skillName = segs[0];
+        const abs = path.join(srcSkills, rel);
+        const src = fs.readFileSync(abs, 'utf-8');
+        const converted = convertSkillMd(src, skillName);
+        const destDir = path.join(destSkillsRoot, skillName);
+        fs.mkdirSync(destDir, { recursive: true });
+        atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
+        skillCount++;
+      }
     }
   }
 

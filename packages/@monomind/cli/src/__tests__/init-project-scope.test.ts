@@ -6,6 +6,7 @@ import { shouldRegisterMonomindProject } from '../init/executor.js';
 import { DEFAULT_INIT_OPTIONS, type InitResult } from '../init/types.js';
 import { writeGeminiFiles } from '../init/write-antigravity.js';
 import { writeKimiFiles } from '../init/write-kimicode.js';
+import { writeOpencodeFiles } from '../init/write-opencode.js';
 
 function emptyResult(): InitResult {
   return {
@@ -112,5 +113,78 @@ describe('project-scope init writers', () => {
 
     expect(fs.existsSync(pluginCommandPath)).toBe(false);
     expect(fs.existsSync(flowSkillDir)).toBe(false);
+  });
+
+  it('refuses to write opencode commands through a .opencode/command symlink that resolves into .claude/commands', async () => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-opencode-symlink-'));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-opencode-symlink-home-'));
+    directories.push(project, home);
+    process.env.HOME = home;
+
+    // Nested command with no frontmatter at all — matches the live corruption:
+    // .claude/commands/mastermind/adr.md has no `---` block, so the converter's
+    // "add a description if absent" branch fires.
+    const commandsDir = path.join(project, '.claude', 'commands', 'mastermind');
+    fs.mkdirSync(commandsDir, { recursive: true });
+    fs.writeFileSync(path.join(commandsDir, 'adr.md'), 'Draft an ADR.\n');
+
+    // Reproduce the committed repo layout: .opencode/command is a symlink
+    // into .claude/commands, not a directory of its own.
+    fs.mkdirSync(path.join(project, '.opencode'), { recursive: true });
+    fs.symlinkSync(
+      path.join('..', '.claude', 'commands'),
+      path.join(project, '.opencode', 'command'),
+    );
+
+    const options = {
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: project,
+      force: true,
+      components: { ...DEFAULT_INIT_OPTIONS.components, opencode: true },
+    };
+    const result = emptyResult();
+    await writeOpencodeFiles(project, options, result);
+
+    // Must NOT resurrect a flattened duplicate back inside .claude/commands —
+    // that's the file-duplication bug that reappeared on every `--force` run
+    // in the real repo (.claude/commands/mastermind-adr.md, with a synthesized
+    // "description: mastermind adr command (monomind)").
+    expect(fs.existsSync(path.join(project, '.claude', 'commands', 'mastermind-adr.md'))).toBe(
+      false,
+    );
+    expect(result.errors.some((e) => e.includes('.opencode/command'))).toBe(true);
+  });
+
+  it('refuses to write opencode agents through a .opencode/agent symlink that resolves into .claude/agents', async () => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-opencode-agent-symlink-'));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-opencode-agent-symlink-home-'));
+    directories.push(project, home);
+    process.env.HOME = home;
+
+    const agentsDir = path.join(project, '.claude', 'agents');
+    fs.mkdirSync(agentsDir, { recursive: true });
+    const agentPath = path.join(agentsDir, 'coder.md');
+    const originalAgentContent = '---\nname: coder\ndescription: writes code\n---\n\nBody.\n';
+    fs.writeFileSync(agentPath, originalAgentContent);
+
+    fs.mkdirSync(path.join(project, '.opencode'), { recursive: true });
+    fs.symlinkSync(
+      path.join('..', '.claude', 'agents'),
+      path.join(project, '.opencode', 'agent'),
+    );
+
+    const options = {
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: project,
+      force: true,
+      components: { ...DEFAULT_INIT_OPTIONS.components, opencode: true },
+    };
+    const result = emptyResult();
+    await writeOpencodeFiles(project, options, result);
+
+    // Must NOT silently inject opencode's `mode: subagent` frontmatter key
+    // into the real, hand-authored Claude agent file via the symlink.
+    expect(fs.readFileSync(agentPath, 'utf8')).toBe(originalAgentContent);
+    expect(result.errors.some((e) => e.includes('.opencode/agent'))).toBe(true);
   });
 });
