@@ -17,10 +17,12 @@ fi
 
 echo "🔒 Scanning staged files for secrets..."
 
-# Read staged content straight from the git index (so a partially-staged
-# file's unstaged edits are not flagged). Patterns mirror the SECRET_PATTERNS
-# table in packages/@monomind/cli/src/utils/redaction.ts — kept inline so the
-# hook works without a build step and without importing TypeScript.
+# Scan only the lines a commit actually ADDS, read from the staged diff (so
+# a partially-staged file's unstaged edits are not flagged, and content that
+# was already committed in a prior commit is never re-flagged just because
+# the file was touched again). Patterns mirror the SECRET_PATTERNS table in
+# packages/@monomind/cli/src/utils/redaction.ts — kept inline so the hook
+# works without a build step and without importing TypeScript.
 node <<'NODE_SCAN'
 const { execSync } = require('child_process');
 
@@ -39,7 +41,7 @@ const patterns = [
 ];
 
 const SKIP_EXT = /\.(png|jpg|jpeg|gif|webp|ico|pdf|zip|tar|gz|tgz|bz2|7z|lock|map|wasm|node|so|dylib|dll|exe|bin)$/i;
-const MAX_BYTES = 1024 * 1024; // 1 MB per file
+const MAX_BYTES = 1024 * 1024; // 1 MB per file's staged diff
 
 let files;
 try {
@@ -52,19 +54,34 @@ try {
   process.exit(0); // not a git repo / no staged files
 }
 
-let hits = 0;
-for (const relPath of files) {
-  if (SKIP_EXT.test(relPath)) continue;
-  let content;
+// Returns the newline-joined text of only the '+' lines from the staged
+// diff for one path (i.e. content this commit is introducing), or null if
+// the diff can't be read (too large / binary / error — skip silently, same
+// as the prior full-blob scan's behavior for unreadable files).
+function addedLines(relPath) {
+  let diff;
   try {
-    content = execSync(`git show :${relPath}`, {
+    diff = execSync(`git diff --cached --unified=0 --no-color -- ${JSON.stringify(relPath)}`, {
       encoding: 'utf-8',
       maxBuffer: MAX_BYTES,
       stdio: ['pipe', 'pipe', 'ignore'],
     });
   } catch {
-    continue; // deleted / binary / too large — skip silently
+    return null;
   }
+  const added = [];
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++')) continue; // file header, not content
+    if (line.startsWith('+')) added.push(line.slice(1));
+  }
+  return added.join('\n');
+}
+
+let hits = 0;
+for (const relPath of files) {
+  if (SKIP_EXT.test(relPath)) continue;
+  const content = addedLines(relPath);
+  if (!content) continue;
   for (const p of patterns) {
     const matches = content.match(p);
     if (!matches) continue;
