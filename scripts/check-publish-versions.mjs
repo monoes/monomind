@@ -73,6 +73,35 @@ if (publishing && !viaPnpm && process.env.MONOMIND_ALLOW_NPM_PUBLISH !== '1') {
   );
 }
 
+// Real npm rejects an `overrides` entry for a package that is ALSO a direct
+// (dependencies/devDependencies) entry of the SAME manifest, whenever the two
+// version strings differ — "Override for X conflicts with direct dependency".
+// pnpm does not enforce this, so `pnpm install`/`pnpm publish` stay silent
+// and the break only surfaces for an end user running real npm against the
+// published tarball (`npm install`, or `npx <pkg>`'s transient install) —
+// exactly what happened with root's own "vitest": ">=4.1.11 <5" override
+// against its "vitest": "^4.1.11" devDependency (semver-equivalent ranges,
+// different strings — npm's check is string-based, not semver-based).
+// Scoped to root and the CLI, the two packages this script already reads —
+// the ones actually installed by real npm outside this workspace.
+for (const [label, pkg] of [
+  ['root package.json', root],
+  ['cli package.json', cli],
+]) {
+  const overrides = pkg.overrides ?? {};
+  const direct = { ...pkg.dependencies, ...pkg.devDependencies };
+  for (const [name, overrideRange] of Object.entries(overrides)) {
+    if (name in direct && direct[name] !== overrideRange) {
+      problems.push(
+        `${label}: "overrides" pins ${name}@${overrideRange} but a direct dependency ` +
+          `wants ${name}@${direct[name]} — real npm rejects this (EOVERRIDE) even though ` +
+          'pnpm does not. Make the two strings identical, or drop the override (a direct ' +
+          'dependency already controls its own version; overrides are for transitive ones).',
+      );
+    }
+  }
+}
+
 if (problems.length) {
   console.error('\n✗ publish blocked:\n');
   for (const p of problems) console.error(`    ${p}`);
