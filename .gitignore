@@ -59,6 +59,7 @@ eval-row6-*.json
 # .monomind — entire dir is local runtime state, never tracked
 
 .monomind/orgs/*.jsonl
+.monomind/orgs/*.json
 .monomind/orgs/*/
 .monomind/sessions/
 .monomind/data/
@@ -77,6 +78,9 @@ eval-row6-*.json
 .monomind/events/
 .monomind/traces/
 .monomind/security/
+.monomind/episodic/
+.monomind/state/
+.monomind/backups/
 .monomind/.monomind_inner/
 .monomind/parse-cache/
 **/.monomind/parse-cache/
@@ -86,6 +90,7 @@ eval-row6-*.json
 .monomind/*.pid
 .monomind/*.txt
 .monomind/*.db
+.monomind/dashboard-token
 .monomind/*.db-shm
 .monomind/*.db-wal
 # Same patterns for nested .monomind/ in sub-packages
