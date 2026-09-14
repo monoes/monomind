@@ -1,5 +1,7 @@
 ---
 description: Show the monomind statusline (version, git, swarm, security, hooks, token cost).
+type: flow
+name: monomind-status
 ---
 
 Run the monomind statusline and report project status. Execute exactly one of these (first that exists):
