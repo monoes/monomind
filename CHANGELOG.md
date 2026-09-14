@@ -17,6 +17,31 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   as-is instead of re-joining. Real, non-default categories (e.g. a nested
   `github/github-modes.md` command) are unaffected.
 
+## [2.10.28] — 2026-09-14
+
+### Fixed
+
+- `monomind init --force`'s settings.json merge (`mergeHooksPreservingUnknown()`,
+  from 2.10.25/26) kept every hook command but rebuilt each `hooks.<Event>`
+  array starting from the template's own group order, so pre-existing blocks
+  that also had a template counterpart (e.g. a `Grep|Glob` matcher and a
+  `Write|Edit|MultiEdit|NotebookEdit` matcher in the opposite order from the
+  template) traded positions on every run — a non-trivial diff even when
+  nothing meaningfully changed. `mergeEventGroupsPreservingOrder()` now walks
+  the existing array in its original order, refreshing matched blocks in
+  place and only appending genuinely new template blocks at the end. Also
+  fixed a missing trailing newline at all three `atomicWriteFile` call sites
+  in `writeSettings()` (merged-write, corrupt-JSON-overwrite, and fresh-create
+  — not just the `--force` path). A second `init --force` run now produces a
+  byte-identical `.claude/settings.json`.
+- 89 files under `.claude/agents/*.md` in this repo's own dogfooded tree
+  carried a spurious `mode: subagent` frontmatter key, injected by the
+  symlink write-back bug fixed in 2.10.27, some going back to at least
+  2026-09-01. Stripped the single corrupted line from each (`mode` has no
+  meaning in this repo's own agent format; `subagent` was the only value it
+  ever took). Historical cleanup only — no code change, since 2.10.27 already
+  stops the mechanism that caused it.
+
 ## [2.10.27] — 2026-09-14
 
 ### Fixed
