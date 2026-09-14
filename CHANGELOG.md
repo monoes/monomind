@@ -4,6 +4,52 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.29] — 2026-09-14
+
+### Fixed
+
+- `monomind init --force` on a Go/Rust/Python repo that also had an
+  incidental root `package.json` (e.g. one only declaring a tooling
+  dependency) got misclassified as JavaScript/TypeScript, because
+  `detectProjectProfile` let that `package.json` unconditionally set
+  `language` before `go.mod`/`Cargo.toml`/`pyproject.toml` were even
+  checked. `--force` then fully overwrote `CLAUDE.md` and
+  `.agents/shared_instructions.md` with generic JS boilerplate (npm
+  build/test commands that don't exist in the target repo), discarding
+  hand-authored, stack-specific content. Go/Rust/Python markers now outrank
+  an incidental `package.json`, and the generated "Install dependencies"
+  line branches on the detected language instead of unconditionally
+  assuming `packageManager: npm`. `writeClaudeMd`/`writeSharedInstructions`
+  also now confine their generated output to a delimited
+  `<!-- monomind-block:... -->` region (`mergeGeneratedBlock`, `shared.ts`)
+  instead of overwriting the whole file on `--force`, replacing just that
+  block in place on repeat runs. Note: a project whose `CLAUDE.md` /
+  `shared_instructions.md` predates this fix has no such marker yet, so its
+  first `--force` under 2.10.29 appends the refreshed block after the
+  existing content rather than overwriting it — safe (nothing is lost) but
+  the file grows once until the pre-existing copy above the marker is
+  manually trimmed; every `--force` after that first one replaces only the
+  marked block in place. Fixes #241.
+- `doctor`'s platform report treated every capability-gated artifact
+  (`experimental`/`cli_fallback` platforms that intentionally skip writing
+  an artifact, per #216's parity model) the same as a genuinely missing
+  one. `PlatformDoctorReport.artifacts[]` now carries a `gated` state and a
+  `reason`, via a new `KIND_CAPABILITY` map, so `doctor` can tell "gated by
+  design" apart from "actually broken." Fixes #240.
+- `system_health` (MCP) and `doctor` (CLI) checked different candidate
+  paths for config and memory-DB health, so the two could disagree about
+  whether the same install was healthy. Both now read from shared
+  `CONFIG_JSON_CANDIDATE_PATHS`/`CONFIG_YAML_CANDIDATE_PATHS`/
+  `MEMORY_DB_CANDIDATE_PATHS` constants. Fixes #239.
+- `adm-zip` bumped to `>=0.6.1` (both `package.json` and the
+  pnpm-workspace-authoritative `pnpm-workspace.yaml` overrides) fixing
+  GHSA-vwc7-r8mq-g2x9, a symlink-following zip-extraction vulnerability.
+- `.gitignore` didn't cover several untracked `.monomind/` runtime paths
+  (`orgs/*.json`, `episodic/`, `state/`, `backups/`, `dashboard-token`),
+  so they showed up as untracked cruft in `git status` on every install.
+
+## [2.10.28] — 2026-09-14
+
 ### Fixed
 
 - `monomind init --force`, when re-run against a project whose
@@ -16,11 +62,6 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   already-namespaced name for the default `monomind` category and leave it
   as-is instead of re-joining. Real, non-default categories (e.g. a nested
   `github/github-modes.md` command) are unaffected.
-
-## [2.10.28] — 2026-09-14
-
-### Fixed
-
 - `monomind init --force`'s settings.json merge (`mergeHooksPreservingUnknown()`,
   from 2.10.25/26) kept every hook command but rebuilt each `hooks.<Event>`
   array starting from the template's own group order, so pre-existing blocks
