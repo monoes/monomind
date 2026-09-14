@@ -112,6 +112,7 @@ const RUNTIME_KINDS = new Set<string>([
   'pi',
   'pi-rpc',
   'qwen-rpc',
+  'hermes',
 ]);
 
 export interface RespawnInput {

@@ -230,6 +230,7 @@ export const RoleSchema = z
         'pi',
         'pi-rpc',
         'qwen-rpc',
+        'hermes',
       ])
       .optional(),
     /** Per-role override of run_config.max_turns_per_message — roles that legitimately
@@ -355,6 +356,7 @@ export const OrgDefSchema = z
         'pi',
         'pi-rpc',
         'qwen-rpc',
+        'hermes',
       ])
       .optional(),
   })

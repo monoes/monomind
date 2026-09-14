@@ -94,7 +94,11 @@ export const RUNNER_SPECS: RunnerSpec[] = [
     // to always be undefined live). See opencode-runner.ts's header for the
     // full live-verified event shapes and a real bug this live testing
     // caught (the echoed user prompt leaking out as a fake assistant
-    // message) before it could ship.
+    // message) before it could ship. Opt-in via
+    // AgentRunArgs.extras.includePartialMessages (agent-exec.ts sets it,
+    // session.ts does not) — same reasoning as every other subprocess
+    // runner: session.ts wants one AgentMessage per text part regardless
+    // of which runner backs the role.
     streamsIncrementally: true,
   },
   {
@@ -117,6 +121,10 @@ export const RUNNER_SPECS: RunnerSpec[] = [
     // emitVisible/flushText — the reference implementation for a runner
     // whose underlying protocol needs fence-boundary awareness. Live
     // end-to-end verified: multiple incremental NDJSON lines per turn.
+    // Opt-in via AgentRunArgs.extras.includePartialMessages (agent-exec.ts
+    // sets it; session.ts, the org runtime, does not) — same reasoning as
+    // `claude` below: session.ts wants one complete AgentMessage per step
+    // for its chat-bus/state-detector, regardless of which runner backs it.
     streamsIncrementally: true,
   },
   {
@@ -161,7 +169,10 @@ export const RUNNER_SPECS: RunnerSpec[] = [
     // the WHOLE round instead of showing "working on it" as soon as it
     // arrived) but is orthogonal to this flag: promptness at the wire
     // format's own whole-message granularity isn't per-token streaming —
-    // see doc/agent-exec-protocol.md §9 step 3.
+    // see doc/agent-exec-protocol.md §9 step 3. Like every other subprocess
+    // runner, the fix is opt-in via extras.includePartialMessages
+    // (agent-exec.ts sets it, session.ts does not) — session.ts wants one
+    // AgentMessage per round regardless of which runner backs the role.
     streamsIncrementally: false,
   },
   {
@@ -204,13 +215,38 @@ export const RUNNER_SPECS: RunnerSpec[] = [
     binary: 'pi',
     binEnv: 'PI_CLI_BIN',
     installHint: 'npm install -g @mariozechner/pi-coding-agent',
-    // Known-fixable, not a hard limitation: the RPC wire protocol DOES
-    // expose progressive `message_start`/`message_update`/`message_end`
-    // events per internal turn (a live test showed 4 separate cycles),
-    // but pi-rpc-runner.ts drains and discards all of them, waiting only
-    // for the terminal `agent_end` to yield one combined message — up to
-    // 4 complete assistant messages sit buffered before anything ships.
-    // Fix: yield fence-stripped text as each `message_end` lands instead.
+    // Real per-token streaming via message_update's assistantMessageEvent
+    // text_delta (contentIndex-keyed, fence-safely buffered by
+    // computeSafeChunk — same decouple-and-diff shape as
+    // antigravity-runner.ts). Verified against docs/rpc.md bundled with the
+    // installed pi package at the SAME version (0.73.1) this file's header
+    // was already resolved against for agent_end — including the
+    // text_delta wire example itself ("Hello" then " world", word-by-word).
+    // Not independently live-tested end-to-end: no funded model credential
+    // was available in the verifying environment (pi's own auth.json had no
+    // configured provider) — a real live check is still worth doing before
+    // fully trusting this the way antigravity/claude/opencode were.
+    // Opt-in via AgentRunArgs.extras.includePartialMessages, same as every
+    // other subprocess runner: session.ts never sets it.
+    streamsIncrementally: true,
+  },
+  {
+    id: 'hermes',
+    binary: 'hermes',
+    binEnv: 'HERMES_CLI_BIN',
+    installHint: 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash',
+    loginHint: 'hermes setup',
+    // Live-verified (2026-09-14) against a real installed binary configured
+    // with a free OpenRouter model — see hermes-runner.ts's header for the
+    // full account, including two real bugs an earlier docs-only design had
+    // (an invalid --usage-file flag on `chat`, and a leaked warning line on
+    // stdout despite -Q). `chat --oneshot` is one-shot, whole-text-only — no
+    // per-token delta mechanism, and no session-resume flag reachable from
+    // it either (confirmed: --resume/--continue/-c all resume by session ID,
+    // which only exists once a session has been created). hermes serve's
+    // JSON-RPC/WebSocket gateway (the desktop app's transport) is the
+    // plausible path to real streaming but has no published protocol/schema
+    // doc found — revisit if one surfaces. See doc/agent-exec-protocol.md §9.
     streamsIncrementally: false,
   },
 ];

@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 5)
+# Agent Exec Protocol — v1 (rev 6)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -24,21 +24,67 @@
   - rev 5 (2026-09-13): **`streams_incrementally` capability** — added to `start` (§3.2) and
     `agent scan --json` (§6), sourced from the new `RunnerSpec.streamsIncrementally` static field
     (`runner-registry.ts`). Lets a caller (e.g. a chat UI) set the user's expectations honestly
-    instead of a live turn on a whole-message-only runtime looking stuck. `claude`, `vercel`, and
-    `opencode` stream real incremental text (`claude` via the SDK's `includePartialMessages`,
-    opt-in per caller via `AgentRunArgs.extras.includePartialMessages` — `agent exec` sets it, the
-    org runtime (`session.ts`) does not, since it needs one complete message per turn, not
-    fragments; `opencode` switched from a blocking `session.prompt()` to
+    instead of a live turn on a whole-message-only runtime looking stuck. `claude`, `antigravity`,
+    `vercel`, `opencode`, and `pi-rpc` stream real incremental text; `qwen-rpc` got a promptness
+    fix but stays `false` (see §9 step 3 — a whole-message wire format shipped faster is still not
+    per-token streaming). New §9 gives future runner authors a checklist for deciding and wiring
+    this field; the pattern below is what §9 distills.
+
+    Every incremental runner's fix follows the SAME decouple-and-diff shape (§9 step 2): the
+    authoritative full text a runner already needed (for tool-call fence parsing, final usage) is
+    left completely unchanged; a separate fast path tracks how much of it has already been shown
+    and yields only new increments; any gap is reconciled at the turn's true end via a diff, never
+    duplicating or losing text. And every one of them is opt-in via
+    `AgentRunArgs.extras.includePartialMessages` — `agent exec` sets it unconditionally for every
+    runtime (§3.1), `session.ts` (the org runtime) never does, because it needs exactly one
+    complete `AgentMessage` per step/round for its chat-bus emission and state-detector pattern
+    matching, regardless of which runner backs the org role. This was caught as a real bug during
+    the `claude` work — session.ts is runner-agnostic, so the SAME risk applied to every other
+    runner already made incremental in this pass, not just `claude` — and fixed by retrofitting
+    the identical gate onto all of them rather than treating `claude` as a special case.
+
+    Per-runner specifics: `claude` streams via the SDK's `includePartialMessages`
+    (`SDKPartialAssistantMessage`/`stream_event`, content-block-index keyed). `antigravity` streams
+    `agy`'s `text_delta` events, fence-safely buffered by the shared `computeSafeChunk` helper
+    (`antigravity-runner.ts`) that every other fence-protocol runner below reuses rather than
+    reimplementing. `opencode` switched from a blocking `session.prompt()` to
     `session.promptAsync()` + `client.event.subscribe()`, whose real per-token event —
-    `message.part.delta` — turned out to be undocumented in the installed SDK's own `.d.ts`,
-    caught only by live-verifying against a real server rather than trusting the types). `qwen-rpc`
-    also stopped buffering a whole multi-round turn into one blob (now yields each complete
-    `assistant` event as it lands) but stays `false` — see §9 step 3, this is a promptness fix at
-    the wire format's own whole-message granularity, not per-token streaming. New §9 gives future
-    runner authors a checklist for deciding and wiring this field.
+    `message.part.delta` — turned out to be undocumented in the installed SDK's own `.d.ts` (only
+    `message.part.updated` is, whose `delta` field was observed to always be `undefined` live);
+    caught only by live-verifying against a real server, which also caught a real bug (the echoed
+    user prompt leaking out as a fake assistant message) before it shipped. `pi-rpc` streams
+    `message_update`'s `assistantMessageEvent.text_delta`, contentIndex-keyed and reset on each
+    `message_start` — verified against `docs/rpc.md` bundled with the installed pi package at the
+    exact version already in use, not independently live-tested end-to-end (no funded model
+    credential was available in the verifying environment) — weaker evidence than the live
+    confirmation every other incremental runner here got, though still materially stronger than
+    inference. `qwen-rpc`'s fix (yield each complete `assistant` event immediately instead of
+    buffering a whole multi-round turn into one blob) is real but orthogonal to this flag, per §9
+    step 3.
+  - rev 6 (2026-09-14): **`hermes` runtime added** — Nous Research's Hermes Agent CLI (`hermes`),
+    same fence-protocol/fresh-spawn-per-round shape as `codex` (`hermes-runner.ts`),
+    `streams_incrementally: false`. First shipped docs-only, then LIVE-VERIFIED the same day
+    against a real installed binary (official installer, configured with a free OpenRouter model)
+    — live testing caught two real bugs the docs never mentioned: `--usage-file` is a top-level
+    `-z` flag, not a `chat` flag (passing it to `chat` is a hard argument-parse error — usage/cost
+    reporting dropped, always 0, same documented limitation as vercel-runner.ts), and `-Q` ("quiet
+    mode") does not guarantee pure stdout — a leaked dependency warning was observed ahead of the
+    real answer on one run, non-deterministically, now defended against with a pattern-based
+    stdout filter. session_id is available (parsed from stderr) for observability, though it still
+    can't be used to resume — confirmed live that `--resume`/`--continue`/`-c` all resume by
+    session ID, none reachable from a `--oneshot` invocation, so every tool-call round resends the
+    full transcript instead, and `args.resume` across mailbox messages cannot be honored (does not
+    affect `agent exec`, whose prompt stream is single-message per process — see agent-exec.ts). A
+    live end-to-end trial of the fence-based org-tool protocol against a small free model did not
+    successfully round-trip a tool call — the model attempted a native-style call instead of
+    following the fenced-text convention, got hermes's own "tool not found," and gave up. Left
+    open whether this is a small-model instruction-following limitation or hermes's native
+    tool-calling competing for the model's attention — not yet root-caused. `hermes serve`'s
+    JSON-RPC/WebSocket gateway is the plausible path to real per-token streaming but has no
+    published protocol/schema doc found — left as a flagged follow-up, not guessed at.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
-- **Purpose**: Expose monomind's `AgentRunner` engine (13 local agent CLI runners) and org
+- **Purpose**: Expose monomind's `AgentRunner` engine (14 local agent CLI runners) and org
   observe surface to **any calling process** via stable, machine-readable subprocess contracts.
   First caller: `monoagentcli`. The protocol is public — other tools may drive monomind's runner
   engine through it.
@@ -339,19 +385,27 @@ protocol already supported better.
      complete or partial, in visible text) and `agent-runner.ts`'s `ClaudeAgentRunner` (content-
      block-index awareness instead of fence-boundary awareness — no fence concern there, since
      Claude's content blocks are already cleanly delimited).
-   - **Check who else consumes this runner before making it stream unconditionally.**
-     `ClaudeAgentRunner` is also driven by `session.ts` (the org runtime), which expects exactly
-     one `assistant` AgentMessage per turn — it feeds the full text into `StateDetector`'s regex
-     pattern-matching and emits one org chat-bus event per turn. Fragmenting that would corrupt
-     both. If a runner has more than one consumer with different needs, gate the new behavior
-     behind `AgentRunArgs.extras` (already a "provider-specific escape hatch, other runners ignore
-     it") rather than making it the only behavior — `agent-exec.ts` opts in per its own call site;
-     `session.ts` doesn't.
+   - **Gate it — every `AgentRunner` has two consumers, not one, whether or not that's obvious
+     yet.** Any runner selectable via role/org `runtime: '<id>'` is driven by BOTH `agent-exec.ts`
+     (wants incremental text) AND `session.ts`, the org runtime (wants exactly one `assistant`
+     AgentMessage per step/round — it feeds the full text into `StateDetector`'s regex
+     pattern-matching and emits one org chat-bus event per step). This is not a "check if it
+     applies" step — it applies to every subprocess runner unconditionally, since `session.ts`'s
+     consumption is runner-agnostic. Skipping this gate was a real bug caught at rev 5: the first
+     pass only gated `claude`, and the identical risk went unnoticed in `antigravity`/`qwen-rpc`/
+     `opencode` until traced through explicitly and retrofitted onto all of them. Gate behind
+     `AgentRunArgs.extras` (already a "provider-specific escape hatch, other runners ignore it") —
+     `agent-exec.ts` sets `extras.includePartialMessages: true` unconditionally for every runtime
+     (§3.1); `session.ts` never sets `extras` in production (only its own test seam does). The
+     runner reads `args.extras?.includePartialMessages === true` once at the top of `run()` and
+     gates every incremental yield behind it; the reconciliation diff at turn-end needs no separate
+     branch — with the flag off, the high-water mark never advances, so it naturally degrades to
+     "reveal the whole text," byte-for-byte the pre-streaming behavior.
    - Set `streamsIncrementally: true` in `runner-registry.ts`'s `RunnerSpec`.
 3. **If no — set `streamsIncrementally: false`** and make sure the runner still yields each
    complete message the instant it lands, with zero added buffering — waiting for a step boundary
    or the whole turn to finish when the message was already complete earlier is its own bug,
-   independent of whether real streaming is possible (this was true of `qwen-rpc-runner.ts` and
-   `pi-rpc-runner.ts` at rev 5 — see their `RunnerSpec` comments). Callers use the flag to set the
-   user's expectations honestly (§3.2/§6) rather than a live UI implying a turn is stuck when it
-   was never going to show partial output.
+   independent of whether real streaming is possible (this was true of `qwen-rpc-runner.ts` at rev
+   5 — see its `RunnerSpec` comment). Callers use the flag to set the user's expectations honestly
+   (§3.2/§6) rather than a live UI implying a turn is stuck when it was never going to show partial
+   output.

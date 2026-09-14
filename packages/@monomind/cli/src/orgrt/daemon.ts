@@ -42,6 +42,7 @@ import {
 } from './fence.js';
 import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
+import { HermesAgentRunner } from './hermes-runner.js';
 import { drainInbox, queueMessage } from './inbox.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
@@ -156,7 +157,14 @@ export type RuntimeKind =
    *  QwenAgentRunner, not separately live-tested for this runner). Prefer
    *  plain 'qwen' unless you specifically want session-lifetime context
    *  continuity. */
-  | 'qwen-rpc';
+  | 'qwen-rpc'
+  /** Nous Research's Hermes Agent CLI (`hermes`), spawned fresh per
+   *  tool-call round like 'codex' — but with NO session-resume flag in
+   *  headless mode (see hermes-runner.ts's header): every round resends the
+   *  full transcript, and args.resume across mailbox messages cannot be
+   *  honored. Docs-only verified, streamsIncrementally: false — see
+   *  runner-registry.ts. */
+  | 'hermes';
 export type ProviderKind =
   | 'subscription'
   | 'api-key'
@@ -209,6 +217,7 @@ export function resolveRunner(
   if (selected === 'pi') return new PiAgentRunner();
   if (selected === 'pi-rpc') return new PiRpcAgentRunner();
   if (selected === 'qwen-rpc') return new QwenRpcAgentRunner();
+  if (selected === 'hermes') return new HermesAgentRunner();
   return undefined;
 }
 
