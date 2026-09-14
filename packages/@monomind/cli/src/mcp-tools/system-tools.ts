@@ -13,6 +13,11 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import * as os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CONFIG_JSON_CANDIDATE_PATHS,
+  CONFIG_YAML_CANDIDATE_PATHS,
+  MEMORY_DB_CANDIDATE_PATHS,
+} from '../utils/paths.js';
 import { getMonomindDataRoot, getProjectCwd, type MCPTool } from './types.js';
 
 // Read version dynamically from package.json
@@ -369,11 +374,14 @@ export const systemTools: MCPTool[] = [
         [];
       const projectCwd = getProjectCwd();
 
-      // Memory DB check — verify the store file exists
+      // Memory DB check — verify the store file exists at one of the real
+      // locations `monomind init` creates (same paths doctor's
+      // checkMemoryDatabase() checks — see utils/paths.ts).
       {
         const t0 = performance.now();
-        const memoryDbPath = join(projectCwd, '.monomind', 'memory', 'store.json');
-        const memoryExists = existsSync(memoryDbPath);
+        const memoryExists = MEMORY_DB_CANDIDATE_PATHS.some((p) =>
+          existsSync(join(projectCwd, p)),
+        );
         const elapsed = performance.now() - t0;
         checks.push({
           name: 'memory',
@@ -383,12 +391,14 @@ export const systemTools: MCPTool[] = [
         });
       }
 
-      // Config check — verify config file exists
+      // Config check — verify config file exists at one of the real
+      // locations `monomind init` creates (same paths doctor's
+      // checkConfigFile() checks — see utils/paths.ts).
       {
         const t0 = performance.now();
-        const configPath = join(projectCwd, '.monomind', 'config.json');
-        const altConfigPath = join(projectCwd, 'monomind.config.json');
-        const configExists = existsSync(configPath) || existsSync(altConfigPath);
+        const configExists = [...CONFIG_JSON_CANDIDATE_PATHS, ...CONFIG_YAML_CANDIDATE_PATHS].some(
+          (p) => existsSync(join(projectCwd, p)),
+        );
         const elapsed = performance.now() - t0;
         checks.push({
           name: 'config',

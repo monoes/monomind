@@ -17,6 +17,38 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'nod
 import { dirname, join, resolve } from 'node:path';
 
 /**
+ * Real on-disk locations for the project config file and memory database,
+ * as actually written by `monomind init` (see init/write-runtime-config.ts
+ * and commands/init.ts) and verified by `doctor`'s checkConfigFile()/
+ * checkMemoryDatabase() (commands/doctor-project-checks.ts). Each array is a
+ * list of candidate paths relative to a project root, in priority order —
+ * callers are responsible for resolving them against whatever base directory
+ * is appropriate for their context (doctor checks them relative to
+ * process.cwd(); MCP tools join them against getProjectCwd()).
+ *
+ * Shared here so doctor and the system_health MCP tool check the same real
+ * paths and can't drift apart again (see #239, where system_health checked
+ * `.monomind/config.json`/`.monomind/memory/store.json`, neither of which
+ * `monomind init` ever creates, while doctor already checked the paths below
+ * and passed).
+ */
+export const CONFIG_JSON_CANDIDATE_PATHS = [
+  '.monomind/config.json',
+  'monomind.config.json',
+  '.monomind.json',
+];
+export const CONFIG_YAML_CANDIDATE_PATHS = [
+  '.monomind/config.yaml',
+  '.monomind/config.yml',
+  'monomind.config.yaml',
+];
+export const MEMORY_DB_CANDIDATE_PATHS = [
+  '.monomind/memory.db',
+  '.swarm/memory.db',
+  'data/memory.db',
+];
+
+/**
  * Returns the effective project working directory.
  * Prefers MONOMIND_CWD (set by the install script for global/MCP installs
  * where process.cwd() may resolve to '/') over the real process.cwd().

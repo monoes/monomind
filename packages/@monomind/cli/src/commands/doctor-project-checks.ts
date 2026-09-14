@@ -20,6 +20,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
 import { classifyNativeModuleError } from '../utils/native-error.js';
+import {
+  CONFIG_JSON_CANDIDATE_PATHS,
+  CONFIG_YAML_CANDIDATE_PATHS,
+  MEMORY_DB_CANDIDATE_PATHS,
+} from '../utils/paths.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
   MAX_DOCTOR_BUILD_LOG_SCAN_BYTES,
@@ -32,7 +37,7 @@ import {
 export type { HealthCheck };
 
 export async function checkConfigFile(): Promise<HealthCheck> {
-  const jsonPaths = ['.monomind/config.json', 'monomind.config.json', '.monomind.json'];
+  const jsonPaths = CONFIG_JSON_CANDIDATE_PATHS;
   for (const configPath of jsonPaths) {
     if (existsSync(configPath) && statSync(configPath).size <= MAX_DOCTOR_CONFIG_BYTES) {
       try {
@@ -48,7 +53,7 @@ export async function checkConfigFile(): Promise<HealthCheck> {
       }
     }
   }
-  const yamlPaths = ['.monomind/config.yaml', '.monomind/config.yml', 'monomind.config.yaml'];
+  const yamlPaths = CONFIG_YAML_CANDIDATE_PATHS;
   for (const configPath of yamlPaths) {
     if (existsSync(configPath))
       return { name: 'Config File', status: 'pass', message: `Found: ${configPath}` };
@@ -62,7 +67,7 @@ export async function checkConfigFile(): Promise<HealthCheck> {
 }
 
 export async function checkMemoryDatabase(): Promise<HealthCheck> {
-  const dbPaths = ['.monomind/memory.db', '.swarm/memory.db', 'data/memory.db'];
+  const dbPaths = MEMORY_DB_CANDIDATE_PATHS;
   for (const dbPath of dbPaths) {
     if (existsSync(dbPath)) {
       try {
