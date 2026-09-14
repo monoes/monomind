@@ -68,4 +68,49 @@ describe('project-scope init writers', () => {
     expect(shouldRegisterMonomindProject('/projects/app')).toBe(true);
     expect(shouldRegisterMonomindProject('/projects/app/.worktrees/platform-parity')).toBe(false);
   });
+
+  it('sweeps stale .kimi-code/plugin/commands and .kimi-code/skills entries once the source command is removed', async () => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-sweep-'));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-sweep-home-'));
+    directories.push(project, home);
+    process.env.HOME = home;
+
+    const commandsDir = path.join(project, '.claude', 'commands', 'mastermind');
+    fs.mkdirSync(commandsDir, { recursive: true });
+    const commandPath = path.join(commandsDir, 'taskfile.md');
+    fs.writeFileSync(commandPath, '---\ndescription: task file\n---\n\nBody.\n');
+
+    const options = {
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: project,
+      force: true,
+      components: { ...DEFAULT_INIT_OPTIONS.components },
+    };
+
+    // First run: the source command exists, so both kimi mirrors get generated.
+    await writeKimiFiles(project, options, emptyResult());
+
+    const pluginCommandPath = path.join(
+      project,
+      '.kimi-code',
+      'plugin',
+      'commands',
+      'mastermind-taskfile.md',
+    );
+    const flowSkillDir = path.join(project, '.kimi-code', 'skills', 'mastermind-taskfile');
+    expect(fs.existsSync(pluginCommandPath)).toBe(true);
+    expect(fs.existsSync(flowSkillDir)).toBe(true);
+
+    // Source command removed upstream (renamed or dropped in a newer version).
+    fs.rmSync(commandPath);
+
+    // Second --force run must sweep the now-stale kimi mirror, not leave it
+    // behind forever (the class of bug proven live by
+    // .kimi-code/plugin/commands/monomind-monomind-monomind-monoswarm-monoswarm.md
+    // surviving multiple regenerations).
+    await writeKimiFiles(project, options, emptyResult());
+
+    expect(fs.existsSync(pluginCommandPath)).toBe(false);
+    expect(fs.existsSync(flowSkillDir)).toBe(false);
+  });
 });

@@ -210,9 +210,18 @@ export interface InitManifest {
   commands: string[];
   /** Entry names (category dirs) directly under .claude/agents that init generated. */
   agents: string[];
+  /** Directory names directly under .kimi-code/skills that init generated. */
+  kimiSkills: string[];
+  /** File names directly under .kimi-code/plugin/commands that init generated. */
+  kimiPluginCommands: string[];
 }
 
-export type InitManifestSection = 'skills' | 'commands' | 'agents';
+export type InitManifestSection =
+  | 'skills'
+  | 'commands'
+  | 'agents'
+  | 'kimiSkills'
+  | 'kimiPluginCommands';
 
 /**
  * Read the provenance manifest. Returns null when absent or unreadable —
@@ -234,6 +243,12 @@ export function readInitManifest(targetDir: string): InitManifest | null {
         : [],
       agents: Array.isArray(parsed.agents)
         ? parsed.agents.filter((s: unknown) => typeof s === 'string')
+        : [],
+      kimiSkills: Array.isArray(parsed.kimiSkills)
+        ? parsed.kimiSkills.filter((s: unknown) => typeof s === 'string')
+        : [],
+      kimiPluginCommands: Array.isArray(parsed.kimiPluginCommands)
+        ? parsed.kimiPluginCommands.filter((s: unknown) => typeof s === 'string')
         : [],
     };
   } catch {
@@ -261,7 +276,14 @@ export function recordGenerated(
 ): void {
   const manifestPath = path.join(targetDir, INIT_MANIFEST_REL);
   const existing = readInitManifest(targetDir);
-  const manifest: InitManifest = existing ?? { version: 1, skills: [], commands: [], agents: [] };
+  const manifest: InitManifest = existing ?? {
+    version: 1,
+    skills: [],
+    commands: [],
+    agents: [],
+    kimiSkills: [],
+    kimiPluginCommands: [],
+  };
   manifest.version = 1;
   manifest[section] = [...new Set(entries)].sort();
   try {
