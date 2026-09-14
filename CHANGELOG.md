@@ -17,6 +17,30 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   as-is instead of re-joining. Real, non-default categories (e.g. a nested
   `github/github-modes.md` command) are unaffected.
 
+## [2.10.27] — 2026-09-14
+
+### Fixed
+
+- `monomind init --force` on a project with pre-existing `.opencode/{agent,command,skills}`
+  or `.kimi-code/*` symlinks into `.claude/` (this repo's own dev checkout commits such
+  symlinks) wrote the opencode/kimi converters' flattened, transformed output back through
+  the symlink into the very `.claude/` tree it had just read — corrupting hand-authored
+  agent files in place (a spurious `mode: subagent` key) and resurrecting flattened command
+  duplicates (e.g. `.claude/commands/mastermind-adr.md`) on every run. `write-opencode.ts`
+  and `write-kimicode.ts` (including kimicode's independent stale-file sweep) now call a new
+  `isSafeConversionTarget()` guard that resolves the destination with `fs.realpathSync` and
+  skips the write with a recorded error instead of writing through it when the destination
+  resolves inside `.claude/`.
+- `monomind init --force` silently dropped unrecognized `hooks`/permissions fields from an
+  existing `.claude/settings.json` instead of merging into it — the merge-with-existing
+  branch in `write-claude.ts` was gated on `!options.force`, so `--force` skipped it
+  entirely. The merge branch now always runs when a settings file already exists, via a new
+  `mergeHooksPreservingUnknown()`.
+- `.kimi-code/plugin/commands/` and `.kimi-code/skills/` only ever accumulated entries on
+  repeated `init --force` runs — renamed or removed source commands/skills were never swept.
+  The existing generation manifest now tracks `kimiSkills`/`kimiPluginCommands` alongside the
+  other generated-file sections so stale entries are removed like everywhere else.
+
 ## [2.10.20] — 2026-09-11
 
 ### Fixed
