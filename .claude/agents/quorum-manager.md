@@ -1,7 +1,6 @@
 ---
 name: quorum-manager
 description: Runs vote tallies over subagent votes and manages membership thresholds for monomind's single-process consensus primitives
-mode: subagent
 capability:
   role: quorum-manager
   goal: Collect votes from participating agents, apply the correct threshold rule, and produce a tamper-evident record of the decision

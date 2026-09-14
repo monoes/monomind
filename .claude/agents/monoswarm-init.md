@@ -1,7 +1,6 @@
 ---
 name: monoswarm-init
 description: Swarm initialization and topology optimization specialist
-mode: subagent
 ---
 
 # Swarm Initializer Agent

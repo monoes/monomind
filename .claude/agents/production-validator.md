@@ -1,7 +1,6 @@
 ---
 name: production-validator
 description: Production validation specialist ensuring applications are fully implemented and deployment-ready
-mode: subagent
 ---
 
 # Production Validation Agent

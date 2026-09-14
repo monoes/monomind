@@ -1,7 +1,6 @@
 ---
 name: researcher
 description: Deep research and information gathering specialist
-mode: subagent
 capability:
   role: researcher
   goal: Conduct thorough investigation and knowledge synthesis for software development tasks

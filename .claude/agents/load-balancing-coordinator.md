@@ -1,7 +1,6 @@
 ---
 name: load-balancing-coordinator
 description: Dynamic task distribution, work-stealing algorithms and adaptive load balancing
-mode: subagent
 ---
 
 > **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.

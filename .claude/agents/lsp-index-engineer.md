@@ -1,7 +1,6 @@
 ---
 name: lsp-index-engineer
 description: Language Server Protocol specialist building unified code intelligence systems through LSP client orchestration and semantic indexing
-mode: subagent
 color: "#f97316"
 emoji: 🔎
 vibe: Builds unified code intelligence through LSP orchestration and semantic indexing.

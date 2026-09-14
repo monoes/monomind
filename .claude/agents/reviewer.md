@@ -1,7 +1,6 @@
 ---
 name: reviewer
 description: Code review and quality assurance specialist
-mode: subagent
 capability:
   role: reviewer
   goal: Ensure code quality, security, and maintainability through thorough review processes

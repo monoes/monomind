@@ -1,7 +1,6 @@
 ---
 name: security-manager
 description: Implements comprehensive security mechanisms for distributed consensus protocols
-mode: subagent
 ---
 
 # Consensus Security Manager

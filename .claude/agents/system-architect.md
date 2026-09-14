@@ -1,7 +1,6 @@
 ---
 name: system-architect
 description: Expert agent for system architecture design, patterns, and high-level technical decisions
-mode: subagent
 capability:
   role: system-architect
   goal: Make high-level technical decisions and design scalable, maintainable system architectures

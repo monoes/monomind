@@ -1,7 +1,6 @@
 ---
 name: planner
 description: Strategic planning and task orchestration agent
-mode: subagent
 capability:
   role: planner
   goal: Decompose complex tasks into manageable components and create actionable execution plans

@@ -1,7 +1,6 @@
 ---
 name: performance-benchmarker
 description: Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance across all applications and infrastructure
-mode: subagent
 color: "#f97316"
 emoji: ⏱️
 vibe: Measures everything, optimizes what matters, and proves the improvement.

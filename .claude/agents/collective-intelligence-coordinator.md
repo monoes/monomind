@@ -1,7 +1,6 @@
 ---
 name: collective-intelligence-coordinator
 description: Synthesizes findings from multiple agents into durable shared knowledge — the knowledge graph, pattern store, and memory namespaces other agents read from
-mode: subagent
 capability:
   role: collective-intelligence-coordinator
   goal: Turn several agents' separate findings into one reconciled body of knowledge that later sessions and agents can actually retrieve

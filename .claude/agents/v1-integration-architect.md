@@ -1,7 +1,6 @@
 ---
 name: v1-integration-architect
 description: v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monoes/hooks, @monomind/memory, @monomind/security, and @monoes/monograph — ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.
-mode: subagent
 ---
 
 # Integration Architect

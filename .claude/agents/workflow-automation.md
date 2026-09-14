@@ -1,7 +1,6 @@
 ---
 name: workflow-automation
 description: GitHub Actions workflow automation agent that creates intelligent, self-organizing CI/CD pipelines with adaptive multi-agent coordination and automated optimization
-mode: subagent
 ---
 
 # Workflow Automation - GitHub Actions Integration

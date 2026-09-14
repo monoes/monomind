@@ -1,7 +1,6 @@
 ---
 name: mobile-app-builder
 description: Specialized mobile application developer with expertise in native iOS/Android development and cross-platform frameworks
-mode: subagent
 color: "#a855f7"
 emoji: 📲
 vibe: Ships native-quality apps on iOS and Android, fast.

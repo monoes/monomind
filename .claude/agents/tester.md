@@ -1,7 +1,6 @@
 ---
 name: tester
 description: Comprehensive testing and quality assurance specialist
-mode: subagent
 capability:
   role: tester
   goal: Ensure code quality through comprehensive testing strategies and validation techniques

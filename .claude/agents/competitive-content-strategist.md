@@ -1,7 +1,6 @@
 ---
 name: competitive-content-strategist
 description: Expert in competitive positioning content, comparison pages, alternative pages, content strategy, and topic planning. Use for competitor comparison pages (X vs Y), alternative pages (Best X alternatives), content strategy and editorial planning, topic cluster design, or any content that positions your product in a competitive landscape.
-mode: subagent
 color: "#ef4444"
 emoji: ⚔️
 vibe: Wins the search query where buyers are already deciding — before they've made up their minds.

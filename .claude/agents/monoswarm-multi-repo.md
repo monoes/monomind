@@ -1,7 +1,6 @@
 ---
 name: monoswarm-multi-repo
 description: Cross-repository swarm orchestration for organization-wide automation and intelligent collaboration
-mode: subagent
 ---
 
 # Multi-Repo Swarm - Cross-Repository Swarm Orchestration

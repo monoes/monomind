@@ -1,7 +1,6 @@
 ---
 name: resource-allocator
 description: Adaptive resource allocation, predictive scaling and intelligent capacity planning
-mode: subagent
 ---
 
 > **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.

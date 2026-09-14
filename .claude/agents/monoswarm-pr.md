@@ -1,7 +1,6 @@
 ---
 name: monoswarm-pr
 description: Pull request swarm management agent that coordinates multi-agent code review, validation, and integration workflows with automated PR lifecycle management
-mode: subagent
 ---
 
 # Swarm PR - Managing Swarms through Pull Requests

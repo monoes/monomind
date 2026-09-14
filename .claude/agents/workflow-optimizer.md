@@ -1,7 +1,6 @@
 ---
 name: workflow-optimizer
 description: Expert process improvement specialist focused on analyzing, optimizing, and automating workflows across all business functions for maximum productivity and efficiency
-mode: subagent
 color: "#22c55e"
 emoji: ⚡
 vibe: Finds the bottleneck, fixes the process, automates the rest.
