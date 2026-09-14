@@ -29,6 +29,7 @@ import type {
   ApplyResult,
   ArtifactIntent,
   ArtifactKind,
+  Capability,
   DiscoveryResult,
   InstallRequest,
   MutationRequest,
@@ -460,6 +461,26 @@ export async function migrateLegacyInstall(request: MutationRequest): Promise<Ap
   return upgradePlatforms(request);
 }
 
+/**
+ * The capability that gates each artifact kind's renderer (see
+ * renderers/*.ts, each of which skips rendering unless its capability is
+ * 'native'). Doctor uses this to tell a capability-gated location — declared
+ * in the registry but intentionally never written because the capability
+ * hasn't been promoted — apart from a genuine gap in an already-native one.
+ * A kind absent here (e.g. the unused 'plugin') falls back to plain 'missing'.
+ */
+const KIND_CAPABILITY: Partial<Record<ArtifactKind, Capability>> = {
+  instruction: 'instructions',
+  skill: 'skills',
+  mcp: 'mcp',
+  command: 'commands',
+  agent: 'agents',
+  hook: 'hooks',
+  hook_bridge: 'hooks',
+  status: 'status',
+  permission: 'permissions',
+};
+
 export async function runPlatformsDoctor(request: {
   platform?: PlatformAdapter['id'];
   path?: string;
@@ -478,7 +499,17 @@ export async function runPlatformsDoctor(request: {
       });
       if (!location) continue;
       if (!existsSync(location.path)) {
-        artifacts.push({ path: location.displayPath, state: 'missing' });
+        const capability = KIND_CAPABILITY[kind];
+        const level = capability && adapter.capabilities[capability];
+        if (capability && level !== 'native') {
+          artifacts.push({
+            path: location.displayPath,
+            state: 'gated',
+            reason: `capability ${capability} is ${level}; this artifact is not rendered until it is native`,
+          });
+        } else {
+          artifacts.push({ path: location.displayPath, state: 'missing' });
+        }
         continue;
       }
       artifacts.push({

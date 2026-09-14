@@ -148,7 +148,15 @@ export interface PlatformDoctorReport {
   verification: Record<Capability, VerificationLevel>;
   artifacts: readonly {
     path: string;
-    state: 'managed' | 'missing' | 'legacy' | 'foreign';
+    /**
+     * 'gated' marks a location that is concretely declared in the registry
+     * but whose owning capability is not 'native' (experimental, cli_fallback,
+     * or unsupported) — the renderer intentionally never writes it, so it is
+     * not an actionable gap.
+     */
+    state: 'managed' | 'missing' | 'legacy' | 'foreign' | 'gated';
+    /** Set only for 'gated' artifacts: which capability is gating it, and at what level. */
+    reason?: string;
   }[];
   legacy: { findings: readonly string[]; migratable: boolean };
   diagnostics: readonly string[];
