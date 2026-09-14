@@ -17,6 +17,19 @@ import {
 import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';
 
+/** A single hook command entry inside a hook group's `hooks` array. */
+interface HookEntry {
+  command: string;
+  [key: string]: unknown;
+}
+
+/** A hook group as it appears in settings.json's `hooks.<EventType>` arrays. */
+interface HookGroup {
+  matcher?: string;
+  hooks?: HookEntry[];
+  [key: string]: unknown;
+}
+
 /**
  * Write settings.json
  */
@@ -28,18 +41,26 @@ export async function writeSettings(
   const settingsPath = path.join(targetDir, '.claude', 'settings.json');
   const generated = JSON.parse(generateSettingsJson(options));
 
-  if (
-    fs.existsSync(settingsPath) &&
-    !options.force &&
-    fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES
-  ) {
+  if (fs.existsSync(settingsPath) && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
     // Merge hooks/env/permissions into existing settings instead of skipping
     try {
       const existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       let merged = false;
 
-      // Merge hooks (the critical missing piece — #1484)
-      if (generated.hooks && !existing.hooks) {
+      // Merge hooks (the critical missing piece — #1484).
+      // `--force` must still refresh monomind's own hook entries (that's the
+      // point of --force), but blindly overwriting with `generated` below
+      // silently deleted any hook registration the generator doesn't itself
+      // produce — hand-added custom hooks (this repo's own settings.json
+      // dogfoods several: event-logger.cjs, loop-tracker.cjs,
+      // mastermind-activate.cjs, control-stop.cjs) vanished from
+      // settings.json on every `init --force` with no warning. Non-force
+      // behavior (backfill only when hooks are completely absent) is
+      // unchanged.
+      if (options.force && generated.hooks) {
+        existing.hooks = mergeHooksPreservingUnknown(existing.hooks, generated.hooks);
+        merged = true;
+      } else if (generated.hooks && !existing.hooks) {
         existing.hooks = generated.hooks;
         merged = true;
       }
@@ -84,6 +105,70 @@ export async function writeSettings(
 
   atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
   result.created.files.push('.claude/settings.json');
+}
+
+/**
+ * Merge freshly generated hooks into an existing hooks object without losing
+ * hook registrations the generator doesn't itself produce.
+ *
+ * For each event type present on either side: a type absent from one side is
+ * taken verbatim from the other. When both sides define the type, the
+ * generated groups win (refreshing monomind's own hooks to their latest
+ * command/timeout), and any existing hook command not found anywhere in the
+ * generated groups for that event type — e.g. a hand-added custom hook — is
+ * preserved, appended as additional group(s) bucketed by original matcher.
+ *
+ * Two tradeoffs of this approach, by design:
+ * - Preserved entries move to the end of their event type's array, so
+ *   relative order against generated hooks isn't retained (presence is
+ *   guaranteed; original position is not).
+ * - Matching is by exact command string. If a future change to the
+ *   generator's command template changes what it emits for an existing
+ *   hook, the old emitted form will look "unknown" and be preserved
+ *   alongside the new one (duplicate execution) rather than replaced. That's
+ *   the safer failure mode for this bug — visible duplication beats silent
+ *   loss — but worth knowing about.
+ */
+function mergeHooksPreservingUnknown(
+  existingHooks: Record<string, HookGroup[]> | undefined,
+  generatedHooks: Record<string, HookGroup[]>,
+): Record<string, HookGroup[]> {
+  const existing = existingHooks || {};
+  const merged: Record<string, HookGroup[]> = {};
+
+  for (const eventType of new Set([...Object.keys(existing), ...Object.keys(generatedHooks)])) {
+    const generatedGroups = generatedHooks[eventType];
+    const existingGroups = existing[eventType];
+
+    if (!existingGroups) {
+      merged[eventType] = generatedGroups;
+      continue;
+    }
+    if (!generatedGroups) {
+      merged[eventType] = existingGroups;
+      continue;
+    }
+
+    const knownCommands = new Set(
+      generatedGroups.flatMap((group) => (group.hooks ?? []).map((h) => h.command)),
+    );
+
+    const preservedByMatcher = new Map<string, HookEntry[]>();
+    for (const group of existingGroups) {
+      const unknown = (group.hooks ?? []).filter((h) => !knownCommands.has(h.command));
+      if (unknown.length === 0) continue;
+      const key = group.matcher ?? '';
+      preservedByMatcher.set(key, [...(preservedByMatcher.get(key) ?? []), ...unknown]);
+    }
+
+    const preservedGroups: HookGroup[] = [...preservedByMatcher].map(([matcher, hooks]) =>
+      matcher ? { matcher, hooks } : { hooks },
+    );
+
+    merged[eventType] = [...generatedGroups, ...preservedGroups];
+  }
+
+  return merged;
 }
 
 /**
