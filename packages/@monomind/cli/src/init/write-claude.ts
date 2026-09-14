@@ -85,7 +85,7 @@ export async function writeSettings(
       }
 
       if (merged) {
-        atomicWriteFile(settingsPath, JSON.stringify(existing, null, 2));
+        atomicWriteFile(settingsPath, `${JSON.stringify(existing, null, 2)}\n`);
         result.created.files.push('.claude/settings.json (merged hooks)');
       } else {
         result.skipped.push('.claude/settings.json');
@@ -97,37 +97,38 @@ export async function writeSettings(
           '[writeSettings] existing settings.json unparseable, overwriting with generated defaults:',
           e,
         );
-      atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
+      atomicWriteFile(settingsPath, `${JSON.stringify(generated, null, 2)}\n`);
       result.created.files.push('.claude/settings.json');
     }
     return;
   }
 
-  atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
+  atomicWriteFile(settingsPath, `${JSON.stringify(generated, null, 2)}\n`);
   result.created.files.push('.claude/settings.json');
 }
 
 /**
  * Merge freshly generated hooks into an existing hooks object without losing
- * hook registrations the generator doesn't itself produce.
+ * hook registrations the generator doesn't itself produce, and without
+ * reshuffling hook blocks the existing file already had.
  *
  * For each event type present on either side: a type absent from one side is
- * taken verbatim from the other. When both sides define the type, the
- * generated groups win (refreshing monomind's own hooks to their latest
- * command/timeout), and any existing hook command not found anywhere in the
- * generated groups for that event type — e.g. a hand-added custom hook — is
- * preserved, appended as additional group(s) bucketed by original matcher.
+ * taken verbatim from the other. When both sides define the type, block
+ * ("hook group") order is resolved per mergeEventGroupsPreservingOrder.
  *
  * Two tradeoffs of this approach, by design:
- * - Preserved entries move to the end of their event type's array, so
- *   relative order against generated hooks isn't retained (presence is
- *   guaranteed; original position is not).
- * - Matching is by exact command string. If a future change to the
- *   generator's command template changes what it emits for an existing
- *   hook, the old emitted form will look "unknown" and be preserved
- *   alongside the new one (duplicate execution) rather than replaced. That's
- *   the safer failure mode for this bug — visible duplication beats silent
- *   loss — but worth knowing about.
+ * - Order is preserved at the group ("block") level, not for individual
+ *   hook entries inside a block the generator owns: a block that still has
+ *   a template counterpart always gets that counterpart's content verbatim
+ *   (needed so e.g. a stale timeout gets refreshed to the current default),
+ *   which may reorder entries *within* that one block relative to before.
+ * - Matching is by exact command string, same as before this function
+ *   existed. If a future change to the generator's command template changes
+ *   what it emits for an existing hook, the old emitted form will look
+ *   "unknown" and be preserved alongside the new one (duplicate execution)
+ *   rather than replaced. That's the safer failure mode for the original
+ *   data-loss bug (#1484) this function was written to fix — visible
+ *   duplication beats silent loss — but worth knowing about.
  */
 function mergeHooksPreservingUnknown(
   existingHooks: Record<string, HookGroup[]> | undefined,
@@ -149,26 +150,92 @@ function mergeHooksPreservingUnknown(
       continue;
     }
 
-    const knownCommands = new Set(
-      generatedGroups.flatMap((group) => (group.hooks ?? []).map((h) => h.command)),
-    );
-
-    const preservedByMatcher = new Map<string, HookEntry[]>();
-    for (const group of existingGroups) {
-      const unknown = (group.hooks ?? []).filter((h) => !knownCommands.has(h.command));
-      if (unknown.length === 0) continue;
-      const key = group.matcher ?? '';
-      preservedByMatcher.set(key, [...(preservedByMatcher.get(key) ?? []), ...unknown]);
-    }
-
-    const preservedGroups: HookGroup[] = [...preservedByMatcher].map(([matcher, hooks]) =>
-      matcher ? { matcher, hooks } : { hooks },
-    );
-
-    merged[eventType] = [...generatedGroups, ...preservedGroups];
+    merged[eventType] = mergeEventGroupsPreservingOrder(existingGroups, generatedGroups);
   }
 
   return merged;
+}
+
+/**
+ * Merge one event type's existing and generated hook-group arrays.
+ *
+ * Groups are matched to a same-event counterpart by matcher, bucketing an
+ * absent `matcher` together with an explicit `"matcher": ""` — the same
+ * convention this function used before this change existed. (Claude Code's
+ * hooks reference documents matcher *support*, and what it matches against,
+ * per event type — e.g. SessionStart's matcher is the session-start reason,
+ * not a tool name — but only UserPromptSubmit and Stop are documented as
+ * having no matcher support at all; whether an empty-string matcher and an
+ * absent one behave identically at runtime on the events that *do* support
+ * one isn't itself documented, just inferred from ordinary regex semantics.
+ * It doesn't matter for correctness here either way: this bucketing is only
+ * this function's own notion of "which block is this", never applied to
+ * change what's written — each emitted group's `matcher` field is always
+ * copied verbatim from whichever side, generated or preserved-existing, it
+ * came from.) Walking the *existing* array in its original order:
+ *   - An existing group whose matcher still has an unclaimed generated
+ *     counterpart is replaced in place, at its original position, with that
+ *     generated group's content (refreshing command/timeout to current
+ *     defaults — matches this function's behavior before this change).
+ *   - Any of that existing group's hooks whose command isn't produced by
+ *     *any* generated group in this event type (e.g. a hand-added extra
+ *     hook sharing a matcher with a generator-owned block) would otherwise
+ *     be silently dropped by the replacement above — those are preserved as
+ *     an additional group immediately after it.
+ *   - An existing group whose matcher has no generated counterpart at all
+ *     (removed by the template, or always custom) is kept at its original
+ *     position, minus any hooks that a generated group *does* produce under
+ *     a different matcher (already represented there; keeping them here too
+ *     would duplicate them).
+ * Generated groups whose matcher never appears in the existing array at all
+ * are genuinely new template blocks — those are appended at the end, in the
+ * template's own order.
+ */
+function mergeEventGroupsPreservingOrder(
+  existingGroups: HookGroup[],
+  generatedGroups: HookGroup[],
+): HookGroup[] {
+  const matcherKey = (group: HookGroup): string => group.matcher ?? '';
+
+  const knownCommands = new Set(
+    generatedGroups.flatMap((group) => (group.hooks ?? []).map((h) => h.command)),
+  );
+
+  const generatedByMatcher = new Map<string, HookGroup[]>();
+  for (const group of generatedGroups) {
+    const key = matcherKey(group);
+    const bucket = generatedByMatcher.get(key);
+    if (bucket) bucket.push(group);
+    else generatedByMatcher.set(key, [group]);
+  }
+
+  const used = new Set<HookGroup>();
+  const result: HookGroup[] = [];
+
+  for (const existingGroup of existingGroups) {
+    const key = matcherKey(existingGroup);
+    const candidate = (generatedByMatcher.get(key) ?? []).find((group) => !used.has(group));
+    const unknownHooks = (existingGroup.hooks ?? []).filter((h) => !knownCommands.has(h.command));
+
+    if (candidate) {
+      used.add(candidate);
+      result.push(candidate);
+      if (unknownHooks.length > 0) {
+        result.push(key ? { matcher: key, hooks: unknownHooks } : { hooks: unknownHooks });
+      }
+    } else if (unknownHooks.length > 0) {
+      result.push(key ? { matcher: key, hooks: unknownHooks } : { hooks: unknownHooks });
+    }
+    // else: every hook in this existing group is produced by a generated
+    // group under a different matcher — already placed there (or will be
+    // appended below); nothing to place at this position.
+  }
+
+  for (const group of generatedGroups) {
+    if (!used.has(group)) result.push(group);
+  }
+
+  return result;
 }
 
 /**
