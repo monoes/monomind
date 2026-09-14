@@ -122,7 +122,9 @@ export function detectProjectProfile(cwd: string): ProjectProfile {
     // 'npm' too, which is what actually drives the "Install dependencies" /
     // "Run tests" commands in the generated file.
     const hasStrongerStackMarker =
-      fileExists(cwd, 'go.mod') || fileExists(cwd, 'Cargo.toml') || fileExists(cwd, 'pyproject.toml');
+      fileExists(cwd, 'go.mod') ||
+      fileExists(cwd, 'Cargo.toml') ||
+      fileExists(cwd, 'pyproject.toml');
     if (!hasStrongerStackMarker) {
       profile.language =
         deps.typescript || fileExists(cwd, 'tsconfig.json') ? 'typescript' : 'javascript';
@@ -442,6 +444,12 @@ export function generateSharedInstructions(profile: ProjectProfile): string {
   const ciStr = profile.hasCi ? `\n- **CI:** ${profile.ciTool}` : '';
   const monorepoStr = profile.isMonorepo ? `\n- **Monorepo:** yes (${profile.monorepoTool})` : '';
   const maxLinesStr = maxFileLines ? `\n- **Max file size:** ${maxFileLines} lines` : '';
+  // 'unknown' is technically accurate for Go (no separate package manager),
+  // but reads as a detection failure to an agent — say what's actually true.
+  const packageManagerLabel =
+    packageManager === 'unknown' && language === 'go'
+      ? 'go modules (no separate package manager)'
+      : packageManager;
 
   return `# ${name} — Shared Agent Instructions
 
@@ -451,7 +459,7 @@ export function generateSharedInstructions(profile: ProjectProfile): string {
 ## Project Overview
 ${description ? `\n${description}\n` : ''}
 - **Language:** ${langLabel}
-- **Package manager:** ${packageManager}
+- **Package manager:** ${packageManagerLabel}
 - **Source directory:** ${srcDir || '(root)'}
 - **Test directory:** ${testDir || '(co-located)'}${maxLinesStr}${dbStr}${testStr}${ciStr}${monorepoStr}
 

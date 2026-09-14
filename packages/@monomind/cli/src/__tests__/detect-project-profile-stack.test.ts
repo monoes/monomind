@@ -47,6 +47,10 @@ describe('detectProjectProfile — an incidental root package.json does not win 
     expect(rendered).toContain('**Language:** Go');
     expect(rendered).not.toContain('npm install');
     expect(rendered).not.toContain('npm test');
+    // "unknown" is technically accurate (Go has no separate package
+    // manager) but reads as a detection failure to an agent; render
+    // something informative instead.
+    expect(rendered).not.toContain('**Package manager:** unknown');
   });
 
   it('still detects Rust when a Cargo.toml repo has an incidental root package.json', () => {
