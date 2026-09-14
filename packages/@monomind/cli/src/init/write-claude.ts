@@ -13,6 +13,7 @@ import {
   findSourceClaudeDir,
   findSourceHelpersDir,
   MAX_EXEC_FILE_BYTES,
+  mergeGeneratedBlock,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -399,14 +400,25 @@ export async function writeClaudeMd(
   result: InitResult,
 ): Promise<void> {
   const claudeMdPath = path.join(targetDir, 'CLAUDE.md');
+  const exists = fs.existsSync(claudeMdPath);
 
-  if (fs.existsSync(claudeMdPath) && !options.force) {
+  if (exists && !options.force) {
     result.skipped.push('CLAUDE.md');
     return;
   }
 
   const inferredTemplate =
     !options.components.commands && !options.components.agents ? 'minimal' : undefined;
-  atomicWriteFile(claudeMdPath, generateClaudeMd(options, inferredTemplate));
+  const generated = generateClaudeMd(options, inferredTemplate);
+
+  // Confine monomind's own generated body to a delimited block rather than
+  // overwriting the whole file — a full overwrite silently destroyed
+  // hand-authored project content (Go/Rust/Python-specific instructions,
+  // etc.) outside anything monomind itself wrote. See GH #241. This also
+  // applies on the very first write so a later `--force` always refreshes
+  // just this block instead of duplicating the body.
+  const existingContent = exists ? fs.readFileSync(claudeMdPath, 'utf-8') : '';
+  const merged = mergeGeneratedBlock(existingContent, 'claude-md', generated);
+  atomicWriteFile(claudeMdPath, merged);
   result.created.files.push('CLAUDE.md');
 }
