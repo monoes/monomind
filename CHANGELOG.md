@@ -4,6 +4,64 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.30] — 2026-09-15
+
+### Added
+
+- `runtime: 'hermes'` — a new `AgentRunner` backed by Nous Research's
+  Hermes Agent CLI (`hermes`), following `CodexAgentRunner`'s
+  fresh-spawn-per-tool-round pattern. Headless `hermes` has no
+  session-resume flag, so the full transcript is resent every tool-call
+  round rather than relying on `resume <threadId>`. Live-verified against
+  a real installed binary, which caught two bugs a docs-only design had
+  missed: `--usage-file` is a top-level `-z`-only flag (invalid on
+  `chat`, so usage always reports 0, matching `vercel-runner.ts`'s
+  existing `cost_usd:0` precedent), and `-Q`/`--quiet` can still leak a
+  warning line onto stdout ahead of the real answer (stripped
+  defensively). The org-tool fence protocol does not yet round-trip with
+  Hermes's own native tool-call syntax — documented as a known follow-up,
+  not silently papered over.
+
+### Changed
+
+- Incremental (per-token/per-chunk) text streaming is now gated behind
+  `extras.includePartialMessages` consistently across every subprocess
+  `AgentRunner` (`antigravity`, `opencode`, `pi-rpc`, `qwen-rpc`),
+  matching the opt-in pattern `ClaudeAgentRunner` already used.
+  `antigravity-runner.ts`'s streaming was previously unconditional; the
+  org runtime (`session.ts`) wants one complete message per step
+  regardless of which runner backs a role and never opts in, so it was
+  unintentionally getting fragments before this. `pi-rpc-runner.ts` gains
+  incremental streaming for the first time, via
+  `message_start`/`message_update`/`message_end` events (not
+  independently live-tested end-to-end — no funded model credential was
+  available in the verifying environment; sourced from the bundled
+  protocol spec rather than inference). Opt-in and additive throughout:
+  default (non-streaming) behavior is unchanged everywhere.
+
+### Fixed
+
+- `doctor`'s "Graph freshness" check could keep reporting a native-module
+  build failure (e.g. a `better-sqlite3` ABI mismatch) as *current* long
+  after the real problem was already fixed — `build.log` is append-only,
+  so a stale historical failure kept getting re-surfaced until the next
+  successful `monograph build` happened to overwrite it. The check now
+  resolves the implicated package from disk and compares its own
+  most-recently-modified file against the log entry; when the package is
+  demonstrably newer than the log, the check downgrades to a warning
+  noting the discrepancy instead of asserting the problem is still live.
+  Fixes #244.
+- The ABI-mismatch diagnostic message now suggests
+  `npm rebuild <module> --build-from-source` and a full package
+  reinstall (not just clearing `build/`) for the specific "rebuild never
+  changes the binary at all" symptom reported in #231 — a cached
+  prebuilt asset being silently reused instead of a real from-source
+  compile is the most likely mechanism for a very new Node major with no
+  matching prebuilt release yet. Does not claim to fully resolve #231:
+  the exact environment (Node v26 + a pre-existing stale-ABI binary)
+  couldn't be reproduced to confirm it, so #231 stays open pending
+  confirmation.
+
 ## [2.10.29] — 2026-09-14
 
 ### Fixed
