@@ -46,6 +46,13 @@ describe('classifyNativeModuleError', () => {
     expect(classifyNativeModuleError('TypeError: cannot read property of undefined')).toBeNull();
   });
 
+  it('suggests --build-from-source for the "byte-identical no matter what" case reported in #231 (a plain rebuild/reinstall likely reuses a cached prebuilt rather than compiling)', () => {
+    const text = 'NODE_MODULE_VERSION 141. This version of Node.js requires NODE_MODULE_VERSION 147.';
+    const result = classifyNativeModuleError(text);
+    expect(result).toContain('--build-from-source');
+    expect(result).toContain('rm -rf node_modules/<module>');
+  });
+
   it('matches the LAST attempt, not the first, when build.log has accumulated several (it is append-only and never truncated)', () => {
     const text = [
       'attempt 1: NODE_MODULE_VERSION 130. This version of Node.js requires NODE_MODULE_VERSION 140.',

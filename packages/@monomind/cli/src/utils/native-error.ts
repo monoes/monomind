@@ -31,9 +31,14 @@ export function classifyNativeModuleError(text: string): string | null {
       `Native module built for Node ABI ${builtFor}, but this Node needs ABI ${required} ` +
       `(NODE_MODULE_VERSION mismatch). Try: delete the module's build/ or prebuilds/ ` +
       `directory and reinstall, or reinstall under the exact Node version you run ` +
-      `monomind with. If reinstalling never changes the binary at all, a stale global ` +
-      `npm cache or a dependency-deduped copy elsewhere on disk may be the real cause — ` +
-      `run \`node -e "console.log(require.resolve('better-sqlite3'))"\` from the project ` +
+      `monomind with. If a plain reinstall never changes the binary at all (same size, ` +
+      `same mtime, every time), it's likely resolving a cached prebuilt asset instead of ` +
+      `actually rebuilding — force a real from-source rebuild with ` +
+      "`npm rebuild <module> --build-from-source`, or remove and reinstall the exact " +
+      "package directory (`rm -rf node_modules/<module> && npm install`), not just its " +
+      `build/ output. If that STILL doesn't change the binary, a stale global npm cache ` +
+      `or a dependency-deduped copy elsewhere on disk may be the real cause — run ` +
+      `\`node -e "console.log(require.resolve('better-sqlite3'))"\` from the project ` +
       `to see which file is actually being loaded.`
     );
   }
