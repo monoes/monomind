@@ -263,6 +263,10 @@ describe('AntigravityAgentRunner', () => {
       cwd: '/tmp',
       env: {},
       maxTurns: 5,
+      // Opts into incremental streaming — agent-exec.ts's own call site sets
+      // this; session.ts (the org runtime) never does, and must keep getting
+      // exactly one message per step (see the "defaults to buffered" test).
+      extras: { includePartialMessages: true },
     });
 
     const messages: any[] = [];
@@ -277,6 +281,58 @@ describe('AntigravityAgentRunner', () => {
     const assistantMsgs = messages.filter((m) => m.type === 'assistant');
     expect(assistantMsgs.map((m) => m.text)).toEqual(['Hello', ' world']);
     expect(assistantMsgs.map((m) => m.text).join('')).toBe('Hello world');
+  });
+
+  it('without extras.includePartialMessages, buffers to the DONE boundary exactly like before incremental streaming existed (session.ts default)', async () => {
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ event: 'init', conversation_id: 'c1', init: {} }),
+        JSON.stringify({
+          event: 'step_update',
+          step_update: {
+            conversation_id: 'c1',
+            step_type: 'agent_response',
+            state: 'ACTIVE',
+            text_delta: 'Hello',
+          },
+        }),
+        JSON.stringify({
+          event: 'step_update',
+          step_update: {
+            conversation_id: 'c1',
+            step_type: 'agent_response',
+            state: 'ACTIVE',
+            text_delta: ' world',
+          },
+        }),
+        JSON.stringify({
+          event: 'step_update',
+          step_update: { conversation_id: 'c1', step_type: 'agent_response', state: 'DONE' },
+        }),
+        JSON.stringify({
+          event: 'result',
+          result: { conversation_id: 'c1', status: 'SUCCESS', usage: { input_tokens: 10, output_tokens: 5 } },
+        }),
+      ]),
+    );
+
+    const gen = runner.run({
+      tools: [],
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
+      systemPrompt: '',
+      cwd: '/tmp',
+      env: {},
+      maxTurns: 5,
+      // No extras — this is session.ts's shape.
+    });
+
+    const messages: any[] = [];
+    for await (const m of gen) messages.push(m);
+
+    const assistantMsgs = messages.filter((m) => m.type === 'assistant');
+    expect(assistantMsgs.map((m) => m.text)).toEqual(['Hello world']);
   });
 
   it('extracts usage from result event', async () => {
@@ -724,7 +780,7 @@ describe('AntigravityAgentRunner streaming', () => {
     );
 
     const messages: any[] = [];
-    for await (const m of runner.run(makeRunArgs())) messages.push(m);
+    for await (const m of runner.run(makeRunArgs({ extras: { includePartialMessages: true } }))) messages.push(m);
 
     // 'Hello' and ' world' each stream as their own increment (as soon as
     // their ACTIVE delta arrives); the DONE step's repeat of the full text
@@ -732,6 +788,33 @@ describe('AntigravityAgentRunner streaming', () => {
     const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
     expect(texts).toEqual(['Hello', ' world']);
     expect(texts.join('')).toBe('Hello world');
+  });
+
+  it('without extras.includePartialMessages, multiple ACTIVE deltas within one step still collapse into a single DONE-boundary message (session.ts default)', async () => {
+    const step = (state: string, extra: Record<string, unknown> = {}) =>
+      JSON.stringify({
+        event: 'step_update',
+        step_update: { conversation_id: 'c1', step_type: 'agent_response', state, ...extra },
+      });
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeDelayedMockChild([
+        { line: step('ACTIVE', { text_delta: 'Hello' }) },
+        { line: step('ACTIVE', { text_delta: ' world' }) },
+        { line: step('DONE', { text_delta: 'Hello world' }) },
+        {
+          line: JSON.stringify({
+            event: 'result',
+            result: { conversation_id: 'c1', status: 'SUCCESS', usage: {} },
+          }),
+        },
+      ]),
+    );
+
+    const messages: any[] = [];
+    for await (const m of runner.run(makeRunArgs())) messages.push(m); // no extras — session.ts's shape
+
+    const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(texts).toEqual(['Hello world']);
   });
 
   it('fence protocol: executes tool_call fences and feeds results back into the SAME conversation', async () => {

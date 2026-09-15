@@ -127,10 +127,11 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     expect(result?.output_tokens).toBe(5);
   });
 
-  it('streams each assistant event as its own incremental message instead of buffering to a single result-triggered blob (native tool-use cycle)', async () => {
+  it('streams each assistant event as its own incremental message instead of buffering to a single result-triggered blob (native tool-use cycle), when extras.includePartialMessages opts in', async () => {
     const proc = fakeProcess();
     const runner = new QwenRpcAgentRunner('qwen', () => proc);
-    const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
+    const args = { ...baseArgs(singlePrompt('hello')), extras: { includePartialMessages: true } };
+    const resultsPromise = collect(runner.run(args));
     await new Promise((r) => setTimeout(r, 10));
 
     proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'working on it' }] } }) + '\n');
@@ -146,6 +147,22 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
     expect(assistant).toEqual(['working on it', '\ndone now']);
     expect(assistant.join('')).toBe('working on it\ndone now');
+  });
+
+  it('without extras.includePartialMessages, buffers to the result-triggered single blob exactly like before incremental streaming existed (session.ts default)', async () => {
+    const proc = fakeProcess();
+    const runner = new QwenRpcAgentRunner('qwen', () => proc);
+    const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello')))); // no extras
+
+    await new Promise((r) => setTimeout(r, 10));
+    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'working on it' }] } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'done now' }] } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitClose(0);
+
+    const messages = await resultsPromise;
+    const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(assistant).toEqual(['working on it\ndone now']);
   });
 
   it('extracts an org tool_call fence, executes it, and continues the same session', async () => {

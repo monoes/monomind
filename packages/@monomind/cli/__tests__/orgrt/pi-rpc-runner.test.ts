@@ -181,6 +181,132 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     expect(result?.output_tokens).toBe(28); // 20 + 8
   });
 
+  it('streams message_update text_delta events incrementally when extras.includePartialMessages opts in', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const args = { ...baseArgs(singlePrompt('hello')), extras: { includePartialMessages: true } };
+    const resultsPromise = collect(runner.run(args));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Shapes per docs/rpc.md (bundled with the installed pi package,
+    // v0.73.1 — same version this file's header was already resolved
+    // against for agent_end).
+    proc.emitStdout('{"type":"message_start","message":{}}\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_start', contentIndex: 0 } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello' } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' world' } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_end', contentIndex: 0, content: 'Hello world' } }) + '\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'message_end',
+      message: { content: [{ type: 'text', text: 'Hello world' }] },
+    }) + '\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'Hello world' }], usage: { input: 10, output: 5 } },
+      ],
+    }) + '\n');
+    proc.emitClose(0);
+
+    const messages = await resultsPromise;
+    const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(assistant).toEqual(['Hello', ' world']);
+    expect(assistant.join('')).toBe('Hello world');
+    const result = messages.find((m) => m.type === 'result');
+    expect(result?.input_tokens).toBe(10);
+    expect(result?.output_tokens).toBe(5);
+  });
+
+  it('without extras.includePartialMessages, ignores message_update entirely and yields one message at agent_end (session.ts default)', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello')))); // no extras
+    await new Promise((r) => setTimeout(r, 10));
+
+    proc.emitStdout('{"type":"message_start","message":{}}\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello' } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' world' } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'Hello world' }] } }) + '\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'Hello world' }], usage: { input: 10, output: 5 } },
+      ],
+    }) + '\n');
+    proc.emitClose(0);
+
+    const messages = await resultsPromise;
+    const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(assistant).toEqual(['Hello world']);
+  });
+
+  it('excludes thinking_delta and toolcall_delta from visible text — only text_delta streams', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const args = { ...baseArgs(singlePrompt('hello')), extras: { includePartialMessages: true } };
+    const resultsPromise = collect(runner.run(args));
+    await new Promise((r) => setTimeout(r, 10));
+
+    proc.emitStdout('{"type":"message_start","message":{}}\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: 'thinking about it' } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: 'Final answer.' } }) + '\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'message_end',
+      message: { content: [{ type: 'thinking', thinking: 'thinking about it' }, { type: 'text', text: 'Final answer.' }] },
+    }) + '\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'assistant', content: [{ type: 'thinking', thinking: 'thinking about it' }, { type: 'text', text: 'Final answer.' }], usage: { input: 1, output: 1 } },
+      ],
+    }) + '\n');
+    proc.emitClose(0);
+
+    const messages = await resultsPromise;
+    const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(assistant.join('')).toBe('Final answer.');
+    expect(assistant.some((t) => t?.includes('thinking'))).toBe(false);
+  });
+
+  it('joins multiple internal turns (separate message_start/message_end cycles) with the same \\n separator agent_end reconciliation uses, streamed incrementally', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const args = { ...baseArgs(singlePrompt('hello')), extras: { includePartialMessages: true } };
+    const resultsPromise = collect(runner.run(args));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // First internal turn: thinking + a native tool call, no visible text.
+    proc.emitStdout('{"type":"message_start","message":{}}\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'message_end',
+      message: { content: [{ type: 'thinking', thinking: '...' }, { type: 'toolCall', id: 'c1', name: 'bash', arguments: {} }] },
+    }) + '\n');
+    // Second internal turn: streamed text.
+    proc.emitStdout('{"type":"message_start","message":{}}\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'done now' } }) + '\n');
+    proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'done now' }] } }) + '\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'assistant', content: [{ type: 'thinking', thinking: '...' }, { type: 'toolCall', id: 'c1', name: 'bash', arguments: {} }], usage: { input: 10, output: 20 } },
+        { role: 'toolResult', content: [{ type: 'text', text: 'tool output' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'done now' }], usage: { input: 15, output: 8 } },
+      ],
+    }) + '\n');
+    proc.emitClose(0);
+
+    const messages = await resultsPromise;
+    const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    // The first internal turn contributed no text (thinking/toolCall only),
+    // so nothing is joined ahead of "done now" — matching agent_end's own
+    // .filter(Boolean).join('\n') reconciliation exactly.
+    expect(assistant.join('')).toBe('done now');
+  });
+
   it('extracts an org tool_call fence, executes it, and continues the same session', async () => {
     const proc = fakeProcess();
     const executeCalls: string[] = [];

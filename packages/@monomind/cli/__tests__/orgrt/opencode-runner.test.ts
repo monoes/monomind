@@ -224,7 +224,7 @@ describe('OpencodeAgentRunner', () => {
     expect(assistant.some((t) => t?.includes('original prompt text'))).toBe(false);
   });
 
-  it('streams each text-part delta as its own incremental message instead of waiting for the part to finish', async () => {
+  it('streams each text-part delta as its own incremental message instead of waiting for the part to finish, when extras.includePartialMessages opts in', async () => {
     sessionCreateMock.mockResolvedValue({ data: { id: 's1' } });
     const es = makeEventStream();
     eventSubscribeMock.mockResolvedValue({ stream: es.stream });
@@ -242,7 +242,7 @@ describe('OpencodeAgentRunner', () => {
       es.push(assistantMessageCompleted('s1', mid, { input: 10, output: 5 }));
     });
 
-    const messages = await collect(new OpencodeAgentRunner(), makeArgs());
+    const messages = await collect(new OpencodeAgentRunner(), makeArgs({ extras: { includePartialMessages: true } }));
 
     const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
     expect(assistant).toEqual(['Hello', ' world']);
@@ -250,6 +250,30 @@ describe('OpencodeAgentRunner', () => {
     const result = messages.find((m) => m.type === 'result');
     expect(result?.input_tokens).toBe(10);
     expect(result?.output_tokens).toBe(5);
+  });
+
+  it('without extras.includePartialMessages, waits for the part to finish and yields one message (session.ts default)', async () => {
+    sessionCreateMock.mockResolvedValue({ data: { id: 's1' } });
+    const es = makeEventStream();
+    eventSubscribeMock.mockResolvedValue({ stream: es.stream });
+    sessionPromptAsyncMock.mockImplementation(async () => {
+      const userMid = uid('msg');
+      const userPid = uid('prt');
+      for (const ev of userMessageEcho('s1', userMid, userPid, 'do work')) es.push(ev);
+      const mid = uid('msg');
+      const pid = uid('prt');
+      es.push(assistantMessageCreated('s1', mid));
+      es.push(textPartUpdated('s1', mid, pid, ''));
+      es.push(partDelta('s1', mid, pid, 'Hello'));
+      es.push(partDelta('s1', mid, pid, ' world'));
+      es.push(textPartUpdated('s1', mid, pid, 'Hello world'));
+      es.push(assistantMessageCompleted('s1', mid, { input: 10, output: 5 }));
+    });
+
+    const messages = await collect(new OpencodeAgentRunner(), makeArgs()); // no extras
+
+    const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(assistant).toEqual(['Hello world']);
   });
 
   it('excludes reasoning-part deltas from visible text — only field:text deltas on a type:text part are shown', async () => {

@@ -97,6 +97,15 @@ export class OpencodeAgentRunner implements AgentRunner {
   constructor(private opencodeUrl?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
+    // Incremental streaming is opt-in via extras, not unconditional — same
+    // reasoning as every other subprocess runner this session
+    // (ClaudeAgentRunner/AntigravityAgentRunner/QwenRpcAgentRunner):
+    // session.ts (the org runtime) wants exactly one AgentMessage per text
+    // part for its chat-bus/state-detector, regardless of which runner
+    // backs the role; agent-exec.ts sets this for every runtime, session.ts
+    // never does.
+    const streamPartials = args.extras?.includePartialMessages === true;
+
     // Dynamic import: keeps @opencode-ai/sdk out of the package's dependency
     // graph so the Claude/Kimi paths never need it installed. Specifiers are
     // held in variables so TypeScript types the result as `any` and does NOT
@@ -305,13 +314,20 @@ export class OpencodeAgentRunner implements AgentRunner {
               if (partTypes.get(props.partID) !== 'text') continue;
               const raw = (partRawText.get(props.partID) ?? '') + (props.delta ?? '');
               partRawText.set(props.partID, raw);
-              const { chunk } = computeSafeChunk(raw, 0);
-              const trimmed = chunk.replace(/\s+$/, '');
-              const shown = partVisible.get(props.partID) ?? '';
-              if (trimmed.length > shown.length) {
-                const increment = trimmed.slice(shown.length);
-                partVisible.set(props.partID, trimmed);
-                yield { type: 'assistant', session_id: sessionId, text: increment };
+              // Gated on streamPartials: when false, partVisible simply
+              // never advances, so the final reconciliation below naturally
+              // degrades to "reveal the whole finalStripped text per part"
+              // — byte-for-byte the pre-streaming behavior session.ts
+              // depends on.
+              if (streamPartials) {
+                const { chunk } = computeSafeChunk(raw, 0);
+                const trimmed = chunk.replace(/\s+$/, '');
+                const shown = partVisible.get(props.partID) ?? '';
+                if (trimmed.length > shown.length) {
+                  const increment = trimmed.slice(shown.length);
+                  partVisible.set(props.partID, trimmed);
+                  yield { type: 'assistant', session_id: sessionId, text: increment };
+                }
               }
               continue;
             }

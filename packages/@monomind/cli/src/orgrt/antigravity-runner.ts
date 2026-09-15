@@ -424,6 +424,22 @@ export class AntigravityAgentRunner implements AgentRunner {
     // before we await exitPromise (the await still sees the rejection).
     exitPromise.catch(() => {});
 
+    // Incremental text streaming is opt-in via extras, not unconditional:
+    // this runner has two independent consumers, exactly like
+    // ClaudeAgentRunner (agent-runner.ts) — see its own header comment for
+    // the full reasoning, which applies here verbatim. agent-exec.ts (the
+    // Agent Exec Protocol) wants incremental `assistant` messages — its
+    // protocol doc documents the `assistant` frame as "Incremental
+    // assistant text ... callers append" — and sets this unconditionally
+    // for every runtime. session.ts (the org runtime) treats each
+    // `assistant` AgentMessage as ONE COMPLETE STEP: it feeds the full text
+    // into StateDetector's regex pattern-matching and emits ONE org
+    // chat-bus event per step. session.ts never sets extras in production
+    // (only its `_orgTest` test seam does, and only when no real runner is
+    // configured), so leaving this opt-in keeps the org runtime unchanged
+    // for antigravity-backed roles too — not just Claude's.
+    const streamPartials = args.extras?.includePartialMessages === true;
+
     let lastConversationId: string | undefined = conversationId;
     // Per-token text_delta fragments are accumulated per agent_response step
     // (pendingText, raw, fences intact) so fence stripping at flush time
@@ -435,7 +451,11 @@ export class AntigravityAgentRunner implements AgentRunner {
     // prefix of pendingText already shown to the user (via computeSafeChunk
     // — see its header for the safety definition), and lets emitVisible()
     // stream new safe text live, mid-step, instead of waiting for the
-    // step's rawText flush.
+    // step's rawText flush. When !streamPartials, emitVisible() is simply
+    // never called (see its two call sites below) — visibleSoFar then stays
+    // '' for the whole step, so flushText()'s own diff naturally degrades to
+    // "reveal the whole finalStripped text", byte-for-byte the pre-streaming
+    // behavior, with no separate code path needed for that case.
     let pendingText = '';
     let pendingStepIndex: number | undefined;
     let visibleSoFar = '';
@@ -522,8 +542,10 @@ export class AntigravityAgentRunner implements AgentRunner {
             if (typeof step.text_delta === 'string') {
               sawStreamedText = true;
               pendingText += step.text_delta;
-              const inc = emitVisible();
-              if (inc) events.push(inc);
+              if (streamPartials) {
+                const inc = emitVisible();
+                if (inc) events.push(inc);
+              }
             }
             return events;
           }
@@ -542,7 +564,7 @@ export class AntigravityAgentRunner implements AgentRunner {
           }
           if (step.state === 'DONE') {
             events.push(...flushText());
-          } else {
+          } else if (streamPartials) {
             const inc = emitVisible();
             if (inc) events.push(inc);
           }

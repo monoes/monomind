@@ -196,6 +196,12 @@ export class QwenRpcAgentRunner implements AgentRunner {
   ) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
+    // Incremental streaming is opt-in via extras, not unconditional — same
+    // reasoning as ClaudeAgentRunner/AntigravityAgentRunner: session.ts (the
+    // org runtime) wants exactly one AgentMessage per round for its
+    // chat-bus/state-detector, regardless of which runner backs the role;
+    // agent-exec.ts sets this for every runtime, session.ts never does.
+    const streamPartials = args.extras?.includePartialMessages === true;
     const bin = this.qwenBin || process.env.QWEN_CLI_BIN || 'qwen';
 
     const cliArgs = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--yolo'];
@@ -404,13 +410,19 @@ export class QwenRpcAgentRunner implements AgentRunner {
                     // newline is meaningful (more text follows) or should
                     // be dropped (the round ends here) isn't known yet —
                     // the final TOOL_CALL_RE + trim reconciliation below
-                    // resolves it either way.
-                    const { chunk } = computeSafeChunk(collectedText.join('\n'), 0);
-                    const trimmed = chunk.replace(/\s+$/, '');
-                    if (trimmed.length > visibleSoFar.length) {
-                      const increment = trimmed.slice(visibleSoFar.length);
-                      visibleSoFar = trimmed;
-                      yield { type: 'assistant', session_id: sessionId, text: increment };
+                    // resolves it either way. Gated on streamPartials: when
+                    // false, visibleSoFar simply never advances, so that
+                    // reconciliation naturally degrades to "reveal the whole
+                    // finalStripped text" — byte-for-byte the pre-streaming
+                    // behavior session.ts depends on.
+                    if (streamPartials) {
+                      const { chunk } = computeSafeChunk(collectedText.join('\n'), 0);
+                      const trimmed = chunk.replace(/\s+$/, '');
+                      if (trimmed.length > visibleSoFar.length) {
+                        const increment = trimmed.slice(visibleSoFar.length);
+                        visibleSoFar = trimmed;
+                        yield { type: 'assistant', session_id: sessionId, text: increment };
+                      }
                     }
                   }
                 }

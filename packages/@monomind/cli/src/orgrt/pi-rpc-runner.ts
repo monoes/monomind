@@ -28,9 +28,11 @@
  *     {"type":"prompt","message":"<text>"}          — new/continuing turn
  *     {"type":"abort"}                                — not used by this runner
  *
- *   Server → client (only agent_end is acted on; everything else — agent_start,
- *   turn_start/turn_end, message_start/message_update/message_end,
- *   tool_execution_* — is drained and ignored):
+ *   Server → client (agent_end alone remains the authoritative final-text
+ *   and usage source, regardless of streaming — see "Incremental streaming"
+ *   below for message_start/message_update/message_end, which are also now
+ *   acted on; agent_start, turn_start/turn_end, tool_execution_* are still
+ *   drained and ignored):
  *     {"type":"response","command":"prompt","success":true}
  *     {"type":"agent_end","messages":[
  *        {"role":"user","content":[{"type":"text","text":"..."}]},
@@ -55,6 +57,28 @@
  * undercounted any prompt that triggered more than one internal turn —
  * confirmed via the same live test above.
  *
+ * Incremental streaming — opt-in via AgentRunArgs.extras.includePartialMessages
+ * (agent-exec.ts sets it; session.ts, the org runtime, does not — same
+ * dual-consumer reasoning as every other subprocess runner this session:
+ * session.ts wants one AgentMessage per round for its chat-bus/state-detector).
+ * When opted in, `message_update` events are no longer drained: per
+ * docs/rpc.md (bundled with the installed pi package, SAME v0.73.1 this
+ * file was already resolved against for agent_end above — including the
+ * text_delta wire example itself, "Hello" then " world"),
+ * `assistantMessageEvent.type === "text_delta"` is pi's real per-token
+ * event, keyed by `contentIndex` and reset on each `message_start` (a new
+ * internal turn always restarts indices from 0). `message_end`'s full
+ * `message.content` is kept as a per-turn checkpoint (covers a turn that
+ * completes with no deltas at all) and joined with '\n' across turns
+ * exactly like `agent_end`'s own reconciliation already did — see
+ * antigravity-runner.ts's computeSafeChunk/flushText for the fence-safety
+ * and diff-based-remainder pattern this mirrors. NOT independently
+ * live-tested end-to-end (no funded model credential was available in the
+ * verifying environment); the design and event shapes are taken directly
+ * from the bundled protocol spec, which is materially stronger evidence
+ * than inference, but weaker than the live confirmation every other runner
+ * this session got.
+ *
  * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
  *   Pi's own native tools (bash, file edits) execute autonomously inside pi
  *   itself and never reach this runner — only org tools ride the shared
@@ -70,6 +94,10 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+// Reused, not reimplemented — see antigravity-runner.ts's own header for why
+// a fence can legitimately span multiple incremental deltas and must never
+// surface, complete or partial, in visible text.
+import { computeSafeChunk } from './antigravity-runner.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -78,6 +106,22 @@ import {
   parseToolCalls,
   TOOL_CALL_RE,
 } from './tool-fence.js';
+
+/** Combine computeSafeChunk's fence-safety with a trailing-whitespace
+ *  holdback (computeSafeChunk itself does no trimming of its own — see its
+ *  header) and a diff against what's already been shown, returning just the
+ *  new increment (or undefined if nothing new is safe yet) and the updated
+ *  high-water mark. Whether a trailing newline is meaningful (more text
+ *  follows) or should be dropped (the round ends here) isn't known at
+ *  increment time — the final TOOL_CALL_RE + trim reconciliation the caller
+ *  does at agent_end resolves it either way, exactly like every other
+ *  decouple-and-diff runner this session (antigravity/qwen-rpc/opencode). */
+function nextIncrement(totalRaw: string, visibleSoFar: string): { increment?: string; visibleSoFar: string } {
+  const { chunk } = computeSafeChunk(totalRaw, 0);
+  const trimmed = chunk.replace(/\s+$/, '');
+  if (trimmed.length <= visibleSoFar.length) return { visibleSoFar };
+  return { increment: trimmed.slice(visibleSoFar.length), visibleSoFar: trimmed };
+}
 
 /** Upper bound on how long a single prompt's wait for `agent_end` may run
  *  before the mid-session silence watchdog (below) considers pi wedged.
@@ -183,6 +227,14 @@ export class PiRpcAgentRunner implements AgentRunner {
   ) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
+    // Incremental streaming is opt-in via extras, not unconditional — same
+    // reasoning as every other subprocess runner this session
+    // (ClaudeAgentRunner/AntigravityAgentRunner/QwenRpcAgentRunner/
+    // OpencodeAgentRunner): session.ts (the org runtime) wants exactly one
+    // AgentMessage per round for its chat-bus/state-detector, regardless of
+    // which runner backs the role; agent-exec.ts sets this for every
+    // runtime, session.ts never does.
+    const streamPartials = args.extras?.includePartialMessages === true;
     const bin = this.piBin || process.env.PI_CLI_BIN || 'pi';
     const sessionDir = join(args.cwd, '.monomind-pi-session');
 
@@ -383,6 +435,18 @@ export class PiRpcAgentRunner implements AgentRunner {
                 }>
               | undefined;
 
+            // Per-round incremental-streaming state (see nextIncrement's own
+            // doc comment). completedMessagesText holds the FULL text of
+            // each internal turn's assistant message once message_end
+            // confirms it (one entry per turn, same '\n' join agent_end's
+            // own reconciliation below uses); currentMessageBlocks holds the
+            // CURRENTLY streaming message's per-contentIndex deltas, reset
+            // on every message_start/message_end. visibleSoFar is the
+            // combined high-water mark across the whole round.
+            let visibleSoFar = '';
+            const completedMessagesText: string[] = [];
+            let currentMessageBlocks = new Map<number, string>();
+
             for (;;) {
               const ev = await nextEvent();
               disarmHang();
@@ -415,6 +479,65 @@ export class PiRpcAgentRunner implements AgentRunner {
                 );
               }
 
+              if (kind === 'message_start') {
+                // A new internal turn's assistant message begins — reset the
+                // per-contentIndex tracker so a later index reuse (a new
+                // message always restarts contentIndex from 0, per
+                // docs/rpc.md) can't be joined with the PRIOR message's
+                // stale block text.
+                currentMessageBlocks = new Map();
+                continue;
+              }
+
+              if (kind === 'message_update') {
+                // docs/rpc.md (bundled with the installed pi package, same
+                // version — 0.73.1 — this file's header was already
+                // resolved against): assistantMessageEvent.type ===
+                // 'text_delta' is the REAL per-token streaming event, keyed
+                // by contentIndex; 'thinking_delta'/'toolcall_delta'/etc.
+                // are deliberately NOT accumulated here — only real visible
+                // text should ever reach the org bus.
+                const amEvent = (ev as { assistantMessageEvent?: Record<string, unknown> })
+                  .assistantMessageEvent;
+                if (amEvent?.type === 'text_delta' && typeof amEvent.delta === 'string') {
+                  const idx = typeof amEvent.contentIndex === 'number' ? amEvent.contentIndex : 0;
+                  currentMessageBlocks.set(idx, (currentMessageBlocks.get(idx) ?? '') + amEvent.delta);
+                  if (streamPartials) {
+                    const currentText = [...currentMessageBlocks.entries()]
+                      .sort((a, b) => a[0] - b[0])
+                      .map(([, t]) => t)
+                      .join('\n');
+                    const totalRaw = [...completedMessagesText, currentText].filter(Boolean).join('\n');
+                    const { increment, visibleSoFar: nv } = nextIncrement(totalRaw, visibleSoFar);
+                    visibleSoFar = nv;
+                    if (increment) yield { type: 'assistant', text: increment };
+                  }
+                }
+                continue;
+              }
+
+              if (kind === 'message_end') {
+                // The authoritative full text for this internal turn — a
+                // checkpoint in case text_delta coverage was incomplete
+                // (e.g. a message with no deltas at all, straight to
+                // message_end), exactly like every other decouple-and-diff
+                // runner this session treats its own step/part-completion
+                // event as a reconciliation point, not just a pass-through.
+                const msg = ev.message as PiRpcMessage | undefined;
+                if (msg) {
+                  const finalText = extractPiRpcText(msg);
+                  if (finalText) completedMessagesText.push(finalText);
+                }
+                currentMessageBlocks = new Map();
+                if (streamPartials) {
+                  const totalRaw = completedMessagesText.filter(Boolean).join('\n');
+                  const { increment, visibleSoFar: nv } = nextIncrement(totalRaw, visibleSoFar);
+                  visibleSoFar = nv;
+                  if (increment) yield { type: 'assistant', text: increment };
+                }
+                continue;
+              }
+
               if (kind === 'agent_end') {
                 // See file header: agent_end is pi's own, confirmed-live,
                 // single unambiguous "this prompt is fully done" signal —
@@ -424,10 +547,10 @@ export class PiRpcAgentRunner implements AgentRunner {
                 break;
               }
 
-              // agent_start, turn_start/turn_end, message_start/message_update/
-              // message_end, tool_execution_* (pi's own native tools), other
-              // response acks — all drained and ignored; agent_end alone
-              // carries everything this runner needs (final text + usage).
+              // agent_start, turn_start/turn_end, tool_execution_* (pi's own
+              // native tools), other response acks — drained and ignored;
+              // agent_end alone carries the authoritative final text + usage
+              // this runner needs regardless of streamPartials.
             }
 
             if (!agentEndMessages) break; // process closed before agent_end — nothing to extract this round
@@ -448,8 +571,18 @@ export class PiRpcAgentRunner implements AgentRunner {
               .map((m) => extractPiRpcText(m))
               .filter(Boolean)
               .join('\n');
-            const visibleText = rawText.replace(TOOL_CALL_RE, '').trim();
-            if (visibleText) yield { type: 'assistant', text: visibleText };
+            // Reveal only whatever the incremental stream above hasn't
+            // already shown (normally nothing when streamPartials — and
+            // when !streamPartials, visibleSoFar never advanced past '', so
+            // this naturally degrades to the pre-streaming "reveal the
+            // whole text" behavior with no separate code path needed). An
+            // unclosed fence must still leak through unchanged here,
+            // matching TOOL_CALL_RE leaving it untouched — see
+            // antigravity-runner.ts's flushText for why.
+            const finalStripped = rawText.replace(TOOL_CALL_RE, '').trim();
+            const remainder =
+              finalStripped.length > visibleSoFar.length ? finalStripped.slice(visibleSoFar.length) : undefined;
+            if (remainder) yield { type: 'assistant', text: remainder };
 
             const malformed: string[] = [];
             const calls = parseToolCalls([rawText], (raw, err) =>

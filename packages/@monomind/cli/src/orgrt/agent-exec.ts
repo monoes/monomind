@@ -576,12 +576,17 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
         resume: opts.resume,
         canUseTool,
         signal: abort.signal,
-        // Opts ClaudeAgentRunner into per-token incremental `assistant`
-        // yields (agent-runner.ts's `streamPartials`) — this protocol's own
-        // `assistant` frame is documented as incremental (§3.2), unlike
-        // session.ts's org-runtime usage, which needs one complete message
-        // per turn and never sets this. Every other runner ignores
-        // unrecognized `extras` keys (AgentRunArgs.extras's own contract).
+        // Opts every runner that supports it (each subprocess runner's own
+        // `streamPartials`/equivalent gate — claude, antigravity, qwen-rpc,
+        // opencode, pi-rpc) into per-token/per-chunk incremental `assistant`
+        // yields — this protocol's own `assistant` frame is documented as
+        // incremental (§3.2), unlike session.ts's org-runtime usage, which
+        // needs one complete message per step/round regardless of which
+        // runner backs the role, and never sets this. Runners without their
+        // own incremental path (a hard wire-format limitation, or not yet
+        // built — see runner-registry.ts's streamsIncrementally per id)
+        // ignore this unrecognized `extras` key (AgentRunArgs.extras's own
+        // contract) and behave exactly as before.
         extras: { includePartialMessages: true },
       }) as AsyncGenerator<AgentMessage>;
 
