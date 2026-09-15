@@ -68,3 +68,19 @@ export function classifyNativeModuleError(text: string): string | null {
   }
   return null;
 }
+
+/**
+ * Pulls the `node_modules/<pkg>` package name out of the FIRST such path
+ * mentioned anywhere in a native-module error dump — both the ABI-mismatch
+ * shape ("The module '.../node_modules/better-sqlite3/build/Release/...'
+ * was compiled against...") and the "could not locate the bindings file"
+ * shape name the offending package this way. Used to look up that module's
+ * own on-disk freshness (see checkMonographFreshness in
+ * doctor-project-checks.ts) so a since-rebuilt module doesn't keep getting
+ * reported as a current failure just because an old build.log entry still
+ * mentions it. Handles scoped (@scope/name) and unscoped package dirs.
+ */
+export function extractNativeModulePackageName(text: string): string | null {
+  const match = text.match(/node_modules[\\/](@[^\\/]+[\\/][^\\/]+|[^\\/]+)[\\/]/);
+  return match?.[1] ?? null;
+}

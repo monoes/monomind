@@ -18,8 +18,9 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
-import { classifyNativeModuleError } from '../utils/native-error.js';
+import { classifyNativeModuleError, extractNativeModulePackageName } from '../utils/native-error.js';
 import {
   CONFIG_JSON_CANDIDATE_PATHS,
   CONFIG_YAML_CANDIDATE_PATHS,
@@ -382,6 +383,47 @@ function formatAge(ms: number): string {
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
 }
 
+/**
+ * Best-effort "when was this package's own install last touched" probe,
+ * used only to soften a build.log-based failure (see #244) — never to
+ * harden one, so a wrong or missing answer here is always safe. Resolves
+ * `pkgName` from `cwd` (works through pnpm's symlinked store too, since
+ * `require.resolve` follows symlinks to the real file) and returns the
+ * latest mtime among its package.json and any `build/`/`prebuilds/` binary
+ * output, or null if the package can't be resolved at all — the caller
+ * treats null as "no evidence either way," not as "confirmed still broken."
+ */
+function findNativeModuleLastModifiedMs(pkgName: string, cwd: string): number | null {
+  try {
+    const require = createRequire(join(cwd, 'noop.js'));
+    const entry = require.resolve(pkgName, { paths: [cwd] });
+    let pkgDir = dirname(entry);
+    for (let i = 0; i < 12 && !existsSync(join(pkgDir, 'package.json')); i++) {
+      const parent = dirname(pkgDir);
+      if (parent === pkgDir) return null;
+      pkgDir = parent;
+    }
+    let latestMs = statSync(join(pkgDir, 'package.json')).mtimeMs;
+    for (const sub of ['build', 'prebuilds']) {
+      const subDir = join(pkgDir, sub);
+      if (!existsSync(subDir)) continue;
+      const stack = [subDir];
+      while (stack.length > 0) {
+        const current = stack.pop() as string;
+        for (const entryName of readdirSync(current)) {
+          const full = join(current, entryName);
+          const st = statSync(full);
+          if (st.isDirectory()) stack.push(full);
+          else if (st.mtimeMs > latestMs) latestMs = st.mtimeMs;
+        }
+      }
+    }
+    return latestMs;
+  } catch {
+    return null;
+  }
+}
+
 export async function checkMonographFreshness(): Promise<HealthCheck> {
   try {
     const cwd = process.cwd();
@@ -461,11 +503,37 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
         const classified = logTail ? classifyNativeModuleError(logTail) : null;
         const looksLikeFailure = classified !== null || /error|exception|traceback/i.test(logTail);
         if (looksLikeFailure) {
+          let logMtimeMs = 0;
           let logAgeStr = '';
           try {
-            logAgeStr = ` (${formatAge(Date.now() - statSync(logPath).mtimeMs)} ago)`;
+            logMtimeMs = statSync(logPath).mtimeMs;
+            logAgeStr = ` (${formatAge(Date.now() - logMtimeMs)} ago)`;
           } catch {
             /* ignore */
+          }
+          if (classified) {
+            // build.log is append-only (see the comment above), so this
+            // failure might be historical — already fixed by a `npm
+            // rebuild` that ran after this log entry, just not yet
+            // confirmed by a fresh `monograph build`. When the implicated
+            // module's own files are demonstrably newer than the log entry,
+            // that's concrete on-disk evidence it was touched since, so
+            // soften to a warning instead of asserting it's still broken.
+            // No evidence either way (can't resolve the module, or its
+            // files are no newer) falls through to the unchanged 'fail'.
+            const pkgName = extractNativeModulePackageName(logTail);
+            const moduleMs = pkgName ? findNativeModuleLastModifiedMs(pkgName, cwd) : null;
+            if (pkgName && moduleMs !== null && moduleMs > logMtimeMs) {
+              return {
+                name: 'Graph freshness',
+                status: 'warn',
+                message:
+                  `${classified}${logAgeStr} — but \`${pkgName}\` was modified more recently ` +
+                  `(${formatAge(Date.now() - moduleMs)} ago) than this log entry, so it may ` +
+                  'already be fixed. Run monograph build to confirm.',
+                fix: 'mcp__monomind__monograph_build codeOnly:true',
+              };
+            }
           }
           return classified
             ? { name: 'Graph freshness', status: 'fail', message: `${classified}${logAgeStr}` }

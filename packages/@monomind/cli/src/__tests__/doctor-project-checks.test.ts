@@ -512,6 +512,101 @@ describe('doctor-project-checks', () => {
       expect(result.status).toBe('fail');
       expect(result.message).toMatch(/^STALE — \d+ commits behind/);
     });
+
+    // ---------------------------------------------------------------------
+    // Issue #244: build.log is append-only, so a classified native-module
+    // failure keeps being reported as a *current* fail even after the real
+    // problem was fixed (e.g. `npm rebuild better-sqlite3`) — right up until
+    // the next successful `monograph build` overwrites the log. When the
+    // implicated module's own on-disk files are demonstrably newer than the
+    // stale log entry, that's concrete evidence the module was touched since
+    // the failure was recorded, so the check softens to a 'warn' instead of
+    // confidently asserting the problem is still live.
+    // ---------------------------------------------------------------------
+    function writeFakeNativeModule(rootDir: string, pkgName: string, mtime: Date) {
+      const pkgDir = join(rootDir, 'node_modules', pkgName);
+      const binDir = join(pkgDir, 'build', 'Release');
+      mkdirSync(binDir, { recursive: true });
+      const pkgJsonPath = join(pkgDir, 'package.json');
+      const mainPath = join(pkgDir, 'index.js');
+      const binPath = join(binDir, `${pkgName.replace(/[^a-z0-9]/gi, '_')}.node`);
+      writeFileSync(pkgJsonPath, JSON.stringify({ name: pkgName, main: 'index.js' }));
+      writeFileSync(mainPath, 'module.exports = {};');
+      writeFileSync(binPath, 'not a real binary, just needs to exist');
+      utimesSync(pkgJsonPath, mtime, mtime);
+      utimesSync(mainPath, mtime, mtime);
+      utimesSync(binPath, mtime, mtime);
+    }
+
+    it('downgrades a classified failure to a warning when the implicated module was rebuilt more recently than the stale log entry', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      const logPath = join(dir, '.monomind', 'graph', 'build.log');
+      writeFileSync(
+        logPath,
+        [
+          'MonographError: Failed to open database at .../.monomind/monograph.db',
+          "  cause: Error: The module '/project/node_modules/better-sqlite3/build/Release/better_sqlite3.node'",
+          'was compiled against a different Node.js version using',
+          'NODE_MODULE_VERSION 141. This version of Node.js requires',
+          'NODE_MODULE_VERSION 147. Please try re-compiling or re-installing',
+          'the module (for instance, using `npm rebuild` or `npm install`).',
+        ].join('\n'),
+      );
+      const logOld = new Date(Date.now() - 60 * 60 * 1000); // 1h ago
+      utimesSync(logPath, logOld, logOld);
+
+      // The module was rebuilt AFTER the log entry — e.g. the user ran
+      // `npm rebuild better-sqlite3` but hasn't re-run `monograph build` yet.
+      writeFakeNativeModule(dir, 'better-sqlite3', new Date(Date.now() - 5 * 60 * 1000)); // 5m ago
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('warn');
+      expect(result.message).toContain('better-sqlite3');
+      expect(result.message).toContain('more recently');
+      expect(result.fix).toBe('mcp__monomind__monograph_build codeOnly:true');
+    });
+
+    it('keeps reporting fail when the implicated module has NOT been touched since the log entry (genuinely still broken)', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      const logPath = join(dir, '.monomind', 'graph', 'build.log');
+      writeFileSync(
+        logPath,
+        [
+          'MonographError: Failed to open database at .../.monomind/monograph.db',
+          "  cause: Error: The module '/project/node_modules/better-sqlite3/build/Release/better_sqlite3.node'",
+          'was compiled against a different Node.js version using',
+          'NODE_MODULE_VERSION 141. This version of Node.js requires',
+          'NODE_MODULE_VERSION 147. Please try re-compiling or re-installing',
+          'the module (for instance, using `npm rebuild` or `npm install`).',
+        ].join('\n'),
+      );
+      // Module predates the log entry — nothing has changed since the failure
+      // was recorded, so this must stay a hard failure.
+      writeFakeNativeModule(dir, 'better-sqlite3', new Date(Date.now() - 60 * 60 * 1000)); // 1h ago
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('NODE_MODULE_VERSION mismatch');
+    });
+
+    it('keeps reporting fail unchanged when the implicated module cannot be resolved at all (no node_modules present) — no regression from before #244', async () => {
+      mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
+      writeFileSync(
+        join(dir, '.monomind', 'graph', 'build.log'),
+        [
+          'MonographError: Failed to open database at .../.monomind/monograph.db',
+          "  cause: Error: The module '/project/node_modules/better-sqlite3/build/Release/better_sqlite3.node'",
+          'was compiled against a different Node.js version using',
+          'NODE_MODULE_VERSION 141. This version of Node.js requires',
+          'NODE_MODULE_VERSION 147. Please try re-compiling or re-installing',
+          'the module (for instance, using `npm rebuild` or `npm install`).',
+        ].join('\n'),
+      );
+
+      const result = await checkMonographFreshness();
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('NODE_MODULE_VERSION mismatch');
+    });
   });
 
   // ---------------------------------------------------------------------

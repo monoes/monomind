@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { classifyNativeModuleError, formatErrorWithCause } from '../utils/native-error.js';
+import {
+  classifyNativeModuleError,
+  extractNativeModulePackageName,
+  formatErrorWithCause,
+} from '../utils/native-error.js';
 
 describe('formatErrorWithCause', () => {
   it('returns just the message for a plain Error with no cause', () => {
@@ -108,5 +112,39 @@ Node.js v26.5.0
     expect(result).not.toBeNull();
     expect(result).toContain('A native module');
     expect(result).toContain('npm rebuild <module>');
+  });
+});
+
+describe('extractNativeModulePackageName', () => {
+  it('extracts the package name from an ABI-mismatch message (issue #231\'s shape, with the redacted "..." prefix replaced by a realistic unredacted path — Node\'s real error text always includes node_modules, unlike the reporter\'s own redacted paste)', () => {
+    const text = `MonographError: Failed to open database at /project/.monomind/monograph.db
+  cause: Error: The module '/project/node_modules/better-sqlite3/build/Release/better_sqlite3.node'
+  was compiled against a different Node.js version using
+  NODE_MODULE_VERSION 141. This version of Node.js requires
+  NODE_MODULE_VERSION 147. Please try re-compiling or re-installing
+  the module (for instance, using \`npm rebuild\` or \`npm install\`).`;
+
+    expect(extractNativeModulePackageName(text)).toBe('better-sqlite3');
+  });
+
+  it('extracts the package name from a "could not locate bindings" dump', () => {
+    expect(
+      extractNativeModulePackageName(
+        'cause: Error: Could not locate the bindings file. Tried:\n' +
+          '   → /project/node_modules/better-sqlite3/build/Release/better_sqlite3.node\n',
+      ),
+    ).toBe('better-sqlite3');
+  });
+
+  it('handles a scoped package name', () => {
+    expect(
+      extractNativeModulePackageName(
+        "The module '/project/node_modules/@foo/bar-native/build/Release/bar.node' was compiled against...",
+      ),
+    ).toBe('@foo/bar-native');
+  });
+
+  it('returns null when no node_modules path is present', () => {
+    expect(extractNativeModulePackageName('TypeError: cannot read property of undefined')).toBeNull();
   });
 });
