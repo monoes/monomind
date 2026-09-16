@@ -170,9 +170,53 @@ export const RolePolicySchema = z
      *  skips the "pause and wait for a human" step for a role the operator has
      *  already decided to trust for that specific action. */
     autoApproveTools: z.array(z.string()).optional(),
+    /** Extra tool/action names that pause for approval exactly like the
+     *  built-in sensitive list (Bash, WebFetch, WebSearch, org_complete).
+     *  Bare form — `org_send`, `monoagent__automation_publish` — never the
+     *  `mcp__org__` namespaced form. `autoApproveTools` still wins. */
+    approvalTools: z.array(z.string()).optional(),
   })
   .partial()
   .passthrough();
+
+/** A stdio MCP server whose tools are exposed to one role as
+ *  `<prefix>__<mcpToolName>` (M1, capability `org-tool-providers`).
+ *  `env` values are literal — never expanded, never read from secrets. */
+export const ToolProviderSchema = z
+  .object({
+    kind: z.literal('mcp-stdio'),
+    name: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/),
+    command: z.string().min(1),
+    args: z.array(z.string()).default([]),
+    env: z.record(z.string(), z.string()).default({}),
+    /** MCP tool names to expose; absent = all. */
+    allow: z.array(z.string()).optional(),
+    /** Default: `name` with '-' → '_'. */
+    prefix: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9_]*$/)
+      .optional(),
+    /** Per tools/call timeout. */
+    timeout_ms: z.number().int().positive().default(660_000),
+    /** The provider process exits after this long without calls. */
+    idle_ms: z.number().int().positive().default(300_000),
+  })
+  .passthrough();
+export type ToolProviderConfig = z.infer<typeof ToolProviderSchema>;
+
+/** M2 (capability `org-endpoint-roles`): an endpoint role's delivery target. */
+export const EndpointSchema = z
+  .object({
+    url: z.string().url(),
+    /** Absolute path; must be mode 0600 and owned by the daemon user. Sent as a bearer. */
+    credential_file: z.string().optional(),
+    /** Reply-wait hold for the idle watchdog; default 600000. */
+    timeout_ms: z.number().int().positive().optional(),
+    /** One line for the boss briefing. */
+    input_hint: z.string().optional(),
+  })
+  .passthrough();
+export type EndpointConfig = z.infer<typeof EndpointSchema>;
 
 export const RoleSchema = z
   .object({
@@ -247,6 +291,12 @@ export const RoleSchema = z
      *  and session.ts's overBudgetUsd check, which mirrors the token-budget-exhausted
      *  close-mailbox pattern. */
     budget_usd: z.number().positive().optional(),
+    /** Config-defined tools for this role: stdio MCP servers (M1). */
+    tool_providers: z.array(ToolProviderSchema).optional(),
+    /** M2: 'endpoint' = an automation reached over HTTP, not an agent session. */
+    kind: z.enum(['agent', 'endpoint']).optional(),
+    /** M2: where an endpoint role's messages are POSTed. */
+    endpoint: EndpointSchema.optional(),
   })
   .passthrough();
 
@@ -336,6 +386,16 @@ export const OrgDefSchema = z
         ...rc,
       })),
     fence: FenceConfigSchema.optional(),
+    /** M4 (capability `org-federation`): cross-root messaging allowlists —
+     *  org names, '*' = any. Orgs under the same project root are one trust
+     *  domain and never restricted. */
+    federation: z
+      .object({
+        allow_from: z.array(z.string()).optional(),
+        allow_to: z.array(z.string()).optional(),
+      })
+      .passthrough()
+      .optional(),
     roles: z.array(RoleSchema).min(1),
     /** Which agent runtime hosts this org's role sessions. When absent, the
      *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude

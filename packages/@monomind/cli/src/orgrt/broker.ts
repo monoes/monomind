@@ -2,15 +2,34 @@
 // monolean: file-based local broker for cross-process org discovery (different
 // `monomind org` processes / project directories, same machine). Upgrade path:
 // a real network registry when cross-machine discovery is needed.
-import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 export interface BrokerEntry {
   url: string;
   pid: number;
   updatedAt: number;
   credential?: string;
+  /** M4: the hosting daemon's project root — one root is one trust domain. */
+  root?: string;
+}
+
+/** M4: canonical form of a project root for trust-domain comparison. */
+export function normalizeRoot(root: string): string {
+  const abs = resolve(root);
+  try {
+    return realpathSync(abs);
+  } catch {
+    return abs;
+  }
 }
 
 // DNS label limits: 1-63 chars, must start alphanumerically (RFC 1034 + RFC 1123)
@@ -91,6 +110,7 @@ export function registerOrg(
   url: string,
   dir = defaultRegistryDir(),
   credential?: string,
+  root?: string,
 ): void {
   mkdirSync(dir, { recursive: true });
   const normalizedCred = normalizeCredential(credential);
@@ -99,6 +119,7 @@ export function registerOrg(
     pid: process.pid,
     updatedAt: Date.now(),
     ...(normalizedCred ? { credential: normalizedCred } : {}),
+    ...(root ? { root: normalizeRoot(root) } : {}),
   };
   // SEC: the entry carries this org's agent credential in plaintext —
   // restrict to owner-only so other local users can't read it off disk.
@@ -143,10 +164,12 @@ export class BrokerLease {
     private intervalMs = 20_000,
     private credential?: string,
     private operator?: { credential: string; dir?: string },
+    /** M4: the daemon's project root, published in the registry entry. */
+    private root?: string,
   ) {}
 
   private publish(): void {
-    registerOrg(this.name, this.url, this.dir, this.credential);
+    registerOrg(this.name, this.url, this.dir, this.credential, this.root);
     if (this.operator)
       writeOperatorCredential(this.name, this.operator.credential, this.operator.dir);
   }

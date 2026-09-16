@@ -40,7 +40,8 @@ describe('org xdeliver server', () => {
     close = srv.close;
     const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.operatorCredential };
 
-    await daemon.startOrg('alpha');
+    const alpha = await daemon.startOrg('alpha');
+    const agentHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': alpha.credential! };
 
     // no auth → 401
     const noAuth = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
@@ -66,20 +67,30 @@ describe('org xdeliver server', () => {
     });
     expect(bad.status).toBe(400);
 
-    // unregistered/mismatched sender identity → 404 (rejected before recipient lookup)
+    // unregistered/mismatched sender identity on an AGENT credential → 404
+    // (rejected before recipient lookup). M3: only the operator credential may
+    // speak as an unverified sender.
     const forged = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
-      headers: authHeaders,
+      headers: agentHeaders,
       body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello', fromCredential: 'not-betas-credential' }),
     });
     expect(forged.status).toBe(404);
     const forgedData = await forged.json() as { ok: boolean; error?: string };
     expect(forgedData.ok).toBe(false);
 
-    // valid delivery with correct sender credential → 200
-    const good = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+    // M3: the operator credential trusts fromOrg:fromRole as given → 200
+    const asOperator = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
       headers: authHeaders,
+      body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'workflow', fromRole: 'exec-1', subject: 'hi', body: 'hello' }),
+    });
+    expect(asOperator.status).toBe(200);
+
+    // valid delivery with correct sender credential (agent credential) → 200
+    const good = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+      method: 'POST',
+      headers: agentHeaders,
       body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello', fromCredential: betaCredential }),
     });
     expect(good.status).toBe(200);

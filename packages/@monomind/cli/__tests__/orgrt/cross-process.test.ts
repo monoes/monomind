@@ -207,12 +207,13 @@ describe('cross-process inter-org delivery', () => {
     const beta = await daemonB.startOrg('beta');
     cleanups.push(() => daemonB.stopAll());
 
-    // Attacker knows daemonB's shared x-monomind-cred (passes the HTTP auth
+    // Attacker knows an agent credential daemonB accepts (passes the HTTP auth
     // gate — e.g. another org hosted by the same daemon) but does NOT know
     // alpha's own registered credential; it just claims to be "alpha".
+    // (M3: the OPERATOR credential is human authority and may name any sender.)
     const forged = await fetch(`http://127.0.0.1:${srvB.port}/api/xdeliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': srvB.operatorCredential },
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': beta.credential! },
       body: JSON.stringify({
         toOrg: 'beta', toRole: 'boss', fromOrg: 'alpha', fromRole: 'boss',
         subject: 'forged', body: 'not really from alpha',

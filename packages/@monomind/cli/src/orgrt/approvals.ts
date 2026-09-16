@@ -1,11 +1,38 @@
 // packages/@monomind/cli/src/orgrt/approvals.ts
 // Extracted from daemon.ts — approval checking and setting for org tool calls.
 
+import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import type { OrgDaemon } from './daemon.js';
+import { summarizeToolInput } from './policy.js';
 import { ORG_DIR } from './types.js';
+
+/** M5: `apr-<ms>-<8 hex>` — one per approval request. */
+export function newApprovalRequestId(): string {
+  return `apr-${Date.now()}-${randomBytes(4).toString('hex')}`;
+}
+
+/** M5: default resolver when none is named. */
+export const DEFAULT_RESOLVER = 'human';
+
+/** M5: a resolver name from the CLI/API — trimmed, 1..128 chars, no control
+ *  characters. Returns undefined for anything else (callers fall back to the
+ *  default or reject). */
+export function normalizeResolver(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const v = raw.trim();
+  if (!v || v.length > 128 || /[\u0000-\u001f\u007f]/.test(v)) return undefined;
+  return v;
+}
+
+export interface ApprovalResolveOpts {
+  /** Who resolved it — stored as resolvedBy and put on the audit event. */
+  resolvedBy?: string;
+  /** Resolve only this request; absent = every pending (role, action) entry. */
+  requestId?: string;
+}
 
 /** Custom org-runtime tools (org_complete, org_send, org_task, ...) are
  *  registered as an SDK MCP server named 'org' (createSdkMcpServer({ name:
@@ -115,20 +142,30 @@ export function checkApproval(
     const roleDef = daemon.orgs.get(org)?.def.roles.find((r) => r.id === role);
     if (roleDef?.policy?.autoApproveTools?.includes(action)) return true;
 
-    // Require human approval for sensitive actions
+    // Require human approval for sensitive actions: the built-in list plus the
+    // role's own policy.approvalTools (bare names, e.g. a provider tool
+    // `monoagent__automation_publish`). autoApproveTools above still wins.
     const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
-    if (sensitiveActions.includes(action)) {
+    if (sensitiveActions.includes(action) || roleDef?.policy?.approvalTools?.includes(action)) {
       // Queue for approval
-      if (!existing) {
-        pending.push({
+      const summary = summarizeToolInput(input);
+      let entry = existing;
+      if (!entry) {
+        entry = {
           roleId: role,
           action,
           fingerprint,
           question: `Approve ${action} tool call?`,
           ts: Date.now(),
           approved: null,
-        });
+          requestId: newApprovalRequestId(),
+          input: summary,
+        };
+        pending.push(entry);
         daemon.approvals.set(org, pending);
+      } else if (!entry.requestId) {
+        entry.requestId = newApprovalRequestId();
+        entry.input = summary;
       }
       // Persist to approvals.json (C4: atomic write)
       const approvalsPath = join(daemon.root, ORG_DIR, org, 'approvals.json');
@@ -140,7 +177,12 @@ export function checkApproval(
       running?.bus.emit({
         type: 'question',
         from: role,
-        data: { question: `Approval required for ${action}`, action },
+        data: {
+          question: `Approval required for ${action}`,
+          action,
+          requestId: entry.requestId,
+          input: entry.input ?? summary,
+        },
       });
       return null; // Pending human approval
     }
@@ -167,19 +209,36 @@ export async function setApproval(
   role: string,
   action: string,
   approved: boolean,
+  opts: ApprovalResolveOpts = {},
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const resolver = opts.resolvedBy ?? DEFAULT_RESOLVER;
   return withApprovalLock(daemon, org, async () => {
     const pending = daemon.approvals.get(org) ?? [];
+    // M5: --request <id> resolves only that request; without it, every pending
+    // entry for the (role, action) pair (the pre-M5 behaviour).
     const items = pending.filter(
-      (a) => a.roleId === role && a.action === action && a.approved === null,
+      (a) =>
+        a.roleId === role &&
+        a.action === action &&
+        a.approved === null &&
+        (opts.requestId === undefined || a.requestId === opts.requestId),
     );
 
     if (items.length === 0)
-      return { ok: false, error: `No pending approval found for ${role} action ${action}` };
+      return {
+        ok: false,
+        error: opts.requestId
+          ? `No pending approval ${opts.requestId} found for ${role} action ${action}`
+          : `No pending approval found for ${role} action ${action}`,
+      };
 
+    const now = Date.now();
     for (const item of items) {
       item.approved = approved;
-      item.ts = Date.now();
+      item.ts = now;
+      item.resolvedBy = resolver;
+      item.resolvedAt = now;
+      if (!item.requestId) item.requestId = newApprovalRequestId();
     }
 
     // Persist updated approval state (C4: atomic write)
@@ -198,13 +257,27 @@ export async function setApproval(
       from: role,
       msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}`,
     });
+    // M5: one attribution event per resolved request.
+    for (const item of items) {
+      running?.bus.emit({
+        type: 'audit',
+        reason: 'decision-resolved',
+        from: role,
+        data: {
+          kind: 'approval',
+          ref: item.requestId,
+          resolver,
+          verdict: approved ? 'approved' : 'denied',
+        },
+      });
+    }
 
     // ORG-1: an approval resolving (approve or reject) is a natural decision
     // point — record it so `org decisions` shows real traces.
     daemon.recordDecision(org, role, {
       type: 'approval',
       context: `approval request: ${action}`,
-      reasoning: approved ? 'approved by human' : 'rejected by human',
+      reasoning: approved ? `approved by ${resolver}` : `rejected by ${resolver}`,
       outcome: approved ? 'approved' : 'rejected',
     });
 

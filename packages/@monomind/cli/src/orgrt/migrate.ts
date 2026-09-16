@@ -5,6 +5,7 @@
  * that only does the name-validation / isOrgRunning guard and delegates here. */
 import { existsSync, readFileSync } from 'node:fs';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { endpointStructureErrors } from './endpoint-roles.js';
 import { parseSchedule } from './scheduler.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 
@@ -52,6 +53,8 @@ export function checkOrgStructure(def: Pick<OrgDef, 'roles' | 'schedule'>): stri
   }
   if (def.schedule != null && parseSchedule(def.schedule) === null)
     errors.push(`schedule "${def.schedule}" is not parseable — use "<N>s", "<N>m", or "<N>h"`);
+  // M2: endpoint roles are automations, not agents.
+  errors.push(...endpointStructureErrors(def));
   return errors;
 }
 
