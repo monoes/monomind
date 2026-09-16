@@ -63,7 +63,7 @@ function _requireMonograph() {
     dir = parent;
   }
   // Global npm install fallback (e.g. `npm install -g @monoes/monograph`).
-  // Mirrors graphify-freshen.cjs's resolveMonographEntry(), which already
+  // Mirrors monograph-freshen.cjs's resolveMonographEntry(), which already
   // checks this — without it, a global-only install builds the graph fine
   // (via that script) but every hook-side consumer of this function
   // (graph-status, inline suggestions, micro-agents) can never find it.
@@ -609,7 +609,7 @@ function _maybeRebuildMonograph() {
       d.lastRebuildAt = Date.now();
       fs.writeFileSync(f, JSON.stringify(d));
       try {
-        var freshenScript = path.join(CWD, '.claude', 'helpers', 'graphify-freshen.cjs');
+        var freshenScript = path.join(CWD, '.claude', 'helpers', 'monograph-freshen.cjs');
         if (fs.existsSync(freshenScript)) {
           var spawn = require('child_process').spawn;
           var child = spawn(process.execPath, [freshenScript], {

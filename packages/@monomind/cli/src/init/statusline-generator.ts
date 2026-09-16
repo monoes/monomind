@@ -1023,7 +1023,7 @@ function getHILPending() {
 //   1. .monomind/graph/stats.json     — explicit cached stats
 //   2. .monomind/monograph.db         — live SQLite (read counts via sqlite3)
 //   3. .monomind/graph/graph.json     — legacy JSON dump
-function getGraphifyStats() {
+function getMonographStats() {
   const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
   const dbPath    = path.join(CWD, '.monomind', 'monograph.db');
   const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
@@ -1064,7 +1064,7 @@ function getGraphStaleness() {
   if (!fs.existsSync(dbPath)) return null;
   try {
     // Pull the last indexed commit out of index_meta via sqlite3 (same
-    // shell-out convention getGraphifyStats uses for node/edge counts).
+    // shell-out convention getMonographStats uses for node/edge counts).
     const lastCommit = safeExec(\`sqlite3 "\${dbPath}" "SELECT value FROM index_meta WHERE key = 'last_commit_hash' OR key = 'lastCommit' LIMIT 1;"\`, 1000);
     if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit.trim())) return null;
     const out = safeExec(\`git rev-list --count \${lastCommit.trim()}..HEAD\`, 1500);
@@ -1136,7 +1136,7 @@ function generateStatusline() {
   // V4: graph staleness — visible warning when the monograph is behind HEAD.
   // Silent staleness is the most dangerous failure mode (the user trusts a
   // stale answer), so surface commits-behind on the statusline itself.
-  const graph = getGraphifyStats();
+  const graph = getMonographStats();
   if (graph.exists && graph.nodes > 0) {
     const stale = getGraphStaleness();
     if (stale && stale.commitsBehind > 0) {
@@ -1303,7 +1303,7 @@ function generateDashboard() {
   lines.push(SEP);
 
   // ── Row 2: Graph freshness + Pending HIL ─────────────────────
-  const gf = getGraphifyStats();
+  const gf = getMonographStats();
   const freshness = getGraphFreshness();
   let graphStr;
   if (gf.exists) {

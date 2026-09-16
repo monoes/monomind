@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // Regression for issue #237: _requireMonograph() in the hook-side helper
 // (.claude/helpers/utils/monograph.cjs) never checked a global npm install
-// of @monoes/monograph, unlike graphify-freshen.cjs's resolveMonographEntry()
+// of @monoes/monograph, unlike monograph-freshen.cjs's resolveMonographEntry()
 // which does. graph-status and inline hook suggestions reported "not found"
 // even against a valid, freshly-built monograph.db when the package was only
 // installed globally (`npm install -g @monoes/monograph`).

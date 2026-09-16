@@ -464,7 +464,7 @@ export function generateHookHandler(): string {
     "      output.push('| Reason: ' + result.reason.substring(0, 53).padEnd(53) + '|');",
     "      output.push('+--------------------------------------------------------------+');",
     "      console.log(output.join('\\n'));",
-    '      // Graphify knowledge graph suggestion for architecture/understanding tasks',
+    '      // Monograph knowledge graph suggestion for architecture/understanding tasks',
     '      try {',
     "        var archKeywords = ['understand', 'architecture', 'how does', 'what calls', 'dependency', 'depends on', 'flow', 'how is', 'explain codebase', 'project structure', 'what is the relationship', 'graph', 'knowledge'];",
     '        var promptLower = prompt.toLowerCase();',
@@ -1322,7 +1322,7 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   'intelligence.cjs': { forceSync: true, generate: generateIntelligenceStub },
   'auto-memory-hook.mjs': { forceSync: true, generate: generateAutoMemoryHook },
   'statusline.cjs': { forceSync: true, doctorTracked: true },
-  'graphify-freshen.cjs': { forceSync: true, doctorTracked: true },
+  'monograph-freshen.cjs': { forceSync: true, doctorTracked: true },
   'control-start.cjs': { forceSync: true, doctorTracked: true },
   'router.cjs': { forceSync: true, doctorTracked: true, generate: generateAgentRouter },
   // Regenerates skill-registry.json (which router.cjs's matchSkills reads) from

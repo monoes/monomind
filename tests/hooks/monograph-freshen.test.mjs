@@ -1,5 +1,5 @@
 /**
- * Tests for .claude/helpers/graphify-freshen.cjs
+ * Tests for .claude/helpers/monograph-freshen.cjs
  * Spawn-based: has module-level side effects (mkdirSync, spawn, process.exit).
  * Uses CLAUDE_PROJECT_DIR to control where graph/ dir and lock file are created.
  */
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/graphify-freshen.cjs');
+const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/monograph-freshen.cjs');
 
 function run(env = {}, { cwd } = {}) {
   return spawnSync(process.execPath, [SCRIPT], {
@@ -42,7 +42,7 @@ afterEach(() => {
 
 // ── no monograph ─────────────────────────────────────────────────────────────
 
-describe('graphify-freshen: no monograph', () => {
+describe('monograph-freshen: no monograph', () => {
   it('exits 0 when @monoes/monograph not found', () => {
     const r = run({ CLAUDE_PROJECT_DIR: tmpDir }, { cwd: tmpDir });
     expect(r.status).toBe(0);
@@ -64,7 +64,7 @@ describe('graphify-freshen: no monograph', () => {
 
 // ── fresh lock ──────────────────────────────────────────────────────────────
 
-describe('graphify-freshen: fresh lock file', () => {
+describe('monograph-freshen: fresh lock file', () => {
   it('exits 0 and logs "already in progress" when lock is < 5 min old', () => {
     createFakeMonograph(tmpDir);
     const lockPath = path.join(tmpDir, '.monomind', 'graph', 'build.lock');
@@ -91,7 +91,7 @@ describe('graphify-freshen: fresh lock file', () => {
 
 // ── stale lock ──────────────────────────────────────────────────────────────
 
-describe('graphify-freshen: stale lock file', () => {
+describe('monograph-freshen: stale lock file', () => {
   it('removes stale lock (> 5 min) and starts build', () => {
     createFakeMonograph(tmpDir);
     const lockPath = path.join(tmpDir, '.monomind', 'graph', 'build.lock');
@@ -109,7 +109,7 @@ describe('graphify-freshen: stale lock file', () => {
 
 // ── no lock → starts build ──────────────────────────────────────────────────
 
-describe('graphify-freshen: no lock present', () => {
+describe('monograph-freshen: no lock present', () => {
   it('exits 0 and logs "background build started" when monograph found', () => {
     createFakeMonograph(tmpDir);
     const r = run({ CLAUDE_PROJECT_DIR: tmpDir }, { cwd: tmpDir });
@@ -130,7 +130,7 @@ describe('graphify-freshen: no lock present', () => {
 
 // ── lazy global-npm resolution ──────────────────────────────────────────────
 
-describe('graphify-freshen: lazy global-npm resolution', () => {
+describe('monograph-freshen: lazy global-npm resolution', () => {
   it('does not shell out to `npm root -g` when a faster candidate already resolves', () => {
     createFakeMonograph(tmpDir); // resolves via the `<dir>/dist/src/index.js` candidate
     const fakeBin = path.join(tmpDir, 'fake-bin');
