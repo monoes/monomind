@@ -15,11 +15,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/graphify-freshen.cjs');
 
 function run(env = {}, { cwd } = {}) {
+  // Remove SDK agent env vars that cause hook scripts to exit silently
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.MONOMIND_SDK_AGENT;
+  delete cleanEnv.MONOMIND_HOOK_QUIET;
+
   return spawnSync(process.execPath, [SCRIPT], {
     cwd: cwd || os.tmpdir(),
     encoding: 'utf-8',
     timeout: 10000,
-    env: { ...process.env, MONOMIND_HOOK_QUIET: '', ...env },
+    env: { ...cleanEnv, MONOMIND_HOOK_QUIET: '', ...env },
   });
 }
 

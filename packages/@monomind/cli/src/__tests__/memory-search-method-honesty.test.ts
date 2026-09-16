@@ -47,6 +47,9 @@ const NS = 'knowledge:search-method';
 
 describe('memory search reports the method that actually ran', () => {
   beforeAll(async () => {
+    // Remove env vars that prevent embeddings from working
+    delete process.env.MONOMIND_NO_LOCAL_EMBEDDINGS;
+
     embedMode = 'ok';
     const res = await bridgeStoreEntry({
       key: 'jwt-auth',

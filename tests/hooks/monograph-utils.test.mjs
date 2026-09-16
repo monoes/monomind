@@ -32,6 +32,8 @@ const MONO_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/monograph
 
 function loadMonograph(cwd) {
   process.env.CLAUDE_PROJECT_DIR = cwd;
+  // Remove env var that globally disables graph gates
+  delete process.env.MONOMIND_GRAPH_GATE;
   delete require.cache[TELE_PATH];
   delete require.cache[MONO_PATH];
   return require(MONO_PATH);

@@ -179,6 +179,12 @@ export const diffCommand: Command = {
           testCoverage: 'unknown',
         },
       };
+      // Ensure breakdown arrays exist to prevent .length crashes
+      if (risk.breakdown) {
+        risk.breakdown.highRiskFiles = risk.breakdown.highRiskFiles || [];
+        risk.breakdown.securityConcerns = risk.breakdown.securityConcerns || [];
+        risk.breakdown.breakingChanges = risk.breakdown.breakingChanges || [];
+      }
       const classification = result.classification || {
         category: 'unknown',
         confidence: 0,
