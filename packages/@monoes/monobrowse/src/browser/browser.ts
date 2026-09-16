@@ -387,7 +387,12 @@ async function waitForProcessExit(pid: number): Promise<boolean> {
 export async function openUrl(client: CdpClient, sessionId: string, url: string): Promise<void> {
   // Cap to 2 MB to prevent OOM in CDP message serializer (e.g. data: URI attacks)
   if (url.length > 2_097_152) throw new Error('URL exceeds 2 MB limit');
-  await client.send('Page.navigate', { url }, sessionId);
+  // Page.navigate reports a protocol-level failure (e.g. a refused connection)
+  // via errorText in its own response, before Chrome ever settles on the
+  // chrome-error://chromewebdata/ page — without this check a refused
+  // connection previously reported success against that error page.
+  const nav = await client.send<{ errorText?: string }>('Page.navigate', { url }, sessionId);
+  if (nav.errorText) throw new Error(`Navigation to ${url} failed: ${nav.errorText}`);
   await waitForNetworkIdle(client, sessionId, 500, 30_000);
 }
 
