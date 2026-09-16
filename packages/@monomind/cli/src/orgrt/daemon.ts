@@ -1030,7 +1030,7 @@ export class OrgDaemon {
     const unoverriddenRoleCount = agentRoles(def.roles).filter(
       (r) => r.budget_tokens == null,
     ).length;
-    const perRoleBudget =
+    const _perRoleBudget =
       unoverriddenRoleCount > 0
         ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
         : 0;

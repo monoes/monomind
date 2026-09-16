@@ -144,7 +144,6 @@ vi.mock('../memory/memory-bridge.js', () => ({
 }));
 
 import {
-  KG_INDEX_STATUS_NS,
   KG_NODES_NS,
   kgIndexStatus,
   kgIngest,

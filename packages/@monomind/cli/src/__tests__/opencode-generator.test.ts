@@ -19,7 +19,7 @@ describe('convertAgentMd (regression: mode: inserted inside a block-literal desc
     const out = convertAgentMd(src, 'scout-explorer');
     const fm = out.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
     const lines = fm.split('\n');
-    const descIdx = lines.findIndex((l) => l === 'description: |');
+    const descIdx = lines.indexOf('description: |');
 
     expect(descIdx).toBeGreaterThanOrEqual(0);
     // The line right after a block-scalar opener must stay part of the
@@ -44,7 +44,7 @@ describe('convertAgentMd (regression: mode: inserted inside a block-literal desc
     const out = convertAgentMd(src, 'coder');
     const fm = out.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
     const lines = fm.split('\n');
-    const descIdx = lines.findIndex((l) => l === 'description: Implementation specialist');
+    const descIdx = lines.indexOf('description: Implementation specialist');
 
     expect(descIdx).toBeGreaterThanOrEqual(0);
     expect(lines[descIdx + 1]).toBe('mode: subagent');

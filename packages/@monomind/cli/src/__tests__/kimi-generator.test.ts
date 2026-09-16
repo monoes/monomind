@@ -25,7 +25,7 @@ describe('convertKimiAgentMd (regression: key inserted inside a block-literal de
     const out = convertKimiAgentMd(src, 'scout-explorer');
     const fm = out.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
     const lines = fm.split('\n');
-    const descIdx = lines.findIndex((l) => l === 'description: |');
+    const descIdx = lines.indexOf('description: |');
 
     expect(descIdx).toBeGreaterThanOrEqual(0);
     expect(lines[descIdx + 1]).toBe(
@@ -40,7 +40,7 @@ describe('convertKimiAgentMd (regression: key inserted inside a block-literal de
     const out = convertKimiAgentMd(src, 'coder');
     const fm = out.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
     const lines = fm.split('\n');
-    const descIdx = lines.findIndex((l) => l === 'description: Implementation specialist');
+    const descIdx = lines.indexOf('description: Implementation specialist');
 
     expect(descIdx).toBeGreaterThanOrEqual(0);
     expect(lines[descIdx + 1]).toBe('name: coder');

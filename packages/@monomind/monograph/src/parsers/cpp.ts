@@ -22,7 +22,7 @@ export const cppConfig: LanguageConfig = {
   nameRefiner: (node, fallback) => {
     if (node.type !== 'function_declarator') return fallback;
     let declarator = node.childForFieldName('declarator');
-    while (declarator && declarator.childForFieldName('declarator')) {
+    while (declarator?.childForFieldName('declarator')) {
       declarator = declarator.childForFieldName('declarator');
     }
     return declarator?.text ?? fallback;
