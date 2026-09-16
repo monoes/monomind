@@ -52,6 +52,10 @@ let tempDir: string;
 let killSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(async () => {
+  // Clean env vars that can interfere with timer behavior in test environment
+  delete process.env.MONOMIND_SDK_AGENT;
+  delete process.env.MONOMIND_HOOK_QUIET;
+
   vi.useFakeTimers();
   lastSocket = null;
   tempDir = await mkdtemp(join(tmpdir(), 'monobrowse-close-test-'));
