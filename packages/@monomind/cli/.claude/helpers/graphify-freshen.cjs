@@ -33,16 +33,6 @@ function resolveMonographEntry(dir) {
     return null;
   })();
 
-  // Global npm installation (covers `npm install -g @monomind/cli` and homebrew installs)
-  const globalNpmMonograph = (() => {
-    try {
-      const { execSync } = require('child_process');
-      const globalRoot = execSync('npm root -g', { encoding: 'utf-8', timeout: 5000 }).trim();
-      const p = path.join(globalRoot, '@monoes', 'monograph', 'dist', 'src', 'index.js');
-      return p;
-    } catch { return null; }
-  })();
-
   const candidates = [
     // Monorepo workspace build FIRST — it carries unpublished fixes; the pnpm store
     // holds registry tarballs that can lag behind the workspace source.
@@ -54,12 +44,21 @@ function resolveMonographEntry(dir) {
     path.join(dir, 'dist', 'src', 'index.js'),
     // pnpm store registry copy
     pnpmStore,
-    // Global npm / homebrew install of @monomind/cli (most common for npx/global users)
-    globalNpmMonograph,
   ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
+
+  // Global npm / homebrew install of @monomind/cli (most common for npx/global users).
+  // Resolved lazily — shells out to `npm root -g` (~65ms) — so that cost is only paid
+  // when none of the faster candidates above matched.
+  try {
+    const { execSync } = require('child_process');
+    const globalRoot = execSync('npm root -g', { encoding: 'utf-8', timeout: 5000 }).trim();
+    const p = path.join(globalRoot, '@monoes', 'monograph', 'dist', 'src', 'index.js');
+    if (fs.existsSync(p)) return p;
+  } catch {}
+
   return null;
 }
 

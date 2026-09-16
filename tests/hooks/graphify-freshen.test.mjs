@@ -127,3 +127,25 @@ describe('graphify-freshen: no lock present', () => {
     expect(fs.existsSync(graphDir)).toBe(true);
   });
 });
+
+// ── lazy global-npm resolution ──────────────────────────────────────────────
+
+describe('graphify-freshen: lazy global-npm resolution', () => {
+  it('does not shell out to `npm root -g` when a faster candidate already resolves', () => {
+    createFakeMonograph(tmpDir); // resolves via the `<dir>/dist/src/index.js` candidate
+    const fakeBin = path.join(tmpDir, 'fake-bin');
+    fs.mkdirSync(fakeBin, { recursive: true });
+    const sentinel = path.join(tmpDir, 'npm-was-called');
+    const npmShim = path.join(fakeBin, 'npm');
+    fs.writeFileSync(npmShim, `#!/bin/sh\ntouch "${sentinel}"\necho "/nonexistent"\n`);
+    fs.chmodSync(npmShim, 0o755);
+
+    const r = run(
+      { CLAUDE_PROJECT_DIR: tmpDir, PATH: `${fakeBin}:${process.env.PATH}` },
+      { cwd: tmpDir },
+    );
+
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(sentinel)).toBe(false);
+  });
+});
