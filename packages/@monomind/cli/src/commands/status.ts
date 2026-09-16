@@ -372,8 +372,16 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   try {
     const { checkResources } = await import('../utils/resource-governor.js');
     const res = checkResources();
+    // Bound as closures, not bare method references — output.error/.warning/.success
+    // are prototype methods that read `this.colorEnabled` via `this.color()`, so
+    // assigning one directly (`output.warning`) and calling it later as `memColor(...)`
+    // loses that binding and throws "Cannot read properties of undefined (reading 'color')".
     const memColor =
-      res.freeMemPct < 15 ? output.error : res.freeMemPct < 30 ? output.warning : output.success;
+      res.freeMemPct < 15
+        ? (text: string) => output.error(text)
+        : res.freeMemPct < 30
+          ? (text: string) => output.warning(text)
+          : (text: string) => output.success(text);
     output.printTable({
       columns: [
         { key: 'property', header: 'Property', width: 18 },
@@ -388,8 +396,9 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
         },
       ],
     });
-  } catch {
+  } catch (err) {
     output.printInfo('  Resource governor not available');
+    output.printDebug(`resource governor error: ${err instanceof Error ? err.stack : String(err)}`);
   }
 }
 
