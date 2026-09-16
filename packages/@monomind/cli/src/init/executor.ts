@@ -277,9 +277,9 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     result.summary.hooksEnabled = countEnabledHooks(options);
 
     // Build the Monograph code graph in background (non-blocking) — code-project only
-    if (options.components.graphify && (capMgr === null || capMgr.isActive('code'))) {
+    if (options.components.monograph && (capMgr === null || capMgr.isActive('code'))) {
       await initKnowledgeGraph(targetDir, result, options.installClaudeCode !== false);
-    } else if (options.components.graphify) {
+    } else if (options.components.monograph) {
       result.skipped.push('Monograph code graph: not a code project (skipping indexing)');
     }
 
@@ -300,7 +300,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
  * Initialize the Monograph code graph — parsed code structure and dependencies.
  * This is not the memory knowledge graph or the Second Brain document index.
  * Spawns buildAsync as a detached child process to avoid SQLite lock contention.
- * Uses the same build.lock file as graphify-freshen.cjs — if a session-start
+ * Uses the same build.lock file as monograph-freshen.cjs — if a session-start
  * hook build is already running, we skip to avoid SQLITE_BUSY.
  */
 async function initKnowledgeGraph(
@@ -314,7 +314,7 @@ async function initKnowledgeGraph(
   const lockPath = path.join(outputDir, 'build.lock');
   const now = Date.now();
 
-  // If graphify-freshen.cjs (session-start hook) already holds a fresh lock, skip.
+  // If monograph-freshen.cjs (session-start hook) already holds a fresh lock, skip.
   try {
     const stat = fs.statSync(lockPath);
     if (now - stat.mtimeMs < 5 * 60 * 1000) {
@@ -396,7 +396,7 @@ async function initKnowledgeGraph(
     result.created.files.push('@monoes/monograph (auto-installed for the code graph)');
   }
 
-  // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
+  // Acquire lock before spawning so monograph-freshen.cjs sees it and skips
   try {
     fs.writeFileSync(lockPath, String(process.pid));
   } catch {

@@ -438,7 +438,7 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
     if (!hasDb && !existsSync(statsPath)) {
       // No graph yet — but that's one of three very different situations: a
       // build is genuinely still running, one already ran and crashed (e.g.
-      // executor.ts's initKnowledgeGraph or graphify-freshen.cjs's detached
+      // executor.ts's initKnowledgeGraph or monograph-freshen.cjs's detached
       // spawn hit a native-module ABI mismatch), or nothing was ever
       // attempted. Both spawners share this same build.lock/build.log pair,
       // so this one check covers either origin.

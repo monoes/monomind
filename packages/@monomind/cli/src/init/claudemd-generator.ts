@@ -443,7 +443,7 @@ If the \`documents\` capability is active (check \`.monomind/capabilities.json\`
 **Re-indexing** happens automatically on session start (unchanged files are skipped via content hash).`;
 }
 
-function graphifySection(): string {
+function monographSection(): string {
   return `## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
 Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Python/Go/Rust/C/C++/Java/Ruby/Swift into a SQLite graph with BM25 full-text search.
@@ -507,7 +507,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => securityRulesLight(),
     concurrencyRules,
     (_opts) => secondBrainSection(),
-    (_opts) => graphifySection(),
+    (_opts) => monographSection(),
     (_opts) => setupAndBoundary(),
   ],
   standard: [
@@ -523,7 +523,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
     (_opts) => secondBrainSection(),
-    (_opts) => graphifySection(),
+    (_opts) => monographSection(),
     (_opts) => setupAndBoundary(),
   ],
   full: [
@@ -544,7 +544,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => learningProtocol(),
     (_opts) => memoryCommands(),
     (_opts) => secondBrainSection(),
-    (_opts) => graphifySection(),
+    (_opts) => monographSection(),
     (_opts) => intelligenceSystem(),
     (_opts) => envVars(),
     (_opts) => setupAndBoundary(),
@@ -564,7 +564,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
     (_opts) => secondBrainSection(),
-    (_opts) => graphifySection(),
+    (_opts) => monographSection(),
     (_opts) => setupAndBoundary(),
   ],
   performance: [
@@ -583,7 +583,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
     (_opts) => secondBrainSection(),
-    (_opts) => graphifySection(),
+    (_opts) => monographSection(),
     (_opts) => intelligenceSystem(),
     (_opts) => setupAndBoundary(),
   ],

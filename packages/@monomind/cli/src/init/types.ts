@@ -29,7 +29,7 @@ export interface InitComponents {
   /** Create CLAUDE.md with swarm guidance */
   claudeMd: boolean;
   /** Build knowledge graph on init using monograph (TypeScript) */
-  graphify: boolean;
+  monograph: boolean;
   /** Emit Antigravity (Gemini) artifacts. */
   antigravity: boolean;
   /** Emit opencode artifacts (opencode.json + .opencode/). Opt-in — default
@@ -190,7 +190,7 @@ export interface MCPConfig {
   /** Include monomind MCP server */
   monomind: boolean;
   /** Include monograph knowledge graph MCP server */
-  graphify: boolean;
+  monograph: boolean;
   /** Auto-start MCP server */
   autoStart: boolean;
   /** Server port */
@@ -372,7 +372,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     mcp: true,
     runtime: true,
     claudeMd: true,
-    graphify: true,
+    monograph: true,
     antigravity: true,
     opencode: false,
     kimicode: false,
@@ -431,7 +431,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   },
   mcp: {
     monomind: true,
-    graphify: false,
+    monograph: false,
     autoStart: false,
     port: 3000,
   },
@@ -469,7 +469,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     mcp: true,
     runtime: true,
     claudeMd: true,
-    graphify: false,
+    monograph: false,
     antigravity: false,
     opencode: false,
     kimicode: false,
@@ -536,7 +536,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     mcp: true,
     runtime: true,
     claudeMd: true,
-    graphify: true,
+    monograph: true,
     antigravity: true,
     opencode: false,
     kimicode: false,
@@ -561,7 +561,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
   },
   mcp: {
     monomind: true,
-    graphify: false,
+    monograph: false,
     autoStart: false,
     port: 3000,
   },

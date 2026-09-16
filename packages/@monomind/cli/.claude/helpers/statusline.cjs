@@ -1036,7 +1036,7 @@ function getActiveOrgs() {
 //   1. .monomind/graph/stats.json     — explicit cached stats
 //   2. .monomind/monograph.db         — live SQLite (read counts via sqlite3)
 //   3. .monomind/graph/graph.json     — legacy JSON dump
-function getGraphifyStats() {
+function getMonographStats() {
   const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
   const dbPath    = path.join(CWD, '.monomind', 'monograph.db');
   const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
@@ -1346,7 +1346,7 @@ function generateDashboard() {
   lines.push(SEP);
 
   // ── Row 2: Graph ─────────────────────────────────────────────
-  const gf = getGraphifyStats();
+  const gf = getMonographStats();
   const freshness = getGraphFreshness();
   let graphStr;
   if (gf.exists) {

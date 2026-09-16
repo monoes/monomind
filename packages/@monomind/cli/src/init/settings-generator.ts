@@ -15,7 +15,7 @@ export function generateSettings(options: InitOptions): object {
 
   // Add hooks if enabled
   if (options.components.settings) {
-    settings.hooks = generateHooksConfig(options.hooks, options.components.graphify);
+    settings.hooks = generateHooksConfig(options.hooks, options.components.monograph);
   }
 
   // Add statusLine configuration if enabled
@@ -218,7 +218,7 @@ function generateStatusLineConfig(_options: InitOptions): object {
  * All hooks invoke scripts directly via `node <script> <subcommand>`,
  * working identically on Windows, macOS, and Linux.
  */
-function generateHooksConfig(config: HooksConfig, graphify = true): object {
+function generateHooksConfig(config: HooksConfig, monograph = true): object {
   const hooks: Record<string, unknown[]> = {};
 
   // Node.js scripts handle errors internally via try/catch.
@@ -343,10 +343,10 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
       },
     ];
 
-    if (graphify) {
+    if (monograph) {
       sessionStartHooks.push({
         type: 'command',
-        command: standaloneHelperCmd('graphify-freshen.cjs'),
+        command: standaloneHelperCmd('monograph-freshen.cjs'),
         timeout: 5000,
       });
     }
