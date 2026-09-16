@@ -4,7 +4,7 @@
 import { waitForCapacity } from '../utils/resource-governor.js';
 import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
-import { drainInbox } from './inbox.js';
+import { drainInbox, newMessageId } from './inbox.js';
 import type { OrgRole } from './types.js';
 
 /** Shared by scheduleDeferredSpawn and scheduleConcurrencyDeferredSpawn: spawn
@@ -29,6 +29,7 @@ async function spawnNowAndDrain(
         to: `${name}:${msg.toRole}`,
         subject: msg.subject,
         msg: msg.body,
+        data: { messageId: msg.messageId ?? newMessageId() },
       });
       await pushMessage(
         daemon,

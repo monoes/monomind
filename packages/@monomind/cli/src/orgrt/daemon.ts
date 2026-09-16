@@ -43,7 +43,7 @@ import {
 import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
 import { HermesAgentRunner } from './hermes-runner.js';
-import { drainInbox, queueMessage } from './inbox.js';
+import { drainInbox, newMessageId, queueMessage } from './inbox.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
@@ -1357,6 +1357,7 @@ export class OrgDaemon {
           to: `${name}:${msg.toRole}`,
           subject: msg.subject,
           msg: msg.body,
+          data: { messageId: msg.messageId ?? newMessageId() },
         });
         await crossOrg.pushMessage(
           this,
@@ -2644,6 +2645,7 @@ export class OrgDaemon {
     subject: string,
     body: string,
     fromCredential?: string,
+    opts?: crossOrg.ReceiveRemoteOpts,
   ): Promise<{ ok: true; receipt: string } | { ok: false; error: string }> {
     return crossOrg.receiveRemote(
       this,
@@ -2653,6 +2655,7 @@ export class OrgDaemon {
       subject,
       body,
       fromCredential,
+      opts,
     );
   }
 

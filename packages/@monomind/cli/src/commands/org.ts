@@ -2358,6 +2358,12 @@ export const orgCommand: Command = {
             'monomind org inbox growth --json \'{"from":"sales:boss","subject":"leads","body":"..."}\'',
           description: 'Deliver a message to the growth org',
         },
+        {
+          command:
+            'monomind org inbox growth --to lead --from growth:publisher-bot --subject "re: post" --body "done" --format json',
+          description:
+            'Reply as an automation role; prints {"v":1,"org","to","from","delivery","receipt","messageId"}',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);

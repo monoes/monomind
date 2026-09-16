@@ -7,7 +7,7 @@ import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
 import { lookupOrg } from './broker.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { scanMessage } from './fence.js';
-import { queueMessage } from './inbox.js';
+import { newMessageId, queueMessage } from './inbox.js';
 import { parseTraceLine } from './tool-providers.js';
 import { ORG_DIR } from './types.js';
 
@@ -174,7 +174,10 @@ export async function deliver(
   to: string,
   subject: string,
   body: string,
+  opts: { messageId?: string } = {},
 ): Promise<string> {
+  // M3: one id per logical message, stamped on every bus copy and queue entry.
+  const messageId = opts.messageId ?? newMessageId();
   const {
     cross,
     orgName: targetOrgName,
@@ -215,6 +218,7 @@ export async function deliver(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -250,6 +254,7 @@ export async function deliver(
           subject,
           body,
           ts: Date.now(),
+          messageId,
         });
         if (!queued) {
           src?.bus.emit({
@@ -286,6 +291,7 @@ export async function deliver(
         subject,
         body,
         src,
+        messageId,
       );
     // Queue + auto-wake: if the org definition exists locally but isn't running, spool the message and start it
     if (cross && daemon.hasOrgDef(targetOrgName)) {
@@ -295,6 +301,7 @@ export async function deliver(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -312,7 +319,7 @@ export async function deliver(
         to: toQualified,
         subject,
         msg: body,
-        data: { queued: true },
+        data: { queued: true, messageId },
       });
       daemon.autoWake(targetOrgName);
       return `queued for ${toQualified} (org starting)`;
@@ -328,6 +335,7 @@ export async function deliver(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -385,6 +393,7 @@ export async function deliver(
       subject,
       body,
       ts: Date.now(),
+      messageId,
     });
     src?.bus.emit({
       type: 'audit',
@@ -404,6 +413,7 @@ export async function deliver(
     subject,
     msg: body,
     parentId,
+    data: { messageId },
   };
   const emitted = src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
   if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
@@ -449,6 +459,7 @@ async function deliverRemote(
   subject: string,
   body: string,
   src: RunningOrg | undefined,
+  messageId: string,
 ): Promise<string> {
   const remote = lookupOrg(targetOrgName, daemon.opts.brokerDir);
   if (!remote) {
@@ -460,6 +471,7 @@ async function deliverRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -477,7 +489,7 @@ async function deliverRemote(
         to,
         subject,
         msg: body,
-        data: { queued: true },
+        data: { queued: true, messageId },
       });
       daemon.autoWake(targetOrgName);
       return `queued for ${to} (org starting)`;
@@ -501,7 +513,7 @@ async function deliverRemote(
             to,
             subject,
             msg: body,
-            data: { remote: 'ssh', host: remoteHost.host },
+            data: { remote: 'ssh', host: remoteHost.host, messageId },
           });
           return `delivered to ${to} via SSH (${remoteHost.host})`;
         }
@@ -547,6 +559,7 @@ async function deliverRemote(
         toRole: targetRole,
         subject,
         body,
+        messageId,
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -556,7 +569,14 @@ async function deliverRemote(
       error?: string;
     };
     if (res.ok && data.ok) {
-      src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body });
+      src?.bus.emit({
+        type: 'xorg',
+        from: `${fromOrg}:${fromRole}`,
+        to,
+        subject,
+        msg: body,
+        data: { messageId },
+      });
       return data.receipt ?? `delivered to ${to} (remote)`;
     }
     src?.bus.emit({
@@ -590,6 +610,14 @@ function credentialMatches(supplied: unknown, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+export interface ReceiveRemoteOpts {
+  /** The caller presented the OPERATOR credential: skip the broker sender
+   *  identity check and trust `fromQualified` as given (M3). */
+  operator?: boolean;
+  /** Origin message id (M3) — generated here when the sender sent none. */
+  messageId?: string;
+}
+
 /** Inbound handler for cross-process delivery — called by the server's POST /api/xdeliver route
  *  when ANOTHER process's deliverRemote() reaches this daemon. Pushes straight into the target
  *  agent's mailbox; the agent picks it up on its own next turn (see Mailbox — never interrupts). */
@@ -601,20 +629,28 @@ export async function receiveRemote(
   subject: string,
   body: string,
   fromCredential?: string,
+  opts: ReceiveRemoteOpts = {},
 ): Promise<{ ok: true; receipt: string } | { ok: false; error: string }> {
+  const messageId = opts.messageId ?? newMessageId();
   // BUG 2 FIX: the HTTP auth gate in server.ts only proves the caller knows a
   // credential this daemon accepts (the target org's, or the operator's) — it
   // says nothing about who the caller claims to be. Verify the claimed sender
   // actually owns the credential registered for it in the broker before
   // trusting anything else. Credentials are per-org, so a sibling org hosted
   // by the same daemon can't reuse its own to pass as `fromOrg`.
+  //
+  // M3: an OPERATOR-authenticated call (server.ts saw the operator credential)
+  // carries human authority and may speak as any sender — the org need not be
+  // registered (e.g. `workflow:<exec>` or an automation role's reply).
   const claimedFromOrg = fromQualified.split(':', 1)[0];
-  const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
-  if (!fromEntry?.credential || !credentialMatches(fromCredential, fromEntry.credential)) {
-    return {
-      ok: false,
-      error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
-    };
+  if (!opts.operator) {
+    const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
+    if (!fromEntry?.credential || !credentialMatches(fromCredential, fromEntry.credential)) {
+      return {
+        ok: false,
+        error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
+      };
+    }
   }
   const org = daemon.orgs.get(toOrg);
   if (!org) {
@@ -626,6 +662,7 @@ export async function receiveRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         return {
@@ -664,6 +701,7 @@ export async function receiveRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         return {
@@ -695,6 +733,7 @@ export async function receiveRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         return {
@@ -727,6 +766,7 @@ export async function receiveRemote(
       subject,
       body,
       ts: Date.now(),
+      messageId,
     });
     if (!queued) {
       return {
@@ -754,6 +794,7 @@ export async function receiveRemote(
     to: `${toOrg}:${toRole}`,
     subject,
     msg: body,
+    data: { messageId },
   });
   agent.lastMessageId = messageEvent.id; // Track last message ID for response threading
   const pushed = await pushMessage(

@@ -1,6 +1,8 @@
 // packages/@monomind/cli/src/orgrt/inbox.ts
 // Persistent message queue for offline orgs. Messages that can't be delivered
 // (target org not running) are spooled here and drained when the org starts.
+
+import { randomBytes } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
@@ -12,12 +14,20 @@ import {
 import { join } from 'node:path';
 import { ORG_DIR } from './types.js';
 
+/** M3: id of one logical message — `msg-<ms>-<8 hex>` — generated once at the
+ *  message's origin and carried on every bus copy and queue entry. */
+export function newMessageId(): string {
+  return `msg-${Date.now()}-${randomBytes(4).toString('hex')}`;
+}
+
 export interface QueuedMessage {
   fromQualified: string; // "orgA:role"
   toRole: string;
   subject: string;
   body: string;
   ts: number;
+  /** M3: origin message id, re-used when the queue is drained. */
+  messageId?: string;
   /** Structured handoff context (rich metadata for role transitions) */
   context?: {
     summary?: string; // Brief one-line status

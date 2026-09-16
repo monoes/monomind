@@ -199,11 +199,14 @@ export async function startOrgServer(
           fromCredential,
           subject,
           body: b,
+          messageId,
         } = payload as Record<string, string | undefined>;
         if (!toOrg || !toRole || !fromOrg || !fromRole) {
           json(res, 400, { ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' });
           return;
         }
+        // M3: the operator credential carries human authority — the daemon
+        // skips the broker sender-identity check and trusts fromOrg:fromRole.
         const result = await daemon.receiveRemote(
           toOrg,
           toRole,
@@ -211,6 +214,13 @@ export async function startOrgServer(
           subject ?? '',
           b ?? '',
           fromCredential,
+          {
+            operator: isOperator(supplied),
+            messageId:
+              typeof messageId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(messageId)
+                ? messageId
+                : undefined,
+          },
         );
         json(res, result.ok ? 200 : 404, result);
       } else if (req.url === '/api/human-message') {
