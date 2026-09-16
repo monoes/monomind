@@ -313,7 +313,7 @@ describe('session tool integration — org_respawn_role / org_list_runtime_optio
     expect(seenArgs.roleId).toBe('worker');
   });
 
-  it('org_list_runtime_options handler returns the callback\'s JSON receipt as text', async () => {
+  it("org_list_runtime_options handler returns the callback's JSON receipt as text", async () => {
     const dir = mkdtempSync(join(tmpdir(), 'mono-session-respawn-'));
     const receipt = { runtimes: [{ id: 'claude', available: true }], namedProviders: [] };
     const tools = buildOrgTools({

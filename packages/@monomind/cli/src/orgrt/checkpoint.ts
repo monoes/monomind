@@ -81,7 +81,9 @@ export const CHECKPOINT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default
  *  could have applied — this is what gets persisted and restored on resume,
  *  since the org definition itself is not rewritten by a replacement. */
 function diffRoleOverrides(
-  original: { runtime?: string; adapter_config?: { model?: string; provider?: string } } | undefined,
+  original:
+    | { runtime?: string; adapter_config?: { model?: string; provider?: string } }
+    | undefined,
   effective: { runtime?: string; adapter_config?: { model?: string; provider?: string } },
 ): { runtime?: string; model?: string; providerName?: string } {
   const out: { runtime?: string; model?: string; providerName?: string } = {};
@@ -127,7 +129,10 @@ export function captureCheckpoint(
       generation: slot?.generation ?? 0,
       respawnCount: slot?.respawnCount ?? 0,
       effectiveRoleOverrides: slot
-        ? diffRoleOverrides(org.def.roles.find((r) => r.id === roleId), slot.effectiveRole)
+        ? diffRoleOverrides(
+            org.def.roles.find((r) => r.id === roleId),
+            slot.effectiveRole,
+          )
         : {},
       queuedDuringSwap: slot?.queuedDuringSwap ?? [],
       retiredUsage: slot?.retiredUsage ?? { tokens: 0, costUsd: 0 },

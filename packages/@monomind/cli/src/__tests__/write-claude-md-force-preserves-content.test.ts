@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { writeClaudeMd } from '../init/write-claude.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
+import { writeClaudeMd } from '../init/write-claude.js';
 
 function freshResult(): InitResult {
   return {

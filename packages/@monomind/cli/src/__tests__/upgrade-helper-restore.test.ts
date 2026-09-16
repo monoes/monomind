@@ -63,7 +63,9 @@ describe('init upgrade restores non-force-synced top-level helpers (#225)', () =
 
     await executeUpgrade(target);
 
-    expect((await import('node:fs')).readFileSync(join(helpers, 'memory.cjs'), 'utf8')).toBe(edited);
+    expect((await import('node:fs')).readFileSync(join(helpers, 'memory.cjs'), 'utf8')).toBe(
+      edited,
+    );
   }, 120_000);
 });
 
@@ -81,7 +83,10 @@ describe('gates-handler survives a missing audit-log-writer.cjs (#225)', () => {
     // to brick the hook, and that is only observable at module load.
     const out = execFileSync(
       process.execPath,
-      ['-e', `require(${JSON.stringify(join(dir, 'handlers', 'gates-handler.cjs'))}); console.log('loaded')`],
+      [
+        '-e',
+        `require(${JSON.stringify(join(dir, 'handlers', 'gates-handler.cjs'))}); console.log('loaded')`,
+      ],
       { encoding: 'utf8' },
     );
     expect(out.trim()).toBe('loaded');

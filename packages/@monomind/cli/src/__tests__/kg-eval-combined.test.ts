@@ -104,7 +104,12 @@ vi.mock('../knowledge/document-pipeline.js', () => ({
     const tokens = query.toLowerCase().split(/\W+/).filter(Boolean);
     return docExcerpts
       .filter((e) => tokens.some((t) => e.text.toLowerCase().includes(t)))
-      .map((e, i) => ({ ...e, chunkIndex: 0, scope: 'shared', similarity: e.similarity ?? 0.8 - i * 0.01 }));
+      .map((e, i) => ({
+        ...e,
+        chunkIndex: 0,
+        scope: 'shared',
+        similarity: e.similarity ?? 0.8 - i * 0.01,
+      }));
   },
 }));
 
@@ -155,7 +160,13 @@ describe('K9 baseline: combined document/KG retrieval', () => {
       },
     ];
     await kgIngest({
-      nodes: [{ name: 'Harbormaster', type: 'Service', description: 'edge fleet deployment orchestrator' }],
+      nodes: [
+        {
+          name: 'Harbormaster',
+          type: 'Service',
+          description: 'edge fleet deployment orchestrator',
+        },
+      ],
       edges: [],
       originRef: 'eval:cd1',
     });
@@ -180,7 +191,13 @@ describe('K9 baseline: combined document/KG retrieval', () => {
   it('cd2: a KG-only hit is not suppressed when the document surface is empty within a combined request', async () => {
     // No matching document excerpt — docExcerpts stays empty this test.
     await kgIngest({
-      nodes: [{ name: 'Solitary Beacon', type: 'Service', description: 'graph-only entity, no document mentions it' }],
+      nodes: [
+        {
+          name: 'Solitary Beacon',
+          type: 'Service',
+          description: 'graph-only entity, no document mentions it',
+        },
+      ],
       edges: [],
       originRef: 'eval:cd2',
     });

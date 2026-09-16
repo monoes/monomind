@@ -467,7 +467,9 @@ export class QwenRpcAgentRunner implements AgentRunner {
             // it forever with no way to know the round is truly over).
             const finalStripped = rawText.replace(TOOL_CALL_RE, '').trim();
             const remainder =
-              finalStripped.length > visibleSoFar.length ? finalStripped.slice(visibleSoFar.length) : undefined;
+              finalStripped.length > visibleSoFar.length
+                ? finalStripped.slice(visibleSoFar.length)
+                : undefined;
             if (remainder) yield { type: 'assistant', session_id: sessionId, text: remainder };
 
             const malformed: string[] = [];

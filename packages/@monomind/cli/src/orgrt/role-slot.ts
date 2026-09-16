@@ -3,8 +3,7 @@
  * Pure, daemon-independent helpers and types for mid-run role replacement.
  * See docs/mastermind/specs/2026-09-07-org-runtime-role-respawn-design.md.
  */
-import type { AgentRuntime } from './daemon.js';
-import type { RuntimeKind } from './daemon.js';
+import type { AgentRuntime, RuntimeKind } from './daemon.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 export type RoleSlotPhase =
@@ -186,9 +185,11 @@ export function validateRespawnInput(
 
 /** Audit/status-safe view of a role's runtime config — never includes
  *  role.provider (which may carry apiKey/authToken/baseUrl). */
-export function redactRoleConfig(
-  role: OrgRole,
-): { runtime?: string; model?: string; providerName?: string } {
+export function redactRoleConfig(role: OrgRole): {
+  runtime?: string;
+  model?: string;
+  providerName?: string;
+} {
   const out: { runtime?: string; model?: string; providerName?: string } = {};
   if (role.runtime) out.runtime = role.runtime;
   if (role.adapter_config?.model) out.model = role.adapter_config.model;

@@ -349,10 +349,12 @@ describe('doctor-project-checks', () => {
 
       const result = await checkMonographFreshness();
       expect(result.status).toBe('warn');
-      expect(result.message).toMatch(/^Monograph build in progress, or was interrupted — started \d+m ago$/);
+      expect(result.message).toMatch(
+        /^Monograph build in progress, or was interrupted — started \d+m ago$/,
+      );
     });
 
-    it('still reports in-progress (not failed) for a lock older than 5 minutes — a large repo\'s first index can legitimately take that long', async () => {
+    it("still reports in-progress (not failed) for a lock older than 5 minutes — a large repo's first index can legitimately take that long", async () => {
       mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
       const lockPath = join(dir, '.monomind', 'graph', 'build.lock');
       writeFileSync(lockPath, String(process.pid));
@@ -361,7 +363,9 @@ describe('doctor-project-checks', () => {
 
       const result = await checkMonographFreshness();
       expect(result.status).toBe('warn');
-      expect(result.message).toMatch(/^Monograph build in progress, or was interrupted — started \d+m ago$/);
+      expect(result.message).toMatch(
+        /^Monograph build in progress, or was interrupted — started \d+m ago$/,
+      );
     });
 
     it('classifies a NODE_MODULE_VERSION ABI mismatch from build.log as a failure with a specific fix', async () => {
@@ -399,7 +403,10 @@ describe('doctor-project-checks', () => {
 
     it('reports a generic build failure pointing at build.log when the failure is unrecognized', async () => {
       mkdirSync(join(dir, '.monomind', 'graph'), { recursive: true });
-      writeFileSync(join(dir, '.monomind', 'graph', 'build.log'), 'TypeError: something unrelated blew up\n');
+      writeFileSync(
+        join(dir, '.monomind', 'graph', 'build.log'),
+        'TypeError: something unrelated blew up\n',
+      );
 
       const result = await checkMonographFreshness();
       expect(result.status).toBe('fail');
@@ -426,7 +433,8 @@ describe('doctor-project-checks', () => {
       ].join('\n');
       const candidatePaths = Array.from(
         { length: 80 },
-        (_, i) => `   → /project/node_modules/better-sqlite3/candidate-path-${i}/better_sqlite3.node`,
+        (_, i) =>
+          `   → /project/node_modules/better-sqlite3/candidate-path-${i}/better_sqlite3.node`,
       ).join('\n');
       const log = `${header}\n${candidatePaths}\n`;
       expect(log.length).toBeGreaterThan(4000); // must exceed the OLD window to be a real regression test

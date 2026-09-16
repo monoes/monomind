@@ -85,7 +85,11 @@ describe('FTS5 index stays in sync with an upsert (no duplicate/stale hit)', () 
       upsert: true,
     });
 
-    const res = await bridgeSearchEntries({ query: 'routes', namespace: 'fts-sync', dbPath: STORE });
+    const res = await bridgeSearchEntries({
+      query: 'routes',
+      namespace: 'fts-sync',
+      dbPath: STORE,
+    });
 
     expect(res?.results).toHaveLength(1);
     expect(res?.results?.[0].content).toBe('current: routes to PostgreSQL');
@@ -109,9 +113,9 @@ describe('FTS5 index stays in sync with an upsert (no duplicate/stale hit)', () 
     const Database = (await import('better-sqlite3')).default;
     const dbFile = join(STORE, 'memory.db');
     const db = new Database(dbFile);
-    const row = db
-      .prepare('SELECT id FROM memory_entries WHERE key = ?')
-      .get('legacy-store') as { id: string };
+    const row = db.prepare('SELECT id FROM memory_entries WHERE key = ?').get('legacy-store') as {
+      id: string;
+    };
     // Simulate what the pre-fix trigger left behind: an extra fts row for
     // the same entry_id, with stale content, never cleaned up.
     db.prepare('INSERT INTO memory_entries_fts(entry_id, key, content) VALUES (?, ?, ?)').run(

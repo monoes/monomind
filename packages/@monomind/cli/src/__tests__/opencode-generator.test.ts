@@ -24,13 +24,22 @@ describe('convertAgentMd (regression: mode: inserted inside a block-literal desc
     expect(descIdx).toBeGreaterThanOrEqual(0);
     // The line right after a block-scalar opener must stay part of the
     // block (indented) — never a bare top-level key line.
-    expect(lines[descIdx + 1]).toBe('  Information reconnaissance specialist that explores unknown territories.');
+    expect(lines[descIdx + 1]).toBe(
+      '  Information reconnaissance specialist that explores unknown territories.',
+    );
     // mode: must land after the block content, as its own top-level key.
     expect(lines.find((l) => l.startsWith('mode:'))).toBe('mode: subagent');
   });
 
   it('appends mode: right after a normal single-line description', () => {
-    const src = ['---', 'name: coder', 'description: Implementation specialist', '---', '', 'Body.'].join('\n');
+    const src = [
+      '---',
+      'name: coder',
+      'description: Implementation specialist',
+      '---',
+      '',
+      'Body.',
+    ].join('\n');
 
     const out = convertAgentMd(src, 'coder');
     const fm = out.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
@@ -50,7 +59,9 @@ describe('opencodeCommandFilename (regression: prefix compounding on repeat --fo
   // "monomind-" prefix on top every single run.
 
   it('does not stack another "monomind-" prefix onto an already-namespaced filename', () => {
-    expect(opencodeCommandFilename('monomind', 'monomind-truth-start')).toBe('monomind-truth-start.md');
+    expect(opencodeCommandFilename('monomind', 'monomind-truth-start')).toBe(
+      'monomind-truth-start.md',
+    );
   });
 
   it('still adds the prefix normally for a genuinely unprefixed filename', () => {

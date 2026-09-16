@@ -15,12 +15,15 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
 import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
-import { classifyNativeModuleError, extractNativeModulePackageName } from '../utils/native-error.js';
+import {
+  classifyNativeModuleError,
+  extractNativeModulePackageName,
+} from '../utils/native-error.js';
 import {
   CONFIG_JSON_CANDIDATE_PATHS,
   CONFIG_YAML_CANDIDATE_PATHS,

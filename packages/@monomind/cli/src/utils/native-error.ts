@@ -24,7 +24,9 @@ export function classifyNativeModuleError(text: string): string | null {
   // pairs (so "built for X" and "requires Y" stay from the same attempt,
   // not stitched together across two different ones) and take the LAST
   // pair — the most recent attempt — not the first.
-  const pairs = [...text.matchAll(/NODE_MODULE_VERSION (\d+)[\s\S]{0,200}?NODE_MODULE_VERSION (\d+)/g)];
+  const pairs = [
+    ...text.matchAll(/NODE_MODULE_VERSION (\d+)[\s\S]{0,200}?NODE_MODULE_VERSION (\d+)/g),
+  ];
   if (pairs.length > 0) {
     const [, builtFor, required] = pairs[pairs.length - 1];
     return (
@@ -34,8 +36,8 @@ export function classifyNativeModuleError(text: string): string | null {
       `monomind with. If a plain reinstall never changes the binary at all (same size, ` +
       `same mtime, every time), it's likely resolving a cached prebuilt asset instead of ` +
       `actually rebuilding — force a real from-source rebuild with ` +
-      "`npm rebuild <module> --build-from-source`, or remove and reinstall the exact " +
-      "package directory (`rm -rf node_modules/<module> && npm install`), not just its " +
+      '`npm rebuild <module> --build-from-source`, or remove and reinstall the exact ' +
+      'package directory (`rm -rf node_modules/<module> && npm install`), not just its ' +
       `build/ output. If that STILL doesn't change the binary, a stale global npm cache ` +
       `or a dependency-deduped copy elsewhere on disk may be the real cause — run ` +
       `\`node -e "console.log(require.resolve('better-sqlite3'))"\` from the project ` +
@@ -61,11 +63,13 @@ export function classifyNativeModuleError(text: string): string | null {
     // text — a wrapping stack trace, e.g. through @monoes/monograph, would
     // otherwise be mistaken for the module that's actually missing). Handles
     // both scoped (@scope/name) and unscoped package directory names.
-    const moduleMatch = text.slice(bindingsIdx).match(/node_modules[\\/](@[^\\/]+[\\/][^\\/]+|[^\\/]+)[\\/]/);
+    const moduleMatch = text
+      .slice(bindingsIdx)
+      .match(/node_modules[\\/](@[^\\/]+[\\/][^\\/]+|[^\\/]+)[\\/]/);
     const moduleName = moduleMatch?.[1];
     return (
       `${moduleName ? `\`${moduleName}\`` : 'A native module'}'s binary was never built for ` +
-      'this platform (not an ABI mismatch — it simply doesn\'t exist). This usually means its ' +
+      "this platform (not an ABI mismatch — it simply doesn't exist). This usually means its " +
       'install script was blocked or failed silently. Try: ' +
       `\`npm rebuild ${moduleName ?? '<module>'}\`, or check \`npm install-scripts ls\` for ` +
       'scripts still pending approval.'

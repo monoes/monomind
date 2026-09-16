@@ -86,7 +86,12 @@ vi.mock('../memory/memory-bridge.js', () => ({
       if (o.ifVersion === 'absent') {
         if (existing) return { success: false, id: existing.id, conflict: true, error: 'exists' };
       } else if (!existing || existing.version !== o.ifVersion) {
-        return { success: false, id: existing?.id ?? '', conflict: true, error: 'version conflict' };
+        return {
+          success: false,
+          id: existing?.id ?? '',
+          conflict: true,
+          error: 'version conflict',
+        };
       }
     }
     const id = existing?.id ?? `entry_${++idSeq}`;
@@ -139,13 +144,13 @@ vi.mock('../memory/memory-bridge.js', () => ({
 }));
 
 import {
+  KG_INDEX_STATUS_NS,
+  KG_NODES_NS,
   kgIndexStatus,
   kgIngest,
   kgRebuildIndex,
   kgRollback,
   kgSearch,
-  KG_NODES_NS,
-  KG_INDEX_STATUS_NS,
 } from '../memory/memory-kg.js';
 
 function node(name: string) {

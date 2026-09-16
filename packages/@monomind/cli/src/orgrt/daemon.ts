@@ -56,23 +56,23 @@ import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import { QwenAgentRunner } from './qwen-runner.js';
 import {
-  buildRespawnReceipt,
-  computeReplacementBudget,
-  mergeEffectiveRoleConfig,
-  redactRoleConfig,
-  validateRespawnInput,
-  type RespawnReceipt,
-  type RoleOverrides,
-  type RoleSlot,
-} from './role-slot.js';
-import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
-import {
   historyFile,
   type RunSummary,
   readHistory,
   readRunEvents,
   summarizeRun,
 } from './reporting.js';
+import {
+  buildRespawnReceipt,
+  computeReplacementBudget,
+  mergeEffectiveRoleConfig,
+  type RespawnReceipt,
+  type RoleOverrides,
+  type RoleSlot,
+  redactRoleConfig,
+  validateRespawnInput,
+} from './role-slot.js';
+import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { TaskDag } from './task-dag.js';
@@ -1493,7 +1493,8 @@ export class OrgDaemon {
       // returning +0-token errors forever), so without this the idle watchdog
       // just nudges it for ~30 min before idle-stopping. Restart the whole org
       // with fresh sessions instead — bounded by MAX_BOSS_RESTARTS.
-      onContextLimit: role.id === running.bossRoleId ? () => this.scheduleBossRestart(name) : undefined,
+      onContextLimit:
+        role.id === running.bossRoleId ? () => this.scheduleBossRestart(name) : undefined,
       onListRuntimeOptions:
         role.id === running.bossRoleId && (def.run_config.max_role_respawns ?? 0) > 0
           ? () => this.listRuntimeOptions()
@@ -1755,10 +1756,14 @@ export class OrgDaemon {
                 r();
                 return;
               }
-              abort.signal.addEventListener('abort', () => {
-                clearTimeout(t);
-                r();
-              }, { once: true });
+              abort.signal.addEventListener(
+                'abort',
+                () => {
+                  clearTimeout(t);
+                  r();
+                },
+                { once: true },
+              );
             });
             if (isStaleGeneration()) return; // superseded during the backoff wait
             if (mailbox.isClosed) {

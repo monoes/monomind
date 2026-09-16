@@ -168,10 +168,7 @@ describe('project-scope init writers', () => {
     fs.writeFileSync(agentPath, originalAgentContent);
 
     fs.mkdirSync(path.join(project, '.opencode'), { recursive: true });
-    fs.symlinkSync(
-      path.join('..', '.claude', 'agents'),
-      path.join(project, '.opencode', 'agent'),
-    );
+    fs.symlinkSync(path.join('..', '.claude', 'agents'), path.join(project, '.opencode', 'agent'));
 
     const options = {
       ...DEFAULT_INIT_OPTIONS,

@@ -28,7 +28,9 @@ describe('convertKimiAgentMd (regression: key inserted inside a block-literal de
     const descIdx = lines.findIndex((l) => l === 'description: |');
 
     expect(descIdx).toBeGreaterThanOrEqual(0);
-    expect(lines[descIdx + 1]).toBe('  Information reconnaissance specialist that explores unknown territories.');
+    expect(lines[descIdx + 1]).toBe(
+      '  Information reconnaissance specialist that explores unknown territories.',
+    );
     expect(lines.find((l) => l.startsWith('name:'))).toBe('name: scout-explorer');
   });
 

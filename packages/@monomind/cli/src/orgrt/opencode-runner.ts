@@ -297,7 +297,8 @@ export class OpencodeAgentRunner implements AgentRunner {
               // text itself got recorded as a text part and leaked out as
               // a fake final "assistant" message once nothing else claimed
               // to have already shown it.
-              if (assistantMessageId === undefined || part.messageID !== assistantMessageId) continue;
+              if (assistantMessageId === undefined || part.messageID !== assistantMessageId)
+                continue;
               if (!partTypes.has(part.id)) partOrder.push(part.id);
               partTypes.set(part.id, part.type);
               if (part.type === 'text' && typeof part.text === 'string') {
@@ -309,7 +310,8 @@ export class OpencodeAgentRunner implements AgentRunner {
             if (evType === 'message.part.delta') {
               if (props.sessionID !== sessionId) continue;
               // Same strict gate as message.part.updated above.
-              if (assistantMessageId === undefined || props.messageID !== assistantMessageId) continue;
+              if (assistantMessageId === undefined || props.messageID !== assistantMessageId)
+                continue;
               if (props.field !== 'text') continue;
               if (partTypes.get(props.partID) !== 'text') continue;
               const raw = (partRawText.get(props.partID) ?? '') + (props.delta ?? '');
@@ -346,7 +348,8 @@ export class OpencodeAgentRunner implements AgentRunner {
           }
 
           const tokens = finalTokens ?? {};
-          turnInputTokens += (tokens.input ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0);
+          turnInputTokens +=
+            (tokens.input ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0);
           turnOutputTokens += tokens.output ?? 0;
           turnCost += finalCost ?? 0;
 

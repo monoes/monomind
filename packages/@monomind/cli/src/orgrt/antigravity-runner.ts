@@ -504,11 +504,15 @@ export class AntigravityAgentRunner implements AgentRunner {
       const raw = pendingText;
       const finalStripped = raw.replace(TOOL_CALL_RE, '').trim();
       const remainder =
-        finalStripped.length > visibleSoFar.length ? finalStripped.slice(visibleSoFar.length) : undefined;
+        finalStripped.length > visibleSoFar.length
+          ? finalStripped.slice(visibleSoFar.length)
+          : undefined;
       pendingText = '';
       pendingStepIndex = undefined;
       visibleSoFar = '';
-      return [{ kind: 'assistant', rawText: raw, text: remainder, conversationId: lastConversationId }];
+      return [
+        { kind: 'assistant', rawText: raw, text: remainder, conversationId: lastConversationId },
+      ];
     };
 
     // Normalize one parsed wire event: capture the conversation id from ANY

@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { writeSettings } from '../init/write-claude.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
+import { writeSettings } from '../init/write-claude.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
@@ -23,7 +23,9 @@ function freshResult(): InitResult {
 }
 
 /** Every `hooks[].command` string anywhere in a settings.json `hooks` object. */
-function allHookCommands(hooks: Record<string, Array<{ hooks?: Array<{ command?: string }> }>> | undefined): Set<string> {
+function allHookCommands(
+  hooks: Record<string, Array<{ hooks?: Array<{ command?: string }> }>> | undefined,
+): Set<string> {
   const commands = new Set<string>();
   for (const groups of Object.values(hooks ?? {})) {
     for (const group of groups) {

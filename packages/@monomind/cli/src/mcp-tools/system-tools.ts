@@ -379,9 +379,7 @@ export const systemTools: MCPTool[] = [
       // checkMemoryDatabase() checks — see utils/paths.ts).
       {
         const t0 = performance.now();
-        const memoryExists = MEMORY_DB_CANDIDATE_PATHS.some((p) =>
-          existsSync(join(projectCwd, p)),
-        );
+        const memoryExists = MEMORY_DB_CANDIDATE_PATHS.some((p) => existsSync(join(projectCwd, p)));
         const elapsed = performance.now() - t0;
         checks.push({
           name: 'memory',

@@ -90,7 +90,12 @@ vi.mock('../memory/memory-bridge.js', () => ({
   bridgeSearchEntries: async () => ({ success: true, results: [] }),
 }));
 
-import { KG_NODES_NS, kgIngest, kgReferenceEdges, type KgReferenceEdge } from '../memory/memory-kg.js';
+import {
+  KG_NODES_NS,
+  type KgReferenceEdge,
+  kgIngest,
+  kgReferenceEdges,
+} from '../memory/memory-kg.js';
 
 /** Reusable equivalence assertion (K7): two edge-reference reads describe the
  *  SAME relationships and origins when their (src, relation, dst) triples and

@@ -42,17 +42,19 @@ const { taskListImpl, sessionListImpl } = vi.hoisted(() => {
     stats?: { tasks: number; agents: number; memoryEntries: number; totalSize: number };
   };
 
-  const sessionListImpl = vi.fn(async (): Promise<{ sessions: MockSession[]; total: number }> => ({
-    sessions: [
-      {
-        sessionId: 'session-real-id-456',
-        name: 'my-checkpoint',
-        savedAt: new Date().toISOString(),
-        stats: { tasks: 2, agents: 3, memoryEntries: 0, totalSize: 510 },
-      },
-    ],
-    total: 1,
-  }));
+  const sessionListImpl = vi.fn(
+    async (): Promise<{ sessions: MockSession[]; total: number }> => ({
+      sessions: [
+        {
+          sessionId: 'session-real-id-456',
+          name: 'my-checkpoint',
+          savedAt: new Date().toISOString(),
+          stats: { tasks: 2, agents: 3, memoryEntries: 0, totalSize: 510 },
+        },
+      ],
+      total: 1,
+    }),
+  );
 
   return { taskListImpl, sessionListImpl };
 });
@@ -77,7 +79,12 @@ vi.mock('../output.js', () => ({
     printJson: vi.fn(),
     printList: vi.fn(),
     printBox: vi.fn(),
-    createSpinner: vi.fn(() => ({ start: vi.fn(), succeed: vi.fn(), fail: vi.fn(), stop: vi.fn() })),
+    createSpinner: vi.fn(() => ({
+      start: vi.fn(),
+      succeed: vi.fn(),
+      fail: vi.fn(),
+      stop: vi.fn(),
+    })),
     highlight: (s: string) => s,
     bold: (s: string) => s,
     dim: (s: string) => s,
@@ -97,9 +104,9 @@ vi.mock('../prompt.js', () => ({
   multiSelect: vi.fn(async () => []),
 }));
 
-import { taskCommand } from '../commands/task.js';
 import { sessionCommand } from '../commands/session.js';
 import { statusCommand } from '../commands/status.js';
+import { taskCommand } from '../commands/task.js';
 import { output } from '../output.js';
 
 function findSub(cmd: { subcommands?: { name: string }[] }, name: string) {

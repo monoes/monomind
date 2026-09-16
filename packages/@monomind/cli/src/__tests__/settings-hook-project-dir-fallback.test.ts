@@ -113,7 +113,10 @@ describe.each([
     installStubHookHandler(project);
 
     const command = extractPreBashCommand(settingsPath);
-    const env = { ...process.env, CLAUDE_PROJECT_DIR: join(tmp, 'deleted-worktree-that-does-not-exist') };
+    const env = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: join(tmp, 'deleted-worktree-that-does-not-exist'),
+    };
 
     const stdout = runHookCommand(command, project, env);
     expect(stdout).toContain('FOUND_IT');

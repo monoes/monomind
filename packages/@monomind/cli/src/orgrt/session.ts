@@ -954,7 +954,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_respawn_role',
       description:
-        'Replace one crashed, exhausted, or unsuitable WORKER role with a fresh session — keeping its role id, workspace, task ownership, and queued messages. Cannot target the coordinator (yourself) or an unknown/removed/not-yet-started role. Omit runtime/model/providerName to keep their current values. Omitted budgetTokens uses the normal per-role allocation for this run; it cannot raise the org-wide token budget. reason is a short operational reason for the audit log; briefing is what the replacement should know to continue the work — it starts a FRESH model session with no memory of the old one\'s conversation, so include everything it needs.',
+        "Replace one crashed, exhausted, or unsuitable WORKER role with a fresh session — keeping its role id, workspace, task ownership, and queued messages. Cannot target the coordinator (yourself) or an unknown/removed/not-yet-started role. Omit runtime/model/providerName to keep their current values. Omitted budgetTokens uses the normal per-role allocation for this run; it cannot raise the org-wide token budget. reason is a short operational reason for the audit log; briefing is what the replacement should know to continue the work — it starts a FRESH model session with no memory of the old one's conversation, so include everything it needs.",
       schema: {
         roleId: z.string(),
         runtime: z.string().optional(),

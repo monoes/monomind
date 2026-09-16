@@ -29,7 +29,10 @@ afterEach(() => {
 function installFakeNpm(binDir: string, globalRoot: string): void {
   mkdirSync(binDir, { recursive: true });
   const npmShim = join(binDir, 'npm');
-  writeFileSync(npmShim, `#!/bin/sh\nif [ "$1" = "root" ] && [ "$2" = "-g" ]; then echo "${globalRoot}"; fi\n`);
+  writeFileSync(
+    npmShim,
+    `#!/bin/sh\nif [ "$1" = "root" ] && [ "$2" = "-g" ]; then echo "${globalRoot}"; fi\n`,
+  );
   chmodSync(npmShim, 0o755);
 }
 
@@ -39,9 +42,15 @@ function installFakeGlobalMonograph(globalRoot: string): void {
   mkdirSync(join(pkgDir, 'dist', 'src'), { recursive: true });
   writeFileSync(
     join(pkgDir, 'package.json'),
-    JSON.stringify({ name: '@monoes/monograph', exports: { '.': { import: './dist/src/index.js' } } }),
+    JSON.stringify({
+      name: '@monoes/monograph',
+      exports: { '.': { import: './dist/src/index.js' } },
+    }),
   );
-  writeFileSync(join(pkgDir, 'dist', 'src', 'index.js'), 'module.exports = { marker: "GLOBAL_FALLBACK_OK" };');
+  writeFileSync(
+    join(pkgDir, 'dist', 'src', 'index.js'),
+    'module.exports = { marker: "GLOBAL_FALLBACK_OK" };',
+  );
 }
 
 function requireMonographInSubprocess(projectDir: string, pathWithFakeNpm: string): string {

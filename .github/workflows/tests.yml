@@ -81,6 +81,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
       # The CLI imports @monoes/hooks, @monoes/memory and @monoes/monograph as
       # workspace:* deps whose package.json "types"/"main" point at dist/ — pnpm
       # symlinks the source directory, but tsc can't resolve declarations that

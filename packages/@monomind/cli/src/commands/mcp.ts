@@ -962,7 +962,8 @@ const verifyCommand: Command = {
       checks.push({
         label: 'claude mcp registration',
         ok: true,
-        detail: 'claude CLI not found — skipped, not an error (install Claude Code or register manually if needed)',
+        detail:
+          'claude CLI not found — skipped, not an error (install Claude Code or register manually if needed)',
       });
     }
 

@@ -2882,7 +2882,8 @@ export async function kgRebuildIndex(options?: {
         mismatches.push(`entity ${id}: reference read incomplete`);
         continue;
       }
-      if (!sameEdgeKeySet(indexed, reference.edges)) mismatches.push(`entity ${id}: adjacency mismatch`);
+      if (!sameEdgeKeySet(indexed, reference.edges))
+        mismatches.push(`entity ${id}: adjacency mismatch`);
     }
     for (const originRef of seenOrigins) {
       const indexed = await kgIndexedByOrigin(ns, originRef, dbPath);
@@ -2909,7 +2910,11 @@ export async function kgRebuildIndex(options?: {
     }
 
     const full = seenEntities.length < VALIDATE_SAMPLE && seenOrigins.length < VALIDATE_SAMPLE;
-    const validation = { sampledEntities: seenEntities.length, sampledOrigins: seenOrigins.length, full };
+    const validation = {
+      sampledEntities: seenEntities.length,
+      sampledOrigins: seenOrigins.length,
+      full,
+    };
     if (mismatches.length) {
       const summary = mismatches.slice(0, 5).join('; ');
       status = {
@@ -2925,7 +2930,11 @@ export async function kgRebuildIndex(options?: {
     await writeIndexStatus(ns, status, dbPath);
     return { success: true, status, validation };
   } catch (err) {
-    status = { ...status, state: 'failed', error: err instanceof Error ? err.message : String(err) };
+    status = {
+      ...status,
+      state: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+    };
     try {
       await writeIndexStatus(ns, status, dbPath);
     } catch {

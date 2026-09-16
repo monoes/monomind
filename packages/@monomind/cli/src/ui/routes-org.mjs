@@ -2,14 +2,14 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { getMmClientCount } from './sse-manager.mjs';
 // forwarder.js is compiled from orgrt/forwarder.ts (dist/src/orgrt/forwarder.js
 // sits alongside this file's own compiled dist/src/ui/routes-org.mjs after
 // build; under vitest the .js specifier resolves straight to the .ts source,
 // same as every other cross-reference in this codebase). translate()/
 // companionEvents() are pure — no filesystem or process side effects — so
 // importing them here doesn't pull in attachForwarder's spawn/heal logic.
-import { translate, companionEvents } from '../orgrt/forwarder.js';
+import { companionEvents, translate } from '../orgrt/forwarder.js';
+import { getMmClientCount } from './sse-manager.mjs';
 
 export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   // ------------------------------------------------- Org management
@@ -2847,7 +2847,9 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           if (!fs.existsSync(_rOrgDir)) continue;
           const runDirs = fs
             .readdirSync(_rOrgDir)
-            .filter((d) => d.startsWith('run-') && fs.statSync(path.join(_rOrgDir, d)).isDirectory())
+            .filter(
+              (d) => d.startsWith('run-') && fs.statSync(path.join(_rOrgDir, d)).isDirectory(),
+            )
             .sort()
             .reverse();
           for (const runId of runDirs.slice(0, 50)) {
@@ -3579,9 +3581,7 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           ? fs
               .readdirSync(orgDir)
               .filter(
-                (d) =>
-                  d.startsWith('run-') &&
-                  fs.existsSync(path.join(orgDir, d, 'bus.jsonl')),
+                (d) => d.startsWith('run-') && fs.existsSync(path.join(orgDir, d, 'bus.jsonl')),
               )
               .sort()
               .reverse()
@@ -3608,7 +3608,9 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
         res.end('{"events":[],"runId":null}');
         return true;
       }
-      const detectedRunId = isV2 ? path.basename(path.dirname(runFile)) : path.basename(runFile, '.jsonl');
+      const detectedRunId = isV2
+        ? path.basename(path.dirname(runFile))
+        : path.basename(runFile, '.jsonl');
       const lines = fs
         .readFileSync(runFile, 'utf8')
         .split('\n')

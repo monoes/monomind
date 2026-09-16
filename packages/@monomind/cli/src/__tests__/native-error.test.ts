@@ -47,7 +47,8 @@ describe('classifyNativeModuleError', () => {
   });
 
   it('suggests --build-from-source for the "byte-identical no matter what" case reported in #231 (a plain rebuild/reinstall likely reuses a cached prebuilt rather than compiling)', () => {
-    const text = 'NODE_MODULE_VERSION 141. This version of Node.js requires NODE_MODULE_VERSION 147.';
+    const text =
+      'NODE_MODULE_VERSION 141. This version of Node.js requires NODE_MODULE_VERSION 147.';
     const result = classifyNativeModuleError(text);
     expect(result).toContain('--build-from-source');
     expect(result).toContain('rm -rf node_modules/<module>');
@@ -115,7 +116,9 @@ Node.js v26.5.0
   });
 
   it('falls back to a generic module reference when no node_modules path is present', () => {
-    const result = classifyNativeModuleError('Error: Could not locate the bindings file. Tried:\n(no paths listed)');
+    const result = classifyNativeModuleError(
+      'Error: Could not locate the bindings file. Tried:\n(no paths listed)',
+    );
     expect(result).not.toBeNull();
     expect(result).toContain('A native module');
     expect(result).toContain('npm rebuild <module>');
@@ -123,7 +126,7 @@ Node.js v26.5.0
 });
 
 describe('extractNativeModulePackageName', () => {
-  it('extracts the package name from an ABI-mismatch message (issue #231\'s shape, with the redacted "..." prefix replaced by a realistic unredacted path — Node\'s real error text always includes node_modules, unlike the reporter\'s own redacted paste)', () => {
+  it("extracts the package name from an ABI-mismatch message (issue #231's shape, with the redacted \"...\" prefix replaced by a realistic unredacted path — Node's real error text always includes node_modules, unlike the reporter's own redacted paste)", () => {
     const text = `MonographError: Failed to open database at /project/.monomind/monograph.db
   cause: Error: The module '/project/node_modules/better-sqlite3/build/Release/better_sqlite3.node'
   was compiled against a different Node.js version using
@@ -152,6 +155,8 @@ describe('extractNativeModulePackageName', () => {
   });
 
   it('returns null when no node_modules path is present', () => {
-    expect(extractNativeModulePackageName('TypeError: cannot read property of undefined')).toBeNull();
+    expect(
+      extractNativeModulePackageName('TypeError: cannot read property of undefined'),
+    ).toBeNull();
   });
 });

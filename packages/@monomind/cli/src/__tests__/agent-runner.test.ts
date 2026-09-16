@@ -25,7 +25,12 @@ import { ClaudeAgentRunner } from '../orgrt/agent-runner.js';
 
 function makePrompt(text = 'hello') {
   return (async function* () {
-    yield { type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null, session_id: undefined };
+    yield {
+      type: 'user',
+      message: { role: 'user', content: text },
+      parent_tool_use_id: null,
+      session_id: undefined,
+    };
   })();
 }
 
@@ -50,9 +55,19 @@ describe('ClaudeAgentRunner', () => {
         yield {
           type: 'assistant',
           session_id: 's1',
-          message: { content: [{ type: 'text', text: 'Hello world' }], usage: { input_tokens: 10, output_tokens: 5 } },
+          message: {
+            content: [{ type: 'text', text: 'Hello world' }],
+            usage: { input_tokens: 10, output_tokens: 5 },
+          },
         };
-        yield { type: 'result', session_id: 's1', subtype: 'success', is_error: false, usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 };
+        yield {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          is_error: false,
+          usage: { input_tokens: 10, output_tokens: 5 },
+          total_cost_usd: 0.01,
+        };
       })();
     };
     const runner = new ClaudeAgentRunner(mockQueryFn as any);
@@ -74,22 +89,57 @@ describe('ClaudeAgentRunner', () => {
       capturedOptions = args.options;
       return (async function* () {
         yield { type: 'stream_event', session_id: 's1', event: { type: 'message_start' } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_start', index: 0 } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hello' } } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: ' world' } } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_stop', index: 0 } };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: { type: 'content_block_start', index: 0 },
+        };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'text_delta', text: 'Hello' },
+          },
+        };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'text_delta', text: ' world' },
+          },
+        };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: { type: 'content_block_stop', index: 0 },
+        };
         yield {
           type: 'assistant',
           session_id: 's1',
-          message: { content: [{ type: 'text', text: 'Hello world' }], usage: { input_tokens: 10, output_tokens: 5 } },
+          message: {
+            content: [{ type: 'text', text: 'Hello world' }],
+            usage: { input_tokens: 10, output_tokens: 5 },
+          },
         };
-        yield { type: 'result', session_id: 's1', subtype: 'success', is_error: false, usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 };
+        yield {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          is_error: false,
+          usage: { input_tokens: 10, output_tokens: 5 },
+          total_cost_usd: 0.01,
+        };
       })();
     };
     const runner = new ClaudeAgentRunner(mockQueryFn as any);
 
     const messages: any[] = [];
-    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } }))) messages.push(m);
+    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } })))
+      messages.push(m);
 
     expect(capturedOptions.includePartialMessages).toBe(true);
 
@@ -109,11 +159,35 @@ describe('ClaudeAgentRunner', () => {
     const mockQueryFn = () =>
       (async function* () {
         yield { type: 'stream_event', session_id: 's1', event: { type: 'message_start' } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'First block.' } } };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'text_delta', text: 'First block.' },
+          },
+        };
         // A tool_use block (index 1) between the two text blocks — its own
         // input_json_delta events must never contribute to visible text.
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"a":1}' } } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 2, delta: { type: 'text_delta', text: 'Second block.' } } };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'input_json_delta', partial_json: '{"a":1}' },
+          },
+        };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 2,
+            delta: { type: 'text_delta', text: 'Second block.' },
+          },
+        };
         yield {
           type: 'assistant',
           session_id: 's1',
@@ -126,12 +200,19 @@ describe('ClaudeAgentRunner', () => {
             usage: { input_tokens: 1, output_tokens: 1 },
           },
         };
-        yield { type: 'result', session_id: 's1', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 } };
+        yield {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          is_error: false,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        };
       })();
     const runner = new ClaudeAgentRunner(mockQueryFn as any);
 
     const messages: any[] = [];
-    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } }))) messages.push(m);
+    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } })))
+      messages.push(m);
 
     const assistantMsgs = messages.filter((m) => m.type === 'assistant');
     const reconstructed = assistantMsgs.map((m) => m.text ?? '').join('');
@@ -151,22 +232,48 @@ describe('ClaudeAgentRunner', () => {
         // Turn 1: starts streaming at index 0, then the connection drops —
         // no completing 'assistant' message ever arrives for it.
         yield { type: 'stream_event', session_id: 's1', event: { type: 'message_start' } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Stale block.' } } };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'text_delta', text: 'Stale block.' },
+          },
+        };
         // Turn 2: a fresh message_start, whose first text delta lands on
         // index 1 (e.g. index 0 was a leading thinking block this time).
         yield { type: 'stream_event', session_id: 's1', event: { type: 'message_start' } };
-        yield { type: 'stream_event', session_id: 's1', event: { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'Fresh turn.' } } };
+        yield {
+          type: 'stream_event',
+          session_id: 's1',
+          event: {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'text_delta', text: 'Fresh turn.' },
+          },
+        };
         yield {
           type: 'assistant',
           session_id: 's1',
-          message: { content: [{ type: 'text', text: 'Fresh turn.' }], usage: { input_tokens: 1, output_tokens: 1 } },
+          message: {
+            content: [{ type: 'text', text: 'Fresh turn.' }],
+            usage: { input_tokens: 1, output_tokens: 1 },
+          },
         };
-        yield { type: 'result', session_id: 's1', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 } };
+        yield {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          is_error: false,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        };
       })();
     const runner = new ClaudeAgentRunner(mockQueryFn as any);
 
     const messages: any[] = [];
-    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } }))) messages.push(m);
+    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } })))
+      messages.push(m);
 
     // Turn 2's own increment must be exactly "Fresh turn." — never
     // "Stale block.\nFresh turn." (which is what an un-reset blockTexts
@@ -190,14 +297,24 @@ describe('ClaudeAgentRunner', () => {
         yield {
           type: 'assistant',
           session_id: 's1',
-          message: { content: [{ type: 'text', text: 'Whole thing at once.' }], usage: { input_tokens: 1, output_tokens: 1 } },
+          message: {
+            content: [{ type: 'text', text: 'Whole thing at once.' }],
+            usage: { input_tokens: 1, output_tokens: 1 },
+          },
         };
-        yield { type: 'result', session_id: 's1', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 } };
+        yield {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          is_error: false,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        };
       })();
     const runner = new ClaudeAgentRunner(mockQueryFn as any);
 
     const messages: any[] = [];
-    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } }))) messages.push(m);
+    for await (const m of runner.run(baseArgs({ extras: { includePartialMessages: true } })))
+      messages.push(m);
 
     const assistantMsgs = messages.filter((m) => m.type === 'assistant');
     expect(assistantMsgs).toHaveLength(1);

@@ -116,7 +116,10 @@ import {
  *  increment time — the final TOOL_CALL_RE + trim reconciliation the caller
  *  does at agent_end resolves it either way, exactly like every other
  *  decouple-and-diff runner this session (antigravity/qwen-rpc/opencode). */
-function nextIncrement(totalRaw: string, visibleSoFar: string): { increment?: string; visibleSoFar: string } {
+function nextIncrement(
+  totalRaw: string,
+  visibleSoFar: string,
+): { increment?: string; visibleSoFar: string } {
   const { chunk } = computeSafeChunk(totalRaw, 0);
   const trimmed = chunk.replace(/\s+$/, '');
   if (trimmed.length <= visibleSoFar.length) return { visibleSoFar };
@@ -501,13 +504,18 @@ export class PiRpcAgentRunner implements AgentRunner {
                   .assistantMessageEvent;
                 if (amEvent?.type === 'text_delta' && typeof amEvent.delta === 'string') {
                   const idx = typeof amEvent.contentIndex === 'number' ? amEvent.contentIndex : 0;
-                  currentMessageBlocks.set(idx, (currentMessageBlocks.get(idx) ?? '') + amEvent.delta);
+                  currentMessageBlocks.set(
+                    idx,
+                    (currentMessageBlocks.get(idx) ?? '') + amEvent.delta,
+                  );
                   if (streamPartials) {
                     const currentText = [...currentMessageBlocks.entries()]
                       .sort((a, b) => a[0] - b[0])
                       .map(([, t]) => t)
                       .join('\n');
-                    const totalRaw = [...completedMessagesText, currentText].filter(Boolean).join('\n');
+                    const totalRaw = [...completedMessagesText, currentText]
+                      .filter(Boolean)
+                      .join('\n');
                     const { increment, visibleSoFar: nv } = nextIncrement(totalRaw, visibleSoFar);
                     visibleSoFar = nv;
                     if (increment) yield { type: 'assistant', text: increment };
@@ -581,7 +589,9 @@ export class PiRpcAgentRunner implements AgentRunner {
             // antigravity-runner.ts's flushText for why.
             const finalStripped = rawText.replace(TOOL_CALL_RE, '').trim();
             const remainder =
-              finalStripped.length > visibleSoFar.length ? finalStripped.slice(visibleSoFar.length) : undefined;
+              finalStripped.length > visibleSoFar.length
+                ? finalStripped.slice(visibleSoFar.length)
+                : undefined;
             if (remainder) yield { type: 'assistant', text: remainder };
 
             const malformed: string[] = [];

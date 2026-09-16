@@ -311,7 +311,11 @@ describe('AntigravityAgentRunner', () => {
         }),
         JSON.stringify({
           event: 'result',
-          result: { conversation_id: 'c1', status: 'SUCCESS', usage: { input_tokens: 10, output_tokens: 5 } },
+          result: {
+            conversation_id: 'c1',
+            status: 'SUCCESS',
+            usage: { input_tokens: 10, output_tokens: 5 },
+          },
         }),
       ]),
     );
@@ -780,7 +784,8 @@ describe('AntigravityAgentRunner streaming', () => {
     );
 
     const messages: any[] = [];
-    for await (const m of runner.run(makeRunArgs({ extras: { includePartialMessages: true } }))) messages.push(m);
+    for await (const m of runner.run(makeRunArgs({ extras: { includePartialMessages: true } })))
+      messages.push(m);
 
     // 'Hello' and ' world' each stream as their own increment (as soon as
     // their ACTIVE delta arrives); the DONE step's repeat of the full text

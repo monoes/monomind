@@ -88,7 +88,9 @@ afterAll(() => {
 describe('K9 baseline: exact entity lookup and aliases', () => {
   it('e1: exact-name query recalls the entity at rank 1', async () => {
     await kgIngest({
-      nodes: [{ name: 'Zylophone Gateway', type: 'Service', description: 'internal billing gateway' }],
+      nodes: [
+        { name: 'Zylophone Gateway', type: 'Service', description: 'internal billing gateway' },
+      ],
       edges: [],
       originRef: 'eval:e1',
       dbPath: STORE,
@@ -96,13 +98,23 @@ describe('K9 baseline: exact entity lookup and aliases', () => {
     const res = await kgSearch({ query: 'Zylophone Gateway', dbPath: STORE });
     const rank = res.seeds.findIndex((s) => s.name === 'Zylophone Gateway');
     expect(rank).toBe(0);
-    record('exact entity lookup + aliases', 'e1-exact-name', 'MRR', rank === 0 ? 1 : 0, 'exact name query');
+    record(
+      'exact entity lookup + aliases',
+      'e1-exact-name',
+      'MRR',
+      rank === 0 ? 1 : 0,
+      'exact name query',
+    );
   });
 
   it('e2: partial/alias-ish query still recalls the entity within top-5', async () => {
     await kgIngest({
       nodes: [
-        { name: 'Quorum Ledger Service', type: 'Service', description: 'distributed consensus ledger' },
+        {
+          name: 'Quorum Ledger Service',
+          type: 'Service',
+          description: 'distributed consensus ledger',
+        },
       ],
       edges: [],
       originRef: 'eval:e2',
@@ -112,7 +124,13 @@ describe('K9 baseline: exact entity lookup and aliases', () => {
     const res = await kgSearch({ query: 'Quorum Ledger', dbPath: STORE });
     const rank = res.seeds.findIndex((s) => s.name === 'Quorum Ledger Service');
     const recallAt5 = rank >= 0 && rank < 5 ? 1 : 0;
-    record('exact entity lookup + aliases', 'e2-partial-name', 'recall@5', recallAt5, `rank=${rank}`);
+    record(
+      'exact entity lookup + aliases',
+      'e2-partial-name',
+      'recall@5',
+      recallAt5,
+      `rank=${rank}`,
+    );
     expect(recallAt5).toBe(1);
   });
 });
@@ -203,7 +221,9 @@ describe('K9 baseline: questions requiring a particular fact/source', () => {
 describe('K9 baseline: isolated entities', () => {
   it('i1: an entity with zero edges is still a seed result', async () => {
     await kgIngest({
-      nodes: [{ name: 'Driftwood Console', type: 'Tool', description: 'standalone diagnostic console' }],
+      nodes: [
+        { name: 'Driftwood Console', type: 'Tool', description: 'standalone diagnostic console' },
+      ],
       edges: [],
       originRef: 'eval:i1',
       dbPath: STORE,
@@ -237,7 +257,13 @@ describe('K9 baseline: same-name entities in different scopes', () => {
     const betaSeed = beta.seeds.find((s) => s.name === 'Redis');
     const noLeak =
       alphaSeed?.description.includes('Alpha') && betaSeed?.description.includes('Beta') ? 1 : 0;
-    record('same-name, different scopes', 's1-two-orgs', 'scope-correctness', noLeak, 'no cross-scope leak');
+    record(
+      'same-name, different scopes',
+      's1-two-orgs',
+      'scope-correctness',
+      noLeak,
+      'no cross-scope leak',
+    );
     expect(noLeak).toBe(1);
   });
 });
@@ -291,7 +317,12 @@ describe('K9 baseline: updated, contradicted, and withdrawn claims', () => {
     await kgIngest({
       nodes: [],
       edges: [
-        { source: 'Compass', target: 'Anchor', relation: 'primary_of', description: 'the primary anchor point' },
+        {
+          source: 'Compass',
+          target: 'Anchor',
+          relation: 'primary_of',
+          description: 'the primary anchor point',
+        },
       ],
       originRef: 'eval:u2a',
       method: 'asserted',
@@ -314,7 +345,13 @@ describe('K9 baseline: updated, contradicted, and withdrawn claims', () => {
     const res = await kgSearch({ query: 'Compass Anchor', dbPath: STORE });
     const t = res.triplets.find((x) => x.source === 'Compass');
     const flagged = t?.conflict === true ? 1 : 0;
-    record('updated/contradicted/withdrawn', 'u2-conflict-flag', 'correctness', flagged, `conflict=${t?.conflict}`);
+    record(
+      'updated/contradicted/withdrawn',
+      'u2-conflict-flag',
+      'correctness',
+      flagged,
+      `conflict=${t?.conflict}`,
+    );
     expect(flagged).toBe(1);
   });
 
@@ -352,14 +389,23 @@ describe('K9 baseline: rules with conditions/exceptions', () => {
     expect(res.verdicts[0].verdict).toBe('accepted');
     const listed = await kgListRules({ limit: 50, dbPath: STORE });
     const found = listed.some((r) => r.rule.startsWith(rule)) ? 1 : 0;
-    record('rules with conditions', 'ru1-conditional-rule', 'correctness', found, 'accepted + listed');
+    record(
+      'rules with conditions',
+      'ru1-conditional-rule',
+      'correctness',
+      found,
+      'accepted + listed',
+    );
     expect(found).toBe(1);
   });
 });
 
 describe('K9 baseline: missing-answer questions', () => {
   it('m1: a query about something never ingested returns no false-positive match', async () => {
-    const res = await kgSearch({ query: 'Nonexistent Quixotic Widget Factory 9182', dbPath: STORE });
+    const res = await kgSearch({
+      query: 'Nonexistent Quixotic Widget Factory 9182',
+      dbPath: STORE,
+    });
     // Correct abstention: either no seeds at all, or seeds present but none
     // of them plausibly named this — either way, no triplet should exist.
     const abstained = res.triplets.length === 0 ? 1 : 0;
@@ -442,7 +488,8 @@ describe('K9 baseline: facts below the normal top-15 seed cutoff', () => {
     const nodes = Array.from({ length: 20 }, (_, i) => ({
       name: `Widget Variant ${i}`,
       type: 'Component',
-      description: i === 19 ? 'Widget Variant 19 is the one with the special edge' : `Widget Variant ${i}`,
+      description:
+        i === 19 ? 'Widget Variant 19 is the one with the special edge' : `Widget Variant ${i}`,
     }));
     await kgIngest({ nodes, edges: [], originRef: 'eval:c1', dbPath: STORE });
     await kgIngest({

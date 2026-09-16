@@ -13,11 +13,17 @@
  * build slipped through (skipped build step, reused incremental cache,
  * publishing from a stale checkout, etc.).
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'packages', '@monomind', 'monograph');
+const pkgRoot = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'packages',
+  '@monomind',
+  'monograph',
+);
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cliSrc = join(repoRoot, 'packages', '@monomind', 'cli', 'src');
 
@@ -25,7 +31,9 @@ if (!existsSync(cliSrc)) {
   // Only meaningful inside the monomind monorepo checkout — a publish from
   // any other context (e.g. this package extracted/forked on its own) has no
   // CLI source to check against, so there's nothing this guard can verify.
-  console.log('✓ publish checks skipped — no CLI source tree found (not running inside the monomind monorepo)');
+  console.log(
+    '✓ publish checks skipped — no CLI source tree found (not running inside the monomind monorepo)',
+  );
   process.exit(0);
 }
 
@@ -35,7 +43,8 @@ function walkSourceFiles(dir, out = []) {
     const full = join(dir, entry);
     const stat = statSync(full);
     if (stat.isDirectory()) walkSourceFiles(full, out);
-    else if (/\.tsx?$/.test(entry) && !entry.endsWith('.d.ts') && !entry.endsWith('.test.ts')) out.push(full);
+    else if (/\.tsx?$/.test(entry) && !entry.endsWith('.d.ts') && !entry.endsWith('.test.ts'))
+      out.push(full);
   }
   return out;
 }
@@ -81,4 +90,6 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-console.log(`✓ publish checks ok — dist/src/index.js exports all ${names.size} name(s) the CLI depends on`);
+console.log(
+  `✓ publish checks ok — dist/src/index.js exports all ${names.size} name(s) the CLI depends on`,
+);
