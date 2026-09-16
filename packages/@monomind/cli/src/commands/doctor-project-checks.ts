@@ -19,7 +19,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
+import { DOCTOR_TRACKED_HELPERS, OBSOLETE_HELPER_NAMES } from '../init/helpers-generator.js';
 import {
   classifyNativeModuleError,
   extractNativeModulePackageName,
@@ -710,9 +710,22 @@ function _bundledTopLevelHelperNames(): string[] {
   }
 }
 
-async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string[] }> {
+async function _detectStaleHelpers(): Promise<{
+  stale: string[];
+  missing: string[];
+  orphaned: string[];
+}> {
   const stale: string[] = [];
   const missing: string[] = [];
+  // Helpers this product shipped under a name it has since renamed away from
+  // (e.g. graphify-freshen.cjs -> monograph-freshen.cjs). Reported separately
+  // from `stale`/`missing`: unlike those, doctor --fix does not delete these
+  // on its own — settings.json may still have a hook command pointing at one,
+  // and only `init --force` (which also refreshes settings.json in the same
+  // pass) can safely remove it. See writeHelpers/writeSettings.
+  const orphaned = OBSOLETE_HELPER_NAMES.filter((name) =>
+    existsSync(join(process.cwd(), '.claude', 'helpers', name)),
+  );
   const crypto = await import('node:crypto');
   const hashChecked = new Set(_allTrackedHelperNames());
   for (const name of new Set([..._allTrackedHelperNames(), ..._bundledTopLevelHelperNames()])) {
@@ -740,7 +753,7 @@ async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string
       /* skip */
     }
   }
-  return { stale, missing };
+  return { stale, missing, orphaned };
 }
 
 export async function fixStaleHelpers(): Promise<boolean> {
@@ -765,7 +778,15 @@ export async function fixStaleHelpers(): Promise<boolean> {
 
 export async function checkHelpersFresh(): Promise<HealthCheck> {
   try {
-    const { stale, missing } = await _detectStaleHelpers();
+    const { stale, missing, orphaned } = await _detectStaleHelpers();
+    if (orphaned.length > 0) {
+      return {
+        name: 'Helper Files',
+        status: 'warn',
+        message: `Found ${orphaned.length} hook(s) from before a rename, still on disk: ${orphaned.join(', ')}. Run \`monomind init --force\` to update your hooks and rebuild the Monograph graph.`,
+        fix: 'monomind init --force',
+      };
+    }
     if (stale.length === 0 && missing.length === 0) {
       return {
         name: 'Helper Files',

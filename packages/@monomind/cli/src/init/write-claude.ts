@@ -5,7 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { generateClaudeMd } from './claudemd-generator.js';
-import { INIT_FALLBACK_HELPERS } from './helpers-generator.js';
+import { INIT_FALLBACK_HELPERS, OBSOLETE_HELPER_NAMES } from './helpers-generator.js';
 import { generateMCPJson } from './mcp-generator.js';
 import { generateSettingsJson } from './settings-generator.js';
 import {
@@ -59,7 +59,16 @@ export async function writeSettings(
       // behavior (backfill only when hooks are completely absent) is
       // unchanged.
       if (options.force && generated.hooks) {
-        existing.hooks = mergeHooksPreservingUnknown(existing.hooks, generated.hooks);
+        // mergeHooksPreservingUnknown matches by exact command string (see its
+        // own docstring): a hook this product renamed looks "unknown" to it —
+        // not present in the newly generated commands — and gets preserved
+        // rather than replaced, duplicating the hook under its old, now-dead
+        // command forever. Strip known-obsolete commands first so --force
+        // actually retires them instead of running them alongside the new one.
+        existing.hooks = mergeHooksPreservingUnknown(
+          stripObsoleteHookCommands(existing.hooks),
+          generated.hooks,
+        );
         merged = true;
       } else if (generated.hooks && !existing.hooks) {
         existing.hooks = generated.hooks;
@@ -106,6 +115,32 @@ export async function writeSettings(
 
   atomicWriteFile(settingsPath, `${JSON.stringify(generated, null, 2)}\n`);
   result.created.files.push('.claude/settings.json');
+}
+
+/**
+ * Drop hook entries whose command references a helper this product has
+ * renamed (OBSOLETE_HELPER_NAMES) — run only under --force, right before
+ * mergeHooksPreservingUnknown, so those entries don't survive the merge as
+ * "unknown" duplicates of the hook's new, renamed form. Groups left with no
+ * hooks are dropped entirely rather than kept as an empty shell.
+ */
+function stripObsoleteHookCommands(
+  hooks: Record<string, HookGroup[]> | undefined,
+): Record<string, HookGroup[]> | undefined {
+  if (!hooks) return hooks;
+  const result: Record<string, HookGroup[]> = {};
+  for (const [eventType, groups] of Object.entries(hooks)) {
+    const cleaned = groups
+      .map((group) => ({
+        ...group,
+        hooks: (group.hooks ?? []).filter(
+          (h) => !OBSOLETE_HELPER_NAMES.some((name) => h.command.includes(name)),
+        ),
+      }))
+      .filter((group) => (group.hooks?.length ?? 0) > 0);
+    if (cleaned.length > 0) result[eventType] = cleaned;
+  }
+  return result;
 }
 
 /**
@@ -303,6 +338,27 @@ export async function writeHelpers(
     copyRecursive(sourceHelpersDir, helpersDir, '');
     const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
     copyRecursive(sourceHelpersDir, geminiHelpersDir, '');
+  }
+
+  // --force means settings.json is about to be fully regenerated (see
+  // writeSettings), so it's safe here to also remove any helper this product
+  // shipped in the past under a name it no longer uses — otherwise a renamed
+  // helper (e.g. graphify-freshen.cjs -> monograph-freshen.cjs) would sit
+  // forever as a dead file nothing references. A plain (non-force) init never
+  // deletes anything, matching every other write below.
+  if (options.force) {
+    for (const [label, dir] of [
+      ['.claude/helpers', helpersDir],
+      ['.gemini/helpers', path.join(targetDir, '.gemini', 'helpers')],
+    ] as const) {
+      for (const name of OBSOLETE_HELPER_NAMES) {
+        const obsoletePath = path.join(dir, name);
+        if (fs.existsSync(obsoletePath)) {
+          fs.rmSync(obsoletePath);
+          result.created.files.push(`[removed] ${label}/${name} (renamed upstream)`);
+        }
+      }
+    }
   }
 
   // Always run the fallback generator too — it only fills in files still missing

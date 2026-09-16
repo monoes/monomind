@@ -1344,6 +1344,16 @@ export const DOCTOR_TRACKED_HELPERS: string[] = Object.keys(HELPER_FILES).filter
   (name) => HELPER_FILES[name].doctorTracked,
 );
 
+// Helper file names this product shipped in the past under a name it no
+// longer uses (e.g. before a rename). Deliberately absent from HELPER_FILES —
+// nothing should still be writing these — so `init --force` and `doctor`
+// track them separately: `doctor` warns a project still has one on disk and
+// points at `init --force`, which deletes it once settings.json has been
+// regenerated to stop referencing it.
+export const OBSOLETE_HELPER_NAMES: string[] = [
+  'graphify-freshen.cjs', // renamed to monograph-freshen.cjs (2026-09-16)
+];
+
 // Fallback generators for force-synced helpers (used when source is missing
 // the file entirely). Previously duplicated by hand as two separate maps
 // that disagreed on membership — the "source found but file missing" path

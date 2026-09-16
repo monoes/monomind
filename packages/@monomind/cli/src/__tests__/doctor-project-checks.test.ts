@@ -690,6 +690,23 @@ describe('doctor-project-checks', () => {
       const fixed = await fixStaleHelpers();
       expect(fixed).toBe(false);
     });
+
+    it('warns and points at `init --force` when a pre-rename hook is still on disk', async () => {
+      if (!existsSync(realHelpersDir)) return;
+      copyRealHelpersInto(dir);
+      // graphify-freshen.cjs was renamed to monograph-freshen.cjs — a project
+      // initialized before that rename still has the old file on disk even
+      // though the current bundle (just copied in above) no longer ships it.
+      writeFileSync(
+        join(dir, '.claude', 'helpers', 'graphify-freshen.cjs'),
+        '// stub from before the monograph rename\n',
+      );
+
+      const result = await checkHelpersFresh();
+      expect(result.status).toBe('warn');
+      expect(result.message).toContain('graphify-freshen.cjs');
+      expect(result.fix).toBe('monomind init --force');
+    });
   });
 
   // ---------------------------------------------------------------------
