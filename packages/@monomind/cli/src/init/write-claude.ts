@@ -340,12 +340,15 @@ export async function writeHelpers(
     copyRecursive(sourceHelpersDir, geminiHelpersDir, '');
   }
 
-  // --force means settings.json is about to be fully regenerated (see
-  // writeSettings), so it's safe here to also remove any helper this product
-  // shipped in the past under a name it no longer uses — otherwise a renamed
-  // helper (e.g. graphify-freshen.cjs -> monograph-freshen.cjs) would sit
-  // forever as a dead file nothing references. A plain (non-force) init never
-  // deletes anything, matching every other write below.
+  // --force means writeSettings (called elsewhere in this same init run) is
+  // about to refresh settings.json's hook commands via its preserving merge,
+  // which strips references to any OBSOLETE_HELPER_NAMES entry (see
+  // stripObsoleteHookCommands below) — so it's safe here to also remove any
+  // helper this product shipped in the past under a name it no longer uses,
+  // otherwise a renamed helper (e.g. graphify-freshen.cjs ->
+  // monograph-freshen.cjs) would sit forever as a dead file nothing
+  // references. A plain (non-force) init never deletes anything, matching
+  // every other write below.
   if (options.force) {
     for (const [label, dir] of [
       ['.claude/helpers', helpersDir],

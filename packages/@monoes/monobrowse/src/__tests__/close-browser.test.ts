@@ -201,7 +201,15 @@ describe('#115 review follow-up: closeBrowser() cross-process PID-kill fallback'
 
     expect(settled).toBe(true);
     expect(killSpy).toHaveBeenCalledWith(33333, 'SIGKILL');
-  }, 20_000);
+    // 20_000 here was itself still timing out (~20.4s) three times in one
+    // session on a host under heavy unrelated load, always passing in well
+    // under 1s run alone — the fake-time work is trivial, the real bottleneck
+    // is per-await overhead across up to 60 round-trips scaling with host
+    // contention, not anything this test controls. 60s keeps the same margin
+    // this test has always had relative to its actual (sub-second) cost while
+    // giving a loaded runner enough room; a genuine hang still fails well
+    // inside that window.
+  }, 60_000);
 
   it('no persisted port file at all — closeBrowser is a no-op, no kill attempted', async () => {
     vi.resetModules();

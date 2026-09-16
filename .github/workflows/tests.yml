@@ -84,9 +84,6 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
-      - name: Typecheck
-        run: pnpm run typecheck
-
       # The CLI imports @monoes/hooks, @monoes/memory and @monoes/monograph as
       # workspace:* deps whose package.json "types"/"main" point at dist/ — pnpm
       # symlinks the source directory, but tsc can't resolve declarations that
@@ -95,6 +92,22 @@ jobs:
       # module '@monoes/hooks'" even though the package is correctly linked.
       - name: Build CLI's workspace dependencies
         run: pnpm --filter "@monoes/monomindcli^..." run build
+
+      # The root typecheck scans every package under packages/**, not just the
+      # CLI's dependency chain built above — and @monoes/monobrowse/src/cli/
+      # platform.ts self-imports '@monoes/monobrowse', which only resolves
+      # once this package has built its own dist/. Nothing else in this job
+      # otherwise needs monobrowse built, hence the standalone step.
+      - name: Build monobrowse (self-imported; needed for root typecheck)
+        run: pnpm --filter "@monoes/monobrowse" run build
+
+      # Same "dist/ must exist" requirement applies to the root typecheck —
+      # packages/@monomind/cli/src/{mcp-tools/monograph/visualize-tools.ts,
+      # monovector/diff-classifier.ts} import @monoes/monograph's types, which
+      # only resolve once the dependency build above has run. Must stay after
+      # both builds, not alongside Lint.
+      - name: Typecheck
+        run: pnpm run typecheck
 
       # Several root tests import from packages/@monomind/cli/dist — e.g.
       # tests/memory/cognee-port-eval.test.mjs pulls dist/src/memory/
