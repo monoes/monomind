@@ -441,6 +441,13 @@ export class OrgDaemon {
       question: string;
       ts: number;
       approved: boolean | null;
+      /** M5: `apr-<ms>-<8 hex>` — addresses exactly this request. */
+      requestId?: string;
+      /** M5: the redacted argument summary `policy.decide` logged. */
+      input?: Record<string, unknown>;
+      /** M5: who resolved it (`human` by default). */
+      resolvedBy?: string;
+      resolvedAt?: number;
     }>
   >();
   /** @internal */ approvalLocks = new Map<string, Promise<unknown>>();
@@ -2540,8 +2547,9 @@ export class OrgDaemon {
     role: string,
     action: string,
     approved: boolean,
+    opts?: approvalOps.ApprovalResolveOpts,
   ): Promise<{ ok: true } | { ok: false; error: string }> {
-    return approvalOps.setApproval(this, org, role, action, approved);
+    return approvalOps.setApproval(this, org, role, action, approved, opts);
   }
 
   // questions.ts
@@ -2553,8 +2561,9 @@ export class OrgDaemon {
     role: string,
     questionId: string,
     answer: string,
+    resolvedBy?: string,
   ): Promise<{ ok: true } | { ok: false; error: string }> {
-    return questionOps.answerQuestion(this, org, role, questionId, answer);
+    return questionOps.answerQuestion(this, org, role, questionId, answer, resolvedBy);
   }
 
   // decisions.ts

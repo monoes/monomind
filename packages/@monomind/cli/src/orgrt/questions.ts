@@ -21,6 +21,8 @@ export function readQuestions(
     ts: number;
     answer: string | null;
     answeredAt: number | null;
+    /** M5: who answered (`human` by default). */
+    resolvedBy?: string;
   }>;
 } {
   try {
@@ -104,6 +106,7 @@ export function answerQuestion(
   role: string,
   questionId: string,
   answer: string,
+  resolvedBy = 'human',
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   return withQuestionsLock(daemon, org, async () => {
     const data = readQuestions(daemon.root, org);
@@ -120,8 +123,19 @@ export function answerQuestion(
       const fresh = readQuestions(daemon.root, org);
       const fIdx = fresh.questions.findIndex((q) => q.questionId === questionId);
       if (fIdx === -1)
-        fresh.questions.push({ ...data.questions[idx], answer, answeredAt: Date.now() });
-      else fresh.questions[fIdx] = { ...fresh.questions[fIdx], answer, answeredAt: Date.now() };
+        fresh.questions.push({
+          ...data.questions[idx],
+          answer,
+          answeredAt: Date.now(),
+          resolvedBy,
+        });
+      else
+        fresh.questions[fIdx] = {
+          ...fresh.questions[fIdx],
+          answer,
+          answeredAt: Date.now(),
+          resolvedBy,
+        };
       writeQuestions(daemon.root, org, fresh);
     };
 
@@ -165,6 +179,12 @@ export function answerQuestion(
         from: role,
         msg: 'question answered',
         data: { questionId },
+      });
+      running.bus.emit({
+        type: 'audit',
+        reason: 'decision-resolved',
+        from: role,
+        data: { kind: 'question', ref: questionId, resolver: resolvedBy, verdict: 'answered' },
       });
       return { ok: true };
     }

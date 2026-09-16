@@ -95,7 +95,19 @@ export async function resolveGate(
         type: 'gate',
         from: roleId,
         reason: approved ? 'gate-approved' : 'gate-rejected',
-        data: { gateId, approved, resolution },
+        data: { gateId, approved, resolution, resolvedBy: data.gates[idx].resolvedBy },
+      });
+      // M5: who decided.
+      running.bus.emit({
+        type: 'audit',
+        reason: 'decision-resolved',
+        from: roleId,
+        data: {
+          kind: 'gate',
+          ref: gateId,
+          resolver: data.gates[idx].resolvedBy,
+          verdict: approved ? 'approved' : 'denied',
+        },
       });
       const agent = running.agents.get(roleId);
       if (agent && !agent.mailbox.isClosed) {

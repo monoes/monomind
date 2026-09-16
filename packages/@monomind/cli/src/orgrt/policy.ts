@@ -509,6 +509,11 @@ function safeHost(url: string): string | null {
     return null;
   }
 }
+/** Redacted, truncated argument summary — the form `tool` events log (and,
+ *  since M5, approval requests carry). */
+export function summarizeToolInput(input: Record<string, unknown>): Record<string, unknown> {
+  return summarize(input);
+}
 function summarize(input: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input)) {

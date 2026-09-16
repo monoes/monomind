@@ -2421,6 +2421,7 @@ export const orgCommand: Command = {
       name: 'answer',
       description:
         'Answer a pending ask_human question (live if the org is running, queued otherwise)',
+      options: [{ name: 'by', description: 'Resolver recorded as resolvedBy (default: human)', type: 'string' }],
       examples: [
         {
           command: 'monomind org answer growth q-123-ab "yes, ship it"',
@@ -2437,6 +2438,10 @@ export const orgCommand: Command = {
     {
       name: 'approve',
       description: 'Approve a pending tool/action approval',
+      options: [
+        { name: 'request', description: 'Resolve only this approval request id (apr-…)', type: 'string' },
+        { name: 'by', description: 'Resolver recorded as resolvedBy (default: human)', type: 'string' },
+      ],
       examples: [
         {
           command: 'monomind org approve growth coder "Bash"',
@@ -2453,6 +2458,10 @@ export const orgCommand: Command = {
     {
       name: 'deny',
       description: 'Deny a pending tool/action approval',
+      options: [
+        { name: 'request', description: 'Resolve only this approval request id (apr-…)', type: 'string' },
+        { name: 'by', description: 'Resolver recorded as resolvedBy (default: human)', type: 'string' },
+      ],
       examples: [
         {
           command: 'monomind org deny growth coder "Bash"',
@@ -2484,6 +2493,7 @@ export const orgCommand: Command = {
     {
       name: 'gate-approve',
       description: 'Approve a pending decision gate',
+      options: [{ name: 'by', description: 'Resolver recorded as resolvedBy (default: human)', type: 'string' }],
       examples: [
         {
           command: 'monomind org gate-approve growth gate-123-ab "ship it"',
@@ -2500,6 +2510,7 @@ export const orgCommand: Command = {
     {
       name: 'gate-reject',
       description: 'Reject a pending decision gate',
+      options: [{ name: 'by', description: 'Resolver recorded as resolvedBy (default: human)', type: 'string' }],
       examples: [
         {
           command: 'monomind org gate-reject growth gate-123-ab "not ready"',
