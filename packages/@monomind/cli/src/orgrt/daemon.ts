@@ -77,6 +77,12 @@ import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { TaskDag } from './task-dag.js';
 import {
+  type ChainTrace,
+  freshChainId,
+  roleProviderPrefixes,
+  ToolProviderHub,
+} from './tool-providers.js';
+import {
   type BusEvent,
   type DecisionGate,
   ORG_DIR,
@@ -353,6 +359,9 @@ export interface RunningOrg {
   /** Role ids currently undergoing replacement — rejects a concurrent
    *  respawnRole() call for the same role id. */
   respawning: Set<string>;
+  /** M1: per-role chain trace — set from the latest delivered message carrying
+   *  a `[trace chn_… hop=N]` line, else a fresh chain minted on first use. */
+  traces?: Map<string, ChainTrace>;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -450,6 +459,8 @@ export class OrgDaemon {
   /** @internal */ recallUsage = new Map<string, Set<string>>();
   /** @internal */ orgLearnedRuns = new Set<string>();
   /** @internal */ abandoned = new Map<string, Set<string>>();
+  /** M1: role tool-provider tool-list cache and live provider processes. */
+  /** @internal */ toolProviders = new ToolProviderHub();
 
   constructor(
     /** @internal */ public root: string,
@@ -502,6 +513,34 @@ export class OrgDaemon {
       }
     }
 
+    // M1 (C-37): apply changes to EXISTING roles' tool_providers, endpoint,
+    // kind and policy. Fields are replaced on the live role object (sessions
+    // read tool_providers at their next start, checkApproval reads policy
+    // live) and a running role's PolicyEngine gets the new policy now.
+    const RELOADABLE_ROLE_FIELDS = ['tool_providers', 'endpoint', 'kind', 'policy'] as const;
+    for (const next of newDef.roles) {
+      const live = running.def.roles.find((r) => r.id === next.id);
+      if (!live) continue;
+      const liveRec = live as Record<string, unknown>;
+      const nextRec = next as Record<string, unknown>;
+      for (const field of RELOADABLE_ROLE_FIELDS) {
+        if (JSON.stringify(liveRec[field]) === JSON.stringify(nextRec[field])) continue;
+        const targets = new Set<Record<string, unknown>>([liveRec]);
+        const slotRole = running.roleSlots.get(next.id)?.effectiveRole as
+          | Record<string, unknown>
+          | undefined;
+        if (slotRole) targets.add(slotRole);
+        const pending = running.pendingRoles?.get(next.id) as Record<string, unknown> | undefined;
+        if (pending) targets.add(pending);
+        for (const t of targets) {
+          if (nextRec[field] === undefined) delete t[field];
+          else t[field] = nextRec[field];
+        }
+        if (field === 'policy') running.agents.get(next.id)?.policy.updatePolicy(next.policy ?? {});
+        changed.push(`role:${next.id}:${field}`);
+      }
+    }
+
     const existingRoleIds = new Set(running.def.roles.map((r) => r.id));
     const newRoleIds = new Set(newDef.roles.map((r) => r.id));
     for (const role of newDef.roles) {
@@ -529,6 +568,21 @@ export class OrgDaemon {
    *  iterate while stopOrg() mutates the underlying map. */
   listRunning(): string[] {
     return [...this.orgs.keys()];
+  }
+
+  /** M1: the chain trace a role's tool calls carry — from the most recent
+   *  message delivered to it with a `[trace chn_… hop=N]` line, otherwise a
+   *  fresh chain (hop 0) minted once and kept for the role. */
+  roleTrace(org: string, role: string): ChainTrace {
+    const running = this.orgs.get(org);
+    if (!running) return { chain_id: freshChainId(), hop: 0 };
+    if (!running.traces) running.traces = new Map();
+    let t = running.traces.get(role);
+    if (!t) {
+      t = { chain_id: freshChainId(), hop: 0 };
+      running.traces.set(role, t);
+    }
+    return t;
   }
 
   /** Hook for the SSE server — registers a listener for all bus events across all orgs. */
@@ -1173,6 +1227,9 @@ export class OrgDaemon {
             .readQuestions(this.root, name)
             .questions.filter((q) => q.answer === null);
           if (pendingQuestions.length > 0) return;
+          // M1 (C-41): a pending tool approval is the same kind of legitimate
+          // wait — the role was told to wait for `org approve/deny`.
+          if ((this.approvals.get(name) ?? []).some((a) => a.approved === null)) return;
           // Auto-resume any task whose org_task_block time has passed: flip it
           // back to 'running' and re-push it into the assignee's mailbox, same
           // as a fresh dispatch. This IS real activity, so fall through to the
@@ -1403,6 +1460,10 @@ export class OrgDaemon {
       bus,
       roleCwd,
     );
+    policy.setToolContext({
+      providerPrefixes: () => roleProviderPrefixes(role),
+      trace: () => this.roleTrace(name, role.id),
+    });
     if (roleCheckpoint?.tokensUsed) {
       policy.setUsage(roleCheckpoint.tokensUsed);
     }
@@ -1441,6 +1502,20 @@ export class OrgDaemon {
       // Project root for named-provider (`adapter_config.provider`) config
       // lookup — role cwd may be an isolated workspace with no config file.
       orgRoot: this.root,
+      run,
+      // M1: role tool providers — listed at session start, processes spawned
+      // lazily on first call and killed when the session ends.
+      buildProviderTools: async () => {
+        const providers = role.tool_providers ?? [];
+        if (providers.length === 0) return undefined;
+        return this.toolProviders.buildRoleTools({
+          ctx: { org: name, run, role: role.id, root: this.root },
+          providers,
+          trace: () => this.roleTrace(name, role.id),
+          bus,
+          cwd: roleCwd,
+        });
+      },
       maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
       resumeSessionId: roleCheckpoint?.sessionId,
       lastMessageId: () => runtime.lastMessageId,
@@ -2179,6 +2254,8 @@ export class OrgDaemon {
     // too, reusing respawnRole's existing force-stop handle, so in-flight
     // work is told to stop now instead of merely being denied new input.
     for (const slot of org.roleSlots.values()) slot.abort?.abort();
+    // M1: kill every tool-provider process of this org's sessions.
+    this.toolProviders.closeOrg(name);
     // Bounded: a genuinely hung agent session (stuck mid-tool-call, not just
     // idle) must not make stopOrg() hang forever — callers like the scheduler
     // already race their own timeout around a run, and this wait re-blocking

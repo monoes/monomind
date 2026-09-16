@@ -115,9 +115,11 @@ export function checkApproval(
     const roleDef = daemon.orgs.get(org)?.def.roles.find((r) => r.id === role);
     if (roleDef?.policy?.autoApproveTools?.includes(action)) return true;
 
-    // Require human approval for sensitive actions
+    // Require human approval for sensitive actions: the built-in list plus the
+    // role's own policy.approvalTools (bare names, e.g. a provider tool
+    // `monoagent__automation_publish`). autoApproveTools above still wins.
     const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
-    if (sensitiveActions.includes(action)) {
+    if (sensitiveActions.includes(action) || roleDef?.policy?.approvalTools?.includes(action)) {
       // Queue for approval
       if (!existing) {
         pending.push({

@@ -170,9 +170,39 @@ export const RolePolicySchema = z
      *  skips the "pause and wait for a human" step for a role the operator has
      *  already decided to trust for that specific action. */
     autoApproveTools: z.array(z.string()).optional(),
+    /** Extra tool/action names that pause for approval exactly like the
+     *  built-in sensitive list (Bash, WebFetch, WebSearch, org_complete).
+     *  Bare form — `org_send`, `monoagent__automation_publish` — never the
+     *  `mcp__org__` namespaced form. `autoApproveTools` still wins. */
+    approvalTools: z.array(z.string()).optional(),
   })
   .partial()
   .passthrough();
+
+/** A stdio MCP server whose tools are exposed to one role as
+ *  `<prefix>__<mcpToolName>` (M1, capability `org-tool-providers`).
+ *  `env` values are literal — never expanded, never read from secrets. */
+export const ToolProviderSchema = z
+  .object({
+    kind: z.literal('mcp-stdio'),
+    name: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/),
+    command: z.string().min(1),
+    args: z.array(z.string()).default([]),
+    env: z.record(z.string(), z.string()).default({}),
+    /** MCP tool names to expose; absent = all. */
+    allow: z.array(z.string()).optional(),
+    /** Default: `name` with '-' → '_'. */
+    prefix: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9_]*$/)
+      .optional(),
+    /** Per tools/call timeout. */
+    timeout_ms: z.number().int().positive().default(660_000),
+    /** The provider process exits after this long without calls. */
+    idle_ms: z.number().int().positive().default(300_000),
+  })
+  .passthrough();
+export type ToolProviderConfig = z.infer<typeof ToolProviderSchema>;
 
 export const RoleSchema = z
   .object({
@@ -247,6 +277,8 @@ export const RoleSchema = z
      *  and session.ts's overBudgetUsd check, which mirrors the token-budget-exhausted
      *  close-mailbox pattern. */
     budget_usd: z.number().positive().optional(),
+    /** Config-defined tools for this role: stdio MCP servers (M1). */
+    tool_providers: z.array(ToolProviderSchema).optional(),
   })
   .passthrough();
 

@@ -195,6 +195,12 @@ export interface SessionOpts {
    *  (config search must start at the project root even when the role's
    *  workspace cwd is an isolated scratch dir). Defaults to opts.cwd. */
   orgRoot?: string;
+  /** Run id of the org run this session belongs to (MONOMIND_ORG_RUN). */
+  run?: string;
+  /** M1: build this session's tool-provider tools (role `tool_providers`).
+   *  Called once per session start; the returned set is closed (provider
+   *  processes killed) when the session ends. */
+  buildProviderTools?: () => Promise<{ tools: OrgToolDef[]; close(): void } | undefined>;
   deliver: DeliverFn;
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
@@ -517,6 +523,10 @@ async function runOneSession(
     opts.runner ?? (opts.queryFn ? new ClaudeAgentRunner(opts.queryFn) : defaultClaudeRunner);
 
   const tools = buildOrgTools(opts);
+  // M1: provider tools are listed per session start, so a hot-reloaded
+  // tool_providers block takes effect at the role's next session.
+  const providerSet = opts.buildProviderTools ? await opts.buildProviderTools() : undefined;
+  if (providerSet) tools.push(...providerSet.tools);
 
   // Named-provider resolution (`adapter_config.provider`): explicit role
   // provider wins, else the named entry from `monomind providers configure`.
@@ -580,6 +590,11 @@ async function runOneSession(
         // 'default' roleId, polluting the repo and making files unattributable.
         MONOMIND_ORG_DIR: opts.orgDir ?? opts.cwd,
         MONOMIND_ROLE_ID: role.id,
+        // M1: attribution for anything the role runs (C-16).
+        MONOMIND_ORG_NAME: org,
+        MONOMIND_ORG_ROLE: role.id,
+        ...(opts.run ? { MONOMIND_ORG_RUN: opts.run } : {}),
+        ...(opts.orgRoot ? { MONOMIND_ORG_ROOT: opts.orgRoot } : {}),
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
@@ -851,6 +866,8 @@ async function runOneSession(
   } catch (err) {
     bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
     throw err;
+  } finally {
+    providerSet?.close();
   }
 }
 

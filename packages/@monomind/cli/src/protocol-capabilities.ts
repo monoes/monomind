@@ -20,8 +20,15 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `agent-exec`   — `monomind agent exec` (§3)
  *  - `agent-scan`   — `monomind agent scan --json` (§6)
  *  - `org-json-v1`  — `--json`/`--format json` output on org observe commands (§7)
+ *  - `org-tool-providers` — role `tool_providers` (stdio MCP), `policy.approvalTools`,
+ *    operator-authenticated `/api/xdeliver` and live `org inbox --format json`
  */
-export const AGENT_PROTOCOL_CAPABILITIES = ['agent-exec', 'agent-scan', 'org-json-v1'] as const;
+export const AGENT_PROTOCOL_CAPABILITIES = [
+  'agent-exec',
+  'agent-scan',
+  'org-json-v1',
+  'org-tool-providers',
+] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */
 export function versionJsonPayload(version: string): {

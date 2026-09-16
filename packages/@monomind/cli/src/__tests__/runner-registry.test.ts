@@ -42,7 +42,7 @@ describe('version handshake (§2)', () => {
       v: 1,
       version: '2.10.0',
       min_caller: '1.0.0',
-      capabilities: ['agent-exec', 'agent-scan', 'org-json-v1'],
+      capabilities: ['agent-exec', 'agent-scan', 'org-json-v1', 'org-tool-providers'],
     });
     expect(p.capabilities).toContain('agent-exec');
     expect(p.capabilities).toBe(AGENT_PROTOCOL_CAPABILITIES);

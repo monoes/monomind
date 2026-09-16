@@ -98,16 +98,44 @@ export function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${out}$`);
 }
 
+/** Extra per-role context the daemon wires into a PolicyEngine (M1). */
+export interface PolicyToolContext {
+  /** `<prefix>__` of every tool provider of the role — exempt from allowTools
+   *  like `mcp__org__` (fence/Vercel runners pass bare provider tool names). */
+  providerPrefixes?: () => string[];
+  /** The role's current chain trace; copied onto every `tool` event. */
+  trace?: () => { chain_id: string; hop: number } | undefined;
+}
+
+const ORG_TOOL_NS = 'mcp__org__';
+
 export class PolicyEngine {
   private used = 0;
   /** ORG-7: accumulated USD cost for this role, mirrors `used` (tokens). */
   private usedUsd = 0;
+  private toolContext: PolicyToolContext = {};
   constructor(
     readonly role: string,
-    readonly policy: RolePolicy,
+    public policy: RolePolicy,
     private bus: OrgBus,
     private cwd: string,
   ) {}
+
+  /** Wire provider prefixes and trace source (daemon, M1). */
+  setToolContext(ctx: PolicyToolContext): void {
+    this.toolContext = ctx;
+  }
+
+  /** Hot reload (`org reload`): replace the role's policy. Budget ceilings the
+   *  daemon derived at spawn (maxTokens/maxUsd) are kept unless the new policy
+   *  sets them itself. */
+  updatePolicy(next: RolePolicy): void {
+    this.policy = {
+      ...(this.policy.maxTokens != null ? { maxTokens: this.policy.maxTokens } : {}),
+      ...(this.policy.maxUsd != null ? { maxUsd: this.policy.maxUsd } : {}),
+      ...(next ?? {}),
+    };
+  }
 
   addUsage(tokens: number): void {
     this.used += tokens;
@@ -142,6 +170,13 @@ export class PolicyEngine {
   }
 
   async decide(tool: string, input: Record<string, unknown>): Promise<Decision> {
+    const eventData = (): Record<string, unknown> => {
+      const trace = this.toolContext.trace?.();
+      return {
+        input: summarize(input),
+        ...(trace ? { chain_id: trace.chain_id, hop: trace.hop } : {}),
+      };
+    };
     const deny = (reason: string): Decision => {
       this.bus.emit({
         type: 'tool',
@@ -149,7 +184,7 @@ export class PolicyEngine {
         tool,
         decision: 'deny',
         reason,
-        data: { input: summarize(input) },
+        data: eventData(),
       });
       return { behavior: 'deny', message: `[org-policy] ${reason}` };
     };
@@ -159,7 +194,7 @@ export class PolicyEngine {
         from: this.role,
         tool,
         decision: 'allow',
-        data: { input: summarize(input) },
+        data: eventData(),
       });
       if (WRITE_TOOLS.has(tool) && typeof input.file_path === 'string') {
         // Snapshot the full resulting content when we actually have it at decide()
@@ -194,12 +229,16 @@ export class PolicyEngine {
       return deny(`token budget exhausted (${this.used}/${this.policy.maxTokens})`);
     if (this.overBudgetUsd)
       return deny(`USD budget exhausted ($${this.usedUsd.toFixed(4)}/$${this.policy.maxUsd})`);
-    if (this.policy.denyTools?.includes(tool))
+    // denyTools entries use the bare name (`org_send`, `monoagent__x`), the
+    // same form approvals use — match the namespaced Claude form too.
+    const bare = tool.startsWith(ORG_TOOL_NS) ? tool.slice(ORG_TOOL_NS.length) : tool;
+    if (this.policy.denyTools?.includes(tool) || this.policy.denyTools?.includes(bare))
       return deny(`tool ${tool} is denied for role ${this.role}`);
     if (
       this.policy.allowTools &&
       !this.policy.allowTools.includes(tool) &&
-      !tool.startsWith('mcp__org__')
+      !tool.startsWith(ORG_TOOL_NS) &&
+      !(this.toolContext.providerPrefixes?.() ?? []).some((p) => tool.startsWith(p))
     )
       return deny(`tool ${tool} not in allowlist for role ${this.role}`);
 

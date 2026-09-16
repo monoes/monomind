@@ -8,6 +8,7 @@ import { lookupOrg } from './broker.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { scanMessage } from './fence.js';
 import { queueMessage } from './inbox.js';
+import { parseTraceLine } from './tool-providers.js';
 import { ORG_DIR } from './types.js';
 
 /** Bodies larger than this are digested to a .mail file (see mailBody). */
@@ -147,12 +148,22 @@ export async function pushMessage(
   const slot = org.roleSlots?.get(toRole);
   if (slot?.phase === 'draining') {
     slot.queuedDuringSwap.push(mail);
+    recordTrace(org, toRole, body);
     return true;
   }
   const agent = org.agents.get(toRole);
   if (!agent || agent.mailbox.isClosed) return false;
   agent.mailbox.push(mail);
+  recordTrace(org, toRole, body);
   return true;
+}
+
+/** M1: remember the chain trace of the latest traced message a role got. */
+function recordTrace(org: RunningOrg, toRole: string, body: string): void {
+  const trace = parseTraceLine(body);
+  if (!trace) return;
+  if (!org.traces) org.traces = new Map();
+  org.traces.set(toRole, trace);
 }
 
 /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
