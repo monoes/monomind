@@ -24,6 +24,7 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *    operator-authenticated `/api/xdeliver` and live `org inbox --format json`
  *  - `org-decision-attribution` — `--by`/`resolvedBy`, `decision-resolved` audit
  *    events, request-scoped approvals (`--request`, `requestId`)
+ *  - `org-endpoint-roles` — roles with `kind: "endpoint"` delivered by HTTP POST
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -31,6 +32,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-json-v1',
   'org-tool-providers',
   'org-decision-attribution',
+  'org-endpoint-roles',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */

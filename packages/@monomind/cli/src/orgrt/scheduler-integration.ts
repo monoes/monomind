@@ -4,7 +4,8 @@
 import { waitForCapacity } from '../utils/resource-governor.js';
 import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
-import { drainInbox, newMessageId } from './inbox.js';
+import { isEndpointRole } from './endpoint-roles.js';
+import { drainInbox, newMessageId, queueMessage } from './inbox.js';
 import type { OrgRole } from './types.js';
 
 /** Shared by scheduleDeferredSpawn and scheduleConcurrencyDeferredSpawn: spawn
@@ -21,6 +22,11 @@ async function spawnNowAndDrain(
   const queued = drainInbox(daemon.root, name);
   spawnRole(role);
   for (const msg of queued) {
+    // M2: endpoint-role entries are delivered by POST — keep them queued.
+    if (msg.endpoint || isEndpointRole(running.def.roles.find((r) => r.id === msg.toRole))) {
+      queueMessage(daemon.root, name, { ...msg, endpoint: true });
+      continue;
+    }
     const agent = running.agents.get(msg.toRole);
     if (agent && !agent.mailbox.isClosed) {
       running.bus.emit({

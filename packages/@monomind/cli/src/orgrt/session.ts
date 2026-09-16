@@ -8,6 +8,7 @@ import type { OrgBus } from './bus.js';
 import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
 import { Mailbox } from './mailbox.js';
+import { endpointBriefingLines } from './endpoint-roles.js';
 import type { Decision, PolicyEngine } from './policy.js';
 import { StateDetector } from './state-detector.js';
 import type { OrgDef, OrgRole } from './types.js';
@@ -324,6 +325,8 @@ export function buildRolePrompt(
   roster: string[],
   glossary?: string[],
   extraGuidance?: string,
+  /** M2: one line per endpoint role (endpointBriefingLines) — boss only. */
+  endpointBriefing?: string[],
 ): string {
   const isCoordinator = role.reports_to == null;
   return [
@@ -337,6 +340,7 @@ export function buildRolePrompt(
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
+    endpointBriefing?.length ? `Automations in this org:\n${endpointBriefing.join('\n')}` : '',
     `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `For irreversible or high-risk actions (deployments, deletions, external communications), call org_gate to create a decision gate — a hard-blocking approval checkpoint. End your turn and wait for the human's approval or rejection before proceeding.`,
     `You can structure work as a task DAG: use org_task to create tasks with dependencies, org_task_done to mark them complete, and org_tasks to see the full DAG. Tasks with satisfied dependencies are automatically dispatched to their assignee.`,
@@ -564,6 +568,7 @@ async function runOneSession(
         opts.def?.roles.map((r) => r.id) ?? [role.id],
         opts.glossary,
         resolveRoleExtraGuidance(role),
+        opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
       ),
       model,
       cwd,

@@ -204,6 +204,20 @@ export const ToolProviderSchema = z
   .passthrough();
 export type ToolProviderConfig = z.infer<typeof ToolProviderSchema>;
 
+/** M2 (capability `org-endpoint-roles`): an endpoint role's delivery target. */
+export const EndpointSchema = z
+  .object({
+    url: z.string().url(),
+    /** Absolute path; must be mode 0600 and owned by the daemon user. Sent as a bearer. */
+    credential_file: z.string().optional(),
+    /** Reply-wait hold for the idle watchdog; default 600000. */
+    timeout_ms: z.number().int().positive().optional(),
+    /** One line for the boss briefing. */
+    input_hint: z.string().optional(),
+  })
+  .passthrough();
+export type EndpointConfig = z.infer<typeof EndpointSchema>;
+
 export const RoleSchema = z
   .object({
     id: z.string().min(1),
@@ -279,6 +293,10 @@ export const RoleSchema = z
     budget_usd: z.number().positive().optional(),
     /** Config-defined tools for this role: stdio MCP servers (M1). */
     tool_providers: z.array(ToolProviderSchema).optional(),
+    /** M2: 'endpoint' = an automation reached over HTTP, not an agent session. */
+    kind: z.enum(['agent', 'endpoint']).optional(),
+    /** M2: where an endpoint role's messages are POSTed. */
+    endpoint: EndpointSchema.optional(),
   })
   .passthrough();
 

@@ -28,6 +28,8 @@ export interface QueuedMessage {
   ts: number;
   /** M3: origin message id, re-used when the queue is drained. */
   messageId?: string;
+  /** M2: queued for an endpoint role (retried by POST, never drained into a mailbox). */
+  endpoint?: boolean;
   /** Structured handoff context (rich metadata for role transitions) */
   context?: {
     summary?: string; // Brief one-line status
@@ -123,6 +125,70 @@ export function drainInbox(root: string, orgName: string): QueuedMessage[] {
       console.error('[inbox] drainInbox unlink failed:', e);
   }
   return msgs;
+}
+
+/** Non-destructive read of the queue (pending file plus an interrupted drain). */
+export function peekInbox(root: string, orgName: string): QueuedMessage[] {
+  const path = inboxPath(root, orgName);
+  const msgs: QueuedMessage[] = [];
+  for (const f of [`${path}.draining`, path]) {
+    try {
+      if (existsSync(f)) msgs.push(...parseLines(readFileSync(f, 'utf8')));
+    } catch {
+      /* unreadable — treat as empty */
+    }
+  }
+  return msgs;
+}
+
+/** Remove and return the queued messages matching `predicate`; every other
+ *  message is put back. M2 uses it to retry endpoint entries while leaving
+ *  other queued messages in place.
+ *
+ *  The snapshot is renamed to `.draining` (which drainInbox recovers after a
+ *  crash) and only unlinked AFTER the untouched messages were appended back,
+ *  so a crash can at worst duplicate a message, never lose one — and a
+ *  concurrent peekInbox never sees the untouched messages disappear. */
+export function takeQueued(
+  root: string,
+  orgName: string,
+  predicate: (m: QueuedMessage) => boolean,
+): QueuedMessage[] {
+  const path = inboxPath(root, orgName);
+  const draining = `${path}.draining`;
+  if (existsSync(draining) || !existsSync(path)) {
+    // An interrupted drain is pending recovery (or nothing is queued) — use
+    // the recovering drain instead of renaming over it.
+    const all = drainInbox(root, orgName);
+    const taken: QueuedMessage[] = [];
+    for (const m of all) {
+      if (predicate(m)) taken.push(m);
+      else queueMessage(root, orgName, m);
+    }
+    return taken;
+  }
+  try {
+    renameSync(path, draining);
+  } catch {
+    return [];
+  }
+  let msgs: QueuedMessage[];
+  try {
+    msgs = parseLines(readFileSync(draining, 'utf8'));
+  } catch {
+    return []; // leave .draining for the next drain to recover
+  }
+  const taken: QueuedMessage[] = [];
+  for (const m of msgs) {
+    if (predicate(m)) taken.push(m);
+    else if (!queueMessage(root, orgName, m)) return []; // keep .draining; nothing lost
+  }
+  try {
+    unlinkSync(draining);
+  } catch {
+    /* recovered (possibly duplicated) by the next drain */
+  }
+  return taken;
 }
 
 export function inboxCount(root: string, orgName: string): number {

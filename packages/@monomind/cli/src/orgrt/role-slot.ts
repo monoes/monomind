@@ -92,7 +92,10 @@ export function computeReplacementBudget(def: OrgDef, roleId: string): number {
   if (role.budget_tokens != null) return role.budget_tokens;
   const orgBudgetTokens = def.run_config.budget_tokens ?? 1_000_000;
   const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
-  const unoverriddenRoleCount = def.roles.filter((r) => r.budget_tokens == null).length;
+  // M2: endpoint roles take no share of the token budget.
+  const unoverriddenRoleCount = def.roles.filter(
+    (r) => r.budget_tokens == null && (r as { kind?: string }).kind !== 'endpoint',
+  ).length;
   return unoverriddenRoleCount > 0
     ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
     : 0;

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
 import { lookupOrg } from './broker.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
+import { clearEndpointWait, deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { scanMessage } from './fence.js';
 import { newMessageId, queueMessage } from './inbox.js';
 import { parseTraceLine } from './tool-providers.js';
@@ -149,12 +150,14 @@ export async function pushMessage(
   if (slot?.phase === 'draining') {
     slot.queuedDuringSwap.push(mail);
     recordTrace(org, toRole, body);
+    clearEndpointWait(org, orgName, from);
     return true;
   }
   const agent = org.agents.get(toRole);
   if (!agent || agent.mailbox.isClosed) return false;
   agent.mailbox.push(mail);
   recordTrace(org, toRole, body);
+  clearEndpointWait(org, orgName, from);
   return true;
 }
 
@@ -186,6 +189,21 @@ export async function deliver(
   } = resolveAddress(fromOrg, to);
   const targetOrg = daemon.orgs.get(targetOrgName);
   const src = daemon.orgs.get(fromOrg);
+  // M2: an endpoint role has no mailbox — POST to its endpoint instead.
+  const endpointRole = targetOrg ? findEndpointRole(targetOrg.def, targetRole) : undefined;
+  if (targetOrg && endpointRole) {
+    return deliverToEndpoint(daemon, {
+      orgName: targetOrgName,
+      org: targetOrg,
+      role: endpointRole,
+      from: cross ? `${fromOrg}:${fromRole}` : fromRole,
+      subject,
+      body,
+      messageId,
+      src,
+      eventTo: toQualified,
+    });
+  }
   // Lazy spawn: if the role is pending (not yet spawned), spawn it now.
   // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
   const spawning = daemon.spawning.get(targetOrgName) ?? new Set<string>();
@@ -674,6 +692,26 @@ export async function receiveRemote(
       return { ok: true, receipt: `queued for ${toOrg}:${toRole} (org waking)` };
     }
     return { ok: false, error: `org "${toOrg}" not hosted here` };
+  }
+  // M2: an endpoint role has no mailbox — POST to its endpoint instead.
+  const endpointRole = findEndpointRole(org.def, toRole);
+  if (endpointRole) {
+    const from = fromQualified.startsWith(`${toOrg}:`)
+      ? fromQualified.slice(toOrg.length + 1)
+      : fromQualified;
+    const receipt = await deliverToEndpoint(daemon, {
+      orgName: toOrg,
+      org,
+      role: endpointRole,
+      from,
+      subject,
+      body,
+      messageId,
+      eventTo: `${toOrg}:${toRole}`,
+    });
+    return receipt.startsWith('ERROR:')
+      ? { ok: false, error: receipt.slice('ERROR: '.length) }
+      : { ok: true, receipt };
   }
   // Lazy-spawn pending roles on cross-process delivery (matches deliver/answerQuestion)
   // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages

@@ -108,6 +108,23 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     : { success: true, message: `${files.length} org config(s) valid` };
 };
 
+/** M2: ids of the org's endpoint roles (automations, not agents) — excluded
+ *  from the costs/report/flow role tables. Unreadable config → none. */
+const endpointRoleIds = (cwd: string, name: string): Set<string> => {
+  try {
+    const raw = JSON.parse(readFileSync(join(cwd, ORG_DIR, `${name}.json`), 'utf8')) as {
+      roles?: Array<{ id?: unknown; kind?: unknown }>;
+    };
+    return new Set(
+      (Array.isArray(raw.roles) ? raw.roles : [])
+        .filter((r) => r?.kind === 'endpoint' && typeof r.id === 'string')
+        .map((r) => r.id as string),
+    );
+  } catch {
+    return new Set();
+  }
+};
+
 // Run ids are joined into filesystem paths — enforce the daemon's own id shape
 // so a crafted --run can't traverse out of the org directory (same reason the
 // org-name guard exists).
@@ -321,6 +338,9 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
+  // M2: endpoint roles are automations — they have no row in the role tables.
+  const endpointIds = endpointRoleIds(ctx.cwd, name);
+  for (const id of endpointIds) delete s.roles[id];
 
   // Protocol JSON mode (§7.2): the run summary as a bare object. Emitted
   // before the human-only flag modes (mermaid/audit/by-role) — those render
@@ -470,8 +490,11 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     const def = OrgDefSchema.parse(
       JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')),
     );
-    perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
-    for (const r of def.roles) {
+    const sessionRoles = def.roles.filter((r) => r.kind !== 'endpoint');
+    perRoleBudget = Math.floor(
+      (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, sessionRoles.length),
+    );
+    for (const r of sessionRoles) {
       const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
       roleCeiling.set(r.id, max ?? r.budget_tokens ?? perRoleBudget);
     }
@@ -1138,10 +1161,13 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
 
   // Combine data from runtime.json (live metrics) and summary (historical)
   const roleData = new Map<string, { tokens: number; costUsd: number; messages: number }>();
+  // M2: endpoint roles are automations — no row in the cost table.
+  const endpointIds = endpointRoleIds(ctx.cwd, name);
 
   // Add live metrics from runtime.json
   if (rt?.roleMetrics) {
     for (const [roleId, metrics] of Object.entries(rt.roleMetrics)) {
+      if (endpointIds.has(roleId)) continue;
       roleData.set(roleId, {
         tokens: metrics.tokens,
         costUsd: metrics.costUsd,
@@ -1153,6 +1179,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   // Add historical data from summary if available
   if (summary?.roles) {
     for (const [roleId, roleStats] of Object.entries(summary.roles)) {
+      if (endpointIds.has(roleId)) continue;
       const existing = roleData.get(roleId) ?? { tokens: 0, costUsd: 0, messages: 0 };
       roleData.set(roleId, {
         tokens: existing.tokens || roleStats.tokens,
@@ -1250,7 +1277,11 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
     }
   }
 
-  const roles = Array.from(roleSet).sort();
+  // M2: endpoint roles are automations — not listed as role nodes.
+  const endpointIds = endpointRoleIds(ctx.cwd, name);
+  const roles = Array.from(roleSet)
+    .filter((r) => !endpointIds.has(r))
+    .sort();
 
   // Protocol JSON mode (§7.2): structured roles + edges instead of Mermaid.
   if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, run, roles, edges: edgeObjects });

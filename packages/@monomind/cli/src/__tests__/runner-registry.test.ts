@@ -48,6 +48,7 @@ describe('version handshake (§2)', () => {
         'org-json-v1',
         'org-tool-providers',
         'org-decision-attribution',
+        'org-endpoint-roles',
       ],
     });
     expect(p.capabilities).toContain('agent-exec');

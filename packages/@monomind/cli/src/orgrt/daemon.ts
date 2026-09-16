@@ -35,6 +35,15 @@ import * as crossOrg from './cross-org.js';
 import { CrushAgentRunner } from './crush-runner.js';
 import * as decisionOps from './decisions.js';
 import {
+  agentRoles,
+  type EndpointWait,
+  hasActiveEndpointWait,
+  isEndpointRole,
+  retryQueuedEndpoints,
+  startEndpointRetryLoop,
+  stopEndpointRetries,
+} from './endpoint-roles.js';
+import {
   createFenceForRole,
   loadGlobalFenceConfig,
   mergeFenceConfigs,
@@ -248,7 +257,10 @@ export function resolveRoleRunner(
  *  even split of run_config.budget_tokens across all roles. */
 export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
   return (
-    role.budget_tokens ?? Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length)
+    role.budget_tokens ??
+    Math.floor(
+      (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, agentRoles(def.roles).length),
+    )
   );
 }
 
@@ -362,6 +374,8 @@ export interface RunningOrg {
   /** M1: per-role chain trace — set from the latest delivered message carrying
    *  a `[trace chn_… hop=N]` line, else a fresh chain minted on first use. */
   traces?: Map<string, ChainTrace>;
+  /** M2: reply waits for endpoint deliveries — hold the idle watchdog. */
+  endpointWaits?: EndpointWait[];
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -410,6 +424,12 @@ export interface DaemonOpts {
   operatorDir?: string;
   /** Filter tool audit events by tool name or decision (allow|deny) before forwarding */
   auditFilter?: { tool?: string; decision?: 'allow' | 'deny' };
+  /** M2 (tests only): endpoint retry schedule (default [1000, 5000, 15000] ms). */
+  endpointRetryMs?: number[];
+  /** M2 (tests only): periodic endpoint re-attempt interval (default 60000 ms). */
+  endpointPeriodicRetryMs?: number;
+  /** M2 (tests only): endpoint POST timeout (default 15000 ms). */
+  endpointPostTimeoutMs?: number;
 }
 
 export class OrgDaemon {
@@ -553,8 +573,11 @@ export class OrgDaemon {
     for (const role of newDef.roles) {
       if (!existingRoleIds.has(role.id)) {
         running.def.roles.push(role);
-        if (!running.pendingRoles) running.pendingRoles = new Map();
-        running.pendingRoles.set(role.id, role);
+        // M2: an endpoint role never gets a session — nothing to lazy-spawn.
+        if (!isEndpointRole(role)) {
+          if (!running.pendingRoles) running.pendingRoles = new Map();
+          running.pendingRoles.set(role.id, role);
+        }
         newRoles.push(role.id);
       }
     }
@@ -785,11 +808,12 @@ export class OrgDaemon {
     // OpencodeAgentRunner, and CodexAgentRunner each spawn one subprocess per role.
     // The current sizing (def.roles.length) is therefore safe — it over-provisions
     // for in-process runners but never under-provisions for subprocess runners.
+    const sessionRoleCount = agentRoles(def.roles).length;
     if (
       !process.env.MONOMIND_MAX_SDK_PROCS &&
-      getResourceLimits().maxSdkProcesses < def.roles.length
+      getResourceLimits().maxSdkProcesses < sessionRoleCount
     ) {
-      configureResourceLimits({ maxSdkProcesses: def.roles.length });
+      configureResourceLimits({ maxSdkProcesses: sessionRoleCount });
     }
 
     // Validate per-role providers before spawning anything (fail-fast: a
@@ -1003,7 +1027,9 @@ export class OrgDaemon {
     // and enforced as a real ceiling above, independent of this static split.)
     const orgBudgetTokens = def.run_config.budget_tokens ?? 1_000_000;
     const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
-    const unoverriddenRoleCount = def.roles.filter((r) => r.budget_tokens == null).length;
+    const unoverriddenRoleCount = agentRoles(def.roles).filter(
+      (r) => r.budget_tokens == null,
+    ).length;
     const perRoleBudget =
       unoverriddenRoleCount > 0
         ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
@@ -1013,8 +1039,12 @@ export class OrgDaemon {
     // kickoff went to (type==='boss' || reports_to===null || roles[0]), so a
     // fallback-selected boss could be told to call org_complete without having
     // the tool.
+    // M2: endpoint roles are never the boss.
+    const sessionRoles = agentRoles(def.roles);
+    if (sessionRoles.length === 0)
+      throw new Error(`org ${name}: no agent roles — endpoint roles cannot run an org`);
     const bossRole =
-      def.roles.find((r) => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+      sessionRoles.find((r) => r.type === 'boss' || r.reports_to === null) ?? sessionRoles[0];
     running.bossRoleId = bossRole.id;
     // Canonical entity names from THIS org's KG — injected into the coordinator
     // prompt so org_learn extractions reuse them instead of minting duplicates.
@@ -1044,6 +1074,7 @@ export class OrgDaemon {
     // gate logic or duplicating the session-wiring below.
     const spawnRole = (role: OrgRole, roleCheckpoint?: RoleCheckpoint): void => {
       if (running.agents.has(role.id)) return;
+      if (isEndpointRole(role)) return; // M2: no session, mailbox or slot
       const { runtime, abort } = this.spawnRoleIncarnation(
         name,
         running,
@@ -1076,7 +1107,7 @@ export class OrgDaemon {
       }
       const pendingRoles = new Map<string, OrgRole>();
       for (const role of def.roles) {
-        if (!restoredRoles.has(role.id)) {
+        if (!restoredRoles.has(role.id) && !isEndpointRole(role)) {
           pendingRoles.set(role.id, role);
         }
       }
@@ -1105,7 +1136,7 @@ export class OrgDaemon {
       // message (see deliver()), avoiding the memory gate stampede at startup.
       const pendingRoles = new Map<string, OrgRole>();
       for (const role of def.roles) {
-        if (role.id === bossRole.id) continue;
+        if (role.id === bossRole.id || isEndpointRole(role)) continue;
         pendingRoles.set(role.id, role);
       }
       running.pendingRoles = pendingRoles;
@@ -1193,7 +1224,7 @@ export class OrgDaemon {
         );
       bus.emit({
         type: 'status',
-        msg: `org started (${def.roles.length} agents)`,
+        msg: `org started (${sessionRoles.length} agents)`,
         data: { goal: taskOverride ?? def.goal },
       });
     }
@@ -1237,6 +1268,8 @@ export class OrgDaemon {
           // M1 (C-41): a pending tool approval is the same kind of legitimate
           // wait — the role was told to wait for `org approve/deny`.
           if ((this.approvals.get(name) ?? []).some((a) => a.approved === null)) return;
+          // M2 (C-41): a delivered endpoint message whose reply is still due.
+          if (hasActiveEndpointWait(running)) return;
           // Auto-resume any task whose org_task_block time has passed: flip it
           // back to 'running' and re-push it into the assignee's mailbox, same
           // as a fresh dispatch. This IS real activity, so fall through to the
@@ -1335,7 +1368,24 @@ export class OrgDaemon {
 
     // Drain any messages that arrived while the org was offline
     const queued = drainInbox(this.root, name);
+    // M2: messages for endpoint roles are delivered by POST, not into a mailbox —
+    // put them back (flagged) and let the endpoint retry path send them.
+    const endpointQueued = new Set<string>();
     for (const msg of queued) {
+      if (!isEndpointRole(def.roles.find((r) => r.id === msg.toRole))) continue;
+      const messageId = msg.messageId ?? newMessageId();
+      endpointQueued.add(messageId);
+      queueMessage(this.root, name, { ...msg, messageId, endpoint: true });
+    }
+    startEndpointRetryLoop(this, name);
+    if (endpointQueued.size > 0)
+      void retryQueuedEndpoints(this, name, (m) => endpointQueued.has(m.messageId ?? '')).catch(
+        () => {
+          /* stays queued — the periodic sweep retries */
+        },
+      );
+    for (const msg of queued) {
+      if (isEndpointRole(def.roles.find((r) => r.id === msg.toRole))) continue;
       // Spawn a lazy target before delivering. These messages were queued while
       // the org was offline — a human's answer, or another org's request — and
       // the whole point of draining is that they arrive. Skipping a role merely
@@ -2264,6 +2314,8 @@ export class OrgDaemon {
     for (const slot of org.roleSlots.values()) slot.abort?.abort();
     // M1: kill every tool-provider process of this org's sessions.
     this.toolProviders.closeOrg(name);
+    // M2: stop endpoint retry timers (queued entries stay queued).
+    stopEndpointRetries(this, name);
     // Bounded: a genuinely hung agent session (stuck mid-tool-call, not just
     // idle) must not make stopOrg() hang forever — callers like the scheduler
     // already race their own timeout around a run, and this wait re-blocking
