@@ -1,16 +1,38 @@
 // packages/@monomind/cli/src/orgrt/cross-org.ts
 // Extracted from daemon.ts — message delivery, cross-org routing, remote delivery.
 import { timingSafeEqual } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
-import { lookupOrg } from './broker.js';
+import { lookupOrg, normalizeRoot } from './broker.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { clearEndpointWait, deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { scanMessage } from './fence.js';
 import { newMessageId, queueMessage } from './inbox.js';
 import { parseTraceLine } from './tool-providers.js';
-import { ORG_DIR } from './types.js';
+import { ORG_DIR, type OrgDef } from './types.js';
+
+// ── M4 federation ───────────────────────────────────────────────────────
+
+/** `federation.allow_*` membership: absent list = unrestricted, '*' = any. */
+export function federationAllows(list: string[] | undefined, org: string): boolean {
+  if (list === undefined) return true;
+  return list.includes('*') || list.includes(org);
+}
+
+/** The org def for federation checks: the running def, else the one on disk. */
+function federationDef(daemon: OrgDaemon, org: string): Pick<OrgDef, 'federation'> | undefined {
+  const running = daemon.orgs.get(org);
+  if (running) return running.def;
+  if (!daemon.hasOrgDef(org)) return undefined;
+  const path = join(daemon.root, ORG_DIR, `${org}.json`);
+  try {
+    if (!existsSync(path)) return undefined;
+    return JSON.parse(readFileSync(path, 'utf8')) as Pick<OrgDef, 'federation'>;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Bodies larger than this are digested to a .mail file (see mailBody). */
 const MAIL_BODY_MAX = 4096;
@@ -465,6 +487,31 @@ export async function deliver(
   return `delivered to ${toQualified}`;
 }
 
+/** M4: the sender's allow_to check for a cross-root delivery. Returns the
+ *  ERROR receipt when denied (and emits the audit event), else undefined. */
+function federationDenied(
+  daemon: OrgDaemon,
+  fromOrg: string,
+  fromRole: string,
+  targetOrgName: string,
+  to: string,
+  subject: string,
+  src: RunningOrg | undefined,
+): string | undefined {
+  const allowTo = (src?.def ?? federationDef(daemon, fromOrg))?.federation?.allow_to;
+  if (federationAllows(allowTo, targetOrgName)) return undefined;
+  const from = `${fromOrg}:${fromRole}`;
+  src?.bus.emit({
+    type: 'audit',
+    from: fromRole,
+    to,
+    reason: 'federation-denied',
+    msg: `federation: ${from} may not send to ${to} (${subject})`,
+    data: { direction: 'to', from, to },
+  });
+  return `ERROR: federation: ${from} may not send to ${to}`;
+}
+
 /** Cross-process leg of deliver(): ask the machine-local broker who hosts targetOrgName, then POST over HTTP.
  *  `to` here is always the fully-qualified "org:role" display form (resolveAddress already normalized it). */
 async function deliverRemote(
@@ -517,6 +564,9 @@ async function deliverRemote(
       const { lookupRemoteOrg, deliverRemote: sshDeliver } = await import('./remote.js');
       const remoteHost = lookupRemoteOrg(targetOrgName, daemon.root);
       if (remoteHost) {
+        // M4: another host is always another trust domain.
+        const denied = federationDenied(daemon, fromOrg, fromRole, targetOrgName, to, subject, src);
+        if (denied) return denied;
         const result = await sshDeliver(
           targetOrgName,
           `${fromOrg}:${fromRole}`,
@@ -556,6 +606,12 @@ async function deliverRemote(
     });
     return `ERROR: unknown recipient "${to}" (no local org, no process on this machine, and no SSH remote configured for "${targetOrgName}")`;
   }
+  // M4: a target under a different project root is another trust domain —
+  // honour the sender's federation.allow_to. Same root is never restricted.
+  if (remote.root !== normalizeRoot(daemon.root)) {
+    const denied = federationDenied(daemon, fromOrg, fromRole, targetOrgName, to, subject, src);
+    if (denied) return denied;
+  }
   try {
     // BUG 2 FIX: attach fromOrg's OWN registered credential as proof of
     // sender identity — separate from the `x-monomind-cred` header above,
@@ -573,6 +629,7 @@ async function deliverRemote(
         fromOrg,
         fromRole,
         fromCredential: fromEntry?.credential,
+        fromRoot: normalizeRoot(daemon.root),
         toOrg: targetOrgName,
         toRole: targetRole,
         subject,
@@ -634,6 +691,8 @@ export interface ReceiveRemoteOpts {
   operator?: boolean;
   /** Origin message id (M3) — generated here when the sender sent none. */
   messageId?: string;
+  /** M4: the sending daemon's project root (xdeliver body `fromRoot`). */
+  fromRoot?: string;
 }
 
 /** Inbound handler for cross-process delivery — called by the server's POST /api/xdeliver route
@@ -668,6 +727,27 @@ export async function receiveRemote(
         ok: false,
         error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
       };
+    }
+    // M4 federation (operator-authenticated calls are exempt).
+    const fromRoot = opts.fromRoot ? normalizeRoot(opts.fromRoot) : undefined;
+    const reject = (error: string) => {
+      daemon.orgs.get(toOrg)?.bus.emit({
+        type: 'audit',
+        from: toRole,
+        reason: 'federation-denied',
+        msg: `${error} (from ${fromQualified})`,
+        data: { direction: 'from', from: fromQualified, fromRoot: fromRoot ?? null },
+      });
+      return { ok: false as const, error };
+    };
+    // A sender that states no root (an older daemon, a hand-rolled client)
+    // is not a mismatch — it is simply treated as another root below.
+    if (fromEntry.root && fromRoot !== undefined && fromRoot !== fromEntry.root)
+      return reject('federation: root mismatch');
+    if (fromRoot !== normalizeRoot(daemon.root)) {
+      const allowFrom = federationDef(daemon, toOrg)?.federation?.allow_from;
+      if (!federationAllows(allowFrom, claimedFromOrg))
+        return reject('federation: sender not allowed');
     }
   }
   const org = daemon.orgs.get(toOrg);

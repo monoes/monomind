@@ -208,6 +208,7 @@ export async function startOrgServer(
           subject,
           body: b,
           messageId,
+          fromRoot,
         } = payload as Record<string, string | undefined>;
         if (!toOrg || !toRole || !fromOrg || !fromRole) {
           json(res, 400, { ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' });
@@ -228,6 +229,7 @@ export async function startOrgServer(
               typeof messageId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(messageId)
                 ? messageId
                 : undefined,
+            fromRoot: typeof fromRoot === 'string' && fromRoot ? fromRoot : undefined,
           },
         );
         json(res, result.ok ? 200 : 404, result);

@@ -1361,6 +1361,7 @@ export class OrgDaemon {
         undefined,
         running.credential,
         operatorCred ? { credential: operatorCred, dir: this.opts.operatorDir } : undefined,
+        this.root,
       );
       lease.start();
       this.leases.set(name, lease);

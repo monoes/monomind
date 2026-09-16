@@ -386,6 +386,16 @@ export const OrgDefSchema = z
         ...rc,
       })),
     fence: FenceConfigSchema.optional(),
+    /** M4 (capability `org-federation`): cross-root messaging allowlists —
+     *  org names, '*' = any. Orgs under the same project root are one trust
+     *  domain and never restricted. */
+    federation: z
+      .object({
+        allow_from: z.array(z.string()).optional(),
+        allow_to: z.array(z.string()).optional(),
+      })
+      .passthrough()
+      .optional(),
     roles: z.array(RoleSchema).min(1),
     /** Which agent runtime hosts this org's role sessions. When absent, the
      *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude

@@ -25,6 +25,7 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `org-decision-attribution` — `--by`/`resolvedBy`, `decision-resolved` audit
  *    events, request-scoped approvals (`--request`, `requestId`)
  *  - `org-endpoint-roles` — roles with `kind: "endpoint"` delivered by HTTP POST
+ *  - `org-federation` — `federation.allow_from/allow_to` enforced across project roots
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -33,6 +34,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-tool-providers',
   'org-decision-attribution',
   'org-endpoint-roles',
+  'org-federation',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */
