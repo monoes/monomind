@@ -344,3 +344,34 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
     expect(readFeedback()).toHaveLength(0);
   });
 });
+
+describe('readStdin timer', () => {
+  let projectDir;
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ch-timer-proj-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  // Regression test for the un-unref'd 3s setTimeout in readStdin(): with
+  // .unref() missing, resolve({}) on 'end' fired immediately but the dangling
+  // timer kept the event loop alive for the rest of the 3s window before the
+  // process could exit — every SubagentStart/SubagentStop paid that tail.
+  it('lets the process exit well before the 3s stdin-read timeout once stdin closes', () => {
+    const start = Date.now();
+    execFileSync('node', [CH_PATH, 'subagent-start'], {
+      input: '',
+      env: {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: projectDir,
+        HOME: projectDir,
+        USERPROFILE: projectDir,
+      },
+      encoding: 'utf-8',
+    });
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+});

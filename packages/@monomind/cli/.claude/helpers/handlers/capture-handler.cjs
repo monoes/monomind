@@ -79,7 +79,7 @@ function readStdin() {
     let data = '';
     process.stdin.on('data', c => data += c);
     process.stdin.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({}); } });
-    setTimeout(() => resolve({}), 3000);
+    setTimeout(() => resolve({}), 3000).unref();
   });
 }
 
