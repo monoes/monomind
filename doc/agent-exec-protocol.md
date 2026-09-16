@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 6)
+# Agent Exec Protocol — v1 (rev 7)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -82,6 +82,16 @@
     tool-calling competing for the model's attention — not yet root-caused. `hermes serve`'s
     JSON-RPC/WebSocket gateway is the plausible path to real per-token streaming but has no
     published protocol/schema doc found — left as a flagged follow-up, not guessed at.
+  - rev 7 (2026-09-16): **`result.text` is reliable again** (issue #245). Since rev 5's incremental
+    `assistant` events, `result` carried no `text` for any runner that doesn't set it on its own
+    result message (i.e. nearly all of them), so clients falling back to the latest `assistant`
+    event got only the last chunk. `agent exec` now always derives it (§3.2): the runner's own
+    result text if it has one; otherwise, for a `streams_incrementally: true` runtime, the
+    concatenation of every `assistant` event's text in the turn (including any text emitted before
+    tool calls — incremental runners expose no message boundaries); for a non-incremental runtime,
+    the last `assistant` message. Omitted only when the turn produced no assistant text. Callers
+    that must also work with older monomind versions should still join `assistant` texts when
+    `result.text` is absent.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
 - **Purpose**: Expose monomind's `AgentRunner` engine (14 local agent CLI runners) and org
@@ -166,7 +176,7 @@ tool_result]* → [usage]* → result → done`. On failure: `start → … → 
 | `tool_call` | `v, id, name, args` | Only with `--tools stdio` — caller must execute and reply (§4) |
 | `tool_result` | `v, id, ok, result` | Echo of the applied result (post `canUseTool` gating) |
 | `usage` | `v, input_tokens, output_tokens, cost_usd` | Per-round delta (cumulative→delta conversion handled inside monomind) |
-| `result` | `v, subtype ("success"\|"error"), is_error, text, stop_reason, input_tokens, output_tokens, cost_usd` | Aggregate final result; `stop_reason`: `end_turn` \| `max_turns` \| `tool_round_cap` \| `cancelled` \| `timeout`. **rev 4**: `tool_round_cap` is detected best-effort — it matches the runner's tool-round-cap assistant note; a fence runner that stops without the note yields `end_turn` |
+| `result` | `v, subtype ("success"\|"error"), is_error, text, stop_reason, input_tokens, output_tokens, cost_usd` | Aggregate final result; **rev 7**: `text` is the complete final assistant text — the joined `assistant` texts for a `streams_incrementally` runtime, the last `assistant` message otherwise (omitted only if the turn produced none); `stop_reason`: `end_turn` \| `max_turns` \| `tool_round_cap` \| `cancelled` \| `timeout`. **rev 4**: `tool_round_cap` is detected best-effort — it matches the runner's tool-round-cap assistant note; a fence runner that stops without the note yields `end_turn` |
 | `error` | `v, code, message, fatal (bool)` | Codes in §3.4. `fatal:true` = auth/quota class — callers must not retry |
 | `done` | `v, exit_code` | Terminal event. Always emitted exactly once, even on error |
 

@@ -721,15 +721,20 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
         (lastResult as { text?: string }).text ?? `turn failed (${lastResult.subtype ?? 'error'})`,
     });
   }
+  // §3.2: result.text is the aggregate final text. Runners rarely put text on
+  // their own result message, so derive it from what was streamed: an
+  // incremental runner's assistant events are deltas (join them all), a
+  // non-incremental runner's are complete messages (the last one is final).
+  const resultText =
+    (lastResult as { text?: string }).text ||
+    (runnerSpec(opts.runtime)?.streamsIncrementally ? rawTexts.join('') : rawTexts.at(-1));
   safeEmit({
     v: 1,
     type: 'result',
     subtype: isError ? 'error' : 'success',
     is_error: isError,
     stop_reason: mapStopReason(lastResult.subtype, rawTexts, state.terminal),
-    ...((lastResult as { text?: string }).text
-      ? { text: (lastResult as { text?: string }).text }
-      : {}),
+    ...(resultText ? { text: resultText } : {}),
     input_tokens: totals.in,
     output_tokens: totals.out,
     cost_usd: totals.usd,

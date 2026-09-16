@@ -92,6 +92,18 @@ describe('agent exec golden fixtures (§8.4)', () => {
     expect(result).toMatchObject({ subtype: 'success', is_error: false, stop_reason: 'end_turn' });
   });
 
+  it('success/tool-loop (incremental runtime): result.text is the joined assistant texts (rev 7)', () => {
+    for (const f of ['success', 'tool-loop']) {
+      const evs = load(f);
+      expect(evs[0], f).toMatchObject({ streams_incrementally: true });
+      const joined = evs
+        .filter((e) => e.type === 'assistant')
+        .map((e) => e.text)
+        .join('');
+      expect(evs.find((e) => e.type === 'result')!.text, f).toBe(joined);
+    }
+  });
+
   it('tool-loop: tool_call echoed by tool_result with matching id', () => {
     const evs = load('tool-loop');
     const call = evs.find((e) => e.type === 'tool_call')!;

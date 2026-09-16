@@ -123,6 +123,48 @@ describe('agent exec: success', () => {
     expect(byType(h, 'result')[0]).toMatchObject({ text: 'final answer' });
   });
 
+  // #245: incremental runners stream deltas and put no text on their result
+  // message — result.text must be the whole reply, not the last fragment.
+  it.each(['claude', 'opencode'])(
+    'result.text is the joined assistant deltas for incremental runtime %s',
+    async (runtime) => {
+      const h = makeHarness({ runtime });
+      await run(
+        h,
+        scriptedRunner([
+          { type: 'assistant', text: 'Rivers flow' },
+          { type: 'assistant', text: ' to the sea.' },
+          { type: 'assistant', text: '\nThey carve valleys.' },
+          { type: 'result', subtype: 'success' },
+        ]),
+      );
+      const joined = byType(h, 'assistant')
+        .map((e) => e.text)
+        .join('');
+      expect(joined).toBe('Rivers flow to the sea.\nThey carve valleys.');
+      expect(byType(h, 'result')[0].text).toBe(joined);
+    },
+  );
+
+  it('result.text is the final assistant message for a non-incremental runtime', async () => {
+    const h = makeHarness({ runtime: 'codex' });
+    await run(
+      h,
+      scriptedRunner([
+        { type: 'assistant', text: 'Let me check the files.' },
+        { type: 'assistant', text: 'The README covers three install paths.' },
+        { type: 'result', subtype: 'success' },
+      ]),
+    );
+    expect(byType(h, 'result')[0].text).toBe('The README covers three install paths.');
+  });
+
+  it('omits result.text when the turn produced no assistant text', async () => {
+    const h = makeHarness();
+    await run(h, scriptedRunner([{ type: 'result', subtype: 'success' }]));
+    expect(byType(h, 'result')[0]).not.toHaveProperty('text');
+  });
+
   it('marks error results: error event + exit 1', async () => {
     const h = makeHarness();
     const code = await run(
