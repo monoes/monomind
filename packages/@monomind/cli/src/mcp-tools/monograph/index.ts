@@ -126,9 +126,8 @@ const advancedMonographTools: MCPTool[] = [
 ];
 
 /**
- * Full tool list regardless of gating — used by the graphify compat shims,
- * which must resolve targets (e.g. monograph_community) even when the
- * advanced set is not exposed over MCP.
+ * Full tool list regardless of gating — used by tests that need the advanced
+ * set (e.g. monograph_community) even when it isn't exposed over MCP.
  */
 export const allMonographTools: MCPTool[] = [...coreMonographTools, ...advancedMonographTools];
 

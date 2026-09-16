@@ -55,7 +55,6 @@ const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   guidance: async () => (await import('./mcp-tools/guidance-tools.js')).guidanceTools,
   autopilot: async () => (await import('./mcp-tools/autopilot-tools.js')).autopilotTools,
   monograph: async () => (await import('./mcp-tools/monograph-tools.js')).monographTools,
-  graphify: async () => (await import('./mcp-tools/graphify-tools.js')).graphifyTools,
   coverage: async () => (await import('./monovector/coverage-tools.js')).coverageRouterTools,
   quality: async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
   knowledge: async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,

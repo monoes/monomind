@@ -12,7 +12,6 @@ export { claimsTools } from './claims-tools.js';
 export { configTools } from './config-tools.js';
 export { embeddingsTools } from './embeddings-tools.js';
 export { githubTools } from './github-tools.js';
-export { graphifyTools } from './graphify-tools.js';
 export { guidanceTools } from './guidance-tools.js';
 export { hooksTools } from './hooks-tools.js';
 export { knowledgeTools } from './knowledge-tools.js';
