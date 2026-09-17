@@ -1110,6 +1110,64 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     expect(running.agents.get('boss')!.status).toBe('ended');
     expect(events.some(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'boss')).toBe(true);
   }, 10_000);
+
+  it('a silent session retries with a live abort signal, keeps the role working, and an org stop still aborts the retry (#256)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-silent256-'));
+    fixture(root, 'alpha');
+    // coder, attempt 1: a subprocess-style runner whose stream stays silent
+    // and only unblocks when its abort signal fires. Every attempt behaves
+    // like a runner honoring AgentRunArgs.signal: an already-aborted signal
+    // kills the child before it produces anything.
+    const coderSignals: AbortSignal[] = [];
+    const abortedAtStart: boolean[] = [];
+    const runner = {
+      run: async function* (args: any) {
+        const isCoder = /agent "coder"/.test(args.systemPrompt ?? '');
+        if (isCoder) {
+          coderSignals.push(args.signal);
+          abortedAtStart.push(args.signal.aborted);
+        }
+        if (args.signal?.aborted) throw new Error('Claude Code process aborted by user');
+        if (isCoder && coderSignals.length === 1) {
+          await new Promise<void>((r) => args.signal.addEventListener('abort', () => r(), { once: true }));
+          throw new Error('child killed');
+        }
+        for await (const m of args.prompt) {
+          yield { type: 'assistant', text: `echo: ${m.message.content}` };
+          yield { type: 'result', subtype: 'success', input_tokens: 1, output_tokens: 1 };
+        }
+      },
+    };
+    const d = new OrgDaemon(root, {
+      runner: runner as any,
+      forward: false,
+      stopWaitMs: 200,
+      crashBackoffsMs: [10, 10, 10],
+      silentSessionMs: 150,
+    });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    const coderEchoed = () =>
+      running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('build it'));
+    expect(await waitUntil(coderEchoed, 5000)).toBe(true);
+
+    const events = running.busEvents();
+    expect(events.some(e => e.type === 'audit' && e.reason === 'session-silent' && e.from === 'coder')).toBe(true);
+    // The retry started with a live signal - the silent attempt's abort was its own.
+    expect(abortedAtStart).toEqual([false, false]);
+    expect(coderSignals[0].aborted).toBe(true);
+    expect(coderSignals[1].aborted).toBe(false);
+    // Not treated as an org stop, not a crash: the role is still working.
+    expect(running.agents.get('coder')!.status).toBe('running');
+    expect(events.some(e => e.reason === 'agent-stopped' && e.from === 'coder')).toBe(false);
+    expect(events.some(e => e.reason === 'agent-session-crash' && e.from === 'coder')).toBe(false);
+    const receipt = await d.deliver('alpha', 'boss', 'coder', 'task', 'second');
+    expect(receipt).toMatch(/delivered/);
+
+    // An org stop still reaches the in-flight retry's signal.
+    await d.stopOrg('alpha');
+    expect(coderSignals[1].aborted).toBe(true);
+  }, 15_000);
 });
 
 describe('OrgDaemon — oversized mailbox digest', () => {
