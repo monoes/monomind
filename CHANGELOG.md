@@ -4,6 +4,24 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-09-17
+
+### Breaking Changes
+
+- **MCP tools**: Removed the deprecated `graphify_*` tool shims (122c55ebb). Callers still using these deprecated names (`graphify_build`, `graphify_query`, `graphify_god_nodes`, `graphify_get_node`, `graphify_shortest_path`, `graphify_community`, `graphify_stats`, `graphify_surprises`, `graphify_suggest`, `graphify_visualize`, `graphify_watch`, `graphify_watch_stop`, `graphify_report`, and `graphify_health`) must switch to the equivalent `monograph_*` tool.
+
+### Fixed
+
+- `monomind init --force` now properly migrates pre-rename projects (7dd8deb26). Previously, projects initialized before the graphify→monograph rename never fully migrated: the old `graphify-freshen.cjs` hook file stayed on disk forever, and even after `--force` refreshed `settings.json`, the old command survived as a duplicate SessionStart hook (looked 'unknown' next to the newly generated `monograph-freshen.cjs` command). Now obsolete helper files are deleted and obsolete hook commands are stripped from settings before the merge, so migration completes in one `init --force`.
+
+### Changed
+
+- Renamed "graphify" to "monograph" throughout the codebase (8cd1b8851). This product's own knowledge graph is branded Monograph (`@monoes/monograph`, `monograph.db`, `monograph_query`, …) — several internal names never got the memo:
+  - SessionStart hook: `graphify-freshen.cjs` → `monograph-freshen.cjs` (root `.claude`, `.gemini`, packaged copies, and all generator/wiring references)
+  - `InitComponents.graphify` / `MCPConfig.graphify` → `.monograph`
+  - Various internal function names and comments
+- Root CI now builds monobrowse before typecheck (96e8a56fb). Root typecheck scans every package under `packages/**`, and `@monoes/monobrowse/src/cli/platform.ts` self-imports `@monoes/monobrowse`, which only resolves once the package has built its own `dist/`.
+
 ## [2.10.31] — 2026-09-17
 
 ### Added
