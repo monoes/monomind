@@ -12,8 +12,10 @@
  * distinct paths/URLs never fold together.
  *
  * Validated on a blind-labeled benchmark (three independently-authored,
- * disjoint pair sets; see doc/reports for the methodology): F0.5 0.775
+ * disjoint pair sets, method frozen before the final score): F0.5 0.775
  * against 0.480 for exact-match identity, 3 false merges out of 261 pairs.
+ * The benchmark itself is not checked in; see the test cases below for the
+ * concrete merge/non-merge examples it was built from.
  * `resolveEntity` uses this only to find CANDIDATES for its existing
  * (type, name) resolution rules — a merge-key hit is never itself sufficient
  * to merge two differently-typed entities.
