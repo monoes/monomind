@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/questions.ts
 // Extracted from daemon.ts — ask_human / answerQuestion flow.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OrgDaemon } from './daemon.js';
 import { queueMessage } from './inbox.js';
@@ -42,6 +42,26 @@ export function writeQuestions(
   const tmp = `${dest}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(data, null, 2));
   renameSync(tmp, dest);
+}
+
+/** Discard every still-pending question left over from a previous run. Call on
+ *  a fresh (non-resume) startOrg — same rule as clearApprovalsForFreshStart
+ *  (#165), for the same reason (#248).
+ *
+ *  questions.json is keyed per-org, not per-run. A question a role asked in a
+ *  PREVIOUS run that was never answered before that run ended otherwise stays
+ *  `answer: null` forever: `org questions` and the dashboard list it as
+ *  pending, the idle watchdog treats it as a legitimate human wait and never
+ *  nudges or stops the new run, and answering it pushes context into a role
+ *  that never asked. Answered entries have no effect on a new run, so they are
+ *  kept as history; the dropped question's text is still in its own run's
+ *  bus.jsonl ('question' event). */
+export function clearQuestionsForFreshStart(daemon: OrgDaemon, org: string): void {
+  if (!existsSync(questionsPath(daemon.root, org))) return;
+  const data = readQuestions(daemon.root, org);
+  const answered = data.questions.filter((q) => q.answer !== null);
+  if (answered.length !== data.questions.length)
+    writeQuestions(daemon.root, org, { ...data, questions: answered });
 }
 
 /** Serialize question mutations per org (same pattern as withApprovalLock).
