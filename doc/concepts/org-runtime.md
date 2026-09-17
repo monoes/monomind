@@ -285,7 +285,50 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](packages/@monomin
 | `fileRead` | `[]` | Glob patterns allowed for reads |
 | `webAllow` | _(unset)_ | Domain allowlist for WebFetch/WebSearch: exact host, suffix match, `*.example.com`, or `*` for any host; `[]` = no web |
 | `maxTokens` | _(unset)_ | Per-role token budget override |
-| `git` | `'read'` | `'none'` \| `'read'` \| `'commit'` \| `'push'` |
+| `git` | `'read'` | `'none'` \| `'read'` \| `'commit'` \| `'push'` — see [Git policy enforcement](#git-policy-enforcement) |
+| `sandbox` | `{ mode: 'auto' }` | OS sandbox for claude-runtime roles below `git: 'push'`: `mode` `'auto'` \| `'required'` \| `'off'`; `allowedDomains` (default `['*']`); `deniedDomains` (added to the repo's own remote hosts); `allowWrite` (extra writable paths) |
+
+### Git policy enforcement
+
+`policy.git` is enforced in layers, strongest first. A role at `'push'` gets none of them. Every other level gets all the layers its runtime supports. The implementation lives in [`git-guard.ts`](packages/@monomind/cli/src/orgrt/git-guard.ts) and [`role-sandbox.ts`](packages/@monomind/cli/src/orgrt/role-sandbox.ts), and both are applied per session in `session.ts`.
+
+| Layer | Runtimes | What it stops | Bypassable by a same-user role? |
+|---|---|---|---|
+| **1. OS sandbox** (Claude Agent SDK `sandbox`: bubblewrap + socat on Linux, seatbelt on macOS) | `claude` | See the note below this table. | No, for commands the Bash tool runs. |
+| **2. File-tool deny rules** (SDK `disallowedTools`: `Edit(//<git dir>/**)` at `read`/`none`; `Edit` on `config` and `hooks/**` at `commit`; `Read(//<git dir>/**)` at `none`; the guard dir always) | `claude` | Write/Edit/Read are in-process tools, so the sandbox doesn't cover them; these rules do. They don't need the sandbox. | No. |
+| **3. Bash text classifier** ([`policy.ts`](packages/@monomind/cli/src/orgrt/policy.ts) `checkGitPolicy`) | `claude` (via `canUseTool`) | Literal `git push`/`commit`, plus substitutions and interpreter arguments it can't verify (it fails closed on those). | Yes. It can't see `echo "git push" \| sh`, a script written in one call and run in the next, `node -e`, or npm scripts. |
+| **4. Git guard env** (`GIT_CONFIG_COUNT` config plus credential variables) | all runtimes that pass the session env | `pre-push` denies every push. At `read`/`none`, `reference-transaction` denies ref updates in the org's repositories, including `commit --no-verify`, `update-ref` and `commit-tree`. `protocol.file.allow=never` stops local-path pushes and `send-pack`. `credential.helper` is reset, askpass and ssh commands fail, `GIT_TERMINAL_PROMPT=0`, and `SSH_AUTH_SOCK`, `GH_TOKEN` and `GITHUB_TOKEN` are blank. | Yes; see the residual risks below. |
+
+The OS sandbox (layer 1) confines what the Bash tool's commands can do:
+- **Writes:** the protected `.git` is read-only at `read`/`none`. At `commit`, only its `config` and `hooks` are read-only. The guard's hooks, local-path remotes, and git, shell and Claude config under `$HOME` are always read-only.
+- **Network:** requests to the hosts of the repository's own remotes are denied.
+- **Reads:** credential files (`~/.ssh`, `~/.git-credentials`, `~/.config/gh`, `~/.netrc`) can't be read. At `none`, the `.git` dir can't be read either.
+- **Gating:** Bash commands still go through `canUseTool` (`autoAllowBashIfSandboxed: false`), and the `dangerouslyDisableSandbox` parameter is ignored (`allowUnsandboxedCommands: false`).
+
+The guard protects the git common directories of the role's cwd and of the org root, so worktree-per-role worktrees share their main repo's protection. Scratch repositories elsewhere, such as test fixtures under `$TMPDIR`, can still commit at `read`, but nothing can push below `push`. Every other hook passes through to the repository's own hooks (husky, lint-staged), so they keep running for `commit` roles.
+
+**Legitimate work stays possible under the sandbox.** The role's cwd, the org root, `$HOME` and the temp dir remain writable, so installs, caches and test fixtures still work. Network is open to every host except the repository's remotes, local port binding is allowed for dev servers and tests, and `commit` roles can still commit in worktrees whose git dir sits outside their cwd.
+
+**Sandbox availability (`policy.sandbox.mode`).**
+- `'auto'` (default) uses the sandbox when bwrap and socat (Linux) or `/usr/bin/sandbox-exec` (macOS) are present. If they aren't, the session **runs without it (fail open)** and emits a `git-sandbox-unavailable` audit event, so the gap is never silent.
+- `'required'` **fails closed**: the session refuses to start and emits a `git-sandbox-required` audit event. When enabled, the SDK itself is also passed `failIfUnavailable: true`.
+- `'off'` opts out and emits a `git-sandbox-off` audit event.
+
+Non-claude runtimes get layer 4 only and emit a `git-sandbox-unsupported-runtime` audit event. `monomind org validate` reports the same findings before a run: warnings for unsandboxed roles, and an error for a `'required'` role on a host without the sandbox.
+
+**Residual risk: be explicit about what is not enforced.**
+- **Layers 3 and 4 are not a security boundary against a determined role.** The role runs as the same OS user as the operator. Without the OS sandbox it can:
+  - override the guard config: `git -c core.hooksPath=… -c protocol.file.allow=always push`, `env -u GIT_CONFIG_COUNT`, `GIT_CONFIG_COUNT=0`;
+  - write refs and objects directly into `.git` or a local remote with `cp`/`echo`;
+  - read ssh keys, `~/.git-credentials` or a gh login from disk;
+  - use a token found in a project `.env`.
+  `--no-verify` alone does **not** get past it: `reference-transaction` and `protocol.file.allow` have no such flag. [`git-guard.test.ts`](packages/@monomind/cli/__tests__/orgrt/git-guard.test.ts) asserts both the covered cases and the `-c` bypass.
+- **On Claude roles with the OS sandbox,** the remaining gaps are:
+  - pushing through a forge's HTTP API (e.g. the GitHub contents API on `api.github.com`) with a credential the role can read, such as one in the workspace;
+  - network pushes to hosts that are not the repository's configured remotes, if the role finds credentials for them (add those hosts to `policy.sandbox.deniedDomains`);
+  - creating a `~/.gitconfig` or shell rc file that doesn't exist yet. Missing paths can't be denied, because the sandbox would make them unreadable and git treats an unreadable `~/.gitconfig` as fatal. Guard config in the environment still beats `~/.gitconfig`.
+- **`opencode` doesn't pass the session env** to the server it starts, so layer 4 does not apply to it. Other non-claude CLIs (codex `--sandbox danger-full-access`, qwen `--yolo`, grok `--always-approve`, copilot `--allow-all-tools`, antigravity `--dangerously-skip-permissions`, and so on) run their native shell with no OS sandbox and without consulting `canUseTool`. Codex, grok, copilot and antigravity have sandbox modes of their own, but none is wired to `policy.git` yet.
+- **On Windows,** the hooks' path comparison (`pwd -P` vs. Node realpaths) may not match, so `reference-transaction` protection at `read` is not guaranteed there.
 
 ### Provider kinds (`ProviderSchema`)
 

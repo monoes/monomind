@@ -22,6 +22,7 @@ const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.c
 
 import { readFileSync } from 'node:fs';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
+import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
 import { DEFAULT_CLAUDE_MODEL } from './vercel-providers.js';
 
@@ -583,6 +584,20 @@ async function runOneSession(
   if (external?.aborted) onExternalAbort();
   else external?.addEventListener('abort', onExternalAbort, { once: true });
   try {
+    // #258: policy.git enforced where git runs, not only by Bash text
+    // classification — guard env for every runtime, OS sandbox + file-tool
+    // deny rules for Claude. Throws (session fails) when the role requires
+    // the sandbox and it can't start.
+    const gitEnforcement = resolveRoleGitEnforcement({
+      org,
+      role,
+      cwd,
+      orgRoot: opts.orgRoot,
+      orgDir: opts.orgDir,
+      bus,
+      claudeRuntime: runner instanceof ClaudeAgentRunner,
+      runtime: role.runtime ?? opts.def?.runtime,
+    });
     const stream = runner.run({
       tools,
       prompt: mailbox.stream(),
@@ -604,6 +619,7 @@ async function runOneSession(
         ...(prov.cfg?.authToken
           ? { ANTHROPIC_MODEL: model, ANTHROPIC_SMALL_FAST_MODEL: model }
           : {}),
+        ...gitEnforcement.env,
         // No MONOMIND_HOOK_QUIET / MONOMIND_GRAPH_GATE / MONOMIND_SDK_AGENT
         // here (#249): every CLI hands this env to its shell tool, so they
         // reached every command the role ran and silently muted monomind's
@@ -627,6 +643,7 @@ async function runOneSession(
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
+      claudeRestrictions: gitEnforcement.claudeRestrictions,
       canUseTool: gatedCanUseTool(
         policy,
         opts.beforeTool,
