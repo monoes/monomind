@@ -155,8 +155,10 @@ export async function provisionModel(log: (m: string) => void): Promise<ModelPre
       throw new Error('[doc eval] provisioning ran but the weights are still not on disk.');
     log(`provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
   }
-  // Also provision the cross-encoder reranker (ettin-32m) if not already present.
+  // Also provision the cross-encoder reranker (ettin-32m) if not already present,
+  // plus its classifier head — the upstream ONNX alone cannot produce scores.
   await provisionReranker(log);
+  await provisionRerankerHead(log);
   return checkModelPresence([process.cwd()]);
 }
 
@@ -218,4 +220,25 @@ export async function provisionReranker(log: (m: string) => void): Promise<Model
     throw new Error('[doc eval] reranker provisioning ran but the weights are still not on disk.');
   log(`reranker provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
   return after;
+}
+
+/** Fetch the ettin classifier head (three safetensors files, <1MB) so the
+ *  upstream encoder can score in JS — no PyTorch export needed. */
+export async function provisionRerankerHead(log: (m: string) => void): Promise<string> {
+  const { ETTIN_HEAD_DIRNAME, ETTIN_HEAD_FILES } = await import('../../memory/reranker-head.js');
+  const { rerankerModelsDir } = await import('../../memory/memory-bridge.js');
+  const headDir = path.join(rerankerModelsDir(), ETTIN_HEAD_DIRNAME);
+  for (const rel of ETTIN_HEAD_FILES) {
+    const dest = path.join(headDir, rel);
+    if (fs.existsSync(dest)) continue;
+    const url = `https://huggingface.co/${RERANKER_MODEL_ID}/resolve/main/${rel}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`[doc eval] reranker head fetch failed: ${res.status} ${url}`);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    // Write to a temp name first so an interrupted download never looks complete.
+    fs.writeFileSync(`${dest}.part`, Buffer.from(await res.arrayBuffer()));
+    fs.renameSync(`${dest}.part`, dest);
+  }
+  log(`reranker head provisioned at ${headDir}`);
+  return headDir;
 }
