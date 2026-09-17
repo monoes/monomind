@@ -327,17 +327,40 @@ const GIT_PUSH_CMDS = /^(push|fetch|pull|clone|remote-add|submodule)$/;
 
 /** `git config` writes change .git/config, which every worktree of the repo
  *  shares — `git config user.name x` rewrites the commit identity repo-wide
- *  (#250) — so they need policy.git 'push'. Reads stay inspection. Unknown
- *  shapes (e.g. an option that takes a value) count as writes: fail closed. */
-const GIT_CONFIG_WRITE_FLAGS =
-  /^(--(add|unset|unset-all|replace-all|rename-section|remove-section|edit)|-e)$/;
-const GIT_CONFIG_READ_FLAGS =
+ *  (#250) — so they need policy.git 'push'. Reads stay inspection.
+ *
+ *  The args are walked the way git parses them, because matching flags
+ *  anywhere in the line let writes through: git stops option parsing at the
+ *  first positional (`config user.name x -l` WRITES — `-l` is a value-pattern),
+ *  value options swallow the next token (`--comment -l user.name x` writes),
+ *  and git accepts abbreviations (`--unset-a`). So only an allowlist of
+ *  read-safe options is trusted; any other option is a write. An expansion
+ *  (`$V`, `user.{name,x}`, a glob) may split into more arguments than the
+ *  tokenizer sees — fail closed. */
+const GIT_CONFIG_READ_VERBS =
   /^(--(get|get-all|get-regexp|get-urlmatch|get-color|get-colorbool|list)|-l)$/;
+const GIT_CONFIG_READ_OPTS =
+  /^(--(global|local|system|worktree|includes|no-includes|null|name-only|show-origin|show-scope|bool|int|bool-or-int|path|expiry-date)|-z)$/;
+const GIT_CONFIG_VALUE_OPTS = /^(-f|--(file|blob|type|default|url))$/;
 function gitConfigIsWrite(args: string[]): boolean {
-  if (args.some((a) => GIT_CONFIG_WRITE_FLAGS.test(a))) return true;
-  if (args.some((a) => GIT_CONFIG_READ_FLAGS.test(a))) return false;
-  const positional = args.filter((a) => !a.startsWith('-'));
-  if (/^(get|list)$/.test(positional[0] ?? '')) return false;
+  if (args.some((a) => /[$`{}*?[]/.test(a))) return true;
+  let readVerb = false;
+  let i = 0;
+  for (; i < args.length && args[i].startsWith('-'); i++) {
+    const a = args[i];
+    if (a === '--') {
+      i++;
+      break;
+    }
+    if (GIT_CONFIG_READ_VERBS.test(a)) readVerb = true;
+    else if (GIT_CONFIG_VALUE_OPTS.test(a))
+      i++; // `-f <file>` — skip the value
+    else if (!GIT_CONFIG_VALUE_OPTS.test(a.split('=')[0]) && !GIT_CONFIG_READ_OPTS.test(a))
+      return true;
+  }
+  const positional = args.slice(i);
+  // new-style `get`/`list` read; in legacy mode they are invalid keys (no write)
+  if (readVerb || /^(get|list)$/.test(positional[0] ?? '')) return false;
   if (/^(set|unset|rename-section|remove-section|edit)$/.test(positional[0] ?? '')) return true;
   return positional.length !== 1; // a bare `name` reads; `name value` (or nothing parseable) writes
 }
@@ -378,14 +401,19 @@ function shellSegments(cmd: string): string[][] {
   let seg: string[] = [];
   let cur = '';
   let has = false; // current token has content (so `""` yields an empty token)
+  let literal = false; // current token used quotes/escapes, so `"2">x` is a word, not an fd
+  let redirectTarget = false; // next token is a redirection target, not an argument
   let quote: '"' | "'" | null = null;
   const flush = () => {
-    if (has) seg.push(cur);
+    if (has && !redirectTarget) seg.push(cur);
+    if (has) redirectTarget = false;
     cur = '';
     has = false;
+    literal = false;
   };
   const endSegment = () => {
     flush();
+    redirectTarget = false;
     if (seg.length) segments.push(seg);
     seg = [];
   };
@@ -400,9 +428,23 @@ function shellSegments(cmd: string): string[][] {
     if (c === '"' || c === "'") {
       quote = c;
       has = true;
+      literal = true;
     } else if (c === '\\' && i + 1 < cmd.length) {
       cur += cmd[++i];
       has = true;
+      literal = true;
+    } else if (c === '<' || c === '>') {
+      // Redirection (`2>/dev/null`, `>out`, `2>&1`, `<in`): the fd number and
+      // the target are not arguments, and counting them misclassifies a
+      // `git config` read as a write. Unquoted only — `"2">x` passes "2".
+      if (/^\d+$/.test(cur) && !literal) {
+        cur = '';
+        has = false;
+      } else flush();
+      let op = c;
+      while (i + 1 < cmd.length && '<>&|'.includes(cmd[i + 1])) op += cmd[++i];
+      // a here-string's word is content (`sh <<<"git push"`), keep it visible
+      redirectTarget = !op.startsWith('<<<');
     } else if (c === '\n' || ';|&()'.includes(c)) endSegment();
     else if (/\s/.test(c)) flush();
     else {
@@ -465,7 +507,8 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
       if (!GIT_SUBCOMMAND_SHAPE.test(sub))
         return { subs, opaque: `unparseable git subcommand (${sub})` };
       if (sub === 'config') {
-        subs.push(gitConfigIsWrite(tokens.slice(j + 1)) ? 'config' : 'config-read');
+        // `config:read` cannot collide with a real subcommand token (see GIT_SUBCOMMAND_SHAPE)
+        subs.push(gitConfigIsWrite(tokens.slice(j + 1)) ? 'config' : 'config:read');
         continue;
       }
       subs.push(sub);
@@ -487,7 +530,7 @@ function checkGitPolicy(cmd: string, level: 'none' | 'read' | 'commit' | 'push')
   if (level === 'none') return `git commands are not allowed for this role (policy.git: none)`;
 
   for (const sub of gitCalls) {
-    if (GIT_READ_CMDS.test(sub) || sub === 'config-read') continue; // always allowed at 'read' and above
+    if (GIT_READ_CMDS.test(sub) || sub === 'config:read') continue; // always allowed at 'read' and above
 
     if (sub === 'config') {
       return `git config write denied (policy.git: ${level} — .git/config is shared by every worktree; writes require policy.git: 'push'. Use \`git -c key=value <cmd>\` for a one-off setting)`;
