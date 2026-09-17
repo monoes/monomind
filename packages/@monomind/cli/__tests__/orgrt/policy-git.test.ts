@@ -81,6 +81,70 @@ describe('policy.git', () => {
     expect(await allows('commit', 'git -c user.name=qa -c user.email=qa@x commit -m y')).toBe(true);
   });
 
+  // Each of these WROTE .git/config under real git while the first #250 fix
+  // classified it as a read. git config parses options only up to the first
+  // positional, lets value-taking options swallow the next token, accepts
+  // abbreviated long options, and the shell may split one token into several.
+  it('classifies git config writes the way git parses them', async () => {
+    const writes = [
+      // a trailing read flag after the name is a value-pattern, not an option
+      'git config user.name EVIL -l',
+      'git config user.email x@y --list',
+      'git config user.name EVIL --get',
+      // --comment consumes the next token as its value
+      'git config --comment -l user.name EVIL1',
+      'git config --comment --get user.name EVIL1',
+      'git config --comment get user.name EVIL1',
+      'git config --comment list user.name EVIL1',
+      'git config --comm -l user.name EVIL1',
+      'git config --file .git/config --comment -l user.name EVIL1',
+      'git config -f -l user.name EVIL1', // -f swallows `-l` as its file name
+      // shell expansion splits into name + value
+      'git config $(echo user.name EVIL6)',
+      'V="user.name EVIL7"; git config $V',
+      'git config user.{name,EVIL9}',
+      // a value starting with '-' is still a positional
+      'git config -- user.name -EVIL5',
+      'git config user.name -EVIL5',
+      // abbreviated long options
+      'git config --unset-a user.name',
+      'git config --remove-s user',
+      // a redirection between arguments, or a quoted/escaped digit before `>`
+      'git config user.name >&2 EVIL',
+      'git config user.name "2">/dev/null',
+      'git config user.name \\2>/dev/null',
+    ];
+    for (const c of writes) {
+      expect(await allows('read', c), c).toBe(false);
+      expect(await allows('commit', c), c).toBe(false);
+      expect(await allows('push', c), c).toBe(true);
+    }
+  });
+
+  it('allows git config reads that use value options or redirections', async () => {
+    for (const c of [
+      'git config --type bool core.bare',
+      'git config --type=bool core.bare',
+      'git config --default zz user.foo',
+      'git config -f .gitmodules submodule.x.path',
+      'git config --file=.gitmodules --list',
+      'git config --blob HEAD:.gitmodules submodule.x.path',
+      'git config --get user.name EVIL', // value-pattern of a read
+      'git config user.email 2>/dev/null',
+      'git config user.email 2>/dev/null || echo none',
+      'git config user.email > out.txt',
+      'git config --list 2>&1 | head -5',
+    ]) {
+      expect(await allows('read', c), c).toBe(true);
+      expect(await allows('commit', c), c).toBe(true);
+    }
+  });
+
+  it('does not treat the internal config-read marker as a real subcommand', async () => {
+    expect(await allows('read', 'git config-read')).toBe(false);
+    expect(await allows('read', 'git config:read')).toBe(false);
+  });
+
   it("'push' permits publication", async () => {
     expect(await allows('push', 'git push origin main')).toBe(true);
   });
@@ -161,6 +225,8 @@ describe('policy.git', () => {
       'eval $CMD',
       'echo push | xargs git',
       'sh -c "$CMD"',
+      'sh <<<"git push"', // a here-string is content, not a redirection target to drop
+      'python3 <<< "import os; os.system(\'git push\')"',
     ]) {
       expect(await allows('commit', c), c).toBe(false);
     }
