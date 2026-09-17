@@ -51,6 +51,10 @@ describe('C5 — init emits a runnable sample org', () => {
     expect(parsed.goal).toBeTruthy();
     expect(parsed.run_config).toBeDefined();
     expect(parsed.status).toBe('stopped');
+    // Every role pins its model explicitly rather than inheriting a runtime default
+    for (const role of parsed.roles) {
+      expect(role.adapter_config?.model, role.id).toBeTruthy();
+    }
   });
 
   it('does not overwrite an existing sample-team.json on re-init', async () => {

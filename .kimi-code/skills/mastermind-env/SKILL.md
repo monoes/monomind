@@ -55,7 +55,7 @@ echo ""
 # LLM / Adapter config
 echo "LLM PROVIDER"
 echo "────────────"
-ceo_model=$(jq -r '.run_config.ceo_adapter // "claude-sonnet-4-6"' "$orgFile")
+ceo_model=$(jq -r '.run_config.ceo_adapter // "claude-sonnet-5"' "$orgFile")
 echo "  CEO adapter model:  $ceo_model"
 jq -r '(.roles // [])[] | "  \(.id): \(.adapter_config.model // "inherited from CEO")"' "$orgFile" 2>/dev/null
 echo ""

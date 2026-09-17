@@ -552,7 +552,8 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       if (!fs.existsSync(adaptersFile)) {
         // Return defaults derived from org config if available
         const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
-        let defaultAdapter = 'claude-sonnet-4-6';
+        // claude-sonnet-5 = DEFAULT_CLAUDE_MODEL (src/orgrt/vercel-providers.ts); .mjs can't import TS.
+        let defaultAdapter = 'claude-sonnet-5';
         try {
           defaultAdapter =
             JSON.parse(fs.readFileSync(orgFile, 'utf8'))?.run_config?.ceo_adapter || defaultAdapter;

@@ -33,9 +33,10 @@ If `caller` is not "command", load brain context following mastermind-protocol/S
 | Type | Label | Source | Notes |
 |------|-------|--------|-------|
 | `claude-local` | Claude (local CLI) | built-in | Uses `claude` CLI |
-| `claude-opus-4-7` | Claude Opus 4.7 | built-in | High capability |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6 | built-in | Balanced (default) |
-| `claude-haiku-4-5` | Claude Haiku 4.5 | built-in | Fast, low cost |
+| `claude-fable-5-1` | Claude Fable 5.1 | built-in | Most capable, highest cost |
+| `claude-opus-5` | Claude Opus 5 | built-in | High capability |
+| `claude-sonnet-5` | Claude Sonnet 5 | built-in | Balanced (default — the org runtime default, `DEFAULT_CLAUDE_MODEL`) |
+| `claude-haiku-4-5-20251001` | Claude Haiku 4.5 | built-in | Fast, low cost |
 | `gemini-local` | Gemini (local) | built-in | Uses `gemini` CLI |
 | `codex-local` | Codex (local) | built-in | Uses `codex` CLI |
 | `cursor` | Cursor | built-in | Uses Cursor agent |
@@ -54,7 +55,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 adaptersFile=".monomind/orgs/${org_name}-adapters.json"
 if [ ! -f "$adaptersFile" ]; then
   # Bootstrap from org config adapter_config if present
-  defaultModel=$(jq -r '.run_config.ceo_adapter // "claude-sonnet-4-6"' "$orgFile")
+  defaultModel=$(jq -r '.run_config.ceo_adapter // "claude-sonnet-5"' "$orgFile")
   cat > "$adaptersFile" <<EOF
 {
   "org": "${org_name}",
@@ -81,7 +82,7 @@ echo "────────────────────────�
 printf "%-22s %-28s %-10s %-8s %s\n" "TYPE" "LABEL" "SOURCE" "MODELS" "STATUS"
 echo "──────────────────────────────────────────────────────"
 
-defaultAdap=$(jq -r '.default_adapter // "claude-sonnet-4-6"' "$adaptersFile")
+defaultAdap=$(jq -r '.default_adapter // "claude-sonnet-5"' "$adaptersFile")
 
 jq -r --arg def "$defaultAdap" '
   (.adapters // [])[] |

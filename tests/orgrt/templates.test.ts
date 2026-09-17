@@ -7,6 +7,7 @@ import {
   buildFromTemplate,
   ORG_TEMPLATES,
 } from '../../packages/@monomind/cli/src/orgrt/templates.js';
+import { DEFAULT_CLAUDE_MODEL } from '../../packages/@monomind/cli/src/orgrt/vercel-providers.js';
 
 describe('kg-extraction template — multi-agent KG pipeline', () => {
   it('is registered in ORG_TEMPLATES', () => {
@@ -57,11 +58,9 @@ describe('advisor-orchestrator template — cost-efficient planner + workers', (
     const def = buildFromTemplate('advisor-orchestrator', 'my-advisor')!;
     const advisor = def?.roles.find((r) => r.id === 'advisor')!;
     const worker = def?.roles.find((r) => r.id === 'worker-1')!;
-    expect(advisor.adapter_config?.model).toBeUndefined();
+    expect(advisor.adapter_config?.model).toBe(DEFAULT_CLAUDE_MODEL);
     expect(worker.adapter_config?.model).toBeTruthy();
-    expect(worker.adapter_config?.model).not.toBe(
-      advisor.adapter_config?.model ?? 'claude-sonnet-4-5',
-    );
+    expect(worker.adapter_config?.model).not.toBe(advisor.adapter_config?.model);
   });
 });
 
@@ -71,6 +70,16 @@ describe('All templates — schema validity', () => {
       const def = buildFromTemplate(name, `test-${name}`);
       expect(def, `template "${name}" should build`).not.toBeNull();
       expect(def?.roles.length, `template "${name}" needs at least one role`).toBeGreaterThan(0);
+    }
+  });
+
+  it('every role of every template pins its model explicitly (latest default unless hinted)', () => {
+    for (const [name, template] of Object.entries(ORG_TEMPLATES)) {
+      const def = buildFromTemplate(name, `test-${name}`)!;
+      for (const role of def.roles) {
+        const hint = template.roles.find((r) => r.id === role.id)?.model;
+        expect(role.adapter_config?.model, `${name}/${role.id}`).toBe(hint ?? DEFAULT_CLAUDE_MODEL);
+      }
     }
   });
 });

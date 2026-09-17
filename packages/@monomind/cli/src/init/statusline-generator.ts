@@ -218,9 +218,14 @@ function getGitInfo() {
 
 // Normalise a model ID string to a short display name
 function modelLabel(id) {
-  if (id.includes('opus'))   return 'Opus 4.6';
-  if (id.includes('sonnet')) return 'Sonnet 4.6';
-  if (id.includes('haiku'))  return 'Haiku 4.5';
+  // Derive the version from the id (claude-sonnet-5 -> "Sonnet 5", claude-opus-4-6 -> "Opus 4.6")
+  // instead of assuming every sonnet/opus id is one fixed release.
+  const m = id.match(/(fable|opus|sonnet|haiku)(?:-(\\d+)(?:-(\\d{1,2}))?(?!\\d))?/);
+  if (m) {
+    const family = m[1][0].toUpperCase() + m[1].slice(1);
+    if (!m[2]) return family;
+    return family + ' ' + (m[3] ? m[2] + '.' + m[3] : m[2]);
+  }
   return id.split('-').slice(1, 3).join(' ');
 }
 
@@ -312,7 +317,7 @@ function getModelName() {
   const claudeModel = process.env.CLAUDE_CODE_MODEL;
   if (claudeModel) return modelLabel(claudeModel);
 
-  return 'Sonnet 4.6'; // known current default rather than the generic "Claude Code"
+  return 'Sonnet 5'; // known current default rather than the generic "Claude Code"
 }
 
 // Get learning stats from memory database (pure stat calls)

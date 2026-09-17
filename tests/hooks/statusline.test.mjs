@@ -121,6 +121,16 @@ describe('modelLabel', () => {
   it('returns "Haiku 4.5" for model ids containing "haiku"', () => {
     const { modelLabel } = loadSL();
     expect(modelLabel('claude-haiku-4-5')).toBe('Haiku 4.5');
+    expect(modelLabel('claude-haiku-4-5-20251001')).toBe('Haiku 4.5');
+  });
+
+  it('labels Claude 5 family ids by their own version, not a fixed release', () => {
+    const { modelLabel } = loadSL();
+    expect(modelLabel('claude-sonnet-5')).toBe('Sonnet 5');
+    expect(modelLabel('claude-opus-5')).toBe('Opus 5');
+    expect(modelLabel('claude-fable-5-1')).toBe('Fable 5.1');
+    expect(modelLabel('claude-opus-5[1m]')).toBe('Opus 5');
+    expect(modelLabel('sonnet')).toBe('Sonnet');
   });
 
   it('falls back to joining second+third segments for unknown ids', () => {

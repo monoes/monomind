@@ -83,11 +83,30 @@ Skip `ui.icon` whenever there isn't a clean match — an unmatched or omitted `i
 
 ---
 
-## Step 2.4 — Optional Per-Role Settings
+## Step 2.4 — Per-Role Model and Optional Settings
 
-For any role that needs non-default behavior, set (all optional — omit to inherit defaults):
+**`adapter_config.model` — REQUIRED on every role.** Always write an explicit model; never leave a role to inherit a runtime default. A role without one silently moves to whatever model a later release makes the default, and the Step 4 MODELS table can't show what the role will really run on.
 
-- `adapter_config.model`: a model id (e.g. `"claude-opus-5"`, `"glm-5.2"`, `"gpt-5.6-terra"`) — default depends on runtime/vendor (see `resolveModel()` in `orgrt/session.ts`); explicit value always wins
+- If the user named or clearly implied a model for a role ("the researcher should use Opus" → `"claude-opus-5"`), use it.
+- Otherwise set the **latest model for that role's runtime/vendor**:
+  - Claude runtime (the default — no `provider`/`runtime`, or `provider.kind` `subscription` / `api-key`): **`"claude-sonnet-5"`** — the org runtime default, `DEFAULT_CLAUDE_MODEL` in `orgrt/vercel-providers.ts`.
+  - Any other runtime or vendor: use the value the runtime itself falls back to, read from the installed CLI package rather than from memory — `VENDOR_DEFAULTS[vendor]` (when the role has `provider.vendor`) or the `runtime` switch in `resolveModel()` (`orgrt/session.ts`), and `VERCEL_PROVIDERS[vendor].defaultModel` (`orgrt/vercel-providers.ts`). Source files live under `packages/@monomind/cli/src/orgrt/` in the source repository; in an installed package read `dist/src/orgrt/session.js` and `dist/src/orgrt/vercel-providers.js`. At this release those resolve to:
+
+    | Runtime / vendor | Latest model |
+    |------------------|--------------|
+    | `claude` (default), vendor `anthropic` | `claude-sonnet-5` |
+    | `codex` | `gpt-5.6-terra` |
+    | `antigravity` | `gemini-3.6-flash-high` |
+    | `kimicode` | `kimi-code/k3` |
+    | `opencode` (no vendor) | `glm-5.2` |
+    | `vercel` (no vendor), vendor `openai` | `gpt-5.5` |
+    | vendor `glm` / `google` / `xai` / `deepseek` | `glm-5.2` / `gemini-3.1-pro` / `grok-4.5` / `deepseek-chat` |
+
+    If the source you read disagrees with this table, the source wins. For vendor `openai-compatible` there is no default (it is `''`) — ask the user for the model id.
+- A role may deliberately run a different current model than its runtime's latest when that fits the role (e.g. `claude-opus-5` or `claude-fable-5-1` for a planner, `claude-haiku-4-5-20251001` for a checklist-style reviewer, as the `org create` templates do) — still an explicit value, and still a model from the current family, never a superseded id.
+
+For any role that needs non-default behavior, also set (all optional — omit to inherit defaults):
+
 - `provider`: `{ kind, vendor?, apiKeyEnv?, baseUrl?, authTokenEnv? }` — default `subscription` (local Claude Code login). `kind` is one of:
   - `"subscription"` (default) — Claude Pro/Max via `claude login`
   - `"api-key"` — Anthropic API key
@@ -100,7 +119,7 @@ For any role that needs non-default behavior, set (all optional — omit to inhe
   - `webAllow: ["*"]` (or specific domains) for a role that does WebSearch/WebFetch as part of its job — an empty/unset `webAllow` silently blocks the exact task you just assigned it.
   - `autoApproveTools: [...]` — tool/action names this role may use without pausing for a human approval, even though they're normally on the sensitive-actions list (`Bash`, `WebFetch`, `WebSearch`, `org_complete`). **Mandatory, not optional, for any org with a `schedule` set** (an unattended/scheduled org): a role that pauses on `WebSearch` or `org_complete` waiting for a human who isn't there to click approve will deadlock forever on every scheduled run, repeatedly re-asking through both `ask_human` and `org_gate` with nothing to show for it. Grant every tool a scheduled org's roles routinely need — including `org_complete` for the boss role — rather than leaving the default human-approval gate in place for automation that's supposed to run with nobody watching.
 
-Do not invent values for these — only populate a field the user actually specified or clearly implied (e.g. "the researcher should use Opus" → that role's `adapter_config.model`).
+Apart from `adapter_config.model` (always set, per above), do not invent values for these — only populate `provider`, `runtime`, or `policy` when the user actually specified or clearly implied it, or when a role's responsibilities require it (the `webAllow`/`autoApproveTools` cases above).
 
 ---
 
@@ -127,7 +146,8 @@ Produce an org config object matching `OrgDefSchema` exactly:
       "title": "<display title>",
       "type": "boss | specialist | <domain synonym>",
       "reports_to": "<role id, or null for the single boss>",
-      "responsibilities": ["<3-6 specific duties — this text becomes part of the agent's role briefing>"]
+      "responsibilities": ["<3-6 specific duties — this text becomes part of the agent's role briefing>"],
+      "adapter_config": { "model": "<explicit model from Step 2.4, e.g. claude-sonnet-5>" }
     }
   ]
 }
@@ -135,7 +155,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
 
 `status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 
-Only include `adapter_config`, `provider`, `policy`, or `ui` on a role when Step 2.3/2.4 populated them for it — leave them out entirely rather than writing empty objects.
+Every role carries `adapter_config.model` (Step 2.4). Only include `provider`, `policy`, or `ui` on a role when Step 2.3/2.4 populated them for it — leave them out entirely rather than writing empty objects.
 
 ---
 
@@ -153,14 +173,14 @@ MODELS  ← review this first
 ────────────────────────────────────────────────────
   ROLE                MODEL
   ──────────────────  ────────────────────────────
-  boss                claude-opus-5
-  content-writer       (runtime default)
-  content-reviewer     (runtime default)
+  boss                claude-sonnet-5
+  content-writer      claude-sonnet-5
+  content-reviewer    claude-sonnet-5
 
-  Only roles with an explicit adapter_config.model show a value; "(runtime
-  default)" roles inherit whatever resolveModel() picks for their
-  runtime/vendor at run time. To pin a role to a specific model, say so now
-  (e.g. "put content-writer on glm-5.2").
+  Every role shows the explicit adapter_config.model that will be saved —
+  the latest model for its runtime unless you asked for another. To put a
+  role on a different model, say so now (e.g. "put content-writer on
+  claude-opus-5").
 
 ROLES  (N roles — exactly one boss, every reports_to resolves to a real role id)
 ─────
@@ -237,6 +257,13 @@ else
   fi
   echo "✓ Structural checks passed (upgrade monomind for full schema validation)"
 fi
+
+# Every agent role must pin its model explicitly (Step 2.4).
+missing_model=$(jq -r '[.roles[] | select(.kind != "endpoint" and ((.adapter_config.model // "") == "")) | .id] | join(", ")' "$orgJson")
+if [ -n "$missing_model" ]; then
+  echo "ERROR: roles without an explicit adapter_config.model: ${missing_model} — set the latest model for their runtime (Step 2.4) and re-save."
+  exit 1
+fi
 ```
 
 ---
@@ -280,9 +307,9 @@ If `schedule` was set, also print:
 In **auto** mode (where Step 4's plan/model confirmation was skipped), always also print the models table so the user still sees — after the fact — what each role will run on, even though nothing blocked on it:
 ```
   Models:
-    boss                claude-opus-5
-    content-writer       (runtime default)
-    content-reviewer     (runtime default)
+    boss                claude-sonnet-5
+    content-writer      claude-sonnet-5
+    content-reviewer    claude-sonnet-5
   Adjust with: /mastermind:org-settings, or edit .monomind/orgs/<org_name>.json directly
 ```
 In **confirm** mode this table was already shown and accepted in Step 4 — do not repeat it here.

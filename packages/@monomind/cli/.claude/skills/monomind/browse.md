@@ -652,7 +652,7 @@ AGENT_BROWSER_CONTENT_BOUNDARIES=1   # LLM-safe output delimiters
 AGENT_BROWSER_HEADED=1               # visible browser (debugging)
 AGENT_BROWSER_STREAM_PORT=9223       # fixed WebSocket stream port
 # No API key needed — monomind browse is built-in
-AI_GATEWAY_MODEL=anthropic/claude-sonnet-4-6
+AI_GATEWAY_MODEL=anthropic/claude-sonnet-5
 ```
 
 ---

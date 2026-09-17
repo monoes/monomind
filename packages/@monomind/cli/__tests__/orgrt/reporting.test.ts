@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { summarizeRun, formatEvent, readRunEvents, readHistory, listRunDirs } from '../../src/orgrt/reporting.js';
 import { ORG_TEMPLATES, buildFromTemplate } from '../../src/orgrt/templates.js';
 import { OrgDefSchema, ORG_DIR, type BusEvent } from '../../src/orgrt/types.js';
+import { DEFAULT_CLAUDE_MODEL } from '../../src/orgrt/vercel-providers.js';
 import { orgCommand } from '../../src/commands/org.js';
 
 const ev = (partial: Partial<BusEvent>): BusEvent =>
@@ -111,6 +112,13 @@ describe('org command — observe surface', () => {
       const def = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'blog.json'), 'utf8'));
       expect(def.goal).toBe('3 posts/week');
       expect(() => OrgDefSchema.parse(def)).not.toThrow();
+      // every role is written with an explicit model — none left to a runtime default
+      for (const role of def.roles) {
+        expect(role.adapter_config?.model, role.id).toBeTruthy();
+      }
+      expect(def.roles.find((r: { id: string }) => r.id === 'writer').adapter_config.model).toBe(
+        DEFAULT_CLAUDE_MODEL,
+      );
       // refuses to clobber without --force
       const again = await run('create', cwd, ['blog'], { template: 'content-team' });
       expect(again?.success).toBe(false);

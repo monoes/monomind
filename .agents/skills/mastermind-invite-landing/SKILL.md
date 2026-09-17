@@ -148,7 +148,7 @@ esac
 modelId="${model}"
 if [ -z "$modelId" ]; then
   case "$adapterType" in
-    claude-local)   modelId="claude-sonnet-4-6" ;;
+    claude-local)   modelId="claude-sonnet-5" ;;
     gemini-local)   modelId="gemini-2.0-flash" ;;
     codex-local)    modelId="gpt-4o" ;;
     cursor)         modelId="cursor-default" ;;
