@@ -266,12 +266,16 @@ export interface SessionOpts {
    *  session.ts builds a ClaudeAgentRunner from queryFn (or the default),
    *  preserving the previous Claude-only behaviour exactly. */
   runner?: AgentRunner;
-  /** Caller-owned cancellation handle for THIS incarnation. When supplied,
-   *  runAgentSession uses it instead of creating its own internal
-   *  AbortController — lets the daemon force-stop a specific incarnation
-   *  (mid-run role replacement's forced-stop step) without reaching into
-   *  runAgentSession's internals. */
+  /** Caller-owned cancellation handle for THIS incarnation. Every session
+   *  attempt runs on its own AbortController linked to this one: aborting it
+   *  aborts the in-flight attempt, which lets the daemon force-stop a specific
+   *  incarnation (org stop, mid-run role replacement's forced-stop step)
+   *  without reaching into runAgentSession's internals. An attempt's own abort
+   *  (the silent-stream kill) never propagates back to it (#256). */
   externalAbort?: AbortController;
+  /** Override how long a session's first stream pull may stay silent before
+   *  the attempt is aborted and retried (tests only; default 4 minutes). */
+  silentSessionMs?: number;
   /** ID of the last message received by this agent (for threading responses). Function to ensure live reading. */
   lastMessageId?: () => string | undefined;
   /** Callback for each output line — feeds ScrollbackBuffer. */
@@ -565,7 +569,19 @@ async function runOneSession(
   // abort below used to call iterator.return() only, which queues behind a
   // subprocess runner blocked in `for await (child.stdout)` — the child was
   // never killed, so every supervisor retry stacked another live CLI.
-  const abort = opts.externalAbort ?? new AbortController();
+  //
+  // Per attempt, linked one way to the caller's externalAbort (#256): the
+  // silent-stream abort used to fire the daemon's slot controller itself,
+  // permanently. Every retry then started on an already-aborted signal (a
+  // runner honoring it kills its child at once) and the daemon's crash
+  // backoff, which races that controller to notice an org stop, resolved
+  // immediately - the role burned its retries and crashed. An org stop still
+  // aborts the attempt; the attempt's own abort stays its own.
+  const abort = new AbortController();
+  const external = opts.externalAbort?.signal;
+  const onExternalAbort = (): void => abort.abort(external?.reason);
+  if (external?.aborted) onExternalAbort();
+  else external?.addEventListener('abort', onExternalAbort, { once: true });
   try {
     const stream = runner.run({
       tools,
@@ -675,10 +691,11 @@ async function runOneSession(
     const iterator = stream[Symbol.asyncIterator]();
     const SILENT = Symbol('silent');
     let silentTimer: ReturnType<typeof setTimeout> | undefined;
+    const silentMs = opts.silentSessionMs ?? SILENT_SESSION_MS;
     const firstPull = await Promise.race([
       iterator.next(),
       new Promise<typeof SILENT>((resolve) => {
-        silentTimer = setTimeout(() => resolve(SILENT), SILENT_SESSION_MS);
+        silentTimer = setTimeout(() => resolve(SILENT), silentMs);
         (silentTimer as { unref?: () => void }).unref?.();
       }),
     ]);
@@ -706,7 +723,7 @@ async function runOneSession(
         /* best-effort */
       }
       throw new Error(
-        `org "${org}" role "${role.id}": SDK stream silent for ${Math.round(SILENT_SESSION_MS / 1000)}s with zero messages`,
+        `org "${org}" role "${role.id}": SDK stream silent for ${Math.round(silentMs / 1000)}s with zero messages`,
       );
     }
     const first: IteratorResult<AgentMessage> = firstPull;
@@ -889,6 +906,12 @@ async function runOneSession(
     bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
     throw err;
   } finally {
+    // Unlink so a long-lived role doesn't pile a listener per attempt onto the
+    // slot controller. Aborting the finished attempt keeps a runner abandoned
+    // mid-stream by a throw from outliving it now that an org stop can no
+    // longer reach it.
+    external?.removeEventListener('abort', onExternalAbort);
+    abort.abort();
     providerSet?.close();
   }
 }

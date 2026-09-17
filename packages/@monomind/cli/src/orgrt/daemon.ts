@@ -416,6 +416,9 @@ export interface DaemonOpts {
   /** Override the whole-org restart backoff after the boss terminally crashes (tests only;
    *  default [10000,30000]ms). */
   bossRestartBackoffMs?: number[];
+  /** Override the silent-session abort timeout passed to every role session (tests only;
+   *  default 4 minutes, see session.ts). */
+  silentSessionMs?: number;
   /** The org server's OPERATOR credential — authorizes human-decision routes
    *  (approvals, gates, answers). Published to the operator directory for the
    *  `org` CLI, never to the broker registry (see broker.ts). */
@@ -1730,6 +1733,7 @@ export class OrgDaemon {
       // replacement's forced-stop step) without reaching into runAgentSession's
       // internals.
       externalAbort: abort,
+      silentSessionMs: this.opts.silentSessionMs,
     };
     // Supervised session: transient crashes (provider blips, network) restart
     // with backoff; a crash with the mailbox already closed, or one that
