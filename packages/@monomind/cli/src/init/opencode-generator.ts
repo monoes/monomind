@@ -394,6 +394,12 @@ function findHandler(worktree, directory) {
 // — the graph gate latches "once per session", so it must be real.
 function runGate(handler, event, toolName, input, cwd, sessionId) {
   const payload = JSON.stringify({ tool_name: toolName, tool_input: input, session_id: sessionId || "" });
+  // Inside a monomind org role, quiet the hook handler. Set here, on the
+  // handler process only: this plugin runs inside opencode, whose shell tool
+  // inherits opencode's env, so a role-wide setting would reach every command.
+  const orgRoleEnv = process.env.MONOMIND_ORG_ROLE
+    ? { MONOMIND_HOOK_QUIET: "1", MONOMIND_GRAPH_GATE: "off", MONOMIND_SDK_AGENT: "1" }
+    : {};
   let r;
   try {
     r = spawnSync(process.execPath, [handler, event], {
@@ -401,7 +407,7 @@ function runGate(handler, event, toolName, input, cwd, sessionId) {
       encoding: "utf-8",
       timeout: 5000,
       cwd: cwd,
-      env: Object.assign({}, process.env, { CLAUDE_PROJECT_DIR: cwd }),
+      env: Object.assign({}, process.env, orgRoleEnv, { CLAUDE_PROJECT_DIR: cwd }),
     });
   } catch (e) {
     return { block: false };

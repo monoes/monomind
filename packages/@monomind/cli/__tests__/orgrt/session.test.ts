@@ -1,5 +1,6 @@
 // packages/@monomind/cli/__tests__/orgrt/session.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -484,7 +485,11 @@ describe('runAgentSession', () => {
       expect(sdkEnv.MONOMIND_ORG_ROLE).toBe('coder'); // attribution still reaches role commands
     });
 
-    it('still gives them to non-Claude runners, whose CLIs run the monomind hook bridges in that env', async () => {
+    // codex/kimi/opencode give their hooks and their shell tool one env, so
+    // the runner passes only the MONOMIND_ORG_ROLE marker and the generated
+    // hook bridges set the quieting vars on the hook-handler process alone
+    // (src/__tests__/bridge-org-role-hook-env.test.ts).
+    const captureRunnerEnv = async () => {
       const bus = new OrgBus('o', 'r', dir());
       const mailbox = new Mailbox();
       mailbox.push('run the tests'); mailbox.close();
@@ -496,14 +501,29 @@ describe('runAgentSession', () => {
           yield { type: 'result' as const, subtype: 'success', input_tokens: 1, output_tokens: 1 };
         },
       };
-
       await runAgentSession({ ...sessionOpts(bus, mailbox), runner });
+      return runnerEnv;
+    };
 
-      expect(runnerEnv).toMatchObject({
-        MONOMIND_HOOK_QUIET: '1',
-        MONOMIND_GRAPH_GATE: 'off',
-        MONOMIND_SDK_AGENT: '1',
-      });
+    it('keeps them out of non-Claude runners too, passing only the org-role marker their hook bridges read', async () => {
+      const runnerEnv = await captureRunnerEnv();
+
+      for (const k of HOOK_VARS) expect(runnerEnv[k], k).toBeUndefined();
+      expect(runnerEnv.MONOMIND_ORG_ROLE).toBe('coder');
+    });
+
+    it('a command the role runs (a child of the runner CLI) sees a normal environment', async () => {
+      const runnerEnv = await captureRunnerEnv();
+
+      // Subprocess runners start their CLI with { ...process.env, ...args.env };
+      // the CLI's shell tool hands that env to the command.
+      const res = spawnSync(
+        process.execPath,
+        ['-e', `process.stdout.write(JSON.stringify(${JSON.stringify(HOOK_VARS)}.map((k) => process.env[k] ?? null)))`],
+        { env: { ...process.env, ...runnerEnv }, encoding: 'utf-8' },
+      );
+      expect(res.status).toBe(0);
+      expect(JSON.parse(res.stdout)).toEqual([null, null, null]);
     });
   });
 

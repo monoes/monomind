@@ -32,6 +32,12 @@ process.stdin.on("end", () => {
   }
   if (!event) process.exit(0);
 
+  // Inside a monomind org role, quiet the hook handler. Set here, on the
+  // handler process only: kimi gives hooks and its shell tool one env, so a
+  // role-wide setting would reach every command the role runs.
+  const orgRoleEnv = process.env.MONOMIND_ORG_ROLE
+    ? { MONOMIND_HOOK_QUIET: "1", MONOMIND_GRAPH_GATE: "off", MONOMIND_SDK_AGENT: "1" }
+    : {};
   let r;
   try {
     r = spawnSync(process.execPath, [handler, event], {
@@ -39,7 +45,7 @@ process.stdin.on("end", () => {
       encoding: "utf-8",
       timeout: 5000,
       cwd: cwd,
-      env: Object.assign({}, process.env, { CLAUDE_PROJECT_DIR: cwd }),
+      env: Object.assign({}, process.env, orgRoleEnv, { CLAUDE_PROJECT_DIR: cwd }),
     });
   } catch (e) {
     process.exit(0);

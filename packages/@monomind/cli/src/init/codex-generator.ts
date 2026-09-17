@@ -83,6 +83,12 @@ process.stdin.on("end", () => {
   }
   if (!event) process.exit(0);
 
+  // Inside a monomind org role, quiet the hook handler. Set here, on the
+  // handler process only: Codex gives hooks and its shell tool one env, so a
+  // role-wide setting would reach every command the role runs.
+  const orgRoleEnv = process.env.MONOMIND_ORG_ROLE
+    ? { MONOMIND_HOOK_QUIET: "1", MONOMIND_GRAPH_GATE: "off", MONOMIND_SDK_AGENT: "1" }
+    : {};
   let result;
   try {
     result = spawnSync(process.execPath, [handler, event], {
@@ -90,7 +96,7 @@ process.stdin.on("end", () => {
       encoding: "utf8",
       timeout: eventName === "SessionStart" || eventName === "SessionEnd" ? 2500 : 5000,
       cwd,
-      env: Object.assign({}, process.env, { CLAUDE_PROJECT_DIR: cwd }),
+      env: Object.assign({}, process.env, orgRoleEnv, { CLAUDE_PROJECT_DIR: cwd }),
     });
   } catch (_) { process.exit(0); }
   if (!result || result.status !== 2) process.exit(0);
