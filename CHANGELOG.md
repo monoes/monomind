@@ -8,18 +8,23 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Added
 
-- Agent-exec protocol rev 7: reliable `result.text` emission for org runtime integration (#245, commit 16ae966db). Ensures subagent completion messages reliably surface through the org protocol layer.
-- Mono-agent-org integration milestones M1-M5: role-specific tool providers, endpoint role definitions, federation support, and decision attribution. Establishes the foundation for multi-role agent orchestration with governance and audit trails.
+- Agent-exec protocol rev 7: `result.text` always carries the complete final reply (#245, commit 16ae966db). Since rev 5's incremental `assistant` events, clients that read `result.text` got only the last streamed chunk.
+- Org runtime, mono-agent integration M1–M5 (see `doc/concepts/org-runtime.md`): role tool providers (`tool_providers`), endpoint roles (`kind: "endpoint"`), operator-authenticated cross-org delivery with a live org inbox, decision attribution with request-scoped approvals, and cross-root federation allowlists.
 
 ### Fixed
 
-- Biome lint auto-fixes applied across codebase (a290e0a58) — resolved formatting inconsistencies caught by updated lint rules.
-- `analyze-diff` crash fix with test environment isolation (7a40820f8) — command no longer crashes when processing diffs; test suite properly isolated to prevent cross-test contamination.
-- Browser timeout test environment inheritance (ba189a3d6) — timeout configuration now properly propagated through test environment hierarchy.
+- Biome lint fixes (305d7f820) — unused imports, `useIndexOf` and `useOptionalChain` findings.
+- `analyze diff` no longer crashes when the risk breakdown is incomplete (293fdc4a6); hook, memory-search and graph-gate tests no longer inherit `MONOMIND_SDK_AGENT`, `MONOMIND_HOOK_QUIET`, `MONOMIND_NO_LOCAL_EMBEDDINGS` or `MONOMIND_GRAPH_GATE` from the calling process, so they pass when run inside an agent session.
+- monobrowse's close-browser force-kill test no longer inherits agent-session environment variables (51c00ed6b) — test-only change.
+- `monomind status`: the System Resources table no longer fails silently with "Resource governor not available" on every real machine; an unbound `output.*` method reference lost its receiver (4af9f55bc).
+- `monomind browse open` now exits 1 with the navigation error when `Page.navigate` fails (e.g. `net::ERR_CONNECTION_REFUSED`) instead of reporting success against Chrome's error page (a6a412e89).
+- SessionStart hook: the monograph freshen hook only runs `npm root -g` when no faster install location resolves, saving ~65 ms per session start (cf73f664e).
+- SubagentStart/SubagentStop hooks no longer wait ~3 s on the capture handler's stdin fallback timer (037674994).
 
 ### Changed
 
-- `@monoes/monobrowse` bumped from 1.0.8 to 1.0.9 — includes browser timeout fixes and environment improvements.
+- `@monoes/monobrowse` bumped from 1.0.8 to 1.0.9 for the `browse open` navigation-failure fix.
+- Root `build` now builds every workspace package, and `typecheck`, `test:run` and `test:all:run` scripts were added for a non-watch build/test/lint gate (2f509f29a).
 
 ## [2.10.30] — 2026-09-15
 
