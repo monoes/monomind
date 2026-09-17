@@ -62,9 +62,11 @@ const _SJ_PRICING = {
 };
 function _sjGetPricing(model) {
   const _ALIAS = {
-    haiku: 'claude-haiku-4-5',
-    opus: 'claude-opus-4-6',
-    sonnet: 'claude-sonnet-4-6',
+    haiku: 'claude-haiku-4-5-20251001',
+    opus: 'claude-opus-5',
+    // claude-sonnet-5 = DEFAULT_CLAUDE_MODEL (src/orgrt/vercel-providers.ts); .mjs can't import TS.
+    sonnet: 'claude-sonnet-5',
+    fable: 'claude-fable-5-1',
   };
   let canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
   canonical = _ALIAS[canonical] || canonical;

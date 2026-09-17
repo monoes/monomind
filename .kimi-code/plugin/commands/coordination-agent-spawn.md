@@ -33,7 +33,7 @@ npx monomind agent spawn --type coder --name bot-1
 npx monomind agent spawn --type researcher --task "Research React 19 concurrent features"
 
 # Spawn with specific provider and model
-npx monomind agent spawn --type architect --provider anthropic --model claude-sonnet-4-6
+npx monomind agent spawn --type architect --provider anthropic --model claude-sonnet-5
 
 # Spawn with auto tools and timeout
 npx monomind agent spawn --type coder --auto-tools --timeout 300

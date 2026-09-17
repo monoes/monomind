@@ -94,20 +94,21 @@ Add a new role to the org. Prompt the user for:
 ADAPTER / MODEL
 ───────────────
 Available Claude models:
-  1. claude-sonnet-4-6    → balanced capability + speed (Recommended)
-  2. claude-opus-4-7      → highest capability, slower
-  3. claude-haiku-4-5     → fastest, lowest cost
+  1. claude-sonnet-5            → balanced capability + speed (Recommended)
+  2. claude-opus-5              → high capability, slower
+  3. claude-fable-5-1           → most capable, highest cost
+  4. claude-haiku-4-5-20251001  → fastest, lowest cost
 
 Enter choice [1]:
 ```
 
-Set `adapter_config.model` from selection. Default: `claude-sonnet-4-6`.
+Set `adapter_config.model` from selection. Default: `claude-sonnet-5` (the org runtime default, `DEFAULT_CLAUDE_MODEL`).
 
 Append to `.monomind/orgs/<org_name>.json` roles array using jq:
 
 ```bash
-# model from adapter picker (default: claude-sonnet-4-6)
-adapter_model="${selected_model:-claude-sonnet-4-6}"
+# model from adapter picker (default: claude-sonnet-5)
+adapter_model="${selected_model:-claude-sonnet-5}"
 
 tmp="${orgFile}.tmp"
 jq --arg id "$agent_id" \

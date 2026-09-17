@@ -10,6 +10,8 @@
  * Consumers: src/ui/collector.mjs and src/ui/server.mjs both
  * derive their inline pricing tables from this canonical list.
  */
+import { DEFAULT_CLAUDE_MODEL } from '../orgrt/vercel-providers.js';
+
 export interface ModelPrice {
   in: number;
   out: number;
@@ -56,9 +58,10 @@ export const MODEL_PRICING: Record<string, ModelPrice> = {
 
 /** Short-name aliases → canonical model keys. */
 const _ALIAS: Record<string, string> = {
-  haiku: 'claude-haiku-4-5',
-  sonnet: 'claude-sonnet-4-6',
-  opus: 'claude-opus-4-6',
+  haiku: 'claude-haiku-4-5-20251001',
+  sonnet: DEFAULT_CLAUDE_MODEL,
+  opus: 'claude-opus-5',
+  fable: 'claude-fable-5-1',
 };
 
 /**

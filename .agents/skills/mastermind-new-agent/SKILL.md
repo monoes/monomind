@@ -19,7 +19,7 @@ This skill is invoked by `mastermind:new-agent` or directly via `/mastermind:new
 - `agent_id`: unique slug for the new agent (required for create; auto-generated if omitted)
 - `title`: display title for the agent (required for create)
 - `adapter_type`: claude-local | gemini-local | codex-local | cursor | opencode | hermes | http | acpx (default: claude-local)
-- `model`: model identifier (e.g. claude-sonnet-4-6, claude-opus-4-7, gemini-2.0-flash)
+- `model`: model identifier (e.g. claude-sonnet-5, claude-opus-5, gemini-2.0-flash)
 - `max_tokens`: max tokens per run (default: 8192)
 - `reports_to`: parent agent id in the hierarchy (null = top-level)
 - `governance`: auto | board | strict (default: inherit from org)
@@ -36,7 +36,7 @@ This skill is invoked by `mastermind:new-agent` or directly via `/mastermind:new
 
 | Type | Description | Default Model |
 |------|-------------|---------------|
-| `claude-local` | Claude via Anthropic API | claude-sonnet-4-6 |
+| `claude-local` | Claude via Anthropic API | claude-sonnet-5 |
 | `gemini-local` | Gemini via Google API | gemini-2.0-flash |
 | `codex-local` | OpenAI Codex | gpt-4o |
 | `cursor` | Cursor IDE agent | cursor-default |
@@ -71,7 +71,7 @@ echo "AVAILABLE ADAPTERS"
 echo "────────────────────────────────────────────────────────"
 cat <<'ADAPTERS'
   claude-local    Claude via Anthropic API   (recommended)
-    Models: claude-sonnet-4-6, claude-opus-4-7, claude-haiku-4-5
+    Models: claude-sonnet-5, claude-opus-5, claude-fable-5-1, claude-haiku-4-5-20251001
   gemini-local    Gemini via Google AI
     Models: gemini-2.0-flash, gemini-1.5-pro
   codex-local     OpenAI Codex
@@ -108,7 +108,7 @@ modelId="${model}"
 # Default model per adapter
 if [ -z "$modelId" ]; then
   case "$adapterType" in
-    claude-local)  modelId="claude-sonnet-4-6" ;;
+    claude-local)  modelId="claude-sonnet-5" ;;
     gemini-local)  modelId="gemini-2.0-flash" ;;
     codex-local)   modelId="gpt-4o" ;;
     cursor)        modelId="cursor-default" ;;
@@ -149,7 +149,7 @@ adapterType="${adapter_type:-claude-local}"
 modelId="${model}"
 if [ -z "$modelId" ]; then
   case "$adapterType" in
-    claude-local)  modelId="claude-sonnet-4-6" ;;
+    claude-local)  modelId="claude-sonnet-5" ;;
     gemini-local)  modelId="gemini-2.0-flash" ;;
     codex-local)   modelId="gpt-4o" ;;
     cursor)        modelId="cursor-default" ;;

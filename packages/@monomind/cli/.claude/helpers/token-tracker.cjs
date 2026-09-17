@@ -62,7 +62,8 @@ const SHORT_MODEL_NAMES = {
 // carry this map; this file previously lacked it entirely, so a caller
 // using a bare "--model sonnet"/"haiku"/"opus" string went unpriced here
 // even though every sibling table would have resolved it.
-var MODEL_ALIAS = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6' };
+// sonnet -> claude-sonnet-5 = DEFAULT_CLAUDE_MODEL (src/orgrt/vercel-providers.ts); .cjs can't import TS.
+var MODEL_ALIAS = { haiku: 'claude-haiku-4-5-20251001', sonnet: 'claude-sonnet-5', opus: 'claude-opus-5', fable: 'claude-fable-5-1' };
 
 function getCanonical(model) {
   var stripped = model.replace(/@.*$/, '').replace(/-\d{8}$/, '');

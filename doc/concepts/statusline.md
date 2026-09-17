@@ -32,7 +32,7 @@ It has two modes you can toggle with `/ts`:
 
 Items only appear when they have data — `📚`, `🎯`, `🐝` are hidden when their count is 0.
 
-**Not shown: the Claude model name** (e.g. "Sonnet 4.6"). This line never calls `getModelName()`; see the Full Mode header note below for the full lookup chain and where it's actually exposed.
+**Not shown: the Claude model name** (e.g. "Sonnet 5"). This line never calls `getModelName()`; see the Full Mode header note below for the full lookup chain and where it's actually exposed.
 
 ---
 
@@ -72,7 +72,7 @@ Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
 | `↑5` / `↓N`          | Commits ahead / behind upstream                | `git rev-list --left-right --count HEAD...@{upstream}`; each only appears when > 0                                                                                              |
 | `⏱42m`               | Session duration, shown only when available    | `.monomind/session.json` or `.claude/session.json` → `startTime`                                                                                                                |
 
-**Not shown: the Claude model name** (e.g. "Sonnet 4.6"). `getModelName()` (`.claude/helpers/statusline.cjs:243`) implements a real lookup chain — live session JSONL (`~/.claude/projects/<escaped-cwd>/*.jsonl`) → `~/.claude.json` → `settings.json` → env vars (`ANTHROPIC_MODEL`/`CLAUDE_MODEL`) → `"Sonnet 4.6"` default — but its only call site anywhere in the file is `generateJSON()`, the `--json` output mode. Neither this header nor Compact Mode ever calls it, so the model name isn't part of either mode's visible output; read it via `node .claude/helpers/statusline.cjs --json` → `user.modelName`.
+**Not shown: the Claude model name** (e.g. "Sonnet 5"). `getModelName()` (`.claude/helpers/statusline.cjs:243`) implements a real lookup chain — live session JSONL (`~/.claude/projects/<escaped-cwd>/*.jsonl`) → `~/.claude.json` → `settings.json` → env vars (`ANTHROPIC_MODEL`/`CLAUDE_MODEL`) → `"Sonnet 5"` default — but its only call site anywhere in the file is `generateJSON()`, the `--json` output mode. Neither this header nor Compact Mode ever calls it, so the model name isn't part of either mode's visible output; read it via `node .claude/helpers/statusline.cjs --json` → `user.modelName`.
 
 ---
 
