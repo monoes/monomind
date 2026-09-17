@@ -2,6 +2,7 @@
 // monolean: stripped to xdeliver-only — live UI, WS fanout, and redundant REST
 // endpoints deleted; the control server at :4242 handles all of those.
 import http from 'node:http';
+import { normalizeResolver } from './approvals.js';
 import type { OrgDaemon } from './daemon.js';
 
 export interface OrgServer {
@@ -61,6 +62,13 @@ function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> 
     });
     req.on('error', onError);
   });
+}
+
+/** M5: optional `resolvedBy` body field — undefined when absent (daemon
+ *  defaults to `human`), null when present but invalid. */
+function resolverField(raw: unknown): string | undefined | null {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return normalizeResolver(raw) ?? null;
 }
 
 function json(res: http.ServerResponse, status: number, data: unknown): void {
@@ -199,11 +207,15 @@ export async function startOrgServer(
           fromCredential,
           subject,
           body: b,
+          messageId,
+          fromRoot,
         } = payload as Record<string, string | undefined>;
         if (!toOrg || !toRole || !fromOrg || !fromRole) {
           json(res, 400, { ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' });
           return;
         }
+        // M3: the operator credential carries human authority — the daemon
+        // skips the broker sender-identity check and trusts fromOrg:fromRole.
         const result = await daemon.receiveRemote(
           toOrg,
           toRole,
@@ -211,6 +223,14 @@ export async function startOrgServer(
           subject ?? '',
           b ?? '',
           fromCredential,
+          {
+            operator: isOperator(supplied),
+            messageId:
+              typeof messageId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(messageId)
+                ? messageId
+                : undefined,
+            fromRoot: typeof fromRoot === 'string' && fromRoot ? fromRoot : undefined,
+          },
         );
         json(res, result.ok ? 200 : 404, result);
       } else if (req.url === '/api/human-message') {
@@ -223,17 +243,33 @@ export async function startOrgServer(
         const ok = !receipt.startsWith('ERROR:');
         json(res, ok ? 200 : 404, { ok, receipt });
       } else if (req.url === '/api/answer-question') {
-        const { org, role, questionId, answer } = payload as Record<string, string | undefined>;
+        const { org, role, questionId, answer, resolvedBy } = payload as Record<
+          string,
+          string | undefined
+        >;
         if (!org || !role || !questionId || answer === undefined) {
           json(res, 400, { ok: false, error: 'org, role, questionId, answer are required' });
           return;
         }
-        const result = await daemon.answerQuestion(org, role, questionId, answer!);
+        const resolver = resolverField(resolvedBy);
+        if (resolver === null) {
+          json(res, 400, { ok: false, error: 'resolvedBy must be 1-128 printable characters' });
+          return;
+        }
+        const result = await daemon.answerQuestion(org, role, questionId, answer!, resolver);
         json(res, result.ok ? 200 : 404, result);
       } else if (req.url === '/api/resolve-gate') {
-        const { org, gateId, approved, resolution } = payload as Record<string, unknown>;
+        const { org, gateId, approved, resolution, resolvedBy } = payload as Record<
+          string,
+          unknown
+        >;
         if (!org || !gateId || approved === undefined) {
           json(res, 400, { ok: false, error: 'org, gateId, approved are required' });
+          return;
+        }
+        const resolver = resolverField(resolvedBy);
+        if (resolver === null) {
+          json(res, 400, { ok: false, error: 'resolvedBy must be 1-128 printable characters' });
           return;
         }
         const result = await daemon.resolveGate(
@@ -241,12 +277,25 @@ export async function startOrgServer(
           gateId as string,
           !!approved,
           resolution as string | undefined,
+          resolver,
         );
         json(res, result.ok ? 200 : 404, result);
       } else if (req.url === '/api/set-approval') {
-        const { org, role, action, approved } = payload as Record<string, unknown>;
+        const { org, role, action, approved, resolvedBy, requestId } = payload as Record<
+          string,
+          unknown
+        >;
         if (!org || !role || !action || approved === undefined) {
           json(res, 400, { ok: false, error: 'org, role, action, approved are required' });
+          return;
+        }
+        const resolver = resolverField(resolvedBy);
+        if (resolver === null) {
+          json(res, 400, { ok: false, error: 'resolvedBy must be 1-128 printable characters' });
+          return;
+        }
+        if (requestId !== undefined && typeof requestId !== 'string') {
+          json(res, 400, { ok: false, error: 'requestId must be a string' });
           return;
         }
         const result = await daemon.setApproval(
@@ -254,6 +303,7 @@ export async function startOrgServer(
           role as string,
           action as string,
           !!approved,
+          { resolvedBy: resolver, requestId: requestId as string | undefined },
         );
         json(res, result.ok ? 200 : 404, result);
       } else {

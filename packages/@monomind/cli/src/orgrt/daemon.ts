@@ -35,6 +35,15 @@ import * as crossOrg from './cross-org.js';
 import { CrushAgentRunner } from './crush-runner.js';
 import * as decisionOps from './decisions.js';
 import {
+  agentRoles,
+  type EndpointWait,
+  hasActiveEndpointWait,
+  isEndpointRole,
+  retryQueuedEndpoints,
+  startEndpointRetryLoop,
+  stopEndpointRetries,
+} from './endpoint-roles.js';
+import {
   createFenceForRole,
   loadGlobalFenceConfig,
   mergeFenceConfigs,
@@ -43,7 +52,7 @@ import {
 import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
 import { HermesAgentRunner } from './hermes-runner.js';
-import { drainInbox, queueMessage } from './inbox.js';
+import { drainInbox, newMessageId, queueMessage } from './inbox.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
@@ -76,6 +85,12 @@ import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-optio
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { TaskDag } from './task-dag.js';
+import {
+  type ChainTrace,
+  freshChainId,
+  roleProviderPrefixes,
+  ToolProviderHub,
+} from './tool-providers.js';
 import {
   type BusEvent,
   type DecisionGate,
@@ -242,7 +257,10 @@ export function resolveRoleRunner(
  *  even split of run_config.budget_tokens across all roles. */
 export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
   return (
-    role.budget_tokens ?? Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length)
+    role.budget_tokens ??
+    Math.floor(
+      (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, agentRoles(def.roles).length),
+    )
   );
 }
 
@@ -353,6 +371,11 @@ export interface RunningOrg {
   /** Role ids currently undergoing replacement — rejects a concurrent
    *  respawnRole() call for the same role id. */
   respawning: Set<string>;
+  /** M1: per-role chain trace — set from the latest delivered message carrying
+   *  a `[trace chn_… hop=N]` line, else a fresh chain minted on first use. */
+  traces?: Map<string, ChainTrace>;
+  /** M2: reply waits for endpoint deliveries — hold the idle watchdog. */
+  endpointWaits?: EndpointWait[];
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -401,6 +424,12 @@ export interface DaemonOpts {
   operatorDir?: string;
   /** Filter tool audit events by tool name or decision (allow|deny) before forwarding */
   auditFilter?: { tool?: string; decision?: 'allow' | 'deny' };
+  /** M2 (tests only): endpoint retry schedule (default [1000, 5000, 15000] ms). */
+  endpointRetryMs?: number[];
+  /** M2 (tests only): periodic endpoint re-attempt interval (default 60000 ms). */
+  endpointPeriodicRetryMs?: number;
+  /** M2 (tests only): endpoint POST timeout (default 15000 ms). */
+  endpointPostTimeoutMs?: number;
 }
 
 export class OrgDaemon {
@@ -432,6 +461,13 @@ export class OrgDaemon {
       question: string;
       ts: number;
       approved: boolean | null;
+      /** M5: `apr-<ms>-<8 hex>` — addresses exactly this request. */
+      requestId?: string;
+      /** M5: the redacted argument summary `policy.decide` logged. */
+      input?: Record<string, unknown>;
+      /** M5: who resolved it (`human` by default). */
+      resolvedBy?: string;
+      resolvedAt?: number;
     }>
   >();
   /** @internal */ approvalLocks = new Map<string, Promise<unknown>>();
@@ -450,6 +486,8 @@ export class OrgDaemon {
   /** @internal */ recallUsage = new Map<string, Set<string>>();
   /** @internal */ orgLearnedRuns = new Set<string>();
   /** @internal */ abandoned = new Map<string, Set<string>>();
+  /** M1: role tool-provider tool-list cache and live provider processes. */
+  /** @internal */ toolProviders = new ToolProviderHub();
 
   constructor(
     /** @internal */ public root: string,
@@ -502,13 +540,44 @@ export class OrgDaemon {
       }
     }
 
+    // M1 (C-37): apply changes to EXISTING roles' tool_providers, endpoint,
+    // kind and policy. Fields are replaced on the live role object (sessions
+    // read tool_providers at their next start, checkApproval reads policy
+    // live) and a running role's PolicyEngine gets the new policy now.
+    const RELOADABLE_ROLE_FIELDS = ['tool_providers', 'endpoint', 'kind', 'policy'] as const;
+    for (const next of newDef.roles) {
+      const live = running.def.roles.find((r) => r.id === next.id);
+      if (!live) continue;
+      const liveRec = live as Record<string, unknown>;
+      const nextRec = next as Record<string, unknown>;
+      for (const field of RELOADABLE_ROLE_FIELDS) {
+        if (JSON.stringify(liveRec[field]) === JSON.stringify(nextRec[field])) continue;
+        const targets = new Set<Record<string, unknown>>([liveRec]);
+        const slotRole = running.roleSlots.get(next.id)?.effectiveRole as
+          | Record<string, unknown>
+          | undefined;
+        if (slotRole) targets.add(slotRole);
+        const pending = running.pendingRoles?.get(next.id) as Record<string, unknown> | undefined;
+        if (pending) targets.add(pending);
+        for (const t of targets) {
+          if (nextRec[field] === undefined) delete t[field];
+          else t[field] = nextRec[field];
+        }
+        if (field === 'policy') running.agents.get(next.id)?.policy.updatePolicy(next.policy ?? {});
+        changed.push(`role:${next.id}:${field}`);
+      }
+    }
+
     const existingRoleIds = new Set(running.def.roles.map((r) => r.id));
     const newRoleIds = new Set(newDef.roles.map((r) => r.id));
     for (const role of newDef.roles) {
       if (!existingRoleIds.has(role.id)) {
         running.def.roles.push(role);
-        if (!running.pendingRoles) running.pendingRoles = new Map();
-        running.pendingRoles.set(role.id, role);
+        // M2: an endpoint role never gets a session — nothing to lazy-spawn.
+        if (!isEndpointRole(role)) {
+          if (!running.pendingRoles) running.pendingRoles = new Map();
+          running.pendingRoles.set(role.id, role);
+        }
         newRoles.push(role.id);
       }
     }
@@ -529,6 +598,21 @@ export class OrgDaemon {
    *  iterate while stopOrg() mutates the underlying map. */
   listRunning(): string[] {
     return [...this.orgs.keys()];
+  }
+
+  /** M1: the chain trace a role's tool calls carry — from the most recent
+   *  message delivered to it with a `[trace chn_… hop=N]` line, otherwise a
+   *  fresh chain (hop 0) minted once and kept for the role. */
+  roleTrace(org: string, role: string): ChainTrace {
+    const running = this.orgs.get(org);
+    if (!running) return { chain_id: freshChainId(), hop: 0 };
+    if (!running.traces) running.traces = new Map();
+    let t = running.traces.get(role);
+    if (!t) {
+      t = { chain_id: freshChainId(), hop: 0 };
+      running.traces.set(role, t);
+    }
+    return t;
   }
 
   /** Hook for the SSE server — registers a listener for all bus events across all orgs. */
@@ -724,11 +808,12 @@ export class OrgDaemon {
     // OpencodeAgentRunner, and CodexAgentRunner each spawn one subprocess per role.
     // The current sizing (def.roles.length) is therefore safe — it over-provisions
     // for in-process runners but never under-provisions for subprocess runners.
+    const sessionRoleCount = agentRoles(def.roles).length;
     if (
       !process.env.MONOMIND_MAX_SDK_PROCS &&
-      getResourceLimits().maxSdkProcesses < def.roles.length
+      getResourceLimits().maxSdkProcesses < sessionRoleCount
     ) {
-      configureResourceLimits({ maxSdkProcesses: def.roles.length });
+      configureResourceLimits({ maxSdkProcesses: sessionRoleCount });
     }
 
     // Validate per-role providers before spawning anything (fail-fast: a
@@ -942,8 +1027,10 @@ export class OrgDaemon {
     // and enforced as a real ceiling above, independent of this static split.)
     const orgBudgetTokens = def.run_config.budget_tokens ?? 1_000_000;
     const overriddenTokenSum = def.roles.reduce((sum, r) => sum + (r.budget_tokens ?? 0), 0);
-    const unoverriddenRoleCount = def.roles.filter((r) => r.budget_tokens == null).length;
-    const perRoleBudget =
+    const unoverriddenRoleCount = agentRoles(def.roles).filter(
+      (r) => r.budget_tokens == null,
+    ).length;
+    const _perRoleBudget =
       unoverriddenRoleCount > 0
         ? Math.max(0, Math.floor((orgBudgetTokens - overriddenTokenSum) / unoverriddenRoleCount))
         : 0;
@@ -952,8 +1039,12 @@ export class OrgDaemon {
     // kickoff went to (type==='boss' || reports_to===null || roles[0]), so a
     // fallback-selected boss could be told to call org_complete without having
     // the tool.
+    // M2: endpoint roles are never the boss.
+    const sessionRoles = agentRoles(def.roles);
+    if (sessionRoles.length === 0)
+      throw new Error(`org ${name}: no agent roles — endpoint roles cannot run an org`);
     const bossRole =
-      def.roles.find((r) => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+      sessionRoles.find((r) => r.type === 'boss' || r.reports_to === null) ?? sessionRoles[0];
     running.bossRoleId = bossRole.id;
     // Canonical entity names from THIS org's KG — injected into the coordinator
     // prompt so org_learn extractions reuse them instead of minting duplicates.
@@ -983,6 +1074,7 @@ export class OrgDaemon {
     // gate logic or duplicating the session-wiring below.
     const spawnRole = (role: OrgRole, roleCheckpoint?: RoleCheckpoint): void => {
       if (running.agents.has(role.id)) return;
+      if (isEndpointRole(role)) return; // M2: no session, mailbox or slot
       const { runtime, abort } = this.spawnRoleIncarnation(
         name,
         running,
@@ -1015,7 +1107,7 @@ export class OrgDaemon {
       }
       const pendingRoles = new Map<string, OrgRole>();
       for (const role of def.roles) {
-        if (!restoredRoles.has(role.id)) {
+        if (!restoredRoles.has(role.id) && !isEndpointRole(role)) {
           pendingRoles.set(role.id, role);
         }
       }
@@ -1044,7 +1136,7 @@ export class OrgDaemon {
       // message (see deliver()), avoiding the memory gate stampede at startup.
       const pendingRoles = new Map<string, OrgRole>();
       for (const role of def.roles) {
-        if (role.id === bossRole.id) continue;
+        if (role.id === bossRole.id || isEndpointRole(role)) continue;
         pendingRoles.set(role.id, role);
       }
       running.pendingRoles = pendingRoles;
@@ -1132,7 +1224,7 @@ export class OrgDaemon {
         );
       bus.emit({
         type: 'status',
-        msg: `org started (${def.roles.length} agents)`,
+        msg: `org started (${sessionRoles.length} agents)`,
         data: { goal: taskOverride ?? def.goal },
       });
     }
@@ -1173,6 +1265,11 @@ export class OrgDaemon {
             .readQuestions(this.root, name)
             .questions.filter((q) => q.answer === null);
           if (pendingQuestions.length > 0) return;
+          // M1 (C-41): a pending tool approval is the same kind of legitimate
+          // wait — the role was told to wait for `org approve/deny`.
+          if ((this.approvals.get(name) ?? []).some((a) => a.approved === null)) return;
+          // M2 (C-41): a delivered endpoint message whose reply is still due.
+          if (hasActiveEndpointWait(running)) return;
           // Auto-resume any task whose org_task_block time has passed: flip it
           // back to 'running' and re-push it into the assignee's mailbox, same
           // as a fresh dispatch. This IS real activity, so fall through to the
@@ -1264,6 +1361,7 @@ export class OrgDaemon {
         undefined,
         running.credential,
         operatorCred ? { credential: operatorCred, dir: this.opts.operatorDir } : undefined,
+        this.root,
       );
       lease.start();
       this.leases.set(name, lease);
@@ -1271,7 +1369,24 @@ export class OrgDaemon {
 
     // Drain any messages that arrived while the org was offline
     const queued = drainInbox(this.root, name);
+    // M2: messages for endpoint roles are delivered by POST, not into a mailbox —
+    // put them back (flagged) and let the endpoint retry path send them.
+    const endpointQueued = new Set<string>();
     for (const msg of queued) {
+      if (!isEndpointRole(def.roles.find((r) => r.id === msg.toRole))) continue;
+      const messageId = msg.messageId ?? newMessageId();
+      endpointQueued.add(messageId);
+      queueMessage(this.root, name, { ...msg, messageId, endpoint: true });
+    }
+    startEndpointRetryLoop(this, name);
+    if (endpointQueued.size > 0)
+      void retryQueuedEndpoints(this, name, (m) => endpointQueued.has(m.messageId ?? '')).catch(
+        () => {
+          /* stays queued — the periodic sweep retries */
+        },
+      );
+    for (const msg of queued) {
+      if (isEndpointRole(def.roles.find((r) => r.id === msg.toRole))) continue;
       // Spawn a lazy target before delivering. These messages were queued while
       // the org was offline — a human's answer, or another org's request — and
       // the whole point of draining is that they arrive. Skipping a role merely
@@ -1300,6 +1415,7 @@ export class OrgDaemon {
           to: `${name}:${msg.toRole}`,
           subject: msg.subject,
           msg: msg.body,
+          data: { messageId: msg.messageId ?? newMessageId() },
         });
         await crossOrg.pushMessage(
           this,
@@ -1403,6 +1519,10 @@ export class OrgDaemon {
       bus,
       roleCwd,
     );
+    policy.setToolContext({
+      providerPrefixes: () => roleProviderPrefixes(role),
+      trace: () => this.roleTrace(name, role.id),
+    });
     if (roleCheckpoint?.tokensUsed) {
       policy.setUsage(roleCheckpoint.tokensUsed);
     }
@@ -1441,6 +1561,20 @@ export class OrgDaemon {
       // Project root for named-provider (`adapter_config.provider`) config
       // lookup — role cwd may be an isolated workspace with no config file.
       orgRoot: this.root,
+      run,
+      // M1: role tool providers — listed at session start, processes spawned
+      // lazily on first call and killed when the session ends.
+      buildProviderTools: async () => {
+        const providers = role.tool_providers ?? [];
+        if (providers.length === 0) return undefined;
+        return this.toolProviders.buildRoleTools({
+          ctx: { org: name, run, role: role.id, root: this.root },
+          providers,
+          trace: () => this.roleTrace(name, role.id),
+          bus,
+          cwd: roleCwd,
+        });
+      },
       maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
       resumeSessionId: roleCheckpoint?.sessionId,
       lastMessageId: () => runtime.lastMessageId,
@@ -2184,6 +2318,10 @@ export class OrgDaemon {
     // too, reusing respawnRole's existing force-stop handle, so in-flight
     // work is told to stop now instead of merely being denied new input.
     for (const slot of org.roleSlots.values()) slot.abort?.abort();
+    // M1: kill every tool-provider process of this org's sessions.
+    this.toolProviders.closeOrg(name);
+    // M2: stop endpoint retry timers (queued entries stay queued).
+    stopEndpointRetries(this, name);
     // Bounded: a genuinely hung agent session (stuck mid-tool-call, not just
     // idle) must not make stopOrg() hang forever — callers like the scheduler
     // already race their own timeout around a run, and this wait re-blocking
@@ -2467,8 +2605,9 @@ export class OrgDaemon {
     role: string,
     action: string,
     approved: boolean,
+    opts?: approvalOps.ApprovalResolveOpts,
   ): Promise<{ ok: true } | { ok: false; error: string }> {
-    return approvalOps.setApproval(this, org, role, action, approved);
+    return approvalOps.setApproval(this, org, role, action, approved, opts);
   }
 
   // questions.ts
@@ -2480,8 +2619,9 @@ export class OrgDaemon {
     role: string,
     questionId: string,
     answer: string,
+    resolvedBy?: string,
   ): Promise<{ ok: true } | { ok: false; error: string }> {
-    return questionOps.answerQuestion(this, org, role, questionId, answer);
+    return questionOps.answerQuestion(this, org, role, questionId, answer, resolvedBy);
   }
 
   // decisions.ts
@@ -2572,6 +2712,7 @@ export class OrgDaemon {
     subject: string,
     body: string,
     fromCredential?: string,
+    opts?: crossOrg.ReceiveRemoteOpts,
   ): Promise<{ ok: true; receipt: string } | { ok: false; error: string }> {
     return crossOrg.receiveRemote(
       this,
@@ -2581,6 +2722,7 @@ export class OrgDaemon {
       subject,
       body,
       fromCredential,
+      opts,
     );
   }
 

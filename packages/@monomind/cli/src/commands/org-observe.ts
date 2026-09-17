@@ -38,6 +38,19 @@ export const printOrgJson = (payload: Record<string, unknown>): CommandResult =>
   return { success: true, data: payload };
 };
 
+/** M5: `--by <resolver>` — who resolved a decision (default `human`). Returns
+ *  an error string for an invalid value. */
+const resolverFlag = async (
+  ctx: CommandContext,
+): Promise<{ ok: true; by: string } | { ok: false; message: string }> => {
+  const raw = ctx.flags.by;
+  if (raw === undefined || raw === false) return { ok: true, by: 'human' };
+  const { normalizeResolver } = await import('../orgrt/approvals.js');
+  const by = normalizeResolver(raw);
+  if (!by) return { ok: false, message: '--by must be 1-128 printable characters' };
+  return { ok: true, by };
+};
+
 /** Validate org config(s) against OrgDefSchema — the exact parse `org run`/`org serve`
  * perform — plus the structural invariants the runtime assumes but the schema can't
  * express (single root role, resolvable reports_to, unique ids, parseable schedule). */
@@ -93,6 +106,23 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
   return failed
     ? { success: false, message: `${failed} of ${files.length} org config(s) failed validation` }
     : { success: true, message: `${files.length} org config(s) valid` };
+};
+
+/** M2: ids of the org's endpoint roles (automations, not agents) — excluded
+ *  from the costs/report/flow role tables. Unreadable config → none. */
+const endpointRoleIds = (cwd: string, name: string): Set<string> => {
+  try {
+    const raw = JSON.parse(readFileSync(join(cwd, ORG_DIR, `${name}.json`), 'utf8')) as {
+      roles?: Array<{ id?: unknown; kind?: unknown }>;
+    };
+    return new Set(
+      (Array.isArray(raw.roles) ? raw.roles : [])
+        .filter((r) => r?.kind === 'endpoint' && typeof r.id === 'string')
+        .map((r) => r.id as string),
+    );
+  } catch {
+    return new Set();
+  }
 };
 
 // Run ids are joined into filesystem paths — enforce the daemon's own id shape
@@ -308,6 +338,9 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
+  // M2: endpoint roles are automations — they have no row in the role tables.
+  const endpointIds = endpointRoleIds(ctx.cwd, name);
+  for (const id of endpointIds) delete s.roles[id];
 
   // Protocol JSON mode (§7.2): the run summary as a bare object. Emitted
   // before the human-only flag modes (mermaid/audit/by-role) — those render
@@ -457,8 +490,11 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     const def = OrgDefSchema.parse(
       JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')),
     );
-    perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
-    for (const r of def.roles) {
+    const sessionRoles = def.roles.filter((r) => r.kind !== 'endpoint');
+    perRoleBudget = Math.floor(
+      (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, sessionRoles.length),
+    );
+    for (const r of sessionRoles) {
       const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
       roleCeiling.set(r.id, max ?? r.budget_tokens ?? perRoleBudget);
     }
@@ -589,6 +625,11 @@ interface OrgApproval {
   question: string;
   ts: number;
   approved: boolean | null;
+  /** M5 */
+  requestId?: string;
+  resolvedBy?: string;
+  resolvedAt?: number;
+  input?: Record<string, unknown>;
 }
 
 /** Read approvals.json — the tool/action-approval queue checked by
@@ -637,7 +678,19 @@ export const approvalsAction = async (
     return { success: false, message: 'approvals.json unreadable' };
   }
   const shown = ctx.flags.all === true ? all : all.filter((a) => a.approved === null);
-  if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, items: shown });
+  if (orgJson(ctx))
+    return printOrgJson({
+      v: 1,
+      org: name,
+      // M5: requestId / resolvedBy / input are always present (null for
+      // entries recorded before they existed).
+      items: shown.map((a) => ({
+        ...a,
+        requestId: a.requestId ?? null,
+        resolvedBy: a.resolvedBy ?? null,
+        input: a.input ?? null,
+      })),
+    });
   if (!shown.length) {
     log(
       output.info(
@@ -651,12 +704,14 @@ export const approvalsAction = async (
   for (const a of shown) {
     const when = new Date(a.ts).toISOString().replace('T', ' ').slice(0, 16);
     const mark = a.approved === null ? '❓' : a.approved ? '✓' : '✗';
-    log(output.info(`${mark} ${when}  ${a.roleId}: ${a.action}`));
+    const ref = a.requestId ? ` [${a.requestId}]` : '';
+    const by = a.resolvedBy ? ` (by ${a.resolvedBy})` : '';
+    log(output.info(`${mark} ${when}  ${a.roleId}: ${a.action}${ref}${by}`));
   }
   if (shown.some((a) => a.approved === null))
     log(
       output.info(
-        `\nApprove with: monomind org approve ${name} <role> <action>\nDeny with: monomind org deny ${name} <role> <action>`,
+        `\nApprove with: monomind org approve ${name} <role> <action> [--request <id>] [--by <resolver>]\nDeny with: monomind org deny ${name} <role> <action> [--request <id>] [--by <resolver>]`,
       ),
     );
   return { success: true };
@@ -695,6 +750,9 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   }
   if (q.answer !== null)
     return { success: false, message: `question "${questionId}" was already answered` };
+  const byFlag = await resolverFlag(ctx);
+  if (!byFlag.ok) return { success: false, message: byFlag.message };
+  const resolvedBy = byFlag.by;
 
   // Live path: the hosting daemon updates questions.json and pushes into the role's mailbox.
   // SEC: answering a role's question is a human decision — authenticate with
@@ -710,7 +768,7 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
           'Content-Type': 'application/json',
           ...(cred ? { 'x-monomind-cred': cred } : {}),
         },
-        body: JSON.stringify({ org: name, role: q.role, questionId, answer }),
+        body: JSON.stringify({ org: name, role: q.role, questionId, answer, resolvedBy }),
         signal: AbortSignal.timeout(10_000),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -723,6 +781,7 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
             role: q.role,
             delivery: 'live',
             answered: true,
+            resolvedBy,
           });
         log(output.success(`Answer delivered to ${name}:${q.role} (live).`));
         return { success: true };
@@ -793,8 +852,10 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: 'queueing failed — answer not recorded' };
   }
   const merged = fresh.some((x) => x.questionId === questionId)
-    ? fresh.map((x) => (x.questionId === questionId ? { ...x, answer, answeredAt: Date.now() } : x))
-    : [...fresh, { ...q, answer, answeredAt: Date.now() }];
+    ? fresh.map((x) =>
+        x.questionId === questionId ? { ...x, answer, answeredAt: Date.now(), resolvedBy } : x,
+      )
+    : [...fresh, { ...q, answer, answeredAt: Date.now(), resolvedBy }];
   const dest = join(ctx.cwd, ORG_DIR, name, 'questions.json');
   const tmp = `${dest}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify({ questions: merged }, null, 2));
@@ -808,26 +869,47 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
       role: q.role,
       delivery: 'queued',
       answered: true,
+      resolvedBy,
     });
   log(output.success(`Answer recorded — ${name}:${q.role} receives it when the org next runs.`));
   return { success: true };
 };
 
 /** `org inbox <name> --json '{"from":"orgA:role","subject":"...","body":"..."}' [--to role]`
+ *  (or `--from/--subject/--body`) `[--format json]`.
  *  Inbound entrypoint for cross-org/remote delivery — orgrt/remote.ts's deliverRemote()
- *  shells out to exactly this command over SSH. Live path: POST to the hosting daemon's
- *  /api/xdeliver when the org is registered with the broker (mirrors cross-org.ts's
- *  deliverRemote). Offline path: spool into inbox.jsonl, which the daemon drains into
- *  the target role's mailbox on the org's next start (daemon.ts drainInbox) — the same
- *  semantics as a queued human answer. */
+ *  shells out to exactly this command over SSH, and mono-agent replies through it.
+ *
+ *  Live path (M3): POST to the hosting daemon's /api/xdeliver with the OPERATOR
+ *  credential (readOperatorCredential), which lets the daemon trust `from` as
+ *  given — the sender org need not be registered (`workflow`, an automation
+ *  role). Without an operator credential it presents the sender org's own
+ *  broker credential, if that org is registered. Offline path: spool into
+ *  inbox.jsonl, drained into the role's mailbox on the org's next start.
+ *
+ *  `--format json` prints `{"v":1,"org","to","from","delivery":"live"|"queued",
+ *  "receipt","messageId"}`. Exit 0 for live and queued; non-zero only for
+ *  invalid input or an unknown org. */
 export const inboxAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const json = orgJson(ctx);
+  // JSON mode keeps stdout to the single payload — diagnostics go to stderr.
+  const note = (text: string): void => {
+    if (json) process.stderr.write(`${text}\n`);
+    else log(text);
+  };
+  const fail = (message: string): CommandResult => {
+    if (json) process.stdout.write(`${JSON.stringify({ v: 1, org: name, error: message })}\n`);
+    else log(output.error(message));
+    return { success: false, message };
+  };
+
   let payload: { from?: unknown; subject?: unknown; body?: unknown } = {};
   const rawJson = ctx.flags.json;
   if (typeof rawJson === 'string') {
     try {
       payload = JSON.parse(rawJson) as typeof payload;
     } catch {
-      return { success: false, message: 'org inbox: --json is not valid JSON' };
+      return fail('org inbox: --json is not valid JSON');
     }
   } else {
     payload = { from: ctx.flags.from, subject: ctx.flags.subject, body: ctx.flags.body };
@@ -835,26 +917,25 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
   const from = typeof payload.from === 'string' ? payload.from.trim() : '';
   const subject = typeof payload.subject === 'string' ? payload.subject : '';
   const body = typeof payload.body === 'string' ? payload.body : '';
-  if (!from || !body) {
-    log(
-      output.error('org inbox: payload requires "from" and "body" (via --json or --from/--body)'),
-    );
-    return { success: false, message: 'inbox payload requires from and body' };
-  }
+  if (!from || !body)
+    return fail('org inbox: payload requires "from" and "body" (via --json or --from/--body)');
+  if (!/^[^\s:]{1,128}(:[^\s:]{1,128})?$/.test(from))
+    return fail(`org inbox: invalid sender "${from}" — use "<org>:<role>" or "<role>"`);
+
+  const { lookupOrg, normalizeCredential, readOperatorCredential } = await import(
+    '../orgrt/broker.js'
+  );
+  const remote = lookupOrg(name);
+  const defPath = join(ctx.cwd, ORG_DIR, `${name}.json`);
+  if (!remote && !existsSync(defPath)) return fail(`Org not found: ${name}`);
 
   // Target role: explicit --to, else the org's coordinator (reports_to == null),
   // else the first role — matching where a role-less cross-org message should land.
   let toRole = typeof ctx.flags.to === 'string' ? ctx.flags.to : '';
-  if (toRole && !/^[a-z0-9][a-z0-9_-]*$/i.test(toRole)) {
-    log(output.error(`Invalid role id: ${toRole}`));
-    return { success: false, message: 'invalid role id' };
-  }
+  if (toRole && !/^[a-z0-9][a-z0-9_-]*$/i.test(toRole)) return fail(`Invalid role id: ${toRole}`);
   if (!toRole) {
-    const defPath = join(ctx.cwd, ORG_DIR, `${name}.json`);
-    if (!existsSync(defPath)) {
-      log(output.error(`Org not found: ${name}`));
-      return { success: false, message: 'org not found' };
-    }
+    if (!existsSync(defPath))
+      return fail(`Org "${name}" config is not in this project — pass --to <role>.`);
     try {
       const def = JSON.parse(readFileSync(defPath, 'utf8')) as {
         roles?: { id?: string; reports_to?: string | null }[];
@@ -862,25 +943,29 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
       const roles = Array.isArray(def.roles) ? def.roles : [];
       toRole = roles.find((r) => r.reports_to == null)?.id ?? roles[0]?.id ?? '';
     } catch (err) {
-      log(
-        output.error(
-          `Could not read org config for ${name}: ${err instanceof Error ? err.message : String(err)}`,
-        ),
+      return fail(
+        `Could not read org config for ${name}: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return { success: false, message: 'org config unreadable' };
     }
-    if (!toRole) {
-      log(output.error(`Org "${name}" has no roles to deliver to — pass --to <role>.`));
-      return { success: false, message: 'no deliverable role' };
-    }
+    if (!toRole) return fail(`Org "${name}" has no roles to deliver to — pass --to <role>.`);
   }
 
+  const { newMessageId, queueMessage } = await import('../orgrt/inbox.js');
+  const messageId = newMessageId();
+  const to = `${name}:${toRole}`;
+  const done = (delivery: 'live' | 'queued', receipt: string): CommandResult => {
+    if (json) return printOrgJson({ v: 1, org: name, to, from, delivery, receipt, messageId });
+    log(output.success(receipt));
+    return { success: true, message: receipt };
+  };
+
   // Live path: a hosting daemon registered this org with the broker.
-  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
-  const remote = lookupOrg(name);
   if (remote) {
     const [fromOrg, fromRole] = from.includes(':') ? from.split(':', 2) : ['external', from];
-    const cred = normalizeCredential(remote.credential);
+    const operatorCred = readOperatorCredential(name);
+    const agentCred = normalizeCredential(remote.credential);
+    const cred = operatorCred ?? agentCred;
+    const fromCredential = operatorCred ? undefined : lookupOrg(fromOrg)?.credential;
     try {
       const res = await fetch(`${remote.url}/api/xdeliver`, {
         method: 'POST',
@@ -888,7 +973,16 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
           'Content-Type': 'application/json',
           ...(cred ? { 'x-monomind-cred': cred } : {}),
         },
-        body: JSON.stringify({ fromOrg, fromRole, toOrg: name, toRole, subject, body }),
+        body: JSON.stringify({
+          fromOrg,
+          fromRole,
+          ...(fromCredential ? { fromCredential } : {}),
+          toOrg: name,
+          toRole,
+          subject,
+          body,
+          messageId,
+        }),
         signal: AbortSignal.timeout(10_000),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -897,16 +991,17 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
         error?: string;
       };
       if (res.ok && data.ok) {
-        log(output.success(data.receipt ?? `delivered to ${name}:${toRole}`));
-        return { success: true, message: data.receipt ?? 'delivered' };
+        const receipt = data.receipt ?? `delivered to ${to}`;
+        // The daemon itself may have queued it (role starting, org waking).
+        return done(/^queued/.test(receipt) ? 'queued' : 'live', receipt);
       }
-      log(
+      note(
         output.warning(
           `Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`,
         ),
       );
     } catch (err) {
-      log(
+      note(
         output.warning(
           `Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`,
         ),
@@ -915,23 +1010,21 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
   }
 
   // Offline path: spool; drained into the role's mailbox when the org next starts.
-  const { queueMessage } = await import('../orgrt/inbox.js');
   const queued = queueMessage(ctx.cwd, name, {
     fromQualified: from,
     toRole,
     subject,
     body,
     ts: Date.now(),
+    messageId,
   });
   if (!queued) {
-    log(
-      output.error(`Could not queue the message for ${name}:${toRole} (disk full or permissions).`),
-    );
+    const message = `Could not queue the message for ${to} (disk full or permissions).`;
+    if (json) process.stdout.write(`${JSON.stringify({ v: 1, org: name, error: message })}\n`);
+    else log(output.error(message));
     return { success: false, message: 'queueing failed' };
   }
-  const receipt = `queued for ${name}:${toRole} (delivered when the org next runs)`;
-  log(output.success(receipt));
-  return { success: true, message: receipt };
+  return done('queued', `queued for ${to} (delivered when the org next runs)`);
 };
 
 /** `org create <name> --template <t> [--goal g] [--schedule s]` — scaffold a config from a template. */
@@ -1068,10 +1161,13 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
 
   // Combine data from runtime.json (live metrics) and summary (historical)
   const roleData = new Map<string, { tokens: number; costUsd: number; messages: number }>();
+  // M2: endpoint roles are automations — no row in the cost table.
+  const endpointIds = endpointRoleIds(ctx.cwd, name);
 
   // Add live metrics from runtime.json
   if (rt?.roleMetrics) {
     for (const [roleId, metrics] of Object.entries(rt.roleMetrics)) {
+      if (endpointIds.has(roleId)) continue;
       roleData.set(roleId, {
         tokens: metrics.tokens,
         costUsd: metrics.costUsd,
@@ -1083,6 +1179,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   // Add historical data from summary if available
   if (summary?.roles) {
     for (const [roleId, roleStats] of Object.entries(summary.roles)) {
+      if (endpointIds.has(roleId)) continue;
       const existing = roleData.get(roleId) ?? { tokens: 0, costUsd: 0, messages: 0 };
       roleData.set(roleId, {
         tokens: existing.tokens || roleStats.tokens,
@@ -1180,7 +1277,11 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
     }
   }
 
-  const roles = Array.from(roleSet).sort();
+  // M2: endpoint roles are automations — not listed as role nodes.
+  const endpointIds = endpointRoleIds(ctx.cwd, name);
+  const roles = Array.from(roleSet)
+    .filter((r) => !endpointIds.has(r))
+    .sort();
 
   // Protocol JSON mode (§7.2): structured roles + edges instead of Mermaid.
   if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, run, roles, edges: edgeObjects });
@@ -1221,6 +1322,14 @@ async function resolveApproval(
   approved: boolean,
 ): Promise<CommandResult> {
   const verb = approved ? 'approved' : 'denied';
+  // M5: attribution and request scoping.
+  const byFlag = await resolverFlag(ctx);
+  if (!byFlag.ok) return { success: false, message: byFlag.message };
+  const resolvedBy = byFlag.by;
+  const requestId =
+    typeof ctx.flags.request === 'string' && ctx.flags.request ? ctx.flags.request : undefined;
+  if (ctx.flags.request !== undefined && !requestId)
+    return { success: false, message: '--request needs an approval request id (apr-…)' };
 
   // SEC: approvals carry human authority — the operator credential, never the
   // broker entry's agent credential (which any agent subprocess can read).
@@ -1235,7 +1344,14 @@ async function resolveApproval(
           'Content-Type': 'application/json',
           ...(cred ? { 'x-monomind-cred': cred } : {}),
         },
-        body: JSON.stringify({ org: name, role, action, approved }),
+        body: JSON.stringify({
+          org: name,
+          role,
+          action,
+          approved,
+          resolvedBy,
+          ...(requestId ? { requestId } : {}),
+        }),
         signal: AbortSignal.timeout(10_000),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -1248,11 +1364,13 @@ async function resolveApproval(
             action,
             approved,
             delivery: 'live',
+            resolvedBy,
+            requestId: requestId ?? null,
           });
         log(
           approved
-            ? output.success(`Approved: ${role} may execute ${action} (live).`)
-            : output.info(`Denied: ${role} may NOT execute ${action} (live).`),
+            ? output.success(`Approved: ${role} may execute ${action} (live, by ${resolvedBy}).`)
+            : output.info(`Denied: ${role} may NOT execute ${action} (live, by ${resolvedBy}).`),
         );
         return { success: true, message: `${verb} ${action} for ${role}` };
       }
@@ -1276,33 +1394,55 @@ async function resolveApproval(
     return { success: false, message: `no pending approvals for org ${name}` };
   }
   const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
-  const pending = data.approvals ?? [];
-  const item = pending.find(
-    (a: { roleId: string; action: string }) => a.roleId === role && a.action === action,
+  const pending: OrgApproval[] = data.approvals ?? [];
+  // Same selection as the daemon's setApproval: the one request named by
+  // --request, else every still-pending entry for the (role, action) pair.
+  const items = pending.filter(
+    (a) =>
+      a.roleId === role &&
+      a.action === action &&
+      a.approved === null &&
+      (requestId === undefined || a.requestId === requestId),
   );
 
-  if (!item) {
+  if (items.length === 0) {
     return {
       success: false,
-      message: `no pending approval found for role ${role} action ${action}`,
+      message: requestId
+        ? `no pending approval ${requestId} found for role ${role} action ${action}`
+        : `no pending approval found for role ${role} action ${action}`,
     };
   }
 
-  item.approved = approved;
-  item.ts = Date.now();
+  const now = Date.now();
+  for (const item of items) {
+    item.approved = approved;
+    item.ts = now;
+    item.resolvedBy = resolvedBy;
+    item.resolvedAt = now;
+  }
   writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
 
   if (orgJson(ctx))
-    return printOrgJson({ v: 1, org: name, role, action, approved, delivery: 'recorded' });
+    return printOrgJson({
+      v: 1,
+      org: name,
+      role,
+      action,
+      approved,
+      delivery: 'recorded',
+      resolvedBy,
+      requestId: requestId ?? null,
+    });
   log(
     approved
-      ? output.success(`Approved: ${role} may execute ${action}`)
-      : output.info(`Denied: ${role} may NOT execute ${action}`),
+      ? output.success(`Approved: ${role} may execute ${action} (by ${resolvedBy})`)
+      : output.info(`Denied: ${role} may NOT execute ${action} (by ${resolvedBy})`),
   );
   return { success: true, message: `${verb} ${action} for ${role}` };
 }
 
-/** `org approve <org> <role> <action>` — approve a pending tool/action approval */
+/** `org approve <org> <role> <action> [--request <id>] [--by <resolver>]` — approve a pending tool/action approval */
 export const approveAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const role = ctx.args[1];
   const action = ctx.args[2];
@@ -1312,7 +1452,7 @@ export const approveAction = async (ctx: CommandContext, name: string): Promise<
   return resolveApproval(ctx, name, role, action, true);
 };
 
-/** `org deny <org> <role> <action>` — deny a pending tool/action approval */
+/** `org deny <org> <role> <action> [--request <id>] [--by <resolver>]` — deny a pending tool/action approval */
 export const denyAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const role = ctx.args[1];
   const action = ctx.args[2];
@@ -1626,6 +1766,9 @@ export const gateResolveAction = async (
   if (!gate) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
   if (gate.status !== 'pending')
     return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
+  const byFlag = await resolverFlag(ctx);
+  if (!byFlag.ok) return { success: false, message: byFlag.message };
+  const resolvedBy = byFlag.by;
 
   // SEC: gate resolution is a human decision — operator credential only.
   const { lookupOrg, readOperatorCredential } = await import('../orgrt/broker.js');
@@ -1639,7 +1782,7 @@ export const gateResolveAction = async (
           'Content-Type': 'application/json',
           ...(cred ? { 'x-monomind-cred': cred } : {}),
         },
-        body: JSON.stringify({ org: name, gateId, approved, resolution }),
+        body: JSON.stringify({ org: name, gateId, approved, resolution, resolvedBy }),
         signal: AbortSignal.timeout(10_000),
       });
       const d = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -1651,6 +1794,7 @@ export const gateResolveAction = async (
             gate_id: gateId,
             status: approved ? 'approved' : 'rejected',
             delivery: 'live',
+            resolvedBy,
           });
         log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} (live).`));
         return { success: true, message: `gate ${approved ? 'approved' : 'rejected'}` };
@@ -1704,7 +1848,7 @@ export const gateResolveAction = async (
     ...fresh.gates[idx],
     status: approved ? 'approved' : 'rejected',
     resolvedAt: Date.now(),
-    resolvedBy: 'human',
+    resolvedBy,
     resolution,
   };
   writeGates(ctx.cwd, name, fresh);
@@ -1716,6 +1860,7 @@ export const gateResolveAction = async (
       gate_id: gateId,
       status: approved ? 'approved' : 'rejected',
       delivery: 'recorded',
+      resolvedBy,
     });
   log(
     output.success(

@@ -28,7 +28,7 @@ export const cConfig: LanguageConfig = {
         ? node.childForFieldName('declarator')
         : null;
     // Unwrap pointer_declarator / parenthesized_declarator layers.
-    while (declarator && declarator.childForFieldName('declarator')) {
+    while (declarator?.childForFieldName('declarator')) {
       declarator = declarator.childForFieldName('declarator');
     }
     return declarator?.text ?? fallback;

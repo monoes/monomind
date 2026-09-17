@@ -297,7 +297,183 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](packages/@monomin
 
 ---
 
-## 6. Supporting Modules
+
+## 6. Advanced Features (M1-M5)
+
+### 6.1 M1: Role Tool Providers
+
+**Capability:** `org-tool-providers`
+
+Roles can declare `tool_providers[]` — stdio MCP servers whose tools are exposed to the role alongside the built-in org tools. Each provider's tools are prefixed as `<prefix>__<mcpToolName>` (on the Claude runner: `mcp__org__<prefix>__<tool>`).
+
+**Config shape** ([`types.ts:L185-204`](packages/@monomind/cli/src/orgrt/types.ts#L185-L204)):
+
+```json
+{
+  "roles": [{
+    "id": "researcher",
+    "tool_providers": [{
+      "kind": "mcp-stdio",
+      "name": "web-search",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": { "BRAVE_API_KEY": "..." },
+      "allow": ["brave_web_search"],
+      "prefix": "web",
+      "timeout_ms": 60000,
+      "idle_ms": 300000
+    }]
+  }]
+}
+```
+
+**Fields:**
+- `name`: Unique identifier (alphanumeric + `-_`)
+- `command`, `args`: Spawn command for the MCP server
+- `env`: Literal environment variables (never expanded from secrets)
+- `allow`: Optional tool name allowlist; absent = all tools from the server
+- `prefix`: Tool name prefix (default: `name` with `-` → `_`)
+- `timeout_ms`: Per-call timeout (default: 660000)
+- `idle_ms`: Process exits after this long without calls (default: 300000)
+
+**Lifecycle** ([`tool-providers.ts:L8-16`](packages/@monomind/cli/src/orgrt/tool-providers.ts#L8-L16)):
+- Tool list fetched once per provider config (hash of command, args, env, allow) by a short-lived process, cached for the daemon's lifetime
+- Provider process spawned lazily on first call, reused across calls, exits after `idle_ms` idle
+- Crash → restarted once per session; after that, calls return `ERROR: tool provider <name> unavailable`
+- All provider processes killed on session end and `stopOrg`
+
+**Trace metadata:** Every `tools/call` carries `_meta.trace` with `{org, run, role, chain_id, hop}` for cross-org call-chain tracking.
+
+---
+
+### 6.2 M2: Endpoint Roles
+
+**Capability:** `org-endpoint-roles`
+
+A role with `kind: "endpoint"` is **not an agent session** — it's an automation reached over HTTP. Endpoint roles have no session, mailbox, policy engine, slot, or budget share.
+
+**Config shape** ([`types.ts:L207-219, L296-299`](packages/@monomind/cli/src/orgrt/types.ts#L207-L219)):
+
+```json
+{
+  "roles": [{
+    "id": "build-webhook",
+    "kind": "endpoint",
+    "title": "CI Build Automation",
+    "reports_to": "coordinator",
+    "endpoint": {
+      "url": "https://automation.example.com/org-webhook",
+      "credential_file": "/abs/path/to/bearer-token.txt",
+      "timeout_ms": 600000,
+      "input_hint": "Send {build_id, commit_sha} to trigger a build."
+    }
+  }]
+}
+```
+
+**Fields:**
+- `url`: Where messages are POSTed
+- `credential_file` (optional): Absolute path to bearer token file (must be mode `0600`, daemon-owned); sent as `Authorization: Bearer <contents>`
+- `timeout_ms` (optional): How long to hold the idle watchdog waiting for a reply (default: 600000)
+- `input_hint` (optional): One-line description shown in the boss briefing
+
+**Forbidden keys:** Endpoint roles may not have `policy`, `runtime`, `adapter_config`, `budget_tokens`, `budget_usd`, or `tool_providers` ([`endpoint-roles.ts:L32-39`](packages/@monomind/cli/src/orgrt/endpoint-roles.ts#L32-L39)).
+
+**Delivery protocol** ([`endpoint-roles.ts:L9-18`](packages/@monomind/cli/src/orgrt/endpoint-roles.ts#L9-L18)):
+
+```http
+POST <endpoint.url>
+Content-Type: application/json
+Authorization: Bearer <credential_file contents>
+
+{"orgName","run","from","to","subject","body","messageId"}
+```
+
+- **2xx** = delivered
+- **Non-2xx** → queued to `inbox.jsonl` with `endpoint: true`, retried after 1s, 5s, 15s
+- After 3 failures → `endpoint-unreachable` audit event, message stays queued
+- Queued endpoint messages re-attempted every 60s while org runs, plus drained on `startOrg`
+
+**Constraints:**
+- Endpoint roles may not be the root (boss) role
+- `org validate` enforces structure rules ([`endpoint-roles.ts:L59-73`](packages/@monomind/cli/src/orgrt/endpoint-roles.ts#L59-L73))
+
+---
+
+### 6.3 M3: Operator-Authenticated Cross-Org Delivery
+
+**Capability:** Part of M1-M5 integration
+
+`/api/xdeliver` accepts an **operator credential** that carries human authority — the daemon skips the broker sender-identity check and trusts `fromOrg:fromRole` as given. This allows senders that aren't registered orgs (workflows, automation roles) to deliver messages live ([`server.ts:L217-234`](packages/@monomind/cli/src/orgrt/server.ts#L217-L234)).
+
+**Operator credential:** Stored in `.monomind/operator.key` (generated on first `org serve`), separate from per-org broker credentials. Routes requiring operator authority: `/api/xdeliver`, `/api/human-message`, `/api/answer-question`, `/api/resolve-gate`, `/api/set-approval`.
+
+**Live inbox:** `monomind org inbox` now authenticates with the operator credential (falling back to the sender org's broker credential), fixing the issue where messages to a running org were rejected and silently queued until next start ([`server.ts:L179-186`](packages/@monomind/cli/src/orgrt/server.ts#L179-L186)).
+
+**Message IDs:** Every logical message gets one `messageId` (`msg-<ms>-<8 hex>`) at its origin, stamped at `data.messageId` on every bus copy: in-process `message`/`xorg` copies, both sides of remote delivery, and queued inbox entries. The ID is reused on drain ([`cross-org.ts`, `inbox.ts`](packages/@monomind/cli/src/orgrt/cross-org.ts)).
+
+---
+
+### 6.4 M4: Cross-Root Federation
+
+**Capability:** `org-federation`
+
+Orgs under different project roots can send messages to each other if explicitly allowlisted via `federation` config ([`types.ts:L389-398`](packages/@monomind/cli/src/orgrt/types.ts#L389-L398)).
+
+**Config shape:**
+
+```json
+{
+  "name": "release-pipeline",
+  "federation": {
+    "allow_from": ["build-org", "test-org", "*"],
+    "allow_to": ["deploy-org", "*"]
+  }
+}
+```
+
+**Fields:**
+- `allow_from`: Org names this org accepts messages from; `"*"` = any; absent = unrestricted
+- `allow_to`: Org names this org may send to; `"*"` = any; absent = unrestricted
+
+**Trust domain:** Orgs under the **same project root** are one trust domain and never restricted — federation rules only apply to cross-root delivery ([`cross-org.ts:L16-20`](packages/@monomind/cli/src/orgrt/cross-org.ts#L16-L20)).
+
+**Enforcement:**
+- Sender's `allow_to` checked by `deliver()` — rejects with `ERROR: federation: <from> may not send to <to>` plus `federation-denied` audit event
+- Receiver's `allow_from` checked by `receiveRemote()` — rejects `federation: sender not allowed`
+- Broker entries record hosting daemon's project root; `lookupOrg` returns it for cross-root identity checks
+- Operator-authenticated deliveries (M3) are **exempt** from federation restrictions
+
+---
+
+### 6.5 M5: Decision Attribution & Request-Scoped Approvals
+
+**Capability:** `org-decision-attribution`
+
+Every human decision (approvals, question answers, gate resolutions) now records **who decided** and supports **request-scoped resolution** ([`approvals.ts`, `questions.ts`, `decisions.ts`](packages/@monomind/cli/src/orgrt/approvals.ts)).
+
+**Request IDs:**
+- Each approval request gets `requestId` (`apr-<ms>-<8 hex>`)
+- Visible in `org approvals --format json` output
+- CLI flag `org approve --request <id>` resolves only that specific request; without it, every pending entry for the `(org, role, action)` pair
+
+**Attribution fields:**
+- `resolvedBy`: Who resolved the decision (default: `"human"`)
+  - CLI: `org approve --by <name>`, `org deny --by <name>`, `org answer --by <name>`, `org gate-approve --by <name>`, `org gate-reject --by <name>`
+  - API: `resolvedBy` param on `/api/set-approval`, `/api/answer-question`, `/api/resolve-gate`
+- `resolvedAt`: Timestamp of resolution
+- Stored in `approvals.json`, `questions.json`, `gates.json`
+
+**Audit trail:**
+Every daemon-side resolution emits an audit event with reason `decision-resolved`, carrying `{kind, ref, resolver, verdict}` ([`server.ts`, `decisions.ts:L99`](packages/@monomind/cli/src/orgrt/decisions.ts#L99)).
+
+**API changes:**
+- Approval requests now carry `requestId` and summarized `input` on the question event
+- `org approvals --format json` includes `requestId`, `resolvedBy`, `input` fields
+
+---
+
+## 7. Supporting Modules
 
 ### OrgBus (`bus.ts`)
 
@@ -390,7 +566,7 @@ Resume state persistence:
 
 ---
 
-## 7. Session and Tools
+## 8. Session and Tools
 
 **Source:** [`orgrt/session.ts`](packages/@monomind/cli/src/orgrt/session.ts)
 
@@ -425,7 +601,7 @@ gated approvals and dependency-tracked work.
 
 ---
 
-## 8. Human-in-the-Loop Flow
+## 9. Human-in-the-Loop Flow
 
 1. A role agent calls the `ask_human` tool with a question string.
 2. The question is appended to `<org>/questions.json` and a `question` BusEvent fires (dashboard SSE updates immediately).
@@ -436,6 +612,6 @@ gated approvals and dependency-tracked work.
 
 ---
 
-## 9. Known Historical Trap (v1 Only)
+## 10. Known Historical Trap (v1 Only)
 
 Early debugging uncovered that the legacy v1 `runorg.md` skill path lost `runId`/`sessionId` because Claude Code truncated long bash stdout — the fix was writing a `<org>-runcontext.json` context file. **This trap applies only to the v1 skill path.** The Org Runtime v2 source (`packages/@monomind/cli/src/orgrt/`) has zero references to `runcontext.json` or `ORG_VARS` stdout parsing — v2 does not use a bash-to-Task handoff.

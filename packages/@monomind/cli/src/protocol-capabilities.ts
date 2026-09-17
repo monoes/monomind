@@ -20,8 +20,22 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `agent-exec`   — `monomind agent exec` (§3)
  *  - `agent-scan`   — `monomind agent scan --json` (§6)
  *  - `org-json-v1`  — `--json`/`--format json` output on org observe commands (§7)
+ *  - `org-tool-providers` — role `tool_providers` (stdio MCP), `policy.approvalTools`,
+ *    operator-authenticated `/api/xdeliver` and live `org inbox --format json`
+ *  - `org-decision-attribution` — `--by`/`resolvedBy`, `decision-resolved` audit
+ *    events, request-scoped approvals (`--request`, `requestId`)
+ *  - `org-endpoint-roles` — roles with `kind: "endpoint"` delivered by HTTP POST
+ *  - `org-federation` — `federation.allow_from/allow_to` enforced across project roots
  */
-export const AGENT_PROTOCOL_CAPABILITIES = ['agent-exec', 'agent-scan', 'org-json-v1'] as const;
+export const AGENT_PROTOCOL_CAPABILITIES = [
+  'agent-exec',
+  'agent-scan',
+  'org-json-v1',
+  'org-tool-providers',
+  'org-decision-attribution',
+  'org-endpoint-roles',
+  'org-federation',
+] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */
 export function versionJsonPayload(version: string): {

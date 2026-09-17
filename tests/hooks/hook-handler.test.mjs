@@ -14,9 +14,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HANDLER = path.resolve(__dirname, '../../.claude/helpers/hook-handler.cjs');
 
 function run(command, opts = {}) {
+  // Remove SDK agent env vars that cause hook scripts to exit silently
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.MONOMIND_SDK_AGENT;
+  delete cleanEnv.MONOMIND_HOOK_QUIET;
+
   const args = command ? [HANDLER, command] : [HANDLER];
   return spawnSync(process.execPath, args, {
-    env: { ...process.env, CLAUDE_PROJECT_DIR: opts.cwd || os.tmpdir(), ...(opts.env || {}) },
+    env: { ...cleanEnv, CLAUDE_PROJECT_DIR: opts.cwd || os.tmpdir(), ...(opts.env || {}) },
     input: opts.stdin || '',
     encoding: 'utf-8',
     timeout: 8000,

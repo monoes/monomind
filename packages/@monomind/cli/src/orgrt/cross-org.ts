@@ -1,14 +1,38 @@
 // packages/@monomind/cli/src/orgrt/cross-org.ts
 // Extracted from daemon.ts — message delivery, cross-org routing, remote delivery.
 import { timingSafeEqual } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
-import { lookupOrg } from './broker.js';
+import { lookupOrg, normalizeRoot } from './broker.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
+import { clearEndpointWait, deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { scanMessage } from './fence.js';
-import { queueMessage } from './inbox.js';
-import { ORG_DIR } from './types.js';
+import { newMessageId, queueMessage } from './inbox.js';
+import { parseTraceLine } from './tool-providers.js';
+import { ORG_DIR, type OrgDef } from './types.js';
+
+// ── M4 federation ───────────────────────────────────────────────────────
+
+/** `federation.allow_*` membership: absent list = unrestricted, '*' = any. */
+export function federationAllows(list: string[] | undefined, org: string): boolean {
+  if (list === undefined) return true;
+  return list.includes('*') || list.includes(org);
+}
+
+/** The org def for federation checks: the running def, else the one on disk. */
+function federationDef(daemon: OrgDaemon, org: string): Pick<OrgDef, 'federation'> | undefined {
+  const running = daemon.orgs.get(org);
+  if (running) return running.def;
+  if (!daemon.hasOrgDef(org)) return undefined;
+  const path = join(daemon.root, ORG_DIR, `${org}.json`);
+  try {
+    if (!existsSync(path)) return undefined;
+    return JSON.parse(readFileSync(path, 'utf8')) as Pick<OrgDef, 'federation'>;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Bodies larger than this are digested to a .mail file (see mailBody). */
 const MAIL_BODY_MAX = 4096;
@@ -147,12 +171,24 @@ export async function pushMessage(
   const slot = org.roleSlots?.get(toRole);
   if (slot?.phase === 'draining') {
     slot.queuedDuringSwap.push(mail);
+    recordTrace(org, toRole, body);
+    clearEndpointWait(org, orgName, from);
     return true;
   }
   const agent = org.agents.get(toRole);
   if (!agent || agent.mailbox.isClosed) return false;
   agent.mailbox.push(mail);
+  recordTrace(org, toRole, body);
+  clearEndpointWait(org, orgName, from);
   return true;
+}
+
+/** M1: remember the chain trace of the latest traced message a role got. */
+function recordTrace(org: RunningOrg, toRole: string, body: string): void {
+  const trace = parseTraceLine(body);
+  if (!trace) return;
+  if (!org.traces) org.traces = new Map();
+  org.traces.set(toRole, trace);
 }
 
 /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
@@ -163,7 +199,10 @@ export async function deliver(
   to: string,
   subject: string,
   body: string,
+  opts: { messageId?: string } = {},
 ): Promise<string> {
+  // M3: one id per logical message, stamped on every bus copy and queue entry.
+  const messageId = opts.messageId ?? newMessageId();
   const {
     cross,
     orgName: targetOrgName,
@@ -172,6 +211,21 @@ export async function deliver(
   } = resolveAddress(fromOrg, to);
   const targetOrg = daemon.orgs.get(targetOrgName);
   const src = daemon.orgs.get(fromOrg);
+  // M2: an endpoint role has no mailbox — POST to its endpoint instead.
+  const endpointRole = targetOrg ? findEndpointRole(targetOrg.def, targetRole) : undefined;
+  if (targetOrg && endpointRole) {
+    return deliverToEndpoint(daemon, {
+      orgName: targetOrgName,
+      org: targetOrg,
+      role: endpointRole,
+      from: cross ? `${fromOrg}:${fromRole}` : fromRole,
+      subject,
+      body,
+      messageId,
+      src,
+      eventTo: toQualified,
+    });
+  }
   // Lazy spawn: if the role is pending (not yet spawned), spawn it now.
   // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
   const spawning = daemon.spawning.get(targetOrgName) ?? new Set<string>();
@@ -204,6 +258,7 @@ export async function deliver(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -239,6 +294,7 @@ export async function deliver(
           subject,
           body,
           ts: Date.now(),
+          messageId,
         });
         if (!queued) {
           src?.bus.emit({
@@ -275,6 +331,7 @@ export async function deliver(
         subject,
         body,
         src,
+        messageId,
       );
     // Queue + auto-wake: if the org definition exists locally but isn't running, spool the message and start it
     if (cross && daemon.hasOrgDef(targetOrgName)) {
@@ -284,6 +341,7 @@ export async function deliver(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -301,7 +359,7 @@ export async function deliver(
         to: toQualified,
         subject,
         msg: body,
-        data: { queued: true },
+        data: { queued: true, messageId },
       });
       daemon.autoWake(targetOrgName);
       return `queued for ${toQualified} (org starting)`;
@@ -317,6 +375,7 @@ export async function deliver(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -374,6 +433,7 @@ export async function deliver(
       subject,
       body,
       ts: Date.now(),
+      messageId,
     });
     src?.bus.emit({
       type: 'audit',
@@ -393,6 +453,7 @@ export async function deliver(
     subject,
     msg: body,
     parentId,
+    data: { messageId },
   };
   const emitted = src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
   if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
@@ -426,6 +487,31 @@ export async function deliver(
   return `delivered to ${toQualified}`;
 }
 
+/** M4: the sender's allow_to check for a cross-root delivery. Returns the
+ *  ERROR receipt when denied (and emits the audit event), else undefined. */
+function federationDenied(
+  daemon: OrgDaemon,
+  fromOrg: string,
+  fromRole: string,
+  targetOrgName: string,
+  to: string,
+  subject: string,
+  src: RunningOrg | undefined,
+): string | undefined {
+  const allowTo = (src?.def ?? federationDef(daemon, fromOrg))?.federation?.allow_to;
+  if (federationAllows(allowTo, targetOrgName)) return undefined;
+  const from = `${fromOrg}:${fromRole}`;
+  src?.bus.emit({
+    type: 'audit',
+    from: fromRole,
+    to,
+    reason: 'federation-denied',
+    msg: `federation: ${from} may not send to ${to} (${subject})`,
+    data: { direction: 'to', from, to },
+  });
+  return `ERROR: federation: ${from} may not send to ${to}`;
+}
+
 /** Cross-process leg of deliver(): ask the machine-local broker who hosts targetOrgName, then POST over HTTP.
  *  `to` here is always the fully-qualified "org:role" display form (resolveAddress already normalized it). */
 async function deliverRemote(
@@ -438,6 +524,7 @@ async function deliverRemote(
   subject: string,
   body: string,
   src: RunningOrg | undefined,
+  messageId: string,
 ): Promise<string> {
   const remote = lookupOrg(targetOrgName, daemon.opts.brokerDir);
   if (!remote) {
@@ -449,6 +536,7 @@ async function deliverRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         src?.bus.emit({
@@ -466,7 +554,7 @@ async function deliverRemote(
         to,
         subject,
         msg: body,
-        data: { queued: true },
+        data: { queued: true, messageId },
       });
       daemon.autoWake(targetOrgName);
       return `queued for ${to} (org starting)`;
@@ -476,6 +564,9 @@ async function deliverRemote(
       const { lookupRemoteOrg, deliverRemote: sshDeliver } = await import('./remote.js');
       const remoteHost = lookupRemoteOrg(targetOrgName, daemon.root);
       if (remoteHost) {
+        // M4: another host is always another trust domain.
+        const denied = federationDenied(daemon, fromOrg, fromRole, targetOrgName, to, subject, src);
+        if (denied) return denied;
         const result = await sshDeliver(
           targetOrgName,
           `${fromOrg}:${fromRole}`,
@@ -490,7 +581,7 @@ async function deliverRemote(
             to,
             subject,
             msg: body,
-            data: { remote: 'ssh', host: remoteHost.host },
+            data: { remote: 'ssh', host: remoteHost.host, messageId },
           });
           return `delivered to ${to} via SSH (${remoteHost.host})`;
         }
@@ -515,6 +606,12 @@ async function deliverRemote(
     });
     return `ERROR: unknown recipient "${to}" (no local org, no process on this machine, and no SSH remote configured for "${targetOrgName}")`;
   }
+  // M4: a target under a different project root is another trust domain —
+  // honour the sender's federation.allow_to. Same root is never restricted.
+  if (remote.root !== normalizeRoot(daemon.root)) {
+    const denied = federationDenied(daemon, fromOrg, fromRole, targetOrgName, to, subject, src);
+    if (denied) return denied;
+  }
   try {
     // BUG 2 FIX: attach fromOrg's OWN registered credential as proof of
     // sender identity — separate from the `x-monomind-cred` header above,
@@ -532,10 +629,12 @@ async function deliverRemote(
         fromOrg,
         fromRole,
         fromCredential: fromEntry?.credential,
+        fromRoot: normalizeRoot(daemon.root),
         toOrg: targetOrgName,
         toRole: targetRole,
         subject,
         body,
+        messageId,
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -545,7 +644,14 @@ async function deliverRemote(
       error?: string;
     };
     if (res.ok && data.ok) {
-      src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body });
+      src?.bus.emit({
+        type: 'xorg',
+        from: `${fromOrg}:${fromRole}`,
+        to,
+        subject,
+        msg: body,
+        data: { messageId },
+      });
       return data.receipt ?? `delivered to ${to} (remote)`;
     }
     src?.bus.emit({
@@ -579,6 +685,16 @@ function credentialMatches(supplied: unknown, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+export interface ReceiveRemoteOpts {
+  /** The caller presented the OPERATOR credential: skip the broker sender
+   *  identity check and trust `fromQualified` as given (M3). */
+  operator?: boolean;
+  /** Origin message id (M3) — generated here when the sender sent none. */
+  messageId?: string;
+  /** M4: the sending daemon's project root (xdeliver body `fromRoot`). */
+  fromRoot?: string;
+}
+
 /** Inbound handler for cross-process delivery — called by the server's POST /api/xdeliver route
  *  when ANOTHER process's deliverRemote() reaches this daemon. Pushes straight into the target
  *  agent's mailbox; the agent picks it up on its own next turn (see Mailbox — never interrupts). */
@@ -590,20 +706,49 @@ export async function receiveRemote(
   subject: string,
   body: string,
   fromCredential?: string,
+  opts: ReceiveRemoteOpts = {},
 ): Promise<{ ok: true; receipt: string } | { ok: false; error: string }> {
+  const messageId = opts.messageId ?? newMessageId();
   // BUG 2 FIX: the HTTP auth gate in server.ts only proves the caller knows a
   // credential this daemon accepts (the target org's, or the operator's) — it
   // says nothing about who the caller claims to be. Verify the claimed sender
   // actually owns the credential registered for it in the broker before
   // trusting anything else. Credentials are per-org, so a sibling org hosted
   // by the same daemon can't reuse its own to pass as `fromOrg`.
+  //
+  // M3: an OPERATOR-authenticated call (server.ts saw the operator credential)
+  // carries human authority and may speak as any sender — the org need not be
+  // registered (e.g. `workflow:<exec>` or an automation role's reply).
   const claimedFromOrg = fromQualified.split(':', 1)[0];
-  const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
-  if (!fromEntry?.credential || !credentialMatches(fromCredential, fromEntry.credential)) {
-    return {
-      ok: false,
-      error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
+  if (!opts.operator) {
+    const fromEntry = lookupOrg(claimedFromOrg, daemon.opts.brokerDir);
+    if (!fromEntry?.credential || !credentialMatches(fromCredential, fromEntry.credential)) {
+      return {
+        ok: false,
+        error: `sender "${claimedFromOrg}" failed identity verification (unregistered or credential mismatch)`,
+      };
+    }
+    // M4 federation (operator-authenticated calls are exempt).
+    const fromRoot = opts.fromRoot ? normalizeRoot(opts.fromRoot) : undefined;
+    const reject = (error: string) => {
+      daemon.orgs.get(toOrg)?.bus.emit({
+        type: 'audit',
+        from: toRole,
+        reason: 'federation-denied',
+        msg: `${error} (from ${fromQualified})`,
+        data: { direction: 'from', from: fromQualified, fromRoot: fromRoot ?? null },
+      });
+      return { ok: false as const, error };
     };
+    // A sender that states no root (an older daemon, a hand-rolled client)
+    // is not a mismatch — it is simply treated as another root below.
+    if (fromEntry.root && fromRoot !== undefined && fromRoot !== fromEntry.root)
+      return reject('federation: root mismatch');
+    if (fromRoot !== normalizeRoot(daemon.root)) {
+      const allowFrom = federationDef(daemon, toOrg)?.federation?.allow_from;
+      if (!federationAllows(allowFrom, claimedFromOrg))
+        return reject('federation: sender not allowed');
+    }
   }
   const org = daemon.orgs.get(toOrg);
   if (!org) {
@@ -615,6 +760,7 @@ export async function receiveRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         return {
@@ -626,6 +772,26 @@ export async function receiveRemote(
       return { ok: true, receipt: `queued for ${toOrg}:${toRole} (org waking)` };
     }
     return { ok: false, error: `org "${toOrg}" not hosted here` };
+  }
+  // M2: an endpoint role has no mailbox — POST to its endpoint instead.
+  const endpointRole = findEndpointRole(org.def, toRole);
+  if (endpointRole) {
+    const from = fromQualified.startsWith(`${toOrg}:`)
+      ? fromQualified.slice(toOrg.length + 1)
+      : fromQualified;
+    const receipt = await deliverToEndpoint(daemon, {
+      orgName: toOrg,
+      org,
+      role: endpointRole,
+      from,
+      subject,
+      body,
+      messageId,
+      eventTo: `${toOrg}:${toRole}`,
+    });
+    return receipt.startsWith('ERROR:')
+      ? { ok: false, error: receipt.slice('ERROR: '.length) }
+      : { ok: true, receipt };
   }
   // Lazy-spawn pending roles on cross-process delivery (matches deliver/answerQuestion)
   // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
@@ -653,6 +819,7 @@ export async function receiveRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         return {
@@ -684,6 +851,7 @@ export async function receiveRemote(
         subject,
         body,
         ts: Date.now(),
+        messageId,
       });
       if (!queued) {
         return {
@@ -716,6 +884,7 @@ export async function receiveRemote(
       subject,
       body,
       ts: Date.now(),
+      messageId,
     });
     if (!queued) {
       return {
@@ -743,6 +912,7 @@ export async function receiveRemote(
     to: `${toOrg}:${toRole}`,
     subject,
     msg: body,
+    data: { messageId },
   });
   agent.lastMessageId = messageEvent.id; // Track last message ID for response threading
   const pushed = await pushMessage(

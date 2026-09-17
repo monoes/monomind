@@ -209,8 +209,16 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
         JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')),
       );
       const { buildRolePrompt, resolveRoleExtraGuidance } = await import('../orgrt/session.js');
+      const { agentRoles, endpointBriefingLines } = await import('../orgrt/endpoint-roles.js');
       const roster = def.roles.map((r) => r.id);
-      const perRole = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+      // M2: endpoint roles get no session, so no briefing and no budget share.
+      const sessionRoles = agentRoles(def.roles);
+      const bossId = (
+        sessionRoles.find((r) => r.type === 'boss' || r.reports_to === null) ?? sessionRoles[0]
+      )?.id;
+      const perRole = Math.floor(
+        (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, sessionRoles.length),
+      );
       // Same KG entity glossary the live daemon injects — the preview must
       // match what sessions actually receive.
       const glossary = await (async () => {
@@ -227,10 +235,10 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       })();
       log(
         output.info(
-          `DRY RUN — org ${name}: ${def.roles.length} roles, ${perRole} tokens each, goal: ${taskFlag ?? def.goal}`,
+          `DRY RUN — org ${name}: ${sessionRoles.length} roles, ${perRole} tokens each, goal: ${taskFlag ?? def.goal}`,
         ),
       );
-      for (const role of def.roles) {
+      for (const role of sessionRoles) {
         log(
           output.info(
             `\n─── ${role.id} (${role.title || role.type})${role.adapter_config?.model ? ` [${role.adapter_config.model}]` : ''} ───`,
@@ -243,6 +251,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
             roster,
             glossary,
             resolveRoleExtraGuidance(role),
+            role.id === bossId ? endpointBriefingLines(def) : undefined,
           ),
         );
       }
@@ -2358,6 +2367,12 @@ export const orgCommand: Command = {
             'monomind org inbox growth --json \'{"from":"sales:boss","subject":"leads","body":"..."}\'',
           description: 'Deliver a message to the growth org',
         },
+        {
+          command:
+            'monomind org inbox growth --to lead --from growth:publisher-bot --subject "re: post" --body "done" --format json',
+          description:
+            'Reply as an automation role; prints {"v":1,"org","to","from","delivery","receipt","messageId"}',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
@@ -2415,6 +2430,13 @@ export const orgCommand: Command = {
       name: 'answer',
       description:
         'Answer a pending ask_human question (live if the org is running, queued otherwise)',
+      options: [
+        {
+          name: 'by',
+          description: 'Resolver recorded as resolvedBy (default: human)',
+          type: 'string',
+        },
+      ],
       examples: [
         {
           command: 'monomind org answer growth q-123-ab "yes, ship it"',
@@ -2431,6 +2453,18 @@ export const orgCommand: Command = {
     {
       name: 'approve',
       description: 'Approve a pending tool/action approval',
+      options: [
+        {
+          name: 'request',
+          description: 'Resolve only this approval request id (apr-…)',
+          type: 'string',
+        },
+        {
+          name: 'by',
+          description: 'Resolver recorded as resolvedBy (default: human)',
+          type: 'string',
+        },
+      ],
       examples: [
         {
           command: 'monomind org approve growth coder "Bash"',
@@ -2447,6 +2481,18 @@ export const orgCommand: Command = {
     {
       name: 'deny',
       description: 'Deny a pending tool/action approval',
+      options: [
+        {
+          name: 'request',
+          description: 'Resolve only this approval request id (apr-…)',
+          type: 'string',
+        },
+        {
+          name: 'by',
+          description: 'Resolver recorded as resolvedBy (default: human)',
+          type: 'string',
+        },
+      ],
       examples: [
         {
           command: 'monomind org deny growth coder "Bash"',
@@ -2478,6 +2524,13 @@ export const orgCommand: Command = {
     {
       name: 'gate-approve',
       description: 'Approve a pending decision gate',
+      options: [
+        {
+          name: 'by',
+          description: 'Resolver recorded as resolvedBy (default: human)',
+          type: 'string',
+        },
+      ],
       examples: [
         {
           command: 'monomind org gate-approve growth gate-123-ab "ship it"',
@@ -2494,6 +2547,13 @@ export const orgCommand: Command = {
     {
       name: 'gate-reject',
       description: 'Reject a pending decision gate',
+      options: [
+        {
+          name: 'by',
+          description: 'Resolver recorded as resolvedBy (default: human)',
+          type: 'string',
+        },
+      ],
       examples: [
         {
           command: 'monomind org gate-reject growth gate-123-ab "not ready"',

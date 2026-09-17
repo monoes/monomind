@@ -15,6 +15,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/control-start.cjs');
 
 function run({ cwd, env } = {}) {
+  // Remove SDK agent env vars that cause hook scripts to exit silently
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.MONOMIND_SDK_AGENT;
+  delete cleanEnv.MONOMIND_HOOK_QUIET;
+
   return spawnSync(process.execPath, [SCRIPT], {
     cwd: cwd || os.tmpdir(),
     encoding: 'utf-8',
@@ -24,7 +29,7 @@ function run({ cwd, env } = {}) {
     // detached server — real spawns from this suite leaked ~900 orphan server
     // processes on isolated ports and exhausted the machine's process table.
     env: {
-      ...process.env,
+      ...cleanEnv,
       CLAUDE_PROJECT_DIR: cwd || os.tmpdir(),
       MONOMIND_CONTROL_NO_SPAWN: '1',
       MONOMIND_HOOK_QUIET: '',

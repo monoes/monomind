@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import type { OrgBus } from './bus.js';
+import { endpointBriefingLines } from './endpoint-roles.js';
 import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
 import { Mailbox } from './mailbox.js';
@@ -195,6 +196,12 @@ export interface SessionOpts {
    *  (config search must start at the project root even when the role's
    *  workspace cwd is an isolated scratch dir). Defaults to opts.cwd. */
   orgRoot?: string;
+  /** Run id of the org run this session belongs to (MONOMIND_ORG_RUN). */
+  run?: string;
+  /** M1: build this session's tool-provider tools (role `tool_providers`).
+   *  Called once per session start; the returned set is closed (provider
+   *  processes killed) when the session ends. */
+  buildProviderTools?: () => Promise<{ tools: OrgToolDef[]; close(): void } | undefined>;
   deliver: DeliverFn;
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
@@ -318,6 +325,8 @@ export function buildRolePrompt(
   roster: string[],
   glossary?: string[],
   extraGuidance?: string,
+  /** M2: one line per endpoint role (endpointBriefingLines) — boss only. */
+  endpointBriefing?: string[],
 ): string {
   const isCoordinator = role.reports_to == null;
   return [
@@ -331,6 +340,7 @@ export function buildRolePrompt(
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
+    endpointBriefing?.length ? `Automations in this org:\n${endpointBriefing.join('\n')}` : '',
     `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `For irreversible or high-risk actions (deployments, deletions, external communications), call org_gate to create a decision gate — a hard-blocking approval checkpoint. End your turn and wait for the human's approval or rejection before proceeding.`,
     `You can structure work as a task DAG: use org_task to create tasks with dependencies, org_task_done to mark them complete, and org_tasks to see the full DAG. Tasks with satisfied dependencies are automatically dispatched to their assignee.`,
@@ -517,6 +527,10 @@ async function runOneSession(
     opts.runner ?? (opts.queryFn ? new ClaudeAgentRunner(opts.queryFn) : defaultClaudeRunner);
 
   const tools = buildOrgTools(opts);
+  // M1: provider tools are listed per session start, so a hot-reloaded
+  // tool_providers block takes effect at the role's next session.
+  const providerSet = opts.buildProviderTools ? await opts.buildProviderTools() : undefined;
+  if (providerSet) tools.push(...providerSet.tools);
 
   // Named-provider resolution (`adapter_config.provider`): explicit role
   // provider wins, else the named entry from `monomind providers configure`.
@@ -554,6 +568,7 @@ async function runOneSession(
         opts.def?.roles.map((r) => r.id) ?? [role.id],
         opts.glossary,
         resolveRoleExtraGuidance(role),
+        opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
       ),
       model,
       cwd,
@@ -580,6 +595,11 @@ async function runOneSession(
         // 'default' roleId, polluting the repo and making files unattributable.
         MONOMIND_ORG_DIR: opts.orgDir ?? opts.cwd,
         MONOMIND_ROLE_ID: role.id,
+        // M1: attribution for anything the role runs (C-16).
+        MONOMIND_ORG_NAME: org,
+        MONOMIND_ORG_ROLE: role.id,
+        ...(opts.run ? { MONOMIND_ORG_RUN: opts.run } : {}),
+        ...(opts.orgRoot ? { MONOMIND_ORG_ROOT: opts.orgRoot } : {}),
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
@@ -851,6 +871,8 @@ async function runOneSession(
   } catch (err) {
     bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
     throw err;
+  } finally {
+    providerSet?.close();
   }
 }
 
