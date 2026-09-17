@@ -745,6 +745,7 @@ export class OrgDaemon {
       }
     } else {
       this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
+      questionOps.clearQuestionsForFreshStart(this, name); // nor do its unanswered questions (#248)
       // random suffix: second-precision stamps collide across processes (two CLI
       // invocations in the same second would share a run dir and its bus.jsonl)
       run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;

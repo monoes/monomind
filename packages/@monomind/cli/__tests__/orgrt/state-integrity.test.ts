@@ -9,12 +9,16 @@
 //      queued during the drain window after their sender got a "queued" receipt.
 //   d. `org stop` was a silent no-op (exit 0, "daemon exits within 2s") when nothing
 //      polled the stopfile — notably against an `org serve` daemon.
+//   e. (#248) questions.json is per-org, not per-run, so a question a stopped run left
+//      unanswered stayed pending in every later run: listed by `org questions`,
+//      answerable into roles that never asked it, and suppressing the idle watchdog.
 import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { queueMessage, drainInbox, inboxCount } from '../../src/orgrt/inbox.js';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
+import { clearQuestionsForFreshStart } from '../../src/orgrt/questions.js';
 import { orgCommand, pollStopfiles } from '../../src/commands/org.js';
 import { ORG_DIR } from '../../src/orgrt/types.js';
 
@@ -269,4 +273,112 @@ describe('org stop — honest about whether anything will act on it', () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 30000);
+});
+
+// ---------------------------------------------------------------- (e)
+describe('#248 — a previous run\'s unanswered questions never carry into a fresh run', () => {
+  const seed = (root: string, org: string, questions: unknown[]): void => {
+    mkdirSync(join(root, ORG_DIR, org), { recursive: true });
+    writeFileSync(join(root, ORG_DIR, org, 'questions.json'), JSON.stringify({ questions }));
+  };
+  const stalePending = { questionId: 'q-stale', role: 'coder', question: 'bash is broken?', ts: 1, answer: null, answeredAt: null };
+  const oldAnswered = { questionId: 'q-old', role: 'boss', question: 'ship?', ts: 1, answer: 'yes', answeredAt: 2, resolvedBy: 'human' };
+
+  it('clearQuestionsForFreshStart drops pending questions but keeps answered history', () => {
+    const root = mkdtempSync(join(tmpdir(), 'q-clear-'));
+    try {
+      seed(root, 'alpha', [stalePending, oldAnswered]);
+      clearQuestionsForFreshStart(new OrgDaemon(root, { forward: false }), 'alpha');
+      expect(readQuestions(root, 'alpha')).toEqual([oldAnswered]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('clearQuestionsForFreshStart is a no-op when no questions.json exists — does not create one', () => {
+    const root = mkdtempSync(join(tmpdir(), 'q-clear-none-'));
+    try {
+      clearQuestionsForFreshStart(new OrgDaemon(root, { forward: false }), 'alpha');
+      expect(existsSync(join(root, ORG_DIR, 'alpha', 'questions.json'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('a fresh run starts with no pending questions from the previous one, and its own questions still work', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'q-fresh-run-'));
+    orgFixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    try {
+      // Run A: one question answered, one left pending when the run stops.
+      await d.startOrg('alpha');
+      const answeredId = qidOf(await d.askHuman('alpha', 'boss', 'red or blue?'));
+      expect(await d.answerQuestion('alpha', 'boss', answeredId, 'blue')).toEqual({ ok: true });
+      const staleId = qidOf(await d.askHuman('alpha', 'coder', 'bash is broken?'));
+      await d.stopOrg('alpha');
+
+      // Run B (fresh, not a resume).
+      await d.startOrg('alpha');
+      const afterStart = readQuestions(root, 'alpha');
+      expect(afterStart.map(q => q.questionId)).toEqual([answeredId]); // answered history kept
+      expect(afterStart.filter(q => q.answer === null)).toEqual([]);
+
+      // The stale question can no longer be answered into run B's roles.
+      const stale = await d.answerQuestion('alpha', 'coder', staleId, 'use Read instead');
+      expect(stale.ok).toBe(false);
+
+      // Run B's own question is recorded and answerable as before.
+      const freshId = qidOf(await d.askHuman('alpha', 'coder', 'which branch?'));
+      expect(readQuestions(root, 'alpha').filter(q => q.answer === null).map(q => q.questionId)).toEqual([freshId]);
+      expect(await d.answerQuestion('alpha', 'coder', freshId, 'main')).toEqual({ ok: true });
+      expect(readQuestions(root, 'alpha').find(q => q.questionId === freshId)!.answer).toBe('main');
+    } finally {
+      await d.stopAll();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it('a resumed run keeps its own pending questions', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'q-resume-run-'));
+    orgFixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    try {
+      await d.startOrg('alpha');
+      const qid = qidOf(await d.askHuman('alpha', 'coder', 'which branch?'));
+      await d.stopOrg('alpha');
+
+      await d.startOrg('alpha', undefined, { resume: true });
+      expect(readQuestions(root, 'alpha').filter(q => q.answer === null).map(q => q.questionId)).toEqual([qid]);
+      expect(await d.answerQuestion('alpha', 'coder', qid, 'main')).toEqual({ ok: true });
+    } finally {
+      await d.stopAll();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it('a previous run\'s pending question does not suppress the new run\'s idle watchdog', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'q-idle-'));
+    mkdirSync(join(root, ORG_DIR), { recursive: true });
+    writeFileSync(join(root, ORG_DIR, 'alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0.005 }, // 300ms idle window
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    seed(root, 'alpha', [stalePending]); // left behind by an earlier run
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    try {
+      const running = await d.startOrg('alpha');
+      const deadline = Date.now() + 8000;
+      while (d.getOrg('alpha') && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+      expect(running.busEvents().some(e => e.type === 'audit' && e.reason === 'idle-stop')).toBe(true);
+      expect(d.getOrg('alpha')).toBeUndefined();
+    } finally {
+      await d.stopAll();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 15000);
 });
