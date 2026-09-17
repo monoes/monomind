@@ -1077,3 +1077,57 @@ describe('CodexAgentRunner subprocess lifecycle', () => {
     }
   });
 });
+
+/**
+ * #263 — codex's own sandbox follows the role's policy.git level, which the
+ * session env carries as MONOMIND_GIT_LEVEL (git-guard.ts). Before this every
+ * codex role ran with `--sandbox danger-full-access` whatever its level was.
+ */
+describe('CodexAgentRunner sandbox mapping (#263)', () => {
+  let runner: CodexAgentRunner;
+
+  beforeEach(() => {
+    runner = new CodexAgentRunner('/usr/bin/codex');
+    vi.clearAllMocks();
+  });
+
+  const argvFor = async (env: Record<string, string>): Promise<string[]> => {
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([JSON.stringify({ type: 'session_configured', session_id: 't1' })]),
+    );
+    for await (const _m of runner.run({
+      tools: [],
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
+      systemPrompt: '',
+      cwd: '/tmp',
+      env,
+      maxTurns: 5,
+    })) {
+      /* consume */
+    }
+    return vi.mocked(cp.spawn).mock.calls[0][1] as string[];
+  };
+
+  const sandboxOf = (argv: string[]) => argv[argv.indexOf('--sandbox') + 1];
+
+  it.each(['none', 'read', 'commit'])(
+    "policy.git '%s' runs codex in workspace-write, not danger-full-access",
+    async (level) => {
+      const argv = await argvFor({ MONOMIND_GIT_LEVEL: level });
+      expect(sandboxOf(argv)).toBe('workspace-write');
+      expect(argv).not.toContain('danger-full-access');
+      // installs, builds and `git fetch` must keep working: codex's
+      // workspace-write drops network unless this is set (verified live)
+      expect(argv).toContain('sandbox_workspace_write.network_access=true');
+    },
+  );
+
+  it("policy.git 'push' is unchanged — danger-full-access, no network override", async () => {
+    // a 'push' role gets no git guard at all, so no MONOMIND_GIT_LEVEL
+    const argv = await argvFor({});
+    expect(sandboxOf(argv)).toBe('danger-full-access');
+    expect(argv).not.toContain('sandbox_workspace_write.network_access=true');
+  });
+});

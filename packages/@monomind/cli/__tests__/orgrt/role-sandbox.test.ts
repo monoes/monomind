@@ -326,6 +326,20 @@ describe('resolveRoleGitEnforcement', () => {
     expect(events.filter((e) => e.reason === 'git-sandbox-unsupported-runtime')).toHaveLength(1);
   });
 
+  // #263: codex/grok run their own sandbox at the role's level, so the "this
+  // runtime has nothing" event would be a lie for them.
+  it.each([
+    ['codex', 'workspace-write'],
+    ['grok', 'workspace'],
+  ])('audits git-sandbox-cli (not unsupported-runtime) for %s', (runtime, mode) => {
+    const { opts, events } = setup();
+    resolveRoleGitEnforcement({ ...opts, claudeRuntime: false, runtime, availability: available });
+    expect(events.filter((e) => e.reason === 'git-sandbox-unsupported-runtime')).toHaveLength(0);
+    const audit = events.find((e) => e.reason === 'git-sandbox-cli');
+    expect(audit).toBeDefined();
+    expect(String((audit as any).msg)).toContain(`'${mode}'`);
+  });
+
   // #262: only the ephemeral server the opencode runner spawns itself can be
   // given the guard env. An attached one (OPENCODE_URL) is the operator's own
   // process — the role then has no enforcement at all, which must be audited.
@@ -425,13 +439,31 @@ describe('session wiring', () => {
 describe('gitEnforcementFindings (org validate)', () => {
   const def = (roles: any[], runtime?: string) => ({ name: 'o', runtime, roles }) as any;
 
-  it('warns that non-claude roles below push have no OS sandbox', () => {
-    const f = gitEnforcementFindings(def([{ id: 'a', runtime: 'codex' }, { id: 'b', policy: { git: 'push' } }]), {
+  it('warns that runtimes without any OS sandbox have none, and skips push roles', () => {
+    const f = gitEnforcementFindings(def([{ id: 'a', runtime: 'qwen' }, { id: 'b', policy: { git: 'push' } }]), {
       available: true,
     });
     expect(f.errors).toHaveLength(0);
-    expect(f.warnings.join('\n')).toMatch(/a \(codex\)/);
+    expect(f.warnings.join('\n')).toMatch(/no OS sandbox on these runtimes[^\n]*a \(qwen\)/);
     expect(f.warnings.join('\n')).not.toMatch(/\bb\b/);
+  });
+
+  // #263: codex and grok now run their own sandbox at the role's level — they
+  // must no longer be reported as having nothing.
+  it("reports CLI-sandboxed runtimes separately from the ones that still have nothing", () => {
+    const f = gitEnforcementFindings(
+      def([
+        { id: 'a', runtime: 'codex' },
+        { id: 'g', runtime: 'grok' },
+        { id: 'c', runtime: 'copilot' },
+      ]),
+      { available: true },
+    );
+    const text = f.warnings.join('\n');
+    expect(text).toMatch(/CLI's own sandbox[^\n]*a \(codex: workspace-write\)/);
+    expect(text).toMatch(/CLI's own sandbox[^\n]*g \(grok: workspace\)/);
+    expect(text).toMatch(/no OS sandbox on these runtimes[^\n]*c \(copilot\)/);
+    expect(text).not.toMatch(/no OS sandbox on these runtimes[^\n]*codex/);
   });
 
   it("warns when claude roles would run unsandboxed, and errors for mode 'required'", () => {

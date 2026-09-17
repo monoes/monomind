@@ -49,8 +49,9 @@
  * live default for `--json`, not a deprecated relic).
  *
  *   - Invocation: `codex exec --json [--model X] [--cd Y]
- *                 [--skip-git-repo-check] [--sandbox danger-full-access]
+ *                 [--skip-git-repo-check] [--sandbox <mode>]
  *                 [resume <sessionId>] -- -` with the prompt on STDIN
+ *     (the sandbox mode follows the role's policy.git level — cli-sandbox.ts)
  *     (see streamTurn for why argv is not used). `--experimental-json`
  *     (the old flag name) doesn't exist in v0.21.0 — confirmed live
  *     ("unexpected argument '--experimental-json' found"); `--json` is
@@ -144,6 +145,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { codexSandboxArgs, roleGitLevel } from './cli-sandbox.js';
 import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
@@ -377,7 +379,7 @@ export class CodexAgentRunner implements AgentRunner {
   ): AsyncGenerator<CodexStreamEvent> {
     // ARG ORDER — see file header for the live-verified citation:
     //   codex exec --json [--model X] [--cd Y]
-    //              [--skip-git-repo-check] [--sandbox danger-full-access]
+    //              [--skip-git-repo-check] [--sandbox <mode>]
     //              [resume <threadId>] -- -
     // The prompt goes over STDIN, not argv: a single argv element is capped
     // at 128 KiB on Linux (E2BIG), and a system prompt + tool protocol +
@@ -389,7 +391,9 @@ export class CodexAgentRunner implements AgentRunner {
     if (args.model) cliArgs.push('--model', args.model);
     cliArgs.push('--cd', args.cwd);
     cliArgs.push('--skip-git-repo-check');
-    cliArgs.push('--sandbox', 'danger-full-access');
+    // #263: codex's own sandbox follows the role's policy.git level — only a
+    // 'push' role still gets danger-full-access. See cli-sandbox.ts.
+    cliArgs.push(...codexSandboxArgs(roleGitLevel(args.env)));
     if (threadId) {
       cliArgs.push('resume', threadId);
     }

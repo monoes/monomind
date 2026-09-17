@@ -66,7 +66,8 @@
  * closed (no text extracted, not a crash), which is what the "no known
  * shape matched" path is for.
  *   - Invocation: `grok -p "<prompt>" --output-format json [--model X] [--cwd Y]
- *                 [--always-approve] [-r <sessionId> | -c]`
+ *                 [--always-approve] [--sandbox workspace] [-r <sessionId> | -c]`
+ *     (the sandbox profile follows the role's policy.git level — cli-sandbox.ts)
  *   - Session continuity: `-r/--resume [<id>]` resumes a specific session,
  *     `-c/--continue` resumes the most recent one. Session id is captured
  *     from any event carrying `session_id` / `sessionId` / `thread_id`.
@@ -79,6 +80,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { grokSandboxArgs, roleGitLevel } from './cli-sandbox.js';
 import { classifyStderr } from './kimicode-runner.js';
 import {
   buildToolProtocol,
@@ -376,6 +378,10 @@ export class GrokAgentRunner implements AgentRunner {
     // signed in" auth error instead of a flag-parsing error, proving the
     // flag itself is now accepted. See #178.
     const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '--always-approve'];
+    // #263: below policy.git 'push', grok runs in its own `workspace` sandbox
+    // profile (Landlock/Seatbelt) instead of the default `off`. Tool approval
+    // stays automatic — the org gates tools itself. See cli-sandbox.ts.
+    cliArgs.push(...grokSandboxArgs(roleGitLevel(args.env)));
     if (args.model) cliArgs.push('--model', args.model);
     cliArgs.push('--cwd', args.cwd);
     if (sessionId) cliArgs.push('--resume', sessionId);

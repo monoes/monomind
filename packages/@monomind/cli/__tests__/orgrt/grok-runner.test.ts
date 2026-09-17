@@ -227,3 +227,61 @@ describe('GrokAgentRunner streaming (#204)', () => {
     expect(caught.fatal).toBeUndefined();
   });
 });
+
+/**
+ * #263 — grok's own sandbox profile follows the role's policy.git level, which
+ * the session env carries as MONOMIND_GIT_LEVEL (git-guard.ts). Before this
+ * every grok role ran with the default `off` profile whatever its level was.
+ */
+describe('GrokAgentRunner sandbox mapping (#263)', () => {
+  let runner: GrokAgentRunner;
+
+  beforeEach(() => {
+    runner = new GrokAgentRunner('/usr/local/bin/grok');
+    vi.clearAllMocks();
+  });
+
+  const argvFor = async (env: Record<string, string>): Promise<string[]> => {
+    const child = new EventEmitter() as any;
+    child.stdout = new EventEmitter();
+    child.stdout[Symbol.asyncIterator] = async function* () {
+      yield Buffer.from(`${JSON.stringify({ role: 'assistant', content: 'ok' })}\n`);
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn();
+    setTimeout(() => child.emit('close', 0), 5);
+    vi.mocked(cp.spawn).mockReturnValue(child as cp.ChildProcess);
+
+    for await (const _m of runner.run({
+      tools: [],
+      prompt: (async function* () {
+        yield 'do work';
+      })(),
+      systemPrompt: '',
+      cwd: '/tmp',
+      env,
+      maxTurns: 5,
+    } as any)) {
+      /* consume */
+    }
+    return vi.mocked(cp.spawn).mock.calls[0][1] as string[];
+  };
+
+  it.each(['none', 'read', 'commit'])(
+    "policy.git '%s' runs grok in its 'workspace' profile",
+    async (level) => {
+      const argv = await argvFor({ MONOMIND_GIT_LEVEL: level });
+      expect(argv[argv.indexOf('--sandbox') + 1]).toBe('workspace');
+      // grok's own read-only profile writes nothing but ~/.grok and blocks
+      // child network, which would break legitimate read-level work
+      expect(argv).not.toContain('read-only');
+    },
+  );
+
+  it("policy.git 'push' is unchanged — no --sandbox at all", async () => {
+    // a 'push' role gets no git guard at all, so no MONOMIND_GIT_LEVEL
+    const argv = await argvFor({});
+    expect(argv).not.toContain('--sandbox');
+    expect(argv).toContain('--always-approve');
+  });
+});
