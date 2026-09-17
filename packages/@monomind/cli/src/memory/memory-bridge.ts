@@ -14,6 +14,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { ettinHeadLogit, loadEttinHead, resolveRerankerSource } from './reranker-head.js';
 
 // ===== Embedding validation =====
 
@@ -326,16 +327,26 @@ export function rerankerDisabled(): boolean {
 // The upstream HF ONNX file for ettin-reranker-32m-v1 only contains the base
 // ModernBERT encoder (outputs last_hidden_state, no logits). The classifier
 // head lives in separate sentence-transformers module safetensors files
-// (2_Dense, 3_LayerNorm, 4_Dense). We use a self-exported ONNX that bakes the
-// full pipeline (base + CLS pooling + head) into one file with `logits` output.
-// The export script is at scripts/export-ettin-onnx.py; the result is cached
-// under ~/.monomind/models/ettin-reranker-32m-v1-onnx/.
+// (2_Dense, 3_LayerNorm, 4_Dense). Two ways to score, in order of preference:
+//  - a self-exported ONNX with the head baked in (scripts/export-ettin-onnx.py,
+//    needs PyTorch) under ~/.monomind/models/ettin-reranker-32m-v1-onnx/
+//  - the upstream encoder plus the head applied in JS (reranker-head.ts), from
+//    head files fetched by `doc eval --provision-model` into
+//    ~/.monomind/models/ettin-reranker-32m-v1-head/
+// With neither, the reranker does not load: the upstream encoder alone cannot
+// score, and loading it anyway ran the model on every search for nothing.
 
 export const BRIDGE_RERANKER_MODEL = 'cross-encoder/ettin-reranker-32m-v1';
 
-/** Local path to the self-exported ONNX model with classifier head baked in. */
-function rerankerModelDir(): string {
-  return path.join(os.homedir(), '.monomind', 'models', 'ettin-reranker-32m-v1-onnx');
+/** Where reranker export / head files live. */
+export function rerankerModelsDir(): string {
+  return path.join(os.homedir(), '.monomind', 'models');
+}
+
+/** How the reranker is scoring, or null when it is not loaded. */
+let _rerankerKind: 'export' | 'head' | null = null;
+export function rerankerKind(): 'export' | 'head' | null {
+  return _rerankerKind;
 }
 
 let _reranker: ((query: string, passage: string) => Promise<number>) | null = null;
@@ -350,32 +361,49 @@ export async function loadReranker(): Promise<void> {
   if (!_rerankerPromise) {
     _rerankerPromise = (async () => {
       try {
-        // Use the self-exported ONNX with classifier head baked in.
-        // Falls back to the upstream HF model id if the local export doesn't
-        // exist (will fail with local_files_only unless the user has previously
-        // downloaded an ONNX with logits output).
-        const modelDir = rerankerModelDir();
-        const localOnnx = path.join(modelDir, 'onnx', 'model.onnx');
-        const modelId = fs.existsSync(localOnnx) ? modelDir : BRIDGE_RERANKER_MODEL;
+        const source = resolveRerankerSource(rerankerModelsDir());
+        if (!source) return; // nothing that can score — stay unloaded (no per-search cost)
 
         const hf = await import('@huggingface/transformers' as string);
         const opts = { local_files_only: true };
-        const tokenizer = await (hf as any).AutoTokenizer.from_pretrained(modelId, opts);
-        const model = await (hf as any).AutoModelForSequenceClassification.from_pretrained(
-          modelId,
-          opts,
-        );
-        _reranker = async (query: string, passage: string) => {
-          const inputs = await tokenizer(query, {
-            text_pair: passage,
-            padding: true,
-            truncation: true,
+        const sigmoid = (logit: number) => 1 / (1 + Math.exp(-logit));
+        if (source.kind === 'export') {
+          const tokenizer = await (hf as any).AutoTokenizer.from_pretrained(source.dir, opts);
+          const model = await (hf as any).AutoModelForSequenceClassification.from_pretrained(
+            source.dir,
+            opts,
+          );
+          _reranker = async (query: string, passage: string) => {
+            const inputs = await tokenizer(query, {
+              text_pair: passage,
+              padding: true,
+              truncation: true,
+            });
+            const output = await model(inputs);
+            // num_labels=1 → [1,1] regression score, apply sigmoid
+            return sigmoid((output.logits.data as Float32Array)[0]);
+          };
+        } else {
+          const head = loadEttinHead(source.dir);
+          const tokenizer = await (hf as any).AutoTokenizer.from_pretrained(
+            BRIDGE_RERANKER_MODEL,
+            opts,
+          );
+          const model = await (hf as any).AutoModel.from_pretrained(BRIDGE_RERANKER_MODEL, {
+            ...opts,
+            dtype: 'fp32',
           });
-          const output = await model(inputs);
-          const logits: Float32Array = output.logits.data;
-          // num_labels=1 → [1,1] regression score, apply sigmoid
-          return 1 / (1 + Math.exp(-logits[0]));
-        };
+          _reranker = async (query: string, passage: string) => {
+            const inputs = await tokenizer(query, {
+              text_pair: passage,
+              padding: true,
+              truncation: true,
+            });
+            const output = await model(inputs);
+            return sigmoid(ettinHeadLogit(head, output.last_hidden_state.data as Float32Array));
+          };
+        }
+        _rerankerKind = source.kind;
       } catch (e) {
         _rerankerPromise = null; // allow retry
         if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
