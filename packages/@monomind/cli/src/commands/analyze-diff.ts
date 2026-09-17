@@ -7,6 +7,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { resolve } from 'node:path';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import type { DiffClassification } from '../monovector/diff-classifier.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { scanSourceFiles } from './analyze.js';
@@ -137,12 +138,15 @@ export const diffCommand: Command = {
             testCoverage: string;
           };
         };
-        classification: {
-          category: string;
-          subcategory?: string;
-          confidence: number;
-          reasoning: string;
-        };
+        // Real shape is DiffClassification (monovector/diff-classifier.ts):
+        // { primary, secondary, confidence, impactLevel, suggestedReviewers,
+        // testingStrategy, riskFactors }. This used to be hand-typed here as
+        // { category, subcategory, confidence, reasoning } — none of which
+        // exist on the real object except confidence — so every read of
+        // .category/.subcategory/.reasoning below produced `undefined`
+        // ("Type: undefined" in the Diff Analysis summary box, and the same
+        // for Category/Subcategory/Reasoning in the --classify table).
+        classification: DiffClassification;
         fileRisks: Array<{
           path: string;
           risk: string;
@@ -185,10 +189,14 @@ export const diffCommand: Command = {
         risk.breakdown.securityConcerns = risk.breakdown.securityConcerns || [];
         risk.breakdown.breakingChanges = risk.breakdown.breakingChanges || [];
       }
-      const classification = result.classification || {
-        category: 'unknown',
+      const classification: DiffClassification = result.classification || {
+        primary: 'unknown',
+        secondary: [],
         confidence: 0,
-        reasoning: '',
+        impactLevel: 'low',
+        suggestedReviewers: [],
+        testingStrategy: [],
+        riskFactors: [],
       };
 
       output.printBox(
@@ -196,7 +204,7 @@ export const diffCommand: Command = {
           `Ref: ${result.ref || 'HEAD'}`,
           `Files: ${files.length}`,
           `Risk: ${getRiskDisplay(risk.overall)} (${risk.score}/100)`,
-          `Type: ${classification.category}${classification.subcategory ? ` (${classification.subcategory})` : ''}`,
+          `Type: ${classification.primary}${classification.secondary.length ? ` (${classification.secondary.join(', ')})` : ''}`,
           ``,
           result.summary || 'No summary available',
         ].join('\n'),
@@ -257,14 +265,24 @@ export const diffCommand: Command = {
             { key: 'value', header: 'Value', width: 40 },
           ],
           data: [
-            { field: 'Category', value: classification.category },
-            { field: 'Subcategory', value: classification.subcategory || '-' },
+            { field: 'Category', value: classification.primary },
+            {
+              field: 'Subcategory',
+              value: classification.secondary.length ? classification.secondary.join(', ') : '-',
+            },
             { field: 'Confidence', value: `${(classification.confidence * 100).toFixed(0)}%` },
+            { field: 'Impact Level', value: classification.impactLevel },
           ],
         });
 
         output.writeln();
-        output.writeln(output.dim(`Reasoning: ${classification.reasoning}`));
+        output.writeln(
+          output.dim(
+            classification.riskFactors.length
+              ? `Risk factors: ${classification.riskFactors.join(', ')}`
+              : 'No specific risk factors identified.',
+          ),
+        );
       }
 
       // Reviewers
