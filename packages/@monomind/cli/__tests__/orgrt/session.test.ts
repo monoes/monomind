@@ -1,5 +1,5 @@
 // packages/@monomind/cli/__tests__/orgrt/session.test.ts
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -441,6 +441,70 @@ describe('runAgentSession', () => {
     // The 'result' message's own usage (10 tokens) is NOT double-added on top
     // of the 250 already accounted for turn-by-turn above.
     expect(policy.usage).toBe(250);
+  });
+
+  describe('hook-quieting env (#249)', () => {
+    const HOOK_VARS = ['MONOMIND_HOOK_QUIET', 'MONOMIND_GRAPH_GATE', 'MONOMIND_SDK_AGENT'];
+    // Runners merge process.env underneath the session env; a developer shell
+    // under Claude Code often has these set, so clear them to see only what
+    // session.ts itself injects.
+    let saved: Record<string, string | undefined> = {};
+    beforeEach(() => {
+      saved = Object.fromEntries(HOOK_VARS.map((k) => [k, process.env[k]]));
+      for (const k of HOOK_VARS) delete process.env[k];
+    });
+    afterEach(() => {
+      for (const k of HOOK_VARS) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    });
+
+    const sessionOpts = (bus: OrgBus, mailbox: Mailbox) => ({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy: new PolicyEngine('coder', {}, bus, '/work'), mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+    });
+
+    it('keeps them out of the Claude SDK process env — it loads no filesystem hooks, so they only reached the Bash tool', async () => {
+      const bus = new OrgBus('o', 'r', dir());
+      const mailbox = new Mailbox();
+      mailbox.push('run the tests'); mailbox.close();
+      let sdkEnv: Record<string, string | undefined> = {};
+      const fakeQuery = ({ prompt, options }: any) => (async function* () {
+        sdkEnv = options.env;
+        for await (const _ of prompt) break;
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      })();
+
+      await runAgentSession({ ...sessionOpts(bus, mailbox), queryFn: fakeQuery as any });
+
+      // The spawned CLI's env is what every Bash command the role runs inherits.
+      for (const k of HOOK_VARS) expect(sdkEnv[k], k).toBeUndefined();
+      expect(sdkEnv.MONOMIND_ORG_ROLE).toBe('coder'); // attribution still reaches role commands
+    });
+
+    it('still gives them to non-Claude runners, whose CLIs run the monomind hook bridges in that env', async () => {
+      const bus = new OrgBus('o', 'r', dir());
+      const mailbox = new Mailbox();
+      mailbox.push('run the tests'); mailbox.close();
+      let runnerEnv: Record<string, string> = {};
+      const runner = {
+        async *run(args: any) {
+          runnerEnv = args.env;
+          for await (const _ of args.prompt) break;
+          yield { type: 'result' as const, subtype: 'success', input_tokens: 1, output_tokens: 1 };
+        },
+      };
+
+      await runAgentSession({ ...sessionOpts(bus, mailbox), runner });
+
+      expect(runnerEnv).toMatchObject({
+        MONOMIND_HOOK_QUIET: '1',
+        MONOMIND_GRAPH_GATE: 'off',
+        MONOMIND_SDK_AGENT: '1',
+      });
+    });
   });
 
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {

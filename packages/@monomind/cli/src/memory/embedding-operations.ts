@@ -6,7 +6,11 @@
  * @module v1/cli/embedding-operations
  */
 
-import { BRIDGE_EMBEDDING_DIMS, BRIDGE_EMBEDDING_MODEL } from './memory-bridge.js';
+import {
+  BRIDGE_EMBEDDING_DIMS,
+  BRIDGE_EMBEDDING_MODEL,
+  localEmbeddingsDisabled,
+} from './memory-bridge.js';
 
 // ADR-053: Lazy import of memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
@@ -168,14 +172,13 @@ export async function loadEmbeddingModel(options?: {
   try {
     // MONOMIND_NO_LOCAL_EMBEDDINGS: see the matching guard in
     // memory-bridge.ts's loadEmbedder() — same native-crash rationale,
-    // same env var, set automatically for org runs.
-    const transformers =
-      process.env.MONOMIND_NO_LOCAL_EMBEDDINGS === '1'
-        ? null
-        : // Try to import @huggingface/transformers for ONNX embeddings
-          // (@huggingface/transformers is the maintained successor to @xenova/transformers,
-          // same maintainers/API — this is the package actually declared as a dependency)
-          await import('@huggingface/transformers').catch(() => null);
+    // same switch (env var, or disableLocalModels() for org runs).
+    const transformers = localEmbeddingsDisabled()
+      ? null
+      : // Try to import @huggingface/transformers for ONNX embeddings
+        // (@huggingface/transformers is the maintained successor to @xenova/transformers,
+        // same maintainers/API — this is the package actually declared as a dependency)
+        await import('@huggingface/transformers').catch(() => null);
 
     if (transformers) {
       if (verbose) {

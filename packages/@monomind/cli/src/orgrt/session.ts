@@ -586,9 +586,17 @@ async function runOneSession(
         // own role prompt and tools. Without this, every org agent fires all
         // UserPromptSubmit/PreToolUse/PostToolUse hooks per message, re-reading
         // the massive cached context on every turn (the #1 token-burn source).
-        MONOMIND_HOOK_QUIET: '1',
-        MONOMIND_GRAPH_GATE: 'off',
-        MONOMIND_SDK_AGENT: '1',
+        //
+        // Only for runtimes whose CLI actually runs monomind hooks (the
+        // codex/kimi/opencode bridges call hook-handler.cjs). Those CLIs give
+        // hooks and their shell tool the same env, so there the vars stay.
+        // ClaudeAgentRunner runs with settingSources: [] — no filesystem
+        // hooks at all — so for it they did nothing but reach every Bash
+        // command the role runs, silently muting monomind's own hooks,
+        // graph gate and tests inside the role (#249).
+        ...(runner instanceof ClaudeAgentRunner
+          ? {}
+          : { MONOMIND_HOOK_QUIET: '1', MONOMIND_GRAPH_GATE: 'off', MONOMIND_SDK_AGENT: '1' }),
         // Per-role scoping for runners that persist state under the org dir
         // (VercelAgentRunner session files). Without these, session files would
         // land in args.cwd (project root for workspace:'repo') under the literal
