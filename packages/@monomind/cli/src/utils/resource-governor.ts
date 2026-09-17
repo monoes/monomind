@@ -138,7 +138,8 @@ export async function waitForCapacity(timeoutMs = 60_000): Promise<ResourceCheck
 /** Kill orphaned claude-agent-sdk processes.
  *  @param protectedPids PIDs to never kill (e.g. sibling org agents).
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
- *    When undefined, only kills genuinely orphaned processes (ppid === 1). */
+ *    When undefined, only kills genuinely orphaned processes (ppid === 1 or
+ *    parent is an init/subreaper like systemd --user). */
 export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: number): number {
   // ps doesn't exist on native Windows — same rationale as countSdkProcesses above.
   if (platform() === 'win32') return 0;
@@ -148,6 +149,16 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
+    // Build pid→command map for parent lookup when detecting orphans
+    const procMap = new Map<number, string>();
+    for (const line of out.split('\n')) {
+      const parts = line.trim().split(/\s+/);
+      const pid = parseInt(parts[0], 10);
+      if (!Number.isNaN(pid) && parts.length >= 3) {
+        procMap.set(pid, parts.slice(2).join(' '));
+      }
+    }
+
     let reaped = 0;
     for (const line of out.split('\n')) {
       if (!line.includes('claude-agent-sdk') || !line.includes('--output-format')) continue;
@@ -155,13 +166,23 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
       const pid = parseInt(parts[0], 10);
       const ppid = parseInt(parts[1], 10);
       if (Number.isNaN(pid) || protectedPids.has(pid)) continue;
+
       // When ownerPid is specified, only kill children of that owner.
-      // When ownerPid is undefined, only kill truly orphaned processes (ppid === 1).
       if (ownerPid != null) {
         if (ppid !== ownerPid) continue;
       } else {
-        if (ppid !== 1) continue;
+        // When ownerPid is undefined, only kill genuinely orphaned processes:
+        // - ppid === 1 (adopted by init), OR
+        // - parent is an init/subreaper (systemd, systemd --user, /sbin/init, etc.)
+        if (ppid !== 1) {
+          const parentCmd = procMap.get(ppid);
+          const isInitSubreaper =
+            parentCmd &&
+            /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/.test(parentCmd);
+          if (!isInitSubreaper) continue;
+        }
       }
+
       try {
         process.kill(pid, 'SIGTERM');
         reaped++;

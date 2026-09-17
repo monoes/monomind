@@ -7,7 +7,7 @@
  * live org agents.
  *
  * Fix: When ownerPid is undefined, only kill processes that are genuinely
- * orphaned (ppid === 1 or parent process doesn't exist).
+ * orphaned (ppid === 1 OR parent is an init/subreaper like systemd --user).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,12 +59,46 @@ describe('resource-governor — orphan detection', () => {
     expect(killMock).not.toHaveBeenCalledWith(1234, 'SIGTERM');
   });
 
-  it('reapOrphanedSdkProcesses without ownerPid preserves processes with live parents', async () => {
+  it('reapOrphanedSdkProcesses without ownerPid kills processes parented by systemd --user', async () => {
     platformMock = vi.fn(() => 'linux');
-    // Mock ps output with only live-parented processes
+    // Mock ps output with process parented by systemd --user (typical subreaper)
     execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+ 1486     1 /usr/lib/systemd/systemd --user
+ 1234  1486 node /path/to/claude-agent-sdk --output-format json
+ 5000  2000 node /path/to/monomind-daemon
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(1);
+    expect(killMock).toHaveBeenCalledTimes(1);
+    expect(killMock).toHaveBeenCalledWith(1234, 'SIGTERM');
+  });
+
+  it('reapOrphanedSdkProcesses without ownerPid preserves processes with live monomind daemon parent', async () => {
+    platformMock = vi.fn(() => 'linux');
+    // Mock ps output with SDK process parented by live monomind org daemon
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+ 5000  1486 node /path/to/monomind org daemon start
  1234  5000 node /path/to/claude-agent-sdk --output-format json
- 5678  6000 node /path/to/claude-agent-sdk --output-format json
+ 1486     1 /usr/lib/systemd/systemd --user
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(0);
+    expect(killMock).not.toHaveBeenCalled();
+  });
+
+  it('reapOrphanedSdkProcesses without ownerPid preserves processes with any other live parent', async () => {
+    platformMock = vi.fn(() => 'linux');
+    // Mock ps output with SDK process parented by some other live node app
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+ 5000  1486 node /path/to/some-other-app
+ 1234  5000 node /path/to/claude-agent-sdk --output-format json
+ 1486     1 /usr/lib/systemd/systemd --user
 `);
 
     const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
