@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 7)
+# Agent Exec Protocol — v1 (rev 8)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -118,7 +118,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"version":"2.10.0","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1"]}
+{"version":"2.10.31","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
