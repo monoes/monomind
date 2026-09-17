@@ -74,6 +74,11 @@ function roleShell(level: GitLevel, cmd: string, cwd = repo) {
   return { ...r, guard };
 }
 
+/** Run `cmd` with exactly this guard env over a clean base — no inherited guard. */
+function roleShellWithEnv(env: Record<string, string>, cmd: string) {
+  return spawnSync('sh', ['-c', cmd], { cwd: repo, encoding: 'utf8', env: { ...cleanEnv(), ...env } });
+}
+
 describe('git guard — commit level cannot push', () => {
   const PUSH = `git push origin HEAD:refs/heads/BRANCH`;
   it.each([
@@ -121,9 +126,83 @@ describe('git guard — commit level cannot push', () => {
     );
     expect(r.status, r.stderr).toBe(0);
     // `credential.helper=` from the guard resets the list, so git uses none
-    expect(r.stdout).toMatch(/helpers=\[store,,\]/);
+    expect(r.stdout).toMatch(/helpers=\[store,,+\]/); // the guard resets the list; an outer guard may add one more empty entry
     expect(r.stdout).toContain('askpass=1');
     expect(r.stdout).toContain('prompt=0 gh=[] github=[] agent=[]');
+  });
+});
+
+describe('git guard — the config block stands on its own', () => {
+  it("re-emits the operator's own GIT_CONFIG entries ahead of the guard's", () => {
+    const guard = prepareGitGuard({
+      level: 'commit',
+      stateDir: join(base, 'guard', 'selfcontained'),
+      protectedGitDirs: [gitCommonDir(repo)!],
+      baseEnv: {
+        GIT_CONFIG_COUNT: '1',
+        GIT_CONFIG_KEY_0: 'user.name',
+        GIT_CONFIG_VALUE_0: 'operator',
+      },
+    })!;
+    // numbering starts at 0 and covers every entry, so a child that does not
+    // inherit the operator's pairs still gets a valid block
+    const count = Number(guard.env.GIT_CONFIG_COUNT);
+    expect(guard.env.GIT_CONFIG_KEY_0).toBe('user.name');
+    for (let i = 0; i < count; i++) expect(guard.env[`GIT_CONFIG_KEY_${i}`], `key ${i}`).toBeDefined();
+    expect(Object.keys(guard.env).filter((k) => k.startsWith('GIT_CONFIG_KEY_'))).toHaveLength(count);
+    // and the guard's own entries are last, so they win
+    expect(guard.env[`GIT_CONFIG_KEY_${count - 1}`]).toBe('core.sshCommand');
+  });
+
+  it('a stale inherited count with missing pairs cannot break git', () => {
+    const guard = prepareGitGuard({
+      level: 'read',
+      stateDir: join(base, 'guard', 'stale'),
+      protectedGitDirs: [gitCommonDir(repo)!],
+      baseEnv: { GIT_CONFIG_COUNT: '5' },
+    })!;
+    const r = roleShellWithEnv(guard.env, 'git config --get core.hooksPath');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout.trim()).toBe(guard.hooksDir);
+  });
+});
+
+describe('git guard — nested sessions', () => {
+  // A role that runs a tool which installs its own guard (monomind's own test
+  // suite does) leaves both core.hooksPath values in the config. Each
+  // dispatcher used to pick the other as "the repository's own hook" and exec
+  // it, so the two ping-ponged forever and every git command hung.
+  it('never chains to another guard, so two of them cannot exec each other forever', () => {
+    const outer = prepareGitGuard({
+      level: 'commit',
+      stateDir: join(base, 'guard', 'outer'),
+      protectedGitDirs: [gitCommonDir(repo)!],
+    })!;
+    const inner = prepareGitGuard({
+      level: 'commit',
+      stateDir: join(base, 'guard', 'inner'),
+      protectedGitDirs: [gitCommonDir(repo)!],
+      baseEnv: { ...outer.env },
+    })!;
+    const r = spawnSync('sh', ['-c', 'git commit -q --allow-empty -m nested && echo committed'], {
+      cwd: repo,
+      encoding: 'utf8',
+      env: { ...cleanEnv(), ...inner.env },
+      timeout: 15_000,
+    });
+    expect(r.signal, 'timed out — the dispatchers are chaining to each other').toBeNull();
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain('committed');
+  });
+
+  it("still chains to the repository's own hook", () => {
+    const hooks = join(repo, '.git', 'hooks');
+    mkdirSync(hooks, { recursive: true });
+    writeFileSync(join(hooks, 'post-commit'), '#!/bin/sh\necho own-hook-ran > .post-commit-ran\n');
+    chmodSync(join(hooks, 'post-commit'), 0o755);
+    const r = roleShell('commit', 'git commit -q --allow-empty -m chained && cat .post-commit-ran');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout.trim()).toBe('own-hook-ran');
   });
 });
 
