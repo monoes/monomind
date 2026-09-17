@@ -7,9 +7,9 @@
  * tests drive real git against a local bare remote — no network.
  */
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { type GitLevel, gitCommonDir, prepareGitGuard } from '../../src/orgrt/git-guard.js';
 
@@ -164,6 +164,74 @@ describe('git guard — the config block stands on its own', () => {
     const r = roleShellWithEnv(guard.env, 'git config --get core.hooksPath');
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout.trim()).toBe(guard.hooksDir);
+  });
+});
+
+describe('git guard — sandbox placeholders stay out of the working tree', () => {
+  // The SDK sandbox creates zero-byte, read-only placeholder files in the
+  // role's cwd for its own cwd-relative deny entries (.bashrc, .gitconfig,
+  // .idea, .claude/hooks, …). In a repository they show up as untracked, and a
+  // 'commit' role running `git add -A` would stage them — into a release, for
+  // a repo that ships .claude/.
+  const placeholders = ['.bashrc', '.gitconfig', '.idea', '.ripgreprc', '.claude/hooks', '.claude/loop.md'];
+
+  const guardWithExcludes = (operatorExcludes?: string) =>
+    prepareGitGuard({
+      level: 'commit',
+      stateDir: join(base, 'guard', `excl-${Math.random().toString(36).slice(2)}`),
+      protectedGitDirs: [gitCommonDir(repo)!],
+      excludeSandboxPlaceholders: true,
+      baseEnv: operatorExcludes
+        ? { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.excludesFile', GIT_CONFIG_VALUE_0: operatorExcludes }
+        : {},
+    })!;
+
+  it('leaves `git status` clean and `git add -A` staging nothing', () => {
+    const guard = guardWithExcludes();
+    for (const rel of placeholders) {
+      mkdirSync(join(repo, dirname(rel)), { recursive: true });
+      writeFileSync(join(repo, rel), '');
+    }
+    const status = roleShellWithEnv(guard.env, 'git status --porcelain');
+    expect(status.status, status.stderr).toBe(0);
+    expect(status.stdout.trim()).toBe('');
+    const add = roleShellWithEnv(guard.env, 'git add -A && git diff --cached --name-only');
+    expect(add.status, add.stderr).toBe(0);
+    expect(add.stdout.trim()).toBe('');
+    for (const rel of placeholders) rmSync(join(repo, rel), { recursive: true });
+  });
+
+  it('never hides a tracked file — git ignores nothing that is already tracked', () => {
+    writeFileSync(join(repo, '.gitconfig'), 'tracked content\n');
+    const guard = guardWithExcludes();
+    roleShellWithEnv(guard.env, 'git add -f .gitconfig && git commit -q -m tracked');
+    writeFileSync(join(repo, '.gitconfig'), 'changed\n');
+    const status = roleShellWithEnv(guard.env, 'git status --porcelain');
+    expect(status.stdout).toContain('.gitconfig');
+    roleShellWithEnv(guard.env, 'git rm -q --cached .gitconfig && git commit -q -m untrack');
+    rmSync(join(repo, '.gitconfig'));
+  });
+
+  it("keeps the operator's own excludes working, since git honours only one file", () => {
+    const operator = join(base, 'operator-excludes');
+    writeFileSync(operator, '# operator\nscratch-notes.txt\n');
+    const guard = guardWithExcludes(operator);
+    writeFileSync(join(repo, 'scratch-notes.txt'), 'notes');
+    writeFileSync(join(repo, '.bashrc'), '');
+    const status = roleShellWithEnv(guard.env, 'git status --porcelain');
+    expect(status.stdout.trim()).toBe('');
+    rmSync(join(repo, 'scratch-notes.txt'));
+    rmSync(join(repo, '.bashrc'));
+  });
+
+  it('is not installed when the role runs without the sandbox', () => {
+    const guard = prepareGitGuard({
+      level: 'commit',
+      stateDir: join(base, 'guard', 'no-excludes'),
+      protectedGitDirs: [gitCommonDir(repo)!],
+      baseEnv: {},
+    })!;
+    expect(Object.values(guard.env)).not.toContain('core.excludesFile');
   });
 });
 

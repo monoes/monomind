@@ -294,6 +294,22 @@ describe('resolveRoleGitEnforcement', () => {
     expect(events.find((e) => e.type === 'audit')).toMatchObject({ reason: 'git-sandbox-required' });
   });
 
+  it('installs the placeholder excludes only when the sandbox actually runs', () => {
+    const withSandbox = setup();
+    const on = resolveRoleGitEnforcement({ ...withSandbox.opts, claudeRuntime: true, availability: available });
+    const keys = Object.entries(on.env)
+      .filter(([k]) => k.startsWith('GIT_CONFIG_KEY_'))
+      .map(([, v]) => v);
+    expect(keys).toContain('core.excludesFile');
+
+    const withoutSandbox = setup();
+    const off = resolveRoleGitEnforcement({ ...withoutSandbox.opts, claudeRuntime: true, availability: missing });
+    const offKeys = Object.entries(off.env)
+      .filter(([k]) => k.startsWith('GIT_CONFIG_KEY_'))
+      .map(([, v]) => v);
+    expect(offKeys).not.toContain('core.excludesFile');
+  });
+
   it("'off' disables the sandbox and records the opt-out", () => {
     const { opts, events } = setup({ sandbox: { mode: 'off' } });
     const r = resolveRoleGitEnforcement({ ...opts, claudeRuntime: true, availability: available });

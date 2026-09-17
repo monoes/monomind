@@ -280,14 +280,17 @@ export function resolveRoleGitEnforcement(args: {
   const stateDir = args.orgDir
     ? join(args.orgDir, 'git-guard', safeSegment(role.id))
     : join(tmpdir(), 'monomind-git-guard', safeSegment(args.org), safeSegment(role.id));
-  const guard = prepareGitGuard({
-    level,
-    stateDir,
-    protectedGitDirs: uniq([
-      gitCommonDir(args.cwd),
-      args.orgRoot ? gitCommonDir(args.orgRoot) : undefined,
-    ]),
-  });
+  const build = (excludeSandboxPlaceholders: boolean) =>
+    prepareGitGuard({
+      level,
+      stateDir,
+      excludeSandboxPlaceholders,
+      protectedGitDirs: uniq([
+        gitCommonDir(args.cwd),
+        args.orgRoot ? gitCommonDir(args.orgRoot) : undefined,
+      ]),
+    });
+  let guard = build(false);
   if (!guard) return { env: {} };
   const data = { level, protectedGitDirs: guard.protectedGitDirs };
 
@@ -331,6 +334,9 @@ export function resolveRoleGitEnforcement(args: {
       sandboxEnabled = false;
     }
   }
+  // The sandbox drops zero-byte placeholder files into the role's cwd; hide
+  // them from git so `git add -A` can't stage them (git-guard.ts).
+  if (sandboxEnabled) guard = build(true) ?? guard;
   return {
     // Inside the sandbox all egress goes through the runtime's HTTP proxy,
     // which node's global fetch() ignores unless this is set — without it
