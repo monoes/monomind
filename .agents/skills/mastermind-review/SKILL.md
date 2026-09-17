@@ -1,6 +1,6 @@
 ---
 name: mastermind-review
-description: Mastermind review domain — code review, content review, strategy review, security audit. Spawns a Review Manager coordinating a mesh of specialist reviewers for multi-angle assessment.
+description: Mastermind review domain — code review, content review, strategy review, security audit. Use for "review this session's work," "full review of this session," or "review this worktree" — add --tillend to loop find-fix-verify rounds until a round finds nothing left to fix, not just once. Spawns a Review Manager coordinating a mesh of specialist reviewers for multi-angle assessment.
 type: domain-skill
 default_mode: auto
 ---
