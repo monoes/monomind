@@ -309,7 +309,7 @@ describe('resolveModel (vendor/runtime defaults)', () => {
   });
 
   it('falls back to runtime default when no vendor', () => {
-    expect(resolveModel({ adapter_config: {} } as any, 'claude')).toBe('claude-sonnet-4-5');
+    expect(resolveModel({ adapter_config: {} } as any, 'claude')).toBe('claude-sonnet-5');
     expect(resolveModel({ adapter_config: {} } as any, 'kimicode')).toBe('kimi-code/k3');
     expect(resolveModel({ adapter_config: {} } as any, 'opencode')).toBe('glm-5.2');
     expect(resolveModel({ adapter_config: {} } as any, 'codex')).toBe('gpt-5.6-terra');
@@ -320,7 +320,7 @@ describe('resolveModel (vendor/runtime defaults)', () => {
   });
 
   it('falls back to claude default when nothing set', () => {
-    expect(resolveModel({ adapter_config: {} } as any)).toBe('claude-sonnet-4-5');
+    expect(resolveModel({ adapter_config: {} } as any)).toBe('claude-sonnet-5');
   });
 });
 

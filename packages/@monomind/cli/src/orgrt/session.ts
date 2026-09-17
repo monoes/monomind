@@ -76,7 +76,7 @@ export function resolveModel(role: OrgRole, runtime?: string, vendor?: string): 
   if (vendor && VENDOR_DEFAULTS[vendor]) return VENDOR_DEFAULTS[vendor];
   switch (runtime) {
     case 'claude':
-      return 'claude-sonnet-4-5';
+      return 'claude-sonnet-5';
     // Kimi Code CLI namespaces model ids as <provider>/<model> (its own
     // default_model is "kimi-code/kimi-for-coding-highspeed") — a bare "k3"
     // 404s with "Model \"k3\" is not configured in config.toml".
@@ -91,7 +91,7 @@ export function resolveModel(role: OrgRole, runtime?: string, vendor?: string): 
     case 'vercel':
       return 'gpt-5.5';
     default:
-      return 'claude-sonnet-4-5';
+      return 'claude-sonnet-5';
   }
 }
 
