@@ -90,6 +90,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { mergeKey } from './entity-name-key.js';
 import {
   bridgeCountEntries,
   bridgeDeleteEntry,
@@ -643,6 +644,16 @@ function nameIndexKey(name: string): string {
   return `nm:${hashTuple([String(KG_ID_VERSION), canonicalName(name)])}`;
 }
 
+/** A coarser, additive index alongside the exact one: bucketed by `mergeKey`
+ *  (case/separator/plural-insensitive), so "Node.js" and "nodejs" land in the
+ *  same bucket even though their exact `nameIndexKey`s differ. Purely a hint
+ *  like the exact index — `resolveEntity` still applies the same (type, name)
+ *  merge rules to whatever it finds here, so a bucket hit is a candidate,
+ *  never an automatic cross-type merge. */
+function mergeIndexKey(name: string): string {
+  return `nmk:${hashTuple([String(KG_ID_VERSION), mergeKey(name)])}`;
+}
+
 /** @returns the indexed entities, or null when the backend could not be read.
  *
  *  The null is load-bearing: an unreadable index looks exactly like an empty
@@ -694,6 +705,56 @@ async function writeNameIndex(
     metadata: { kg: 'name', name, entities },
   });
   failures.add(res, `name index ${key}`);
+  await writeMergeIndex(name, entities, ns, dbPath, failures);
+}
+
+/** Add `entities` into the merge-key bucket for `name`, unioned with whatever
+ *  other exact spellings already sharing that bucket contributed. Additive
+ *  only — a name written with fewer entities than before (e.g. a rollback's
+ *  survivor list) never removes another spelling's candidates from the shared
+ *  bucket. That is a smaller staleness cost than the exact index already
+ *  accepts, and self-heals the same way: a stale candidate that no longer
+ *  resolves to a live entity simply is not adopted. */
+async function writeMergeIndex(
+  name: string,
+  entities: KgNameCandidate[],
+  ns: KgNamespaces,
+  dbPath: string | undefined,
+  failures: FailureLog,
+): Promise<void> {
+  const key = mergeIndexKey(name);
+  const existing = await bridgeGetEntry({ key, namespace: ns.names, dbPath });
+  const prior = (existing?.entry?.metadata as Record<string, unknown> | undefined)?.entities;
+  const merged = new Map<string, KgNameCandidate>();
+  if (Array.isArray(prior))
+    for (const c of prior as KgNameCandidate[])
+      if (c && typeof c.id === 'string') merged.set(c.id, c);
+  for (const c of entities) merged.set(c.id, c);
+  const res = await bridgeStoreEntry({
+    key,
+    value: mergeKey(name),
+    namespace: ns.names,
+    dbPath,
+    upsert: true,
+    generateEmbeddingFlag: false,
+    tags: ['kg', 'name-merge-index'],
+    metadata: { kg: 'name-merge', mergeKey: mergeKey(name), entities: [...merged.values()] },
+  });
+  failures.add(res, `merge index ${key}`);
+}
+
+/** @returns candidates from the merge-key bucket, or null on a read failure —
+ *  same null-is-load-bearing contract as `readNameIndex`. */
+async function readMergeIndex(
+  name: string,
+  ns: KgNamespaces,
+  dbPath: string | undefined,
+): Promise<KgNameCandidate[] | null> {
+  const res = await bridgeGetEntry({ key: mergeIndexKey(name), namespace: ns.names, dbPath });
+  if (!res) return null;
+  const raw = (res.entry?.metadata as Record<string, unknown> | undefined)?.entities;
+  if (!Array.isArray(raw)) return [];
+  return (raw as KgNameCandidate[]).filter((c) => c && typeof c.id === 'string');
 }
 
 /** What resolving a name against the index produced. */
@@ -750,6 +811,15 @@ async function resolveEntity(
       known = [{ id: legacyKey, type: typeBucket(typeof md.type === 'string' ? md.type : '') }];
       indexed = false;
     }
+  }
+
+  if (!indexed && known.length === 0) {
+    // Still nothing under this exact spelling — check for a spelling variant
+    // (case, separators, a plain plural) already known under the same
+    // merge-key bucket. A hit is only a CANDIDATE: it still goes through the
+    // exact/promote/mint rules below, so it can never merge across types.
+    const merged = await readMergeIndex(name, ns, dbPath);
+    if (merged && merged.length > 0) known = merged;
   }
 
   const exact = known.find((c) => c.type === bucket);
