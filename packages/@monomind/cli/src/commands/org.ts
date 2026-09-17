@@ -14,7 +14,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { OrgDaemon } from '../orgrt/daemon.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
-import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
+import { readHistory, readRunEvents, summarizeRun, utcTime } from '../orgrt/reporting.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { resolveModel } from '../orgrt/session.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
@@ -965,7 +965,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         log(
           `  roles active: ${rolesUp} | tokens: ${fmtNum(summary.totalTokens)} | cost: $${summary.totalCostUsd.toFixed(2)}`,
         );
-        log(`  quiet since: ${new Date(lastTs).toISOString().slice(11, 19)} (${quietStr} ago)`);
+        log(`  quiet since: ${utcTime(lastTs)} (${quietStr} ago)`);
         if (summary.crashes.length) log(output.warning(`  crashes: ${summary.crashes.join(', ')}`));
       }
 

@@ -163,9 +163,21 @@ export function readHistory(cwd: string, org: string): RunSummary[] {
     .filter((s): s is RunSummary => s !== null);
 }
 
+// Human-facing times are rendered in UTC; the trailing Z says so, so operators
+// and agents on other zones don't read them as local time (#253).
+/** `HH:MM:SSZ` */
+export function utcTime(ts: number): string {
+  return `${new Date(ts).toISOString().slice(11, 19)}Z`;
+}
+
+/** `YYYY-MM-DD HH:MMZ` */
+export function utcDateMinute(ts: number): string {
+  return `${new Date(ts).toISOString().replace('T', ' ').slice(0, 16)}Z`;
+}
+
 /** One bus event as a compact human-readable log line. */
 export function formatEvent(e: BusEvent): string {
-  const t = new Date(e.ts).toISOString().slice(11, 19);
+  const t = utcTime(e.ts);
   const from = e.from ?? '·';
   switch (e.type) {
     case 'message':
