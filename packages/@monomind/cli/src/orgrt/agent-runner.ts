@@ -46,6 +46,10 @@ export interface AgentRunArgs {
    *  SDK options verbatim (e.g. the `_orgTest` seam used by test-loop.ts).
    *  Other runners ignore it. */
   extras?: Record<string, unknown>;
+  /** OS sandbox settings and permission deny rules enforcing the role's
+   *  policy.git (#258, role-sandbox.ts). ClaudeAgentRunner passes them to
+   *  query() as `sandbox` / `disallowedTools`; other runners ignore them. */
+  claudeRestrictions?: { sandbox?: Record<string, unknown>; disallowedTools?: string[] };
   /** Abort hook. An async generator's return() queues behind its in-flight
    *  next(), so a subprocess runner blocked in `for await (child.stdout)`
    *  never reaches its finally/kill on return() alone — the child is
@@ -210,6 +214,10 @@ export class ClaudeAgentRunner implements AgentRunner {
         resume: args.resume,
         canUseTool: args.canUseTool,
         abortController,
+        ...(args.claudeRestrictions?.sandbox ? { sandbox: args.claudeRestrictions.sandbox } : {}),
+        ...(args.claudeRestrictions?.disallowedTools?.length
+          ? { disallowedTools: args.claudeRestrictions.disallowedTools }
+          : {}),
         ...(args.extras || {}),
       } as any,
     });

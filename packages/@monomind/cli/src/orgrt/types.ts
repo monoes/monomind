@@ -162,6 +162,23 @@ export const RolePolicySchema = z
     /** Git access level: 'none' blocks all git, 'read' allows status/log/diff,
      *  'commit' allows add/commit, 'push' allows push. Default: 'read'. */
     git: z.enum(['none', 'read', 'commit', 'push']).default('read'),
+    /** OS sandbox for claude-runtime roles below git 'push' (#258, see
+     *  role-sandbox.ts). mode: 'auto' (default) sandboxes when bubblewrap/socat
+     *  or seatbelt are available and audits when not; 'required' refuses to
+     *  run unsandboxed; 'off' opts out. allowedDomains defaults to ['*'];
+     *  deniedDomains is an opt-in host deny list; allowWrite adds
+     *  writable paths; allowUnixSockets (default true — Chrome needs one)
+     *  can be turned off to block every AF_UNIX socket. */
+    sandbox: z
+      .object({
+        mode: z.enum(['auto', 'required', 'off']).optional(),
+        allowedDomains: z.array(z.string()).optional(),
+        deniedDomains: z.array(z.string()).optional(),
+        allowWrite: z.array(z.string()).optional(),
+        allowUnixSockets: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     fence: FenceConfigSchema.optional(),
     /** Tool/action names this role may use WITHOUT pausing for human approval,
      *  even when the action is on checkApproval's sensitive-actions list

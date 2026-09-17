@@ -13,6 +13,7 @@ import {
   summarizeRun,
   utcDateMinute,
 } from '../orgrt/reporting.js';
+import { gitEnforcementFindings } from '../orgrt/role-sandbox.js';
 import { resolveModel } from '../orgrt/session.js';
 import { buildFromTemplate, ORG_TEMPLATES } from '../orgrt/templates.js';
 import { type BusEvent, type DecisionGate, ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
@@ -85,6 +86,10 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     try {
       const def = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
       errors.push(...checkOrgStructure(def));
+      // #258: roles whose policy.git won't have the OS sandbox behind it here
+      const gitFindings = gitEnforcementFindings(def);
+      errors.push(...gitFindings.errors);
+      warnings.push(...gitFindings.warnings);
       if (def.name !== stem)
         warnings.push(
           `def.name "${def.name}" differs from filename — the runtime addresses this org as "${stem}"`,
