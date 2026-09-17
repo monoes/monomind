@@ -4,6 +4,23 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.31] — 2026-09-17
+
+### Added
+
+- Agent-exec protocol rev 7: reliable `result.text` emission for org runtime integration (#245, commit 16ae966db). Ensures subagent completion messages reliably surface through the org protocol layer.
+- Mono-agent-org integration milestones M1-M5: role-specific tool providers, endpoint role definitions, federation support, and decision attribution. Establishes the foundation for multi-role agent orchestration with governance and audit trails.
+
+### Fixed
+
+- Biome lint auto-fixes applied across codebase (a290e0a58) — resolved formatting inconsistencies caught by updated lint rules.
+- `analyze-diff` crash fix with test environment isolation (7a40820f8) — command no longer crashes when processing diffs; test suite properly isolated to prevent cross-test contamination.
+- Browser timeout test environment inheritance (ba189a3d6) — timeout configuration now properly propagated through test environment hierarchy.
+
+### Changed
+
+- `@monoes/monobrowse` bumped from 1.0.8 to 1.0.9 — includes browser timeout fixes and environment improvements.
+
 ## [2.10.30] — 2026-09-15
 
 ### Added
