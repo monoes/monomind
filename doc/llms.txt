@@ -46,7 +46,7 @@
 
 ### Org Runtime
 - Autonomous multi-agent organization coordinator (`OrgDaemon`).
-- Supports three runtime execution backends: ClaudeAgentRunner, OpencodeAgentRunner, and KimiCodeAgentRunner.
+- Supports 14 runtime execution backends (`AgentRunner` implementations), including `claude`, `codex`, `kimicode`, `opencode`, `vercel`, `antigravity`, `grok`, `qwen`, `crush`, `copilot`, `pi`, and `hermes`.
 - Concept Doc: [`doc/concepts/org-runtime.md`](doc/concepts/org-runtime.md)
 
 ### Monodesign Subsystem

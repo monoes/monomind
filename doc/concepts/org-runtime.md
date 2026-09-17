@@ -659,7 +659,7 @@ Constructs system prompt containing:
 | `org_recall` / `org_remember` / `org_learn` | All roles | Cross-run knowledge-graph memory |
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
 | `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts:L399`](packages/@monomind/cli/src/orgrt/session.ts#L399)) |
-| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts:L407,413,419`](packages/@monomind/cli/src/orgrt/session.ts#L407), backed by the `TaskDag` class, [`task-dag.ts:L15-109`](packages/@monomind/cli/src/orgrt/task-dag.ts#L15-L109)) |
+| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts:L407,413,419`](packages/@monomind/cli/src/orgrt/session.ts#L407), backed by the `TaskDag` class, [`task-dag.ts:L15-109`](packages/@monomind/cli/src/orgrt/task-dag.ts#L15-L109)). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246). |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
 
 `org_gate` and the `org_task*` trio are literally the tools this org's own agents use for

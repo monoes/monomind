@@ -730,7 +730,7 @@ body {
         </div>
         <div>
           <div class="feature-label">Per-role policy, enforced</div>
-          <div class="feature-desc">Each role's <code style="font-family:var(--ff-m);font-size:11px">policy</code> block gates tool access, file read/write scope, web access, and token budget — checked on every tool call, with a full audit trail.</div>
+          <div class="feature-desc">Each role's <code style="font-family:var(--ff-m);font-size:11px">policy</code> block gates tool access, file read/write scope, web access, and token budget — checked on every tool call, with a full audit trail. <code style="font-family:var(--ff-m);font-size:11px">policy.git</code> (<code style="font-family:var(--ff-m);font-size:11px">none</code>/<code style="font-family:var(--ff-m);font-size:11px">read</code>/<code style="font-family:var(--ff-m);font-size:11px">commit</code>/<code style="font-family:var(--ff-m);font-size:11px">push</code>) is backed by an OS sandbox plus git-level guards, so a role below <code style="font-family:var(--ff-m);font-size:11px">push</code> can't push or bypass hooks even from an arbitrary shell command.</div>
         </div>
       </div>
       <div class="feature-item">
