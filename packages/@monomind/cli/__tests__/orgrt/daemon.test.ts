@@ -1011,6 +1011,105 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     expect(startSpy.mock.calls.length).toBeLessThanOrEqual(3);
     await d.stopOrg('alpha');
   }, 15_000);
+
+  it('a crash-restart resumes the last SDK session instead of starting cold, on every restart (#247)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-resume247-'));
+    fixture(root, 'alpha');
+    // coder: every session replies (reporting its SDK session id) and then
+    // dies, twice — the in-flight message is reclaimed, so each restarted
+    // session gets it again. Record the `resume` each session starts with.
+    const coderResumes: Array<string | undefined> = [];
+    const q = ({ prompt, options }: any) => {
+      if (!/agent "coder"/.test(options.systemPrompt ?? '')) return echoQuery({ prompt, options });
+      const call = coderResumes.push(options.resume) - 1;
+      return (async function* () {
+        for await (const m of prompt) {
+          yield { type: 'assistant', session_id: 'sess-coder', message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] } };
+          yield { type: 'result', subtype: 'success', session_id: 'sess-coder', usage: { input_tokens: 1, output_tokens: 1 } };
+          if (call < 2) throw new Error(`killed by external SIGTERM (session ${call})`);
+        }
+      })();
+    };
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 200, crashBackoffsMs: [10, 10, 10] });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'verify SHA abc123');
+    expect(await waitUntil(() => coderResumes.length >= 3)).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('alpha');
+
+    expect(coderResumes).toEqual([undefined, 'sess-coder', 'sess-coder']);
+    expect(running.busEvents().filter(e => e.reason === 'agent-restart' && e.from === 'coder')).toHaveLength(2);
+    expect(running.agents.get('coder')!.status).not.toBe('crashed');
+  }, 10_000);
+
+  it('falls back to a cold session when the crash-restart cannot resume the prior session (#247)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-resume247-fallback-'));
+    fixture(root, 'alpha');
+    const coderResumes: Array<string | undefined> = [];
+    const q = ({ prompt, options }: any) => {
+      if (!/agent "coder"/.test(options.systemPrompt ?? '')) return echoQuery({ prompt, options });
+      const call = coderResumes.push(options.resume) - 1;
+      if (options.resume) {
+        // The provider no longer has that session — resume fails at start.
+        return (async function* () { throw new Error(`No conversation found with session ID: ${options.resume}`); })();
+      }
+      return (async function* () {
+        for await (const m of prompt) {
+          yield { type: 'assistant', session_id: `sess-${call}`, message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] } };
+          yield { type: 'result', subtype: 'success', session_id: `sess-${call}`, usage: { input_tokens: 1, output_tokens: 1 } };
+          if (call === 0) throw new Error('transient blip');
+        }
+      })();
+    };
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 200, crashBackoffsMs: [10, 10, 10] });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'first');
+    expect(await waitUntil(() => coderResumes.length >= 3)).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    const receipt = await d.deliver('alpha', 'boss', 'coder', 'task', 'second');
+    expect(receipt).toMatch(/delivered/);
+    expect(await waitUntil(() => running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('second')))).toBe(true);
+    await d.stopOrg('alpha');
+
+    // crashed cold session → resume attempt fails → one cold retry, no loop
+    expect(coderResumes).toEqual([undefined, 'sess-0', undefined]);
+    expect(running.busEvents().some(e => e.reason === 'resume-session-stale' && e.from === 'coder')).toBe(true);
+    expect(running.agents.get('coder')!.status).not.toBe('crashed');
+  }, 10_000);
+
+  it('an idle session aborted by the org\'s own stop is logged as stopped, not crashed; a real crash stays a crash (#251)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-stop251-'));
+    fixture(root, 'alpha');
+    // boss: an idle session that (like the real SDK) rejects "Operation
+    // aborted" when the stop aborts it. coder: a genuine crash.
+    const q = ({ prompt, options }: any) => (async function* () {
+      if (/agent "coder"/.test(options.systemPrompt ?? '')) throw new Error('genuine provider failure');
+      const aborted = new Promise<never>((_, reject) => {
+        options.abortController.signal.addEventListener('abort', () => reject(new Error('Operation aborted')), { once: true });
+      });
+      aborted.catch(() => {});
+      const it = prompt[Symbol.asyncIterator]();
+      while (true) {
+        const r = await Promise.race([it.next(), aborted]);
+        if (r.done) await aborted;
+        yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${r.value.message.content}` }] } };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      }
+    })();
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 500, crashBackoffsMs: [] });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    expect(await waitUntil(() => running.agents.get('coder')?.status === 'crashed')).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('alpha');
+
+    const events = running.busEvents();
+    const crashAudit = (from: string) => events.some(e => e.type === 'audit' && e.reason === 'agent-session-crash' && e.from === from);
+    expect(crashAudit('coder')).toBe(true);
+    expect(crashAudit('boss')).toBe(false);
+    expect(running.agents.get('boss')!.status).toBe('ended');
+    expect(events.some(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'boss')).toBe(true);
+  }, 10_000);
 });
 
 describe('OrgDaemon — oversized mailbox digest', () => {
