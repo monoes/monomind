@@ -97,6 +97,49 @@ export const clearReloadfile = (cwd: string, name: string): void => {
   rmSync(join(cwd, ORG_DIR, name, 'reload'), { force: true });
 };
 
+/** Drop stop/reload requests left behind by a previous run, for every org
+ *  `org serve` serves. #264: runAction clears these before its wait loop, but
+ *  serveAction started polling with whatever was on disk — so an `org stop`
+ *  that landed after the last daemon exited stopped the next daemon's org
+ *  seconds into its run, and a leftover `org reload` was applied to a
+ *  definition nobody had touched.
+ *
+ *  Scope is the org config files, not `daemon.listRunning()` (what
+ *  pollStopfiles/pollReloadfiles walk): nothing is running yet at startup, so
+ *  sweeping by that would sweep nothing. Called before the first org can
+ *  start, so a request that arrives once serve is up is never discarded.
+ *
+ *  Runfiles are deliberately left in place. `.../run` is not the same kind of
+ *  leftover: runAction writes one only against a live daemon and retracts it
+ *  itself when nothing consumes it within 15s, and it reads the file's
+ *  disappearance as "the daemon took the run". Deleting one here would report
+ *  success to a waiting `org run` and start nothing — the silent loss that ack
+ *  loop exists to prevent. A stale runfile at worst starts an org the operator
+ *  did ask for; pollRunfiles already no-ops on one that is running.
+ *
+ *  Returns the orgs it cleared something for. */
+export const clearStaleControlFiles = (cwd: string): string[] => {
+  const orgDir = join(cwd, ORG_DIR);
+  if (!existsSync(orgDir)) return [];
+  const cleared: string[] = [];
+  for (const f of listOrgConfigFiles(orgDir)) {
+    const name = f.replace(/\.json$/, '');
+    const stale = (['stop', 'reload'] as const).filter((kind) =>
+      existsSync(join(orgDir, name, kind)),
+    );
+    if (!stale.length) continue;
+    clearStopfile(cwd, name);
+    clearReloadfile(cwd, name);
+    log(
+      output.warning(
+        `org ${name}: discarding stale ${stale.join(' and ')} request left by a previous run`,
+      ),
+    );
+    cleared.push(name);
+  }
+  return cleared;
+};
+
 /** True when a pause sentinel exists for an org. */
 export const isOrgPaused = (cwd: string, name: string): boolean =>
   existsSync(join(cwd, ORG_DIR, name, 'pause'));
@@ -1453,6 +1496,10 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       }
     }
   });
+  // #264: before anything here can start an org — and so before the stop and
+  // reload polls below get their first pass — drop control files a previous
+  // daemon left behind, which this one would otherwise act on immediately.
+  clearStaleControlFiles(ctx.cwd);
   const orgDir = join(ctx.cwd, ORG_DIR);
   if (existsSync(orgDir)) {
     for (const f of listOrgConfigFiles(orgDir)) {
