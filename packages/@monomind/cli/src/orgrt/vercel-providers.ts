@@ -8,6 +8,12 @@
  * packages produce a clear actionable error instead of a crash.
  */
 
+/** Default model for Claude org roles — the claude runtime's fallback in
+ *  session.ts resolveModel() and the anthropic vendor default below. Defined
+ *  once so it can't drift between those sites. Lives in this import-free leaf
+ *  module so session.ts can depend on it without an import cycle. */
+export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
+
 export interface VercelProviderDef {
   vendor: string;
   /** npm import specifier for dynamic import(). */
@@ -36,7 +42,7 @@ export const VERCEL_PROVIDERS: Record<string, VercelProviderDef> = {
     vendor: 'anthropic',
     package: '@ai-sdk/anthropic',
     factory: 'createAnthropic',
-    defaultModel: 'claude-sonnet-5',
+    defaultModel: DEFAULT_CLAUDE_MODEL,
     envVar: 'ANTHROPIC_API_KEY',
   },
   glm: {

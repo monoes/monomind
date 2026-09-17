@@ -90,6 +90,13 @@ export const clearStopfile = (cwd: string, name: string): void => {
   rmSync(join(cwd, ORG_DIR, name, 'stop'), { force: true });
 };
 
+/** Remove a lingering reload request so a fresh `org run` doesn't apply it on
+ *  its first tick. One is left behind when a previous run's stop and reload
+ *  landed in the same tick: the stop ends the wait before the reload poll runs. */
+export const clearReloadfile = (cwd: string, name: string): void => {
+  rmSync(join(cwd, ORG_DIR, name, 'reload'), { force: true });
+};
+
 /** True when a pause sentinel exists for an org. */
 export const isOrgPaused = (cwd: string, name: string): boolean =>
   existsSync(join(cwd, ORG_DIR, name, 'pause'));
@@ -598,9 +605,10 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // stopfile poll lets `org stop` work from another terminal; the daemon can
   // also stop the org itself (boss called org_complete, or the idle watchdog
   // fired) — detect that via getOrg() so the CLI exits instead of polling a
-  // stopfile forever after a finished run. Clear any stale stopfile from a
-  // previous run before polling.
+  // stopfile forever after a finished run. Clear any stale stop or reload
+  // request from a previous run before polling.
   clearStopfile(ctx.cwd, name);
+  clearReloadfile(ctx.cwd, name);
   // #206: a human explicitly running `monomind org stop` is a deliberate,
   // successful action regardless of how the run itself ended — capture that
   // BEFORE clearStopfile() below wipes the file, so it isn't lost.
