@@ -2,7 +2,7 @@
 /**
  * #258: for claude-runtime roles below policy.git 'push', the Claude Agent
  * SDK's OS sandbox (bubblewrap on Linux, seatbelt on macOS) confines the Bash
- * tool — writes to the protected .git, network to the repo's git remotes,
+ * tool — writes to the protected .git and local-path remotes,
  * reads of credential files. These tests cover the options per level, the
  * availability probe, the fail-open ('auto') / fail-closed ('required')
  * decision and its audit trail, and the wiring through session.ts and
@@ -100,7 +100,8 @@ describe('buildClaudeRestrictions', () => {
     expect(sb.filesystem.denyWrite).toEqual(expect.arrayContaining([gitDir, guard.dir, join(base, 'backup.git')]));
     expect(sb.filesystem.allowWrite).toEqual(expect.arrayContaining([repo, base, home, '/tmp']));
     expect(sb.network).toMatchObject({ allowedDomains: ['*'], strictAllowlist: true, allowLocalBinding: true });
-    expect(sb.network.deniedDomains).toContain('github.com');
+    // git remote hosts stay reachable (fetch/ls-remote/clone); withheld credentials stop pushes
+    expect(sb.network.deniedDomains).toEqual([]);
     expect(sb.credentials.files).toEqual([
       { path: join(home, '.ssh'), mode: 'deny' },
       { path: join(home, '.config/gh'), mode: 'deny' },
@@ -116,6 +117,50 @@ describe('buildClaudeRestrictions', () => {
     expect(denied).not.toContain(join(home, '.gitconfig'));
     expect(denied).not.toContain(join(home, '.netrc'));
     expect(sb.filesystem.denyWrite).toContain(join(home, '.ssh'));
+  });
+
+  it('allows unix sockets (Chrome needs one) but masks agent sockets that would hand out credentials', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const agentDir = join(base, 'ssh-fake');
+    mkdirSync(agentDir);
+    writeFileSync(join(agentDir, 'agent.1'), '');
+    const c = ctx(repo, base);
+    const sb = buildClaudeRestrictions(guard, undefined, {
+      ...c,
+      tmp: base,
+      env: { SSH_AUTH_SOCK: join(agentDir, 'agent.1') },
+    }, true).sandbox as any;
+    expect(sb.network.allowAllUnixSockets).toBe(true);
+    expect(sb.filesystem.denyRead).toEqual(expect.arrayContaining([join(agentDir, 'agent.1'), agentDir]));
+  });
+
+  // Regression: with unix sockets reachable, the session D-Bus in the runtime
+  // dir reaches the login keyring, and `gh auth token` handed a sandboxed role
+  // the operator's GitHub token (verified against the real sandbox — a
+  // --dry-run push to the real repo then succeeded). The SDK's own default deny
+  // of /run/user does not survive passing our own filesystem block.
+  it('denies the XDG runtime dir, where the session bus and the keyring live', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const runtime = join(base, 'run-user');
+    mkdirSync(runtime);
+    for (const cfg of [undefined, { allowUnixSockets: false }]) {
+      const sb = buildClaudeRestrictions(guard, cfg, { ...ctx(repo, base), env: { XDG_RUNTIME_DIR: runtime } }, true)
+        .sandbox as any;
+      expect(sb.filesystem.denyRead).toContain(runtime);
+    }
+  });
+
+  it('can block every unix socket on request, and then masks no agent socket', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const agent = join(base, 'ssh-fake');
+    mkdirSync(agent);
+    const sb = buildClaudeRestrictions(guard, { allowUnixSockets: false }, { ...ctx(repo, base), tmp: base }, true)
+      .sandbox as any;
+    expect(sb.network.allowAllUnixSockets).toBe(false);
+    expect(sb.filesystem.denyRead).not.toContain(agent);
   });
 
   it('commit: the repo stays writable (commits work) except its config and hooks', () => {
@@ -148,7 +193,7 @@ describe('buildClaudeRestrictions', () => {
     );
     const sb = r.sandbox as any;
     expect(sb.network.allowedDomains).toEqual(['registry.npmjs.org']);
-    expect(sb.network.deniedDomains).toEqual(expect.arrayContaining(['github.com', 'gitlab.example.com']));
+    expect(sb.network.deniedDomains).toEqual(['gitlab.example.com']);
     expect(sb.filesystem.allowWrite).toContain('/srv/cache');
   });
 
@@ -219,7 +264,16 @@ describe('resolveRoleGitEnforcement', () => {
     const r = resolveRoleGitEnforcement({ ...opts, claudeRuntime: true, availability: available });
     expect(r.env.MONOMIND_GIT_LEVEL).toBe('read');
     expect((r.claudeRestrictions?.sandbox as any)?.enabled).toBe(true);
+    // node's fetch() ignores the sandbox's HTTP proxy without this (an
+    // operator value wins, including one inherited from an outer sandbox)
+    expect({ ...process.env, ...r.env }.NODE_USE_ENV_PROXY).toBe('1');
     expect(events.filter((e) => e.type === 'audit')).toHaveLength(0);
+  });
+
+  it('does not touch the proxy env when the sandbox is not in use', () => {
+    const { opts } = setup({ sandbox: { mode: 'off' } });
+    const r = resolveRoleGitEnforcement({ ...opts, claudeRuntime: true, availability: available });
+    expect(r.env.NODE_USE_ENV_PROXY).toBeUndefined();
   });
 
   it("'auto' (default) with the sandbox unavailable: runs unsandboxed but says so on the bus", () => {
@@ -310,8 +364,11 @@ describe('session wiring', () => {
 
   it('a push role gets no guard env', async () => {
     const args = await capture({ git: 'push' });
-    expect(args.env.MONOMIND_GIT_LEVEL).toBeUndefined();
-    expect(args.env.GIT_CONFIG_COUNT).toBeUndefined();
+    // session.ts hands the runner process.env plus its own overrides, so assert
+    // that it adds nothing rather than that the vars are absent (they may be
+    // inherited when the test itself runs inside a sandboxed role).
+    expect(args.env.MONOMIND_GIT_LEVEL).toBe(process.env.MONOMIND_GIT_LEVEL);
+    expect(args.env.GIT_CONFIG_COUNT).toBe(process.env.GIT_CONFIG_COUNT);
   });
 
   it('the Claude runner receives the file-tool deny rules (and the sandbox when available)', async () => {

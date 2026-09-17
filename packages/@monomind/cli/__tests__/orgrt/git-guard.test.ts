@@ -20,8 +20,20 @@ const IDENT = {
   GIT_COMMITTER_EMAIL: 't@t',
 };
 
+/** process.env without a guard inherited from an outer role session: these
+ *  tests install their own guard, and an inherited one would (correctly) stop
+ *  the fixture from pushing to its local bare remote. Keeps the suite runnable
+ *  inside a sandboxed role. */
+function cleanEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env, ...IDENT };
+  for (const k of Object.keys(env))
+    if (/^(GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)|GIT_ASKPASS|SSH_ASKPASS|GIT_SSH_COMMAND|GIT_TERMINAL_PROMPT|MONOMIND_GIT_LEVEL)$/.test(k))
+      delete env[k];
+  return env;
+}
+
 function git(cwd: string, ...args: string[]): string {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, ...IDENT } });
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: cleanEnv() });
   if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`);
   return r.stdout.trim();
 }
@@ -57,7 +69,7 @@ function roleShell(level: GitLevel, cmd: string, cwd = repo) {
   const r = spawnSync('sh', ['-c', cmd], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, ...IDENT, ...(guard?.env ?? {}) },
+    env: { ...cleanEnv(), ...(guard?.env ?? {}) },
   });
   return { ...r, guard };
 }

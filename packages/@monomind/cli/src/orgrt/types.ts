@@ -166,14 +166,16 @@ export const RolePolicySchema = z
      *  role-sandbox.ts). mode: 'auto' (default) sandboxes when bubblewrap/socat
      *  or seatbelt are available and audits when not; 'required' refuses to
      *  run unsandboxed; 'off' opts out. allowedDomains defaults to ['*'];
-     *  deniedDomains adds to the repo's own git remote hosts; allowWrite adds
-     *  writable paths. */
+     *  deniedDomains is an opt-in host deny list; allowWrite adds
+     *  writable paths; allowUnixSockets (default true — Chrome needs one)
+     *  can be turned off to block every AF_UNIX socket. */
     sandbox: z
       .object({
         mode: z.enum(['auto', 'required', 'off']).optional(),
         allowedDomains: z.array(z.string()).optional(),
         deniedDomains: z.array(z.string()).optional(),
         allowWrite: z.array(z.string()).optional(),
+        allowUnixSockets: z.boolean().optional(),
       })
       .strict()
       .optional(),

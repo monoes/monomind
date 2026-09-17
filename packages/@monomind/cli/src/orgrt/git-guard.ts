@@ -89,11 +89,12 @@ export function gitCommonDir(path: string): string | undefined {
   }
 }
 
-/** Hosts and local paths the repository's remotes point at, for the sandbox
- *  deny lists. Parses url/pushurl of every remote. */
-export function gitRemoteTargets(gitDir: string): { hosts: string[]; localPaths: string[] } {
-  const hosts = new Set<string>();
-  const localPaths = new Set<string>();
+/** Local filesystem paths the repository's remotes (url/pushurl) point at.
+ *  The sandbox keeps them read-only so a role can't write refs into a local
+ *  "remote" directly. Network remotes are left reachable: fetching is
+ *  legitimate at every level, and the push barrier there is withheld
+ *  credentials (role-sandbox.ts). */
+export function gitLocalRemotePaths(gitDir: string): string[] {
   let out = '';
   try {
     out = execFileSync(
@@ -102,27 +103,25 @@ export function gitRemoteTargets(gitDir: string): { hosts: string[]; localPaths:
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 },
     );
   } catch {
-    return { hosts: [], localPaths: [] };
+    return [];
   }
+  const paths = new Set<string>();
   for (const line of out.split('\n')) {
-    const url = line.slice(line.indexOf(' ') + 1).trim();
-    if (!url || !line.includes(' ')) continue;
-    const target = classifyRemoteUrl(url);
-    if (target.host) hosts.add(target.host);
+    const space = line.indexOf(' ');
+    const path = space < 0 ? undefined : localRemotePath(line.slice(space + 1).trim());
     // relative remote paths resolve against the repository's work tree
-    if (target.path) localPaths.add(resolve(dirname(gitDir), target.path));
+    if (path) paths.add(resolve(dirname(gitDir), path));
   }
-  return { hosts: [...hosts], localPaths: [...localPaths] };
+  return [...paths];
 }
 
-function classifyRemoteUrl(url: string): { host?: string; path?: string } {
-  if (url.startsWith('file://')) return { path: url.slice('file://'.length) };
-  const scheme = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?(\[[^\]]+\]|[^:/]+)/i.exec(url);
-  if (scheme) return { host: scheme[1].replace(/^\[|\]$/g, '').toLowerCase() };
+function localRemotePath(url: string): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith('file://')) return url.slice('file://'.length);
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) return undefined; // https://, ssh://, git://
   // scp-like `user@host:path` — a colon before any slash
-  const scp = /^(?:[^@/]*@)?([^:/]+):/.exec(url);
-  if (scp && !isAbsolute(url)) return { host: scp[1].toLowerCase() };
-  return { path: url };
+  if (!isAbsolute(url) && /^(?:[^@/]*@)?[^:/]+:/.test(url)) return undefined;
+  return url;
 }
 
 const shQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;

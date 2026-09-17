@@ -11,9 +11,10 @@
  *     ('read'/'none') or its config + hooks ('commit'), the guard's hooks,
  *     local-path remotes, and git/shell/Claude config that would undo the guard;
  *   - network: every host allowed (`policy.sandbox.allowedDomains`, default
- *     ['*']) except the hosts the repository's remotes point at (plus
- *     `policy.sandbox.deniedDomains`), deterministically, with local binding
- *     kept for dev servers and tests;
+ *     ['*']) minus the opt-in `policy.sandbox.deniedDomains`, deterministically,
+ *     with local binding kept for dev servers and tests. Git remote hosts are
+ *     not denied: read roles fetch, ls-remote and clone, and a forge's API
+ *     would stay reachable anyway — the push barrier is withheld credentials;
  *   - reads of credential files (ssh keys, git-credentials, gh login, netrc).
  * Bash stays gated by canUseTool (autoAllowBashIfSandboxed: false) and
  * dangerouslyDisableSandbox is ignored (allowUnsandboxedCommands: false).
@@ -29,15 +30,15 @@
  * `monomind org validate` reports the same findings before a run.
  */
 
-import { accessSync, constants, existsSync } from 'node:fs';
+import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, isAbsolute, join } from 'node:path';
 import type { OrgBus } from './bus.js';
 import {
   type GitGuard,
   type GitLevel,
   gitCommonDir,
-  gitRemoteTargets,
+  gitLocalRemotePaths,
   prepareGitGuard,
 } from './git-guard.js';
 import type { OrgDef, OrgRole } from './types.js';
@@ -47,6 +48,7 @@ export interface RoleSandboxPolicy {
   allowedDomains?: string[];
   deniedDomains?: string[];
   allowWrite?: string[];
+  allowUnixSockets?: boolean;
 }
 
 /** What ClaudeAgentRunner merges into the SDK's query() options. */
@@ -126,6 +128,50 @@ const HOME_DENY_READ = [
   '.netrc',
 ];
 
+/** Sockets and runtime dirs a role must not reach. The XDG runtime dir is the
+ *  important one: it carries the session D-Bus, and through it the login
+ *  keyring — `gh auth token` returns the operator's GitHub token from there,
+ *  which is a push credential (verified inside the real sandbox). It is denied
+ *  whether or not unix sockets are allowed, because it holds credential files
+ *  too, and the SDK's own default deny of /run/user does not survive passing
+ *  our own `filesystem` block. */
+const DAEMON_SOCKETS = [
+  '/run/dbus',
+  '/run/docker.sock',
+  '/var/run/docker.sock',
+  '/run/podman/podman.sock',
+  '/run/containerd/containerd.sock',
+];
+
+/** Agent sockets that would hand a role push credentials, plus the X11 socket
+ *  dir (desktop input injection). Only relevant while unix sockets are
+ *  reachable — see `policy.sandbox.allowUnixSockets`, which is true by default
+ *  because Chrome's process singleton needs a socket ("socket() failed:
+ *  Operation not permitted" kills `monomind browse` otherwise). */
+function agentSocketPaths(home: string, env: NodeJS.ProcessEnv, tmp: string): string[] {
+  const paths = [
+    env.SSH_AUTH_SOCK && isAbsolute(env.SSH_AUTH_SOCK) ? env.SSH_AUTH_SOCK : undefined,
+    join(home, '.1password'),
+    '/tmp/.X11-unix',
+    ...DAEMON_SOCKETS,
+  ];
+  for (const dir of [tmp, '/tmp']) {
+    try {
+      for (const e of readdirSync(dir)) if (e.startsWith('ssh-')) paths.push(join(dir, e));
+    } catch {
+      /* unreadable temp dir — nothing to mask there */
+    }
+  }
+  return paths.filter((p): p is string => !!p);
+}
+
+/** $XDG_RUNTIME_DIR, or the conventional /run/user/<uid> when it is unset. */
+function runtimeDir(env: NodeJS.ProcessEnv): string | undefined {
+  if (env.XDG_RUNTIME_DIR && isAbsolute(env.XDG_RUNTIME_DIR)) return env.XDG_RUNTIME_DIR;
+  const uid = process.getuid?.();
+  return uid === undefined ? undefined : `/run/user/${uid}`;
+}
+
 const uniq = (xs: Array<string | undefined>): string[] => [
   ...new Set(xs.filter((x): x is string => !!x)),
 ];
@@ -140,12 +186,13 @@ const rule = (tool: string, abs: string) => `${tool}(/${abs})`;
 export function buildClaudeRestrictions(
   guard: GitGuard,
   cfg: RoleSandboxPolicy | undefined,
-  ctx: { cwd: string; orgRoot?: string; home?: string; tmp?: string },
+  ctx: { cwd: string; orgRoot?: string; home?: string; tmp?: string; env?: NodeJS.ProcessEnv },
   sandboxEnabled: boolean,
 ): ClaudeRestrictions {
   const home = ctx.home ?? homedir();
+  const tmp = ctx.tmp ?? tmpdir();
+  const unixSockets = cfg?.allowUnixSockets ?? true;
   const gitDirs = guard.protectedGitDirs;
-  const remotes = gitDirs.map(gitRemoteTargets);
   const lockedRepo = guard.level === 'read' || guard.level === 'none';
 
   const disallowedTools = [
@@ -166,25 +213,24 @@ export function buildClaudeRestrictions(
     allowUnsandboxedCommands: false,
     network: {
       allowedDomains: cfg?.allowedDomains ?? ['*'],
-      deniedDomains: uniq([...remotes.flatMap((r) => r.hosts), ...(cfg?.deniedDomains ?? [])]),
+      deniedDomains: uniq(cfg?.deniedDomains ?? []),
       strictAllowlist: true,
       allowLocalBinding: true,
+      allowAllUnixSockets: unixSockets,
     },
     filesystem: {
-      allowWrite: uniq([
-        ctx.cwd,
-        ctx.orgRoot,
-        home,
-        ctx.tmp ?? tmpdir(),
-        ...(cfg?.allowWrite ?? []),
-      ]),
+      allowWrite: uniq([ctx.cwd, ctx.orgRoot, home, tmp, ...(cfg?.allowWrite ?? [])]),
       denyWrite: existing([
         guard.dir,
         ...(lockedRepo ? gitDirs : gitDirs.flatMap((d) => [join(d, 'config'), join(d, 'hooks')])),
-        ...remotes.flatMap((r) => r.localPaths),
+        ...gitDirs.flatMap(gitLocalRemotePaths),
         ...HOME_DENY_WRITE.map((p) => join(home, p)),
       ]),
-      denyRead: guard.level === 'none' ? existing(gitDirs) : [],
+      denyRead: existing([
+        ...(guard.level === 'none' ? gitDirs : []),
+        runtimeDir(ctx.env ?? process.env),
+        ...(unixSockets ? agentSocketPaths(home, ctx.env ?? process.env, tmp) : []),
+      ]),
     },
     credentials: {
       files: existing(HOME_DENY_READ.map((p) => join(home, p))).map((path) => ({
@@ -286,7 +332,17 @@ export function resolveRoleGitEnforcement(args: {
     }
   }
   return {
-    env: guard.env,
+    // Inside the sandbox all egress goes through the runtime's HTTP proxy,
+    // which node's global fetch() ignores unless this is set — without it
+    // `fetch('https://registry.npmjs.org/…')` in a role's `node -e` fails with
+    // EAI_AGAIN (verified against the real sandbox). Curl, npm and git read the
+    // proxy variables on their own. An operator value always wins.
+    env: {
+      ...guard.env,
+      ...(sandboxEnabled && process.env.NODE_USE_ENV_PROXY === undefined
+        ? { NODE_USE_ENV_PROXY: '1' }
+        : {}),
+    },
     claudeRestrictions: buildClaudeRestrictions(
       guard,
       cfg,
