@@ -1,6 +1,25 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateGraphReport } from '../../reporting/graph-report.js';
+
+// generateGraphReport(db, outputPath) writes a real GRAPH_REPORT.md to
+// outputPath on disk (writeFileSync in generateGraphReportFromDb) — this
+// used to pass the literal string '/tmp', which fails outright in any
+// sandboxed/CI environment where /tmp is read-only (unlike every other test
+// in this codebase, which uses os.tmpdir() + mkdtempSync for exactly this
+// reason — see e.g. hooks-install.test.ts).
+let outputDir: string;
+
+beforeEach(() => {
+  outputDir = mkdtempSync(join(tmpdir(), 'graph-report-confidence-test-'));
+});
+
+afterEach(() => {
+  rmSync(outputDir, { recursive: true, force: true });
+});
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
@@ -27,7 +46,7 @@ function makeDb(): Database.Database {
 describe('generateGraphReport confidence audit', () => {
   it('includes confidence breakdown percentages', () => {
     const db = makeDb();
-    const result = generateGraphReport(db, '/tmp');
+    const result = generateGraphReport(db, outputDir);
     expect(result.markdown).toContain('EXTRACTED');
     expect(result.markdown).toContain('INFERRED');
     expect(result.markdown).toContain('AMBIGUOUS');
@@ -35,13 +54,13 @@ describe('generateGraphReport confidence audit', () => {
 
   it('includes numeric percentage values', () => {
     const db = makeDb();
-    const result = generateGraphReport(db, '/tmp');
+    const result = generateGraphReport(db, outputDir);
     expect(result.markdown).toMatch(/\d+\.\d+%|\d+%/);
   });
 
   it('includes confidence audit section heading', () => {
     const db = makeDb();
-    const result = generateGraphReport(db, '/tmp');
+    const result = generateGraphReport(db, outputDir);
     expect(result.markdown).toContain('Confidence');
   });
 });

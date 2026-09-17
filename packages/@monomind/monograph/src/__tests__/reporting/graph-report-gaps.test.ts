@@ -1,6 +1,25 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateGraphReport } from '../../reporting/graph-report.js';
+
+// generateGraphReport(db, outputPath) writes a real GRAPH_REPORT.md to
+// outputPath on disk (writeFileSync in generateGraphReportFromDb) — this
+// used to pass the literal string '/tmp', which fails outright in any
+// sandboxed/CI environment where /tmp is read-only (unlike every other test
+// in this codebase, which uses os.tmpdir() + mkdtempSync for exactly this
+// reason — see e.g. hooks-install.test.ts).
+let outputDir: string;
+
+beforeEach(() => {
+  outputDir = mkdtempSync(join(tmpdir(), 'graph-report-gaps-test-'));
+});
+
+afterEach(() => {
+  rmSync(outputDir, { recursive: true, force: true });
+});
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
@@ -35,17 +54,17 @@ function makeDb(): Database.Database {
 
 describe('graph report knowledge gap section', () => {
   it('includes knowledge gap heading', () => {
-    const r = generateGraphReport(makeDb(), '/tmp');
+    const r = generateGraphReport(makeDb(), outputDir);
     expect(r.markdown).toMatch(/knowledge.gap|Knowledge Gap/i);
   });
 
   it('reports isolated nodes', () => {
-    const r = generateGraphReport(makeDb(), '/tmp');
+    const r = generateGraphReport(makeDb(), outputDir);
     expect(r.markdown).toMatch(/isolated|orphan/i);
   });
 
   it('reports thin communities', () => {
-    const r = generateGraphReport(makeDb(), '/tmp');
+    const r = generateGraphReport(makeDb(), outputDir);
     expect(r.markdown).toMatch(/thin|small.*communit/i);
   });
 });
