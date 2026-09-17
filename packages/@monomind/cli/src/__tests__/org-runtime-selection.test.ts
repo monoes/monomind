@@ -23,6 +23,7 @@ import {
 } from '../orgrt/provider.js';
 import { resolveModel } from '../orgrt/session.js';
 import { OrgDefSchema, ProviderSchema, RoleSchema } from '../orgrt/types.js';
+import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from '../orgrt/vercel-providers.js';
 import { VercelAgentRunner } from '../orgrt/vercel-runner.js';
 
 describe('resolveRunner', () => {
@@ -309,7 +310,7 @@ describe('resolveModel (vendor/runtime defaults)', () => {
   });
 
   it('falls back to runtime default when no vendor', () => {
-    expect(resolveModel({ adapter_config: {} } as any, 'claude')).toBe('claude-sonnet-5');
+    expect(resolveModel({ adapter_config: {} } as any, 'claude')).toBe(DEFAULT_CLAUDE_MODEL);
     expect(resolveModel({ adapter_config: {} } as any, 'kimicode')).toBe('kimi-code/k3');
     expect(resolveModel({ adapter_config: {} } as any, 'opencode')).toBe('glm-5.2');
     expect(resolveModel({ adapter_config: {} } as any, 'codex')).toBe('gpt-5.6-terra');
@@ -320,7 +321,15 @@ describe('resolveModel (vendor/runtime defaults)', () => {
   });
 
   it('falls back to claude default when nothing set', () => {
-    expect(resolveModel({ adapter_config: {} } as any)).toBe('claude-sonnet-5');
+    expect(resolveModel({ adapter_config: {} } as any)).toBe(DEFAULT_CLAUDE_MODEL);
+  });
+
+  it('the anthropic vendor default is the same single Claude default (#252)', () => {
+    expect(DEFAULT_CLAUDE_MODEL).toBe('claude-sonnet-5');
+    expect(resolveModel({ adapter_config: {} } as any, 'vercel', 'anthropic')).toBe(
+      DEFAULT_CLAUDE_MODEL,
+    );
+    expect(VERCEL_PROVIDERS.anthropic.defaultModel).toBe(DEFAULT_CLAUDE_MODEL);
   });
 });
 

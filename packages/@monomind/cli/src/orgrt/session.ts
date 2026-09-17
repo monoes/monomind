@@ -23,6 +23,7 @@ const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.c
 import { readFileSync } from 'node:fs';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
+import { DEFAULT_CLAUDE_MODEL } from './vercel-providers.js';
 
 /**
  * Resolves the extra system-prompt block for a role: built-in archetype
@@ -51,7 +52,7 @@ export function resolveRoleExtraGuidance(role: OrgRole): string | undefined {
  *  adapter_config.model explicitly. Explicit model always wins. */
 const VENDOR_DEFAULTS: Record<string, string> = {
   openai: 'gpt-5.5',
-  anthropic: 'claude-sonnet-5',
+  anthropic: DEFAULT_CLAUDE_MODEL,
   glm: 'glm-5.2',
   google: 'gemini-3.1-pro',
   xai: 'grok-4.5',
@@ -76,7 +77,7 @@ export function resolveModel(role: OrgRole, runtime?: string, vendor?: string): 
   if (vendor && VENDOR_DEFAULTS[vendor]) return VENDOR_DEFAULTS[vendor];
   switch (runtime) {
     case 'claude':
-      return 'claude-sonnet-5';
+      return DEFAULT_CLAUDE_MODEL;
     // Kimi Code CLI namespaces model ids as <provider>/<model> (its own
     // default_model is "kimi-code/kimi-for-coding-highspeed") — a bare "k3"
     // 404s with "Model \"k3\" is not configured in config.toml".
@@ -91,7 +92,7 @@ export function resolveModel(role: OrgRole, runtime?: string, vendor?: string): 
     case 'vercel':
       return 'gpt-5.5';
     default:
-      return 'claude-sonnet-5';
+      return DEFAULT_CLAUDE_MODEL;
   }
 }
 
