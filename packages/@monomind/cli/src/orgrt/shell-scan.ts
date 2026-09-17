@@ -8,15 +8,27 @@ export interface ShellScan {
   opaque?: string;
 }
 
+/** A here-document a line opened: its body is read from the lines that follow.
+ *  `siblings` is set when the here-document was opened inside a substitution,
+ *  where the segments the body feeds are not the outer scan's (#261). */
+interface Heredoc {
+  delim: string;
+  quoted: boolean;
+  strip: boolean;
+  owner: string[];
+  siblings?: string[][];
+}
+
 interface ScanCtx {
   /** inside `(`…`)`: stop at the matching `)` */
   close?: boolean;
-  /** inside `$(`…`)` or `<(`…`)`, where a `case` pattern's `)` would end the scan early */
-  inSub?: boolean;
   /** inside `$((`…`))` / `((`…`))`: quotes don't stop expansion and `<<` is a shift */
   arith?: boolean;
   /** not the outermost command string */
   nested?: boolean;
+  /** where to hand back here-documents whose bodies come from the CALLER's
+   *  later lines: `echo $(cat <<EOF)` reads its body after the outer line (#261) */
+  pending?: Heredoc[];
   depth: number;
 }
 
@@ -98,7 +110,6 @@ function scanHeredocBody(body: string, out: ShellScan, depth: number): void {
       i =
         scanShell(body, i + 2, out, {
           close: true,
-          inSub: true,
           arith,
           nested: true,
           depth: depth + 1,
@@ -132,18 +143,35 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
   let literal = false; // current token used quotes/escapes, so `"2">x` is a word, not an fd
   let redirectTarget = false; // next token is a redirection target, not an argument
   let quote: '"' | "'" | null = null;
-  let braceDepth = 0; // inside an unquoted `${…}`: operators, `#` and `<<` are part of the word
-  let dqBraceDepth = 0; // inside `${…}` within double quotes
   let bracketDepth = 0; // an unquoted `[` is open: `a[1<<2]=x` holds a shift, not a here-document
   let heredocStrip: boolean | null = null; // the next word is a here-document delimiter (`<<-` strips tabs)
-  const heredocs: { delim: string; quoted: boolean; strip: boolean; owner: string[] }[] = [];
+  const heredocs: Heredoc[] = [];
+  // `case … in pat) … ;; esac`: the `)` that ends an arm's pattern is not a
+  // closing paren, so a `case` inside `$(…)` used to end the substitution early
+  // and the scan gave up on it (#261). A frame walks 'word' (waiting for the
+  // `in`) → 'pattern' (the next word is the arm's pattern, or the `esac` of a
+  // case with no arms) → 'arm' (waiting for the `)`) → 'body' (until `;;`,
+  // which returns to 'pattern', or the `esac` that pops the frame).
+  const caseStack: ('word' | 'pattern' | 'arm' | 'body')[] = [];
+  const caseKeyword = (word: string, atCommandPos: boolean) => {
+    const top = caseStack.length - 1;
+    const state = caseStack[top];
+    if (state === 'word') {
+      if (word === 'in') caseStack[top] = 'pattern';
+    } else if (state === 'pattern') {
+      if (word === 'esac') caseStack.pop();
+      else caseStack[top] = 'arm';
+    } else if (!atCommandPos) {
+      /* an argument, never a keyword */
+    } else if (word === 'esac' && state === 'body') caseStack.pop();
+    else if (word === 'case' && state !== 'arm') caseStack.push('word');
+  };
   const flush = () => {
     if (has && heredocStrip !== null) {
       heredocs.push({ delim: cur, quoted: literal, strip: heredocStrip, owner: seg });
       heredocStrip = null;
     } else if (has && !redirectTarget) {
-      if (ctx.inSub && !literal && cur === 'case')
-        fail('case statement inside a command substitution');
+      if (!literal) caseKeyword(cur, seg.length === 0);
       seg.push(cur);
     }
     if (has) redirectTarget = false;
@@ -161,23 +189,87 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
   };
   const finish = (end: number): number => {
     endSegment();
-    if (ctx.nested && (heredocs.length > 0 || heredocStrip !== null))
-      fail('here-document left open inside a substitution');
+    if (ctx.nested && heredocStrip !== null) fail('here-document operator without a delimiter');
+    else if (ctx.nested && heredocs.length > 0) {
+      // `echo $(cat <<EOF)` reads the body from the lines after the OUTER
+      // command's line, so hand the here-documents back with the segments they
+      // feed — the caller has the later lines (#261).
+      if (ctx.pending)
+        for (const h of heredocs)
+          ctx.pending.push({ ...h, siblings: lineSegs.slice(lineSegs.indexOf(h.owner)) });
+      else fail('here-document left open inside a substitution');
+    }
     return end;
   };
   // `$(…)`, `<(…)` or `>(…)` at cmd[at]: its commands become segments, its raw text stays in the token
   const substitution = (at: number): number => {
     const arith = cmd[at] === '$' && cmd[at + 2] === '(';
+    const pending: Heredoc[] = [];
     const end = scanShell(cmd, at + 2, out, {
       close: true,
-      inSub: true,
       arith,
       nested: true,
+      pending,
       depth: ctx.depth + 1,
     });
+    heredocs.push(...pending);
     cur += cmd.slice(at, end);
     has = true;
     return end - 1;
+  };
+  /** A `${…}` at cmd[at] (`$` then `{`): quoting RESTARTS inside it, so
+   *  `"${x:-"$(cmd)"}"` runs cmd and the closing `"` of the default is not the
+   *  end of the outer quote (#261). Only a nested `${` nests — a bare `{` does
+   *  not, so `${x:-{a}` ends at that `}`. The raw text stays in the token. */
+  const paramExpansion = (at: number): number => {
+    let depth = 1;
+    let q: '"' | "'" | null = null;
+    let i = at + 2;
+    for (; i < cmd.length; i++) {
+      const c = cmd[i];
+      if (q === "'") {
+        if (c === "'") q = null;
+      } else if (c === '\\' && i + 1 < cmd.length) i++;
+      else if (c === '$' && cmd[i + 1] === '(') {
+        i =
+          scanShell(cmd, i + 2, out, {
+            close: true,
+            arith: cmd[i + 2] === '(',
+            nested: true,
+            depth: ctx.depth + 1,
+          }) - 1;
+      } else if ((c === '<' || c === '>') && cmd[i + 1] === '(') {
+        // `<(…)` runs even inside `${x:-…}`
+        i =
+          scanShell(cmd, i + 2, out, {
+            close: true,
+            nested: true,
+            depth: ctx.depth + 1,
+          }) - 1;
+      } else if (c === '`') {
+        const { body, end } = backtickBody(cmd, i, q === '"');
+        if (end < 0) {
+          fail('unterminated backtick substitution');
+          return cmd.length;
+        }
+        scanShell(body, 0, out, { nested: true, depth: ctx.depth + 1 });
+        i = end;
+      } else if (q === '"') {
+        if (c === '"') q = null;
+      } else if (c === '"' || c === "'") q = c;
+      else if (c === '$' && cmd[i + 1] === '{') {
+        depth++;
+        i++;
+      } else if (c === '}' && --depth === 0) break;
+    }
+    has = true;
+    if (i >= cmd.length) {
+      fail('unterminated ${…}');
+      cur += cmd.slice(at);
+      return cmd.length;
+    }
+    cur += cmd.slice(at, i + 1);
+    return i;
   };
   const backtick = (at: number, inDq: boolean): number => {
     const { body, end } = backtickBody(cmd, at, inDq);
@@ -202,7 +294,8 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
       pos = end;
       if (!h.quoted) scanHeredocBody(body, out, ctx.depth);
       // the body is stdin for its line's pipeline: `sh <<EOF`, `cat <<EOF | sh`
-      for (const s of lineSegs.slice(lineSegs.indexOf(h.owner))) if (s.length) s.push(body);
+      for (const s of h.siblings ?? lineSegs.slice(lineSegs.indexOf(h.owner)))
+        if (s.length) s.push(body);
     }
     heredocs.length = 0;
     endSegment();
@@ -218,26 +311,16 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
     }
     if (quote) {
       // double quotes — and single quotes inside arithmetic, which still expand: `$(( '$(x)' ))`
-      if (c === quote) {
-        if (dqBraceDepth > 0) fail('quotes nested inside ${…} within double quotes');
-        quote = null;
-        dqBraceDepth = 0;
-      } else if (c === '\\' && i + 1 < cmd.length) cur += cmd[++i];
+      if (c === quote) quote = null;
+      else if (c === '\\' && i + 1 < cmd.length) cur += cmd[++i];
       else if (c === '$' && cmd[i + 1] === '(') i = substitution(i);
       else if (c === '`') i = backtick(i, quote === '"');
-      else {
-        if (c === '$' && cmd[i + 1] === '{') dqBraceDepth++;
-        else if (c === '}' && dqBraceDepth > 0) dqBraceDepth--;
-        cur += c;
-      }
+      else if (c === '$' && cmd[i + 1] === '{') i = paramExpansion(i);
+      else cur += c;
       continue;
     }
     const procSub = (c === '<' || c === '>') && cmd[i + 1] === '(';
-    if (braceDepth > 0 && !procSub && !'"\'\\$`'.includes(c)) {
-      if (c === '}') braceDepth--;
-      cur += c;
-      has = true;
-    } else if (c === '"' || c === "'") {
+    if (c === '"' || c === "'") {
       quote = c;
       has = true;
       literal = true;
@@ -256,14 +339,9 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
       literal = true;
     } else if (c === '$' && cmd[i + 1] === '(') i = substitution(i);
     else if (c === '`') i = backtick(i, false);
-    else if (c === '$' && cmd[i + 1] === '{') {
-      braceDepth++;
-      cur += '${';
-      has = true;
-      i++;
-    } else if (procSub) {
-      // `<(…)` runs even inside `${x:-…}`
-      if (braceDepth === 0) flush();
+    else if (c === '$' && cmd[i + 1] === '{') i = paramExpansion(i);
+    else if (procSub) {
+      flush();
       i = substitution(i);
     } else if (c === '<' || c === '>') {
       // Redirection (`2>/dev/null`, `>out`, `2>&1`, `<in`): the fd number and
@@ -280,9 +358,9 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
         // a here-string's word is content (`sh <<<"git push"`), keep it visible
         redirectTarget = !op.startsWith('<<<');
       } else if (ctx.arith || bracketDepth > 0) {
-        // `$((1<<2))`, `a[1<<2]=x`: a shift. If a later line could be read as a
-        // here-document body after all, the scan can't vouch for it.
-        if (cmd.includes('\n', i)) fail('`<<` that may or may not start a here-document');
+        // `$((1<<2))`, `a[1<<2]=x`: a shift, so no here-document is opened and
+        // the lines that follow are ordinary commands the scan reads as such
+        // (#261: it used to give up as soon as ANY newline followed).
         redirectTarget = true;
       } else heredocStrip = op === '<<-';
     } else if (c === '#' && !has && (i === start || ' \t\n;&|()<>'.includes(cmd[i - 1]))) {
@@ -304,28 +382,43 @@ function scanShell(cmd: string, start: number, out: ShellScan, ctx: ScanCtx): nu
       has = true;
     } else if (c === '\n') i = newline(i);
     else if (c === '(') {
+      // the optional `(` that opens a case pattern is not a subshell
+      if (caseStack[caseStack.length - 1] === 'pattern' && !has) continue;
       endSegment();
       const arith = ctx.arith || cmd[i + 1] === '(';
       i =
         scanShell(cmd, i + 1, out, {
           close: true,
-          inSub: ctx.inSub,
           arith,
           nested: true,
           depth: ctx.depth + 1,
         }) - 1;
     } else if (c === ')') {
-      if (ctx.close) return finish(i + 1);
+      flush(); // the word before it may be the `esac` that ends the case
+      const arm = caseStack[caseStack.length - 1];
+      if (arm === 'arm' || arm === 'pattern') {
+        // the `)` that ends an arm's pattern, not the end of `$(…)`
+        endSegment();
+        caseStack[caseStack.length - 1] = 'body';
+      } else if (ctx.close) return finish(i + 1);
+      else endSegment();
+    } else if (';|&'.includes(c)) {
+      flush(); // ditto: `esac;;` leaves the inner case before the outer arm ends
+      const top = caseStack.length - 1;
+      // `;;`, `;&` and `;;&` all leave an arm's body for the next pattern
+      if (c === ';' && caseStack[top] === 'body' && ';&'.includes(cmd[i + 1] ?? '')) {
+        caseStack[top] = 'pattern';
+        i++;
+        if (cmd[i] === ';' && cmd[i + 1] === '&') i++;
+      }
       endSegment();
-    } else if (';|&'.includes(c)) endSegment();
-    else if (/\s/.test(c)) flush();
+    } else if (/\s/.test(c)) flush();
     else {
       cur += c;
       has = true;
     }
   }
   if (quote) fail('unterminated quote');
-  if (braceDepth > 0) fail('unterminated ${…}');
   if (ctx.close) fail('unterminated command substitution or subshell');
   return finish(cmd.length);
 }

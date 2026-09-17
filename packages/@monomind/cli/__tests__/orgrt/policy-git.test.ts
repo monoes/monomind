@@ -314,18 +314,97 @@ describe('policy.git', () => {
 
   it('fails closed on substitution forms it cannot delimit reliably', async () => {
     for (const c of [
-      'echo "$(case a in a) git push;; esac)"', // a case pattern `)` is not the closing paren
       'echo "$(git push"', // unterminated
       'echo `git push',
       "echo '$(git push)", // unterminated quote
-      'echo "${x:-"$(git push)"}"', // nested quotes inside ${…} within double quotes
-      'echo $((1<<2))\ngit push\n2', // `<<` is a shift here, not a here-document
-      'a[1<<2]=5\ngit push\n2',
-      'echo $(cat <<EOF)\ngit push\nEOF',
+      'echo $(cat <<)\ngit push\nEOF', // a here-document operator with no delimiter
     ]) {
       expect(await allows('read', c), c).toBe(false);
       expect(await allows('commit', c), c).toBe(false);
     }
+  });
+
+  // #261: four shapes the scanner CAN delimit but mis-read, so it failed closed
+  // on commands holding no git call at all and roles below 'push' were denied
+  // ordinary shell work. Each is now parsed on the segments it really contains —
+  // which also means a git call inside one is seen instead of guessed at.
+  it('parses a case statement inside a command substitution', async () => {
+    for (const c of [
+      'echo "$(case $x in a) echo one;; b) echo two;; esac)"',
+      'echo "$(case $x in (a) echo one;; *) echo other;; esac)"',
+      'x=$(case $x in a) case $y in b) echo nested;; esac;; esac)',
+      'echo "$(case $x in a|b) echo ab;; esac)" && npm test',
+      'echo "$(case $x in a) echo fall;& *) echo through;; esac)"',
+      'echo "$(case $x in esac)"', // a case with no arms at all
+    ]) {
+      expect(await allows('read', c), c).toBe(true);
+      expect(await allows('commit', c), c).toBe(true);
+    }
+    // the git call inside an arm is classified, not guessed at
+    expect(await allows('read', 'echo "$(case a in a) git push;; esac)"')).toBe(false);
+    expect(await allows('commit', 'echo "$(case a in a) git push;; esac)"')).toBe(false);
+    expect(await allows('push', 'echo "$(case a in a) git push;; esac)"')).toBe(true);
+    expect(await allows('read', 'echo "$(case a in a) git commit -m x;; esac)"')).toBe(false);
+  });
+
+  it('parses quotes nested inside a parameter expansion', async () => {
+    for (const c of [
+      'echo "${x:-"default value"}"',
+      'echo "${x:-"$(date)"}"',
+      'echo "${x:-"${y:-"inner"}"}" && npm test',
+      'cp "${SRC:-"$HOME/src"}" "${DST:-/tmp}"',
+    ]) {
+      expect(await allows('read', c), c).toBe(true);
+      expect(await allows('commit', c), c).toBe(true);
+    }
+    // nested quotes inside ${…} within double quotes
+    expect(await allows('read', 'echo "${x:-"$(git push)"}"')).toBe(false);
+    expect(await allows('commit', 'echo "${x:-"$(git push)"}"')).toBe(false);
+    expect(await allows('push', 'echo "${x:-"$(git push)"}"')).toBe(true);
+  });
+
+  it('reads `<<` in arithmetic or an index as a shift even across lines', async () => {
+    for (const c of [
+      'echo $((1<<2))\nnpm test',
+      'n=$((1<<8))\necho "$n"\nls',
+      'a[1<<2]=5\necho "${a[4]}"\nls',
+    ]) {
+      expect(await allows('read', c), c).toBe(true);
+      expect(await allows('commit', c), c).toBe(true);
+    }
+    // the lines after the shift are commands, not a here-document body
+    expect(await allows('read', 'echo $((1<<2))\ngit push\n2')).toBe(false);
+    expect(await allows('commit', 'echo $((1<<2))\ngit push\n2')).toBe(false);
+    expect(await allows('commit', 'a[1<<2]=5\ngit push\n2')).toBe(false);
+  });
+
+  it("takes a substitution's here-document body from the outer command's later lines", async () => {
+    for (const c of [
+      'echo $(cat <<EOF)\nhello\nEOF',
+      'x=$(cat <<-EOF)\n\tindented\n\tEOF\necho "$x"',
+      "msg=$(cat <<'EOF')\n$(git push)\nEOF", // quoted delimiter: the body is literal text
+      'echo "$(cat <<EOF | tr a-z A-Z)"\nhello\nEOF',
+    ]) {
+      expect(await allows('read', c), c).toBe(true);
+      expect(await allows('commit', c), c).toBe(true);
+    }
+    // the body still reaches the command it feeds, so git in it is seen
+    expect(await allows('commit', 'echo $(sh <<EOF)\ngit push\nEOF')).toBe(false);
+    expect(await allows('commit', 'echo $(cat <<EOF)\n$(git push)\nEOF')).toBe(false);
+    expect(await allows('commit', 'echo "$(cat <<EOF | sh)"\ngit push\nEOF')).toBe(false);
+  });
+
+  // MAX_SHELL_NESTING (32) is a fail-closed path: past the limit the scan gives
+  // up, and giving up must deny rather than report "no git here".
+  it('fails closed past the nesting limit and classifies normally just under it', async () => {
+    const nest = (n: number, inner: string) =>
+      `echo ${'"$(echo '.repeat(n)}${inner}${')"'.repeat(n)}`;
+    expect(await allows('read', nest(32, 'git status'))).toBe(true);
+    expect(await allows('commit', nest(32, 'date'))).toBe(true);
+    expect(await allows('read', nest(32, 'git push'))).toBe(false);
+    expect(await allows('read', nest(33, 'git status'))).toBe(false);
+    expect(await allows('commit', nest(33, 'date'))).toBe(false);
+    expect(await allows('push', nest(33, 'date'))).toBe(true);
   });
 
   it('keeps single-quoted text, quoted heredocs and non-git substitutions allowed', async () => {
