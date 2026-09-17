@@ -325,6 +325,23 @@ const GIT_COMMIT_CMDS =
   /^(add|commit|rm|mv|restore|reset|stash|cherry-pick|rebase|merge|revert|apply|checkout|switch|clean|gc|prune)$/;
 const GIT_PUSH_CMDS = /^(push|fetch|pull|clone|remote-add|submodule)$/;
 
+/** `git config` writes change .git/config, which every worktree of the repo
+ *  shares — `git config user.name x` rewrites the commit identity repo-wide
+ *  (#250) — so they need policy.git 'push'. Reads stay inspection. Unknown
+ *  shapes (e.g. an option that takes a value) count as writes: fail closed. */
+const GIT_CONFIG_WRITE_FLAGS =
+  /^(--(add|unset|unset-all|replace-all|rename-section|remove-section|edit)|-e)$/;
+const GIT_CONFIG_READ_FLAGS =
+  /^(--(get|get-all|get-regexp|get-urlmatch|get-color|get-colorbool|list)|-l)$/;
+function gitConfigIsWrite(args: string[]): boolean {
+  if (args.some((a) => GIT_CONFIG_WRITE_FLAGS.test(a))) return true;
+  if (args.some((a) => GIT_CONFIG_READ_FLAGS.test(a))) return false;
+  const positional = args.filter((a) => !a.startsWith('-'));
+  if (/^(get|list)$/.test(positional[0] ?? '')) return false;
+  if (/^(set|unset|rename-section|remove-section|edit)$/.test(positional[0] ?? '')) return true;
+  return positional.length !== 1; // a bare `name` reads; `name value` (or nothing parseable) writes
+}
+
 /** git options that swallow the NEXT token as their value, so the token after
  *  them is never the subcommand. `--git-dir=x` style needs no entry — the value
  *  rides in the same token. */
@@ -447,6 +464,10 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
       const sub = tokens[j];
       if (!GIT_SUBCOMMAND_SHAPE.test(sub))
         return { subs, opaque: `unparseable git subcommand (${sub})` };
+      if (sub === 'config') {
+        subs.push(gitConfigIsWrite(tokens.slice(j + 1)) ? 'config' : 'config-read');
+        continue;
+      }
       subs.push(sub);
     }
   }
@@ -466,7 +487,11 @@ function checkGitPolicy(cmd: string, level: 'none' | 'read' | 'commit' | 'push')
   if (level === 'none') return `git commands are not allowed for this role (policy.git: none)`;
 
   for (const sub of gitCalls) {
-    if (GIT_READ_CMDS.test(sub)) continue; // always allowed at 'read' and above
+    if (GIT_READ_CMDS.test(sub) || sub === 'config-read') continue; // always allowed at 'read' and above
+
+    if (sub === 'config') {
+      return `git config write denied (policy.git: ${level} — .git/config is shared by every worktree; writes require policy.git: 'push'. Use \`git -c key=value <cmd>\` for a one-off setting)`;
+    }
 
     if (GIT_PUSH_CMDS.test(sub)) {
       return `git ${sub} denied (policy.git: ${level} — push-level commands require policy.git: 'push')`;

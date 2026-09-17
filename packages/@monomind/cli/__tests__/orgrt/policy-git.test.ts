@@ -44,6 +44,43 @@ describe('policy.git', () => {
     expect(await allows('commit', 'git pull')).toBe(false);
   });
 
+  // #250: `git config user.name x` at 'commit' rewrote the repo-wide identity
+  // (worktrees share .git/config). Writes need 'push'; reads stay allowed.
+  it("blocks git config writes below 'push' but allows reads", async () => {
+    const writes = [
+      'git config user.name "CLI QA Test"',
+      'git config user.email qa@test.local',
+      'git -C /repo config --local user.name x',
+      'git config --add core.hooksPath /tmp/x',
+      'git config --unset-all user.name',
+      'git config --replace-all remote.origin.url https://evil',
+      'git config --edit',
+      'git config set user.name x',
+      'git config unset user.name',
+    ];
+    for (const c of writes) {
+      expect(await allows('commit', c), c).toBe(false);
+      expect(await allows('read', c), c).toBe(false);
+      expect(await allows('push', c), c).toBe(true);
+    }
+    const reads = [
+      'git config user.name',
+      'git config --get user.name',
+      'git -C /repo config --local --get user.name',
+      'git config --get-all remote.origin.url',
+      'git config --list',
+      'git config -l --show-origin',
+      'git config get user.name',
+      'git config list',
+    ];
+    for (const c of reads) {
+      expect(await allows('read', c), c).toBe(true);
+      expect(await allows('commit', c), c).toBe(true);
+    }
+    // per-command identity never persists — still a normal commit
+    expect(await allows('commit', 'git -c user.name=qa -c user.email=qa@x commit -m y')).toBe(true);
+  });
+
   it("'push' permits publication", async () => {
     expect(await allows('push', 'git push origin main')).toBe(true);
   });
