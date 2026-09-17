@@ -426,8 +426,9 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     const realBefore = mailbox.consumedRealCount;
     let sessionId: string | undefined;
     let hitTurnLimit: boolean | undefined = false;
+    const attempt = { replied: false };
     try {
-      const res = await runOneSession(opts, resumeSessionId, sessionCostTotals);
+      const res = await runOneSession(opts, resumeSessionId, sessionCostTotals, attempt);
       sessionId = res.sessionId;
       hitTurnLimit = res.hitTurnLimit;
       resumeSessionId = sessionId;
@@ -442,7 +443,12 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       } else if (
         resumeSessionId &&
         resumeSessionId === initialResumeSessionId &&
-        !triedFreshAfterResumeFailure
+        !triedFreshAfterResumeFailure &&
+        // #247: a resumed session that already replied was resumable — a
+        // later failure is a real crash. Let it reach the daemon's
+        // crash-restart (which resumes again) instead of silently
+        // continuing in a fresh, context-less session.
+        !attempt.replied
       ) {
         // #149: first failure on a checkpoint-provided session id — treat as
         // a stale/expired resume, not a genuine crash. Retry once with a
@@ -515,6 +521,7 @@ async function runOneSession(
   opts: SessionOpts,
   resume?: string,
   costTotals?: Map<string, number>,
+  progress?: { replied: boolean },
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
   // Read lastMessageId live from opts instead of capturing at session start
@@ -730,6 +737,7 @@ async function runOneSession(
         });
       }
       if (m.type === 'assistant') {
+        if (progress) progress.replied = true;
         const text = m.text || '';
         if (text.trim()) {
           opts.onOutput?.(text);

@@ -1904,6 +1904,10 @@ export class OrgDaemon {
               crash();
               return;
             } // org stopped during backoff — never recovered
+            // #247: continue the crashed conversation (briefing, task context,
+            // finished work) instead of starting cold. runAgentSession falls
+            // back to one fresh session if this id can't be resumed.
+            sessionOpts.resumeSessionId = runtime.sessionId;
           }
         }
       })();

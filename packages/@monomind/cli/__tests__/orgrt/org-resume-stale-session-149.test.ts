@@ -73,4 +73,34 @@ describe('runAgentSession: stale checkpoint-resume session falls back to fresh (
     await expect(donePromise).rejects.toThrow('provider unavailable');
     expect(callCount).toBe(2); // one resume attempt, one fresh retry, then a real throw — no infinite loop
   });
+
+  it('does not silently restart cold when the resumed session was live (replied) before it crashed (#247)', async () => {
+    // A resume that worked and later crashed is a real crash, not a stale
+    // session id: it must reach the daemon's crash-restart (which resumes
+    // again) instead of being swallowed into a context-less fresh session.
+    const bus = new OrgBus('o', 'r', dir());
+    const mailbox = new Mailbox();
+    mailbox.push('resumed task');
+
+    const resumes: Array<string | undefined> = [];
+    const fakeQuery = ({ prompt, options }: any) => (async function* () {
+      resumes.push(options?.resume);
+      for await (const m of prompt) {
+        yield { type: 'assistant', session_id: 'live-session', message: { content: [{ type: 'text', text: `reply: ${m.message.content}` }] } };
+        throw new Error('connection reset mid-session');
+      }
+    })();
+
+    const policy = new PolicyEngine('boss', {}, bus, '/work');
+    const donePromise = runAgentSession({
+      org: 'o', role: { id: 'boss', title: 'Boss', type: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+      resumeSessionId: 'live-session',
+    });
+
+    await expect(donePromise).rejects.toThrow('connection reset mid-session');
+    expect(resumes).toEqual(['live-session']);
+  });
 });
