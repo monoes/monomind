@@ -1789,6 +1789,17 @@ export class OrgDaemon {
             // Exit 143 = SIGTERM. If the mailbox is already closed, we
             // sent the signal ourselves during stop — not a crash.
             const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
+            // #251: the org's own stop/complete (finishStop) removes this run
+            // from this.orgs, closes every mailbox and aborts every session —
+            // an idle one then rejects with the abort ("Operation aborted",
+            // "Claude Code process aborted by user"). That is a shutdown, not a
+            // crash. A non-abort error surfacing during the stop, or a crash
+            // already backing off when the stop landed, stays a crash.
+            const abortedByStop =
+              mailbox.isClosed &&
+              this.orgs.get(name) !== running &&
+              ((err as { name?: string } | null)?.name === 'AbortError' ||
+                /\baborted\b/i.test(message));
             const crash = (): void => {
               if (killedByStop) {
                 runtime.status = 'ended';
@@ -1797,6 +1808,16 @@ export class OrgDaemon {
                   from: role.id,
                   msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
                   reason: 'terminated-by-stop',
+                });
+                return;
+              }
+              if (abortedByStop) {
+                runtime.status = 'ended';
+                bus.emit({
+                  type: 'status',
+                  from: role.id,
+                  msg: `agent "${role.id}" stopped with the org (${message})`,
+                  reason: 'agent-stopped',
                 });
                 return;
               }

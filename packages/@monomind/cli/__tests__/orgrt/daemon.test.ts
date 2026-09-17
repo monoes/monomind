@@ -1076,6 +1076,40 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     expect(running.busEvents().some(e => e.reason === 'resume-session-stale' && e.from === 'coder')).toBe(true);
     expect(running.agents.get('coder')!.status).not.toBe('crashed');
   }, 10_000);
+
+  it('an idle session aborted by the org\'s own stop is logged as stopped, not crashed; a real crash stays a crash (#251)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-stop251-'));
+    fixture(root, 'alpha');
+    // boss: an idle session that (like the real SDK) rejects "Operation
+    // aborted" when the stop aborts it. coder: a genuine crash.
+    const q = ({ prompt, options }: any) => (async function* () {
+      if (/agent "coder"/.test(options.systemPrompt ?? '')) throw new Error('genuine provider failure');
+      const aborted = new Promise<never>((_, reject) => {
+        options.abortController.signal.addEventListener('abort', () => reject(new Error('Operation aborted')), { once: true });
+      });
+      aborted.catch(() => {});
+      const it = prompt[Symbol.asyncIterator]();
+      while (true) {
+        const r = await Promise.race([it.next(), aborted]);
+        if (r.done) await aborted;
+        yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${r.value.message.content}` }] } };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      }
+    })();
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 500, crashBackoffsMs: [] });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    expect(await waitUntil(() => running.agents.get('coder')?.status === 'crashed')).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('alpha');
+
+    const events = running.busEvents();
+    const crashAudit = (from: string) => events.some(e => e.type === 'audit' && e.reason === 'agent-session-crash' && e.from === from);
+    expect(crashAudit('coder')).toBe(true);
+    expect(crashAudit('boss')).toBe(false);
+    expect(running.agents.get('boss')!.status).toBe('ended');
+    expect(events.some(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'boss')).toBe(true);
+  }, 10_000);
 });
 
 describe('OrgDaemon — oversized mailbox digest', () => {
