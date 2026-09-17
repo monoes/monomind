@@ -432,6 +432,14 @@ const searchCommand: Command = {
         filePath: string | null;
         score?: number;
         rank?: number;
+        // ftsSearch/hybridSearch both actually return these (FtsResult /
+        // HybridSearchResult in @monoes/monograph) — this local type used to
+        // omit them entirely, so the text-mode table below never read them
+        // even though they were present on every result object at runtime
+        // (confirmed by --format json, which passes the raw object through
+        // and does show startLine/endLine).
+        startLine?: number | null;
+        endLine?: number | null;
       };
       let results: SearchResult[] = [];
       const K = 60;
@@ -481,17 +489,19 @@ const searchCommand: Command = {
         columns: [
           { key: 'label', header: 'Type', width: 12 },
           { key: 'name', header: 'Name', width: 32 },
-          { key: 'file', header: 'File', width: 30 },
+          { key: 'file', header: 'File', width: 24 },
+          { key: 'line', header: 'Line', width: 6 },
           { key: 'score', header: 'Score', width: 8 },
         ],
         data: results.map((r) => ({
           label: output.dim(r.label),
           name: r.name.length > 30 ? `${r.name.slice(0, 27)}…` : r.name,
           file: r.filePath
-            ? r.filePath.length > 28
-              ? `…${r.filePath.slice(-27)}`
+            ? r.filePath.length > 22
+              ? `…${r.filePath.slice(-21)}`
               : r.filePath
             : output.dim('—'),
+          line: r.startLine != null && r.startLine > 0 ? String(r.startLine) : output.dim('—'),
           score: r.score != null ? output.dim(r.score.toFixed(4)) : output.dim('—'),
         })),
       });
