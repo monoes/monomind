@@ -72,6 +72,16 @@ export class TaskDag {
   complete(id: string, result?: string): OrgTask[] {
     const t = this.tasks.get(id);
     if (!t) throw new Error(`task "${id}" not found`);
+    // Completing a task early would promote its dependents before the work
+    // they depend on exists (#246).
+    const unmet = t.deps.filter((d) => {
+      const dep = this.tasks.get(d);
+      return dep === undefined || !SATISFIED.has(dep.status);
+    });
+    if (unmet.length > 0)
+      throw new Error(
+        `task "${id}" cannot be completed: dependencies not done (${unmet.join(', ')})`,
+      );
     t.status = 'done';
     t.result = result;
     t.completedAt = Date.now();

@@ -67,6 +67,28 @@ describe('TaskDag', () => {
     expect(restored.get('task-2')!.deps).toEqual(['task-1']);
   });
 
+  // #246: a role called org_task_done on a task whose deps were still pending,
+  // and complete() released the downstream "final gate" task early.
+  it('refuses to complete a task whose deps are not satisfied, and releases nothing', () => {
+    const dag = new TaskDag();
+    const a = dag.add('docs', 'writer');
+    const b = dag.add('bump', 'publisher', [a.id]);
+    const c = dag.add('final build', 'builder', [b.id]);
+    expect(() => dag.complete(b.id)).toThrow(/dependenc/);
+    expect(dag.get(b.id)!.status).toBe('pending');
+    expect(dag.get(c.id)!.status).toBe('pending');
+    dag.complete(a.id);
+    expect(dag.complete(b.id).map((t) => t.id)).toEqual([c.id]);
+  });
+
+  it('treats cancelled deps as satisfied when completing', () => {
+    const dag = new TaskDag();
+    const a = dag.add('optional', 'x');
+    const b = dag.add('next', 'y', [a.id]);
+    dag.cancel(a.id);
+    expect(() => dag.complete(b.id)).not.toThrow();
+  });
+
   it('handles multi-dep fan-in', () => {
     const dag = new TaskDag();
     const a = dag.add('design', 'architect');
