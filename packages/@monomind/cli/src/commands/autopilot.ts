@@ -22,6 +22,14 @@ import {
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
+/** `HH:MM:SSZ` — the trailing Z says the clock time is UTC, so an operator in
+ *  another zone doesn't read it as local and land the offset wrong (#265;
+ *  #253 is the same fix for the org runtime's log lines). Mirrors
+ *  orgrt/reporting.ts's utcTime rather than importing it: that module reaches
+ *  orgrt/types.ts and its zod schemas, which this command has no other reason
+ *  to load. */
+const utcTime = (ts: number): string => `${new Date(ts).toISOString().slice(11, 19)}Z`;
+
 // ── Check Handler (for Stop hook) ─────────────────────────────
 
 export async function autopilotCheck(): Promise<{
@@ -322,7 +330,7 @@ const logCommand: Command = {
     }
 
     for (const e of entries) {
-      const time = new Date(e.ts).toISOString().slice(11, 19);
+      const time = utcTime(e.ts);
       const details = Object.entries(e)
         .filter(([k]) => k !== 'ts' && k !== 'event')
         .map(([k, v]) => `${k}=${v}`)
