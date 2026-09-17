@@ -3,11 +3,14 @@
 // Each validates against OrgDefSchema; goal is a placeholder the user edits
 // (or supplies via --goal).
 import { DEFAULT_MAX_TURNS_PER_MESSAGE, type OrgDef, OrgDefSchema } from './types.js';
+import { DEFAULT_CLAUDE_MODEL } from './vercel-providers.js';
 
-// Per-role model hints keep scheduled-org economics sane: coordinators keep
-// the default (strongest) model since they synthesize and decide; verification
-// and mechanical roles run on Haiku — the dogfooded release-desk run showed
-// review/QA roles spend a third of the tokens for checklist-shaped work.
+// Per-role model hints keep scheduled-org economics sane: coordinators and
+// executors run on the org runtime default (DEFAULT_CLAUDE_MODEL) since they
+// synthesize and decide; verification and mechanical roles run on Haiku — the
+// dogfooded release-desk run showed review/QA roles spend a third of the
+// tokens for checklist-shaped work. Every built role pins its model explicitly
+// (see buildFromTemplate) so a created org never drifts with a later default.
 const FAST_MODEL = 'claude-haiku-4-5-20251001';
 
 interface TemplateRole {
@@ -261,6 +264,9 @@ export function buildFromTemplate(
       memory_namespace: `org:${orgName}`,
       max_turns_per_message: DEFAULT_MAX_TURNS_PER_MESSAGE,
     },
-    roles: t.roles.map(({ model, ...r }) => (model ? { ...r, adapter_config: { model } } : r)),
+    roles: t.roles.map(({ model, ...r }) => ({
+      ...r,
+      adapter_config: { model: model ?? DEFAULT_CLAUDE_MODEL },
+    })),
   });
 }
