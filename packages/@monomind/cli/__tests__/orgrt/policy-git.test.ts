@@ -355,6 +355,72 @@ describe('policy.git', () => {
     expect(await allows('read', commit)).toBe(false);
   });
 
+  // #258: the role session runs git under a guard (core.hooksPath,
+  // protocol.file.allow, credential/askpass/ssh settings carried in
+  // GIT_CONFIG_* env). A command that switches those off is the bypass
+  // itself, so the classifier cannot vouch for it.
+  it("denies -c/--config-env overrides of the role's git guard", async () => {
+    const overrides = [
+      'git -c core.hooksPath=/dev/null status',
+      'git -c core.hookspath=/dev/null commit -m x',
+      'git -c protocol.file.allow=always status',
+      'git -c protocol.allow=always status',
+      'git -c credential.helper=store status',
+      'git -c core.sshCommand="ssh -i /tmp/k" status',
+      'git -c core.askPass=/tmp/p status',
+      'git -c include.path=/tmp/evil.cfg status',
+      'git --config-env=core.hooksPath=H status',
+      'git --config-env core.hooksPath=H status',
+    ];
+    for (const c of overrides) {
+      expect(await allows('read', c), c).toBe(false);
+      expect(await allows('commit', c), c).toBe(false);
+      expect(await allows('push', c), c).toBe(true); // push roles have no guard
+    }
+  });
+
+  it('keeps ordinary -c settings working', async () => {
+    expect(await allows('commit', 'git -c user.name=x -c user.email=y commit -m z')).toBe(true);
+    expect(await allows('read', 'git -c core.pager=cat log --oneline -3')).toBe(true);
+    expect(await allows('read', 'git -c advice.detachedHead=false -C /repo status')).toBe(true);
+  });
+
+  it('denies commands that unset or rewrite the guard environment', async () => {
+    const tampering = [
+      'GIT_CONFIG_COUNT=0 git status',
+      'GIT_CONFIG_PARAMETERS= git status',
+      'unset GIT_CONFIG_COUNT',
+      'unset GIT_CONFIG_COUNT && git commit -m x',
+      'export GIT_ASKPASS=/bin/true',
+      'export GH_TOKEN=abc',
+      'env -u GIT_CONFIG_COUNT git status',
+      'env -uGIT_ASKPASS git status',
+      'env --unset=SSH_AUTH_SOCK sh -c "echo hi"',
+      'env -i git status',
+      'GIT_SSH_COMMAND="ssh -i /tmp/k" git fetch',
+      'GIT_TERMINAL_PROMPT=1 git status',
+    ];
+    for (const c of tampering) {
+      expect(await allows('read', c), c).toBe(false);
+      expect(await allows('commit', c), c).toBe(false);
+      expect(await allows('push', c), c).toBe(true);
+    }
+  });
+
+  it('leaves ordinary env prefixes and unrelated env changes alone', async () => {
+    const fine = [
+      'GIT_AUTHOR_NAME=Bot GIT_AUTHOR_EMAIL=bot@x git commit -m x',
+      'GIT_DIR=.git git status',
+      'unset FOO',
+      'export NODE_ENV=test',
+      'env NODE_ENV=test npm test',
+      'env | sort | head',
+      'echo "$GITHUB_TOKEN"',
+    ];
+    for (const c of fine) expect(await allows('commit', c), c).toBe(true);
+    expect(await allows('read', 'GIT_DIR=.git git status')).toBe(true);
+  });
+
   it("'push' is unaffected — every git form is permitted there anyway", async () => {
     expect(await allows('push', 'g=git; $g push')).toBe(true);
     expect(await allows('push', 'sh -c "git push"')).toBe(true);

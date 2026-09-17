@@ -278,6 +278,24 @@ export class PolicyEngine {
         const relPosix = rel.split(sep).join('/');
         if (!globs.some((g) => globToRegExp(g).test(relPosix)))
           return deny(`path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope`);
+        // #258: Write/Edit run in-process, so the OS sandbox never sees them —
+        // without this a 'read' role could write refs and objects straight into
+        // .git, and a 'commit' role could rewrite the shared identity (#250) or
+        // the hooks that enforce its own level.
+        if (WRITE_TOOLS.has(tool)) {
+          const gitLevel = this.policy.git ?? 'read';
+          const segments = realPath(resolve(this.cwd, p)).split(sep);
+          const at = segments.lastIndexOf('.git');
+          const inGit = segments[at + 1];
+          if (
+            gitLevel !== 'push' &&
+            at !== -1 &&
+            (gitLevel !== 'commit' || inGit === 'config' || inGit === 'hooks')
+          )
+            return deny(
+              `writes into ${segments.slice(at).join('/')} are not allowed (policy.git: ${gitLevel})`,
+            );
+        }
       }
     }
 

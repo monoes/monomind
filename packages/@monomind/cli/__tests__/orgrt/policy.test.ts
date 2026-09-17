@@ -160,6 +160,33 @@ describe('PolicyEngine', () => {
 // bus.jsonl and streamed over SSE to any dashboard client. Secrets in a curl
 // header or a .env write were being copied into the audit log verbatim.
 // (Fake secrets are assembled at runtime so this file never contains one.)
+describe('PolicyEngine — file tools may not write into a git dir (#258)', () => {
+  const write = async (level: string, file_path: string) => {
+    const p = new PolicyEngine('coder', { git: level } as never, mkBus(), '/work');
+    return (await p.decide('Write', { file_path })).behavior;
+  };
+
+  it("'read' and 'none' block every write inside .git", async () => {
+    for (const level of ['read', 'none']) {
+      expect(await write(level, '/work/.git/refs/heads/main'), level).toBe('deny');
+      expect(await write(level, '.git/config'), level).toBe('deny');
+      expect(await write(level, '/work/src/a.ts'), level).toBe('allow');
+    }
+  });
+
+  it("'commit' blocks only the identity and hook files a commit must not change", async () => {
+    expect(await write('commit', '/work/.git/config')).toBe('deny');
+    expect(await write('commit', '/work/.git/hooks/pre-push')).toBe('deny');
+    expect(await write('commit', '/work/.git/MERGE_MSG')).toBe('allow');
+    expect(await write('commit', '/work/src/a.ts')).toBe('allow');
+  });
+
+  it("'push' writes anywhere the file scopes allow", async () => {
+    expect(await write('push', '/work/.git/config')).toBe('allow');
+    expect(await write('push', '/work/.git/refs/heads/main')).toBe('allow');
+  });
+});
+
 describe('PolicyEngine — secret redaction on bus events', () => {
   const JWT = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxMjM0NTY3ODkwIn0', 'abcDEF123'].join('.');
   const SK = ['sk', 'proj', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('-');

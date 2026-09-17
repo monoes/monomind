@@ -66,6 +66,32 @@ const GIT_OPTS_WITH_VALUE = new Set([
   '--config-env',
 ]);
 
+/** Config keys that switch off the git guard a role session runs under (#258:
+ *  core.hooksPath hooks, the transport allow list, and the credential/askpass/
+ *  ssh settings that withhold push credentials). `include`/`includeIf` can pull
+ *  a file that sets any of them. A `-c`/`--config-env` override of one of these
+ *  IS the bypass, so the command cannot be classified as safe. */
+const GIT_GUARD_CONFIG_KEY =
+  /^(core\.(hookspath|sshcommand|askpass)|credential\.|protocol\.|include\.|includeif\.)/i;
+
+/** Env the guard and its withheld credentials live in (#258). A command that
+ *  sets, clears or wipes these is tampering with the guard, whether or not the
+ *  same command mentions git. GIT_AUTHOR_NAME, GIT_DIR and friends are not here:
+ *  `GIT_AUTHOR_NAME=x git commit` is ordinary work. */
+const GIT_GUARD_ENV =
+  /^(GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM|NOSYSTEM)|GIT_SSH|GIT_SSH_COMMAND|GIT_ASKPASS|SSH_ASKPASS|GIT_TERMINAL_PROMPT|SSH_AUTH_SOCK|GH_TOKEN|GITHUB_TOKEN|GH_ENTERPRISE_TOKEN|GITHUB_ENTERPRISE_TOKEN)$/;
+/** Words that change another command's environment: `env`, and the shell
+ *  builtins that assign or clear variables. */
+const ENV_SETTERS = /^(env|unset|export|declare|typeset|readonly|set)$/;
+
+/** The guard variable a token touches, if any — covering `VAR=…` assignments,
+ *  bare `unset VAR` names, and env's `-u VAR` / `-uVAR` / `--unset=VAR`. */
+function guardEnvName(token: string): boolean {
+  const name = token.replace(/^(--unset=|-u)/, '').split('=')[0];
+  return GIT_GUARD_ENV.test(name);
+}
+const CLEARS_ENV = /^(-i|--ignore-environment|-)$/;
+
 /** `git`, `/usr/bin/git`, `git.exe` — but not `--foo=git` or `mygit`. */
 const GIT_BIN = /(^|\/)git(\.exe)?$/;
 /** A subcommand token the classifier can actually name. Anything else
@@ -98,9 +124,18 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
     // leading VAR=value assignments aren't the command word
     let k = 0;
     while (k < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[k])) k++;
+    if (tokens.slice(0, k).some(guardEnvName))
+      return { subs, opaque: "the command reassigns the role's git guard environment" };
     const word = tokens[k];
     if (word === undefined) continue;
     if (/^[$`]/.test(word)) return { subs, opaque: `command word is a shell expansion (${word})` };
+    if (ENV_SETTERS.test(basename(word))) {
+      const args = tokens.slice(k + 1);
+      if (args.some(guardEnvName))
+        return { subs, opaque: `${word} changes the role's git guard environment` };
+      if (basename(word) === 'env' && args.some((t) => CLEARS_ENV.test(t)))
+        return { subs, opaque: "env clears the environment the role's git guard lives in" };
+    }
     if (INTERPRETERS.test(basename(word))) {
       const args = tokens.slice(k + 1);
       if (args.some((t) => /\bgit\b/.test(t)))
@@ -114,6 +149,17 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
       while (j < tokens.length) {
         const t = tokens[j];
         if (!t.startsWith('-')) break; // found the subcommand
+        const override =
+          t === '-c' || t === '--config-env'
+            ? tokens[j + 1]
+            : t.startsWith('--config-env=')
+              ? t.slice('--config-env='.length)
+              : undefined;
+        if (override !== undefined && GIT_GUARD_CONFIG_KEY.test(override.split('=')[0]))
+          return {
+            subs,
+            opaque: `git ${t} ${override.split('=')[0]} overrides the role's git guard`,
+          };
         if (GIT_OPTS_WITH_VALUE.has(t)) {
           j += 2;
           continue;
