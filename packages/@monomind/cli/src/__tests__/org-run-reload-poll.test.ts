@@ -15,10 +15,28 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { waitForRunEnd } from '../commands/org.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { orgCommand, waitForRunEnd } from '../commands/org.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
 import { ORG_DIR } from '../orgrt/types.js';
+
+// Only runAction (the last describe) constructs an OrgDaemon; the waitForRunEnd
+// tests pass their own stub, so this mock does not affect them.
+const fakeDaemon = vi.hoisted(() => ({ ticksRunning: 0, reloads: 0 }));
+vi.mock('../orgrt/daemon.js', () => ({
+  OrgDaemon: class {
+    startOrg = async () => ({ def: { roles: [] }, run: 'run-1' });
+    // Hosts the org for `ticksRunning` wait-loop ticks, then reports it gone.
+    getOrg = () => (fakeDaemon.ticksRunning-- > 0 ? {} : undefined);
+    listRunning = () => ['growth'];
+    reloadOrgDef = () => {
+      fakeDaemon.reloads++;
+      return { changed: [], newRoles: [], removedRoles: [] };
+    };
+    stopAll = async () => {};
+    persistCrashStateAll = () => {};
+  },
+}));
 
 const TICK = 10;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -94,6 +112,42 @@ describe('org run applies org reload', () => {
     await expect(wait).resolves.toEqual({ stoppedManually: true });
   });
 
+  it('ends on SIGINT as a non-manual stop and removes both signal listeners', async () => {
+    // Detach anything else listening (the test runner) so emitting SIGINT only
+    // reaches the wait loop, and so the counts below are exactly ours.
+    const others = { SIGINT: process.listeners('SIGINT'), SIGTERM: process.listeners('SIGTERM') };
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+    try {
+      const { daemon, state } = stubDaemon('growth');
+      const wait = waitForRunEnd(cwd, 'growth', daemon, TICK);
+      expect(process.listenerCount('SIGINT')).toBe(1);
+      expect(process.listenerCount('SIGTERM')).toBe(1);
+
+      process.emit('SIGINT');
+      await expect(wait).resolves.toEqual({ stoppedManually: false });
+      expect(process.listenerCount('SIGINT')).toBe(0);
+      expect(process.listenerCount('SIGTERM')).toBe(0);
+      expect(state.reloads).toBe(0);
+    } finally {
+      for (const l of others.SIGINT) process.on('SIGINT', l as NodeJS.SignalsListener);
+      for (const l of others.SIGTERM) process.on('SIGTERM', l as NodeJS.SignalsListener);
+    }
+  });
+
+  it('lets the stop win when stop and reload arrive in the same tick', async () => {
+    const { daemon, state } = stubDaemon('growth');
+    signal('growth', 'reload');
+    signal('growth', 'stop');
+    await expect(waitForRunEnd(cwd, 'growth', daemon, TICK)).resolves.toEqual({
+      stoppedManually: true,
+    });
+    expect(state.reloads).toBe(0);
+    // The request is left behind — the next `org run` must clear it at start
+    // (covered below).
+    expect(existsSync(join(cwd, ORG_DIR, 'growth', 'reload'))).toBe(true);
+  });
+
   it('does not leave signal listeners behind', async () => {
     const before = process.listenerCount('SIGINT');
     const { daemon, state } = stubDaemon('growth');
@@ -102,5 +156,68 @@ describe('org run applies org reload', () => {
     state.running = false;
     await wait;
     expect(process.listenerCount('SIGINT')).toBe(before);
+  });
+});
+
+describe('org run start', () => {
+  let cwd: string;
+  const savedEnv = {
+    MONOMIND_NO_LOCAL_EMBEDDINGS: process.env.MONOMIND_NO_LOCAL_EMBEDDINGS,
+    MONOMIND_RERANKER: process.env.MONOMIND_RERANKER,
+  };
+  let savedListeners: { uncaught: unknown[]; unhandled: unknown[] };
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'org-run-start-'));
+    savedListeners = {
+      uncaught: process.listeners('uncaughtException'),
+      unhandled: process.listeners('unhandledRejection'),
+    };
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    // runAction installs process-exiting crash handlers; don't leak them into the worker.
+    for (const l of process.listeners('uncaughtException'))
+      if (!savedListeners.uncaught.includes(l)) process.removeListener('uncaughtException', l);
+    for (const l of process.listeners('unhandledRejection'))
+      if (!savedListeners.unhandled.includes(l)) process.removeListener('unhandledRejection', l);
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('clears a reload request left by a previous run instead of applying it', async () => {
+    mkdirSync(join(cwd, ORG_DIR, 'growth'), { recursive: true });
+    writeFileSync(
+      join(cwd, ORG_DIR, 'growth.json'),
+      JSON.stringify({ name: 'growth', roles: [{ id: 'boss', reports_to: null }] }),
+    );
+    // e.g. the previous run was stopped in the same tick an `org reload` landed.
+    writeFileSync(join(cwd, ORG_DIR, 'growth', 'reload'), new Date().toISOString());
+    fakeDaemon.ticksRunning = 1;
+    fakeDaemon.reloads = 0;
+
+    // Fake only the wait loop's interval; file I/O and the rest stay real.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const run = orgCommand.subcommands?.find((c) => c.name === 'run');
+    let settled = false;
+    const result = run
+      ?.action?.({ args: ['growth'], flags: { crossProcess: false, yes: true }, cwd } as never)
+      .finally(() => {
+        settled = true;
+      });
+    for (let i = 0; i < 200 && !settled; i++) {
+      await vi.advanceTimersByTimeAsync(2000);
+      await sleep(5);
+    }
+
+    expect(settled).toBe(true);
+    await result;
+    expect(fakeDaemon.reloads).toBe(0);
+    expect(existsSync(join(cwd, ORG_DIR, 'growth', 'reload'))).toBe(false);
   });
 });
