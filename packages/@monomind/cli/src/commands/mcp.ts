@@ -55,8 +55,14 @@ const startCommand: Command = {
       default: 3000,
     },
     {
+      // No `short: 'h'` here on purpose: it is the only place in the entire
+      // CLI that reassigned '-h', and the parser's buildScopedAliases()
+      // deliberately lets a resolved command's own short flags shadow global
+      // ones (so subcommands can reuse letters like -t) — which meant
+      // `monomind mcp start -h` silently set --host instead of showing help,
+      // the universal meaning of -h in virtually every CLI. --host is still
+      // available by its long form.
       name: 'host',
-      short: 'h',
       description: 'Server host',
       type: 'string',
       default: 'localhost',

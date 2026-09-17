@@ -16,10 +16,22 @@ import { randomUUID } from 'crypto';
 // Previously any `monomind` invocation with redirected stdin (CI pipes, xargs,
 // editor integrations) silently flipped into MCP server mode and accepted
 // JSON-RPC tools/call — privilege escalation by environment.
+//
+// Only the *bare* invocation (`mcp` or `mcp start`, no further args) takes
+// this fast path — which is also exactly what real MCP clients (Claude
+// Desktop, etc.) actually spawn. Any additional argument defers to the full
+// CLI (dist/src/index.js) instead. This fast path is a raw stdio JSON-RPC
+// loop that does not implement --help, --transport/-t, --port/-p, --daemon,
+// --force, or --tools at all — it used to swallow them silently and always
+// behave the same way regardless of what was passed, including printing
+// nothing for `mcp start --help` and starting a real server instead
+// (release 2.11.1 QA repro). The full CLI's `mcp start` command (mcp.ts)
+// is the only implementation of any of those flags.
 const cliArgs = process.argv.slice(2);
-const isExplicitMCP = cliArgs.length >= 1 && cliArgs[0] === 'mcp' && (cliArgs.length === 1 || cliArgs[1] === 'start');
+const isBareMCPInvocation =
+  cliArgs.length === 1 ? cliArgs[0] === 'mcp' : cliArgs.length === 2 && cliArgs[0] === 'mcp' && cliArgs[1] === 'start';
 const allowAutoDetect = process.env.MONOMIND_MCP_AUTODETECT === '1';
-const isMCPMode = !process.stdin.isTTY && (isExplicitMCP || (allowAutoDetect && process.argv.length === 2));
+const isMCPMode = !process.stdin.isTTY && (isBareMCPInvocation || (allowAutoDetect && process.argv.length === 2));
 
 if (isMCPMode) {
   // Run MCP server mode
@@ -48,6 +60,52 @@ if (isMCPMode) {
     console.error(
       `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode`
     );
+  }
+
+  // Mirror the PID-file mechanism `mcp status`/`mcp health` read from a
+  // separate process (see MCPServerManager.writePidFile()/getStatus() in
+  // mcp-server.ts). Without this, this fast path was invisible to `mcp
+  // status`: it never goes through MCPServerManager.start(), so no PID file
+  // was ever written and status/health always reported "not running" even
+  // while a live stdio server was up (confirmed via `ps` at the same instant
+  // — release 2.11.1 QA repro). Same path/format/flags as
+  // MCPServerManager.writePidFile(): O_CREAT|O_EXCL so a pre-existing path
+  // (including a symlinked one) is never followed, with a stale-PID-file
+  // replace fallback on EEXIST.
+  try {
+    const { mkdirSync, writeFileSync, unlinkSync } = await import('fs');
+    const { homedir } = await import('os');
+    const { join: pathJoin } = await import('path');
+    const stateDir = pathJoin(homedir(), '.monomind');
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    const pidFilePath = pathJoin(stateDir, 'mcp.pid');
+    try {
+      writeFileSync(pidFilePath, String(process.pid), { flag: 'wx', mode: 0o600 });
+    } catch (e) {
+      if (e && e.code === 'EEXIST') {
+        unlinkSync(pidFilePath);
+        writeFileSync(pidFilePath, String(process.pid), { flag: 'wx', mode: 0o600 });
+      } else {
+        throw e;
+      }
+    }
+    // 'exit' handlers must finish synchronously, so this uses unlinkSync
+    // rather than the fs.promises API used elsewhere in this file.
+    process.on('exit', () => {
+      try {
+        unlinkSync(pidFilePath);
+      } catch {
+        /* already gone, or never successfully written */
+      }
+    });
+  } catch (e) {
+    // Best-effort: `mcp status` falling back to "not running" is far better
+    // than refusing to start the server over a PID-file write error.
+    if (process.env.MONOMIND_LOG_LEVEL === 'debug') {
+      console.error(
+        `[${new Date().toISOString()}] WARN [monomind-mcp] (${sessionId}) could not write PID file: ${e && e.message ? e.message : e}`
+      );
+    }
   }
 
   // Top-level safety nets — without these, an unhandled async error in a tool
