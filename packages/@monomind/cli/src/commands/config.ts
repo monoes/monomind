@@ -144,18 +144,24 @@ const setCommand: Command = {
   description: 'Set configuration value',
   options: [
     {
+      // Not `required: true`: the action below accepts key/value as either
+      // `-k/-v` flags OR two positional args (ctx.args[0]/ctx.args[1]), and
+      // itself errors with a clear message if both end up missing. Declaring
+      // these required here made the parser's own flag validator reject the
+      // positional form before the action ever ran — so this command's own
+      // first documented example, `monomind config set monoswarm.maxAgents
+      // 20`, failed with "Required option missing: --key/--value" even
+      // though the action fully supports it.
       name: 'key',
       short: 'k',
-      description: 'Configuration key',
+      description: 'Configuration key (or pass as first positional arg)',
       type: 'string',
-      required: true,
     },
     {
       name: 'value',
       short: 'v',
-      description: 'Configuration value',
+      description: 'Configuration value (or pass as second positional arg)',
       type: 'string',
-      required: true,
     },
   ],
   examples: [
