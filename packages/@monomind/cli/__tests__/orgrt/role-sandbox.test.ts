@@ -325,6 +325,33 @@ describe('resolveRoleGitEnforcement', () => {
     expect(r1.env.GIT_CONFIG_COUNT).toBeDefined();
     expect(events.filter((e) => e.reason === 'git-sandbox-unsupported-runtime')).toHaveLength(1);
   });
+
+  // #262: only the ephemeral server the opencode runner spawns itself can be
+  // given the guard env. An attached one (OPENCODE_URL) is the operator's own
+  // process — the role then has no enforcement at all, which must be audited.
+  it('audits git-guard-unapplied for an opencode role attached to an external server', () => {
+    const { opts, events } = setup();
+    resolveRoleGitEnforcement({
+      ...opts,
+      claudeRuntime: false,
+      runtime: 'opencode',
+      env: { OPENCODE_URL: 'http://127.0.0.1:4096' },
+      availability: available,
+    });
+    expect(events.filter((e) => e.reason === 'git-guard-unapplied')).toHaveLength(1);
+  });
+
+  it('does not audit git-guard-unapplied for an opencode role that spawns its own server', () => {
+    const { opts, events } = setup();
+    resolveRoleGitEnforcement({
+      ...opts,
+      claudeRuntime: false,
+      runtime: 'opencode',
+      env: {},
+      availability: available,
+    });
+    expect(events.filter((e) => e.reason === 'git-guard-unapplied')).toHaveLength(0);
+  });
 });
 
 describe('session wiring', () => {

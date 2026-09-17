@@ -274,6 +274,8 @@ export function resolveRoleGitEnforcement(args: {
   claudeRuntime: boolean;
   runtime?: string;
   availability?: SandboxAvailability;
+  /** Defaults to process.env; injectable for tests. */
+  env?: NodeJS.ProcessEnv;
 }): { env: Record<string, string>; claudeRestrictions?: ClaudeRestrictions } {
   const { role, bus } = args;
   const level = (role.policy?.git ?? 'read') as GitLevel;
@@ -302,6 +304,19 @@ export function resolveRoleGitEnforcement(args: {
       `policy.git '${level}' on runtime ${args.runtime ?? 'non-claude'} is enforced only by git hooks and withheld credentials — no OS sandbox; a same-user role can bypass them`,
       data,
     );
+    // #262: an opencode role that ATTACHES to an already-running server
+    // (OPENCODE_URL) loses the guard env too — that server is the operator's
+    // own process, started before the session and outside its control. Only
+    // the ephemeral server the runner spawns itself receives the env.
+    if (args.runtime === 'opencode' && (args.env ?? process.env).OPENCODE_URL) {
+      auditOnce(
+        bus,
+        role.id,
+        'git-guard-unapplied',
+        `policy.git '${level}' has NO enforcement for this role: it attaches to the opencode server at OPENCODE_URL, which cannot be given the guard env. Unset OPENCODE_URL so the role spawns its own server.`,
+        data,
+      );
+    }
     return { env: guard.env };
   }
 
