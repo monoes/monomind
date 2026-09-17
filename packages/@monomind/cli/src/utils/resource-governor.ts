@@ -138,7 +138,7 @@ export async function waitForCapacity(timeoutMs = 60_000): Promise<ResourceCheck
 /** Kill orphaned claude-agent-sdk processes.
  *  @param protectedPids PIDs to never kill (e.g. sibling org agents).
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
- *    Prevents killing agents from OTHER monomind org processes. */
+ *    When undefined, only kills genuinely orphaned processes (ppid === 1). */
 export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: number): number {
   // ps doesn't exist on native Windows — same rationale as countSdkProcesses above.
   if (platform() === 'win32') return 0;
@@ -155,7 +155,13 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
       const pid = parseInt(parts[0], 10);
       const ppid = parseInt(parts[1], 10);
       if (Number.isNaN(pid) || protectedPids.has(pid)) continue;
-      if (ownerPid != null && ppid !== ownerPid) continue;
+      // When ownerPid is specified, only kill children of that owner.
+      // When ownerPid is undefined, only kill truly orphaned processes (ppid === 1).
+      if (ownerPid != null) {
+        if (ppid !== ownerPid) continue;
+      } else {
+        if (ppid !== 1) continue;
+      }
       try {
         process.kill(pid, 'SIGTERM');
         reaped++;
