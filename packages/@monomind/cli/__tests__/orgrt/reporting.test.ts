@@ -1,5 +1,5 @@
 // packages/@monomind/cli/__tests__/orgrt/reporting.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -60,6 +60,18 @@ describe('formatEvent', () => {
       const line = formatEvent(e);
       expect(line).toBeTruthy();
       expect(line).not.toContain('\n');
+    }
+  });
+
+  it('marks the rendered time as UTC with a trailing Z (#253)', () => {
+    const ts = Date.parse('2026-08-25T08:03:18Z');
+    for (const e of [
+      ev({ ts, type: 'message', from: 'a', to: 'b', subject: 's', msg: 'hi' }),
+      ev({ ts, type: 'chat', from: 'a', msg: 'hi' }),
+      ev({ ts, type: 'audit', from: 'a', msg: 'crashed' }),
+      ev({ ts, type: 'status', from: 'a', msg: 'up' }),
+    ]) {
+      expect(formatEvent(e).startsWith('08:03:18Z ')).toBe(true);
     }
   });
 });
@@ -138,6 +150,47 @@ describe('org command — observe surface', () => {
     } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 
+  const captureLog = (): { lines: string[]; restore: () => void } => {
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
+    return { lines, restore: () => spy.mockRestore() };
+  };
+
+  it('logs marks event times as UTC (#253)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-logs-'));
+    const out = captureLog();
+    try {
+      seedRun(cwd, 'alpha', 'run-2', [ev({ ts: Date.parse('2026-08-25T08:03:18Z'), type: 'chat', from: 'boss', msg: 'hello' })]);
+      expect((await run('logs', cwd, ['alpha']))?.success).toBe(true);
+      expect(out.lines).toContain('08:03:18Z 💬 boss: hello');
+    } finally { out.restore(); rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('status marks "quiet since" as UTC (#253)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-status-'));
+    const out = captureLog();
+    try {
+      seedRun(cwd, 'alpha', 'run-3', [ev({ ts: Date.parse('2026-08-25T08:03:18Z'), type: 'chat', from: 'boss', msg: 'x' })]);
+      writeFileSync(join(cwd, ORG_DIR, 'alpha', 'runtime.json'), JSON.stringify({ status: 'running', run: 'run-3', pid: process.pid }));
+      expect((await run('status', cwd, ['alpha']))?.success).toBe(true);
+      expect(out.lines.some(l => l.includes('quiet since: 08:03:18Z ('))).toBe(true);
+    } finally { out.restore(); rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('approvals marks request times as UTC (#253)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-appr-'));
+    const out = captureLog();
+    try {
+      mkdirSync(join(cwd, ORG_DIR, 'alpha'), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, 'alpha.json'), JSON.stringify({ name: 'alpha', roles: [{ id: 'boss' }] }));
+      writeFileSync(join(cwd, ORG_DIR, 'alpha', 'approvals.json'), JSON.stringify({
+        approvals: [{ roleId: 'boss', action: 'deploy', question: 'ok?', ts: Date.parse('2026-08-25T08:03:18Z'), approved: null }],
+      }));
+      expect((await run('approvals', cwd, ['alpha']))?.success).toBe(true);
+      expect(out.lines.some(l => l.includes('2026-08-25 08:03Z  boss: deploy'))).toBe(true);
+    } finally { out.restore(); rmSync(cwd, { recursive: true, force: true }); }
+  });
+
   it('logs prints the formatted event log of the latest run', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'org-logs-'));
     try {
@@ -203,6 +256,17 @@ describe('org command — questions/answer (HIL)', () => {
       const res = await run('questions', cwd, ['alpha']);
       expect(res?.success).toBe(true);
     } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('questions marks ask times as UTC (#253)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-q-'));
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
+    try {
+      seedQuestions(cwd, 'alpha');
+      expect((await run('questions', cwd, ['alpha']))?.success).toBe(true);
+      expect(lines.some(l => l.includes('[q-1] 2026-07-19 22:26Z  boss: ship it?'))).toBe(true);
+    } finally { spy.mockRestore(); rmSync(cwd, { recursive: true, force: true }); }
   });
 
   it('answer records an offline answer and queues delivery for the next run', async () => {

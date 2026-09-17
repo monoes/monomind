@@ -11,6 +11,7 @@ import {
   readHistory,
   readRunEvents,
   summarizeRun,
+  utcDateMinute,
 } from '../orgrt/reporting.js';
 import { resolveModel } from '../orgrt/session.js';
 import { buildFromTemplate, ORG_TEMPLATES } from '../orgrt/templates.js';
@@ -606,7 +607,7 @@ export const questionsAction = async (
     return { success: true };
   }
   for (const q of shown) {
-    const when = new Date(q.ts).toISOString().replace('T', ' ').slice(0, 16);
+    const when = utcDateMinute(q.ts);
     log(
       output.info(
         `${q.answer === null ? '❓' : '✓'} [${q.questionId}] ${when}  ${q.role}: ${q.question}`,
@@ -702,7 +703,7 @@ export const approvalsAction = async (
     return { success: true };
   }
   for (const a of shown) {
-    const when = new Date(a.ts).toISOString().replace('T', ' ').slice(0, 16);
+    const when = utcDateMinute(a.ts);
     const mark = a.approved === null ? '❓' : a.approved ? '✓' : '✗';
     const ref = a.requestId ? ` [${a.requestId}]` : '';
     const by = a.resolvedBy ? ` (by ${a.resolvedBy})` : '';
