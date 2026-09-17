@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { approveAction, denyAction, gateResolveAction } from '../commands/org-observe.js';
 import { checkApproval, clearApprovalsForFreshStart, setApproval } from '../orgrt/approvals.js';
-import type { OrgDaemon } from '../orgrt/daemon.js';
+import { OrgDaemon } from '../orgrt/daemon.js';
 import type { Decision, PolicyEngine } from '../orgrt/policy.js';
 import { gatedCanUseTool } from '../orgrt/session.js';
 import { ORG_DIR } from '../orgrt/types.js';
@@ -560,6 +560,88 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
     const set = await setApproval(daemon, 'myorg', 'boss', 'Bash', true);
     expect(set).toEqual({ ok: true }); // live delivery now finds it — no more "No pending approval found"
   });
+});
+
+/** The tests above call clearApprovalsForFreshStart directly, so they kept
+ *  passing after 27ccde106 deleted its only call site in startOrg and #165
+ *  came back. These go through the daemon's real start path instead. */
+describe("startOrg — a fresh start drops the previous run's approvals, a resume keeps them (#165)", () => {
+  const echoQuery = ({ prompt }: { prompt: AsyncIterable<{ message: { content: string } }> }) =>
+    (async function* () {
+      for await (const m of prompt) {
+        yield {
+          type: 'assistant',
+          message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] },
+        };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      }
+    })();
+  const readApprovals = (root: string) =>
+    JSON.parse(readFileSync(join(root, ORG_DIR, 'alpha', 'approvals.json'), 'utf8'))
+      .approvals as Array<{ roleId: string; approved: boolean | null }>;
+  let root: string;
+  let daemon: OrgDaemon;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'org-fresh-start-approvals-'));
+    mkdirSync(join(root, ORG_DIR), { recursive: true });
+    writeFileSync(
+      join(root, ORG_DIR, 'alpha.json'),
+      JSON.stringify({
+        name: 'alpha',
+        goal: 'g',
+        roles: [
+          { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+          { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+        ],
+      }),
+    );
+    daemon = new OrgDaemon(root, { queryFn: echoQuery as never, forward: false });
+  });
+
+  afterEach(async () => {
+    await daemon.stopAll();
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  /** Run A queues an approval for coder's Bash call and stops with it unanswered. */
+  const runWithPendingApproval = async () => {
+    await daemon.startOrg('alpha');
+    expect(await checkApproval(daemon, 'alpha', 'coder', 'Bash', { command: 'ls' })).toBeNull();
+    expect(readApprovals(root).filter((a) => a.approved === null)).toHaveLength(1);
+    await daemon.stopOrg('alpha');
+  };
+
+  it('a fresh start clears the stale pending approval on disk and in memory', async () => {
+    await runWithPendingApproval();
+
+    await daemon.startOrg('alpha');
+
+    expect(readApprovals(root)).toEqual([]);
+    expect(daemon.approvals.get('alpha')).toBeUndefined();
+    const stale = await daemon.setApproval('alpha', 'coder', 'Bash', true);
+    expect(stale.ok).toBe(false);
+  }, 30000);
+
+  it('a fresh start in a new process clears approvals.json left by an earlier process', async () => {
+    await runWithPendingApproval();
+    const next = new OrgDaemon(root, { queryFn: echoQuery as never, forward: false });
+    try {
+      await next.startOrg('alpha');
+      expect(readApprovals(root)).toEqual([]);
+    } finally {
+      await next.stopAll();
+    }
+  }, 30000);
+
+  it('a resumed run keeps its pending approval, which can still be resolved', async () => {
+    await runWithPendingApproval();
+
+    await daemon.startOrg('alpha', undefined, { resume: true });
+
+    expect(readApprovals(root).filter((a) => a.approved === null)).toHaveLength(1);
+    expect(await daemon.setApproval('alpha', 'coder', 'Bash', true)).toEqual({ ok: true });
+  }, 30000);
 });
 
 describe('org approve / deny — offline field-matching fix', () => {
