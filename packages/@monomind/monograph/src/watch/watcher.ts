@@ -1,8 +1,17 @@
 import { EventEmitter } from 'node:events';
-import { extname } from 'node:path';
+import { extname, relative } from 'node:path';
 import chokidar from 'chokidar';
 import { isSupportedExtension } from '../parsers/loader.js';
 import type { PipelineProgress } from '../types.js';
+
+/** Tested against '/'-separated paths relative to the watched repo root. */
+const IGNORED_RELATIVE_PATHS = [
+  /(^|\/)\../, // dotfiles
+  /node_modules/,
+  /\.monomind/,
+  /dist\//,
+  /build\//,
+];
 
 export interface WatcherOptions {
   debounceMs?: number; // default 3000ms
@@ -134,14 +143,14 @@ export class MonographWatcher extends EventEmitter {
     // explicitly requested via env (e.g. network mounts where events don't fire).
     const usePolling = process.env.MONOGRAPH_WATCH_POLL === '1';
 
+    // chokidar tests `ignored` against the full path, so match on the path
+    // relative to the repo root — otherwise a repo under a dot-directory or a
+    // `build/`/`dist/` ancestor has every file ignored (#255).
     this.watcher = chokidar.watch(this.repoPath, {
-      ignored: [
-        /(^|[/\\])\../, // dotfiles
-        /node_modules/,
-        /\.monomind/,
-        /dist\//,
-        /build\//,
-      ],
+      ignored: (p: string) => {
+        const rel = relative(this.repoPath, p).replace(/\\/g, '/');
+        return IGNORED_RELATIVE_PATHS.some((re) => re.test(rel));
+      },
       persistent: true,
       ignoreInitial: true,
       usePolling,
