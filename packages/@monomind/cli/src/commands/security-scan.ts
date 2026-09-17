@@ -12,7 +12,14 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 
 export const SECRET_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
   {
-    pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g,
+    // Covers plain `sk-<random>` as well as the hyphen-segmented variants
+    // vendors actually issue (`sk-live-...`, `sk-proj-...`, `sk-test-...`),
+    // plus Stripe's underscore-segmented `sk_live_...`/`sk_test_...`. The
+    // previous version required 20+ *contiguous* alphanumerics right after
+    // `sk-`, which never matched `sk-live-...` because the `-` after `live`
+    // broke the run — so real Stripe/OpenAI keys of that shape went undetected.
+    pattern:
+      /['"]sk-(?:live-|proj-|test-)?[a-zA-Z0-9]{10,}['"]|['"]sk_(?:live|test)_[a-zA-Z0-9]{10,}['"]/g,
     type: 'API Key (Stripe/OpenAI)',
   },
   { pattern: /['"]AKIA[A-Z0-9]{16}['"]/g, type: 'AWS Access Key' },
@@ -20,6 +27,24 @@ export const SECRET_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
   { pattern: /['"]xox[baprs]-[a-zA-Z0-9-]+['"]/g, type: 'Slack Token' },
   { pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Hardcoded Password' },
 ];
+
+/**
+ * File extensions the secret scanner reads. Previously limited to
+ * ts/js/json/yml/yaml(+.env*), which meant any other language — Python, Go,
+ * Ruby, shell, etc. — was silently invisible to `security scan`/`secrets`
+ * regardless of what it contained. Broadened to cover common source/config
+ * file types actually likely to hold hardcoded credentials.
+ */
+export const SECRET_SCAN_EXTENSIONS =
+  /\.(ts|tsx|js|jsx|mjs|cjs|json|ya?ml|py|rb|go|java|php|c|cc|cpp|h|hpp|cs|kt|kts|swift|rs|sh|bash|zsh|pl|lua|sql|toml|ini|cfg|conf|properties|xml|html)$/;
+
+/**
+ * File extensions the code-pattern scanner (eval(), innerHTML, command
+ * injection, SQL injection, ...) reads. Previously ts/js/tsx/jsx only, so a
+ * dangerous `eval()` call in a Python, shell, or Ruby file was never seen.
+ */
+export const CODE_PATTERN_SCAN_EXTENSIONS =
+  /\.(ts|tsx|js|jsx|mjs|cjs|py|rb|go|java|php|c|cc|cpp|h|hpp|cs|kt|kts|swift|rs|sh|bash|zsh|pl|lua)$/;
 
 export type SecretFinding = {
   severity: string;
@@ -102,6 +127,43 @@ export function describeScanGaps(c: ScanCoverage): string[] {
   return lines;
 }
 
+/** Reads one file and records any SECRET_PATTERNS matches as findings. */
+function scanFileForSecrets(
+  fullPath: string,
+  baseDir: string,
+  findings: SecretFinding[],
+  coverage: ScanCoverage,
+): void {
+  let content: string;
+  try {
+    if (statSync(fullPath).size > 1024 * 1024) {
+      coverage.oversizedFiles.push(relative(baseDir, fullPath) || fullPath);
+      return;
+    }
+    content = readFileSync(fullPath, 'utf-8');
+  } catch {
+    coverage.unreadableFiles.push(relative(baseDir, fullPath) || fullPath);
+    return;
+  }
+  coverage.filesScanned++;
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    for (const { pattern, type } of SECRET_PATTERNS) {
+      pattern.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = pattern.exec(lines[i])) !== null) {
+        findings.push({
+          severity: output.warning('HIGH'),
+          type: 'Hardcoded Secret',
+          location: `${relative(baseDir, fullPath) || fullPath}:${i + 1}`,
+          description: type,
+          rawSeverity: 'high',
+        });
+      }
+    }
+  }
+}
+
 export function findSecretsInDir(
   dir: string,
   depthLimit: number,
@@ -109,6 +171,23 @@ export function findSecretsInDir(
   findings: SecretFinding[],
   coverage: ScanCoverage = createScanCoverage(),
 ): void {
+  // A caller can point --target/-p directly at a *file* rather than a
+  // directory. readdirSync() on a file throws ENOTDIR, which the old code
+  // swallowed into unreadableDirs and returned — so the file itself was
+  // never opened, even when it plainly contained a secret. Detect that case
+  // up front and scan the file directly, ignoring the extension allowlist
+  // since the caller explicitly named this exact file.
+  let dirStat: ReturnType<typeof statSync>;
+  try {
+    dirStat = statSync(dir);
+  } catch {
+    coverage.unreadableDirs.push(relative(baseDir, dir) || dir);
+    return;
+  }
+  if (dirStat.isFile()) {
+    scanFileForSecrets(dir, baseDir, findings, coverage);
+    return;
+  }
   if (depthLimit <= 0) {
     coverage.depthTruncatedDirs.push(relative(baseDir, dir) || dir);
     return;
@@ -134,37 +213,139 @@ export function findSecretsInDir(
       findSecretsInDir(fullPath, depthLimit - 1, baseDir, findings, coverage);
     } else if (
       entry.isFile() &&
-      (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) &&
+      (SECRET_SCAN_EXTENSIONS.test(entry.name) || isDotEnv) &&
       !entry.name.endsWith('.d.ts')
     ) {
-      let content: string;
-      try {
-        if (statSync(fullPath).size > 1024 * 1024) {
-          coverage.oversizedFiles.push(relative(baseDir, fullPath));
-          continue;
-        }
-        content = readFileSync(fullPath, 'utf-8');
-      } catch {
-        coverage.unreadableFiles.push(relative(baseDir, fullPath));
-        continue;
+      scanFileForSecrets(fullPath, baseDir, findings, coverage);
+    }
+  }
+}
+
+// ─── Shared code-pattern scanning ───────────────────────────────────────────
+
+export const CODE_PATTERNS: Array<{
+  pattern: RegExp;
+  type: string;
+  severity: 'high' | 'medium';
+  desc: string;
+}> = [
+  {
+    pattern: /eval\s*\(/g,
+    type: 'Eval Usage',
+    severity: 'medium',
+    desc: 'eval() can execute arbitrary code',
+  },
+  {
+    pattern: /innerHTML\s*=/g,
+    type: 'innerHTML',
+    severity: 'medium',
+    desc: 'XSS risk with innerHTML',
+  },
+  {
+    pattern: /dangerouslySetInnerHTML/g,
+    type: 'React XSS',
+    severity: 'medium',
+    desc: 'React XSS risk',
+  },
+  {
+    pattern: /child_process.*exec[^S]/g,
+    type: 'Command Injection',
+    severity: 'high',
+    desc: 'Possible command injection',
+  },
+  {
+    pattern: /\$\{.*\}.*sql|sql.*\$\{/gi,
+    type: 'SQL Injection',
+    severity: 'high',
+    desc: 'Possible SQL injection',
+  },
+];
+
+/** Reads one file and records any CODE_PATTERNS matches as findings. */
+function scanFileForCodePatterns(
+  fullPath: string,
+  baseDir: string,
+  findings: SecretFinding[],
+  coverage: ScanCoverage,
+): void {
+  let content: string;
+  try {
+    if (statSync(fullPath).size > 1024 * 1024) {
+      coverage.oversizedFiles.push(relative(baseDir, fullPath) || fullPath);
+      return;
+    }
+    content = readFileSync(fullPath, 'utf-8');
+  } catch {
+    coverage.unreadableFiles.push(relative(baseDir, fullPath) || fullPath);
+    return;
+  }
+  coverage.filesScanned++;
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    for (const { pattern, type, severity, desc } of CODE_PATTERNS) {
+      pattern.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = pattern.exec(lines[i])) !== null) {
+        findings.push({
+          severity: severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
+          type,
+          location: `${relative(baseDir, fullPath) || fullPath}:${i + 1}`,
+          description: desc,
+          rawSeverity: severity,
+        });
       }
-      coverage.filesScanned++;
-      const lines = content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        for (const { pattern, type } of SECRET_PATTERNS) {
-          pattern.lastIndex = 0;
-          let m: RegExpExecArray | null;
-          while ((m = pattern.exec(lines[i])) !== null) {
-            findings.push({
-              severity: output.warning('HIGH'),
-              type: 'Hardcoded Secret',
-              location: `${relative(baseDir, fullPath)}:${i + 1}`,
-              description: type,
-              rawSeverity: 'high',
-            });
-          }
-        }
-      }
+    }
+  }
+}
+
+/**
+ * Same coverage accounting as findSecretsInDir: gaps are recorded, never
+ * swallowed, so an unreadable tree cannot masquerade as a clean one. Also
+ * shares findSecretsInDir's fix for a `dir` that is actually a file: it is
+ * scanned directly instead of throwing ENOTDIR into unreadableDirs.
+ */
+export function findCodePatternsInDir(
+  dir: string,
+  depthLimit: number,
+  baseDir: string,
+  findings: SecretFinding[],
+  coverage: ScanCoverage = createScanCoverage(),
+): void {
+  let dirStat: ReturnType<typeof statSync>;
+  try {
+    dirStat = statSync(dir);
+  } catch {
+    coverage.unreadableDirs.push(relative(baseDir, dir) || dir);
+    return;
+  }
+  if (dirStat.isFile()) {
+    scanFileForCodePatterns(dir, baseDir, findings, coverage);
+    return;
+  }
+  if (depthLimit <= 0) {
+    coverage.depthTruncatedDirs.push(relative(baseDir, dir) || dir);
+    return;
+  }
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    coverage.unreadableDirs.push(relative(baseDir, dir) || dir);
+    return;
+  }
+  coverage.dirsScanned++;
+  for (const entry of entries) {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist')
+      continue;
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      findCodePatternsInDir(fullPath, depthLimit - 1, baseDir, findings, coverage);
+    } else if (
+      entry.isFile() &&
+      CODE_PATTERN_SCAN_EXTENSIONS.test(entry.name) &&
+      !entry.name.endsWith('.d.ts')
+    ) {
+      scanFileForCodePatterns(fullPath, baseDir, findings, coverage);
     }
   }
 }
@@ -515,105 +696,19 @@ export const scanCommand: Command = {
 
       if ((scanType === 'all' || scanType === 'code') && depth !== 'quick') {
         spinner.setText('Analyzing code patterns...');
-        const codePatterns = [
-          {
-            pattern: /eval\s*\(/g,
-            type: 'Eval Usage',
-            severity: 'medium',
-            desc: 'eval() can execute arbitrary code',
-          },
-          {
-            pattern: /innerHTML\s*=/g,
-            type: 'innerHTML',
-            severity: 'medium',
-            desc: 'XSS risk with innerHTML',
-          },
-          {
-            pattern: /dangerouslySetInnerHTML/g,
-            type: 'React XSS',
-            severity: 'medium',
-            desc: 'React XSS risk',
-          },
-          {
-            pattern: /child_process.*exec[^S]/g,
-            type: 'Command Injection',
-            severity: 'high',
-            desc: 'Possible command injection',
-          },
-          {
-            pattern: /\$\{.*\}.*sql|sql.*\$\{/gi,
-            type: 'SQL Injection',
-            severity: 'high',
-            desc: 'Possible SQL injection',
-          },
-        ];
-
-        // Same coverage accounting as findSecretsInDir: gaps are recorded, never
-        // swallowed, so an unreadable tree cannot masquerade as a clean one.
-        const codeBase = path.resolve(target);
-        const scanCodeDir = (dir: string, depthLimit: number) => {
-          if (depthLimit <= 0) {
-            coverage.depthTruncatedDirs.push(path.relative(codeBase, dir) || dir);
-            return;
-          }
-          let entries;
-          try {
-            entries = fs.readdirSync(dir, { withFileTypes: true });
-          } catch {
-            coverage.unreadableDirs.push(path.relative(codeBase, dir) || dir);
-            return;
-          }
-          for (const entry of entries) {
-            if (
-              entry.name.startsWith('.') ||
-              entry.name === 'node_modules' ||
-              entry.name === 'dist'
-            )
-              continue;
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-              scanCodeDir(fullPath, depthLimit - 1);
-            } else if (
-              entry.isFile() &&
-              /\.(ts|js|tsx|jsx)$/.test(entry.name) &&
-              !entry.name.endsWith('.d.ts')
-            ) {
-              let content: string;
-              try {
-                if (fs.statSync(fullPath).size > 1024 * 1024) {
-                  coverage.oversizedFiles.push(path.relative(codeBase, fullPath));
-                  continue;
-                }
-                content = fs.readFileSync(fullPath, 'utf-8');
-              } catch {
-                coverage.unreadableFiles.push(path.relative(codeBase, fullPath));
-                continue;
-              }
-              const lines = content.split('\n');
-              for (let i = 0; i < lines.length; i++) {
-                for (const { pattern, type, severity, desc } of codePatterns) {
-                  pattern.lastIndex = 0;
-                  let m: RegExpExecArray | null;
-                  while ((m = pattern.exec(lines[i])) !== null) {
-                    if (severity === 'high') highCount++;
-                    else mediumCount++;
-                    findings.push({
-                      severity:
-                        severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
-                      type,
-                      location: `${path.relative(target, fullPath)}:${i + 1}`,
-                      description: desc,
-                      rawSeverity: severity === 'high' ? 'high' : 'medium',
-                    });
-                  }
-                }
-              }
-            }
-          }
-        };
-
-        const scanDepth = depth === 'deep' ? 10 : 5;
-        scanCodeDir(path.resolve(target), scanDepth);
+        const codeScanDepth = depth === 'deep' ? 10 : 5;
+        const prevFindingsLength = findings.length;
+        findCodePatternsInDir(
+          path.resolve(target),
+          codeScanDepth,
+          path.resolve(target),
+          findings,
+          coverage,
+        );
+        for (const f of findings.slice(prevFindingsLength)) {
+          if (f.rawSeverity === 'high') highCount++;
+          else if (f.rawSeverity === 'medium') mediumCount++;
+        }
       }
 
       const gaps = describeScanGaps(coverage);
