@@ -12,6 +12,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
+- `monomind cleanup --force` now only reaps genuinely orphaned SDK processes (c4d430669, 01e38236c). Previously, cleanup invoked without an ownerPid would SIGTERM every process matching "claude-agent-sdk --output-format" machine-wide, including live org agents with running parent processes, causing mass crashes. Now only kills processes whose parent is PID 1 (classic init adoption) or matches an init/subreaper pattern (`systemd`, `systemd --user`, `/sbin/init`, `/lib/systemd/systemd`), correctly identifying orphans on both traditional init systems and modern systemd user sessions while never killing SDK processes with live application parents.
 - `monomind init --force` now properly migrates pre-rename projects (7dd8deb26). Previously, projects initialized before the graphify→monograph rename never fully migrated: the old `graphify-freshen.cjs` hook file stayed on disk forever, and even after `--force` refreshed `settings.json`, the old command survived as a duplicate SessionStart hook (looked 'unknown' next to the newly generated `monograph-freshen.cjs` command). Now obsolete helper files are deleted and obsolete hook commands are stripped from settings before the merge, so migration completes in one `init --force`.
 
 ### Changed
