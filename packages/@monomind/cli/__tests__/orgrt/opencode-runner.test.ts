@@ -55,22 +55,44 @@ const sessionCreateMock = vi.fn();
 const sessionGetMock = vi.fn();
 const sessionPromptAsyncMock = vi.fn();
 const eventSubscribeMock = vi.fn();
+const createClientMock = vi.fn();
 const serverCloseMock = vi.fn();
 
 vi.mock('@opencode-ai/sdk', () => ({
-  createOpencode: vi.fn(async () => ({
-    client: {
-      session: {
-        create: sessionCreateMock,
-        get: sessionGetMock,
-        promptAsync: sessionPromptAsyncMock,
-      },
-      event: {
-        subscribe: eventSubscribeMock,
-      },
-    },
-    server: { url: 'http://127.0.0.1:0', close: serverCloseMock },
-  })),
+  createOpencodeClient: (...a: unknown[]) => {
+    createClientMock(...a);
+    return {
+      session: { create: sessionCreateMock, get: sessionGetMock, promptAsync: sessionPromptAsyncMock },
+      event: { subscribe: eventSubscribeMock },
+    };
+  },
+}));
+
+/** The ephemeral `opencode serve` child (#262): the runner spawns it itself so
+ *  it can hand it the role's session env, then parses its listening line. */
+const spawnMock = vi.fn();
+vi.mock('node:child_process', () => ({
+  spawn: (...a: unknown[]) => {
+    spawnMock(...a);
+    const listeners = new Map<string, Array<(...x: any[]) => void>>();
+    const on = (ev: string, fn: (...x: any[]) => void) => {
+      listeners.set(ev, [...(listeners.get(ev) ?? []), fn]);
+      return { on };
+    };
+    const child = {
+      stdout: { on },
+      stderr: { on },
+      on,
+      kill: serverCloseMock,
+    };
+    // Announce the listening line on the next tick, the way the real binary
+    // does once its HTTP server is up.
+    setTimeout(() => {
+      for (const fn of listeners.get('data') ?? [])
+        fn(Buffer.from('opencode server listening on http://127.0.0.1:41234\n'));
+    }, 0);
+    return child;
+  },
 }));
 
 import { OpencodeAgentRunner } from '../../src/orgrt/opencode-runner.js';
@@ -152,7 +174,10 @@ beforeEach(() => {
   sessionGetMock.mockReset();
   sessionPromptAsyncMock.mockReset().mockResolvedValue(undefined);
   eventSubscribeMock.mockReset();
+  createClientMock.mockReset();
+  spawnMock.mockReset();
   serverCloseMock.mockReset();
+  delete process.env.OPENCODE_URL;
 });
 
 describe('OpencodeAgentRunner', () => {
@@ -400,5 +425,57 @@ describe('OpencodeAgentRunner', () => {
     expect(handled).toEqual(['hi']);
     const secondPromptText = String(sessionPromptAsyncMock.mock.calls[1][0]?.body?.parts?.[0]?.text ?? '');
     expect(secondPromptText).toContain('echo:hi');
+  });
+
+  // ─── #262: the session env must reach the process that runs the shell ────
+
+  const oneTurn = (sessionId: string) => {
+    sessionCreateMock.mockResolvedValue({ data: { id: sessionId } });
+    const es = makeEventStream();
+    eventSubscribeMock.mockResolvedValue({ stream: es.stream });
+    sessionPromptAsyncMock.mockImplementation(async () => {
+      const mid = uid('msg');
+      es.push(assistantMessageCreated(sessionId, mid));
+      es.push(textPartUpdated(sessionId, mid, uid('prt'), 'ok'));
+      es.push(assistantMessageCompleted(sessionId, mid, { input: 1, output: 1 }));
+    });
+  };
+
+  it('passes the session env (provider credentials, #249 scoping, the #258 git guard) to the ephemeral server, merged over process.env', async () => {
+    oneTurn('s_env');
+    await collect(
+      new OpencodeAgentRunner(),
+      makeArgs({
+        cwd: '/tmp/role-cwd',
+        env: {
+          ANTHROPIC_BASE_URL: 'https://role-endpoint.invalid',
+          GIT_CONFIG_COUNT: '2',
+          MONOMIND_GIT_LEVEL: 'read',
+          GIT_ASKPASS: '/guard/deny-credentials',
+        },
+      }),
+    );
+
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    const [bin, argv, opts] = spawnMock.mock.calls[0] as [string, string[], any];
+    expect(bin).toBe('opencode');
+    expect(argv[0]).toBe('serve');
+    expect(opts.cwd).toBe('/tmp/role-cwd');
+    expect(opts.env.ANTHROPIC_BASE_URL).toBe('https://role-endpoint.invalid');
+    expect(opts.env.MONOMIND_GIT_LEVEL).toBe('read');
+    expect(opts.env.GIT_ASKPASS).toBe('/guard/deny-credentials');
+    // merged OVER process.env, not instead of it
+    expect(opts.env.PATH).toBe(process.env.PATH);
+    // the client talks to the server we just started
+    expect(createClientMock.mock.calls[0][0].baseUrl).toBe('http://127.0.0.1:41234');
+  });
+
+  it('attaches to OPENCODE_URL without spawning a server — that one cannot be given the env (#262)', async () => {
+    process.env.OPENCODE_URL = 'http://127.0.0.1:4096';
+    oneTurn('s_attached');
+    await collect(new OpencodeAgentRunner(), makeArgs({ env: { MONOMIND_GIT_LEVEL: 'read' } }));
+
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(createClientMock.mock.calls[0][0].baseUrl).toBe('http://127.0.0.1:4096');
   });
 });

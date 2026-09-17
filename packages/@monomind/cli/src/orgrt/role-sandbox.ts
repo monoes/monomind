@@ -34,6 +34,7 @@ import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { delimiter, isAbsolute, join } from 'node:path';
 import type { OrgBus } from './bus.js';
+import { CLI_SANDBOX_MODES } from './cli-sandbox.js';
 import {
   type GitGuard,
   type GitLevel,
@@ -274,6 +275,8 @@ export function resolveRoleGitEnforcement(args: {
   claudeRuntime: boolean;
   runtime?: string;
   availability?: SandboxAvailability;
+  /** Defaults to process.env; injectable for tests. */
+  env?: NodeJS.ProcessEnv;
 }): { env: Record<string, string>; claudeRestrictions?: ClaudeRestrictions } {
   const { role, bus } = args;
   const level = (role.policy?.git ?? 'read') as GitLevel;
@@ -295,13 +298,39 @@ export function resolveRoleGitEnforcement(args: {
   const data = { level, protectedGitDirs: guard.protectedGitDirs };
 
   if (!args.claudeRuntime) {
-    auditOnce(
-      bus,
-      role.id,
-      'git-sandbox-unsupported-runtime',
-      `policy.git '${level}' on runtime ${args.runtime ?? 'non-claude'} is enforced only by git hooks and withheld credentials — no OS sandbox; a same-user role can bypass them`,
-      data,
-    );
+    const runtime = args.runtime ?? 'non-claude';
+    // #263: codex and grok run their own OS sandbox at the role's level.
+    const cliMode = CLI_SANDBOX_MODES[runtime];
+    if (cliMode) {
+      auditOnce(
+        bus,
+        role.id,
+        'git-sandbox-cli',
+        `policy.git '${level}' on runtime ${runtime} runs the CLI's own sandbox ('${cliMode}'): writes confined to the role's cwd and temp dir, $HOME and the rest of the filesystem read-only. It has no per-tool gate and no .git deny rules, so git itself still rests on the guard hooks and withheld credentials.`,
+        data,
+      );
+    } else {
+      auditOnce(
+        bus,
+        role.id,
+        'git-sandbox-unsupported-runtime',
+        `policy.git '${level}' on runtime ${runtime} is enforced only by git hooks and withheld credentials — no OS sandbox; a same-user role can bypass them`,
+        data,
+      );
+    }
+    // #262: an opencode role that ATTACHES to an already-running server
+    // (OPENCODE_URL) loses the guard env too — that server is the operator's
+    // own process, started before the session and outside its control. Only
+    // the ephemeral server the runner spawns itself receives the env.
+    if (args.runtime === 'opencode' && (args.env ?? process.env).OPENCODE_URL) {
+      auditOnce(
+        bus,
+        role.id,
+        'git-guard-unapplied',
+        `policy.git '${level}' has NO enforcement for this role: it attaches to the opencode server at OPENCODE_URL, which cannot be given the guard env. Unset OPENCODE_URL so the role spawns its own server.`,
+        data,
+      );
+    }
     return { env: guard.env };
   }
 
@@ -373,6 +402,7 @@ export function gitEnforcementFindings(
   const warnings: string[] = [];
   const errors: string[] = [];
   const unsupported: string[] = [];
+  const cliSandboxed: string[] = [];
   const unsandboxed: string[] = [];
   const off: string[] = [];
   for (const role of def.roles) {
@@ -386,7 +416,9 @@ export function gitEnforcementFindings(
       process.env.MONOMIND_RUNTIME ??
       'claude';
     const mode = (role.policy?.sandbox as RoleSandboxPolicy | undefined)?.mode ?? 'auto';
-    if (runtime !== 'claude') unsupported.push(`${role.id} (${runtime})`);
+    if (CLI_SANDBOX_MODES[runtime])
+      cliSandboxed.push(`${role.id} (${runtime}: ${CLI_SANDBOX_MODES[runtime]})`);
+    else if (runtime !== 'claude') unsupported.push(`${role.id} (${runtime})`);
     else if (mode === 'off') off.push(role.id);
     else if (!availability.available && mode === 'required')
       errors.push(
@@ -396,7 +428,11 @@ export function gitEnforcementFindings(
   }
   if (unsupported.length)
     warnings.push(
-      `policy.git below 'push' has no OS sandbox on non-claude runtimes — enforced only by git hooks and withheld credentials: ${unsupported.join(', ')}`,
+      `policy.git below 'push' has no OS sandbox on these runtimes — enforced only by git hooks and withheld credentials: ${unsupported.join(', ')}`,
+    );
+  if (cliSandboxed.length)
+    warnings.push(
+      `policy.git below 'push' runs the CLI's own sandbox on these roles — writes confined, but no per-tool gate and no .git deny rules: ${cliSandboxed.join(', ')}`,
     );
   if (unsandboxed.length)
     warnings.push(

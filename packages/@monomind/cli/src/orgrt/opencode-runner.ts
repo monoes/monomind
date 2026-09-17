@@ -68,6 +68,7 @@
  *     clear actionable error instead of crashing at import time.
  */
 
+import { spawn } from 'node:child_process';
 import {
   type AgentMessage,
   type AgentRunArgs,
@@ -141,25 +142,16 @@ export class OpencodeAgentRunner implements AgentRunner {
 
     // Connect: either attach to a running server (opencodeUrl / OPENCODE_URL)
     // or spawn an ephemeral one. Spawning per role keeps org roles isolated
-    // from the user's interactive opencode state.
+    // from the user's interactive opencode state — and is the only path that
+    // can carry the role's session env (#262, see startOpencodeServer).
     let client: any;
     let server: { url: string; close(): void } | null = null;
     const attachUrl = this.opencodeUrl || process.env.OPENCODE_URL;
     if (attachUrl) {
       client = sdk.createOpencodeClient({ baseUrl: attachUrl, directory: args.cwd });
     } else {
-      if (typeof sdk.createOpencode !== 'function') {
-        throw new Error(
-          'OpencodeAgentRunner: @opencode-ai/sdk has no createOpencode — check the SDK version.',
-        );
-      }
-      // The SDK's default server-start timeout is 5s — too tight for a cold
-      // machine (first spawn of the opencode binary can take longer, and a
-      // timeout crashes the role session). 30s is safely above cold-start
-      // time while still failing fast enough for the retry backoff to help.
-      const started = await sdk.createOpencode({ hostname: '127.0.0.1', port: 0, timeout: 30_000 });
-      client = started.client;
-      server = started.server;
+      server = await startOpencodeServer(args);
+      client = sdk.createOpencodeClient({ baseUrl: server.url });
     }
 
     // Abort hook (see AgentRunArgs.signal): the only child this runner owns
@@ -422,6 +414,62 @@ export class OpencodeAgentRunner implements AgentRunner {
       }
     }
   }
+}
+
+/** How long the ephemeral server may take to print its listening line. The
+ *  SDK's own default of 5s is too tight for a cold machine, and a timeout
+ *  there crashes the role session. */
+const SERVER_START_TIMEOUT_MS = 30_000;
+
+/**
+ * Start the ephemeral opencode server WITH THE ROLE'S SESSION ENV (#262).
+ *
+ * The SDK's `createOpencode()`/`createOpencodeServer()` spawn `opencode serve`
+ * with the daemon's `process.env` and take no env option (`ServerOptions` is
+ * `{hostname, port, signal, timeout, config}` — @opencode-ai/sdk 1.18.15), so
+ * `args.env` never reached the process that runs the role's shell: provider
+ * credentials, the #249 MONOMIND_* scoping and the #258 git guard all silently
+ * failed to apply, and that shell had the operator's full git/GitHub access.
+ * Spawning it here is codex-runner.ts's own `{ ...process.env, ...args.env }`
+ * shape. An ATTACHED server (`OPENCODE_URL`) can't get the env — it is the
+ * operator's own process; role-sandbox.ts audits it with `git-guard-unapplied`.
+ */
+function startOpencodeServer(args: AgentRunArgs): Promise<{ url: string; close(): void }> {
+  // Mirrors runner-registry.ts's OPENCODE_BIN override for this runtime.
+  const bin = process.env.OPENCODE_BIN || 'opencode';
+  const child = spawn(bin, ['serve', '--hostname=127.0.0.1', '--port=0'], {
+    cwd: args.cwd,
+    env: { ...process.env, ...args.env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  // kill() on an exited child is a no-op (same as the SDK's own stop()).
+  const close = () => void child.kill();
+  return new Promise((resolve, reject) => {
+    let out = '';
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    const die = (what: string) =>
+      settle(() => {
+        close();
+        reject(new Error(`OpencodeAgentRunner: opencode serve ${what}\n${out}`.trimEnd()));
+      });
+    const timer = setTimeout(() => die('did not start in time'), SERVER_START_TIMEOUT_MS);
+    const onOutput = (c: Buffer) => {
+      // The SDK reads the same line ("opencode server listening on <url>").
+      out = (out + c.toString()).slice(-4000);
+      const m = out.match(/opencode server listening on\s+(https?:\/\/\S+)/);
+      if (m) settle(() => resolve({ url: m[1], close }));
+    };
+    child.stdout?.on('data', onOutput);
+    child.stderr?.on('data', onOutput);
+    child.on('error', (e: Error) => settle(() => reject(e)));
+    child.on('exit', (code: number | null) => die(`exited with code ${code}`));
+  });
 }
 
 /** Race a promise against a wall-clock timeout. */
