@@ -331,6 +331,43 @@ describe('resolveModel (vendor/runtime defaults)', () => {
     );
     expect(VERCEL_PROVIDERS.anthropic.defaultModel).toBe(DEFAULT_CLAUDE_MODEL);
   });
+
+  it('serves every vendor the provider registry knows, with that registry’s default', () => {
+    for (const [vendor, def] of Object.entries(VERCEL_PROVIDERS)) {
+      if (!def.defaultModel) continue; // no default to fall back to — see the next test
+      expect(resolveModel({ adapter_config: {} } as any, 'vercel', vendor)).toBe(def.defaultModel);
+    }
+  });
+
+  it('falls through to the runtime default for a vendor the registry pins no model for', () => {
+    // openai-compatible serves arbitrary endpoints, so there is no sane model
+    // to guess; an empty registry default must not short-circuit the runtime
+    // fallback below it.
+    expect(VERCEL_PROVIDERS['openai-compatible'].defaultModel).toBe('');
+    expect(resolveModel({ adapter_config: {} } as any, 'claude', 'openai-compatible')).toBe(
+      DEFAULT_CLAUDE_MODEL,
+    );
+  });
+
+  it('picks up a vendor added to the provider registry, with no second list to update', () => {
+    // The drift guard. Two hand-kept lists of per-vendor defaults is what
+    // produced #252; this fails the moment resolveModel reads its own copy
+    // instead of the registry.
+    VERCEL_PROVIDERS['drift-probe'] = {
+      vendor: 'drift-probe',
+      package: '@ai-sdk/openai',
+      factory: 'createOpenAI',
+      defaultModel: 'drift-probe-model-1',
+      envVar: 'DRIFT_PROBE_API_KEY',
+    };
+    try {
+      expect(resolveModel({ adapter_config: {} } as any, 'vercel', 'drift-probe')).toBe(
+        'drift-probe-model-1',
+      );
+    } finally {
+      delete VERCEL_PROVIDERS['drift-probe'];
+    }
+  });
 });
 
 describe('named providers (adapter_config.provider)', () => {

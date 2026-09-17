@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
-import { DEFAULT_CLAUDE_MODEL } from './vercel-providers.js';
+import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
  * Resolves the extra system-prompt block for a role: built-in archetype
@@ -49,33 +49,20 @@ export function resolveRoleExtraGuidance(role: OrgRole): string | undefined {
   return parts.length ? parts.join('\n\n') : undefined;
 }
 
-/** Per-vendor/per-runtime default models. Used when a role doesn't pin
- *  adapter_config.model explicitly. Explicit model always wins. */
-const VENDOR_DEFAULTS: Record<string, string> = {
-  openai: 'gpt-5.5',
-  anthropic: DEFAULT_CLAUDE_MODEL,
-  glm: 'glm-5.2',
-  google: 'gemini-3.1-pro',
-  xai: 'grok-4.5',
-  deepseek: 'deepseek-chat',
-  mistral: 'mistral-large-latest',
-  groq: 'moonshotai/kimi-k2-instruct-0905',
-  together: 'zai-org/GLM-5',
-  fireworks: 'accounts/fireworks/models/glm-5p2',
-  cohere: 'command-a-reasoning-08-2025',
-  perplexity: 'sonar-reasoning-pro',
-  alibaba: 'qwen3-max',
-  openrouter: 'anthropic/claude-sonnet-5',
-  ollama: 'llama3.3',
-  'openai-compatible': '',
-};
-
 /** Resolve the model string for a role: explicit adapter_config.model wins;
- *  otherwise fall back to the vendor/runtime default. */
+ *  otherwise fall back to the vendor/runtime default.
+ *
+ *  Vendor defaults are read straight off VERCEL_PROVIDERS, which already
+ *  carries a defaultModel per vendor. A second hand-kept table lived here and
+ *  restated all sixteen of them — two lists of per-vendor defaults that would
+ *  eventually disagree, which is precisely the drift #252 was. An empty
+ *  registry default (openai-compatible, which serves arbitrary endpoints) is
+ *  falsy and so falls through to the runtime switch, as it always did. */
 export function resolveModel(role: OrgRole, runtime?: string, vendor?: string): string {
   const explicit = role.adapter_config?.model;
   if (explicit) return explicit;
-  if (vendor && VENDOR_DEFAULTS[vendor]) return VENDOR_DEFAULTS[vendor];
+  const vendorDefault = vendor ? VERCEL_PROVIDERS[vendor]?.defaultModel : undefined;
+  if (vendorDefault) return vendorDefault;
   switch (runtime) {
     case 'claude':
       return DEFAULT_CLAUDE_MODEL;
