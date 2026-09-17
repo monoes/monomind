@@ -599,31 +599,10 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // stopfile forever after a finished run. Clear any stale stopfile from a
   // previous run before polling.
   clearStopfile(ctx.cwd, name);
-  const stopfile = join(ctx.cwd, ORG_DIR, name, 'stop');
   // #206: a human explicitly running `monomind org stop` is a deliberate,
   // successful action regardless of how the run itself ended — capture that
   // BEFORE clearStopfile() below wipes the file, so it isn't lost.
-  let stoppedManually = false;
-  await new Promise<void>((resolvePromise) => {
-    const iv = setInterval(() => {
-      if (existsSync(stopfile)) {
-        stoppedManually = true;
-        clearInterval(iv);
-        resolvePromise();
-      } else if (!daemon.getOrg(name)) {
-        clearInterval(iv);
-        resolvePromise();
-      }
-    }, 2000);
-    process.once('SIGINT', () => {
-      clearInterval(iv);
-      resolvePromise();
-    });
-    process.once('SIGTERM', () => {
-      clearInterval(iv);
-      resolvePromise();
-    });
-  });
+  const { stoppedManually } = await waitForRunEnd(ctx.cwd, name, daemon);
   clearStopfile(ctx.cwd, name);
   await daemon.stopAll();
   srv?.close();
@@ -645,6 +624,45 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   return runOutcomeResult(name, final);
 };
+
+/** The foreground `org run` wait loop. Every `intervalMs` it ends the wait
+ *  when `org stop` wrote the stopfile (stoppedManually) or the daemon no
+ *  longer hosts the org (org_complete, idle watchdog, crash), and otherwise
+ *  applies a pending `org reload`. Before the reload poll was added here only
+ *  `org serve` read the reload file, so `org reload` against an `org run`
+ *  process printed "picks it up within ~2s", exited 0, and changed nothing —
+ *  a rotated endpoint URL kept receiving deliveries until it went dead.
+ *  SIGINT/SIGTERM also end the wait. */
+export async function waitForRunEnd(
+  cwd: string,
+  name: string,
+  daemon: Pick<OrgDaemon, 'getOrg' | 'listRunning' | 'reloadOrgDef'>,
+  intervalMs = 2000,
+): Promise<{ stoppedManually: boolean }> {
+  const stopfile = join(cwd, ORG_DIR, name, 'stop');
+  return new Promise((resolvePromise) => {
+    const finish = (stoppedManually: boolean) => {
+      clearInterval(iv);
+      process.removeListener('SIGINT', onSignal);
+      process.removeListener('SIGTERM', onSignal);
+      resolvePromise({ stoppedManually });
+    };
+    const onSignal = () => finish(false);
+    const iv = setInterval(() => {
+      if (existsSync(stopfile)) {
+        finish(true);
+      } else if (!daemon.getOrg(name)) {
+        finish(false);
+      } else {
+        pollReloadfiles(cwd, daemon as OrgDaemon).catch((err) => {
+          console.error('[org run] reloadfile poll failed:', err);
+        });
+      }
+    }, intervalMs);
+    process.once('SIGINT', onSignal);
+    process.once('SIGTERM', onSignal);
+  });
+}
 
 /** Just the fields determineRunOutcome needs from runtime.json. */
 type RunTerminalState = { status?: string; closedBy?: string; error?: string };
