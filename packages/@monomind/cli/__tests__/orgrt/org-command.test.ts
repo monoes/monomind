@@ -18,6 +18,28 @@ describe('org command', () => {
     expect(res?.message).toMatch(/org name/i);
   });
 
+  it('run scopes its local-model crash guard to the daemon process instead of exporting it to every role through process.env (#249)', async () => {
+    const vars = ['MONOMIND_NO_LOCAL_EMBEDDINGS', 'MONOMIND_RERANKER'];
+    const saved = Object.fromEntries(vars.map((k) => [k, process.env[k]]));
+    for (const k of vars) delete process.env[k];
+    try {
+      const run = orgCommand.subcommands!.find(c => c.name === 'run')!;
+      await run.action!({ args: [], flags: {}, cwd: process.cwd(), interactive: false } as any);
+      // Roles' CLIs (and every command they run) inherit process.env.
+      expect(process.env.MONOMIND_NO_LOCAL_EMBEDDINGS).toBeUndefined();
+      expect(process.env.MONOMIND_RERANKER).toBeUndefined();
+      // ...while the daemon itself still never loads the native models.
+      const { localEmbeddingsDisabled, rerankerDisabled } = await import('../../src/memory/memory-bridge.js');
+      expect(localEmbeddingsDisabled()).toBe(true);
+      expect(rerankerDisabled()).toBe(true);
+    } finally {
+      for (const k of vars) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    }
+  });
+
   it('run rejects a --task that the parser promoted to an array (passed more than once) instead of stringifying it into the goal', async () => {
     const run = orgCommand.subcommands!.find(c => c.name === 'run')!;
     const cwd = mkdtempSync(join(tmpdir(), 'org-task-'));

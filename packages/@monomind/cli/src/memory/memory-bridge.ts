@@ -296,6 +296,27 @@ let _embedder: ((text: string) => Promise<Float32Array>) | null = null;
 let _embedderPromise: Promise<void> | null = null;
 const MAX_INIT_ATTEMPTS = 3;
 
+// Process-local kill switch for both local ONNX models (embedder + reranker):
+// the in-process equivalent of MONOMIND_NO_LOCAL_EMBEDDINGS=1 plus
+// MONOMIND_RERANKER=0. Org runs flip this instead of setting those env vars,
+// because process.env is inherited by every child — each role's CLI and every
+// command a role runs through Bash — which silently degraded a role's own
+// `monomind memory search` to keyword-only (#249).
+let _localModelsDisabled = false;
+
+/** Disable local model loads for THIS process only (see `org run`/`org serve`). */
+export function disableLocalModels(): void {
+  _localModelsDisabled = true;
+}
+
+export function localEmbeddingsDisabled(): boolean {
+  return _localModelsDisabled || process.env.MONOMIND_NO_LOCAL_EMBEDDINGS === '1';
+}
+
+export function rerankerDisabled(): boolean {
+  return _localModelsDisabled || process.env.MONOMIND_RERANKER === '0';
+}
+
 // ===== Lazy cross-encoder reranker (ettin-32m) =====
 //
 // Same ORT constraints as the embedder (ADR-R001). Loaded only when the first
@@ -325,7 +346,7 @@ let _rerankerPromise: Promise<void> | null = null;
  *  the network guard blocks model downloads. */
 export async function loadReranker(): Promise<void> {
   if (_reranker) return;
-  if (process.env.MONOMIND_RERANKER === '0') return;
+  if (rerankerDisabled()) return;
   if (!_rerankerPromise) {
     _rerankerPromise = (async () => {
       try {
@@ -427,10 +448,10 @@ async function loadEmbedder(): Promise<void> {
   // (missing cache, bad revision, offline), not that. Everything that
   // reads _embedder already tolerates it being unset (keyword-only
   // fallback), so skipping the call is the only way to actually avoid the
-  // crash rather than just failing to catch it. Set automatically for org
-  // runs (daemon.ts) since a crashed org is much worse than degraded
-  // search; anyone else can opt in the same way.
-  if (process.env.MONOMIND_NO_LOCAL_EMBEDDINGS === '1') return;
+  // crash rather than just failing to catch it. Org runs disable it
+  // in-process (disableLocalModels()) since a crashed org is much worse than
+  // degraded search; anyone else can opt in with the env var.
+  if (localEmbeddingsDisabled()) return;
   if (!_embedderPromise) {
     _embedderPromise = (async () => {
       try {
@@ -887,8 +908,7 @@ export async function bridgeSearchEntries(options: {
     // cross-encoder can reshuffle them. The reranker trims back to `limit`.
     // For knowledge namespaces, also over-fetch to compensate for superseded
     // document versions that will be filtered out below.
-    const rerankerActive =
-      !options.skipRerank && _reranker !== null && process.env.MONOMIND_RERANKER !== '0';
+    const rerankerActive = !options.skipRerank && _reranker !== null && !rerankerDisabled();
     const knowledgeLimit =
       _knowledgeLive && _knowledgeLive.size > 0
         ? Math.min(Math.max(limit * 20, limit), 300)
@@ -1211,7 +1231,7 @@ export async function bridgeSearchEntries(options: {
     // Fires only when: reranker loaded, >1 result, not explicitly skipped.
     // Lazy-load on first qualifying search so startup stays fast.
     let reranked = false;
-    if (!options.skipRerank && process.env.MONOMIND_RERANKER !== '0' && rerankPool.length > 1) {
+    if (!options.skipRerank && !rerankerDisabled() && rerankPool.length > 1) {
       if (!_reranker && !_rerankerPromise) {
         // First qualifying search — kick off the lazy load. This search
         // proceeds without reranking; the NEXT search will use it.

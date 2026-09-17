@@ -166,16 +166,18 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // any memory/KG lookup tries to load its model. A crashed unattended org
   // run is much worse than one that falls back to keyword-only memory
   // search — see the matching guards in memory-bridge.ts/embedding-operations.ts.
-  process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
   // The embedding-model crash above has a sibling: loadReranker() in
   // memory-bridge.ts loads a SEPARATE cross-encoder model
   // (cross-encoder/ettin-reranker-32m-v1, its own tokenizer architecture)
   // for search-result reranking, independent of the embedder guard above —
   // reranking runs on (query, passage) text pairs directly, so it can
   // still fire and hit the same native crash even with embeddings off.
-  // MONOMIND_RERANKER=0 is an existing, already-wired guard (see
-  // loadReranker's own early-return) — just never set for org runs before.
-  process.env.MONOMIND_RERANKER = '0';
+  // disableLocalModels() turns off both, for THIS process only. It used to be
+  // MONOMIND_NO_LOCAL_EMBEDDINGS=1 / MONOMIND_RERANKER=0 on process.env, which
+  // every role's CLI and every command a role ran inherited — so a role's own
+  // `monomind memory search` silently fell back to keyword-only (#249).
+  const { disableLocalModels } = await import('../memory/memory-bridge.js');
+  disableLocalModels();
   if (!ctx.args[0])
     return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
   const validated = validateOrgName(ctx.args[0]);
@@ -1258,17 +1260,10 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       ),
     );
   }
-  // See the matching comment in runAction — same rationale, same guard.
-  process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
-  // The embedding-model crash above has a sibling: loadReranker() in
-  // memory-bridge.ts loads a SEPARATE cross-encoder model
-  // (cross-encoder/ettin-reranker-32m-v1, its own tokenizer architecture)
-  // for search-result reranking, independent of the embedder guard above —
-  // reranking runs on (query, passage) text pairs directly, so it can
-  // still fire and hit the same native crash even with embeddings off.
-  // MONOMIND_RERANKER=0 is an existing, already-wired guard (see
-  // loadReranker's own early-return) — just never set for org runs before.
-  process.env.MONOMIND_RERANKER = '0';
+  // See the matching comment in runAction — same rationale, same guard
+  // (embedder and reranker, scoped to this process, not exported to roles).
+  const { disableLocalModels } = await import('../memory/memory-bridge.js');
+  disableLocalModels();
   const crossProcess = ctx.flags.crossProcess !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
