@@ -272,6 +272,99 @@ describe('entity identity is the (type, name) tuple', () => {
   });
 });
 
+describe('entity identity tolerates common spelling variants (mergeKey)', () => {
+  it('merges a later spelling variant onto the same typed entity', async () => {
+    await kgIngest({
+      nodes: [{ name: 'Node.js', type: 'technology', description: 'the JS runtime' }],
+      originRef: 'run:1',
+    });
+    const idBefore = entriesIn(KG_NODES_NS)[0].key;
+    const second = await kgIngest({
+      nodes: [{ name: 'nodejs', type: 'technology', description: 'seen again' }],
+      originRef: 'run:2',
+    });
+
+    expect(second.nodesAdded).toBe(0);
+    expect(second.nodesMerged).toBe(1);
+    // One entity, same id as before — the later spelling merged onto it
+    // rather than forking a second "nodejs" entity.
+    expect(entriesIn(KG_NODES_NS)).toHaveLength(1);
+    expect(entriesIn(KG_NODES_NS)[0].key).toBe(idBefore);
+    expect(nodeOf('technology', 'nodejs')?.metadata.origin_refs).toEqual(['run:1', 'run:2']);
+  });
+
+  it('promotes an untyped entity in place when a spelling variant carries the type', async () => {
+    await kgIngest({
+      nodes: [{ name: 'nodejs', description: 'unclassified' }],
+      originRef: 'run:1',
+    });
+    const idBefore = nodesNamed('nodejs')[0].key;
+
+    const typed = await kgIngest({
+      nodes: [{ name: 'Node.js', type: 'technology', description: 'the JS runtime' }],
+      originRef: 'run:2',
+    });
+
+    expect(typed.nodesMerged).toBe(1);
+    expect(entriesIn(KG_NODES_NS)).toHaveLength(1);
+    // The ID does not change across promotion, same as an exact-name promotion.
+    expect(entriesIn(KG_NODES_NS)[0].key).toBe(idBefore);
+    expect(nodeOf('technology', 'Node.js')).toBeDefined();
+  });
+
+  it('still keeps differently-typed entities apart even when their names merge-key-match', async () => {
+    await kgIngest({
+      nodes: [{ name: 'Alex', type: 'Person', description: 'the on-call engineer' }],
+      originRef: 'run:1',
+    });
+    const second = await kgIngest({
+      nodes: [{ name: 'alex', type: 'Service', description: 'the billing service' }],
+      originRef: 'run:2',
+    });
+
+    // A merge-key hit is a candidate, never an automatic cross-type merge.
+    expect(second.nodesAdded).toBe(1);
+    expect(second.nodesMerged).toBe(0);
+    expect(nodeOf('Person', 'Alex')?.metadata.description).toBe('the on-call engineer');
+    expect(nodeOf('Service', 'alex')?.metadata.description).toBe('the billing service');
+    expect(second.ambiguities?.join(' ')).toContain('alex');
+  });
+
+  it('never merges names that only look similar', async () => {
+    await kgIngest({
+      nodes: [{ name: 'React', type: 'technology', description: 'the UI library' }],
+      originRef: 'run:1',
+    });
+    const second = await kgIngest({
+      nodes: [{ name: 'React Native', type: 'technology', description: 'the mobile framework' }],
+      originRef: 'run:2',
+    });
+
+    expect(second.nodesAdded).toBe(1);
+    expect(second.nodesMerged).toBe(0);
+    expect(nodesNamed('React')).toHaveLength(1);
+    expect(nodesNamed('React Native')).toHaveLength(1);
+  });
+
+  it('rolling back the only asserted spelling does not resurrect it via a later variant', async () => {
+    await kgIngest({
+      nodes: [{ name: 'Node.js', type: 'technology', description: 'the JS runtime' }],
+      originRef: 'run:1',
+    });
+    await kgRollback({ originRef: 'run:1' });
+    expect(nodesNamed('Node.js')).toHaveLength(0);
+
+    // A fresh assertion under a merge-key-equivalent spelling starts a NEW
+    // entity — it must not silently inherit the rolled-back one's identity.
+    const after = await kgIngest({
+      nodes: [{ name: 'nodejs', type: 'technology', description: 'the JS runtime, take two' }],
+      originRef: 'run:2',
+    });
+    expect(after.nodesAdded).toBe(1);
+    expect(nodesNamed('nodejs')[0].metadata.origin_refs).toEqual(['run:2']);
+  });
+});
+
 describe('corrections supersede, and rollback puts the previous claim back', () => {
   const STALE =
     'The primary datastore is MySQL 8, replicated across three availability zones ' +
