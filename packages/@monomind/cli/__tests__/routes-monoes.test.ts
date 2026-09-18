@@ -235,6 +235,12 @@ describe('POST /api/monoes/upload-org', () => {
 describe('monoes.me connection → .mcp.json sync', () => {
   const { mkdirSync, writeFileSync, readFileSync } = require('node:fs');
 
+  const STDIO_MONOES_ENTRY = {
+    command: 'npx',
+    args: ['-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
+    env: {},
+  };
+
   function writeMcpJson(projectDir: string, contents: Record<string, unknown>) {
     writeFileSync(join(projectDir, '.mcp.json'), JSON.stringify(contents));
   }
@@ -243,7 +249,8 @@ describe('monoes.me connection → .mcp.json sync', () => {
     return JSON.parse(readFileSync(join(projectDir, '.mcp.json'), 'utf8'));
   }
 
-  it('adds a monoes entry to .mcp.json once the OAuth callback completes', async () => {
+  // T1
+  it('_syncMonoesMcpEntry writes no access-token substring into .mcp.json', async () => {
     writeMcpJson(monomindHome, { mcpServers: { monomind: { command: 'npx' } } });
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
 
@@ -266,7 +273,7 @@ describe('monoes.me connection → .mcp.json sync', () => {
       'fetch',
       vi.fn(async (url: string) => {
         if (String(url).includes('/oauth2/token')) {
-          return { ok: true, json: async () => ({ access_token: 'access-1', expires_in: 3600 }) };
+          return { ok: true, json: async () => ({ access_token: /* value */ 'FAKE-AT-deadbeef', expires_in: 3600 }) };
         }
         if (String(url).includes('/api/community/me')) {
           return { ok: true, json: async () => ({ username: 'someone' }) };
@@ -278,23 +285,22 @@ describe('monoes.me connection → .mcp.json sync', () => {
     await handleMonoesRoutes(callbackReq.req, callbackReq.res, callbackReq.req.url, undefined, ctx);
     await callbackReq.send();
 
+    // Read as raw text, not parsed JSON — the whole point is that the token
+    // substring must not appear anywhere in the file, not just outside a
+    // particular field.
+    const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+    expect(raw).not.toContain('FAKE-AT-deadbeef');
+
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
     expect(mcpJson.mcpServers.monomind).toEqual({ command: 'npx' });
-    expect(mcpJson.mcpServers.monoes).toEqual({
-      type: 'http',
-      url: 'https://monoes.me/api/mcp',
-      headers: { Authorization: 'Bearer access-1' },
-    });
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
 
   it('removes the monoes entry from .mcp.json on disconnect', async () => {
     mkdirSync(join(monomindHome, '.monomind'), { recursive: true });
     writeFileSync(join(monomindHome, '.monomind', 'monoes-connection.json'), JSON.stringify({ accessToken: 'x' }));
     writeMcpJson(monomindHome, {
-      mcpServers: {
-        monomind: { command: 'npx' },
-        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer x' } },
-      },
+      mcpServers: { monomind: { command: 'npx' }, monoes: STDIO_MONOES_ENTRY },
     });
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
 
@@ -315,7 +321,7 @@ describe('monoes.me connection → .mcp.json sync', () => {
     expect(existsSync(join(monomindHome, '.mcp.json'))).toBe(false);
   });
 
-  it('GET /api/monoes/status refreshes an expiring token and re-syncs .mcp.json with the new one', async () => {
+  it('GET /api/monoes/status keeps the connected stdio entry across a silent token refresh (no literal token ever appears)', async () => {
     writeConnection({
       accessToken: /* value */ 'old',
       refreshToken: /* value */ 'refresh-1',
@@ -323,16 +329,12 @@ describe('monoes.me connection → .mcp.json sync', () => {
       expiresAt: Date.now() - 1000,
       connectedUsername: 'someone',
     });
-    writeMcpJson(monomindHome, {
-      mcpServers: {
-        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer old' } },
-      },
-    });
+    writeMcpJson(monomindHome, { mcpServers: { monoes: STDIO_MONOES_ENTRY } });
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
         ok: true,
-        json: async () => ({ access_token: 'refreshed', refresh_token: 'refresh-2', expires_in: 3600 }),
+        json: async () => ({ access_token: /* value */ 'FAKE-AT-refreshed', refresh_token: 'refresh-2', expires_in: 3600 }),
       })),
     );
 
@@ -342,26 +344,20 @@ describe('monoes.me connection → .mcp.json sync', () => {
     await send();
 
     expect(getBody()).toEqual({ connected: true, username: 'someone' });
+    const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+    expect(raw).not.toContain('FAKE-AT-refreshed');
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
-    expect(mcpJson.mcpServers.monoes).toEqual({
-      type: 'http',
-      url: 'https://monoes.me/api/mcp',
-      headers: { Authorization: 'Bearer refreshed' },
-    });
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
 
-  it('GET /api/monoes/status removes the stale .mcp.json entry when refresh fails', async () => {
+  it('GET /api/monoes/status removes the .mcp.json entry when refresh fails', async () => {
     writeConnection({
       accessToken: /* value */ 'old',
       refreshToken: /* value */ 'refresh-1',
       clientId: 'client-1',
       expiresAt: Date.now() - 1000,
     });
-    writeMcpJson(monomindHome, {
-      mcpServers: {
-        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer old' } },
-      },
-    });
+    writeMcpJson(monomindHome, { mcpServers: { monoes: STDIO_MONOES_ENTRY } });
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401 })));
 
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
@@ -372,5 +368,38 @@ describe('monoes.me connection → .mcp.json sync', () => {
     expect(getBody()).toEqual({ connected: false, username: null });
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
     expect(mcpJson.mcpServers.monoes).toBeUndefined();
+  });
+
+  // T5
+  it('re-syncs .mcp.json only when the connected state changes, not on every poll', async () => {
+    // No .mcp.json entry yet — the first status call transitions
+    // disconnected -> connected and must write it; the second call, with
+    // the token still valid and unchanged, must not write again. Measured
+    // via mtime rather than a writeFileSync spy, since routes-monoes.mjs's
+    // ESM `import fs from 'node:fs'` binding is not guaranteed to be the
+    // same object identity as a CJS `require('node:fs')` spy target under
+    // Vitest's SSR transform.
+    writeConnection({ accessToken: /* value */ 'stays-good', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeMcpJson(monomindHome, { mcpServers: {} });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+    const mcpJsonPath = join(monomindHome, '.mcp.json');
+    const { statSync } = require('node:fs');
+    const mtimeNs = () => statSync(mcpJsonPath, { bigint: true }).mtimeNs;
+
+    const first = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(first.req, first.res, first.req.url, undefined, ctx);
+    await first.send();
+    expect(readMcpJson(monomindHome).mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+    const afterFirst = mtimeNs();
+
+    // A couple ms so a spurious second write would be observable in mtime
+    // even on filesystems with coarse timestamp resolution.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const second = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(second.req, second.res, second.req.url, undefined, ctx);
+    await second.send();
+    expect(mtimeNs()).toBe(afterFirst); // unchanged: no second write
+    expect(readMcpJson(monomindHome).mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
 });

@@ -22,12 +22,20 @@ describe('generateMCPConfig (regression: no non-standard fields in .mcp.json)', 
   });
 });
 
-describe('buildMonoesMcpEntry', () => {
-  it('builds a remote HTTP entry pointing at monoes.me with a bearer header', () => {
-    expect(buildMonoesMcpEntry('tok-123')).toEqual({
-      type: 'http',
-      url: 'https://monoes.me/api/mcp',
-      headers: { Authorization: 'Bearer tok-123' },
+describe('buildMonoesMcpEntry (i-066: tokenless — the entry is a local stdio proxy)', () => {
+  it('builds a stdio command entry with no token parameter and no headers block', () => {
+    // Regression: this used to be `buildMonoesMcpEntry(accessToken)` returning
+    // `{ type: 'http', headers: { Authorization: 'Bearer <token>' } }` — a
+    // literal credential written straight into the team-committed .mcp.json.
+    // The fix removes the parameter entirely (not just centralizes a helper
+    // that still accepts one) so there is nothing left for a writer to leak.
+    const entry = buildMonoesMcpEntry() as Record<string, unknown>;
+    expect(entry).not.toHaveProperty('headers');
+    expect(entry).not.toHaveProperty('type');
+    expect(entry).toEqual({
+      command: 'npx',
+      args: ['-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
+      env: {},
     });
   });
 });
@@ -39,7 +47,10 @@ describe('generateMCPConfig (monoes.me connection entry)', () => {
     if (targetDir) rmSync(targetDir, { recursive: true, force: true });
   });
 
-  it('omits the monoes entry when there is no connection file', () => {
+  it('omits the monoes entry when there is no connection file (never-connected user)', () => {
+    // i-066 acceptance: a never-connected user must get no `monoes` MCP
+    // entry at all, rather than one that is guaranteed to fail on every
+    // Claude Code MCP startup for lack of anything to authenticate with.
     targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpgen-test-'));
     const config = generateMCPConfig({ ...DEFAULT_INIT_OPTIONS, targetDir }) as {
       mcpServers: Record<string, unknown>;
@@ -47,7 +58,7 @@ describe('generateMCPConfig (monoes.me connection entry)', () => {
     expect(config.mcpServers.monoes).toBeUndefined();
   });
 
-  it('includes the monoes entry when a connection file already exists in the target project', () => {
+  it('includes the monoes entry when a connection file already exists in the target project, and it embeds no token', () => {
     targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpgen-test-'));
     mkdirSync(join(targetDir, '.monomind'), { recursive: true });
     writeFileSync(
@@ -58,6 +69,28 @@ describe('generateMCPConfig (monoes.me connection entry)', () => {
     const config = generateMCPConfig({ ...DEFAULT_INIT_OPTIONS, targetDir }) as {
       mcpServers: Record<string, unknown>;
     };
-    expect(config.mcpServers.monoes).toEqual(buildMonoesMcpEntry('stored-tok'));
+    expect(config.mcpServers.monoes).toEqual(buildMonoesMcpEntry());
+    expect(JSON.stringify(config)).not.toContain('stored-tok');
+  });
+
+  it('embeds no token for either the access or refresh token when a connection file exists (T2 regression guard for the second writer)', () => {
+    // This is the writer the original bug report missed:
+    // init/mcp-generator.ts independently reads monoes-connection.json and
+    // used to re-embed the literal access token on every `monomind init` —
+    // a fix touching only the dashboard writer would regress on next init.
+    targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpgen-test-'));
+    mkdirSync(join(targetDir, '.monomind'), { recursive: true });
+    writeFileSync(
+      join(targetDir, '.monomind', 'monoes-connection.json'),
+      JSON.stringify({
+        accessToken: /* value */ 'FAKE-AT-deadbeef',
+        refreshToken: /* value */ 'FAKE-RT-deadbeef',
+      }),
+    );
+
+    const config = generateMCPConfig({ ...DEFAULT_INIT_OPTIONS, targetDir });
+    const serialized = JSON.stringify(config);
+    expect(serialized).not.toContain('FAKE-AT-deadbeef');
+    expect(serialized).not.toContain('FAKE-RT-deadbeef');
   });
 });
