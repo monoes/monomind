@@ -8,7 +8,54 @@
  */
 
 import { createRequire } from 'node:module';
+import { detectProjectProfile } from './shared-instructions-generator.js';
 import type { ClaudeMdTemplate, InitOptions } from './types.js';
+
+/** Build/test/lint commands and layout for the stack actually in the repo. */
+interface StackConventions {
+  build: string;
+  test: string;
+  lint: string;
+  srcDir: string;
+  testDir: string;
+}
+
+/**
+ * The File Organization and Build & Test sections used to prescribe `/src`
+ * and npm unconditionally, which is wrong in every non-Node repo — GH #278
+ * hit a Go project that got told to run `npm run build`. Reuse init's own
+ * project detection, the same one that already labels
+ * `.agents/shared_instructions.md` with "Stack: Go", instead of guessing.
+ * A directory that isn't there is dropped rather than invented.
+ */
+function detectStackConventions(targetDir: string): StackConventions {
+  const profile = detectProjectProfile(targetDir);
+  const layout = { srcDir: profile.srcDir, testDir: profile.testDir };
+  switch (profile.language) {
+    case 'go':
+      return { build: 'go build ./...', test: 'go test ./...', lint: 'go vet ./...', ...layout };
+    case 'rust':
+      return { build: 'cargo build', test: 'cargo test', lint: 'cargo clippy', ...layout };
+    case 'python':
+      return { build: '', test: 'pytest', lint: 'ruff check .', ...layout };
+    default: {
+      const run =
+        profile.packageManager === 'pnpm'
+          ? 'pnpm'
+          : profile.packageManager === 'yarn'
+            ? 'yarn'
+            : profile.packageManager === 'bun'
+              ? 'bun'
+              : 'npm';
+      return {
+        build: `${run} run build`,
+        test: `${run} test`,
+        lint: `${run} run lint`,
+        ...layout,
+      };
+    }
+  }
+}
 
 // --- Optional package availability (P1-23) ---
 // The docs below advertise features backed by optionalDependencies (npm may
@@ -94,16 +141,18 @@ function codingPrinciples(): string {
 - For multi-step tasks, state a brief plan with verification steps.`;
 }
 
-function fileOrganization(): string {
-  return `## File Organization
-
-- NEVER save to root folder — use the directories below
-- Use \`/src\` for source code files
-- Use \`/tests\` for test files
-- Use \`/docs\` for documentation and markdown files
-- Use \`/config\` for configuration files
-- Use \`/scripts\` for utility scripts
-- Use \`/examples\` for example code`;
+function fileOrganization(options: InitOptions): string {
+  const { srcDir, testDir } = detectStackConventions(options.targetDir);
+  const lines = ['- NEVER save to root folder — use the directories below'];
+  if (srcDir) lines.push(`- Use \`/${srcDir}\` for source code files`);
+  if (testDir) lines.push(`- Use \`/${testDir}\` for test files`);
+  lines.push(
+    '- Use `/docs` for documentation and markdown files',
+    '- Use `/config` for configuration files',
+    '- Use `/scripts` for utility scripts',
+    '- Use `/examples` for example code',
+  );
+  return `## File Organization\n\n${lines.join('\n')}`;
 }
 
 function projectArchitecture(options: InitOptions): string {
@@ -343,18 +392,20 @@ function securityRulesLight(): string {
 - Run \`npx monomind@latest security scan\` after security-related changes`;
 }
 
-function buildAndTest(): string {
+function buildAndTest(options: InitOptions): string {
+  const { build, test, lint } = detectStackConventions(options.targetDir);
+  const commands = [
+    ...(build ? ['# Build', build, ''] : []),
+    '# Test',
+    test,
+    '',
+    '# Lint',
+    lint,
+  ].join('\n');
   return `## Build & Test
 
 \`\`\`bash
-# Build
-npm run build
-
-# Test
-npm test
-
-# Lint
-npm run lint
+${commands}
 \`\`\`
 
 - ALWAYS run tests after making code changes
@@ -503,7 +554,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => codingPrinciples(),
     fileOrganization,
     projectArchitecture,
-    (_opts) => buildAndTest(),
+    buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
     (_opts) => secondBrainSection(),
@@ -515,7 +566,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => codingPrinciples(),
     fileOrganization,
     projectArchitecture,
-    (_opts) => buildAndTest(),
+    buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
     (_opts) => swarmRules(),
@@ -531,7 +582,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => codingPrinciples(),
     fileOrganization,
     projectArchitecture,
-    (_opts) => buildAndTest(),
+    buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
     (_opts) => swarmOrchestration(),
@@ -554,7 +605,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => codingPrinciples(),
     fileOrganization,
     projectArchitecture,
-    (_opts) => buildAndTest(),
+    buildAndTest,
     concurrencyRules,
     (_opts) => swarmOrchestration(),
     (_opts) => antiDriftConfig(),
@@ -572,7 +623,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => codingPrinciples(),
     fileOrganization,
     projectArchitecture,
-    (_opts) => buildAndTest(),
+    buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
     (_opts) => swarmOrchestration(),
@@ -592,7 +643,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => codingPrinciples(),
     fileOrganization,
     projectArchitecture,
-    (_opts) => buildAndTest(),
+    buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
     executionRules,
