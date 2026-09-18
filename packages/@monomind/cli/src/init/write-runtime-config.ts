@@ -4,7 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { atomicWriteFile, MAX_EXEC_FILE_BYTES } from './shared.js';
+import { atomicWriteFile, MAX_EXEC_FILE_BYTES, writeGeneratedFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
 
@@ -61,7 +61,7 @@ mcp:
   port: ${options.mcp.port}
 `;
 
-  atomicWriteFile(configPath, config);
+  writeGeneratedFile(configPath, config);
   result.created.files.push('.monomind/config.yaml');
 
   // Write .monomind/.gitignore — commit config/knowledge/metrics, exclude sensitive data
