@@ -227,11 +227,25 @@ describe('redact() — AC-i116-E3: self-identifying credential prefixes need no 
     expect(redact(`id ${nearMiss} end`)).toContain(nearMiss);
   });
 
+  it('redacts a credential glued directly onto a preceding word character, with no separator at all', () => {
+    // Review finding 1 (round 2): the six prefix patterns above are
+    // deliberately NOT \b-anchored. The old ghp_/gho_/npm_ patterns they
+    // replace had no boundary assertion either, so adding one would be a
+    // regression relative to what's being replaced, not a hardening — a
+    // log line with no separator before the token (`Xghp_<36 chars>`)
+    // would stop matching. Pinned here so the coverage is deliberate, not
+    // incidental.
+    const glued = `Xghp_${'A'.repeat(36)}`;
+    const out = redact(glued);
+    expect(out).not.toContain('A'.repeat(36));
+  });
+
   it('benign mentions of these prefixes in prose/code are left byte-identical', () => {
     const benign = [
       'the ghp_ prefix identifies a GitHub token',
       'see github_pat_ docs',
       'npm_config_registry is an env var',
+      'my_npm_token_name',
       'xoxb- is the Slack bot prefix',
       'function sk_live_check() {}',
       'A'.repeat(36), // a bare 36-char run with no credential prefix at all

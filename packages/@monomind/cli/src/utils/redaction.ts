@@ -94,12 +94,21 @@ const SECRET_PATTERNS: RegExp[] = [
   // missed GitHub's current fine-grained format (`github_pat_`) entirely —
   // the credential most likely to be present, since crash-reporter.ts files
   // issues to GitHub.
-  /\bgh[pousr]_[A-Za-z0-9]{20,}/g, // GitHub classic PAT/OAuth/user/server/refresh
-  /\bgithub_pat_[A-Za-z0-9_]{20,}/g, // GitHub fine-grained (current format)
-  /\bglpat-[A-Za-z0-9_-]{16,}/g, // GitLab
-  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g, // Slack (bot/app/admin/refresh/other)
-  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe
-  /\bnpm_[A-Za-z0-9]{20,}/g, // npm, widened from {36}
+  //
+  // Deliberately NOT `\b`-anchored (review finding 1, round 2): the old
+  // ghp_/gho_/npm_ patterns these replace had no boundary assertion either,
+  // and adding one narrows coverage relative to what it replaces — a value
+  // glued directly onto a preceding word character (`Xghp_<36 chars>`, e.g.
+  // a log line with no separator before the token) would stop matching.
+  // The prefix plus the length bound already supplies all the specificity
+  // a `\b` would add; dropping it costs no precision and is measurably
+  // faster (no boundary check per candidate position).
+  /gh[pousr]_[A-Za-z0-9]{20,}/g, // GitHub classic PAT/OAuth/user/server/refresh
+  /github_pat_[A-Za-z0-9_]{20,}/g, // GitHub fine-grained (current format)
+  /glpat-[A-Za-z0-9_-]{16,}/g, // GitLab
+  /xox[abprs]-[A-Za-z0-9-]{10,}/g, // Slack (bot/app/admin/refresh/other)
+  /sk_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe
+  /npm_[A-Za-z0-9]{20,}/g, // npm, widened from {36}
   /AKIA[0-9A-Z]{16}/g,
   /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
   /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g, // user:pass@host connection strings
