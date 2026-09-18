@@ -107,7 +107,17 @@ export function scheduleBossRestart(daemon: OrgDaemon, name: string): void {
     msg: `boss crashed — auto-restarting org with fresh sessions in ${Math.round(backoff / 1000)}s (attempt ${count + 1}/${OrgDaemon.MAX_BOSS_RESTARTS})`,
   });
   const t = setTimeout(() => {
-    if (daemon.stopping.has(name)) {
+    // A stop that landed while this restart was pending wins. `stopping` only
+    // covers a stop still in flight AT THIS INSTANT; a stop that already
+    // FINISHED (the common case — the backoff is 10s, a stop takes well under
+    // that) left it empty again, so the restart went ahead and brought an org
+    // the operator had explicitly stopped back to life with fresh sessions:
+    // spending budget, rewriting runtime.json, holding a process 'exit'
+    // handler, and with nothing left that would ever stop it again. A boss
+    // crash only kills the boss session — the org itself stays registered in
+    // `daemon.orgs` until someone stops it — so "still registered" is exactly
+    // the condition that separates a restart worth doing from a resurrection.
+    if (daemon.stopping.has(name) || !daemon.orgs.has(name)) {
       daemon.restarting.delete(name);
       return;
     } // a manual stop won

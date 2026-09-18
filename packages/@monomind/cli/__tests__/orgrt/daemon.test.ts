@@ -1012,6 +1012,29 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     await d.stopOrg('alpha');
   }, 15_000);
 
+  it('a boss auto-restart still pending when the org is stopped must not resurrect it', async () => {
+    // The restart timer only re-checked `stopping` — which is populated ONLY
+    // while a stop is in flight. A stop that had already FINISHED (the normal
+    // case: the default backoff is 10s, a stop takes far less) left it empty,
+    // so the pending restart re-launched an org the operator had explicitly
+    // stopped, with fresh sessions and nothing left to ever stop it again.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-restart-after-stop-'));
+    fixture(root, 'alpha');
+    const alwaysDie = () => (async function* () { throw new Error('boss always dies'); })();
+    const d = new OrgDaemon(root, { queryFn: alwaysDie as any, forward: false, stopWaitMs: 50, crashBackoffsMs: [], bossRestartBackoffMs: [400] });
+    const startSpy = vi.spyOn(d, 'startOrg');
+    const running = await d.startOrg('alpha');
+    // The 'boss-restart' audit is emitted exactly when the restart is armed.
+    expect(await waitUntil(() => running.busEvents()
+      .some(e => e.type === 'audit' && e.reason === 'boss-restart'))).toBe(true);
+
+    await d.stopOrg('alpha'); // operator stops the run before the backoff elapses
+    await new Promise(r => setTimeout(r, 900)); // well past the 400ms backoff
+
+    expect(d.getOrg('alpha')).toBeUndefined();
+    expect(startSpy.mock.calls.length).toBe(1);
+  }, 15_000);
+
   it('a crash-restart resumes the last SDK session instead of starting cold, on every restart (#247)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-resume247-'));
     fixture(root, 'alpha');
