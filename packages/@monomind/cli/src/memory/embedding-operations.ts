@@ -194,7 +194,12 @@ export async function loadEmbeddingModel(options?: {
       // "Cannot read properties of null (reading 'model')".
       try {
         const { pipeline } = transformers;
+        // dtype pinned to q8, matching memory-bridge.ts's loadEmbedder(). Since
+        // transformers v4 the default is fp32 (`onnx/model.onnx`), which the
+        // provisioning step never fetches — leaving it unset made every load
+        // here fail with local_files_only and silently drop to hash-fallback.
         const embedder = await pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, {
+          dtype: 'q8',
           local_files_only: true,
         });
 
