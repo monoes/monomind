@@ -44,34 +44,54 @@
  *     tolerates a couple of plausible shapes (an explicit `type`/`kind` of
  *     'assistant.message' or 'assistant' carrying `content`/`text`) and
  *     fails closed (no text extracted) on anything else, rather than
- *     guessing wrong and emitting garbage.
+ *     guessing wrong and emitting garbage. UPDATE (#181, byte-verified
+ *     against copilot 1.0.83): the REAL shape nests the payload one level
+ *     down — `{"type":"assistant.message","data":{"content":"...", ...}}` —
+ *     which none of the guessed shapes above matched, so this runner
+ *     previously extracted NO assistant text at all. handleLine now reads
+ *     `data.content`/`data.text` first; the guessed shapes are kept as
+ *     fallbacks rather than removed (they cost nothing and other copilot
+ *     versions may differ).
  *   - Session/resume: Copilot documents a `--resume=<id>` flag, but nothing
  *     in this runner's output parsing surfaces a session id to pass back in
  *     (the same gap the cross-check source above notes about its own
  *     integration), so resume can't be wired up yet — every mailbox prompt
  *     is a fresh `copilot -p` invocation, same disclosed limitation as
  *     CrushAgentRunner. Revisit if a session-id-bearing event/field is found.
- *   - Token usage: NOT documented for `--output-format json`, and Copilot
- *     CLI has no documented custom-base-URL override (it talks to GitHub's
- *     own Copilot backend, not a passthrough-able OpenAI/Anthropic
- *     endpoint), so this runner does not attempt usage-proxy accounting —
- *     it always reports 0 tokens (issue #181, out of scope here). UPDATE
- *     (issue #181 research): Copilot CLI does expose token counts via
- *     OpenTelemetry file export (`COPILOT_OTEL_ENABLED=true`,
- *     `COPILOT_OTEL_EXPORTER_TYPE=file`, `COPILOT_OTEL_FILE_EXPORTER_PATH=<path>`,
- *     writing to `~/.copilot/otel/*.jsonl` by default), but this is opt-in
- *     (not emitted on `--output-format json` stdout) and no source with
- *     literal, quotable JSON field names for the OTel span schema was found —
- *     only prose descriptions ("chat spans ... cache read/creation ...
- *     reasoning output tokens"). Implementing a parser against a guessed
- *     schema risks the exact wrong-guess failure mode `pi-rpc-runner.ts`'s
- *     header warns against. Still needs a live `copilot` install with OTel
- *     file export enabled to capture a real JSONL sample before this can be
- *     wired up.
+ *   - Token usage (#181) — RESOLVED, byte-verified against copilot 1.0.83 on
+ *     2026-09-18. Copilot CLI has a first-class `--usage-output-file <file>`
+ *     flag ("Write final usage statistics as JSON to the specified file").
+ *     This runner passes a per-turn temp path and reads it back after the
+ *     subprocess exits (see parseCopilotUsage). Captured shape:
+ *       { "modelMetrics": { "<model>": { "usage": {
+ *           "inputTokens": 30522, "outputTokens": 47,
+ *           "cacheReadTokens": 15224, "cacheWriteTokens": 15292,
+ *           "reasoningTokens": 9 } } }, ... }
+ *     `inputTokens` is TOTAL prompt tokens for the whole invocation (the
+ *     identity inputTokens === tokenDetails.input + cache_read + cache_write
+ *     held exactly on both samples) and the counts are cumulative across
+ *     every model call, not last-call-only. Deliberately NOT reported,
+ *     because copilot does not report them: `cost_usd` (copilot meters in AI
+ *     credits / premium requests, and the credit→USD rate is plan-dependent
+ *     — inventing one would poison policy.overBudgetUsd) and
+ *     `reasoningTokens` (present, but nothing states whether outputTokens
+ *     already includes it, so adding it risks double-counting).
+ *     Rejected alternatives, both inspected: stdout's final `result` event
+ *     has no token counts and its `session.usage_checkpoint` events carry
+ *     prompt/cache but no output tokens; the OTel file export
+ *     (`COPILOT_OTEL_FILE_EXPORTER_PATH`) would work but needs a histogram
+ *     parser for what this flag hands over as plain JSON. Older copilot
+ *     builds reject the flag at argv-parse time (before any spend) —
+ *     turnError makes that an explicit "update copilot" failure rather than
+ *     falling back to 0, which is the silent free lunch this issue is about.
  *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   type AgentMessage,
   type AgentRunArgs,
@@ -101,9 +121,53 @@ interface CopilotEvent {
   type?: string;
   kind?: string;
   role?: string;
+  /** The real 1.0.83 envelope: every event's payload lives here. */
+  data?: { content?: unknown; text?: string };
   content?: unknown;
   text?: string;
   message?: { content?: unknown; text?: string };
+}
+
+/** Token counts for ONE `copilot -p` invocation, read back from the JSON
+ *  copilot writes to `--usage-output-file`. */
+export interface CopilotUsage {
+  /** Total prompt tokens (fresh + cache read + cache write). */
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/**
+ * Sum the per-model token counts out of a `--usage-output-file` payload.
+ * Returns undefined — never a zeroed object — when the file has no model
+ * metrics to read, so a caller can tell "copilot made no model call" (the
+ * file is still written, with `modelMetrics: {}`) apart from a number it
+ * actually measured. Summing across models covers a session that switched
+ * model mid-run. Exported for unit testing against the captured fixture in
+ * copilot-runner.test.ts.
+ */
+export function parseCopilotUsage(raw: string): CopilotUsage | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  const metrics = (parsed as { modelMetrics?: unknown } | null)?.modelMetrics;
+  if (!metrics || typeof metrics !== 'object' || Array.isArray(metrics)) return undefined;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let sawAny = false;
+  for (const entry of Object.values(metrics as Record<string, unknown>)) {
+    const usage = (entry as { usage?: Record<string, unknown> } | null)?.usage;
+    if (!usage || typeof usage !== 'object') continue;
+    const i = Number(usage.inputTokens);
+    const o = Number(usage.outputTokens);
+    if (!Number.isFinite(i) || !Number.isFinite(o)) continue;
+    inputTokens += i;
+    outputTokens += o;
+    sawAny = true;
+  }
+  return sawAny ? { inputTokens, outputTokens } : undefined;
 }
 
 function coerceText(v: unknown): string | undefined {
@@ -151,8 +215,15 @@ function handleLine(line: string): CopilotStreamEvent | null {
 
   const kind = ev.type ?? ev.kind;
   if (kind === 'assistant.message' || kind === 'assistant') {
+    // `data.content` first — that is the real 1.0.83 shape (#181); the rest
+    // are the previously-guessed shapes, kept as fallbacks.
     const text =
-      coerceText(ev.content) ?? ev.text ?? coerceText(ev.message?.content) ?? ev.message?.text;
+      coerceText(ev.data?.content) ??
+      ev.data?.text ??
+      coerceText(ev.content) ??
+      ev.text ??
+      coerceText(ev.message?.content) ??
+      ev.message?.text;
     if (!text) return null;
     return {
       kind: 'assistant',
@@ -195,6 +266,9 @@ interface TurnOutcome {
   /** True when the process was killed by STARTUP_GRACE_MS with no output —
    *  likely stuck on copilot's documented directory-trust/path-access hang. */
   hangSuspected: boolean;
+  /** This invocation's real token usage (#181), or undefined when copilot
+   *  made no model call at all. */
+  usage?: CopilotUsage;
 }
 
 export class CopilotAgentRunner implements AgentRunner {
@@ -207,6 +281,11 @@ export class CopilotAgentRunner implements AgentRunner {
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
         let nextPrompt = `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`;
+        // #181: every tool-fence round is its own `copilot -p` invocation with
+        // its own usage file, so the counts reported on this prompt's single
+        // 'result' message must be the sum over all of them.
+        let promptInputTokens = 0;
+        let promptOutputTokens = 0;
 
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           // Filled in by streamTurn as the subprocess runs and when it exits.
@@ -237,6 +316,11 @@ export class CopilotAgentRunner implements AgentRunner {
             }
           }
 
+          if (outcome.usage) {
+            promptInputTokens += outcome.usage.inputTokens;
+            promptOutputTokens += outcome.usage.outputTokens;
+          }
+
           if (outcome.hangSuspected) {
             throw new Error(
               `CopilotAgentRunner: copilot produced no output within ${STARTUP_GRACE_MS / 1000}s and was ` +
@@ -258,7 +342,12 @@ export class CopilotAgentRunner implements AgentRunner {
           );
           for (const note of malformed) yield { type: 'assistant', text: note };
           if (calls.length === 0) {
-            yield { type: 'result', subtype: 'success', input_tokens: 0, output_tokens: 0 };
+            yield {
+              type: 'result',
+              subtype: 'success',
+              input_tokens: promptInputTokens,
+              output_tokens: promptOutputTokens,
+            };
             break;
           }
 
@@ -267,7 +356,12 @@ export class CopilotAgentRunner implements AgentRunner {
               type: 'assistant',
               text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
             };
-            yield { type: 'result', subtype: 'success', input_tokens: 0, output_tokens: 0 };
+            yield {
+              type: 'result',
+              subtype: 'success',
+              input_tokens: promptInputTokens,
+              output_tokens: promptOutputTokens,
+            };
             break;
           }
 
@@ -303,6 +397,9 @@ export class CopilotAgentRunner implements AgentRunner {
     args: AgentRunArgs,
     outcome: TurnOutcome,
   ): AsyncGenerator<CopilotStreamEvent> {
+    // #181: copilot writes this invocation's real token counts here on exit.
+    // Per-turn unique path so concurrent roles can't clobber each other's.
+    const usageFile = join(tmpdir(), `monomind-copilot-usage-${randomUUID()}.json`);
     const cliArgs: string[] = [
       '-p',
       prompt,
@@ -311,6 +408,8 @@ export class CopilotAgentRunner implements AgentRunner {
       '-s',
       '--allow-all-tools',
       '--no-ask-user',
+      '--usage-output-file',
+      usageFile,
     ];
     if (args.model) cliArgs.push(`--model=${args.model}`);
     cliArgs.push('--add-dir', args.cwd);
@@ -377,6 +476,7 @@ export class CopilotAgentRunner implements AgentRunner {
     // before we await exitPromise (the await still sees the rejection).
     exitPromise.catch(() => {});
 
+    let stdoutDrained = false;
     try {
       // Immediate liveness yield: session.ts races the FIRST pull from this
       // runner against a 4-minute silent-stream watchdog, and copilot's
@@ -405,7 +505,13 @@ export class CopilotAgentRunner implements AgentRunner {
         const out = handleLine(buf);
         if (out) yield out;
       }
+      stdoutDrained = true;
     } finally {
+      // #181: on the normal path the usage file is read and removed after
+      // the exit-code await below. If the consumer abandoned this stream
+      // mid-turn (iterator.return()), nothing past this block runs — drop
+      // the temp file here so it can't leak.
+      if (!stdoutDrained) rmSync(usageFile, { force: true });
       clearTimeout(timer);
       if (hangTimer) clearTimeout(hangTimer);
       unsubscribeAbort();
@@ -429,12 +535,37 @@ export class CopilotAgentRunner implements AgentRunner {
     outcome.stderrTail = stderrTail;
     outcome.timedOut = timedOut;
     outcome.hangSuspected = hangSuspected;
+    // #181: copilot writes the usage file as it shuts down, so read it only
+    // now that the process has actually exited. A missing/unreadable file
+    // leaves outcome.usage undefined — the caller adds nothing rather than
+    // adding a fabricated 0.
+    try {
+      outcome.usage = parseCopilotUsage(readFileSync(usageFile, 'utf8'));
+    } catch {
+      /* copilot wrote no usage file for this turn */
+    } finally {
+      rmSync(usageFile, { force: true });
+    }
   }
 }
 
 /** Build the actionable error for a failed copilot turn (hangSuspected is
  *  handled separately by the caller — it has its own, more specific message). */
 function turnError(outcome: TurnOutcome): Error {
+  // #181: a copilot build predating `--usage-output-file` rejects it at
+  // argv-parse time, before any model call — so nothing was spent and the
+  // fix is a one-liner for the operator. Say so instead of letting the
+  // generic "exit 1" message bury it, and do NOT silently retry without the
+  // flag: a copilot role that reports 0 tokens forever is precisely the
+  // silently-disabled budget cap this failure mode exists to prevent.
+  if (outcome.stderrTail.includes("unknown option '--usage-output-file'")) {
+    return new Error(
+      'CopilotAgentRunner: this copilot CLI is too old — it does not support ' +
+        '--usage-output-file, which this runner requires to report real token usage ' +
+        '(without it a copilot role would report 0 tokens and its budget cap would never ' +
+        'engage). Run `copilot update` (or npm install -g @github/copilot) and retry.',
+    );
+  }
   // Fatal provider errors (auth/permission/quota — classified from stderr):
   // report what actually happened, and tag the error so the daemon does NOT
   // restart into the same guaranteed failure (a restart on quota exhaustion
