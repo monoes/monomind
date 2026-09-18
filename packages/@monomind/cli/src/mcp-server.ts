@@ -88,6 +88,19 @@ export interface MCPServerStatus {
 }
 
 /**
+ * What a running MCP server records about itself next to its PID file, so a
+ * separate `mcp status`/`mcp health` process can report the real transport,
+ * host and port instead of its own defaults.
+ */
+interface McpRuntimeMeta {
+  pid: number;
+  transport: string;
+  host: string;
+  port: number;
+  startedAt: string;
+}
+
+/**
  * Default configuration
  */
 /**
@@ -302,36 +315,55 @@ export class MCPServerManager extends EventEmitter {
       return { running: false };
     }
 
-    // Build status
+    // Report what the *running* server was started with. `this.options` is
+    // only right when this manager started it; a separate `mcp status`
+    // invocation constructs a manager from DEFAULT_OPTIONS, which is why the
+    // transport column always read "stdio" (issue #268).
+    const meta = await this.readRuntimeMeta();
+    const transport = meta?.transport ?? this.options.transport;
+    const startedAt = this.startTime?.toISOString() ?? meta?.startedAt;
+
     const status: MCPServerStatus = {
       running: true,
       pid,
-      transport: this.options.transport,
-      host: this.options.host,
-      port: this.options.port,
-      startedAt: this.startTime?.toISOString(),
-      uptime: this.startTime
-        ? Math.floor((Date.now() - this.startTime.getTime()) / 1000)
+      transport,
+      host: meta?.host ?? this.options.host,
+      port: meta?.port ?? this.options.port,
+      startedAt,
+      uptime: startedAt
+        ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
         : undefined,
     };
 
     // Get health status for HTTP transport
-    if (this.options.transport !== 'stdio') {
-      status.health = await this.checkHealth();
+    if (transport !== 'stdio') {
+      status.health = await this.checkHealth({
+        transport,
+        host: status.host,
+        port: status.port,
+      });
     }
 
     return status;
   }
 
   /**
-   * Check server health
+   * Check server health.
+   *
+   * `target` overrides the configured transport/host/port so getStatus() can
+   * probe the server that is *actually* running (recorded next to the PID
+   * file) rather than this manager's defaults.
    */
-  async checkHealth(): Promise<{
+  async checkHealth(target?: { transport?: string; host?: string; port?: number }): Promise<{
     healthy: boolean;
     error?: string;
     metrics?: Record<string, number>;
   }> {
-    if (this.options.transport === 'stdio') {
+    const transport = target?.transport ?? this.options.transport;
+    const host = target?.host ?? this.options.host;
+    const port = target?.port ?? this.options.port;
+
+    if (transport === 'stdio') {
       // For stdio, check if process is running
       const pid = await this.readPidFile();
       if (pid === null) {
@@ -348,7 +380,7 @@ export class MCPServerManager extends EventEmitter {
     // For HTTP/WebSocket, make health check request
     try {
       const response = await this.httpRequest(
-        `http://${this.options.host}:${this.options.port}/health`,
+        `http://${host}:${port}/health`,
         'GET',
         this.options.timeout,
       );
@@ -1015,6 +1047,43 @@ export class MCPServerManager extends EventEmitter {
         throw e;
       }
     }
+
+    await this.writeRuntimeMeta(pid);
+  }
+
+  /**
+   * Path of the sidecar that records *how* the running server was started.
+   * The PID file itself must stay a bare PID — external tooling reads it.
+   */
+  private get metaFile(): string {
+    return `${this.options.pidFile.replace(/\.pid$/, '')}.json`;
+  }
+
+  /** Record the runtime parameters `mcp status`/`mcp health` report back. */
+  private async writeRuntimeMeta(pid: number): Promise<void> {
+    const meta: McpRuntimeMeta = {
+      pid,
+      transport: this.options.transport,
+      host: this.options.host,
+      port: this.options.port,
+      startedAt: (this.startTime ?? new Date()).toISOString(),
+    };
+    try {
+      await fs.promises.writeFile(this.metaFile, JSON.stringify(meta), { mode: 0o600 });
+    } catch {
+      // Best-effort: a missing sidecar only costs status its extra detail,
+      // it must never fail an otherwise healthy start.
+    }
+  }
+
+  /** Read back the sidecar, if the running server left one. */
+  private async readRuntimeMeta(): Promise<McpRuntimeMeta | null> {
+    try {
+      const parsed = JSON.parse(await fs.promises.readFile(this.metaFile, 'utf8'));
+      return parsed && typeof parsed === 'object' ? (parsed as McpRuntimeMeta) : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -1038,6 +1107,11 @@ export class MCPServerManager extends EventEmitter {
       await fs.promises.unlink(this.options.pidFile);
     } catch {
       // Ignore errors
+    }
+    try {
+      await fs.promises.unlink(this.metaFile);
+    } catch {
+      // Ignore — the sidecar is optional (older servers left none).
     }
     // Also clean up legacy PID file location from older versions
     try {
