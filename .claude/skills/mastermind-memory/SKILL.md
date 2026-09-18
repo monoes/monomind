@@ -4,7 +4,7 @@ description: Mastermind memory — org-scoped persistent memory using PARA metho
 type: domain-skill
 default_mode: auto
 ---
-# monomind:start skills:claude:mastermind-memory
+
 # Mastermind Memory
 
 This skill is invoked by `mastermind:memory` or directly via `/mastermind:memory`.
@@ -319,4 +319,3 @@ topic: <topic>
 ## Step 4 — Brain Write (standalone only)
 
 If `caller` is not "command", follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
-# monomind:end skills:claude:mastermind-memory
