@@ -13,6 +13,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// i-066 follow-up finding 9: shared with routes-monoes.mjs and
+// write-claude.ts — see monoes-mcp-entry.mjs's own doc comment for why this
+// lives in a .mjs sibling rather than here.
+import { detectMonoesTokenLeak, formatMonoesLeakWarning } from '../mcp/monoes-mcp-entry.mjs';
 import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 // Split modules
@@ -170,6 +174,19 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
         `directory scan: ${scanError instanceof Error ? scanError.message : String(scanError)}`,
       );
     }
+
+    // i-066 follow-up finding 9 [MAJOR]: "has this project already leaked
+    // the monoes.me token?" is a property of the init RUN, not of any one
+    // component writer — checked once, here, unconditionally, before every
+    // component block below (several of which can write or skip-and-leave
+    // .mcp.json depending on which component flags are set). This also
+    // satisfies finding U5's ordering requirement: it still runs ahead of
+    // every possible .mcp.json write in this function, and living in
+    // exactly one place makes it structurally incapable of double-printing
+    // (the reason the equivalent check was removed from write-claude.ts and
+    // write-runtime-config.ts rather than kept in both places).
+    const leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(targetDir));
+    if (leakWarning) console.error(leakWarning);
 
     // Generate and write settings.json
     if (options.components.settings) {

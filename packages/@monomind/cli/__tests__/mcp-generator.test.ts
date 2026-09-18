@@ -1,22 +1,9 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { generateMCPConfig, buildMonoesMcpEntry } from '../src/init/mcp-generator.js';
-import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../src/init/types.js';
-import { writeMCPConfig } from '../src/init/write-claude.js';
-
-function freshResult(): InitResult {
-  return {
-    success: true,
-    platform: detectPlatform(),
-    created: { directories: [], files: [] },
-    updated: [],
-    skipped: [],
-    errors: [],
-    summary: { skillsCount: 0, commandsCount: 0, agentsCount: 0, hooksEnabled: 0 },
-  };
-}
+import { DEFAULT_INIT_OPTIONS } from '../src/init/types.js';
 
 describe('generateMCPConfig (regression: no non-standard fields in .mcp.json)', () => {
   it('writes only command/args/env for the monomind server entry — no autoStart', () => {
@@ -137,88 +124,16 @@ describe('generateMCPConfig (monoes.me connection entry)', () => {
   });
 });
 
-// i-066 reviewer finding U5 [BLOCKER], applied to the second instance of the
-// same ordering bug: the dashboard's re-sync migrates .mcp.json before its
-// leak check re-reads it (fixed in routes-monoes.mjs). The init path has the
-// identical shape — executor.ts calls writeMCPConfig() (which can overwrite
-// a pre-fix leaked .mcp.json under --force) BEFORE writeRuntimeConfig()'s
-// leak check used to run, so `monomind init --force` on a victim project
-// would ALSO migrate silently and never warn. Moved the check into
-// writeMCPConfig() itself, ahead of the write it needs to precede (and
-// ahead of the existsSync/force skip-return too, since a SKIPPED write also
-// leaves a leaked file in place and the user still needs to be told).
-describe('writeMCPConfig warns before migrating a pre-fix leaked .mcp.json (i-066 U5, init path)', () => {
-  let targetDir = '';
-
-  afterEach(() => {
-    if (targetDir) rmSync(targetDir, { recursive: true, force: true });
-  });
-
-  it('warns AND migrates in the same `init --force` run', async () => {
-    targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpconfig-u5-test-'));
-    const leakedToken = /* value */ 'FAKE-AT-init-u5-should-warn-before-migrating';
-    writeFileSync(
-      join(targetDir, '.mcp.json'),
-      JSON.stringify({
-        mcpServers: {
-          monoes: {
-            type: 'http',
-            url: 'https://monoes.me/api/mcp',
-            headers: { Authorization: `Bearer ${leakedToken}` },
-          },
-        },
-      }),
-    );
-    mkdirSync(join(targetDir, '.monomind'), { recursive: true });
-    writeFileSync(
-      join(targetDir, '.monomind', 'monoes-connection.json'),
-      JSON.stringify({ accessToken: /* value */ 'still-connected' }),
-    );
-
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    try {
-      await writeMCPConfig(targetDir, { ...DEFAULT_INIT_OPTIONS, targetDir, force: true }, freshResult());
-
-      const printed = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
-      expect(printed.toLowerCase()).toContain('compromised');
-      expect(printed.toLowerCase()).toContain('revoke');
-
-      const raw = readFileSync(join(targetDir, '.mcp.json'), 'utf8');
-      expect(raw).not.toContain(leakedToken);
-      expect(JSON.parse(raw).mcpServers.monoes).toEqual(buildMonoesMcpEntry());
-    } finally {
-      errorSpy.mockRestore();
-    }
-  });
-
-  it('still warns even when the write is skipped (existing file, no --force — the leaked file is left in place either way)', async () => {
-    targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpconfig-u5-test-'));
-    const leakedToken = /* value */ 'FAKE-AT-init-skip-u5-should-still-warn';
-    const preFixContent = JSON.stringify({
-      mcpServers: {
-        monoes: {
-          type: 'http',
-          url: 'https://monoes.me/api/mcp',
-          headers: { Authorization: `Bearer ${leakedToken}` },
-        },
-      },
-    });
-    writeFileSync(join(targetDir, '.mcp.json'), preFixContent);
-
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    try {
-      const result = freshResult();
-      await writeMCPConfig(targetDir, { ...DEFAULT_INIT_OPTIONS, targetDir, force: false }, result);
-
-      expect(result.skipped).toContain('.mcp.json');
-      const printed = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
-      expect(printed.toLowerCase()).toContain('compromised');
-      // Not force -> the write is skipped, so the file is untouched (still
-      // leaked) -- but the user must still be warned, since this run won't
-      // fix it for them.
-      expect(readFileSync(join(targetDir, '.mcp.json'), 'utf8')).toBe(preFixContent);
-    } finally {
-      errorSpy.mockRestore();
-    }
-  });
-});
+// i-066 follow-up finding 9: the "warns before migrating a leaked
+// .mcp.json" describe block that used to live here tested the behavior at
+// the wrong layer. It called writeMCPConfig() directly and asserted the
+// warning fired from inside it — true in round 3, but writeMCPConfig() only
+// runs when options.components.mcp is set, which several documented
+// --target selections (codex, opencode/kimicode without claude, skipClaude)
+// leave false, silently dropping the check for those runs (finding 9). The
+// check is now hoisted to executor.ts, unconditional, ahead of every
+// component block — see __tests__/init-e2e.test.ts's "warns about an
+// already-leaked .mcp.json even when --target codex never touches that
+// file" and "warns AND migrates an already-leaked .mcp.json in the same
+// `init --force` run" for the re-pointed coverage, exercised through the
+// real initCommand entry point rather than one internal writer function.

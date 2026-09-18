@@ -136,6 +136,93 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, 'GEMINI.md'))).toBe(false);
   }, 30000);
 
+  // i-066 follow-up finding 9 [MAJOR]: the leak check lived inside
+  // writeMCPConfig (gated by options.components.mcp), and components.mcp is
+  // false whenever the codex/opencode/kimicode-only or skipClaude paths are
+  // selected (commands/init.ts:171/188) -- exactly the --target codex path
+  // this file's own test above confirms never touches .mcp.json at all. On
+  // that path the leak check silently never ran, even though a leaked
+  // .mcp.json sits untouched in the project the whole time.
+  it('warns about an already-leaked .mcp.json even when --target codex never touches that file (finding 9)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-codex-target-should-still-warn';
+    fs.writeFileSync(
+      path.join(tmpDir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          monoes: {
+            type: 'http',
+            url: 'https://monoes.me/api/mcp',
+            headers: { Authorization: `Bearer ${leakedToken}` },
+          },
+        },
+      }),
+    );
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      ctx.flags = { target: 'codex', _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+
+      expect(result.success).toBe(true);
+      const printed = errorSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+      // The codex target never selects the mcp component, so this run
+      // cannot migrate the file either -- it must be left exactly as
+      // planted, still containing the leaked token, warning notwithstanding.
+      expect(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8')).toContain(leakedToken);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  }, 30000);
+
+  // Companion to the codex test above: on a target that DOES select the mcp
+  // component (default/claude) with --force, the same run must both warn
+  // AND actually migrate the file — the U5 property, now proven at its new
+  // home (executor.ts hoists the check; write-claude.ts still does the
+  // migration write, unchanged).
+  it('warns AND migrates an already-leaked .mcp.json in the same `init --force` run (default target)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-default-target-force-should-warn-and-migrate';
+    fs.writeFileSync(
+      path.join(tmpDir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          monoes: {
+            type: 'http',
+            url: 'https://monoes.me/api/mcp',
+            headers: { Authorization: `Bearer ${leakedToken}` },
+          },
+        },
+      }),
+    );
+    // A still-connected victim -- without this, generateMCPConfig's
+    // never-connected gate (i-066 round 1) omits the monoes entry entirely
+    // on rewrite, rather than replacing it with the tokenless shape this
+    // test means to prove.
+    fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'monoes-connection.json'),
+      JSON.stringify({ accessToken: /* value */ 'still-connected' }),
+    );
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      ctx.flags = { force: true, _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+
+      expect(result.success).toBe(true);
+      const printed = errorSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+
+      const mcpJson = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8'));
+      expect(mcpJson.mcpServers.monoes).not.toHaveProperty('headers');
+      expect(JSON.stringify(mcpJson)).not.toContain(leakedToken);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  }, 30000);
+
   it('accepts registry aliases through --platform without expanding legacy --target all', async () => {
     ctx.flags = { platform: 'kimicode,codex', _: [], 'no-watch': true, 'no-start-all': true };
     const result = await initCommand.action!(ctx);
