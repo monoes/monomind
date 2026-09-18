@@ -108,10 +108,11 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (21) + codeOnlyChecks (7, including platform adapters and
-    // the native-binding probe) — no fingerprint present, so
-    // isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(28);
+    // alwaysOnChecks (21) + codeOnlyChecks (8, including platform adapters,
+    // the native-binding probe, and i-066's monoes token-exposure check) —
+    // no fingerprint present, so isCodeProject defaults to true and the
+    // full set runs.
+    expect(data.results.length).toBe(29);
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for
@@ -160,10 +161,12 @@ describe('doctorCommand', () => {
     const data = resultData(result);
     const names = data.results.map((c) => c.name);
     // codeOnlyChecks (Git Repository, MCP Servers, TypeScript, Graph freshness,
-    // Gitignore Coverage) must be absent; alwaysOnChecks must remain.
+    // Gitignore Coverage, monoes Token Exposure) must be absent; alwaysOnChecks
+    // must remain.
     expect(names).not.toContain('Git Repository');
     expect(names).not.toContain('TypeScript');
     expect(names).not.toContain('Gitignore Coverage');
+    expect(names).not.toContain('monoes Token Exposure');
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Config File');
     expect(data.results.length).toBe(21);

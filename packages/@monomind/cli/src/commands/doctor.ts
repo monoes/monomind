@@ -21,7 +21,11 @@ import {
   checkVersionFreshness,
   installClaudeCode,
 } from './doctor-env-checks.js';
-import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
+import {
+  checkMonoesTokenExposure,
+  checkMonoesTools,
+  fixMonoesTools,
+} from './doctor-monoes-checks.js';
 import { checkNativeBindings } from './doctor-native-checks.js';
 import {
   checkAgentRegistry,
@@ -83,7 +87,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit, documents, platforms)',
+        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, metrics-freshness, security-audit, documents, platforms)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -168,6 +172,7 @@ export const doctorCommand: Command = {
       checkBuildTools,
       checkMonographFreshness,
       checkGitignoreCoverage,
+      checkMonoesTokenExposure,
       checkPlatforms,
     ];
 
@@ -204,6 +209,7 @@ export const doctorCommand: Command = {
       registry: checkAgentRegistry,
       'memory-proficiency': checkMemoryProficiency,
       'monoes-tools': checkMonoesTools,
+      'monoes-token': checkMonoesTokenExposure,
       'metrics-freshness': checkMetricsFreshness,
       'security-audit': checkSecurityAuditFindings,
       documents: checkDocumentExtractors,

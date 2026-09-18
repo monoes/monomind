@@ -8,7 +8,8 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { output } from '../output.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import { runCommand } from './doctor-env-checks.js';
@@ -154,6 +155,74 @@ export async function checkMonoesTools(): Promise<HealthCheck> {
     status: 'warn',
     message: issues.map((i) => i.message).join('; '),
     fix: issues.map((i) => i.fixCommand).join('  |  '),
+  };
+}
+
+/**
+ * i-066: verifies the monoes.me OAuth token isn't exposed to git — neither
+ * as a literal bearer value still sitting in `.mcp.json` (pre-fix state, or
+ * hand-edited back in) nor as an untracked-but-unprotected or git-tracked
+ * `monoes-connection.json`.
+ *
+ * Deliberately reports PRESENCE only, never the token VALUE — a doctor
+ * check that echoed the offending line would re-leak the secret into
+ * terminal scrollback and CI logs, exactly the places people paste from
+ * when asking for help.
+ */
+export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
+  const cwd = process.cwd();
+  const issues: string[] = [];
+
+  const mcpJsonPath = join(cwd, '.mcp.json');
+  if (existsSync(mcpJsonPath)) {
+    try {
+      const raw = readFileSync(mcpJsonPath, 'utf8');
+      if (/"Authorization"\s*:\s*"Bearer\s+[^"]+"/.test(raw)) {
+        issues.push('.mcp.json contains a literal bearer token');
+      }
+    } catch {
+      // unreadable — nothing to check
+    }
+  }
+
+  const connectionRelPath = '.monomind/monoes-connection.json';
+  const connectionPath = join(cwd, connectionRelPath);
+  if (existsSync(connectionPath)) {
+    let ignored = false;
+    try {
+      await runCommand(`git check-ignore "${connectionRelPath}"`);
+      ignored = true;
+    } catch {
+      ignored = false;
+    }
+    let tracked = false;
+    try {
+      await runCommand(`git ls-files --error-unmatch "${connectionRelPath}"`);
+      tracked = true;
+    } catch {
+      tracked = false;
+    }
+    if (tracked) {
+      issues.push(`${connectionRelPath} is tracked by git — treat the token as compromised`);
+    } else if (!ignored) {
+      issues.push(`${connectionRelPath} exists but is not covered by .gitignore`);
+    }
+  }
+
+  if (issues.length === 0) {
+    return {
+      name: 'monoes Token Exposure',
+      status: 'pass',
+      message: 'No monoes.me token exposure detected',
+    };
+  }
+
+  return {
+    name: 'monoes Token Exposure',
+    status: 'fail',
+    message:
+      `${issues.join('; ')}. Revoke the token at https://monoes.me (Settings -> Connected apps), ` +
+      'then reconnect: run `monomind ui`, then monoes.me -> Disconnect -> Connect.',
   };
 }
 
