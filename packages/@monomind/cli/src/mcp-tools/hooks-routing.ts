@@ -602,6 +602,53 @@ export const hooksMetrics: MCPTool = {
   },
 };
 
+/**
+ * Claude Code event wiring, as written into `.claude/settings.json` by
+ * `monomind init hooks`. This is a *different* subsystem from the hook
+ * subcommand registry below — it is keyed by Claude Code event and handler
+ * script, not by these subcommand names — so `hooks list` reports it
+ * separately instead of folding it into the registry's own state (#270).
+ */
+function readClaudeCodeHookWiring(): {
+  configured: boolean;
+  settingsPath: string;
+  wired: number;
+  events: string[];
+} {
+  const settingsPath = join(process.env.MONOMIND_CWD || process.cwd(), '.claude', 'settings.json');
+  const empty = { configured: false, settingsPath, wired: 0, events: [] as string[] };
+
+  let hooks: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    hooks = (parsed?.hooks ?? {}) as Record<string, unknown>;
+  } catch {
+    return empty;
+  }
+
+  const events: string[] = [];
+  let wired = 0;
+  for (const [event, matchers] of Object.entries(hooks)) {
+    let eventWired = 0;
+    for (const matcher of Array.isArray(matchers) ? matchers : []) {
+      for (const entry of Array.isArray(matcher?.hooks) ? matcher.hooks : []) {
+        // Only ours: every command monomind generates runs a script out of
+        // .claude/helpers. Third-party hooks in the same file are not ours
+        // to report on.
+        if (typeof entry?.command === 'string' && entry.command.includes('.claude/helpers/')) {
+          eventWired++;
+        }
+      }
+    }
+    if (eventWired > 0) {
+      events.push(event);
+      wired += eventWired;
+    }
+  }
+
+  return { configured: wired > 0, settingsPath, wired, events };
+}
+
 export const hooksList: MCPTool = {
   name: 'hooks_list',
   description: 'List all registered hooks',
@@ -645,9 +692,16 @@ export const hooksList: MCPTool = {
       { name: 'intelligence_learn', type: 'intelligence', status: 'active' },
     ];
     return {
-      _note: 'Static registry — update this list when hooks are added or removed.',
-      hooks,
+      _note:
+        'Two independent things. `hooks` is a static registry of monomind CLI ' +
+        'hook subcommands (update it when hooks are added or removed); each is ' +
+        'enabled when its status is active. `claudeCode` is the Claude Code ' +
+        'event wiring in .claude/settings.json that `monomind init hooks` ' +
+        'writes — keyed by event and handler script, not by these names. A hook ' +
+        'can be registered here without that wiring being present.',
+      hooks: hooks.map((hook) => ({ ...hook, enabled: hook.status === 'active' })),
       total: hooks.length,
+      claudeCode: readClaudeCodeHookWiring(),
     };
   },
 };

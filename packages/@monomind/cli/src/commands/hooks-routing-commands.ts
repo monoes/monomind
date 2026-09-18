@@ -816,6 +816,7 @@ export const listCommand: Command = {
           lastExecuted?: string;
         }>;
         total: number;
+        claudeCode?: { configured: boolean; settingsPath: string; wired: number; events: string[] };
       }>('hooks_list', {
         enabled: ctx.flags.enabled || undefined,
         type: ctx.flags.type || undefined,
@@ -828,6 +829,7 @@ export const listCommand: Command = {
 
       output.writeln();
       output.writeln(output.bold('Registered Hooks'));
+      output.writeln(output.dim('monomind hook subcommands available in this install'));
       output.writeln();
 
       if (result.hooks.length === 0) {
@@ -859,6 +861,27 @@ export const listCommand: Command = {
 
       output.writeln();
       output.printInfo(`Total: ${result.total} hooks`);
+
+      // Claude Code's event wiring is a separate subsystem from the registry
+      // above — `init` writes it into settings.json, keyed by event and
+      // handler script rather than by the subcommand names listed here. It
+      // used to be silently conflated with the table's Enabled column (#270).
+      const wiring = result.claudeCode;
+      if (wiring) {
+        output.writeln();
+        output.writeln(output.bold('Claude Code wiring'));
+        if (wiring.configured) {
+          output.writeln(
+            output.dim(
+              `  ${wiring.wired} hook command(s) across ${wiring.events.length} event(s): ${wiring.events.join(', ')}`,
+            ),
+          );
+          output.writeln(output.dim(`  ${wiring.settingsPath}`));
+        } else {
+          output.writeln(output.dim(`  No monomind hooks wired in ${wiring.settingsPath}`));
+          output.writeln(output.dim('  Run "monomind init hooks" to wire them up'));
+        }
+      }
 
       return { success: true, data: result };
     } catch (error) {
