@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -172,6 +173,94 @@ function liveServeDaemonPid(cwd: string): number | null {
   } catch {
     return null;
   }
+}
+
+/** How long a run's own event log counts as proof of life after its last
+ *  appended event. Deliberately generous: calling a live run "crashed" sends
+ *  the operator to `org mark-complete`, which closes out a run that is still
+ *  working, while being slow to notice a genuinely dead one costs nothing. */
+const RUN_ACTIVITY_WINDOW_MS = 10 * 60_000;
+
+/** Verdict of {@link classifyRun} — what `org status` should say about a
+ *  runtime.json record that claims to be running.
+ *  - `running` — alive and producing events.
+ *  - `idle` — alive, but its event log has been silent for a while.
+ *  - `crashed` — nothing says it is alive any more. */
+export type RunState = 'running' | 'idle' | 'crashed';
+
+/** Why a run was judged alive — `pid` is the recorded one still answering;
+ *  the others mean the recorded pid is stale but the run demonstrably isn't. */
+export type RunLiveEvidence = 'pid' | 'daemon-heartbeat' | 'run-activity';
+
+/** Liveness verdict for one org's runtime.json record.
+ *
+ *  #274: a single `process.kill(pid, 0)` probe used to be the whole verdict, so
+ *  a run whose recorded pid had gone stale — the orchestrating process was
+ *  restarted or re-attached without runtime.json being rewritten — was reported
+ *  as "crashed" while its roles were actively exchanging messages, with a
+ *  `mark-complete` suggestion that would have closed out live work. The pid is
+ *  still the first and best signal; when it is gone, two independent signs of
+ *  life are cross-checked before declaring a crash: a fresh `org serve`
+ *  heartbeat that still lists this org, and the run's own event log still
+ *  growing.
+ *
+ *  Unchanged from before: a record that already says 'crashed' (including one
+ *  written by the process-level crash handler) stays crashed — that is a
+ *  recorded fact, not an inference. */
+export function classifyRun(
+  cwd: string,
+  org: string,
+  state: { status?: string; run?: string; pid?: number; closedBy?: string },
+  now: number = Date.now(),
+): { state: RunState; evidence?: RunLiveEvidence } {
+  if (state.status === 'crashed') return { state: 'crashed' };
+  const busAge = (): number | null => {
+    if (!state.run) return null;
+    try {
+      const age = now - statSync(join(cwd, ORG_DIR, org, state.run, 'bus.jsonl')).mtimeMs;
+      return age >= 0 ? age : 0;
+    } catch {
+      return null;
+    }
+  };
+  const live = (evidence: RunLiveEvidence): { state: RunState; evidence: RunLiveEvidence } => {
+    const age = busAge();
+    return { state: age !== null && age > RUN_ACTIVITY_WINDOW_MS ? 'idle' : 'running', evidence };
+  };
+  if (state.pid) {
+    try {
+      process.kill(state.pid, 0);
+      return live('pid');
+    } catch {
+      /* recorded pid is gone — fall through to the cross-checks */
+    }
+  } else {
+    // No pid was ever recorded; there is nothing to call stale.
+    return live('pid');
+  }
+  try {
+    const hb = JSON.parse(readFileSync(join(cwd, '.monomind', 'serve-heartbeat.json'), 'utf8')) as {
+      pid?: number;
+      updatedAt?: string;
+      running?: string[];
+    };
+    const age = now - Date.parse(hb.updatedAt ?? '');
+    if (
+      typeof hb.pid === 'number' &&
+      Number.isFinite(age) &&
+      age <= 3 * 60_000 &&
+      (hb.running ?? []).includes(org)
+    ) {
+      process.kill(hb.pid, 0); // throws if that daemon is gone too
+      return live('daemon-heartbeat');
+    }
+  } catch {
+    /* no heartbeat file, unparseable, or its daemon is gone as well */
+  }
+  const age = busAge();
+  if (age !== null && age <= RUN_ACTIVITY_WINDOW_MS)
+    return { state: 'running', evidence: 'run-activity' };
+  return { state: 'crashed' };
 }
 
 /** Result of {@link checkServeLock}. */
@@ -893,15 +982,10 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
           error?: string;
         };
         let status = st.status ?? 'never run';
-        if ((status === 'running' || status === 'crashed') && st.pid) {
-          if (status === 'crashed') status = 'crashed';
-          else {
-            try {
-              process.kill(st.pid, 0);
-            } catch {
-              status = 'crashed';
-            }
-          }
+        // #274: an 'idle' run is still a running run to every protocol
+        // consumer — only a genuine crash changes the reported status.
+        if (status === 'running' || status === 'crashed') {
+          if (classifyRun(ctx.cwd, t, st).state === 'crashed') status = 'crashed';
         }
         return {
           name: t,
@@ -945,20 +1029,13 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         continue;
       }
     }
-    // A "running" record whose pid is gone means the daemon died without its
-    // stopOrg cleanup — surface that instead of reporting it as still running.
-    if ((state.status === 'running' || state.status === 'crashed') && state.pid) {
-      const pidGone =
-        state.status === 'crashed' ||
-        (() => {
-          try {
-            process.kill(state.pid!, 0);
-            return false;
-          } catch {
-            return true;
-          }
-        })();
-      if (pidGone) {
+    // A "running" record with no sign of life left means the daemon died
+    // without its stopOrg cleanup — surface that instead of reporting it as
+    // still running. A stale pid alone is NOT that proof (#274).
+    let liveness: ReturnType<typeof classifyRun> | undefined;
+    if (state.status === 'running' || state.status === 'crashed') {
+      liveness = classifyRun(ctx.cwd, t, state);
+      if (liveness.state === 'crashed') {
         let heartbeatHint = '';
         try {
           const hb = JSON.parse(
@@ -972,7 +1049,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         const label =
           closedBy === 'crash-handler'
             ? 'crashed (caught by crash handler)'
-            : `crashed (runtime.json says ${state.status} but pid ${state.pid} is gone)`;
+            : `crashed (runtime.json says ${state.status} but pid ${state.pid} is gone and the run has been silent)`;
         log(
           output.warning(
             `${t}: ${label}${heartbeatHint}${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`,
@@ -982,8 +1059,21 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
       }
     }
     const paused = isOrgPaused(ctx.cwd, t);
-    const statusLabel = paused && state.status === 'running' ? 'running (PAUSED)' : state.status;
-    const line = `${t}: ${statusLabel}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`;
+    const statusLabel =
+      state.status === 'running'
+        ? paused
+          ? 'running (PAUSED)'
+          : liveness?.state === 'idle'
+            ? 'running (idle)'
+            : 'running'
+        : state.status;
+    // Say when the recorded pid is no longer the thing proving it alive, so a
+    // pid that doesn't match any process isn't a silent mystery.
+    const staleHint =
+      liveness?.evidence && liveness.evidence !== 'pid'
+        ? ` — recorded pid ${state.pid} is stale; still live per ${liveness.evidence}`
+        : '';
+    const line = `${t}: ${statusLabel}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}${staleHint}`;
     // A role that never spawned is a silent capability hole — an org with no
     // tester still reports a clean "running". Say it on the status line.
     if (state.abandonedRoles?.length) {
