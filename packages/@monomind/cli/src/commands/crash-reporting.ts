@@ -1,11 +1,27 @@
 /**
  * `monomind crash-reporting` — opt-out switch for the crash reporter used by
- * monomind, mono-agent, monotask, and mono-clip. On by default.
+ * monomind, mono-agent, monotask, and mono-clip. You're asked once, on the
+ * first interactive crash. Until then, a non-interactive crash (CI, agents)
+ * never asks and only saves locally.
  */
 
 import { output } from '../output.js';
-import { isEnabled, setEnabled } from '../services/crash-reporter.js';
+import { getConsentState, setEnabled } from '../services/crash-reporter.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+
+/** Renders the tri-state consent as a line, so a user who was never asked
+ * can't be told "enabled" — a boolean can't distinguish "explicitly on"
+ * from "never chosen". */
+function renderState(): { state: ReturnType<typeof getConsentState>; line: string } {
+  const state = getConsentState();
+  if (state === 'enabled') return { state, line: `Crash reporting: ${output.success('enabled')}` };
+  if (state === 'disabled')
+    return { state, line: `Crash reporting: ${output.warning('disabled')}` };
+  return {
+    state,
+    line: `Crash reporting: ${output.dim('unanswered')} (asked once on your next interactive crash; non-interactive crashes always save locally)`,
+  };
+}
 
 const enableCommand: Command = {
   name: 'enable',
@@ -31,20 +47,18 @@ const disableCommand: Command = {
 
 const statusCommand: Command = {
   name: 'status',
-  description: 'Show whether crash reporting is on or off',
+  description: 'Show whether crash reporting is on, off, or unanswered',
   action: async (): Promise<CommandResult> => {
-    const enabled = isEnabled();
-    output.writeln(
-      `Crash reporting: ${enabled ? output.success('enabled') : output.warning('disabled')}`,
-    );
-    return { success: true, data: { enabled } };
+    const { state, line } = renderState();
+    output.writeln(line);
+    return { success: true, data: { state, enabled: state === 'enabled' } };
   },
 };
 
 export const crashReportingCommand: Command = {
   name: 'crash-reporting',
   description:
-    "Enable/disable automatic crash reporting (on by default). When a monoes tool crashes, it files a GitHub issue on the tool's own repo — redacted, deduplicated, and skipped entirely if disabled.",
+    "Enable/disable automatic crash reporting. When a monoes tool crashes interactively, it asks once whether to file a GitHub issue on the tool's own repo — redacted, deduplicated, and skipped entirely if disabled. Until answered, a non-interactive crash (CI, agents) never asks and only saves locally.",
   subcommands: [enableCommand, disableCommand, statusCommand],
   examples: [
     {
@@ -57,12 +71,10 @@ export const crashReportingCommand: Command = {
     },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
-    const enabled = isEnabled();
-    output.writeln(
-      `Crash reporting: ${enabled ? output.success('enabled') : output.warning('disabled')}`,
-    );
+    const { state, line } = renderState();
+    output.writeln(line);
     output.writeln(output.dim('Use "monomind crash-reporting enable|disable" to change this.'));
-    return { success: true, data: { enabled } };
+    return { success: true, data: { state, enabled: state === 'enabled' } };
   },
 };
 
