@@ -2761,11 +2761,18 @@ export const orgCommand: Command = {
     },
     {
       name: 'branch',
-      description: "Snapshot a run's event log for replay",
+      description:
+        "Snapshot a run's event log into a new run for replay — usage: org branch <org> <run-id> <label>. The new run's id is generated; <label> is only a note recorded in its .branch-source",
       examples: [
         {
-          command: 'monomind org branch growth run-20250130 abc-branch',
-          description: "Snapshot a run's checkpoint into a new run for replay",
+          command: 'monomind org branch growth run-20250130 "before the outage"',
+          description:
+            'Snapshot run-20250130 into a new generated run id, noting why in .branch-source (the label does not name the run)',
+        },
+        {
+          command: 'monomind org branch growth run-20250130 pre-outage --format json',
+          description:
+            'Same, printing {"run": "<generated id>", ...} so a script can replay it without parsing prose',
         },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {

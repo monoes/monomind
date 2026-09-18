@@ -1595,25 +1595,35 @@ export const resumeFromAction = async (
   return { success: true, message: `resumed ${name} - ${resumed.agents.size} role(s) restored` };
 };
 
-/** `org branch <org> <run-id> <branch-name>` — snapshot a run's event log for replay.
- *  This is NOT an executable what-if scenario: it copies bus.jsonl into a new
- *  run directory tagged with a `.branch-source` marker so it can be inspected
- *  or replayed later; it does not fork or re-run agent execution.
- *  Delegates to the shared, atomic (tmp+rename) implementation in checkpoint-ops.ts. */
+/** `org branch <org> <run-id> <label> [--format json]` — snapshot a run's event
+ *  log for replay. This is NOT an executable what-if scenario: it copies
+ *  bus.jsonl into a new run directory tagged with a `.branch-source` marker so
+ *  it can be inspected or replayed later; it does not fork or re-run agent
+ *  execution. Delegates to the shared, atomic (tmp+rename) implementation in
+ *  checkpoint-ops.ts.
+ *
+ *  `<label>` is a note recorded in `.branch-source`, not the new run's name —
+ *  the run id is generated. `--format json` reports that generated id as a
+ *  field so a scripted caller can feed it to `org replay` without scraping the
+ *  human-readable line (#292). */
 export const branchAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const run = ctx.args[1];
-  const branchName = ctx.args[2];
-  if (!run || !branchName) {
-    return { success: false, message: 'usage: org branch <org> <run-id> <branch-name>' };
+  const label = ctx.args[2];
+  if (!run || !label) {
+    return { success: false, message: 'usage: org branch <org> <run-id> <label>' };
   }
 
-  const result = branchCheckpoint(ctx.cwd, name, run, branchName);
+  const result = branchCheckpoint(ctx.cwd, name, run, label);
   if (!result.ok) {
     return { success: false, message: result.error };
   }
 
-  log(output.success(`Created branch "${branchName}" from ${run} as ${result.branchRun}`));
-  return { success: true, message: `branch ${branchName} created as ${result.branchRun}` };
+  if (orgJson(ctx))
+    return printOrgJson({ v: 1, org: name, run: result.branchRun, from: run, label });
+
+  log(output.success(`Snapshotted ${run} as run ${result.branchRun} (label: "${label}")`));
+  log(output.info(`Replay it with: monomind org replay ${name} ${result.branchRun}`));
+  return { success: true, message: `snapshotted ${run} as run ${result.branchRun}` };
 };
 
 /** `org decisions <org> [--run id]` — show Rifft-style decision traces */
