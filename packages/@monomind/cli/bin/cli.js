@@ -296,10 +296,16 @@ if (isMCPMode) {
   // filesystem paths. Sanitize before logging and exit non-zero.
   const safeMsg = (m) =>
     String(m == null ? '' : m).replace(/[\x00-\x1f\x7f-\x9f]/g, '?').slice(0, 1000);
-  // Crash reporting: files a GitHub issue on monoes/monomind for uncaught
-  // crashes (on by default, `monomind crash-reporting disable` to opt out).
+  // Crash reporting: asks once whether to file a GitHub issue on
+  // monoes/monomind for an interactive crash (`monomind crash-reporting
+  // disable`/`enable` to change your answer); a non-interactive crash (CI,
+  // agents) always saves locally only and never asks.
   // Bounded so a crash handler can't hang the process indefinitely on a
-  // stalled network call — best-effort only, never blocks exit past 10s.
+  // stalled network call or an unanswered prompt — best-effort only, never
+  // blocks exit past 10s. Raised to 30s only when stdin is a TTY, so the
+  // consent prompt (itself bounded at 15s, see crash-reporter.ts) has room
+  // to be answered; the non-TTY path never prompts, so it keeps the
+  // original 10s bound untouched.
   const reportAndExit = async (title, stack) => {
     try {
       const { reportCrash } = await import('../dist/src/services/crash-reporter.js');
@@ -312,9 +318,10 @@ if (isMCPMode) {
         stack || title,
         '```',
       ].join('\n');
+      const crashRaceTimeoutMs = process.stdin.isTTY ? 30_000 : 10_000;
       const result = await Promise.race([
         reportCrash({ repo: 'monoes/monomind', title: `crash: ${title}`, body }),
-        new Promise((resolve) => setTimeout(() => resolve({ status: 'error', message: 'crash report timed out after 10s' }), 10_000)),
+        new Promise((resolve) => setTimeout(() => resolve({ status: 'error', message: `crash report timed out after ${crashRaceTimeoutMs / 1000}s` }), crashRaceTimeoutMs)),
       ]);
       if (result && result.message) console.error(`[${new Date().toISOString()}] INFO [monomind] crash-report: ${result.message}`);
     } catch {

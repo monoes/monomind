@@ -103,3 +103,32 @@ describe('bin/cli.js does not force-exit the main process', () => {
     expect(host).toMatch(/'-d'/);
   });
 });
+
+// i-055-cli: the crash-report race used to be a flat 10s regardless of
+// context. A blocking consent prompt (crash-reporter.ts's promptForConsent,
+// bounded at 15s) needs more room than that when stdin is a real TTY, or the
+// race cuts it off before the user can answer. The non-TTY path never
+// prompts, so its bound must stay exactly 10s — this is a source assertion
+// (like the rest of this file) because reproducing an actual uncaught crash
+// with a real/fake TTY is too slow and flaky for the unit suite.
+describe('crash-report race is TTY-aware (i-055-cli)', () => {
+  /** The body of `reportAndExit`, sliced so assertions can't leak into the
+   *  neighbouring fault classifier. */
+  function reportAndExitBody(src: string): string {
+    const start = src.indexOf('const reportAndExit');
+    expect(
+      start,
+      'reportAndExit not found — did the crash handler get restructured?',
+    ).toBeGreaterThan(-1);
+    const end = src.indexOf('const classifyFault', start);
+    expect(end, 'classifyFault after reportAndExit not found').toBeGreaterThan(start);
+    return src.slice(start, end);
+  }
+
+  it('bounds the race at 10s for non-TTY and 30s only when stdin is a TTY', () => {
+    const fn = reportAndExitBody(readBin());
+    expect(fn).toMatch(/process\.stdin\.isTTY/);
+    expect(fn).toMatch(/10_000/);
+    expect(fn).toMatch(/30_000/);
+  });
+});
