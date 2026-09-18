@@ -56,41 +56,22 @@ eval-row6-*.json
 *.tmp
 *.tsbuildinfo
 *~
-# .monomind — entire dir is local runtime state, never tracked
-
-.monomind/orgs/*.jsonl
-.monomind/orgs/*.json
-.monomind/orgs/*/
-.monomind/sessions/
-.monomind/data/
-.monomind/capture/
-.monomind/metrics/
-.monomind/knowledge/
-.monomind/brain/
-.monomind/swarm/
-.monomind/agents/
-.monomind/tasks/
-.monomind/intelligence/
-.monomind/learning/
-.monomind/graph/
-.monomind/logs/
-.monomind/loops/
-.monomind/events/
-.monomind/traces/
-.monomind/security/
-.monomind/episodic/
-.monomind/state/
-.monomind/backups/
-.monomind/.monomind_inner/
-.monomind/parse-cache/
+# .monomind — entire dir is local runtime state, never tracked.
+#
+# This was a hand-maintained list of every runtime subdirectory, so each new
+# one the runtime started writing (neural/, system/, dashboard-token-<port>)
+# appeared as untracked noise until someone noticed and added a line. A
+# checkout had 628 untracked paths from that drift. Ignore the directory and
+# re-include only what is genuinely source, so a new runtime path needs no
+# .gitignore change.
+.monomind/*
+!.monomind/.gitignore
+!.monomind/CAPABILITIES.md
+!.monomind/config.yaml
+!.monomind/orgs/
+.monomind/orgs/*
+!.monomind/orgs/sample-team.json
 **/.monomind/parse-cache/
-# Runtime state files at .monomind/ root (contain cwd paths / session ids)
-.monomind/*.json
-.monomind/*.jsonl
-.monomind/*.pid
-.monomind/*.txt
-.monomind/*.db
-.monomind/dashboard-token
 .monomind/*.db-shm
 .monomind/*.db-wal
 # Same patterns for nested .monomind/ in sub-packages
@@ -298,24 +279,7 @@ GRAPH_REPORT.md
 
 # org runtime cross-org mailbox scratch (<org workdir>/.mail/, orgrt/cross-org.ts)
 .mail/
-# monomind runtime — exclude sensitive and machine-specific data
-.monomind/sessions/
-.monomind/security/
-.monomind/*.tmp
-.monomind/*.log
-.monomind/daemon.pid
-.monomind/*.db
-.monomind/*.db-wal
-.monomind/*.db-shm
+# (the .monomind block near the top covers every path under it)
 
-# monomind runtime state
-.monomind/monoswarm/
-# monomind runtime — exclude sensitive and machine-specific data
-.monomind/sessions/
-.monomind/security/
-.monomind/*.tmp
-.monomind/*.log
-.monomind/daemon.pid
-.monomind/*.db
-.monomind/*.db-wal
-.monomind/*.db-shm
+# vitest/playwright report output
+test-results/
