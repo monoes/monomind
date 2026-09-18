@@ -1,5 +1,5 @@
 /**
- * Security scan commands — code/dep/container scanning and secret detection
+ * Security scan commands — code/dependency scanning and secret detection
  */
 
 import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
