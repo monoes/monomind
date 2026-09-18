@@ -440,7 +440,7 @@ export class CommandParser {
         const normalizedKey = this.normalizeKey(key);
 
         if (booleanFlags.has(normalizedKey)) {
-          this.setFlagSafe(flags, normalizedKey, true);
+          nextIndex = this.setBooleanFlag(flags, normalizedKey, args, nextIndex);
         } else if (
           nextIndex < args.length &&
           (!args[nextIndex].startsWith('-') || this.looksLikeNegativeNumber(args[nextIndex]))
@@ -461,7 +461,7 @@ export class CommandParser {
         const normalizedKey = this.normalizeKey(key);
 
         if (booleanFlags.has(normalizedKey)) {
-          this.setFlagSafe(flags, normalizedKey, true);
+          nextIndex = this.setBooleanFlag(flags, normalizedKey, args, nextIndex);
         } else if (
           nextIndex < args.length &&
           (!args[nextIndex].startsWith('-') || this.looksLikeNegativeNumber(args[nextIndex]))
@@ -481,6 +481,31 @@ export class CommandParser {
     }
 
     return { flags, nextIndex };
+  }
+
+  /**
+   * Set a declared boolean flag, consuming an immediately following literal
+   * `true`/`false` as its value and returning the new cursor.
+   *
+   * Without this, `--success false` both set success=`true` AND left the token
+   * "false" in the positional list — where any command that also accepts a
+   * positional read it as that argument. `hooks post-task --task-id abc
+   * --success false` therefore recorded task "false" as *successful* (issue
+   * #269). `--flag=false` always worked; this makes the spaced form agree.
+   */
+  private setBooleanFlag(
+    flags: ParsedFlags,
+    key: string,
+    args: string[],
+    nextIndex: number,
+  ): number {
+    const next = args[nextIndex];
+    if (next === 'true' || next === 'false') {
+      this.setFlagSafe(flags, key, next === 'true');
+      return nextIndex + 1;
+    }
+    this.setFlagSafe(flags, key, true);
+    return nextIndex;
   }
 
   private parseValue(value: string): string | number | boolean {
