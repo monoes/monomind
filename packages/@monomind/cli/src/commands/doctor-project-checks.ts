@@ -167,7 +167,9 @@ async function countBrainDocs(root: string): Promise<number> {
  * (search degrades to keyword matching), so surface it here instead. */
 export async function checkSecondBrainModel(): Promise<HealthCheck> {
   const name = 'Second Brain Model';
-  const { getGlobalBrainDir, getProjectRoot } = await import('../memory/memory-bridge.js');
+  const { BRIDGE_EMBEDDING_MODEL, getGlobalBrainDir, getProjectRoot } = await import(
+    '../memory/memory-bridge.js'
+  );
   const projectDocs = await countBrainDocs(getProjectRoot());
   const globalDocs = await countBrainDocs(getGlobalBrainDir());
   // chunks.jsonl holds the monograph god-node chunk — knowledge with no doc
@@ -215,7 +217,10 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
   // Walk up from the entry file to the package root (the dir named 'transformers').
   let pkgDir = dirname(entryPath);
   while (pkgDir !== dirname(pkgDir) && !pkgDir.endsWith('transformers')) pkgDir = dirname(pkgDir);
-  const modelCache = join(pkgDir, '.cache', 'Xenova');
+  // The cached model is whichever one the bridge actually loads. This used to
+  // look for '.cache/Xenova', a model the bridge stopped using — so the check
+  // reported "not downloaded" with a fully provisioned cache sitting on disk.
+  const modelCache = join(pkgDir, '.cache', ...BRIDGE_EMBEDDING_MODEL.split('/'));
   if (pkgDir.endsWith('transformers') && existsSync(modelCache)) {
     return {
       name,
@@ -227,7 +232,9 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
     name,
     status: 'warn',
     message: 'Embedding model not downloaded yet — searches use keyword matching until it is',
-    fix: 'run once while online: monomind doc search -q "warmup" (downloads ~90MB locally, one time)',
+    // Query-time paths all pass local_files_only and never fetch; this is the
+    // one command that downloads the weights.
+    fix: 'run once while online: monomind doc eval --provision-model (downloads ~270MB locally, one time)',
   };
 }
 
