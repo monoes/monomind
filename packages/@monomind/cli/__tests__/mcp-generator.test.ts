@@ -132,8 +132,17 @@ describe('generateMCPConfig (monoes.me connection entry)', () => {
 // --target selections (codex, opencode/kimicode without claude, skipClaude)
 // leave false, silently dropping the check for those runs (finding 9). The
 // check is now hoisted to executor.ts, unconditional, ahead of every
-// component block — see __tests__/init-e2e.test.ts's "warns about an
-// already-leaked .mcp.json even when --target codex never touches that
-// file" and "warns AND migrates an already-leaked .mcp.json in the same
-// `init --force` run" for the re-pointed coverage, exercised through the
-// real initCommand entry point rather than one internal writer function.
+// component block — see __tests__/init-e2e.test.ts's three re-pointed
+// tests for the coverage this block used to provide, each exercised
+// through the real initCommand entry point rather than one internal writer
+// function:
+//   - "warns about an already-leaked .mcp.json even when --target codex
+//     never touches that file" (warn fires even when writeMCPConfig never
+//     runs at all)
+//   - "warns AND migrates an already-leaked .mcp.json in the same
+//     `init --force` run" (default target, --force: warn + migrate, this
+//     block's original force:true case)
+//   - "warns about an already-leaked .mcp.json and leaves it byte-identical
+//     when no --force is given" (default target, no --force: warn +
+//     untouched, this block's original force:false case — the skip-path
+//     branch inside writeMCPConfig itself)
