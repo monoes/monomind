@@ -807,16 +807,23 @@ export const listCommand: Command = {
     try {
       // Call MCP tool for list
       const result = await callMCPTool<{
-        hooks: Array<{
-          name: string;
-          type: string;
-          enabled: boolean;
-          priority: number;
-          executionCount: number;
-          lastExecuted?: string;
-        }>;
+        // No priority / executionCount / lastExecuted: the registry behind
+        // `hooks_list` has never carried any of the three, and nothing on disk
+        // records them per hook. Columns for them printed blanks and a literal
+        // "Never" on every row of every project.
+        hooks: Array<{ name: string; type: string; enabled: boolean }>;
         total: number;
-        claudeCode?: { configured: boolean; settingsPath: string; wired: number; events: string[] };
+        claudeCode?: {
+          configured: boolean;
+          settingsPath: string;
+          wired: number;
+          events: string[];
+          invocations: {
+            metricsPath: string;
+            recorded: boolean;
+            handlers: Array<{ name: string; count: number; meanMs: number; maxMs: number }>;
+          };
+        };
       }>('hooks_list', {
         enabled: ctx.flags.enabled || undefined,
         type: ctx.flags.type || undefined,
@@ -847,14 +854,6 @@ export const listCommand: Command = {
             width: 10,
             format: (v) => (v ? output.success('Yes') : output.dim('No')),
           },
-          { key: 'priority', header: 'Priority', width: 10, align: 'right' },
-          { key: 'executionCount', header: 'Executions', width: 12, align: 'right' },
-          {
-            key: 'lastExecuted',
-            header: 'Last Executed',
-            width: 20,
-            format: (v) => (v ? new Date(String(v)).toLocaleString() : 'Never'),
-          },
         ],
         data: result.hooks,
       });
@@ -880,6 +879,26 @@ export const listCommand: Command = {
         } else {
           output.writeln(output.dim(`  No monomind hooks wired in ${wiring.settingsPath}`));
           output.writeln(output.dim('  Run "monomind init hooks" to wire them up'));
+        }
+
+        // The only execution data anything records. It counts invocations of
+        // the wired handlers above, whose names are a different name space
+        // from the subcommand registry — so it belongs here, not in a column
+        // on those rows. Nothing records a per-hook timestamp or priority.
+        const { invocations } = wiring;
+        if (invocations.recorded) {
+          output.writeln();
+          output.writeln(output.bold('Handler invocations'));
+          output.printTable({
+            columns: [
+              { key: 'name', header: 'Handler', width: 20 },
+              { key: 'count', header: 'Invocations', width: 12, align: 'right' },
+              { key: 'meanMs', header: 'Mean (ms)', width: 11, align: 'right' },
+              { key: 'maxMs', header: 'Max (ms)', width: 10, align: 'right' },
+            ],
+            data: invocations.handlers,
+          });
+          output.writeln(output.dim(`  ${invocations.metricsPath}`));
         }
       }
 

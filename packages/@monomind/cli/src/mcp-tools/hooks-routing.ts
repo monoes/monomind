@@ -602,6 +602,58 @@ export const hooksMetrics: MCPTool = {
   },
 };
 
+interface HookHandlerInvocations {
+  metricsPath: string;
+  recorded: boolean;
+  handlers: Array<{ name: string; count: number; meanMs: number; maxMs: number }>;
+}
+
+/**
+ * The only per-hook execution data monomind actually persists: invocation
+ * counters written by `.claude/helpers/hook-handler.cjs` into
+ * `.monomind/metrics/hook-latency.json` as `{ count, total, max, mean }`.
+ *
+ * It is keyed by *handler* name (`pre-bash`, `pre-write`, `agent-start`, …) —
+ * the wiring `readClaudeCodeHookWiring` reports, not the subcommand registry
+ * `hooks_list` returns. The two name spaces overlap on 6 of 24 entries and
+ * diverge elsewhere (registry `pre-command` vs. handler `pre-bash`, registry
+ * `pre-edit` vs. handler `pre-write`), so joining them would be a guess. These
+ * counts are therefore reported alongside the wiring they measure.
+ *
+ * There is no per-hook timestamp and no per-hook priority anywhere on disk:
+ * the file carries one file-global `lastUpdated`, and `HookPriority` lives
+ * only in @monoes/hooks' in-memory registry, which this process never fills.
+ */
+function readHookHandlerInvocations(): HookHandlerInvocations {
+  const metricsPath = join(getProjectCwd(), '.monomind', 'metrics', 'hook-latency.json');
+  const handlers: HookHandlerInvocations['handlers'] = [];
+
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(readFileSync(metricsPath, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return { metricsPath, recorded: false, handlers };
+  }
+  if (typeof raw !== 'object' || raw === null) return { metricsPath, recorded: false, handlers };
+
+  for (const [name, value] of Object.entries(raw)) {
+    // `lastUpdated` is a file-global epoch, not a handler.
+    if (name === 'lastUpdated' || typeof value !== 'object' || value === null) continue;
+    const entry = value as Record<string, unknown>;
+    // Report only what the writer actually recorded — never a defaulted zero.
+    if (typeof entry.count !== 'number') continue;
+    handlers.push({
+      name,
+      count: entry.count,
+      meanMs: typeof entry.mean === 'number' ? entry.mean : 0,
+      maxMs: typeof entry.max === 'number' ? entry.max : 0,
+    });
+  }
+  handlers.sort((a, b) => b.count - a.count);
+
+  return { metricsPath, recorded: handlers.length > 0, handlers };
+}
+
 /**
  * Claude Code event wiring, as written into `.claude/settings.json` by
  * `monomind init hooks`. This is a *different* subsystem from the hook
@@ -614,9 +666,11 @@ function readClaudeCodeHookWiring(): {
   settingsPath: string;
   wired: number;
   events: string[];
+  invocations: HookHandlerInvocations;
 } {
-  const settingsPath = join(process.env.MONOMIND_CWD || process.cwd(), '.claude', 'settings.json');
-  const empty = { configured: false, settingsPath, wired: 0, events: [] as string[] };
+  const settingsPath = join(getProjectCwd(), '.claude', 'settings.json');
+  const invocations = readHookHandlerInvocations();
+  const empty = { configured: false, settingsPath, wired: 0, events: [] as string[], invocations };
 
   let hooks: Record<string, unknown>;
   try {
@@ -646,7 +700,7 @@ function readClaudeCodeHookWiring(): {
     }
   }
 
-  return { configured: wired > 0, settingsPath, wired, events };
+  return { configured: wired > 0, settingsPath, wired, events, invocations };
 }
 
 export const hooksList: MCPTool = {
@@ -698,7 +752,11 @@ export const hooksList: MCPTool = {
         'enabled when its status is active. `claudeCode` is the Claude Code ' +
         'event wiring in .claude/settings.json that `monomind init hooks` ' +
         'writes — keyed by event and handler script, not by these names. A hook ' +
-        'can be registered here without that wiring being present.',
+        'can be registered here without that wiring being present. Registry ' +
+        'entries carry no priority, execution count or last-executed timestamp: ' +
+        'nothing persists those. The only recorded execution data is ' +
+        '`claudeCode.invocations` — per-handler counters from ' +
+        '.monomind/metrics/hook-latency.json, in the wiring name space, not this one.',
       hooks: hooks.map((hook) => ({ ...hook, enabled: hook.status === 'active' })),
       total: hooks.length,
       claudeCode: readClaudeCodeHookWiring(),
