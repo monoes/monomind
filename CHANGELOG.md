@@ -4,6 +4,14 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.2] — 2026-09-18
+
+### Fixed
+
+- `init --force` appended a second complete copy of the managed instructions to `CLAUDE.md` (230 lines became 455 in this repo, every rule stated twice) for any project initialised before the `<!-- monomind-block:… -->` delimiter existed: the writer recognised only its own current delimiter, so an older unmarked generated body read as user content and a fresh block was appended on every run. The merge primitive now also recognises the older `# monomind:start <marker>` pair and an unmarked generated body (matched structurally, conservatively — anything not provably generated terminates the region rather than being swallowed), replaces it in place, and migrates it to the current delimiter; an already-doubled file heals back to one copy, and repeated `init --force` runs are byte-identical. Same primitive backs `.agents/shared_instructions.md` (#276: 22918c7bd).
+- Every `monomind platforms` subcommand printed nothing at all — `doctor`, `plan`, `install`, `upgrade`, `uninstall`, `setup`, `docs` and even its error paths formatted their output with the colour helpers that *return* a styled string and discarded it, so `platforms doctor --platform claude` (which `doctor` tells you to run) wrote 0 bytes and exited 0. They now print (#277: e2c29d7a4).
+- `platforms doctor` reported all 16 platforms as `legacy` immediately after a fresh install: legacy ownership matched any `monomind:start` marker without requiring the old *unnamed* form, and flagged the shared skill roots (`.agents/skills`, `.gemini/skills`) on mere existence though they are the current portable layout. Because `platforms install --all` gates migration on the same predicate, it was rewriting current blocks and leaving stray marker-name lines in `CLAUDE.md`/`AGENTS.md`. A fresh install now reports 0 findings (#277: e2c29d7a4).
+
 ## [2.11.1] — 2026-09-17
 
 ### Added
