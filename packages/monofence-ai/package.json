@@ -1,6 +1,6 @@
 {
   "name": "monofence-ai",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AI Manipulation Defense System \u2014 evasion detection, multi-turn context, output scanning, hook wiring",
   "type": "module",
   "main": "dist/index.js",
