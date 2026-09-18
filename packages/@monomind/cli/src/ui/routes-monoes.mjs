@@ -34,6 +34,18 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 let _lastLeakCheckAt = 0;
 const _leakCheckIntervalMs = 60_000;
 
+// i-066 follow-up finding 10 [MINOR]: this module-level throttle is shared
+// across every test in the same file (the module is imported once per test
+// file, not reset between `it()` blocks) — an earlier test's status poll
+// can silently suppress a later test's leak check for up to
+// _leakCheckIntervalMs of real time, for a reason unrelated to what that
+// later test is actually asserting. Test-only escape hatch so tests can
+// reset it in beforeEach instead of reaching for fake timers to defeat a
+// throttle they don't otherwise need to think about.
+export function __resetMonoesLeakThrottle() {
+  _lastLeakCheckAt = 0;
+}
+
 function _connectionFile(monomindHome) {
   return path.join(monomindHome, '.monomind', 'monoes-connection.json');
 }

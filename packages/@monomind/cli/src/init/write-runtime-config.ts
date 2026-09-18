@@ -168,13 +168,17 @@ monoes-connection.json
     }
   }
 
-  // i-066 §3.5 leak warning: moved to write-claude.ts's writeMCPConfig()
-  // (reviewer finding U5 [BLOCKER]). executor.ts calls writeMCPConfig()
-  // BEFORE this function, and that call can migrate/overwrite a pre-fix
-  // leaked .mcp.json under --force — checking here, after that write, would
-  // always inspect the already-migrated file and never warn. Checking it
-  // there instead, ahead of that write, is what makes the warning actually
-  // fire for the population it exists for.
+  // i-066 §3.5 leak warning: not here, and not in write-claude.ts's
+  // writeMCPConfig() either anymore (follow-up finding 9 [MAJOR]). It now
+  // lives in executor.ts, unconditionally, ahead of every component block —
+  // not because it runs "before writeMCPConfig" (an ordering between two
+  // conditional calls, which is exactly the assumption that produced
+  // finding 9: writeMCPConfig only runs when options.components.mcp is
+  // set, so an ordering claim relative to it is false on any run where
+  // that flag is off). The true property is that the check runs before any
+  // component block, regardless of which components are selected, so it
+  // still sees every leaked .mcp.json before anything in this function's
+  // family could migrate or overwrite it. See executor.ts:188.
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);

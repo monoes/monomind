@@ -4,10 +4,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-// i-066 reviewer finding U5: shared with routes-monoes.mjs and
-// write-runtime-config.ts — see monoes-mcp-entry.mjs's own doc comment for
-// why this lives in a .mjs sibling rather than here.
-import { detectMonoesTokenLeak, formatMonoesLeakWarning } from '../mcp/monoes-mcp-entry.mjs';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { INIT_FALLBACK_HELPERS, OBSOLETE_HELPER_NAMES } from './helpers-generator.js';
 import { generateMCPJson } from './mcp-generator.js';
@@ -288,19 +284,15 @@ export async function writeMCPConfig(
 ): Promise<void> {
   const mcpPath = path.join(targetDir, '.mcp.json');
 
-  // i-066 reviewer finding U5 [BLOCKER]: this check MUST run before the
-  // write/skip decision below. This function is what can overwrite a
-  // pre-fix leaked .mcp.json (under --force) — detecting the leak AFTER
-  // that write would inspect the already-migrated file and always find
-  // nothing, so a victim's `init --force` would migrate the token out
-  // silently and never warn it may already be committed and on teammates'
-  // machines (the same ordering bug fixed in routes-monoes.mjs's status
-  // handler; this is the init-path instance of it). Also warn on the
-  // *skip* branch: a non-forced run with an existing file leaves the leak
-  // in place, so the user still needs telling even though this run can't
-  // fix it for them.
-  const leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(targetDir));
-  if (leakWarning) console.error(leakWarning);
+  // i-066 follow-up finding 9: the already-leaked-token check used to live
+  // here (round 3), but this function only runs when
+  // options.components.mcp is set, which is FALSE on several documented
+  // init paths (`--target codex`, `--target opencode`/`kimicode` without
+  // claude, skipClaude) — silently dropping the check for a whole class of
+  // runs. Hoisted to executor.ts, once, ahead of every component block, so
+  // it runs regardless of which components are selected. See executor.ts
+  // for the ordering rationale (still ahead of this and every other
+  // .mcp.json write, satisfying finding U5).
 
   if (fs.existsSync(mcpPath) && !options.force) {
     result.skipped.push('.mcp.json');

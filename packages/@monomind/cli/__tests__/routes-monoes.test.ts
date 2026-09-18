@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 
 // routes-monoes.mjs is plain ESM shipped as-is; import it directly.
 // @ts-expect-error — .mjs sibling has no type declarations
-import { createPkcePair, readMonoesConnection, getValidMonoesToken, handleMonoesRoutes } from '../src/ui/routes-monoes.mjs';
+import { createPkcePair, readMonoesConnection, getValidMonoesToken, handleMonoesRoutes, __resetMonoesLeakThrottle } from '../src/ui/routes-monoes.mjs';
 
 /** Minimal fake http.IncomingMessage/ServerResponse pair — routes-monoes.mjs
  * only uses .method/.url/.on('data'|'end') on the request and
@@ -58,6 +58,11 @@ let monomindHome = '';
 
 beforeEach(() => {
   monomindHome = mkdtempSync(join(tmpdir(), 'monomind-monoes-test-'));
+  // i-066 follow-up finding 10: the leak-check throttle is a module-level
+  // scalar shared across every test in this file — reset it before each
+  // test so an earlier test's status poll can never suppress a later one's
+  // leak check for an unrelated reason.
+  __resetMonoesLeakThrottle();
 });
 
 afterEach(() => {
@@ -509,16 +514,11 @@ describe('monoes.me connection → .mcp.json sync', () => {
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    // The leak check is throttled (module-level _lastLeakCheckAt, i-066
-    // finding 4) to at most once per 60s per process — and earlier tests in
-    // this file already polled /api/monoes/status, so without defeating the
-    // throttle this test would be suppressed for an unrelated reason and
-    // prove nothing either way. Jump real time forward past the window;
-    // expiresAt (600s out) stays well clear of the 60s "expiring soon"
-    // refresh threshold at the jumped time, so this doesn't also trigger an
-    // unwanted token refresh.
-    vi.useFakeTimers();
-    vi.setSystemTime(Date.now() + 120_000);
+    // i-066 follow-up finding 10: the leak-check throttle (module-level
+    // _lastLeakCheckAt, i-066 finding 4) is reset in this file's top-level
+    // beforeEach via __resetMonoesLeakThrottle(), so this "first poll"
+    // scenario doesn't need fake timers to defeat state left over from
+    // earlier tests.
     try {
       const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
       await handleMonoesRoutes(req, res, req.url, undefined, ctx);
@@ -535,7 +535,6 @@ describe('monoes.me connection → .mcp.json sync', () => {
       const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
       expect(raw).not.toContain(leakedToken);
     } finally {
-      vi.useRealTimers();
       errorSpy.mockRestore();
     }
   });

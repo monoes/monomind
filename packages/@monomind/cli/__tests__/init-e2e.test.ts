@@ -25,6 +25,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { EventEmitter } from 'events';
 import { initCommand } from '../src/commands/init.js';
+import type { InitResult } from '../src/init/types.js';
 import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';
 
@@ -134,6 +135,149 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, '.kimi-code'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, 'GEMINI.md'))).toBe(false);
+  }, 30000);
+
+  // i-066 follow-up finding 9 [MAJOR]: the leak check lived inside
+  // writeMCPConfig (gated by options.components.mcp), and components.mcp is
+  // false whenever the codex/opencode/kimicode-only or skipClaude paths are
+  // selected (commands/init.ts:171/188) -- exactly the --target codex path
+  // this file's own test above confirms never touches .mcp.json at all. On
+  // that path the leak check silently never ran, even though a leaked
+  // .mcp.json sits untouched in the project the whole time.
+  it('warns about an already-leaked .mcp.json even when --target codex never touches that file (finding 9)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-codex-target-should-still-warn';
+    fs.writeFileSync(
+      path.join(tmpDir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          monoes: {
+            type: 'http',
+            url: 'https://monoes.me/api/mcp',
+            headers: { Authorization: `Bearer ${leakedToken}` },
+          },
+        },
+      }),
+    );
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      ctx.flags = { target: 'codex', _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+
+      expect(result.success).toBe(true);
+      const printed = errorSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+      // The codex target never selects the mcp component, so this run
+      // cannot migrate the file either -- it must be left exactly as
+      // planted, still containing the leaked token, warning notwithstanding.
+      expect(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8')).toContain(leakedToken);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  }, 30000);
+
+  // Companion to the codex test above: on a target that DOES select the mcp
+  // component (default/claude) with --force, the same run must both warn
+  // AND actually migrate the file — the U5 property, now proven at its new
+  // home (executor.ts hoists the check; write-claude.ts still does the
+  // migration write, unchanged).
+  it('warns AND migrates an already-leaked .mcp.json in the same `init --force` run (default target)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-default-target-force-should-warn-and-migrate';
+    fs.writeFileSync(
+      path.join(tmpDir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          monoes: {
+            type: 'http',
+            url: 'https://monoes.me/api/mcp',
+            headers: { Authorization: `Bearer ${leakedToken}` },
+          },
+        },
+      }),
+    );
+    // A still-connected victim -- without this, generateMCPConfig's
+    // never-connected gate (i-066 round 1) omits the monoes entry entirely
+    // on rewrite, rather than replacing it with the tokenless shape this
+    // test means to prove.
+    fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'monoes-connection.json'),
+      JSON.stringify({ accessToken: /* value */ 'still-connected' }),
+    );
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      ctx.flags = { force: true, _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+
+      expect(result.success).toBe(true);
+      const printed = errorSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+
+      const mcpJson = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8'));
+      expect(mcpJson.mcpServers.monoes).not.toHaveProperty('headers');
+      expect(JSON.stringify(mcpJson)).not.toContain(leakedToken);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  }, 30000);
+
+  // Third companion to the two tests above, and the case the reviewer flagged
+  // as the one that matters most: default flags, no --force, against a
+  // victim project whose .mcp.json is already leaked. writeMCPConfig's
+  // `existsSync(mcpPath) && !options.force` guard (write-claude.ts) fires and
+  // returns before ever calling atomicWriteFile -- the warning the hoisted
+  // executor.ts check just printed is the ONLY remedy available in this run,
+  // because the code deliberately does not rewrite an existing .mcp.json
+  // without --force. Both properties (warned, untouched) are independent and
+  // have each been broken separately across this item's history (finding 9
+  // dropped the warning on some paths; an earlier round's migration once ran
+  // ahead of the warning and erased the evidence it read) -- so both are
+  // asserted in this one run, mirroring AC-U5-R2.
+  it('warns about an already-leaked .mcp.json and leaves it byte-identical when no --force is given (default target)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-no-force-should-warn-and-leave-untouched';
+    const plantedContent = JSON.stringify({
+      mcpServers: {
+        monoes: {
+          type: 'http',
+          url: 'https://monoes.me/api/mcp',
+          headers: { Authorization: `Bearer ${leakedToken}` },
+        },
+      },
+    });
+    fs.writeFileSync(path.join(tmpDir, '.mcp.json'), plantedContent);
+    // A still-connected victim, so this run has every opportunity to migrate
+    // the file if the force-guard did not stop it -- proving the file is
+    // untouched because of the guard, not merely because there was nothing
+    // to change.
+    fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'monoes-connection.json'),
+      JSON.stringify({ accessToken: /* value */ 'still-connected' }),
+    );
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      ctx.flags = { _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+
+      expect(result.success).toBe(true);
+      const printed = errorSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+
+      // result.data.skipped is writeMCPConfig's own record that it hit the
+      // force-guard and returned without writing — the direct evidence
+      // (not just an inference from file contents) that this run took the
+      // skip path rather than, say, never reaching writeMCPConfig at all.
+      const initResult = (result as { data?: InitResult }).data;
+      expect(initResult?.skipped).toContain('.mcp.json');
+      expect(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8')).toBe(plantedContent);
+    } finally {
+      errorSpy.mockRestore();
+    }
   }, 30000);
 
   it('accepts registry aliases through --platform without expanding legacy --target all', async () => {
