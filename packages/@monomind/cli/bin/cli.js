@@ -402,8 +402,21 @@ if (isMCPMode) {
   // daemon. Unconditionally calling process.exit() here would kill it the
   // instant the action's promise resolves, defeating the whole point.
   const isDaemonChild = cliArgs.includes('--foreground-worker-internal');
+  // `mcp start` (without --daemon) hosts the MCP server inside THIS process:
+  // its HTTP/WS listener — or, for stdio, its stdin reader — is what keeps the
+  // event loop alive, on purpose. The watchdog below is unref'd, which stops it
+  // from *holding* the loop open but not from *firing* once something else
+  // does, so it force-exited every MCP server exactly 5 seconds after it
+  // printed "MCP Server started", the detached `--daemon` child included
+  // (issue #267). The `-d` parent is excluded: it only spawns that child and
+  // must hand the terminal straight back.
+  const isMcpServerHost =
+    cliArgs[0] === 'mcp' &&
+    cliArgs[1] === 'start' &&
+    !cliArgs.includes('-d') &&
+    !cliArgs.includes('--daemon');
   cli.run().then(() => {
-    if (!isDaemonChild) {
+    if (!isDaemonChild && !isMcpServerHost) {
       // Do NOT call process.exit() here. See
       // docs/adrs/ADR-R001-onnxruntime-process-teardown.md.
       //
