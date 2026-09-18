@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.8] — 2026-09-18
+
+### Added
+
+- `monomind org status --json` now says when the idle watchdog will stop a running org: `idle_stop_at` (ISO-8601), `idle_stop_in_seconds`, and `idle_hold`, which names the reason when there is no deadline (`disabled`, `restarting`, `pending-gate`, `pending-question`, `pending-approval`, `endpoint-reply-due`, `task-blocked`, or `unknown` when this run's daemon has not reported yet). Previously the watchdog's clock lived only in daemon memory, so a UI could show how long an item had been waiting but not how long was left to answer it. The daemon publishes the projection to `<org>/idle-watchdog.json` only when it changes, and deletes it on stop. It uses a file rather than a bus event because any bus event counts as activity and would reset the clock it reports. The hold reasons come from the same check that decides whether the watchdog waits, so the report cannot drift from its behaviour. Advertised as capability `org-idle-deadline` (#296: bc19b0f3d).
+
 ## [2.11.7] — 2026-09-18
 
 ### Added
