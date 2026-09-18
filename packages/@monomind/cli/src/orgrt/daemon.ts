@@ -52,6 +52,12 @@ import {
 import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
 import { HermesAgentRunner } from './hermes-runner.js';
+import {
+  clearIdleRecord,
+  type IdleHold,
+  projectIdleStop,
+  writeIdleRecord,
+} from './idle-deadline.js';
 import { drainInbox, newMessageId, queueMessage } from './inbox.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
@@ -1259,114 +1265,176 @@ export class OrgDaemon {
       const MAX_IDLE_NUDGES = 3;
       let nudgedAt = 0;
       let nudges = 0;
+      let stopping = false;
       const idleStop = (msg: string): void => {
+        stopping = true;
         bus.emit({ type: 'audit', reason: 'idle-stop', msg });
         this.stopOrg(name).catch((err) =>
           console.error(`org ${name}: idle-stop failed:`, err instanceof Error ? err.message : err),
         );
       };
-      const wd = setInterval(
-        () => {
-          if (this.restarting.has(name)) return; // boss auto-restart in flight — don't nudge or stop
-          // A pending gate means the org is legitimately waiting for human input
-          const pendingGates = this.readGates(name).gates.filter((g) => g.status === 'pending');
-          if (pendingGates.length > 0) return;
-          // Bug 3: a pending ask_human question is the same kind of legitimate
-          // wait as a pending gate — askHuman()'s receipt tells the role to end
-          // its turn and wait for the resolution, so a role that follows that
-          // instruction and goes quiet looks identical to a genuinely stalled
-          // agent. Without this check the watchdog nudges (and, after enough
-          // nudges, idle-stops) an org that's simply waiting on a human answer
-          // that's already on its way.
-          const pendingQuestions = questionOps
-            .readQuestions(this.root, name)
-            .questions.filter((q) => q.answer === null);
-          if (pendingQuestions.length > 0) return;
-          // M1 (C-41): a pending tool approval is the same kind of legitimate
-          // wait — the role was told to wait for `org approve/deny`.
-          if ((this.approvals.get(name) ?? []).some((a) => a.approved === null)) return;
-          // M2 (C-41): a delivered endpoint message whose reply is still due.
-          if (hasActiveEndpointWait(running)) return;
-          // Auto-resume any task whose org_task_block time has passed: flip it
-          // back to 'running' and re-push it into the assignee's mailbox, same
-          // as a fresh dispatch. This IS real activity, so fall through to the
-          // normal idleFor check below rather than returning early — an
-          // unblocked task should reset the idle clock, not just silently
-          // update state nobody notices until the next nudge.
-          const unblocked = running.taskDag?.unblockExpired(Date.now()) ?? [];
-          for (const task of unblocked) {
-            const agent = running.agents.get(task.assignee);
-            if (agent && !agent.mailbox.isClosed) {
-              agent.mailbox.push(`[task:${task.id}] Block expired — resuming: ${task.title}`);
-            }
-            bus.emit({
-              type: 'status',
-              from: 'dag',
-              reason: 'task-unblocked',
-              msg: `task ${task.id} block expired — resumed and re-dispatched to ${task.assignee}`,
-              data: { taskId: task.id, assignee: task.assignee },
-            });
+      // #296: publish the projected stop time for `org status --json`. Only
+      // written when it changes; a failed write must not throw out of the
+      // interval (that would reach the process crash handlers).
+      let published = '';
+      const publishDeadline = (hold: IdleHold | null): void => {
+        if (stopping) return;
+        const bossRt = running.agents.get(bossRole.id);
+        const at = hold
+          ? null
+          : new Date(
+              projectIdleStop({
+                lastActivity,
+                nudgedAt,
+                nudges,
+                maxNudges: MAX_IDLE_NUDGES,
+                idleMs,
+                bossReachable: bossRt?.status === 'running' && !bossRt.mailbox.isClosed,
+              }),
+            ).toISOString();
+        const key = `${at}|${hold}`;
+        if (key === published) return;
+        try {
+          writeIdleRecord(this.root, name, {
+            run,
+            idle_minutes: idleMs / 60_000,
+            idle_stop_at: at,
+            hold,
+          });
+          published = key;
+        } catch (err) {
+          console.error(
+            `org ${name}: could not write the idle deadline:`,
+            err instanceof Error ? err.message : err,
+          );
+        }
+      };
+      // The legitimate waits the watchdog never nudges or stops through.
+      const holdReason = (): IdleHold | null => {
+        if (this.restarting.has(name)) return 'restarting'; // boss auto-restart in flight
+        // A pending gate means the org is legitimately waiting for human input
+        const pendingGates = this.readGates(name).gates.filter((g) => g.status === 'pending');
+        if (pendingGates.length > 0) return 'pending-gate';
+        // Bug 3: a pending ask_human question is the same kind of legitimate
+        // wait as a pending gate — askHuman()'s receipt tells the role to end
+        // its turn and wait for the resolution, so a role that follows that
+        // instruction and goes quiet looks identical to a genuinely stalled
+        // agent. Without this check the watchdog nudges (and, after enough
+        // nudges, idle-stops) an org that's simply waiting on a human answer
+        // that's already on its way.
+        const pendingQuestions = questionOps
+          .readQuestions(this.root, name)
+          .questions.filter((q) => q.answer === null);
+        if (pendingQuestions.length > 0) return 'pending-question';
+        // M1 (C-41): a pending tool approval is the same kind of legitimate
+        // wait — the role was told to wait for `org approve/deny`.
+        if ((this.approvals.get(name) ?? []).some((a) => a.approved === null))
+          return 'pending-approval';
+        // M2 (C-41): a delivered endpoint message whose reply is still due.
+        if (hasActiveEndpointWait(running)) return 'endpoint-reply-due';
+        return null;
+      };
+      const check = (): IdleHold | null => {
+        const hold = holdReason();
+        if (hold) return hold;
+        // Auto-resume any task whose org_task_block time has passed: flip it
+        // back to 'running' and re-push it into the assignee's mailbox, same
+        // as a fresh dispatch. This IS real activity, so fall through to the
+        // normal idleFor check below rather than returning early — an
+        // unblocked task should reset the idle clock, not just silently
+        // update state nobody notices until the next nudge.
+        const unblocked = running.taskDag?.unblockExpired(Date.now()) ?? [];
+        for (const task of unblocked) {
+          const agent = running.agents.get(task.assignee);
+          if (agent && !agent.mailbox.isClosed) {
+            agent.mailbox.push(`[task:${task.id}] Block expired — resuming: ${task.title}`);
           }
-          // A task blocked on a real-world time still in the future is
-          // legitimate waiting, same as a pending gate — don't nudge about it.
-          if (running.taskDag?.hasActiveBlock(Date.now())) return;
-          const idleFor = Date.now() - lastActivity;
-          if (idleFor < idleMs) {
-            nudges = resolvedIdleNudgeCount(nudgedAt, nudges, lastToolActivity);
-            nudgedAt = 0;
-            return;
+          bus.emit({
+            type: 'status',
+            from: 'dag',
+            reason: 'task-unblocked',
+            msg: `task ${task.id} block expired — resumed and re-dispatched to ${task.assignee}`,
+            data: { taskId: task.id, assignee: task.assignee },
+          });
+        }
+        // A task blocked on a real-world time still in the future is
+        // legitimate waiting, same as a pending gate — don't nudge about it.
+        if (running.taskDag?.hasActiveBlock(Date.now())) return 'task-blocked';
+        const idleFor = Date.now() - lastActivity;
+        if (idleFor < idleMs) {
+          nudges = resolvedIdleNudgeCount(nudgedAt, nudges, lastToolActivity);
+          nudgedAt = 0;
+          return null;
+        }
+        if (nudgedAt === 0) {
+          if (nudges >= MAX_IDLE_NUDGES) {
+            idleStop(`org idle again after ${nudges} nudges — stopping run`);
+            return null;
           }
-          if (nudgedAt === 0) {
-            if (nudges >= MAX_IDLE_NUDGES) {
-              idleStop(`org idle again after ${nudges} nudges — stopping run`);
-              return;
-            }
-            const bossRt = running.agents.get(bossRole.id);
-            // #205: a budget-exhausted boss closed its own mailbox on
-            // purpose (session.ts) — that's a recoverable pause, not the
-            // same "unreachable" condition as a crash. Name it distinctly so
-            // the operator's remedy (raise the budget, resume) is obvious
-            // instead of reading like the run died.
-            const budgetReason = bossRt?.mailbox.closeReason;
-            if (budgetReason === 'token-budget' || budgetReason === 'usd-budget') {
-              idleStop(
-                `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is over its ` +
-                  `${budgetReason === 'token-budget' ? 'token' : 'USD'} budget — raise the role's ` +
-                  `${budgetReason === 'token-budget' ? 'budget_tokens' : 'budget_usd'} (or run_config's) and resume from checkpoint — stopping run`,
-              );
-              return;
-            }
-            if (bossRt?.status !== 'running' || bossRt.mailbox.isClosed) {
-              idleStop(
-                `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`,
-              );
-              return;
-            }
-            nudges++;
-            nudgedAt = Date.now();
-            bus.emit({
-              type: 'audit',
-              from: bossRole.id,
-              reason: 'idle-nudge',
-              msg: `no org activity for ${Math.round(idleFor / 60_000)}m — nudging boss (${nudges}/${MAX_IDLE_NUDGES})`,
-            });
-            bossRt.mailbox.push(
-              `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
-                `Check org_tasks first, then pick ONE: (1) the org's full stated goal is achieved or clearly cannot be — call org_complete now (this ends the run for good, not just this batch); ` +
-                `(2) someone has stalled or unstarted work — check on your team via org_send and reassign it; ` +
-                `(3) the current task batch is done but the goal has more scope left — do NOT call org_complete for this case, instead dispatch the next batch of work with org_task/createTask so the org keeps making progress; ` +
-                `(4) a task is stuck 'running' only because it's genuinely waiting on a real-world time (a scheduled process, a deadline) and there is nothing else to dispatch right now — do NOT just leave it and re-confirm this every time you get nudged, call org_task_block(taskId, untilIso, reason) instead so this watchdog stops nudging you about it and auto-resumes the task when the time arrives.`,
-            );
-          } else if (Date.now() - nudgedAt >= idleMs) {
+          const bossRt = running.agents.get(bossRole.id);
+          // #205: a budget-exhausted boss closed its own mailbox on
+          // purpose (session.ts) — that's a recoverable pause, not the
+          // same "unreachable" condition as a crash. Name it distinctly so
+          // the operator's remedy (raise the budget, resume) is obvious
+          // instead of reading like the run died.
+          const budgetReason = bossRt?.mailbox.closeReason;
+          if (budgetReason === 'token-budget' || budgetReason === 'usd-budget') {
             idleStop(
-              `nudge produced no activity for another ${Math.round(idleMs / 60_000)}m — boss appears hung, stopping run`,
+              `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is over its ` +
+                `${budgetReason === 'token-budget' ? 'token' : 'USD'} budget — raise the role's ` +
+                `${budgetReason === 'token-budget' ? 'budget_tokens' : 'budget_usd'} (or run_config's) and resume from checkpoint — stopping run`,
             );
+            return null;
           }
-        },
+          if (bossRt?.status !== 'running' || bossRt.mailbox.isClosed) {
+            idleStop(
+              `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`,
+            );
+            return null;
+          }
+          nudges++;
+          nudgedAt = Date.now();
+          bus.emit({
+            type: 'audit',
+            from: bossRole.id,
+            reason: 'idle-nudge',
+            msg: `no org activity for ${Math.round(idleFor / 60_000)}m — nudging boss (${nudges}/${MAX_IDLE_NUDGES})`,
+          });
+          bossRt.mailbox.push(
+            `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
+              `Check org_tasks first, then pick ONE: (1) the org's full stated goal is achieved or clearly cannot be — call org_complete now (this ends the run for good, not just this batch); ` +
+              `(2) someone has stalled or unstarted work — check on your team via org_send and reassign it; ` +
+              `(3) the current task batch is done but the goal has more scope left — do NOT call org_complete for this case, instead dispatch the next batch of work with org_task/createTask so the org keeps making progress; ` +
+              `(4) a task is stuck 'running' only because it's genuinely waiting on a real-world time (a scheduled process, a deadline) and there is nothing else to dispatch right now — do NOT just leave it and re-confirm this every time you get nudged, call org_task_block(taskId, untilIso, reason) instead so this watchdog stops nudging you about it and auto-resumes the task when the time arrives.`,
+          );
+        } else if (Date.now() - nudgedAt >= idleMs) {
+          idleStop(
+            `nudge produced no activity for another ${Math.round(idleMs / 60_000)}m — boss appears hung, stopping run`,
+          );
+        }
+        return null;
+      };
+      publishDeadline(holdReason());
+      const wd = setInterval(
+        () => publishDeadline(check()),
         Math.max(200, Math.min(idleMs / 2, 30_000)),
       );
       (wd as { unref?: () => void }).unref?.();
       this.watchdogs.set(name, wd);
+    } else {
+      try {
+        writeIdleRecord(this.root, name, {
+          run,
+          idle_minutes: 0,
+          idle_stop_at: null,
+          hold: 'disabled',
+        });
+      } catch (err) {
+        console.error(
+          `org ${name}: could not write the idle deadline:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
 
     if (this.opts.crossProcess && this.opts.inboxUrl) {
@@ -2350,6 +2418,7 @@ export class OrgDaemon {
       clearInterval(wd);
       this.watchdogs.delete(name);
     }
+    clearIdleRecord(this.root, name);
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     // Capture THIS run's forwarder now: an autoWake-restart of the same org

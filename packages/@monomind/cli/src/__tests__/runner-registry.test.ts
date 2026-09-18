@@ -50,6 +50,7 @@ describe('version handshake (§2)', () => {
         'org-decision-attribution',
         'org-endpoint-roles',
         'org-federation',
+        'org-idle-deadline',
       ],
     });
     expect(p.capabilities).toContain('agent-exec');

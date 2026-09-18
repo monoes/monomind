@@ -397,6 +397,30 @@ describe('org command', () => {
       } finally { rmSync(cwd, { recursive: true, force: true }); }
     });
 
+    it('#296: reports the idle-watchdog deadline for a running org in --format json', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-idle-json-'));
+      try {
+        setup(cwd, 'live', { status: 'running', run: 'run-live', pid: 999999999 }, { busAgeMs: 5_000 });
+        const at = new Date(Date.now() + 120_000).toISOString();
+        const rec = join(cwd, ORG_DIR, 'live', 'idle-watchdog.json');
+        writeFileSync(rec, JSON.stringify({ run: 'run-live', idle_minutes: 1, idle_stop_at: at, hold: null }));
+        let json = JSON.parse((await runStatus(cwd, 'live', { format: 'json' })).stdout);
+        expect(json).toMatchObject({ idle_stop_at: at, idle_hold: null });
+        expect(json.idle_stop_in_seconds).toBeGreaterThan(110);
+        expect(json.idle_stop_in_seconds).toBeLessThanOrEqual(120);
+
+        // Held: no deadline, with the reason.
+        writeFileSync(rec, JSON.stringify({ run: 'run-live', idle_minutes: 1, idle_stop_at: null, hold: 'pending-approval' }));
+        json = JSON.parse((await runStatus(cwd, 'live', { format: 'json' })).stdout);
+        expect(json).toMatchObject({ idle_stop_at: null, idle_stop_in_seconds: null, idle_hold: 'pending-approval' });
+
+        // A record left by another run is not this run's deadline.
+        writeFileSync(rec, JSON.stringify({ run: 'run-old', idle_minutes: 1, idle_stop_at: at, hold: null }));
+        json = JSON.parse((await runStatus(cwd, 'live', { format: 'json' })).stdout);
+        expect(json).toMatchObject({ idle_stop_at: null, idle_stop_in_seconds: null, idle_hold: 'unknown' });
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
     it('trusts a fresh serve heartbeat that still lists the org when the recorded pid is stale', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-status-hb-'));
       try {
