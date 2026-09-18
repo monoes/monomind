@@ -481,4 +481,62 @@ describe('monoes.me connection → .mcp.json sync', () => {
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
     expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
+
+  // i-066 reviewer finding U5 [BLOCKER] — AC-U5-R2 (state-shaped, binding):
+  // a connected victim's FIRST status poll must emit the revoke warning on
+  // stderr AND leave .mcp.json free of the literal token, IN THE SAME RUN.
+  // Round 1 had the warning working but never migrated; round 2 (the
+  // shape-aware re-sync) migrates but the migration runs BEFORE the leak
+  // check, which re-reads .mcp.json from disk — so by the time the check
+  // runs it inspects the already-migrated file and always finds nothing.
+  // A test asserting either property alone would have passed at either of
+  // the last two SHAs; only asserting both together catches the ordering bug.
+  it('warns AND migrates on the very first poll for a connected victim (AC-U5-R2)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-u5-should-warn-before-migrating';
+    writeConnection({
+      accessToken: /* value */ 'stays-good',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monoes: {
+          type: 'http',
+          url: 'https://monoes.me/api/mcp',
+          headers: { Authorization: `Bearer ${leakedToken}` },
+        },
+      },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // The leak check is throttled (module-level _lastLeakCheckAt, i-066
+    // finding 4) to at most once per 60s per process — and earlier tests in
+    // this file already polled /api/monoes/status, so without defeating the
+    // throttle this test would be suppressed for an unrelated reason and
+    // prove nothing either way. Jump real time forward past the window;
+    // expiresAt (600s out) stays well clear of the 60s "expiring soon"
+    // refresh threshold at the jumped time, so this doesn't also trigger an
+    // unwanted token refresh.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 120_000);
+    try {
+      const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+      await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+      await send();
+
+      // Property 1: the warning fired, on THIS poll, naming compromise + revoke.
+      const printed = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+
+      // Property 2: .mcp.json is ALSO already migrated by this same poll.
+      const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+      expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+      const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+      expect(raw).not.toContain(leakedToken);
+    } finally {
+      vi.useRealTimers();
+      errorSpy.mockRestore();
+    }
+  });
 });

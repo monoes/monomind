@@ -307,9 +307,6 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
     // instead of crashing.
     const isObjectEntry = typeof entry === 'object' && entry !== null && !Array.isArray(entry);
     const isConformingEntry = isObjectEntry && !('headers' in entry) && entry.type !== 'http';
-    if (isConnected !== hasEntry || (hasEntry && !isConformingEntry)) {
-      _syncMonoesMcpEntry(resolvedProjectDir, isConnected);
-    }
 
     // i-066 §3.5: if this project already leaked the token (a legacy literal
     // bearer entry still in .mcp.json, or monoes-connection.json tracked by
@@ -318,12 +315,29 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
     // throttle to at most once per _leakCheckIntervalMs per process rather
     // than spawning a subprocess on every single-threaded-server poll; the
     // condition it detects changes on the order of "never", not per poll.
+    //
+    // Reviewer i-066 finding U5 [BLOCKER]: this MUST run and be SNAPSHOTTED
+    // before _syncMonoesMcpEntry below. detectMonoesTokenLeak() re-reads
+    // .mcp.json from disk, and _syncMonoesMcpEntry rewrites that same file —
+    // running the leak check after the migration inspects the
+    // ALREADY-MIGRATED file and always finds nothing. A connected victim's
+    // first-ever poll would migrate the token out of the file silently and
+    // never warn that it may already be committed and on teammates'
+    // machines — the exact silent-failure mode this warning exists to
+    // prevent. Compute (and throttle) the check here; only print it after
+    // the migration has actually happened, so one poll does both.
     const now = Date.now();
+    let leakWarning = null;
     if (now - _lastLeakCheckAt > _leakCheckIntervalMs) {
       _lastLeakCheckAt = now;
-      const leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(resolvedProjectDir));
-      if (leakWarning) console.error(leakWarning);
+      leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(resolvedProjectDir));
     }
+
+    if (isConnected !== hasEntry || (hasEntry && !isConformingEntry)) {
+      _syncMonoesMcpEntry(resolvedProjectDir, isConnected);
+    }
+
+    if (leakWarning) console.error(leakWarning);
 
     _json(res, corsOrigin, 200, {
       connected: isConnected,

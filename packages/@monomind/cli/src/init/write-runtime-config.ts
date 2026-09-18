@@ -4,10 +4,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-// i-066: shared with routes-monoes.mjs (plain ESM, no build step — see that
-// module's own doc comment for why this lives in a .mjs sibling rather than
-// here).
-import { detectMonoesTokenLeak, formatMonoesLeakWarning } from '../mcp/monoes-mcp-entry.mjs';
 import { atomicWriteFile, MAX_EXEC_FILE_BYTES, writeGeneratedFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
@@ -172,12 +168,13 @@ monoes-connection.json
     }
   }
 
-  // i-066 §3.5: if this project already leaked the token before this fix
-  // (a legacy literal bearer entry still in .mcp.json, or
-  // monoes-connection.json tracked by git), warn loudly rather than
-  // silently migrating past it.
-  const leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(targetDir));
-  if (leakWarning) console.error(leakWarning);
+  // i-066 §3.5 leak warning: moved to write-claude.ts's writeMCPConfig()
+  // (reviewer finding U5 [BLOCKER]). executor.ts calls writeMCPConfig()
+  // BEFORE this function, and that call can migrate/overwrite a pre-fix
+  // leaked .mcp.json under --force — checking here, after that write, would
+  // always inspect the already-migrated file and never warn. Checking it
+  // there instead, ahead of that write, is what makes the warning actually
+  // fire for the population it exists for.
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
