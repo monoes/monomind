@@ -122,6 +122,128 @@ describe('runMonoesProxy — end-to-end stdio<->HTTP forwarding', () => {
     const { existsSync } = await import('node:fs');
     expect(existsSync(join(monomindHome, '.mcp.json'))).toBe(false);
   });
+
+  // T6b (reviewer): the test above's writeConnection() fixture used a
+  // 10-minute expiresAt, so the refresh branch was never actually
+  // exercised — this one starts with an EXPIRED token so
+  // getValidMonoesToken() must refresh before the proxy can forward
+  // anything, and the forwarded request must carry the newly-refreshed
+  // token, not the stale one.
+  it('refreshes an expired token before forwarding, and forwards with the newly-refreshed token', async () => {
+    writeConnection({
+      accessToken: /* value */ 'FAKE-AT-stale-e2e',
+      refreshToken: /* value */ 'FAKE-RT-stale-e2e',
+      clientId: 'client-1',
+      expiresAt: Date.now() - 1000, // already expired -> forces a refresh
+    });
+
+    // getValidMonoesToken()'s own refresh call uses the ambient global
+    // fetch, not the proxy's injectable fetchImpl (that one is only used
+    // for the actual proxied MCP request after auth resolves).
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          access_token: /* value */ 'FAKE-AT-refreshed-e2e',
+          refresh_token: /* value */ 'FAKE-RT-refreshed-e2e',
+          expires_in: 3600,
+        }),
+      })),
+    );
+
+    const fetchMock = vi.fn(async (_url: string, _opts?: RequestInit) => ({
+      ok: true,
+      json: async () => ({ jsonrpc: '2.0', id: 1, result: { tools: [] } }),
+    }));
+
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on('data', (c) => chunks.push(c.toString()));
+    const exitMock = vi.fn();
+
+    const proxyDone = runMonoesProxy({
+      monomindHome,
+      stdin,
+      stdout,
+      stderr: new PassThrough(),
+      exit: exitMock,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    await proxyDone; // startup auth check refreshes the token
+    expect(exitMock).not.toHaveBeenCalled();
+
+    stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })}\n`);
+
+    await vi.waitFor(() => {
+      expect(chunks.join('')).toContain('"result"');
+    });
+
+    const [, refreshedFetchOpts] = fetchMock.mock.calls[0];
+    expect((refreshedFetchOpts as RequestInit).headers).toMatchObject({
+      Authorization: 'Bearer FAKE-AT-refreshed-e2e',
+    });
+  });
+});
+
+// i-066 reviewer finding 7: the per-line forward's .then() writes to
+// stdout with no .catch() — if that write throws (e.g. EPIPE once Claude
+// Code has closed the pipe), it becomes an unhandled rejection, which
+// terminates the whole process under Node >= 15. That is a worse outcome
+// than the bug this proxy exists to prevent: one failed request taking
+// down the rest of the user's session.
+describe('runMonoesProxy — a failing stdout.write never becomes an unhandled rejection', () => {
+  it('does not crash the process when stdout.write throws on the response for a forwarded request', async () => {
+    writeConnection({
+      accessToken: /* value */ 'FAKE-AT-write-fail',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ jsonrpc: '2.0', id: 1, result: {} }),
+    }));
+
+    const stdin = new PassThrough();
+    // A stdout that throws synchronously on write, simulating EPIPE.
+    const stdout = {
+      write: vi.fn(() => {
+        throw new Error('EPIPE (simulated)');
+      }),
+    };
+    const exitMock = vi.fn();
+
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on('unhandledRejection', onRejection);
+
+    try {
+      const proxyDone = runMonoesProxy({
+        monomindHome,
+        stdin,
+        stdout: stdout as unknown as NodeJS.WritableStream,
+        stderr: new PassThrough(),
+        exit: exitMock,
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      });
+      await proxyDone;
+
+      stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })}\n`);
+
+      // Give the forwardMessage().then(write-that-throws).catch(...) chain
+      // time to run and settle.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(stdout.write).toHaveBeenCalled();
+      expect(exitMock).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', onRejection);
+    }
+
+    expect(rejections, 'a throwing stdout.write leaked an unhandled rejection').toEqual([]);
+  });
 });
 
 // ── Fail-fast: the proxy sits in Claude Code's MCP startup path, so it must
@@ -368,6 +490,58 @@ describe('checkMonoesTokenExposure (doctor check)', () => {
     const result = await checkMonoesTokenExposure();
     expect(result.status).toBe('pass');
   });
+
+  // i-066 reviewer finding 6
+  it('does not false-positive on an unrelated MCP server configured with its own bearer header', async () => {
+    writeFileSync(
+      join(dir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          monoes: { command: 'npx', args: [], env: {} },
+          'some-other-server': {
+            type: 'http',
+            url: 'https://example.com/mcp',
+            headers: { Authorization: 'Bearer unrelated-service-token-not-ours' },
+          },
+        },
+      }),
+    );
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('pass');
+  });
+});
+
+// i-066 reviewer finding 5
+describe('checkMonoesTokenExposure — outside a git work tree', () => {
+  let dir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    dir = mkdtempSync(join(tmpdir(), 'monomind-doctor-monoes-token-nogit-'));
+    process.chdir(dir);
+    // Deliberately NOT `git init` — this is the whole point of the test.
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does not fail a zero-exposure project just because it has no git repo at all', async () => {
+    // Before the fix: git check-ignore and git ls-files both exit non-zero
+    // outside a work tree for reasons that have nothing to do with
+    // exposure (there is no git to leak through) — tracked=false,
+    // ignored=false was read as "not covered by .gitignore" and this
+    // permanently failed a user who was never at risk.
+    mkdirSync(join(dir, '.monomind'), { recursive: true });
+    writeFileSync(
+      join(dir, '.monomind', 'monoes-connection.json'),
+      JSON.stringify({ accessToken: 'x' }),
+    );
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).not.toBe('fail');
+  });
 });
 
 // ── T8: the loud remediation warning — fires, names the file, says
@@ -384,24 +558,24 @@ describe('detectMonoesTokenLeak / formatMonoesLeakWarning (§3.5 remediation war
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('detects nothing and warns nothing for a clean, tokenless project', () => {
+  it('detects nothing and warns nothing for a clean, tokenless project', async () => {
     writeFileSync(
       join(dir, '.mcp.json'),
       JSON.stringify({ mcpServers: { monoes: { command: 'npx', args: [], env: {} } } }),
     );
-    const reasons = detectMonoesTokenLeak(dir);
+    const reasons = await detectMonoesTokenLeak(dir);
     expect(reasons).toEqual([]);
     expect(formatMonoesLeakWarning(reasons)).toBeNull();
   });
 
-  it('warns loudly, naming the file and the word "compromised", when monoes-connection.json is git-tracked', () => {
+  it('warns loudly, naming the file and the word "compromised", when monoes-connection.json is git-tracked', async () => {
     mkdirSync(join(dir, '.monomind'), { recursive: true });
     const connPath = join(dir, '.monomind', 'monoes-connection.json');
     const secret = /* value */ 'FAKE-RT-committed-should-never-print';
     writeFileSync(connPath, JSON.stringify({ refreshToken: secret }));
     execFileSync('git', ['add', '.monomind/monoes-connection.json'], { cwd: dir });
 
-    const reasons = detectMonoesTokenLeak(dir);
+    const reasons = await detectMonoesTokenLeak(dir);
     expect(reasons.some((r) => r.includes('monoes-connection.json'))).toBe(true);
 
     const warning = formatMonoesLeakWarning(reasons);
@@ -412,7 +586,7 @@ describe('detectMonoesTokenLeak / formatMonoesLeakWarning (§3.5 remediation war
     expect(warning).not.toContain(secret);
   });
 
-  it('warns when .mcp.json still has a literal legacy bearer entry', () => {
+  it('warns when .mcp.json still has a literal legacy bearer entry', async () => {
     const secret = /* value */ 'FAKE-AT-legacy-should-never-print';
     writeFileSync(
       join(dir, '.mcp.json'),
@@ -426,10 +600,39 @@ describe('detectMonoesTokenLeak / formatMonoesLeakWarning (§3.5 remediation war
         },
       }),
     );
-    const reasons = detectMonoesTokenLeak(dir);
+    const reasons = await detectMonoesTokenLeak(dir);
     expect(reasons.some((r) => r.includes('.mcp.json'))).toBe(true);
     const warning = formatMonoesLeakWarning(reasons);
     expect(warning!.toLowerCase()).toContain('compromised');
     expect(warning).not.toContain(secret);
+  });
+
+  // i-066 reviewer finding 6
+  it('does not false-positive on an unrelated MCP server configured with its own bearer header', async () => {
+    writeFileSync(
+      join(dir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          monoes: { command: 'npx', args: [], env: {} }, // tokenless, correct shape
+          'some-other-server': {
+            type: 'http',
+            url: 'https://example.com/mcp',
+            headers: { Authorization: 'Bearer unrelated-service-token-not-ours' },
+          },
+        },
+      }),
+    );
+    const reasons = await detectMonoesTokenLeak(dir);
+    expect(reasons).toEqual([]);
+  });
+
+  it('falls back to the raw regex when .mcp.json fails to parse as JSON, so a corrupted file cannot hide a real leak', async () => {
+    const secret = /* value */ 'FAKE-AT-corrupted-file-should-never-print';
+    writeFileSync(
+      join(dir, '.mcp.json'),
+      `{ this is not valid JSON but still contains "Authorization": "Bearer ${secret}" somewhere`,
+    );
+    const reasons = await detectMonoesTokenLeak(dir);
+    expect(reasons.some((r) => r.includes('.mcp.json'))).toBe(true);
   });
 });

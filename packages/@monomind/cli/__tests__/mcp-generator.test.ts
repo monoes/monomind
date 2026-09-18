@@ -38,6 +38,35 @@ describe('buildMonoesMcpEntry (i-066: tokenless — the entry is a local stdio p
       env: {},
     });
   });
+
+  it('wraps with cmd /c on win32, matching platform-adapters/renderers/mcp.ts exactly (i-066 reviewer finding 1)', () => {
+    // Bare `npx` on win32 is a .cmd shim that cannot be spawned directly
+    // (ENOENT) — mcpCommand() in renderers/mcp.ts wraps with ['cmd','/c',...]
+    // for exactly this reason; this entry used to skip that branch entirely
+    // and always emit bare npx, breaking every Windows session. `os` is a
+    // parameter (mirroring mcpServerEntry's own `os` argument) precisely so
+    // this is testable without running on real Windows — this test does not
+    // verify on the actual platform, only that the branch mirrors the
+    // proven one.
+    expect(buildMonoesMcpEntry(undefined, 'win32')).toEqual({
+      command: 'cmd',
+      args: ['/c', 'npx', '-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
+      env: {},
+    });
+  });
+
+  it('emits the bare form on non-win32 platforms', () => {
+    expect(buildMonoesMcpEntry(undefined, 'linux')).toEqual({
+      command: 'npx',
+      args: ['-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
+      env: {},
+    });
+    expect(buildMonoesMcpEntry(undefined, 'darwin')).toEqual({
+      command: 'npx',
+      args: ['-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
+      env: {},
+    });
+  });
 });
 
 describe('generateMCPConfig (monoes.me connection entry)', () => {

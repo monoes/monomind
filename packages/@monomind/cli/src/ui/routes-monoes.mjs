@@ -27,6 +27,13 @@ const MONOES_SCOPE = 'community:read community:write offline_access';
 const _pendingStates = new Map();
 const STATE_TTL_MS = 10 * 60 * 1000;
 
+// i-066 reviewer finding 4: detectMonoesTokenLeak() shells out to git;
+// throttle it to at most once per this interval per process instead of
+// once per dashboard status poll (the leak condition changes on the order
+// of "never", not per poll — see the /api/monoes/status handler below).
+let _lastLeakCheckAt = 0;
+const _leakCheckIntervalMs = 60_000;
+
 function _connectionFile(monomindHome) {
   return path.join(monomindHome, '.monomind', 'monoes-connection.json');
 }
@@ -255,16 +262,20 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
 
   // ---------------------------------------------------- GET /api/monoes/status
   // Polled on every dashboard load — piggybacks the silent-refresh check so
-  // .mcp.json's entry self-heals (added/removed) roughly as often as the
-  // dashboard is opened, instead of only on the explicit connect/disconnect
-  // actions. Since the entry no longer embeds a token (it's a stdio proxy
-  // that resolves the header itself — see mcp/monoes-mcp-entry.mjs), a
-  // refresh that only changes the *value* of the token no longer requires a
-  // re-sync; only a change in *whether* .mcp.json's actual current entry
-  // matches the actual current connection state does (checked directly
-  // against the file rather than inferred from the stored token, so this
-  // self-heals even if .mcp.json drifted from the connection for some other
-  // reason — a hand edit, a stale/missing file, etc).
+  // .mcp.json's entry self-heals (added/removed/migrated) roughly as often
+  // as the dashboard is opened, instead of only on the explicit
+  // connect/disconnect actions. Since the entry no longer embeds a token
+  // (it's a stdio proxy that resolves the header itself — see
+  // mcp/monoes-mcp-entry.mjs), a refresh that only changes the *value* of
+  // the token no longer requires a re-sync; only a change in *whether*
+  // .mcp.json's actual current entry matches the actual current connection
+  // state does (checked directly against the file, so this self-heals even
+  // if .mcp.json drifted from the connection for some other reason — a hand
+  // edit, a stale/missing file, etc). Reviewer i-066 finding 2: "matches"
+  // must be shape-aware, not presence-aware — a pre-fix entry that still
+  // carries a literal `headers`/`type: 'http'` bearer shape counts as
+  // needing a re-sync too, or a connected user whose .mcp.json already
+  // leaked the token is warned forever but never migrated.
   if (req.method === 'GET' && url === '/api/monoes/status') {
     const beforeConn = readMonoesConnection(MONOMIND_HOME);
     const validToken = /* value */ beforeConn?.accessToken
@@ -274,24 +285,34 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
     const isConnected = !!validToken;
 
     const resolvedProjectDir = path.resolve(projectDir || process.cwd());
-    let hasEntry = false;
+    let entry;
     try {
       const currentMcp = JSON.parse(
         fs.readFileSync(path.join(resolvedProjectDir, '.mcp.json'), 'utf8'),
       );
-      hasEntry = !!currentMcp?.mcpServers?.monoes;
+      entry = currentMcp?.mcpServers?.monoes;
     } catch {
-      // No .mcp.json, or unreadable — nothing to sync into; _syncMonoesMcpEntry no-ops too.
+      entry = undefined; // No .mcp.json, or unreadable — nothing to sync into; _syncMonoesMcpEntry no-ops too.
     }
-    if (isConnected !== hasEntry) {
+    const hasEntry = !!entry;
+    const isConformingEntry = hasEntry && !('headers' in entry) && entry.type !== 'http';
+    if (isConnected !== hasEntry || (hasEntry && !isConformingEntry)) {
       _syncMonoesMcpEntry(resolvedProjectDir, isConnected);
     }
 
     // i-066 §3.5: if this project already leaked the token (a legacy literal
     // bearer entry still in .mcp.json, or monoes-connection.json tracked by
     // git), warn loudly on every status poll rather than migrating silently.
-    const leakWarning = formatMonoesLeakWarning(detectMonoesTokenLeak(resolvedProjectDir));
-    if (leakWarning) console.error(leakWarning);
+    // Reviewer i-066 finding 4: detectMonoesTokenLeak() shells out to git —
+    // throttle to at most once per _leakCheckIntervalMs per process rather
+    // than spawning a subprocess on every single-threaded-server poll; the
+    // condition it detects changes on the order of "never", not per poll.
+    const now = Date.now();
+    if (now - _lastLeakCheckAt > _leakCheckIntervalMs) {
+      _lastLeakCheckAt = now;
+      const leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(resolvedProjectDir));
+      if (leakWarning) console.error(leakWarning);
+    }
 
     _json(res, corsOrigin, 200, {
       connected: isConnected,

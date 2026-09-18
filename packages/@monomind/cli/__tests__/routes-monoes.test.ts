@@ -402,4 +402,38 @@ describe('monoes.me connection → .mcp.json sync', () => {
     expect(mtimeNs()).toBe(afterFirst); // unchanged: no second write
     expect(readMcpJson(monomindHome).mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
+
+  // i-066 reviewer finding 2 — the priority finding: a project that already
+  // leaked the token must be migrated, not just warned about forever.
+  it('migrates a pre-fix leaked entry (literal bearer header) to the tokenless stdio shape while still connected', async () => {
+    // Exactly the victim population finding 2 named: a pre-fix .mcp.json
+    // still carrying `headers.Authorization: Bearer <token>`, and the user
+    // is STILL CONNECTED (isConnected=true). A presence-only comparison
+    // (`hasEntry`) sees isConnected===hasEntry===true and never re-syncs,
+    // so the live credential stays in the committable file indefinitely.
+    const leakedToken = /* value */ 'FAKE-AT-leaked-pre-fix-should-be-migrated';
+    writeConnection({
+      accessToken: /* value */ 'stays-good',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monoes: {
+          type: 'http',
+          url: 'https://monoes.me/api/mcp',
+          headers: { Authorization: `Bearer ${leakedToken}` },
+        },
+      },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+    const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+    expect(raw).not.toContain(leakedToken);
+  });
 });

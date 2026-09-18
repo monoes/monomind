@@ -19,6 +19,30 @@ interface MonoesIssue {
   fixCommand: string;
 }
 
+/**
+ * True if `.mcp.json`'s raw text contains a literal bearer token, checked
+ * at the specific path this item's writers ever wrote one
+ * (`mcpServers.monoes.headers.Authorization`) rather than a whole-file
+ * regex. i-066 reviewer finding 6: a whole-file scan trips on any other MCP
+ * server the project has configured with an unrelated bearer header, and
+ * claims a hit at a JSON key it never actually looked at. Falls back to the
+ * raw regex only when the file fails to parse (a hand-corrupted file
+ * shouldn't silently hide a real leak). Presence-only either way — the
+ * value itself is never read into a variable that could be logged.
+ * Deliberately duplicated rather than imported from
+ * mcp/monoes-mcp-entry.mjs's identical `_hasLegacyBearerEntry` — two call
+ * sites is not a shared abstraction (dev-lead, i-066 plan §3.6).
+ */
+function hasLegacyMonoesBearerEntry(raw: string): boolean {
+  try {
+    const parsed = JSON.parse(raw);
+    const auth = parsed?.mcpServers?.monoes?.headers?.Authorization;
+    return typeof auth === 'string' && /^Bearer\s+\S+/.test(auth);
+  } catch {
+    return /"Authorization"\s*:\s*"Bearer\s+[^"]+"/.test(raw);
+  }
+}
+
 async function commandExists(cmd: string): Promise<boolean> {
   try {
     await runCommand(`command -v ${cmd}`);
@@ -177,7 +201,7 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
   if (existsSync(mcpJsonPath)) {
     try {
       const raw = readFileSync(mcpJsonPath, 'utf8');
-      if (/"Authorization"\s*:\s*"Bearer\s+[^"]+"/.test(raw)) {
+      if (hasLegacyMonoesBearerEntry(raw)) {
         issues.push('.mcp.json contains a literal bearer token');
       }
     } catch {
@@ -188,24 +212,40 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
   const connectionRelPath = '.monomind/monoes-connection.json';
   const connectionPath = join(cwd, connectionRelPath);
   if (existsSync(connectionPath)) {
-    let ignored = false;
+    // i-066 reviewer finding 5: outside a git work tree, `git check-ignore`
+    // and `git ls-files` both exit non-zero for reasons that have nothing
+    // to do with exposure (there is no git to leak through at all) — the
+    // old code read that as tracked=false, ignored=false and failed a
+    // zero-exposure user in a non-git project. Probe for a real work tree
+    // first; if there isn't one, this check simply doesn't apply.
+    let insideWorkTree = false;
     try {
-      await runCommand(`git check-ignore "${connectionRelPath}"`);
-      ignored = true;
+      await runCommand('git rev-parse --is-inside-work-tree');
+      insideWorkTree = true;
     } catch {
-      ignored = false;
+      insideWorkTree = false;
     }
-    let tracked = false;
-    try {
-      await runCommand(`git ls-files --error-unmatch "${connectionRelPath}"`);
-      tracked = true;
-    } catch {
-      tracked = false;
-    }
-    if (tracked) {
-      issues.push(`${connectionRelPath} is tracked by git — treat the token as compromised`);
-    } else if (!ignored) {
-      issues.push(`${connectionRelPath} exists but is not covered by .gitignore`);
+
+    if (insideWorkTree) {
+      let ignored = false;
+      try {
+        await runCommand(`git check-ignore "${connectionRelPath}"`);
+        ignored = true;
+      } catch {
+        ignored = false;
+      }
+      let tracked = false;
+      try {
+        await runCommand(`git ls-files --error-unmatch "${connectionRelPath}"`);
+        tracked = true;
+      } catch {
+        tracked = false;
+      }
+      if (tracked) {
+        issues.push(`${connectionRelPath} is tracked by git — treat the token as compromised`);
+      } else if (!ignored) {
+        issues.push(`${connectionRelPath} exists but is not covered by .gitignore`);
+      }
     }
   }
 

@@ -203,15 +203,25 @@ export async function runMonoesProxy(options: RunProxyOptions = {}): Promise<voi
       );
       return;
     }
-    forwardMessage(
-      monoesUrl,
-      monomindHome,
-      message,
-      fetchImpl,
-      requestTimeoutMs,
-      options.getToken,
-    ).then((response) => {
-      stdout.write(`${JSON.stringify(response)}\n`);
-    });
+    forwardMessage(monoesUrl, monomindHome, message, fetchImpl, requestTimeoutMs, options.getToken)
+      .then((response) => {
+        stdout.write(`${JSON.stringify(response)}\n`);
+      })
+      .catch(() => {
+        // forwardMessage itself never rejects (it has its own try/catch),
+        // but stdout.write can throw — e.g. EPIPE once Claude Code has
+        // closed the pipe. Without this .catch, that throw becomes an
+        // unhandled rejection, which terminates the whole process under
+        // Node >= 15 — exactly the "one failure takes down the rest of the
+        // session" outcome this proxy exists to prevent. Fixed literal
+        // only; never the caught error (i-066 reviewer finding 7).
+        try {
+          stdout.write(
+            `${JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32002, message: 'monoes MCP proxy: failed to write the response.' } })}\n`,
+          );
+        } catch {
+          // stdout itself is gone — nothing more this process can do about it.
+        }
+      });
   });
 }

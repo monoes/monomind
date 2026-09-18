@@ -14,25 +14,70 @@
  * (`mcp/monoes-proxy.ts`) that resolves the Authorization header itself, at
  * request time, from the existing refresh-aware `getValidMonoesToken()`.
  */
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
+
+// Deliberately NOT `promisify(execFile)` at module scope: several existing
+// init tests (init-e2e.test.ts and friends) `vi.mock('child_process', ...)`
+// with a fixed, explicit export list that predates this module and has no
+// reason to know about it. `promisify()` requires its argument to already
+// be a function, so evaluating it eagerly at import time throws the instant
+// any such mock is active — breaking module load for every test that
+// merely imports this file transitively, even ones that never touch the
+// git check. Deferred to a lazy getter so only an actual call pays for it.
+let _execFileAsync;
+function execFileAsync(...args) {
+  _execFileAsync ??= promisify(execFile);
+  return _execFileAsync(...args);
+}
 
 /**
  * Build the `monoes` MCP server entry: a local stdio command, never a
  * remote `type: 'http'` entry with an embedded bearer header.
+ *
+ * i-066 reviewer finding 1: `npx` on win32 is a `.cmd` shim that cannot be
+ * spawned directly (ENOENT) — mirrors the identical branch in
+ * `platform-adapters/renderers/mcp.ts`'s `mcpCommand()`, which exists for
+ * exactly this reason. `os` is a parameter (not read from `process.platform`
+ * internally) for the same reason `mcpServerEntry()` already takes one: it
+ * makes the win32 shape testable without running on Windows.
  * @param {string} [monoesUrl] - Override for the monoes.me base URL the
  *   proxy talks to (propagated via env so the proxy doesn't need its own
  *   flag). Omit to let the proxy use its own default (https://monoes.me).
+ * @param {NodeJS.Platform} [os] - Defaults to process.platform.
  */
-export function buildMonoesMcpEntry(monoesUrl) {
+export function buildMonoesMcpEntry(monoesUrl, os = process.platform) {
   const env = {};
   if (monoesUrl) env.MONOMIND_MONOES_URL = monoesUrl;
-  return {
-    command: 'npx',
-    args: ['-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
-    env,
-  };
+  const baseCommand = ['npx', '-y', 'monomind@latest', 'mcp', 'monoes-proxy'];
+  const command = os === 'win32' ? ['cmd', '/c', ...baseCommand] : baseCommand;
+  const [executable, ...args] = command;
+  return { command: executable, args, env };
+}
+
+/**
+ * True if `.mcp.json`'s raw text contains a literal bearer token — checked
+ * at the specific path this item's writers ever wrote one
+ * (`mcpServers.monoes.headers.Authorization`), not a whole-file scan.
+ * i-066 reviewer finding 6: a whole-file regex trips on ANY other MCP
+ * server the project has configured with an unrelated bearer header. Falls
+ * back to the raw regex only when the file fails to parse as JSON (a
+ * hand-corrupted file shouldn't silently hide a real leak from this check).
+ * Presence-only either way — the value itself is never read into a variable
+ * that could be logged.
+ * @param {string} raw
+ * @returns {boolean}
+ */
+function _hasLegacyBearerEntry(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    const auth = parsed?.mcpServers?.monoes?.headers?.Authorization;
+    return typeof auth === 'string' && /^Bearer\s+\S+/.test(auth);
+  } catch {
+    return /"Authorization"\s*:\s*"Bearer\s+[^"]+"/.test(raw);
+  }
 }
 
 /**
@@ -42,18 +87,21 @@ export function buildMonoesMcpEntry(monoesUrl) {
  * file being tracked by git. Returns human-readable reasons that name the
  * file but never the secret value itself — callers must not print anything
  * else about the match (see doc comment on formatMonoesLeakWarning).
+ * Async: the git check shells out (see i-066 reviewer finding 4 — callers
+ * on a hot path, like the dashboard's status poll, should throttle calls to
+ * this rather than call it per-request; this function itself does not
+ * cache, since it's also called once at `monomind init` where caching would
+ * be meaningless).
  * @param {string} projectDir
- * @returns {string[]}
+ * @returns {Promise<string[]>}
  */
-export function detectMonoesTokenLeak(projectDir) {
+export async function detectMonoesTokenLeak(projectDir) {
   const reasons = [];
 
   const mcpJsonPath = path.join(projectDir, '.mcp.json');
   try {
     const raw = fs.readFileSync(mcpJsonPath, 'utf8');
-    // Presence-only check — deliberately does not capture or log the
-    // matched value, only that the shape matched.
-    if (/"Authorization"\s*:\s*"Bearer\s+[^"]+"/.test(raw)) {
+    if (_hasLegacyBearerEntry(raw)) {
       reasons.push(
         `.mcp.json contains a literal bearer token (mcpServers.monoes.headers.Authorization)`,
       );
@@ -66,9 +114,8 @@ export function detectMonoesTokenLeak(projectDir) {
   const connectionPath = path.join(projectDir, connectionRelPath);
   if (fs.existsSync(connectionPath)) {
     try {
-      execFileSync('git', ['ls-files', '--error-unmatch', connectionRelPath], {
+      await execFileAsync('git', ['ls-files', '--error-unmatch', connectionRelPath], {
         cwd: projectDir,
-        stdio: 'ignore',
         timeout: 2000,
       });
       // exit 0 => the file is tracked
