@@ -23,6 +23,30 @@ function freshResult(): InitResult {
   };
 }
 
+/** A settings.json that differs from the template in the two ways this suite
+ *  needs: existing blocks in the opposite order, and one template block
+ *  missing so it has to be appended. */
+function seedFromTemplate(projectDir: string): Record<string, unknown> {
+  const generated = JSON.parse(
+    generateSettingsJson({
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: projectDir,
+      force: true,
+      components: { ...DEFAULT_INIT_OPTIONS.components },
+    }),
+  );
+  for (const event of ['PreToolUse', 'PostToolUse'] as const) {
+    const groups = generated.hooks[event] as unknown[];
+    if (groups.length < 2) {
+      throw new Error(
+        `settings template emits ${groups.length} ${event} block(s); this suite needs at least 2`,
+      );
+    }
+    generated.hooks[event] = groups.slice(0, -1).reverse();
+  }
+  return generated;
+}
+
 describe('writeSettings --force preserves original hook block order', () => {
   let tmp: string;
   let projectDir: string;
@@ -33,13 +57,20 @@ describe('writeSettings --force preserves original hook block order', () => {
     projectDir = join(tmp, 'project');
     mkdirSync(join(projectDir, '.claude'), { recursive: true });
     settingsPath = join(projectDir, '.claude', 'settings.json');
-    // Seed with the REAL repo settings.json. Its PreToolUse array has
-    // Grep|Glob BEFORE Write|Edit|MultiEdit|NotebookEdit, which is the
-    // opposite of the order settings-generator.ts emits them in — exactly
-    // the case that regressed under mergeHooksPreservingUnknown() rebuilding
-    // every event's array starting from `generatedGroups` (template order)
-    // instead of the original file's order.
-    writeFileSync(settingsPath, readFileSync(ROOT_SETTINGS, 'utf-8'));
+    // Seed with a file derived from the template rather than the repo's own
+    // .claude/settings.json. Seeding from the committed file made this suite
+    // depend on that file DIFFERING from the template: the moment someone
+    // synced the two (as "fix(assets): sync the shipped .claude/settings.json"
+    // did), the fixture had no block the template lacked, the
+    // "appends genuinely new blocks" case stopped being exercised, and the
+    // sanity assertion below failed on main for a change that was correct.
+    //
+    // Derived instead: take what the generator emits, reverse each event's
+    // block order and drop the last block. Reversing recreates the regression
+    // this suite exists for (the file's order is the opposite of the
+    // template's, which mergeHooksPreservingUnknown() used to overwrite), and
+    // dropping one guarantees a genuinely new template block to append.
+    writeFileSync(settingsPath, JSON.stringify(seedFromTemplate(projectDir), null, 2));
   });
 
   afterEach(() => {
@@ -111,6 +142,34 @@ describe('writeSettings --force preserves original hook block order', () => {
     // Trailing newline: the previously-committed file had one; the
     // regenerated one must too.
     expect(raw.endsWith('\n')).toBe(true);
+  });
+
+  it("keeps the repo's own committed settings.json in order through --force", async () => {
+    // The real-world case the bug was reported against. It asserts only order
+    // preservation, not that the file differs from the template: the two are
+    // allowed to be in sync, and this test must keep passing when they are.
+    writeFileSync(settingsPath, readFileSync(ROOT_SETTINGS, 'utf-8'));
+    const before = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+
+    await writeSettings(
+      projectDir,
+      {
+        ...DEFAULT_INIT_OPTIONS,
+        targetDir: projectDir,
+        force: true,
+        components: { ...DEFAULT_INIT_OPTIONS.components },
+      },
+      freshResult(),
+    );
+
+    const after = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    for (const event of Object.keys(before.hooks)) {
+      const beforeM: string[] = before.hooks[event].map(
+        (g: { matcher?: string }) => g.matcher ?? '',
+      );
+      const afterM: string[] = after.hooks[event].map((g: { matcher?: string }) => g.matcher ?? '');
+      expect(afterM.filter((m) => beforeM.includes(m))).toEqual(beforeM);
+    }
   });
 
   it('produces a byte-identical settings.json on a second `init --force` run (no perpetual reordering)', async () => {

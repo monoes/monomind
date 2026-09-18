@@ -101,48 +101,34 @@ jobs:
         run: pnpm --filter "@monoes/monomindcli..." run build
 
       # `npm pack` doesn't understand the pnpm "workspace:*" protocol and
-      # copies it into the tarball's package.json verbatim (e.g.
-      # "@monoes/monograph": "workspace:*") — installing that tarball outside
-      # this workspace then fails with EUNSUPPORTEDPROTOCOL. `pnpm pack`
-      # rewrites each workspace:* dep to its real resolved version before
-      # packing, which is also what `pnpm publish` does for the real release
-      # (see prepublishOnly's check-publish-versions.mjs guard) — so this
-      # matches what actually ships.
-      - name: pnpm pack (${{ matrix.package.name }})
+      # copies it into the tarball's package.json verbatim — installing that
+      # tarball outside this workspace then fails with EUNSUPPORTEDPROTOCOL.
+      # `pnpm pack` rewrites each workspace:* dep to its real resolved version,
+      # which is what `pnpm publish` does for the real release, so this matches
+      # what actually ships.
+      #
+      # It rewrites them to the version that sibling currently declares —
+      # routinely ahead of npm, because versions
+      # are bumped in the repo before the release is published. A plain
+      # `npm install <tarball>` then resolves those siblings from the registry
+      # and fails with ETARGET on a version that does not exist yet.
+      #
+      # This packed only the monomind -> @monoes/monomindcli edge, which left
+      # every deeper one broken: bumping @monoes/monograph for a fix, before
+      # publishing it, failed all four jobs with "No matching version found for
+      # @monoes/monograph@1.6.5" while the code was fine. Packing the whole
+      # workspace closure installs this checkout's own build of every sibling,
+      # which is what the published set will be once the release goes out.
+      - name: pnpm pack (${{ matrix.package.name }} and its workspace closure)
         id: pack
-        working-directory: ${{ matrix.package.dir }}
         run: |
           set -euo pipefail
-          pnpm pack --json > /tmp/pnpm-pack-output.json
-          # The root package's own "prepare" lifecycle script (fires on pack,
-          # not just install) writes its own banner to the same stdout ahead
-          # of the JSON — sed from the first '{' line so this is robust
-          # whether or not a package has a noisy prepare/prepack hook.
-          TARBALL="$(sed -n '/^{/,$p' /tmp/pnpm-pack-output.json | node -e "console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).filename)")"
-          echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
-          echo "Packed: ${TARBALL}"
-
-      # `pnpm pack` rewrote monomind's "workspace:*" dep on @monoes/monomindcli
-      # into a plain version range pinned to whatever's in this checkout's
-      # package.json — which is routinely ahead of what's actually on the npm
-      # registry (versions get bumped well before a release is cut). A bare
-      # `npm install <monomind tarball>` then tries to resolve that sibling
-      # from the registry and fails with ETARGET on every PR that hasn't
-      # shipped yet, regardless of whether the code itself is broken. Packing
-      # the CLI tarball too and installing both together in one npm command
-      # lets npm satisfy that dependency from the local tarball instead of
-      # the registry — exactly what a real user gets once both are published,
-      # without requiring monomindcli to have shipped first.
-      - name: pnpm pack (@monoes/monomindcli, monomind's sibling dependency)
-        if: matrix.package.name == 'monomind'
-        id: pack_cli_sibling
-        working-directory: packages/@monomind/cli
-        run: |
-          set -euo pipefail
-          pnpm pack --json > /tmp/pnpm-pack-output-cli-sibling.json
-          TARBALL="$(sed -n '/^{/,$p' /tmp/pnpm-pack-output-cli-sibling.json | node -e "console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).filename)")"
-          echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
-          echo "Packed: ${TARBALL}"
+          OUT="$(mktemp -d)"
+          node scripts/pack-workspace-closure.mjs "${{ matrix.package.dir }}" "${OUT}" > /tmp/tarballs.txt
+          echo "Packed:"; cat /tmp/tarballs.txt
+          # The target is packed last (deepest dependency first), and its bin
+          # is what the next steps run.
+          echo "tarball_path=$(tail -n1 /tmp/tarballs.txt)" >> "$GITHUB_OUTPUT"
 
       # Switches to the version this job is actually meant to verify (20 or
       # 26) — this is the version that matters from here on: a plain `npm
@@ -161,7 +147,7 @@ jobs:
           echo "install_dir=${INSTALL_DIR}" >> "$GITHUB_ENV"
           cd "${INSTALL_DIR}"
           npm init -y >/dev/null
-          npm install "${{ steps.pack.outputs.tarball_path }}" ${{ steps.pack_cli_sibling.outputs.tarball_path }}
+          xargs npm install < /tmp/tarballs.txt
 
       - name: Run --version against the installed tarball
         working-directory: ${{ env.install_dir }}

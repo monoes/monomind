@@ -41,6 +41,14 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...args) =>
   execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
+/** The CLI and the umbrella are bumped by every release and their versions are
+ *  kept equal by check-publish-versions.mjs, so between releases they always
+ *  carry unpublished commits — that is the normal state, not a mistake, and
+ *  flagging it would turn this guard red on every merge. The guard is for the
+ *  siblings nothing bumps automatically, which is how the monograph fix in
+ *  2.11.4 went out unpublished. */
+const RELEASE_VERSIONED = new Set(['monomind', '@monoes/monomindcli']);
+
 /** Every non-private package under packages/, found rather than listed, so a
  *  new package is covered the day it is added. The umbrella at the repo root
  *  is left to check-publish-versions.mjs, which owns the release version. */
@@ -62,6 +70,7 @@ function publishablePackages() {
       if (!existsSync(file)) continue;
       const pkg = JSON.parse(readFileSync(file, 'utf8'));
       if (pkg.private || !pkg.name || !pkg.version) continue;
+      if (RELEASE_VERSIONED.has(pkg.name)) continue;
       out.push({ ...pkg, dir: dir.slice(repoRoot.length + 1) });
     }
   }
