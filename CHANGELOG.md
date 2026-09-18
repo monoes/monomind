@@ -4,6 +4,20 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.5] — 2026-09-18
+
+### Fixed
+
+- **2.11.4 shipped the monograph fix from #279/#280 that nobody could use.** `@monoes/monograph` stayed at 1.6.4 — the version already on npm from five days earlier — while only the CLI and umbrella were bumped. Every sibling is pinned `workspace:*`, which pnpm resolves at pack time to the version that package declares, so the published CLI depended on the pre-fix tarball: `GroupedConst`/`GroupedVar` were still missing from the graph on a clean install. This release publishes `@monoes/monograph` 1.6.5 (the fix), `@monoes/routing` 1.0.5 (25 changed source files, unpublished since 2.9.24) and `monofence-ai` 1.0.3. `scripts/check-package-bumps.mjs` now fails the build — and `tests/repo/publish-bumps.test.ts` fails CI — when a publishable package has commits touching shipped files since its version was last set (#285: 4dd18df6e).
+- `init --force` appended a marked copy of each skill file instead of wrapping the content already there — the same defect #276 fixed for `CLAUDE.md`, still present in the skills writer. In this repo `codex-tools.md` went 64 → 130 lines with its body present twice; six reference files doubled. The skills writer now shares #276's managed-block primitive: an older unmarked skill file is migrated in place, repeated runs are byte-identical, and a project already damaged by 2.11.4 heals back to one copy on the next `init --force`. A block belonging to another platform in a shared skill root is never absorbed (#286: e8284a668).
+- `init --force` rewrote `.monomind/config.yaml` and `.monomind/CAPABILITIES.md` on every run purely to update their `Generated:` timestamp, dirtying the repo for no actionable information. When the timestamp is the only difference the file is now left untouched, mtime included; a real content change still writes and refreshes the stamp (e5a9d0238).
+- The `.claude` tree the CLI ships had drifted from the root tree: 2.11.4's regenerated `settings.json` (post-bash and notification hooks, longer pre-write timeout) reached maintainers but not installed users. Synced, and the duplicated skill files 2.11.4's init produced are restored (499a90133, 08f9083c4).
+
+### Changed
+
+- `tests/repo/publish-bumps.test.ts` and `scripts/check-package-bumps.mjs` discover publishable packages rather than listing them, so a new package is covered the day it is added; tests and markdown do not count as shipped code, and a manifest-only commit counts only when a key consumers actually resolve changed. `MONOMIND_ALLOW_STALE_PACKAGES=1` is the escape hatch for a package that genuinely ships nothing (#285).
+- The hook-order test now derives its fixture from the settings template instead of the repo's own `.claude/settings.json`, which it had required to be out of date (6adf50809).
+
 ## [2.11.4] — 2026-09-18
 
 ### Fixed
