@@ -103,3 +103,38 @@ describe('bin/cli.js does not force-exit the main process', () => {
     expect(host).toMatch(/'-d'/);
   });
 });
+
+// i-055-cli: the crash-report race used to be a flat 10s regardless of
+// context. A blocking consent prompt (crash-consent.ts's promptForConsent,
+// bounded at 15s) needs more room than that when stdin is a real TTY, or the
+// race cuts it off before the user can answer. The non-TTY path never
+// prompts, so its bound must stay exactly 10s.
+//
+// Review finding 1 (round 1): a source-text regex here passed on a
+// deliberately inverted `bin/cli.js` (verifier confirmed by testing both).
+// The fix moves the decision into `getCrashRaceTimeoutMs()`, a tiny pure
+// function asserted directly below — it *executes* the logic, so it cannot
+// pass on inverted code. The second test below is a narrower source check
+// that bin/cli.js actually calls that function rather than reintroducing
+// its own inline constants.
+describe('crash-report race is TTY-aware (i-055-cli)', () => {
+  it('getCrashRaceTimeoutMs() is 10s for non-TTY and 30s for TTY', async () => {
+    const { getCrashRaceTimeoutMs } = await import('../services/crash-race-timeout.js');
+    expect(getCrashRaceTimeoutMs(false)).toBe(10_000);
+    expect(getCrashRaceTimeoutMs(true)).toBe(30_000);
+  });
+
+  it('bin/cli.js wires reportAndExit to getCrashRaceTimeoutMs(), keyed on process.stdin.isTTY', () => {
+    const src = readBin();
+    const start = src.indexOf('const reportAndExit');
+    expect(
+      start,
+      'reportAndExit not found — did the crash handler get restructured?',
+    ).toBeGreaterThan(-1);
+    const end = src.indexOf('const classifyFault', start);
+    expect(end, 'classifyFault after reportAndExit not found').toBeGreaterThan(start);
+    const fn = src.slice(start, end);
+    expect(fn).toMatch(/getCrashRaceTimeoutMs\(/);
+    expect(fn).toMatch(/process\.stdin\.isTTY/);
+  });
+});

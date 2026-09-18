@@ -6,42 +6,45 @@
  * from their own panic/recover handlers so redaction, dedup, and GitHub auth
  * logic live in exactly one place instead of being reimplemented per language.
  *
- * Default: ON (files real GitHub issues on crash). Opt out with
- * `monomind crash-reporting disable`.
+ * Consent is asked once, on the first interactive crash (a local report path
+ * is shown before asking; default answer is No). Until you've answered, a
+ * non-interactive crash (CI, agents — most real runs) never asks and only
+ * saves locally, never filing. Once you've explicitly chosen — via the
+ * prompt or `monomind crash-reporting enable`/`disable` — that answer is
+ * used every time, interactive or not; `monomind crash-reporting status`
+ * shows the current state.
+ *
+ * Consent state and the interactive prompt live in ./crash-consent.ts; the
+ * advisory lock around the ledger lives in ./crash-lock.ts.
  */
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  closeSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  statSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { redact } from '../utils/redaction.js';
+import {
+  ensureStateDir,
+  getConsentState,
+  isInteractiveTty,
+  promptForConsent,
+  readJsonSafe,
+  STATE_DIR,
+  setEnabled,
+  writeJsonSafe,
+} from './crash-consent.js';
+import { acquireLock, releaseLock } from './crash-lock.js';
+
+export type { ConsentState } from './crash-consent.js';
+export { getConsentState, setEnabled } from './crash-consent.js';
 
 const execFileAsync = promisify(execFile);
 
-const STATE_DIR = join(homedir(), '.monomind');
-const CONFIG_PATH = join(STATE_DIR, 'crash-reporting.json');
 const LEDGER_PATH = join(STATE_DIR, 'crash-reports.json');
 const PENDING_DIR = join(STATE_DIR, 'pending-reports');
-const LOCK_PATH = join(STATE_DIR, 'crash-reports.lock');
 
 const DEDUP_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-// Worst-case critical section is ~28s (5s hasGhAuth + 8s upstream search + 15s
-// issue create) — stale threshold needs real margin above that so a slow-but-
-// legitimate holder never gets its lock stolen mid-operation.
-const LOCK_STALE_MS = 60 * 1000;
-const LOCK_WAIT_MS = 3 * 1000; // bounded poll for a concurrent holder to finish — closes the
-// near-simultaneous-crash race without blocking the handler for long
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MAX_PER_REPO = 5; // circuit breaker independent of per-signature dedup
 
@@ -61,10 +64,6 @@ export interface CrashReportResult {
   message: string;
 }
 
-interface CrashConfig {
-  enabled: boolean;
-}
-
 interface LedgerEntry {
   url: string;
   repo: string;
@@ -75,43 +74,15 @@ interface Ledger {
   bySignature: Record<string, LedgerEntry>;
   /** Timestamps of every issue filed per repo, for the rate-limit circuit breaker. */
   filedAtByRepo: Record<string, number[]>;
-}
-
-function ensureStateDir(): void {
-  if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-}
-
-function readJsonSafe<T>(path: string, fallback: T): T {
-  try {
-    if (!existsSync(path)) return fallback;
-    return JSON.parse(readFileSync(path, 'utf8')) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJsonSafe(path: string, data: unknown): void {
-  try {
-    ensureStateDir();
-    writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
-  } catch {
-    // best-effort — a failed write here shouldn't crash the crash reporter
-  }
-}
-
-export function isEnabled(): boolean {
-  // Env override, so a measurement harness can switch telemetry off for the
-  // duration of a run it intends to make claims about. `monomind doc eval`
-  // sets this: its "zero network calls" verdict must describe the retrieval
-  // path, not merely the fact that nothing happened to crash.
-  const env = process.env.MONOMIND_CRASH_REPORTING;
-  if (env && ['0', 'off', 'false', 'no'].includes(env.toLowerCase())) return false;
-  const config = readJsonSafe<CrashConfig>(CONFIG_PATH, { enabled: true });
-  return config.enabled !== false;
-}
-
-export function setEnabled(enabled: boolean): void {
-  writeJsonSafe(CONFIG_PATH, { enabled });
+  /**
+   * Signatures already saved locally while unanswered + non-interactive, so
+   * a crash-looping agent or CI job doesn't pile up one .md file per
+   * iteration (no dedup previously applied to that path at all). Separate
+   * from `bySignature`, which is reserved for real GitHub issues — folding
+   * a local-only save into the same map would make a later 'enabled' run
+   * report "already reported" for a crash that was never actually filed.
+   */
+  localOnly: Record<string, { path: string; reportedAt: number }>;
 }
 
 /**
@@ -150,7 +121,11 @@ function loadLedger(): Ledger {
   const raw = readJsonSafe<Partial<Ledger>>(LEDGER_PATH, {});
   // Defensive defaults — also covers the pre-rate-limiting ledger format
   // (a flat signature->entry map with no `bySignature` wrapper).
-  return { bySignature: raw.bySignature ?? {}, filedAtByRepo: raw.filedAtByRepo ?? {} };
+  return {
+    bySignature: raw.bySignature ?? {},
+    filedAtByRepo: raw.filedAtByRepo ?? {},
+    localOnly: raw.localOnly ?? {},
+  };
 }
 
 function saveLedger(ledger: Ledger): void {
@@ -193,72 +168,6 @@ function recordFiled(
     );
     recent.push(Date.now());
     ledger.filedAtByRepo[repo] = recent;
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Tries once to atomically create the lock file with an ownership token. */
-function tryAcquireOnce(token: string): boolean {
-  ensureStateDir();
-  try {
-    const fd = openSync(LOCK_PATH, 'wx');
-    writeFileSync(fd, token);
-    closeSync(fd);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Best-effort advisory lock around the ledger's check-then-write sequence,
- * to close the race where two near-simultaneous crashes (e.g. a supervisor
- * restarting a process that panics on every startup) both pass the dedup
- * check before either records its result, filing duplicate issues.
- *
- * Returns an ownership token if acquired (pass to releaseLock so it only ever
- * removes its OWN lock, never one a stale-recovery elsewhere already
- * re-acquired), or null if not acquired — callers proceed unlocked rather
- * than block indefinitely, since a lock miss only reopens the same race this
- * exists to narrow, not something worth ever hanging a crash handler over.
- */
-async function acquireLock(): Promise<string | null> {
-  const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  if (tryAcquireOnce(token)) return token;
-
-  // Bounded poll: closes the race for genuinely-simultaneous crashes (the
-  // common real case — e.g. two crash handlers firing within the same
-  // second) without blocking the handler for the full worst-case critical
-  // section duration.
-  const deadline = Date.now() + LOCK_WAIT_MS;
-  while (Date.now() < deadline) {
-    await sleep(150);
-    if (tryAcquireOnce(token)) return token;
-  }
-
-  // Still held — check staleness (crashed holder that never released it).
-  try {
-    const age = Date.now() - statSync(LOCK_PATH).mtimeMs;
-    if (age > LOCK_STALE_MS) {
-      unlinkSync(LOCK_PATH);
-      if (tryAcquireOnce(token)) return token;
-    }
-  } catch {
-    // lock disappeared or another race — fall through to unlocked
-  }
-  return null;
-}
-
-function releaseLock(token: string | null): void {
-  if (!token) return;
-  try {
-    if (readFileSync(LOCK_PATH, 'utf8') === token) unlinkSync(LOCK_PATH);
-    // else: someone else's lock (ours was stolen after going stale) — leave it alone
-  } catch {
-    // already gone — fine
   }
 }
 
@@ -345,6 +254,22 @@ function saveLocally(repo: string, title: string, body: string): string {
 }
 
 /**
+ * Removes the local copy saved before the consent prompt once the same
+ * crash has actually been filed upstream — otherwise a Yes answer leaves
+ * that pre-prompt file behind forever even though the issue now lives on
+ * GitHub. Best-effort and silent: this runs inside a crash handler, which
+ * must not throw, and a leftover local file is a cosmetic issue at worst.
+ */
+function discardPreSavedCopy(path: string | undefined): void {
+  if (!path) return;
+  try {
+    unlinkSync(path);
+  } catch {
+    // already gone, or never existed — fine either way
+  }
+}
+
+/**
  * Report a crash. Never throws — always resolves to a result the caller can
  * log and move on from, since this runs inside a crash handler. Every step
  * is async (no synchronous blocking child-process calls) so a caller racing
@@ -353,14 +278,13 @@ function saveLocally(repo: string, title: string, body: string): string {
  */
 export async function reportCrash(input: CrashReportInput): Promise<CrashReportResult> {
   let lockToken: string | null = null;
+  // Set only when the unanswered+TTY branch below saves a local copy before
+  // prompting. Reused by the filing pipeline instead of saving a second
+  // time, and cleaned up on a successful file (see the two `created`
+  // branches) — otherwise a Yes answer can leave an orphaned duplicate on
+  // disk forever, or write two files for one crash on a filing failure.
+  let preSavedPath: string | undefined;
   try {
-    if (!isEnabled()) {
-      return {
-        status: 'disabled',
-        message: 'Crash reporting is disabled (monomind crash-reporting enable to turn back on).',
-      };
-    }
-
     const title = redact(input.title).slice(0, 250);
     const body = redact(input.body).slice(0, 60_000);
     // Run caller-supplied signatures through the same digit/hex/address
@@ -373,6 +297,66 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
           .digest('hex')
           .slice(0, 16)
       : computeSignature(input.repo, title);
+
+    // The consent gate lives here, inside reportCrash() itself, rather than
+    // at a call site — there are two entry points (monomind's own
+    // uncaughtException/unhandledRejection handlers in bin/cli.js, and the
+    // hidden `monomind report-crash` command mono-agent/monotask/mono-clip
+    // shell out to). A gate at only one of them leaves the other wide open.
+    const state = getConsentState();
+    if (state === 'disabled') {
+      return {
+        status: 'disabled',
+        message: 'Crash reporting is disabled (monomind crash-reporting enable to turn back on).',
+      };
+    }
+
+    if (state === 'unanswered') {
+      if (!isInteractiveTty()) {
+        // Most monomind runs are inside agent sessions and CI — non-TTY.
+        // Never prompt, never file, never persist a *consent* decision
+        // here: this crash stays "unanswered" forever so a later
+        // interactive run can still ask. Deferring to "ask next time"
+        // would change nothing for the majority of real runs, which never
+        // get a next interactive time.
+        const ledger = loadLedger();
+        const existingLocal = ledger.localOnly[signature];
+        if (existingLocal && Date.now() - existingLocal.reportedAt <= DEDUP_WINDOW_MS) {
+          // Same signature saved once already this window — a crash-
+          // looping agent or CI job would otherwise pile up one .md file
+          // per iteration with no bound at all (this path had no dedup or
+          // rate limit of any kind, unlike the filing pipeline below).
+          return {
+            status: 'saved-locally',
+            path: existingLocal.path,
+            message: `Crash reporting hasn't been configured yet; this crash was already saved locally: ${existingLocal.path}. Run \`monomind crash-reporting enable\` or \`monomind crash-reporting disable\` to choose, or answer the prompt next time this runs interactively.`,
+          };
+        }
+        const path = saveLocally(input.repo, title, body);
+        ledger.localOnly[signature] = { path, reportedAt: Date.now() };
+        saveLedger(ledger);
+        return {
+          status: 'saved-locally',
+          path,
+          message: `Crash reporting hasn't been configured yet, so this crash was only saved locally (no network call): ${path}. Run \`monomind crash-reporting enable\` or \`monomind crash-reporting disable\` to choose, or answer the prompt next time this runs interactively.`,
+        };
+      }
+
+      // Show the local report path before asking, so consent isn't blind.
+      preSavedPath = saveLocally(input.repo, title, body);
+      const consented = await promptForConsent(input.repo, preSavedPath);
+      setEnabled(consented);
+      if (!consented) {
+        return {
+          status: 'saved-locally',
+          path: preSavedPath,
+          message: `Crash reporting is now disabled (monomind crash-reporting disable). Saved locally to ${preSavedPath}. Re-enable any time with \`monomind crash-reporting enable\`.`,
+        };
+      }
+      // Consented: fall through into the normal filing pipeline below, same
+      // as an already-'enabled' state. preSavedPath stays set so that
+      // pipeline reuses this file instead of writing a second one.
+    }
 
     // Bounded wait — closes the near-simultaneous-crash race without ever
     // blocking the handler for long; proceeds unlocked if still contended.
@@ -392,7 +376,7 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
       return {
         status: 'rate-limited',
         message: `Already filed ${RATE_LIMIT_MAX_PER_REPO}+ crash issues on ${input.repo} in the last hour — suppressing further auto-reports to avoid spamming the repo. Saved locally instead.`,
-        path: saveLocally(input.repo, title, body),
+        path: preSavedPath ?? saveLocally(input.repo, title, body),
       };
     }
 
@@ -417,9 +401,10 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
         ledger = loadLedger();
         recordFiled(ledger, signature, input.repo, url, true);
         saveLedger(ledger);
+        discardPreSavedCopy(preSavedPath);
         return { status: 'created', url, message: `Filed: ${url}` };
       } catch (error) {
-        const path = saveLocally(input.repo, title, body);
+        const path = preSavedPath ?? saveLocally(input.repo, title, body);
         return {
           status: 'saved-locally',
           path,
@@ -435,9 +420,10 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
         ledger = loadLedger();
         recordFiled(ledger, signature, input.repo, url, true);
         saveLedger(ledger);
+        discardPreSavedCopy(preSavedPath);
         return { status: 'created', url, message: `Filed: ${url}` };
       } catch (error) {
-        const path = saveLocally(input.repo, title, body);
+        const path = preSavedPath ?? saveLocally(input.repo, title, body);
         return {
           status: 'saved-locally',
           path,
@@ -446,7 +432,7 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
       }
     }
 
-    const path = saveLocally(input.repo, title, body);
+    const path = preSavedPath ?? saveLocally(input.repo, title, body);
     return {
       status: 'saved-locally',
       path,
