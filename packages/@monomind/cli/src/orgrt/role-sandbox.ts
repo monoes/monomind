@@ -32,7 +32,7 @@
 
 import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { delimiter, isAbsolute, join } from 'node:path';
+import { delimiter, dirname, isAbsolute, join } from 'node:path';
 import type { OrgBus } from './bus.js';
 import { CLI_SANDBOX_MODES } from './cli-sandbox.js';
 import {
@@ -180,7 +180,21 @@ const uniq = (xs: Array<string | undefined>): string[] => [
  *  missing path so that access() fails with EACCES instead of ENOENT, and git
  *  treats an unreadable ~/.gitconfig as fatal — every git command in the role
  *  would fail (observed against the real SDK sandbox). */
-const existing = (xs: Array<string | undefined>): string[] => uniq(xs).filter((p) => existsSync(p));
+const existing = (xs: Array<string | undefined>): string[] =>
+  uniq(uniq(xs).filter((p) => existsSync(p)).map(maskTarget));
+/** bwrap cannot bind over a path inside a directory it cannot list ("Can't
+ *  mkdir parents … Permission denied" — /run/containerd is drwx--x--x on a
+ *  stock docker host), and that failure kills every sandboxed Bash call. Mask
+ *  the whole directory instead, which hides at least as much. */
+function maskTarget(p: string): string {
+  const parent = dirname(p);
+  try {
+    accessSync(parent, constants.R_OK);
+    return p;
+  } catch {
+    return parent;
+  }
+}
 /** Permission-rule form of an absolute path (`//abs/path`). */
 const rule = (tool: string, abs: string) => `${tool}(/${abs})`;
 

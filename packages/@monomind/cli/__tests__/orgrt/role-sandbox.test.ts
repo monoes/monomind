@@ -135,6 +135,29 @@ describe('buildClaudeRestrictions', () => {
     expect(sb.filesystem.denyRead).toEqual(expect.arrayContaining([join(agentDir, 'agent.1'), agentDir]));
   });
 
+  // Regression: /run/containerd is drwx--x--x on a stock docker host. bwrap
+  // cannot bind over a file in a directory it cannot list ("Can't mkdir parents
+  // for /run/containerd/containerd.sock: Permission denied"), so masking the
+  // socket itself made every Bash call in every sandboxed role fail.
+  it('masks the whole directory when a socket sits in a directory the user cannot list', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const locked = join(base, 'locked');
+    mkdirSync(locked);
+    writeFileSync(join(locked, 'agent.sock'), '');
+    chmodSync(locked, 0o311);
+    try {
+      const sb = buildClaudeRestrictions(guard, undefined, {
+        ...ctx(repo, base),
+        env: { SSH_AUTH_SOCK: join(locked, 'agent.sock') },
+      }, true).sandbox as any;
+      expect(sb.filesystem.denyRead).toContain(locked);
+      expect(sb.filesystem.denyRead).not.toContain(join(locked, 'agent.sock'));
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
   // Regression: with unix sockets reachable, the session D-Bus in the runtime
   // dir reaches the login keyring, and `gh auth token` handed a sandboxed role
   // the operator's GitHub token (verified against the real sandbox — a
