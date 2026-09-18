@@ -315,6 +315,10 @@ describe('crash-reporter concurrency primitives', () => {
       expect(result.path).toBeDefined();
       expect(existsSync(result.path!)).toBe(true);
       expect(readFileSync(result.path!, 'utf8')).toContain(baseInput.repo);
+      // Proves this test reached the gh-auth logic rather than returning
+      // 'saved-locally' from the consent gate's short-circuit — the gh probe
+      // only runs once consent has been checked and passed.
+      expect(execFileAsyncMock).toHaveBeenCalled();
     });
 
     it('returns disabled when MONOMIND_CRASH_REPORTING=0', async () => {
