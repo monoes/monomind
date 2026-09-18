@@ -39,6 +39,54 @@ export function extractSymbols(
     language,
   });
 
+  /**
+   * Emit one Variable node per name bound by a variable/constant spec. A single
+   * spec can bind several names (Go's `var a, b = 1, 2`), and a grouped
+   * `var ( … )` / `const ( … )` block holds one spec per line — each is its own
+   * symbol, at its own line. Only file-scope specs are indexed; locals declared
+   * inside a function would bury the package-level API in noise.
+   */
+  function emitVariableSpec(
+    node: Parser.Node,
+    parentId: string | undefined,
+    scope: readonly string[],
+  ): void {
+    if (scope.length > 0) return;
+    // childrenForFieldName() also yields the anonymous separators between the
+    // names (the commas), so keep only the named identifier nodes.
+    const nameNodes = node
+      .childrenForFieldName(config.nameField)
+      .filter((n): n is Parser.Node => Boolean(n?.isNamed));
+    for (const nameNode of nameNodes) {
+      const name = nameNode.text;
+      if (!name) continue;
+      const id = symbolNodeId(scope, name, 'Variable');
+      nodes.push({
+        id,
+        label: 'Variable',
+        name,
+        normLabel: toNormLabel(name),
+        filePath: repoPath,
+        startLine: nameNode.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        isExported: config.exportDetector
+          ? config.exportDetector(nameNode, source)
+          : isNodeExported(nameNode, source),
+        language,
+      });
+
+      const containerId = parentId ?? fileNodeId;
+      edges.push({
+        id: makeId(containerId, id, 'contains'),
+        sourceId: containerId,
+        targetId: id,
+        relation: 'CONTAINS',
+        confidence: 'EXTRACTED',
+        confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+      });
+    }
+  }
+
   function walk(node: Parser.Node, parentId?: string, scope: readonly string[] = []): void {
     // Skip anonymous keyword tokens — some grammars type them identically to
     // declaration nodes (tree-sitter-ruby's class keyword is a node of type
@@ -51,6 +99,12 @@ export function extractSymbols(
     if (config.importNodeTypes.has(type)) {
       handleImport(node, fileNodeId, source, config, edges, repoPath);
       return;
+    }
+
+    if (config.variableNodeTypes?.has(type)) {
+      emitVariableSpec(node, parentId, scope);
+      // Fall through to the generic recursion below: a value expression can
+      // still hold declarations worth indexing.
     }
 
     const isClass = config.classNodeTypes.has(type);

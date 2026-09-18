@@ -12,6 +12,7 @@ export const goConfig: LanguageConfig = {
   methodNodeTypes: new Set(['method_declaration']),
   constructorNodeTypes: new Set([]),
   interfaceNodeTypes: new Set([]),
+  variableNodeTypes: new Set(['var_spec', 'const_spec']),
   importNodeTypes: new Set(['import_declaration', 'import_spec']),
   callNodeTypes: new Set(['call_expression']),
   decoratorNodeTypes: new Set([]),
@@ -22,9 +23,11 @@ export const goConfig: LanguageConfig = {
     return pathNode?.text.replace(/['"]/g, '') ?? null;
   },
   exportDetector: (node, _source) => {
-    // Go exports identifiers that start with an uppercase letter.
-    const nameNode = node.childForFieldName('name');
-    const name = nameNode?.text ?? '';
+    // Go exports identifiers that start with an uppercase letter. Variable and
+    // constant specs are checked one name at a time, so the node handed over is
+    // the identifier itself rather than the declaration around it.
+    const name =
+      node.type === 'identifier' ? node.text : (node.childForFieldName('name')?.text ?? '');
     return name.length > 0 && name[0] >= 'A' && name[0] <= 'Z';
   },
   labelRefiner: (node, defaultLabel): import('../types.js').NodeLabel => {

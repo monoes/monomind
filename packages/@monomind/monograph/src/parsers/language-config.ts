@@ -35,6 +35,13 @@ export interface LanguageConfig {
   methodNodeTypes: Set<string>;
   constructorNodeTypes: Set<string>;
   interfaceNodeTypes: Set<string>;
+  /**
+   * Node types that bind package/module-level variables or constants, one node
+   * per name in the `nameField` (Go's var_spec/const_spec, which cover both the
+   * single-line and the grouped `var ( … )` forms). Omit for languages whose
+   * variables are picked up by the regex pass in pipeline/phases/variables.ts.
+   */
+  variableNodeTypes?: Set<string>;
   importNodeTypes: Set<string>;
   callNodeTypes: Set<string>;
   decoratorNodeTypes: Set<string>;
