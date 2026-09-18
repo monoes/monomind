@@ -4,6 +4,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+// i-066: shared with routes-monoes.mjs (plain ESM, no build step — see that
+// module's own doc comment for why this lives in a .mjs sibling rather than
+// here).
+import { detectMonoesTokenLeak, formatMonoesLeakWarning } from '../mcp/monoes-mcp-entry.mjs';
 import { atomicWriteFile, MAX_EXEC_FILE_BYTES, writeGeneratedFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
@@ -80,6 +84,8 @@ daemon.pid
 *.token
 *.secret
 .env
+# monoes.me OAuth refresh token (i-066) — must never be committed
+monoes-connection.json
 `;
 
   if (!fs.existsSync(gitignorePath) || options.force) {
@@ -89,7 +95,16 @@ daemon.pid
 
   // Ensure the project-level .gitignore does NOT blanket-ignore .monomind/
   // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
-  // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead.
+  // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead —
+  // i-066: but ONLY when the replacement is a strict superset of what the
+  // blanket line already covered. A blanket `.monomind/` ignores every
+  // current and future path under the directory; a finite specific list can
+  // never be a superset of that (unless it also contains a blanket-shaped
+  // entry itself), so with today's list this never fires — the user's
+  // existing blanket coverage is left alone rather than narrowed. This was
+  // the actual regression: the old unconditional strip could uncover
+  // .monomind/monoes-connection.json (the monoes.me refresh token) for any
+  // user who had sensibly blanket-ignored .monomind/.
   const projectGitignorePath = path.join(targetDir, '.gitignore');
   if (
     fs.existsSync(projectGitignorePath) &&
@@ -97,26 +112,37 @@ daemon.pid
   ) {
     const existing = fs.readFileSync(projectGitignorePath, 'utf-8');
     const blanketPattern = /^(\*\*\/)?\.monomind\/?\s*$/gm;
-    if (blanketPattern.test(existing)) {
+    const specificExcludes = [
+      '# monomind runtime — exclude sensitive and machine-specific data',
+      '.monomind/sessions/',
+      '.monomind/security/',
+      '.monomind/*.tmp',
+      '.monomind/*.log',
+      '.monomind/daemon.pid',
+      '.monomind/*.db',
+      '.monomind/*.db-wal',
+      '.monomind/*.db-shm',
+      '.monomind/monoes-connection.json',
+    ];
+    const replacementIsBlanketEquivalent = specificExcludes.some((line) =>
+      /^\.monomind\/\*{1,2}\/?$/.test(line.trim()),
+    );
+    if (blanketPattern.test(existing) && replacementIsBlanketEquivalent) {
       const fixed = existing
         .split('\n')
         .filter((line) => !/^(\*\*\/)?\.monomind\/?\s*$/.test(line))
         .join('\n');
-      const specificExcludes = [
-        '# monomind runtime — exclude sensitive and machine-specific data',
-        '.monomind/sessions/',
-        '.monomind/security/',
-        '.monomind/*.tmp',
-        '.monomind/*.log',
-        '.monomind/daemon.pid',
-        '.monomind/*.db',
-        '.monomind/*.db-wal',
-        '.monomind/*.db-shm',
-      ].join('\n');
-      atomicWriteFile(projectGitignorePath, `${fixed.trimEnd()}\n${specificExcludes}\n`);
+      atomicWriteFile(projectGitignorePath, `${fixed.trimEnd()}\n${specificExcludes.join('\n')}\n`);
       result.updated.push('.gitignore (replaced blanket .monomind/ ignore with specific excludes)');
     }
   }
+
+  // i-066 §3.5: if this project already leaked the token before this fix
+  // (a legacy literal bearer entry still in .mcp.json, or
+  // monoes-connection.json tracked by git), warn loudly rather than
+  // silently migrating past it.
+  const leakWarning = formatMonoesLeakWarning(detectMonoesTokenLeak(targetDir));
+  if (leakWarning) console.error(leakWarning);
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
