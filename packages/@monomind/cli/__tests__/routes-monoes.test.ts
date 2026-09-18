@@ -436,4 +436,49 @@ describe('monoes.me connection → .mcp.json sync', () => {
     const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
     expect(raw).not.toContain(leakedToken);
   });
+
+  // i-066 reviewer finding 8 [BLOCKER]: `'headers' in entry` throws a
+  // TypeError when entry isn't an object (a string/number/boolean from a
+  // typo, hand edit, or bad merge resolution — .mcp.json is designed to be
+  // committed and merged). That throw escapes the request handler's
+  // try/catch scope and, since ui/server.mjs's http.createServer callback
+  // has no enclosing try/catch, terminates the whole dashboard process —
+  // "the dashboard died" from a teammate's hand edit. Must self-heal
+  // instead: a non-object value is non-conforming, so it gets re-synced to
+  // the correct shape.
+  it('does not crash the dashboard, and self-heals, when mcpServers.monoes is a malformed non-object value', async () => {
+    writeConnection({ accessToken: /* value */ 'stays-good', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeMcpJson(monomindHome, {
+      mcpServers: { monoes: 'this-should-be-an-object-not-a-string' },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+    // If handleMonoesRoutes throws/rejects here (the bug), this test fails
+    // with that exact error — which is the point: ui/server.mjs's request
+    // handler has no enclosing try/catch, so an uncaught throw here is
+    // precisely what takes the whole dashboard process down.
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+  });
+
+  // An array is `typeof 'object'` but not a plain config object — `'headers'
+  // in ['npx']` doesn't throw (arrays support `in`), so this row wouldn't
+  // have crashed, but it would have wrongly reported conforming=true and
+  // never been repaired without the explicit Array.isArray() exclusion.
+  it('self-heals when mcpServers.monoes is an array instead of an object', async () => {
+    writeConnection({ accessToken: /* value */ 'stays-good', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeMcpJson(monomindHome, { mcpServers: { monoes: ['npx', '-y', 'monomind@latest'] } });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+  });
 });

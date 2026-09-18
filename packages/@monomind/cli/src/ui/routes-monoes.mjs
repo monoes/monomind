@@ -295,7 +295,18 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
       entry = undefined; // No .mcp.json, or unreadable — nothing to sync into; _syncMonoesMcpEntry no-ops too.
     }
     const hasEntry = !!entry;
-    const isConformingEntry = hasEntry && !('headers' in entry) && entry.type !== 'http';
+    // i-066 reviewer finding 8 [BLOCKER]: `'headers' in entry` throws a
+    // TypeError when entry isn't an object — a realistic shape for a file
+    // designed to be committed and merged (a typo, a hand edit, a bad merge
+    // resolution can leave mcpServers.monoes as a string/number/boolean/
+    // array). That throw would escape this handler uncaught, and
+    // ui/server.mjs's http.createServer callback has no enclosing
+    // try/catch, so it would kill the whole dashboard process. Guard with
+    // an explicit object check first — a non-object (or array) value is
+    // simply non-conforming, so it self-heals via the normal re-sync path
+    // instead of crashing.
+    const isObjectEntry = typeof entry === 'object' && entry !== null && !Array.isArray(entry);
+    const isConformingEntry = isObjectEntry && !('headers' in entry) && entry.type !== 'http';
     if (isConnected !== hasEntry || (hasEntry && !isConformingEntry)) {
       _syncMonoesMcpEntry(resolvedProjectDir, isConnected);
     }
