@@ -13,6 +13,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm, mkdir, writeFile } from 'fs/promises';
+import { setTimeout as realDelay } from 'timers/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -73,6 +74,29 @@ async function writePersistedPort(port: number, pid: number, savedAt: number): P
   const dir = join(tempDir, '.monomind', 'monobrowse');
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, 'active-port.json'), JSON.stringify({ port, pid, launched: true, savedAt }), 'utf-8');
+}
+
+/**
+ * Block (in REAL time) until closeBrowser()'s process-exit poll has actually
+ * started, observed via the poll's own first liveness probe — `kill(pid, 0)`
+ * is the first thing waitForProcessExit() does.
+ *
+ * Needed because closeBrowser() awaits the persisted-port read (real
+ * filesystem I/O) BEFORE that poll starts, while `advanceTimersByTimeAsync`
+ * only moves a FAKE clock and does not wait for real I/O. Advancing a fixed
+ * number of times therefore raced the read: every advance can complete in
+ * microseconds of real time while the read is still in flight, so on a loaded
+ * host the budget ran out with the poll never started — and since nothing
+ * then drives the fake clock again, the test did not merely run slow, it
+ * deadlocked on an unsettled promise until the test timeout fired.
+ *
+ * Once this returns, the remaining work is pure fake timers, so a single
+ * bounded advance carries it deterministically.
+ */
+async function exitPollStarted(pid: number): Promise<void> {
+  while (!killSpy.mock.calls.some(([p, signal]) => p === pid && signal === 0)) {
+    await realDelay(0);
+  }
 }
 
 async function connectedClient(autoAck = false) {
@@ -157,13 +181,15 @@ describe('#115 review follow-up: closeBrowser() cross-process PID-kill fallback'
 
     const client = await connectedClient(true);
     const closePromise = closeBrowser(client, port);
-    // Still running a moment after the ack — close() must NOT have resolved.
-    await vi.advanceTimersByTimeAsync(200);
     let settled = false;
     void closePromise.then(() => {
       settled = true;
     });
-    await vi.advanceTimersByTimeAsync(0);
+
+    // Poll is running and the process is still alive — several poll ticks in,
+    // close() must NOT have resolved.
+    await exitPollStarted(22222);
+    await vi.advanceTimersByTimeAsync(200);
     expect(settled).toBe(false);
 
     alive = false; // Chrome finishes exiting
@@ -180,40 +206,24 @@ describe('#115 review follow-up: closeBrowser() cross-process PID-kill fallback'
 
     const client = await connectedClient(true);
     const closePromise = closeBrowser(client, port);
-    // The exit poll schedules one timer per tick, each from the previous
-    // tick's callback. How far a single advance carries through a chain like
-    // that is a fake-timer implementation detail that differs by Node version
-    // (runAllTimersAsync hung this test on Node 22 while passing on 26), so
-    // step the clock until the promise settles instead of assuming.
-    //
-    // Each `advanceTimersByTimeAsync` call has real (non-fake) overhead of
-    // its own — a previous fix here just raised the iteration count at a
-    // fixed 100ms step (100ms x 600 = enough fake-time headroom, but up to
-    // 600 real await round-trips), which still intermittently timed out on a
-    // slow/busy CI runner because that overhead is per CALL, not per fake-ms
-    // advanced. Stepping by a much larger 2000ms per call reaches the same
-    // (and greater) fake-time coverage in a fraction of the calls — the exit
-    // poll's PROCESS_EXIT_TIMEOUT_MS deadline (5000ms) is comfortably inside
-    // even a handful of iterations — without giving up the settle-and-stop
-    // loop that avoids the Node 22 hang a single unbounded advance hit.
     let settled = false;
     void closePromise.then(() => {
       settled = true;
     });
-    for (let i = 0; i < 60 && !settled; i++) await vi.advanceTimersByTimeAsync(2000);
+
+    // Wait for the poll to exist before driving it (see exitPollStarted) —
+    // every previous fix here guessed an advance budget instead, which is
+    // what made this test hang rather than merely run slow. From here on the
+    // poll is the only thing left and it is pure fake timers, so one advance
+    // past its PROCESS_EXIT_TIMEOUT_MS (5000ms) deadline settles it, with no
+    // dependence on how fast the host happens to be.
+    await exitPollStarted(33333);
+    await vi.advanceTimersByTimeAsync(6000);
     await closePromise;
 
     expect(settled).toBe(true);
     expect(killSpy).toHaveBeenCalledWith(33333, 'SIGKILL');
-    // 20_000 here was itself still timing out (~20.4s) three times in one
-    // session on a host under heavy unrelated load, always passing in well
-    // under 1s run alone — the fake-time work is trivial, the real bottleneck
-    // is per-await overhead across up to 60 round-trips scaling with host
-    // contention, not anything this test controls. 60s keeps the same margin
-    // this test has always had relative to its actual (sub-second) cost while
-    // giving a loaded runner enough room; a genuine hang still fails well
-    // inside that window.
-  }, 60_000);
+  });
 
   it('no persisted port file at all — closeBrowser is a no-op, no kill attempted', async () => {
     vi.resetModules();
