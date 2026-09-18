@@ -113,6 +113,16 @@ const DEFAULT_OPTIONS: Required<MCPServerOptions> = {
 };
 
 /**
+ * Per-user state file locations the MCP server publishes itself through.
+ * `mcp start --daemon` needs them in the *parent* process (to wait for the
+ * child's PID and to tell the user where its output went), so they are
+ * exposed rather than left buried in DEFAULT_OPTIONS.
+ */
+export function getDefaultMcpPaths(): { pidFile: string; logFile: string } {
+  return { pidFile: DEFAULT_OPTIONS.pidFile, logFile: DEFAULT_OPTIONS.logFile };
+}
+
+/**
  * MCP Server Manager
  *
  * Manages the lifecycle of the MCP server process
@@ -216,6 +226,12 @@ export class MCPServerManager extends EventEmitter {
         }
 
         this.process = undefined;
+      } else if (status.pid && status.pid !== process.pid) {
+        // A daemonized server (`mcp start --daemon`) runs in a process this
+        // manager never spawned, so there is no ChildProcess handle — only the
+        // PID it published. Without this, stop() merely deleted the PID file
+        // and left the daemon running and unreachable.
+        await this.signalDetachedServer(status.pid, force);
       }
 
       if (this.server) {
@@ -904,6 +920,36 @@ export class MCPServerManager extends EventEmitter {
 
     // Store reference for stopping
     this._mcpServer = mcpServer;
+  }
+
+  /**
+   * Terminate a detached server process by PID (see stop()). SIGTERM first so
+   * the daemon can close connections, escalating to SIGKILL if it outstays the
+   * grace period.
+   */
+  private async signalDetachedServer(pid: number, force: boolean): Promise<void> {
+    const GRACE_MS = 5000;
+    const POLL_MS = 100;
+
+    try {
+      process.kill(pid, force ? 'SIGKILL' : 'SIGTERM');
+    } catch {
+      // Already gone — nothing to wait for.
+      return;
+    }
+
+    const deadline = Date.now() + GRACE_MS;
+    while (Date.now() < deadline && this.isProcessRunning(pid)) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    }
+
+    if (this.isProcessRunning(pid)) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // Raced with the process exiting on its own.
+      }
+    }
   }
 
   /**

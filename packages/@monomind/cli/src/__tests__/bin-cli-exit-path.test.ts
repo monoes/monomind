@@ -81,4 +81,25 @@ describe('bin/cli.js does not force-exit the main process', () => {
     // ref'd interval; exiting when the action resolves defeats the daemon.
     expect(successHandler(readBin())).toMatch(/isDaemonChild/);
   });
+
+  it('exempts `mcp start`, which hosts the server in this process (#267)', () => {
+    // Being unref'd only stops the watchdog from *holding* the loop open — it
+    // still *fires* when something else keeps the loop alive. `mcp start`'s
+    // HTTP/WS listener (or stdio reader) is exactly that, so the watchdog
+    // killed every MCP server 5s after it printed "MCP Server started",
+    // including the one `--daemon` had just detached.
+    const src = readBin();
+    expect(src).toMatch(/isMcpServerHost/);
+    expect(successHandler(src)).toMatch(/isMcpServerHost/);
+  });
+
+  it('does not exempt `mcp start --daemon`, whose parent must exit', () => {
+    // The `-d` parent only spawns the detached child; it has no server of its
+    // own to keep alive and must hand the terminal straight back.
+    const src = stripComments(readBin());
+    const host = /const isMcpServerHost\s*=([\s\S]*?);/.exec(src)?.[1];
+    expect(host, 'isMcpServerHost definition not found').toBeTruthy();
+    expect(host).toMatch(/--daemon/);
+    expect(host).toMatch(/'-d'/);
+  });
 });

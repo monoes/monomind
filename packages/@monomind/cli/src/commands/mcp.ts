@@ -164,6 +164,46 @@ const startCommand: Command = {
       }
     }
 
+    // --daemon means "hand the terminal back and leave a server behind", which
+    // an in-process server can never do: re-exec ourselves detached instead.
+    if (daemon) {
+      try {
+        const { launchMcpDaemon } = await import('./mcp-daemon.js');
+        const handle = await launchMcpDaemon({ transport, host, port, tools });
+
+        output.writeln();
+        output.printTable({
+          columns: [
+            { key: 'property', header: 'Property', width: 15 },
+            { key: 'value', header: 'Value', width: 30 },
+          ],
+          data: [
+            { property: 'Server PID', value: handle.pid },
+            { property: 'Transport', value: transport },
+            { property: 'Host', value: host },
+            { property: 'Port', value: port },
+            { property: 'Status', value: output.success('Running') },
+          ],
+        });
+
+        output.writeln();
+        output.printSuccess('MCP Server started in background');
+        if (transport === 'http') {
+          output.writeln(output.dim(`  Health: http://${host}:${port}/health`));
+          output.writeln(output.dim(`  RPC: http://${host}:${port}/rpc`));
+        } else if (transport === 'websocket') {
+          output.writeln(output.dim(`  WebSocket: ws://${host}:${port}/ws`));
+        }
+        output.writeln(output.dim(`  Logs: ${handle.logFile}`));
+        output.writeln(output.dim(`  Stop with: monomind mcp stop`));
+
+        return { success: true, data: { running: true, pid: handle.pid, transport, host, port } };
+      } catch (error) {
+        output.printError(`Failed to start MCP daemon: ${(error as Error).message}`);
+        return { success: false, exitCode: 1 };
+      }
+    }
+
     const options: MCPServerOptions = {
       transport,
       host,
@@ -231,10 +271,6 @@ const startCommand: Command = {
         output.writeln(output.dim(`  RPC: http://${host}:${port}/rpc`));
       } else if (transport === 'websocket') {
         output.writeln(output.dim(`  WebSocket: ws://${host}:${port}/ws`));
-      }
-
-      if (daemon) {
-        output.writeln(output.dim('  Running in background mode'));
       }
 
       return { success: true, data: status };
