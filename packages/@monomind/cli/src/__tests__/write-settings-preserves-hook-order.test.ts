@@ -1,11 +1,15 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateSettingsJson } from '../init/settings-generator.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
 import { writeSettings } from '../init/write-claude.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
+const ROOT_SETTINGS = join(REPO_ROOT, '.claude', 'settings.json');
 
 function freshResult(): InitResult {
   return {
@@ -19,6 +23,30 @@ function freshResult(): InitResult {
   };
 }
 
+/** A settings.json that differs from the template in the two ways this suite
+ *  needs: existing blocks in the opposite order, and one template block
+ *  missing so it has to be appended. */
+function seedFromTemplate(projectDir: string): Record<string, unknown> {
+  const generated = JSON.parse(
+    generateSettingsJson({
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: projectDir,
+      force: true,
+      components: { ...DEFAULT_INIT_OPTIONS.components },
+    }),
+  );
+  for (const event of ['PreToolUse', 'PostToolUse'] as const) {
+    const groups = generated.hooks[event] as unknown[];
+    if (groups.length < 2) {
+      throw new Error(
+        `settings template emits ${groups.length} ${event} block(s); this suite needs at least 2`,
+      );
+    }
+    generated.hooks[event] = groups.slice(0, -1).reverse();
+  }
+  return generated;
+}
+
 describe('writeSettings --force preserves original hook block order', () => {
   let tmp: string;
   let projectDir: string;
@@ -29,28 +57,20 @@ describe('writeSettings --force preserves original hook block order', () => {
     projectDir = join(tmp, 'project');
     mkdirSync(join(projectDir, '.claude'), { recursive: true });
     settingsPath = join(projectDir, '.claude', 'settings.json');
-    // Seed with a fixture DERIVED from the current template, not with the
-    // repo's own .claude/settings.json: that file is kept up to date, so the
-    // moment it carries every block the template emits, the "genuinely new
-    // template block" half of this test becomes vacuous and fails (which is
-    // what happened when 08f9083c4 synced it). The fixture reproduces both
-    // conditions the bug needed, independently of repo state:
-    //   - PreToolUse blocks in a DIFFERENT order than the template emits
-    //     them (the regression rebuilt each event's array in template order)
-    //   - one template block missing, so writeSettings has something new to
-    //     append after the pre-existing ones.
-    const seed = JSON.parse(
-      generateSettingsJson({
-        ...DEFAULT_INIT_OPTIONS,
-        targetDir: projectDir,
-        force: true,
-        components: { ...DEFAULT_INIT_OPTIONS.components },
-      }),
-    );
-    const pre = seed.hooks.PreToolUse as Array<{ matcher?: string }>;
-    if (pre.length > 1) [pre[0], pre[1]] = [pre[1], pre[0]];
-    if (pre.length > 1) pre.pop();
-    writeFileSync(settingsPath, `${JSON.stringify(seed, null, 2)}\n`);
+    // Seed with a file derived from the template rather than the repo's own
+    // .claude/settings.json. Seeding from the committed file made this suite
+    // depend on that file DIFFERING from the template: the moment someone
+    // synced the two (as "fix(assets): sync the shipped .claude/settings.json"
+    // did), the fixture had no block the template lacked, the
+    // "appends genuinely new blocks" case stopped being exercised, and the
+    // sanity assertion below failed on main for a change that was correct.
+    //
+    // Derived instead: take what the generator emits, reverse each event's
+    // block order and drop the last block. Reversing recreates the regression
+    // this suite exists for (the file's order is the opposite of the
+    // template's, which mergeHooksPreservingUnknown() used to overwrite), and
+    // dropping one guarantees a genuinely new template block to append.
+    writeFileSync(settingsPath, JSON.stringify(seedFromTemplate(projectDir), null, 2));
   });
 
   afterEach(() => {
@@ -122,6 +142,34 @@ describe('writeSettings --force preserves original hook block order', () => {
     // Trailing newline: the previously-committed file had one; the
     // regenerated one must too.
     expect(raw.endsWith('\n')).toBe(true);
+  });
+
+  it("keeps the repo's own committed settings.json in order through --force", async () => {
+    // The real-world case the bug was reported against. It asserts only order
+    // preservation, not that the file differs from the template: the two are
+    // allowed to be in sync, and this test must keep passing when they are.
+    writeFileSync(settingsPath, readFileSync(ROOT_SETTINGS, 'utf-8'));
+    const before = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+
+    await writeSettings(
+      projectDir,
+      {
+        ...DEFAULT_INIT_OPTIONS,
+        targetDir: projectDir,
+        force: true,
+        components: { ...DEFAULT_INIT_OPTIONS.components },
+      },
+      freshResult(),
+    );
+
+    const after = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    for (const event of Object.keys(before.hooks)) {
+      const beforeM: string[] = before.hooks[event].map(
+        (g: { matcher?: string }) => g.matcher ?? '',
+      );
+      const afterM: string[] = after.hooks[event].map((g: { matcher?: string }) => g.matcher ?? '');
+      expect(afterM.filter((m) => beforeM.includes(m))).toEqual(beforeM);
+    }
   });
 
   it('produces a byte-identical settings.json on a second `init --force` run (no perpetual reordering)', async () => {
