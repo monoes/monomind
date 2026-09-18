@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { basename, join, resolve } from 'node:path';
 import { output } from '../output.js';
 import { renderCompatibilityMatrix } from '../platform-adapters/docs.js';
+import { LEGACY_SURFACE_INVENTORY, type LegacySurface } from '../platform-adapters/migration.js';
 import {
   installPlatform,
   migrateLegacyInstall,
@@ -17,7 +18,12 @@ import {
   PLATFORM_REGISTRY,
   resolvePlatformId,
 } from '../platform-adapters/registry.js';
-import type { InstallScope, MutationRequest, PlatformId } from '../platform-adapters/types.js';
+import type {
+  InstallScope,
+  MutationRequest,
+  PlatformDoctorReport,
+  PlatformId,
+} from '../platform-adapters/types.js';
 import type { Command, CommandContext, CommandOption, CommandResult } from '../types.js';
 
 export const SUPPORTED_PLATFORMS = PLATFORM_IDS;
@@ -83,7 +89,7 @@ function mutationRequest(ctx: CommandContext, platform?: PlatformId): MutationRe
 }
 
 function resultError(reason: unknown): CommandResult {
-  output.error(reason instanceof Error ? reason.message : String(reason));
+  output.printError(reason instanceof Error ? reason.message : String(reason));
   return { success: false, exitCode: 1 };
 }
 
@@ -95,9 +101,9 @@ function printResults(
   }[],
 ): void {
   for (const result of results) {
-    result.changed.forEach((path) => output.success(`Updated ${path}`));
-    result.skipped.forEach((path) => output.info(`Skipped ${path}`));
-    result.diagnostics.forEach((diagnostic) => output.info(diagnostic));
+    result.changed.forEach((path) => output.printSuccess(`Updated ${path}`));
+    result.skipped.forEach((path) => output.printInfo(`Skipped ${path}`));
+    result.diagnostics.forEach((diagnostic) => output.printInfo(diagnostic));
   }
 }
 
@@ -121,8 +127,8 @@ async function handlePlan(ctx: CommandContext): Promise<CommandResult> {
     if (ctx.flags.json === true) output.printJson(plans);
     else
       plans.forEach((plan) => {
-        output.info(`Plan: ${plan.intents.length} artifact(s)`);
-        plan.diagnostics.forEach((diagnostic) => output.info(diagnostic));
+        output.printInfo(`Plan: ${plan.intents.length} artifact(s)`);
+        plan.diagnostics.forEach((diagnostic) => output.printInfo(diagnostic));
       });
     return { success: true, data: plans };
   } catch (reason) {
@@ -171,6 +177,86 @@ async function handleUninstall(ctx: CommandContext): Promise<CommandResult> {
   }
 }
 
+/** What a detected legacy surface is, in the user's terms, and how to clear it. */
+const LEGACY_ACTION: Record<
+  LegacySurface['action'],
+  { meaning: string; fix: 'upgrade' | 'remove' }
+> = {
+  migrate: {
+    meaning: 'unnamed pre-adapter block; upgrade rewrites it with the current named marker',
+    fix: 'upgrade',
+  },
+  'remove-block': {
+    meaning: 'Monomind block in a file the adapters no longer own',
+    fix: 'upgrade',
+  },
+  'remove-entry': {
+    meaning: 'Monomind entry in a config the adapters no longer own',
+    fix: 'upgrade',
+  },
+  'remove-file': {
+    meaning: 'file written by a pre-adapter install',
+    fix: 'remove',
+  },
+};
+
+function adapterState(report: PlatformDoctorReport): string {
+  if (report.legacy.findings.length) return 'legacy';
+  return report.artifacts.some((artifact) => artifact.state === 'managed')
+    ? 'managed'
+    : 'not installed';
+}
+
+function printLegacy(report: PlatformDoctorReport, scope: InstallScope): void {
+  if (!report.legacy.findings.length) return;
+  output.writeln(output.dim('  legacy surfaces detected:'));
+  const fixes = new Set<string>();
+  for (const id of report.legacy.findings) {
+    const surface = LEGACY_SURFACE_INVENTORY.find((entry) => entry.id === id);
+    const action = surface && LEGACY_ACTION[surface.action];
+    output.writeln(
+      `    ${id}  ${surface?.path ?? ''} — ${action?.meaning ?? 'pre-adapter artifact'}`,
+    );
+    if (action)
+      fixes.add(
+        action.fix === 'upgrade'
+          ? `monomind platforms upgrade --platform ${report.platform} --scope ${scope}`
+          : `monomind platforms uninstall --platform ${report.platform} --scope ${scope} --remove-legacy`,
+      );
+  }
+  for (const fix of fixes) output.writeln(`    migrate with: ${fix}`);
+}
+
+function printDoctorReports(reports: readonly PlatformDoctorReport[], scope: InstallScope): void {
+  output.writeln(output.bold(`Platform adapters (${scope} scope)`));
+  for (const report of reports) {
+    const adapter = PLATFORM_REGISTRY[report.platform];
+    output.writeln();
+    output.writeln(`${report.platform} (${adapter.displayName}): ${adapterState(report)}`);
+    if (!report.artifacts.length) output.writeln('  artifacts: none declared');
+    else output.writeln(output.dim('  artifacts:'));
+    for (const artifact of report.artifacts)
+      output.writeln(
+        `    ${artifact.state.padEnd(8)} ${artifact.path}${artifact.reason ? ` (${artifact.reason})` : ''}`,
+      );
+    printLegacy(report, scope);
+    if (report.diagnostics.length) {
+      output.writeln(output.dim('  notes:'));
+      report.diagnostics.forEach((diagnostic) => output.writeln(`    ${diagnostic}`));
+    }
+    const next =
+      adapterState(report) === 'not installed'
+        ? `install --platform ${report.platform}`
+        : `upgrade --platform ${report.platform}`;
+    output.writeln(`  next: monomind platforms ${next} --scope ${scope}`);
+  }
+  const legacy = reports.filter((report) => report.legacy.findings.length).length;
+  output.writeln();
+  output.writeln(
+    `${reports.length} platform(s) inspected, ${legacy} with legacy surfaces. Legacy findings are warnings, not failures.`,
+  );
+}
+
 async function handleDoctor(ctx: CommandContext): Promise<CommandResult> {
   const raw = typeof ctx.flags.platform === 'string' ? ctx.flags.platform : undefined;
   const platform = targetFrom(ctx);
@@ -182,13 +268,9 @@ async function handleDoctor(ctx: CommandContext): Promise<CommandResult> {
       scope: scopeFrom(ctx),
     });
     if (ctx.flags.json === true) output.printJson(reports);
-    else
-      reports.forEach((report) => {
-        const state =
-          report.artifacts.map((artifact) => artifact.state).join(', ') || 'no declared artifacts';
-        output.info(`${report.platform}: ${state}`);
-        report.diagnostics.forEach((diagnostic) => output.info(diagnostic));
-      });
+    else printDoctorReports(reports, scopeFrom(ctx));
+    // A legacy or missing artifact is a warning, not a command failure: doctor
+    // reports state, it does not gate on it.
     return { success: true, data: reports };
   } catch (reason) {
     return resultError(reason);
@@ -198,10 +280,10 @@ async function handleDoctor(ctx: CommandContext): Promise<CommandResult> {
 async function handleSetup(ctx: CommandContext): Promise<CommandResult> {
   const targets = requireTargets(ctx);
   if (!Array.isArray(targets)) return targets;
-  output.info(
+  output.printInfo(
     'platforms setup is deprecated and no longer writes SessionStart hooks or global plugins.',
   );
-  output.info('Use platforms doctor, then platforms install --scope user --yes.');
+  output.printInfo('Use platforms doctor, then platforms install --scope user --yes.');
   try {
     const result = await migrateLegacyInstall({
       ...mutationRequest(ctx, ctx.flags.all === true ? undefined : targets[0]),
@@ -222,12 +304,12 @@ async function handleDocs(ctx: CommandContext): Promise<CommandResult> {
   }
   const path = resolve(ctx.cwd, 'docs', 'platforms', 'compatibility.md');
   if (!existsSync(path) || readFileSync(path, 'utf8') !== rendered) {
-    output.error(
+    output.printError(
       'Platform compatibility documentation is stale; regenerate it from the platform registry.',
     );
     return { success: false, exitCode: 1 };
   }
-  output.success('Platform compatibility documentation is current.');
+  output.printSuccess('Platform compatibility documentation is current.');
   return { success: true };
 }
 
