@@ -5,6 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  AGENTS_MD_SIGNATURE,
   convertAgentMd,
   convertCommandMd,
   convertSkillMd,
@@ -17,8 +18,10 @@ import {
 import {
   atomicWriteFile,
   extractFmName,
+  hasUnmarkedGeneratedBody,
   isLikelyUserFile,
   isSafeConversionTarget,
+  mergeGeneratedBlock,
   walkMdFiles,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -46,11 +49,24 @@ export async function writeOpencodeFiles(
     result.skipped.push('opencode.json');
   }
 
-  // AGENTS.md — opencode's instructions file (CLAUDE.md equivalent).
+  // AGENTS.md — opencode's instructions file (CLAUDE.md equivalent). A raw
+  // `--force` overwrite silently destroyed hand-authored project guidance:
+  // AGENTS.md is a file projects own and write themselves, and none of the
+  // backups init takes held the pre-init text. See GH #278. Confine
+  // monomind's body to a delimited block exactly as writeClaudeMd does (GH
+  // #241), so a refresh only ever touches that block — on the first write
+  // too, so later runs replace in place instead of appending.
   const agentsMdPath = path.join(targetDir, 'AGENTS.md');
-  if (!fs.existsSync(agentsMdPath) || options.force) {
-    atomicWriteFile(agentsMdPath, generateAgentsMd());
-    result.created.files.push('AGENTS.md');
+  const agentsMdExists = fs.existsSync(agentsMdPath);
+  if (!agentsMdExists || options.force) {
+    const existing = agentsMdExists ? fs.readFileSync(agentsMdPath, 'utf-8') : '';
+    const generated = generateAgentsMd();
+    if (hasUnmarkedGeneratedBody(existing, 'agents-md', AGENTS_MD_SIGNATURE)) {
+      result.skipped.push('AGENTS.md (already holds a monomind-generated body — not duplicated)');
+    } else {
+      atomicWriteFile(agentsMdPath, mergeGeneratedBlock(existing, 'agents-md', generated));
+      result.created.files.push('AGENTS.md');
+    }
   } else {
     result.skipped.push('AGENTS.md');
   }

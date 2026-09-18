@@ -4,7 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { generateClaudeMd } from './claudemd-generator.js';
+import { CLAUDE_MD_SIGNATURE, generateClaudeMd } from './claudemd-generator.js';
 import { INIT_FALLBACK_HELPERS, OBSOLETE_HELPER_NAMES } from './helpers-generator.js';
 import { generateMCPJson } from './mcp-generator.js';
 import { generateSettingsJson } from './settings-generator.js';
@@ -12,6 +12,7 @@ import {
   atomicWriteFile,
   findSourceClaudeDir,
   findSourceHelpersDir,
+  hasUnmarkedGeneratedBody,
   MAX_EXEC_FILE_BYTES,
   mergeGeneratedBlock,
 } from './shared.js';
@@ -477,6 +478,14 @@ export async function writeClaudeMd(
   // applies on the very first write so a later `--force` always refreshes
   // just this block instead of duplicating the body.
   const existingContent = exists ? fs.readFileSync(claudeMdPath, 'utf-8') : '';
+  // A pre-marker release wrote this same body unwrapped. Appending the block
+  // beside it hands the user two copies of the same generated section — see
+  // GH #278 — and the legacy copy cannot be replaced safely because its
+  // boundaries, and any hand edits inside it, are unknowable.
+  if (hasUnmarkedGeneratedBody(existingContent, 'claude-md', CLAUDE_MD_SIGNATURE)) {
+    result.skipped.push('CLAUDE.md (already holds a monomind-generated body — not duplicated)');
+    return;
+  }
   const merged = mergeGeneratedBlock(existingContent, 'claude-md', generated);
   atomicWriteFile(claudeMdPath, merged);
   result.created.files.push('CLAUDE.md');

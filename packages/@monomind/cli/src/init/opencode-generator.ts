@@ -308,13 +308,20 @@ export function generateStatusCommand(): string {
 }
 
 /**
+ * The heading monomind stamps on its own generated AGENTS.md body. Used to
+ * recognise that body when it sits unwrapped in a file, so a managed block is
+ * not appended beside it (GH #278).
+ */
+export const AGENTS_MD_SIGNATURE = '# AGENTS.md — Monomind on opencode';
+
+/**
  * Generate AGENTS.md — opencode's instructions file (CLAUDE.md equivalent).
  * Built as a joined string array so inline-code backticks are literal chars
  * (no template-literal escaping pitfalls).
  */
 export function generateAgentsMd(): string {
   const lines = [
-    '# AGENTS.md — Monomind on opencode',
+    AGENTS_MD_SIGNATURE,
     '',
     'Monomind is wired in as an MCP server (see opencode.json). Its tools are',
     'available as the `monomind` server: `monograph_query`, `monograph_suggest`,',

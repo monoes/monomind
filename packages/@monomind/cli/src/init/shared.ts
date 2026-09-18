@@ -636,11 +636,7 @@ function escapeForBlockMarker(value: string): string {
  * than taking on a dependency on that subsystem.
  */
 export function mergeGeneratedBlock(existing: string, marker: string, generated: string): string {
-  const escaped = escapeForBlockMarker(marker);
-  const blockRe = new RegExp(
-    `^<!-- monomind-block:${escaped} -->\\n[\\s\\S]*?^<!-- /monomind-block:${escaped} -->\\n?`,
-    'm',
-  );
+  const blockRe = generatedBlockPattern(marker);
   const block = `<!-- monomind-block:${marker} -->\n${generated.trimEnd()}\n<!-- /monomind-block:${marker} -->\n`;
   if (blockRe.test(existing)) {
     return existing.replace(blockRe, block);
@@ -648,4 +644,36 @@ export function mergeGeneratedBlock(existing: string, marker: string, generated:
   if (existing.length === 0) return block;
   const trimmed = existing.replace(/\n+$/, '');
   return `${trimmed}\n\n${block}`;
+}
+
+function generatedBlockPattern(marker: string): RegExp {
+  const escaped = escapeForBlockMarker(marker);
+  return new RegExp(
+    `^<!-- monomind-block:${escaped} -->\\n[\\s\\S]*?^<!-- /monomind-block:${escaped} -->\\n?`,
+    'm',
+  );
+}
+
+/**
+ * True when the file already holds an *unmarked* copy of the body monomind
+ * would generate — what a pre-marker release wrote straight into place.
+ * mergeGeneratedBlock's append branch would then hand the user two copies of
+ * the same auto-generated section: GH #278 saw exactly that in
+ * `.agents/shared_instructions.md` and CLAUDE.md. Callers pass the
+ * generator's own untouched signature line (a banner or header no one writes
+ * by hand), so a file that merely resembles the output — a hand-edited one
+ * whose banner the user rewrote — is still treated as the user's and gets the
+ * additive append of GH #241 rather than being skipped.
+ *
+ * Skipping, not replacing, is the right response: the legacy copy is
+ * unmarked, so its extent is unknowable and any edits the user made inside it
+ * cannot be told apart from monomind's own text.
+ */
+export function hasUnmarkedGeneratedBody(
+  existing: string,
+  marker: string,
+  signature: string,
+): boolean {
+  if (generatedBlockPattern(marker).test(existing)) return false;
+  return existing.includes(signature);
 }
