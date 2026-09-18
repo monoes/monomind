@@ -2328,16 +2328,14 @@ export class OrgDaemon {
     drainMs?: number,
     closedBy?: string,
   ): Promise<void> {
-    // Snapshot checkpoint BEFORE closing mailboxes / draining sessions — the
-    // queue is emptied during the drain, so capturing afterwards loses all
-    // unconsumed messages (the whole point of checkpoint-resume).
-    const stopCheckpoint = captureCheckpoint(org, 'stopped');
-    // Capture THIS run's forwarder now: an autoWake-restart of the same org
-    // during the long tail below (agent wait, flush, history write) would
-    // register a NEW forwarder under the same name — settling/unsubscribing
-    // that one would sever the new run's dashboard stream.
-    const forwarder = this.forwarders.get(name);
-    // Remove crash-cleanup handler — normal stop handles reaping itself
+    // Process- and daemon-level handles come off FIRST, before anything that
+    // can throw. These used to be removed after captureCheckpoint(), so a
+    // throw there — which a half-started org can provoke, since it may be
+    // missing state a checkpoint expects — aborted the whole stop and left a
+    // process 'exit' listener, an interval and a broker lease behind for a run
+    // that no longer exists. startOrg()'s teardown-on-failure path swallows a
+    // rejecting stopOrg (it has its own error to report), so the leak was
+    // silent.
     const cleanup = (org as RunningOrg & { _crashCleanup?: () => void })._crashCleanup;
     if (cleanup) process.removeListener('exit', cleanup);
     const wd = this.watchdogs.get(name);
@@ -2347,6 +2345,24 @@ export class OrgDaemon {
     }
     this.leases.get(name)?.stop();
     this.leases.delete(name);
+    // Capture THIS run's forwarder now: an autoWake-restart of the same org
+    // during the long tail below (agent wait, flush, history write) would
+    // register a NEW forwarder under the same name — settling/unsubscribing
+    // that one would sever the new run's dashboard stream.
+    const forwarder = this.forwarders.get(name);
+    // Snapshot checkpoint BEFORE closing mailboxes / draining sessions — the
+    // queue is emptied during the drain, so capturing afterwards loses all
+    // unconsumed messages (the whole point of checkpoint-resume). Best-effort:
+    // a run that cannot be checkpointed must still be stopped and cleaned up.
+    let stopCheckpoint: ReturnType<typeof captureCheckpoint> | undefined;
+    try {
+      stopCheckpoint = captureCheckpoint(org, 'stopped');
+    } catch (err) {
+      console.error(
+        `org ${name}: could not capture the stop checkpoint:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
     // #275: drop task dispatches still inside their coalescing window — the
     // mailboxes they target are closed on the next line anyway.
     for (const held of org.pendingDispatch?.values() ?? []) clearTimeout(held.timer);
@@ -2537,7 +2553,18 @@ export class OrgDaemon {
     // otherwise the queue is always empty by persist time.
     let checkpoint: OrgCheckpoint | null = checkpointOverride ?? null;
     if (!checkpoint && running) {
-      checkpoint = captureCheckpoint(running, validStatus as 'running' | 'stopped' | 'crashed');
+      // Best-effort, like the snapshot in finishStop: persisting the run's
+      // state matters more than the resume checkpoint inside it, and a stop
+      // must not fail because a checkpoint could not be built.
+      try {
+        checkpoint = captureCheckpoint(running, validStatus as 'running' | 'stopped' | 'crashed');
+      } catch (err) {
+        console.error(
+          `org ${name}: could not capture the ${validStatus} checkpoint:`,
+          err instanceof Error ? err.message : err,
+        );
+        checkpoint = null;
+      }
     } else if (checkpoint && checkpoint.status !== validStatus) {
       const { checksum: _, ...state } = checkpoint;
       checkpoint = {
