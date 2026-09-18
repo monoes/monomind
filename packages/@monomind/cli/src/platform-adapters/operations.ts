@@ -17,6 +17,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import {
   mergeManagedBlock,
+  mergeSkillFileManagedBlock,
   mergeSkillManagedBlock,
   removeManagedMarker,
   safeJsonMerge,
@@ -267,6 +268,16 @@ function applyIntent(
       const merged = mergeSkillManagedBlock(oldContent, marker, intent.content);
       content = merged.content;
       diagnostics = [...merged.diagnostics];
+    } else if (intent.kind === 'skill') {
+      // Reference files beside a SKILL.md are wholly generated and were written
+      // unwrapped before markers existed, so they need the migrating merge or a
+      // second copy is appended below the first (GH #286).
+      content = mergeSkillFileManagedBlock(
+        oldContent,
+        marker,
+        intent.content,
+        markerComment(location.format),
+      );
     } else {
       content = mergeManagedBlock(
         oldContent,

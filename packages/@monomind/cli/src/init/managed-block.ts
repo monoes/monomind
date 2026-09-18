@@ -157,7 +157,7 @@ function findLegacyUnmarkedRange(
  * block. Distinct delimiter text sidesteps that rather than taking on a
  * dependency on that subsystem.
  */
-function dropLegacyUnmarked(text: string, generated: string): string {
+export function dropLegacyUnmarked(text: string, generated: string): string {
   if (text.length === 0) return text;
   const lines = text.split('\n');
   const range = findLegacyUnmarkedRange(lines, generated);
@@ -166,6 +166,27 @@ function dropLegacyUnmarked(text: string, generated: string): string {
   while (lines[range.start] === '' && (range.start === 0 || lines[range.start - 1] === '')) {
     lines.splice(range.start, 1);
   }
+  return lines.join('\n');
+}
+
+/**
+ * Swaps an undelimited generated body for `block`, keeping its position in the
+ * file, or reports that there is none to swap (`null`) so the caller can fall
+ * back to appending. Callers owning a different delimiter form reuse this and
+ * `dropLegacyUnmarked` to get the same conservative detection — see
+ * platform-adapters/merge.ts for the skill writer (GH #286).
+ */
+export function replaceLegacyUnmarked(
+  text: string,
+  generated: string,
+  block: string,
+): string | null {
+  const lines = text.split('\n');
+  const range = findLegacyUnmarkedRange(lines, generated);
+  if (!range) return null;
+  const blockLines = block.split('\n');
+  blockLines.pop(); // the block's own trailing newline — not a blank line
+  lines.splice(range.start, range.end - range.start, ...blockLines);
   return lines.join('\n');
 }
 
@@ -190,14 +211,8 @@ export function mergeGeneratedBlock(existing: string, marker: string, generated:
     return `${head}${block}${tail}`;
   }
 
-  const lines = existing.split('\n');
-  const unmarked = findLegacyUnmarkedRange(lines, generated);
-  if (unmarked) {
-    const blockLines = block.split('\n');
-    blockLines.pop(); // the block's own trailing newline — not a blank line
-    lines.splice(unmarked.start, unmarked.end - unmarked.start, ...blockLines);
-    return lines.join('\n');
-  }
+  const unmarked = replaceLegacyUnmarked(existing, generated, block);
+  if (unmarked !== null) return unmarked;
 
   const trimmed = existing.replace(/\n+$/, '');
   return `${trimmed}\n\n${block}`;
