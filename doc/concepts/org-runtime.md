@@ -153,8 +153,8 @@ Configured per role via the `provider` key in the org JSON. Resolved by
 | `base-url` | Sets `ANTHROPIC_BASE_URL`, optionally `ANTHROPIC_AUTH_TOKEN` |
 | `bedrock` | Sets `CLAUDE_CODE_USE_BEDROCK=1` |
 | `vertex` | Sets `CLAUDE_CODE_USE_VERTEX=1` |
-| `gemini` | Sets `GEMINI_API_KEY` from `cfg.apiKeyEnv ?? 'GEMINI_API_KEY'` |
-| `openai` | Sets `OPENAI_API_KEY` from `cfg.apiKeyEnv ?? 'OPENAI_API_KEY'` |
+| `gemini` | **Deprecated.** Sets `GEMINI_API_KEY` from `cfg.apiKeyEnv ?? 'GEMINI_API_KEY'` and nothing else — no runtime reads it, so the role silently runs on the default `ClaudeAgentRunner`. `startOrg` warns at start ([`daemon.ts:L843-L860`](packages/@monomind/cli/src/orgrt/daemon.ts#L843-L860)). Use `vercel-api-key` + `vendor: 'google'` instead. |
+| `openai` | **Deprecated.** Same shape as `gemini` — sets `OPENAI_API_KEY` from `cfg.apiKeyEnv ?? 'OPENAI_API_KEY'`, routes nothing, and falls through to Claude. Use `vercel-api-key` + `vendor: 'openai'` instead. |
 | `vercel-api-key` | Surfaces the named `apiKeyEnv` for the Vercel runner to read; **auto-resolves runtime to `'vercel'`**. Pair with `vendor` to pick the provider. |
 | `codex` | No env setup — Codex CLI reads `~/.codex/auth.json` from `codex login`; **auto-resolves runtime to `'codex'`** |
 | `antigravity` | No env setup — Antigravity CLI (`agy`) reads Google OAuth credentials from the OS keyring after interactive login; **auto-resolves runtime to `'antigravity'`** |
@@ -189,7 +189,9 @@ Source: [daemon.ts:L307](packages/@monomind/cli/src/orgrt/daemon.ts#L307)
    //     'kimicode' → KimiCodeAgentRunner)
    //   > undefined          // session.ts falls back to ClaudeAgentRunner
    ```
-   An org def may set a top-level `"runtime": "claude" | "kimicode" | "opencode" | "vercel" | "codex" | "antigravity"`
+   An org def may set a top-level `"runtime"` — one of `"claude"`, `"kimicode"`, `"opencode"`,
+   `"vercel"`, `"codex"`, `"antigravity"`, `"grok"`, `"qwen"`, `"crush"`, `"copilot"`, `"pi"`,
+   `"pi-rpc"`, `"qwen-rpc"`, `"hermes"` (the `RuntimeKind` union in [`daemon.ts`](packages/@monomind/cli/src/orgrt/daemon.ts), dispatched by `resolveRunner()`) —
    to pin its own runtime regardless of the env var (`"claude"` forces the default
    Claude path even when `MONOMIND_RUNTIME` selects another runner). Each role may
    additionally set its own `runtime` field, which overrides the org-level value
@@ -245,8 +247,8 @@ Routes `org_send` tool calls:
 
 `workspace: 'worktree-per-role'` is a real, distinct fourth mode beyond the three above: each
 non-boss role gets its own `git worktree add <path> HEAD --detach` under
-`.monomind/orgs/<name>/worktree-<role-id>/` ([`daemon.ts:L462-474`](packages/@monomind/cli/src/orgrt/daemon.ts#L462-L474)), cleaned up on stop
-alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](packages/@monomind/cli/src/orgrt/daemon.ts#L899-L904)). Falls back to the shared cwd if the
+`.monomind/orgs/<name>/worktree-<role-id>/` ([`daemon.ts:L1467-L1499`](packages/@monomind/cli/src/orgrt/daemon.ts#L1467-L1499)), cleaned up on stop
+alongside the shared `'worktree'` mode ([`daemon.ts:L2468-L2490`](packages/@monomind/cli/src/orgrt/daemon.ts#L2468-L2490)). Falls back to the shared cwd if the
 `git worktree add` call fails for a given role.
 
 ### Top-level `run_config` defaults
@@ -255,22 +257,24 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](packages/@monomin
 |---|---|---|
 | `max_concurrent_agents` | `4` | How many role sessions run concurrently |
 | `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run, split evenly across roles unless a role sets its own `budget_tokens` |
-| `max_turns_per_message` | `30` | Agent turns cap per inbound mailbox message |
+| `max_turns_per_message` | `100 000` | Agent turns cap per inbound mailbox message. Deliberately huge (`DEFAULT_MAX_TURNS_PER_MESSAGE`, [`types.ts:L320-L325`](packages/@monomind/cli/src/orgrt/types.ts#L320-L325)) so the ceiling never bricks a long task — set it explicitly, or a role's own `max_turns_per_message`, to impose a real cap |
 | `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` \| `'worktree-per-role'` |
-| `idle_minutes` | _(unset)_ | Idle timeout before watchdog `stopOrg()` |
-| `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts:L78-81`](packages/@monomind/cli/src/orgrt/types.ts#L78-L81), applied [`daemon.ts:L488-489`](packages/@monomind/cli/src/orgrt/daemon.ts#L488-L489)) |
-| `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts:L84`](packages/@monomind/cli/src/orgrt/types.ts#L84), checked at start in [`daemon.ts:L672-688`](packages/@monomind/cli/src/orgrt/daemon.ts#L672-L688) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
+| `idle_minutes` | `10` | Idle timeout in minutes before the watchdog nudges the boss and ultimately calls `stopOrg()`. Unset falls back to 10 ([`daemon.ts:L1245`](packages/@monomind/cli/src/orgrt/daemon.ts#L1245)); `0` disables the watchdog. Fractions allowed |
+| `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts:L358-L368`](packages/@monomind/cli/src/orgrt/types.ts#L358-L368), applied [`daemon.ts:L1595-L1600`](packages/@monomind/cli/src/orgrt/daemon.ts#L1595-L1600)) |
+| `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts:L378`](packages/@monomind/cli/src/orgrt/types.ts#L378), checked at start in [`daemon.ts:L1172-L1190`](packages/@monomind/cli/src/orgrt/daemon.ts#L1172-L1190) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
 
 ### Role fields (`RoleSchema`)
 
 | Field | Default | Notes |
 |---|---|---|
-| `id` | required | Unique slug, must match `/^[a-z0-9][a-z0-9_-]*$/i` |
+| `id` | required | Any non-empty string ([`RoleSchema`](packages/@monomind/cli/src/orgrt/types.ts) does not constrain its shape — `/^[a-z0-9][a-z0-9_-]*$/i` is the **org name** rule, not this). Must be unique within the org, and every non-root `reports_to` must name one (`checkOrgStructure` in [`migrate.ts`](packages/@monomind/cli/src/orgrt/migrate.ts), run by `org validate`) |
 | `type` | `'specialist'` | `'boss'` or `'specialist'` |
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | runtime/vendor default | Model string passed to runner. When unset, `resolveModel()` in [`session.ts`](packages/@monomind/cli/src/orgrt/session.ts) picks the vendor default, then the runtime default — `claude-sonnet-5` (`DEFAULT_CLAUDE_MODEL` in [`vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts)) for the `claude` runtime and when no runtime is set. `/mastermind:createorg` and `monomind org create` always write it explicitly (the latest model for the role's runtime) so a created org doesn't drift when the default changes |
-| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
+| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
+| `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
+| `budget_usd` | _(unset)_ | Per-role USD spend cap. Unlike `budget_tokens` there is **no** org-wide even split: unset means no USD enforcement for this role, only token budgets |
 | `provider.kind` | `'subscription'` | See §3 above |
 | `provider.vendor` | _(unset)_ | Which Vercel AI SDK provider to use (only when `kind='vercel-api-key'`): `'openai'` \| `'anthropic'` \| `'google'` \| `'xai'` \| `'deepseek'` \| `'glm'` \| `'mistral'` \| `'groq'` \| `'together'` \| `'fireworks'` \| `'cohere'` \| `'perplexity'` \| `'alibaba'` \| `'openrouter'` \| `'ollama'` \| `'openai-compatible'` |
 | `policy` | see below | Per-role tool/file/web policy |
@@ -285,6 +289,10 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](packages/@monomin
 | `fileRead` | `[]` | Glob patterns allowed for reads |
 | `webAllow` | _(unset)_ | Domain allowlist for WebFetch/WebSearch: exact host, suffix match, `*.example.com`, or `*` for any host; `[]` = no web |
 | `maxTokens` | _(unset)_ | Per-role token budget override |
+| `maxUsd` | _(unset)_ | Per-role USD spend cap — `PolicyEngine.decide()` denies once accumulated cost meets or exceeds it, the same way `maxTokens` works |
+| `autoApproveTools` | _(unset)_ | Tool/action names this role may use **without** pausing for human approval, even when on the built-in sensitive list (`Bash`, `WebFetch`, `WebSearch`, `org_complete`). Still subject to `allowTools`/`denyTools` |
+| `approvalTools` | _(unset)_ | Extra tool/action names that pause for approval exactly like the built-in sensitive list. Bare names (`org_send`), never the `mcp__org__` form. `autoApproveTools` wins on conflict |
+| `fence` | _(unset)_ | Per-role MonoFence tool-fence config (`FenceConfigSchema`) — see [Fence Protocol](#fence-protocol-tool-fencets) |
 | `git` | `'read'` | `'none'` \| `'read'` \| `'commit'` \| `'push'` — see [Git policy enforcement](#git-policy-enforcement) |
 | `sandbox` | `{ mode: 'auto' }` | OS sandbox for claude-runtime roles below `git: 'push'`: `mode` `'auto'` \| `'required'` \| `'off'`; `allowedDomains` (default `['*']`); `deniedDomains` (opt-in host deny list); `allowWrite` (extra writable paths); `allowUnixSockets` (default `true` — Chrome needs one) |
 
@@ -363,7 +371,7 @@ Runtimes with no OS sandbox at all get layer 4 only and emit a `git-sandbox-unsu
 
 ### Org directory constant
 
-`ORG_DIR = '.monomind/orgs'` ([types.ts:L142](packages/@monomind/cli/src/orgrt/types.ts#L142))
+`ORG_DIR = '.monomind/orgs'` ([types.ts:L498](packages/@monomind/cli/src/orgrt/types.ts#L498))
 
 ---
 
