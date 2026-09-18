@@ -33,7 +33,7 @@ export const securityCommand: Command = {
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      'scan     - Run security scans on code, deps, containers',
+      'scan     - Run security scans on code and dependencies',
       'cve      - Check and manage CVE vulnerabilities',
       'audit    - Security audit logging and compliance',
       'secrets  - Detect and manage secrets in codebase',
