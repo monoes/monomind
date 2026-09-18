@@ -304,7 +304,7 @@ describe('checkMonoesTokenExposure', () => {
     expect(result.status).toBe('pass');
   });
 
-  it('fails and mentions Disconnect when a connected, git-tracked connection file is exposed', async () => {
+  it('fails, mentions revoke AND Disconnect, when a connected, git-tracked connection file is exposed', async () => {
     existsSyncMock.mockImplementation((p: string) => p === CONNECTION_JSON);
     runCommandMock.mockImplementation(async (cmd: string) => {
       if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
@@ -315,14 +315,20 @@ describe('checkMonoesTokenExposure', () => {
     const result = await checkMonoesTokenExposure();
     expect(result.status).toBe('fail');
     expect(result.message).toContain('is tracked by git');
+    expect(result.message.toLowerCase()).toContain('revoke');
     expect(result.message).toContain('Disconnect');
   });
 
-  it("i-055 follow-up finding 4b (harm-boundary test): a never-connected project's message must not contain the word 'Disconnect'", async () => {
-    // Exposure via a stray literal token in .mcp.json, with NO connection
-    // file ever having existed — the user has never been through
-    // monoes.me's connect flow, so "reconnect via Disconnect -> Connect"
-    // describes an action they've never taken.
+  it('i-055 follow-up finding 4b (revised per review finding 13): a .mcp.json bearer-token exposure with no connection file still says revoke, but never Disconnect', async () => {
+    // A real credential exposure — hasLegacyMonoesBearerEntry() only
+    // matches mcpServers.monoes.headers.Authorization specifically, so this
+    // is a genuine monoes.me token, however it got there (a teammate's
+    // commit, an older install, a pulled branch). Revoking it is required
+    // regardless of whether THIS user has ever been through monoes.me's
+    // connect flow — a token you didn't create and can't rotate yourself is
+    // MORE urgent to escalate, not less. But there is no connection file
+    // here, so there is nothing to disconnect from: "Disconnect -> Connect"
+    // would describe an action this user has never taken.
     existsSyncMock.mockImplementation((p: string) => p === MCP_JSON);
     readFileSyncMock.mockImplementation((p: string) => {
       if (p === MCP_JSON) {
@@ -334,8 +340,13 @@ describe('checkMonoesTokenExposure', () => {
     });
     const result = await checkMonoesTokenExposure();
     expect(result.status).toBe('fail');
+    expect(result.message.toLowerCase()).toContain('revoke');
     expect(result.message).not.toContain('Disconnect');
-    expect(result.message).toContain('connect your account');
+    // This function never reads the connection file's content (only
+    // existsSync plus git tracked/ignored status), so it can never
+    // truthfully claim anything about a file being unreadable — pinned so
+    // that sentence can't come back (review finding 13a).
+    expect(result.message.toLowerCase()).not.toContain('unreadable');
   });
 
   it('never interpolates a caught error or the token value into either failure message', async () => {
