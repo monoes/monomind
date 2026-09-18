@@ -309,6 +309,7 @@ if (isMCPMode) {
   const reportAndExit = async (title, stack) => {
     try {
       const { reportCrash } = await import('../dist/src/services/crash-reporter.js');
+      const { getCrashRaceTimeoutMs } = await import('../dist/src/services/crash-race-timeout.js');
       const body = [
         `Uncaught crash in \`monomind\` CLI.`,
         ``,
@@ -318,7 +319,7 @@ if (isMCPMode) {
         stack || title,
         '```',
       ].join('\n');
-      const crashRaceTimeoutMs = process.stdin.isTTY ? 30_000 : 10_000;
+      const crashRaceTimeoutMs = getCrashRaceTimeoutMs(Boolean(process.stdin.isTTY));
       const result = await Promise.race([
         reportCrash({ repo: 'monoes/monomind', title: `crash: ${title}`, body }),
         new Promise((resolve) => setTimeout(() => resolve({ status: 'error', message: `crash report timed out after ${crashRaceTimeoutMs / 1000}s` }), crashRaceTimeoutMs)),
