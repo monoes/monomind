@@ -235,6 +235,12 @@ describe('POST /api/monoes/upload-org', () => {
 describe('monoes.me connection → .mcp.json sync', () => {
   const { mkdirSync, writeFileSync, readFileSync } = require('node:fs');
 
+  const STDIO_MONOES_ENTRY = {
+    command: 'npx',
+    args: ['-y', 'monomind@latest', 'mcp', 'monoes-proxy'],
+    env: {},
+  };
+
   function writeMcpJson(projectDir: string, contents: Record<string, unknown>) {
     writeFileSync(join(projectDir, '.mcp.json'), JSON.stringify(contents));
   }
@@ -243,7 +249,8 @@ describe('monoes.me connection → .mcp.json sync', () => {
     return JSON.parse(readFileSync(join(projectDir, '.mcp.json'), 'utf8'));
   }
 
-  it('adds a monoes entry to .mcp.json once the OAuth callback completes', async () => {
+  // T1
+  it('_syncMonoesMcpEntry writes no access-token substring into .mcp.json', async () => {
     writeMcpJson(monomindHome, { mcpServers: { monomind: { command: 'npx' } } });
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
 
@@ -266,7 +273,7 @@ describe('monoes.me connection → .mcp.json sync', () => {
       'fetch',
       vi.fn(async (url: string) => {
         if (String(url).includes('/oauth2/token')) {
-          return { ok: true, json: async () => ({ access_token: 'access-1', expires_in: 3600 }) };
+          return { ok: true, json: async () => ({ access_token: /* value */ 'FAKE-AT-deadbeef', expires_in: 3600 }) };
         }
         if (String(url).includes('/api/community/me')) {
           return { ok: true, json: async () => ({ username: 'someone' }) };
@@ -278,23 +285,22 @@ describe('monoes.me connection → .mcp.json sync', () => {
     await handleMonoesRoutes(callbackReq.req, callbackReq.res, callbackReq.req.url, undefined, ctx);
     await callbackReq.send();
 
+    // Read as raw text, not parsed JSON — the whole point is that the token
+    // substring must not appear anywhere in the file, not just outside a
+    // particular field.
+    const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+    expect(raw).not.toContain('FAKE-AT-deadbeef');
+
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
     expect(mcpJson.mcpServers.monomind).toEqual({ command: 'npx' });
-    expect(mcpJson.mcpServers.monoes).toEqual({
-      type: 'http',
-      url: 'https://monoes.me/api/mcp',
-      headers: { Authorization: 'Bearer access-1' },
-    });
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
 
   it('removes the monoes entry from .mcp.json on disconnect', async () => {
     mkdirSync(join(monomindHome, '.monomind'), { recursive: true });
     writeFileSync(join(monomindHome, '.monomind', 'monoes-connection.json'), JSON.stringify({ accessToken: 'x' }));
     writeMcpJson(monomindHome, {
-      mcpServers: {
-        monomind: { command: 'npx' },
-        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer x' } },
-      },
+      mcpServers: { monomind: { command: 'npx' }, monoes: STDIO_MONOES_ENTRY },
     });
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
 
@@ -315,7 +321,7 @@ describe('monoes.me connection → .mcp.json sync', () => {
     expect(existsSync(join(monomindHome, '.mcp.json'))).toBe(false);
   });
 
-  it('GET /api/monoes/status refreshes an expiring token and re-syncs .mcp.json with the new one', async () => {
+  it('GET /api/monoes/status keeps the connected stdio entry across a silent token refresh (no literal token ever appears)', async () => {
     writeConnection({
       accessToken: /* value */ 'old',
       refreshToken: /* value */ 'refresh-1',
@@ -323,16 +329,12 @@ describe('monoes.me connection → .mcp.json sync', () => {
       expiresAt: Date.now() - 1000,
       connectedUsername: 'someone',
     });
-    writeMcpJson(monomindHome, {
-      mcpServers: {
-        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer old' } },
-      },
-    });
+    writeMcpJson(monomindHome, { mcpServers: { monoes: STDIO_MONOES_ENTRY } });
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
         ok: true,
-        json: async () => ({ access_token: 'refreshed', refresh_token: 'refresh-2', expires_in: 3600 }),
+        json: async () => ({ access_token: /* value */ 'FAKE-AT-refreshed', refresh_token: 'refresh-2', expires_in: 3600 }),
       })),
     );
 
@@ -342,26 +344,20 @@ describe('monoes.me connection → .mcp.json sync', () => {
     await send();
 
     expect(getBody()).toEqual({ connected: true, username: 'someone' });
+    const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+    expect(raw).not.toContain('FAKE-AT-refreshed');
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
-    expect(mcpJson.mcpServers.monoes).toEqual({
-      type: 'http',
-      url: 'https://monoes.me/api/mcp',
-      headers: { Authorization: 'Bearer refreshed' },
-    });
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
   });
 
-  it('GET /api/monoes/status removes the stale .mcp.json entry when refresh fails', async () => {
+  it('GET /api/monoes/status removes the .mcp.json entry when refresh fails', async () => {
     writeConnection({
       accessToken: /* value */ 'old',
       refreshToken: /* value */ 'refresh-1',
       clientId: 'client-1',
       expiresAt: Date.now() - 1000,
     });
-    writeMcpJson(monomindHome, {
-      mcpServers: {
-        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer old' } },
-      },
-    });
+    writeMcpJson(monomindHome, { mcpServers: { monoes: STDIO_MONOES_ENTRY } });
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401 })));
 
     const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
@@ -372,5 +368,175 @@ describe('monoes.me connection → .mcp.json sync', () => {
     expect(getBody()).toEqual({ connected: false, username: null });
     const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
     expect(mcpJson.mcpServers.monoes).toBeUndefined();
+  });
+
+  // T5
+  it('re-syncs .mcp.json only when the connected state changes, not on every poll', async () => {
+    // No .mcp.json entry yet — the first status call transitions
+    // disconnected -> connected and must write it; the second call, with
+    // the token still valid and unchanged, must not write again. Measured
+    // via mtime rather than a writeFileSync spy, since routes-monoes.mjs's
+    // ESM `import fs from 'node:fs'` binding is not guaranteed to be the
+    // same object identity as a CJS `require('node:fs')` spy target under
+    // Vitest's SSR transform.
+    writeConnection({ accessToken: /* value */ 'stays-good', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeMcpJson(monomindHome, { mcpServers: {} });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+    const mcpJsonPath = join(monomindHome, '.mcp.json');
+    const { statSync } = require('node:fs');
+    const mtimeNs = () => statSync(mcpJsonPath, { bigint: true }).mtimeNs;
+
+    const first = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(first.req, first.res, first.req.url, undefined, ctx);
+    await first.send();
+    expect(readMcpJson(monomindHome).mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+    const afterFirst = mtimeNs();
+
+    // A couple ms so a spurious second write would be observable in mtime
+    // even on filesystems with coarse timestamp resolution.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const second = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(second.req, second.res, second.req.url, undefined, ctx);
+    await second.send();
+    expect(mtimeNs()).toBe(afterFirst); // unchanged: no second write
+    expect(readMcpJson(monomindHome).mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+  });
+
+  // i-066 reviewer finding 2 — the priority finding: a project that already
+  // leaked the token must be migrated, not just warned about forever.
+  it('migrates a pre-fix leaked entry (literal bearer header) to the tokenless stdio shape while still connected', async () => {
+    // Exactly the victim population finding 2 named: a pre-fix .mcp.json
+    // still carrying `headers.Authorization: Bearer <token>`, and the user
+    // is STILL CONNECTED (isConnected=true). A presence-only comparison
+    // (`hasEntry`) sees isConnected===hasEntry===true and never re-syncs,
+    // so the live credential stays in the committable file indefinitely.
+    const leakedToken = /* value */ 'FAKE-AT-leaked-pre-fix-should-be-migrated';
+    writeConnection({
+      accessToken: /* value */ 'stays-good',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monoes: {
+          type: 'http',
+          url: 'https://monoes.me/api/mcp',
+          headers: { Authorization: `Bearer ${leakedToken}` },
+        },
+      },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+    const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+    expect(raw).not.toContain(leakedToken);
+  });
+
+  // i-066 reviewer finding 8 [BLOCKER]: `'headers' in entry` throws a
+  // TypeError when entry isn't an object (a string/number/boolean from a
+  // typo, hand edit, or bad merge resolution — .mcp.json is designed to be
+  // committed and merged). That throw escapes the request handler's
+  // try/catch scope and, since ui/server.mjs's http.createServer callback
+  // has no enclosing try/catch, terminates the whole dashboard process —
+  // "the dashboard died" from a teammate's hand edit. Must self-heal
+  // instead: a non-object value is non-conforming, so it gets re-synced to
+  // the correct shape.
+  it('does not crash the dashboard, and self-heals, when mcpServers.monoes is a malformed non-object value', async () => {
+    writeConnection({ accessToken: /* value */ 'stays-good', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeMcpJson(monomindHome, {
+      mcpServers: { monoes: 'this-should-be-an-object-not-a-string' },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+    // If handleMonoesRoutes throws/rejects here (the bug), this test fails
+    // with that exact error — which is the point: ui/server.mjs's request
+    // handler has no enclosing try/catch, so an uncaught throw here is
+    // precisely what takes the whole dashboard process down.
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+  });
+
+  // An array is `typeof 'object'` but not a plain config object — `'headers'
+  // in ['npx']` doesn't throw (arrays support `in`), so this row wouldn't
+  // have crashed, but it would have wrongly reported conforming=true and
+  // never been repaired without the explicit Array.isArray() exclusion.
+  it('self-heals when mcpServers.monoes is an array instead of an object', async () => {
+    writeConnection({ accessToken: /* value */ 'stays-good', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeMcpJson(monomindHome, { mcpServers: { monoes: ['npx', '-y', 'monomind@latest'] } });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+  });
+
+  // i-066 reviewer finding U5 [BLOCKER] — AC-U5-R2 (state-shaped, binding):
+  // a connected victim's FIRST status poll must emit the revoke warning on
+  // stderr AND leave .mcp.json free of the literal token, IN THE SAME RUN.
+  // Round 1 had the warning working but never migrated; round 2 (the
+  // shape-aware re-sync) migrates but the migration runs BEFORE the leak
+  // check, which re-reads .mcp.json from disk — so by the time the check
+  // runs it inspects the already-migrated file and always finds nothing.
+  // A test asserting either property alone would have passed at either of
+  // the last two SHAs; only asserting both together catches the ordering bug.
+  it('warns AND migrates on the very first poll for a connected victim (AC-U5-R2)', async () => {
+    const leakedToken = /* value */ 'FAKE-AT-u5-should-warn-before-migrating';
+    writeConnection({
+      accessToken: /* value */ 'stays-good',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monoes: {
+          type: 'http',
+          url: 'https://monoes.me/api/mcp',
+          headers: { Authorization: `Bearer ${leakedToken}` },
+        },
+      },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // The leak check is throttled (module-level _lastLeakCheckAt, i-066
+    // finding 4) to at most once per 60s per process — and earlier tests in
+    // this file already polled /api/monoes/status, so without defeating the
+    // throttle this test would be suppressed for an unrelated reason and
+    // prove nothing either way. Jump real time forward past the window;
+    // expiresAt (600s out) stays well clear of the 60s "expiring soon"
+    // refresh threshold at the jumped time, so this doesn't also trigger an
+    // unwanted token refresh.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 120_000);
+    try {
+      const { req, res, send } = fakeRequestResponse('GET', '/api/monoes/status');
+      await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+      await send();
+
+      // Property 1: the warning fired, on THIS poll, naming compromise + revoke.
+      const printed = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
+      expect(printed.toLowerCase()).toContain('compromised');
+      expect(printed.toLowerCase()).toContain('revoke');
+
+      // Property 2: .mcp.json is ALSO already migrated by this same poll.
+      const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+      expect(mcpJson.mcpServers.monoes).toEqual(STDIO_MONOES_ENTRY);
+      const raw = readFileSync(join(monomindHome, '.mcp.json'), 'utf8') as string;
+      expect(raw).not.toContain(leakedToken);
+    } finally {
+      vi.useRealTimers();
+      errorSpy.mockRestore();
+    }
   });
 });

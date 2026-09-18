@@ -6,27 +6,17 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+// buildMonoesMcpEntry lives in a plain-ESM sibling, not here: routes-monoes.mjs
+// ships as-is with no build step and cannot import compiled TypeScript, so the
+// shape both writers emit has to live somewhere importable by both. Compiled
+// TS *can* import a .mjs sibling (the constraint is one-directional), so this
+// re-export keeps `generateMCPConfig()` and the existing test's
+// `import { buildMonoesMcpEntry } from './mcp-generator.js'` working.
+import { buildMonoesMcpEntry } from '../mcp/monoes-mcp-entry.mjs';
 import { mcpCommand, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
 
-/**
- * Build the remote HTTP MCP entry for a connected monoes.me account.
- * Shared by generateMCPConfig() (init-time) and the dashboard's runtime
- * .mcp.json sync (routes-monoes.mjs, plain JS, duplicates this shape since
- * it can't import compiled TS at runtime).
- */
-export function buildMonoesMcpEntry(
-  accessToken: string,
-  monoesUrl = 'https://monoes.me/api/mcp',
-): object {
-  return {
-    type: 'http',
-    url: monoesUrl,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  };
-}
+export { buildMonoesMcpEntry };
 
 /**
  * Generate MCP configuration
@@ -56,12 +46,17 @@ export function generateMCPConfig(options: InitOptions): object {
   // No separate server needed — the monomind entry above provides all monograph tools.
 
   // If this project already has a monoes.me connection (e.g. re-running init
-  // after connecting via the dashboard), carry the entry forward.
+  // after connecting via the dashboard), carry the entry forward — gated on
+  // the connection *existing*, never on reading its accessToken into the
+  // returned config (buildMonoesMcpEntry takes no token at all: see
+  // mcp/monoes-mcp-entry.mjs). A never-connected project gets no entry —
+  // one that's guaranteed to fail on every MCP startup would be worse than
+  // absent (the proxy has nothing to authenticate with).
   try {
     const connectionFile = path.join(options.targetDir, '.monomind', 'monoes-connection.json');
     const conn = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
     if (conn?.accessToken) {
-      mcpServers.monoes = buildMonoesMcpEntry(conn.accessToken);
+      mcpServers.monoes = buildMonoesMcpEntry();
     }
   } catch {
     // No connection file, or unreadable — omit the entry.

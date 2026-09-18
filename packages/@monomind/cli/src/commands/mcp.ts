@@ -6,6 +6,7 @@
  * @version 3.0.0
  */
 
+import { runMonoesProxy } from '../mcp/monoes-proxy.js';
 import { callMCPTool, hasTool, listMCPTools } from '../mcp-client.js';
 import { getMCPServerStatus, getServerManager, type MCPServerOptions } from '../mcp-server.js';
 import { output } from '../output.js';
@@ -1032,6 +1033,21 @@ const verifyCommand: Command = {
   },
 };
 
+// monoes.me MCP proxy — internal subcommand run by the `monoes` stdio entry
+// .mcp.json's init/dashboard writers generate (mcp-generator.ts,
+// routes-monoes.mjs). Not advertised in the top-level subcommand list below:
+// it isn't something a user runs directly, only something Claude Code spawns.
+// Body lives in mcp/monoes-proxy.ts — this is deliberately a thin registration.
+const monoesProxyCommand: Command = {
+  name: 'monoes-proxy',
+  description: 'Internal: stdio<->HTTP proxy for the monoes.me MCP server (i-066)',
+  options: [],
+  action: async (): Promise<CommandResult> => {
+    await runMonoesProxy();
+    return { success: true };
+  },
+};
+
 // Main MCP command
 export const mcpCommand: Command = {
   name: 'mcp',
@@ -1047,6 +1063,7 @@ export const mcpCommand: Command = {
     execCommand,
     logsCommand,
     verifyCommand,
+    monoesProxyCommand,
   ],
   options: [],
   examples: [

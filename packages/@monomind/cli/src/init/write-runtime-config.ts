@@ -9,6 +9,32 @@ import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
 
 /**
+ * Replacement list for a project-root `.gitignore`'s blanket `.monomind/`
+ * line — see the `replacementIsBlanketEquivalent` guard below. Exported
+ * (not just a local const) so its "contains no blanket-shaped entry" claim
+ * is a directly testable invariant rather than only a comment (i-066
+ * reviewer, "Plus one addition").
+ */
+export const MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES = [
+  '# monomind runtime — exclude sensitive and machine-specific data',
+  '.monomind/sessions/',
+  '.monomind/security/',
+  '.monomind/*.tmp',
+  '.monomind/*.log',
+  '.monomind/daemon.pid',
+  '.monomind/*.db',
+  '.monomind/*.db-wal',
+  '.monomind/*.db-shm',
+  '.monomind/monoes-connection.json',
+];
+
+/** The line the generated `.monomind/.gitignore` needs to cover the
+ * monoes.me refresh token — kept as one constant so the "does the existing
+ * file already cover it" check and the line we'd append can never drift
+ * from each other. */
+const MONOES_CONNECTION_GITIGNORE_LINE = 'monoes-connection.json';
+
+/**
  * Write runtime configuration (.monomind/)
  */
 export async function writeRuntimeConfig(
@@ -80,16 +106,47 @@ daemon.pid
 *.token
 *.secret
 .env
+# monoes.me OAuth refresh token (i-066) — must never be committed
+monoes-connection.json
 `;
 
   if (!fs.existsSync(gitignorePath) || options.force) {
     atomicWriteFile(gitignorePath, gitignore);
     result.created.files.push('.monomind/.gitignore');
+  } else {
+    // i-066 reviewer finding 3: a project inited BEFORE this fix — every
+    // project that could hold a monoes.me token, since you have to have
+    // connected to have one — keeps its old .monomind/.gitignore forever
+    // unless --force is passed, and none of that file's original patterns
+    // (*.key, *.token, *.secret, .env) match a file literally named
+    // monoes-connection.json. Make the fix additive: append the missing
+    // coverage line even on a non-forced re-init, content-guarded so a
+    // second run is a no-op.
+    const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
+    const alreadyCovered = existingGitignore
+      .split('\n')
+      .some((line) => line.trim() === MONOES_CONNECTION_GITIGNORE_LINE);
+    if (!alreadyCovered) {
+      atomicWriteFile(
+        gitignorePath,
+        `${existingGitignore.trimEnd()}\n# monoes.me OAuth refresh token (i-066) — must never be committed\n${MONOES_CONNECTION_GITIGNORE_LINE}\n`,
+      );
+      result.updated.push('.monomind/.gitignore (added monoes-connection.json coverage)');
+    }
   }
 
   // Ensure the project-level .gitignore does NOT blanket-ignore .monomind/
   // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
-  // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead.
+  // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead —
+  // i-066: but ONLY when the replacement is a strict superset of what the
+  // blanket line already covered. A blanket `.monomind/` ignores every
+  // current and future path under the directory; a finite specific list can
+  // never be a superset of that (unless it also contains a blanket-shaped
+  // entry itself), so with today's list this never fires — the user's
+  // existing blanket coverage is left alone rather than narrowed. This was
+  // the actual regression: the old unconditional strip could uncover
+  // .monomind/monoes-connection.json (the monoes.me refresh token) for any
+  // user who had sensibly blanket-ignored .monomind/.
   const projectGitignorePath = path.join(targetDir, '.gitignore');
   if (
     fs.existsSync(projectGitignorePath) &&
@@ -97,26 +154,27 @@ daemon.pid
   ) {
     const existing = fs.readFileSync(projectGitignorePath, 'utf-8');
     const blanketPattern = /^(\*\*\/)?\.monomind\/?\s*$/gm;
-    if (blanketPattern.test(existing)) {
+    const specificExcludes = MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES;
+    const replacementIsBlanketEquivalent = specificExcludes.some((line) =>
+      /^\.monomind\/\*{1,2}\/?$/.test(line.trim()),
+    );
+    if (blanketPattern.test(existing) && replacementIsBlanketEquivalent) {
       const fixed = existing
         .split('\n')
         .filter((line) => !/^(\*\*\/)?\.monomind\/?\s*$/.test(line))
         .join('\n');
-      const specificExcludes = [
-        '# monomind runtime — exclude sensitive and machine-specific data',
-        '.monomind/sessions/',
-        '.monomind/security/',
-        '.monomind/*.tmp',
-        '.monomind/*.log',
-        '.monomind/daemon.pid',
-        '.monomind/*.db',
-        '.monomind/*.db-wal',
-        '.monomind/*.db-shm',
-      ].join('\n');
-      atomicWriteFile(projectGitignorePath, `${fixed.trimEnd()}\n${specificExcludes}\n`);
+      atomicWriteFile(projectGitignorePath, `${fixed.trimEnd()}\n${specificExcludes.join('\n')}\n`);
       result.updated.push('.gitignore (replaced blanket .monomind/ ignore with specific excludes)');
     }
   }
+
+  // i-066 §3.5 leak warning: moved to write-claude.ts's writeMCPConfig()
+  // (reviewer finding U5 [BLOCKER]). executor.ts calls writeMCPConfig()
+  // BEFORE this function, and that call can migrate/overwrite a pre-fix
+  // leaked .mcp.json under --force — checking here, after that write, would
+  // always inspect the already-migrated file and never warn. Checking it
+  // there instead, ahead of that write, is what makes the warning actually
+  // fire for the population it exists for.
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
