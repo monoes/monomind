@@ -53,9 +53,6 @@
     "micromatch": "^4.0.8",
     "web-tree-sitter": "^0.27.0"
   },
-  "overrides": {
-    "qs": ">=6.16.0"
-  },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^5.0.0",

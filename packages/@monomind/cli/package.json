@@ -138,8 +138,5 @@
   "publishConfig": {
     "access": "public",
     "tag": "latest"
-  },
-  "overrides": {
-    "onnxruntime-node": ">=1.27.0"
   }
 }
