@@ -402,8 +402,26 @@ is a point-in-time snapshot, not an executable what-if scenario — it does not
 fork or re-run agent execution.
 
 ```bash
-monomind org branch <name> --run <run-id>
+monomind org branch <name> <run-id> <label> [--format json]
 ```
+
+`<label>` does **not** name the new run: the run id is generated (`branch-<timestamp>-<rand>`),
+and the label is a free-text note recorded alongside the source run in the snapshot's
+`.branch-source` marker:
+
+```json
+{ "from": "run-20250130", "label": "before the outage", "branchedAt": "2025-01-30T09:31:00.000Z" }
+```
+
+To feed the new run to a later command, read the generated id from `--format json`
+rather than parsing the human-readable line:
+
+```bash
+run=$(monomind org branch growth run-20250130 pre-outage --format json | jq -r .run)
+monomind org replay growth "$run"
+```
+
+JSON shape: `{"v":1,"org":"<name>","run":"<generated id>","from":"<source run>","label":"<label>"}`.
 
 **Source:** [`commands/org-observe.ts`](packages/@monomind/cli/src/commands/org-observe.ts) (`branchAction`) → [`orgrt/checkpoint-ops.ts`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts) (`branchCheckpoint()`)
 

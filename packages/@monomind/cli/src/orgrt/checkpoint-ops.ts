@@ -180,12 +180,18 @@ export async function resumeOrg(daemon: OrgDaemon, name: string): Promise<Runnin
  *  tagged with a `.branch-source` marker recording its origin. This is a
  *  point-in-time snapshot for replay/inspection — it does not execute the
  *  branch as a "what-if" scenario. `root` is the org root directory
- *  (equivalent to `OrgDaemon.root` / the CLI's `ctx.cwd`). */
+ *  (equivalent to `OrgDaemon.root` / the CLI's `ctx.cwd`).
+ *
+ *  `label` does NOT name the new run (#292): the run id is generated here so it
+ *  stays a filesystem-safe, time-ordered id like every other run id. The label
+ *  is a free-text note, recorded in `.branch-source` so the snapshot carries the
+ *  reason it was taken. Callers read the generated id from the return value —
+ *  or, from the CLI, from `org branch --format json`. */
 export function branchCheckpoint(
   root: string,
   name: string,
   run: string,
-  _branchName: string,
+  label: string,
 ): { ok: true; branchRun: string } | { ok: false; error: string } {
   const runDir = join(root, ORG_DIR, name, run);
   if (!existsSync(runDir)) {
@@ -211,6 +217,7 @@ export function branchCheckpoint(
     // Create branch marker file (atomic)
     writeJsonFileAtomic(join(branchDir, '.branch-source'), {
       from: run,
+      label,
       branchedAt: new Date().toISOString(),
     });
     return { ok: true, branchRun };
