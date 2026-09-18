@@ -39,11 +39,16 @@
  * ---------------------------
  * The two trees are deliberately NOT identical, and a naive "these dirs must
  * match" test would be wrong. `packages/@monomind/cli/scripts/
- * sync-claude-assets.sh` was hard-disabled in 2026-07 precisely because the
- * old root->package rsync had `--delete` semantics and would have wiped most
- * of the shipped assets: the package tree is a deliberate SUPERSET (121 agent
+ * sync-claude-assets.sh` was hard-disabled in 2026-07 (and deleted in 2026-09)
+ * precisely because the old root->package rsync had `--delete` semantics and
+ * would have wiped most of the shipped assets: the package tree is a
+ * deliberate SUPERSET (121 agent
  * definitions vs the root's 31, 25 skill dirs vs 4, plus commands/ trees that
- * exist only there). The root also legitimately holds machine-local files the
+ * exist only there). `scripts/sync-claude-trees.mjs` replaces it: it mirrors
+ * only the INTERSECTION of the two trees and never creates or deletes, so the
+ * superset is safe by construction.
+ *
+ * The root also legitimately holds machine-local files the
  * package must never ship (settings.local.json, mcp.json, scheduled_tasks.lock,
  * worktrees/, workflows/) and root-only skills (monodoc, monoagent-image).
  *
@@ -176,10 +181,14 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
         'complete on its own. That is what this guard is for.\n\n' +
         'Diverging paths (relative to each .claude root):\n' +
         diverged.map((p) => `  - ${p}`).join('\n') +
-        '\n\nInspect each one and copy the CORRECT side over the other — ' +
-        'historically root has been the newer/correct copy, but check ' +
-        'before copying. Do NOT run sync-claude-assets.sh; it is disabled ' +
-        'because its rm -rf semantics would wipe the shipped superset.',
+        '\n\nFix: run `pnpm run sync:claude-trees` (`:check` to report without ' +
+        'writing). It strips the ownership markers `monomind init --force` ' +
+        'writes into the root tree — the usual cause of this failure — and ' +
+        'mirrors the result outward on the INTERSECTION of paths only, never ' +
+        'creating or deleting, so the shipped superset survives.\n\n' +
+        'If instead the SHIPPED copy is the newer/correct one, copy that side ' +
+        'over the root by hand first: the sync always treats root as the ' +
+        'source of content.',
     ).toEqual([]);
   });
 

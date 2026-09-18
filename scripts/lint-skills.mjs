@@ -245,7 +245,9 @@ function checkDrift() {
     if (distinct.size > 1) {
       const trees = [...contents.keys()].map((t) => t.replace(`${ROOT}/`, ''));
       errors.push(
-        `${skill}/SKILL.md content differs across skill trees (checked: ${trees.join(', ')}) — this skill is expected to be byte-identical everywhere`,
+        `${skill}/SKILL.md content differs across skill trees (checked: ${trees.join(', ')}) — this skill is expected to be byte-identical everywhere. ` +
+          'Fix: run `pnpm run sync:claude-trees` (strips init ownership markers from .claude/, then mirrors it over the other trees on the intersection of paths only; never creates or deletes). ' +
+          'Usual cause: `monomind init --force` run inside this repo, which rewrites .claude/ and .agents/skills but no other tree.',
       );
     }
   }
