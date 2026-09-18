@@ -10,8 +10,9 @@ import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
 import { Mailbox } from './mailbox.js';
 import type { Decision, PolicyEngine } from './policy.js';
+import { summarizeToolOutput } from './policy.js';
 import { StateDetector } from './state-detector.js';
-import type { OrgDef, OrgRole } from './types.js';
+import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
  *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
@@ -105,11 +106,15 @@ export function gatedCanUseTool(
   roleId: string,
   fence?: RoleFence,
   /** Optional hook invoked whenever this gate denies a tool call — wired to
-   *  daemon.recordDecision() so denials show up in `org decisions` traces. */
+   *  daemon.recordDecision() so denials show up in `org decisions` traces.
+   *  #290: `kind` names WHICH of this function's four deny paths fired, so a
+   *  consumer never has to tell a fence block from a routine pending approval
+   *  by matching the English in the message. */
   onDeny?: (
     toolName: string,
     input: Record<string, unknown>,
     decision: Extract<Decision, { behavior: 'deny' }>,
+    kind: DecisionKind,
   ) => void,
   /** ORG-9: reports whether this role has a pending (unresolved) decision gate.
    *  org_gate is documented as creating a "hard-blocking" checkpoint, but until
@@ -118,14 +123,24 @@ export function gatedCanUseTool(
    *  denied (not just the sensitive subset approvals gate) until the gate is
    *  resolved, matching the "hard-blocking" description. */
   hasPendingGate?: () => boolean,
-): (toolName: string, input: Record<string, unknown>) => Promise<Decision> {
-  return async (toolName: string, input: Record<string, unknown>): Promise<Decision> => {
+): (
+  toolName: string,
+  input: Record<string, unknown>,
+  /** #289: the harness's id for this call, forwarded to policy.decide so the
+   *  invocation event can be joined to the later tool_result event. */
+  meta?: { toolUseId?: string },
+) => Promise<Decision> {
+  return async (
+    toolName: string,
+    input: Record<string, unknown>,
+    meta?: { toolUseId?: string },
+  ): Promise<Decision> => {
     if (hasPendingGate?.()) {
       const decision: Decision = {
         behavior: 'deny',
         message: `Tool "${toolName}" is blocked — awaiting gate resolution. A decision gate is pending; wait for a human to approve or reject it via 'monomind org gate-approve/gate-reject'.`,
       };
-      onDeny?.(toolName, input, decision);
+      onDeny?.(toolName, input, decision, 'gate-pending');
       return decision;
     }
     if (fence) {
@@ -139,13 +154,13 @@ export function gatedCanUseTool(
               : JSON.stringify(input);
       const fenceDecision = await scanInput(fence.instance, text, fence.abortThreshold);
       if (fenceDecision.behavior === 'deny') {
-        onDeny?.(toolName, input, fenceDecision);
+        onDeny?.(toolName, input, fenceDecision, 'fence-block');
         return fenceDecision;
       }
     }
-    const decision = await policy.decide(toolName, input);
+    const decision = await policy.decide(toolName, input, meta?.toolUseId);
     if (decision.behavior === 'deny') {
-      onDeny?.(toolName, input, decision);
+      onDeny?.(toolName, input, decision, 'policy-deny');
       return decision;
     }
     if (!beforeTool) return decision;
@@ -155,7 +170,7 @@ export function gatedCanUseTool(
         behavior: 'deny',
         message: `Tool "${toolName}" was denied by guardrail approval`,
       };
-      onDeny?.(toolName, input, denied);
+      onDeny?.(toolName, input, denied, 'approval-denied');
       return denied;
     }
     if (approved === null) {
@@ -163,7 +178,7 @@ export function gatedCanUseTool(
         behavior: 'deny',
         message: `Tool "${toolName}" is pending human approval — it will be available once approved or denied via 'monomind org approve/deny'.`,
       };
-      onDeny?.(toolName, input, pending);
+      onDeny?.(toolName, input, pending, 'approval-pending');
       return pending;
     }
     return decision;
@@ -241,8 +256,9 @@ export interface SessionOpts {
     input: Record<string, unknown>,
   ) => Promise<boolean | null>;
   /** Called whenever gatedCanUseTool denies a tool call — wired to daemon.recordDecision()
-   *  so those denials show up in `org decisions` traces. */
-  onDecision?: (role: string, toolName: string, message: string) => void;
+   *  so those denials show up in `org decisions` traces. `kind` (#290) says which
+   *  deny path fired, so the trace is machine-readable rather than prose-only. */
+  onDecision?: (role: string, toolName: string, message: string, kind: DecisionKind) => void;
   /** ORG-9: reports whether this role currently has a pending decision gate —
    *  wired to daemon.listGates(org, 'pending'). When true, gatedCanUseTool
    *  denies every tool call until the gate is resolved. */
@@ -637,8 +653,8 @@ async function runOneSession(
         role.id,
         opts.fence,
         opts.onDecision
-          ? (toolName, _input, decision) =>
-              opts.onDecision?.(role.id, toolName, decision.message ?? 'denied')
+          ? (toolName, _input, decision, kind) =>
+              opts.onDecision?.(role.id, toolName, decision.message ?? 'denied', kind)
           : undefined,
         opts.hasPendingGate,
       ),
@@ -807,6 +823,29 @@ async function runOneSession(
             mailbox.close('token-budget');
           }
         }
+      } else if (m.type === 'tool_result') {
+        // #289: the tool call's outcome. Until this event existed, a Bash
+        // running a test suite looked identical on the bus whether the suite
+        // passed, failed, or the binary was missing — one 'allow' at the moment
+        // it started — so every consumer inferred success from the agent's own
+        // narration. `call_id` joins this back to that invocation event; the
+        // body is redacted and capped (policy.ts) so a megabyte of output, or a
+        // credential echoed by a command, never lands in bus.jsonl.
+        const body = summarizeToolOutput(m.text ?? '');
+        const data: ToolResultEventData = {
+          ...(m.tool_use_id ? { call_id: m.tool_use_id } : {}),
+          ok: m.is_error !== true,
+          ...(typeof m.duration_ms === 'number' ? { duration_ms: m.duration_ms } : {}),
+          output: body.output,
+          ...(body.truncated ? { truncated: true } : {}),
+          output_chars: body.output_chars,
+        };
+        bus.emit({
+          type: 'tool_result',
+          from: role.id,
+          ...(m.tool ? { tool: m.tool } : {}),
+          data: data as unknown as Record<string, unknown>,
+        });
       } else if (m.type === 'result') {
         const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
         // Per the SDK's own type docs, a 'result' message's usage is that

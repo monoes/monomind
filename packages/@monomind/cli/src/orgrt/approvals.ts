@@ -276,6 +276,7 @@ export async function setApproval(
     // point — record it so `org decisions` shows real traces.
     daemon.recordDecision(org, role, {
       type: 'approval',
+      kind: 'approval-resolved',
       context: `approval request: ${action}`,
       reasoning: approved ? `approved by ${resolver}` : `rejected by ${resolver}`,
       outcome: approved ? 'approved' : 'rejected',

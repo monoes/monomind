@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
-import { type DecisionGate, ORG_DIR } from './types.js';
+import { type DecisionGate, type DecisionKind, ORG_DIR } from './types.js';
 
 // ── Decision gates ──────────────────────────────────────────────────────
 
@@ -506,6 +506,9 @@ export function recordDecision(
   role: string,
   decision: {
     type: 'tool' | 'handoff' | 'approval' | 'routing';
+    /** #290: structured cause — required so every emitter populates it and no
+     *  consumer ever has to pattern-match the prose in context/reasoning. */
+    kind: DecisionKind;
     context: string;
     reasoning: string;
     alternatives?: Array<{ choice: string; score: number; reason: string }>;
@@ -521,6 +524,7 @@ export function recordDecision(
     reason: 'decision-trace',
     data: {
       decisionType: decision.type,
+      kind: decision.kind,
       context: decision.context,
       reasoning: decision.reasoning,
       alternatives: decision.alternatives,

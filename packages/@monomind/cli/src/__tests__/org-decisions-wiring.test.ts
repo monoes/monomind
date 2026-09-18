@@ -24,7 +24,7 @@ import { Mailbox } from '../orgrt/mailbox.js';
 import type { Decision, PolicyEngine } from '../orgrt/policy.js';
 import { readRunEvents } from '../orgrt/reporting.js';
 import { gatedCanUseTool } from '../orgrt/session.js';
-import { ORG_DIR, type OrgDef } from '../orgrt/types.js';
+import { type DecisionKind, ORG_DIR, type OrgDef } from '../orgrt/types.js';
 
 function minimalDef(name: string): OrgDef {
   return { name, goal: 'test', roles: [{ id: 'dev' }], run_config: {} } as unknown as OrgDef;
@@ -165,9 +165,10 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
     } as unknown as PolicyEngine;
 
     // Mirrors daemon.ts's sessionOpts.onDecision wiring exactly.
-    const onDecision = (role: string, toolName: string, message: string) => {
+    const onDecision = (role: string, toolName: string, message: string, kind: DecisionKind) => {
       daemon.recordDecision('alpha', role, {
         type: 'tool',
+        kind,
         context: `tool call: ${toolName}`,
         reasoning: message,
         outcome: 'denied',
@@ -178,7 +179,8 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
       undefined,
       'dev',
       undefined,
-      (toolName, _input, decision) => onDecision('dev', toolName, decision.message ?? 'denied'),
+      (toolName, _input, decision, kind) =>
+        onDecision('dev', toolName, decision.message ?? 'denied', kind),
     );
 
     const decision = await canUseTool('Bash', { command: 'rm -rf /' });
@@ -198,5 +200,145 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
     );
     expect(cliResult.success).toBe(true);
     expect(cliResult.message).toContain('1 decision traces');
+  });
+});
+
+/**
+ * Issue #290: a prompt-injection fence block and a routine "waiting for a human
+ * to approve this tool" produced byte-identical structured fields
+ * (`decisionType: 'tool'`, `outcome: 'denied'`) — only the free text differed.
+ * A consumer that wanted to tell "blocked by the security fence" from "waiting
+ * for you" had to regex English out of data.context/data.reasoning, and the Org
+ * Arena demo got it wrong: a routine Bash approval raised a firewall alarm.
+ */
+describe('#290: decision traces carry a structured cause', () => {
+  let tmp = '';
+  afterEach(() => {
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function daemonWithOrg(prefix: string) {
+    tmp = mkdtempSync(join(tmpdir(), prefix));
+    const daemon = new OrgDaemon(tmp);
+    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    daemon.orgs.set('alpha', {
+      def: minimalDef('alpha'),
+      run: 'run-1',
+      bus,
+      agents: new Map([['dev', makeAgent()]]),
+      busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
+    } as RunningOrg);
+    return { daemon, bus };
+  }
+
+  /** Mirrors daemon.ts's sessionOpts.onDecision wiring exactly. */
+  const wire = (daemon: OrgDaemon) => (kind: DecisionKind, toolName: string, message: string) =>
+    daemon.recordDecision('alpha', 'dev', {
+      type: 'tool',
+      kind,
+      context: `tool call: ${toolName}`,
+      reasoning: message,
+      outcome: 'denied',
+    });
+
+  const kinds = async (bus: OrgBus, root: string): Promise<string[]> => {
+    await bus.flush();
+    return readRunEvents(root, 'alpha', 'run-1')
+      .filter((e) => e.type === 'audit' && e.reason === 'decision-trace')
+      .map((e) => String((e.data as any).kind));
+  };
+
+  const allowAll = {
+    decide: async (): Promise<Decision> => ({ behavior: 'allow', updatedInput: {} }),
+  } as unknown as PolicyEngine;
+
+  it('distinguishes a fence block from a pending human approval without reading prose', async () => {
+    const { daemon, bus } = daemonWithOrg('org-decisions-kind-');
+    const onDecision = wire(daemon);
+
+    // A fence block: scanInput denies before the policy engine is consulted.
+    const fence = {
+      instance: {
+        detect: async () => ({
+          safe: false,
+          overallRisk: 1,
+          threats: [{ type: 'prompt-injection' }],
+        }),
+        getContextState: () => ({}),
+      },
+      abortThreshold: 0.5,
+      scanMessages: true,
+    } as any;
+    const fenced = gatedCanUseTool(allowAll, undefined, 'dev', fence, (t, _i, d, kind) =>
+      onDecision(kind, t, d.message ?? 'denied'),
+    );
+    expect((await fenced('Bash', { command: 'ls' })).behavior).toBe('deny');
+
+    // A routine approval that is merely waiting on a human (beforeTool -> null).
+    const pending = gatedCanUseTool(
+      allowAll,
+      async () => null,
+      'dev',
+      undefined,
+      (t, _i, d, kind) => onDecision(kind, t, d.message ?? 'denied'),
+    );
+    expect((await pending('Bash', { command: 'ls' })).behavior).toBe('deny');
+
+    expect(await kinds(bus, tmp)).toEqual(['fence-block', 'approval-pending']);
+  });
+
+  it('labels a policy denial, a human rejection and a pending gate distinctly', async () => {
+    const { daemon, bus } = daemonWithOrg('org-decisions-kind2-');
+    const onDecision = wire(daemon);
+    const denyingPolicy = {
+      decide: async (): Promise<Decision> => ({ behavior: 'deny', message: 'not allowed' }),
+    } as unknown as PolicyEngine;
+    const hook = (t: string, _i: unknown, d: { message?: string }, kind: DecisionKind) =>
+      onDecision(kind, t, d.message ?? 'denied');
+
+    await gatedCanUseTool(denyingPolicy, undefined, 'dev', undefined, hook as any)('Bash', {});
+    await gatedCanUseTool(allowAll, async () => false, 'dev', undefined, hook as any)('Bash', {});
+    await gatedCanUseTool(
+      allowAll,
+      undefined,
+      'dev',
+      undefined,
+      hook as any,
+      () => true,
+    )('Bash', {});
+
+    expect(await kinds(bus, tmp)).toEqual(['policy-deny', 'approval-denied', 'gate-pending']);
+  });
+
+  it('labels the non-tool emitters too, so the field is never absent', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'org-decisions-kind3-'));
+    const daemon = new OrgDaemon(tmp);
+    const alphaBus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const betaBus = new OrgBus('beta', 'run-1', join(tmp, ORG_DIR, 'beta', 'run-1'));
+    const mk = (name: string, bus: OrgBus, roleId: string): RunningOrg => ({
+      def: minimalDef(name),
+      run: 'run-1',
+      bus,
+      agents: new Map([[roleId, makeAgent()]]),
+      busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
+    });
+    daemon.orgs.set('alpha', mk('alpha', alphaBus, 'dev'));
+    daemon.orgs.set('beta', mk('beta', betaBus, 'worker'));
+    daemon.approvals.set('alpha', [
+      { roleId: 'dev', action: 'Bash', question: 'Approve Bash?', ts: Date.now(), approved: null },
+    ]);
+
+    await daemon.setApproval('alpha', 'dev', 'Bash', true);
+    await daemon.deliver('alpha', 'dev', 'beta:worker', 's', 'b');
+
+    expect(await kinds(alphaBus, tmp)).toEqual(['approval-resolved', 'cross-org-handoff']);
   });
 });
