@@ -78,6 +78,18 @@ describe('crash-reporter concurrency primitives', () => {
     rmSync(TEST_HOME, { recursive: true, force: true });
     mkdirSync(STATE_DIR, { recursive: true });
 
+    // i-055 added a tri-state consent gate ahead of the logic this file
+    // tests: an absent config file is 'unanswered', and reportCrash() now
+    // short-circuits with a local save (never touching the lock/dedup/
+    // rate-limit/filing pipeline below) before a non-interactive caller —
+    // which every test here is — ever reaches it. Grant consent explicitly
+    // so these tests exercise the logic they were written for, under the
+    // new consent model. Same file format setEnabled(true) itself writes.
+    // Individual tests override this by writing their own crash-reporting.json
+    // (the 'disabled' tests below) or setting MONOMIND_CRASH_REPORTING,
+    // which getConsentState() checks before the config file either way.
+    writeFileSync(CONFIG_PATH, JSON.stringify({ enabled: true }));
+
     // Default: no gh CLI, no GITHUB_TOKEN, no network
     execFileAsyncMock.mockReset().mockRejectedValue(new Error('gh not found'));
     fetchMock.mockReset().mockRejectedValue(new Error('no network'));
@@ -303,6 +315,10 @@ describe('crash-reporter concurrency primitives', () => {
       expect(result.path).toBeDefined();
       expect(existsSync(result.path!)).toBe(true);
       expect(readFileSync(result.path!, 'utf8')).toContain(baseInput.repo);
+      // Proves this test reached the gh-auth logic rather than returning
+      // 'saved-locally' from the consent gate's short-circuit — the gh probe
+      // only runs once consent has been checked and passed.
+      expect(execFileAsyncMock).toHaveBeenCalled();
     });
 
     it('returns disabled when MONOMIND_CRASH_REPORTING=0', async () => {
