@@ -4,6 +4,15 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.6] — 2026-09-18
+
+### Fixed
+
+- **An org you stopped could come back to life ~10 seconds later.** When a boss agent crashes, the runtime arms an auto-restart timer (10s backoff by default); when it fired it re-checked only whether a stop was *in flight*, which is never true by then, since a stop completes in far less time. Stopping an org with a restart pending therefore resurrected it: fresh sessions spending budget, `runtime.json` rewritten to `running`, a process `exit` handler re-registered, and nothing left that would ever stop it again (in a deterministic test, one stop was followed by three starts). The timer now also requires the org to still be registered — which distinguishes the two cases exactly, since a crashed boss leaves the org registered while an operator stop removes it (793e7c75f).
+- `finishStop` snapshotted the resume checkpoint before releasing the run's process `exit` listener, watchdog interval and broker lease. A throw in between — which a half-started org can provoke, as it may lack the state the snapshot expects — aborted the stop and left all three behind for a run that no longer existed, and nothing surfaced it because `startOrg`'s teardown path swallows a rejecting `stopOrg` to report its own error. The three releases now happen first and both checkpoint captures are best-effort: a run that cannot be checkpointed must still stop and clean up (#288: 44b5ebb2e).
+
+Both bugs showed up as the same CI symptom — a leaked process listener in the half-started-org test — and each was independently necessary: the run carrying only the second fix still failed.
+
 ## [2.11.5] — 2026-09-18
 
 ### Fixed
