@@ -495,6 +495,10 @@ export class OrgDaemon {
   /** @internal */ recallUsage = new Map<string, Set<string>>();
   /** @internal */ orgLearnedRuns = new Set<string>();
   /** @internal */ abandoned = new Map<string, Set<string>>();
+  /** #293: per-org reason the last run's cross-run memory was NOT stored.
+   *  persistState() writes it into runtime.json so `org status` can still
+   *  explain an empty org_recall long after the run. */
+  /** @internal */ memoryErrors = new Map<string, string>();
   /** M1: role tool-provider tool-list cache and live provider processes. */
   /** @internal */ toolProviders = new ToolProviderHub();
 
@@ -754,6 +758,7 @@ export class OrgDaemon {
       }
     } else {
       this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
+      this.memoryErrors.delete(name); // nor does its memory-store failure (#293)
       approvalOps.clearApprovalsForFreshStart(this, name); // a previous run's approvals are moot for this one
       questionOps.clearQuestionsForFreshStart(this, name); // nor do its unanswered questions (#248)
       // random suffix: second-precision stamps collide across processes (two CLI
@@ -2440,24 +2445,34 @@ export class OrgDaemon {
     }
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();
-    // flush() only awaits a snapshot of writes queued at call time (see its
-    // own doc comment) — it has no visibility into a session that crashes
-    // after the abort signal above but before this function returns. Seal
-    // the bus now so any such late bus.emit() still reaches in-memory
-    // listeners but can never schedule a new disk write into a run
-    // directory a caller (e.g. a test's afterEach) may already be deleting.
-    await org.bus.seal();
     // Append this run's summary to <org>/history.jsonl — read back from the
     // flushed bus.jsonl (the full durable record) rather than the bounded
     // in-memory buffer, so long runs summarize completely.
+    //
+    // This block runs BEFORE the seal below (#293): storeRunMemory emits an
+    // audit event when the run's memory could not be stored, and a sealed bus
+    // fans out to in-memory listeners without ever reaching bus.jsonl — an
+    // event the live view shows and the durable record does not, which is both
+    // the divergence test-loop's `persisted` check exists to catch and useless
+    // to whoever reads the run back later. Sealing after it keeps every emitted
+    // event durable. The seal still closes before this function returns, which
+    // is what its own contract (below) is about.
     try {
       const events = readRunEvents(this.root, name, org.run);
       if (events.length) {
         const summary = summarizeRun(events);
         const { appendFileSync } = await import('node:fs');
         appendFileSync(historyFile(this.root, name), `${JSON.stringify(summary)}\n`, 'utf8');
-        // Cross-run memory: make this run's outcome recallable by meaning
-        await this.storeRunMemory(name, org.def, org.run, summary);
+        // Cross-run memory: make this run's outcome recallable by meaning.
+        // #293: the result is CHECKED — a store that silently did nothing used
+        // to be indistinguishable from one that worked, and the symptom
+        // (org_recall always empty) showed up runs later with no trail. The
+        // reason is stashed for persistState() below so runtime.json — and
+        // therefore `org status` — carries it after the bus event and the
+        // stderr warning have scrolled away.
+        const memory = await this.storeRunMemory(name, org.def, org.run, summary, org.bus);
+        if (memory.stored) this.memoryErrors.delete(name);
+        else this.memoryErrors.set(name, memory.reason ?? 'unknown');
       }
     } catch (err) {
       console.error(
@@ -2468,6 +2483,15 @@ export class OrgDaemon {
       this.recallUsage.delete(name);
       this.orgLearnedRuns.delete(`${name}:${org.run}`);
     }
+    // flush() only awaits a snapshot of writes queued at call time (see its
+    // own doc comment) — it has no visibility into a session that crashes
+    // after the abort signal above but before this function returns. Seal
+    // the bus now so any such late bus.emit() still reaches in-memory
+    // listeners but can never schedule a new disk write into a run
+    // directory a caller (e.g. a test's afterEach) may already be deleting.
+    // seal() awaits the pending writes first, so the audit event the block
+    // above may have emitted is on disk before the bus closes.
+    await org.bus.seal();
     // the "org stopped" event above triggers the forwarder's final org:complete /
     // session:complete POST — without waiting for it here, the CLI process can exit
     // (and kill the in-flight fetch) before that last event reaches the dashboard,
@@ -2546,6 +2570,7 @@ export class OrgDaemon {
   ): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
+    const memoryError = this.memoryErrors.get(name);
     const running = org ?? this.orgs.get(name);
     const validStatus = status === 'stopped' || status === 'crashed' ? status : 'running';
     // Pattern 3: Capture full checkpoint state for resume. On stop, finishStop
@@ -2586,6 +2611,7 @@ export class OrgDaemon {
       pid: process.pid,
       updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
+      ...(memoryError ? { memoryError } : {}),
       ...(checkpoint ? { checkpoint } : {}),
       ...(closedBy ? { closedBy } : {}),
     });
@@ -2872,8 +2898,9 @@ export class OrgDaemon {
     def: OrgDef,
     run: string,
     summary: RunSummary,
-  ): Promise<void> {
-    return orgMemory.storeRunMemory(this, name, def, run, summary);
+    bus?: OrgBus,
+  ): Promise<orgMemory.RunMemoryResult> {
+    return orgMemory.storeRunMemory(this, name, def, run, summary, bus);
   }
 
   // checkpoint-ops.ts

@@ -303,17 +303,59 @@ export async function learnOrgKnowledge(
   }
 }
 
+/** What a caller must do with a failed run-memory store: record it where the
+ *  operator will look later. `stored: false` means org_recall will never find
+ *  this run — see storeRunMemory. */
+export interface RunMemoryResult {
+  stored: boolean;
+  /** Why nothing was stored. Present only when `stored` is false. */
+  reason?: string;
+}
+
+/** The minimum of OrgBus storeRunMemory needs to report a loss. */
+type AuditSink = { emit: (e: { type: 'audit'; reason: string; msg: string }) => unknown };
+
 /** Persist the run's outcome into cross-run org memory so org_recall (and
- *  future runs) can find it by meaning, not just recency. Best-effort. */
+ *  future runs) can find it by meaning, not just recency.
+ *
+ *  #293: best-effort used to mean invisible. `bridgeStoreEntry` returns `null`
+ *  when the backend cannot be resolved (an unbuilt or half-installed
+ *  `@monoes/memory`, a corrupt store) — this function ignored that, its caller
+ *  sat in a `try` whose `catch` never fired because nothing threw, and the only
+ *  trace was a `logBridgeError` line printed solely under MONOMIND_DEBUG=1. So
+ *  a run finished, wrote runtime.json and history, and had saved nothing; every
+ *  later org_recall came back empty with no hint why.
+ *
+ *  It still does NOT throw: the run itself succeeded and its history is already
+ *  on disk by the time this runs, so failing it over post-run bookkeeping would
+ *  be a worse outcome than a loud warning (and in stopOrg it would land in a
+ *  `catch` that blames the history write). Instead the loss is reported three
+ *  ways — an `audit` event on `bus`, an unconditional stderr warning, and the
+ *  returned result, which stopOrg persists into runtime.json so `org status`
+ *  still shows it long after the terminal has scrolled away. */
 export async function storeRunMemory(
   daemon: OrgDaemon,
   name: string,
   def: OrgDef,
   run: string,
   summary: RunSummary,
-): Promise<void> {
+  bus?: AuditSink,
+): Promise<RunMemoryResult> {
+  /** Single exit for every "nothing was stored" path, so none of them can go
+   *  quiet again. */
+  const lost = (reason: string): RunMemoryResult => {
+    const msg = `run memory was NOT saved (${reason}) — org_recall will find nothing from this run`;
+    bus?.emit({ type: 'audit', reason: 'org-memory-store-failed', msg });
+    // Not gated on MONOMIND_DEBUG: a debug-only trace is exactly how this
+    // stayed invisible. stderr is for whoever is watching the run; the bus
+    // event and runtime.json are for whoever reads it back later.
+    console.warn(`org ${name}: ${msg}.`);
+    return { stored: false, reason };
+  };
+
   try {
-    if (!(await orgMemoryUsable(daemon.root))) return;
+    if (!(await orgMemoryUsable(daemon.root)))
+      return lost('the memory bridge redirected the org store outside the org root');
     const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
     const dbPath = orgMemoryDbPath(daemon.root);
     const when = summary.endedAt ? new Date(summary.endedAt).toISOString().slice(0, 10) : '';
@@ -325,13 +367,17 @@ export async function storeRunMemory(
       summary.assets.length ? `Assets produced: ${summary.assets.slice(0, 10).join(', ')}` : '',
       summary.crashes.length ? `Crashed agents: ${summary.crashes.join(', ')}` : '',
     ].filter(Boolean);
-    await bridgeStoreEntry({
+    // `null` = no backend at all; `success: false` = the backend refused the
+    // write. Both mean this run is not recallable, and both used to be dropped.
+    const res = await bridgeStoreEntry({
       key: `run-${run}`,
       value: lines.join('\n'),
       namespace: orgMemoryNamespace(name, def),
       dbPath,
       upsert: true,
     });
+    if (!res?.success)
+      return lost(res?.error ?? 'the memory backend could not be loaded (see MONOMIND_DEBUG=1)');
 
     // Heuristic KG fallback: if the coordinator never called org_learn this
     // run, extract lower-trust entities from the outcome summary so the
@@ -374,11 +420,11 @@ export async function storeRunMemory(
         /* best effort */
       });
     }
+    // The run entry landed. The KG extraction and feedback above are
+    // enrichments on top of it — they have their own best-effort handling and
+    // do not decide whether this run is recallable.
+    return { stored: true };
   } catch (err) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-      console.error(
-        `org ${name}: run memory store failed:`,
-        err instanceof Error ? err.message : err,
-      );
+    return lost(err instanceof Error ? err.message : 'unexpected error');
   }
 }
