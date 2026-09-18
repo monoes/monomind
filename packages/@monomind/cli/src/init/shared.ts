@@ -604,48 +604,7 @@ export function extractFmName(md: string): string | null {
   return nm ? nm[1].replace(/^["']|["']$/g, '') : null;
 }
 
-function escapeForBlockMarker(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Confines generated content to a delimited
- * `<!-- monomind-block:<marker> -->` / `<!-- /monomind-block:<marker> -->`
- * pair within a file that may otherwise hold hand-authored content, so a
- * `--force` refresh only ever touches that one block:
- *  - If a same-marker block already exists, its content is replaced in
- *    place, leaving everything else in the file untouched.
- *  - Otherwise the block is appended after whatever content already exists
- *    (verbatim, never modified) — so converting a file that predates this
- *    marker (every hand-authored CLAUDE.md / shared_instructions.md, and
- *    every one written before this fix) is additive on its first
- *    conversion, never destructive. See GH #241.
- *
- * Callers should wrap the fresh (file-doesn't-exist) write in this same
- * block too, so the replace-in-place branch above is the only one that ever
- * runs again for a project initialized under a fixed version — the append
- * branch exists purely as a safe fallback for pre-existing, unmarked files.
- *
- * Deliberately NOT the "# monomind:start <name>" / "# monomind:end <name>"
- * convention platform-adapters/merge.ts uses for its own instruction
- * blocks: that text is also matched, none too precisely, by the legacy
- * bare-block migration regexes in platform-adapters/migration.ts, which
- * would treat a newly-introduced "# monomind:start <name>" block as an
- * old-style *bare* block to migrate and could mangle it into an unrelated
- * `instructions:*` block. Distinct delimiter text sidesteps that rather
- * than taking on a dependency on that subsystem.
- */
-export function mergeGeneratedBlock(existing: string, marker: string, generated: string): string {
-  const escaped = escapeForBlockMarker(marker);
-  const blockRe = new RegExp(
-    `^<!-- monomind-block:${escaped} -->\\n[\\s\\S]*?^<!-- /monomind-block:${escaped} -->\\n?`,
-    'm',
-  );
-  const block = `<!-- monomind-block:${marker} -->\n${generated.trimEnd()}\n<!-- /monomind-block:${marker} -->\n`;
-  if (blockRe.test(existing)) {
-    return existing.replace(blockRe, block);
-  }
-  if (existing.length === 0) return block;
-  const trimmed = existing.replace(/\n+$/, '');
-  return `${trimmed}\n\n${block}`;
-}
+// The managed-block merge primitive lives in its own module — it grew the
+// legacy-content migration for GH #276. Re-exported here so the existing
+// `from './shared.js'` import sites keep working.
+export { mergeGeneratedBlock } from './managed-block.js';
