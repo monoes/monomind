@@ -1399,6 +1399,40 @@ describe('OrgDaemon — start/stop lifecycle hygiene', () => {
     await d.stopAll();
   });
 
+  it('still releases the process listener, watchdog and lease when the stop checkpoint throws', async () => {
+    // finishStop used to snapshot the checkpoint before releasing any of
+    // these. A half-started org can be missing state the snapshot expects, so
+    // a throw there aborted the rest of the stop and left a process 'exit'
+    // listener behind for a run that no longer existed — and startOrg's
+    // teardown path swallows a rejecting stopOrg (it has its own error to
+    // report), so nothing surfaced. Observed as a CI-only failure of the test
+    // above, where the listener count did not come back down.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-checkpoint-throw-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, stopWaitMs: 200 });
+    const exitListenersBefore = process.listenerCount('exit');
+
+    await d.startOrg('alpha');
+    expect(process.listenerCount('exit')).toBe(exitListenersBefore + 1);
+
+    const checkpoint = await import('../../src/orgrt/checkpoint.js');
+    const spy = vi.spyOn(checkpoint, 'captureCheckpoint').mockImplementation(() => {
+      throw new Error('checkpoint boom');
+    });
+    try {
+      await d.stopOrg('alpha');
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(process.listenerCount('exit')).toBe(exitListenersBefore);
+    expect(d.getOrg('alpha')).toBeUndefined();
+    // And the name is reusable: nothing was left half-torn-down.
+    const retry = await d.startOrg('alpha');
+    expect(retry.agents.get('boss')?.status).toBe('running');
+    await d.stopAll();
+  }, 20_000);
+
   it('stopOrg clears its drain-window timer once every session has ended, instead of holding the process open for the whole window', async () => {
     // The org_complete path stops with COMPLETE_DRAIN_MS (5 min). The timer
     // racing allDone was neither cleared nor unref'd, so `org run` — which
