@@ -1,5 +1,7 @@
 /** Safe, format-neutral primitives for Monomind-managed configuration content. */
 
+import { dropLegacyUnmarked, replaceLegacyUnmarked } from '../init/managed-block.js';
+
 export interface SafeJsonResult {
   content: string;
   diagnostics: readonly string[];
@@ -76,6 +78,96 @@ export function mergeManagedBlock(
     : `${existing}${lineEnding(existing)}${block}`;
 }
 
+/**
+ * Every Monomind marker block in the text, whoever owns it. Skill roots are
+ * shared — `.agents/skills` is the portable skill location for opencode, kimi
+ * and codex at once — so a merge routinely meets blocks that are not its own.
+ */
+function anyManagedBlockPattern(): RegExp {
+  const commentPrefix = '(?:(?:#|//)\\s*|<!--\\s*)?';
+  const suffix = '\\s*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
+  return new RegExp(
+    `^[\\t ]*${commentPrefix}monomind:start\\s+(\\S+)${suffix}[\\s\\S]*?^[\\t ]*${commentPrefix}monomind:end\\s+\\1${suffix}`,
+    'gm',
+  );
+}
+
+interface ContentSegment {
+  text: string;
+  /** The marker name, when this segment is a managed block rather than free text. */
+  marker?: string;
+}
+
+function splitManagedBlocks(text: string): ContentSegment[] {
+  const segments: ContentSegment[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(anyManagedBlockPattern())) {
+    const index = match.index ?? 0;
+    if (index > cursor) segments.push({ text: text.slice(cursor, index) });
+    segments.push({ text: match[0], marker: match[1] });
+    cursor = index + match[0].length;
+  }
+  if (cursor < text.length) segments.push({ text: text.slice(cursor) });
+  return segments;
+}
+
+/**
+ * The merge for portable skill files. Their content is wholly generated:
+ * `copySkills` writes the canonical source to this same path unwrapped before
+ * the adapter install runs, and every version predating markers left exactly
+ * that. `mergeManagedBlock` found no marker of its own, appended a fresh block,
+ * and the body ended up in the file twice (GH #286 — codex-tools.md 64 -> 130
+ * lines, six reference files doubled).
+ *
+ * So before appending, an undelimited copy of the generated body is looked for
+ * and replaced where it sits, reusing the detection GH #276 built for CLAUDE.md
+ * (init/managed-block.ts): the region must open on the generated title line and
+ * carry at least three of the generated `## ` headings, and it stops at the
+ * first heading that is demonstrably not ours. Hand-authored text on either side
+ * keeps its position, and a body that cannot be proven generated is left alone
+ * and appended beside instead.
+ *
+ * Only text OUTSIDE every marker block is searched: in a shared skill root each
+ * adapter installs its own block around this same body, and absorbing a
+ * neighbour's would gut it.
+ */
+export function mergeSkillFileManagedBlock(
+  existing: string,
+  marker: string,
+  content: string,
+  comment: MarkerComment = '#',
+): string {
+  if (!isValidMarker(marker)) return existing;
+  const block = managedBlock(marker, content, lineEnding(existing), comment);
+  if (existing.length === 0) return block;
+
+  const segments = splitManagedBlocks(existing);
+  const owned = segments.findIndex((segment) => segment.marker === marker);
+  if (owned !== -1) {
+    // Refresh in place, and sweep the free text around it for a stale unwrapped
+    // copy: a marked block sitting below an unmarked body is the exact shape
+    // 2.11.4 produced, and it heals back to a single copy.
+    segments[owned] = { text: block, marker };
+    return segments
+      .map((segment) =>
+        segment.marker === undefined ? dropLegacyUnmarked(segment.text, content) : segment.text,
+      )
+      .join('');
+  }
+
+  for (const segment of segments) {
+    if (segment.marker !== undefined) continue;
+    const replaced = replaceLegacyUnmarked(segment.text, content, block);
+    if (replaced === null) continue;
+    segment.text = replaced;
+    return segments.map(({ text }) => text).join('');
+  }
+
+  return /(?:\r?\n)$/.test(existing)
+    ? `${existing}${block}`
+    : `${existing}${lineEnding(existing)}${block}`;
+}
+
 /** Removes exactly one artifact/platform block, leaving all other content unchanged. */
 export function removeManagedBlock(content: string, artifact: string, platform: string): string {
   return removeManagedMarker(content, `${artifact}:${platform}`);
@@ -117,7 +209,7 @@ export function mergeSkillManagedBlock(
   if (!existing) {
     const header = rendered.slice(0, renderedEnd);
     const body = rendered.slice(renderedEnd).replace(/^\n/, '');
-    return { content: `${header}${mergeManagedBlock('', marker, body)}`, diagnostics: [] };
+    return { content: `${header}${mergeSkillFileManagedBlock('', marker, body)}`, diagnostics: [] };
   }
   const existingEnd = frontmatterEnd(existing);
   if (existingEnd === undefined || skillName(existing) !== name) {
@@ -135,8 +227,14 @@ export function mergeSkillManagedBlock(
   // as if the file were new, or the block ends up wrapped around a second,
   // redundant copy of the body it already matches.
   const normalize = (value: string): string => value.replace(/\r\n|\r/g, '\n').trim();
+  // Beyond that exact match, a body an older version wrote and this one has
+  // since edited is recognised structurally and replaced where it sits, rather
+  // than appended to (GH #286).
   const base = normalize(body) === normalize(renderedBody) ? '' : body;
-  return { content: `${header}${mergeManagedBlock(base, marker, renderedBody)}`, diagnostics: [] };
+  return {
+    content: `${header}${mergeSkillFileManagedBlock(base, marker, renderedBody)}`,
+    diagnostics: [],
+  };
 }
 
 function isJsonObject(value: unknown): value is JsonObject {

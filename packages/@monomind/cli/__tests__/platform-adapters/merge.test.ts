@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mergeManagedBlock,
+  mergeSkillFileManagedBlock,
   mergeSkillManagedBlock,
   mergeNamedEntry,
   removeManagedBlock,
@@ -125,5 +126,80 @@ describe('portable skill packages', () => {
     // raw canonical source again before the merge runs, every time.
     const second = mergeSkillManagedBlock(rendered, marker, rendered);
     expect(second.content).toBe(first.content);
+  });
+});
+
+describe('portable skill reference files (GH #286)', () => {
+  const marker = 'skills:claude:mastermind:references/codex-tools.md';
+  const reference = [
+    '# Codex Tool Mapping',
+    '',
+    'Skills speak in actions.',
+    '',
+    '## Subagent dispatch',
+    '',
+    '`spawn_agent`.',
+    '',
+    '## Web access',
+    '',
+    '`web_search`.',
+    '',
+    '## Limits',
+    '',
+    'No native fetch tool.',
+    '',
+  ].join('\n');
+  const wrapped = `# monomind:start ${marker}\n${reference.trimEnd()}\n# monomind:end ${marker}\n`;
+  const titles = (text: string): number => text.match(/^# Codex Tool Mapping$/gm)?.length ?? 0;
+
+  it('wraps a pre-marker file instead of appending a second copy', () => {
+    const once = mergeSkillFileManagedBlock(reference, marker, reference);
+
+    expect(titles(once)).toBe(1);
+    expect(once).toBe(wrapped);
+  });
+
+  it('is byte-identical on a second run', () => {
+    const once = mergeSkillFileManagedBlock(reference, marker, reference);
+    const twice = mergeSkillFileManagedBlock(once, marker, reference);
+
+    expect(twice).toBe(once);
+  });
+
+  it('heals a file an earlier version already doubled', () => {
+    const doubled = `${reference}${wrapped}`;
+    const healed = mergeSkillFileManagedBlock(doubled, marker, reference);
+
+    expect(titles(healed)).toBe(1);
+    expect(healed).toBe(wrapped);
+  });
+
+  it('replaces a stale same-marker block in place rather than appending beside it', () => {
+    const stale = `# monomind:start ${marker}\n# Codex Tool Mapping\n\nOld mapping.\n# monomind:end ${marker}\n`;
+    const migrated = mergeSkillFileManagedBlock(stale, marker, reference);
+
+    expect(migrated).toBe(wrapped);
+    expect(migrated).not.toContain('Old mapping.');
+  });
+
+  it('leaves hand-authored text on either side of the generated body in place', () => {
+    const authored = `# Project notes\n\nKeep the top.\n\n${reference}# Local addendum\n\nKeep the bottom.\n`;
+    const merged = mergeSkillFileManagedBlock(authored, marker, reference);
+
+    expect(titles(merged)).toBe(1);
+    expect(merged).toBe(
+      `# Project notes\n\nKeep the top.\n\n${wrapped}# Local addendum\n\nKeep the bottom.\n`,
+    );
+  });
+
+  it('never absorbs the same body out of another platform block in a shared root', () => {
+    // .agents/skills is the skill root for opencode, kimi and codex at once,
+    // so each adapter meets the others' blocks holding this exact body.
+    const opencode = marker.replace('claude', 'opencode');
+    const installed = `# monomind:start ${opencode}\n${reference.trimEnd()}\n# monomind:end ${opencode}\n`;
+    const merged = mergeSkillFileManagedBlock(installed, marker, reference);
+
+    expect(merged).toBe(`${installed}${wrapped}`);
+    expect(mergeSkillFileManagedBlock(merged, marker, reference)).toBe(merged);
   });
 });
