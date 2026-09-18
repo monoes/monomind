@@ -57,6 +57,36 @@ export function atomicWriteFile(
 }
 
 /**
+ * The `Generated: <ISO timestamp>` stamp that .monomind/config.yaml and
+ * .monomind/CAPABILITIES.md carry, in whatever comment syntax their format
+ * uses (`# Generated: …`, `> Generated: …`).
+ */
+const GENERATED_TIMESTAMP = /(Generated:[^\S\r\n]*)\d{4}-\d{2}-\d{2}T[\d:.]+Z/g;
+
+function withoutGeneratedTimestamp(content: string): string {
+  return content.replace(GENERATED_TIMESTAMP, '$1<generated>');
+}
+
+/**
+ * Write a generated file that embeds a `Generated: <ISO timestamp>` line,
+ * skipping the write entirely when that stamp is the only thing that would
+ * change. Otherwise every `init --force` rewrote these files with a fresh
+ * timestamp and left the repository dirty by exactly two files, for
+ * information nobody can act on. Skipping the write (rather than reusing the
+ * old stamp) keeps the mtime stable too, and the stamp keeps its meaning:
+ * when this content was generated.
+ */
+export function writeGeneratedFile(target: string, content: string): void {
+  try {
+    const existing = fs.readFileSync(target, 'utf-8');
+    if (withoutGeneratedTimestamp(existing) === withoutGeneratedTimestamp(content)) return;
+  } catch {
+    // No readable file on disk — fall through and write it.
+  }
+  atomicWriteFile(target, content);
+}
+
+/**
  * Guard for the write-opencode.ts / write-kimicode.ts converters, which read
  * `.claude/{agents,commands,skills}` and write the converted result into what
  * is expected to be a separate platform directory (`.opencode/...`,

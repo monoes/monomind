@@ -4,7 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { _isOptionalPackageResolvable, atomicWriteFile } from './shared.js';
+import { _isOptionalPackageResolvable, writeGeneratedFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**
@@ -384,6 +384,6 @@ npx monomind@latest hooks worker run map
 **Issues**: https://github.com/monoes/monomind/issues
 `;
 
-  atomicWriteFile(capabilitiesPath, capabilities);
+  writeGeneratedFile(capabilitiesPath, capabilities);
   result.created.files.push('.monomind/CAPABILITIES.md');
 }
