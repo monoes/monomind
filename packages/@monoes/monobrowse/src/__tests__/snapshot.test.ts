@@ -276,11 +276,11 @@ describe('captureSnapshot — property extraction and rendering', () => {
 });
 
 describe('resolveRef', () => {
-  it('returns the ref when present', () => {
+  it('returns the ref when present', async () => {
     const refs = new Map<string, ElementRef>([
       ['e1', { ref: 'e1', role: 'button', name: 'Go', nodeId: 1 }],
     ]);
-    expect(resolveRef({} as CdpClient, 'S1', refs, 'e1')).resolves.toMatchObject({ ref: 'e1' });
+    await expect(resolveRef({} as CdpClient, 'S1', refs, 'e1')).resolves.toMatchObject({ ref: 'e1' });
   });
 
   it('throws a snapshot-first hint when the ref is unknown', async () => {
