@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { output } from '../output.js';
+import { getConsentState } from '../services/crash-reporter.js';
 
 export const MAX_DOCTOR_PKG_BYTES = 1024 * 1024; // 1 MB
 export const MAX_DOCTOR_CONFIG_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -300,6 +301,40 @@ export async function checkClaudeCode(): Promise<HealthCheck> {
       fix: 'npm install -g @anthropic-ai/claude-code',
     };
   }
+}
+
+/**
+ * i-055-cli: crash reporting had no in-product surfacing at all, and its
+ * opt-out command (`monomind crash-reporting disable`) is undiscoverable
+ * without this — `doctor` must state the current state and the exact
+ * command to change it. NOT registered in doctor.ts's check list yet (i-066
+ * owns that registry until it merges); this function is the standalone
+ * check body, ready to be wired in as a final commit afterward.
+ */
+export async function checkCrashReporting(): Promise<HealthCheck> {
+  const state = getConsentState();
+  if (state === 'enabled') {
+    return {
+      name: 'Crash Reporting',
+      status: 'pass',
+      message:
+        'enabled — crashes are filed as public GitHub issues on monoes/monomind. Change with: monomind crash-reporting disable',
+    };
+  }
+  if (state === 'disabled') {
+    return {
+      name: 'Crash Reporting',
+      status: 'pass',
+      message:
+        'disabled — crashes are neither filed nor saved. Change with: monomind crash-reporting enable',
+    };
+  }
+  return {
+    name: 'Crash Reporting',
+    status: 'info',
+    message:
+      "unanswered — you'll be asked on your next interactive crash; until then, a non-interactive crash (CI, agents) never asks and only saves locally. Change with: monomind crash-reporting enable or monomind crash-reporting disable",
+  };
 }
 
 export async function installClaudeCode(): Promise<boolean> {
