@@ -6,8 +6,13 @@
  * from their own panic/recover handlers so redaction, dedup, and GitHub auth
  * logic live in exactly one place instead of being reimplemented per language.
  *
- * Default: ON (files real GitHub issues on crash). Opt out with
- * `monomind crash-reporting disable`.
+ * Consent is asked once, on the first interactive crash (a local report path
+ * is shown before asking; default answer is No). Until you've answered, a
+ * non-interactive crash (CI, agents — most real runs) never asks and only
+ * saves locally, never filing. Once you've explicitly chosen — via the
+ * prompt or `monomind crash-reporting enable`/`disable` — that answer is
+ * used every time, interactive or not; `monomind doctor` shows the current
+ * state.
  */
 
 import { execFile } from 'node:child_process';
@@ -25,6 +30,7 @@ import {
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { confirm } from '../prompt.js';
 import { redact } from '../utils/redaction.js';
 
 const execFileAsync = promisify(execFile);
@@ -44,6 +50,12 @@ const LOCK_WAIT_MS = 3 * 1000; // bounded poll for a concurrent holder to finish
 // near-simultaneous-crash race without blocking the handler for long
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MAX_PER_REPO = 5; // circuit breaker independent of per-signature dedup
+// Bounds the interactive consent prompt so an unattended terminal (or a
+// readline that never gets a line) can't hang reportCrash() forever. Kept
+// below bin/cli.js's own 30s TTY race timeout, so a slow-but-real answer
+// still has room, while a silent one resolves to the safe default (No) with
+// a meaningful result instead of the race's generic "timed out" message.
+const PROMPT_TIMEOUT_MS = 15 * 1000;
 
 export interface CrashReportInput {
   /** e.g. "monoes/monomind", "monoes/mono-agent" */
@@ -99,19 +111,66 @@ function writeJsonSafe(path: string, data: unknown): void {
   }
 }
 
-export function isEnabled(): boolean {
-  // Env override, so a measurement harness can switch telemetry off for the
-  // duration of a run it intends to make claims about. `monomind doc eval`
-  // sets this: its "zero network calls" verdict must describe the retrieval
-  // path, not merely the fact that nothing happened to crash.
+export type ConsentState = 'enabled' | 'disabled' | 'unanswered';
+
+/**
+ * Tri-state consent, replacing the old boolean default. An absent or
+ * malformed config file is 'unanswered' — NOT 'enabled'. Treating "never
+ * chosen" as "silently on" was the bug: it let every crash file a public
+ * GitHub issue with no consent step of any kind.
+ */
+export function getConsentState(): ConsentState {
+  // Env override, checked FIRST — before the config file — so a measurement
+  // harness can switch telemetry off for the duration of a run it intends to
+  // make claims about, deterministically, regardless of any persisted
+  // answer. `monomind doc eval` sets this: its "zero network calls" verdict
+  // must describe the retrieval path, not merely the fact that nothing
+  // happened to crash. This org's own harness sets it on every command.
   const env = process.env.MONOMIND_CRASH_REPORTING;
-  if (env && ['0', 'off', 'false', 'no'].includes(env.toLowerCase())) return false;
-  const config = readJsonSafe<CrashConfig>(CONFIG_PATH, { enabled: true });
-  return config.enabled !== false;
+  if (env && ['0', 'off', 'false', 'no'].includes(env.toLowerCase())) return 'disabled';
+  const config = readJsonSafe<Partial<CrashConfig>>(CONFIG_PATH, {});
+  if (typeof config.enabled !== 'boolean') return 'unanswered';
+  return config.enabled ? 'enabled' : 'disabled';
+}
+
+export function isEnabled(): boolean {
+  return getConsentState() === 'enabled';
 }
 
 export function setEnabled(enabled: boolean): void {
   writeJsonSafe(CONFIG_PATH, { enabled });
+}
+
+function isInteractiveTty(): boolean {
+  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
+}
+
+/**
+ * Shows the local report path, then asks once whether to file it publicly —
+ * bounded at PROMPT_TIMEOUT_MS so a readline that never gets an answer can't
+ * hang the crash handler forever (bin/cli.js's own uncaughtException/
+ * unhandledRejection handlers force-exit right after this regardless, but
+ * `monomind report-crash` — the hidden command mono-agent/monotask/mono-clip
+ * shell out to — does not, so this bound is load-bearing there).
+ */
+async function promptForConsent(repo: string, reportPath: string): Promise<boolean> {
+  const message = `Report this crash publicly to ${repo}? [y/N] (report: ${reportPath})`;
+  let timedOut = false;
+  const timeout = new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => {
+      timedOut = true;
+      resolve(false);
+    }, PROMPT_TIMEOUT_MS);
+    timer.unref?.();
+  });
+  const answer = await Promise.race([confirm({ message, default: false }), timeout]);
+  if (timedOut) {
+    // The confirm() call above is still awaiting a line from readline —
+    // unref the handle so it can't keep the event loop (and thus the
+    // process) alive on its own.
+    process.stdin.unref?.();
+  }
+  return answer;
 }
 
 /**
@@ -354,13 +413,6 @@ function saveLocally(repo: string, title: string, body: string): string {
 export async function reportCrash(input: CrashReportInput): Promise<CrashReportResult> {
   let lockToken: string | null = null;
   try {
-    if (!isEnabled()) {
-      return {
-        status: 'disabled',
-        message: 'Crash reporting is disabled (monomind crash-reporting enable to turn back on).',
-      };
-    }
-
     const title = redact(input.title).slice(0, 250);
     const body = redact(input.body).slice(0, 60_000);
     // Run caller-supplied signatures through the same digit/hex/address
@@ -373,6 +425,49 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
           .digest('hex')
           .slice(0, 16)
       : computeSignature(input.repo, title);
+
+    // The consent gate lives here, inside reportCrash() itself, rather than
+    // at a call site — there are two entry points (monomind's own
+    // uncaughtException/unhandledRejection handlers in bin/cli.js, and the
+    // hidden `monomind report-crash` command mono-agent/monotask/mono-clip
+    // shell out to). A gate at only one of them leaves the other wide open.
+    const state = getConsentState();
+    if (state === 'disabled') {
+      return {
+        status: 'disabled',
+        message: 'Crash reporting is disabled (monomind crash-reporting enable to turn back on).',
+      };
+    }
+
+    if (state === 'unanswered') {
+      if (!isInteractiveTty()) {
+        // Most monomind runs are inside agent sessions and CI — non-TTY.
+        // Never prompt, never file, never persist a decision here: this
+        // crash stays "unanswered" forever so a later interactive run can
+        // still ask. Deferring to "ask next time" would change nothing for
+        // the majority of real runs, which never get a next interactive time.
+        const path = saveLocally(input.repo, title, body);
+        return {
+          status: 'saved-locally',
+          path,
+          message: `Crash reporting hasn't been configured yet, so this crash was only saved locally (no network call): ${path}. Run \`monomind crash-reporting enable\` or \`monomind crash-reporting disable\` to choose, or answer the prompt next time this runs interactively.`,
+        };
+      }
+
+      // Show the local report path before asking, so consent isn't blind.
+      const path = saveLocally(input.repo, title, body);
+      const consented = await promptForConsent(input.repo, path);
+      setEnabled(consented);
+      if (!consented) {
+        return {
+          status: 'saved-locally',
+          path,
+          message: `Crash reporting is now disabled (monomind crash-reporting disable). Saved locally to ${path}. Re-enable any time with \`monomind crash-reporting enable\`.`,
+        };
+      }
+      // Consented: fall through into the normal filing pipeline below, same
+      // as an already-'enabled' state.
+    }
 
     // Bounded wait — closes the near-simultaneous-crash race without ever
     // blocking the handler for long; proceeds unlocked if still contended.
