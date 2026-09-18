@@ -25,12 +25,23 @@ vi.mock('child_process', async (importOriginal) => {
 });
 
 const existsSyncMock = vi.fn<(p: string) => boolean>(() => false);
+const readFileSyncMock = vi.fn<(p: string, enc?: string) => string>(() => {
+  throw new Error('ENOENT');
+});
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
-  return { ...actual, existsSync: (p: string) => existsSyncMock(p as string) };
+  return {
+    ...actual,
+    existsSync: (p: string) => existsSyncMock(p as string),
+    readFileSync: (p: string, enc?: string) => readFileSyncMock(p as string, enc),
+  };
 });
 
-import { checkMonoesTools, fixMonoesTools } from '../commands/doctor-monoes-checks.js';
+import {
+  checkMonoesTokenExposure,
+  checkMonoesTools,
+  fixMonoesTools,
+} from '../commands/doctor-monoes-checks.js';
 
 /** Reject every command by default; individual tests override matching commands. */
 function rejectAll() {
@@ -252,5 +263,92 @@ describe('fixMonoesTools', () => {
 
     const result = await fixMonoesTools();
     expect(result).toBe(false);
+  });
+});
+
+describe('checkMonoesTokenExposure', () => {
+  const MCP_JSON = '/project/.mcp.json';
+  const CONNECTION_JSON = '/project/.monomind/monoes-connection.json';
+  let cwdSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    runCommandMock.mockReset();
+    existsSyncMock.mockReset();
+    existsSyncMock.mockReturnValue(false);
+    readFileSyncMock.mockReset();
+    readFileSyncMock.mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    rejectAll();
+    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/project');
+  });
+
+  afterEach(() => {
+    cwdSpy.mockRestore();
+  });
+
+  it('passes with no exposure detected when neither file exists', async () => {
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('pass');
+    expect(result.message).toBe('No monoes.me token exposure detected');
+  });
+
+  it('i-055 follow-up finding 4a (regression guard): outside a git work tree, an existing connection file does not produce a fail', async () => {
+    // The harm this pins: a project with zero exposure (not even a git
+    // repo, so nothing to leak through) must never be told to revoke a
+    // credential. `git rev-parse --is-inside-work-tree` rejecting is the
+    // non-git signal; runCommandMock rejects everything by default (rejectAll()).
+    existsSyncMock.mockImplementation((p: string) => p === CONNECTION_JSON);
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).not.toBe('fail');
+    expect(result.status).toBe('pass');
+  });
+
+  it('fails and mentions Disconnect when a connected, git-tracked connection file is exposed', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === CONNECTION_JSON);
+    runCommandMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
+      if (cmd.startsWith('git check-ignore')) throw new Error('not ignored');
+      if (cmd.startsWith('git ls-files --error-unmatch')) return CONNECTION_JSON;
+      throw new Error('not found');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('fail');
+    expect(result.message).toContain('is tracked by git');
+    expect(result.message).toContain('Disconnect');
+  });
+
+  it("i-055 follow-up finding 4b (harm-boundary test): a never-connected project's message must not contain the word 'Disconnect'", async () => {
+    // Exposure via a stray literal token in .mcp.json, with NO connection
+    // file ever having existed — the user has never been through
+    // monoes.me's connect flow, so "reconnect via Disconnect -> Connect"
+    // describes an action they've never taken.
+    existsSyncMock.mockImplementation((p: string) => p === MCP_JSON);
+    readFileSyncMock.mockImplementation((p: string) => {
+      if (p === MCP_JSON) {
+        return JSON.stringify({
+          mcpServers: { monoes: { headers: { Authorization: 'Bearer abc123def456' } } },
+        });
+      }
+      throw new Error('ENOENT');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('fail');
+    expect(result.message).not.toContain('Disconnect');
+    expect(result.message).toContain('connect your account');
+  });
+
+  it('never interpolates a caught error or the token value into either failure message', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === MCP_JSON);
+    readFileSyncMock.mockImplementation((p: string) => {
+      if (p === MCP_JSON) {
+        return JSON.stringify({
+          mcpServers: { monoes: { headers: { Authorization: 'Bearer super-secret-value-xyz' } } },
+        });
+      }
+      throw new Error('ENOENT');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.message).not.toContain('super-secret-value-xyz');
   });
 });

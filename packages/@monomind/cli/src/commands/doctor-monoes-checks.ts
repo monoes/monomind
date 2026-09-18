@@ -19,6 +19,17 @@ interface MonoesIssue {
   fixCommand: string;
 }
 
+// i-055 doctor follow-up, finding 4b: fixed literals only, no interpolation
+// — a caught error or token value must never reach either of these (see
+// checkMonoesTokenExposure() below for why the branch matters). Each is a
+// complete closing instruction, not a fragment continuing a shared lead-in
+// — the two scenarios warrant different actions, not the same action
+// phrased two ways.
+const NEVER_CONNECTED_REMEDIATION =
+  'Not connected to monoes.me. Run `monomind ui` and connect your account.';
+const RECONNECT_REMEDIATION =
+  'Revoke the token at https://monoes.me (Settings -> Connected apps). Your monoes.me connection file is present but unreadable. Run `monomind ui`, then monoes.me -> Disconnect -> Connect.';
+
 /**
  * True if `.mcp.json`'s raw text contains a literal bearer token, checked
  * at the specific path this item's writers ever wrote one
@@ -211,7 +222,8 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
 
   const connectionRelPath = '.monomind/monoes-connection.json';
   const connectionPath = join(cwd, connectionRelPath);
-  if (existsSync(connectionPath)) {
+  const connectionFileExists = existsSync(connectionPath);
+  if (connectionFileExists) {
     // i-066 reviewer finding 5: outside a git work tree, `git check-ignore`
     // and `git ls-files` both exit non-zero for reasons that have nothing
     // to do with exposure (there is no git to leak through at all) — the
@@ -257,12 +269,22 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
     };
   }
 
+  // Two fixed literals, selected by branch, never interpolated — same
+  // discipline as i-066's proxy and i-116's redact(): this message can
+  // reach a terminal or CI log, so it must never echo a caught error or a
+  // token value. Which one applies depends on whether a connection file
+  // exists at all: a user with NO connection file has never gone through
+  // monoes.me's connect flow (their exposure, if any, is a stray literal
+  // token in .mcp.json — see the .mcp.json check above), and telling them
+  // to "reconnect via Disconnect -> Connect" describes an action they've
+  // never taken. A user whose connection file IS present but flagged
+  // (tracked by git / not gitignored) has something to actually disconnect.
+  const remediation = connectionFileExists ? RECONNECT_REMEDIATION : NEVER_CONNECTED_REMEDIATION;
+
   return {
     name: 'monoes Token Exposure',
     status: 'fail',
-    message:
-      `${issues.join('; ')}. Revoke the token at https://monoes.me (Settings -> Connected apps), ` +
-      'then reconnect: run `monomind ui`, then monoes.me -> Disconnect -> Connect.',
+    message: `${issues.join('; ')}. ${remediation}`,
   };
 }
 
