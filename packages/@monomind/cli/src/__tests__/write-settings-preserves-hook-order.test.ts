@@ -1,15 +1,11 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateSettingsJson } from '../init/settings-generator.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
 import { writeSettings } from '../init/write-claude.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
-const ROOT_SETTINGS = join(REPO_ROOT, '.claude', 'settings.json');
 
 function freshResult(): InitResult {
   return {
@@ -33,13 +29,28 @@ describe('writeSettings --force preserves original hook block order', () => {
     projectDir = join(tmp, 'project');
     mkdirSync(join(projectDir, '.claude'), { recursive: true });
     settingsPath = join(projectDir, '.claude', 'settings.json');
-    // Seed with the REAL repo settings.json. Its PreToolUse array has
-    // Grep|Glob BEFORE Write|Edit|MultiEdit|NotebookEdit, which is the
-    // opposite of the order settings-generator.ts emits them in — exactly
-    // the case that regressed under mergeHooksPreservingUnknown() rebuilding
-    // every event's array starting from `generatedGroups` (template order)
-    // instead of the original file's order.
-    writeFileSync(settingsPath, readFileSync(ROOT_SETTINGS, 'utf-8'));
+    // Seed with a fixture DERIVED from the current template, not with the
+    // repo's own .claude/settings.json: that file is kept up to date, so the
+    // moment it carries every block the template emits, the "genuinely new
+    // template block" half of this test becomes vacuous and fails (which is
+    // what happened when 08f9083c4 synced it). The fixture reproduces both
+    // conditions the bug needed, independently of repo state:
+    //   - PreToolUse blocks in a DIFFERENT order than the template emits
+    //     them (the regression rebuilt each event's array in template order)
+    //   - one template block missing, so writeSettings has something new to
+    //     append after the pre-existing ones.
+    const seed = JSON.parse(
+      generateSettingsJson({
+        ...DEFAULT_INIT_OPTIONS,
+        targetDir: projectDir,
+        force: true,
+        components: { ...DEFAULT_INIT_OPTIONS.components },
+      }),
+    );
+    const pre = seed.hooks.PreToolUse as Array<{ matcher?: string }>;
+    if (pre.length > 1) [pre[0], pre[1]] = [pre[1], pre[0]];
+    if (pre.length > 1) pre.pop();
+    writeFileSync(settingsPath, `${JSON.stringify(seed, null, 2)}\n`);
   });
 
   afterEach(() => {
