@@ -22,6 +22,7 @@ import {
   installClaudeCode,
 } from './doctor-env-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
+import { checkNativeBindings } from './doctor-native-checks.js';
 import {
   checkAgentRegistry,
   checkApiKeys,
@@ -162,6 +163,7 @@ export const doctorCommand: Command = {
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = [
       checkGitRepo,
+      checkNativeBindings,
       checkMcpServers,
       checkBuildTools,
       checkMonographFreshness,
@@ -192,6 +194,8 @@ export const doctorCommand: Command = {
       typescript: checkBuildTools,
       monograph: checkMonograph,
       'graph-freshness': checkMonographFreshness,
+      native: checkNativeBindings,
+      'native-modules': checkNativeBindings,
       'memory-pkg': checkMonoesMemory,
       helpers: checkHelpersFresh,
       monoes: checkMonoesIntegration,

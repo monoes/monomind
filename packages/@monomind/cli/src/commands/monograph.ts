@@ -5,8 +5,14 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
-import { output } from '../output.js';
+import { output, type Spinner } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import {
+  diagnoseMonographNativeError,
+  formatNativeDiagnosis,
+  planAutoRebuild,
+  runNativeRebuild,
+} from '../utils/native-binding.js';
 import { formatErrorWithCause } from '../utils/native-error.js';
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.rst', '.pdf']);
@@ -137,7 +143,7 @@ const buildCommand: Command = {
     const startTime = Date.now();
     const progressLines: string[] = [];
 
-    try {
+    const runBuild = async (): Promise<void> => {
       const { buildAsync } = await import('@monoes/monograph');
       await buildAsync(root, {
         codeOnly,
@@ -149,6 +155,24 @@ const buildCommand: Command = {
           spinner.setText(msg.slice(0, 60));
         },
       });
+    };
+
+    // Set once the native diagnosis has already been printed, so the outer
+    // handler reports the failure without repeating the whole block.
+    let nativeAlreadyReported = false;
+
+    try {
+      try {
+        await runBuild();
+      } catch (err) {
+        // A native-addon load failure is not a build error — it means the
+        // better-sqlite3 binary on disk doesn't match this Node. Report it
+        // precisely and repair it where it lives, instead of dumping a raw ABI
+        // error the user can't act on (issue #231).
+        const recovered = await recoverFromNativeFailure(err, spinner);
+        if (recovered !== 'not-native') nativeAlreadyReported = true;
+        throw err;
+      }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       spinner.succeed(`Build complete in ${elapsed}s`);
@@ -167,11 +191,53 @@ const buildCommand: Command = {
       return { success: true };
     } catch (err) {
       spinner.fail('Build failed');
-      output.printError(formatErrorWithCause(err));
+      if (!nativeAlreadyReported) output.printError(formatErrorWithCause(err));
       return { success: false, exitCode: 1 };
     }
   },
 };
+
+/**
+ * On a native-binding failure, report exactly what is wrong and — when it is safe
+ * (the install tree is writable, the user hasn't opted out) — rebuild the module
+ * once in the directory that actually owns it. Never degrades silently: every
+ * branch prints what happened and what to do next.
+ */
+type NativeRecovery = 'not-native' | 'unfixed' | 'rebuilt';
+
+async function recoverFromNativeFailure(err: unknown, spinner: Spinner): Promise<NativeRecovery> {
+  const diag = diagnoseMonographNativeError(err);
+  if (diag.status !== 'abi-mismatch' && diag.status !== 'missing-binary') return 'not-native';
+
+  spinner.stop();
+  output.writeln();
+  output.printWarning(formatNativeDiagnosis(diag));
+
+  const decision = planAutoRebuild(diag, {
+    disabled: process.env.MONOMIND_NO_NATIVE_REBUILD === '1',
+  });
+  if (!decision.attempt) {
+    output.writeln(output.dim(`  Not rebuilding automatically: ${decision.reason}.`));
+    return 'unfixed';
+  }
+
+  output.writeln(
+    output.dim(`  Rebuilding ${diag.module} in ${decision.reason.replace(/^rebuilding in /, '')}…`),
+  );
+  const result = runNativeRebuild(diag);
+  if (!result.ok) {
+    output.printWarning(`Automatic rebuild failed — run it yourself:\n  ${result.command}`);
+    if (result.output) output.writeln(output.dim(result.output.split('\n').slice(-10).join('\n')));
+    return 'unfixed';
+  }
+  output.writeln(output.dim(`  Rebuilt via: ${result.command}`));
+  // Deliberately not retrying in this process: once Node has tried and failed to
+  // dlopen an addon, loading the replacement in the same process is unsafe — it
+  // reports "Module did not self-register" at best and segfaults at worst. The
+  // binary is fixed; a fresh process picks it up.
+  output.printWarning(`${diag.module} has been rebuilt. Re-run this command to use it.`);
+  return 'rebuilt';
+}
 
 // ── wiki subcommand ───────────────────────────────────────────────────────────
 

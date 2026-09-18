@@ -1,3 +1,5 @@
+import { deriveRebuildTarget } from './native-binding.js';
+
 /**
  * Formats an Error together with its `.cause`, if present, so wrapper errors
  * (e.g. MonographError('Failed to open database at ...', err)) don't silently
@@ -29,9 +31,24 @@ export function classifyNativeModuleError(text: string): string | null {
   ];
   if (pairs.length > 0) {
     const [, builtFor, required] = pairs[pairs.length - 1];
+    // Name the directory that actually owns the binary. Issue #231's reporter ran
+    // `npm rebuild` five times from their project and against a separate global
+    // copy, all of which left the loaded file byte-identical — because none of
+    // them was the tree it lives in.
+    const binaryPath = text.match(/The module '([^']+)'/)?.[1];
+    const target = binaryPath ? deriveRebuildTarget(binaryPath) : null;
+    const precise = target
+      ? `The binary actually loaded is ${binaryPath} — rebuild it where it lives: ` +
+        `\`cd ${target.rebuildCwd} && ${
+          target.packageManager === 'pnpm'
+            ? 'pnpm rebuild better-sqlite3'
+            : 'npm rebuild better-sqlite3 --build-from-source'
+        }\`. A rebuild run anywhere else will not touch that file. `
+      : '';
     return (
       `Native module built for Node ABI ${builtFor}, but this Node needs ABI ${required} ` +
-      `(NODE_MODULE_VERSION mismatch). Try: delete the module's build/ or prebuilds/ ` +
+      `(NODE_MODULE_VERSION mismatch). ${precise}` +
+      `Otherwise: delete the module's build/ or prebuilds/ ` +
       `directory and reinstall, or reinstall under the exact Node version you run ` +
       `monomind with. If a plain reinstall never changes the binary at all (same size, ` +
       `same mtime, every time), it's likely resolving a cached prebuilt asset instead of ` +

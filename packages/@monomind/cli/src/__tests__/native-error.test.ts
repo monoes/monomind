@@ -160,3 +160,20 @@ describe('extractNativeModulePackageName', () => {
     ).toBeNull();
   });
 });
+
+describe('classifyNativeModuleError — naming the tree that owns the binary (#231)', () => {
+  it('names the directory the loaded binary lives in, so the rebuild runs where it counts', () => {
+    const result = classifyNativeModuleError(
+      "The module '/usr/local/lib/node_modules/monomind/node_modules/@monoes/monomindcli/" +
+        "node_modules/better-sqlite3/build/Release/better_sqlite3.node'\n" +
+        'was compiled against a different Node.js version using\n' +
+        'NODE_MODULE_VERSION 141. This version of Node.js requires\n' +
+        'NODE_MODULE_VERSION 147.',
+    );
+    expect(result).toContain(
+      'cd /usr/local/lib/node_modules/monomind/node_modules/@monoes/monomindcli && ' +
+        'npm rebuild better-sqlite3 --build-from-source',
+    );
+    expect(result).toContain('A rebuild run anywhere else will not touch that file');
+  });
+});
