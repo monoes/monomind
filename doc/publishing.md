@@ -106,5 +106,47 @@ it first leaves a window where `npm i monomind` cannot resolve its own dependenc
 Sub-packages (`@monoes/memory`, `@monoes/monograph`, …) version and publish independently
 from their own directories — they are not part of the umbrella's lockstep.
 
+## Keeping the `.claude` trees in sync
+
+The same asset tree exists five times in this repo, and `@monoes/monomindcli` ships one of
+those copies (`packages/@monomind/cli/.claude`) to every npm user:
+
+| Tree | Role |
+| --- | --- |
+| `.claude/` | What maintainers edit and run against. |
+| `packages/@monomind/cli/.claude/` | Shipped to npm, **and the asset source `init` copies from**. A deliberate **superset** — extra agents, skills, `commands/`. |
+| `.agents/skills/` | Shared install target for opencode/kimi/codex. |
+| `.gemini/skills/`, `.kimi-code/skills/` | Passive mirrors. |
+
+`monomind init --force` is safe to run inside this repo, but it rewrites assets in place.
+It only writes the trees a platform adapter points at — `.claude/` and `.agents/skills` —
+wrapping each file it owns in `# monomind:start skills:<platform>:<name>` markers. The
+other three copies are left behind, which fails `tests/repo/claude-tree-parity.test.ts`
+and `scripts/lint-skills.mjs`.
+
+After running init (or hand-editing `.claude/`), before committing:
+
+```bash
+pnpm run sync:claude-trees          # normalise + mirror
+pnpm run sync:claude-trees:check    # report only; exit 1 on divergence
+```
+
+Two things it does, and one it refuses to:
+
+- **Strips init's `skills:` ownership markers** rather than propagating them. They are
+  per-project install bookkeeping, and the repo's committed form has none. Mirroring them
+  into `packages/@monomind/cli/.claude` would publish them to npm *and* make the next
+  `init --force` nest a second block inside the first, because that tree is init's own
+  asset source (`findSourceDir()` gives it highest priority).
+- **Mirrors only the intersection.** A path in both trees is made to agree; a path in only
+  one is never created and never deleted. That is what keeps the shipped superset safe —
+  its predecessor `sync-claude-assets.sh` had `rsync --delete` semantics, had to be
+  hard-disabled in 2026-07, and is now gone.
+- It never touches the nine `.agents/skills` files that carry committed opencode/kimi/codex
+  ownership blocks; they are that tree's own install output, not a stale mirror.
+
+The check mode runs in `pnpm run verify` and in CI. Full rationale, including the
+reproduction of the nested-marker bug, is at the top of `scripts/sync-claude-trees.mjs`.
+
 ## Support
 

@@ -62,7 +62,7 @@ When a new feature spans multiple packages:
 - [ ] MCP tool registered in `@monomind/cli/src/mcp-tools/index.ts`
 - [ ] Security validation added at system boundary
 - [ ] Memory schema migration written if LanceDB schema changes
-- [ ] `sync-claude-assets.sh` run after any `.claude/` changes
+- [ ] `pnpm run sync:claude-trees` run after any `.claude/` changes
 - [ ] Cross-package integration test added
 
 ## Key Files

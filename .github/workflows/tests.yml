@@ -123,6 +123,16 @@ jobs:
       - name: Lint skill packages
         run: node scripts/lint-skills.mjs
 
+      # `monomind init --force` rewrites the root .claude/ tree (and
+      # .agents/skills) in place, wrapping each file it owns in ownership
+      # markers, and never touches the other three copies. An init run in a
+      # contributor's checkout therefore leaves the npm-shipped tree and the
+      # .gemini/.kimi-code skill trees behind, and leaves markers in files that
+      # ship as sources. This is the guard; the fix is
+      # `pnpm run sync:claude-trees`.
+      - name: Check .claude asset trees are canonical and in sync
+        run: node scripts/sync-claude-trees.mjs --check
+
       # doc-eval-asserts-fire.test.ts, doc-eval-metrics.test.ts, and
       # knowledge-superseded.test.ts need the real embedding (and reranker)
       # weights on disk to run for real — the eval harness deliberately
