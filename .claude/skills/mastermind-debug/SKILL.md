@@ -2,7 +2,7 @@
 name: mastermind-debug
 description: Systematic root-cause debugging protocol. Use before ANY fix attempt — for test failures, bugs, unexpected behavior, build failures, performance regressions.
 ---
-
+# monomind:start skills:claude:mastermind-debug
 # mastermind:debug — Systematic Debugging
 
 ## Overview
@@ -275,3 +275,4 @@ Systematic approach vs random fixing:
 - Time to fix: 15-30 min vs 2-3 hours of thrashing
 - First-time fix rate: ~95% vs ~40%
 - New bugs introduced by the fix: near zero vs common
+# monomind:end skills:claude:mastermind-debug

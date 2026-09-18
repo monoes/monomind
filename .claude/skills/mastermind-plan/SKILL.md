@@ -4,7 +4,7 @@ description: Write comprehensive implementation plans from specs or requirements
 type: domain-skill
 default_mode: confirm
 ---
-
+# monomind:start skills:claude:mastermind-plan
 # Mastermind Plan
 
 ## Overview
@@ -206,3 +206,4 @@ After the plan is approved (or in auto mode, after self-review):
 **On execution:**
 - Invoke `Skill("mastermind-execute")`
 - It loads the plan, reviews it critically, and works task-by-task with checkpoints for review
+# monomind:end skills:claude:mastermind-plan

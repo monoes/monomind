@@ -1,3 +1,4 @@
+<!-- monomind-block:agents-md -->
 # AGENTS.md — Monomind on opencode
 
 Monomind is wired in as an MCP server (see opencode.json). Its tools are
@@ -32,6 +33,7 @@ recall. Use namespacing to keep project/agent memory separate.
 ```bash
 npm run build && npm test && npm run lint
 ```
+<!-- /monomind-block:agents-md -->
 
 # monomind:start instructions:opencode
 # Monomind

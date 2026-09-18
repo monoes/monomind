@@ -1,7 +1,6 @@
 ---
 name: smart-agent
 description: Intelligent agent coordination and dynamic spawning specialist
-mode: subagent
 ---
 
 # Smart Agent Coordinator

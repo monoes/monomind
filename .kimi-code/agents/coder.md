@@ -1,7 +1,6 @@
 ---
 name: coder
 description: Implementation specialist for writing clean, efficient code
-mode: subagent
 capability:
   role: coder
   goal: Write clean, maintainable, and efficient production-quality code following best practices

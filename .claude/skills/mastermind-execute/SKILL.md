@@ -4,7 +4,7 @@ description: Load a written implementation plan, review it critically, execute a
 type: domain-skill
 default_mode: confirm
 ---
-
+# monomind:start skills:claude:mastermind-execute
 # Mastermind Execute
 
 Load plan, review critically, execute all tasks, report when complete.
@@ -157,3 +157,4 @@ The report must let the user act without re-deriving the investigation themselve
 - `Skill("mastermind-plan")` — creates the plan this skill executes
 - `Skill("mastermind-review")` — verification gate after all tasks complete
 - `Skill("mastermind-debug")` — when a task fails for a reason the plan did not anticipate
+# monomind:end skills:claude:mastermind-execute

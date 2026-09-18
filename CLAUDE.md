@@ -1,3 +1,4 @@
+<!-- monomind-block:claude-md -->
 # Claude Code Configuration - Monomind
 
 ## Behavioral Rules (Always Enforced)
@@ -45,7 +46,7 @@
 ## File Organization
 
 - NEVER save to root folder — use the directories below
-- Use `/src` for source code files
+- Use `/packages` for source code files
 - Use `/tests` for test files
 - Use `/docs` for documentation and markdown files
 - Use `/config` for configuration files
@@ -72,13 +73,13 @@
 
 ```bash
 # Build
-npm run build
+pnpm run build
 
 # Test
-npm test
+pnpm test
 
 # Lint
-npm run lint
+pnpm run lint
 ```
 
 - ALWAYS run tests after making code changes
@@ -221,6 +222,7 @@ npx monomind@latest doctor --fix
 
 - Documentation: https://github.com/monoes/monomind
 - Issues: https://github.com/monoes/monomind/issues
+<!-- /monomind-block:claude-md -->
 # monomind:start instructions:claude
 # Monomind
 

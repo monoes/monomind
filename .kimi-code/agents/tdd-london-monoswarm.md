@@ -1,7 +1,6 @@
 ---
 name: tdd-london-monoswarm
 description: TDD London School specialist for mock-driven development within swarm coordination
-mode: subagent
 capability:
   role: tdd-london-monoswarm
   goal: Drive development from user behavior down to implementation using mock-driven TDD

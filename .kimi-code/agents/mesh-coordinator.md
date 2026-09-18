@@ -1,7 +1,6 @@
 ---
 name: mesh-coordinator
 description: Coordinates peer-style (non-hierarchical) parallel subagents that share state through memory rather than reporting to a lead
-mode: subagent
 capability:
   role: mesh-coordinator
   goal: Run several equal-standing agents in parallel on independent slices of a problem, and reconcile their results without a central authority

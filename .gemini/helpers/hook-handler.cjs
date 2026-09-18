@@ -450,7 +450,7 @@ const handlers = {
       if (gateResult === 'block') {
         process.stderr.write(JSON.stringify({
           decision: 'block',
-          reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before grep/rg/find for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call, Bash grep/find work normally.',
+          reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before grep/rg/find for code exploration (CLAUDE.md). Blocks only this first attempt this session — if the MCP tool is not available yet (e.g. server still connecting), just retry the same command: every later grep/find this session only prints a reminder, it never blocks again.',
         }) + '\n');
         process.exitCode = 2;
         return;
@@ -715,7 +715,7 @@ const handlers = {
     if (gateResult === 'block') {
       process.stderr.write(JSON.stringify({
         decision: 'block',
-        reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before ' + (tool || 'Grep/Glob') + ' for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call, search tools work normally.',
+        reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before ' + (tool || 'Grep/Glob') + ' for code exploration (CLAUDE.md). Blocks only this first attempt this session — if the MCP tool is not available yet (e.g. server still connecting), just retry: every later search-tool call this session only prints a reminder, it never blocks again.',
       }) + '\n');
       process.exitCode = 2;
       return;
