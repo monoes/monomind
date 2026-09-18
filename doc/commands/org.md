@@ -60,7 +60,7 @@ monomind org run <name> [--task "..."] [--cross-process] [--dry-run]
 | `--cross-process` | Register with broker for cross-daemon `org_send` delivery |
 | `--dry-run` | Validate config and print plan without starting |
 
-**Source:** [`commands/org.ts:L84`](packages/@monomind/cli/src/commands/org.ts#L84)
+**Source:** [`commands/org.ts → runAction`](packages/@monomind/cli/src/commands/org.ts#runAction)
 
 ---
 
@@ -73,7 +73,7 @@ Validates that `runtime.json` PID is alive before writing the stopfile.
 monomind org stop <name>
 ```
 
-**Source:** [`commands/org.ts:L215`](packages/@monomind/cli/src/commands/org.ts#L215)
+**Source:** [`commands/org.ts → stopAction`](packages/@monomind/cli/src/commands/org.ts#stopAction)
 
 ---
 
@@ -108,7 +108,7 @@ current work and are simply never re-spawned.
 monomind org reload <name>
 ```
 
-**Source:** [`commands/org.ts:L1014`](packages/@monomind/cli/src/commands/org.ts#L1014) (subcommand entry), [`orgrt/daemon.ts:L225`](packages/@monomind/cli/src/orgrt/daemon.ts#L225) (`reloadOrgDef()`)
+**Source:** [`commands/org.ts → reloadAction`](packages/@monomind/cli/src/commands/org.ts#reloadAction) (subcommand entry), [`orgrt/daemon.ts → reloadOrgDef`](packages/@monomind/cli/src/orgrt/daemon.ts#reloadOrgDef) (`reloadOrgDef()`)
 
 ---
 
@@ -123,7 +123,7 @@ monomind org status [<name>]
 Shows: elapsed time, events, messages, tool calls, roles, tokens used, cost in USD.
 Detects stale PIDs (process no longer alive).
 
-**Source:** [`commands/org.ts:L289`](packages/@monomind/cli/src/commands/org.ts#L289)
+**Source:** [`commands/org.ts → statusAction`](packages/@monomind/cli/src/commands/org.ts#statusAction)
 
 ---
 
@@ -140,7 +140,7 @@ monomind org serve [--forward <url>]
 - Writes heartbeat to `serve-heartbeat.json` every 30 seconds.
 - Runs `OrgScheduler` for orgs with a `schedule` field.
 
-**Source:** [`commands/org.ts:L597`](packages/@monomind/cli/src/commands/org.ts#L597)
+**Source:** [`commands/org.ts → serveAction`](packages/@monomind/cli/src/commands/org.ts#serveAction)
 
 ---
 
@@ -158,7 +158,7 @@ monomind org supervisor <name> [--install]
 
 Generates a per-project slug from a SHA256 hash of the current working directory.
 
-**Source:** [`commands/org.ts:L498`](packages/@monomind/cli/src/commands/org.ts#L498)
+**Source:** [`commands/org.ts → supervisorAction`](packages/@monomind/cli/src/commands/org.ts#supervisorAction)
 
 ---
 
@@ -170,7 +170,7 @@ Run the org's test loop (delegates to `orgrt/test-loop.ts::runTestLoop()`).
 monomind org test-loop <name>
 ```
 
-**Source:** [`commands/org.ts:L776`](packages/@monomind/cli/src/commands/org.ts#L776)
+**Source:** [`commands/org.ts → testLoopAction`](packages/@monomind/cli/src/commands/org.ts#testLoopAction)
 
 ---
 
@@ -247,7 +247,7 @@ monomind org memory <name> <subcommand>
 | `rules` | List up to 50 stored "when X do Y" rules |
 | `rollback <run-ref>` | Undo all memory written by a specific run |
 
-**Source:** [`commands/org.ts:L1077`](packages/@monomind/cli/src/commands/org.ts#L1077)
+**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
 ---
 
@@ -345,7 +345,7 @@ human-approval checkpoints). Add `--all` to include already-resolved gates.
 monomind org gates <name> [--all]
 ```
 
-**Source:** [`commands/org.ts:L1201`](packages/@monomind/cli/src/commands/org.ts#L1201)
+**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
 ---
 
@@ -357,7 +357,7 @@ Approve a pending decision gate, unblocking the agent that raised it.
 monomind org gate-approve <name> <gate-id> ["<resolution note>"]
 ```
 
-**Source:** [`commands/org.ts:L1215`](packages/@monomind/cli/src/commands/org.ts#L1215)
+**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
 ---
 
@@ -369,7 +369,7 @@ Reject a pending decision gate.
 monomind org gate-reject <name> <gate-id> ["<reason>"]
 ```
 
-**Source:** [`commands/org.ts:L1225`](packages/@monomind/cli/src/commands/org.ts#L1225)
+**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
 ---
 
@@ -381,7 +381,7 @@ Time-travel debugging — re-emit all bus events from a historical run.
 monomind org replay <name> --run <run-id>
 ```
 
-**Source:** [`commands/org.ts:L1234`](packages/@monomind/cli/src/commands/org.ts#L1234) (subcommand entry) → [`orgrt/daemon.ts:L1067`](packages/@monomind/cli/src/orgrt/daemon.ts#L1067) (`replayFrom()`, now a 2-line delegate) → [`orgrt/checkpoint-ops.ts:L16`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L16)
+**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts) (subcommand entry) → [`orgrt/daemon.ts → replayFrom`](packages/@monomind/cli/src/orgrt/daemon.ts#replayFrom) (`replayFrom()`, now a 2-line delegate) → [`orgrt/checkpoint-ops.ts → replayFrom`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#replayFrom)
 
 ---
 
@@ -451,7 +451,7 @@ monomind org migrate <name>
 
 Saves a backup as `<name>.v1.json` before overwriting.
 
-**Source:** [`commands/org.ts:L966`](packages/@monomind/cli/src/commands/org.ts#L966)
+**Source:** [`commands/org.ts → migrateAction`](packages/@monomind/cli/src/commands/org.ts#migrateAction)
 
 ---
 
@@ -465,7 +465,7 @@ monomind org list
 
 Excludes artifact suffixes (`-state`, `-goals`, `-threads`, etc.) and `.v1.json` backups.
 
-**Source:** [`commands/org.ts:L789`](packages/@monomind/cli/src/commands/org.ts#L789)
+**Source:** [`commands/org.ts → listAction`](packages/@monomind/cli/src/commands/org.ts#listAction)
 
 ---
 
@@ -482,7 +482,7 @@ monomind org delete <name> [--yes] [--force]
 | `--yes` | Skip confirmation prompt |
 | `--force` | Delete even if org is currently running |
 
-**Source:** [`commands/org.ts:L830`](packages/@monomind/cli/src/commands/org.ts#L830)
+**Source:** [`commands/org.ts → deleteAction`](packages/@monomind/cli/src/commands/org.ts#deleteAction)
 
 ---
 
@@ -496,13 +496,13 @@ monomind org mark-complete <name>
 
 Writes `{status:'stopped', closedBy:'mark-complete'}` to `runtime.json`.
 
-**Source:** [`commands/org.ts:L901`](packages/@monomind/cli/src/commands/org.ts#L901)
+**Source:** [`commands/org.ts → markCompleteAction`](packages/@monomind/cli/src/commands/org.ts#markCompleteAction)
 
 ---
 
 ## Name Validation
 
 Org names must match: `/^[a-z0-9][a-z0-9_-]*$/i`  
-([`commands/org.ts:L18`](packages/@monomind/cli/src/commands/org.ts#L18))
+([`commands/org.ts → validateOrgName`](packages/@monomind/cli/src/commands/org.ts#validateOrgName))
 
 This prevents path traversal attacks.

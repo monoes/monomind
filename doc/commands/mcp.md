@@ -9,7 +9,7 @@
 
 The `monomind mcp` command suite manages local Model Context Protocol (MCP) servers, background daemon lifecycle, tool inspection, and interactive tool execution.
 
-Defined in `packages/@monomind/cli/src/commands/mcp.ts` ([file:1-350](packages/@monomind/cli/src/commands/mcp.ts#L1-L350)).
+Defined in `packages/@monomind/cli/src/commands/mcp.ts` ([packages/@monomind/cli/src/commands/mcp.ts](packages/@monomind/cli/src/commands/mcp.ts)).
 
 ---
 
@@ -18,7 +18,7 @@ Defined in `packages/@monomind/cli/src/commands/mcp.ts` ([file:1-350](packages/@
 | Subcommand | Usage | Description |
 |---|---|---|
 | `start` | `monomind mcp start [-t stdio\|http\|websocket] [--port <p>]` | Start the MCP server. Default transport is `stdio`. Options `--port` and `-t` enable HTTP/WebSocket modes. |
-| `stop` | `monomind mcp stop` | Stop running background MCP server daemon managed by `MCPServerManager` ([`src/mcp-tools/mcp-server.ts`](packages/@monomind/cli/src/mcp-tools/mcp-server.ts)). |
+| `stop` | `monomind mcp stop` | Stop running background MCP server daemon managed by `MCPServerManager` ([`src/mcp-server.ts`](packages/@monomind/cli/src/mcp-server.ts)). |
 | `status` | `monomind mcp status` | Display server running status, PID, port, active connections, and transport type. |
 | `health` | `monomind mcp health` | Run health checks across core protocol handlers and tool registries. |
 | `restart` | `monomind mcp restart` | Restart active background MCP server process. |
@@ -33,9 +33,9 @@ Defined in `packages/@monomind/cli/src/commands/mcp.ts` ([file:1-350](packages/@
 
 When starting or interfacing with MCP, three distinct entry points are utilized:
 
-1. **`bin/mcp-server.js`** ([file:96-196](packages/@monomind/cli/bin/mcp-server.js#L96-L196)): Binary stdio stream entry point used by Claude Code or IDE integrations (`monomind-mcp`). *Note:* Hardcodes `serverInfo: { name: 'monomind', version: '3.0.0' }` during initial handshake.
-2. **`src/commands/mcp.ts`** ([file:1-350](packages/@monomind/cli/src/commands/mcp.ts#L1-L350)): CLI command entry point handling the 9 subcommands detailed above.
-3. **`src/mcp-server.ts`** ([file:1-280](packages/@monomind/cli/src/mcp-tools/mcp-server.ts#L1-L280)): PID manager and server daemon lifecycle manager (`~/.monomind/mcp-server.pid`).
+1. **`bin/mcp-server.js`** ([packages/@monomind/cli/bin/mcp-server.js](packages/@monomind/cli/bin/mcp-server.js)): Binary stdio stream entry point used by Claude Code or IDE integrations (`monomind-mcp`). *Note:* Hardcodes `serverInfo: { name: 'monomind', version: '3.0.0' }` during initial handshake.
+2. **`src/commands/mcp.ts`** ([packages/@monomind/cli/src/commands/mcp.ts](packages/@monomind/cli/src/commands/mcp.ts)): CLI command entry point handling the 9 subcommands detailed above.
+3. **`src/mcp-server.ts`** ([packages/@monomind/cli/src/mcp-server.ts](packages/@monomind/cli/src/mcp-server.ts)): PID manager and server daemon lifecycle manager (`~/.monomind/mcp-server.pid`).
 
 ---
 

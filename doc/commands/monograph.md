@@ -17,12 +17,12 @@ Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@mon
 
 | Subcommand | Description | Key Flags | Source Reference |
 |---|---|---|---|
-| `build` | Builds or rebuilds knowledge graph using Tree-sitter parsers | `--force`, `--incremental`, `--concurrency N` | [`monograph.ts:592`](packages/@monomind/cli/src/commands/monograph.ts#L592) |
+| `build` | Builds or rebuilds knowledge graph using Tree-sitter parsers | `--force`, `--incremental`, `--concurrency N` | [`monograph.ts → buildCommand`](packages/@monomind/cli/src/commands/monograph.ts#buildCommand) |
 | `wiki` | Generates architectural Markdown wiki documentation from graph | `--output-dir`, `--format md` | [`wiki-build.ts`](packages/@monomind/monograph/src/mcp-tools/wiki-build.ts) |
 | `search` | FTS5 trigram + vector search across codebase symbols | `--query`, `--limit N`, `--type symbol\|file` | [`query.ts`](packages/@monomind/monograph/src/mcp-tools/query.ts) |
 | `stats` | Displays node/edge counts, communities, and complexity health metrics | `--json` | [`stats.ts`](packages/@monomind/monograph/src/graph/stats.ts) |
-| `watch` | Starts background file watcher for incremental real-time AST updates | `--debounce-ms 300` | [`monograph-tools.ts:660`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L660) |
-| `impact` | Calculates blast radius and ripple impact for a target node or file | `--target "..."`, `--depth N` | [`monograph-tools.ts:1104`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1104) |
+| `watch` | Starts background file watcher for incremental real-time AST updates | `--debounce-ms 300` | [`monograph.ts → watchCommand`](packages/@monomind/cli/src/commands/monograph.ts#watchCommand) |
+| `impact` | Calculates blast radius and ripple impact for a target node or file | `--target "..."`, `--depth N` | [`impact-tools.ts → monographImpactTool`](packages/@monomind/cli/src/mcp-tools/monograph/impact-tools.ts#monographImpactTool) |
 
 ---
 
