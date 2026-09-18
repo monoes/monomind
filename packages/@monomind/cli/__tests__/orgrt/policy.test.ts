@@ -260,3 +260,58 @@ describe('PolicyEngine — secret redaction on bus events', () => {
     expect(assets[0].data.content).toBe('export const env = process.env;');
   });
 });
+
+// Issue #291: a denial that names only what the role tried, and nothing about
+// the boundary it hit, is unactionable — in an Org Arena rehearsal a reviewer
+// role's single Read was denied, it never learned which root it was confined
+// to, and it reviewed from submission prose without reading a line of code.
+describe('PolicyEngine denial messages name the boundary (#291)', () => {
+  const msg = (d: { behavior: string; message?: string }) => d.message ?? '';
+
+  it('names the org workdir, and how paths resolve, when a path escapes it', async () => {
+    const p = new PolicyEngine('reviewer', {}, mkBus(), '/work/repo');
+    const d = await p.decide('Read', { file_path: '/elsewhere/checkout/main.go' });
+    expect(d.behavior).toBe('deny');
+    expect(msg(d)).toContain('/elsewhere/checkout/main.go');
+    expect(msg(d)).toContain('/work/repo');
+    expect(msg(d)).toMatch(/relative to/i);
+  });
+
+  it('names the read scope that rejected a path', async () => {
+    const p = new PolicyEngine('reviewer', { fileRead: ['src/**', 'docs/**'] }, mkBus(), '/work');
+    const d = await p.decide('Read', { file_path: '/work/secrets/a.txt' });
+    expect(d.behavior).toBe('deny');
+    expect(msg(d)).toContain('src/**');
+    expect(msg(d)).toContain('docs/**');
+    expect(msg(d)).toContain('/work');
+  });
+
+  it('names the write scope that rejected a path', async () => {
+    const p = new PolicyEngine('coder', { fileWrite: ['src/**'] }, mkBus(), '/work');
+    const d = await p.decide('Write', { file_path: '/work/dist/a.js' });
+    expect(d.behavior).toBe('deny');
+    expect(msg(d)).toContain('src/**');
+  });
+
+  it('names the scope on a path-less Grep denial so the role knows what to pass', async () => {
+    const p = new PolicyEngine('coder', { fileRead: ['src/**'] }, mkBus(), '/work');
+    const d = await p.decide('Grep', { pattern: 'password' });
+    expect(d.behavior).toBe('deny');
+    expect(msg(d)).toContain('src/**');
+  });
+
+  it('lists the allowlist when a tool is not on it', async () => {
+    const p = new PolicyEngine('reviewer', { allowTools: ['Read', 'Grep'] }, mkBus(), '/work');
+    const d = await p.decide('Bash', { command: 'ls' });
+    expect(d.behavior).toBe('deny');
+    expect(msg(d)).toContain('Read');
+    expect(msg(d)).toContain('Grep');
+  });
+
+  it('lists the allowed domains when a WebFetch host is rejected', async () => {
+    const p = new PolicyEngine('researcher', { webAllow: ['docs.claude.com'] }, mkBus(), '/work');
+    const d = await p.decide('WebFetch', { url: 'https://evil.example.com/x' });
+    expect(d.behavior).toBe('deny');
+    expect(msg(d)).toContain('docs.claude.com');
+  });
+});

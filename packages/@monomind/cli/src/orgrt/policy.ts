@@ -241,7 +241,9 @@ export class PolicyEngine {
       !tool.startsWith(ORG_TOOL_NS) &&
       !(this.toolContext.providerPrefixes?.() ?? []).some((p) => tool.startsWith(p))
     )
-      return deny(`tool ${tool} not in allowlist for role ${this.role}`);
+      return deny(
+        `tool ${tool} not in allowlist for role ${this.role} — allowed: ${this.policy.allowTools.join(', ')}`,
+      );
 
     if (WRITE_TOOLS.has(tool) || READ_TOOLS.has(tool)) {
       const globs = WRITE_TOOLS.has(tool)
@@ -260,14 +262,20 @@ export class PolicyEngine {
         // sailed straight through to allow() and bypassed fileRead/fileWrite
         // scoping entirely. Deny rather than guess which files it would touch.
         return deny(
-          `${tool} has no path argument, but role ${this.role}'s ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope is restricted — refusing an unscoped call`,
+          `${tool} has no path argument, but role ${this.role}'s ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope is restricted — refusing an unscoped call; pass a path inside ${globs.join(', ')} (relative to org workdir ${this.cwd})`,
         );
       }
       if (p !== null) {
         // SEC: compare REAL paths — a symlink inside the scope pointing outside
         // the workdir (or at an out-of-scope file) passed the lexical check.
         const rel = relative(realPath(this.cwd), realPath(resolve(this.cwd, p)));
-        if (rel.startsWith('..')) return deny(`path escapes org workdir: ${p}`);
+        // #291: naming only the rejected path leaves the role guessing another
+        // absolute path — it never learns the root it is confined to. Name the
+        // boundary and how paths resolve so the next turn can be correct.
+        if (rel.startsWith('..'))
+          return deny(
+            `path escapes org workdir: ${p} (org workdir: ${this.cwd} — paths are resolved relative to that directory; retry with a path inside it)`,
+          );
         // fileWrite/fileRead globs are always authored with '/' separators (POSIX
         // convention, matches every example in types.ts and the skill docs) — but
         // path.relative()/path.resolve() return '\'-separated paths on Windows, and
@@ -277,7 +285,9 @@ export class PolicyEngine {
         // unrestricted ['**'] default is denied on every single call.
         const relPosix = rel.split(sep).join('/');
         if (!globs.some((g) => globToRegExp(g).test(relPosix)))
-          return deny(`path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope`);
+          return deny(
+            `path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope — role ${this.role} may use ${globs.join(', ')} (relative to org workdir ${this.cwd})`,
+          );
         // #258: Write/Edit run in-process, so the OS sandbox never sees them —
         // without this a 'read' role could write refs and objects straight into
         // .git, and a 'commit' role could rewrite the shared identity (#250) or
@@ -312,7 +322,9 @@ export class PolicyEngine {
       if (tool === 'WebFetch') {
         const host = safeHost(String(input.url ?? ''));
         if (!host || !this.policy.webAllow.some((d) => webDomainMatches(d, host)))
-          return deny(`domain ${host ?? '?'} not in research allowlist`);
+          return deny(
+            `domain ${host ?? '?'} not in research allowlist — allowed: ${this.policy.webAllow.join(', ')}`,
+          );
       }
       // WebSearch has no URL up front; allowed if webAllow is non-empty
     }
