@@ -4,6 +4,18 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.4] — 2026-09-18
+
+### Fixed
+
+- `monomind hooks list` rendered `Priority`, `Executions` and `Last Executed` columns that nothing populates — and "Never" was actively false, e.g. the `route` hook had 500 recorded runs. Priority exists only in an in-memory registry production code never fills; there is no per-hook last-executed timestamp; and the counters that do exist are keyed by *handler*, a different name space (only 6 of 24 registry names overlap, so a join would be guesswork). The three dead columns are gone, and the real per-handler counts now appear as a "Handler invocations" section under the existing Claude Code wiring block — omitted entirely when no data has been recorded, rather than shown as zeros (e4e1fd2be).
+- Four `overrides` blocks (root `package.json`, and the cli, mcp and monograph packages) were never applied but read as protection: pnpm v10 takes workspace overrides from `pnpm-workspace.yaml`, and the blocks had silently diverged from it. Every entry was either byte-identical to the live one or, in the case of `ws: "$ws"`, unresolvable — the root package declares no `ws` dependency for that syntax to match — so all four are removed with no constraint ported or weakened (`pnpm why` output for every affected package is identical before and after, and the lockfile is untouched). `scripts/check-overrides-source.mjs`, wired into `check:versions` and `prepublishOnly`, now fails when any manifest declares `overrides`/`resolutions`, reporting per entry whether it is redundant, disagrees with the applied range, or is a constraint applied nowhere (#284: 010254f96).
+
+### Changed
+
+- Docs cite source by symbol (`[\`orgrt/daemon.ts → startOrg\`](…/daemon.ts#startOrg)`) instead of by line number. 97 of the 200 line references in the living docs were already wrong, and `OrgDaemon` — hand-corrected to L438 a day earlier — had already moved to 444. Symbol anchors only break when a symbol is renamed or deleted, and `scripts/check-doc-refs.mjs` (wired into `verify`) then fails by name; it also rejects any reintroduced `#L<n>` anchor. 200 references converted across 13 docs, 3 dead file paths repaired. The 134 references under `doc/reports/` are left as they are: each report states the commit it was reviewed at, so its line numbers are pinned rather than rotting (b9bc46552).
+- Tracked platform assets regenerated with 2.11.3: managed-block delimiters applied in place on `CLAUDE.md`, `AGENTS.md`, `.agents/shared_instructions.md` and the 14 `.claude` skill files; `CLAUDE.md` now matches the detected stack (`/packages` and pnpm, not `/src` and npm); `.claude/settings.json` gains the post-bash and notification hooks; `.kimi-code` agents drop `mode: subagent`, an opencode-only field the kimi generator ignores by design (b3b2d3397).
+
 ## [2.11.3] — 2026-09-18
 
 ### Fixed
