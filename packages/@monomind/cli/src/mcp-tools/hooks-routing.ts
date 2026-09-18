@@ -243,15 +243,20 @@ export const hooksPostCommand: MCPTool = {
     let _storedIn: 'sqlite' | 'json-store' | 'none' = 'none';
     try {
       const bridge = await import('../memory/memory-bridge.js');
-      await bridge.bridgeStoreEntry({
+      const stored = await bridge.bridgeStoreEntry({
         key: `cmd-${Date.now()}`,
         value: JSON.stringify({ command, exitCode, success }),
         namespace: 'commands',
         tags: [success ? 'success' : 'error'],
       });
+      // #293: bridgeStoreEntry RETURNS null when the backend cannot be loaded,
+      // it does not throw. Claiming `_storedIn = 'sqlite'` on that return
+      // reported `recorded: true` for a write that never happened AND skipped
+      // the JSON fallback below, so the record was lost twice over.
+      if (!stored?.success) throw new Error(stored?.error ?? 'memory backend unavailable');
       _storedIn = 'sqlite';
     } catch {
-      // memory backend unavailable — store in JSON
+      // memory backend unavailable or refused the write — store in JSON
       try {
         const store = loadMemoryStore();
         const key = `cmd-${Date.now()}`;
@@ -1439,7 +1444,7 @@ export const hooksPretrain: MCPTool = {
     let patternsStored = 0;
     try {
       const bridge = await import('../memory/memory-bridge.js');
-      await bridge.bridgeStoreEntry({
+      const stored = await bridge.bridgeStoreEntry({
         key: `pretrain-${Date.now()}`,
         value: JSON.stringify({
           filesAnalyzed,
@@ -1452,7 +1457,14 @@ export const hooksPretrain: MCPTool = {
         namespace: 'pretrain',
         tags: ['pretrain', depth],
       });
-      patternsStored = patterns.length;
+      // #293: only count what actually persisted. bridgeStoreEntry returns
+      // null (never throws) when the backend cannot be loaded, so this used to
+      // report every scanned pattern as stored on a store that did nothing.
+      if (stored?.success) patternsStored = patterns.length;
+      else
+        console.warn(
+          `[hooks-pretrain] patterns were NOT stored (${stored?.error ?? 'memory backend unavailable'})`,
+        );
     } catch (e) {
       /* memory backend unavailable */
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)

@@ -271,12 +271,18 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
               `RAPTOR cluster [${Math.floor(i / CLUSTER_SIZE)}]: ` +
               `${cluster.length} patterns consolidated. Topics: ${keys.slice(0, 120)}`;
 
-            await bridge.bridgeStoreEntry({
+            const stored = (await bridge.bridgeStoreEntry({
               key: `raptor_cluster:${Date.now()}_${i}`,
               value: summary,
               namespace: 'contextual',
               tags: ['raptor', 'cluster_summary'],
-            });
+            })) as { success?: boolean } | null;
+
+            // #293: bridgeStoreEntry RETURNS null when the backend cannot be
+            // loaded — it does not throw, so the catch below never fired and
+            // these counters reported clusters that were never written. A
+            // backend that is gone will not come back mid-loop: stop.
+            if (!stored?.success) break;
 
             patternsConsolidated += cluster.length;
             clustersCreated++;

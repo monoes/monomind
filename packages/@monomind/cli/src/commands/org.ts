@@ -980,6 +980,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
           abandonedRoles?: string[];
           closedBy?: string;
           error?: string;
+          memoryError?: string;
         };
         let status = st.status ?? 'never run';
         // #274: an 'idle' run is still a running run to every protocol
@@ -996,6 +997,8 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
           abandoned_roles: st.abandonedRoles ?? [],
           closed_by: st.closedBy,
           error: st.error,
+          // #293: present only when the run's cross-run memory was not stored.
+          memory_error: st.memoryError,
         };
       } catch {
         return { name: t, status: 'unreadable-runtime' };
@@ -1084,6 +1087,17 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
       );
     } else {
       log(output.info(line));
+    }
+    // #293: cross-run memory that was never written. Without this the only
+    // symptom is org_recall coming back empty runs later, which points nowhere
+    // near a memory backend that failed to load.
+    const memoryError = (state as { memoryError?: string }).memoryError;
+    if (memoryError) {
+      log(
+        output.warning(
+          `  org memory: last run was NOT saved (${memoryError}) — org_recall will not find it`,
+        ),
+      );
     }
 
     // Enriched progress for running orgs
