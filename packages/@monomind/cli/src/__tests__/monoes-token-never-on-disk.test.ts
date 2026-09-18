@@ -41,7 +41,10 @@ function writeConnection(data: Record<string, unknown>) {
 // from a serialized copy ───────────────────────────────────────────────────
 describe('resolveAuthHeader — resolves at request time, never from a file it wrote', () => {
   it('reflects the currently-stored token on each call, not a snapshot from the first call', async () => {
-    writeConnection({ accessToken: /* value */ 'FAKE-AT-first', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeConnection({
+      accessToken: /* value */ 'FAKE-AT-first',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
 
     const first = await resolveAuthHeader(monomindHome);
     expect(first).toEqual({ ok: true, headers: { Authorization: 'Bearer FAKE-AT-first' } });
@@ -50,7 +53,10 @@ describe('resolveAuthHeader — resolves at request time, never from a file it w
     // another process/request) by mutating the on-disk connection directly —
     // resolveAuthHeader must reflect it immediately, proving it re-reads
     // rather than caching the header from the first call.
-    writeConnection({ accessToken: /* value */ 'FAKE-AT-second', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeConnection({
+      accessToken: /* value */ 'FAKE-AT-second',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
 
     const second = await resolveAuthHeader(monomindHome);
     expect(second).toEqual({ ok: true, headers: { Authorization: 'Bearer FAKE-AT-second' } });
@@ -75,7 +81,10 @@ describe('resolveAuthHeader — resolves at request time, never from a file it w
 
 describe('runMonoesProxy — end-to-end stdio<->HTTP forwarding', () => {
   it('forwards a JSON-RPC line to monoes.me with a freshly-resolved bearer header, and never touches .mcp.json', async () => {
-    writeConnection({ accessToken: /* value */ 'FAKE-AT-e2e', expiresAt: Date.now() + 10 * 60 * 1000 });
+    writeConnection({
+      accessToken: /* value */ 'FAKE-AT-e2e',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
 
     const fetchMock = vi.fn(async (_url: string, _opts?: RequestInit) => ({
       ok: true,
@@ -323,7 +332,10 @@ describe('checkMonoesTokenExposure (doctor check)', () => {
     const connPath = join(dir, '.monomind', 'monoes-connection.json');
     writeFileSync(
       connPath,
-      JSON.stringify({ accessToken: /* value */ 'FAKE-AT-tracked', refreshToken: /* value */ 'FAKE-RT-tracked' }),
+      JSON.stringify({
+        accessToken: /* value */ 'FAKE-AT-tracked',
+        refreshToken: /* value */ 'FAKE-RT-tracked',
+      }),
     );
     execFileSync('git', ['add', '.monomind/monoes-connection.json'], { cwd: dir });
 
