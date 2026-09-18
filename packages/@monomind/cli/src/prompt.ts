@@ -51,7 +51,20 @@ class PromptManager {
   private async question(prompt: string): Promise<string> {
     return new Promise((resolve) => {
       const rl = this.createInterface();
+      let answered = false;
+      // On EOF (Ctrl-D) readline emits 'close' but never invokes the
+      // rl.question callback below, so without this the promise would only
+      // ever resolve via some external timeout — a crashed CLI would look
+      // hung for however long that takes instead of exiting immediately.
+      // Resolving '' here lets every caller's own empty-input handling
+      // (e.g. confirm()'s default-on-empty) apply immediately on EOF too.
+      const onClose = () => {
+        if (!answered) resolve('');
+      };
+      rl.once('close', onClose);
       rl.question(prompt, (answer) => {
+        answered = true;
+        rl.removeListener('close', onClose);
         resolve(answer);
       });
     });
