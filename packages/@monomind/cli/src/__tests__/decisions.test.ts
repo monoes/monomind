@@ -22,8 +22,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../orgrt/bus.js';
+import { pushMessage } from '../orgrt/cross-org.js';
 import { type AgentRuntime, OrgDaemon, type RunningOrg } from '../orgrt/daemon.js';
-import { dispatchReadyTasks } from '../orgrt/decisions.js';
+import { DISPATCH_COALESCE_MS, dispatchReadyTasks } from '../orgrt/decisions.js';
 import { Mailbox } from '../orgrt/mailbox.js';
 import type { PolicyEngine } from '../orgrt/policy.js';
 import { TaskDag } from '../orgrt/task-dag.js';
@@ -33,6 +34,10 @@ import { ORG_DIR, type OrgDef } from '../orgrt/types.js';
 function minimalDef(name: string): OrgDef {
   return { name, goal: 'test', roles: [{ id: 'dev' }], run_config: {} } as unknown as OrgDef;
 }
+
+/** Wait out the task-dispatch coalescing window (#275). */
+const settleDispatch = (): Promise<void> =>
+  new Promise((r) => setTimeout(r, DISPATCH_COALESCE_MS + 50));
 
 function makeAgent(): AgentRuntime {
   return {
@@ -138,7 +143,7 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
     expect((warning?.data as any).assignee).toBe('worker');
   });
 
-  it('still dispatches normally to a live agent (regression guard)', () => {
+  it('still dispatches normally to a live agent (regression guard)', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-happy-'));
     const daemon = new OrgDaemon(tmp);
     const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
@@ -165,10 +170,92 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
     dispatchReadyTasks(daemon, 'alpha', running);
 
     expect(taskDag.get(task.id)?.status).toBe('running');
+    // The push itself is held for one coalescing window (#275) — the task is
+    // marked running immediately, the mailbox message lands a beat later.
+    expect(agent.mailbox.serialize().queue).toEqual([]);
+    await settleDispatch();
     expect(agent.mailbox.serialize().queue).toEqual([`[task:${task.id}] do the thing`]);
     const dispatched = events.find((e) => e.reason === 'task-dispatched');
     expect(dispatched).toBeTruthy();
     expect((dispatched?.data as any).assignee).toBe('worker');
+  });
+});
+
+/**
+ * #275: release-captain called org_task (assigning fixer) and, in the same
+ * turn, org_send with the numbered issue list the task was about. Each push is
+ * its own mailbox entry and Mailbox.stream() yields one entry per SDK turn, so
+ * fixer's turn opened with the bare title and the briefing sat behind it unread
+ * — fixer had to ask for a resend, costing a whole round.
+ */
+describe('org_task auto-dispatch + same-turn org_send (#275)', () => {
+  let tmp = '';
+  afterEach(() => {
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  const makeRunning = (bus: OrgBus, taskDag: TaskDag, agent: AgentRuntime): RunningOrg => ({
+    def: minimalDef('alpha'),
+    run: 'run-1',
+    bus,
+    agents: new Map([['fixer', agent]]),
+    busEvents: () => [],
+    roleSlots: new Map(),
+    bossRoleId: 'boss',
+    glossary: [],
+    respawning: new Set(),
+    taskDag,
+  });
+
+  it('delivers the task and the message the same turn sent as one mailbox message', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-coalesce-'));
+    const daemon = new OrgDaemon(tmp);
+    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const agent = makeAgent();
+    const taskDag = new TaskDag();
+    const task = taskDag.add('ROUND 1 FIXES: fixer resolves 10 numbered issues', 'fixer', []);
+    const running = makeRunning(bus, taskDag, agent);
+    daemon.orgs.set('alpha', running);
+
+    // One coordinator turn: org_task auto-dispatches, org_send follows.
+    dispatchReadyTasks(daemon, 'alpha', running);
+    const delivered = await pushMessage(
+      daemon,
+      'alpha',
+      running,
+      'fixer',
+      'release-captain',
+      'ROUND 1 FIXES',
+      '1. build-engineer: tsc error in org.ts\n2. cli-qa: monomind org status lies',
+      'msg-1',
+    );
+    expect(delivered).toBe(true);
+    await settleDispatch();
+
+    const queue = agent.mailbox.serialize().queue;
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toContain(`[task:${task.id}]`);
+    expect(queue[0]).toContain('ROUND 1 FIXES: fixer resolves 10 numbered issues');
+    expect(queue[0]).toContain('1. build-engineer: tsc error in org.ts');
+    expect(queue[0]).toContain('2. cli-qa: monomind org status lies');
+    daemon.orgs.delete('alpha');
+  });
+
+  it('leaves a message with no task dispatch in flight as its own delivery', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-plain-'));
+    const daemon = new OrgDaemon(tmp);
+    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const agent = makeAgent();
+    const running = makeRunning(bus, new TaskDag(), agent);
+    daemon.orgs.set('alpha', running);
+
+    await pushMessage(daemon, 'alpha', running, 'fixer', 'release-captain', 'ping', 'body', 'm1');
+    await settleDispatch();
+
+    const queue = agent.mailbox.serialize().queue;
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toContain('[message from release-captain] subject: ping');
+    daemon.orgs.delete('alpha');
   });
 });
 
@@ -260,6 +347,7 @@ describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
 
     expect(spawned).toEqual(['worker']);
     expect(taskDag.get(task.id)?.status).toBe('running');
+    await vi.advanceTimersByTimeAsync(DISPATCH_COALESCE_MS + 50); // #275 coalescing window
     expect(running.agents.get('worker')?.mailbox.serialize().queue).toEqual([
       `[task:${task.id}] do the thing`,
     ]);
