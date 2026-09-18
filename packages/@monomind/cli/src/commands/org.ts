@@ -14,6 +14,7 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { OrgDaemon } from '../orgrt/daemon.js';
+import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
 import { readHistory, readRunEvents, summarizeRun, utcTime } from '../orgrt/reporting.js';
 import { startOrgServer } from '../orgrt/server.js';
@@ -999,6 +1000,8 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
           error: st.error,
           // #293: present only when the run's cross-run memory was not stored.
           memory_error: st.memoryError,
+          // #296: when the idle watchdog will stop a running org, or why it won't.
+          ...(status === 'running' ? readIdleStatus(ctx.cwd, t, st.run) : {}),
         };
       } catch {
         return { name: t, status: 'unreadable-runtime' };

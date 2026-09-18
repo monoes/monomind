@@ -118,7 +118,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"version":"2.10.31","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation"]}
+{"version":"2.10.31","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
@@ -330,6 +330,14 @@ command** added for this protocol is `org events` (§7.3).
 Shapes mirror the underlying state files (`runtime.json`, `history.jsonl`, `questions.json`,
 `gates.json`, `decisions` traces) — see `orgrt/types.ts` for field definitions. Snapshotted in
 monomind's `--json` contract tests.
+
+**Idle deadline** (capability `org-idle-deadline`): for a `running` org, `org status --json` adds
+`idle_stop_at` (ISO-8601 or `null`), `idle_stop_in_seconds` (`null` with it) and `idle_hold`.
+`idle_stop_at` is when the idle watchdog stops the run if nothing happens before then (the
+earliest stop; the watchdog checks every min(idle/2, 30 s)). When it is `null`, `idle_hold` says
+why: `disabled` (`idle_minutes: 0`), `restarting`, `pending-gate`, `pending-question`,
+`pending-approval`, `endpoint-reply-due`, `task-blocked`, or `unknown` (no record from this run
+yet, e.g. a daemon older than the capability).
 
 ### 7.3 `monomind org events --ndjson [--follow] [--since]`
 

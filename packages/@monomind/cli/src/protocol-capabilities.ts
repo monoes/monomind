@@ -26,6 +26,8 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *    events, request-scoped approvals (`--request`, `requestId`)
  *  - `org-endpoint-roles` — roles with `kind: "endpoint"` delivered by HTTP POST
  *  - `org-federation` — `federation.allow_from/allow_to` enforced across project roots
+ *  - `org-idle-deadline` — `org status --json` reports `idle_stop_at`,
+ *    `idle_stop_in_seconds` and `idle_hold` for a running org
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -35,6 +37,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-decision-attribution',
   'org-endpoint-roles',
   'org-federation',
+  'org-idle-deadline',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */
