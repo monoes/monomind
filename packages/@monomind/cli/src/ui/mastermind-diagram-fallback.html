@@ -1064,6 +1064,20 @@ setInterval(refreshSessions, 8000);
 
 // Set initial live mode banner
 document.getElementById('mode-banner').classList.add('live-mode');
+
+// i-065-dash: expose the _-prefixed implementations under the bare names
+// inline onclick/onchange/... attributes above actually call. Commit 9537930fb
+// prefixed these declarations with _ (conventionally "intentionally unused") but
+// they are used, just from HTML attributes no linter sees — every name below threw
+// ReferenceError on click before this block existed. See
+// src/__tests__/dashboard-handler-resolution.test.ts, which fails if this list is
+// ever incomplete or stale.
+Object.assign(window, {
+  applyProjectFilter: _applyProjectFilter,
+  toggleMovieMode: _toggleMovieMode,
+  closeDetail: _closeDetail,
+  downloadSession: _downloadSession,
+});
 </script>
 </body>
 </html>
