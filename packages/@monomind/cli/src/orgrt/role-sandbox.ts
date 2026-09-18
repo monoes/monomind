@@ -181,7 +181,11 @@ const uniq = (xs: Array<string | undefined>): string[] => [
  *  treats an unreadable ~/.gitconfig as fatal — every git command in the role
  *  would fail (observed against the real SDK sandbox). */
 const existing = (xs: Array<string | undefined>): string[] =>
-  uniq(uniq(xs).filter((p) => existsSync(p)).map(maskTarget));
+  uniq(
+    uniq(xs)
+      .filter((p) => existsSync(p))
+      .map(maskTarget),
+  );
 /** bwrap cannot bind over a path inside a directory it cannot list ("Can't
  *  mkdir parents … Permission denied" — /run/containerd is drwx--x--x on a
  *  stock docker host), and that failure kills every sandboxed Bash call. Mask
