@@ -376,6 +376,12 @@ export interface RunningOrg {
   traces?: Map<string, ChainTrace>;
   /** M2: reply waits for endpoint deliveries — hold the idle watchdog. */
   endpointWaits?: EndpointWait[];
+  /** #275: auto-dispatched tasks held for one coalescing window, keyed by
+   *  assignee, so a message the coordinator sent in the same turn is delivered
+   *  together with the task instead of a turn behind it. Owned by
+   *  decisions.ts's queueDispatch; cross-org.ts's pushMessage folds a
+   *  same-turn message into an open entry. */
+  pendingDispatch?: Map<string, { lines: string[]; timer: ReturnType<typeof setTimeout> }>;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -2341,6 +2347,10 @@ export class OrgDaemon {
     }
     this.leases.get(name)?.stop();
     this.leases.delete(name);
+    // #275: drop task dispatches still inside their coalescing window — the
+    // mailboxes they target are closed on the next line anyway.
+    for (const held of org.pendingDispatch?.values() ?? []) clearTimeout(held.timer);
+    org.pendingDispatch?.clear();
     for (const a of org.agents.values()) a.mailbox.close();
     // Closing the mailbox stops new work being handed to a session, but does
     // NOT cancel a turn already in flight (e.g. mid provider call) — that

@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../../packages/@monomind/cli/src/orgrt/bus.js';
 import {
+  DISPATCH_COALESCE_MS,
   dagCancelTask,
   dagMergeTask,
   dagPlanGraph,
@@ -122,7 +123,7 @@ describe('dagCancelTask — daemon wiring', () => {
 });
 
 describe('dispatchReadyTasks — wires to agent mailboxes', () => {
-  it("pushes a [task] message to the assignee's mailbox when one is ready", () => {
+  it("pushes a [task] message to the assignee's mailbox when one is ready", async () => {
     const dag = new TaskDag();
     const _t = dag.add('task for tester', 'tester');
     const dir = mkdtempSync(join(tmpdir(), 'mono-bus-dispatch-'));
@@ -132,6 +133,9 @@ describe('dispatchReadyTasks — wires to agent mailboxes', () => {
     const daemon = makeMockDaemon(dag, bus, agents);
     const running = (daemon.orgs as Map<string, unknown>).get('test-org') as never;
     dispatchReadyTasks(daemon, 'test-org', running);
+    // The push is held for one coalescing window so a same-turn org_send can
+    // join it (#275).
+    await new Promise((r) => setTimeout(r, DISPATCH_COALESCE_MS + 50));
     expect(push).toHaveBeenCalledWith(expect.stringContaining('[task:'));
     expect(push).toHaveBeenCalledWith(expect.stringContaining('task for tester'));
   });

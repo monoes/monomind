@@ -177,7 +177,13 @@ export async function pushMessage(
   }
   const agent = org.agents.get(toRole);
   if (!agent || agent.mailbox.isClosed) return false;
-  agent.mailbox.push(mail);
+  // #275: a task auto-dispatched to this role moments ago is still being held
+  // for its coalescing window — ride along with it so the recipient's turn
+  // opens with the task AND the briefing that accompanies it, instead of the
+  // bare title with this body stranded a turn behind.
+  const heldDispatch = org.pendingDispatch?.get(toRole);
+  if (heldDispatch) heldDispatch.lines.push(mail);
+  else agent.mailbox.push(mail);
   recordTrace(org, toRole, body);
   clearEndpointWait(org, orgName, from);
   return true;

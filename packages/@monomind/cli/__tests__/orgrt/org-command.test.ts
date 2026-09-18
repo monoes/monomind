@@ -1,6 +1,6 @@
 // packages/@monomind/cli/__tests__/orgrt/org-command.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { orgCommand, clearStopfile } from '../../src/commands/org.js';
@@ -330,6 +330,114 @@ describe('org command', () => {
       spy.mockRestore();
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  // #274: during the 2.11.1 release run, `org status release-gate` called the
+  // run it was actively dispatching tasks in "crashed (runtime.json says
+  // running but pid … is gone)" and told the operator to mark-complete it.
+  // A recorded pid can go stale while a run is demonstrably alive, so pid
+  // liveness alone must not be the whole crash verdict.
+  describe('status liveness (#274)', () => {
+    const setup = (
+      cwd: string,
+      org: string,
+      runtime: Record<string, unknown>,
+      opts?: { busAgeMs?: number; heartbeat?: Record<string, unknown> },
+    ): void => {
+      const run = runtime.run as string | undefined;
+      mkdirSync(join(cwd, ORG_DIR, org), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, `${org}.json`), JSON.stringify({ name: org, roles: [{ id: 'boss' }] }));
+      writeFileSync(join(cwd, ORG_DIR, org, 'runtime.json'), JSON.stringify(runtime));
+      if (run && opts?.busAgeMs !== undefined) {
+        mkdirSync(join(cwd, ORG_DIR, org, run), { recursive: true });
+        const bus = join(cwd, ORG_DIR, org, run, 'bus.jsonl');
+        writeFileSync(bus, `${JSON.stringify({ ts: Date.now() - opts.busAgeMs, type: 'status', msg: 'working' })}\n`);
+        const when = new Date(Date.now() - opts.busAgeMs);
+        utimesSync(bus, when, when);
+      }
+      if (opts?.heartbeat) {
+        mkdirSync(join(cwd, '.monomind'), { recursive: true });
+        writeFileSync(join(cwd, '.monomind', 'serve-heartbeat.json'), JSON.stringify(opts.heartbeat));
+      }
+    };
+    const runStatus = async (cwd: string, org: string, flags: Record<string, unknown> = {}) => {
+      const status = orgCommand.subcommands!.find(c => c.name === 'status')!;
+      const lines: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
+      const out: string[] = [];
+      const wspy = vi.spyOn(process.stdout, 'write').mockImplementation(((s: string) => { out.push(s); return true; }) as never);
+      try {
+        const res = await status.action!({ args: [org], flags, cwd, interactive: false } as any);
+        return { res, log: lines.join('\n'), stdout: out.join('') };
+      } finally {
+        wspy.mockRestore();
+        spy.mockRestore();
+      }
+    };
+
+    it('does not call a run crashed while its own event log is still being appended to (stale pid, live run)', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-live-'));
+      try {
+        setup(cwd, 'live', { status: 'running', run: 'run-live', pid: 999999999 }, { busAgeMs: 5_000 });
+        const { res, log } = await runStatus(cwd, 'live');
+        expect(res?.success).toBe(true);
+        expect(log).not.toMatch(/crashed/);
+        expect(log).toMatch(/live: running/);
+        // ...and it says why, so the stale pid isn't a silent mystery.
+        expect(log).toMatch(/999999999/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('reports the same live run as running in --format json (protocol path)', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-live-json-'));
+      try {
+        setup(cwd, 'live', { status: 'running', run: 'run-live', pid: 999999999 }, { busAgeMs: 5_000 });
+        const { stdout } = await runStatus(cwd, 'live', { format: 'json' });
+        expect(JSON.parse(stdout).status).toBe('running');
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('trusts a fresh serve heartbeat that still lists the org when the recorded pid is stale', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-hb-'));
+      try {
+        setup(cwd, 'live', { status: 'running', run: 'run-live', pid: 999999999 }, {
+          heartbeat: { pid: process.pid, updatedAt: new Date().toISOString(), running: ['live'] },
+        });
+        const { log } = await runStatus(cwd, 'live');
+        expect(log).not.toMatch(/crashed/);
+        expect(log).toMatch(/live: running/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('reports a cleanly finished run as stopped, never as crashed (#251 guard)', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-done-'));
+      try {
+        setup(cwd, 'done', { status: 'stopped', run: 'run-done', pid: 999999999, closedBy: 'org-complete' }, { busAgeMs: 60_000 });
+        const { log } = await runStatus(cwd, 'done');
+        expect(log).not.toMatch(/crashed/);
+        expect(log).toMatch(/done: stopped/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('still reports a genuinely dead run (stale pid, long-silent event log) as crashed', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-dead-'));
+      try {
+        setup(cwd, 'dead', { status: 'running', run: 'run-dead', pid: 999999999 }, { busAgeMs: 6 * 60 * 60 * 1000 });
+        const { log } = await runStatus(cwd, 'dead');
+        expect(log).toMatch(/crashed/);
+        expect(log).toMatch(/mark-complete/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('marks a live but long-silent run idle rather than running or crashed', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-idle-'));
+      try {
+        setup(cwd, 'quiet', { status: 'running', run: 'run-quiet', pid: process.pid }, { busAgeMs: 3 * 60 * 60 * 1000 });
+        const { log } = await runStatus(cwd, 'quiet');
+        expect(log).not.toMatch(/crashed/);
+        expect(log).toMatch(/quiet: running \(idle\)/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
   });
 
   it('status rejects a path-traversal org name', async () => {

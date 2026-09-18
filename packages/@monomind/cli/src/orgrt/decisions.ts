@@ -366,6 +366,42 @@ export function dagCompleteTask(
   }
 }
 
+/** How long an auto-dispatched task is held before it enters the assignee's
+ *  mailbox.
+ *
+ *  #275: a coordinator routinely calls org_task and, in the same turn, org_send
+ *  with the briefing that task is about. Each push is its own mailbox entry and
+ *  Mailbox.stream() yields one entry per SDK user turn, so an immediate push
+ *  made the assignee's first turn the bare task title with the briefing
+ *  stranded behind it — the role saw a title with no context and had to ask for
+ *  a resend. Holding the dispatch for a beat lets the same-turn message join
+ *  it, and both arrive as one message. Long enough for the rest of a tool-call
+ *  batch to land, short enough to be invisible next to an LLM turn. */
+export const DISPATCH_COALESCE_MS = 500;
+
+/** Hold `line` for the assignee, merging it with anything else queued for the
+ *  same coalescing window (further dispatches, and same-turn messages folded in
+ *  by cross-org.ts's pushMessage). The recipient is resolved again at flush
+ *  time so a role replaced during the window gets the message in its new
+ *  mailbox rather than the retired one. */
+function queueDispatch(running: RunningOrg, assignee: string, line: string): void {
+  if (!running.pendingDispatch) running.pendingDispatch = new Map();
+  const open = running.pendingDispatch.get(assignee);
+  if (open) {
+    open.lines.push(line);
+    return;
+  }
+  const entry = { lines: [line], timer: undefined as unknown as ReturnType<typeof setTimeout> };
+  entry.timer = setTimeout(() => {
+    running.pendingDispatch?.delete(assignee);
+    const mailbox = running.agents.get(assignee)?.mailbox;
+    if (!mailbox || mailbox.isClosed) return;
+    mailbox.push(entry.lines.join('\n\n'));
+  }, DISPATCH_COALESCE_MS);
+  entry.timer.unref?.();
+  running.pendingDispatch.set(assignee, entry);
+}
+
 export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: RunningOrg): void {
   if (!running.taskDag) return;
   for (const task of running.taskDag.ready()) {
@@ -379,7 +415,7 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
     const pending = running.pendingRoles?.get(task.assignee);
     if (agent && !agent.mailbox.isClosed) {
       running.taskDag.markRunning(task.id);
-      agent.mailbox.push(`[task:${task.id}] ${task.title}`);
+      queueDispatch(running, task.assignee, `[task:${task.id}] ${task.title}`);
       running.bus.emit({
         type: 'status',
         from: 'dag',
@@ -426,7 +462,7 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
       const spawned = running.agents.get(task.assignee);
       if (spawned && !spawned.mailbox.isClosed) {
         running.taskDag.markRunning(task.id);
-        spawned.mailbox.push(`[task:${task.id}] ${task.title}`);
+        queueDispatch(running, task.assignee, `[task:${task.id}] ${task.title}`);
         running.bus.emit({
           type: 'status',
           from: 'dag',
