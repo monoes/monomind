@@ -468,6 +468,37 @@ export type DecisionKind =
   /** Work/context crossed an org boundary via deliver(). */
   | 'cross-org-handoff';
 
+/** #289: how much of a tool's result body a `tool_result` event carries.
+ *  A single Bash result can be megabytes and there is one of these per tool
+ *  call — two orders of magnitude more frequent than the 20k-char 'asset'
+ *  content snapshot — so the head is kept and the rest dropped. Truncation is
+ *  never implied by the text: `truncated` and `output_chars` say it outright. */
+export const TOOL_RESULT_OUTPUT_MAX_CHARS = 4_000;
+
+/** #289: the `data` payload of a `tool_result` bus event — the outcome of a
+ *  tool call that a consumer can read without pattern-matching the agent's own
+ *  narration about whether its command worked. */
+export interface ToolResultEventData {
+  /** The harness's tool-use id, matching `call_id` on the `tool` event that
+   *  recorded the invocation. Correlating by id (not by tool name) is what
+   *  makes two concurrent Bash calls from the same role tellable apart. */
+  call_id?: string;
+  /** Did the call succeed? The universal outcome: harnesses report a per-call
+   *  error flag for every tool, including ones that never exit with a code
+   *  (Read, WebFetch, an MCP tool). No `exitCode` is carried — the Claude
+   *  Agent SDK does not surface one, and recovering it would mean parsing the
+   *  result prose, which is the very thing this event exists to replace. */
+  ok: boolean;
+  /** Wall time from the invocation to the result landing, when observable. */
+  duration_ms?: number;
+  /** Redacted head of the result body, at most TOOL_RESULT_OUTPUT_MAX_CHARS. */
+  output?: string;
+  /** True when `output` is only the head of a longer body. */
+  truncated?: boolean;
+  /** Length of the result body BEFORE truncation, in characters. */
+  output_chars?: number;
+}
+
 /** Superset of the legacy *-threads.jsonl line shape ({type,id,run_id,ts,from,to,msg,subject}). */
 export interface BusEvent {
   id: string;
@@ -478,6 +509,9 @@ export interface BusEvent {
     | 'message'
     | 'xorg'
     | 'tool'
+    /** #289: a completed tool call. `tool` is the tool name, `from` the role,
+     *  `data` a ToolResultEventData correlated to the 'tool' event by call_id. */
+    | 'tool_result'
     | 'asset'
     | 'chat'
     | 'status'

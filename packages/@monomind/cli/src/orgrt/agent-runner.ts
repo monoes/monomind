@@ -41,7 +41,14 @@ export interface AgentRunArgs {
   env: Record<string, string>;
   maxTurns: number;
   resume?: string;
-  canUseTool?: (toolName: string, input: Record<string, unknown>) => Promise<unknown>;
+  /** `meta.toolUseId` (#289) is the harness's id for this specific call —
+   *  threaded through so the invocation event can be correlated with the
+   *  `tool_result` message that reports how the call ended. */
+  canUseTool?: (
+    toolName: string,
+    input: Record<string, unknown>,
+    meta?: { toolUseId?: string },
+  ) => Promise<unknown>;
   /** Provider-specific escape hatch. ClaudeAgentRunner merges this into the
    *  SDK options verbatim (e.g. the `_orgTest` seam used by test-loop.ts).
    *  Other runners ignore it. */
@@ -107,6 +114,14 @@ export function killOnAbort(
  *  runners (kimicode) emit it for native tool activity so long turns show
  *  ongoing progress instead of looking silent.
  *
+ *  `tool_result` (#289) reports how ONE tool call ended: `tool_use_id`
+ *  correlates it with the invocation, `tool` names the tool (resolved from the
+ *  matching tool_use block, since the result block carries only the id),
+ *  `is_error` is the outcome, `text` the raw result body (session.ts redacts
+ *  and caps it before it reaches the bus), and `duration_ms` the wall time
+ *  from the invoking turn to the result landing. A runner that cannot observe
+ *  tool completion simply never yields it.
+ *
  *  `input_tokens`/`output_tokens` on an 'assistant' message are that ONE
  *  model turn's real token usage (from the Claude SDK's BetaMessage.usage),
  *  as opposed to the 'result' message's usage, which the SDK's own type docs
@@ -114,11 +129,14 @@ export function killOnAbort(
  *  total for the whole streaming-input message — see session.ts's
  *  per-assistant-turn budget accounting for why this distinction matters. */
 export interface AgentMessage {
-  type: 'assistant' | 'result' | 'tool_use';
+  type: 'assistant' | 'result' | 'tool_use' | 'tool_result';
   session_id?: string;
-  text?: string; // assistant (prose) / tool_use (short progress label)
+  text?: string; // assistant (prose) / tool_use (short progress label) / tool_result (body)
   subtype?: string; // result
-  is_error?: boolean; // result
+  is_error?: boolean; // result, tool_result
+  tool_use_id?: string; // tool_result
+  tool?: string; // tool_result
+  duration_ms?: number; // tool_result
   input_tokens?: number; // result, assistant (that turn's own usage)
   output_tokens?: number; // result, assistant (that turn's own usage)
   cost_usd?: number; // result
@@ -212,7 +230,13 @@ export class ClaudeAgentRunner implements AgentRunner {
         maxTurns: args.maxTurns,
         permissionMode: 'default',
         resume: args.resume,
-        canUseTool: args.canUseTool,
+        // #289: the SDK hands the permission gate this call's own tool_use id;
+        // forward it so the invocation event can be correlated with the
+        // tool_result event that later reports how the call ended.
+        canUseTool: args.canUseTool
+          ? (toolName: string, input: Record<string, unknown>, opts?: { toolUseID?: string }) =>
+              args.canUseTool?.(toolName, input, { toolUseId: opts?.toolUseID })
+          : undefined,
         abortController,
         ...(args.claudeRestrictions?.sandbox ? { sandbox: args.claudeRestrictions.sandbox } : {}),
         ...(args.claudeRestrictions?.disallowedTools?.length
@@ -235,6 +259,10 @@ export class ClaudeAgentRunner implements AgentRunner {
     // index rather than needing to be scanned out of raw text).
     let blockTexts = new Map<number, string>();
     let visibleSoFar = '';
+
+    /** #289: tool_use id → what was called and when, so the tool_result block
+     *  (which carries only the id) can be reported with a name and a duration. */
+    const pendingToolCalls = new Map<string, { tool: string; startedAt: number }>();
 
     const assembleVisible = (): string =>
       [...blockTexts.entries()]
@@ -275,6 +303,14 @@ export class ClaudeAgentRunner implements AgentRunner {
           // message's own content array, filtered to text blocks, was
           // always the sole source of visible text).
         } else if (m.type === 'assistant') {
+          // #289: remember each tool_use block's id → name/start time. The
+          // tool_result block that comes back later carries only the id, so
+          // this is the only place the tool's name and the moment it was
+          // invoked are observable.
+          for (const b of m.message?.content ?? []) {
+            if (b?.type === 'tool_use' && typeof b.id === 'string')
+              pendingToolCalls.set(b.id, { tool: String(b.name ?? ''), startedAt: Date.now() });
+          }
           const fullText = (m.message?.content ?? [])
             .filter((b: any) => b.type === 'text')
             .map((b: any) => b.text)
@@ -308,15 +344,45 @@ export class ClaudeAgentRunner implements AgentRunner {
             output_tokens: m.usage?.output_tokens ?? 0,
             cost_usd: m.total_cost_usd,
           };
+        } else if (m.type === 'user') {
+          // #289: the tool's result comes back as a user-role message carrying
+          // tool_result blocks — the one point at which the org runtime can
+          // observe whether a command actually worked, instead of taking the
+          // agent's later prose about it at face value.
+          for (const b of m.message?.content ?? []) {
+            if (b?.type !== 'tool_result') continue;
+            const id = typeof b.tool_use_id === 'string' ? b.tool_use_id : undefined;
+            const started = id ? pendingToolCalls.get(id) : undefined;
+            if (id) pendingToolCalls.delete(id);
+            yield {
+              type: 'tool_result',
+              session_id,
+              tool_use_id: id,
+              tool: started?.tool,
+              is_error: b.is_error === true,
+              text: toolResultText(b.content),
+              ...(started ? { duration_ms: Date.now() - started.startedAt } : {}),
+            };
+          }
         }
-        // Other message kinds (tool_use, tool_result, system, …) carry no
-        // signal session.ts previously acted on, so they're dropped here —
-        // matching the prior code which only branched on assistant/result.
+        // Other message kinds (system, …) carry no signal session.ts acts on.
       }
     } finally {
       unsubscribe();
     }
   }
+}
+
+/** #289: a tool_result block's `content` is either a plain string or an array
+ *  of content blocks; flatten it to the text a reader would actually see. */
+function toolResultText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content))
+    return content
+      .map((b: any) => (typeof b?.text === 'string' ? b.text : ''))
+      .filter(Boolean)
+      .join('\n');
+  return content === undefined || content === null ? '' : JSON.stringify(content);
 }
 
 /** Shared default instance (stateless — safe to reuse). */

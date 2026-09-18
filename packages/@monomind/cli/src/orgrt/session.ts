@@ -10,8 +10,9 @@ import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
 import { Mailbox } from './mailbox.js';
 import type { Decision, PolicyEngine } from './policy.js';
+import { summarizeToolOutput } from './policy.js';
 import { StateDetector } from './state-detector.js';
-import type { DecisionKind, OrgDef, OrgRole } from './types.js';
+import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
  *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
@@ -122,8 +123,18 @@ export function gatedCanUseTool(
    *  denied (not just the sensitive subset approvals gate) until the gate is
    *  resolved, matching the "hard-blocking" description. */
   hasPendingGate?: () => boolean,
-): (toolName: string, input: Record<string, unknown>) => Promise<Decision> {
-  return async (toolName: string, input: Record<string, unknown>): Promise<Decision> => {
+): (
+  toolName: string,
+  input: Record<string, unknown>,
+  /** #289: the harness's id for this call, forwarded to policy.decide so the
+   *  invocation event can be joined to the later tool_result event. */
+  meta?: { toolUseId?: string },
+) => Promise<Decision> {
+  return async (
+    toolName: string,
+    input: Record<string, unknown>,
+    meta?: { toolUseId?: string },
+  ): Promise<Decision> => {
     if (hasPendingGate?.()) {
       const decision: Decision = {
         behavior: 'deny',
@@ -147,7 +158,7 @@ export function gatedCanUseTool(
         return fenceDecision;
       }
     }
-    const decision = await policy.decide(toolName, input);
+    const decision = await policy.decide(toolName, input, meta?.toolUseId);
     if (decision.behavior === 'deny') {
       onDeny?.(toolName, input, decision, 'policy-deny');
       return decision;
@@ -812,6 +823,29 @@ async function runOneSession(
             mailbox.close('token-budget');
           }
         }
+      } else if (m.type === 'tool_result') {
+        // #289: the tool call's outcome. Until this event existed, a Bash
+        // running a test suite looked identical on the bus whether the suite
+        // passed, failed, or the binary was missing — one 'allow' at the moment
+        // it started — so every consumer inferred success from the agent's own
+        // narration. `call_id` joins this back to that invocation event; the
+        // body is redacted and capped (policy.ts) so a megabyte of output, or a
+        // credential echoed by a command, never lands in bus.jsonl.
+        const body = summarizeToolOutput(m.text ?? '');
+        const data: ToolResultEventData = {
+          ...(m.tool_use_id ? { call_id: m.tool_use_id } : {}),
+          ok: m.is_error !== true,
+          ...(typeof m.duration_ms === 'number' ? { duration_ms: m.duration_ms } : {}),
+          output: body.output,
+          ...(body.truncated ? { truncated: true } : {}),
+          output_chars: body.output_chars,
+        };
+        bus.emit({
+          type: 'tool_result',
+          from: role.id,
+          ...(m.tool ? { tool: m.tool } : {}),
+          data: data as unknown as Record<string, unknown>,
+        });
       } else if (m.type === 'result') {
         const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
         // Per the SDK's own type docs, a 'result' message's usage is that

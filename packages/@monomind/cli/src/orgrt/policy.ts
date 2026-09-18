@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
 import { checkGitPolicy } from './policy-git.js';
-import type { RolePolicy } from './types.js';
+import { type RolePolicy, TOOL_RESULT_OUTPUT_MAX_CHARS } from './types.js';
 
 export type Decision =
   | { behavior: 'allow'; updatedInput: Record<string, unknown> }
@@ -59,6 +59,25 @@ export function redactSecrets(text: string): string {
   let out = text;
   for (const [re, replacement] of SECRET_PATTERNS) out = out.replace(re, replacement);
   return out;
+}
+
+/** #289: the bounded, redacted slice of a tool's result body that goes on the
+ *  bus. Redacts BEFORE truncating, so a cut-off credential can't leak the way
+ *  a half-matched token would; keeps the head and states the truncation in
+ *  structured fields rather than leaving a reader to infer it from an ellipsis. */
+export function summarizeToolOutput(text: string): {
+  output: string;
+  truncated?: boolean;
+  output_chars: number;
+} {
+  const clean = redactSecrets(text);
+  if (clean.length <= TOOL_RESULT_OUTPUT_MAX_CHARS)
+    return { output: clean, output_chars: text.length };
+  return {
+    output: `${clean.slice(0, TOOL_RESULT_OUTPUT_MAX_CHARS)}…[truncated]`,
+    truncated: true,
+    output_chars: text.length,
+  };
 }
 
 const REGEX_METACHARS = new Set('.+^${}()|[]\\'.split(''));
@@ -170,11 +189,16 @@ export class PolicyEngine {
     return this.policy.maxUsd != null && this.usedUsd >= this.policy.maxUsd;
   }
 
-  async decide(tool: string, input: Record<string, unknown>): Promise<Decision> {
+  /** @param callId #289: the harness's tool-use id for THIS call, stamped onto
+   *  the emitted 'tool' event as `call_id` so the later 'tool_result' event can
+   *  be joined back to it — by id, since a role can run the same tool twice
+   *  concurrently and the tool name alone does not identify a call. */
+  async decide(tool: string, input: Record<string, unknown>, callId?: string): Promise<Decision> {
     const eventData = (): Record<string, unknown> => {
       const trace = this.toolContext.trace?.();
       return {
         input: summarize(input),
+        ...(callId ? { call_id: callId } : {}),
         ...(trace ? { chain_id: trace.chain_id, hop: trace.hop } : {}),
       };
     };
