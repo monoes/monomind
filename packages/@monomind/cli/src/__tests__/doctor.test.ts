@@ -90,6 +90,27 @@ describe('doctorCommand', () => {
     expect(data.passed).toBe(1);
   }, 15000);
 
+  it("i-090 (surviving finding): '--component's --help description lists 'native', not just componentMap", () => {
+    // The `native`/`native-modules` component was already wired up and
+    // working (`doctor -c native` -> "better-sqlite3 loads under Node
+    // vX, ABI Y") — it was simply undiscoverable, since the description
+    // string a user actually reads via `doctor --help` never named it.
+    const componentOption = doctorCommand.options?.find((o) => o.name === 'component');
+    expect(componentOption).toBeDefined();
+    expect(componentOption?.description).toContain('native');
+    expect(componentOption?.description).toContain('crash-reporting');
+  });
+
+  it('i-055 doctor follow-up: -c crash-reporting reaches the registered check', async () => {
+    const result = await doctorCommand.action?.(
+      makeCtx({ flags: { _: [], component: 'crash-reporting' } }),
+    );
+    const data = resultData(result);
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].name).toBe('Crash Reporting');
+    expect(data.results[0].message).toContain('monomind crash-reporting');
+  }, 15000);
+
   it('treats an invalid-JSON config file as a real failure rather than crashing', async () => {
     mkdirSync(join(dir, '.monomind'), { recursive: true });
     writeFileSync(join(dir, '.monomind', 'config.json'), '{ not valid json ');
@@ -108,11 +129,12 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (21) + codeOnlyChecks (8, including platform adapters,
-    // the native-binding probe, and i-066's monoes token-exposure check) —
-    // no fingerprint present, so isCodeProject defaults to true and the
-    // full set runs.
-    expect(data.results.length).toBe(29);
+    // alwaysOnChecks (22, including i-055 doctor follow-up's crash-reporting
+    // check) + codeOnlyChecks (8, including platform adapters, the
+    // native-binding probe, and i-066's monoes token-exposure check) — no
+    // fingerprint present, so isCodeProject defaults to true and the full
+    // set runs.
+    expect(data.results.length).toBe(30);
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for
@@ -169,7 +191,8 @@ describe('doctorCommand', () => {
     expect(names).not.toContain('monoes Token Exposure');
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Config File');
-    expect(data.results.length).toBe(21);
+    expect(names).toContain('Crash Reporting');
+    expect(data.results.length).toBe(22);
   }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {

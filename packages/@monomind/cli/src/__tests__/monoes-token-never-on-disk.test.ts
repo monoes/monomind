@@ -445,7 +445,19 @@ describe('checkMonoesTokenExposure (doctor check)', () => {
     const result = await checkMonoesTokenExposure();
     expect(result.status).toBe('fail');
     expect(result.message).toContain('.mcp.json');
+    // i-055 doctor follow-up, finding 4b (revised per review finding 13):
+    // no monoes-connection.json exists at all here, but this IS a real
+    // credential exposure — hasLegacyMonoesBearerEntry() matched a live
+    // monoes.me token, however it got into this file (a teammate's commit,
+    // an older install, a pulled branch). Revoking it is required
+    // regardless of whether this user personally connected — a token you
+    // didn't create and can't rotate yourself is MORE urgent to escalate,
+    // not less. There IS no connection file to disconnect from, though, so
+    // "Disconnect -> Connect" (reserved for the branch where one actually
+    // exists — see the "tracked by git" test below) must not appear.
     expect(result.message.toLowerCase()).toContain('revoke');
+    expect(result.message).not.toContain('Disconnect');
+    expect(result.message.toLowerCase()).not.toContain('unreadable');
     expect(result.message).not.toContain(planted);
   });
 

@@ -307,9 +307,9 @@ export async function checkClaudeCode(): Promise<HealthCheck> {
  * i-055-cli: crash reporting had no in-product surfacing at all, and its
  * opt-out command (`monomind crash-reporting disable`) is undiscoverable
  * without this — `doctor` must state the current state and the exact
- * command to change it. NOT registered in doctor.ts's check list yet (i-066
- * owns that registry until it merges); this function is the standalone
- * check body, ready to be wired in as a final commit afterward.
+ * command to change it. Registered in doctor.ts's alwaysOnChecks and
+ * componentMap (deferred until i-066 released that registry — see
+ * i-055-doctor-followup).
  */
 export async function checkCrashReporting(): Promise<HealthCheck> {
   const state = getConsentState();

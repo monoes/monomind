@@ -19,6 +19,24 @@ interface MonoesIssue {
   fixCommand: string;
 }
 
+// i-055 doctor follow-up, finding 4b (revised per review finding 13): fixed
+// literals only, no interpolation — a caught error or token value must
+// never reach either of these (see checkMonoesTokenExposure() below for
+// how they're selected). Keyed on WHAT WAS FOUND, not on whether a
+// connection file happens to exist: a literal bearer token sitting in a
+// (possibly team-committed) .mcp.json is a real credential exposure
+// regardless of whether THIS user has ever connected — "they never used
+// Disconnect -> Connect" is irrelevant to whether the token itself must be
+// revoked. REVOKE_LINE therefore applies to every failure; DISCONNECT_LINE
+// is additive, only when an actual connection file was found flagged by
+// git (there's a live app connection to disconnect from). There is
+// deliberately no "your connection file is unreadable" sentence — this
+// function never reads that file's content at all (only existsSync plus
+// git tracked/ignored status), so it can never truthfully claim that.
+const REVOKE_LINE =
+  'Treat this token as compromised: revoke it at https://monoes.me (Settings -> Connected apps). If it reached git history, rewriting the file does not remove it.';
+const DISCONNECT_LINE = 'Run `monomind ui`, then monoes.me -> Disconnect -> Connect.';
+
 /**
  * True if `.mcp.json`'s raw text contains a literal bearer token, checked
  * at the specific path this item's writers ever wrote one
@@ -196,6 +214,12 @@ export async function checkMonoesTools(): Promise<HealthCheck> {
 export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
   const cwd = process.cwd();
   const issues: string[] = [];
+  // Tracks WHAT KIND of issue was found, independent of each other, so the
+  // closing remediation can be keyed on the actual exposure rather than on
+  // an unrelated fact (whether a connection file happens to exist — see
+  // review finding 13, which caught the previous version of this function
+  // doing exactly that).
+  let hasConnectionFileIssue = false;
 
   const mcpJsonPath = join(cwd, '.mcp.json');
   if (existsSync(mcpJsonPath)) {
@@ -243,8 +267,10 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
       }
       if (tracked) {
         issues.push(`${connectionRelPath} is tracked by git — treat the token as compromised`);
+        hasConnectionFileIssue = true;
       } else if (!ignored) {
         issues.push(`${connectionRelPath} exists but is not covered by .gitignore`);
+        hasConnectionFileIssue = true;
       }
     }
   }
@@ -257,12 +283,22 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
     };
   }
 
+  // Fixed literals only, never interpolated — this message can reach a
+  // terminal or CI log, so it must never echo a caught error or a token
+  // value. REVOKE_LINE applies to every failure here: a literal bearer
+  // token in .mcp.json is a real credential exposure independent of
+  // whether THIS user ever connected (a teammate's commit, an older
+  // install, a pulled branch can all put it there) — a token you didn't
+  // create and can't rotate yourself is more urgent to escalate, not less.
+  // DISCONNECT_LINE is additive, only when an actual connection file was
+  // found and flagged by git — that's the only case where there's a live
+  // app connection to disconnect from at all.
+  const remediation = hasConnectionFileIssue ? `${REVOKE_LINE} ${DISCONNECT_LINE}` : REVOKE_LINE;
+
   return {
     name: 'monoes Token Exposure',
     status: 'fail',
-    message:
-      `${issues.join('; ')}. Revoke the token at https://monoes.me (Settings -> Connected apps), ` +
-      'then reconnect: run `monomind ui`, then monoes.me -> Disconnect -> Connect.',
+    message: `${issues.join('; ')}. ${remediation}`,
   };
 }
 
