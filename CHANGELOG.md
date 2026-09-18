@@ -4,6 +4,25 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.7] — 2026-09-18
+
+### Added
+
+- The org bus now carries a `tool_result` event when a tool call completes, so "did that command work?" is a field rather than an inference from the agent's own narration — a `Bash` running a test suite previously looked identical on the bus whether it passed, failed, or the binary was missing. Correlated to its invocation by the SDK's per-call id (so two concurrent `Bash` calls from one role stay distinct), carrying `ok`, duration and output capped at 4,000 characters with `redactSecrets` applied **before** the cut and truncation signalled structurally. Typed as `ToolResultEventData` in `types.ts` rather than an ad-hoc literal; runners that cannot observe tool completion simply never emit it (#289: a4bcf86e6).
+- Decision traces carry a structured `kind` (`fence-block`, `gate-pending`, `policy-deny`, `approval-pending`, `approval-resolved`, `cross-org-handoff`, …). A prompt-injection fence block and a routine wait for human approval previously emitted identical structured fields, distinguishable only by matching English prose. The field is required in `recordDecision`'s signature, so the compiler guarantees every emitter populates it — which covered four emitters, not the two originally reported (#290: 071a64618).
+
+### Fixed
+
+- Org run memory was silently dropped when the memory backend could not load: `bridgeStoreEntry` returns `null`, `storeRunMemory` ignored it, and its caller's `catch` never fired because nothing threw. Runs completed normally, `runtime.json` and history were written, the bus looked perfect — and every `org_recall` came back empty, with the only trace printed under `MONOMIND_DEBUG=1`. A failed store now surfaces three ways that outlive the terminal: an `org-memory-store-failed` audit event, an unconditional warning, and a `memoryError` field in `runtime.json` that `org status` prints (human and `--format json`). It deliberately does not throw — by then the run has succeeded and its history is on disk, so throwing would fail a run that worked and blame history for it. The same swallowed-`null` pattern was fixed in four more callers, two of which actively misreported: `hooks post-command` returned `recorded: true` for a write that never happened *and* skipped its JSON fallback (losing the record twice), and a consolidation worker counted patterns it never wrote (#293: bc75ea501).
+- `policy.git` denials now name the boundary and the allowed alternative, not just the rejected attempt. "path escapes org workdir" never said what the workdir was, so a role could only guess another path — in one rehearsal a reviewer's single `Read` was denied, it never learned the root it ran under, and it reviewed from submission messages without reading a line of code. Five denial messages fixed: workdir escape, write-scope, path-less `Grep`/`Glob`, tool allowlist and research-domain allowlist (#291: 3911a5e16).
+- `monomind org branch <org> <run> <label>` read as though `<label>` named the new run; the id is generated, and the label was not merely a note — it was discarded entirely, never reaching `.branch-source`. The label is now recorded, `--format json` prints the generated id (`{"v":1,"org":…,"run":…,"from":…,"label":…}`) so a script can replay without parsing prose, and the help no longer shows a label in the id position. The label is deliberately NOT used as the run id: run ids are joined into filesystem paths and the codebase already guards that shape against traversal (#292: f4c08a3d0).
+- `biome` linted nothing inside `.claude/worktrees`, which is where this repo's own workflow puts worktrees: `npx biome check` reported "Checked 0 files" and naming a file said the path was ignored. A "lint is clean" reading was really "biome refused to look" — CI was unaffected, but anyone working the recommended way was misled. The ignore pattern now excludes the `.claude` assets without excluding a worktree checkout's own source, with a repo test asserting both directions (#294: 71b3e1700).
+
+### Changed
+
+- `scripts/sync-claude-trees.mjs` (`pnpm run sync:claude-trees`, with `--check` in `verify` and CI) keeps the five `.claude` asset trees canonical after `init` marks files in this repo. It normalises rather than mirrors: the shipped `packages/@monomind/cli/.claude` is init's asset *source*, so copying the marked root copy into it would ship per-project markers to every npm user and make the next `init` nest a second block inside the first. It never creates and never deletes, which is how the shipped superset is protected structurally. The dead `sync-claude-assets.sh` (a hard `exit 1` since July, still referenced by three checklists) is deleted, and the parity test, skill lint and `doc/publishing.md` now name the real command (42cb52e65).
+- `@monoes/hooks` 1.0.6 → 1.0.7 (the consolidation-worker fix above).
+
 ## [2.11.6] — 2026-09-18
 
 ### Fixed
