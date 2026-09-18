@@ -485,6 +485,7 @@ export async function deliver(
   if (cross) {
     daemon.recordDecision(fromOrg, fromRole, {
       type: 'handoff',
+      kind: 'cross-org-handoff',
       context: `deliver to ${toQualified}: ${subject}`,
       reasoning: `cross-org handoff from ${fromOrg}:${fromRole} to ${toQualified}`,
       outcome: 'delivered',

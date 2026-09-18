@@ -444,6 +444,30 @@ export type OrgRole = z.infer<typeof RoleSchema>;
 export type RolePolicy = z.infer<typeof RolePolicySchema>;
 export type ProviderConfig = z.infer<typeof ProviderSchema>;
 
+/** #290: why a `decision-trace` audit event was recorded. Before this, a
+ *  prompt-injection fence block and a routine "waiting for a human to approve
+ *  this tool" emitted byte-identical structured fields (`decisionType: 'tool'`,
+ *  `outcome: 'denied'`) and differed only in free text — so a consumer wanting
+ *  to tell "blocked by the security fence" from "waiting for you" had to regex
+ *  English out of `data.context`/`data.reasoning`. Prose stays for humans;
+ *  consumers switch on `data.kind`. Set where the decision is made, never
+ *  reconstructed by a reader. */
+export type DecisionKind =
+  /** monofence scanInput() rejected the tool's own input (prompt injection). */
+  | 'fence-block'
+  /** A pending decision gate is hard-blocking every tool call for this role. */
+  | 'gate-pending'
+  /** PolicyEngine.decide() denied it (allowlist, scope, budget, git level, …). */
+  | 'policy-deny'
+  /** Routine: an approval request is open and waiting on a human. */
+  | 'approval-pending'
+  /** A human (or a guardrail) rejected the approval request. */
+  | 'approval-denied'
+  /** An open approval request was resolved (approved or rejected). */
+  | 'approval-resolved'
+  /** Work/context crossed an org boundary via deliver(). */
+  | 'cross-org-handoff';
+
 /** Superset of the legacy *-threads.jsonl line shape ({type,id,run_id,ts,from,to,msg,subject}). */
 export interface BusEvent {
   id: string;

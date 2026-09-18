@@ -94,6 +94,7 @@ import {
 import {
   type BusEvent,
   type DecisionGate,
+  type DecisionKind,
   ORG_DIR,
   type OrgDef,
   OrgDefSchema,
@@ -1610,9 +1611,10 @@ export class OrgDaemon {
       fence: running.fences?.get(role.id),
       // ORG-1: gatedCanUseTool denials are a natural decision point — record them so
       // `org decisions` shows real traces instead of always reporting none.
-      onDecision: (r: string, toolName: string, message: string) => {
+      onDecision: (r: string, toolName: string, message: string, kind: DecisionKind) => {
         this.recordDecision(name, r, {
           type: 'tool',
+          kind,
           context: `tool call: ${toolName}`,
           reasoning: message,
           outcome: 'denied',
@@ -2754,6 +2756,7 @@ export class OrgDaemon {
     role: string,
     decision: {
       type: 'tool' | 'handoff' | 'approval' | 'routing';
+      kind: DecisionKind;
       context: string;
       reasoning: string;
       alternatives?: Array<{ choice: string; score: number; reason: string }>;
