@@ -72,15 +72,34 @@ function stripSsnAndPhone(text: string): string {
 }
 
 const SECRET_PATTERNS: RegExp[] = [
-  /(?:api[_-]?key|apikey)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:secret|password|passwd|pwd)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:token|bearer)\s*[:=]\s*['"]?[^\s'"]{10,}['"]?/gi,
+  // i-116-redact: `['"]?` inserted before `\s*[:=]` in these three so a
+  // quoted JSON key (`"accessToken":`, `"apiKey":`, `"secret":`) matches —
+  // previously the quote sat between the keyword and the colon and none of
+  // these fired on real JSON at all, the single most common shape.
+  /(?:api[_-]?key|apikey)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
+  /(?:secret|password|passwd|pwd)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
+  /(?:token|bearer)['"]?\s*[:=]\s*['"]?[^\s'"]{10,}['"]?/gi,
+  // i-116-redact: delimiterless header shape (`Authorization: Bearer <tok>`)
+  // has no `:`/`=` between "bearer" and the value at all — a space only —
+  // so none of the three keyword patterns above ever fired on it.
+  /\bbearer\s+['"]?[^\s'"]{10,}['"]?/gi,
   /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
   /sk-ant-[a-zA-Z0-9_-]{20,}/g,
   /sk-[a-zA-Z0-9_-]{20,}/g,
-  /ghp_[a-zA-Z0-9]{36}/g,
-  /gho_[a-zA-Z0-9]{36}/g,
-  /npm_[a-zA-Z0-9]{36}/g,
+  // i-116-redact: self-identifying credential prefixes — the prefix itself
+  // carries the specificity, so a generous length bound costs nothing (it
+  // only widens what's caught, never what's falsely caught) and needs no
+  // keyword or delimiter at all. Replaces the old exact-{36} ghp_/gho_/npm_
+  // patterns, which only matched a conformant classic-format value and
+  // missed GitHub's current fine-grained format (`github_pat_`) entirely —
+  // the credential most likely to be present, since crash-reporter.ts files
+  // issues to GitHub.
+  /\bgh[pousr]_[A-Za-z0-9]{20,}/g, // GitHub classic PAT/OAuth/user/server/refresh
+  /\bgithub_pat_[A-Za-z0-9_]{20,}/g, // GitHub fine-grained (current format)
+  /\bglpat-[A-Za-z0-9_-]{16,}/g, // GitLab
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g, // Slack (bot/app/admin/refresh/other)
+  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe
+  /\bnpm_[A-Za-z0-9]{20,}/g, // npm, widened from {36}
   /AKIA[0-9A-Z]{16}/g,
   /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
   /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g, // user:pass@host connection strings
@@ -197,6 +216,23 @@ export function redactSecrets(text: string): string {
  * `<user>`'s neighborhood correctly), and secret-pattern stripping runs
  * before that path collapse too (a secret string that happens to look
  * path-like should still hit the secret patterns first).
+ *
+ * i-116-redact: secret-pattern stripping now runs BEFORE stripSsnAndPhone(),
+ * not after. This is a hardening change, not a fix to any currently-shipped
+ * behaviour — verified (reviewer, through the real shipped redact()) that
+ * both orders leak identically for every pattern that existed before this
+ * item. The shipped keyword patterns use a permissive value class
+ * (`[^\s'"]`), which still matches through a `<phone>`/`<ssn>` placeholder,
+ * so going second never broke them. This item's new self-identifying-prefix
+ * patterns use restrictive classes (e.g. `[A-Za-z0-9-]`) that a placeholder
+ * falls outside of, so a value with a phone-shaped digit run in the middle
+ * (Slack's `xoxb-<team-id>-<bot-id>-<secret>`, where the IDs are always
+ * numeric) would have its PII-mangled remainder no longer match — the
+ * secret suffix would then survive, untouched, in the final output. Secrets
+ * must get first pass at the text: a cosmetic PII transform must never be
+ * able to defeat a security transform, independent of which patterns exist
+ * today, because the next pattern added after this one would inherit the
+ * same latent hazard otherwise.
  */
 export function redact(text: string): string {
   const home = homedir();
@@ -204,8 +240,8 @@ export function redact(text: string): string {
   out = stripGenericUserPrefixes(out);
   out = stripIPv4(out);
   out = stripEmail(out);
-  out = stripSsnAndPhone(out);
   out = stripSecretPatterns(out);
+  out = stripSsnAndPhone(out);
   out = collapseAbsolutePaths(out);
   out = stripHostnames(out);
   out = stripIPv6(out);
