@@ -58,22 +58,50 @@ function gitConfigIsWrite(args: string[]): boolean {
 /** Subcommands whose mode depends on their first positional, resolved at scan
  *  time into a `<sub>:read` token the way `config` already is (#299). An
  *  expansion may hide the verb, so any arg containing shell metacharacters is
- *  treated as the mutating form — same fail-closed rule as gitConfigIsWrite. */
+ *  treated as the mutating form — same fail-closed rule as gitConfigIsWrite.
+ *  Both patterns are deliberately case-sensitive, matching git's own
+ *  subcommand dispatch: `git reflog EXPIRE` and `git stash sHoW` are not
+ *  `expire`/`show` to git either — they fall through to the default read
+ *  (`reflog show`) or the default write (`stash push`) respectively, so
+ *  leaving them unmatched by a lowercase-only pattern tracks git, not luck. */
 const GIT_SUB_READ_ARGS: Record<string, RegExp> = {
   stash: /^(list|show)$/, // allowlist: bare `git stash` IS `stash push`
 };
+// DENY-LIST — FAILS OPEN if git ever adds a mutating reflog verb this doesn't
+// name, or renames one of these. Enumerated from `git reflog`'s SYNOPSIS
+// (git 2.55.0, `man git-reflog`): show (default), list, exists read; write,
+// delete, drop, expire mutate — `drop` (removes a reflog outright) and
+// `write` were missing from the first cut of this list (#299 review round 1)
+// and were measured DENY→ALLOW at read before this fix. Re-enumerate against
+// `man git-reflog` whenever the pinned git version moves; do not trust memory
+// or a prior PR's list.
 const GIT_SUB_WRITE_ARGS: Record<string, RegExp> = {
-  reflog: /^(expire|delete)$/, // deny-list: bare/`-5`/`HEAD` are all `show`
+  reflog: /^(expire|delete|drop|write)$/, // bare/`-5`/`HEAD` are all `show`
 };
 function refineSub(sub: string, args: string[]): string {
   const readPattern = GIT_SUB_READ_ARGS[sub];
   const writePattern = GIT_SUB_WRITE_ARGS[sub];
   if (!readPattern && !writePattern) return sub;
   if (args.some((a) => /[$`{}*?[]/.test(a))) return sub; // fail closed
+  if (readPattern) {
+    // ALLOWLIST direction (stash): git's cmd_stash dispatches on argv[0]
+    // ONLY (see `man git-stash`'s SYNOPSIS) — unlike reflog, stash does NOT
+    // skip leading options to find its subcommand. `git stash -- list` and
+    // `git stash -k list` are `stash push` (a WRITE) with "list" as a
+    // pathspec/value, not `stash list`. Skipping leading options here, the
+    // way the deny-list branch below does, previously let both through as
+    // false reads onto the stash stack shared across every worktree
+    // (#299 review round 1 — this is the exact mistake i-300 exists to
+    // guard against, so getting it right here matters doubly).
+    return readPattern.test(args[0] ?? '') ? `${sub}:read` : sub;
+  }
+  // DENY-LIST direction (reflog): conservative to skip leading options to
+  // find the first positional — a false "still looks mutating" here just
+  // means an extra correct-but-strict deny, never a false allow. Verified
+  // against `git reflog --all expire` (must still deny) during review.
   let i = 0;
   while (i < args.length && args[i].startsWith('-')) i++;
   const positional = args[i] ?? '';
-  if (readPattern) return readPattern.test(positional) ? `${sub}:read` : sub;
   return writePattern.test(positional) ? sub : `${sub}:read`;
 }
 
