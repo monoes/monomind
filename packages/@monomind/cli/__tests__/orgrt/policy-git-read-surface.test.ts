@@ -12,17 +12,25 @@
  * Review round 1 found two real defects in the first cut (ground truth taken
  * from `man git-reflog` / `man git-stash` on this machine, git 2.55.0, not
  * from the plan's enumeration, which was short):
- *  - `reflog drop`/`reflog write` were missing from the deny-list, so they went
- *    DENY→ALLOW at read. `reflog drop` is worse than the `expire` this already
- *    caught: it deletes a reflog outright, the only recovery path for
- *    unreferenced commits.
- *  - The stash allowlist skipped leading option tokens the same way the reflog
- *    deny-list does, so `git stash -- list` / `git stash -k list` (both real
- *    `stash push` calls — a WRITE onto the stack shared across every
- *    worktree) went DENY→ALLOW at read. git's own `cmd_stash` dispatches on
- *    argv[0] only, with no option-skipping — this file now tests that way too.
+ *  - the reflog deny-list was missing `drop`/`write`, so they went DENY→ALLOW
+ *    at read. `reflog drop` is worse than the `expire` it already caught: it
+ *    deletes a reflog outright, the only recovery path for unreferenced
+ *    commits.
+ *  - the stash allowlist skipped leading option tokens the same way the
+ *    reflog deny-list does, so `git stash -- list` / `git stash -k list`
+ *    (both real `stash push` calls — a WRITE onto the stack shared across
+ *    every worktree) went DENY→ALLOW at read. git's own `cmd_stash`
+ *    dispatches on argv[0] only, with no option-skipping — this file tests
+ *    that way too.
+ *
+ * Review round 2 reversed the reflog fix entirely: a deny-list of write
+ * verbs (even a complete one) fails OPEN the moment a git version a role
+ * actually runs adds or renames a verb — and a runtime guard that parses
+ * `git reflog -h` only validates the git our own CI runs, which is never the
+ * git whose drift is the risk. reflog is now an ALLOWLIST with a bounded,
+ * self-documenting over-denial cost — see `reflogIsRead`'s comment in
+ * policy-git.ts.
  */
-import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -60,7 +68,7 @@ const READ_ROWS: string[] = [
   'git var GIT_AUTHOR_IDENT',
   'git reflog',
   'git reflog -5',
-  'git reflog HEAD',
+  'git reflog --all', // options-only form — targets the default `show`, not a write
   'git reflog show main',
   'git reflog list',
   'git reflog exists refs/heads/main',
@@ -71,16 +79,24 @@ const READ_ROWS: string[] = [
 // Mutating commands that must stay denied at 'read' — several already passed
 // before this fix; they are kept here as the guard against a sloppy widening.
 // Split by WHERE they land at 'commit', since the ladder test below needs that.
-// Rejects: a deny-list/allowlist that's missing a real mutating verb, or an
+// Rejects: an allowlist that's missing an option-only form, or an
 // options-skipping bug that lets an option-prefixed mutating form through.
 const COMMIT_ALLOWED_ROWS: string[] = [
   'git cherry-pick abc',
   'git reflog expire --all',
   'git reflog delete HEAD@{0}',
-  // review round 1: measured DENY→ALLOW at read pre-fix (missing verbs).
   'git reflog drop --all',
   'git reflog drop refs/heads/main',
   'git reflog write refs/heads/x aaa bbb msg',
+  // reflogIsRead's accepted cost (review round 2): a real ref name as the
+  // first positional is NOT recognized as read-safe — real git would treat
+  // this as an implicit `show <ref>` (a read), but this allowlist can't tell
+  // "future git verb we haven't seen" from "a literal ref/branch name"
+  // without hardcoding every verb of every future git, so it denies both.
+  // Bounded, self-documenting (the deny message names the working form,
+  // `git reflog show <ref>`) — the intentional trade this design makes.
+  'git reflog HEAD',
+  'git reflog my-branch',
   'git stash',
   'git stash push -m x',
   'git stash pop',
@@ -134,6 +150,14 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
     expect(msg).toMatch(/mutating commands require policy\.git: 'commit' or 'push'/);
   });
 
+  // reflog's denial names the working form, so a role isn't just told "no".
+  // Rejects: a reflog denial that regresses to the generic "unrecognized
+  // git subcommand" message with no remedy.
+  it('"git reflog HEAD" denies with a message naming the working form', async () => {
+    const msg = await denyMessage('read', 'git reflog HEAD');
+    expect(msg).toMatch(/git reflog show <ref>/);
+  });
+
   // Rejects: GIT_READ_CMDS ever losing its anchoring (e.g. swapped for a
   // `\b…\b` match), which would let `cherry-pick` spuriously match `cherry`.
   it('`cherry` is safe to add only because the subcommand regex is anchored — `cherry-pick` cannot match it', async () => {
@@ -141,15 +165,17 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
     expect(await allows('read', 'git cherry-pick abc')).toBe(false);
   });
 
-  // Review round 1, minor: both refineSub patterns are case-sensitive, which
-  // MATCHES git's own case-sensitive subcommand dispatch rather than being an
-  // accidental side effect — an unrecognized-case reflog argv[0] is treated as
-  // a <ref> (implicit `show`, a read); an unrecognized-case stash argv[0]
-  // falls through to the default `push` (a write). Do not "fix" this by
-  // case-folding — that would misclassify both rows below.
-  // Rejects: a refineSub that case-folds its positional before matching.
-  it("refineSub's case sensitivity matches git's own dispatch (not an oversight)", async () => {
-    expect(await allows('read', 'git reflog EXPIRE --all')).toBe(true); // unrecognized -> implicit `show`
+  // Review round 1, minor, reasoning updated for round 2's allowlist redesign:
+  // refineSub's stash pattern is case-sensitive, matching git's own
+  // case-sensitive dispatch — `git stash sHoW` is not `show` to git either,
+  // it falls through to the default `push` (a write), so this must stay
+  // denied. (reflog's allowlist denies ANY unrecognized positional
+  // regardless of case — `git reflog EXPIRE` is denied the same bounded way
+  // `git reflog HEAD` is, not because of case-folding risk specifically;
+  // case-sensitivity is no longer reflog's load-bearing property now that
+  // it's a closed allowlist rather than an open deny-list.)
+  // Rejects: a stash refineSub that case-folds its positional before matching.
+  it("refineSub's stash pattern is case-sensitive, matching git's own dispatch (not an oversight)", async () => {
     expect(await allows('read', 'git stash sHoW')).toBe(false); // unrecognized -> default `push`
   });
 
@@ -174,7 +200,8 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
 
   // Asserting the new refinement can't be talked around the same way
   // gitConfigIsWrite's literal guard already can't (#257/#299).
-  // Rejects: a refineSub that doesn't fail closed on an expansion/substitution.
+  // Rejects: a refineSub/reflogIsRead that doesn't fail closed on an
+  // expansion/substitution.
   it('fails closed at read when an expansion could hide the stash/reflog verb', async () => {
     const failClosed = [
       'git stash $SUB',
@@ -199,7 +226,9 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
   // inventory line, strips the "(not `X`/`Y`)" exclusion notes (so a negative
   // example like `cherry-pick` isn't misread as a positive claim), and pulls
   // every remaining backticked token as a read-allowed claim.
-  // Rejects: a hand-copied list that silently drifts from the doc.
+  // Rejects: any classifier that permits an unrecognised reflog verb on a
+  // git version we have not seen (round 2's actual concern), as well as a
+  // hand-copied list that silently drifts from the doc (round 1's).
   it('doc/concepts/org-runtime.md agrees with the classifier: every subcommand it calls read-allowed is a true row above', async () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const docPath = join(here, '../../../../../doc/concepts/org-runtime.md');
@@ -233,61 +262,5 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
     // And the doc must NOT claim these are read-allowed (they need push).
     expect(claimed).not.toContain('fetch');
     expect(claimed).not.toContain('clone');
-  });
-
-  // Review round 1 (dev-lead): a runtime guard, not just a comment. Parses
-  // `git reflog -h`'s usage lines AT RUNTIME and asserts the verb set it
-  // reports is exactly the set GIT_SUB_WRITE_ARGS.reflog (duplicated below,
-  // same as this file's `allows()` helper duplicates PolicyEngine's caller)
-  // plus the read defaults (show/list/exists) expects. This test runs inside
-  // vitest as a child process's own `execSync` call — the policy classifier
-  // never sees it (only interactive role Bash goes through canUseTool), so it
-  // needs no policy exception. If git ever adds/renames a reflog verb, this
-  // fails LOUDLY instead of silently reopening the #299 hole.
-  // Rejects: a pinned git version drifting ahead of this policy's verb list
-  // with nobody noticing until it's exploited.
-  it("runtime guard: git reflog's actual verb set (parsed from `git reflog -h`) matches what this policy's read/write split knows about", () => {
-    // Mirrors GIT_SUB_WRITE_ARGS.reflog in policy-git.ts — if that changes,
-    // change this too (and re-run this test to prove the new set is still
-    // exhaustive against the installed git).
-    const KNOWN_WRITE_VERBS = new Set(['expire', 'delete', 'drop', 'write']);
-    const KNOWN_READ_VERBS = new Set(['show', 'list', 'exists']);
-
-    let helpText: string;
-    try {
-      execSync('git reflog -h', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-      throw new Error('expected `git reflog -h` to exit non-zero (usage output on stderr)');
-    } catch (err) {
-      const e = err as { stderr?: string; stdout?: string; message: string };
-      helpText = e.stderr || e.stdout || '';
-    }
-
-    // Each usage line has the shape "usage: git reflog [show] ..." or
-    // "   or: git reflog list ..." — the token right after "git reflog " is
-    // the verb, optionally wrapped in "[...]" when it's the default (show).
-    const verbLines = helpText
-      .split('\n')
-      .map((l) => /^\s*(?:usage:|or:)\s*git reflog\s+(\S+)/.exec(l))
-      .filter((m): m is RegExpExecArray => m !== null)
-      .map((m) => m[1].replace(/^\[|\]$/g, ''));
-
-    expect(verbLines.length, `could not parse any verb out of:\n${helpText}`).toBeGreaterThan(0);
-    for (const verb of verbLines) {
-      const known = KNOWN_WRITE_VERBS.has(verb) || KNOWN_READ_VERBS.has(verb);
-      expect(
-        known,
-        `git reflog -h reports verb "${verb}", which is not in this policy's known read/write split ` +
-          `(read: ${[...KNOWN_READ_VERBS].join(',')}; write: ${[...KNOWN_WRITE_VERBS].join(',')}) — ` +
-          `re-audit GIT_SUB_WRITE_ARGS.reflog in policy-git.ts against \`man git-reflog\` for this git version`,
-      ).toBe(true);
-    }
-    // And every verb this policy treats as a write must still be a real verb
-    // — catches a verb git *removed*, which would make the pattern stale in
-    // the harmless direction, but is still worth knowing about.
-    for (const verb of KNOWN_WRITE_VERBS) {
-      expect(verbLines, `policy treats "${verb}" as a write verb but git reflog -h no longer lists it`).toContain(
-        verb,
-      );
-    }
   });
 });

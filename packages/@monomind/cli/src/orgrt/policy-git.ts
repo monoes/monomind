@@ -59,50 +59,67 @@ function gitConfigIsWrite(args: string[]): boolean {
  *  time into a `<sub>:read` token the way `config` already is (#299). An
  *  expansion may hide the verb, so any arg containing shell metacharacters is
  *  treated as the mutating form — same fail-closed rule as gitConfigIsWrite.
- *  Both patterns are deliberately case-sensitive, matching git's own
- *  subcommand dispatch: `git reflog EXPIRE` and `git stash sHoW` are not
- *  `expire`/`show` to git either — they fall through to the default read
- *  (`reflog show`) or the default write (`stash push`) respectively, so
- *  leaving them unmatched by a lowercase-only pattern tracks git, not luck. */
+ *  Deliberately case-sensitive, matching git's own case-sensitive subcommand
+ *  dispatch: `git stash sHoW` is not `show` to git either — it falls through
+ *  to the default write (`stash push`), so leaving it unmatched by a
+ *  lowercase-only pattern tracks git, not luck. */
 const GIT_SUB_READ_ARGS: Record<string, RegExp> = {
   stash: /^(list|show)$/, // allowlist: bare `git stash` IS `stash push`
 };
-// DENY-LIST — FAILS OPEN if git ever adds a mutating reflog verb this doesn't
-// name, or renames one of these. Enumerated from `git reflog`'s SYNOPSIS
-// (git 2.55.0, `man git-reflog`): show (default), list, exists read; write,
-// delete, drop, expire mutate — `drop` (removes a reflog outright) and
-// `write` were missing from the first cut of this list (#299 review round 1)
-// and were measured DENY→ALLOW at read before this fix. Re-enumerate against
-// `man git-reflog` whenever the pinned git version moves; do not trust memory
-// or a prior PR's list.
-const GIT_SUB_WRITE_ARGS: Record<string, RegExp> = {
-  reflog: /^(expire|delete|drop|write)$/, // bare/`-5`/`HEAD` are all `show`
-};
+
+/** `git reflog` (git 2.55.0, `man git-reflog`) — the full verb set is show
+ *  (default), list, exists, write, delete, drop, expire; read: show/list/
+ *  exists, write: write/delete/drop/expire:
+ *    usage: git reflog [show] [<log-options>] [<ref>]
+ *       or: git reflog list
+ *       or: git reflog exists <ref>
+ *       or: git reflog write <ref> <old-oid> <new-oid> <message>
+ *       or: git reflog delete [--rewrite] [--updateref] [--dry-run|-n] [--verbose] <ref>@{<specifier>}...
+ *       or: git reflog drop [--all [--single-worktree] | <refs>...]
+ *       or: git reflog expire [--expire=<time>] [--expire-unreachable=<time>] [--rewrite] [--updateref] [--stale-fix] [--dry-run|-n] [--verbose] [--all [--single-worktree] | <refs>...]
+ *  (audited #299 review round 2, git 2.55.0 — re-audit against `man
+ *  git-reflog` if this ever needs revisiting, but see below for why it
+ *  shouldn't need to.)
+ *
+ *  This is an ALLOWLIST, not a deny-list of the four write verbs, and that
+ *  is deliberate: a deny-list fails OPEN the day a git version a role
+ *  actually runs adds or renames a verb we haven't enumerated — and we
+ *  cannot validate an end user's installed git from our own CI. (A runtime
+ *  `git reflog -h` guard was tried and rejected for the same reason: it
+ *  would only ever validate the git that runs our tests, which is never the
+ *  git whose version drift is the risk.) An allowlist fails CLOSED instead:
+ *  any positional this function doesn't specifically recognize as read-safe
+ *  is denied, regardless of which git produced it.
+ *
+ *  Accepted cost: `git reflog HEAD` / `git reflog my-branch` are denied here
+ *  even though real git treats an unrecognized reflog argv[0] as a <ref> (an
+ *  implicit `show`) — a small, bounded reintroduction of #299's own
+ *  over-denial class. It is self-documenting (the deny message names the
+ *  working form, `git reflog show <ref>`) and bounded, which is the trade a
+ *  security boundary should take over an unbounded silent under-denial on a
+ *  git version nobody here has run. */
+function reflogIsRead(args: string[]): boolean {
+  if (args.some((a) => /[$`{}*?[]/.test(a))) return false; // fail closed
+  const first = args[0];
+  if (first === undefined) return true; // bare `git reflog` == `show`
+  if (first.startsWith('-')) return true; // options-only form (`-5`, `--all`) — targets the default `show`
+  return /^(show|list|exists)$/.test(first);
+}
+
 function refineSub(sub: string, args: string[]): string {
+  if (sub === 'reflog') return reflogIsRead(args) ? 'reflog:read' : 'reflog';
   const readPattern = GIT_SUB_READ_ARGS[sub];
-  const writePattern = GIT_SUB_WRITE_ARGS[sub];
-  if (!readPattern && !writePattern) return sub;
+  if (!readPattern) return sub;
   if (args.some((a) => /[$`{}*?[]/.test(a))) return sub; // fail closed
-  if (readPattern) {
-    // ALLOWLIST direction (stash): git's cmd_stash dispatches on argv[0]
-    // ONLY (see `man git-stash`'s SYNOPSIS) — unlike reflog, stash does NOT
-    // skip leading options to find its subcommand. `git stash -- list` and
-    // `git stash -k list` are `stash push` (a WRITE) with "list" as a
-    // pathspec/value, not `stash list`. Skipping leading options here, the
-    // way the deny-list branch below does, previously let both through as
-    // false reads onto the stash stack shared across every worktree
-    // (#299 review round 1 — this is the exact mistake i-300 exists to
-    // guard against, so getting it right here matters doubly).
-    return readPattern.test(args[0] ?? '') ? `${sub}:read` : sub;
-  }
-  // DENY-LIST direction (reflog): conservative to skip leading options to
-  // find the first positional — a false "still looks mutating" here just
-  // means an extra correct-but-strict deny, never a false allow. Verified
-  // against `git reflog --all expire` (must still deny) during review.
-  let i = 0;
-  while (i < args.length && args[i].startsWith('-')) i++;
-  const positional = args[i] ?? '';
-  return writePattern.test(positional) ? sub : `${sub}:read`;
+  // ALLOWLIST direction (stash): git's cmd_stash dispatches on argv[0] ONLY
+  // (see `man git-stash`'s SYNOPSIS) — it does NOT skip leading options to
+  // find its subcommand. `git stash -- list` and `git stash -k list` are
+  // `stash push` (a WRITE) with "list" as a pathspec/value, not
+  // `stash list`. Skipping leading options here previously let both through
+  // as false reads onto the stash stack shared across every worktree (#299
+  // review round 1 — this is the exact mistake i-300 exists to guard
+  // against, so getting it right here matters doubly).
+  return readPattern.test(args[0] ?? '') ? `${sub}:read` : sub;
 }
 
 /** git options that swallow the NEXT token as their value, so the token after
@@ -261,6 +278,19 @@ export function checkGitPolicy(
 
     if (sub === 'config') {
       return `git config write denied (policy.git: ${level} — .git/config is shared by every worktree; writes require policy.git: 'push'. Use \`git -c key=value <cmd>\` for a one-off setting)`;
+    }
+
+    if (sub === 'reflog') {
+      // Unrefined 'reflog' means reflogIsRead() rejected it — either an
+      // explicit write verb (write/delete/drop/expire) or a positional this
+      // allowlist doesn't recognize (see reflogIsRead's comment for why an
+      // unrecognized positional is denied rather than treated as a <ref>).
+      // Not in GIT_COMMIT_CMDS, so — same as any unrecognized subcommand —
+      // this only denies at 'read'; 'commit' and 'push' fall through below.
+      if (level === 'read') {
+        return `git reflog denied (policy.git: read — only \`git reflog\` (bare, or with log options like \`-5\`/\`--all\`), \`show\`, \`list\` and \`exists\` are read; write a specific ref explicitly, e.g. \`git reflog show <ref>\`, or use policy.git: 'commit' or 'push' for write/delete/drop/expire)`;
+      }
+      continue;
     }
 
     if (GIT_PUSH_CMDS.test(sub)) {
