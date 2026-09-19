@@ -10,7 +10,8 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 
 export const upgradeCommand: Command = {
   name: 'upgrade',
-  description: 'Update statusline and helpers while preserving existing data',
+  description:
+    'Update statusline and helpers; refresh the managed sections of CLAUDE.md and .monomind/CAPABILITIES.md, preserving everything else',
   options: [
     {
       name: 'verbose',
