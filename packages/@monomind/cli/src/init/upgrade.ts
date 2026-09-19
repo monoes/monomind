@@ -347,6 +347,15 @@ export async function executeUpgrade(
     const capabilitiesPath = path.join(targetDir, '.monomind', 'CAPABILITIES.md');
     const claudeMdExisted = fs.existsSync(claudeMdPath);
     const capabilitiesExisted = fs.existsSync(capabilitiesPath);
+    // i-035 reviewer MINOR 5: writeClaudeMd/writeCapabilitiesDoc both skip
+    // the actual disk write when the merged content is byte-identical to
+    // what's already there (their own mtime-stability guard) — read the
+    // "before" bytes here so a genuine no-op `init upgrade` doesn't get
+    // reported as "updated" when nothing on disk actually changed.
+    const claudeMdBefore = claudeMdExisted ? fs.readFileSync(claudeMdPath, 'utf-8') : null;
+    const capabilitiesBefore = capabilitiesExisted
+      ? fs.readFileSync(capabilitiesPath, 'utf-8')
+      : null;
     const docsResult: InitResult = {
       success: true,
       platform: detectPlatform(),
@@ -358,8 +367,16 @@ export async function executeUpgrade(
     };
     await writeClaudeMd(targetDir, upgradeOptions, docsResult);
     await writeCapabilitiesDoc(targetDir, upgradeOptions, docsResult);
-    result[claudeMdExisted ? 'updated' : 'created'].push('CLAUDE.md');
-    result[capabilitiesExisted ? 'updated' : 'created'].push('.monomind/CAPABILITIES.md');
+    if (!claudeMdExisted) {
+      result.created.push('CLAUDE.md');
+    } else if (fs.readFileSync(claudeMdPath, 'utf-8') !== claudeMdBefore) {
+      result.updated.push('CLAUDE.md');
+    }
+    if (!capabilitiesExisted) {
+      result.created.push('.monomind/CAPABILITIES.md');
+    } else if (fs.readFileSync(capabilitiesPath, 'utf-8') !== capabilitiesBefore) {
+      result.updated.push('.monomind/CAPABILITIES.md');
+    }
 
     // 2. Create MISSING metrics files only (preserve existing data)
     const metricsDir = path.join(targetDir, '.monomind', 'metrics');
