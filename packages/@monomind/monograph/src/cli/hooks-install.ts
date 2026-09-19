@@ -7,7 +7,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 
 export const HOOK_MARKER_START = '# monograph-hook-start';
 export const HOOK_MARKER_END = '# monograph-hook-end';
@@ -54,7 +54,11 @@ function getHooksDir(repoPath: string): string {
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     if (custom) {
-      return join(repoPath, custom);
+      // #298: an already-absolute hooksPath (Husky's `.husky/_`-relative form
+      // is the exception; a global or org-guard hooksPath is typically
+      // absolute) must be used as-is — join(repoPath, '/abs/path') silently
+      // concatenates them into a nonsense path instead of resolving to '/abs/path'.
+      return isAbsolute(custom) ? custom : join(repoPath, custom);
     }
   } catch {
     // Not configured — fall through to default
