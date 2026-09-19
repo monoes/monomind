@@ -15,7 +15,8 @@ T=/home/monoes/mdev-tmp                       # scratch root — never /tmp
 RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
 ```
 
-- [ ] **#1 — Build, then confirm the baseline outside the org sandbox (do first).** `cd $REPO && pnpm build && pnpm verify`. This comes first because when this revision was written, `packages/@monomind/cli/dist` didn't match main: it had no `mcp monoes-proxy`, and its `redact()` still leaked `Authorization: Bearer …`. **PASS:** all green, or only `checkSecondBrainModel` fails (it reads real machine state; known, i-127). The 17 tests exempted inside the org sandbox (cli `role-sandbox.test.ts`, monograph `hooks-marker`/`hooks-install`/`hooks-status`) must pass here; they failed only because the sandbox exports `GIT_CONFIG_KEY_*`.
+- [x] **#1 — Build, then confirm the baseline outside the org sandbox (do first).** `cd $REPO && pnpm build && pnpm verify`. This comes first because when this revision was written, `packages/@monomind/cli/dist` didn't match main: it had no `mcp monoes-proxy`, and its `redact()` still leaked `Authorization: Bearer …`. **PASS:** all green, or only `checkSecondBrainModel` fails (it reads real machine state; known, i-127). The 17 tests exempted inside the org sandbox (cli `role-sandbox.test.ts`, monograph `hooks-marker`/`hooks-install`/`hooks-status`) must pass here; they failed only because the sandbox exports `GIT_CONFIG_KEY_*`.
+  **Result 2026-09-19 (run by Claude, outside the sandbox): PASS.** `pnpm build` and `pnpm verify` exit 0. Root suite 641 files / 6,430 tests passed, 54 skipped, 0 failed; other packages all green. `checkSecondBrainModel` did not fail. Logs: `/home/monoes/mdev-tmp/owner-1-{build,verify}.log`.
 
 - [ ] **#2 — Crash-report consent prompt in a real terminal (`0ef431f`, `c644690`, `cf68658`).** Use a scratch `HOME` so your real `~/.monomind/crash-reporting.json` is untouched:
   ```bash
@@ -31,13 +32,15 @@ RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
 
   Non-TTY: `rm -rf $H/.monomind; echo | HOME=$H $CLI report-crash --repo monoes/monomind --title t2 --body b | cat` should print "only saved locally (no network call)" with no prompt, and the status should stay `unanswered`. Timeout: after `rm -rf $H/.monomind`, rerun the TTY command and don't answer; it should resolve to No after 15 s. **FAIL:** no prompt on a TTY, a prompt in non-TTY, a network call after No, or a fake secret in a saved report.
 
-- [ ] **#3 — `redact()` (`6bcd64f`).** Run after #1:
+- [x] **#3 — `redact()` (`6bcd64f`).** Run after #1:
   ```bash
   cd $REPO && node -e "import('./packages/@monomind/cli/dist/src/utils/redaction.js').then(m=>['Authorization: Bearer abcdefghijklmnopqrstuv','{\"accessToken\":\"abcdefghijklmnop1234\"}','token ghp_'+'A'.repeat(36),'xoxb-EXAMPLE-EXAMPLE-EXAMPLEONLY','sk_live_abcdefghijklmnop1234','call me at 555 123 4567'].forEach(s=>console.log(m.redact(s))))"
   ```
   **PASS** matches what current source prints: `Authorization: [redacted]`, `{"access[redacted]}` (the key name is partly eaten, which is cosmetic), `token [redacted]`, `[redacted]`, `[redacted]`, `call me at <phone>`. **FAIL:** any token characters survive.
+  **Result 2026-09-19: PASS.** Output was exactly the six expected lines; no token characters survived.
 
-- [ ] **#4 — `doctor` additions (`c644690`).** `$CLI doctor --help | grep -o 'native\|crash-reporting'` should list both. `$CLI doctor -c native` should print ✓ (better-sqlite3 loads), `-c crash-reporting` the consent state, and `-c monoes-token` clean in a project with no leak. **PASS:** each prints a result without error.
+- [x] **#4 — `doctor` additions (`c644690`).** `$CLI doctor --help | grep -o 'native\|crash-reporting'` should list both. `$CLI doctor -c native` should print ✓ (better-sqlite3 loads), `-c crash-reporting` the consent state, and `-c monoes-token` clean in a project with no leak. **PASS:** each prints a result without error.
+  **Result 2026-09-19: PASS.** `doctor --help` lists `native` and `crash-reporting`. `-c native` → ✓ better-sqlite3 loads under Node v26.8.1 (ABI 147). `-c crash-reporting` → unanswered. `-c monoes-token` in this repo → ✗, correctly: this checkout's own `.mcp.json` still holds a literal monoes bearer token in the old `type: http` format (the file is gitignored and has no git history, so it was never committed). #5(b) replaces it; consider revoking that token at monoes.me afterwards.
 
 - [ ] **#5 — monoes.me token out of `.mcp.json` (`2c9bcec`, `54495b0`): leak fixture plus the real OAuth flow.**
   (a) Fixture:
@@ -107,7 +110,7 @@ RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
 
   **PASS:** each is done, or declined here.
 
-- [ ] **#14 — Measure `browse` idle time (decides i-103).**
+- [x] **#14 — Measure `browse` idle time (decides i-103).**
   ```bash
   $CLI browse -p 9333 open https://example.com
   time $CLI browse -p 9333 get title
@@ -115,6 +118,7 @@ RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
   $CLI browse -p 9333 close
   ```
   Rev 7 measured 5,132 ms for `get title`, but the org couldn't reproduce it. If both commands take ≲ 1 s, note "i-103 already done" here; if they take ~5 s, note the times and i-103 stays.
+  **Result 2026-09-19: i-103 is NOT done.** `get title` took 5,097 ms and `screenshot` 5,162 ms (example.com, port 9333). The ~5 s idle before exit reproduces; i-103 stays open.
 
 ## How to read the scores
 
