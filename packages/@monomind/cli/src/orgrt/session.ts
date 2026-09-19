@@ -443,13 +443,28 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       resumeSessionId = sessionId;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      if (/Reached maximum number of turns|error_max_turns/i.test(errMsg)) {
+      // #304 (review round 3): an org's own stop aborts whatever this attempt
+      // was doing — max-turns and stale-resume below are diagnoses for a
+      // genuinely failed attempt, not for one the org itself just cut off.
+      // Both branches SWALLOW (the loop continues or returns normally instead
+      // of rethrowing), so if either fired during a stop the daemon's role
+      // loop never runs its catch at all: no agent-stopped, no crash audit —
+      // runAgentSession simply resolves. Excluding a stop/external-abort from
+      // both conditions lets the error fall through to `else { throw err; }`
+      // instead, so the daemon classifies it the same way it classifies every
+      // other abort during a stop. Neither branch's own "retry"/"continue"
+      // promise is worth anything once the mailbox is closed anyway — the
+      // very next check below (`mailbox.isClosed || mailbox.isDraining`)
+      // returns immediately — so rethrowing here costs nothing.
+      const stopping = mailbox.isClosed || (opts.externalAbort?.signal.aborted ?? false);
+      if (!stopping && /Reached maximum number of turns|error_max_turns/i.test(errMsg)) {
         // Runner/SDK threw an error on max turns or exhausted turns on resume.
         // Drop the dead resumeSessionId and grant continuation turn with fresh session.
         sessionId = undefined;
         resumeSessionId = undefined;
         hitTurnLimit = true;
       } else if (
+        !stopping &&
         resumeSessionId &&
         resumeSessionId === initialResumeSessionId &&
         !triedFreshAfterResumeFailure &&
@@ -467,11 +482,16 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
         sessionId = undefined;
         resumeSessionId = undefined;
         hitTurnLimit = false;
+        // #304: no raw SDK text here either, same reason as runOneSession's
+        // breadcrumb — this describes what session.ts itself did (retried),
+        // not a characterisation of the underlying error. Kept in `data` for
+        // debugging.
         opts.bus.emit({
           type: 'status',
           from: opts.role.id,
           reason: 'resume-session-stale',
-          msg: `agent "${opts.role.id}" could not resume its prior session (${errMsg}) — retrying with a fresh session`,
+          msg: `agent "${opts.role.id}" could not resume its prior session — retrying with a fresh session`,
+          data: { error: errMsg },
         });
       } else {
         throw err;

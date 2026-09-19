@@ -1224,6 +1224,19 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     const betaMsg = beta.busEvents().find(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'reviewer')?.msg ?? '';
     expect(betaMsg).toMatch(/stopped with the org \(stop requested\)/);
     expect(betaMsg).not.toMatch(/aborted/i);
+
+    // #304 review round 3, minor 3: this is the scenario the ISSUE actually
+    // reports (a clean org_complete), and it previously had NO full-text
+    // guard — only the AC2 test (a manual-stop crash scenario) scanned every
+    // event's msg. A query filtered to reason === 'agent-stopped' (alphaStops
+    // above) cannot see an emit site with no `reason` at all — which is
+    // exactly the shape #304's original defect and its session.ts:941
+    // instance both had. Scan every event on both orgs, unfiltered.
+    for (const e of [...alpha.busEvents(), ...beta.busEvents()]) {
+      expect(e.msg ?? '', `event from ${e.from} (org, reason=${e.reason}): ${e.msg}`).not.toMatch(
+        /aborted by user|Operation aborted/,
+      );
+    }
   }, 15_000);
 
   it('a non-abort error surfacing while a stop is in progress still crashes with its real message intact, not swallowed into "stopped with the org" (#304 AC2)', async () => {
@@ -1291,6 +1304,107 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
         /aborted by user|Operation aborted/,
       );
     }
+  }, 10_000);
+
+  // #304 review round 3: a THIRD emit site the earlier fixtures never
+  // reached. session.ts's own inner retry loop (runAgentSessionLoop) has a
+  // "stale resume" branch that fires whenever a resumed attempt fails before
+  // replying — reachable by ordinary means: resumeSessionId is set by the
+  // daemon's own crash-restart (not just checkpoint --resume), and a
+  // crash-restarted attempt has by definition not replied yet. If an org
+  // stop aborts that specific attempt, it looks IDENTICAL to a stale resume
+  // from the branch's own point of view — so pre-fix it (a) emitted the raw
+  // SDK abort string, (b) invented a false "retrying with a fresh session"
+  // narrative that never happens (the very next check returns because the
+  // mailbox is closed), and (c) SWALLOWED the error entirely — runAgentSession
+  // resolved normally, so the daemon's role loop catch, and therefore
+  // agent-stopped classification, never ran at all (#251 bypassed).
+  // Rejects: a resume-session-stale branch that doesn't exclude an in-progress
+  // stop/external-abort, and a fix that only silences the message without
+  // also letting the error reach the daemon's classifier.
+  it('a resumed attempt aborted by a stop before replying is classified by the daemon, not swallowed as a stale resume (#304 review round 3)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-304-resume-stop-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'worker', title: 'Worker', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    const workerCalls: Array<string | undefined> = [];
+    const q = ({ prompt, options }: any) => {
+      if (!/agent "worker"/.test(options.systemPrompt ?? '')) {
+        // boss: idle, aborts cleanly like every other test here.
+        return (async function* () {
+          const aborted = new Promise<never>((_, reject) => {
+            options.abortController.signal.addEventListener('abort', () => reject(new Error('Operation aborted')), { once: true });
+          });
+          aborted.catch(() => {});
+          const it = prompt[Symbol.asyncIterator]();
+          while (true) {
+            const r = await Promise.race([it.next(), aborted]);
+            if (r.done) await aborted;
+            yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${r.value.message.content}` }] } };
+            yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+          }
+        })();
+      }
+      workerCalls.push(options.resume);
+      if (options.resume) {
+        // The daemon's crash-restart attempt (resumeSessionId set from the
+        // first attempt's sessionId). Never replies — hangs until the org's
+        // stop aborts it, exactly like a genuinely stale resume would look
+        // from session.ts's own point of view, except this one IS the org's
+        // own stop, not a real staleness failure.
+        return (async function* () {
+          await new Promise((_, reject) => {
+            options.abortController.signal.addEventListener(
+              'abort',
+              () => reject(new Error('Claude Code process aborted by user')),
+              { once: true },
+            );
+          });
+        })();
+      }
+      // First attempt: reply once (so `attempt.replied` on THIS attempt was
+      // true, but that's a different attempt object from the retry's), then
+      // crash for real — triggers the daemon's own crash-restart machinery.
+      return (async function* () {
+        for await (const m of prompt) {
+          yield { type: 'assistant', session_id: 'sess-0', message: { content: [{ type: 'text', text: `echo: ${m.message.content}` }] } };
+          yield { type: 'result', subtype: 'success', session_id: 'sess-0', usage: { input_tokens: 1, output_tokens: 1 } };
+          throw new Error('transient blip');
+        }
+      })();
+    };
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 500, crashBackoffsMs: [10] });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'worker', 'task', 'go');
+    // Wait for the crash-restart's retry to actually start (options.resume set)
+    // before stopping — stopping any earlier would hit daemon.ts's own
+    // "mailbox closed during backoff -> crash()" path instead of this one.
+    expect(await waitUntil(() => workerCalls.length >= 2 && workerCalls[1] !== undefined)).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('alpha');
+
+    const events = running.busEvents();
+    // (i) no banned string anywhere.
+    for (const e of events) {
+      expect(e.msg ?? '', `event from ${e.from} (reason=${e.reason}): ${e.msg}`).not.toMatch(
+        /aborted by user|Operation aborted/,
+      );
+    }
+    // (ii) still produces the classified agent-stopped line — proves the
+    // error reached the daemon's role loop instead of being swallowed.
+    const workerStop = events.find(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'worker');
+    expect(workerStop).toBeDefined();
+    expect(workerStop!.msg).toMatch(/stopped with the org \(stop requested\)/);
+    expect(running.agents.get('worker')!.status).not.toBe('crashed');
+    // The stale-resume branch must NOT have fired for this attempt — it was a
+    // stop, not a staleness failure, and firing it is what swallowed the
+    // error and invented the false "retrying" narrative pre-fix.
+    expect(events.some(e => e.reason === 'resume-session-stale' && e.from === 'worker')).toBe(false);
   }, 10_000);
 
   it('a silent session retries with a live abort signal, keeps the role working, and an org stop still aborts the retry (#256)', async () => {
