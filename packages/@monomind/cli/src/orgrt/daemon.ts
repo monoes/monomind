@@ -389,6 +389,10 @@ export interface RunningOrg {
    *  decisions.ts's queueDispatch; cross-org.ts's pushMessage folds a
    *  same-turn message into an open entry. */
   pendingDispatch?: Map<string, { lines: string[]; timer: ReturnType<typeof setTimeout> }>;
+  /** #304: why this run is stopping, set by stopOrg before the org is removed from
+   *  `this.orgs`. Read by the role loop so a planned stop is logged with one stable
+   *  wording instead of whichever abort string the SDK produced. */
+  closedBy?: string;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
@@ -1900,11 +1904,19 @@ export class OrgDaemon {
               }
               if (abortedByStop) {
                 runtime.status = 'ended';
+                // #304: `message` here is always an abort string (see abortedByStop
+                // above) — either "Operation aborted" or the SDK's "Claude Code
+                // process aborted by user". Echoing it made a planned stop read as
+                // a human interruption, and made roles of the same run read
+                // differently. Report WHY the org stopped instead; the raw string
+                // stays in `data` for debugging.
+                const why = running.closedBy === 'org-complete' ? 'org_complete' : 'stop requested';
                 bus.emit({
                   type: 'status',
                   from: role.id,
-                  msg: `agent "${role.id}" stopped with the org (${message})`,
+                  msg: `agent "${role.id}" stopped with the org (${why})`,
                   reason: 'agent-stopped',
+                  data: { agentId: role.id, error: message },
                 });
                 return;
               }
@@ -2383,6 +2395,10 @@ export class OrgDaemon {
     if (!org) return; // already stopped
     org.pendingRoles?.clear(); // prevent lazy spawns after stop
     this.spawning.delete(name); // clean up spawning tracking for this org
+    // #304: set before the delete below, since that delete is what makes
+    // abortedByStop (role loop) true — the role loop reads it off this same
+    // object reference, not a fresh lookup (the org is gone from the map by then).
+    org.closedBy = opts?.closedBy;
     // Remove immediately (not at the end) so a concurrent stopOrg(name) call —
     // e.g. stopAll() racing a scheduler-triggered stop on SIGINT — joins this
     // shutdown via `stopping` instead of re-running the whole sequence and
