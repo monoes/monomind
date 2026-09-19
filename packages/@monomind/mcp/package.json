@@ -1,6 +1,6 @@
 {
   "name": "@monoes/mcp",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",
   "main": "dist/index.js",
