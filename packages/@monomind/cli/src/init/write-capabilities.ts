@@ -4,7 +4,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { _isOptionalPackageResolvable, writeGeneratedFile } from './shared.js';
+import { HONEST_MONOSWARM_SENTENCE } from './claudemd-generator.js';
+import { atomicWriteFile, mergeGeneratedBlock, _isOptionalPackageResolvable } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**
@@ -16,8 +17,9 @@ export async function writeCapabilitiesDoc(
   result: InitResult,
 ): Promise<void> {
   const capabilitiesPath = path.join(targetDir, '.monomind', 'CAPABILITIES.md');
+  const exists = fs.existsSync(capabilitiesPath);
 
-  if (fs.existsSync(capabilitiesPath) && !options.force) {
+  if (exists && !options.force) {
     result.skipped.push('.monomind/CAPABILITIES.md');
     return;
   }
@@ -25,7 +27,6 @@ export async function writeCapabilitiesDoc(
   const hooksAvailable = _isOptionalPackageResolvable('@monoes/hooks');
 
   const capabilities = `# Monomind - Complete Capabilities Reference
-> Generated: ${new Date().toISOString()}
 > Full documentation: https://github.com/monoes/monomind
 
 ## 📋 Table of Contents
@@ -65,6 +66,8 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 ---
 
 ## Monoswarm Orchestration
+
+${HONEST_MONOSWARM_SENTENCE}
 
 ### Topologies
 | Topology | Description | Best For |
@@ -384,6 +387,14 @@ npx monomind@latest hooks worker run map
 **Issues**: https://github.com/monoes/monomind/issues
 `;
 
-  writeGeneratedFile(capabilitiesPath, capabilities);
+  // Confine monomind's own generated body to a delimited block rather than
+  // overwriting the whole file — same rationale and mechanism as
+  // write-claude.ts's writeClaudeMd (GH #241): a full overwrite would
+  // silently destroy hand-authored content outside anything monomind itself
+  // wrote. This also applies on the very first write so a later `--force`
+  // always refreshes just this block instead of duplicating the body.
+  const existingContent = exists ? fs.readFileSync(capabilitiesPath, 'utf-8') : '';
+  const merged = mergeGeneratedBlock(existingContent, 'capabilities', capabilities);
+  atomicWriteFile(capabilitiesPath, merged);
   result.created.files.push('.monomind/CAPABILITIES.md');
 }

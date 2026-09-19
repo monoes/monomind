@@ -104,7 +104,7 @@ pnpm run lint
 
 ## Monoswarm Rules
 
-- MUST initialize the monoswarm for complex tasks: `npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized`
+- Monoswarm records topology, roster and votes in a state file; it starts no process, and Claude Code's Task-tool agents do the work.
 - ALWAYS spawn ALL agents in ONE message via the Task tool with `run_in_background: true` — CLI tools coordinate, Task agents do the work
 - After spawning, STOP — never poll TaskOutput or check monoswarm status; trust agents to return
 - When agent results arrive, review ALL results before proceeding

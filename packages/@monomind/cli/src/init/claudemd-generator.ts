@@ -11,6 +11,15 @@ import { createRequire } from 'node:module';
 import { detectProjectProfile } from './shared-instructions-generator.js';
 import type { ClaudeMdTemplate, InitOptions } from './types.js';
 
+// i-035: `monoswarm_init` writes a JSON state record and starts no process —
+// nothing links its state to Claude Code's Task agents. The templates used to
+// tell every project it "MUST initialize the monoswarm" before complex work;
+// this is the honest replacement, worded from the same disclosure this repo
+// already carries at .claude/agents/core/coordinator.md:105 and
+// packages/@monomind/cli/CLAUDE.md's `adaptive`/`hybrid` topology annotation.
+export const HONEST_MONOSWARM_SENTENCE =
+  "Monoswarm records topology, roster and votes in a state file; it starts no process, and Claude Code's Task-tool agents do the work.";
+
 /** Build/test/lint commands and layout for the stack actually in the repo. */
 interface StackConventions {
   build: string;
@@ -187,10 +196,8 @@ function concurrencyRules(): string {
 function swarmOrchestration(): string {
   return `## Monoswarm Orchestration
 
-- MUST initialize the monoswarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
-- Never use CLI tools alone for execution — Task tool agents do the actual work
-- MUST call CLI tools AND Task tool in ONE message for complex work`;
+- ${HONEST_MONOSWARM_SENTENCE}`;
 }
 
 // Consolidated spawn/anti-drift rule — emitted ONCE in the standard template
@@ -199,7 +206,7 @@ function swarmOrchestration(): string {
 function swarmRules(): string {
   return `## Monoswarm Rules
 
-- MUST initialize the monoswarm for complex tasks: \`npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized\`
+- ${HONEST_MONOSWARM_SENTENCE}
 - ALWAYS spawn ALL agents in ONE message via the Task tool with \`run_in_background: true\` — CLI tools coordinate, Task agents do the work
 - After spawning, STOP — never poll TaskOutput or check monoswarm status; trust agents to return
 - When agent results arrive, review ALL results before proceeding
@@ -214,11 +221,7 @@ function antiDriftConfig(): string {
 - Use specialized strategy for clear role boundaries
 - Use \`majority\` consensus for monoswarm
 - Run frequent checkpoints via \`post-task\` hooks
-- Keep shared memory namespace for all agents
-
-\`\`\`bash
-npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
-\`\`\``;
+- Keep shared memory namespace for all agents`;
 }
 
 function autoStartProtocol(): string {
@@ -229,10 +232,7 @@ function autoStartProtocol(): string {
 When the user requests a complex task, spawn agents in background and WAIT:
 
 \`\`\`javascript
-// STEP 1: Initialize monoswarm coordination
-Bash("npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized")
-
-// STEP 2: Spawn ALL agents IN BACKGROUND in a SINGLE message
+// STEP 1: Spawn ALL agents IN BACKGROUND in a SINGLE message
 Task({prompt: "Research requirements...", subagent_type: "researcher", run_in_background: true})
 Task({prompt: "Design architecture...", subagent_type: "system-architect", run_in_background: true})
 Task({prompt: "Implement solution...", subagent_type: "coder", run_in_background: true})
@@ -248,12 +248,7 @@ Task({prompt: "Review code quality...", subagent_type: "reviewer", run_in_backgr
 | 3 | Feature | coordinator, architect, coder, tester, reviewer |
 | 5 | Refactor | coordinator, architect, coder, reviewer |
 | 7 | Performance | coordinator, perf-engineer, coder |
-| 9 | Security | coordinator, security-architect, auditor |
-
-### Task Complexity Detection
-
-- AUTO-INVOKE MONOSWARM when task involves: 3+ files, new features, cross-module refactoring, API changes, security, or performance work
-- SKIP MONOSWARM for: single file edits, simple bug fixes (1-2 lines), documentation updates, configuration changes`;
+| 9 | Security | coordinator, security-architect, auditor |`;
 }
 
 function executionRules(): string {
