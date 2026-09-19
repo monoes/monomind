@@ -215,7 +215,11 @@ describe('doctor-project-checks', () => {
     it('is always info status, naming the resolved root and the "git" reason', async () => {
       mkdirSync(join(dir, '.git'), { recursive: true });
       const result = await checkProjectRoot();
-      expect(result.name).toBe('Project Root');
+      // o-16 revision 1 (reviewer MAJOR 2): scoped to "Memory Project Root",
+      // not a bare "Project Root" — MONOMIND_PROJECT_ROOT has a second,
+      // independent consumer (guidance-tools.ts) that can legitimately
+      // resolve a different directory; a generic label would overclaim.
+      expect(result.name).toBe('Memory Project Root');
       expect(result.status).toBe('info');
       expect(result.message).toContain(dir);
       expect(result.message).toContain('.git ancestor');
@@ -251,6 +255,31 @@ describe('doctor-project-checks', () => {
       const result = await checkProjectRoot();
       expect(result.message).toContain(anchor);
       expect(result.message).toContain('MONOMIND_PROJECT_ROOT anchor');
+    });
+
+    // o-16 revision 1 (dev-lead Addition 1): disclosure must cover the
+    // ambiguous case it exists to resolve — a SET-but-INVALID anchor — not
+    // just the happy path. A user who typo'd MONOMIND_PROJECT_ROOT must be
+    // able to see, in one command, that it was set and ignored, and why.
+    it('discloses a non-existent MONOMIND_PROJECT_ROOT as ignored, naming the value and the reason', async () => {
+      mkdirSync(join(dir, '.git'), { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = join(dir, 'tpyo-does-not-exist');
+      const result = await checkProjectRoot();
+      // Falls through to the real .git root — not silently dropped.
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('tpyo-does-not-exist');
+      expect(result.message).toContain('ignored');
+      expect(result.message).toContain('does not exist');
+    });
+
+    it('discloses MONOMIND_PROJECT_ROOT="/" as ignored (would disable the path-traversal guard)', async () => {
+      mkdirSync(join(dir, '.git'), { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = '/';
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('"/"');
+      expect(result.message).toContain('ignored');
+      expect(result.message).toContain('filesystem root');
     });
   });
 

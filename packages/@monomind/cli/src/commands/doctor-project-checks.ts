@@ -70,18 +70,28 @@ export async function checkConfigFile(): Promise<HealthCheck> {
   };
 }
 
-/** o-16 (AC-6): the marker walk that resolves "this project" for every
- *  Second Brain store can silently adopt a wrong ancestor — the incident that
+/** o-16 (AC-6): the marker walk that resolves "this project" for the Memory
+ *  & Knowledge store can silently adopt a wrong ancestor — the incident that
  *  motivated this check was a shared scratch parent's bare `.monomind`
  *  capturing an unrelated fixture, with no visible symptom until a search
  *  came back empty. Disclose the resolved root and why it was chosen, so a
  *  user can see which directory their brain is keyed to without reading code
  *  or debug logs. Always 'info': the resolution itself is never a health
- *  problem, only the failure to see it was. */
+ *  problem, only the failure to see it was.
+ *
+ *  Named/scoped to "Memory Project Root", not a bare "Project Root" (o-16
+ *  revision 1, reviewer MAJOR 2): `MONOMIND_PROJECT_ROOT` has a SECOND,
+ *  independent consumer — `mcp-tools/guidance-tools.ts:findProjectRoot()`,
+ *  which uses a different marker (`.claude`) and can legitimately resolve a
+ *  different directory (see the divergence explained at
+ *  `memory-bridge.ts`'s `getProjectRoot()` doc comment). A generic "Project
+ *  Root" label would claim there is one true answer when this commit is
+ *  what creates a state where two resolvers can disagree — this check must
+ *  not be the thing that misleads about that. */
 export async function checkProjectRoot(): Promise<HealthCheck> {
-  const name = 'Project Root';
+  const name = 'Memory Project Root';
   const { getProjectRootResolution } = await import('../memory/memory-bridge.js');
-  const { root, reason, ignoredBareMonomind } = getProjectRootResolution();
+  const { root, reason, ignoredBareMonomind, invalidAnchor } = getProjectRootResolution();
   const reasonText: Record<typeof reason, string> = {
     'explicit-anchor': 'MONOMIND_PROJECT_ROOT anchor',
     git: 'nearest .git ancestor',
@@ -89,14 +99,22 @@ export async function checkProjectRoot(): Promise<HealthCheck> {
     'monomind-with-marker': '.monomind ancestor confirmed by a project manifest',
     'start-fallback': 'no adoptable marker found — using the current directory',
   };
+  // o-16 revision 1 (dev-lead Addition 1): the anchor's own disclosure must
+  // cover the ambiguous case it exists to resolve — a SET-but-INVALID
+  // anchor — not just the happy path, or a typo'd MONOMIND_PROJECT_ROOT
+  // silently does nothing and the user has no way to find out why. Appended
+  // regardless of which `reason` the walk ultimately fell back to.
+  const invalidAnchorNote = invalidAnchor
+    ? ` [MONOMIND_PROJECT_ROOT="${invalidAnchor.value}" ignored — ${invalidAnchor.problem}]`
+    : '';
   if (reason === 'start-fallback' && ignoredBareMonomind) {
     return {
       name,
       status: 'info',
-      message: `${root} (${reasonText[reason]}; ignored bare .monomind at ${ignoredBareMonomind} — add a project marker there, or set MONOMIND_PROJECT_ROOT, to adopt it)`,
+      message: `${root} (${reasonText[reason]}; ignored bare .monomind at ${ignoredBareMonomind} — add a project marker there, or set MONOMIND_PROJECT_ROOT, to adopt it)${invalidAnchorNote}`,
     };
   }
-  return { name, status: 'info', message: `${root} (${reasonText[reason]})` };
+  return { name, status: 'info', message: `${root} (${reasonText[reason]})${invalidAnchorNote}` };
 }
 
 export async function checkMemoryDatabase(): Promise<HealthCheck> {

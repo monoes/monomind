@@ -189,6 +189,22 @@ describe('getProjectRoot', () => {
       },
     );
 
+    // o-16 revision 1 (reviewer MINOR 3): the `.each` above pins the marker
+    // list against REMOVAL (dropping go.mod goes red) but nothing pinned it
+    // against WIDENING — and widening is the direction that re-opens the
+    // defect this item fixes (any file at all would make a bare `.monomind`
+    // "corroborated" again). A .monomind ancestor with an ARBITRARY,
+    // non-manifest file alongside it (not one of
+    // INDEPENDENT_PROJECT_MARKERS) must still be treated as bare.
+    it('a .monomind ancestor accompanied by a non-manifest file (e.g. README.md) is still NOT adopted', () => {
+      const proj = join(root, 'proj-readme-only');
+      marker(proj, '.monomind');
+      writeFileSync(join(proj, 'README.md'), '# not a project marker');
+      const sub = join(proj, 'sub');
+      mkdirSync(sub, { recursive: true });
+      expect(getProjectRoot(sub)).toBe(sub);
+    });
+
     it('MONOMIND_PROJECT_ROOT overrides the walk entirely, as an explicit escape hatch', () => {
       const anchor = join(root, 'anchor-target');
       mkdirSync(anchor, { recursive: true });
@@ -253,6 +269,52 @@ describe('getProjectRoot', () => {
       // as if it were inside the project — even though it WOULD have passed
       // the guard pre-o-16, when the root wrongly widened to `scratch`.
       expect(siblingPath).toBe(defaultPath);
+    });
+
+    // AC-5, anchor variant (o-16 revision 1, reviewer MAJOR 1): the walk
+    // isn't the only way to widen the guard's allowed region — a wrong or
+    // overly-broad MONOMIND_PROJECT_ROOT is a SECOND way, and it's new in
+    // this commit (pre-o-16, memory-bridge had no anchor at all). Measured:
+    // pre-validation, `MONOMIND_PROJECT_ROOT=/` made
+    // `path.relative('/', anything)` never start with '..', so EVERY
+    // absolute path passed the guard. This proves an invalid anchor falls
+    // through to the walk instead — it does not get to define the allowed
+    // region at all.
+    it('an invalid MONOMIND_PROJECT_ROOT anchor ("/") does not widen the path-traversal guard (AC-5, anchor variant)', async () => {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      marker(root, '.git');
+      const outside = join(root, '..', `o16-outside-${Date.now()}`);
+      mkdirSync(outside, { recursive: true });
+      process.env.MONOMIND_CWD = root;
+      process.env.MONOMIND_PROJECT_ROOT = '/';
+      try {
+        // Falls through to the real .git root, NOT '/'.
+        expect(getProjectRoot()).toBe(root);
+        const defaultPath = bridgeGetDbPath();
+        const outsidePath = bridgeGetDbPath(outside);
+        expect(outsidePath).toBe(defaultPath);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    });
+
+    // A VALID anchor is allowed to relocate the store (that's its purpose —
+    // AC-3c's escape hatch), but must not thereby admit paths that sit
+    // outside the anchor itself. The anchor widens "the project" to mean
+    // the anchored directory; it must not widen it to mean "anything".
+    it('a VALID MONOMIND_PROJECT_ROOT anchor still rejects a path outside the anchor (AC-5, anchor variant)', async () => {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const anchorDir = join(root, 'anchored-project');
+      mkdirSync(anchorDir, { recursive: true });
+      const outside = join(root, 'not-the-anchored-project');
+      mkdirSync(outside, { recursive: true });
+      process.env.MONOMIND_CWD = anchorDir;
+      process.env.MONOMIND_PROJECT_ROOT = anchorDir;
+
+      expect(getProjectRoot()).toBe(anchorDir);
+      const defaultPath = bridgeGetDbPath();
+      const outsidePath = bridgeGetDbPath(outside);
+      expect(outsidePath).toBe(defaultPath);
     });
   });
 

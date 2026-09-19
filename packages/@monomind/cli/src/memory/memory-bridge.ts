@@ -111,12 +111,13 @@ function markerExists(p: string): boolean {
 export interface ProjectRootResolution {
   root: string;
   /** Why `root` was chosen — for disclosure (doctor, debug logs), not
-   *  behavior. `explicit-anchor`: MONOMIND_PROJECT_ROOT set. `git`: a `.git`
-   *  ancestor (any depth) was adopted. `monomind-at-start`: the starting
-   *  directory itself carries `.monomind` (the user is standing in their
-   *  own project — always trusted). `monomind-with-marker`: an ancestor's
-   *  `.monomind` was corroborated by an independent project marker.
-   *  `start-fallback`: nothing adoptable was found; `root` is `start`. */
+   *  behavior. `explicit-anchor`: MONOMIND_PROJECT_ROOT set and valid.
+   *  `git`: a `.git` ancestor (any depth) was adopted. `monomind-at-start`:
+   *  the starting directory itself carries `.monomind` (the user is
+   *  standing in their own project — always trusted). `monomind-with-marker`:
+   *  an ancestor's `.monomind` was corroborated by an independent project
+   *  marker. `start-fallback`: nothing adoptable was found; `root` is
+   *  `start`. */
   reason:
     | 'explicit-anchor'
     | 'git'
@@ -128,12 +129,58 @@ export interface ProjectRootResolution {
    *  caller can tell a genuinely ambiguous user why their brain stayed put
    *  instead of silently picking a directory that merely looked plausible. */
   ignoredBareMonomind?: string;
+  /** Set whenever MONOMIND_PROJECT_ROOT was present in the environment but
+   *  failed validation — regardless of what `reason`/`root` ended up being,
+   *  so a typo'd anchor is never silently dropped just because the ordinary
+   *  walk happened to land somewhere reasonable anyway (o-16 revision 1). */
+  invalidAnchor?: { value: string; problem: string };
+}
+
+/** o-16 revision 1 (reviewer MAJOR 1, measured not argued): the anchor used
+ *  to be trusted unconditionally. Two proven harms: (a) a non-existent path
+ *  (a typo) was adopted as-is, and `projectDataDir()` hashed it into a
+ *  fresh, empty store directory — the exact split-store failure this item
+ *  exists to eliminate, reintroduced by the escape hatch meant to fix it.
+ *  (b) `MONOMIND_PROJECT_ROOT=/` disabled `getDbPath`'s MCP path-traversal
+ *  guard entirely: the guard is `path.relative(getProjectRoot(), resolved)`
+ *  not starting with `..`, and `path.relative('/', anything)` never does.
+ *  `existsSync` + `isDirectory` alone catch (a) but NOT (b) — `/` exists and
+ *  is a directory — so the filesystem-root check below is what closes (b)
+ *  specifically; it is not redundant with the others. An invalid anchor is
+ *  never silently accepted OR silently dropped: the caller falls through to
+ *  the ordinary walk, and the fact that an anchor was set and rejected is
+ *  preserved on the result (`invalidAnchor`) so `doctor` can say exactly
+ *  what happened instead of the user just seeing an unexplained directory. */
+function validateAnchor(raw: string): { ok: true; resolved: string } | { ok: false; problem: string } {
+  if (!path.isAbsolute(raw)) return { ok: false, problem: 'not an absolute path' };
+  const resolved = path.resolve(raw);
+  let stat: ReturnType<typeof fs.statSync>;
+  try {
+    stat = fs.statSync(resolved);
+  } catch {
+    return { ok: false, problem: 'does not exist' };
+  }
+  if (!stat.isDirectory()) return { ok: false, problem: 'is not a directory' };
+  if (path.dirname(resolved) === resolved) {
+    return { ok: false, problem: 'is the filesystem root, which would disable the MCP path-traversal guard' };
+  }
+  return { ok: true, resolved };
 }
 
 function walkToProjectRoot(start: string): ProjectRootResolution {
-  // Explicit escape hatch: honored unconditionally, ahead of any walk.
-  const anchor = process.env.MONOMIND_PROJECT_ROOT;
-  if (anchor) return { root: path.resolve(anchor), reason: 'explicit-anchor' };
+  // Explicit escape hatch: honored ahead of any walk, but only once valid —
+  // see validateAnchor's comment for why unconditional trust was wrong.
+  const anchorRaw = process.env.MONOMIND_PROJECT_ROOT;
+  let invalidAnchor: ProjectRootResolution['invalidAnchor'];
+  if (anchorRaw) {
+    const check = validateAnchor(anchorRaw);
+    if (check.ok) return { root: check.resolved, reason: 'explicit-anchor' };
+    invalidAnchor = { value: anchorRaw, problem: check.problem };
+    logBridgeError(
+      'walkToProjectRoot',
+      new Error(`MONOMIND_PROJECT_ROOT ignored: "${anchorRaw}" ${check.problem} — falling back to the walk`),
+    );
+  }
 
   // Retained from before o-16: protects the dotfiles-repo-at-$HOME case (a
   // `.git` at $HOME must not swallow every loose project underneath it).
@@ -147,11 +194,11 @@ function walkToProjectRoot(start: string): ProjectRootResolution {
   let atStart = true;
   for (;;) {
     if (dir === home) break;
-    if (markerExists(path.join(dir, '.git'))) return { root: dir, reason: 'git' };
+    if (markerExists(path.join(dir, '.git'))) return { root: dir, reason: 'git', invalidAnchor };
     if (markerExists(path.join(dir, '.monomind'))) {
-      if (atStart) return { root: dir, reason: 'monomind-at-start' };
+      if (atStart) return { root: dir, reason: 'monomind-at-start', invalidAnchor };
       const corroborated = INDEPENDENT_PROJECT_MARKERS.some((m) => markerExists(path.join(dir, m)));
-      if (corroborated) return { root: dir, reason: 'monomind-with-marker' };
+      if (corroborated) return { root: dir, reason: 'monomind-with-marker', invalidAnchor };
       // The nearest marker found doesn't qualify — stop HERE. Continuing
       // past it to adopt some more distant, unrelated ancestor's `.git`
       // would break "nested projects keep their own brain" in a new way:
@@ -175,7 +222,7 @@ function walkToProjectRoot(start: string): ProjectRootResolution {
       ),
     );
   }
-  return { root: start, reason: 'start-fallback', ignoredBareMonomind };
+  return { root: start, reason: 'start-fallback', ignoredBareMonomind, invalidAnchor };
 }
 
 // getBackend() resolves the store path on every store/search, so a bulk ingest
@@ -230,8 +277,33 @@ export function getProjectRootResolution(
  *
  * The walk never crosses the home directory: a dotfiles repo at `~` would
  * otherwise swallow every loose project underneath it into one shared brain.
- * `MONOMIND_PROJECT_ROOT`, if set, is an explicit anchor that skips the walk
- * entirely — the escape hatch for the genuinely ambiguous case.
+ * `MONOMIND_PROJECT_ROOT`, if set AND VALID (absolute, exists, is a
+ * directory, is not itself the filesystem root — see `validateAnchor`), is
+ * an explicit anchor that skips the walk entirely — the escape hatch for
+ * the genuinely ambiguous case (design decision 4 / AC-3c: a real, non-git
+ * project whose root has a bare `.monomind` and no manifest has no other
+ * way to be found from a subdirectory). An invalid anchor falls through to
+ * the walk rather than being adopted OR silently dropped — see
+ * `ProjectRootResolution.invalidAnchor`.
+ *
+ * This is `MONOMIND_PROJECT_ROOT`'s SECOND consumer in this codebase —
+ * `mcp-tools/guidance-tools.ts:findProjectRoot()` already reads the same
+ * env var, for a DIFFERENT marker (`.claude`, not `.monomind`/`.git`), with
+ * a stricter rule: `if (envRoot && existsSync(join(envRoot, '.claude')))`,
+ * i.e. it only honors the anchor when `.claude` exists there, silently
+ * falling through to its own walk otherwise. After this revision the two
+ * mostly agree: for a typo'd/missing path, BOTH now fall through — this one
+ * because `validateAnchor` rejects it, guidance-tools' because `.claude` is
+ * absent. The one case they still legitimately disagree on is an anchor
+ * that exists and is a real directory but has no `.claude` in it: this
+ * function honors it (memory has no reason to require a `.claude` folder —
+ * a project's knowledge store isn't gated on whether an agent config lives
+ * there), guidance-tools does not (`.claude` is the one thing it's
+ * searching FOR, so its absence is a real signal, not noise, for that
+ * consumer specifically). That residual difference is a property of what
+ * each resolver is looking for, not an oversight — reconciling the two
+ * resolvers' semantics into one shared rule is a separate, larger question
+ * (tracked as o-32), not something this fix should decide as a side effect.
  *
  * For anyone who already ran from the project root — the normal case — the
  * resolved path is identical to before, so their store does not move.

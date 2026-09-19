@@ -192,7 +192,7 @@ describe('doctorCommand', () => {
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Config File');
     expect(names).toContain('Crash Reporting');
-    expect(names).toContain('Project Root');
+    expect(names).toContain('Memory Project Root');
     expect(data.results.length).toBe(23);
   }, 60000); // full default check set shells out — see the bare-project test above
 
