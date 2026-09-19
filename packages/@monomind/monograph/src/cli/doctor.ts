@@ -40,7 +40,11 @@ export function checkNodeVersion(version: string = process.version): DoctorCheck
     .map((n) => parseInt(n, 10));
   const meetsFloor = major > requiredMajor || (major === requiredMajor && minor >= requiredMinor);
   if (meetsFloor) {
-    return { name: 'Node version', status: 'ok', message: `${version} (>= ${requiredLabel} required)` };
+    return {
+      name: 'Node version',
+      status: 'ok',
+      message: `${version} (>= ${requiredLabel} required)`,
+    };
   } else if (major >= 18) {
     return {
       name: 'Node version',
