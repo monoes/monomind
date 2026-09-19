@@ -2688,6 +2688,19 @@ export class OrgDaemon {
       // worktree remove --force` against this same repo from this same cwd,
       // so this is strictly less invasive than what already ships. Run after
       // both removal loops so a worktree just removed is also pruned.
+      //
+      // Bounded race, measured rather than assumed (same treatment as the
+      // SIGKILL case above): an entry whose `gitdir` file is absent is
+      // pruned unconditionally, and `--expire` cannot protect it — measured
+      // across every window from `--expire=now` to `--expire=3.months.ago`,
+      // a fresh no-gitdir entry is removed regardless, while `--expire` also
+      // makes an already-deleted worktree SURVIVE, breaking the "a run
+      // always begins clean" guarantee this fix exists to provide. So a
+      // concurrent `git worktree add` by another process in this repo is
+      // vulnerable for the microseconds between its `mkdir` and its
+      // `gitdir` write. A mid-creation state cannot persist longer than
+      // that, so an entry found in that state is dead metadata, not a live
+      // worktree in progress.
       try {
         execFileSync('git', ['worktree', 'prune'], {
           cwd: this.root,
