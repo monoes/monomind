@@ -107,14 +107,21 @@ function fetchVersions(name) {
  *
  * Retried on absence, not only on error: a version published seconds ago is
  * not visible yet, and `npm view` answers successfully with a list that does
- * not contain it. During the incident this guard exists for, the registry
- * took about four minutes to catch up. A guard that fails a correct release
- * is a guard people delete, so absence is only believed after ~90s — while a
- * package with no versions at all, or one whose list is already complete, is
- * answered immediately.
+ * not contain it.
+ *
+ * The budget is ~8.5 minutes, and it is set from measurement rather than
+ * taste. The first version of this waited 90s, which looked generous and was
+ * not: on its very first real run it blocked a correct 2.11.12 umbrella
+ * publish, because the CLI it pins took 225s to become visible. That is the
+ * failure mode this guard can least afford — one that fails correct releases
+ * gets deleted, and then nothing catches the unresolvable pin it exists for.
+ * So the ceiling sits well clear of the worst propagation actually seen here.
+ *
+ * Only genuine absence pays it. A package with no versions at all, or one
+ * whose list already contains the version, is answered on the first call.
  */
 function isPublished(name, version) {
-  const backoff = [0, 5, 15, 30, 40];
+  const backoff = [0, 5, 10, 15, 30, 30, 60, 60, 90, 90, 120];
   for (let i = 0; i < backoff.length; i++) {
     if (backoff[i]) sleepSeconds(backoff[i]);
     const versions = fetchVersions(name);
@@ -131,7 +138,7 @@ function isPublished(name, version) {
     if (versions?.has(version)) return true;
     if (i === 0 && versions !== null)
       console.log(
-        `  … ${name}@${version} not on npm yet — waiting in case it is still propagating`,
+        `  … ${name}@${version} not on npm yet — waiting up to 8m in case it is still propagating`,
       );
   }
   return false;
