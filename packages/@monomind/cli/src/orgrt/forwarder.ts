@@ -92,6 +92,11 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
           dirname(controlJsonPath),
           `.bound-report-orgrt-${process.pid}.json`,
         );
+        // o-18 (deliberately out of scope): this spawns `process.execPath`
+        // running monomind's OWN ../ui/server.mjs — a first-party process,
+        // not a vendor CLI or a user-configured binary — so it falls outside
+        // the threat model of "ambient Anthropic creds reaching a binary
+        // that isn't Anthropic's own". No omitAnthropicManagedKeys() here.
         const child = spawn(process.execPath, [serverPath, '4242'], {
           detached: true,
           stdio: 'ignore',
