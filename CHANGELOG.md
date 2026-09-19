@@ -4,6 +4,31 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.10] — 2026-09-19
+
+### Security
+
+- **Crash reports are no longer filed without consent.** The crash reporter opened a public GitHub issue on every crash with no consent step of any kind — no prompt, no opt-out, no TTY check. Consent is now tri-state (`enabled` / `disabled` / `unanswered`), an absent config reads as `unanswered` rather than `enabled`, an interactive crash prompts once (showing the local report path first, defaulting to No), and a non-interactive crash — which is most monomind runs, including agents and CI — only ever saves locally and never prompts or files. Surfaced by `monomind crash-reporting status` and a `doctor` health check.
+- **The monoes.me OAuth token is no longer written into `.mcp.json`.** It was embedded in a file that is routinely committed. `doctor` now detects the exposure, warns loudly, and keys its remediation advice on what it actually found rather than on whether a file exists.
+- **Secret redaction widened.** The six credential-prefix patterns dropped a leading boundary assertion that made them miss matches, and keyword shapes now match with surrounding quotes and spaces.
+
+### Added
+
+- `org_complete` is gated, and every stop path records the real reason an org stopped instead of leaking the raw SDK abort string (#302).
+- File-tool roots now match the Bash sandbox — a role reaches `$TMPDIR`, the org root and `policy.sandbox.allowWrite`, and nothing more (#303).
+- `doctor` registers the crash-reporting check and surfaces native checks in `--help`.
+
+### Fixed
+
+- **Org-runtime git guard**, a series of escapes closed: the reflog allowlist examined only `argv[0]` instead of every token and is now fail-closed (#299); `git stash` is denied unconditionally below `push` (#300); `policy.git read` widened to the real read-only git surface; leaked `.git/worktrees/<name>` metadata is pruned unconditionally; an unlistable socket dir is masked instead of the socket.
+- `mcp monoes-proxy` no longer dies to the 5s exit watchdog, and the monoes.me proxy speaks Streamable HTTP.
+- `monograph` no longer mis-joins an absolute `core.hooksPath` (#298, monograph 1.6.6).
+- 119 dashboard `onclick` handlers threw `ReferenceError` and now work.
+- `init` no longer narrows an existing blanket `.monomind/` gitignore entry.
+- Prompts resolve immediately on EOF instead of hanging until a fallback timeout.
+- The biome `.monomind` exclusion is anchored, so worktrees underneath it still lint.
+- A test bug that only appeared where `TMPDIR` is unset — the default on CI: the role-sandbox hermetic-env allowlist assigned an absent `TMPDIR` with a plain key, and because `process.env` coerces values to strings it wrote the literal string `"undefined"`. `os.tmpdir()` returned that verbatim and all 12 tests in the describe failed with `ENOENT`. It passed only on machines that happen to export `TMPDIR`.
+
 ## [2.11.9] — 2026-09-19
 
 ### Fixed
