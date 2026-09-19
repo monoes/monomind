@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Security
+
+- **Org roles no longer inherit ambient `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` when running a non-Anthropic provider or CLI.** Every vendor-CLI runner (codex, grok, qwen, opencode, hermes, copilot, kimicode, pi, antigravity, crush) and the version-probe used by `monomind agent scan` built their child environment as `{ ...process.env, ...args.env }` — a spread does not delete, so `resolveProviderEnv`'s deliberate strip of these three keys for `subscription` mode (the default) was silently restored by the fallback before the child ever saw it. **Migration:** if your org relied on an exported `ANTHROPIC_API_KEY` reaching a `subscription`-provider role (the previous, unintended behaviour), set an explicit provider block instead: `provider: { kind: 'api-key', apiKeyEnv: 'ANTHROPIC_API_KEY' }`. Without this change, a role that suddenly can't see the key fails with a generic, misleading "Not logged in" rather than an explanation.
+
 ### Breaking Changes
 
 - **Node.js >=22.12.0 is now required by every published package** (root `monomind`, `@monoes/monomindcli`, `@monoes/hooks`, `@monoes/monograph`, `@monoes/monobrowse`, `@monoes/mcp`, `@monoes/memory`, `@monoes/routing`, `@monoes/monodesign`, `monofence-ai`). The declared floor had already stopped matching reality: `engines.node` was `>=20.0.0` in some manifests, `>=18.0.0` in others, and absent from four published packages entirely. Two optional dependencies were already ahead of it: `@monoes/monodesign`'s optional `puppeteer@25.3.0` declares `engines.node ">=22.12.0"`, and `@monoes/monomindcli`'s optional `ai@7.0.59` (resolved from its declared `^7.0.58`) declares `">=22"`. `monomind doctor` reported "pass" on Node 20 the whole time; it now reports `warn`/`fail` below `22.12.0` and names the real floor. Node 20 reached EOL 2026-04-30.
