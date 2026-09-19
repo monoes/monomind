@@ -64,6 +64,36 @@ function makeWorktreeFixture(nesting: string[]): string {
   return root;
 }
 
+/** Probes placed just inside each of biome.json's root-anchored positive
+ *  includes (`packages/@monomind/*\/src/**`, `scripts/**`, `tests/**`), each
+ *  nested one level under a `.monomind` directory — NOT at the checkout root,
+ *  so this fixture is unaffected by the "checkout lives under .monomind"
+ *  case the other #297 tests already cover. */
+const NESTED_MONOMIND_PROBES = [
+  'packages/@monomind/cli/src/.monomind/probe.ts',
+  'scripts/.monomind/probe.ts',
+  'tests/.monomind/probe.ts',
+];
+
+/** A plain checkout (root is NOT under `.monomind`) carrying one probe under
+ *  each entry in `NESTED_MONOMIND_PROBES`. `mutateIncludes` lets a caller
+ *  swap the anchored `!.monomind` back to the pre-#297 unanchored
+ *  `!**\/.monomind` to build the "before" side of a comparison. */
+function makeNestedMonomindFixture(mutateIncludes: (includes: string[]) => string[]): string {
+  const root = mkdtempSync(join(tmpdir(), 'biome-nested-'));
+  for (const rel of NESTED_MONOMIND_PROBES) {
+    const full = join(root, ...rel.split('/'));
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, 'export const   probe   =   {a:1,   b:2}\n');
+  }
+
+  const config = JSON.parse(readFileSync(join(REPO_ROOT, 'biome.json'), 'utf8'));
+  config.vcs = { enabled: false };
+  config.files.includes = mutateIncludes(config.files.includes);
+  writeFileSync(join(root, 'biome.json'), `${JSON.stringify(config, null, 2)}\n`);
+  return root;
+}
+
 /** Run `biome check [...args]` in `cwd`; biome exits non-zero on findings, which
  *  is expected here, so capture output either way. */
 function biomeCheck(cwd: string, args: string[] = []): string {
@@ -120,15 +150,18 @@ describe('biome.json files.includes (GH #297)', () => {
     // positive includes (packages/*/src/**, packages/@monomind/*/src/**,
     // tests/**, scripts/**) are all root-anchored, so neither probe below is
     // ever ADMITTED by a positive include in the first place — both paths
-    // start with `.monomind/`, matching none of them. That makes `!.monomind`
-    // itself unfalsifiable by any behavioural test today: deleting it
-    // produces byte-identical output here (verified against a real biome
-    // run). It is a traversal-pruning hint for a large runtime tree, not a
-    // correctness guard — see the structural test below for the only thing
-    // that CAN pin it. What this test pins honestly is narrower: a root lint
-    // never reports anything from inside .monomind, which would regress the
-    // moment a positive include were ever changed to be un-anchored (a
-    // leading `**/`) the way the exclusion itself was before #294/#297.
+    // start with `.monomind/`, matching none of them. `!.monomind` itself is
+    // NOT falsifiable by either probe: deleting it produces byte-identical
+    // output here (verified against a real biome run — see the structural
+    // test at the bottom of this file for the only thing that CAN pin
+    // deletion). See "narrows ... from any-depth to root-only" below for the
+    // probe that DOES discriminate anchored from unanchored — a nested
+    // `.monomind` *inside* an already-included src/scripts/tests tree. What
+    // THIS test pins honestly is narrower, and unconditional: a root lint
+    // never reports anything from directly inside .monomind, full stop —
+    // it says nothing about what would regress it (verified: un-anchoring
+    // the positive includes ALONE, with `!.monomind` intact, does not flip
+    // this — the exclusion still prunes these paths regardless).
     mkdirSync(join(root, '.monomind'), { recursive: true });
     writeFileSync(join(root, '.monomind', 'junk.ts'), 'export const   junk   =   {a:1}\n');
     const junkOut = biomeCheck(root, ['.monomind/junk.ts']);
@@ -158,11 +191,70 @@ describe('biome.json files.includes (GH #297)', () => {
     );
   });
 
-  // Structural, not behavioural — deliberately, per the comment above: no
-  // biome run can currently distinguish `!.monomind` present from absent, so
-  // the only honest guard against silently deleting the anchored line (or
-  // reintroducing the unanchored `!**/.monomind`) is reading the config.
-  it('anchors the .monomind exclusion (structural — the pruning hint above cannot be pinned behaviourally)', () => {
+  it('narrows the .monomind exclusion from any-depth to root-only: nested .monomind dirs under included trees are now linted by name', () => {
+    // THE actual discriminator, found only after two rounds of unfalsifiable
+    // probes: each path in NESTED_MONOMIND_PROBES matches a root-anchored
+    // positive include (packages/@monomind/*/src/**, scripts/**, tests/**)
+    // regardless of the `.monomind` exclusion — so whether it is linted
+    // depends entirely on whether that exclusion is depth-unanchored
+    // (matches `.monomind` at any depth, swallowing these nested ones too)
+    // or root-anchored (matches only the top-level `.monomind`, leaving them
+    // alone). Verified against real biome 2.5.8: anchored → all three linted
+    // and named (4 files checked); unanchored → all three silently dropped,
+    // none named (1 file checked, biome.json's own default coverage).
+    //
+    // What this test does NOT pin: deleting `!.monomind` entirely produces
+    // byte-identical output to `actual` below — every probe is still
+    // admitted by its positive include with no exclusion to prune it either
+    // way. Only the structural test below can catch that; see its comment.
+    //
+    // `actual` copies the REAL, unmodified biome.json — this is the side
+    // that must fail if the real file ever regresses to the unanchored form.
+    // `referenceUnanchored` is a deliberately-constructed baseline (built the
+    // same way regardless of what the real file says) representing the OLD
+    // behaviour for comparison, so this half of the test keeps meaning even
+    // when `actual`'s exclusion is deleted outright.
+    const actual = makeNestedMonomindFixture((includes) => includes);
+    const referenceUnanchored = makeNestedMonomindFixture((includes) => [
+      ...includes.filter((p) => p !== '!.monomind' && p !== '!**/.monomind'),
+      '!**/.monomind',
+    ]);
+
+    const actualOut = biomeCheck(actual);
+    const referenceOut = biomeCheck(referenceUnanchored);
+
+    for (const rel of NESTED_MONOMIND_PROBES) {
+      const probePath = new RegExp(
+        rel
+          .split('/')
+          .map((s) => s.replace('.', '\\.'))
+          .join('[/\\\\]'),
+      );
+      expect(actualOut, rel).toMatch(probePath);
+      expect(referenceOut, rel).not.toMatch(probePath);
+    }
+  });
+
+  // Structural, not behavioural — deliberately. No behavioural test can
+  // distinguish `!.monomind` present from deleted outright: every probe
+  // above that a positive include admits is admitted whether or not the
+  // exclusion exists at all, so a lint run looks identical either way. The
+  // only thing that can pin "the line is still there" is reading the config.
+  //
+  // Why keep an inert-today line at all, then: it is inert for TWO
+  // INDEPENDENT reasons, not one — (1) every positive include is
+  // root-anchored, so nothing under `.monomind/` is ever admitted by an
+  // include in the first place, and (2) `vcs.useIgnoreFile` + .gitignore's
+  // `.monomind/*` already prunes the tree regardless of (1). It becomes
+  // load-bearing only if BOTH are removed. Measured with biome 2.5.8: adding
+  // a non-root-anchored include such as `**/*.ts` defeats (1) alone but NOT
+  // (2) — deleting this line in that configuration still changes nothing
+  // (the ignore-file pruning still holds the line). Disabling
+  // `vcs.useIgnoreFile` is what actually arms it. So this line is a second,
+  // independent layer of defense against the same tree ever being linted —
+  // worth keeping, cheap to keep, and this test is what stops it from being
+  // deleted unnoticed alongside its own guard.
+  it('anchors the .monomind exclusion (structural — pins config text, since deletion is not behaviourally observable)', () => {
     const config = JSON.parse(readFileSync(join(REPO_ROOT, 'biome.json'), 'utf8')) as {
       files: { includes: string[] };
     };
