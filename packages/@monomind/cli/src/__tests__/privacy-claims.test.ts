@@ -14,13 +14,13 @@
 // "the only outbound request the Second Brain ever makes") are untouched.
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { detectPlatform, DEFAULT_INIT_OPTIONS, type InitResult } from '../init/types.js';
 import { writeSharedInstructions } from '../init/shared-instructions-generator.js';
+import { detectPlatform, type InitResult } from '../init/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
@@ -180,7 +180,11 @@ describe('privacy-claims (i-078)', () => {
       const table = readFileSync(join(REPO_ROOT, 'doc', 'privacy.md'), 'utf-8');
       expect(table).toMatch(/\|\s*Trigger\s*\|\s*Destination\s*\|\s*When\s*\|\s*Opt-out\s*\|/i);
       // At least the plan's five-row floor.
-      const dataRows = table.split('\n').filter((l) => /^\|.*\|.*\|.*\|.*\|$/.test(l) && !/^\|\s*-+\s*\|/.test(l) && !/Trigger/.test(l));
+      const dataRows = table
+        .split('\n')
+        .filter(
+          (l) => /^\|.*\|.*\|.*\|.*\|$/.test(l) && !/^\|\s*-+\s*\|/.test(l) && !/Trigger/.test(l),
+        );
       expect(dataRows.length).toBeGreaterThanOrEqual(5);
     });
 
