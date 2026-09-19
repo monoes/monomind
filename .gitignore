@@ -222,12 +222,7 @@ hive-mind-prompt-*.txt
 # monomind runtime data — never commit, contain machine-specific paths
 .claude-flow/
 **/.claude-flow/
-data/mastermind-*.json
-data/mastermind-*.jsonl
-data/known-projects.json
-data/memory.db
-data/memory.graph
-data/sessions/
+data/
 **/data/known-projects.json
 **/data/mastermind-*.json
 **/data/mastermind-*.jsonl
@@ -283,3 +278,6 @@ GRAPH_REPORT.md
 
 # vitest/playwright report output
 test-results/
+
+# monomind runtime state
+.monomind/monoswarm/
