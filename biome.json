@@ -14,7 +14,7 @@
       "!**/dist",
       "!**/node_modules",
       "!**/coverage",
-      "!**/.monomind",
+      "!.monomind",
       "!.claude",
       "!**/docs",
       "!**/doc",

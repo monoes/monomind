@@ -43,13 +43,13 @@ function biomeBin(): string {
   return join(dirname(pkgJson), typeof bin === 'string' ? bin : bin.biome);
 }
 
-/** A throwaway checkout rooted at `<tmp>/.claude/worktrees/wt`, carrying the
- *  repo's real biome.json plus one misformatted source file and one `.claude`
- *  asset file. */
-function makeWorktreeFixture(): string {
-  const root = join(mkdtempSync(join(tmpdir(), 'biome-wt-')), '.claude', 'worktrees', 'wt');
+/** A throwaway checkout rooted at `<tmp>/<...nesting>` (e.g. `.claude/worktrees/wt`
+ *  or `.monomind/orgs/monomind-dev/work/wt`), carrying the repo's real biome.json
+ *  plus one misformatted source file. Callers add any extra fixture files their
+ *  case needs (e.g. an asset under the excluded directory) on top of this. */
+function makeWorktreeFixture(nesting: string[]): string {
+  const root = join(mkdtempSync(join(tmpdir(), 'biome-wt-')), ...nesting);
   mkdirSync(join(root, 'packages', '@monomind', 'cli', 'src'), { recursive: true });
-  mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
 
   const config = JSON.parse(readFileSync(join(REPO_ROOT, 'biome.json'), 'utf8'));
   config.vcs = { enabled: false };
@@ -61,7 +61,6 @@ function makeWorktreeFixture(): string {
     join(root, 'packages', '@monomind', 'cli', 'src', 'probe.ts'),
     'export const   probe   =   {a:1,   b:2}\n',
   );
-  writeFileSync(join(root, '.claude', 'helpers', 'probe.cjs'), 'module.exports   =   {a:1}\n');
   return root;
 }
 
@@ -82,7 +81,7 @@ function biomeCheck(cwd: string, args: string[] = []): string {
 
 describe('biome.json files.includes (GH #294)', () => {
   it('lints source inside a checkout that lives under .claude/worktrees', () => {
-    const out = biomeCheck(makeWorktreeFixture());
+    const out = biomeCheck(makeWorktreeFixture(['.claude', 'worktrees', 'wt']));
 
     expect(out).not.toMatch(/No files were processed/);
     // The misformatted probe is actually reported, so the file was read, not
@@ -91,9 +90,66 @@ describe('biome.json files.includes (GH #294)', () => {
   });
 
   it('still excludes .claude assets, which is what the exclusion is for', () => {
-    const root = makeWorktreeFixture();
+    const root = makeWorktreeFixture(['.claude', 'worktrees', 'wt']);
+    mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
+    writeFileSync(join(root, '.claude', 'helpers', 'probe.cjs'), 'module.exports   =   {a:1}\n');
+
     const out = biomeCheck(root, ['.claude/helpers/probe.cjs']);
 
     expect(out).toMatch(/These paths were provided but ignored/);
+  });
+});
+
+describe('biome.json files.includes (GH #297)', () => {
+  it('lints source inside a checkout that lives under .monomind/orgs/.../work', () => {
+    const out = biomeCheck(
+      makeWorktreeFixture(['.monomind', 'orgs', 'monomind-dev', 'work', 'wt']),
+    );
+
+    expect(out).not.toMatch(/No files were processed/);
+    // The misformatted probe is actually reported, so the file was read, not
+    // just counted.
+    expect(out).toMatch(/packages[/\\]@monomind[/\\]cli[/\\]src[/\\]probe\.ts/);
+  });
+
+  it("still excludes the repo's own .monomind tree, which is what the exclusion is for", () => {
+    const root = makeWorktreeFixture(['.monomind', 'orgs', 'monomind-dev', 'work', 'wt']);
+
+    // The plain case: junk sitting directly in a worktree's own .monomind/
+    // directory must not be linted. Naming the file in the assertion (not
+    // just matching the generic "provided but ignored" banner) blocks the
+    // degenerate "fix" of deleting the exclusion outright — that would make
+    // biome actually lint and report this file instead of ignoring it.
+    mkdirSync(join(root, '.monomind'), { recursive: true });
+    writeFileSync(join(root, '.monomind', 'junk.ts'), 'export const   junk   =   {a:1}\n');
+    const junkOut = biomeCheck(root, ['.monomind/junk.ts']);
+    expect(junkOut).toMatch(/These paths were provided but ignored/);
+    expect(junkOut).toMatch(/\.monomind[/\\]junk\.ts/);
+
+    // A nested checkout inside the fixture's own .monomind tree, matching a
+    // positive include (packages/@monomind/*/src/**) once you are inside it —
+    // proves the anchored exclusion still suppresses root-level descent, not
+    // just files that happen to sit directly under .monomind/.
+    const nestedSrc = join(
+      root,
+      '.monomind',
+      'orgs',
+      'x',
+      'work',
+      'wt',
+      'packages',
+      '@monomind',
+      'cli',
+      'src',
+    );
+    mkdirSync(nestedSrc, { recursive: true });
+    writeFileSync(join(nestedSrc, 'probe.ts'), 'export const   probe   =   {a:1,   b:2}\n');
+    const nestedOut = biomeCheck(root, [
+      '.monomind/orgs/x/work/wt/packages/@monomind/cli/src/probe.ts',
+    ]);
+    expect(nestedOut).toMatch(/These paths were provided but ignored/);
+    expect(nestedOut).toMatch(
+      /orgs[/\\]x[/\\]work[/\\]wt[/\\]packages[/\\]@monomind[/\\]cli[/\\]src[/\\]probe\.ts/,
+    );
   });
 });
