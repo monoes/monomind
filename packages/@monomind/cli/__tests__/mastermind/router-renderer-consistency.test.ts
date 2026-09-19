@@ -44,13 +44,16 @@ describe('the mastermind router renderer agrees with the curated file (o-09)', (
     (id) => {
       const intents = renderSkillRouter(PLATFORM_REGISTRY[id], 'project');
       const routerIntent = intents.find((i) => i.relativePath === join('mastermind', 'SKILL.md'));
-      if (!routerIntent) {
-        // This adapter has no concrete skill location configured for
-        // 'project' scope — renderSkillRouter() legitimately returns no
-        // intents for it. Nothing to compare.
-        return;
-      }
-      expect(routerIntent.content).toBe(curatedRouter);
+      // dev-lead round-2 MINOR 1: an early `return` here silently passed for
+      // an adapter that produced no router intent — unreachable today
+      // (verified: all 11 native-skill adapters produce one), but the guard
+      // above only checks the registry's `capabilities.skills === 'native'`
+      // flag, not that an intent actually came out the other end. A real
+      // future regression (an adapter added to the registry as 'native' but
+      // never wired into renderSkillRouter()) would have passed silently
+      // instead of failing loudly.
+      expect(routerIntent, `${id} produced no mastermind/SKILL.md router intent`).toBeTruthy();
+      expect(routerIntent?.content).toBe(curatedRouter);
     },
   );
 });
