@@ -22,7 +22,7 @@
  * more fragile than one more copy of five well-known paths).
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -43,6 +43,38 @@ const TREES = [
 
 function routerPath(tree: { skillsDir: string }): string {
   return join(tree.skillsDir, 'mastermind', 'SKILL.md');
+}
+
+/** Every `SKILL.md` under `dir`, at any depth — o-09 review MINOR 2/3:
+ *  `routerPath()` above hardcodes `mastermind/SKILL.md`, so a second router
+ *  planted under any other name is invisible to every check in this file.
+ *  This is how `.kimi-code/skills/monomind-mastermind/SKILL.md` — a 141-line
+ *  second intent router, in that tree only — went unseen. */
+function findSkillFiles(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...findSkillFiles(full));
+    else if (entry.name === 'SKILL.md') out.push(full);
+  }
+  return out;
+}
+
+/** The router shape `mastermind/SKILL.md` and its four siblings share —
+ *  identified by content (the literal "Load only the workflow" line), not
+ *  by path, so a duplicate of THIS shape under a new path is still found. */
+function isBulletRouter(body: string): boolean {
+  return body.includes('Load only the workflow');
+}
+
+/** A structurally different second router shape (o-09 review finding 2): a
+ *  multi-domain capability catalog with its own `| Intent | Primary route |`
+ *  table, unrelated to the bullet-list router above. No tree should have
+ *  one of these under `skills/` — multi-domain routing already lives in the
+ *  bullet router's `run <skill> --print` fallback. */
+function isCatalogRouter(body: string): boolean {
+  return body.includes('| Intent | Primary route |');
 }
 
 /** Body text after the `---`-delimited YAML frontmatter. */
@@ -116,7 +148,25 @@ function assertRunCommandsNotCircular(body: string): void {
 }
 
 describe.each(TREES)('mastermind router internal consistency — $name', (tree) => {
-  const file = routerPath(tree);
+  const skillFiles = findSkillFiles(tree.skillsDir);
+  const bulletRouters = skillFiles.filter((f) => isBulletRouter(bodyOf(readFileSync(f, 'utf8'))));
+  const catalogRouters = skillFiles.filter((f) => isCatalogRouter(bodyOf(readFileSync(f, 'utf8'))));
+
+  it('exactly one "Load only the workflow" router exists in this tree (found by content, not path)', () => {
+    expect(
+      bulletRouters,
+      `expected exactly one, found ${bulletRouters.length}: ${bulletRouters.join(', ')}`,
+    ).toHaveLength(1);
+  });
+
+  it('no second, contradicting router style ("| Intent | Primary route |" catalog) exists anywhere in this tree', () => {
+    expect(
+      catalogRouters,
+      `catalog-style router(s) found — a second, contradicting router surface: ${catalogRouters.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  const file = bulletRouters[0] ?? routerPath(tree);
 
   it('SKILL.md exists in this tree', () => {
     expect(existsSync(file), `${file} is missing`).toBe(true);
@@ -185,18 +235,36 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
     assertRunCommandsNotCircular(body);
   });
 
-  it('names no dead .md path', () => {
+  it('names no dead path reference', () => {
     // The router historically named a repo-root-relative .md path
     // (`.claude/commands/mastermind-master.md`) that never existed. Any such
-    // reference must resolve relative to the repo root, in every tree —
-    // which in practice means the router should name none at all, since a
-    // path literal cannot be simultaneously correct in five differently
-    // laid-out trees (three of which have no `.claude/` prefix at all).
-    const paths = new Set<string>();
-    for (const m of body.matchAll(/`?(\.[\w./-]*\.md)`?/g)) paths.add(m[1]);
+    // backtick-wrapped bare path is this file's convention for a
+    // repo-root-relative reference, in every tree — which in practice means
+    // the router should name none at all, since a path literal cannot be
+    // simultaneously correct in five differently laid-out trees (three of
+    // which have no `.claude/` prefix at all).
+    const dead: string[] = [];
+    const barePaths = new Set<string>();
+    for (const m of body.matchAll(/`?(\.[\w./-]*\.md)`?/g)) barePaths.add(m[1]);
+    for (const p of barePaths) {
+      if (!existsSync(join(REPO_ROOT, p))) dead.push(`${p} (repo-root-relative)`);
+    }
 
-    const dead = [...paths].filter((p) => !existsSync(join(REPO_ROOT, p)));
-    expect(dead, `dead .md path reference(s): ${dead.join(', ')}`).toEqual([]);
+    // o-09 review round 3 (MAJOR): a markdown LINK target — `[text](target)`,
+    // e.g. `[references/](references/)` — resolves relative to the linking
+    // file's own directory per normal markdown semantics, not the repo root.
+    // The bare-path check above requires a leading `.` and a `.md` suffix,
+    // so it cannot match a relative directory link; this is what let
+    // `.kimi-code/skills/mastermind/references/` (missing, unlike the other
+    // four trees) ship as a dead reference undetected.
+    const linkTargets = new Set<string>();
+    for (const m of body.matchAll(/\]\(([^)\s]+)\)/g)) linkTargets.add(m[1]);
+    for (const target of linkTargets) {
+      if (/^(https?:|mailto:|#)/.test(target)) continue; // external / in-page, not a file
+      if (!existsSync(join(dirname(file), target))) dead.push(`${target} (relative to ${file})`);
+    }
+
+    expect(dead, `dead path reference(s): ${dead.join(', ')}`).toEqual([]);
   });
 
   it('the LAST (effective, highest-weighted) block lists the mandatory gates mastermind-idea and mastermind-design', () => {
