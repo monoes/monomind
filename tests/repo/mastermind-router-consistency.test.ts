@@ -26,6 +26,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { resolveMastermindSkill } from '../../packages/@monomind/cli/src/mastermind/manifest.js';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -106,8 +107,12 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
   });
 
   it('every named `mastermind-*` workflow resolves to a real skill directory in this tree', () => {
+    // o-09 round 2: the bogus `mastermind-master` reference that replaced
+    // the dead-path one was written in plain prose ("the mastermind-master
+    // table"), not backtick-wrapped like every other name in this file — a
+    // backtick-only regex missed it. Bare tokens are matched too now.
     const names = new Set<string>();
-    for (const m of body.matchAll(/`(mastermind-[\w-]+)`/g)) names.add(m[1]);
+    for (const m of body.matchAll(/\bmastermind-[\w-]+\b/g)) names.add(m[0]);
 
     const missing = [...names].filter(
       (name) => !existsSync(join(tree.skillsDir, name, 'SKILL.md')),
@@ -116,6 +121,25 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
       missing,
       `named workflow(s) with no real skill directory under ${tree.skillsDir}: ${missing.join(', ')}`,
     ).toEqual([]);
+  });
+
+  it('every `monomind mastermind run <x>` command in the body resolves to a real, non-router skill', () => {
+    // The specific shape MAJOR 1 was: `run master --print` DOES resolve
+    // (`master` is an alias of the router itself, manifest-data.ts:15) but
+    // circularly — it prints the exact page the reader is already on. A
+    // plain "resolves" check misses that; also assert the resolved skill
+    // isn't the router (`mastermind`) unless the command literally names it.
+    for (const m of body.matchAll(/`monomind mastermind run ([\w-]+)(?: --print)?`/g)) {
+      const arg = m[1];
+      const resolved = resolveMastermindSkill(arg);
+      expect(resolved, `\`monomind mastermind run ${arg}\` resolves to no known skill`).toBeDefined();
+      if (arg !== 'mastermind' && arg !== 'router' && arg !== 'master') {
+        expect(
+          resolved?.name,
+          `\`monomind mastermind run ${arg}\` resolves to the router itself (circular) instead of a distinct workflow`,
+        ).not.toBe('mastermind');
+      }
+    }
   });
 
   it('names no dead .md path', () => {

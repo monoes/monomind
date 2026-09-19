@@ -18,9 +18,7 @@ Load only the workflow that matches the request:
 - `mastermind-memory` for persistent knowledge.
 
 **For build/feature work, the gates are mandatory and ordered:** idea → design → plan →
-execute → review. The full routing table for the other 20+ Mastermind workflows is the
-mastermind-master table; run `monomind mastermind run master --print` before concluding
-that no workflow applies.
+execute → review.
 
 Use Monograph before broad repository search when the platform exposes the
 Monomind MCP server. Without native skills, run
