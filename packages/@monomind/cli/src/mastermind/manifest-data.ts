@@ -24,6 +24,21 @@ export const MASTERMIND_SKILLS: readonly MastermindSkill[] = [
     ],
   },
   {
+    name: 'mastermind-idea',
+    description: 'Shape a raw prompt into a stated problem and options.',
+    aliases: ['idea'],
+    source: 'mastermind-idea',
+    references: [],
+  },
+  {
+    name: 'mastermind-design',
+    description:
+      'Explore requirements and design before building a feature — a gate, not a suggestion.',
+    aliases: ['design'],
+    source: 'mastermind-design',
+    references: [],
+  },
+  {
     name: 'mastermind-plan',
     description: 'Write a detailed implementation plan before changing code.',
     aliases: ['plan'],

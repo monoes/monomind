@@ -84,9 +84,14 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
   const sections = sectionsOf(body);
 
   it('exactly one router block: one top-level heading, one "Load only the workflow" line', () => {
-    expect(sections.length, `expected exactly one "# "-level heading, found ${sections.length}`).toBe(1);
+    expect(
+      sections.length,
+      `expected exactly one "# "-level heading, found ${sections.length}`,
+    ).toBe(1);
 
-    const loadLineCount = body.split('\n').filter((l) => l.includes('Load only the workflow')).length;
+    const loadLineCount = body
+      .split('\n')
+      .filter((l) => l.includes('Load only the workflow')).length;
     expect(
       loadLineCount,
       `expected the literal "Load only the workflow" line exactly once, found ${loadLineCount}`,
@@ -96,9 +101,7 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
   it('does not list a self-referential `mastermind` entry', () => {
     // A bullet naming bare `mastermind` (not `mastermind-x`) routes the
     // router to itself, which is meaningless.
-    const selfRefs = body
-      .split('\n')
-      .filter((l) => /^-\s+`mastermind`(?!-)/.test(l.trim()));
+    const selfRefs = body.split('\n').filter((l) => /^-\s+`mastermind`(?!-)/.test(l.trim()));
     expect(selfRefs, `self-referential bullet(s):\n${selfRefs.join('\n')}`).toEqual([]);
   });
 
@@ -106,7 +109,9 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
     const names = new Set<string>();
     for (const m of body.matchAll(/`(mastermind-[\w-]+)`/g)) names.add(m[1]);
 
-    const missing = [...names].filter((name) => !existsSync(join(tree.skillsDir, name, 'SKILL.md')));
+    const missing = [...names].filter(
+      (name) => !existsSync(join(tree.skillsDir, name, 'SKILL.md')),
+    );
     expect(
       missing,
       `named workflow(s) with no real skill directory under ${tree.skillsDir}: ${missing.join(', ')}`,
