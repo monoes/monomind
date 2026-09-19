@@ -4,6 +4,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.12] — 2026-09-19
+
+No consumer-visible change: the CLI is identical to 2.11.11. This release
+carries a release-process guard, which lives in the repo's own `scripts/` and
+does not ship.
+
+### Added
+
+- **A publish is blocked when a `workspace:*` pin names a version that is not on npm.** 2.11.10 and 2.11.11 both shipped depending on `@monoes/monograph@1.6.6`, a version that never reached the registry — monograph was bumped for the #298 hooksPath fix by an agent org with no publish rights. Both releases were uninstallable: every consumer died with `npm error notarget No matching version found`. Nothing in the existing chain could catch it, because `pnpm publish` rewrites `workspace:*` to whatever the sibling declares without ever asking whether that version is public. `scripts/check-published-pins.mjs` now resolves each pin to the version pnpm will write into the tarball and verifies it against the registry, failing with the exact `pnpm publish` needed to fix the ordering. It is the mirror of `check-package-bumps.mjs`: that guard proves a changed package *was* bumped, and the bump is precisely what strands the pin until someone publishes it — they only work as a pair. Escape hatch: `MONOMIND_ALLOW_UNPUBLISHED_PINS=1`.
+
 ## [2.11.11] — 2026-09-19
 
 ### Changed
