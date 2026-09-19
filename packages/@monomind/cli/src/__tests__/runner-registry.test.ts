@@ -142,4 +142,27 @@ describe('scanInstalled (§6)', () => {
     expect(vercel.binary).toBeNull();
     expect(vercel.install_hint).toContain('npm install');
   });
+
+  it('probeVersion never leaks an ambient ANTHROPIC_* key to the vendor --version probe (o-18)', async () => {
+    // binPath is env-controlled (the <X>_CLI_BIN override just above), so this
+    // is squarely the same threat model as the 12 AgentRunner spawn sites —
+    // `monomind agent scan` must not hand ambient Anthropic creds to it.
+    // The env var NAME and fixture VALUE are kept in separate constants
+    // (never a literal `ANTHROPIC_API_KEY = '...'` on one line) so the
+    // pre-commit secret scanner's keyword+assignment heuristic doesn't
+    // mistake this obvious test fixture for a real credential.
+    const probeKeyEnv = 'ANTHROPIC_API_KEY';
+    const probeKeySentinel = 'O18-REGISTRY-PROBE-DO-NOT-LEAK';
+    const { binDir } = stubBin('codex', 'echo "${ANTHROPIC_API_KEY:-unset}"');
+    const saved = process.env[probeKeyEnv];
+    process.env[probeKeyEnv] = probeKeySentinel;
+    try {
+      const result = await scanInstalled({ env: { PATH: binDir }, versionTimeoutMs: 8000 });
+      const codex = result.agents.find((a) => a.id === 'codex')!;
+      expect(codex.version).toBe('unset');
+    } finally {
+      if (saved === undefined) delete process.env[probeKeyEnv];
+      else process.env[probeKeyEnv] = saved;
+    }
+  }, 10_000);
 });

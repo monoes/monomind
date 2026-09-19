@@ -247,6 +247,12 @@ describe('ProviderSchema (new vendor + kind fields)', () => {
     expect(p.kind).toBe('subscription');
   });
 
+  // o-18: every resolveProviderEnv() call in this file (here and below) is
+  // direct, with a synthetic parentEnv — it covers the function in
+  // isolation, not whether its output survives to a real spawned child's
+  // environment. It did not (every runner's `{...process.env, ...args.env}`
+  // spread undid the function's own strip); see env-boundary.test.ts for
+  // the real-spawn coverage that caught it.
   it('vercel-api-key provider throws when the named env var is unset (fail-fast)', () => {
     expect(() =>
       resolveProviderEnv({ kind: 'vercel-api-key', apiKeyEnv: 'MISSING_KEY_X' }, { OTHER: '1' }),

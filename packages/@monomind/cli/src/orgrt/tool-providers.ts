@@ -25,6 +25,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type { OrgToolDef } from './agent-runner.js';
 import type { OrgBus } from './bus.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import type { OrgRole, ToolProviderConfig } from './types.js';
 
 export const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -393,8 +394,14 @@ export function roleProviderPrefixes(role: Pick<OrgRole, 'tool_providers'>): str
 }
 
 function providerEnv(p: ToolProviderConfig, ctx: ProviderContext): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (typeof v === 'string') env[k] = v;
+  // o-20 (folded into o-18): `p.command` is an arbitrary user-configured
+  // tool-provider binary — an unbounded target set, unlike the 13 known
+  // vendor CLIs o-18 fixed at their own spawn boundaries. No such binary has
+  // a legitimate use for an AMBIENT/inherited Anthropic credential; an
+  // explicit value in the provider's OWN `env` config still wins below
+  // (Object.assign runs after), the same ambient-vs-explicit split o-18
+  // applies at every runner's spawn boundary.
+  const env: Record<string, string> = omitAnthropicManagedKeys(process.env);
   Object.assign(env, p.env ?? {});
   env.MONOMIND_ORG_NAME = ctx.org;
   env.MONOMIND_ORG_RUN = ctx.run;

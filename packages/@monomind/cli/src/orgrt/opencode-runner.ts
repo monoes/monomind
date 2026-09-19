@@ -79,6 +79,7 @@ import {
 // a fence can legitimately span multiple incremental deltas and must never
 // surface, complete or partial, in visible text.
 import { computeSafeChunk } from './antigravity-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -439,7 +440,10 @@ function startOpencodeServer(args: AgentRunArgs): Promise<{ url: string; close()
   const bin = process.env.OPENCODE_BIN || 'opencode';
   const child = spawn(bin, ['serve', '--hostname=127.0.0.1', '--port=0'], {
     cwd: args.cwd,
-    env: { ...process.env, ...args.env },
+    // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+    // vendor CLI; an explicit value in args.env still wins below (this is
+    // the #262 path opencode-runner.test.ts's base-url provider test uses).
+    env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   // kill() on an exited child is a no-op (same as the SDK's own stop()).

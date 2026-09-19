@@ -72,6 +72,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -292,7 +293,9 @@ export class KimiCodeAgentRunner implements AgentRunner {
     const child = spawn(bin, cliArgs, {
       cwd: args.cwd,
       env: {
-        ...process.env,
+        // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+        // vendor CLI; an explicit value in args.env still wins below.
+        ...omitAnthropicManagedKeys(process.env),
         ...args.env,
         // --agent-file (the role's system prompt) requires kimi's v2
         // engine; without this the CLI exits 1 with

@@ -572,6 +572,23 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
         model: opts.model,
         cwd: opts.cwd ?? process.cwd(),
         env: opts.env ?? {},
+        // o-18: this command has no --provider concept at all (no config
+        // resolved, no resolveProviderEnv call anywhere in this file), so an
+        // ambient/inherited ANTHROPIC_API_KEY is the only way to get
+        // non-subscription Anthropic auth through `agent exec --runtime
+        // claude` today WITHOUT CHANGING HOW THE COMMAND IS INVOKED — an
+        // explicit `--env ANTHROPIC_API_KEY=...` also works and would win
+        // under the safe default below, same as it does for every vendor
+        // runner. Inheriting the ambient shell value is still worth
+        // preserving on its own: unlike `--env`, it never puts a credential
+        // on the command line (visible in `ps`/shell history).
+        // envAuthoritative defaults to true (safe) on every OTHER caller;
+        // this is the one deliberate, documented opt-out, so that ambient
+        // path keeps working exactly as it does today. It does not reopen
+        // the vendor-runner leak: the 12 vendor runners strip ambient
+        // Anthropic creds unconditionally regardless of this flag, so this
+        // only affects the claude runtime reached from here.
+        envAuthoritative: false,
         maxTurns: opts.maxTurns,
         resume: opts.resume,
         canUseTool,

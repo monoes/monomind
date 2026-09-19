@@ -82,6 +82,7 @@ import {
 } from './agent-runner.js';
 import { grokSandboxArgs, roleGitLevel } from './cli-sandbox.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -388,7 +389,9 @@ export class GrokAgentRunner implements AgentRunner {
 
     const child = spawn(bin, cliArgs, {
       cwd: args.cwd,
-      env: { ...process.env, ...args.env },
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below.
+      env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

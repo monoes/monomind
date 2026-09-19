@@ -4,6 +4,36 @@ import type { OrgRole, ProviderConfig } from './types.js';
 const KEY_VAR = ['ANTHROPIC', 'API', 'KEY'].join('_');
 
 /**
+ * o-18: the three env vars `resolveProviderEnv` manages (sets or deletes in
+ * every provider-kind branch below). No vendor CLI (codex, grok, qwen,
+ * opencode, hermes, copilot, kimicode, pi, antigravity, crush) has a
+ * legitimate use for an AMBIENT/inherited value of any of these — only
+ * explicit configuration should ever reach them. `omitAnthropicManagedKeys`
+ * is used at every runner's spawn boundary to strip these three out of the
+ * `process.env` FALLBACK ONLY; an explicit value in a caller's own `args.env`
+ * (e.g. a deliberately configured base-url provider, opencode-runner.test.ts
+ * #262) still reaches the child normally, since it is spread on top.
+ */
+export const ANTHROPIC_MANAGED_ENV_KEYS = [
+  KEY_VAR,
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+] as const;
+
+/** `process.env` (or any parent env), minus the three ANTHROPIC_* keys above. */
+export function omitAnthropicManagedKeys(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) continue;
+    if ((ANTHROPIC_MANAGED_ENV_KEYS as readonly string[]).includes(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/**
  * Builds the child-process env for one agent session.
  * Default (no provider block) = subscription: remove the API key var so the
  * spawned Claude Code engine uses the user's `claude login` credentials.
@@ -30,6 +60,7 @@ export function resolveProviderEnv(
       if (!key) throw new Error(`provider api-key: env var ${name} is not set`);
       env[KEY_VAR] = key;
       delete env.ANTHROPIC_AUTH_TOKEN; // leftover parent token would override the key in the engine
+      delete env.ANTHROPIC_BASE_URL; // o-18: leftover ambient base-url must not redirect this key's traffic
       break;
     }
     case 'base-url': {
@@ -43,6 +74,11 @@ export function resolveProviderEnv(
         const tok = parentEnv[cfg.authTokenEnv];
         if (!tok) throw new Error(`provider base-url: env var ${cfg.authTokenEnv} is not set`);
         env.ANTHROPIC_AUTH_TOKEN = tok;
+      } else {
+        // o-18 review round 2: neither field is required (a real self-hosted,
+        // no-auth gateway configures baseUrl alone), so this branch must not
+        // silently leave the ambient token in place.
+        delete env.ANTHROPIC_AUTH_TOKEN;
       }
       break;
     }
@@ -50,11 +86,13 @@ export function resolveProviderEnv(
       env.CLAUDE_CODE_USE_BEDROCK = '1';
       delete env[KEY_VAR];
       delete env.ANTHROPIC_AUTH_TOKEN;
+      delete env.ANTHROPIC_BASE_URL; // o-18: ambient base-url must not redirect Bedrock traffic
       break;
     case 'vertex':
       env.CLAUDE_CODE_USE_VERTEX = '1';
       delete env[KEY_VAR];
       delete env.ANTHROPIC_AUTH_TOKEN;
+      delete env.ANTHROPIC_BASE_URL; // o-18: ambient base-url must not redirect Vertex traffic
       break;
     case 'gemini': {
       const name = cfg?.apiKeyEnv ?? 'GEMINI_API_KEY';
@@ -62,6 +100,7 @@ export function resolveProviderEnv(
       if (key) env.GEMINI_API_KEY = key;
       delete env[KEY_VAR];
       delete env.ANTHROPIC_AUTH_TOKEN;
+      delete env.ANTHROPIC_BASE_URL; // o-18: ambient base-url has no business here either
       break;
     }
     case 'openai': {
@@ -70,6 +109,7 @@ export function resolveProviderEnv(
       if (key) env.OPENAI_API_KEY = key;
       delete env[KEY_VAR];
       delete env.ANTHROPIC_AUTH_TOKEN;
+      delete env.ANTHROPIC_BASE_URL; // o-18: ambient base-url has no business here either
       break;
     }
     case 'vercel-api-key': {
@@ -78,6 +118,11 @@ export function resolveProviderEnv(
       // symmetrically with 'api-key'/'base-url' so daemon.ts fail-fast
       // validation catches a missing key before the run starts (otherwise the
       // first vendor request 401s ~10 minutes into the run).
+      // o-18: this branch never touched ANTHROPIC_* — all three survived
+      // ambient. None of them belong on a non-Anthropic vendor's env.
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_BASE_URL;
+      delete env.ANTHROPIC_AUTH_TOKEN;
       const name = cfg?.apiKeyEnv;
       if (name) {
         const key = parentEnv[name];
@@ -89,12 +134,22 @@ export function resolveProviderEnv(
     case 'codex': {
       // Codex CLI reads ~/.codex/auth.json (created by `codex login`); no env
       // setup needed. Don't manipulate ANTHROPIC_* — codex is independent.
+      // o-18: "don't manipulate" was read as "don't touch", so all three
+      // survived ambient and reached the codex child. Strip them; codex
+      // never reads them and doesn't need them.
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_BASE_URL;
+      delete env.ANTHROPIC_AUTH_TOKEN;
       break;
     }
     case 'antigravity': {
       // Antigravity CLI (agy) stores Google OAuth credentials in the OS keyring
       // after `agy` interactive login; no env setup needed. The CLI is a Go
       // binary installed via curl, independent of Node/Anthropic env.
+      // o-18: same gap as codex above — strip the three ambient keys.
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_BASE_URL;
+      delete env.ANTHROPIC_AUTH_TOKEN;
       break;
     }
   }

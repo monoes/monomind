@@ -83,6 +83,7 @@ import {
   killOnAbort,
 } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -316,7 +317,9 @@ export class CrushAgentRunner implements AgentRunner {
     // suppresses a first-run/periodic provider-list update check that would
     // otherwise add an unpredictable network round-trip to a headless turn.
     const env: Record<string, string | undefined> = {
-      ...process.env,
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below.
+      ...omitAnthropicManagedKeys(process.env),
       CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: '1',
       ...args.env,
     };
