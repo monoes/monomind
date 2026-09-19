@@ -91,7 +91,7 @@ pnpm run lint
 - NEVER commit .env files or any file containing secrets
 - Always validate user input at system boundaries
 - Always sanitize file paths to prevent directory traversal
-- Run `npx monomind@latest security scan` after security-related changes
+- Run `npx monomind security scan` after security-related changes
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -116,13 +116,13 @@ pnpm run lint
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| `init` | 5 | Project initialization |
-| `agent` | 7 | Agent lifecycle management |
-| `monoswarm` | 6 | Multi-agent coordination |
+| `init` | 6 | Project initialization |
+| `agent` | 10 | Agent lifecycle management |
+| `monoswarm` | 5 | Multi-agent coordination |
 | `memory` | 12 | SQLite memory with ANN search |
 | `task` | 5 | Task creation and lifecycle |
 | `session` | 6 | Session state management |
-| `hooks` | 29 | Self-learning hooks + 8 background workers _(unavailable in this install)_ |
+| `hooks` | 28 | Self-learning hooks + 9 background workers |
 
 > Note: there is no `neural` CLI command. Neural pattern learning was merged
 > into `hooks intelligence`. See `doc/concepts/monoswarm.md` for monoswarm
@@ -131,11 +131,11 @@ pnpm run lint
 ### Quick CLI Examples
 
 ```bash
-npx monomind@latest init --wizard
-npx monomind@latest agent spawn -t coder --name my-coder
-npx monomind@latest monoswarm init --v1-mode
-npx monomind@latest memory search --query "authentication patterns"
-npx monomind@latest doctor --fix
+npx monomind init wizard
+npx monomind agent spawn -t coder --name my-coder
+npx monomind monoswarm init --v1-mode
+npx monomind memory search --query "authentication patterns"
+npx monomind doctor --fix
 ```
 
 ## Available Agents (Curated Subset)
@@ -158,11 +158,11 @@ subset worth routing to by name; it is not the complete set.
 ## Memory Commands
 
 ```bash
-npx monomind@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
-npx monomind@latest memory search --query "authentication patterns"
+npx monomind memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
+npx monomind memory search --query "authentication patterns"
 ```
 
-Full command reference: `npx monomind@latest memory --help`
+Full command reference: `npx monomind memory --help`
 
 ## Second Brain — Document Knowledge Base
 
@@ -204,13 +204,13 @@ Single-file edits, doc/config changes, quick fixes where you already know the ex
 
 ```bash
 # Add MCP server — includes monograph, monoswarm, memory, hooks, all 66+ tools
-claude mcp add monomind -- npx -y monomind@latest mcp start
+claude mcp add monomind -- npx -y monomind mcp start
 
 # Verify everything works
-npx monomind@latest doctor --fix
+npx monomind doctor --fix
 ```
 
-> **Package name changed:** Use `monomind@latest` (not `@monomind/cli@latest` which is the old name and returns 404).
+> **Package name changed:** Use `monomind` (not `@monomind/cli@latest` which is the old name and returns 404).
 
 ## Claude Code vs CLI Tools
 

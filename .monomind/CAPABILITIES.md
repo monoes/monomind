@@ -1,5 +1,5 @@
+<!-- monomind-block:capabilities -->
 # Monomind - Complete Capabilities Reference
-> Generated: 2026-09-18T08:03:43.190Z
 > Full documentation: https://github.com/monoes/monomind
 
 ## 📋 Table of Contents
@@ -8,7 +8,7 @@
 2. [Monoswarm Orchestration](#monoswarm-orchestration)
 3. [Available Agents (60+)](#available-agents)
 4. [CLI Commands](#cli-commands)
-5. [Hooks System (29 Hook Subcommands + 8 Background Workers)](#hooks-system)
+5. [Hooks System (28 Hook Subcommands + 9 Background Workers)](#hooks-system)
 6. [Memory & Intelligence](#memory--intelligence)
 7. [Monoswarm Vote Strategies](#monoswarm-vote-strategies)
 8. [Performance Targets](#performance-targets)
@@ -40,6 +40,8 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 
 ## Monoswarm Orchestration
 
+Monoswarm records topology, roster and votes in a state file; it starts no process, and Claude Code's Task-tool agents do the work.
+
 ### Topologies
 | Topology | Description | Best For |
 |----------|-------------|----------|
@@ -58,13 +60,13 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 ### Quick Commands
 ```bash
 # Initialize monoswarm
-npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Check status
-npx monomind@latest monoswarm status
+npx monomind monoswarm status
 
 # Monitor activity
-npx monomind@latest monoswarm monitor
+npx monomind monoswarm monitor
 ```
 
 ---
@@ -112,16 +114,16 @@ npx monomind@latest monoswarm monitor
 ### Core Commands
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| `init` | 5 | Project initialization |
-| `agent` | 7 | Agent lifecycle management |
-| `monoswarm` | 6 | Multi-agent coordination |
+| `init` | 6 | Project initialization |
+| `agent` | 10 | Agent lifecycle management |
+| `monoswarm` | 5 | Multi-agent coordination |
 | `memory` | 12 | SQLite with ANN vector search |
-| `mcp` | 9 | MCP server management |
+| `mcp` | 11 | MCP server management |
 | `task` | 5 | Task assignment |
 | `session` | 6 | Session persistence |
 | `config` | 7 | Configuration |
 | `status` | 3 | System monitoring |
-| `hooks` | 29 | Self-learning hooks + 8 background workers (background workers unavailable in this install) |
+| `hooks` | 28 | Self-learning hooks + 9 background workers |
 
 > Note: there is no `workflow`, `neural`, `embeddings`, `claims`, `migrate`, or `process` CLI command.
 > Neural pattern learning was merged into `hooks intelligence`.
@@ -139,24 +141,24 @@ npx monomind@latest monoswarm monitor
 ### Example Commands
 ```bash
 # Initialize
-npx monomind@latest init --wizard
+npx monomind init wizard
 
 # Spawn agent
-npx monomind@latest agent spawn -t coder --name my-coder
+npx monomind agent spawn -t coder --name my-coder
 
 # Memory operations
-npx monomind@latest memory store --key "pattern" --value "data" --namespace patterns
-npx monomind@latest memory search --query "authentication"
+npx monomind memory store --key "pattern" --value "data" --namespace patterns
+npx monomind memory search --query "authentication"
 
 # Diagnostics
-npx monomind@latest doctor --fix
+npx monomind doctor --fix
 ```
 
 ---
 
 ## Hooks System
 
-### 29 Available Hook Subcommands — background workers unavailable in this install (@monoes/hooks did not resolve)
+### 28 Available Hook Subcommands
 
 #### Core Hooks (6)
 | Hook | Description |
@@ -191,7 +193,7 @@ npx monomind@latest doctor --fix
 | `coverage-suggest` | Improvement suggestions |
 | `coverage-gaps` | Gap analysis |
 
-### 8 Background Workers (@monoes/hooks, run in-process)
+### 9 Background Workers (@monoes/hooks, run in-process)
 | Worker | Priority | Purpose |
 |--------|----------|---------|
 | `performance` | normal | Benchmark performance |
@@ -245,16 +247,16 @@ High-confidence insights (>0.8) can transfer between agents.
 ### Memory Commands
 ```bash
 # Store pattern
-npx monomind@latest memory store --key "name" --value "data" --namespace patterns
+npx monomind memory store --key "name" --value "data" --namespace patterns
 
 # Semantic search
-npx monomind@latest memory search --query "authentication"
+npx monomind memory search --query "authentication"
 
 # List entries
-npx monomind@latest memory list --namespace patterns
+npx monomind memory list --namespace patterns
 
 # Initialize database
-npx monomind@latest memory init --force
+npx monomind memory init --force
 ```
 
 ---
@@ -262,7 +264,7 @@ npx monomind@latest memory init --force
 ## Monoswarm Vote Strategies
 
 Reach monoswarm coordination through MCP tools (`monoswarm_*`) or the
-`npx monomind@latest monoswarm` CLI command. See `doc/concepts/monoswarm.md`
+`npx monomind monoswarm` CLI command. See `doc/concepts/monoswarm.md`
 for the full picture.
 
 ### Agent Types (8)
@@ -310,7 +312,7 @@ for the full picture.
 ### MCP Server Setup
 ```bash
 # Add Monomind MCP
-claude mcp add monomind -- npx -y monomind@latest mcp start
+claude mcp add monomind -- npx -y monomind mcp start
 ```
 
 ---
@@ -320,23 +322,23 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 ### Essential Commands
 ```bash
 # Setup
-npx monomind@latest init --wizard
-npx monomind@latest doctor --fix
+npx monomind init wizard
+npx monomind doctor --fix
 
 # Monoswarm
-npx monomind@latest monoswarm init --topology hierarchical --max-agents 8
-npx monomind@latest monoswarm status
+npx monomind monoswarm init --topology hierarchical --max-agents 8
+npx monomind monoswarm status
 
 # Agents
-npx monomind@latest agent spawn -t coder
-npx monomind@latest agent list
+npx monomind agent spawn -t coder
+npx monomind agent list
 
 # Memory
-npx monomind@latest memory search --query "patterns"
+npx monomind memory search --query "patterns"
 
 # Hooks
-npx monomind@latest hooks pre-task --description "task"
-npx monomind@latest hooks worker run map
+npx monomind hooks pre-task --description "task"
+npx monomind hooks worker run map
 ```
 
 ### File Structure
@@ -356,3 +358,4 @@ npx monomind@latest hooks worker run map
 
 **Full Documentation**: https://github.com/monoes/monomind
 **Issues**: https://github.com/monoes/monomind/issues
+<!-- /monomind-block:capabilities -->
