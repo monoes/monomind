@@ -151,7 +151,9 @@ export interface ProjectRootResolution {
  *  the ordinary walk, and the fact that an anchor was set and rejected is
  *  preserved on the result (`invalidAnchor`) so `doctor` can say exactly
  *  what happened instead of the user just seeing an unexplained directory. */
-function validateAnchor(raw: string): { ok: true; resolved: string } | { ok: false; problem: string } {
+function validateAnchor(
+  raw: string,
+): { ok: true; resolved: string } | { ok: false; problem: string } {
   if (!path.isAbsolute(raw)) return { ok: false, problem: 'not an absolute path' };
   const resolved = path.resolve(raw);
   let stat: ReturnType<typeof fs.statSync>;
@@ -162,7 +164,10 @@ function validateAnchor(raw: string): { ok: true; resolved: string } | { ok: fal
   }
   if (!stat.isDirectory()) return { ok: false, problem: 'is not a directory' };
   if (path.dirname(resolved) === resolved) {
-    return { ok: false, problem: 'is the filesystem root, which would disable the MCP path-traversal guard' };
+    return {
+      ok: false,
+      problem: 'is the filesystem root, which would disable the MCP path-traversal guard',
+    };
   }
   return { ok: true, resolved };
 }
@@ -178,7 +183,9 @@ function walkToProjectRoot(start: string): ProjectRootResolution {
     invalidAnchor = { value: anchorRaw, problem: check.problem };
     logBridgeError(
       'walkToProjectRoot',
-      new Error(`MONOMIND_PROJECT_ROOT ignored: "${anchorRaw}" ${check.problem} — falling back to the walk`),
+      new Error(
+        `MONOMIND_PROJECT_ROOT ignored: "${anchorRaw}" ${check.problem} — falling back to the walk`,
+      ),
     );
   }
 
