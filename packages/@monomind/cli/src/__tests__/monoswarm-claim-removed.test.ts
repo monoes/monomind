@@ -11,9 +11,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { generateClaudeMd, HONEST_MONOSWARM_SENTENCE } from '../init/claudemd-generator.js';
-import { DEFAULT_INIT_OPTIONS, detectPlatform, type ClaudeMdTemplate } from '../init/types.js';
-import { writeCapabilitiesDoc } from '../init/write-capabilities.js';
 import type { InitResult } from '../init/types.js';
+import { type ClaudeMdTemplate, DEFAULT_INIT_OPTIONS, detectPlatform } from '../init/types.js';
+import { writeCapabilitiesDoc } from '../init/write-capabilities.js';
 
 const TEMPLATES: ClaudeMdTemplate[] = [
   'minimal',
@@ -31,7 +31,6 @@ const TEMPLATES: ClaudeMdTemplate[] = [
 function hasSoleMonoswarmInitFence(text: string): boolean {
   const fenceRe = /```(?:bash|javascript)\n([\s\S]*?)```/g;
   let m: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: standard regex-loop idiom
   while ((m = fenceRe.exec(text))) {
     const lines = m[1].split('\n').filter((l) => l.trim().length > 0);
     if (lines.length === 1 && /^npx monomind@latest monoswarm init\b/.test(lines[0].trim())) {
