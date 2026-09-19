@@ -155,21 +155,41 @@ function validateAnchor(
   raw: string,
 ): { ok: true; resolved: string } | { ok: false; problem: string } {
   if (!path.isAbsolute(raw)) return { ok: false, problem: 'not an absolute path' };
-  const resolved = path.resolve(raw);
+  const lexical = path.resolve(raw);
+  // o-16 revision 2 (reviewer MAJOR): resolve symlinks BEFORE validating,
+  // and return the REAL path, not the lexical one. Without this, a symlink
+  // whose real target is '/' (e.g. MONOMIND_PROJECT_ROOT=<tmp>/link-to-root)
+  // passes every check below on its lexical form — dirname(lexical) !==
+  // lexical, since the link itself sits inside a normal directory — while
+  // getDbPath's traversal guard (memory-bridge.ts's realOrResolved(), i.e.
+  // fs.realpathSync) resolves the SAME anchor to '/' downstream. Two
+  // notions of "the root" in one module: the store gets hashed from the
+  // lexical path this function returned, the guard's boundary is computed
+  // from the real one, and path.relative('/', anything) never starts with
+  // '..' — the exact guard-disabling hole this function exists to close,
+  // reopened one indirection away. Validating and returning the SAME (real)
+  // path is what makes validation and consumption agree, for any
+  // symlinked anchor, not just a literal '/'.
+  let real: string;
+  try {
+    real = fs.realpathSync(lexical);
+  } catch {
+    return { ok: false, problem: 'does not exist' };
+  }
   let stat: ReturnType<typeof fs.statSync>;
   try {
-    stat = fs.statSync(resolved);
+    stat = fs.statSync(real);
   } catch {
     return { ok: false, problem: 'does not exist' };
   }
   if (!stat.isDirectory()) return { ok: false, problem: 'is not a directory' };
-  if (path.dirname(resolved) === resolved) {
+  if (path.dirname(real) === real) {
     return {
       ok: false,
       problem: 'is the filesystem root, which would disable the MCP path-traversal guard',
     };
   }
-  return { ok: true, resolved };
+  return { ok: true, resolved: real };
 }
 
 function walkToProjectRoot(start: string): ProjectRootResolution {
@@ -299,18 +319,30 @@ export function getProjectRootResolution(
  * a stricter rule: `if (envRoot && existsSync(join(envRoot, '.claude')))`,
  * i.e. it only honors the anchor when `.claude` exists there, silently
  * falling through to its own walk otherwise. After this revision the two
- * mostly agree: for a typo'd/missing path, BOTH now fall through — this one
- * because `validateAnchor` rejects it, guidance-tools' because `.claude` is
- * absent. The one case they still legitimately disagree on is an anchor
- * that exists and is a real directory but has no `.claude` in it: this
- * function honors it (memory has no reason to require a `.claude` folder —
- * a project's knowledge store isn't gated on whether an agent config lives
- * there), guidance-tools does not (`.claude` is the one thing it's
- * searching FOR, so its absence is a real signal, not noise, for that
- * consumer specifically). That residual difference is a property of what
- * each resolver is looking for, not an oversight — reconciling the two
- * resolvers' semantics into one shared rule is a separate, larger question
- * (tracked as o-32), not something this fix should decide as a side effect.
+ * converge on ANCHOR HANDLING for the cases that matter most — a typo'd or
+ * missing path is rejected by both (this one via `validateAnchor`,
+ * guidance-tools' because `.claude` is absent) — but "converge" describes
+ * only whether each accepts or rejects the anchor, not the final resolved
+ * root: a rejected anchor falls through to each resolver's OWN walk
+ * (`walkToProjectRoot` here; guidance-tools' own Strategy 1/2/3 chain
+ * there), which can still land on different directories for the same
+ * unanchored cwd. Two residual disagreements remain, both legitimate rather
+ * than oversights:
+ * 1. An anchor that exists and is a real directory but has no `.claude` in
+ *    it: this function honors it (memory has no reason to require a
+ *    `.claude` folder — a project's knowledge store isn't gated on whether
+ *    an agent config lives there), guidance-tools does not (`.claude` is
+ *    the one thing it's searching FOR, so its absence is a real signal, not
+ *    noise, for that consumer specifically).
+ * 2. A RELATIVE anchor: `validateAnchor` rejects it outright (an anchor
+ *    that silently depends on cwd defeats the point of an anchor).
+ *    guidance-tools has no absolute-path check, so `existsSync(join(envRoot,
+ *    '.claude'))` would resolve a relative `envRoot` against cwd and could
+ *    accept it — narrower in practice (needs a `.claude` at that resolved
+ *    location too) but a real gap in the two resolvers' shared assumptions.
+ * Reconciling the two resolvers' semantics into one shared rule is a
+ * separate, larger question (tracked as o-32), not something this fix
+ * should decide as a side effect.
  *
  * For anyone who already ran from the project root — the normal case — the
  * resolved path is identical to before, so their store does not move.

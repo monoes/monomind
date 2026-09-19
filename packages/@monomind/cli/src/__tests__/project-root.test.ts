@@ -8,7 +8,15 @@
  * brain could see the other. These tests pin the marker walk that fixes it.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -315,6 +323,38 @@ describe('getProjectRoot', () => {
       const defaultPath = bridgeGetDbPath();
       const outsidePath = bridgeGetDbPath(outside);
       expect(outsidePath).toBe(defaultPath);
+    });
+
+    // AC-5, leg C (o-16 revision 2, reviewer MAJOR): a symlink to '/' is a
+    // SECOND way to disable the guard, distinct from anchoring at a literal
+    // '/'. Root cause: validateAnchor used to validate the LEXICAL path
+    // (dirname(link) !== link, since the link itself sits inside a normal
+    // directory — passes) while getDbPath's guard resolves through
+    // realOrResolved() (fs.realpathSync) to the link's REAL target, '/'.
+    // Two notions of "the root" in one module disagreeing is what let this
+    // through even after leg A/B closed the literal-'/' and non-existent
+    // cases. validateAnchor now resolves and validates the REAL path, so
+    // this must be rejected the same way a literal '/' is.
+    it('a symlinked MONOMIND_PROJECT_ROOT anchor whose real target is "/" does not widen the guard (AC-5, leg C)', async () => {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      marker(root, '.git');
+      const outside = join(root, '..', `o16-outside-legc-${Date.now()}`);
+      mkdirSync(outside, { recursive: true });
+      const linkToRoot = join(root, 'link-to-root');
+      symlinkSync('/', linkToRoot);
+      process.env.MONOMIND_CWD = root;
+      process.env.MONOMIND_PROJECT_ROOT = linkToRoot;
+      try {
+        // Rejected (real target is '/', the filesystem root) — falls
+        // through to the real .git root, not the symlink's lexical or real
+        // form.
+        expect(getProjectRoot()).toBe(root);
+        const defaultPath = bridgeGetDbPath();
+        const outsidePath = bridgeGetDbPath(outside);
+        expect(outsidePath).toBe(defaultPath);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
     });
   });
 
