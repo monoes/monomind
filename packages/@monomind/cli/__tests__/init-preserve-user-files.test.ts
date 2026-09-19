@@ -28,6 +28,18 @@ vi.mock('child_process', () => ({
   execFileSync: vi.fn(() => {
     throw new Error('mocked: no real process execution in tests');
   }),
+  // i-035 round 2: write-capabilities.ts now imports doctorCommand, which
+  // transitively pulls in doctor-env-checks.ts and services/crash-reporter.ts
+  // — both wrap a child_process function with `promisify` at module load
+  // time (`exec`/`execFile`, never called by anything this test exercises),
+  // so this mock needs both exports to exist even though nothing here
+  // invokes them.
+  exec: vi.fn(() => {
+    throw new Error('mocked: no real process execution in tests');
+  }),
+  execFile: vi.fn(() => {
+    throw new Error('mocked: no real process execution in tests');
+  }),
   spawn: vi.fn(() => {
     const proc = new EventEmitter() as EventEmitter & {
       unref: () => void;

@@ -9,8 +9,17 @@ import { writeClaudeMd } from '../init/write-claude.js';
 
 // writeSharedInstructions best-effort-seeds memory via a child process; stub
 // it out so these tests stay hermetic (same reason as
-// write-shared-instructions-force-preserves-content.test.ts).
-vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
+// write-shared-instructions-force-preserves-content.test.ts). `exec` and
+// `execFile` are also required (not called by anything this file exercises)
+// since i-035 round 2: write-capabilities.ts now imports doctorCommand,
+// which transitively pulls in doctor-env-checks.ts and
+// services/crash-reporter.ts, both of which wrap a child_process function
+// with `promisify` at module load time.
+vi.mock('node:child_process', () => ({
+  execFileSync: vi.fn(),
+  exec: vi.fn(),
+  execFile: vi.fn(),
+}));
 
 function freshResult(): InitResult {
   return {
