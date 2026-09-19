@@ -23,7 +23,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { resolveMastermindSkill } from '../../packages/@monomind/cli/src/mastermind/manifest.js';
@@ -61,20 +61,62 @@ function findSkillFiles(dir: string): string[] {
   return out;
 }
 
-/** The router shape `mastermind/SKILL.md` and its four siblings share —
- *  identified by content (the literal "Load only the workflow" line), not
- *  by path, so a duplicate of THIS shape under a new path is still found. */
-function isBulletRouter(body: string): boolean {
-  return body.includes('Load only the workflow');
+/** Strip fenced code blocks before classifying — o-09 review round 2 finding
+ *  A3: a canonical trigger phrase quoted inside a documentation code fence
+ *  (an "anti-pattern example", say) is not a live router and must not
+ *  falsely classify the file that quotes it. */
+function stripFencedCode(text: string): string {
+  return text.replace(/```[\s\S]*?```/g, '');
+}
+
+/** The router shape `mastermind/SKILL.md` and its four siblings share:
+ *  a `# `-level section containing at least three `- \`mastermind-*\`` list
+ *  items. Structural, not lexical — o-09 review round 2 finding A1: a
+ *  literal-substring check on the "Load only the workflow" sentence passed
+ *  a near-exact reconstruction of the deleted second router with just that
+ *  one sentence reworded ("Load JUST the workflow"). Counting the actual
+ *  bullet shape survives a wording change the substring check could not. */
+function hasBulletRouterSection(body: string): boolean {
+  for (const section of sectionsOf(stripFencedCode(body))) {
+    const bulletCount = section
+      .split('\n')
+      .filter((l) => /^-\s+`mastermind-[\w-]+`/.test(l.trim())).length;
+    if (bulletCount >= 3) return true;
+  }
+  return false;
 }
 
 /** A structurally different second router shape (o-09 review finding 2): a
- *  multi-domain capability catalog with its own `| Intent | Primary route |`
- *  table, unrelated to the bullet-list router above. No tree should have
- *  one of these under `skills/` — multi-domain routing already lives in the
- *  bullet router's `run <skill> --print` fallback. */
-function isCatalogRouter(body: string): boolean {
-  return body.includes('| Intent | Primary route |');
+ *  multi-domain capability-catalog table whose header row has both an
+ *  "Intent" cell and a "primary route" cell, case- and spacing-tolerant —
+ *  finding A2: the literal-substring check missed a header spelled with a
+ *  capital "Route". No tree should have one of these under `skills/` —
+ *  multi-domain routing already lives in the bullet router's
+ *  `run <skill> --print` fallback. */
+function hasCatalogRouterTable(body: string): boolean {
+  for (const line of stripFencedCode(body).split('\n')) {
+    if (!line.trim().startsWith('|')) continue;
+    const cells = line.split('|').map((c) => c.trim().toLowerCase());
+    if (cells.some((c) => c === 'intent') && cells.some((c) => /^primary\s+route$/.test(c))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const CANONICAL_SKILLS_DIR = join(REPO_ROOT, '.claude/skills');
+
+/** o-09 review round 2, MAJOR 1(a): `sync-claude-trees --check` already
+ *  proves each tree's `skills/` mirrors `.claude/skills` exactly for every
+ *  path they share (0 diverged). A router-shaped file that is not even a
+ *  MEMBER of that mirrored set was never covered by that guarantee at all —
+ *  it exists nowhere else, which is suspicious independent of its prose.
+ *  Set membership beats pattern-matching: renaming a word cannot make a
+ *  shadow file exist in the canonical tree, so this alone would have
+ *  caught finding A1 even with no content classifier at all. */
+function isOutsideCanonicalMirror(tree: { skillsDir: string }, absPath: string): boolean {
+  if (tree.skillsDir === CANONICAL_SKILLS_DIR) return false; // .claude/skills IS the canonical source
+  return !existsSync(join(CANONICAL_SKILLS_DIR, relative(tree.skillsDir, absPath)));
 }
 
 /** Body text after the `---`-delimited YAML frontmatter. */
@@ -149,20 +191,42 @@ function assertRunCommandsNotCircular(body: string): void {
 
 describe.each(TREES)('mastermind router internal consistency — $name', (tree) => {
   const skillFiles = findSkillFiles(tree.skillsDir);
-  const bulletRouters = skillFiles.filter((f) => isBulletRouter(bodyOf(readFileSync(f, 'utf8'))));
-  const catalogRouters = skillFiles.filter((f) => isCatalogRouter(bodyOf(readFileSync(f, 'utf8'))));
+  const bulletRouters = skillFiles.filter((f) =>
+    hasBulletRouterSection(bodyOf(readFileSync(f, 'utf8'))),
+  );
+  const catalogRouters = skillFiles.filter((f) =>
+    hasCatalogRouterTable(bodyOf(readFileSync(f, 'utf8'))),
+  );
 
-  it('exactly one "Load only the workflow" router exists in this tree (found by content, not path)', () => {
+  it("exactly one bullet-list router exists under this tree's skills/ (found by structure, not path or exact wording)", () => {
     expect(
       bulletRouters,
       `expected exactly one, found ${bulletRouters.length}: ${bulletRouters.join(', ')}`,
     ).toHaveLength(1);
   });
 
-  it('no second, contradicting router style ("| Intent | Primary route |" catalog) exists anywhere in this tree', () => {
+  it("no second, contradicting router style (an Intent/primary-route capability table) exists anywhere under this tree's skills/", () => {
+    // Renamed from "...anywhere in this tree" (o-09 review round 2, MAJOR 2):
+    // that claim overclaimed its real scope. findSkillFiles only walks
+    // `tree.skillsDir`, so `.kimi-code/plugin/commands/monomind-mastermind.md`
+    // — a file with the exact catalog shape this check forbids, two
+    // directories outside `skills/` — was invisible to it twice over. The
+    // file itself is independently confirmed dead/unshipped (dev-lead is
+    // ledgering its removal separately); this check's name now says only
+    // what it actually verifies.
     expect(
       catalogRouters,
       `catalog-style router(s) found — a second, contradicting router surface: ${catalogRouters.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('every discovered router is a member of the canonical .claude/skills mirror', () => {
+    const strays = [...bulletRouters, ...catalogRouters].filter((f) =>
+      isOutsideCanonicalMirror(tree, f),
+    );
+    expect(
+      strays,
+      `router-shaped file(s) outside the canonical .claude/skills mirror: ${strays.join(', ')}`,
     ).toEqual([]);
   });
 
