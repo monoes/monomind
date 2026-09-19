@@ -4,6 +4,18 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.9] — 2026-09-19
+
+### Fixed
+
+- A clean `npm install monomind` no longer reports the four high-severity `sharp<=0.35.4-rc.0` advisories. `@huggingface/transformers` is bumped from `^3.8.1` to `^4.3.0`: 3.8.1 declares `sharp: ^0.34.1`, so **no** version inside its range is safe and neither an `overrides` entry nor a sibling floor could fix it — a sibling floor made npm nest a second vulnerable copy. 4.3.0 declares `sharp: ^0.35.4`, and a consumer-style `npm audit` against it reports zero vulnerabilities. Real-world exposure was low (both advisories require processing untrusted image input, and monomind only ever hands transformers text), but the dependency-graph risk and the audit noise were real (#266: ae98ff27e).
+- The local embedding loader in `embedding-operations.ts` now pins `dtype: 'q8'`, matching `memory-bridge.ts`. Since transformers v4 the default is fp32 (`onnx/model.onnx`), which the provisioning step never fetches — leaving it unset would have failed every load under `local_files_only` and silently degraded semantic search to the 128-dim hash fallback (#266).
+- The `Second Brain Model` doctor check looked for `.cache/Xenova`, a model the bridge no longer uses, and so reported "Embedding model not downloaded yet" with a fully provisioned cache on disk. It now checks for `BRIDGE_EMBEDDING_MODEL`. Its fix hint also pointed at `monomind doc search`, which passes `local_files_only` and never downloads anything; it now names `monomind doc eval --provision-model`, the one command that does (#266).
+
+### Note for existing installs
+
+- The model cache lives at a version-keyed path inside `node_modules`, so this bump orphans any warm cache. Re-provision once with `monomind doc eval --provision-model` (~270MB); until then semantic search falls back to keyword matching, which `monomind doctor` now reports accurately.
+
 ## [2.11.8] — 2026-09-18
 
 ### Added
