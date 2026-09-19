@@ -8,7 +8,7 @@
 
 ## Automatic Monoswarm Orchestration
 
-For complex work, Claude Code MUST initialize the monoswarm via CLI (Bash) AND spawn agents via the Task tool in the SAME message — CLI coordinates, Task tool agents do the actual work.
+For complex work, spawn agents via the Task tool in the same message so they run concurrently — Task tool agents do the actual work.
 
 Coordination state (topology, roster, votes) lives in
 `.monomind/monoswarm/state.json`; agents relate and vote per that state. See
@@ -128,26 +128,6 @@ Bash("npx monomind@latest hooks worker run map")
 This table is a convention, not code: nothing in `src/` dispatches on these codes.
 The root `CLAUDE.md` table is authoritative and this one matches it. The narrower table
 emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
-
-### Task Complexity Detection
-
-**AUTO-INVOKE MONOSWARM when task involves:**
-
-- Multiple files (3+)
-- New feature implementation
-- Refactoring across modules
-- API changes with tests
-- Security-related changes
-- Performance optimization
-- Database schema changes
-
-**SKIP MONOSWARM for:**
-
-- Single file edits
-- Simple bug fixes (1-2 lines)
-- Documentation updates
-- Configuration changes
-- Quick questions/exploration
 
 ## CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
 
