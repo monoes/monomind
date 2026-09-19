@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { runDoctor } from '../../src/cli/doctor.js';
+import { checkNodeVersion, runDoctor } from '../../src/cli/doctor.js';
 
 let tempDir: string;
 
@@ -12,6 +12,39 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+// i-090 revision: `runDoctor`'s Node check hardcoded `major >= 18`, so it
+// reported "ok — (>= 18 required)" on any Node 18-21 runtime, contradicting
+// this package's own `engines.node` of `>=22.12.0`. A major-only compare is
+// also wrong on its own terms: 22.11.x has the right major but is below the
+// 22.12 floor. checkNodeVersion takes an optional version string (default
+// process.version) so these can be asserted without switching the runtime —
+// same treatment as packages/@monomind/cli/src/commands/doctor-env-checks.ts.
+describe('checkNodeVersion', () => {
+  it('is ok on v22.12.0, the exact floor', () => {
+    const check = checkNodeVersion('v22.12.0');
+    expect(check.status).toBe('ok');
+    expect(check.message).toContain('22.12');
+  });
+
+  it('is ok on v26.0.0', () => {
+    expect(checkNodeVersion('v26.0.0').status).toBe('ok');
+  });
+
+  it('is not ok on v22.11.0 — a major-only compare would wrongly pass this', () => {
+    const check = checkNodeVersion('v22.11.0');
+    expect(check.status).not.toBe('ok');
+  });
+
+  it('warns (not ok, not error) on v20.19.0 — below the floor but not unsupported', () => {
+    const check = checkNodeVersion('v20.19.0');
+    expect(check.status).toBe('warn');
+  });
+
+  it('errors on v16.0.0', () => {
+    expect(checkNodeVersion('v16.0.0').status).toBe('error');
+  });
 });
 
 describe('runDoctor', () => {
@@ -40,7 +73,8 @@ describe('runDoctor', () => {
 
     const nodeCheck = result.checks.find((c) => c.name === 'Node version');
     expect(nodeCheck).toBeDefined();
-    // The test environment must run Node >= 18 (CI requirement)
+    // i-090: the package's own engines.node floor is >=22.12.0; the test
+    // environment (this repo's CI/dev toolchain, already >=22.12) must pass it.
     expect(nodeCheck!.status).toBe('ok');
     expect(nodeCheck!.message).toMatch(/^v\d+\.\d+\.\d+/);
   });

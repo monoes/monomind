@@ -43,7 +43,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Run monograph
         run: npx @monoes/monograph@${version} build && npx @monoes/monograph@${version} health --format json > monograph-report.json
       - name: Check health gate

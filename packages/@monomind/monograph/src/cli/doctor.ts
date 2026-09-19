@@ -2,7 +2,7 @@
  * runDoctor — Platform health checks for the Monograph knowledge graph.
  *
  * Checks:
- * 1. Node.js version (must be >= 18)
+ * 1. Node.js version (must be >= 22.12.0)
  * 2. SQLite DB file exists at .monomind/monograph.db
  * 3. SQLite DB is readable (SELECT 1)
  * 4. DB node count (warns if graph not built)
@@ -27,16 +27,31 @@ export interface DoctorResult {
 
 // ─── Individual checks ────────────────────────────────────────────────────────
 
-function checkNodeVersion(): DoctorCheck {
-  const raw = process.version; // e.g. 'v20.1.0'
-  const major = parseInt(raw.replace(/^v/, '').split('.')[0], 10);
-  if (major >= 18) {
-    return { name: 'Node version', status: 'ok', message: `${raw} (>= 18 required)` };
+// i-090: the floor is 22.12.0, not just major 22 — a `major >= requiredMajor`
+// compare would wrongly pass 22.0.0–22.11.x. Same treatment as
+// packages/@monomind/cli/src/commands/doctor-env-checks.ts's checkNodeVersion.
+export function checkNodeVersion(version: string = process.version): DoctorCheck {
+  const requiredMajor = 22;
+  const requiredMinor = 12;
+  const requiredLabel = `${requiredMajor}.${requiredMinor}.0`;
+  const [major, minor] = version
+    .replace(/^v/, '')
+    .split('.')
+    .map((n) => parseInt(n, 10));
+  const meetsFloor = major > requiredMajor || (major === requiredMajor && minor >= requiredMinor);
+  if (meetsFloor) {
+    return { name: 'Node version', status: 'ok', message: `${version} (>= ${requiredLabel} required)` };
+  } else if (major >= 18) {
+    return {
+      name: 'Node version',
+      status: 'warn',
+      message: `${version} (>= ${requiredLabel} required)`,
+    };
   }
   return {
     name: 'Node version',
     status: 'error',
-    message: `${raw} — Node >= 18 is required`,
+    message: `${version} — Node >= ${requiredLabel} is required`,
   };
 }
 
