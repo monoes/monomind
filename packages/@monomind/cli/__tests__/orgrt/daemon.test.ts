@@ -1102,13 +1102,27 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
 
   it('an idle session aborted by the org\'s own stop is logged as stopped, not crashed; a real crash stays a crash (#251)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-stop251-'));
-    fixture(root, 'alpha');
-    // boss: an idle session that (like the real SDK) rejects "Operation
-    // aborted" when the stop aborts it. coder: a genuine crash.
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+        { id: 'reviewer', title: 'Reviewer', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    // boss and reviewer: idle sessions that (like the real SDK) reject with
+    // the two DIFFERENT abort strings the SDK actually produces when the
+    // stop aborts them (#304: readers must not see different wording
+    // depending on which one the SDK happened to give). coder: a genuine
+    // crash, unrelated to abort.
     const q = ({ prompt, options }: any) => (async function* () {
       if (/agent "coder"/.test(options.systemPrompt ?? '')) throw new Error('genuine provider failure');
+      const abortMsg = /agent "reviewer"/.test(options.systemPrompt ?? '')
+        ? 'Operation aborted'
+        : 'Claude Code process aborted by user';
       const aborted = new Promise<never>((_, reject) => {
-        options.abortController.signal.addEventListener('abort', () => reject(new Error('Operation aborted')), { once: true });
+        options.abortController.signal.addEventListener('abort', () => reject(new Error(abortMsg)), { once: true });
       });
       aborted.catch(() => {});
       const it = prompt[Symbol.asyncIterator]();
@@ -1122,7 +1136,9 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 500, crashBackoffsMs: [] });
     const running = await d.startOrg('alpha');
     await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    await d.deliver('alpha', 'boss', 'reviewer', 'task', 'review it');
     expect(await waitUntil(() => running.agents.get('coder')?.status === 'crashed')).toBe(true);
+    expect(await waitUntil(() => running.busEvents().some(e => e.type === 'chat' && e.from === 'reviewer'))).toBe(true);
     await new Promise(r => setTimeout(r, 50));
     await d.stopOrg('alpha');
 
@@ -1132,6 +1148,128 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     expect(crashAudit('boss')).toBe(false);
     expect(running.agents.get('boss')!.status).toBe('ended');
     expect(events.some(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'boss')).toBe(true);
+    // #304: a planned stop must read the same regardless of which abort
+    // string the SDK happened to produce for this role.
+    const stopMsg = (from: string) =>
+      events.find(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === from)?.msg ?? '';
+    expect(stopMsg('boss')).not.toMatch(/aborted by user/i); // FAILS pre-fix
+    expect(stopMsg('boss')).not.toMatch(/Operation aborted/); // FAILS pre-fix
+  }, 10_000);
+
+  it('logs every role\'s planned stop after org_complete with the same wording, naming org_complete rather than the SDK abort string (#304)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-304-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    const def = (name: string) => JSON.stringify({
+      name, goal: 'g',
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'reviewer', title: 'Reviewer', type: 'specialist', reports_to: 'boss' },
+        { id: 'writer', title: 'Writer', type: 'specialist', reports_to: 'boss' },
+      ],
+    });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), def('alpha'));
+    writeFileSync(join(root, '.monomind/orgs/beta.json'), def('beta'));
+
+    // Every idle role rejects on abort with a DIFFERENT real SDK string — this
+    // proves uniformity of the resulting wording, not just correctness for one string.
+    const q = ({ prompt, options }: any) => (async function* () {
+      const roleId = /agent "([^"]+)"/.exec(options.systemPrompt ?? '')?.[1] ?? 'unknown';
+      const abortMsg = roleId === 'reviewer' ? 'Claude Code process aborted by user' : 'Operation aborted';
+      const aborted = new Promise<never>((_, reject) => {
+        options.abortController.signal.addEventListener('abort', () => reject(new Error(abortMsg)), { once: true });
+      });
+      aborted.catch(() => {});
+      const it = prompt[Symbol.asyncIterator]();
+      while (true) {
+        const r = await Promise.race([it.next(), aborted]);
+        if (r.done) await aborted;
+        yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${r.value.message.content}` }] } };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      }
+    })();
+
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 500, crashBackoffsMs: [] });
+
+    // alpha: a planned completion — closedBy: 'org-complete', same arguments the
+    // org_complete auto-stop path passes (daemon.ts:923).
+    const alpha = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'reviewer', 'task', 'go');
+    await d.deliver('alpha', 'boss', 'writer', 'task', 'go');
+    expect(await waitUntil(() => alpha.busEvents().filter(e => e.type === 'chat').length >= 2)).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('alpha', { closedBy: 'org-complete' });
+
+    const alphaStops = alpha.busEvents().filter(e => e.type === 'status' && e.reason === 'agent-stopped');
+    expect(alphaStops.length).toBeGreaterThanOrEqual(2);
+    for (const e of alphaStops) {
+      expect(e.msg).toMatch(/stopped with the org \(org_complete\)/);
+      expect(e.msg).not.toMatch(/aborted by user/i);
+      expect(e.msg).not.toMatch(/Operation aborted/);
+    }
+    // Strip the role id out of each message: if every role reads identically,
+    // the resulting set has exactly one member — this is the assertion #304 is
+    // really about (not just "each message individually looks fine").
+    const uniformMsgs = new Set(alphaStops.map(e => (e.msg ?? '').replace(/"[^"]+"/, '"<role>"')));
+    expect(uniformMsgs.size).toBe(1);
+
+    // beta: a manual stop, no closedBy — must read "stop requested", distinguishable
+    // from org_complete, and still not claim a human "aborted" it.
+    const beta = await d.startOrg('beta');
+    await d.deliver('beta', 'boss', 'reviewer', 'task', 'go');
+    expect(await waitUntil(() => beta.busEvents().some(e => e.type === 'chat' && e.from === 'reviewer'))).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('beta');
+    const betaMsg = beta.busEvents().find(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'reviewer')?.msg ?? '';
+    expect(betaMsg).toMatch(/stopped with the org \(stop requested\)/);
+    expect(betaMsg).not.toMatch(/aborted/i);
+  }, 15_000);
+
+  it('a non-abort error surfacing while a stop is in progress still crashes with its real message intact, not swallowed into "stopped with the org" (#304 AC2)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-304-ac2-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'flaky', title: 'Flaky', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    // boss: normal idle session that aborts cleanly, like every other test here.
+    // flaky: idle too, but when the stop's abort signal fires its provider call
+    // rejects with a GENUINE (non-abort) error — e.g. a dropped connection that
+    // happens to coincide with the stop. abortedByStop's guard only matches
+    // AbortError / /\baborted\b/i (daemon.ts:1885-1889), so this must still take
+    // the real-crash path with the real message intact, not get relabeled a
+    // planned stop.
+    const q = ({ prompt, options }: any) => (async function* () {
+      const isFlaky = /agent "flaky"/.test(options.systemPrompt ?? '');
+      const rejection = isFlaky ? 'ECONNRESET: socket hang up' : 'Operation aborted';
+      const aborted = new Promise<never>((_, reject) => {
+        options.abortController.signal.addEventListener('abort', () => reject(new Error(rejection)), { once: true });
+      });
+      aborted.catch(() => {});
+      const it = prompt[Symbol.asyncIterator]();
+      while (true) {
+        const r = await Promise.race([it.next(), aborted]);
+        if (r.done) await aborted;
+        yield { type: 'assistant', message: { content: [{ type: 'text', text: `echo: ${r.value.message.content}` }] } };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      }
+    })();
+    const d = new OrgDaemon(root, { queryFn: q as any, forward: false, stopWaitMs: 500, crashBackoffsMs: [] });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'flaky', 'task', 'go');
+    expect(await waitUntil(() => running.busEvents().some(e => e.type === 'chat' && e.from === 'flaky'))).toBe(true);
+    await new Promise(r => setTimeout(r, 50));
+    await d.stopOrg('alpha');
+
+    const events = running.busEvents();
+    expect(running.agents.get('flaky')!.status).toBe('crashed');
+    const crashEvent = events.find(e => e.type === 'audit' && e.reason === 'agent-session-crash' && e.from === 'flaky');
+    expect(crashEvent).toBeDefined();
+    expect(crashEvent!.msg).toMatch(/ECONNRESET: socket hang up/);
+    // Not misreported as a planned stop.
+    expect(events.some(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'flaky')).toBe(false);
   }, 10_000);
 
   it('a silent session retries with a live abort signal, keeps the role working, and an org stop still aborts the retry (#256)', async () => {
