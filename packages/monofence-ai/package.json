@@ -58,6 +58,6 @@
     "directory": "packages/monofence-ai"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.12.0"
   }
 }

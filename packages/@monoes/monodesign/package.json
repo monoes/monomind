@@ -21,6 +21,9 @@
     "src/tokens.css",
     "NOTICE.md"
   ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc",
