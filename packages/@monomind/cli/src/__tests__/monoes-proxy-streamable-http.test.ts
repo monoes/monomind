@@ -20,7 +20,10 @@ beforeEach(() => {
   mkdirSync(join(monomindHome, '.monomind'), { recursive: true });
   writeFileSync(
     join(monomindHome, '.monomind', 'monoes-connection.json'),
-    JSON.stringify({ accessToken: /* value */ 'FAKE-AT-http', expiresAt: Date.now() + 10 * 60 * 1000 }),
+    JSON.stringify({
+      accessToken: /* value */ 'FAKE-AT-http',
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    }),
   );
 });
 
