@@ -15,6 +15,7 @@ import * as fs from 'node:fs';
 import { delimiter, join } from 'node:path';
 import type { AgentRunner } from './agent-runner.js';
 import { type RuntimeKind, resolveRunner } from './daemon.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 
 export interface RunnerSpec {
   /** Runtime id accepted by `agent exec --runtime` and org role `runtime`. */
@@ -329,7 +330,11 @@ function probeVersion(binPath: string, timeoutMs = 5000): Promise<string | null>
     const child = execFile(
       binPath,
       ['--version'],
-      { timeout: timeoutMs, windowsHide: true },
+      // o-18: binPath honours the <X>_CLI_BIN override (resolveBinary above),
+      // so this is an arbitrary, env-controlled path — strip the three
+      // ANTHROPIC_* keys the same way every AgentRunner spawn does. binPath
+      // is already absolute (locateBinary), so PATH resolution is unaffected.
+      { timeout: timeoutMs, windowsHide: true, env: omitAnthropicManagedKeys(process.env) },
       (err, stdout) => {
         if (err) {
           // Some CLIs exit non-zero for --version yet still print it.
