@@ -440,6 +440,9 @@ function startOpencodeServer(args: AgentRunArgs): Promise<{ url: string; close()
   const bin = process.env.OPENCODE_BIN || 'opencode';
   const child = spawn(bin, ['serve', '--hostname=127.0.0.1', '--port=0'], {
     cwd: args.cwd,
+    // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+    // vendor CLI; an explicit value in args.env still wins below (this is
+    // the #262 path opencode-runner.test.ts's base-url provider test uses).
     env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
