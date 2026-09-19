@@ -4,6 +4,20 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.11.11] — 2026-09-19
+
+### Changed
+
+- **`mastermind/SKILL.md` is now a router.** Each of the five platform trees (`.agents`, `.claude`, `.gemini`, `.kimi-code`, and the CLI package's own `.claude`) inlined the full body of every mastermind workflow, so loading the router loaded all of them. It now lists the workflows and says which to load, leaving the detail in the domain skills — roughly 1000 lines of duplicated inline content drop out. Same treatment for the per-platform tool-mapping references.
+
+### Added
+
+- The `monomind-status` command and skill for Claude Code and kimi-code, and the kimi-code `monodesign` skill, which the other platform trees already shipped.
+
+### Fixed
+
+- `.gitignore` listed six specific paths under `data/` and missed `data/unknown-events.jsonl`, so 31MB of runtime run logs showed as untracked. `data/` holds nothing but runtime state and no file under it is tracked, so it is ignored wholesale — the same drift, and the same fix, that `be4051b43` applied to the `.monomind` directory.
+
 ## [2.11.10] — 2026-09-19
 
 ### Security
