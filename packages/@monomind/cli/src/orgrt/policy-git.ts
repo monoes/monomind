@@ -7,8 +7,10 @@ import { shellSegments } from './shell-scan.js';
 // word `show` etc. could appear anywhere in a longer name. `remote` is
 // deliberately read-level only for inspection — `remote add`/`set-url` mutate
 // config, but redirecting a remote is inert unless push is also permitted.
+// The anchoring is also what makes `cherry` safe to list next to `cherry-pick`
+// (#299): `^cherry$` cannot match the token `cherry-pick`.
 const GIT_READ_CMDS =
-  /^(status|log|diff|show|branch|tag|remote|rev-parse|ls-files|ls-tree|blame|shortlog|describe|cat-file|for-each-ref|rev-list|grep|worktree)$/;
+  /^(status|log|diff|show|branch|tag|remote|rev-parse|ls-files|ls-tree|blame|shortlog|describe|cat-file|for-each-ref|rev-list|grep|worktree|merge-base|show-ref|name-rev|cherry|range-diff|check-ignore|check-attr|count-objects|var|ls-remote)$/;
 const GIT_COMMIT_CMDS =
   /^(add|commit|rm|mv|restore|reset|stash|cherry-pick|rebase|merge|revert|apply|checkout|switch|clean|gc|prune)$/;
 const GIT_PUSH_CMDS = /^(push|fetch|pull|clone|remote-add|submodule)$/;
@@ -51,6 +53,28 @@ function gitConfigIsWrite(args: string[]): boolean {
   if (readVerb || /^(get|list)$/.test(positional[0] ?? '')) return false;
   if (/^(set|unset|rename-section|remove-section|edit)$/.test(positional[0] ?? '')) return true;
   return positional.length !== 1; // a bare `name` reads; `name value` (or nothing parseable) writes
+}
+
+/** Subcommands whose mode depends on their first positional, resolved at scan
+ *  time into a `<sub>:read` token the way `config` already is (#299). An
+ *  expansion may hide the verb, so any arg containing shell metacharacters is
+ *  treated as the mutating form — same fail-closed rule as gitConfigIsWrite. */
+const GIT_SUB_READ_ARGS: Record<string, RegExp> = {
+  stash: /^(list|show)$/, // allowlist: bare `git stash` IS `stash push`
+};
+const GIT_SUB_WRITE_ARGS: Record<string, RegExp> = {
+  reflog: /^(expire|delete)$/, // deny-list: bare/`-5`/`HEAD` are all `show`
+};
+function refineSub(sub: string, args: string[]): string {
+  const readPattern = GIT_SUB_READ_ARGS[sub];
+  const writePattern = GIT_SUB_WRITE_ARGS[sub];
+  if (!readPattern && !writePattern) return sub;
+  if (args.some((a) => /[$`{}*?[]/.test(a))) return sub; // fail closed
+  let i = 0;
+  while (i < args.length && args[i].startsWith('-')) i++;
+  const positional = args[i] ?? '';
+  if (readPattern) return readPattern.test(positional) ? `${sub}:read` : sub;
+  return writePattern.test(positional) ? sub : `${sub}:read`;
 }
 
 /** git options that swallow the NEXT token as their value, so the token after
@@ -180,7 +204,7 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
         subs.push(gitConfigIsWrite(tokens.slice(j + 1)) ? 'config' : 'config:read');
         continue;
       }
-      subs.push(sub);
+      subs.push(refineSub(sub, tokens.slice(j + 1)));
     }
   }
   return { subs };
@@ -202,7 +226,10 @@ export function checkGitPolicy(
   if (level === 'none') return `git commands are not allowed for this role (policy.git: none)`;
 
   for (const sub of gitCalls) {
-    if (GIT_READ_CMDS.test(sub) || sub === 'config:read') continue; // always allowed at 'read' and above
+    // `<sub>:read` tokens are minted by the scanner for args-aware subcommands
+    // (config, stash, reflog) and can never collide with a real subcommand
+    // token — GIT_SUBCOMMAND_SHAPE forbids ':'.
+    if (GIT_READ_CMDS.test(sub) || sub.endsWith(':read')) continue; // always allowed at 'read' and above
 
     if (sub === 'config') {
       return `git config write denied (policy.git: ${level} — .git/config is shared by every worktree; writes require policy.git: 'push'. Use \`git -c key=value <cmd>\` for a one-off setting)`;
