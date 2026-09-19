@@ -107,29 +107,34 @@ describe('biome.json files.includes (GH #297)', () => {
     );
 
     expect(out).not.toMatch(/No files were processed/);
+    expect(out).toMatch(/Checked \d+ file/);
     // The misformatted probe is actually reported, so the file was read, not
     // just counted.
     expect(out).toMatch(/packages[/\\]@monomind[/\\]cli[/\\]src[/\\]probe\.ts/);
   });
 
-  it("still excludes the repo's own .monomind tree, which is what the exclusion is for", () => {
+  it("a root lint never reports content from the repo's own .monomind tree", () => {
     const root = makeWorktreeFixture(['.monomind', 'orgs', 'monomind-dev', 'work', 'wt']);
 
-    // The plain case: junk sitting directly in a worktree's own .monomind/
-    // directory must not be linted. Naming the file in the assertion (not
-    // just matching the generic "provided but ignored" banner) blocks the
-    // degenerate "fix" of deleting the exclusion outright — that would make
-    // biome actually lint and report this file instead of ignoring it.
+    // What these two probes actually pin, and what they do NOT: biome.json's
+    // positive includes (packages/*/src/**, packages/@monomind/*/src/**,
+    // tests/**, scripts/**) are all root-anchored, so neither probe below is
+    // ever ADMITTED by a positive include in the first place — both paths
+    // start with `.monomind/`, matching none of them. That makes `!.monomind`
+    // itself unfalsifiable by any behavioural test today: deleting it
+    // produces byte-identical output here (verified against a real biome
+    // run). It is a traversal-pruning hint for a large runtime tree, not a
+    // correctness guard — see the structural test below for the only thing
+    // that CAN pin it. What this test pins honestly is narrower: a root lint
+    // never reports anything from inside .monomind, which would regress the
+    // moment a positive include were ever changed to be un-anchored (a
+    // leading `**/`) the way the exclusion itself was before #294/#297.
     mkdirSync(join(root, '.monomind'), { recursive: true });
     writeFileSync(join(root, '.monomind', 'junk.ts'), 'export const   junk   =   {a:1}\n');
     const junkOut = biomeCheck(root, ['.monomind/junk.ts']);
     expect(junkOut).toMatch(/These paths were provided but ignored/);
     expect(junkOut).toMatch(/\.monomind[/\\]junk\.ts/);
 
-    // A nested checkout inside the fixture's own .monomind tree, matching a
-    // positive include (packages/@monomind/*/src/**) once you are inside it —
-    // proves the anchored exclusion still suppresses root-level descent, not
-    // just files that happen to sit directly under .monomind/.
     const nestedSrc = join(
       root,
       '.monomind',
@@ -151,5 +156,17 @@ describe('biome.json files.includes (GH #297)', () => {
     expect(nestedOut).toMatch(
       /orgs[/\\]x[/\\]work[/\\]wt[/\\]packages[/\\]@monomind[/\\]cli[/\\]src[/\\]probe\.ts/,
     );
+  });
+
+  // Structural, not behavioural — deliberately, per the comment above: no
+  // biome run can currently distinguish `!.monomind` present from absent, so
+  // the only honest guard against silently deleting the anchored line (or
+  // reintroducing the unanchored `!**/.monomind`) is reading the config.
+  it('anchors the .monomind exclusion (structural — the pruning hint above cannot be pinned behaviourally)', () => {
+    const config = JSON.parse(readFileSync(join(REPO_ROOT, 'biome.json'), 'utf8')) as {
+      files: { includes: string[] };
+    };
+    expect(config.files.includes).toContain('!.monomind');
+    expect(config.files.includes).not.toContain('!**/.monomind');
   });
 });
