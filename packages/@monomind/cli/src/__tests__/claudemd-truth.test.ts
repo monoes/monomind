@@ -155,6 +155,69 @@ describe('claudemd-truth (i-041/i-117)', () => {
         ),
       ).not.toThrow();
     });
+
+    // i-035 reviewer MAJOR 1: deriving the worker COUNT did not fix the
+    // worker TABLE beneath it — the count read the right number (9) while
+    // the row list underneath stayed a hand-maintained 14 entries naming 6
+    // workers that don't exist and omitting the one real `reflexion`
+    // worker. Ground truth is @monoes/hooks's own WORKER_CONFIGS, imported
+    // directly — NOT generated-counts.ts's WORKER_ROWS, so this can't pass
+    // by only checking the generator agrees with itself.
+    it('every worker name rendered in the generated docs is a real WORKER_CONFIGS key, and every key is rendered', async () => {
+      const { WORKER_CONFIGS } = await import('@monoes/hooks');
+      const groundTruthNames = new Set(Object.keys(WORKER_CONFIGS));
+      expect(groundTruthNames.size).toBeGreaterThan(0); // sanity: import actually resolved
+
+      const generated = generateClaudeMd(
+        { ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() },
+        'full', // the Background Workers table only renders in 'full'
+      );
+      const sectionStart = generated.indexOf('### Background Workers');
+      const sectionEnd = generated.indexOf('\n\n```bash', sectionStart);
+      const workerSection = generated.slice(
+        sectionStart,
+        sectionEnd === -1 ? undefined : sectionEnd,
+      );
+      const renderedNames = [...workerSection.matchAll(/^\| `([a-z]+)` \|/gm)].map((m) => m[1]);
+      expect(renderedNames.length).toBeGreaterThan(0);
+
+      for (const name of renderedNames) {
+        expect(groundTruthNames.has(name), `"${name}" is not a real WORKER_CONFIGS key`).toBe(true);
+      }
+      for (const name of groundTruthNames) {
+        expect(renderedNames, `WORKER_CONFIGS key "${name}" is missing from the table`).toContain(
+          name,
+        );
+      }
+    });
+
+    it('CAPABILITIES.md: same names-match check as the CLAUDE.md table', async () => {
+      const { WORKER_CONFIGS } = await import('@monoes/hooks');
+      const groundTruthNames = new Set(Object.keys(WORKER_CONFIGS));
+
+      const generated = await generatedCapabilities();
+      // Anchor on the actual heading, not the ToC entry a few lines above it
+      // (which also contains the substring "Background Workers"), and stop
+      // at the next `---` section break so a later, unrelated table (Vote
+      // Strategies' `majority`/`supermajority`/...) isn't swept in too.
+      const sectionStart = generated.indexOf('Background Workers (@monoes/hooks');
+      const sectionEnd = generated.indexOf('\n---', sectionStart);
+      const workerSection = generated.slice(
+        sectionStart,
+        sectionEnd === -1 ? undefined : sectionEnd,
+      );
+      const renderedNames = [...workerSection.matchAll(/^\| `([a-z]+)` \|/gm)].map((m) => m[1]);
+      expect(renderedNames.length).toBeGreaterThan(0);
+
+      for (const name of renderedNames) {
+        expect(groundTruthNames.has(name), `"${name}" is not a real WORKER_CONFIGS key`).toBe(true);
+      }
+      for (const name of groundTruthNames) {
+        expect(renderedNames, `WORKER_CONFIGS key "${name}" is missing from the table`).toContain(
+          name,
+        );
+      }
+    });
   });
 
   describe('§3 — optional-package availability reflects reality, not a require.resolve bug', () => {
@@ -194,10 +257,22 @@ describe('claudemd-truth (i-041/i-117)', () => {
     });
   });
 
-  describe('§4 — no dead MONOMIND_* env var is advertised or written', () => {
+  // i-035 reviewer MAJOR 4: plan §4 scoped the dead-var removal to
+  // claudemd-generator.ts and mcp-generator.ts only — opencode-generator.ts,
+  // kimi-generator.ts and codex-generator.ts still write the same five dead
+  // vars into their own generated configs (tracked as a follow-up; see
+  // codex-generator.test.ts:51, which asserts MONOMIND_MAX_AGENTS is present
+  // and needs re-pointing when that follow-up lands). This describe's name
+  // says exactly that, not a repo-wide claim the suite below doesn't check.
+  describe('§4 — no dead MONOMIND_* env var in the generated CLAUDE.md or the generated .mcp.json', () => {
     function readersOf(varName: string): boolean {
       try {
-        execFileSync(
+        // i-035 reviewer MAJOR 3: this used to compute the filtered/excluded
+        // result and throw it away, `return true`-ing on any grep exit 0 —
+        // including a hit that exists ONLY in packages/**/dist/ (stale build
+        // output) or ONLY in a test file, exactly the two cases these
+        // filters exist to rule out. Use the filtered result.
+        const hits = execFileSync(
           'grep',
           [
             '-rl',
@@ -215,7 +290,7 @@ describe('claudemd-truth (i-041/i-117)', () => {
           .filter(
             (f) => !f.includes('/dist/') && !f.includes('__tests__') && !f.includes('.test.'),
           );
-        return true;
+        return hits.length > 0;
       } catch {
         return false;
       }
@@ -237,6 +312,12 @@ describe('claudemd-truth (i-041/i-117)', () => {
     it('every MONOMIND_* var written into the generated .mcp.json has a real process.env reader', () => {
       const json = generateMCPJson({ ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() });
       const names = [...new Set(json.match(/MONOMIND_[A-Z0-9_]+/g) ?? [])];
+      // Explicit, not accidental: all five MONOMIND_* vars this file used to
+      // write were dead (no reader anywhere), so the correct current state
+      // is zero survivors — an empty loop below is the desired outcome, not
+      // a vacuous-pass risk. The `not.toContain` pins below already name
+      // exactly which ones must be gone.
+      expect(names).toEqual([]);
       for (const name of names) {
         expect(readersOf(name), `${name} should have a process.env reader`).toBe(true);
       }
