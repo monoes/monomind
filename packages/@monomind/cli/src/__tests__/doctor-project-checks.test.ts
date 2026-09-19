@@ -60,6 +60,7 @@ import {
   checkMonoesMemory,
   checkMonograph,
   checkMonographFreshness,
+  checkProjectRoot,
   checkSecondBrainModel,
   checkSecurityAuditFindings,
   fixStaleHelpers,
@@ -189,6 +190,67 @@ describe('doctor-project-checks', () => {
       const result = await checkMemoryDatabase();
       expect(result.status).toBe('pass');
       expect(result.message).toContain('.swarm/memory.db');
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // checkProjectRoot (o-16 AC-6): discloses the resolved project root and why,
+  // so a wrong resolution (a shared scratch parent's bare `.monomind`
+  // silently adopted, the actual incident behind this item) is visible
+  // instead of a plausible-but-silent path.
+  // ---------------------------------------------------------------------
+  describe('checkProjectRoot', () => {
+    let savedProjectRootEnv: string | undefined;
+
+    beforeEach(() => {
+      savedProjectRootEnv = process.env.MONOMIND_PROJECT_ROOT;
+      delete process.env.MONOMIND_PROJECT_ROOT;
+    });
+
+    afterEach(() => {
+      if (savedProjectRootEnv === undefined) delete process.env.MONOMIND_PROJECT_ROOT;
+      else process.env.MONOMIND_PROJECT_ROOT = savedProjectRootEnv;
+    });
+
+    it('is always info status, naming the resolved root and the "git" reason', async () => {
+      mkdirSync(join(dir, '.git'), { recursive: true });
+      const result = await checkProjectRoot();
+      expect(result.name).toBe('Project Root');
+      expect(result.status).toBe('info');
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('.git ancestor');
+    });
+
+    it('reports "starting directory carries .monomind" when the cwd itself has the marker', async () => {
+      mkdirSync(join(dir, '.monomind'), { recursive: true });
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('starting directory carries .monomind');
+    });
+
+    it('discloses an ignored bare .monomind ancestor by name (the o-16 incident)', async () => {
+      // homeState.dir is this test's mocked $HOME; put a bare .monomind (no
+      // .git, no manifest — the exact shape that captured an unrelated
+      // fixture in production) at a parent of the project, and confirm the
+      // check names it instead of silently adopting it.
+      const parent = join(homeState.dir, 'scratch-parent');
+      mkdirSync(join(parent, '.monomind'), { recursive: true });
+      const proj = join(parent, 'fixture-proj');
+      mkdirSync(proj, { recursive: true });
+      process.chdir(proj);
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(proj);
+      expect(result.message).toContain('ignored bare .monomind');
+      expect(result.message).toContain(parent);
+    });
+
+    it('honors MONOMIND_PROJECT_ROOT as an explicit anchor', async () => {
+      const anchor = join(dir, 'anchor');
+      mkdirSync(anchor, { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = anchor;
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(anchor);
+      expect(result.message).toContain('MONOMIND_PROJECT_ROOT anchor');
     });
   });
 

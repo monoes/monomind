@@ -70,6 +70,35 @@ export async function checkConfigFile(): Promise<HealthCheck> {
   };
 }
 
+/** o-16 (AC-6): the marker walk that resolves "this project" for every
+ *  Second Brain store can silently adopt a wrong ancestor — the incident that
+ *  motivated this check was a shared scratch parent's bare `.monomind`
+ *  capturing an unrelated fixture, with no visible symptom until a search
+ *  came back empty. Disclose the resolved root and why it was chosen, so a
+ *  user can see which directory their brain is keyed to without reading code
+ *  or debug logs. Always 'info': the resolution itself is never a health
+ *  problem, only the failure to see it was. */
+export async function checkProjectRoot(): Promise<HealthCheck> {
+  const name = 'Project Root';
+  const { getProjectRootResolution } = await import('../memory/memory-bridge.js');
+  const { root, reason, ignoredBareMonomind } = getProjectRootResolution();
+  const reasonText: Record<typeof reason, string> = {
+    'explicit-anchor': 'MONOMIND_PROJECT_ROOT anchor',
+    git: 'nearest .git ancestor',
+    'monomind-at-start': 'starting directory carries .monomind',
+    'monomind-with-marker': '.monomind ancestor confirmed by a project manifest',
+    'start-fallback': 'no adoptable marker found — using the current directory',
+  };
+  if (reason === 'start-fallback' && ignoredBareMonomind) {
+    return {
+      name,
+      status: 'info',
+      message: `${root} (${reasonText[reason]}; ignored bare .monomind at ${ignoredBareMonomind} — add a project marker there, or set MONOMIND_PROJECT_ROOT, to adopt it)`,
+    };
+  }
+  return { name, status: 'info', message: `${root} (${reasonText[reason]})` };
+}
+
 export async function checkMemoryDatabase(): Promise<HealthCheck> {
   const dbPaths = MEMORY_DB_CANDIDATE_PATHS;
   for (const dbPath of dbPaths) {
