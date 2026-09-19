@@ -106,46 +106,98 @@ export function formatAuthFailureMessage(reason: AuthFailureReason): string {
   return `monoes MCP proxy: ${detail}. ${REAUTH_HINT}`;
 }
 
+/** JSON-RPC messages carried by an SSE body (`data:` lines, events split by a blank line). */
+export function parseSseMessages(body: string): unknown[] {
+  const messages: unknown[] = [];
+  for (const event of body.split(/\r?\n\r?\n/)) {
+    const data = event
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).replace(/^ /, ''))
+      .join('\n');
+    if (!data) continue;
+    try {
+      messages.push(JSON.parse(data));
+    } catch {
+      // A malformed event is skipped; the request still gets its own error below if nothing parsed.
+    }
+  }
+  return messages;
+}
+
+/** Streamable HTTP session state shared by every request of one proxy process. */
+interface McpSession {
+  id?: string;
+}
+
+/**
+ * Forwards one stdio message over MCP Streamable HTTP and returns the
+ * messages to write back: none for a notification the server acknowledged
+ * (202), otherwise the JSON body or every message in an SSE body.
+ */
 async function forwardMessage(
   monoesUrl: string,
   monomindHome: string,
   message: unknown,
   fetchImpl: typeof fetch,
   timeoutMs: number,
+  session: McpSession,
   getToken?: (home: string) => Promise<string | null>,
-): Promise<unknown> {
-  const id = (message as { id?: unknown } | null | undefined)?.id ?? null;
+): Promise<unknown[]> {
+  const rawId = (message as { id?: unknown } | null | undefined)?.id;
+  const isNotification = rawId === undefined;
+  const id = rawId ?? null;
   const auth = await resolveAuthHeader(monomindHome, { getToken });
   if (!auth.ok) {
-    return {
-      jsonrpc: '2.0',
-      id,
-      error: { code: -32000, message: formatAuthFailureMessage(auth.reason) },
-    };
+    if (isNotification) return [];
+    return [
+      {
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32000, message: formatAuthFailureMessage(auth.reason) },
+      },
+    ];
   }
   try {
     const res = await withTimeout(
       fetchImpl(monoesUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...auth.headers },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+          ...(session.id ? { 'Mcp-Session-Id': session.id } : {}),
+          ...auth.headers,
+        },
         body: JSON.stringify(message),
       }),
       timeoutMs,
     );
-    return await res.json();
+    const sessionId = res.headers?.get?.('mcp-session-id');
+    if (sessionId) session.id = sessionId;
+    if (res.status === 202 || res.status === 204) return [];
+    const contentType = res.headers?.get?.('content-type') ?? '';
+    if (contentType.includes('text/event-stream')) {
+      const messages = parseSseMessages(await withTimeout(res.text(), timeoutMs));
+      if (messages.length === 0) throw new Error('empty event stream');
+      return messages;
+    }
+    return [await res.json()];
   } catch {
     // Deliberately generic — never interpolate the caught error. Some fetch
     // implementations attach the request init (including headers) to a
     // thrown error's `cause`/message; string-building from it here would
     // risk leaking the Authorization value into stdout.
-    return {
-      jsonrpc: '2.0',
-      id,
-      error: {
-        code: -32001,
-        message: 'monoes MCP proxy: request to monoes.me failed or timed out.',
+    if (isNotification) return [];
+    return [
+      {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32001,
+          message: 'monoes MCP proxy: request to monoes.me failed or timed out.',
+        },
       },
-    };
+    ];
   }
 }
 
@@ -191,6 +243,7 @@ export async function runMonoesProxy(options: RunProxyOptions = {}): Promise<voi
     return;
   }
 
+  const session: McpSession = {};
   const rl = readline.createInterface({ input: stdin, terminal: false });
   rl.on('line', (line: string) => {
     if (!line.trim()) return;
@@ -203,9 +256,17 @@ export async function runMonoesProxy(options: RunProxyOptions = {}): Promise<voi
       );
       return;
     }
-    forwardMessage(monoesUrl, monomindHome, message, fetchImpl, requestTimeoutMs, options.getToken)
-      .then((response) => {
-        stdout.write(`${JSON.stringify(response)}\n`);
+    forwardMessage(
+      monoesUrl,
+      monomindHome,
+      message,
+      fetchImpl,
+      requestTimeoutMs,
+      session,
+      options.getToken,
+    )
+      .then((responses) => {
+        for (const response of responses) stdout.write(`${JSON.stringify(response)}\n`);
       })
       .catch(() => {
         // forwardMessage itself never rejects (it has its own try/catch),
