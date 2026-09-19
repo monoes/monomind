@@ -417,12 +417,13 @@ if (isMCPMode) {
   // does, so it force-exited every MCP server exactly 5 seconds after it
   // printed "MCP Server started", the detached `--daemon` child included
   // (issue #267). The `-d` parent is excluded: it only spawns that child and
-  // must hand the terminal straight back.
+  // must hand the terminal straight back. `mcp monoes-proxy` is a stdio MCP
+  // server too: without it here, Claude Code saw monoes connect and then fail
+  // 5 seconds later.
   const isMcpServerHost =
     cliArgs[0] === 'mcp' &&
-    cliArgs[1] === 'start' &&
-    !cliArgs.includes('-d') &&
-    !cliArgs.includes('--daemon');
+    ((cliArgs[1] === 'start' && !cliArgs.includes('-d') && !cliArgs.includes('--daemon')) ||
+      cliArgs[1] === 'monoes-proxy');
   cli.run().then(() => {
     if (!isDaemonChild && !isMcpServerHost) {
       // Do NOT call process.exit() here. See
