@@ -206,6 +206,169 @@ describe('privacy-claims (i-078)', () => {
     });
   });
 
+  // §3b (reviewer MAJOR 3, i-078 revision round 1): the tests above can only
+  // confirm rows that already exist — none of them can detect a REAL
+  // outbound host missing from the table entirely, which is the only way
+  // this item actually fails (three such gaps shipped in the first round).
+  // This derives the expected host set from the source itself — every real
+  // fetch()/httpsGet()/http(s).request() call site under packages/*/src —
+  // and fails if a host shows up there with no matching row, verdict, or
+  // reviewed exclusion below. Confirming listed rows cannot find an omitted
+  // one; only re-deriving from the call sites can.
+  describe('§3b — completeness: every automatic fetch/httpsGet call site is covered', () => {
+    const PACKAGE_SRC_ROOTS = [
+      'packages/monofence-ai/src',
+      'packages/@monoes/monobrowse/src',
+      'packages/@monoes/monodesign/src',
+      'packages/@monomind/cli/src',
+      'packages/@monomind/hooks/src',
+      'packages/@monomind/mcp/src',
+      'packages/@monomind/memory/src',
+      'packages/@monomind/monograph/src',
+      'packages/@monomind/routing/src',
+    ];
+    const CALL_SITE = /\b(fetch|httpsGet)\(|\bhttps?\.request\(/;
+
+    /** Every non-test .ts/.mjs file under every package's src/ containing a
+     * real fetch/httpsGet/http(s).request call-site TOKEN — walked fresh at
+     * test time, not a hand-maintained list, which is what lets this go red
+     * when someone adds a new site. (It also flags files where that token
+     * only appears inside a comment, e.g. an illustrative code snippet —
+     * those get an explicit "comment only" exclusion below rather than being
+     * silently skipped, so the reviewed list stays honest about why.) */
+    function findNetworkCallSiteFiles(): string[] {
+      const files: string[] = [];
+      const walk = (dir: string): void => {
+        let entries: ReturnType<typeof readdirSync>;
+        try {
+          entries = readdirSync(join(REPO_ROOT, dir), { withFileTypes: true });
+        } catch {
+          return;
+        }
+        for (const entry of entries) {
+          const rel = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+            walk(rel);
+          } else if (
+            (entry.name.endsWith('.ts') || entry.name.endsWith('.mjs')) &&
+            !entry.name.endsWith('.test.ts')
+          ) {
+            const text = readFileSync(join(REPO_ROOT, rel), 'utf-8');
+            if (CALL_SITE.test(text)) files.push(rel);
+          }
+        }
+      };
+      for (const root of PACKAGE_SRC_ROOTS) walk(root);
+      return files.sort();
+    }
+
+    // Reviewed, one reason each. A file lands here ONLY if its destination
+    // is local-only (never leaves the machine), a host/credential the USER
+    // configured (covered by a "what's not in this table, on purpose"
+    // bullet), already covered by a dead-code verdict above, or contains the
+    // call-site token only inside a comment. Everything NOT listed here must
+    // have a literal host, and that host must be named in doc/privacy.md —
+    // checked below. If a listed file's real destination ever changes,
+    // "every excluded file still has a real call site" (next test) does NOT
+    // catch that — only re-reading this list on review does.
+    const REVIEWED_EXCLUSIONS: Record<string, string> = {
+      // Local-only: hostname is 'localhost'/'127.0.0.1'/a loopback literal.
+      'packages/@monomind/cli/src/mcp-server.ts':
+        'local health check against its own MCP server process (http://host:port/health)',
+      'packages/@monomind/cli/src/commands/events.ts': 'local dashboard control-port stream',
+      'packages/@monomind/cli/src/commands/init-upgrade.ts':
+        'local dashboard control-port progress event (default port 4242)',
+      'packages/@monomind/cli/src/commands/org.ts':
+        'local dashboard control-port, default http://localhost:4242',
+      'packages/@monomind/cli/src/orgrt/forwarder.ts':
+        'local dashboard control.json url, default http://localhost:4242',
+      'packages/@monomind/cli/src/mcp-tools/browser-tools.ts':
+        'local Chrome DevTools Protocol (127.0.0.1)',
+      'packages/@monomind/cli/src/ui/server.mjs':
+        "its own local self-callbacks (hostname: 'localhost') and 127.0.0.1 status probe",
+      'packages/@monoes/monobrowse/src/browser/browser.ts':
+        'local Chrome DevTools Protocol (127.0.0.1)',
+      'packages/@monoes/monobrowse/src/browser/cdp.ts':
+        'local Chrome DevTools Protocol (127.0.0.1)',
+      'packages/@monoes/monobrowse/src/cli/commands.ts':
+        'local Chrome DevTools Protocol (127.0.0.1)',
+      'packages/@monomind/monograph/src/web/react-ui.ts':
+        "relative fetch('/api/search') to its own serving origin, not an absolute host",
+
+      // User-configured provider/endpoint/credential — "Configuring an org
+      // role..." / "Distributed org coordination..." bullets.
+      'packages/@monomind/cli/src/commands/providers.ts':
+        'reachability check against a user-configured Ollama base URL',
+      'packages/@monomind/cli/src/orgrt/endpoint-roles.ts':
+        "a role's endpoint.url, configured by the user in their own org/role file",
+      'packages/@monomind/cli/src/commands/org-observe.ts':
+        'a remote org host configured via org_observe --remote',
+      'packages/@monomind/cli/src/orgrt/cross-org.ts': "a remote org's url, configured by the user",
+      'packages/@monomind/cli/src/ui/routes-org.mjs':
+        'a configured remote org host / cross-broker url',
+      'packages/@monomind/mcp/src/oauth.ts': "a user-configured OAuth provider's tokenEndpoint",
+
+      // User-explicit target — "A handful of commands send data to a target
+      // you supply..." bullet.
+      'packages/@monomind/cli/src/commands/security-misc.ts':
+        'security redteam --target <url>, a target the user supplies',
+      'packages/@monomind/monograph/src/security/safe-fetch.ts':
+        "SSRF-guarded fetch of a URL the caller (e.g. Monograph's URL ingest) passed it",
+      'packages/@monomind/monograph/src/wiki/gist-publisher.ts':
+        "publishing to a GitHub gist with the user's own token",
+
+      // Already covered by a dead-code verdict above — no live caller.
+      'packages/@monomind/monograph/src/license/manager.ts': 'api.fallow.cloud verdict (dead code)',
+      'packages/@monomind/monograph/src/coverage/cloud-client.ts':
+        'api.fallow.cloud verdict (dead code)',
+      'packages/@monomind/monograph/src/coverage/upload-inventory.ts':
+        'api.fallow.cloud verdict (dead code)',
+      'packages/@monomind/monograph/src/coverage/upload-source-maps.ts':
+        'api.fallow.cloud verdict (dead code)',
+      'packages/@monomind/mcp/src/sampling.ts': 'api.anthropic.com verdict (dead code)',
+      'packages/@monomind/monograph/src/wiki/providers.ts':
+        'api.openai.com verdict (unreachable — llmConfig never set by any non-test caller)',
+
+      // Comment only — the token appears inside a code comment, not a call.
+      'packages/@monomind/cli/src/orgrt/role-sandbox.ts':
+        'illustrative example inside a comment ("fetch(\'https://registry.npmjs.org/…\')"), not a real call',
+    };
+
+    it('the exclusion list is not stale: every excluded file still has a real call-site token', () => {
+      const found = new Set(findNetworkCallSiteFiles());
+      for (const file of Object.keys(REVIEWED_EXCLUSIONS)) {
+        expect(
+          found.has(file),
+          `${file} is excluded but no longer contains a fetch/httpsGet/request token — remove the stale exclusion`,
+        ).toBe(true);
+      }
+    });
+
+    it('every non-excluded call-site file has a literal host, and every such host is named in doc/privacy.md', () => {
+      const privacy = readFileSync(join(REPO_ROOT, 'doc', 'privacy.md'), 'utf-8').toLowerCase();
+      const HOST = /https?:\/\/([a-zA-Z0-9.-]+)/g;
+      const unreviewed = findNetworkCallSiteFiles().filter((f) => !(f in REVIEWED_EXCLUSIONS));
+
+      for (const file of unreviewed) {
+        const text = readFileSync(join(REPO_ROOT, file), 'utf-8');
+        const hosts = [...new Set([...text.matchAll(HOST)].map((m) => m[1].toLowerCase()))].filter(
+          (h) => h !== 'localhost' && !/^(\d{1,3}\.){3}\d{1,3}$/.test(h),
+        );
+        expect(
+          hosts.length,
+          `${file} has a fetch/httpsGet/request call site with no literal https?:// host found in the file — it needs either a doc/privacy.md row, a dead-code verdict, or a reviewed exclusion (with a reason) in this test, not silence`,
+        ).toBeGreaterThan(0);
+        for (const host of hosts) {
+          expect(
+            privacy.includes(host),
+            `${file} calls out to "${host}", which is not named anywhere in doc/privacy.md`,
+          ).toBe(true);
+        }
+      }
+    });
+  });
+
   describe('§4 — the true, Second-Brain-scoped claims survive unchanged', () => {
     it('README.md still says notes never leave the computer, verbatim', () => {
       const readme = readFileSync(join(REPO_ROOT, 'README.md'), 'utf-8');
