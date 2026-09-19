@@ -74,6 +74,11 @@ export function resolveProviderEnv(
         const tok = parentEnv[cfg.authTokenEnv];
         if (!tok) throw new Error(`provider base-url: env var ${cfg.authTokenEnv} is not set`);
         env.ANTHROPIC_AUTH_TOKEN = tok;
+      } else {
+        // o-18 review round 2: neither field is required (a real self-hosted,
+        // no-auth gateway configures baseUrl alone), so this branch must not
+        // silently leave the ambient token in place.
+        delete env.ANTHROPIC_AUTH_TOKEN;
       }
       break;
     }
