@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Node.js >=22.12.0 is now required by every published package** (root `monomind`, `@monoes/monomindcli`, `@monoes/hooks`, `@monoes/monograph`, `@monoes/monobrowse`, `@monoes/mcp`, `@monoes/memory`, `@monoes/routing`, `@monoes/monodesign`, `monofence-ai`). The declared floor had already stopped matching reality: `engines.node` was `>=20.0.0` in some manifests, `>=18.0.0` in others, and absent from four published packages entirely, while `puppeteer@25.3.0` and `ai@7.0.59` — both real dependencies — already required `>=22.12.0`. `monomind doctor` reported "pass" on Node 20 the whole time; it now reports `warn`/`fail` below `22.12.0` and names the real floor. Node 20 reached EOL 2026-04-30.
+  What this means in practice, measured on a real Node 20.20.2 install of the packed packages, **differs by installer and is not a blanket block**: `npm install` with `engine-strict=true` (this repo's own `.npmrc`, i.e. installing this workspace as a contributor) hard-fails with `EBADENGINE`, naming the exact package and floor. A default `npm install` (`engine-strict` unset — what `npm install monomind` gives a real end user) only **warns** `EBADENGINE` for every affected package and installs anyway. `pnpm install`/`pnpm add`, with or without `engine-strict`, gives **no warning or error at all** — it silently installs a package whose declared engines the running Node does not satisfy. A dedicated runtime floor check in the CLI entrypoint, so an unsupported Node actually gets stopped or clearly warned regardless of installer, is a candidate follow-up, not part of this change.
+  `.github/workflows/publish-smoke-test.yml`'s smoke jobs move off Node 20 onto 22 and 26.
+
 ## [2.11.12] — 2026-09-19
 
 No consumer-visible change: the CLI is identical to 2.11.11. This release
