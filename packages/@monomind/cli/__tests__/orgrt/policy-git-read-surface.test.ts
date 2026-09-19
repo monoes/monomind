@@ -69,7 +69,9 @@ const READ_ROWS: string[] = [
   'git reflog',
   'git reflog -5',
   'git reflog --all', // options-only form — targets the default `show`, not a write
+  'git reflog --date=iso', // options-only — proves the branch isn't just `--all`/`-5` special-cased
   'git reflog show main',
+  'git reflog show -5 HEAD', // explicit `show` with options after it — unaffected by the options-only branch
   'git reflog list',
   'git reflog exists refs/heads/main',
   'git stash list',
@@ -84,10 +86,30 @@ const READ_ROWS: string[] = [
 const COMMIT_ALLOWED_ROWS: string[] = [
   'git cherry-pick abc',
   'git reflog expire --all',
-  'git reflog delete HEAD@{0}',
+  'git reflog delete HEAD@{0}', // over-determined: denied by the metachar guard (the `{`/`}`), not reached the allowlist
+  'git reflog delete refs/heads/x', // same verb, no metachar — actually exercises the allowlist
   'git reflog drop --all',
   'git reflog drop refs/heads/main',
   'git reflog write refs/heads/x aaa bbb msg',
+  // review round 2 blocker: an options-only PREFIX check (allow as soon as
+  // args[0] starts with '-') never examined what followed, so all six of
+  // these went DENY→ALLOW at read. cmd_reflog only honours the verb at
+  // argv[0] on git 2.55.0 — `--all expire` parses as `show --all expire` —
+  // but reflogIsRead must not depend on that being true of every git a role
+  // might run; requiring EVERY token to be option-shaped closes it regardless.
+  'git reflog --all expire',
+  'git reflog -5 expire --all',
+  'git reflog --all drop',
+  'git reflog -n drop --all',
+  'git reflog --all write refs/heads/x a b m',
+  'git reflog -- expire',
+  // case-sensitivity pin (round 1 removed the wrong-direction assertion here;
+  // this is the correct one): 'SHOW' doesn't match the lowercase-only
+  // /^(show|list|exists)$/, so it's denied the same bounded way `git reflog
+  // HEAD` is — not a case-folding vulnerability, just an unrecognized
+  // positional. If refineSub/reflogIsRead ever case-folds, this flips to
+  // ALLOW and catches it.
+  'git reflog SHOW main',
   // reflogIsRead's accepted cost (review round 2): a real ref name as the
   // first positional is NOT recognized as read-safe — real git would treat
   // this as an implicit `show <ref>` (a read), but this allowlist can't tell
@@ -226,9 +248,16 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
   // inventory line, strips the "(not `X`/`Y`)" exclusion notes (so a negative
   // example like `cherry-pick` isn't misread as a positive claim), and pulls
   // every remaining backticked token as a read-allowed claim.
-  // Rejects: any classifier that permits an unrecognised reflog verb on a
-  // git version we have not seen (round 2's actual concern), as well as a
-  // hand-copied list that silently drifts from the doc (round 1's).
+  // Rejects: a doc whose read-allowed claims drift from the classifier —
+  // e.g. the doc naming a subcommand/form as read-safe that the code
+  // actually denies. (It does NOT reject the reverse — a classifier that
+  // permits more than the doc claims — since it only checks doc-claimed
+  // tokens ARE allowed, not that nothing else is. Round 1's version couldn't
+  // even do that much: it hand-copied a list instead of reading the doc, so
+  // it could not detect drift in either direction. Flagged in review round 2
+  // for over-claiming what this test protects against — worth being
+  // precise about, since a "Rejects" note that overstates its own coverage
+  // is the same failure this annotation mechanism exists to catch.)
   it('doc/concepts/org-runtime.md agrees with the classifier: every subcommand it calls read-allowed is a true row above', async () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const docPath = join(here, '../../../../../doc/concepts/org-runtime.md');

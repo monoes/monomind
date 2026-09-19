@@ -97,13 +97,26 @@ const GIT_SUB_READ_ARGS: Record<string, RegExp> = {
  *  over-denial class. It is self-documenting (the deny message names the
  *  working form, `git reflog show <ref>`) and bounded, which is the trade a
  *  security boundary should take over an unbounded silent under-denial on a
- *  git version nobody here has run. */
+ *  git version nobody here has run.
+ *
+ *  Round 2's first cut allowed as soon as args[0] started with '-', which
+ *  reintroduced the exact dependency the allowlist exists to remove: it
+ *  trusted THIS git's parser to keep ignoring everything after an unknown
+ *  leading option, so `git reflog --all expire` went DENY→ALLOW even though
+ *  no positional past args[0] was ever examined. reflogIsRead requires EVERY
+ *  token to be option-shaped before falling back to the default `show`. */
 function reflogIsRead(args: string[]): boolean {
   if (args.some((a) => /[$`{}*?[]/.test(a))) return false; // fail closed
-  const first = args[0];
-  if (first === undefined) return true; // bare `git reflog` == `show`
-  if (first.startsWith('-')) return true; // options-only form (`-5`, `--all`) — targets the default `show`
-  return /^(show|list|exists)$/.test(first);
+  // EVERY token must be option-shaped, not just the first — cmd_reflog only
+  // ever honours the verb at argv[0] (OPT_SUBCOMMAND), so `git reflog --all
+  // expire` parses as `show --all expire` on git 2.55.0, not `expire --all`.
+  // A prefix check (allow as soon as args[0] starts with '-') let `--all
+  // expire`, `-n drop --all` and `-- expire` all through as false reads
+  // (#299 review round 2) — exactly the "trust this git's parser" dependency
+  // this allowlist exists to remove. `[].every(...)` is vacuously true, so
+  // this also covers the bare `git reflog` case with no separate branch.
+  if (args.every((a) => a.startsWith('-'))) return true; // options only (or none) -> targets the default `show`
+  return /^(show|list|exists)$/.test(args[0]);
 }
 
 function refineSub(sub: string, args: string[]): string {
