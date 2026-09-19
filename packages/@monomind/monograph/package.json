@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monograph",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "type": "module",
   "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
   "main": "dist/src/index.js",
