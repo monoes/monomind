@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MASTERMIND_SKILLS } from '../mastermind/manifest-data.js';
+import type { Command } from '../types.js';
 import type { InitResult } from './types.js';
 
 // ESM-compatible __dirname
@@ -15,6 +16,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const MAX_EXEC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/**
+ * i-041/i-117: the generated CLAUDE.md / CAPABILITIES.md CLI-commands table
+ * used to hardcode each command's subcommand count (drifts every release —
+ * real init/agent/monoswarm/mcp counts were all wrong at 091d8e05c). Reading
+ * `command.subcommands.length` directly from the live `Command` object
+ * fixes that, but `subcommands` is typed optional on `Command` — a command
+ * with none is a real, honest 0, not a type error to paper over.
+ */
+export function subcommandCount(command: Command): number {
+  return command.subcommands?.length ?? 0;
+}
 const CANONICAL_MASTERMIND_SKILLS = MASTERMIND_SKILLS.map((skill) => skill.source);
 
 /**
@@ -22,11 +35,20 @@ const CANONICAL_MASTERMIND_SKILLS = MASTERMIND_SKILLS.map((skill) => skill.sourc
  * (npm silently skips optionalDependencies it can't satisfy — see
  * docs/AUDIT-BACKLOG.md P1-1/P1-23). Used to caveat generated docs instead
  * of presenting these features as unconditionally working.
+ *
+ * i-041/i-117: `require.resolve` (via `createRequire`) cannot satisfy a
+ * package whose `exports` map gates its root entry behind an `import`
+ * condition only — `@monoes/hooks` and `monofence-ai` both do — so it always
+ * threw for them, reporting "unavailable" even when correctly installed.
+ * `import.meta.resolve()` resolves both require- and import-only export
+ * shapes; it is synchronous and throws on failure (not a truthiness check),
+ * so the try/catch shape here is unchanged. The sole helper for this
+ * question — claudemd-generator.ts's detectOptionalPackages() calls this
+ * rather than re-implementing its own resolver.
  */
 export function _isOptionalPackageResolvable(pkg: string): boolean {
   try {
-    const req = createRequire(import.meta.url);
-    req.resolve(pkg);
+    import.meta.resolve(pkg);
     return true;
   } catch {
     return false;
