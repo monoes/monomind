@@ -99,6 +99,31 @@ describe('checkNodeVersion', () => {
     expect(check.status).toBe('warn');
     expect(check.fix).toContain('nvm install 22');
   });
+
+  // i-090 revision: doctor.ts:64 said "(>= 22.12.0 recommended)" on the warn
+  // path while every manifest says "required" — same word must be used
+  // regardless of status. And "nvm install 22" can land on 22.11.x, which
+  // still warns — the fix string must name 22.12 exactly.
+  it('says "required", not "recommended", on the warn path — every manifest requires it', async () => {
+    const check = await checkNodeVersion('v20.19.0');
+    expect(check.status).toBe('warn');
+    expect(check.message).toContain('required');
+    expect(check.message).not.toContain('recommended');
+  });
+
+  it('names 22.12 exactly in the fix string — "nvm install 22" alone can land on 22.11.x, which still warns', async () => {
+    const check = await checkNodeVersion('v20.19.0');
+    expect(check.fix).toContain('22.12');
+  });
+
+  // i-090 revision: the parameter is part of an exported signature now, not
+  // just an internal default — a caller passing a bare "22.12.0" (no leading
+  // "v", the shape Node's own semver range strings use) must not be
+  // mis-parsed as major=2.
+  it('does not assume a leading "v" — a bare "22.12.0" still evaluates as the real 22.12.0', async () => {
+    const check = await checkNodeVersion('22.12.0');
+    expect(check.status).toBe('pass');
+  });
 });
 
 describe('checkNpmVersion', () => {

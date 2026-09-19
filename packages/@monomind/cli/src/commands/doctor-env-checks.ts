@@ -45,9 +45,10 @@ export async function checkNodeVersion(version: string = process.version): Promi
   // "pass" while `npm install` under engine-strict=true refused the package).
   const requiredMajor = 22;
   const requiredMinor = 12;
-  const requiredLabel = `${requiredMajor}.${requiredMinor}.0`;
+  const requiredMajorMinor = `${requiredMajor}.${requiredMinor}`;
+  const requiredLabel = `${requiredMajorMinor}.0`;
   const [major, minor] = version
-    .slice(1)
+    .replace(/^v/, '')
     .split('.')
     .map((n) => parseInt(n, 10));
   const meetsFloor = major > requiredMajor || (major === requiredMajor && minor >= requiredMinor);
@@ -61,15 +62,15 @@ export async function checkNodeVersion(version: string = process.version): Promi
     return {
       name: 'Node.js Version',
       status: 'warn',
-      message: `${version} (>= ${requiredLabel} recommended)`,
-      fix: 'nvm install 22 && nvm use 22',
+      message: `${version} (>= ${requiredLabel} required)`,
+      fix: `nvm install ${requiredMajorMinor} && nvm use ${requiredMajorMinor}`,
     };
   }
   return {
     name: 'Node.js Version',
     status: 'fail',
     message: `${version} (>= ${requiredLabel} required)`,
-    fix: 'nvm install 22 && nvm use 22',
+    fix: `nvm install ${requiredMajorMinor} && nvm use ${requiredMajorMinor}`,
   };
 }
 
