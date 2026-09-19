@@ -1152,8 +1152,8 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     // string the SDK happened to produce for this role.
     const stopMsg = (from: string) =>
       events.find(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === from)?.msg ?? '';
-    expect(stopMsg('boss')).not.toMatch(/aborted by user/i); // FAILS pre-fix
-    expect(stopMsg('boss')).not.toMatch(/Operation aborted/); // FAILS pre-fix
+    expect(stopMsg('boss')).not.toMatch(/aborted by user/i); // FAILS pre-fix — boss's abort string
+    expect(stopMsg('reviewer')).not.toMatch(/Operation aborted/); // FAILS pre-fix — reviewer's abort string
   }, 10_000);
 
   it('logs every role\'s planned stop after org_complete with the same wording, naming org_complete rather than the SDK abort string (#304)', async () => {
@@ -1200,7 +1200,9 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     await d.stopOrg('alpha', { closedBy: 'org-complete' });
 
     const alphaStops = alpha.busEvents().filter(e => e.type === 'status' && e.reason === 'agent-stopped');
-    expect(alphaStops.length).toBeGreaterThanOrEqual(2);
+    // Pin "every role logged": all 3 defined roles (boss, reviewer, writer)
+    // are idle at stop time, so all 3 must report — not just "at least 2".
+    expect(alphaStops.length).toBe(3);
     for (const e of alphaStops) {
       expect(e.msg).toMatch(/stopped with the org \(org_complete\)/);
       expect(e.msg).not.toMatch(/aborted by user/i);
