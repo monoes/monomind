@@ -102,12 +102,7 @@ RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
   Then start each CLI in `$P`, have it list the monomind MCP tools, and call `monograph_query`. **PASS:** `platforms doctor` prints a per-platform report (the org saw 16 platforms with `next:` hints), and each CLI gets a tool result. The configs use `npx monomind@latest`, so this exercises the published version. Record which CLIs worked; this feeds i-050.
 
 - [ ] **#13 — GitHub-side work only you can do.**
-  - **(a)** File or discard the drafted issues in `$RUN/issues/` (`gh issue create --repo monoes/monomind --title "…" --body-file $RUN/issues/N.md`):
-    1. Biome's `"!**/.monomind"` ignore makes lint check 0 files in worktrees under `.monomind/`.
-    2. The org git guard exports `GIT_CONFIG_KEY_*` into every child process (17 host tests broke), and policy forbids diagnosing it.
-    3. An intermittent `tsgo` SIGSEGV under parallel builds.
-    4. `git stash` is shared across worktrees (a near-miss with your stash).
-    5. `.git/worktrees/*` metadata becomes undeletable (suspected watcher handles).
+  - **(a)** Done 2026-09-19: the org-runtime problems from the run are filed as #297 (biome ignores worktrees under `.monomind/`), #298 (git-guard env breaks the host repo's git tests), #299 (`policy.git: read` denies read-only commands such as `ls-remote`/`merge-base`), #300 (`git stash` is shared across worktrees), #301 (sandboxed roles leave `.git/worktrees/*` behind; a plain `git worktree prune` outside the sandbox clears them), #302 (the boss can end a run as `partial` with the backlog full), #303 (file tools can't reach sandbox-writable scratch), #304 ("aborted by user" on a planned stop). The one-off tsgo SIGSEGV was not filed (never reproduced; upstream compiler). The next org run takes these issues as items.
   - **(b)** Decide the GitHub/publishing items the org skipped: CONTRIBUTING and issue template (i-004), coverage and license gates (i-005), Windows CI (i-008), publish/tag folding and Renovate (i-011), and the `mcp`/`claude-code` repo topics (from i-078).
 
   **PASS:** each is done, or declined here.
