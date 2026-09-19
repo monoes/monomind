@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square)](https://www.npmjs.com/package/@monoes/monograph)
 [![license](https://img.shields.io/npm/l/@monoes/monograph?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
 **Code intelligence as a graph** — tree-sitter parses your codebase into a SQLite-backed knowledge graph of files, functions, classes, imports, and call relationships. Query blast radius, find callers, and navigate architecture without grep.
 

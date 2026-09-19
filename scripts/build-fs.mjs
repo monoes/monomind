@@ -11,8 +11,8 @@
  *
  * Node's own fs covers all of it, so this adds no dependency — rimraf, shx and
  * friends would each be a new supply-chain edge for something the stdlib
- * already does. Node >= 20 is the floor, where rmSync and cpSync are both
- * available.
+ * already does. rmSync and cpSync only need Node >= 16.7, well below this
+ * repo's own >= 22.12.0 floor (i-090).
  *
  * Subcommands are deliberately explicit rather than mirroring `cp`'s
  * file-vs-directory inference, so a caller can never get directory semantics by

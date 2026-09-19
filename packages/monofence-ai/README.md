@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/monofence-ai?style=flat-square)](https://www.npmjs.com/package/monofence-ai)
 [![license](https://img.shields.io/npm/l/monofence-ai?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D18-blue?style=flat-square)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
 
 **AI manipulation defense** — prompt injection, jailbreak, homoglyph evasion, base64 encoding, multi-turn escalation, and PII detection. Sub-millisecond, 50+ patterns, self-learning.
 

@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/mcp.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/mcp)
 [![license](https://img.shields.io/npm/l/@monoes/mcp.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
 
 **Standalone MCP server engine** — Version `1.0.1`. Supports stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, rate limiting, and connection pooling. Zero `@monomind/*` dependencies.
 

@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/hooks.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/hooks)
 [![license](https://img.shields.io/npm/l/@monoes/hooks.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.12-blue?style=flat-square)](https://nodejs.org)
 
 **A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 9 background workers for Monomind.
 

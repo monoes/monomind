@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/monobrowse?style=flat-square)](https://www.npmjs.com/package/@monoes/monobrowse)
 [![license](https://img.shields.io/npm/l/@monoes/monobrowse?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
 **Browser automation via Chrome DevTools Protocol** — navigate, click, fill forms, take screenshots, and evaluate JavaScript in a real Chrome browser. No Puppeteer, no Playwright, no external binaries — just CDP over WebSocket.
 

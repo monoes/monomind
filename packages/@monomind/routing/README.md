@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@monoes/routing?style=flat-square)](https://www.npmjs.com/package/@monoes/routing)
 [![license](https://img.shields.io/npm/l/@monoes/routing?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.12-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
 > **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v1.0.3` / Monomind CLI `v2.9.0`).
 
