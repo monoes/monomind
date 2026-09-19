@@ -401,6 +401,22 @@ function getDbPath(customPath?: string): string {
   const resolved = realOrResolved(path.resolve(customPath));
   // Guard against path traversal from MCP inputs: only allow paths inside the
   // project, the per-project home data dir, or the global brain.
+  //
+  // STATED LIMIT (o-16 revision 2, verifier): `validateAnchor` resolves a
+  // `MONOMIND_PROJECT_ROOT` anchor's real path ONCE, and `getProjectRoot()`
+  // then returns that cached string on every subsequent call in this
+  // process (see `_rootCacheVal` above) — but the line below calls
+  // `realOrResolved()` (a fresh `fs.realpathSync`) on that cached string
+  // EVERY time `getDbPath` runs. If the filesystem entry at the anchor path
+  // is swapped for a symlink to `/` (or anywhere else) AFTER validation but
+  // BEFORE a later call here, this re-resolves to the new real target live,
+  // and the guard is bypassed for that call — a classic TOCTOU gap. NOT
+  // defended against: closing it properly means validating and consuming a
+  // single resolved handle rather than a path string, which is a real
+  // design change and out of scope for this fix. Accepted because it needs
+  // filesystem write access at the exact anchor path, timed against a live
+  // process — an attacker with that capability already has easier routes
+  // than this guard.
   const relCwd = path.relative(realOrResolved(getProjectRoot()), resolved);
   const relHome = path.relative(realOrResolved(projectDataDir()), resolved);
   const relGlobal = path.relative(realOrResolved(getGlobalBrainDir()), resolved);

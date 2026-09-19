@@ -335,6 +335,15 @@ describe('getProjectRoot', () => {
     // through even after leg A/B closed the literal-'/' and non-existent
     // cases. validateAnchor now resolves and validates the REAL path, so
     // this must be rejected the same way a literal '/' is.
+    //
+    // STATED LIMIT this test does NOT cover (verifier, o-16 revision 2): a
+    // TOCTOU gap remains between validateAnchor's ONE-TIME real-path
+    // resolution and getDbPath's guard, which re-resolves the cached path
+    // fresh on EVERY call — see the comment at getDbPath's `relCwd` line in
+    // memory-bridge.ts. Swapping the filesystem entry at the anchor path
+    // for a symlink to '/' AFTER this test's validation but BEFORE a later
+    // guard check would bypass it live; this test only proves validation
+    // rejects a symlink that is ALREADY pointing at '/' at validation time.
     it('a symlinked MONOMIND_PROJECT_ROOT anchor whose real target is "/" does not widen the guard (AC-5, leg C)', async () => {
       const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
       marker(root, '.git');
