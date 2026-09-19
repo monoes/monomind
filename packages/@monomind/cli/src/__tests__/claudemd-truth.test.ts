@@ -137,6 +137,44 @@ describe('claudemd-truth (i-041/i-117)', () => {
       expect(generated).not.toMatch(/\| `monoswarm` \| 6 \|/); // real is 5
       expect(generated).not.toMatch(/\| `mcp` \| 9 \|/); // real is 11
     });
+
+    // dev-lead follow-up round: reviewer found the SAME defect one section
+    // down — the "Advanced Commands" table (security/performance/providers/
+    // guidance/doctor/completions) was still hardcoded. Four of five
+    // happened to be right (6/4/4/1) and `doctor` had drifted (table said 1,
+    // real is 0 — doctor is a flat, flags-only command with no
+    // `subcommands` array at all). Imports each Command object directly as
+    // ground truth, same discipline as the worker-names test above.
+    it('the Advanced Commands table is derived too, including the zero-subcommand doctor row', async () => {
+      const { securityCommand } = await import('../commands/security.js');
+      const { performanceCommand } = await import('../commands/performance.js');
+      const { providersCommand } = await import('../commands/providers.js');
+      const { guidanceCommand } = await import('../commands/guidance.js');
+      const { doctorCommand } = await import('../commands/doctor.js');
+      const { completionsCommand } = await import('../commands/completions.js');
+
+      const generated = await generatedCapabilities();
+      const advanced = [
+        ['security', securityCommand],
+        ['performance', performanceCommand],
+        ['providers', providersCommand],
+        ['guidance', guidanceCommand],
+        ['doctor', doctorCommand],
+        ['completions', completionsCommand],
+      ] as const;
+
+      for (const [name, command] of advanced) {
+        const count = command.subcommands?.length ?? 0;
+        expect(generated, `${name} should render its live subcommand count`).toContain(
+          `\`${name}\` | ${count}`,
+        );
+      }
+      // The specific drift the reviewer found: doctor is a real 0, not the
+      // hardcoded 1 — and rendering a bare "0" without context reads as an
+      // oddity, so the row must still say WHY it's zero.
+      expect(doctorCommand.subcommands).toBeUndefined();
+      expect(generated).toContain('`doctor` | 0 | Health diagnostics — flat command, flags only');
+    });
   });
 
   describe('§2 — worker count is a derived build-time constant', () => {

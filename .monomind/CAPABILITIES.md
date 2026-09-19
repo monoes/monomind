@@ -135,7 +135,7 @@ npx monomind monoswarm monitor
 | `performance` | 4 | Profiling & benchmarks |
 | `providers` | 4 | AI provider config |
 | `guidance` | 1 | Governance gate setup |
-| `doctor` | 1 | Health diagnostics |
+| `doctor` | 0 | Health diagnostics — flat command, flags only (`--component` selects a category) |
 | `completions` | 4 | Shell completions |
 
 ### Example Commands

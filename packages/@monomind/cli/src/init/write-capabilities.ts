@@ -5,12 +5,18 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { agentCommand } from '../commands/agent.js';
+import { completionsCommand } from '../commands/completions.js';
 import { configCommand } from '../commands/config.js';
+import { doctorCommand } from '../commands/doctor.js';
+import { guidanceCommand } from '../commands/guidance.js';
 import { hooksCommand } from '../commands/hooks.js';
 import { initCommand } from '../commands/init.js';
 import { mcpCommand } from '../commands/mcp.js';
 import { memoryCommand } from '../commands/memory.js';
 import { monoswarmCommand } from '../commands/monoswarm.js';
+import { performanceCommand } from '../commands/performance.js';
+import { providersCommand } from '../commands/providers.js';
+import { securityCommand } from '../commands/security.js';
 import { sessionCommand } from '../commands/session.js';
 import { statusCommand } from '../commands/status.js';
 import { taskCommand } from '../commands/task.js';
@@ -175,12 +181,12 @@ npx monomind monoswarm monitor
 ### Advanced Commands
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`security\` | 6 | Security scanning |
-| \`performance\` | 4 | Profiling & benchmarks |
-| \`providers\` | 4 | AI provider config |
-| \`guidance\` | 1 | Governance gate setup |
-| \`doctor\` | 1 | Health diagnostics |
-| \`completions\` | 4 | Shell completions |
+| \`security\` | ${subcommandCount(securityCommand)} | Security scanning |
+| \`performance\` | ${subcommandCount(performanceCommand)} | Profiling & benchmarks |
+| \`providers\` | ${subcommandCount(providersCommand)} | AI provider config |
+| \`guidance\` | ${subcommandCount(guidanceCommand)} | Governance gate setup |
+| \`doctor\` | ${subcommandCount(doctorCommand)} | Health diagnostics — flat command, flags only (\`--component\` selects a category) |
+| \`completions\` | ${subcommandCount(completionsCommand)} | Shell completions |
 
 ### Example Commands
 \`\`\`bash
