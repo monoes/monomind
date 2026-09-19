@@ -18,7 +18,7 @@ MONOMIND_MCP_TRANSPORT=stdio
 
 ## Doctor Health Checks
 
-`npx monomind@latest doctor` checks: version freshness, Node 20+, npm, Claude Code CLI, git/git repo, config, memory DB, API keys, MCP servers, disk space, TypeScript build tools, monograph index + freshness, memory package, helpers freshness, monoes integration, guidance gates, gitignore coverage, agent registry, memory proficiency, worker metrics freshness, security audit findings.
+`npx monomind@latest doctor` checks: version freshness, Node 22.12+, npm, Claude Code CLI, git/git repo, config, memory DB, API keys, MCP servers, disk space, TypeScript build tools, monograph index + freshness, memory package, helpers freshness, monoes integration, guidance gates, gitignore coverage, agent registry, memory proficiency, worker metrics freshness, security audit findings.
 
 ## Hooks Quick Reference
 
