@@ -9,10 +9,10 @@
  * ClaudeAgentRunner (mock queryFn — no real SDK).
  */
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ClaudeAgentRunner } from '../../src/orgrt/agent-runner.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { gitCommonDir, prepareGitGuard } from '../../src/orgrt/git-guard.js';
@@ -263,6 +263,46 @@ describe('ClaudeAgentRunner sandbox pass-through', () => {
 });
 
 describe('resolveRoleGitEnforcement', () => {
+  // #298: this test process is itself an org role below policy.git 'push', so
+  // process.env already carries the OUTER git guard's own GIT_CONFIG_COUNT +
+  // GIT_CONFIG_KEY_n/VALUE_n (git-guard.ts). prepareGitGuard defaults to
+  // reading process.env, and resolveRoleGitEnforcement's `build()` closure
+  // doesn't forward its own injectable `env` arg down to it — so "installs the
+  // placeholder excludes only when the sandbox actually runs" could see a
+  // stray core.excludesFile that isn't the one this test built. Strip the
+  // ambient guard for each test in this describe only — other describes below
+  // (e.g. "session wiring") intentionally compare against live process.env and
+  // must not be touched. A checked-in test sanitising its own process.env is
+  // not an env-guard bypass: policy-git.ts's ENV_SETTERS rule governs shell
+  // commands a role WRITES.
+  //
+  // Built as an ALLOWLIST from scratch, not by inheriting process.env and
+  // subtracting known GIT_CONFIG_* keys: a subtraction is a deny-list over a
+  // set GIT defines, and it fails open the same way #299's original reflog
+  // deny-list did — it would miss GIT_CONFIG_PARAMETERS and GIT_CONFIG_GLOBAL/
+  // SYSTEM/NOSYSTEM (confirmed in `man git`, git 2.55.0, §ENVIRONMENT) and any
+  // config-injection variable a future git adds. HOME points at an empty
+  // scratch dir so no ambient ~/.gitconfig leaks in either — `scratchRepo()`
+  // in this describe's tests spawns real `git init`/`git remote add` calls
+  // that inherit this same allowlisted env.
+  let originalEnv: NodeJS.ProcessEnv;
+  let hermeticHome: string;
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+    hermeticHome = mkdtempSync(join(tmpdir(), 'git-hermetic-home-'));
+    for (const k of Object.keys(process.env)) delete process.env[k];
+    Object.assign(process.env, {
+      PATH: originalEnv.PATH,
+      HOME: hermeticHome,
+      TMPDIR: originalEnv.TMPDIR,
+    });
+  });
+  afterEach(() => {
+    for (const k of Object.keys(process.env)) delete process.env[k];
+    Object.assign(process.env, originalEnv);
+    rmSync(hermeticHome, { recursive: true, force: true });
+  });
+
   const setup = (policy: Record<string, unknown> = {}) => {
     const { base, repo } = scratchRepo();
     const bus = new OrgBus('o', 'r', tmp('bus-'));
