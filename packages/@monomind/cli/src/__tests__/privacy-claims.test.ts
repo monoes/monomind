@@ -228,18 +228,39 @@ describe('privacy-claims (i-078)', () => {
     });
   });
 
-  // §3b (reviewer MAJOR 3, i-078 revision round 1; widened in revision 2):
-  // the tests above can only confirm rows that already exist — none of them
-  // can detect a REAL outbound host missing from the table entirely, which
-  // is the only way this item actually fails (three such gaps shipped in
-  // round 1). This derives the expected host set from the source itself —
-  // every real fetch()/httpsGet()/http(s).request() call site (including
-  // the destructured-alias shape, e.g. `const { fetch: fn = globalThis.fetch
-  // } = opts`) under every package's SHIPPED surface — and fails if a host
-  // shows up there with no matching row, verdict, or reviewed exclusion
-  // below. Confirming listed rows cannot find an omitted one; only
-  // re-deriving from the call sites can.
-  describe('§3b — completeness: every automatic fetch/httpsGet call site is covered', () => {
+  // §3b (i-078 revision 3 — INVERTED per dev-lead's design; supersedes the
+  // call-site walker from revisions 1-2). Each prior round closed one named
+  // call-syntax shape and left an adjacent one open (file granularity, an
+  // aliased-fetch pattern, a src/-only scope hole) — round 3's review found
+  // a file-TYPE gap: .html, a shipped file whose <script src> tags are
+  // outbound by construction, was never scanned, so cdn.jsdelivr.net shipped
+  // in three HTML files with zero coverage. "Find every outbound call"
+  // requires understanding call syntax, which is unbounded.
+  //
+  // INVERTED CLAIM: instead of finding calls and checking they're
+  // documented, assert the set of external hosts appearing ANYWHERE in
+  // shipped source — in a fetch(), a <script src>, or a comment — is
+  // exactly the reviewed set below. No call-syntax understanding, no
+  // call-syntax blind spot, and it catches the .html gap (and any future
+  // file type) for free. Measured on this tree: 66 distinct external hosts
+  // across every .ts/.mjs/.js/.html/.svg file under every package's shipped
+  // source root. Dev-lead's independent count was 82; the gap is scope
+  // (their sweep evidently covered more file types and/or locations) —
+  // both are real measurements, not estimates; 66 is what THIS scan, run
+  // against THIS reviewed set, finds and fully accounts for below.
+  //
+  // STATED LIMIT (required, not optional — same remedy as o-09's
+  // overclaiming check name): this does NOT and CANNOT close non-literal
+  // hosts. `'https://' + host` and `` `https://${host}` `` produce no
+  // literal substring, so a runtime-assembled destination is invisible to
+  // ANY static scanner, this one included. `orgrt/endpoint-roles.ts` and
+  // `monograph/src/security/safe-fetch.ts` legitimately have no literal
+  // host — the destination is user-supplied — so a blanket "every
+  // network-touching file must have a literal host" rule would
+  // false-positive on exactly those legitimate cases and is deliberately
+  // not added. Treat "the reviewed set is complete" as "complete for
+  // literal hosts", nothing stronger.
+  describe('§3b — the set of external hosts in shipped source is the reviewed set', () => {
     const PACKAGE_DIRS = [
       'packages/monofence-ai',
       'packages/@monoes/monobrowse',
@@ -252,32 +273,24 @@ describe('privacy-claims (i-078)', () => {
       'packages/@monomind/routing',
     ];
 
-    // Matches a direct call (fetch(/httpsGet(/http(s).request() AND the
-    // destructured-fetch-alias-with-default shape found in
-    // ingest/url-ingest.ts (`{ fetch: fetchFn = globalThis.fetch }`, then
-    // `fetchFn(...)`) — a real call site the direct-call pattern alone
-    // cannot see (i-078 revision 2, reviewer MAJOR 2). Verified against this
-    // repo (revision 2): no axios/got/undici/node-fetch/superagent/ky is
-    // imported anywhere under any package's shipped surface, and no
-    // curl/wget is exec'd to fetch — so these two shapes cover every HTTP
-    // client actually in use. This is NOT a general HTTP-client detector and
-    // should not be extended to hunt for libraries that aren't there.
-    const CALL_SITE = /\b(fetch|httpsGet)\(|\bhttps?\.request\(|\bfetch\s*:\s*\w+\s*=/;
+    // Every file type that actually SHIPS and can carry an outbound host:
+    // .ts/.mjs/.js execute; .html is served and its <script src> tags fetch
+    // by construction (the gap this revision fixes); .svg is served inline
+    // and could in principle carry one too (measured: today its only host
+    // is the standard SVG XML namespace, already in REVIEWED_HOSTS).
+    // Deliberately NOT scanned: .md (documentation prose — already covered
+    // by §1/§3's own checks; a host-inventory sweep over doc links would
+    // flag every legitimate reference URL in every doc and turn this into
+    // a doc-editing tax rather than a privacy guard) and .json/.yaml/.sh/
+    // .cjs (measured: zero literal hosts anywhere in the shipped surface
+    // today; adding them costs nothing if that ever changes, but they are
+    // left out for now since there is nothing there to protect against).
+    const SCAN_EXTENSIONS = ['.ts', '.mjs', '.js', '.html', '.svg'];
 
-    /** Every source root a package actually SHIPS, derived from its own
-     * package.json `files` (i-078 revision 2, verifier MAJOR: a
-     * hand-written `<pkg>/src`-only list missed two real, shipped call
-     * sites — `@monoes/monodesign`'s `skill/scripts/context.mjs` and
-     * `@monomind/cli`'s `scripts/understand-analyze.mjs` — because neither
-     * lives under `src/`). `src` is always included even when a package's
-     * `files` doesn't list it literally (most list only `dist`, the
-     * compiled OUTPUT `src` produces) — scanning generated `dist/*.js`
-     * instead of the hand-authored source it came from would only catch a
-     * new call site one build cycle later than scanning the source itself,
-     * and would require a build before every test run. `dist`, single
-     * files (README.md, LICENSE, tokens.css, …) and negation globs
-     * (`!dist/**`) are excluded — they're either compiled output or not
-     * directories of source at all. */
+    /** Every source root a package actually SHIPS — see §3b's sibling
+     * function of the same name (removed from this file in this revision,
+     * this is its direct descendant): derived from package.json `files`,
+     * always including `src`. */
     function shippedSourceRoots(pkgRelDir: string): string[] {
       const pkg = JSON.parse(readFileSync(join(REPO_ROOT, pkgRelDir, 'package.json'), 'utf-8')) as {
         files?: string[];
@@ -295,17 +308,18 @@ describe('privacy-claims (i-078)', () => {
           (r) => existsSync(join(REPO_ROOT, r)) && statSync(join(REPO_ROOT, r)).isDirectory(),
         );
     }
-    const PACKAGE_SRC_ROOTS = PACKAGE_DIRS.flatMap(shippedSourceRoots);
+    const SCAN_ROOTS = PACKAGE_DIRS.flatMap(shippedSourceRoots);
 
-    /** Every non-test .ts/.mjs file under every package's shipped source
-     * root(s) containing a real call-site TOKEN — walked fresh at test
-     * time, not a hand-maintained list, which is what lets this go red when
-     * someone adds a new site. (It also flags files where that token only
-     * appears inside a comment, e.g. an illustrative code snippet — those
-     * get an explicit "comment only" exclusion below rather than being
-     * silently skipped, so the reviewed list stays honest about why.) */
-    function findNetworkCallSiteFiles(): string[] {
-      const files: string[] = [];
+    const HOST = /https?:\/\/([a-zA-Z0-9.-]+)/g;
+    const LOOPBACK_LIKE = (h: string): boolean =>
+      h === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h);
+
+    /** Every non-test file of a scanned extension under every shipped
+     * root, walked fresh at test time — not a hand-maintained list, which
+     * is what lets this go red when a new file of a new host shows up
+     * anywhere, in any of the scanned shapes. */
+    function findAllExternalHosts(): Map<string, string[]> {
+      const hostToFiles = new Map<string, string[]>();
       const walk = (dir: string): void => {
         let entries: Dirent[];
         try {
@@ -319,279 +333,138 @@ describe('privacy-claims (i-078)', () => {
             if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
             walk(rel);
           } else if (
-            (entry.name.endsWith('.ts') || entry.name.endsWith('.mjs')) &&
+            SCAN_EXTENSIONS.some((ext) => entry.name.endsWith(ext)) &&
             !entry.name.endsWith('.test.ts')
           ) {
             const text = readFileSync(join(REPO_ROOT, rel), 'utf-8');
-            if (CALL_SITE.test(text)) files.push(rel);
+            for (const m of text.matchAll(HOST)) {
+              // Strip trailing dot(s): a URL at the end of a JSDoc/comment
+              // sentence ("...requests are relayed to, e.g. https://x.com.")
+              // captures the sentence's full stop as part of the host, and
+              // a bare "https://..." example placeholder captures nothing
+              // but dots — both are punctuation/placeholder artifacts, not
+              // part of any real hostname, and normalizing them here means
+              // the reviewed set only needs the real host once.
+              const host = m[1].toLowerCase().replace(/\.+$/, '');
+              if (!host || LOOPBACK_LIKE(host)) continue;
+              const files = hostToFiles.get(host) ?? [];
+              if (!files.includes(rel)) files.push(rel);
+              hostToFiles.set(host, files);
+            }
           }
         }
       };
-      for (const root of PACKAGE_SRC_ROOTS) walk(root);
-      return [...new Set(files)].sort();
+      for (const root of SCAN_ROOTS) walk(root);
+      return hostToFiles;
     }
 
-    const HOST = /https?:\/\/([a-zA-Z0-9.-]+)/g;
-    const LOOPBACK_LIKE = (h: string): boolean =>
-      h === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h);
+    // The reviewed set: every external host expected to appear ANYWHERE in
+    // shipped source, one line each, grouped by why it's there. This
+    // REPLACES the file-keyed exclusion list from revisions 1-2 — a single
+    // flat set of hosts is what the inversion needs, and it is both
+    // shorter and cannot develop the file-granularity blind spot that
+    // motivated the inversion in the first place (a new host in an
+    // already-reviewed FILE is just as visible as a new host in a brand
+    // new one, because review happens per-host, not per-file).
+    const REVIEWED_HOSTS = new Set<string>([
+      // doc/privacy.md table rows.
+      'registry.npmjs.org', // startup update check, `doctor` version freshness
+      'api.github.com', // `doctor` companion-tool freshness, crash report, gist-publisher
+      'services.nvd.nist.gov', // `security cve` primary
+      'api.osv.dev', // `security cve` fallback
+      'monoes.me', // monoes.me connect
+      'huggingface.co', // embedding/reranker model download
+      'sql.js.org', // sql.js WASM fallback
+      'fonts.googleapis.com', // dashboard / Monograph HTML CDN row
+      'unpkg.com', // dashboard / Monograph HTML CDN row
+      'cdnjs.cloudflare.com', // dashboard / Monograph HTML CDN row
+      'cdn.jsdelivr.net', // dashboard / Monograph HTML CDN row (this revision's finding 1)
+      // doc/privacy.md dead-code verdicts.
+      'api.fallow.cloud',
+      'monograph.dev', // JSON Schema $id/$schema convention, not fetched
+      'api.anthropic.com', // sampling.ts verdict (dead) AND understand-analyze.mjs (LIVE row)
+      'api.openai.com', // wiki/providers.ts verdict
+      'github.com', // monodesign context.mjs verdict (github.com/monoes/monomind, dead) — also
+      // the printed docs URL, an OAuth provider preset default, and a source-attribution
+      // comment; see the individual entries below for each of those uses.
+      // "What's not in this table, on purpose" bullets — provider presets,
+      // distributed-org coordination, and user-explicit-target commands.
+      'accounts.google.com', // oauth.ts Google OAuth preset default
+      'oauth2.googleapis.com', // oauth.ts Google OAuth preset default
+      'login.microsoftonline.com', // monobrowse Microsoft/Teams login-flow adapter (browse)
+      'api.z.ai', // vercel-providers.ts z.ai provider preset default
+      'api.example.com', // orgrt/types.ts JSDoc example + dashboard.html webhook-config placeholder text
+      // Printed-only install/doc hints (`doctor`/`init`/platform docs print a plain URL,
+      // never fetched) and source-attribution / "further reading" comments.
+      'nodejs.org',
+      'aider.chat',
+      'git-scm.com',
+      'docs.github.com',
+      'cli.github.com',
+      'docs.npmjs.com',
+      'code.visualstudio.com',
+      'code.claude.com',
+      'cursor.com',
+      'opencode.ai',
+      'antigravity.google',
+      'gemini.google.com',
+      'kiro.dev',
+      'docs.factory.ai',
+      'docs.x.ai',
+      'docs.openclaw.ai',
+      'hermes-agent.nousresearch.com',
+      'qwenlm.github.io',
+      'www.kimi.com',
+      'learn.chatgpt.com',
+      'developers.openai.com', // hook-lib.mjs comment citing OpenAI's Codex hooks doc
+      'www.sonarsource.com',
+      'fallow.dev',
+      'docs.fallow.tools',
+      'raw.githubusercontent.com', // SARIF $schema string, not fetched (i-078 revision 1 Q3)
+      'arxiv.org', // citation comments (i-078 revision 1 Q3)
+      'en.wikipedia.org', // graph/explain.ts "further reading" doc link, printed not fetched
+      // Browser-automation login-flow adapters (`monomind browse <url>`) —
+      // recognize specific sites so automation can handle their auth forms.
+      'www.linkedin.com',
+      'www.instagram.com',
+      'x.com',
+      // UI form placeholder text (dashboard.html `placeholder:` attribute
+      // values) illustrating the expected format for a field the USER
+      // fills in with their own webhook/feed URL — never fetched by
+      // monomind itself, purely greyed-out hint text in an input box.
+      'discord.com',
+      'hooks.slack.com',
+      'feeds.example.com',
+      // Non-network XML/schema namespace identifiers.
+      'www.w3.org', // SVG xmlns, present in every bundled avatar .svg
+      'json-schema.org',
+      'gexf.net',
+      'graphml.graphdrawing.org',
+      // Doc-string / code-comment artifacts that are not real hosts at all.
+      'www.apple.com', // org.ts launchd plist DOCTYPE url, never fetched
+      'x', // routes-org.mjs: `new URL(\`http://x${req.url}\`)` — a throwaway parse base
+      'api', // monobrowse commands.ts --help example text "https://api.*" (regex-truncated, trailing dot stripped)
+      'example.com', // monobrowse commands.ts --help example text
+    ]);
 
-    /** Every literal `https?://host` substring in a file, lowercased,
-     * deduped — including loopback ones (the exclusion review needs those
-     * too, to prove a file really IS only loopback, not just unexamined). */
-    function literalHosts(relPath: string): string[] {
-      const text = readFileSync(join(REPO_ROOT, relPath), 'utf-8');
-      return [...new Set([...text.matchAll(HOST)].map((m) => m[1].toLowerCase()))].sort();
-    }
-
-    // Reviewed, one reason + its CURRENT literal hosts each. A file lands
-    // here ONLY if its destination is local-only (never leaves the
-    // machine), a host/credential the USER configured (covered by a "what's
-    // not in this table, on purpose" bullet), already covered by a
-    // dead-code verdict above, or contains the call-site token only inside
-    // a comment.
-    //
-    // `hosts` is keyed by file rather than left implicit (i-078 revision 2,
-    // reviewer MAJOR 1): a FILE-only exclusion list is a standing exemption
-    // — once a file is listed, every future call site inside it is
-    // invisible forever, proven by mutation (adding a brand-new external
-    // host to an already-excluded file stayed green). Listing each file's
-    // reviewed hosts and asserting the file's CURRENT literal hosts are a
-    // SUBSET of that list (below) means a genuinely NEW host in an already
-    // -excluded file still goes red, while the file itself doesn't need
-    // re-excluding every time.
-    //
-    // Everything NOT listed here must have a literal host, and that host
-    // must be named in doc/privacy.md — checked separately below.
-    const REVIEWED_EXCLUSIONS: Record<string, { reason: string; hosts: string[] }> = {
-      // Local-only: every literal host is 'localhost'/'127.0.0.1'/a loopback IP.
-      'packages/@monomind/cli/src/mcp-server.ts': {
-        reason: 'local health check against its own MCP server process (http://host:port/health)',
-        hosts: [],
-      },
-      'packages/@monomind/cli/src/commands/events.ts': {
-        reason: 'local dashboard control-port stream',
-        hosts: ['localhost'],
-      },
-      'packages/@monomind/cli/src/commands/init-upgrade.ts': {
-        reason: 'local dashboard control-port progress event (default port 4242)',
-        hosts: ['localhost'],
-      },
-      'packages/@monomind/cli/src/commands/org.ts': {
-        reason:
-          'local dashboard control-port, default http://localhost:4242; also contains ' +
-          'http://www.apple.com — the DOCTYPE url in a generated launchd plist string, never ' +
-          'fetched (same category as the monograph.dev $schema verdict)',
-        hosts: ['127.0.0.1', 'localhost', 'www.apple.com'],
-      },
-      'packages/@monomind/cli/src/orgrt/forwarder.ts': {
-        reason: 'local dashboard control.json url, default http://localhost:4242',
-        hosts: ['localhost'],
-      },
-      'packages/@monomind/cli/src/mcp-tools/browser-tools.ts': {
-        reason: 'local Chrome DevTools Protocol (127.0.0.1)',
-        hosts: ['127.0.0.1'],
-      },
-      'packages/@monomind/cli/src/ui/server.mjs': {
-        reason: "its own local self-callbacks (hostname: 'localhost') and 127.0.0.1 status probe",
-        hosts: ['127.0.0.1', 'localhost'],
-      },
-      'packages/@monoes/monobrowse/src/browser/browser.ts': {
-        reason: 'local Chrome DevTools Protocol (127.0.0.1)',
-        hosts: ['127.0.0.1'],
-      },
-      'packages/@monoes/monobrowse/src/browser/cdp.ts': {
-        reason: 'local Chrome DevTools Protocol (127.0.0.1)',
-        hosts: ['127.0.0.1'],
-      },
-      'packages/@monoes/monobrowse/src/cli/commands.ts': {
-        reason:
-          'local Chrome DevTools Protocol (127.0.0.1); also contains https://example.com / ' +
-          'https://api.* inside `examples:` help text (--help output), never fetched',
-        hosts: ['127.0.0.1', 'api.', 'example.com'],
-      },
-      // monodesign's live-preview server: same local-CDP/local-HTTP-server
-      // shape as monobrowse above — a design-preview loop talking to its
-      // own localhost port, never leaving the machine.
-      'packages/@monoes/monodesign/cli/engine/engines/browser/drivers.mjs': {
-        reason: 'local Chrome DevTools Protocol (127.0.0.1)',
-        hosts: ['127.0.0.1'],
-      },
-      'packages/@monoes/monodesign/cli/engine/node/file-system.mjs': {
-        reason: 'local dev-server reachability probe (http://localhost:<port>/)',
-        hosts: ['localhost'],
-      },
-      'packages/@monoes/monodesign/skill/scripts/live-complete.mjs': {
-        reason: "local live-preview server's own port (http://localhost:<port>)",
-        hosts: ['localhost'],
-      },
-      'packages/@monoes/monodesign/skill/scripts/live-poll.mjs': {
-        reason: "local live-preview server's own port (http://localhost:<port>)",
-        hosts: ['localhost'],
-      },
-      'packages/@monoes/monodesign/skill/scripts/live-server.mjs': {
-        reason: "local live-preview server's own port (http://localhost:<port>)",
-        hosts: ['localhost'],
-      },
-      'packages/@monoes/monodesign/skill/scripts/live-status.mjs': {
-        reason: "local live-preview server's own port (http://localhost:<port>)",
-        hosts: ['localhost'],
-      },
-
-      // User-configured provider/endpoint/credential — "Configuring an org
-      // role..." / "Distributed org coordination..." bullets.
-      'packages/@monomind/cli/src/commands/providers.ts': {
-        reason: 'reachability check against a user-configured Ollama base URL',
-        hosts: ['localhost'],
-      },
-      'packages/@monomind/cli/src/orgrt/endpoint-roles.ts': {
-        reason: "a role's endpoint.url, configured by the user in their own org/role file",
-        hosts: [],
-      },
-      'packages/@monomind/cli/src/commands/org-observe.ts': {
-        reason: 'a remote org host configured via org_observe --remote',
-        hosts: [],
-      },
-      'packages/@monomind/cli/src/orgrt/cross-org.ts': {
-        reason: "a remote org's url, configured by the user",
-        hosts: [],
-      },
-      'packages/@monomind/cli/src/ui/routes-org.mjs': {
-        reason:
-          'a configured remote org host / cross-broker url; also `new URL(`http://x${req.url}`)`' +
-          ' several times — "x" is a throwaway base used only to parse a relative req.url\'s own ' +
-          'path/query via the URL constructor, never dereferenced or fetched',
-        hosts: ['localhost', 'x'],
-      },
-      'packages/@monomind/mcp/src/oauth.ts': {
-        reason:
-          "a user-configured OAuth provider's tokenEndpoint; the literal hosts are the built-in " +
-          'GitHub/Google provider PRESETS (authorizationEndpoint/tokenEndpoint defaults a user ' +
-          'selects), not requests made without the user choosing that provider',
-        hosts: ['accounts.google.com', 'github.com', 'oauth2.googleapis.com'],
-      },
-
-      // User-explicit target — "A handful of commands send data to a target
-      // you supply..." bullet.
-      'packages/@monomind/cli/src/commands/security-misc.ts': {
-        reason:
-          'security redteam --target <url>, a target the user supplies; also cites ' +
-          'https://github.com/Azure/PyRIT in a source-attribution comment, never fetched',
-        hosts: ['github.com', 'localhost'],
-      },
-      'packages/@monomind/monograph/src/ingest/url-ingest.ts': {
-        reason:
-          'ingestUrl(url, options) fetches a URL the CALLER supplies, via its own fetchFn ' +
-          '(defaulting to globalThis.fetch) — guarded by validateUrl (SSRF/private-IP check, ' +
-          "re-checked after redirects), not by safeFetch (see safe-fetch.ts's entry below, " +
-          'they are different exports of the same file)',
-        hosts: [],
-      },
-      'packages/@monomind/monograph/src/wiki/gist-publisher.ts': {
-        reason: "publishing to a GitHub gist with the user's own token",
-        hosts: ['api.github.com'],
-      },
-
-      // Already covered by a dead-code verdict above — no live caller.
-      'packages/@monomind/monograph/src/license/manager.ts': {
-        reason: 'api.fallow.cloud verdict (dead code)',
-        hosts: ['api.fallow.cloud'],
-      },
-      'packages/@monomind/monograph/src/coverage/cloud-client.ts': {
-        reason: 'api.fallow.cloud verdict (dead code)',
-        hosts: ['api.fallow.cloud'],
-      },
-      'packages/@monomind/monograph/src/coverage/upload-inventory.ts': {
-        reason: 'api.fallow.cloud verdict (dead code)',
-        hosts: ['api.fallow.cloud'],
-      },
-      'packages/@monomind/monograph/src/coverage/upload-source-maps.ts': {
-        reason: 'api.fallow.cloud verdict (dead code)',
-        hosts: ['api.fallow.cloud'],
-      },
-      'packages/@monomind/mcp/src/sampling.ts': {
-        reason: 'api.anthropic.com verdict (dead code — zero callers, see verdicts above)',
-        hosts: ['api.anthropic.com'],
-      },
-      'packages/@monomind/monograph/src/wiki/providers.ts': {
-        reason: 'api.openai.com verdict (unreachable — llmConfig never set by any non-test caller)',
-        hosts: ['api.openai.com', 'localhost'],
-      },
-      'packages/@monomind/monograph/src/security/safe-fetch.ts': {
-        // i-078 revision 2 (verifier MINOR 3): `safeFetch` — the function
-        // IN this file that actually calls fetch(rawUrl) — has NO live
-        // caller anywhere in this repo (only its own tests, and a blanket
-        // `export *` from monograph's index.ts). url-ingest.ts, the file
-        // this exclusion used to (wrongly) credit, imports and calls only
-        // `validateUrl` from this same file — a pure guard with no fetch
-        // call of its own. So safeFetch's fetch(rawUrl,...) call site is
-        // dead code (its rawUrl param is fully dynamic, so there is no
-        // fixed host to verdict the way fallow.cloud/anthropic/openai have
-        // one — it's excluded here rather than in the verdicts section
-        // above because there's no destination host to name).
-        reason:
-          "safeFetch has no live caller anywhere in this repo — dead code, not url-ingest's guard",
-        hosts: [],
-      },
-      'packages/@monoes/monodesign/skill/scripts/context.mjs': {
-        reason: 'github.com/monoes/monomind api.version verdict (dead code, see verdicts above)',
-        hosts: ['github.com'],
-      },
-
-      // Comment only — the token appears inside a code comment, not a call.
-      'packages/@monomind/cli/src/orgrt/role-sandbox.ts': {
-        reason:
-          'illustrative example inside a comment ("fetch(\'https://registry.npmjs.org/…\')"), ' +
-          'not a real call',
-        hosts: ['registry.npmjs.org'],
-      },
-    };
-
-    it('the exclusion list is not stale: every excluded file still has a real call-site token', () => {
-      const found = new Set(findNetworkCallSiteFiles());
-      for (const file of Object.keys(REVIEWED_EXCLUSIONS)) {
+    it('the reviewed host set is not stale: every reviewed host still appears in shipped source', () => {
+      const found = findAllExternalHosts();
+      for (const host of REVIEWED_HOSTS) {
         expect(
-          found.has(file),
-          `${file} is excluded but no longer contains a fetch/httpsGet/request token — remove the stale exclusion`,
+          found.has(host),
+          `${host} is reviewed but no longer appears anywhere in shipped source — remove the stale entry`,
         ).toBe(true);
       }
     });
 
-    // i-078 revision 2 (reviewer MAJOR 1): a file-only exclusion is a
-    // standing exemption for every FUTURE call site in that file too —
-    // proven by mutation (a brand-new external fetch added to an
-    // already-excluded file stayed green). Pinning each file's reviewed
-    // hosts and requiring its CURRENT literal hosts to be a SUBSET closes
-    // that: a genuinely new host is not in the reviewed set, so it's not a
-    // subset, so this goes red.
-    it("every excluded file's current literal hosts are still a subset of its reviewed hosts", () => {
-      for (const [file, { hosts: reviewed }] of Object.entries(REVIEWED_EXCLUSIONS)) {
-        if (!existsSync(join(REPO_ROOT, file))) continue; // caught by the staleness test above
-        const current = literalHosts(file);
-        const unreviewed = current.filter((h) => !reviewed.includes(h));
-        expect(
-          unreviewed,
-          `${file} now has host(s) not in its reviewed set: ${unreviewed.join(', ')} — a new outbound destination in an already-excluded file, which needs review (not silent coverage by the file-level exclusion)`,
-        ).toEqual([]);
-      }
-    });
-
-    it('every non-excluded call-site file has a literal host, and every such host is named in doc/privacy.md', () => {
-      const privacy = readFileSync(join(REPO_ROOT, 'doc', 'privacy.md'), 'utf-8').toLowerCase();
-      const unreviewed = findNetworkCallSiteFiles().filter((f) => !(f in REVIEWED_EXCLUSIONS));
-
-      for (const file of unreviewed) {
-        const hosts = literalHosts(file).filter((h) => !LOOPBACK_LIKE(h));
-        expect(
-          hosts.length,
-          `${file} has a fetch/httpsGet/request call site with no literal https?:// host found in the file — it needs either a doc/privacy.md row, a dead-code verdict, or a reviewed exclusion (with a reason and its hosts) in this test, not silence`,
-        ).toBeGreaterThan(0);
-        for (const host of hosts) {
-          expect(
-            privacy.includes(host),
-            `${file} calls out to "${host}", which is not named anywhere in doc/privacy.md`,
-          ).toBe(true);
-        }
-      }
+    it('every external host in shipped source is in the reviewed set', () => {
+      const found = findAllExternalHosts();
+      const unexpected = [...found.keys()].filter((h) => !REVIEWED_HOSTS.has(h));
+      const detail = unexpected.map((h) => `${h} (in ${found.get(h)?.join(', ')})`);
+      expect(
+        detail,
+        'unreviewed external host(s) found in shipped source — each needs a doc/privacy.md row, verdict, "on purpose" bullet, or a reviewed-hosts entry with a reason (not silence)',
+      ).toEqual([]);
     });
   });
 

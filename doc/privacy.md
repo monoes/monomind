@@ -5,11 +5,18 @@ execution — run entirely locally against files already on your machine. This
 page lists every network request monomind can make on its own, without you
 giving it a specific command to do so, as of the commit that last touched
 this file. It is kept honest by
-`packages/@monomind/cli/src/__tests__/privacy-claims.test.ts`'s §3 completeness
-check, which derives the expected host set directly from every `fetch`/
-`httpsGet`/`http(s).request` call site in this repo and fails if one is added
-here without a matching row, verdict, or documented exclusion below — read
-that test, not just this page, if you need to be certain nothing is missing.
+`packages/@monomind/cli/src/__tests__/privacy-claims.test.ts`'s §3b: rather
+than trying to find every `fetch`/`httpsGet`/`http(s).request` call site (a
+call-syntax-shaped detector that took three revisions to keep missing an
+adjacent shape — file granularity, an aliased-fetch pattern, then `.html`
+`<script src>` tags), §3b asserts that **the set of distinct external hosts
+appearing anywhere in monomind's shipped source — in a fetch call, a
+`<script src>` tag, or a comment — is exactly one reviewed list.** A new host
+showing up anywhere fails the check, regardless of the shape it appears in.
+**Stated limit, not swept under the rug:** this cannot see a
+runtime-assembled host (`'https://' + host` or `` `https://${host}` ``) —
+no literal substring means no static scanner, this one included, can find
+it. Read that test, not just this page, if you need the full reasoning.
 
 ## The table
 
@@ -23,7 +30,7 @@ that test, not just this page, if you need to be certain nothing is missing.
 | monoes.me connect | `https://monoes.me` | Only when you explicitly connect a community account via `monomind ui` → Connect | Never connect (nothing is sent before you do) |
 | Embedding/reranker model download | HuggingFace CDN (`huggingface.co`), via the `@huggingface/transformers` package or a direct fetch of the reranker classifier head | First `monomind doc ingest`/index that needs it, an explicit `monomind download-embeddings`, or the reranker head's first use | Stay offline — search degrades to keyword matching |
 | sql.js WASM binary | `sql.js.org` | Only if the memory backend falls back to the sql.js driver **and** the WASM file bundled with the package can't be resolved locally | Ensure the bundled WASM resolves (the normal case); there is no separate flag |
-| Monograph HTML/graph visualization | `fonts.googleapis.com`, `unpkg.com` (vis-network **and** the React/Babel UMD builds), `cdnjs.cloudflare.com` (sigma.js, graphology) | Opening a graph view via `monomind ui` or the `monograph_visualize`/`monograph_serve` MCP tools — these hosts are contacted by **your browser**, loading tags monomind's server put in the page it served you | Don't open the graph view; there is no bundled-assets flag yet |
+| Dashboard / Monograph HTML graph visualization | `fonts.googleapis.com`, `unpkg.com` (vis-network **and** the React/Babel UMD builds), `cdnjs.cloudflare.com` (sigma.js, graphology), `cdn.jsdelivr.net` (gsap, used by the dashboard's own pages and by the graphology/sigma fallback build) | Opening the dashboard via `monomind ui`, or a graph view via the `monograph_visualize`/`monograph_serve` MCP tools — these hosts are contacted by **your browser**, loading `<script>` tags monomind's server put in the page it served you | Don't open the dashboard or a graph view; there is no bundled-assets flag yet |
 | `/monomind:understand` semantic analysis | `api.anthropic.com` (`packages/@monomind/cli/scripts/understand-analyze.mjs`) | Only when the script is run directly with `ANTHROPIC_API_KEY` set and without `--no-llm` — the documented `/monomind:understand` slash command always invokes it with `--no-llm` itself, so the *documented* path never calls out | Pass `--no-llm` yourself if invoking the script directly, or don't set `ANTHROPIC_API_KEY` in that shell |
 
 ## Verdicts on hosts found during the audit that aren't in the table
