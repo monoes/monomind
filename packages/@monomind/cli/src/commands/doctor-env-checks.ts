@@ -46,7 +46,10 @@ export async function checkNodeVersion(version: string = process.version): Promi
   const requiredMajor = 22;
   const requiredMinor = 12;
   const requiredLabel = `${requiredMajor}.${requiredMinor}.0`;
-  const [major, minor] = version.slice(1).split('.').map((n) => parseInt(n, 10));
+  const [major, minor] = version
+    .slice(1)
+    .split('.')
+    .map((n) => parseInt(n, 10));
   const meetsFloor = major > requiredMajor || (major === requiredMajor && minor >= requiredMinor);
   if (meetsFloor) {
     return {
