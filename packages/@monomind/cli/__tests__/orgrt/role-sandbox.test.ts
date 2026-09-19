@@ -298,7 +298,12 @@ describe('resolveRoleGitEnforcement', () => {
     Object.assign(process.env, {
       PATH: originalEnv.PATH,
       HOME: hermeticHome,
-      TMPDIR: originalEnv.TMPDIR,
+      // Spread, not a plain key: assigning an absent TMPDIR writes the STRING
+      // "undefined" into the env (process.env coerces every value), and
+      // os.tmpdir() then hands back "undefined" — every mkdtempSync below
+      // fails with ENOENT. Only reachable where TMPDIR is unset, which is the
+      // default on CI, so this passed locally and would have broken there.
+      ...(originalEnv.TMPDIR ? { TMPDIR: originalEnv.TMPDIR } : {}),
     });
   });
   afterEach(() => {
