@@ -132,7 +132,10 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
     for (const m of body.matchAll(/`monomind mastermind run ([\w-]+)(?: --print)?`/g)) {
       const arg = m[1];
       const resolved = resolveMastermindSkill(arg);
-      expect(resolved, `\`monomind mastermind run ${arg}\` resolves to no known skill`).toBeDefined();
+      expect(
+        resolved,
+        `\`monomind mastermind run ${arg}\` resolves to no known skill`,
+      ).toBeDefined();
       if (arg !== 'mastermind' && arg !== 'router' && arg !== 'master') {
         expect(
           resolved?.name,
