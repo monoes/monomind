@@ -14,7 +14,11 @@ const KEY_VAR = ['ANTHROPIC', 'API', 'KEY'].join('_');
  * (e.g. a deliberately configured base-url provider, opencode-runner.test.ts
  * #262) still reaches the child normally, since it is spread on top.
  */
-export const ANTHROPIC_MANAGED_ENV_KEYS = [KEY_VAR, 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN'] as const;
+export const ANTHROPIC_MANAGED_ENV_KEYS = [
+  KEY_VAR,
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+] as const;
 
 /** `process.env` (or any parent env), minus the three ANTHROPIC_* keys above. */
 export function omitAnthropicManagedKeys(

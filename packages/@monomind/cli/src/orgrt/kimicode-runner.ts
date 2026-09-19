@@ -63,7 +63,6 @@
  */
 
 import { spawn } from 'node:child_process';
-import { omitAnthropicManagedKeys } from './provider.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -73,6 +72,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,

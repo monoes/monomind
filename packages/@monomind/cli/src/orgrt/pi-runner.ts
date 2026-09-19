@@ -356,7 +356,12 @@ export class PiAgentRunner implements AgentRunner {
       // that otherwise add latency/flakiness to every headless turn.
       // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
       // vendor CLI; an explicit value in args.env still wins below.
-      env: { ...omitAnthropicManagedKeys(process.env), PI_TELEMETRY: '0', PI_SKIP_VERSION_CHECK: '1', ...args.env },
+      env: {
+        ...omitAnthropicManagedKeys(process.env),
+        PI_TELEMETRY: '0',
+        PI_SKIP_VERSION_CHECK: '1',
+        ...args.env,
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

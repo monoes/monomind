@@ -243,9 +243,10 @@ export class ClaudeAgentRunner implements AgentRunner {
         // those three keys specifically, while every OTHER inherited var
         // (HOME/USER/PATH included, the keychain fix above) still merges
         // exactly as before.
-        env: args.envAuthoritative === false
-          ? { ...process.env, ...args.env }
-          : { ...omitAnthropicManagedKeys(process.env), ...args.env },
+        env:
+          args.envAuthoritative === false
+            ? { ...process.env, ...args.env }
+            : { ...omitAnthropicManagedKeys(process.env), ...args.env },
         // Without these, the SDK falls back to its interactive-CLI default of
         // auto-discovering the invoking user's ~/.claude/settings.json and any
         // project-level .claude/settings.json under cwd — pulling in that
