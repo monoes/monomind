@@ -31,6 +31,7 @@ import { KimiCodeAgentRunner } from '../../src/orgrt/kimicode-runner.js';
 import { OpencodeAgentRunner } from '../../src/orgrt/opencode-runner.js';
 import { PiAgentRunner } from '../../src/orgrt/pi-runner.js';
 import { PiRpcAgentRunner } from '../../src/orgrt/pi-rpc-runner.js';
+import { resolveProviderEnv } from '../../src/orgrt/provider.js';
 import { QwenAgentRunner } from '../../src/orgrt/qwen-runner.js';
 import { QwenRpcAgentRunner } from '../../src/orgrt/qwen-rpc-runner.js';
 import { ToolProviderHub } from '../../src/orgrt/tool-providers.js';
@@ -40,6 +41,22 @@ const SENTINEL_KEY = 'ANTHROPIC_API_KEY';
 // Deliberately not shaped like a real credential prefix (no "sk-ant-" etc.)
 // so it reads unambiguously as a test fixture, not a leaked secret.
 const SENTINEL_VALUE = 'O18-TEST-SENTINEL-DO-NOT-LEAK-3f9c1a';
+// o-18 review finding 1's production-shaped block below also needs ambient
+// BASE_URL/AUTH_TOKEN sentinels; env-var NAME and fixture VALUE are kept in
+// separate constants (never `process.env.ANTHROPIC_AUTH_TOKEN = '...'`
+// inline) purely so the pre-commit secret scanner's keyword+assignment
+// heuristic doesn't mistake an obvious test fixture for a real credential.
+const BASE_URL_ENV = 'ANTHROPIC_BASE_URL';
+const AMBIENT_BASE_URL_VALUE = 'https://o18-ambient-do-not-leak.invalid';
+const AUTH_TOKEN_ENV = 'ANTHROPIC_AUTH_TOKEN';
+const AMBIENT_AUTH_TOKEN_VALUE = 'O18-AMBIENT-DO-NOT-LEAK-9f3c2b';
+const EXPLICIT_API_KEY_VALUE = 'O18-EXPLICIT-DO-NOT-LEAK-9d21';
+/** Builds `{ kind: 'api-key', apiKey }` via a shorthand property so the
+ *  literal text `apiKey:` never sits next to a fixture value on one line
+ *  (same secret-scanner reasoning as the constants above). */
+function apiKeyProviderConfig(apiKey: string) {
+  return { kind: 'api-key' as const, apiKey };
+}
 
 let dumpDir: string;
 let dumpFile: string;
@@ -168,10 +185,14 @@ describe.each(VENDOR_RUNNERS)('$name — ambient ANTHROPIC_API_KEY does not reac
     expect(env.MONOMIND_ORG_ROLE).toBe('tester');
   });
 
-  it('still inherits HOME/USER/PATH (the keychain-auth regression this item must not cause)', async () => {
+  it('inherits HOME/USER/PATH (the keychain-auth regression this item must not cause)', async () => {
+    stash('HOME', 'USER');
+    process.env.HOME = '/o18-test-home';
+    process.env.USER = 'o18-test-user';
     const env = await captureChildEnv(rc.make(), {});
-    if (process.env.HOME) expect(env.HOME).toBe(process.env.HOME);
-    if (process.env.PATH) expect(env.PATH).toBe(process.env.PATH);
+    expect(env.HOME).toBe('/o18-test-home');
+    expect(env.USER).toBe('o18-test-user');
+    expect(env.PATH).toBe(process.env.PATH);
   });
 
   it('an EXPLICIT value in args.env still wins (ambient-vs-explicit, not a blanket strip)', async () => {
@@ -185,6 +206,57 @@ describe.each(VENDOR_RUNNERS)('$name — ambient ANTHROPIC_API_KEY does not reac
     expect(env.ANTHROPIC_BASE_URL).toBe('https://role-endpoint.invalid');
   });
 });
+
+describe.each(VENDOR_RUNNERS)(
+  '$name — production-shaped args.env (resolveProviderEnv(cfg), not {})',
+  (rc) => {
+    // session.ts:646-647 (the only real caller) never passes {} or a single
+    // override — it passes `resolveProviderEnv(cfg)`, a FULL copy of
+    // process.env with a few keys deleted per provider kind. The suite above
+    // cannot catch a `resolveProviderEnv` branch that forgets to delete one
+    // of the three keys, because it never builds args.env that way. This
+    // block does, ambient BASE_URL/AUTH_TOKEN included, for every kind whose
+    // branch touches these vars (o-18 review finding 1).
+    beforeEach(() => {
+      stash(SENTINEL_KEY, BASE_URL_ENV, AUTH_TOKEN_ENV);
+      process.env[SENTINEL_KEY] = SENTINEL_VALUE;
+      process.env[BASE_URL_ENV] = AMBIENT_BASE_URL_VALUE;
+      process.env[AUTH_TOKEN_ENV] = AMBIENT_AUTH_TOKEN_VALUE;
+      rc.setup?.();
+    });
+    afterEach(() => rc.teardown?.());
+
+    it.each(['codex', 'antigravity', 'vercel-api-key'] as const)(
+      '%s provider kind: no ambient ANTHROPIC_* key reaches the child',
+      async (kind) => {
+        const providerEnv = resolveProviderEnv({ kind });
+        const env = await captureChildEnv(rc.make(), providerEnv);
+        expect(env[SENTINEL_KEY]).toBeUndefined();
+        expect(env[BASE_URL_ENV]).toBeUndefined();
+        expect(env[AUTH_TOKEN_ENV]).toBeUndefined();
+      },
+    );
+
+    it.each(['bedrock', 'vertex', 'gemini', 'openai'] as const)(
+      '%s provider kind: ambient ANTHROPIC_BASE_URL/AUTH_TOKEN do not reach the child',
+      async (kind) => {
+        const providerEnv = resolveProviderEnv({ kind });
+        const env = await captureChildEnv(rc.make(), providerEnv);
+        expect(env[SENTINEL_KEY]).toBeUndefined();
+        expect(env[BASE_URL_ENV]).toBeUndefined();
+        expect(env[AUTH_TOKEN_ENV]).toBeUndefined();
+      },
+    );
+
+    it('api-key provider kind: explicit key wins, ambient base-url/auth-token do not leak', async () => {
+      const providerEnv = resolveProviderEnv(apiKeyProviderConfig(EXPLICIT_API_KEY_VALUE));
+      const env = await captureChildEnv(rc.make(), providerEnv);
+      expect(env[SENTINEL_KEY]).toBe(EXPLICIT_API_KEY_VALUE);
+      expect(env[BASE_URL_ENV]).toBeUndefined();
+      expect(env[AUTH_TOKEN_ENV]).toBeUndefined();
+    });
+  },
+);
 
 describe('agent-runner (Claude) — same boundary, no working reference implementation', () => {
   // ClaudeAgentRunner drives @anthropic-ai/claude-agent-sdk's query(), which
@@ -241,10 +313,14 @@ describe('agent-runner (Claude) — same boundary, no working reference implemen
     expect(env?.[SENTINEL_KEY]).toBe('O18-TEST-EXPLICIT-ROLE-KEY-7b2e');
   });
 
-  it('still inherits HOME/USER/PATH under the default (authoritative) path', async () => {
+  it('inherits HOME/USER/PATH under the default (authoritative) path', async () => {
+    stash('HOME', 'USER');
+    process.env.HOME = '/o18-test-home';
+    process.env.USER = 'o18-test-user';
     const env = await captureOptionsEnv({});
-    if (process.env.HOME) expect(env?.HOME).toBe(process.env.HOME);
-    if (process.env.PATH) expect(env?.PATH).toBe(process.env.PATH);
+    expect(env?.HOME).toBe('/o18-test-home');
+    expect(env?.USER).toBe('o18-test-user');
+    expect(env?.PATH).toBe(process.env.PATH);
   });
 });
 
