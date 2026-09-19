@@ -11,8 +11,12 @@ import { shellSegments } from './shell-scan.js';
 // (#299): `^cherry$` cannot match the token `cherry-pick`.
 const GIT_READ_CMDS =
   /^(status|log|diff|show|branch|tag|remote|rev-parse|ls-files|ls-tree|blame|shortlog|describe|cat-file|for-each-ref|rev-list|grep|worktree|merge-base|show-ref|name-rev|cherry|range-diff|check-ignore|check-attr|count-objects|var|ls-remote)$/;
+// #300: `stash` is deliberately NOT here — unlike every other entry, it is
+// not worktree-local (refs/stash lives in the common git dir), so it gets
+// its own unconditional branch in checkGitPolicy, before this regex is ever
+// tested. See that branch's comment for why.
 const GIT_COMMIT_CMDS =
-  /^(add|commit|rm|mv|restore|reset|stash|cherry-pick|rebase|merge|revert|apply|checkout|switch|clean|gc|prune)$/;
+  /^(add|commit|rm|mv|restore|reset|cherry-pick|rebase|merge|revert|apply|checkout|switch|clean|gc|prune)$/;
 const GIT_PUSH_CMDS = /^(push|fetch|pull|clone|remote-add|submodule)$/;
 
 /** `git config` writes change .git/config, which every worktree of the repo
@@ -304,6 +308,22 @@ export function checkGitPolicy(
         return `git reflog denied (policy.git: read — only \`git reflog\` (bare, or with log options like \`-5\`/\`--all\`), \`show\`, \`list\` and \`exists\` are read; write a specific ref explicitly, e.g. \`git reflog show <ref>\`, or use policy.git: 'commit' or 'push' for write/delete/drop/expire)`;
       }
       continue;
+    }
+
+    // #300: refs/stash lives in the COMMON git dir, so one stack is shared by
+    // the main checkout and every linked worktree — `stash` is not
+    // worktree-local like the rest of GIT_COMMIT_CMDS. A role's `stash pop`
+    // can resolve against an entry the owner pushed and destroy uncommitted
+    // work (observed 2026-09-18). Denied unconditionally below 'push' rather
+    // than only in a linked worktree: the main checkout shares the same
+    // stack, so cwd is not the boundary (and gitCommonDir() is a blocking
+    // execFileSync we don't want on every Bash decision anyway). Must sit
+    // BEFORE the GIT_COMMIT_CMDS test below: `stash` was removed from that
+    // regex, so without this branch the token falls through to the unknown-
+    // subcommand rule, which denies at 'read' but ALLOWS at 'commit' —
+    // shipping nothing while every read-level test still passes.
+    if (sub === 'stash') {
+      return `git stash denied (policy.git: ${level} — the stash stack is shared by every worktree of this repo, including the owner's, so a stash/pop can collide with work you cannot see; it requires policy.git: 'push'). To save and restore your own changes instead: \`git diff > /tmp/x.patch\` then \`git apply -R\`, or make a scratch worktree at the base SHA. \`git stash list\` and \`git stash show\` are still allowed.`;
     }
 
     if (GIT_PUSH_CMDS.test(sub)) {

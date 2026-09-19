@@ -119,21 +119,6 @@ const COMMIT_ALLOWED_ROWS: string[] = [
   // `git reflog show <ref>`) — the intentional trade this design makes.
   'git reflog HEAD',
   'git reflog my-branch',
-  'git stash',
-  'git stash push -m x',
-  'git stash pop',
-  'git stash drop',
-  'git stash clear',
-  'git stash apply',
-  'git stash branch x',
-  'git stash save msg',
-  // review round 1: measured DENY→ALLOW at read pre-fix (option-skipping bug —
-  // git's cmd_stash reads argv[0] only, so these are `stash push` with a
-  // pathspec/option, never `stash list`/`stash show`).
-  'git stash -- list',
-  'git stash -- show',
-  'git stash -k list',
-  'git stash -u list',
   'git symbolic-ref HEAD refs/heads/x',
   'git update-ref refs/heads/x HEAD',
   'git notes add',
@@ -143,7 +128,62 @@ const COMMIT_ALLOWED_ROWS: string[] = [
 // Push-level: denied at both 'read' AND 'commit', only allowed at 'push'.
 const PUSH_ONLY_ROWS: string[] = ['git push', 'git fetch', 'git clone https://example.com/repo.git'];
 
-const DENIED_AT_READ_ROWS = [...COMMIT_ALLOWED_ROWS, ...PUSH_ONLY_ROWS];
+// #300: refs/stash lives in the COMMON git dir, so one stack is shared by the
+// main checkout and every linked worktree of this repo — unlike the rest of
+// GIT_COMMIT_CMDS (add/commit/rm/...), which mutate only the calling
+// worktree's own index/tree. A role's `stash pop` can resolve against an
+// entry the owner (or another role) pushed and destroy uncommitted work
+// (observed 2026-09-18, the actual #300 incident). Every row below used to
+// live in COMMIT_ALLOWED_ROWS (allowed at 'commit') before this item; they
+// now belong here instead — same push-only ladder shape as PUSH_ONLY_ROWS.
+//
+// INTENDED INVERSION (i-299 -> i-300): the level-ladder test below now
+// asserts these rows are DENIED at 'commit' and only allowed at 'push'. i-299
+// wrote them as commit-allowed because stash was, at the time, an ordinary
+// GIT_COMMIT_CMDS entry — that was correct for what i-299 was fixing (the
+// read/write split) and wrong for the actual worktree-sharing hazard, which
+// is what this item exists to close. This is not a weakened assertion; it is
+// the one change dev-lead pre-approved for this run.
+//
+// Full verb enumeration from `man git-stash` SYNOPSIS (git 2.55.0) — not the
+// issue's own 5-verb list, which omits branch/create/store/export/import.
+// Rejects: an implementation that read the issue's five verbs
+// (push/pop/apply/drop/clear) and allowlisted the rest. `store` and `import`
+// write refs/stash directly; `branch` drops the stash entry it applies.
+// Direction check: these rows are coverage, not a hole — i-300 denies
+// everything that is not `stash:read`, so all of these are already denied by
+// construction; the rows exist so a later "helpful" widening of the read
+// allowlist gets caught here.
+// Accepted, deliberate over-denial: `stash create` and `stash export --print`
+// don't touch refs/stash and are arguably reads — denied anyway, because
+// fail-closed is the correct side for the one item in this run that can
+// destroy the owner's uncommitted work.
+const STASH_MUTATOR_ROWS: string[] = [
+  'git stash',
+  'git stash push -m x',
+  'git stash save msg',
+  'git stash pop',
+  'git stash apply',
+  'git stash drop',
+  'git stash clear',
+  'git stash branch x',
+  'git stash create',
+  'git stash store abc123',
+  'git stash export --to-ref refs/my-stash',
+  'git stash import abc123',
+  // Option-position rows (the i-299 review-round-1 hole, applying verbatim
+  // here): git's cmd_stash dispatches on argv[0] ONLY (see `man git-stash`'s
+  // SYNOPSIS) — it does not skip leading options to find its subcommand, so
+  // these are all `stash push` with a pathspec/option, never `stash list`.
+  // Rejects: a refiner that skips leading option tokens before testing the
+  // positional — which silently writes to the shared stack.
+  'git stash -- list',
+  'git stash -k list',
+  'git stash -u list',
+  'git stash -p list',
+];
+
+const DENIED_AT_READ_ROWS = [...COMMIT_ALLOWED_ROWS, ...PUSH_ONLY_ROWS, ...STASH_MUTATOR_ROWS];
 
 describe('policy.git: read — read-only subcommand surface (#299)', () => {
   it.each(READ_ROWS)('allows %s at read', async (cmd) => {
@@ -164,12 +204,48 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
     expect(await denyMessage('read', 'git stash list')).toBeNull();
   });
 
-  // `stash pop` must still deny with the *mutating* message (not "unrecognized")
-  // — it stays in GIT_COMMIT_CMDS for i-300 to move; refineSub must not touch it.
-  // Rejects: refineSub accidentally routing unrefined 'stash' out of GIT_COMMIT_CMDS.
-  it('"git stash pop" still denies with the mutating-commands message', async () => {
+  // #300: post-fix, unrefined 'stash' no longer falls through to the generic
+  // GIT_COMMIT_CMDS "mutating commands" message (that was true only while
+  // `stash` still sat in GIT_COMMIT_CMDS, which i-300 removes it from) — it
+  // gets its own message naming the shared-stack risk, at BOTH 'read' and
+  // 'commit' (the dedicated branch is unconditional below 'push').
+  // Rejects: an implementation that removes `stash` from GIT_COMMIT_CMDS
+  // without adding an explicit branch before it — the token would then fall
+  // through to the unknown-subcommand rule, which denies at 'read' but
+  // ALLOWS at 'commit' (policy-git.ts's `if (level === 'read')` guard on that
+  // branch), shipping nothing while every row above still passes.
+  it('"git stash pop" denies at read with the shared-stack message, not the generic mutating-commands one', async () => {
     const msg = await denyMessage('read', 'git stash pop');
-    expect(msg).toMatch(/mutating commands require policy\.git: 'commit' or 'push'/);
+    expect(msg).not.toMatch(/mutating commands require policy\.git: 'commit' or 'push'/);
+    expect(msg).toMatch(/shared by every worktree/);
+  });
+
+  // The exact failure dev-lead's hard review gate calls out: denied at read
+  // is necessary but not sufficient — an unrefined subcommand with no
+  // explicit branch is ALSO allowed at 'commit' by the unknown-subcommand
+  // fallback, which would make every read-level assertion above pass while
+  // shipping literally nothing.
+  // Rejects: the exact silent-no-op described above.
+  it('"git stash pop" denies at commit too (not just read) — the fallthrough dev-lead flagged', async () => {
+    expect(await allows('commit', 'git stash pop')).toBe(false);
+  });
+
+  // Plan requirement: the denial routes to the two safe equivalents instead
+  // of leaving the role to retry the same denied command.
+  // Rejects: a bare "git stash denied (policy.git: commit)" with no routing.
+  it('"git stash pop" denial at commit names the safe alternatives (#300)', async () => {
+    const msg = await denyMessage('commit', 'git stash pop');
+    expect(msg).toMatch(/git diff.*git apply -R/s);
+    expect(msg).toMatch(/scratch worktree/);
+    expect(msg).toMatch(/stash list.*stash show/s);
+  });
+
+  // Plan requirement: push-level roles are unaffected — the early return at
+  // `level === 'push'` in checkGitPolicy fires before any classification.
+  // Rejects: a stash branch placed before that early return (there isn't
+  // one — this guards the ordering staying correct under a future edit).
+  it('"git stash pop" is allowed at push — push-level roles are unaffected', async () => {
+    expect(await allows('push', 'git stash pop')).toBe(true);
   });
 
   // reflog's denial names the working form, so a role isn't just told "no".
@@ -201,14 +277,18 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
     expect(await allows('read', 'git stash sHoW')).toBe(false); // unrecognized -> default `push`
   });
 
-  it('level ladder: reads stay allowed at commit; commit-level mutators flip to allowed; push-level stays denied until push', async () => {
+  it('level ladder: reads stay allowed at commit; commit-level mutators flip to allowed; push-level (incl. stash, #300) stays denied until push', async () => {
     for (const cmd of READ_ROWS) {
       expect(await allows('commit', cmd), `commit: ${cmd}`).toBe(true);
     }
     for (const cmd of COMMIT_ALLOWED_ROWS) {
       expect(await allows('commit', cmd), `commit: ${cmd}`).toBe(true);
     }
-    for (const cmd of PUSH_ONLY_ROWS) {
+    // #300 INTENDED INVERSION: stash mutators were commit-allowed under i-299
+    // (stash was an ordinary GIT_COMMIT_CMDS entry); they join the push-only
+    // ladder here because refs/stash is cross-worktree, not because this
+    // assertion is being weakened — see STASH_MUTATOR_ROWS's comment.
+    for (const cmd of [...PUSH_ONLY_ROWS, ...STASH_MUTATOR_ROWS]) {
       expect(await allows('commit', cmd), `commit: ${cmd}`).toBe(false);
       expect(await allows('push', cmd), `push: ${cmd}`).toBe(true);
     }
@@ -229,14 +309,40 @@ describe('policy.git: read — read-only subcommand surface (#299)', () => {
       'git stash $SUB',
       'git reflog $X',
       'git stash "$(echo list)"',
+      'git stash "$(echo pop)"',
       'git -C /repo reflog expire',
+      'git -C /repo stash pop',
       'GIT_DIR=.git git stash pop',
+      'GIT_DIR=.git git stash drop',
       // Denied by the pre-existing interpreter rule (:139-145), not the new
       // code — kept here so a future refactor can't quietly lose it.
       'sh -c "git stash list"',
     ];
     for (const cmd of failClosed) {
       expect(await allows('read', cmd), cmd).toBe(false);
+    }
+  });
+
+  // #300: these same command shapes must ALSO deny at 'commit', not just
+  // 'read' — the stash branch is unconditional below 'push', so an
+  // indirection that hides the verb must not slip through at the higher
+  // level either (a role could otherwise reach the shared stack by never
+  // writing the literal verb `stash` where the classifier can see it — moot
+  // for `git -C`/`GIT_DIR=` forms, which resolve to a real `stash`/`pop`
+  // token today, but the fail-closed rule exists for tokens this classifier
+  // can never resolve, e.g. `$VERB`).
+  // Rejects: a stash branch gated on `level === 'read'` instead of being
+  // unconditional (mirroring GIT_PUSH_CMDS's shape), which would silently
+  // re-allow all of this at 'commit'.
+  it('fails closed at commit too — the shared stash stack has no "trusted enough" level below push', async () => {
+    const failClosed = [
+      'git stash $SUB',
+      'git stash "$(echo pop)"',
+      'git -C /repo stash pop',
+      'GIT_DIR=.git git stash drop',
+    ];
+    for (const cmd of failClosed) {
+      expect(await allows('commit', cmd), cmd).toBe(false);
     }
   });
 
