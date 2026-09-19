@@ -15,12 +15,13 @@ import { sessionCommand } from '../commands/session.js';
 import { statusCommand } from '../commands/status.js';
 import { taskCommand } from '../commands/task.js';
 import { HONEST_MONOSWARM_SENTENCE } from './claudemd-generator.js';
-import { WORKER_COUNT } from './generated-counts.js';
+import { WORKER_COUNT, WORKER_ROWS } from './generated-counts.js';
 import {
   _isOptionalPackageResolvable,
   atomicWriteFile,
   mergeGeneratedBlock,
   subcommandCount,
+  workerTableRows,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
@@ -203,6 +204,8 @@ npx monomind doctor --fix
 
 ### ${subcommandCount(hooksCommand)} Available Hook Subcommands${hooksAvailable ? '' : ' — background workers unavailable in this install (@monoes/hooks did not resolve)'}
 
+The four groups below are a curated highlight, not the full ${subcommandCount(hooksCommand)} — run \`monomind hooks --help\` for every subcommand.
+
 #### Core Hooks (6)
 | Hook | Description |
 |------|-------------|
@@ -239,20 +242,7 @@ npx monomind doctor --fix
 ### ${hooksAvailable ? `${WORKER_COUNT} ` : ''}Background Workers (@monoes/hooks, run in-process)${hooksAvailable ? '' : ' _(unavailable in this install)_'}
 | Worker | Priority | Purpose |
 |--------|----------|---------|
-| \`performance\` | normal | Benchmark performance |
-| \`health\` | high | System health monitoring |
-| \`swarm\` | high | Swarm activity monitoring |
-| \`git\` | normal | Branch/change tracking |
-| \`learning\` | normal | Learning optimization |
-| \`adr\` | low | ADR compliance |
-| \`ddd\` | low | DDD progress |
-| \`security\` | high | Secret/vulnerability scan |
-| \`patterns\` | normal | Pattern consolidation |
-| \`cache\` | background | Cache cleanup |
-| \`progress\` | normal | Progress tracking |
-| \`map\` | normal | Codebase mapping |
-| \`audit\` | high | Security audit metrics |
-| \`consolidate\` | low | Memory consolidation |
+${workerTableRows(WORKER_ROWS)}
 
 Metrics-producing workers (ddd, map, audit, consolidate) refresh at
 session start when their output is >6h old; run on demand with
@@ -422,5 +412,11 @@ npx monomind hooks worker run map
   if (merged !== existingContent) {
     atomicWriteFile(capabilitiesPath, merged);
   }
-  result.created.files.push('.monomind/CAPABILITIES.md');
+  // i-035 reviewer MINOR 6: `exists` is already computed above — reporting
+  // every write as "created" regardless was free to fix once that was true.
+  if (exists) {
+    result.updated.push('.monomind/CAPABILITIES.md');
+  } else {
+    result.created.files.push('.monomind/CAPABILITIES.md');
+  }
 }

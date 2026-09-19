@@ -3,7 +3,48 @@
 // publish if this drifts from WORKER_CONFIGS.
 //
 // WORKER_CONFIGS lives in the optional @monoes/hooks package, which may not
-// resolve at `init` time. This constant is computed from source at
-// doc-generation time instead, so CLAUDE.md/CAPABILITIES.md's worker count
-// is always correct without an optional-package import for a doc string.
+// resolve at `init` time. These are computed from source at doc-generation
+// time instead, so CLAUDE.md/CAPABILITIES.md's worker count AND worker table
+// rows are always correct without an optional-package import for a doc
+// string. WORKER_ROWS exists because deriving the count alone still let the
+// row list beneath it drift independently (i-035 reviewer finding).
 export const WORKER_COUNT = 9;
+
+export interface WorkerRow {
+  name: string;
+  priority: string;
+  description: string;
+}
+
+export const WORKER_ROWS: WorkerRow[] = [
+  { name: 'health', priority: 'high', description: 'Monitor disk, memory, CPU, processes' },
+  { name: 'ddd', priority: 'low', description: 'Track DDD domain implementation progress' },
+  { name: 'security', priority: 'high', description: 'Scan for secrets, vulnerabilities, CVEs' },
+  { name: 'cache', priority: 'background', description: 'Clean temp files, old logs, stale cache' },
+  {
+    name: 'map',
+    priority: 'normal',
+    description: 'Codebase mapping — writes .monomind/metrics/codebase-map.json',
+  },
+  {
+    name: 'audit',
+    priority: 'high',
+    description: 'Security audit — writes .monomind/metrics/security-audit.json',
+  },
+  {
+    name: 'consolidate',
+    priority: 'low',
+    description: 'RAPTOR memory consolidation — writes .monomind/metrics/consolidation.json',
+  },
+  {
+    name: 'progress',
+    priority: 'normal',
+    description: 'Implementation metrics — writes .monomind/metrics/progress.json',
+  },
+  {
+    name: 'reflexion',
+    priority: 'normal',
+    description:
+      'Self-learning from failures (P2-15) — reflects on failed tasks, stores lessons for future retrieval',
+  },
+];

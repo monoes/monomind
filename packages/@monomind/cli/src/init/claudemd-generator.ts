@@ -14,8 +14,8 @@ import { memoryCommand } from '../commands/memory.js';
 import { monoswarmCommand } from '../commands/monoswarm.js';
 import { sessionCommand } from '../commands/session.js';
 import { taskCommand } from '../commands/task.js';
-import { WORKER_COUNT } from './generated-counts.js';
-import { _isOptionalPackageResolvable, subcommandCount } from './shared.js';
+import { WORKER_COUNT, WORKER_ROWS } from './generated-counts.js';
+import { _isOptionalPackageResolvable, subcommandCount, workerTableRows } from './shared.js';
 import { detectProjectProfile } from './shared-instructions-generator.js';
 import type { ClaudeMdTemplate, InitOptions } from './types.js';
 
@@ -345,13 +345,7 @@ function hooksSystem(): string {
 
 | Worker | Priority | Description |
 |--------|----------|-------------|
-| \`map\` | normal | Codebase mapping |
-| \`audit\` | high | Security audit |
-| \`optimize\` | normal | Performance snapshot |
-| \`consolidate\` | low | Memory consolidation |
-| \`ddd\` | low | DDD progress tracking |
-| \`security\` | high | Secret/vulnerability scan |
-| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full${avail.hooks ? ` ${WORKER_COUNT}` : ' list'} |
+${workerTableRows(WORKER_ROWS)}
 
 Metrics-producing workers refresh at session start when output is >6h old.
 ${avail.hooks ? '' : '\n> \\@monoes/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}

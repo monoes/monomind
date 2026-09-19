@@ -160,6 +160,8 @@ npx monomind doctor --fix
 
 ### 28 Available Hook Subcommands
 
+The four groups below are a curated highlight, not the full 28 — run `monomind hooks --help` for every subcommand.
+
 #### Core Hooks (6)
 | Hook | Description |
 |------|-------------|
@@ -196,20 +198,15 @@ npx monomind doctor --fix
 ### 9 Background Workers (@monoes/hooks, run in-process)
 | Worker | Priority | Purpose |
 |--------|----------|---------|
-| `performance` | normal | Benchmark performance |
-| `health` | high | System health monitoring |
-| `swarm` | high | Swarm activity monitoring |
-| `git` | normal | Branch/change tracking |
-| `learning` | normal | Learning optimization |
-| `adr` | low | ADR compliance |
-| `ddd` | low | DDD progress |
-| `security` | high | Secret/vulnerability scan |
-| `patterns` | normal | Pattern consolidation |
-| `cache` | background | Cache cleanup |
-| `progress` | normal | Progress tracking |
-| `map` | normal | Codebase mapping |
-| `audit` | high | Security audit metrics |
-| `consolidate` | low | Memory consolidation |
+| `health` | high | Monitor disk, memory, CPU, processes |
+| `ddd` | low | Track DDD domain implementation progress |
+| `security` | high | Scan for secrets, vulnerabilities, CVEs |
+| `cache` | background | Clean temp files, old logs, stale cache |
+| `map` | normal | Codebase mapping — writes .monomind/metrics/codebase-map.json |
+| `audit` | high | Security audit — writes .monomind/metrics/security-audit.json |
+| `consolidate` | low | RAPTOR memory consolidation — writes .monomind/metrics/consolidation.json |
+| `progress` | normal | Implementation metrics — writes .monomind/metrics/progress.json |
+| `reflexion` | normal | Self-learning from failures (P2-15) — reflects on failed tasks, stores lessons for future retrieval |
 
 Metrics-producing workers (ddd, map, audit, consolidate) refresh at
 session start when their output is >6h old; run on demand with

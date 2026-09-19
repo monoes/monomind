@@ -9,6 +9,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MASTERMIND_SKILLS } from '../mastermind/manifest-data.js';
 import type { Command } from '../types.js';
+import type { WorkerRow } from './generated-counts.js';
 import type { InitResult } from './types.js';
 
 // ESM-compatible __dirname
@@ -27,6 +28,22 @@ export const MAX_EXEC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
  */
 export function subcommandCount(command: Command): number {
   return command.subcommands?.length ?? 0;
+}
+
+/**
+ * Renders the `| name | priority | description |` markdown rows for the
+ * Background Workers table in both CLAUDE.md and CAPABILITIES.md, from
+ * generated-counts.ts's WORKER_ROWS (derived from WORKER_CONFIGS at
+ * doc-generation time).
+ *
+ * i-035 reviewer finding (MAJOR 1): deriving the worker *count* did not fix
+ * the worker *table* underneath it — it was a hand-maintained list of 14
+ * names, 6 of which don't exist (`hooks worker run <name>` errors on them)
+ * and one real worker (`reflexion`) it never listed. The heading number and
+ * the row list must come from the same source or they will disagree again.
+ */
+export function workerTableRows(rows: WorkerRow[]): string {
+  return rows.map((w) => `| \`${w.name}\` | ${w.priority} | ${w.description} |`).join('\n');
 }
 const CANONICAL_MASTERMIND_SKILLS = MASTERMIND_SKILLS.map((skill) => skill.source);
 
