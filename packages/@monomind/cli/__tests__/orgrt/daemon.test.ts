@@ -1269,9 +1269,28 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     expect(running.agents.get('flaky')!.status).toBe('crashed');
     const crashEvent = events.find(e => e.type === 'audit' && e.reason === 'agent-session-crash' && e.from === 'flaky');
     expect(crashEvent).toBeDefined();
+    // AC2, half (i): the real error text survives VERBATIM in the classified
+    // crash audit (daemon.ts:1918-1929, untouched by #304) — this is what
+    // rejects a "fix" that buys AC1 by silencing real errors instead of
+    // reclassifying the raw-text breadcrumb session.ts used to emit.
     expect(crashEvent!.msg).toMatch(/ECONNRESET: socket hang up/);
     // Not misreported as a planned stop.
     expect(events.some(e => e.type === 'status' && e.reason === 'agent-stopped' && e.from === 'flaky')).toBe(false);
+    // AC2, half (ii) — and the actual #304 fix this test now pins: a FULL-TEXT
+    // scan of every status line for every role, not a query filtered by
+    // `reason`. session.ts:941 used to emit an UNCLASSIFIED "session error:
+    // <raw SDK text>" breadcrumb (no `reason` field) one step before
+    // daemon.ts's classified emit — every #304/#251 assertion filtered on
+    // `reason === 'agent-stopped'`, so that breadcrumb was structurally
+    // invisible to the whole suite despite printing "Operation aborted" /
+    // "Claude Code process aborted by user" live in `org logs` for boss (an
+    // idle role aborted by this same stop). Scanning ALL msg text, regardless
+    // of type/reason, is what catches an emit site a filtered query can't see.
+    for (const e of events) {
+      expect(e.msg ?? '', `event from ${e.from} (reason=${e.reason}): ${e.msg}`).not.toMatch(
+        /aborted by user|Operation aborted/,
+      );
+    }
   }, 10_000);
 
   it('a silent session retries with a live abort signal, keeps the role working, and an org stop still aborts the retry (#256)', async () => {

@@ -938,7 +938,22 @@ async function runOneSession(
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
     return { sessionId, hitTurnLimit };
   } catch (err) {
-    bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
+    // #304: the daemon's role loop catches this same error one step later and
+    // emits the authoritative CLASSIFIED status — crashed / stopped with the
+    // org / terminated by stop — carrying the real error text when it is a
+    // genuine crash (daemon.ts's 'agent-session-crash' audit). This
+    // breadcrumb must not pre-empt that with the raw SDK string: on a
+    // planned stop it announced "Claude Code process aborted by user" about
+    // a stop nobody requested. It deliberately does NOT classify —
+    // session.ts relays, the daemon decides — and it carries a `reason` so
+    // it is filterable; its absence is why every #304/#251 test was
+    // structurally unable to see this event.
+    bus.emit({
+      type: 'status',
+      from: role.id,
+      reason: 'session-error',
+      msg: 'session ended with an error — see the classified status that follows',
+    });
     throw err;
   } finally {
     // Unlink so a long-lived role doesn't pile a listener per attempt onto the
