@@ -742,6 +742,26 @@ export class OrgDaemon {
     taskOverride?: string,
     options?: { resume?: boolean },
   ): Promise<RunningOrg> {
+    // #301: the PRIMARY fix — the stop-side backstops below (finishStop,
+    // process 'exit') can only run for a run that ends through code we
+    // control; a SIGKILL leaves .git/worktrees/<name> metadata behind with
+    // nothing left to clean it up, and so did every run that leaked before
+    // this fix existed. Pruning here turns "did the last run clean up,
+    // however it died?" into "a run always begins clean" — the only thing
+    // that recovers both the SIGKILL case and worktrees already orphaned
+    // before this daemon process started. Unconditional and best-effort for
+    // the same reasons as the stop-side prune (see finishStop): it only
+    // drops metadata whose worktree directory is already gone, so it cannot
+    // touch a live worktree, including the owner's.
+    try {
+      execFileSync('git', ['worktree', 'prune'], {
+        cwd: this.root,
+        stdio: 'ignore',
+        timeout: 30_000,
+      });
+    } catch {
+      /* best-effort: not a git repo, git missing, or a wedged hook */
+    }
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
 
@@ -1184,6 +1204,25 @@ export class OrgDaemon {
         reapOrphanedSdkProcesses(new Set(), process.pid);
       } catch {
         /* best-effort */
+      }
+      // #301: `process.on('exit')` is the SECOND termination path — it fires
+      // for a normal stop too (finishStop's own prune above already covers
+      // that case, so this is a harmless idempotent repeat there) but also
+      // for every path that reaches it via an explicit `process.exit()`
+      // (org.ts's SIGTERM/SIGINT/SIGHUP handlers, uncaughtException,
+      // unhandledRejection) — none of which run finishStop's cleanup at all.
+      // execFileSync is already a static top-level import (see the comment
+      // above), so this stays synchronous-safe like the rest of this
+      // handler. SIGKILL cannot reach here — no in-process code runs for
+      // it — which is why prune-at-start exists as the complement.
+      try {
+        execFileSync('git', ['worktree', 'prune'], {
+          cwd: this.root,
+          stdio: 'ignore',
+          timeout: 30_000,
+        });
+      } catch {
+        /* best-effort: not a git repo, git missing, or a wedged hook */
       }
     };
     process.on('exit', crashCleanup);
@@ -2634,6 +2673,29 @@ export class OrgDaemon {
             /* best-effort */
           }
         }
+      }
+      // #301: roles create their own linked worktrees with Bash (paths the
+      // daemon never recorded — org.worktreePath/agent.worktreePath above are
+      // only ever set for workspace: 'worktree'/'worktree-per-role', empty
+      // for the common workspace: 'repo' shape), and deleting the working
+      // directory from inside a role sandbox leaves .git/worktrees/<name>
+      // behind — `git worktree list` then hides it, and it never gets
+      // cleaned up. Unconditional on purpose: gating this on
+      // org/agent.worktreePath would skip exactly the runs that hit the bug.
+      // prune only drops metadata whose worktree directory is already gone,
+      // so a live worktree — including the owner's — is never touched; it is
+      // idempotent; and the two removals just above already run `git
+      // worktree remove --force` against this same repo from this same cwd,
+      // so this is strictly less invasive than what already ships. Run after
+      // both removal loops so a worktree just removed is also pruned.
+      try {
+        execFileSync('git', ['worktree', 'prune'], {
+          cwd: this.root,
+          stdio: 'ignore',
+          timeout: 30_000,
+        });
+      } catch {
+        /* best-effort: not a git repo, git missing, or a wedged hook */
       }
     } catch {
       /* node:child_process unavailable — skip */
