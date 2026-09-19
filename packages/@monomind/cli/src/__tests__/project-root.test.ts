@@ -27,6 +27,7 @@ import { getProjectRoot } from '../memory/memory-bridge.js';
 describe('getProjectRoot', () => {
   let root: string;
   let savedMonomindCwd: string | undefined;
+  let savedMonomindProjectRoot: string | undefined;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'project-root-'));
@@ -35,11 +36,15 @@ describe('getProjectRoot', () => {
     homeState.dir = dirname(root);
     savedMonomindCwd = process.env.MONOMIND_CWD;
     delete process.env.MONOMIND_CWD;
+    savedMonomindProjectRoot = process.env.MONOMIND_PROJECT_ROOT;
+    delete process.env.MONOMIND_PROJECT_ROOT;
   });
 
   afterEach(() => {
     if (savedMonomindCwd === undefined) delete process.env.MONOMIND_CWD;
     else process.env.MONOMIND_CWD = savedMonomindCwd;
+    if (savedMonomindProjectRoot === undefined) delete process.env.MONOMIND_PROJECT_ROOT;
+    else process.env.MONOMIND_PROJECT_ROOT = savedMonomindProjectRoot;
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -73,10 +78,35 @@ describe('getProjectRoot', () => {
     marker(root, '.git');
     const inner = join(root, 'vendor', 'sub-repo');
     mkdirSync(inner, { recursive: true });
-    marker(inner, '.monomind');
+    marker(inner, '.git'); // a real nested repo — .git, not .monomind
     const deep = join(inner, 'src');
     mkdirSync(deep, { recursive: true });
     expect(getProjectRoot(deep)).toBe(inner);
+  });
+
+  // o-16 (AC-3c, the ONE accepted, documented cost — not a silent break):
+  // this test used to use a BARE `.monomind` at `inner` as the nested-repo
+  // marker, i.e. it encoded the exact assumption this item removes — that a
+  // bare `.monomind` alone is trustworthy evidence of a project boundary.
+  // `.monomind` is created by monomind itself as a side effect of running
+  // anywhere; a vendored directory with no `.git` and no manifest is
+  // indistinguishable, from the filesystem alone, from monomind's own
+  // droppings — which is precisely how `/home/monoes/mdev-tmp/.monomind`
+  // came to silently capture an unrelated fixture. The walk also does not
+  // continue PAST an ignored bare `.monomind` to adopt some more distant
+  // ancestor's `.git` (that would merge the vendored dir into the outer
+  // repo's brain, a different and worse way to break "nested projects keep
+  // their own brain") — it stops there and falls back to the start dir.
+  it('a nested BARE .monomind (no .git, no manifest) is no longer trusted alone — falls back to the subdirectory, not the outer .git', () => {
+    marker(root, '.git');
+    const inner = join(root, 'vendor', 'sub-repo');
+    mkdirSync(inner, { recursive: true });
+    marker(inner, '.monomind'); // bare — the shape that corrupted i-086's fixture
+    const deep = join(inner, 'src');
+    mkdirSync(deep, { recursive: true });
+    // NOT `inner` (no longer trusted) and NOT `root` (must not walk past the
+    // ignored ancestor to adopt a more distant, unrelated repo either).
+    expect(getProjectRoot(deep)).toBe(deep);
   });
 
   it('treats a .git FILE (worktree/submodule) as a marker too', () => {
@@ -99,6 +129,131 @@ describe('getProjectRoot', () => {
     const deep = join(root, 'a', 'b', 'c');
     mkdirSync(deep, { recursive: true });
     expect(getProjectRoot(deep)).toBe(deep);
+  });
+
+  // o-16 round 2 (revised plan): the actual incident. `dir === home` was
+  // never the cause — the corruption happened entirely INSIDE $HOME. A bare
+  // `.monomind` ancestor (monomind's own droppings: no `.git`, no manifest —
+  // exactly `/home/monoes/mdev-tmp/.monomind`'s shape) is not independent
+  // evidence of a project, and worse is a feedback loop: a wrong resolution
+  // creates the very marker that captures every future descendant.
+  describe('o-16: .git and .monomind are categorically different markers', () => {
+    it('does NOT adopt a bare .monomind ancestor with no independent project marker (the actual incident)', () => {
+      const scratch = join(root, 'scratch');
+      marker(scratch, '.monomind'); // bare: no .git, no manifest
+      const proj = join(scratch, 'fixture-proj');
+      mkdirSync(proj, { recursive: true });
+      expect(getProjectRoot(proj)).toBe(proj);
+    });
+
+    it('two projects under a shared bare-.monomind parent do not share a store (the i-086 corruption shape)', () => {
+      const scratch = join(root, 'scratch2');
+      marker(scratch, '.monomind');
+      const a = join(scratch, 'a');
+      const b = join(scratch, 'b');
+      mkdirSync(a, { recursive: true });
+      mkdirSync(b, { recursive: true });
+      expect(getProjectRoot(a)).toBe(a);
+      expect(getProjectRoot(b)).toBe(b);
+      expect(getProjectRoot(a)).not.toBe(getProjectRoot(b));
+    });
+
+    it('still adopts a .git ancestor even when $HOME is unrelated (CI/container paths, not just $HOME-scoped)', () => {
+      // The opposite of the default beforeEach: home is NOT an ancestor of
+      // root at all — proves this isn't secretly still a $HOME-bounded rule.
+      homeState.dir = join(tmpdir(), 'definitely-unrelated-home-oiuq3f');
+      marker(root, '.git');
+      const sub = join(root, 'packages', 'x');
+      mkdirSync(sub, { recursive: true });
+      expect(getProjectRoot(sub)).toBe(root);
+    });
+
+    it('still adopts a .monomind ancestor when accompanied by an independent project marker (package.json)', () => {
+      const proj = join(root, 'proj');
+      marker(proj, '.monomind');
+      writeFileSync(join(proj, 'package.json'), '{}');
+      const sub = join(proj, 'sub');
+      mkdirSync(sub, { recursive: true });
+      expect(getProjectRoot(sub)).toBe(proj);
+    });
+
+    it.each(['pyproject.toml', 'go.mod', 'Cargo.toml'])(
+      'still adopts a .monomind ancestor accompanied by %s',
+      (manifest) => {
+        const proj = join(root, `proj-${manifest.replace(/[^a-z]/gi, '')}`);
+        marker(proj, '.monomind');
+        writeFileSync(join(proj, manifest), '');
+        const sub = join(proj, 'sub');
+        mkdirSync(sub, { recursive: true });
+        expect(getProjectRoot(sub)).toBe(proj);
+      },
+    );
+
+    it('MONOMIND_PROJECT_ROOT overrides the walk entirely, as an explicit escape hatch', () => {
+      const anchor = join(root, 'anchor-target');
+      mkdirSync(anchor, { recursive: true });
+      const elsewhere = join(root, 'elsewhere', 'deep');
+      mkdirSync(elsewhere, { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = anchor;
+      expect(getProjectRoot(elsewhere)).toBe(anchor);
+    });
+
+    // The cache (`_rootCacheKey`/`_rootCacheVal`) is keyed on the starting
+    // directory so a chdir re-resolves — but MONOMIND_PROJECT_ROOT
+    // short-circuits the walk for the SAME starting directory. If the cache
+    // key didn't also cover the anchor, querying once without it and then
+    // again after it's set (same cwd both times) would replay the stale
+    // pre-anchor result, silently defeating the escape hatch.
+    it('setting MONOMIND_PROJECT_ROOT after an unanchored query for the same cwd is not masked by the cache', () => {
+      const elsewhere = join(root, 'elsewhere2', 'deep');
+      mkdirSync(elsewhere, { recursive: true });
+      expect(getProjectRoot(elsewhere)).toBe(elsewhere); // no marker, no anchor -> falls back to itself
+
+      const anchor = join(root, 'anchor-target2');
+      mkdirSync(anchor, { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = anchor;
+      expect(getProjectRoot(elsewhere)).toBe(anchor); // same cwd, anchor now set -> must not reuse the cached pre-anchor value
+    });
+
+    it('re-resolves after the start directory changes — the cache does not stick a wrong root across different starts', () => {
+      const a = join(root, 'proj-a');
+      const b = join(root, 'proj-b');
+      marker(a, '.git');
+      marker(b, '.git');
+      expect(getProjectRoot(a)).toBe(a);
+      expect(getProjectRoot(b)).toBe(b);
+      expect(getProjectRoot(a)).toBe(a); // re-query the first: still itself, not stuck on b
+    });
+
+    // AC-5: `getDbPath`'s path-traversal guard (memory-bridge.ts, ~line 282)
+    // allows a custom MCP-supplied path only if it sits inside `getProjectRoot()`,
+    // the per-project data dir, or the global brain. A wrong (too-wide) root
+    // widens that allow-list for free — before this fix, adopting the bare
+    // `.monomind` ancestor as root would have let a SIBLING directory (outside
+    // the real project, but inside the wrongly-adopted parent) pass the guard.
+    // This proves the fix narrows the resolved root and therefore does NOT
+    // loosen the guard — it can only make it stricter.
+    it('the path-traversal guard does not widen just because a bare .monomind ancestor sits nearby (AC-5)', async () => {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const scratch = join(root, 'scratch3');
+      marker(scratch, '.monomind'); // bare — same shape as the incident
+      const proj = join(scratch, 'fixture-proj');
+      const sibling = join(scratch, 'sibling-untrusted');
+      mkdirSync(proj, { recursive: true });
+      mkdirSync(sibling, { recursive: true });
+      process.env.MONOMIND_CWD = proj;
+
+      // Sanity: resolves to the project itself, not the shared scratch parent.
+      expect(getProjectRoot()).toBe(proj);
+
+      const defaultPath = bridgeGetDbPath();
+      const siblingPath = bridgeGetDbPath(sibling);
+      // `sibling` sits outside the resolved project root, so a custom path
+      // pointing at it must fall back to the default store — not be trusted
+      // as if it were inside the project — even though it WOULD have passed
+      // the guard pre-o-16, when the root wrongly widened to `scratch`.
+      expect(siblingPath).toBe(defaultPath);
+    });
   });
 
   // The other half of the invariant above: the marker WRITTEN into that

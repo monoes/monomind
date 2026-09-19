@@ -84,22 +84,98 @@ function capResultContent(content: string): string {
 // '/x/foo/bar' would both flatten to 'x-foo-bar'). A short readable prefix is
 // kept purely so the directory name is browsable; only the hash guarantees
 // uniqueness.
-function walkToProjectRoot(start: string): string {
+
+// o-16: `.git` and `.monomind` are NOT equivalent evidence of a project.
+// `.git` is created by the user, deliberately (`git init`/clone) — "this
+// directory is a repository". `.monomind` is created by monomind ITSELF, as
+// a side effect of running anywhere — "monomind once ran here", and nothing
+// more. Treating a bare `.monomind` ancestor as adoptable is a feedback
+// loop: a wrong resolution creates the very marker that captures every
+// future descendant. Measured against the actual incident:
+// `/home/monoes/mdev-tmp/.monomind` and `/home/monoes/.monomind` both exist,
+// neither has a `.git` or manifest, and neither is a project — both are
+// monomind's own state directories. `INDEPENDENT_PROJECT_MARKERS` (other
+// than `.git`, handled unconditionally) is what makes a `.monomind`
+// ancestor's claim independently checkable.
+const INDEPENDENT_PROJECT_MARKERS = ['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml'];
+
+function markerExists(p: string): boolean {
+  try {
+    return fs.existsSync(p);
+  } catch (e) {
+    logBridgeError('walkToProjectRoot', e); /* unreadable dir — treat as absent, keep walking */
+    return false;
+  }
+}
+
+export interface ProjectRootResolution {
+  root: string;
+  /** Why `root` was chosen — for disclosure (doctor, debug logs), not
+   *  behavior. `explicit-anchor`: MONOMIND_PROJECT_ROOT set. `git`: a `.git`
+   *  ancestor (any depth) was adopted. `monomind-at-start`: the starting
+   *  directory itself carries `.monomind` (the user is standing in their
+   *  own project — always trusted). `monomind-with-marker`: an ancestor's
+   *  `.monomind` was corroborated by an independent project marker.
+   *  `start-fallback`: nothing adoptable was found; `root` is `start`. */
+  reason:
+    | 'explicit-anchor'
+    | 'git'
+    | 'monomind-at-start'
+    | 'monomind-with-marker'
+    | 'start-fallback';
+  /** Set only on `start-fallback`: the first bare `.monomind` ancestor that
+   *  was found but NOT adopted (no independent marker alongside it), so a
+   *  caller can tell a genuinely ambiguous user why their brain stayed put
+   *  instead of silently picking a directory that merely looked plausible. */
+  ignoredBareMonomind?: string;
+}
+
+function walkToProjectRoot(start: string): ProjectRootResolution {
+  // Explicit escape hatch: honored unconditionally, ahead of any walk.
+  const anchor = process.env.MONOMIND_PROJECT_ROOT;
+  if (anchor) return { root: path.resolve(anchor), reason: 'explicit-anchor' };
+
+  // Retained from before o-16: protects the dotfiles-repo-at-$HOME case (a
+  // `.git` at $HOME must not swallow every loose project underneath it).
+  // Insufficient ALONE against the reported incident — that marker sat
+  // *inside* $HOME, so the walk reached it long before ever reaching home —
+  // which is why it is additive to, not a replacement for, the rule below.
   const home = path.resolve(os.homedir());
+
   let dir = start;
+  let ignoredBareMonomind: string | undefined;
+  let atStart = true;
   for (;;) {
     if (dir === home) break;
-    try {
-      if (fs.existsSync(path.join(dir, '.monomind')) || fs.existsSync(path.join(dir, '.git')))
-        return dir;
-    } catch (e) {
-      logBridgeError('walkToProjectRoot', e); /* unreadable dir — keep walking */
+    if (markerExists(path.join(dir, '.git'))) return { root: dir, reason: 'git' };
+    if (markerExists(path.join(dir, '.monomind'))) {
+      if (atStart) return { root: dir, reason: 'monomind-at-start' };
+      const corroborated = INDEPENDENT_PROJECT_MARKERS.some((m) => markerExists(path.join(dir, m)));
+      if (corroborated) return { root: dir, reason: 'monomind-with-marker' };
+      // The nearest marker found doesn't qualify — stop HERE. Continuing
+      // past it to adopt some more distant, unrelated ancestor's `.git`
+      // would break "nested projects keep their own brain" in a new way:
+      // a vendored sub-repo with only a bare `.monomind` would get silently
+      // merged into whatever repo happens to sit further up, which the
+      // original nearest-marker-wins design specifically existed to
+      // prevent. Not adopting is the fallback; walking past is not.
+      ignoredBareMonomind = dir;
+      break;
     }
+    atStart = false;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return start;
+  if (ignoredBareMonomind !== undefined) {
+    logBridgeError(
+      'walkToProjectRoot',
+      new Error(
+        `bare .monomind ancestor ignored at ${ignoredBareMonomind} (no independent project marker) — using ${start}`,
+      ),
+    );
+  }
+  return { root: start, reason: 'start-fallback', ignoredBareMonomind };
 }
 
 // getBackend() resolves the store path on every store/search, so a bulk ingest
@@ -107,7 +183,29 @@ function walkToProjectRoot(start: string): string {
 // gain or lose its markers mid-process; the key is the starting directory, so a
 // chdir still re-resolves.
 let _rootCacheKey: string | undefined;
-let _rootCacheVal: string | undefined;
+let _rootCacheVal: ProjectRootResolution | undefined;
+
+/** The full resolution — root, reason and (when the walk found nothing
+ *  adoptable) which bare `.monomind` ancestor it ignored. `doctor` uses this
+ *  to disclose which directory a user's brain is keyed to and why, instead
+ *  of a plausible-but-silent path (o-16). See `getProjectRoot` for the
+ *  string-only form the other ~28 call sites use. */
+export function getProjectRootResolution(
+  from: string = process.env.MONOMIND_CWD || process.cwd(),
+): ProjectRootResolution {
+  const start = path.resolve(from);
+  // Cache key must cover everything walkToProjectRoot's result depends on,
+  // not just `start` — MONOMIND_PROJECT_ROOT short-circuits the walk (o-16),
+  // so a cache keyed on `start` alone would replay a stale pre-anchor (or
+  // stale different-anchor) result for the same cwd once the env var changes
+  // mid-process, silently defeating the escape hatch it's supposed to be.
+  const cacheKey = `${start}\n${process.env.MONOMIND_PROJECT_ROOT ?? ''}`;
+  if (cacheKey === _rootCacheKey && _rootCacheVal !== undefined) return _rootCacheVal;
+  const resolved = walkToProjectRoot(start);
+  _rootCacheKey = cacheKey;
+  _rootCacheVal = resolved;
+  return resolved;
+}
 
 /** The directory that identifies "this project" for every Second Brain store.
  *
@@ -115,12 +213,25 @@ let _rootCacheVal: string | undefined;
  * `doc ingest ./docs` from a package subdir wrote to a different store, and a
  * different metadata file, than the identical command at the repo root, and
  * neither could see the other. We walk up to the nearest ancestor carrying a
- * `.monomind` or `.git` marker, so every directory inside one project resolves
- * to one brain. Nested projects still win (the walk stops at the FIRST marker),
- * which keeps worktrees and vendored sub-repos independent.
+ * `.git` marker (any depth), or a `.monomind` marker corroborated by an
+ * independent project marker, so every directory inside one project resolves
+ * to one brain. Nested projects still win (the walk stops at the FIRST
+ * eligible marker), which keeps worktrees and vendored sub-repos independent.
+ *
+ * o-16: a BARE `.monomind` ancestor (no `.git`, no manifest) is NOT adopted.
+ * `.monomind` is created by monomind itself as a side effect of running
+ * anywhere — it is not independent evidence of a project, and a wrong
+ * resolution creates the very marker that would capture every future
+ * descendant if it were trusted alone. See `walkToProjectRoot`'s comment for
+ * the measured incident this fixes. The starting directory's OWN `.monomind`
+ * is still trusted unconditionally — that is the user pointing at their own
+ * project — and `.git` at any depth is untouched, so CI/devcontainer repos
+ * and subdirectory unification behave exactly as before.
  *
  * The walk never crosses the home directory: a dotfiles repo at `~` would
  * otherwise swallow every loose project underneath it into one shared brain.
+ * `MONOMIND_PROJECT_ROOT`, if set, is an explicit anchor that skips the walk
+ * entirely — the escape hatch for the genuinely ambiguous case.
  *
  * For anyone who already ran from the project root — the normal case — the
  * resolved path is identical to before, so their store does not move.
@@ -132,12 +243,7 @@ let _rootCacheVal: string | undefined;
  * node builtins only (see the static import in document-pipeline.ts).
  */
 export function getProjectRoot(from: string = process.env.MONOMIND_CWD || process.cwd()): string {
-  const start = path.resolve(from);
-  if (start === _rootCacheKey && _rootCacheVal !== undefined) return _rootCacheVal;
-  const resolved = walkToProjectRoot(start);
-  _rootCacheKey = start;
-  _rootCacheVal = resolved;
-  return resolved;
+  return getProjectRootResolution(from).root;
 }
 
 function projectDataDir(): string {
