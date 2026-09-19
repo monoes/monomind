@@ -73,6 +73,48 @@ function sectionsOf(body: string): string[] {
   return sections;
 }
 
+/** o-09 round 2 (reviewer MAJOR): matches a backtick-wrapped
+ *  `` `monomind mastermind run <arg>[ --print]` `` command, where `<arg>` is
+ *  either a real skill/alias name or the literal placeholder form `<skill>`
+ *  (angle brackets included) the router's own body uses generically. The v1
+ *  regex (`[\w-]+` only) matched neither the placeholder — `<`/`>` are not
+ *  word characters, so it matched **zero times** in every shipped tree, and
+ *  the circularity check below it never ran — nor would it have narrowed
+ *  Case B/C below even if it had, since those match `[\w-]+` fine but the
+ *  exemption (now removed) skipped them by name. */
+const RUN_COMMAND_RE = /`monomind mastermind run (<[\w-]+>|[\w-]+)(?: --print)?`/g;
+
+/** Every run-command argument found in `body`, backtick-wrapped commands only. */
+function runCommandArgs(body: string): string[] {
+  return [...body.matchAll(RUN_COMMAND_RE)].map((m) => m[1]);
+}
+
+/** A literal `<word>` placeholder (e.g. `<skill>`) — documentation shorthand
+ *  for "fill in a real name here", not itself a name to resolve. */
+function isPlaceholderArg(arg: string): boolean {
+  return /^<[\w-]+>$/.test(arg);
+}
+
+/** Asserts every non-placeholder run-command argument in `body` resolves to a
+ *  real skill, and that resolution is never the router itself (`mastermind`,
+ *  by any of its names — canonical or alias). No exemption: `mastermind`,
+ *  `router` and `master` all name the same skill, so a `run <any of them>
+ *  --print` line is circular regardless of which of the three spellings is
+ *  used — exempting one and not the others was the round-1 hole (Case B/C:
+ *  the reviewer's synthetic regressions using `master`/`router` passed
+ *  silently because the exemption matched them by name). */
+function assertRunCommandsNotCircular(body: string): void {
+  for (const arg of runCommandArgs(body)) {
+    if (isPlaceholderArg(arg)) continue;
+    const resolved = resolveMastermindSkill(arg);
+    expect(resolved, `\`monomind mastermind run ${arg}\` resolves to no known skill`).toBeDefined();
+    expect(
+      resolved?.name,
+      `\`monomind mastermind run ${arg}\` resolves to the router itself (circular) instead of a distinct workflow`,
+    ).not.toBe('mastermind');
+  }
+}
+
 describe.each(TREES)('mastermind router internal consistency — $name', (tree) => {
   const file = routerPath(tree);
 
@@ -123,26 +165,24 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
     ).toEqual([]);
   });
 
+  it('names at least one run-command — the check below is not vacuous', () => {
+    // o-09 round 2: the v1 regex required `[\w-]+` only, which cannot match
+    // the shipped body's actual placeholder form (`<skill>` — `<`/`>` are
+    // not word characters), so this found zero commands in every tree and
+    // the circularity check below never ran. RUN_COMMAND_RE now also
+    // matches the placeholder form, so a router body that names no
+    // run-command at all (accidentally deleting the fallback instruction)
+    // fails here instead of the next check silently doing nothing.
+    expect(runCommandArgs(body).length).toBeGreaterThan(0);
+  });
+
   it('every `monomind mastermind run <x>` command in the body resolves to a real, non-router skill', () => {
     // The specific shape MAJOR 1 was: `run master --print` DOES resolve
     // (`master` is an alias of the router itself, manifest-data.ts:15) but
     // circularly — it prints the exact page the reader is already on. A
     // plain "resolves" check misses that; also assert the resolved skill
-    // isn't the router (`mastermind`) unless the command literally names it.
-    for (const m of body.matchAll(/`monomind mastermind run ([\w-]+)(?: --print)?`/g)) {
-      const arg = m[1];
-      const resolved = resolveMastermindSkill(arg);
-      expect(
-        resolved,
-        `\`monomind mastermind run ${arg}\` resolves to no known skill`,
-      ).toBeDefined();
-      if (arg !== 'mastermind' && arg !== 'router' && arg !== 'master') {
-        expect(
-          resolved?.name,
-          `\`monomind mastermind run ${arg}\` resolves to the router itself (circular) instead of a distinct workflow`,
-        ).not.toBe('mastermind');
-      }
-    }
+    // isn't the router (`mastermind`), by any of its names.
+    assertRunCommandsNotCircular(body);
   });
 
   it('names no dead .md path', () => {
@@ -171,5 +211,51 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
         `the last router block does not list \`${gate}\`, a gate the file itself calls mandatory:\n${lastBlock}`,
       ).toBe(true);
     }
+  });
+});
+
+describe('assertRunCommandsNotCircular — synthetic regressions the v1 exemption missed (o-09 round 2)', () => {
+  // These exercise the CHECKING LOGIC directly against synthetic bodies, not
+  // the real shipped trees (which, post-MAJOR-1, contain no circular
+  // sentence to catch) — the reviewer's three cases, reproduced exactly:
+  //   A: the exact historical sentence (`run master --print` in prose) —
+  //      already caught elsewhere (dead-path / prose-token checks); not
+  //      re-tested here, this file is scoped to the circularity check only.
+  //   B: same circular pointer, phrased so no OTHER check in this file would
+  //      catch it (no dead .md path, a real backtick-wrapped command) —
+  //      this is the one the v1 exemption let through silently.
+  //   C: circular via the `router` alias instead of `master` — same hole,
+  //      different spelling of the same underlying skill.
+  it('Case B: `run master --print` is caught as circular (v1 exempted it by name)', () => {
+    const body = 'For the full routing table, run `monomind mastermind run master --print`.';
+    expect(() => assertRunCommandsNotCircular(body)).toThrow(/circular/);
+  });
+
+  it('Case C: `run router --print` is caught as circular (same alias hole)', () => {
+    const body = 'For the full routing table, run `monomind mastermind run router --print`.';
+    expect(() => assertRunCommandsNotCircular(body)).toThrow(/circular/);
+  });
+
+  it('the literal canonical name `run mastermind --print` is also caught (no self-reference exemption)', () => {
+    // Round 1 exempted `mastermind`, `router` and `master` alike, all by
+    // literal name — none is more legitimate than another as a target of
+    // "run <name> --print", since all three resolve to the same router
+    // skill. No exemption is used here.
+    const body = 'See `monomind mastermind run mastermind --print` for the routing table.';
+    expect(() => assertRunCommandsNotCircular(body)).toThrow(/circular/);
+  });
+
+  it('a command naming a real, distinct workflow is NOT flagged (no false positive)', () => {
+    const body = 'Before multi-file work, run `monomind mastermind run plan --print`.';
+    expect(() => assertRunCommandsNotCircular(body)).not.toThrow();
+  });
+
+  it('the placeholder form `<skill>` is not treated as a broken reference', () => {
+    const body = 'Without native skills, run `monomind mastermind run <skill> --print`.';
+    expect(() => assertRunCommandsNotCircular(body)).not.toThrow();
+  });
+
+  it('a body with no run-command at all is unaffected (no false positive, and see the non-vacuity guard above)', () => {
+    expect(() => assertRunCommandsNotCircular('No run-command here.')).not.toThrow();
   });
 });
