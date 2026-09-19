@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { resolveProviderEnv } from '../../src/orgrt/provider.js';
 
+// o-18: this suite calls resolveProviderEnv() DIRECTLY with a synthetic
+// parentEnv and never spawns a process — it covers only that the function
+// itself is correct, not that its output survives to a real child's
+// environment. That boundary WAS broken (every runner's `{...process.env,
+// ...args.env}` spread undid this function's strip) and this suite could not
+// have caught it. See env-boundary.test.ts for the real-spawn coverage.
+
+
 // env var names under test — computed so no line resembles a credential assignment
 const ANTHROPIC_KEY_VAR = ['ANTHROPIC', 'API', 'KEY'].join('_');
 const PLACEHOLDER = 'not-a-real-value';

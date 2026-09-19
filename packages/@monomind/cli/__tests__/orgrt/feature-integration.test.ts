@@ -229,6 +229,11 @@ describe('Feature #10 — Multi-provider agent support', () => {
     expect(writer!.provider!.kind).toBe('subscription');
   });
 
+  // o-18: calls resolveProviderEnv() directly with a synthetic parentEnv —
+  // covers the function in isolation, not whether its output survives to a
+  // real spawned child's environment. It did not (every runner's
+  // `{...process.env, ...args.env}` spread undid this exact strip); see
+  // env-boundary.test.ts for the real-spawn coverage that caught it.
   it('resolveProviderEnv strips API key for subscription kind', () => {
     const env = resolveProviderEnv({ kind: 'subscription' }, { ANTHROPIC_API_KEY: 'sk-test', HOME: '/home' });
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
