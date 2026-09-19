@@ -4,8 +4,24 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { agentCommand } from '../commands/agent.js';
+import { configCommand } from '../commands/config.js';
+import { hooksCommand } from '../commands/hooks.js';
+import { initCommand } from '../commands/init.js';
+import { mcpCommand } from '../commands/mcp.js';
+import { memoryCommand } from '../commands/memory.js';
+import { monoswarmCommand } from '../commands/monoswarm.js';
+import { sessionCommand } from '../commands/session.js';
+import { statusCommand } from '../commands/status.js';
+import { taskCommand } from '../commands/task.js';
 import { HONEST_MONOSWARM_SENTENCE } from './claudemd-generator.js';
-import { atomicWriteFile, mergeGeneratedBlock, _isOptionalPackageResolvable } from './shared.js';
+import { WORKER_COUNT } from './generated-counts.js';
+import {
+  _isOptionalPackageResolvable,
+  atomicWriteFile,
+  mergeGeneratedBlock,
+  subcommandCount,
+} from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**
@@ -35,7 +51,7 @@ export async function writeCapabilitiesDoc(
 2. [Monoswarm Orchestration](#monoswarm-orchestration)
 3. [Available Agents (60+)](#available-agents)
 4. [CLI Commands](#cli-commands)
-5. [Hooks System (29 Hook Subcommands + 8 Background Workers)](#hooks-system)
+5. [Hooks System (${subcommandCount(hooksCommand)} Hook Subcommands${hooksAvailable ? ` + ${WORKER_COUNT} Background Workers` : ''})](#hooks-system)
 6. [Memory & Intelligence](#memory--intelligence)
 7. [Monoswarm Vote Strategies](#monoswarm-vote-strategies)
 8. [Performance Targets](#performance-targets)
@@ -87,13 +103,13 @@ ${HONEST_MONOSWARM_SENTENCE}
 ### Quick Commands
 \`\`\`bash
 # Initialize monoswarm
-npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Check status
-npx monomind@latest monoswarm status
+npx monomind monoswarm status
 
 # Monitor activity
-npx monomind@latest monoswarm monitor
+npx monomind monoswarm monitor
 \`\`\`
 
 ---
@@ -141,16 +157,16 @@ npx monomind@latest monoswarm monitor
 ### Core Commands
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`init\` | 5 | Project initialization |
-| \`agent\` | 7 | Agent lifecycle management |
-| \`monoswarm\` | 6 | Multi-agent coordination |
-| \`memory\` | 12 | SQLite with ANN vector search |
-| \`mcp\` | 9 | MCP server management |
-| \`task\` | 5 | Task assignment |
-| \`session\` | 6 | Session persistence |
-| \`config\` | 7 | Configuration |
-| \`status\` | 3 | System monitoring |
-| \`hooks\` | 29 | Self-learning hooks + 8 background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
+| \`init\` | ${subcommandCount(initCommand)} | Project initialization |
+| \`agent\` | ${subcommandCount(agentCommand)} | Agent lifecycle management |
+| \`monoswarm\` | ${subcommandCount(monoswarmCommand)} | Multi-agent coordination |
+| \`memory\` | ${subcommandCount(memoryCommand)} | SQLite with ANN vector search |
+| \`mcp\` | ${subcommandCount(mcpCommand)} | MCP server management |
+| \`task\` | ${subcommandCount(taskCommand)} | Task assignment |
+| \`session\` | ${subcommandCount(sessionCommand)} | Session persistence |
+| \`config\` | ${subcommandCount(configCommand)} | Configuration |
+| \`status\` | ${subcommandCount(statusCommand)} | System monitoring |
+| \`hooks\` | ${subcommandCount(hooksCommand)} | Self-learning hooks + ${hooksAvailable ? `${WORKER_COUNT} ` : ''}background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
 
 > Note: there is no \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
 > Neural pattern learning was merged into \`hooks intelligence\`.
@@ -168,24 +184,24 @@ npx monomind@latest monoswarm monitor
 ### Example Commands
 \`\`\`bash
 # Initialize
-npx monomind@latest init --wizard
+npx monomind init wizard
 
 # Spawn agent
-npx monomind@latest agent spawn -t coder --name my-coder
+npx monomind agent spawn -t coder --name my-coder
 
 # Memory operations
-npx monomind@latest memory store --key "pattern" --value "data" --namespace patterns
-npx monomind@latest memory search --query "authentication"
+npx monomind memory store --key "pattern" --value "data" --namespace patterns
+npx monomind memory search --query "authentication"
 
 # Diagnostics
-npx monomind@latest doctor --fix
+npx monomind doctor --fix
 \`\`\`
 
 ---
 
 ## Hooks System
 
-### 29 Available Hook Subcommands${hooksAvailable ? '' : ' — background workers unavailable in this install (@monoes/hooks did not resolve)'}
+### ${subcommandCount(hooksCommand)} Available Hook Subcommands${hooksAvailable ? '' : ' — background workers unavailable in this install (@monoes/hooks did not resolve)'}
 
 #### Core Hooks (6)
 | Hook | Description |
@@ -220,7 +236,7 @@ npx monomind@latest doctor --fix
 | \`coverage-suggest\` | Improvement suggestions |
 | \`coverage-gaps\` | Gap analysis |
 
-### 8 Background Workers (@monoes/hooks, run in-process)
+### ${hooksAvailable ? `${WORKER_COUNT} ` : ''}Background Workers (@monoes/hooks, run in-process)${hooksAvailable ? '' : ' _(unavailable in this install)_'}
 | Worker | Priority | Purpose |
 |--------|----------|---------|
 | \`performance\` | normal | Benchmark performance |
@@ -274,16 +290,16 @@ High-confidence insights (>0.8) can transfer between agents.
 ### Memory Commands
 \`\`\`bash
 # Store pattern
-npx monomind@latest memory store --key "name" --value "data" --namespace patterns
+npx monomind memory store --key "name" --value "data" --namespace patterns
 
 # Semantic search
-npx monomind@latest memory search --query "authentication"
+npx monomind memory search --query "authentication"
 
 # List entries
-npx monomind@latest memory list --namespace patterns
+npx monomind memory list --namespace patterns
 
 # Initialize database
-npx monomind@latest memory init --force
+npx monomind memory init --force
 \`\`\`
 
 ---
@@ -291,7 +307,7 @@ npx monomind@latest memory init --force
 ## Monoswarm Vote Strategies
 
 Reach monoswarm coordination through MCP tools (\`monoswarm_*\`) or the
-\`npx monomind@latest monoswarm\` CLI command. See \`doc/concepts/monoswarm.md\`
+\`npx monomind monoswarm\` CLI command. See \`doc/concepts/monoswarm.md\`
 for the full picture.
 
 ### Agent Types (8)
@@ -339,7 +355,7 @@ for the full picture.
 ### MCP Server Setup
 \`\`\`bash
 # Add Monomind MCP
-claude mcp add monomind -- npx -y monomind@latest mcp start
+claude mcp add monomind -- npx -y monomind mcp start
 \`\`\`
 
 ---
@@ -349,23 +365,23 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 ### Essential Commands
 \`\`\`bash
 # Setup
-npx monomind@latest init --wizard
-npx monomind@latest doctor --fix
+npx monomind init wizard
+npx monomind doctor --fix
 
 # Monoswarm
-npx monomind@latest monoswarm init --topology hierarchical --max-agents 8
-npx monomind@latest monoswarm status
+npx monomind monoswarm init --topology hierarchical --max-agents 8
+npx monomind monoswarm status
 
 # Agents
-npx monomind@latest agent spawn -t coder
-npx monomind@latest agent list
+npx monomind agent spawn -t coder
+npx monomind agent list
 
 # Memory
-npx monomind@latest memory search --query "patterns"
+npx monomind memory search --query "patterns"
 
 # Hooks
-npx monomind@latest hooks pre-task --description "task"
-npx monomind@latest hooks worker run map
+npx monomind hooks pre-task --description "task"
+npx monomind hooks worker run map
 \`\`\`
 
 ### File Structure
@@ -395,6 +411,16 @@ npx monomind@latest hooks worker run map
   // always refreshes just this block instead of duplicating the body.
   const existingContent = exists ? fs.readFileSync(capabilitiesPath, 'utf-8') : '';
   const merged = mergeGeneratedBlock(existingContent, 'capabilities', capabilities);
-  atomicWriteFile(capabilitiesPath, merged);
+  // Skip the write entirely when nothing would actually change — the old
+  // writer's `> Generated:` timestamp line made every --force rewrite the
+  // file with a fresh stamp even when nothing else changed, leaving the repo
+  // dirty by exactly this one file's mtime for information nobody could act
+  // on (init-generated-timestamp-stability.test.ts). Removing that line
+  // (i-041/i-117 trap 1) already makes `merged` byte-identical to
+  // `existingContent` on a genuine no-op run; this guard is what turns that
+  // byte-identity into an actual no-op write, preserving the mtime too.
+  if (merged !== existingContent) {
+    atomicWriteFile(capabilitiesPath, merged);
+  }
   result.created.files.push('.monomind/CAPABILITIES.md');
 }

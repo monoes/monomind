@@ -936,7 +936,7 @@ const guidanceQuickRef: MCPTool = {
           title: 'Getting Started',
           commands: [
             {
-              cmd: 'npx monomind@latest init --wizard',
+              cmd: 'npx monomind init wizard',
               desc: 'Initialize project with interactive setup',
             },
             {

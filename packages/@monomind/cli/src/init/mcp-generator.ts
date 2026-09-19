@@ -30,14 +30,16 @@ export function generateMCPConfig(options: InitOptions): object {
   };
 
   // Monomind MCP server (core)
+  // i-041/i-117 §4: MONOMIND_MODE, MONOMIND_HOOKS_ENABLED, MONOMIND_TOPOLOGY,
+  // MONOMIND_MAX_AGENTS and MONOMIND_MEMORY_BACKEND were written here but had
+  // no `process.env` reader anywhere in the repo — grepped repo-wide (see
+  // claudemd-truth.test.ts and the developer report for the exact commands).
+  // The MCP server itself never read them back; they sat in the spawned
+  // process's env doing nothing. Writing an unread var into real config is
+  // the same class of lie as a wrong count in a doc string.
   if (config.monomind) {
     mcpServers.monomind = mcpServerEntry('claude', {
       ...npmEnv,
-      MONOMIND_MODE: 'v1',
-      MONOMIND_HOOKS_ENABLED: 'true',
-      MONOMIND_TOPOLOGY: options.runtime.topology,
-      MONOMIND_MAX_AGENTS: String(options.runtime.maxAgents),
-      MONOMIND_MEMORY_BACKEND: options.runtime.memoryBackend,
     });
   }
 

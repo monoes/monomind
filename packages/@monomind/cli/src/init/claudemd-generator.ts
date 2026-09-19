@@ -7,7 +7,15 @@
  * All templates use bullet-format rules with imperative keywords for enforceability.
  */
 
-import { createRequire } from 'node:module';
+import { agentCommand } from '../commands/agent.js';
+import { hooksCommand } from '../commands/hooks.js';
+import { initCommand } from '../commands/init.js';
+import { memoryCommand } from '../commands/memory.js';
+import { monoswarmCommand } from '../commands/monoswarm.js';
+import { sessionCommand } from '../commands/session.js';
+import { taskCommand } from '../commands/task.js';
+import { WORKER_COUNT } from './generated-counts.js';
+import { _isOptionalPackageResolvable, subcommandCount } from './shared.js';
 import { detectProjectProfile } from './shared-instructions-generator.js';
 import type { ClaudeMdTemplate, InitOptions } from './types.js';
 
@@ -68,10 +76,11 @@ function detectStackConventions(targetDir: string): StackConventions {
 
 // --- Optional package availability (P1-23) ---
 // The docs below advertise features backed by optionalDependencies (npm may
-// silently skip installing these). Probe with require.resolve — same
-// resolution strategy findSourceHelpersDir() uses in executor.ts — so the
-// generated CLAUDE.md can say "(unavailable in this install)" instead of
-// presenting an unresolvable package's features as unconditionally working.
+// silently skip installing these), so the generated CLAUDE.md can say
+// "(unavailable in this install)" instead of presenting an unresolvable
+// package's features as unconditionally working. Resolution goes through
+// _isOptionalPackageResolvable (shared.ts) — the one resolver for this
+// question; write-capabilities.ts uses the same helper directly.
 interface OptionalPackageAvailability {
   hooks: boolean;
   mcp: boolean;
@@ -79,27 +88,32 @@ interface OptionalPackageAvailability {
   monofence: boolean;
 }
 let _availabilityCache: OptionalPackageAvailability | null = null;
+/** Test-only: `_availabilityCache` is module-level, so tests asserting both
+ * the resolvable and unresolvable branches must clear it between cases. */
+export function _resetOptionalPackageCache(): void {
+  _availabilityCache = null;
+}
 function detectOptionalPackages(): OptionalPackageAvailability {
   if (_availabilityCache) return _availabilityCache;
-  const req = createRequire(import.meta.url);
-  const resolvable = (pkg: string): boolean => {
-    try {
-      req.resolve(pkg);
-      return true;
-    } catch {
-      return false;
-    }
-  };
   _availabilityCache = {
-    hooks: resolvable('@monoes/hooks'),
-    mcp: resolvable('@monoes/mcp'),
-    routing: resolvable('@monoes/routing'),
-    monofence: resolvable('monofence-ai'),
+    hooks: _isOptionalPackageResolvable('@monoes/hooks'),
+    mcp: _isOptionalPackageResolvable('@monoes/mcp'),
+    routing: _isOptionalPackageResolvable('@monoes/routing'),
+    monofence: _isOptionalPackageResolvable('monofence-ai'),
   };
   return _availabilityCache;
 }
 function unavailNote(available: boolean): string {
   return available ? '' : ' _(unavailable in this install)_';
+}
+
+// WORKER_COUNT (generated-counts.ts) is a build-time constant, computed
+// from source regardless of whether @monoes/hooks resolves at `init` time —
+// but printing it when the package is NOT resolvable would claim a count of
+// workers that cannot actually run in this install, the same class of lie
+// as a wrong number. Shown only when the package is genuinely available.
+function workerCountLabel(hooksAvailable: boolean): string {
+  return hooksAvailable ? `${WORKER_COUNT} ` : '';
 }
 
 // --- Section Generators (each returns enforceable markdown) ---
@@ -269,13 +283,13 @@ function cliCommandsTable(): string {
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`init\` | 5 | Project initialization |
-| \`agent\` | 7 | Agent lifecycle management |
-| \`monoswarm\` | 6 | Multi-agent coordination |
-| \`memory\` | 12 | SQLite memory with ANN search |
-| \`task\` | 5 | Task creation and lifecycle |
-| \`session\` | 6 | Session state management |
-| \`hooks\` | 29 | Self-learning hooks + 8 background workers${unavailNote(avail.hooks)} |
+| \`init\` | ${subcommandCount(initCommand)} | Project initialization |
+| \`agent\` | ${subcommandCount(agentCommand)} | Agent lifecycle management |
+| \`monoswarm\` | ${subcommandCount(monoswarmCommand)} | Multi-agent coordination |
+| \`memory\` | ${subcommandCount(memoryCommand)} | SQLite memory with ANN search |
+| \`task\` | ${subcommandCount(taskCommand)} | Task creation and lifecycle |
+| \`session\` | ${subcommandCount(sessionCommand)} | Session state management |
+| \`hooks\` | ${subcommandCount(hooksCommand)} | Self-learning hooks + ${workerCountLabel(avail.hooks)}background workers${unavailNote(avail.hooks)} |
 
 > Note: there is no \`neural\` CLI command. Neural pattern learning was merged
 > into \`hooks intelligence\`. See \`doc/concepts/monoswarm.md\` for monoswarm
@@ -284,11 +298,11 @@ function cliCommandsTable(): string {
 ### Quick CLI Examples
 
 \`\`\`bash
-npx monomind@latest init --wizard
-npx monomind@latest agent spawn -t coder --name my-coder
-npx monomind@latest monoswarm init --v1-mode
-npx monomind@latest memory search --query "authentication patterns"
-npx monomind@latest doctor --fix
+npx monomind init wizard
+npx monomind agent spawn -t coder --name my-coder
+npx monomind monoswarm init --v1-mode
+npx monomind memory search --query "authentication patterns"
+npx monomind doctor --fix
 \`\`\``;
 }
 
@@ -313,7 +327,8 @@ subset worth routing to by name; it is not the complete set.
 
 function hooksSystem(): string {
   const avail = detectOptionalPackages();
-  return `## Hooks System (29 Hook Subcommands + 8 Background Workers)
+  const workerHeading = avail.hooks ? ` + ${WORKER_COUNT} Background Workers` : '';
+  return `## Hooks System (${subcommandCount(hooksCommand)} Hook Subcommands${workerHeading})
 
 ### Essential Hooks
 
@@ -321,7 +336,7 @@ function hooksSystem(): string {
 |------|-------------|
 | \`pre-task\` / \`post-task\` | Task lifecycle with learning |
 | \`pre-edit\` / \`post-edit\` | File editing with pattern logging |
-| \`session-start\` / \`session-end\` | Session state persistence |
+| \`session-restore\` / \`session-end\` | Session state persistence |
 | \`route\` | Route task to optimal agent |
 | \`intelligence\` | Pattern-learning intelligence system |
 | \`worker\` | Background worker management |
@@ -336,14 +351,14 @@ function hooksSystem(): string {
 | \`consolidate\` | low | Memory consolidation |
 | \`ddd\` | low | DDD progress tracking |
 | \`security\` | high | Secret/vulnerability scan |
-| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full 8 |
+| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full${avail.hooks ? ` ${WORKER_COUNT}` : ' list'} |
 
 Metrics-producing workers refresh at session start when output is >6h old.
 ${avail.hooks ? '' : '\n> \\@monoes/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
 \`\`\`bash
-npx monomind@latest hooks pre-task --description "[task]"
-npx monomind@latest hooks post-task --task-id "[id]" --success true
-npx monomind@latest hooks worker run audit
+npx monomind hooks pre-task --description "[task]"
+npx monomind hooks post-task --task-id "[id]" --success true
+npx monomind hooks worker run audit
 \`\`\``;
 }
 
@@ -352,14 +367,14 @@ function learningProtocol(): string {
 
 ### Before Starting Any Task
 \`\`\`bash
-npx monomind@latest memory search --query "[task keywords]" --namespace patterns
-npx monomind@latest hooks route --task "[task description]"
+npx monomind memory search --query "[task keywords]" --namespace patterns
+npx monomind hooks route --task "[task description]"
 \`\`\`
 
 ### After Completing Any Task Successfully
 \`\`\`bash
-npx monomind@latest memory store --namespace patterns --key "[pattern-name]" --value "[what worked]"
-npx monomind@latest hooks post-task --task-id "[id]" --success true --store-results true
+npx monomind memory store --namespace patterns --key "[pattern-name]" --value "[what worked]"
+npx monomind hooks post-task --task-id "[id]" --success true --store-results true
 \`\`\`
 
 - ALWAYS check memory before starting new features, debugging, or refactoring
@@ -370,11 +385,11 @@ function memoryCommands(): string {
   return `## Memory Commands
 
 \`\`\`bash
-npx monomind@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
-npx monomind@latest memory search --query "authentication patterns"
+npx monomind memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
+npx monomind memory search --query "authentication patterns"
 \`\`\`
 
-Full command reference: \`npx monomind@latest memory --help\``;
+Full command reference: \`npx monomind memory --help\``;
 }
 
 function securityRulesLight(): string {
@@ -384,7 +399,7 @@ function securityRulesLight(): string {
 - NEVER commit .env files or any file containing secrets
 - Always validate user input at system boundaries
 - Always sanitize file paths to prevent directory traversal
-- Run \`npx monomind@latest security scan\` after security-related changes`;
+- Run \`npx monomind security scan\` after security-related changes`;
 }
 
 function buildAndTest(options: InitOptions): string {
@@ -419,9 +434,9 @@ function securitySection(): string {
 
 ### Security Scanning
 \`\`\`bash
-npx monomind@latest security scan --depth full
-npx monomind@latest security audit --report
-npx monomind@latest security cve --check
+npx monomind security scan --depth full
+npx monomind security audit --report
+npx monomind security cve --check
 \`\`\`
 
 ### Security Agents
@@ -440,9 +455,9 @@ function performanceSection(): string {
 
 ### Performance Tooling
 \`\`\`bash
-npx monomind@latest performance benchmark --suite all
-npx monomind@latest performance profile --target "[component]"
-npx monomind@latest performance metrics --format table
+npx monomind performance benchmark --suite all
+npx monomind performance profile --target "[component]"
+npx monomind performance metrics --format table
 \`\`\`
 
 ### Performance Agents
@@ -461,6 +476,13 @@ Routing and learning are JS-only — no native engine is required. Outcomes
 feed back into the recorded metrics so routing quality is measured, not assumed.`;
 }
 
+// i-041/i-117 §4: MONOMIND_MEMORY_BACKEND and MONOMIND_MEMORY_PATH had no
+// `process.env` reader anywhere in the repo (grepped — see claudemd-truth.test.ts
+// and the developer report for the exact commands run). MONOMIND_CONFIG
+// (services/config-file-manager.ts) and MONOMIND_LOG_LEVEL
+// (mcp-tools/monoswarm-tools.ts) do; ANTHROPIC_API_KEY is read by the SDK,
+// not by us. Keep only vars with a real reader — a var nobody reads is the
+// same class of lie as a wrong count.
 function envVars(): string {
   return `## Environment Variables
 
@@ -468,8 +490,6 @@ function envVars(): string {
 MONOMIND_CONFIG=./monomind.config.json
 MONOMIND_LOG_LEVEL=info
 ANTHROPIC_API_KEY=sk-ant-...
-MONOMIND_MEMORY_BACKEND=hybrid
-MONOMIND_MEMORY_PATH=./data/memory
 \`\`\``;
 }
 
@@ -518,13 +538,13 @@ function setupAndBoundary(): string {
 
 \`\`\`bash
 # Add MCP server — includes monograph, monoswarm, memory, hooks, all 66+ tools
-claude mcp add monomind -- npx -y monomind@latest mcp start
+claude mcp add monomind -- npx -y monomind mcp start
 
 # Verify everything works
-npx monomind@latest doctor --fix
+npx monomind doctor --fix
 \`\`\`
 
-> **Package name changed:** Use \`monomind@latest\` (not \`@monomind/cli@latest\` which is the old name and returns 404).
+> **Package name changed:** Use \`monomind\` (not \`@monomind/cli@latest\` which is the old name and returns 404).
 
 ## Claude Code vs CLI Tools
 
