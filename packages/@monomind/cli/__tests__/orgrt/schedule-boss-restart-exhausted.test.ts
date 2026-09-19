@@ -26,10 +26,15 @@ function stubDaemon(name: string, restartCount: number) {
 }
 
 describe('scheduleBossRestart — exhausted-retries path', () => {
+  // #302 INTENDED CHANGE: stopOrg is now called with `{ closedBy: 'boss-restart-exhausted' }`
+  // — the truth gate's real-cause tag, added so a run's history/report can
+  // never record this as a clean, boss-attributed outcome. Not a behaviour
+  // regression: stopOrg's second argument was always optional and this is
+  // the only call site that needed to start passing it.
   it('calls daemon.stopOrg once the restart cap is reached, so the org actually terminates', () => {
     const { daemon, events, stopOrg } = stubDaemon('alpha', OrgDaemon.MAX_BOSS_RESTARTS);
     scheduleBossRestart(daemon, 'alpha');
-    expect(stopOrg).toHaveBeenCalledWith('alpha');
+    expect(stopOrg).toHaveBeenCalledWith('alpha', { closedBy: 'boss-restart-exhausted' });
     expect(events.some((e) => (e as { reason?: string }).reason === 'boss-restart-exhausted')).toBe(true);
   });
 

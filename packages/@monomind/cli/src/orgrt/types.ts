@@ -339,6 +339,15 @@ export const OrgDefSchema = z
         max_turns_per_message: z.number().int().positive().default(DEFAULT_MAX_TURNS_PER_MESSAGE),
         /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
         idle_minutes: z.number().nonnegative().optional(),
+        /** #302: how strictly `org_complete` is gated. 'boss' (default) only
+         *  constrains `outcome: 'partial'` — it must name a `blocker`
+         *  ('budget' | 'human' | 'external' | 'time'), cross-checked against
+         *  real run state; `achieved`/`failed` are never refused. 'dag'
+         *  additionally refuses `achieved`/`partial` while `org_tasks` has
+         *  runnable work and nothing is time-blocked — opt-in because a run
+         *  with no populated DAG (the common case today) gets no benefit
+         *  from it, only a new refusal path. See completion-gate.ts. */
+        completion: z.enum(['boss', 'dag']).optional(),
         /** Where role sessions run.
          *  'repo' (default) — the project root, so roles can Read/Edit real files.
          *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
@@ -397,6 +406,7 @@ export const OrgDefSchema = z
         workspace: 'repo' as string,
         stale_base_threshold: 0,
         max_role_respawns: 0,
+        completion: 'boss' as const,
         respawn_drain_timeout_ms: 30_000,
         respawn_force_stop_timeout_ms: 5_000,
         respawn_start_timeout_ms: 60_000,

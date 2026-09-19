@@ -208,8 +208,17 @@ export interface SessionOpts {
   buildProviderTools?: () => Promise<{ tools: OrgToolDef[]; close(): void } | undefined>;
   deliver: DeliverFn;
   askHuman?: (role: string, question: string) => Promise<string>;
-  /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
-  onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
+  /** Coordinator-only: records the run's outcome (daemon persists it to run
+   *  history) — #302: the daemon gathers the facts, calls the completion
+   *  gate, and returns a refusal string instead of recording anything when
+   *  the call is unsatisfiable; `null`/`undefined` means allowed. */
+  onComplete?: (
+    role: string,
+    outcome: 'achieved' | 'partial' | 'failed',
+    summary: string,
+    blocker?: 'budget' | 'human' | 'external' | 'time',
+    blockerDetail?: string,
+  ) => string | null | undefined;
   /** Present only for the selected coordinator (same gating pattern as
    *  onComplete) — mid-run role replacement. Returns the JSON-shaped
    *  RespawnReceipt (see role-slot.ts). */
@@ -1069,14 +1078,24 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_complete',
       description:
-        '⚠️ Ends the run — every agent session shuts down after this. Call exactly once, and only against the org\'s actual, full stated goal (see your briefing), never against just the current batch of dispatched tasks. "achieved" means the WHOLE goal is done, not "everyone assigned so far finished their piece" — a multi-phase or open-ended goal is very rarely achieved in a single run. If the current task batch is clearly done but the goal has more scope left: do NOT call this — use org_task/createTask to dispatch the next phase\'s work instead, so the org keeps making progress instead of stopping short. Use outcome "partial" only when you are ending the run with real scope still remaining (e.g. a genuine external stopping point, not merely "out of tasks right now" — if the only thing blocking further work is a scheduled process or deadline you know the time of, call org_task_block instead of ending the run, so a future run can pick back up automatically); "achieved" only when the full goal is met; "failed" only when it clearly cannot be. Before calling, check org_tasks — siblings with in-progress work only get a short drain window to finish before being cut off, so do not call this while others are still mid-build or mid-edit unless the run genuinely cannot continue. The outcome and summary are persisted to the org run history and briefed to the next run. If the run produced a concrete deliverable (a post, document, message, piece of content, code, etc.), summary MUST include that deliverable\'s full text verbatim — not a meta-description of what happened. Someone reading only summary should be able to see the actual result, not just that "a result was produced".',
-      schema: { outcome: z.enum(['achieved', 'partial', 'failed']), summary: z.string() },
+        '⚠️ Ends the run — every agent session shuts down after this. Call exactly once, and only against the org\'s actual, full stated goal (see your briefing), never against just the current batch of dispatched tasks. "achieved" means the WHOLE goal is done, not "everyone assigned so far finished their piece" — a multi-phase or open-ended goal is very rarely achieved in a single run. If the current task batch is clearly done but the goal has more scope left: do NOT call this — use org_task/createTask to dispatch the next phase\'s work instead, so the org keeps making progress instead of stopping short. "achieved" only when the full goal is met; "failed" only when it clearly cannot be — neither requires a blocker (though if this org\'s run_config.completion is set to \'dag\', "achieved" is ALSO refused while org_tasks still has runnable work that is not blocked on a real-world time — check org_tasks first if that setting applies to you). Use outcome "partial" only when you are ending the run with real scope still remaining, and you MUST name why with `blocker`: \'budget\' (a role is genuinely near its token/USD ceiling), \'human\' (an ask_human question or decision gate is actually pending), \'time\' (if the only thing blocking further work is a scheduled process or deadline you know the time of, call org_task_block instead of ending the run so a future run can pick back up automatically — this blocker is refused unless a task is actually blocked that way), or \'external\' (anything else — `blockerDetail` must be a real, substantive explanation; placeholders like "none"/"n/a" and anything under 10 characters are refused, because this is the one blocker nothing else can check, and it is recorded verbatim in the run history under your name). A refusal names which of these to use instead. Before calling, check org_tasks — siblings with in-progress work only get a short drain window to finish before being cut off, so do not call this while others are still mid-build or mid-edit unless the run genuinely cannot continue. The outcome and summary are persisted to the org run history and briefed to the next run. If the run produced a concrete deliverable (a post, document, message, piece of content, code, etc.), summary MUST include that deliverable\'s full text verbatim — not a meta-description of what happened. Someone reading only summary should be able to see the actual result, not just that "a result was produced".',
+      schema: {
+        outcome: z.enum(['achieved', 'partial', 'failed']),
+        summary: z.string(),
+        blocker: z.enum(['budget', 'human', 'external', 'time']).optional(),
+        blockerDetail: z.string().optional(),
+      },
       handler: async (args) => {
-        opts.onComplete?.(
+        const refusal = opts.onComplete?.(
           role.id,
           args.outcome as 'achieved' | 'partial' | 'failed',
           args.summary as string,
+          args.blocker as 'budget' | 'human' | 'external' | 'time' | undefined,
+          args.blockerDetail as string | undefined,
         );
+        // #302: a refusal must not claim the outcome was recorded — nothing
+        // was, and the daemon never emitted the event that would stop the run.
+        if (refusal) return text(refusal);
         return text(`outcome "${args.outcome}" recorded`);
       },
     });

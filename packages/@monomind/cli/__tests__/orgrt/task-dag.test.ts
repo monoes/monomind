@@ -167,4 +167,30 @@ describe('TaskDag', () => {
     expect(dag.get(c.id)!.deps).toEqual([a.id]);
     expect(dag.get(c.id)!.status).toBe('pending');
   });
+
+  // #302: completion-gate.ts's 'dag' mode needs "is there real work left" as
+  // a fact distinct from hasActiveBlock — an empty DAG must not read as
+  // pending work, mirroring hasActiveBlock's own empty-DAG edge.
+  it('hasPendingWork is false on an empty DAG', () => {
+    expect(new TaskDag().hasPendingWork()).toBe(false);
+  });
+
+  it('hasPendingWork is true while any task is pending/ready/running/blocked', () => {
+    const dag = new TaskDag();
+    const t = dag.add('build', 'coder');
+    expect(dag.hasPendingWork()).toBe(true);
+    dag.markRunning(t.id);
+    expect(dag.hasPendingWork()).toBe(true);
+    dag.block(t.id, Date.now() + 60_000, 'waiting on CI');
+    expect(dag.hasPendingWork()).toBe(true);
+  });
+
+  it('hasPendingWork is false once every task reaches a terminal status', () => {
+    const dag = new TaskDag();
+    const a = dag.add('a', 'x');
+    const b = dag.add('b', 'y');
+    dag.complete(a.id, 'done');
+    dag.cancel(b.id);
+    expect(dag.hasPendingWork()).toBe(false);
+  });
 });

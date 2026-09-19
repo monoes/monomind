@@ -87,8 +87,10 @@ export function scheduleBossRestart(daemon: OrgDaemon, name: string): void {
     // idle_minutes > 0). `org run`'s wait loop polls daemon.getOrg(name);
     // that never resolving meant the CLI process just hung indefinitely
     // instead of exiting with a failure signal.
+    // #302: tag the real cause — the truth gate at finishStop's history
+    // write must not let this read as a boss-attributed 'partial'/'achieved'.
     daemon
-      .stopOrg(name)
+      .stopOrg(name, { closedBy: 'boss-restart-exhausted' })
       .catch((err) =>
         console.error(
           `org ${name}: stop after exhausted boss restarts failed:`,
@@ -122,7 +124,7 @@ export function scheduleBossRestart(daemon: OrgDaemon, name: string): void {
       return;
     } // a manual stop won
     daemon
-      .stopOrg(name)
+      .stopOrg(name, { closedBy: 'boss-restart' })
       .then(() => (daemon.stopping.has(name) ? null : daemon.startOrg(name)))
       .then(() => {
         daemon.restarting.delete(name);

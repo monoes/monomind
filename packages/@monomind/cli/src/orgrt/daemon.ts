@@ -30,6 +30,7 @@ import {
 } from './checkpoint.js';
 import * as checkpointOps from './checkpoint-ops.js';
 import { CodexAgentRunner } from './codex-runner.js';
+import { type CompletionFacts, checkCompletion } from './completion-gate.js';
 import { CopilotAgentRunner } from './copilot-runner.js';
 import * as crossOrg from './cross-org.js';
 import { CrushAgentRunner } from './crush-runner.js';
@@ -406,6 +407,57 @@ export function activeRoleCount(org: RunningOrg): number {
   return n;
 }
 
+/** #302: the `org_complete` consent gate's emit-and-return logic, extracted
+ *  (matching `resolvedIdleNudgeCount`'s and `runOutcomeResult`'s precedent)
+ *  so it is unit-testable without a live daemon, a running org, or the SDK's
+ *  own tool-calling loop — none of which a test can drive directly, since
+ *  `queryFn` replaces the whole SDK `query()`, tool orchestration included.
+ *  `onComplete` gathers the facts (needs `this`/`running`) and calls this;
+ *  this does the one decision (`checkCompletion`) and its two possible
+ *  side effects. Returns the refusal string, or `null` to allow — exactly
+ *  what the org_complete tool handler (session.ts) relays as the result. */
+export function resolveOrgComplete(
+  bus: OrgBus,
+  role: string,
+  outcome: 'achieved' | 'partial' | 'failed',
+  summary: string,
+  blocker: 'budget' | 'human' | 'external' | 'time' | undefined,
+  blockerDetail: string | undefined,
+  runFacts: Pick<
+    CompletionFacts,
+    'mode' | 'maxBudgetFraction' | 'pendingHumanWaits' | 'hasActiveBlock' | 'hasPendingWork'
+  >,
+): string | null {
+  const refusal = checkCompletion({ outcome, blocker, blockerDetail, ...runFacts });
+  if (refusal) {
+    // Visible in `org logs` — a silent refusal reads to an operator as a
+    // hung boss, not a boss that was told no.
+    bus.emit({
+      type: 'audit',
+      from: role,
+      reason: 'org-complete-refused',
+      msg: refusal,
+      data: { outcome, blocker, blockerDetail },
+    });
+    return refusal;
+  }
+  // #302 AC6: the blocker must show up in RENDERED output, not just `data`
+  // — `org logs`'s formatter prints an event's `msg` verbatim and never
+  // looks at `data`, so a blocker recorded only there would satisfy a unit
+  // assertion and never reach a human reading the actual log.
+  const blockerSuffix = blocker
+    ? ` (blocker: ${blocker}${blockerDetail ? ` — ${blockerDetail}` : ''})`
+    : '';
+  bus.emit({
+    type: 'status',
+    from: role,
+    reason: 'org-complete',
+    msg: `run outcome: ${outcome}${blockerSuffix}`,
+    data: { outcome, summary, blocker, blockerDetail },
+  });
+  return null;
+}
+
 export interface DaemonOpts {
   queryFn?: typeof query;
   /** Explicit agent runner (takes precedence over everything). When unset,
@@ -721,7 +773,9 @@ export class OrgDaemon {
       // Only this call can have registered the name (the reservation above
       // holds until `finally`), so anything in the map is ours to tear down.
       if (this.orgs.has(name)) {
-        await this.stopOrg(name).catch((stopErr) =>
+        // #302: tag the real cause so a run's history/report can never read
+        // this as a boss-attributed outcome — nothing here asked the boss.
+        await this.stopOrg(name, { closedBy: 'failed-start' }).catch((stopErr) =>
           console.error(
             `org ${name}: teardown after failed start failed:`,
             stopErr instanceof Error ? stopErr.message : stopErr,
@@ -1313,7 +1367,11 @@ export class OrgDaemon {
       const idleStop = (msg: string): void => {
         stopping = true;
         bus.emit({ type: 'audit', reason: 'idle-stop', msg });
-        this.stopOrg(name).catch((err) =>
+        // #302: closedBy: 'idle-stop' — the truth gate at finishStop's
+        // history write reads this to record what actually happened
+        // (including any runnable work left in org_tasks) instead of
+        // letting a null outcome default to a plain "completed".
+        this.stopOrg(name, { closedBy: 'idle-stop' }).catch((err) =>
           console.error(`org ${name}: idle-stop failed:`, err instanceof Error ? err.message : err),
         );
       };
@@ -1746,15 +1804,43 @@ export class OrgDaemon {
       // true by actually denying tool use while this role has a pending gate,
       // the same way pending approvals already do.
       hasPendingGate: () => this.listGates(name, 'pending').some((g) => g.roleId === role.id),
+      // #302: refuse an unsatisfiable org_complete BEFORE the 'org-complete'
+      // status event ever exists — the bus subscriber at the top of this
+      // function auto-stops the run on that event alone, so a refusal that
+      // still emitted it would be undone by the very next tick regardless of
+      // what this function returns to the tool handler.
       onComplete:
         role.id === running.bossRoleId
-          ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
-              bus.emit({
-                type: 'status',
-                from: r,
-                reason: 'org-complete',
-                msg: `run outcome: ${outcome}`,
-                data: { outcome, summary },
+          ? (
+              r: string,
+              outcome: 'achieved' | 'partial' | 'failed',
+              summary: string,
+              blocker?: 'budget' | 'human' | 'external' | 'time',
+              blockerDetail?: string,
+            ) => {
+              let maxBudgetFraction = 0;
+              for (const rt of running.agents.values()) {
+                const p = rt.policy;
+                if (p.policy.maxTokens)
+                  maxBudgetFraction = Math.max(maxBudgetFraction, p.usage / p.policy.maxTokens);
+                if (p.policy.maxUsd)
+                  maxBudgetFraction = Math.max(maxBudgetFraction, p.usageUsd / p.policy.maxUsd);
+              }
+              // Same predicates the idle watchdog uses for its own
+              // legitimate-wait check (:1316-1328) — a pending gate or an
+              // unanswered question is the same "genuinely waiting on a
+              // human" fact either way.
+              const pendingHumanWaits =
+                this.listGates(name, 'pending').length +
+                questionOps
+                  .readQuestions(this.root, name)
+                  .questions.filter((q) => q.answer === null).length;
+              return resolveOrgComplete(bus, r, outcome, summary, blocker, blockerDetail, {
+                mode: def.run_config.completion ?? 'boss',
+                maxBudgetFraction,
+                pendingHumanWaits,
+                hasActiveBlock: running.taskDag?.hasActiveBlock(Date.now()) ?? false,
+                hasPendingWork: running.taskDag?.hasPendingWork() ?? false,
               });
             }
           : undefined,
@@ -2575,7 +2661,27 @@ export class OrgDaemon {
         /* best-effort */
       }
     }
-    org.bus.emit({ type: 'status', msg: 'org stopped' });
+    // #302 truth gate: every stop path funnels through here, so this is the
+    // one place that can record how the run ACTUALLY ended, regardless of
+    // which of the five paths triggered it. `closedBy` is undefined only for
+    // a bare manual `stopOrg(name)` (CLI `org stop`, shutdown) — every
+    // automated path above now tags its own real cause. reporting.ts reads
+    // this event (reason: 'org-stopped') to decide whether the run's outcome
+    // may be rendered as a boss-attributed 'partial'/'achieved' at all: only
+    // closedBy === 'org-complete' may be.
+    const runnableTasks = org.taskDag?.pendingTaskCount() ?? 0;
+    // Rendered, not just recorded (#302 AC6, same reasoning as the
+    // blockerSuffix above): `org logs` prints `msg` verbatim.
+    const stopSuffix =
+      closedBy && closedBy !== 'org-complete'
+        ? ` (${closedBy}${runnableTasks > 0 ? `, ${runnableTasks} task(s) left` : ''})`
+        : '';
+    org.bus.emit({
+      type: 'status',
+      reason: 'org-stopped',
+      msg: `org stopped${stopSuffix}`,
+      data: { closedBy, runnableTasks },
+    });
     await org.bus.flush();
     // Append this run's summary to <org>/history.jsonl — read back from the
     // flushed bus.jsonl (the full durable record) rather than the bounded

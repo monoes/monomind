@@ -39,7 +39,8 @@ vi.mock('../../src/utils/resource-governor.js', () => ({
   getAvailableMemBytes: vi.fn(() => resourcePressure ? 100 * 1024 * 1024 : 2000 * 1024 * 1024),
 }));
 
-import { OrgDaemon } from '../../src/orgrt/daemon.js';
+import { OrgDaemon, resolveOrgComplete } from '../../src/orgrt/daemon.js';
+import type { BusEvent } from '../../src/orgrt/types.js';
 
 function fixture(root: string, name: string) {
   mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
@@ -376,7 +377,20 @@ describe('OrgDaemon — completion & idle watchdog', () => {
     expect(rt.closedBy).toBe('org-complete');
   }, 10_000);
 
-  it('#206: a stop NOT triggered by org_complete (idle watchdog) leaves closedBy unset in runtime.json', async () => {
+  // #302 INTENDED CHANGE, not a regression: before this item, every non-
+  // org_complete stop path left closedBy unset — runOutcomeResult's exit-code
+  // decision only ever checked `=== 'org-complete'`, so "unset" and "idle-
+  // stop" were behaviourally identical to every consumer of runtime.json,
+  // and this test pinned the accidental value rather than a meaningful one.
+  // #302's truth gate makes every automated stop path record its OWN real
+  // cause (idle-stop / failed-start / boss-restart(-exhausted) /
+  // crash-handler) so a run's history/report can tell "boss finished" from
+  // "watchdog gave up with work outstanding" — see reporting.ts's
+  // describeRunOutcome and daemon.ts's finishStop. runOutcomeResult's own
+  // `!== 'org-complete'` check (org.ts) is unchanged and still exits
+  // non-zero for any of these, verified by org-run-outcome.test.ts passing
+  // unmodified.
+  it('#206/#302: a stop NOT triggered by org_complete (idle watchdog) records closedBy: "idle-stop" in runtime.json', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-idle-noclosedby-'));
     mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
     writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
@@ -399,7 +413,50 @@ describe('OrgDaemon — completion & idle watchdog', () => {
     await d.stopAll();
     const rt = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/runtime.json'), 'utf8'));
     expect(rt.status).toBe('stopped');
-    expect(rt.closedBy).toBeUndefined();
+    expect(rt.closedBy).toBe('idle-stop');
+  }, 15_000);
+
+  // #302's actual reported scenario, end to end: a boss stops dispatching
+  // with runnable work still in org_tasks, the idle watchdog fires (not
+  // org_complete), and the run must NOT be recorded as a clean, boss-
+  // attributed outcome. Reads the SAME history.jsonl record
+  // reporting.ts's describeRunOutcome/org-observe.ts's renderers consume —
+  // not just runtime.json — so this proves the truth gate all the way
+  // through to what a human reading `org report`/`org status` would see.
+  it("#302: idle-stop with runnable work outstanding records no outcome, closedBy: 'idle-stop', and the real backlog count in history.jsonl", async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-idle-backlog-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0.005 },
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    const running = await d.startOrg('alpha');
+    // Simulate a boss that dispatched work and then simply stopped calling
+    // org_complete — #302's own described failure mode — by seeding real
+    // backlog directly on the org's task DAG (no org_task tool call needed;
+    // the hanging queryFn never processes one anyway).
+    running.taskDag?.add('finish the report', 'coder');
+    running.taskDag?.add('review the report', 'coder');
+    const deadline = Date.now() + 8000;
+    while (d.getOrg('alpha') && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+    expect(d.getOrg('alpha')).toBeUndefined();
+    await d.stopAll();
+
+    const hist = readFileSync(join(root, '.monomind/orgs/alpha/history.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l));
+    expect(hist).toHaveLength(1);
+    // NOT a clean, boss-attributed outcome — no org_complete call ever fired.
+    expect(hist[0].outcome).toBeNull();
+    expect(hist[0].closedBy).toBe('idle-stop');
+    expect(hist[0].runnableTasksAtStop).toBe(2);
   }, 15_000);
 
   it('idle watchdog nudges the boss, then stops the org when the nudge produces no activity (hung agent)', async () => {
@@ -468,6 +525,69 @@ describe('OrgDaemon — completion & idle watchdog', () => {
     await d.stopOrg('alpha');
     expect(running.busEvents().some(e => e.reason === 'idle-nudge' || e.reason === 'idle-stop')).toBe(false);
   }, 10_000);
+});
+
+// #302: resolveOrgComplete is the org_complete consent gate's emit-and-return
+// logic, extracted so it's testable without a live daemon or the SDK's own
+// tool-calling loop (queryFn replaces query() wholesale — a mocked queryFn
+// has no path to actually invoke a registered MCP tool the way the real SDK
+// does). checkCompletion's decision table lives in completion-gate.test.ts;
+// this file only proves the WIRING around that decision: a refusal emits the
+// audit event and nothing else, an allow emits exactly one status event, and
+// the blocker/outcome both land in the rendered `msg` text (AC6).
+describe('OrgDaemon — resolveOrgComplete (#302 org_complete consent gate)', () => {
+  const collect = () => {
+    const events: BusEvent[] = [];
+    const bus = { emit: (e: BusEvent) => events.push(e) } as unknown as import('../../src/orgrt/bus.js').OrgBus;
+    return { bus, events };
+  };
+  const BOSS_FACTS = {
+    mode: 'boss' as const,
+    maxBudgetFraction: 0,
+    pendingHumanWaits: 0,
+    hasActiveBlock: false,
+    hasPendingWork: true,
+  };
+
+  it('a refusal emits ONLY org-complete-refused — no org-complete event at all', () => {
+    const { bus, events } = collect();
+    const refusal = resolveOrgComplete(bus, 'boss', 'partial', 'stopping', undefined, undefined, BOSS_FACTS);
+    expect(refusal).not.toBeNull();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: 'audit', reason: 'org-complete-refused' });
+    expect(events.some((e) => e.reason === 'org-complete')).toBe(false);
+  });
+
+  // This is what makes the refusal safe to relay as the tool's own result:
+  // the boss reads the SAME text this test asserts on, so it can act on it
+  // instead of retrying the identical denied call.
+  it("a refusal's message routes to org_task/org_task_block/outcome:'failed'", () => {
+    const { bus } = collect();
+    const refusal = resolveOrgComplete(bus, 'boss', 'partial', 'stopping', undefined, undefined, BOSS_FACTS);
+    expect(refusal).toMatch(/org_task/);
+    expect(refusal).toMatch(/failed/);
+  });
+
+  it('an allowed call emits exactly one org-complete event and nothing else', () => {
+    const { bus, events } = collect();
+    const refusal = resolveOrgComplete(bus, 'boss', 'achieved', 'shipped it', undefined, undefined, BOSS_FACTS);
+    expect(refusal).toBeNull();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: 'status', reason: 'org-complete' });
+  });
+
+  // #302 AC6: the blocker must be in the RENDERED text (`msg`), not only in
+  // `data` — `org logs`'s formatter prints `msg` verbatim and never reads
+  // `data` for the default event shape. A blocker recorded only in `data`
+  // would pass a naive assertion and never reach a human reading the log.
+  it("an allowed 'partial' with a valid blocker renders the blocker in the event's msg text, not just data", () => {
+    const { bus, events } = collect();
+    resolveOrgComplete(bus, 'boss', 'partial', 'stopping here', 'budget', undefined, {
+      ...BOSS_FACTS,
+      maxBudgetFraction: 0.95,
+    });
+    expect(events[0].msg).toMatch(/blocker: budget/);
+  });
 });
 
 describe('OrgDaemon — run history & cross-run memory', () => {

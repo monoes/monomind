@@ -16,7 +16,13 @@ import { dirname, join, resolve } from 'node:path';
 import { OrgDaemon } from '../orgrt/daemon.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
-import { readHistory, readRunEvents, summarizeRun, utcTime } from '../orgrt/reporting.js';
+import {
+  describeRunOutcome,
+  readHistory,
+  readRunEvents,
+  summarizeRun,
+  utcTime,
+} from '../orgrt/reporting.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { resolveModel } from '../orgrt/session.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
@@ -1134,7 +1140,12 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const prev = history.filter((h) => h.run !== state.run).at(-1);
       if (prev) {
         const dur = prev.durationMs !== null ? fmtDuration(prev.durationMs) : '?';
-        const outcome = prev.outcome?.status ?? (prev.crashes.length ? 'crashed' : 'completed');
+        // #302: never blindly "completed" — describeRunOutcome only says
+        // that for a genuine boss outcome, a real crash, or a bare manual
+        // stop; every automated stop path (idle-stop, failed-start, a boss
+        // restart giving up) reports its own real cause, with the runnable
+        // task count if work was left outstanding.
+        const outcome = describeRunOutcome(prev);
         log(
           `  prev cycle: ${dur}, ${outcome}, ${prev.events} events, ${fmtNum(prev.totalTokens)} tokens`,
         );
@@ -1597,8 +1608,12 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // bound threw that work away; a minute is enough to finish an edit or a
       // test run and flush, and still well inside any sane interval.
       if (startedHere) {
+        // #302: tag the real cause — a scheduled run hitting its own
+        // deadline is the same shape as an idle-stop (a timeout ending the
+        // run with possible backlog, not boss consent) and must not be
+        // rendered as a clean, boss-attributed outcome.
         await daemon
-          .stopOrg(name, { drainMs: 60_000 })
+          .stopOrg(name, { drainMs: 60_000, closedBy: 'scheduled-deadline' })
           .catch((err) => console.error(`org ${name}: stop failed:`, err));
       }
     }

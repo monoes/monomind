@@ -301,6 +301,25 @@ export class TaskDag {
     return [...this.tasks.values()].filter((t) => t.status === 'ready');
   }
 
+  /** #302: true if any task has not reached a terminal status. Paired with
+   *  `hasActiveBlock` at call sites, never used alone to mean "nothing left
+   *  to do" — an empty DAG also returns false here, same as
+   *  `hasActiveBlock`'s own empty-DAG edge (see its doc comment), so the
+   *  caller must not read a `false` in isolation as "the goal is achieved". */
+  hasPendingWork(): boolean {
+    return this.pendingTaskCount() > 0;
+  }
+
+  /** #302: how many tasks have not reached a terminal status — the count a
+   *  truth-gated stop record (`daemon.ts`'s `finishStop`) attaches to an
+   *  automated stop, so "the run ended with N tasks still outstanding" is a
+   *  fact in the record, not just a boolean. */
+  pendingTaskCount(): number {
+    let n = 0;
+    for (const t of this.tasks.values()) if (!TERMINAL.has(t.status)) n++;
+    return n;
+  }
+
   get(id: string): OrgTask | undefined {
     return this.tasks.get(id);
   }

@@ -28,7 +28,52 @@ export interface RunSummary {
   crashes: string[];
   /** Roles terminated by our own stop signal (exit 143), not real crashes. */
   cutShort: string[];
+  /** #302: only ever set from a status event with reason 'org-complete' —
+   *  i.e. only when a boss's org_complete call was actually ALLOWED (a
+   *  refusal never emits that event). `status`/`summary` are the boss's own
+   *  claim. */
   outcome: { status: string; summary: string; by: string } | null;
+  /** #302: recorded TOP-LEVEL, a sibling of `outcome` rather than nested
+   *  inside it — deliberately, per review: `outcome` is null on every
+   *  non-org_complete stop path (idle watchdog, manual stop, a scheduled
+   *  deadline, ...), the same way `crashes`/`cutShort` are top-level so they
+   *  survive a stop that never produces an `outcome`. Only ever set alongside
+   *  a genuine `outcome: 'partial'` (the only shape `blocker` accompanies —
+   *  `checkCompletion` never lets a bare/invalid blocker through), so in
+   *  practice it appears exactly when `outcome` does; the point is that a
+   *  renderer must not have to reach INTO `outcome` to find it, and a future
+   *  path that wants to record an attempted-but-refused blocker claim can
+   *  populate this independently of whether `outcome` ever gets set. */
+  blocker?: string;
+  blockerDetail?: string;
+  /** #302 truth gate: how the run actually ended, from the 'org-stopped'
+   *  event `finishStop` always emits — the UNIVERSAL choke point every stop
+   *  path funnels through (`stopOrg` → `finishStop`; `stopAll` fans out to
+   *  `stopOrg`), so this is set correctly regardless of which of the many
+   *  call sites triggered the stop: 'org-complete' for a boss's own,
+   *  gate-checked call; 'idle-stop' | 'failed-start' | 'scheduled-deadline' |
+   *  'boss-restart' | 'boss-restart-exhausted' for an automated path that
+   *  ends the run without boss consent; undefined for a bare manual
+   *  `org stop`/shutdown. (A process-level crash is recorded separately, in
+   *  runtime.json only, by `persistCrashStateAll` — it never reaches this
+   *  event at all, since the process has no time left for a graceful stop.
+   *  KNOWN, REASONED GAP — an 11th path: `org mark-complete` (org.ts) also
+   *  writes `closedBy: 'mark-complete'` directly to runtime.json, with a
+   *  bare writeFileSync, and only runs once the daemon's pid is already
+   *  gone. It never touches the bus or calls stopOrg/finishStop, so this
+   *  RunSummary field — and `runnableTasksAtStop` — are simply absent for
+   *  that run: there is no history.jsonl entry for it at all, since a
+   *  SIGKILLed daemon never ran finishStop's history-append either. This is
+   *  arguably correct (there is no stop to record if it never ran), but the
+   *  absence is deliberate, not an oversight — a renderer must not assume
+   *  every `closedBy` on runtime.json came from this truth gate.)
+   *  Renderers MUST consult this before ever describing a run as
+   *  "completed" — outcome alone is not enough, since a run that never
+   *  called org_complete has a null outcome regardless of why it stopped. */
+  closedBy?: string;
+  /** #302: `org_tasks` entries still non-terminal at the moment this run
+   *  stopped — 0 for a DAG-less run or one that finished every task. */
+  runnableTasksAtStop: number;
   roles: Record<string, RoleStats>;
   totalTokens: number;
   totalCostUsd: number;
@@ -58,6 +103,7 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
     crashes: [],
     cutShort: [],
     outcome: null,
+    runnableTasksAtStop: 0,
     roles: {},
     totalTokens: 0,
     totalCostUsd: 0,
@@ -106,14 +152,51 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
         if (e.reason === 'terminated-by-stop' && e.from) {
           s.cutShort.push(e.from);
         }
-        const d = e.data as { outcome?: string; summary?: string } | undefined;
-        if (e.reason === 'org-complete' && d?.outcome)
-          s.outcome = { status: d.outcome, summary: d.summary ?? '', by: e.from ?? '' };
+        if (e.reason === 'org-complete') {
+          const d = e.data as
+            | { outcome?: string; summary?: string; blocker?: string; blockerDetail?: string }
+            | undefined;
+          if (d?.outcome)
+            s.outcome = { status: d.outcome, summary: d.summary ?? '', by: e.from ?? '' };
+          // Top-level, not nested in `outcome` — see RunSummary's doc comment.
+          if (d?.blocker) s.blocker = d.blocker;
+          if (d?.blockerDetail) s.blockerDetail = d.blockerDetail;
+        }
+        // #302 truth gate: finishStop always emits exactly one of these per
+        // run, regardless of which of the five stop paths fired — read it
+        // unconditionally rather than only for a particular reason, so a
+        // future stop path that forgets to set closedBy still shows up here
+        // as undefined instead of silently vanishing.
+        if (e.reason === 'org-stopped') {
+          const d = e.data as { closedBy?: string; runnableTasks?: number } | undefined;
+          s.closedBy = d?.closedBy;
+          s.runnableTasksAtStop = d?.runnableTasks ?? 0;
+        }
         break;
       }
     }
   }
   return s;
+}
+
+/** #302 truth gate: the one-word-ish outcome label a renderer may print for a
+ *  run, honest about how it actually ended. A run with a genuine outcome (an
+ *  ALLOWED org_complete call) reports that claim's status. Otherwise, a real
+ *  crash wins (unchanged from before this item); otherwise an automated stop
+ *  path's own recorded cause is reported, with the runnable-task count if any
+ *  work was left outstanding — NEVER a plain "completed" for those, which is
+ *  the exact misreading #302 exists to close (an idle-stopped run with a full
+ *  backlog previously rendered identically to one whose boss finished
+ *  cleanly). Only a bare manual stop with no crash and no automated cause
+ *  falls back to "completed", same as before this item. */
+export function describeRunOutcome(s: RunSummary): string {
+  if (s.outcome) return s.outcome.status;
+  if (s.crashes.length) return 'crashed';
+  if (s.closedBy && s.closedBy !== 'org-complete') {
+    const pending = s.runnableTasksAtStop > 0 ? ` (${s.runnableTasksAtStop} task(s) left)` : '';
+    return `${s.closedBy}${pending}`;
+  }
+  return 'completed';
 }
 
 /** run directories for an org, newest first (by name — run-YYYYMMDDHHMMSS-xxxx sorts naturally). */

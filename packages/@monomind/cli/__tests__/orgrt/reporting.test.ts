@@ -3,7 +3,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { summarizeRun, formatEvent, readRunEvents, readHistory, listRunDirs } from '../../src/orgrt/reporting.js';
+import {
+  summarizeRun,
+  formatEvent,
+  readRunEvents,
+  readHistory,
+  listRunDirs,
+  describeRunOutcome,
+  type RunSummary,
+} from '../../src/orgrt/reporting.js';
 import { ORG_TEMPLATES, buildFromTemplate } from '../../src/orgrt/templates.js';
 import { OrgDefSchema, ORG_DIR, type BusEvent } from '../../src/orgrt/types.js';
 import { DEFAULT_CLAUDE_MODEL } from '../../src/orgrt/vercel-providers.js';
@@ -46,6 +54,117 @@ describe('summarizeRun', () => {
     expect(s.events).toBe(0);
     expect(s.outcome).toBeNull();
     expect(s.durationMs).toBeNull();
+    expect(s.runnableTasksAtStop).toBe(0);
+    expect(s.closedBy).toBeUndefined();
+  });
+
+  // #302 (review finding 1): blocker/blockerDetail are recorded TOP-LEVEL,
+  // NOT nested inside `outcome` — a sibling of `outcome`, matching
+  // `crashes`/`cutShort`'s own pattern. `outcome` is null on every stop path
+  // that isn't a genuinely allowed org_complete call, so a field nested
+  // inside it would be structurally unreachable on any other path; a
+  // top-level field can be read (or, for a future path, populated)
+  // independently of whether `outcome` itself ever gets set.
+  it('records blocker and blockerDetail TOP-LEVEL, not nested inside outcome', () => {
+    const s = summarizeRun([
+      ev({
+        type: 'status',
+        from: 'boss',
+        reason: 'org-complete',
+        data: {
+          outcome: 'partial',
+          summary: 'stopped here',
+          blocker: 'external',
+          blockerDetail: 'waiting on the vendor API key',
+        },
+      }),
+    ]);
+    expect(s.outcome).toEqual({ status: 'partial', summary: 'stopped here', by: 'boss' });
+    expect(s.blocker).toBe('external');
+    expect(s.blockerDetail).toBe('waiting on the vendor API key');
+  });
+
+  // #302 truth gate: the 'org-stopped' event finishStop always emits carries
+  // how the run actually ended, independent of whether a genuine `outcome`
+  // exists — an idle-stopped run with a full backlog has NO outcome (no
+  // org_complete was ever allowed) but must still record its real cause.
+  it("captures closedBy and runnableTasksAtStop from the 'org-stopped' event", () => {
+    const s = summarizeRun([
+      ev({ type: 'status', reason: 'org-stopped', data: { closedBy: 'idle-stop', runnableTasks: 3 } }),
+    ]);
+    expect(s.outcome).toBeNull();
+    expect(s.closedBy).toBe('idle-stop');
+    expect(s.runnableTasksAtStop).toBe(3);
+  });
+});
+
+describe('describeRunOutcome', () => {
+  const base: RunSummary = {
+    org: 'alpha',
+    run: 'run-1',
+    startedAt: null,
+    endedAt: null,
+    durationMs: null,
+    events: 0,
+    messages: 0,
+    xorgMessages: 0,
+    assets: [],
+    crashes: [],
+    cutShort: [],
+    outcome: null,
+    runnableTasksAtStop: 0,
+    roles: {},
+    totalTokens: 0,
+    totalCostUsd: 0,
+  };
+
+  it('reports the genuine outcome status when one exists', () => {
+    expect(
+      describeRunOutcome({ ...base, outcome: { status: 'partial', summary: '', by: 'boss' } }),
+    ).toBe('partial');
+  });
+
+  it('reports "crashed" when there is a real crash and no genuine outcome', () => {
+    expect(describeRunOutcome({ ...base, crashes: ['coder'] })).toBe('crashed');
+  });
+
+  // The exact bug #302 closes: before this item, a null outcome with no
+  // crashes always rendered as "completed" — indistinguishable from a boss
+  // that actually finished cleanly.
+  it('reports the real closedBy cause, not "completed", for an automated stop with no genuine outcome', () => {
+    expect(describeRunOutcome({ ...base, closedBy: 'idle-stop' })).toBe('idle-stop');
+  });
+
+  it('includes the runnable task count when work was left outstanding', () => {
+    expect(describeRunOutcome({ ...base, closedBy: 'idle-stop', runnableTasksAtStop: 4 })).toBe(
+      'idle-stop (4 task(s) left)',
+    );
+  });
+
+  // #302 review: `org mark-complete` writes closedBy: 'mark-complete'
+  // straight to runtime.json (never through finishStop), so this truth gate
+  // never tags it and runnableTasksAtStop is never populated for it either.
+  // In practice that run has no history.jsonl entry at all — but if a
+  // RunSummary-shaped object ever DID carry an untagged closedBy with no
+  // count, this must not claim a false "0 task(s) left"; it must simply
+  // name the cause and say nothing about count, the same as any other
+  // closedBy this gate didn't itself produce.
+  it('names an untagged closedBy (e.g. mark-complete) without inventing a task count', () => {
+    expect(describeRunOutcome({ ...base, closedBy: 'mark-complete' })).toBe('mark-complete');
+  });
+
+  it('falls back to "completed" only for a bare manual stop — no outcome, no crash, no automated closedBy', () => {
+    expect(describeRunOutcome({ ...base })).toBe('completed');
+  });
+
+  it('does not treat closedBy: "org-complete" as an automated-stop cause to print', () => {
+    // A genuine org-complete always carries `outcome` too in real data, but
+    // this pins the describeRunOutcome logic itself: closedBy === 'org-complete'
+    // must never fall into the "(N task(s) left)" branch even if outcome is
+    // somehow missing.
+    expect(describeRunOutcome({ ...base, closedBy: 'org-complete', runnableTasksAtStop: 2 })).toBe(
+      'completed',
+    );
   });
 });
 

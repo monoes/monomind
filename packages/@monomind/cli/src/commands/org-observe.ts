@@ -328,9 +328,14 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     log(output.info(`org ${name} — ${history.length} recorded run(s):`));
     for (const h of history) {
       const dur = h.durationMs != null ? `${Math.round(h.durationMs / 1000)}s` : '?';
+      // #302: an honest "why", not a bare "no outcome recorded", when the
+      // truth gate actually knows the real cause (idle-stop, failed-start, a
+      // boss-restart giving up) and whether work was left outstanding.
       const outcome = h.outcome
         ? `${h.outcome.status}: ${h.outcome.summary.slice(0, 60)}`
-        : 'no outcome recorded';
+        : h.closedBy && h.closedBy !== 'org-complete'
+          ? `no outcome recorded — ended via ${h.closedBy}${h.runnableTasksAtStop > 0 ? `, ${h.runnableTasksAtStop} task(s) left` : ''}`
+          : 'no outcome recorded';
       log(
         output.info(
           `  • ${h.run}  ${dur}  ${h.totalTokens} tokens  ${h.messages} msgs  — ${outcome}`,
@@ -363,6 +368,10 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
       total_tokens: s.totalTokens,
       total_cost_usd: s.totalCostUsd,
       outcome: s.outcome,
+      blocker: s.blocker,
+      blocker_detail: s.blockerDetail,
+      closed_by: s.closedBy,
+      runnable_tasks_at_stop: s.runnableTasksAtStop,
       cut_short: s.cutShort,
       crashes: s.crashes,
       roles: s.roles,
@@ -524,11 +533,28 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
       `  Tokens: ${s.totalTokens}${perRoleBudget ? ` (budget: ${perRoleBudget}/role)` : ''}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`,
     ),
   );
-  if (s.outcome)
+  if (s.outcome) {
+    // #302: blocker/blockerDetail are top-level on RunSummary (a sibling of
+    // outcome, not nested in it — see reporting.ts), rendered here alongside
+    // the outcome they were attached to.
+    const blockerSuffix = s.blocker
+      ? ` [blocker: ${s.blocker}${s.blockerDetail ? ` — ${s.blockerDetail}` : ''}]`
+      : '';
     log(
-      output.success(`  Outcome: ${s.outcome.status} (by ${s.outcome.by}) — ${s.outcome.summary}`),
+      output.success(
+        `  Outcome: ${s.outcome.status} (by ${s.outcome.by}) — ${s.outcome.summary}${blockerSuffix}`,
+      ),
     );
-  else log(output.warning('  Outcome: not recorded (coordinator never called org_complete)'));
+  } else if (s.closedBy && s.closedBy !== 'org-complete') {
+    // #302 truth gate: a run that never called org_complete still has a real,
+    // recorded cause — never leave an operator reading "not recorded" when
+    // we actually know the run was idle-stopped, failed to start, or gave up
+    // after a boss-restart, and how much runnable work was left behind.
+    const pending = s.runnableTasksAtStop > 0 ? `, ${s.runnableTasksAtStop} task(s) left` : '';
+    log(output.warning(`  Outcome: not recorded — ended via ${s.closedBy}${pending}`));
+  } else {
+    log(output.warning('  Outcome: not recorded (coordinator never called org_complete)'));
+  }
   log(output.info('  Roles:'));
   for (const [id, r] of Object.entries(s.roles)) {
     const wasCutShort = s.cutShort.includes(id);
