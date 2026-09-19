@@ -38,29 +38,35 @@ export async function runCommand(command: string, timeoutMs = 5000): Promise<str
   return (stdout as string).trim();
 }
 
-export async function checkNodeVersion(): Promise<HealthCheck> {
-  const requiredMajor = 20;
-  const version = process.version;
-  const major = parseInt(version.slice(1).split('.')[0], 10);
-  if (major >= requiredMajor) {
+export async function checkNodeVersion(version: string = process.version): Promise<HealthCheck> {
+  // i-090: the floor is 22.12.0, not just major 22 — a `major >= requiredMajor`
+  // compare would wrongly pass 22.0.0–22.11.x, which is the exact defect this
+  // check existed to report elsewhere in the fleet (P0-class: doctor said
+  // "pass" while `npm install` under engine-strict=true refused the package).
+  const requiredMajor = 22;
+  const requiredMinor = 12;
+  const requiredLabel = `${requiredMajor}.${requiredMinor}.0`;
+  const [major, minor] = version.slice(1).split('.').map((n) => parseInt(n, 10));
+  const meetsFloor = major > requiredMajor || (major === requiredMajor && minor >= requiredMinor);
+  if (meetsFloor) {
     return {
       name: 'Node.js Version',
       status: 'pass',
-      message: `${version} (>= ${requiredMajor} required)`,
+      message: `${version} (>= ${requiredLabel} required)`,
     };
   } else if (major >= 18) {
     return {
       name: 'Node.js Version',
       status: 'warn',
-      message: `${version} (>= ${requiredMajor} recommended)`,
-      fix: 'nvm install 20 && nvm use 20',
+      message: `${version} (>= ${requiredLabel} recommended)`,
+      fix: 'nvm install 22 && nvm use 22',
     };
   }
   return {
     name: 'Node.js Version',
     status: 'fail',
-    message: `${version} (>= ${requiredMajor} required)`,
-    fix: 'nvm install 20 && nvm use 20',
+    message: `${version} (>= ${requiredLabel} required)`,
+    fix: 'nvm install 22 && nvm use 22',
   };
 }
 

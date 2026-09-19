@@ -55,11 +55,12 @@ describe('runCommand', () => {
 });
 
 describe('checkNodeVersion', () => {
-  it('reflects the real running Node version and required-major logic', async () => {
+  it('reflects the real running Node version against the >=22.12.0 floor', async () => {
     const check = await checkNodeVersion();
     expect(check.name).toBe('Node.js Version');
-    const major = parseInt(process.version.slice(1).split('.')[0], 10);
-    if (major >= 20) {
+    const [major, minor] = process.version.slice(1).split('.').map(Number);
+    const meetsFloor = major > 22 || (major === 22 && minor >= 12);
+    if (meetsFloor) {
       expect(check.status).toBe('pass');
     } else if (major >= 18) {
       expect(check.status).toBe('warn');
@@ -69,6 +70,34 @@ describe('checkNodeVersion', () => {
       expect(check.fix).toBeDefined();
     }
     expect(check.message).toContain(process.version);
+  });
+
+  // i-090: the floor is 22.12.0, not just major 22 — a `major >= 22` compare
+  // wrongly passes 22.0.0–22.11.x. checkNodeVersion takes an optional version
+  // string (defaulting to process.version) so these can be asserted without
+  // running the suite under each real runtime.
+  it('passes on v22.12.0, the exact floor', async () => {
+    const check = await checkNodeVersion('v22.12.0');
+    expect(check.status).toBe('pass');
+    expect(check.message).toContain('22.12');
+  });
+
+  it('passes on v26.0.0', async () => {
+    const check = await checkNodeVersion('v26.0.0');
+    expect(check.status).toBe('pass');
+  });
+
+  it('does not pass on v22.11.0 — a major-only compare would wrongly pass this', async () => {
+    const check = await checkNodeVersion('v22.11.0');
+    expect(check.status).not.toBe('pass');
+    expect(check.fix).toContain('22');
+    expect(check.fix).not.toContain('20');
+  });
+
+  it('warns, not passes, on v20.19.0', async () => {
+    const check = await checkNodeVersion('v20.19.0');
+    expect(check.status).toBe('warn');
+    expect(check.fix).toContain('nvm install 22');
   });
 });
 
