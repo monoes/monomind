@@ -17,8 +17,10 @@ import {
   SKILLS_MAP,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
-import type { InitOptions } from './types.js';
-import { DEFAULT_INIT_OPTIONS } from './types.js';
+import type { InitOptions, InitResult } from './types.js';
+import { DEFAULT_INIT_OPTIONS, detectPlatform } from './types.js';
+import { writeCapabilitiesDoc } from './write-capabilities.js';
+import { writeClaudeMd } from './write-claude.js';
 
 /**
  * Upgrade result interface
@@ -205,6 +207,21 @@ export async function executeUpgrade(
       }
     }
 
+    // Shared InitOptions for every writer below that needs one (statusline
+    // fallback, CLAUDE.md/CAPABILITIES.md refresh) — one options shape, not
+    // an ad-hoc one per writer. `force: true` is what makes those writers'
+    // own skip-if-exists gates refresh the file's managed block on upgrade
+    // instead of no-op'ing.
+    const upgradeOptions: InitOptions = {
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir,
+      force: true,
+      statusline: {
+        ...DEFAULT_INIT_OPTIONS.statusline,
+        refreshInterval: 5000,
+      },
+    };
+
     // 0. ALWAYS update critical helpers + subdirectories (force overwrite)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
     if (sourceHelpersForUpgrade) {
@@ -309,15 +326,6 @@ export async function executeUpgrade(
       !sourceHelpersForUpgrade ||
       !fs.existsSync(path.join(sourceHelpersForUpgrade, 'statusline.cjs'))
     ) {
-      const upgradeOptions: InitOptions = {
-        ...DEFAULT_INIT_OPTIONS,
-        targetDir,
-        force: true,
-        statusline: {
-          ...DEFAULT_INIT_OPTIONS.statusline,
-          refreshInterval: 5000,
-        },
-      };
       const statuslineContent = generateStatuslineScript(upgradeOptions);
       if (fs.existsSync(statuslinePath)) {
         result.updated.push('.claude/helpers/statusline.cjs');
@@ -326,6 +334,32 @@ export async function executeUpgrade(
       }
       atomicWriteFile(statuslinePath, statuslineContent);
     }
+
+    // 1.5. Refresh CLAUDE.md and .monomind/CAPABILITIES.md through their
+    // managed blocks (i-035). Before this, `init upgrade` never called
+    // writeClaudeMd or writeCapabilitiesDoc at all, so any fix to what the
+    // generators write never reached a project that had already run `init`
+    // once. Those writers take an InitOptions + InitResult shape distinct
+    // from UpgradeResult — build a throwaway InitResult, call the same
+    // writers `init` itself uses, and fold the outcome back into
+    // updated/created based on whether the file existed beforehand.
+    const claudeMdPath = path.join(targetDir, 'CLAUDE.md');
+    const capabilitiesPath = path.join(targetDir, '.monomind', 'CAPABILITIES.md');
+    const claudeMdExisted = fs.existsSync(claudeMdPath);
+    const capabilitiesExisted = fs.existsSync(capabilitiesPath);
+    const docsResult: InitResult = {
+      success: true,
+      platform: detectPlatform(),
+      created: { directories: [], files: [] },
+      updated: [],
+      skipped: [],
+      errors: [],
+      summary: { skillsCount: 0, commandsCount: 0, agentsCount: 0, hooksEnabled: 0 },
+    };
+    await writeClaudeMd(targetDir, upgradeOptions, docsResult);
+    await writeCapabilitiesDoc(targetDir, upgradeOptions, docsResult);
+    result[claudeMdExisted ? 'updated' : 'created'].push('CLAUDE.md');
+    result[capabilitiesExisted ? 'updated' : 'created'].push('.monomind/CAPABILITIES.md');
 
     // 2. Create MISSING metrics files only (preserve existing data)
     const metricsDir = path.join(targetDir, '.monomind', 'metrics');
