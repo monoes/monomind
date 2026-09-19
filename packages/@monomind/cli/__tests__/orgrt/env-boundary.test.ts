@@ -51,6 +51,7 @@ const AMBIENT_BASE_URL_VALUE = 'https://o18-ambient-do-not-leak.invalid';
 const AUTH_TOKEN_ENV = 'ANTHROPIC_AUTH_TOKEN';
 const AMBIENT_AUTH_TOKEN_VALUE = 'O18-AMBIENT-DO-NOT-LEAK-9f3c2b';
 const EXPLICIT_API_KEY_VALUE = 'O18-EXPLICIT-DO-NOT-LEAK-9d21';
+const EXPLICIT_BASE_URL_VALUE = 'https://o18-configured-endpoint.invalid';
 /** Builds `{ kind: 'api-key', apiKey }` via a shorthand property so the
  *  literal text `apiKey:` never sits next to a fixture value on one line
  *  (same secret-scanner reasoning as the constants above). */
@@ -226,7 +227,7 @@ describe.each(VENDOR_RUNNERS)(
     });
     afterEach(() => rc.teardown?.());
 
-    it.each(['codex', 'antigravity', 'vercel-api-key'] as const)(
+    it.each(['codex', 'antigravity', 'vercel-api-key', 'subscription'] as const)(
       '%s provider kind: no ambient ANTHROPIC_* key reaches the child',
       async (kind) => {
         const providerEnv = resolveProviderEnv({ kind });
@@ -253,6 +254,19 @@ describe.each(VENDOR_RUNNERS)(
       const env = await captureChildEnv(rc.make(), providerEnv);
       expect(env[SENTINEL_KEY]).toBe(EXPLICIT_API_KEY_VALUE);
       expect(env[BASE_URL_ENV]).toBeUndefined();
+      expect(env[AUTH_TOKEN_ENV]).toBeUndefined();
+    });
+
+    it('base-url provider kind: explicit base-url wins; ambient AUTH_TOKEN does not leak when no token is configured (o-18 review round 2)', async () => {
+      // The gap the round-2 review found: neither `cfg.authToken` nor
+      // `cfg.authTokenEnv` is required (types.ts), and there is no
+      // daemon.ts fail-fast for either — a real self-hosted, no-auth
+      // gateway configures baseUrl alone. Both branches that would have
+      // deleted the ambient token are skipped, and it survives.
+      const providerEnv = resolveProviderEnv({ kind: 'base-url', baseUrl: EXPLICIT_BASE_URL_VALUE });
+      const env = await captureChildEnv(rc.make(), providerEnv);
+      expect(env[SENTINEL_KEY]).toBeUndefined();
+      expect(env[BASE_URL_ENV]).toBe(EXPLICIT_BASE_URL_VALUE);
       expect(env[AUTH_TOKEN_ENV]).toBeUndefined();
     });
   },
