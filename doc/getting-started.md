@@ -109,7 +109,7 @@ This lists all available slash commands. The most useful starting points:
 
 **`monomind doctor` warns on fresh install** — expected. The doctor checks 28 categories; on a fresh project, several report "not configured yet." Run `monomind doctor --fix` to auto-resolve what's fixable, or `monomind doctor --verbose` for details.
 
-**Embedding model download** — the first `monomind doc ingest` fetches a ~90 MB model from HuggingFace. This is the only outbound request monomind ever makes. If offline, search degrades gracefully to keyword matching.
+**Embedding model download** — the first `monomind doc ingest` fetches a ~90 MB model from HuggingFace. If offline, search degrades gracefully to keyword matching. It is not the only outbound request monomind makes — see [doc/privacy.md](privacy.md) for the full list (update checks, `doctor`, crash reporting, etc.) and how to opt out of each.
 
 **Cost of `org run`** — running an org daemon spends real provider tokens. Always use `--dry-run` first to preview, and `--budget-usd` to set a hard limit:
 
