@@ -279,12 +279,16 @@ describe('resolveRoleGitEnforcement', () => {
   // Built as an ALLOWLIST from scratch, not by inheriting process.env and
   // subtracting known GIT_CONFIG_* keys: a subtraction is a deny-list over a
   // set GIT defines, and it fails open the same way #299's original reflog
-  // deny-list did — it would miss GIT_CONFIG_PARAMETERS and GIT_CONFIG_GLOBAL/
-  // SYSTEM/NOSYSTEM (confirmed in `man git`, git 2.55.0, §ENVIRONMENT) and any
-  // config-injection variable a future git adds. HOME points at an empty
-  // scratch dir so no ambient ~/.gitconfig leaks in either — `scratchRepo()`
-  // in this describe's tests spawns real `git init`/`git remote add` calls
-  // that inherit this same allowlisted env.
+  // deny-list did. It would miss GIT_CONFIG_GLOBAL/SYSTEM/NOSYSTEM (`man
+  // git`, git 2.55.0, §ENVIRONMENT), GIT_CONFIG_COUNT/KEY_n/VALUE_n — the
+  // guard's own mechanism — (`man git-config`, §ENVIRONMENT, NOT `man git`),
+  // and GIT_CONFIG_PARAMETERS: git's internal channel for propagating `-c`
+  // overrides to subprocesses, honoured but undocumented in EITHER man page
+  // — precisely why a deny-list can't be trusted here: you cannot enumerate
+  // what the manual doesn't list. HOME points at an empty scratch dir so no
+  // ambient ~/.gitconfig leaks in either — `scratchRepo()` in this
+  // describe's tests spawns real `git init`/`git remote add` calls that
+  // inherit this same allowlisted env.
   let originalEnv: NodeJS.ProcessEnv;
   let hermeticHome: string;
   beforeEach(() => {
