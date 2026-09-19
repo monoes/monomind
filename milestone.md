@@ -83,7 +83,7 @@ RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
   **Also decide the upgrade path.** `CLAUDE.md` and `.monomind/CAPABILITIES.md` are skip-if-exists (`write-claude.ts:462-465`, `write-capabilities.ts:20`), and `CAPABILITIES.md` has no managed block while holding 11 of the 18 mentions. The choices are (i) `init upgrade` rewrites both, or (ii) `doctor` warns and points at `init --force`. My recommendation: (i), because a generator-only fix reaches no existing project.
   **Decision 2026-09-19: A — honest-down, with upgrade path (i).** Remove the "MUST initialize the monoswarm" claim and its command block from the generators, the templates and this repo's own CLAUDE.md, and have `init upgrade` rewrite existing `CLAUDE.md` / `.monomind/CAPABILITIES.md` (add a managed block to CAPABILITIES.md). Do not build monoswarm enforcement. **Build item for the org.**
 
-- [x] **#9 — Decide: the Node floor (i-090).** {i-090}
+- [x] **#9 — Decide: the Node floor (i-090).** {i-090} ✅ done 2026-09-19 (79280b466)
   **Facts (checked 2026-09-19):**
   - `engines.node` is `>=20.0.0` in root/cli/hooks/monograph, `>=18.0.0` in monobrowse/monofence-ai, and absent elsewhere.
   - The installed `ai` 7.0.59 needs `>=22` and `puppeteer` 25.3.0 needs `>=22.12.0`, while the root `.npmrc` sets `engine-strict=true`.
