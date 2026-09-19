@@ -35,6 +35,7 @@ import { homedir, tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join } from 'node:path';
 import type { OrgBus } from './bus.js';
 import { CLI_SANDBOX_MODES } from './cli-sandbox.js';
+import { DAEMON_SOCKETS, HOME_DENY_READ, HOME_DENY_WRITE, runtimeDir } from './file-roots.js';
 import {
   type GitGuard,
   type GitLevel,
@@ -102,48 +103,6 @@ export function sandboxAvailability(
   return { available: false, reason: `the SDK sandbox is not supported on ${platform}` };
 }
 
-/** Files under $HOME that would undo the guard (git/shell/Claude config) —
- *  writable $HOME must not include them. */
-const HOME_DENY_WRITE = [
-  '.gitconfig',
-  '.config/git',
-  '.ssh',
-  '.config/gh',
-  '.bashrc',
-  '.bash_profile',
-  '.bash_login',
-  '.profile',
-  '.zshrc',
-  '.zprofile',
-  '.zshenv',
-  '.zlogin',
-  '.claude',
-  '.claude.json',
-];
-/** Credential stores sandboxed commands may not read. */
-const HOME_DENY_READ = [
-  '.ssh',
-  '.git-credentials',
-  '.config/git/credentials',
-  '.config/gh',
-  '.netrc',
-];
-
-/** Sockets and runtime dirs a role must not reach. The XDG runtime dir is the
- *  important one: it carries the session D-Bus, and through it the login
- *  keyring — `gh auth token` returns the operator's GitHub token from there,
- *  which is a push credential (verified inside the real sandbox). It is denied
- *  whether or not unix sockets are allowed, because it holds credential files
- *  too, and the SDK's own default deny of /run/user does not survive passing
- *  our own `filesystem` block. */
-const DAEMON_SOCKETS = [
-  '/run/dbus',
-  '/run/docker.sock',
-  '/var/run/docker.sock',
-  '/run/podman/podman.sock',
-  '/run/containerd/containerd.sock',
-];
-
 /** Agent sockets that would hand a role push credentials, plus the X11 socket
  *  dir (desktop input injection). Only relevant while unix sockets are
  *  reachable — see `policy.sandbox.allowUnixSockets`, which is true by default
@@ -164,13 +123,6 @@ function agentSocketPaths(home: string, env: NodeJS.ProcessEnv, tmp: string): st
     }
   }
   return paths.filter((p): p is string => !!p);
-}
-
-/** $XDG_RUNTIME_DIR, or the conventional /run/user/<uid> when it is unset. */
-function runtimeDir(env: NodeJS.ProcessEnv): string | undefined {
-  if (env.XDG_RUNTIME_DIR && isAbsolute(env.XDG_RUNTIME_DIR)) return env.XDG_RUNTIME_DIR;
-  const uid = process.getuid?.();
-  return uid === undefined ? undefined : `/run/user/${uid}`;
 }
 
 const uniq = (xs: Array<string | undefined>): string[] => [

@@ -1,7 +1,9 @@
 // packages/@monomind/cli/src/orgrt/policy.ts
 import { realpathSync } from 'node:fs';
-import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import { homedir } from 'node:os';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
+import { fileToolDenied } from './file-roots.js';
 import { checkGitPolicy } from './policy-git.js';
 import { type RolePolicy, TOOL_RESULT_OUTPUT_MAX_CHARS } from './types.js';
 
@@ -139,6 +141,12 @@ export class PolicyEngine {
     public policy: RolePolicy,
     private bus: OrgBus,
     private cwd: string,
+    /** #303: extra roots the file tools may touch beyond cwd — the role's
+     *  temp dir, the org root, and any `policy.sandbox.allowWrite` entries
+     *  (file-roots.ts's `fileToolRoots()`, computed by the daemon). Deny
+     *  lists (file-roots.ts's `fileToolDenied()`) still apply inside every
+     *  root, cwd included — see the deny pass below. */
+    private roots: string[] = [],
   ) {}
 
   /** Wire provider prefixes and trace source (daemon, M1). */
@@ -292,14 +300,10 @@ export class PolicyEngine {
       if (p !== null) {
         // SEC: compare REAL paths — a symlink inside the scope pointing outside
         // the workdir (or at an out-of-scope file) passed the lexical check.
-        const rel = relative(realPath(this.cwd), realPath(resolve(this.cwd, p)));
-        // #291: naming only the rejected path leaves the role guessing another
-        // absolute path — it never learns the root it is confined to. Name the
-        // boundary and how paths resolve so the next turn can be correct.
-        if (rel.startsWith('..'))
-          return deny(
-            `path escapes org workdir: ${p} (org workdir: ${this.cwd} — paths are resolved relative to that directory; retry with a path inside it)`,
-          );
+        // Resolved once and reused below: the root check, the deny pass and
+        // the .git check (#258) all key off the same real path.
+        const real = realPath(resolve(this.cwd, p));
+        const realCwd = realPath(this.cwd);
         // fileWrite/fileRead globs are always authored with '/' separators (POSIX
         // convention, matches every example in types.ts and the skill docs) — but
         // path.relative()/path.resolve() return '\'-separated paths on Windows, and
@@ -307,18 +311,58 @@ export class PolicyEngine {
         // normalizing, every glob with a '/' in it silently fails to match on
         // Windows and a role with ANY fileWrite/fileRead scope narrower than the
         // unrestricted ['**'] default is denied on every single call.
+        const rel = relative(realCwd, real);
         const relPosix = rel.split(sep).join('/');
-        if (!globs.some((g) => globToRegExp(g).test(relPosix)))
+        const realPosix = real.split(sep).join('/');
+        // #303: an absolute fileRead/fileWrite glob is an explicit, author-
+        // written grant — it authorizes a path on its own, independent of
+        // cwd/roots, the same way `policy.sandbox.allowWrite` does for Bash.
+        const grantedByAbsoluteGlob = globs.some(
+          (g) => isAbsolute(g) && globToRegExp(g).test(realPosix),
+        );
+        if (!grantedByAbsoluteGlob) {
+          // #303: beyond cwd, a role may also reach $TMPDIR, the org root, and
+          // any operator-granted policy.sandbox.allowWrite entries — the same
+          // roots the Bash sandbox already treats as writable (file-roots.ts).
+          // $HOME is deliberately never one of them; see file-roots.ts's doc
+          // comment.
+          const realRoots = uniq([realCwd, ...this.roots.map(realPath)]);
+          // #291: naming only the rejected path leaves the role guessing another
+          // absolute path — it never learns the roots it is confined to. Name
+          // the boundary and how paths resolve so the next turn can be correct.
+          if (!realRoots.some((root) => isWithin(root, real)))
+            return deny(
+              `path escapes every root this role may use: ${p} (roots: ${realRoots.join(', ')} — paths are resolved relative to org workdir ${this.cwd}; retry with a path inside one of them)`,
+            );
+        }
+        // #303: a widened root must not make credential stores, guard-undoing
+        // config, sockets, or the XDG runtime dir reachable — today they are
+        // unreachable purely because they sit outside cwd, an accident that
+        // vanishes the moment another root admits them (e.g. allowWrite:
+        // [$HOME]). Runs for READ_TOOLS too, unlike the .git check below,
+        // which is write-only.
+        const deniedHit = fileToolDenied(homedir(), process.env).find((d) =>
+          isWithin(realPath(d), real),
+        );
+        if (deniedHit)
+          return deny(
+            `path ${p} resolves inside ${deniedHit}, which no role may touch regardless of scope, root, or allowWrite (credential store, guard config, socket, or runtime dir)`,
+          );
+        if (
+          !grantedByAbsoluteGlob &&
+          !globs.some((g) => !isAbsolute(g) && globToRegExp(g).test(relPosix))
+        )
           return deny(
             `path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope — role ${this.role} may use ${globs.join(', ')} (relative to org workdir ${this.cwd})`,
           );
         // #258: Write/Edit run in-process, so the OS sandbox never sees them —
         // without this a 'read' role could write refs and objects straight into
         // .git, and a 'commit' role could rewrite the shared identity (#250) or
-        // the hooks that enforce its own level.
+        // the hooks that enforce its own level. Still fires for a path admitted
+        // via a root other than cwd (#303) — it does not depend on `rel`.
         if (WRITE_TOOLS.has(tool)) {
           const gitLevel = this.policy.git ?? 'read';
-          const segments = realPath(resolve(this.cwd, p)).split(sep);
+          const segments = real.split(sep);
           const at = segments.lastIndexOf('.git');
           const inGit = segments[at + 1];
           if (
@@ -367,6 +411,18 @@ export function webDomainMatches(pattern: string, host: string): boolean {
     return host === base || host.endsWith(`.${base}`);
   }
   return host === pattern || host.endsWith(`.${pattern}`);
+}
+
+const uniq = (xs: string[]): string[] => [...new Set(xs)];
+
+/** #303: is `target` equal to, or nested under, `container`? Both must
+ *  already be `realPath()`-resolved — this is a plain string comparison, not
+ *  a filesystem check, so a symlink escape must be resolved before this
+ *  runs, never lexically. */
+function isWithin(container: string, target: string): boolean {
+  if (container === target) return true;
+  const withSep = container.endsWith(sep) ? container : container + sep;
+  return target.startsWith(withSep);
 }
 
 /** realpath of `p`, resolving through the nearest EXISTING ancestor when the

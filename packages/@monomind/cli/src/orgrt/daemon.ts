@@ -49,6 +49,7 @@ import {
   mergeFenceConfigs,
   type RoleFence,
 } from './fence.js';
+import { fileToolRoots } from './file-roots.js';
 import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
 import { HermesAgentRunner } from './hermes-runner.js';
@@ -1607,6 +1608,11 @@ export class OrgDaemon {
       },
       bus,
       roleCwd,
+      // #303: the file tools (Read/Write/Edit/Glob/Grep) get the same extra
+      // roots the Bash sandbox already treats as writable (role-sandbox.ts) —
+      // $TMPDIR, the org root, and any policy.sandbox.allowWrite entries.
+      // $HOME is deliberately excluded; see file-roots.ts.
+      fileToolRoots({ cwd: roleCwd, orgRoot: this.root }, role.policy?.sandbox),
     );
     policy.setToolContext({
       providerPrefixes: () => roleProviderPrefixes(role),
