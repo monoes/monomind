@@ -18,6 +18,7 @@
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import type { z } from 'zod';
+import { omitAnthropicManagedKeys } from './provider.js';
 
 /** A platform-agnostic org tool definition. `schema` is a zod object because
  *  both the Claude SDK's `tool()` and opencode's `tool()` consume zod. */
@@ -39,6 +40,24 @@ export interface AgentRunArgs {
   model?: string;
   cwd: string;
   env: Record<string, string>;
+  /**
+   * o-18: only `ClaudeAgentRunner` consults this — the 12 vendor runners
+   * always strip ambient ANTHROPIC_* creds from process.env unconditionally
+   * (no vendor CLI has a legitimate use for one). Claude is the one runtime
+   * where an ambient Anthropic credential CAN be legitimate (that is what
+   * API-key mode is), so it needs a signal rather than a blanket rule.
+   * Defaults to `true` (safe: `args.env`, not the ambient process.env, is
+   * authoritative for ANTHROPIC_API_KEY/ANTHROPIC_BASE_URL/
+   * ANTHROPIC_AUTH_TOKEN — matching `session.ts`'s already-resolved
+   * `resolveProviderEnv` output). Only `orgrt/agent-exec.ts` sets this to
+   * `false`, explicitly and with its own comment: it is the only caller
+   * with no `--provider` concept at all, so preserving today's inherited-
+   * credential behavior for `agent exec --runtime claude` requires opting
+   * OUT of the safe default, not into an unsafe one. Making the safe path
+   * the default means a future caller that forgets this field gets the
+   * safe behavior, not a silent leak.
+   */
+  envAuthoritative?: boolean;
   maxTurns: number;
   resume?: string;
   /** `meta.toolUseId` (#289) is the harness's id for this specific call —
@@ -208,7 +227,25 @@ export class ClaudeAgentRunner implements AgentRunner {
         // Merge onto process.env so args.env is additive overrides, matching
         // every other env-passing path in this codebase (e.g. monoagentcli's
         // own filteredEnviron()+overrides pattern).
-        env: { ...process.env, ...args.env },
+        //
+        // o-18: that additive merge undid resolveProviderEnv's subscription-
+        // mode strip identically to every vendor runner — `...process.env`
+        // put ANTHROPIC_API_KEY/BASE_URL/AUTH_TOKEN straight back whenever
+        // `args.env` had already (correctly) omitted them, since a spread
+        // cannot delete a key it doesn't have. Read against the SDK's own
+        // bundled source (@anthropic-ai/claude-agent-sdk/sdk.mjs): it takes
+        // a passed `env` option as-is and never independently re-derives it
+        // from process.env, so there was no code-level protection here
+        // despite this site sometimes being described as the one that
+        // "worked" — it did not, at the monomind-code level.
+        // `envAuthoritative` (default true, see AgentRunArgs) makes
+        // `args.env` — not the ambient process.env — authoritative for
+        // those three keys specifically, while every OTHER inherited var
+        // (HOME/USER/PATH included, the keychain fix above) still merges
+        // exactly as before.
+        env: args.envAuthoritative === false
+          ? { ...process.env, ...args.env }
+          : { ...omitAnthropicManagedKeys(process.env), ...args.env },
         // Without these, the SDK falls back to its interactive-CLI default of
         // auto-discovering the invoking user's ~/.claude/settings.json and any
         // project-level .claude/settings.json under cwd — pulling in that

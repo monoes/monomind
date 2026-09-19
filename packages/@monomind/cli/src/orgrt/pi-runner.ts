@@ -76,6 +76,7 @@ import {
   killOnAbort,
 } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -353,7 +354,9 @@ export class PiAgentRunner implements AgentRunner {
       // PI_TELEMETRY/PI_SKIP_VERSION_CHECK: confirmed via pi's own docs —
       // suppresses install/update telemetry and version-check network calls
       // that otherwise add latency/flakiness to every headless turn.
-      env: { ...process.env, PI_TELEMETRY: '0', PI_SKIP_VERSION_CHECK: '1', ...args.env },
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below.
+      env: { ...omitAnthropicManagedKeys(process.env), PI_TELEMETRY: '0', PI_SKIP_VERSION_CHECK: '1', ...args.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

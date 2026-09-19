@@ -94,6 +94,7 @@ import {
 // text in isolation, so reuse it exactly as antigravity-runner.ts does
 // rather than re-deriving the same fence-boundary logic here.
 import { computeSafeChunk } from './antigravity-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -209,7 +210,9 @@ export class QwenRpcAgentRunner implements AgentRunner {
 
     const child = this.spawnFn(bin, cliArgs, {
       cwd: args.cwd,
-      env: { ...process.env, ...args.env },
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below.
+      env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
     });
 
     let stderrTail = '';

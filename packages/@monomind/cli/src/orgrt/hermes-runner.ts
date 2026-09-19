@@ -113,6 +113,7 @@ import {
   killOnAbort,
 } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -267,7 +268,9 @@ export class HermesAgentRunner implements AgentRunner {
 
     const child = spawn(bin, cliArgs, {
       cwd: args.cwd,
-      env: { ...process.env, ...args.env },
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below.
+      env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

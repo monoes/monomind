@@ -4,6 +4,32 @@ import type { OrgRole, ProviderConfig } from './types.js';
 const KEY_VAR = ['ANTHROPIC', 'API', 'KEY'].join('_');
 
 /**
+ * o-18: the three env vars `resolveProviderEnv` manages (sets or deletes in
+ * every provider-kind branch below). No vendor CLI (codex, grok, qwen,
+ * opencode, hermes, copilot, kimicode, pi, antigravity, crush) has a
+ * legitimate use for an AMBIENT/inherited value of any of these — only
+ * explicit configuration should ever reach them. `omitAnthropicManagedKeys`
+ * is used at every runner's spawn boundary to strip these three out of the
+ * `process.env` FALLBACK ONLY; an explicit value in a caller's own `args.env`
+ * (e.g. a deliberately configured base-url provider, opencode-runner.test.ts
+ * #262) still reaches the child normally, since it is spread on top.
+ */
+export const ANTHROPIC_MANAGED_ENV_KEYS = [KEY_VAR, 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN'] as const;
+
+/** `process.env` (or any parent env), minus the three ANTHROPIC_* keys above. */
+export function omitAnthropicManagedKeys(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) continue;
+    if ((ANTHROPIC_MANAGED_ENV_KEYS as readonly string[]).includes(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/**
  * Builds the child-process env for one agent session.
  * Default (no provider block) = subscription: remove the API key var so the
  * spawned Claude Code engine uses the user's `claude login` credentials.

@@ -98,6 +98,7 @@ import {
 // a fence can legitimately span multiple incremental deltas and must never
 // surface, complete or partial, in visible text.
 import { computeSafeChunk } from './antigravity-runner.js';
+import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
   executeToolCall,
@@ -252,7 +253,9 @@ export class PiRpcAgentRunner implements AgentRunner {
 
     const child = this.spawnFn(bin, cliArgs, {
       cwd: args.cwd,
-      env: { ...process.env, PI_TELEMETRY: '0', PI_SKIP_VERSION_CHECK: '1', ...args.env },
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below.
+      env: { ...omitAnthropicManagedKeys(process.env), PI_TELEMETRY: '0', PI_SKIP_VERSION_CHECK: '1', ...args.env },
     });
 
     let stderrTail = '';
