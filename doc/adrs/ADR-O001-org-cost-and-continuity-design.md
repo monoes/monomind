@@ -41,8 +41,23 @@ the meter sees — it reported 0.3% of consumption precisely because caching was
 - Read result-level usage from `modelUsage`, not `usage` (the SDK documents `usage` as
   "MAIN AGENT LOOP ONLY — excludes Task subagent… Prefer `modelUsage`"). 46 subagent calls were
   invisible.
-- **Enforce budgets in USD** (`budget_usd`, already in the role schema), not tokens. A token
-  budget of 160M never bound against a counter seeing 0.3%.
+  > **CAVEAT found during implementation, omitted above and load-bearing:** `modelUsage` is
+  > **cumulative across turns** in streaming-input sessions, where `usage` is per-turn. Naively
+  > substituting one for the other compounds every result into a runaway overcount. It needs the
+  > same per-session-delta treatment `total_cost_usd` already gets (`session.ts:429`). Field
+  > names are camelCase (`cacheReadInputTokens`).
+- **Enforce budgets in USD** (`budget_usd`, already in the role schema). A token budget of 160M
+  never bound against a counter seeing 0.3%.
+  > **AMENDED during implementation.** The literal reading — "drop token budgets" — is wrong, and
+  > the implementation correctly refused it. `run_config.budget_tokens` **defaults to 1,000,000
+  > in the schema**, so every org has one whether it asked or not. Driving that ceiling from an
+  > honest (now ~100× larger) meter would close every mailbox within a couple of turns, including
+  > orgs resuming from a checkpoint; and simply removing it would leave every org without an
+  > explicit `budget_usd` with no ceiling at all. **Metering and enforcement are therefore
+  > split:** the meter is always billable and no flag can make it under-report, while
+  > `budget_tokens` keeps the basis it was written against, with
+  > `run_config.budget_tokens_basis: 'billable'` to opt in. `budget_usd` remains the recommended
+  > control.
 - Record `sessionIdBefore` / `sessionIdAfter` per run so session reuse is auditable. We currently
   cannot tell whether a resume worked.
 
