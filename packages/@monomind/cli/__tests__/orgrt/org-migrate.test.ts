@@ -270,6 +270,39 @@ describe('listOrgConfigFiles excludes v1 backups', () => {
   });
 });
 
+describe('listOrgConfigFiles ignores non-org JSON files (#309)', () => {
+  it('excludes files whose stem is not a valid org name, keeps everything else', async () => {
+    const { listOrgConfigFiles } = await import('../../src/commands/org.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'org-migrate-nonorg-'));
+    try {
+      const orgsDir = join(cwd, ORG_DIR);
+      mkdirSync(orgsDir, { recursive: true });
+      const files = {
+        '.mcp.json': '{}',
+        '.DS_Store.json': '{}',
+        '._growth.json': '{}',
+        'state-machine.json': JSON.stringify({ name: 'state-machine' }),
+        'issues-triage.json': JSON.stringify({ name: 'issues-triage' }),
+        'my-org.json': JSON.stringify({ name: 'my-org' }),
+        'growth-state.json': '{}',
+        'growth-threads.jsonl': '{}',
+      };
+      for (const [name, contents] of Object.entries(files)) {
+        writeFileSync(join(orgsDir, name), contents);
+      }
+      const configs = listOrgConfigFiles(orgsDir);
+      expect(configs).not.toContain('.mcp.json');
+      expect(configs).not.toContain('.DS_Store.json');
+      expect(configs).not.toContain('._growth.json');
+      expect(configs).not.toContain('growth-state.json');
+      expect(configs).not.toContain('growth-threads.jsonl');
+      expect(configs).toContain('state-machine.json');
+      expect(configs).toContain('issues-triage.json');
+      expect(configs).toContain('my-org.json');
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+});
+
 describe('legacy reports_to "undefined" artifact', () => {
   it('treats the literal string "undefined" as unset', async () => {
     const { migrateOrgConfig } = await import('../../src/orgrt/migrate.js');

@@ -84,12 +84,19 @@ export function listOrgConfigFiles(orgsDir: string): string[] {
   // merely contains an artifact suffix anywhere (e.g. "state-machine.json",
   // "issues-triage.json") — and anything hidden here is also invisible to
   // run/list/serve while `org delete <sibling>` would still remove its files.
+  //
+  // ORG_NAME_RE on the stem (#309): a file is only an org config if its stem
+  // is a name an org could actually have. Otherwise any stray `.json` in the
+  // orgs dir (a tool's `.mcp.json`, `.DS_Store.json`, ...) becomes a phantom
+  // org that `org list` reports but validateOrgName rejects everywhere else.
+  // This subsumes the old `._` AppleDouble check (a leading dot fails the
+  // pattern) since a leading `.` doesn't match the required first character.
   return readdirSync(orgsDir).filter(
     (f) =>
       f.endsWith('.json') &&
-      !f.startsWith('._') &&
       !f.endsWith('.v1.json') &&
-      !ORG_ARTIFACT_SUFFIXES.some((suf) => f.endsWith(`${suf}.json`)),
+      !ORG_ARTIFACT_SUFFIXES.some((suf) => f.endsWith(`${suf}.json`)) &&
+      ORG_NAME_RE.test(f.slice(0, -'.json'.length)),
   );
 }
 
