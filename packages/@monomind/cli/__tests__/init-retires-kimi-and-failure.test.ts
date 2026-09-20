@@ -184,6 +184,10 @@ describe('the .opencode/skills mirror (o-38 revision: it is a DEFAULT mirror too
       fs.mkdirSync(staleDir, { recursive: true });
       fs.writeFileSync(path.join(staleDir, 'SKILL.md'), 'stale skill\n');
       manifest.skills.push(staleName);
+      // A previous run that generated this mirror entry also recorded it:
+      // the sweep is provenance-gated, so the fixture must carry the same
+      // provenance a real prior run would have left, not just the directory.
+      manifest.opencodeSkills = [...(manifest.opencodeSkills ?? []), staleName];
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
       // Simulate the opencode mirror as a previous run would have left it.
@@ -201,6 +205,87 @@ describe('the .opencode/skills mirror (o-38 revision: it is a DEFAULT mirror too
     180_000,
   );
 
+  // o-38 acceptance finding: write-opencode.ts:181-190 sweeps
+  // .opencode/skills with NO provenance gate — "not in writtenOpencodeSkills
+  // this run" was treated as the correct staleness signal, but that's sound
+  // only for content monomind generated, not for content the user created.
+  // A directory holding exactly one SKILL.md is the canonical shape of a
+  // hand-written skill (that's literally the format), so a user's own
+  // skill, never mirrored from .claude/skills at all, is indistinguishable
+  // from a genuinely-retired one under that rule and gets rmSync'd outright.
+  // This is the direct reproduction: nothing about this skill was ever
+  // written by monomind (init never wrote it, it's not in any manifest
+  // section), so if the finding is real, a plain `init` deletes it anyway.
+  it(
+    'a hand-written .opencode/skills entry that monomind never generated survives a plain init',
+    async () => {
+      const first = await initCommand.action!(ctx);
+      expect(first.success).toBe(true);
+
+      const userSkillDir = path.join(tmpDir, '.opencode', 'skills', 'my-own-skill');
+      fs.mkdirSync(userSkillDir, { recursive: true });
+      fs.writeFileSync(path.join(userSkillDir, 'SKILL.md'), 'hand-written, not monomind\'s\n');
+
+      ctx.flags = { ...ctx.flags, force: true };
+      const second = await initCommand.action!(ctx);
+      expect(second.success).toBe(true);
+
+      expect(fs.existsSync(userSkillDir)).toBe(true);
+      expect(fs.readFileSync(path.join(userSkillDir, 'SKILL.md'), 'utf8')).toBe(
+        "hand-written, not monomind's\n",
+      );
+    },
+    180_000,
+  );
+
+  // The upgrade path: a project last initialised by a version that had no
+  // opencodeSkills section. readInitManifest's contract says unknown
+  // provenance must delete nothing, so the entry survives rather than a
+  // user's own skill being destroyed. The honest cost, stated because it is
+  // a real tradeoff and not a temporary one: an entry generated before this
+  // section existed is never recorded (it is not written this run, and it
+  // is not in prior), so it is never swept either — it lingers permanently
+  // instead of being deleted. Only entries generated from this version
+  // forward carry provenance and get cleaned up. Leaking a stale mirror
+  // directory is the acceptable side of that trade; deleting a user's file
+  // is not.
+  it(
+    'a stale mirror entry survives when the manifest predates opencode provenance',
+    async () => {
+      const first = await initCommand.action!(ctx);
+      expect(first.success).toBe(true);
+
+      const manifestPath = path.join(tmpDir, '.monomind', 'init-manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const staleName = 'my-retired-skill-opencode-legacy';
+      const staleDir = path.join(tmpDir, '.claude', 'skills', staleName);
+      fs.mkdirSync(staleDir, { recursive: true });
+      fs.writeFileSync(path.join(staleDir, 'SKILL.md'), 'stale skill\n');
+      manifest.skills.push(staleName);
+      // Exactly what an older manifest looks like: the section is absent.
+      const { opencodeSkills: _absent, ...legacyManifest } = manifest;
+      fs.writeFileSync(manifestPath, JSON.stringify(legacyManifest, null, 2));
+
+      const opencodeStale = path.join(tmpDir, '.opencode', 'skills', staleName);
+      fs.mkdirSync(opencodeStale, { recursive: true });
+      fs.writeFileSync(path.join(opencodeStale, 'SKILL.md'), 'converted stale skill\n');
+
+      ctx.flags = { ...ctx.flags, force: true };
+      const second = await initCommand.action!(ctx);
+      expect(second.success).toBe(true);
+
+      // Not deleted: provenance was unknown, so the sweep left it alone.
+      expect(fs.existsSync(opencodeStale)).toBe(true);
+      // The section is (re)established for entries this run generated, but
+      // the legacy entry is deliberately NOT adopted into it — adopting it
+      // would be inventing provenance monomind does not have.
+      const after = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      expect(Array.isArray(after.opencodeSkills)).toBe(true);
+      expect(after.opencodeSkills).not.toContain(staleName);
+    },
+    180_000,
+  );
+
   it(
     'an .opencode/skills entry holding a file beyond the converted SKILL.md is retired, not deleted',
     async () => {
@@ -214,6 +299,7 @@ describe('the .opencode/skills mirror (o-38 revision: it is a DEFAULT mirror too
       fs.mkdirSync(staleDir, { recursive: true });
       fs.writeFileSync(path.join(staleDir, 'SKILL.md'), 'stale skill\n');
       manifest.skills.push(staleName);
+      manifest.opencodeSkills = [...(manifest.opencodeSkills ?? []), staleName];
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
       const opencodeStale = path.join(tmpDir, '.opencode', 'skills', staleName);

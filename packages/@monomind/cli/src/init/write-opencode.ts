@@ -21,6 +21,8 @@ import {
   isSafeConversionTarget,
   listFilesRecursive,
   mergeGeneratedBlock,
+  previouslyGenerated,
+  recordGenerated,
   retireGeneratedEntry,
   walkMdFiles,
 } from './shared.js';
@@ -169,17 +171,23 @@ export async function writeOpencodeFiles(
   }
 
   // o-38 revision: .opencode/skills is a DEFAULT mirror (a plain `init`
-  // reaches components.opencode=true — verified live), but unlike
-  // .gemini/.agents it has no manifest section of its own, and unlike
-  // .kimi-code it is regenerated fresh from .claude/skills's CURRENT
-  // (already-retired) state on every run — so "not in writtenOpencodeSkills
-  // this run" is already the correct staleness signal, no manifest needed.
-  // Converted output is always exactly one SKILL.md per skill, so an entry
-  // holding anything else was added directly inside the mirror and is
-  // retired rather than deleted, same rule as the .gemini/.agents sweep.
+  // reaches components.opencode=true — verified live). It is regenerated
+  // fresh from .claude/skills's CURRENT (already-retired) state on every
+  // run, so "not written this run" establishes staleness — but ONLY for
+  // entries this mirror generated. It says nothing about a hand-written
+  // .opencode/skills/<name>/SKILL.md that never came from .claude at all,
+  // and since converted output is always exactly one SKILL.md, such a file
+  // is byte-shaped identically to a genuinely-retired entry. Sweeping on
+  // staleness alone therefore deleted user-authored skills outright — the
+  // same defect class this item exists to fix, one mirror over. So the
+  // sweep is gated on provenance like the other three (.claude at
+  // copy-assets.ts, .kimi-code at write-kimicode.ts), and an absent
+  // manifest section means delete nothing, per readInitManifest's contract.
+  const priorOpencodeSkills = previouslyGenerated(targetDir, 'opencodeSkills');
   if (fs.existsSync(destSkillsRoot)) {
     for (const existing of fs.readdirSync(destSkillsRoot)) {
       if (writtenOpencodeSkills.has(existing)) continue;
+      if (!priorOpencodeSkills.has(existing)) continue;
       const stalePath = path.join(destSkillsRoot, existing);
       const extraFiles = [...listFilesRecursive(stalePath)].filter((f) => f !== 'SKILL.md');
       if (extraFiles.length > 0) {
@@ -188,6 +196,19 @@ export async function writeOpencodeFiles(
         fs.rmSync(stalePath, { recursive: true, force: true });
       }
     }
+  }
+
+  // Retained entries stay recorded: a prior entry left untouched this run
+  // (not regenerated, but still on disk) must keep its provenance, or the
+  // next run would read it as user-authored and never clean it up.
+  if (skillCount > 0 || priorOpencodeSkills.size > 0) {
+    const retainedOpencodeSkills = [...priorOpencodeSkills].filter(
+      (n) => !writtenOpencodeSkills.has(n) && fs.existsSync(path.join(destSkillsRoot, n)),
+    );
+    recordGenerated(targetDir, 'opencodeSkills', [
+      ...writtenOpencodeSkills,
+      ...retainedOpencodeSkills,
+    ]);
   }
 
   if (agentCount) result.created.files.push(`.opencode/agent/ (${agentCount} agents)`);

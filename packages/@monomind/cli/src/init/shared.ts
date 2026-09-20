@@ -347,6 +347,10 @@ export interface InitManifest {
   kimiSkills: string[];
   /** File names directly under .kimi-code/plugin/commands that init generated. */
   kimiPluginCommands: string[];
+  /** Directory names directly under .opencode/skills that init generated.
+   *  Absent in manifests written before this field existed; normalised to
+   *  an empty list on read, which the sweep treats as "delete nothing". */
+  opencodeSkills: string[];
   /** Every entry ever retired (o-38) — see `RetiredEntry`. Absent on a
    *  manifest written before this field existed; treated as empty. */
   retired?: RetiredEntry[];
@@ -357,7 +361,8 @@ export type InitManifestSection =
   | 'commands'
   | 'agents'
   | 'kimiSkills'
-  | 'kimiPluginCommands';
+  | 'kimiPluginCommands'
+  | 'opencodeSkills';
 
 /**
  * Read the provenance manifest. Returns null when absent or unreadable —
@@ -385,6 +390,9 @@ export function readInitManifest(targetDir: string): InitManifest | null {
         : [],
       kimiPluginCommands: Array.isArray(parsed.kimiPluginCommands)
         ? parsed.kimiPluginCommands.filter((s: unknown) => typeof s === 'string')
+        : [],
+      opencodeSkills: Array.isArray(parsed.opencodeSkills)
+        ? parsed.opencodeSkills.filter((s: unknown) => typeof s === 'string')
         : [],
       retired: Array.isArray(parsed.retired)
         ? parsed.retired.filter(
@@ -430,6 +438,7 @@ export function recordGenerated(
     agents: [],
     kimiSkills: [],
     kimiPluginCommands: [],
+    opencodeSkills: [],
   };
   manifest.version = 1;
   manifest[section] = [...new Set(entries)].sort();
@@ -460,6 +469,7 @@ function appendRetiredProvenance(targetDir: string, entry: RetiredEntry): void {
     agents: [],
     kimiSkills: [],
     kimiPluginCommands: [],
+    opencodeSkills: [],
     retired: [],
   };
   manifest.retired = [...(manifest.retired ?? []), entry];
