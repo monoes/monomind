@@ -375,11 +375,14 @@ describe('getProjectRoot', () => {
 
     // The stated limit above, as a test rather than only prose (dev-lead,
     // o-16 revision 3): proves the distinction the corrected comment makes.
-    // Swapping the ANCHOR path after caching has NO effect (the anchor is
-    // resolved once and never consulted again); swapping the RESOLVED REAL
-    // TARGET does bypass the guard, because getDbPath re-resolves that same
-    // cached string fresh on every call. This fails if the boundary between
-    // "resolved once" and "re-resolved every call" ever moves again.
+    // Case A: an anchor-path swap after caching does NOT bypass the guard.
+    // Case B: a resolved-real-target swap DOES. Case B is the load-bearing
+    // half — it asserts the TOCTOU gap documented at getDbPath's `relCwd`
+    // line is still OPEN. If that gap is ever closed properly (consuming a
+    // single resolved handle instead of re-resolving a cached path string,
+    // as that comment itself prescribes), THIS TEST GOES RED — and the
+    // correct response then is to delete the test, not to restore the
+    // weakness to make it pass again.
     it('TOCTOU: an anchor-path swap after caching is inert; a resolved-target swap bypasses the guard (accepted limit)', async () => {
       const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
       const realAnchorDir = join(root, 'real-anchor');
@@ -398,8 +401,12 @@ describe('getProjectRoot', () => {
         const defaultPath = bridgeGetDbPath();
 
         // Case A — swap the ANCHOR itself (repoint anchorLink at '/').
-        // The cache already holds realAnchorDir and the anchor string is
-        // never read again this process, so this must do nothing.
+        // Proves only that an anchor-path swap does not bypass the guard —
+        // NOT that "the anchor is resolved once and never consulted again"
+        // (reviewer: disabling the cache entirely still passes this case,
+        // because validateAnchor just re-rejects '/' as the filesystem
+        // root and falls through to the same walk answer either way; this
+        // case is pinned on root-rejection, not on caching).
         rmSync(anchorLink, { force: true });
         symlinkSync('/', anchorLink);
         expect(getProjectRoot()).toBe(realAnchorDir); // cache unaffected
