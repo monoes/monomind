@@ -1,7 +1,9 @@
 // packages/@monomind/cli/src/orgrt/decisions.ts
 // Extracted from daemon.ts — decision gates, decision trace, and task DAG operations.
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { type DecisionGate, type DecisionKind, ORG_DIR } from './types.js';
 
@@ -337,24 +339,79 @@ export function dagBlockTask(
   }
 }
 
+/** The workspace's current commit sha, or undefined when `cwd` is not inside
+ *  a git repository (or git is unavailable). ADR-O001 D5's sha pin is only
+ *  as good as this: it must come from the runtime, never from the agent. */
+export function currentHeadSha(cwd: string): string | undefined {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/** One line per acceptance command, appended to the task's stored result so
+ *  `org_tasks` and the run history carry the commands and their exit codes —
+ *  not just a prose claim that the work is done. */
+function evidenceSummary(ev: TaskEvidence): string {
+  const lines = ev.checks.map((c) => `  $ ${c.command} → exit ${c.exitCode}`).join('\n');
+  return `evidence @ ${ev.headSha}:\n${lines}`;
+}
+
 export function dagCompleteTask(
   daemon: OrgDaemon,
   org: string,
   role: string,
   taskId: string,
   result?: string,
+  evidence?: TaskEvidence,
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  // ADR-O001 D5: refuse a close that carries no checkable proof. Only when
+  // the org opted in (run_config.completion_evidence), and only for a task
+  // that exists — an unknown id falls through to complete()'s own error.
+  const task = running.taskDag.get(taskId);
+  if (task && running.def.run_config.completion_evidence) {
+    const refusal = checkTaskEvidence({
+      required: true,
+      evidence,
+      headSha: currentHeadSha(running.workdir ?? daemon.root),
+      caller: role,
+      assignee: task.assignee,
+    });
+    if (refusal) {
+      // Not a crash and not a dead end: the item goes back on the queue with
+      // the reason attached, so the correction loop (D4) picks it up even if
+      // this session dies before it can react to the tool result.
+      running.taskDag.markRunning(taskId);
+      running.taskDag.requeue(taskId);
+      running.bus.emit({
+        type: 'audit',
+        from: role,
+        reason: 'task-evidence-refused',
+        msg: `task ${taskId} not closed — evidence refused`,
+        data: { taskId, assignee: task.assignee, refusal },
+      });
+      queueDispatch(running, task.assignee, `[task:${taskId}] NOT CLOSED — ${refusal}`);
+      dispatchReadyTasks(daemon, org, running);
+      return JSON.stringify({ error: refusal, requeued: taskId });
+    }
+  }
+  const stored = evidence ? `${result ? `${result}\n\n` : ''}${evidenceSummary(evidence)}` : result;
   try {
     running.taskDag.markRunning(taskId);
-    const promoted = running.taskDag.complete(taskId, result);
+    const promoted = running.taskDag.complete(taskId, stored);
     running.bus.emit({
       type: 'status',
       from: role,
       reason: 'task-done',
       msg: `task ${taskId} completed${promoted.length ? ` — ${promoted.map((t) => t.id).join(', ')} now ready` : ''}`,
-      data: { taskId, promoted: promoted.map((t) => t.id) },
+      data: { taskId, promoted: promoted.map((t) => t.id), evidence },
     });
     if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
     return JSON.stringify({

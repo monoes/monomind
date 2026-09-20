@@ -115,3 +115,126 @@ export function checkCompletion(f: CompletionFacts): string | null {
   }
   return null;
 }
+
+// ── ADR-O001 D5: evidence gate for per-item completion ──────────────────
+/**
+ * The gate above asks "is this claim about the RUN honest?".
+ * `checkTaskEvidence` asks the same question one level down, about a single
+ * item: "may this role close this task, and is there anything but its own
+ * opinion saying it is done?".
+ *
+ * Why: one measured run produced 223 gate verdicts for 15 finished items —
+ * ~15 opinions per item — and still shipped five controls that could not
+ * fail. Three times the verifier FAILED a sha the reviewer had already
+ * APPROVED, and the verifier was right every time. Every one of those
+ * verdicts was an LLM judgment with nothing checking it.
+ *
+ * Ported from Gas Town's `gt done` (internal/cmd/done.go:498-526), which
+ * refuses to retire review work unless the item carries a fresh evidence
+ * comment. Its five tests map onto this runtime as:
+ *   1. posted after work started — STRUCTURAL here, not a check: evidence is
+ *      an argument OF the org_task_done call, so it cannot predate the call.
+ *      Gas Town needs `attached_at` because its evidence is a comment that
+ *      persists on the item independently of the close.
+ *   2. authored by the assignee — `caller` is the RUNTIME's view of which
+ *      role invoked the tool (session.ts binds it per role), compared here
+ *      against the task's assignee. Deliberately not a self-declared author
+ *      field, which an agent could simply write.
+ *   3. machine-parseable prefix — replaced by something stronger: evidence is
+ *      a typed {command, exitCode, output} record. There is no prose to
+ *      regex, and "an acceptance criterion is a command with an exit code"
+ *      (D5) becomes expressible in the type itself.
+ *   4. not machine-generated — n/a, see 3.
+ *   5. head_sha equal to the current HEAD — ported as-is, and the
+ *      load-bearing one: evidence gathered before the last commit is STALE.
+ *      The work moved; the proof did not.
+ *
+ * What this does NOT do, stated plainly rather than implied: the runtime does
+ * not re-execute the command. A role can still report exitCode 0 for a
+ * command it never ran. What the gate buys is that the proof must name a
+ * runnable command, must be attributable, and must be pinned to the tree
+ * state being closed — so it cannot be recycled across commits, which is the
+ * failure actually observed. Re-executing the acceptance commands from the
+ * daemon is the strictly stronger version and the obvious next step; it needs
+ * a decision about where those commands run (role sandbox vs daemon) that is
+ * out of scope here.
+ *
+ * Opt-in: `run_config.completion_evidence` (default false). Turning it on
+ * refuses completions that previously succeeded — that IS the point — so it
+ * must never be on by default, or every existing org breaks on upgrade.
+ */
+
+/** One acceptance criterion: a command, the exit code it actually returned,
+ *  and what it printed. */
+export interface EvidenceCheck {
+  command: string;
+  exitCode: number;
+  output?: string;
+}
+
+export interface TaskEvidence {
+  /** The commit sha the checks were run against. */
+  headSha: string;
+  checks: EvidenceCheck[];
+}
+
+export interface TaskEvidenceFacts {
+  /** `run_config.completion_evidence`. False (the default) allows everything. */
+  required: boolean;
+  evidence?: TaskEvidence;
+  /** The workspace's real current commit sha, resolved by the caller.
+   *  Undefined when the workspace is not a git repository. */
+  headSha?: string;
+  /** Role id the runtime saw calling org_task_done. */
+  caller: string;
+  /** The task's recorded assignee. */
+  assignee: string;
+}
+
+/** Shortest sha prefix accepted — the git default short length. Below that a
+ *  prefix identifies nothing. */
+const MIN_SHA_LEN = 7;
+
+const EVIDENCE_SHAPE =
+  'Attach evidence: { headSha: "<the current commit sha>", checks: [{ command, exitCode, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output.';
+
+/** Decide whether a role may close a task, given already-gathered facts.
+ *  Returns a refusal message, or `null` to allow. Pure: the caller resolves
+ *  the head sha and the assignee. */
+export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
+  if (!f.required) return null;
+  if (f.caller !== f.assignee) {
+    return `org_task_done refused: this task is assigned to "${f.assignee}", and evidence only counts from the assignee. Ask "${f.assignee}" to close it, or reassign the task first.`;
+  }
+  const ev = f.evidence;
+  if (!ev) {
+    return `org_task_done refused (run_config.completion_evidence): closing a task needs verifiable evidence, not a summary. ${EVIDENCE_SHAPE}`;
+  }
+  if (ev.checks.length === 0) {
+    return `org_task_done refused: the evidence names no acceptance command. An acceptance criterion is a command with an exit code — if you cannot write one, the criterion is too vague to close on. ${EVIDENCE_SHAPE}`;
+  }
+  for (const c of ev.checks) {
+    if (!c.command.trim()) {
+      return `org_task_done refused: an evidence entry has an empty command. Every check must name the command that was actually run. ${EVIDENCE_SHAPE}`;
+    }
+  }
+  const failed = ev.checks.filter((c) => c.exitCode !== 0);
+  if (failed.length > 0) {
+    const detail = failed
+      .map((c) => `  $ ${c.command}\n  exit ${c.exitCode}${c.output ? `\n  ${c.output}` : ''}`)
+      .join('\n');
+    return `org_task_done refused: ${failed.length} acceptance command(s) did not exit 0 — the task is not done.\n${detail}\nFix the failure, re-run the checks, and close it again; the task goes back in your queue.`;
+  }
+  if (!f.headSha) {
+    return 'org_task_done refused: evidence must be pinned to a commit, but this workspace has no resolvable git HEAD. Either run this org in a git workspace, or turn run_config.completion_evidence off.';
+  }
+  const claimed = ev.headSha.trim().toLowerCase();
+  const actual = f.headSha.trim().toLowerCase();
+  if (claimed.length < MIN_SHA_LEN) {
+    return `org_task_done refused: headSha "${ev.headSha}" is too short to identify a commit (at least ${MIN_SHA_LEN} characters). The current head is ${actual}.`;
+  }
+  if (!actual.startsWith(claimed)) {
+    return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, but the current head is ${actual} — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output.`;
+  }
+  return null;
+}

@@ -17,14 +17,15 @@
  * only marking a task 'running' when there is an actual live recipient.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../orgrt/bus.js';
 import { pushMessage } from '../orgrt/cross-org.js';
 import { type AgentRuntime, OrgDaemon, type RunningOrg } from '../orgrt/daemon.js';
-import { DISPATCH_COALESCE_MS, dispatchReadyTasks } from '../orgrt/decisions.js';
+import { DISPATCH_COALESCE_MS, dagCompleteTask, dispatchReadyTasks } from '../orgrt/decisions.js';
 import { Mailbox } from '../orgrt/mailbox.js';
 import type { PolicyEngine } from '../orgrt/policy.js';
 import { TaskDag } from '../orgrt/task-dag.js';
@@ -352,6 +353,128 @@ describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
       `[task:${task.id}] do the thing`,
     ]);
     expect(events.find((e) => e.reason === 'task-dispatched')).toBeTruthy();
+    daemon.orgs.delete('alpha');
+  });
+});
+
+/**
+ * ADR-O001 D5, wired end to end: the pure decision lives in
+ * completion-gate.test.ts; this file asserts what dagCompleteTask DOES with a
+ * refusal — the item must go back on the queue with the reason attached, not
+ * crash the run and not silently vanish. The head sha comes from a real git
+ * repo here, because the whole point is that the runtime resolves it rather
+ * than trusting the number the agent typed.
+ */
+describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () => {
+  let tmp = '';
+  afterEach(() => {
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function commit(repo: string, file: string): string {
+    writeFileSync(join(repo, file), file);
+    execFileSync('git', ['add', '-A'], { cwd: repo });
+    execFileSync('git', ['commit', '-m', file], { cwd: repo });
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  }
+
+  function setup(completionEvidence: boolean) {
+    tmp = mkdtempSync(join(tmpdir(), 'org-evidence-'));
+    const repo = join(tmp, 'repo');
+    mkdirSync(repo);
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    execFileSync('git', ['config', 'user.email', 't@t'], { cwd: repo });
+    execFileSync('git', ['config', 'user.name', 't'], { cwd: repo });
+    const sha = commit(repo, 'first.txt');
+
+    const daemon = new OrgDaemon(tmp);
+    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const events: BusEvent[] = [];
+    bus.subscribe((e) => events.push(e));
+    const dev = makeAgent();
+    const taskDag = new TaskDag();
+    const task = taskDag.add('ship the thing', 'dev', []);
+    const running: RunningOrg = {
+      def: {
+        ...minimalDef('alpha'),
+        run_config: { completion_evidence: completionEvidence },
+      } as unknown as OrgDef,
+      run: 'run-1',
+      bus,
+      agents: new Map([['dev', dev]]),
+      busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: '',
+      glossary: [],
+      respawning: new Set(),
+      taskDag,
+      workdir: repo,
+    };
+    daemon.orgs.set('alpha', running);
+    taskDag.markRunning(task.id);
+    return { daemon, repo, sha, taskDag, task, dev, events, running };
+  }
+
+  it('refuses a close with no evidence, requeues the task, and re-dispatches with the reason', async () => {
+    const { daemon, taskDag, task, dev, events } = setup(true);
+    const out = JSON.parse(
+      dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'all done, looks good'),
+    );
+
+    expect(out.error).toMatch(/evidence/i);
+    expect(out.requeued).toBe(task.id);
+    // Re-dispatched, not closed and not abandoned: the DAG picked it back up.
+    expect(taskDag.get(task.id)?.status).toBe('running');
+    expect(events.find((e) => e.reason === 'task-evidence-refused')).toBeTruthy();
+    expect(events.find((e) => e.reason === 'task-done')).toBeUndefined();
+
+    await settleDispatch();
+    const delivered = dev.mailbox.serialize().queue.join('\n');
+    expect(delivered).toMatch(/NOT CLOSED/);
+    expect(delivered).toContain(`[task:${task.id}]`);
+    daemon.orgs.delete('alpha');
+  });
+
+  it('accepts evidence pinned to the current head, and records the commands on the task', () => {
+    const { daemon, sha, taskDag, task } = setup(true);
+    const out = JSON.parse(
+      dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'green', {
+        headSha: sha,
+        checks: [{ command: 'pnpm vitest run thing.test.ts', exitCode: 0, output: '3 passed' }],
+      }),
+    );
+
+    expect(out.done).toBe(task.id);
+    expect(taskDag.get(task.id)?.status).toBe('done');
+    // The record is the command and its exit code, not the prose claim alone.
+    expect(taskDag.get(task.id)?.result).toContain('pnpm vitest run thing.test.ts');
+    expect(taskDag.get(task.id)?.result).toContain('exit 0');
+    daemon.orgs.delete('alpha');
+  });
+
+  // THE case: evidence that passed at the sha it was gathered at, then the
+  // tree moved. Nothing about the prose changes — only the commit does.
+  it('refuses evidence pinned to a STALE sha after a new commit lands', () => {
+    const { daemon, repo, sha, taskDag, task } = setup(true);
+    const stale = { headSha: sha, checks: [{ command: 'pnpm test', exitCode: 0, output: 'ok' }] };
+    const moved = commit(repo, 'second.txt');
+    expect(moved).not.toBe(sha);
+
+    const out = JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'green', stale));
+
+    expect(out.error).toMatch(/stale/i);
+    expect(out.error).toContain(moved);
+    expect(taskDag.get(task.id)?.status).not.toBe('done');
+    daemon.orgs.delete('alpha');
+  });
+
+  // Upgrade safety: the same no-evidence close that is refused above closes
+  // normally with the flag off, which is every existing org.
+  it('closes normally with no evidence when completion_evidence is off (the default)', () => {
+    const { daemon, taskDag, task } = setup(false);
+    const out = JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'all done'));
+    expect(out.done).toBe(task.id);
+    expect(taskDag.get(task.id)?.status).toBe('done');
     daemon.orgs.delete('alpha');
   });
 });
