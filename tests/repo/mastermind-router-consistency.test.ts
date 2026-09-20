@@ -23,7 +23,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { resolveMastermindSkill } from '../../packages/@monomind/cli/src/mastermind/manifest.js';
@@ -69,21 +69,29 @@ function stripFencedCode(text: string): string {
   return text.replace(/```[\s\S]*?```/g, '');
 }
 
-/** The router shape `mastermind/SKILL.md` and its four siblings share:
- *  a `# `-level section containing at least three `- \`mastermind-*\`` list
- *  items. Structural, not lexical — o-09 review round 2 finding A1: a
+/** The router shape `mastermind/SKILL.md` and its four siblings share: at
+ *  least two `- \`mastermind-*\`` list items ANYWHERE in the body.
+ *  Structural, not lexical — o-09 review round 2 finding A1: a
  *  literal-substring check on the "Load only the workflow" sentence passed
  *  a near-exact reconstruction of the deleted second router with just that
  *  one sentence reworded ("Load JUST the workflow"). Counting the actual
- *  bullet shape survives a wording change the substring check could not. */
+ *  bullet shape survives a wording change the substring check could not.
+ *
+ *  o-09 review round 3: round 2's version required a `# `-level heading to
+ *  even start a section (`sectionsOf` yields zero sections for a body with
+ *  none), so a shadow router written with only `##` headings — or none —
+ *  produced zero sections and was invisible to this check regardless of
+ *  content: a `##`-only duplicate with 3 bullets, planted unmirrored at
+ *  `.kimi-code/skills/mm-shadow/SKILL.md`, passed 61/61 green. Dropped the
+ *  heading requirement entirely and lowered the threshold from 3 to 2.
+ *  Measured selectivity of this looser rule across all five shipped trees:
+ *  exactly one file matches per tree, always the canonical
+ *  `mastermind/SKILL.md` (9 bullets) — zero false positives today. */
 function hasBulletRouterSection(body: string): boolean {
-  for (const section of sectionsOf(stripFencedCode(body))) {
-    const bulletCount = section
-      .split('\n')
-      .filter((l) => /^-\s+`mastermind-[\w-]+`/.test(l.trim())).length;
-    if (bulletCount >= 3) return true;
-  }
-  return false;
+  const bulletCount = stripFencedCode(body)
+    .split('\n')
+    .filter((l) => /^-\s+`mastermind-[\w-]+`/.test(l.trim())).length;
+  return bulletCount >= 2;
 }
 
 /** A structurally different second router shape (o-09 review finding 2): a
@@ -102,21 +110,6 @@ function hasCatalogRouterTable(body: string): boolean {
     }
   }
   return false;
-}
-
-const CANONICAL_SKILLS_DIR = join(REPO_ROOT, '.claude/skills');
-
-/** o-09 review round 2, MAJOR 1(a): `sync-claude-trees --check` already
- *  proves each tree's `skills/` mirrors `.claude/skills` exactly for every
- *  path they share (0 diverged). A router-shaped file that is not even a
- *  MEMBER of that mirrored set was never covered by that guarantee at all —
- *  it exists nowhere else, which is suspicious independent of its prose.
- *  Set membership beats pattern-matching: renaming a word cannot make a
- *  shadow file exist in the canonical tree, so this alone would have
- *  caught finding A1 even with no content classifier at all. */
-function isOutsideCanonicalMirror(tree: { skillsDir: string }, absPath: string): boolean {
-  if (tree.skillsDir === CANONICAL_SKILLS_DIR) return false; // .claude/skills IS the canonical source
-  return !existsSync(join(CANONICAL_SKILLS_DIR, relative(tree.skillsDir, absPath)));
 }
 
 /** Body text after the `---`-delimited YAML frontmatter. */
@@ -198,11 +191,11 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
     hasCatalogRouterTable(bodyOf(readFileSync(f, 'utf8'))),
   );
 
-  it("exactly one bullet-list router exists under this tree's skills/ (found by structure, not path or exact wording)", () => {
-    expect(
-      bulletRouters,
-      `expected exactly one, found ${bulletRouters.length}: ${bulletRouters.join(', ')}`,
-    ).toHaveLength(1);
+  it("the bullet-list routers under this tree's skills/ are EXACTLY {mastermind/SKILL.md} — the reviewed canonical set, not a count", () => {
+    // o-09 review round 3: a count (`toHaveLength(1)`) passes when one
+    // router is swapped for another at a different path; an exact-set
+    // assertion against a reviewed constant does not.
+    expect(bulletRouters).toEqual([routerPath(tree)]);
   });
 
   it("no second, contradicting router style (an Intent/primary-route capability table) exists anywhere under this tree's skills/", () => {
@@ -217,16 +210,6 @@ describe.each(TREES)('mastermind router internal consistency — $name', (tree) 
     expect(
       catalogRouters,
       `catalog-style router(s) found — a second, contradicting router surface: ${catalogRouters.join(', ')}`,
-    ).toEqual([]);
-  });
-
-  it('every discovered router is a member of the canonical .claude/skills mirror', () => {
-    const strays = [...bulletRouters, ...catalogRouters].filter((f) =>
-      isOutsideCanonicalMirror(tree, f),
-    );
-    expect(
-      strays,
-      `router-shaped file(s) outside the canonical .claude/skills mirror: ${strays.join(', ')}`,
     ).toEqual([]);
   });
 
