@@ -2446,6 +2446,13 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 // automatically. EventSource can't carry custom headers at all, so SSE call
 // sites must use window.mmEventSource(url) instead of `new EventSource(url)`
 // directly — it appends the credential as a query param.
+//
+// i-073: the query param is accepted for GET/HEAD ONLY — a POST/PUT/DELETE
+// with only ?token= is a CORS-simple request (no preflight, reachable from a
+// plain <form>), so mutations MUST send the header. Any new call that
+// mutates has to go through fetch() (the wrapper above), never a hand-built
+// URL with the token appended — that would silently reopen the CSRF hole
+// this item closed.
 (() => {
   const AUTH_HEADER_NAME = 'x-monomind-' + 'token';
   const AUTH_QUERY_PARAM = 'to' + 'ken';

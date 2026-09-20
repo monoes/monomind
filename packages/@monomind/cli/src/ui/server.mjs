@@ -1861,7 +1861,16 @@ export async function startServer({
 
   const _checkAuth = (req) => {
     let _suppliedAuth = req.headers['x-monomind-token'] || '';
-    if (!_suppliedAuth) {
+    // i-073: the query-token fallback is for EventSource (which cannot send
+    // headers) and other subresource GETs ONLY. It used to apply
+    // unconditionally, which meant a mutation needed only the header OR the
+    // query param — and the header is what forces a CORS preflight (a
+    // mutation becomes a "simple request" without it). A plain
+    // `<form method=POST action="...?token=LEAKED">` has no header to omit,
+    // so accepting the query param on POST turned every mutation into a
+    // CSRF target reachable with no preflight and no JS. Restoring the
+    // unconditional fallback here reopens that hole — see i-073.
+    if (!_suppliedAuth && (req.method === 'GET' || req.method === 'HEAD')) {
       try {
         _suppliedAuth = new URL(req.url, 'http://localhost').searchParams.get('token') || '';
       } catch (_) {}
@@ -1944,6 +1953,32 @@ export async function startServer({
       if (!_checkAuth(req)) {
         _sendUnauthorized(res, corsOrigin);
         return;
+      }
+      // ── Security: Sec-Fetch-Site CSRF guard on mutations (i-073) ──────────
+      // The token check alone cannot stop CSRF if the token ever leaks (a
+      // browser cache, a proxy log, `ps` on a shared host). Reject when the
+      // header is PRESENT and not `same-origin` — deliberately NOT "reject
+      // cross-site": `Sec-Fetch-Site: same-site` covers a *different port on
+      // the same host*, i.e. a page served by another local server (another
+      // monomind dashboard among them — o-04 shows there can be eleven).
+      // Rejecting anything that isn't `same-origin` closes that case too, at
+      // no cost to the dashboard's own pages.
+      // Header ABSENT must stay allowed, or every first-party non-browser
+      // caller breaks: control-start.cjs, event-logger.cjs,
+      // capture-handler.cjs, route-handler.cjs, forwarder.ts and the
+      // `/mastermind:*` commands all POST with the token header and send no
+      // Sec-Fetch-* at all. A browser too old to send Sec-Fetch-Site is
+      // treated the same as a non-browser client — it still needs the token.
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        const _secFetchSite = req.headers['sec-fetch-site'];
+        if (_secFetchSite && _secFetchSite !== 'same-origin') {
+          res.writeHead(403, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
+          res.end(JSON.stringify({ error: 'Forbidden: cross-origin mutation' }));
+          return;
+        }
       }
     }
 
