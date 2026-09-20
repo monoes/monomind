@@ -2,9 +2,9 @@
  * tabs.ts — target filtering and the CDP command sequences for
  * close/activate/frame-switch. Fake fetch + fake client; no browser.
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CdpClient } from '../browser/cdp.js';
-import { listTabs, newTab, closeTab, activateTab, switchToFrame } from '../browser/tabs.js';
+import { activateTab, closeTab, listTabs, newTab, switchToFrame } from '../browser/tabs.js';
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -55,7 +55,7 @@ describe('listTabs', () => {
 
   it('propagates a failed /json/list', async () => {
     globalThis.fetch = vi.fn(() =>
-      Promise.resolve(new Response('', { status: 502, statusText: 'Bad Gateway' }))
+      Promise.resolve(new Response('', { status: 502, statusText: 'Bad Gateway' })),
     ) as unknown as typeof fetch;
     await expect(listTabs(9222)).rejects.toThrow('Failed to fetch targets: Bad Gateway');
   });
@@ -66,7 +66,7 @@ describe('newTab', () => {
     const fn = stubFetch({ id: 'T1', type: 'page' });
     await newTab(9222);
     expect(fn.mock.calls[0]![0]).toBe(
-      'http://127.0.0.1:9222/json/new?' + encodeURIComponent('about:blank')
+      `http://127.0.0.1:9222/json/new?${encodeURIComponent('about:blank')}`,
     );
   });
 
@@ -81,7 +81,9 @@ describe('closeTab', () => {
   it('sends Target.closeTarget for the given targetId', async () => {
     const { client, calls } = stubClient();
     await closeTab(client, 'S1', 'T9');
-    expect(calls).toEqual([{ method: 'Target.closeTarget', params: { targetId: 'T9' }, sid: undefined }]);
+    expect(calls).toEqual([
+      { method: 'Target.closeTarget', params: { targetId: 'T9' }, sid: undefined },
+    ]);
   });
 });
 
@@ -129,7 +131,10 @@ describe('switchToFrame', () => {
       'Runtime.evaluate': { result: { result: { value: null } } },
       'Page.getFrameTree': { frameTree: {} },
     });
-    await expect(switchToFrame(client, 'S1', 'div.not-a-frame')).resolves.toEqual({ url: null, sessionId: null });
+    await expect(switchToFrame(client, 'S1', 'div.not-a-frame')).resolves.toEqual({
+      url: null,
+      sessionId: null,
+    });
     // The selector is embedded as a JSON string literal, never interpolated raw.
     const expr = (calls[0]!.params as { expression: string }).expression;
     expect(expr).toContain('document.querySelector("div.not-a-frame")');
@@ -149,9 +154,14 @@ describe('switchToFrame', () => {
     const { client, calls } = stubClient({
       'Runtime.evaluate': { result: { result: { value: 'https://f.test/frame' } } },
       'Page.getFrameTree': frameTreeWith('https://f.test/frame'),
-      'Target.getTargets': { targetInfos: [{ targetId: 'T1', type: 'page', url: 'https://x.test' }] },
+      'Target.getTargets': {
+        targetInfos: [{ targetId: 'T1', type: 'page', url: 'https://x.test' }],
+      },
     });
-    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({ url: 'https://f.test/frame', sessionId: null });
+    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({
+      url: 'https://f.test/frame',
+      sessionId: null,
+    });
     expect(calls.map((c) => c.method)).not.toContain('Target.attachToTarget');
   });
 
@@ -167,7 +177,10 @@ describe('switchToFrame', () => {
       },
       'Target.attachToTarget': { sessionId: 'S-FRAME' },
     });
-    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({ url: 'https://f.test/frame', sessionId: 'S-FRAME' });
+    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({
+      url: 'https://f.test/frame',
+      sessionId: 'S-FRAME',
+    });
     const attach = calls.find((c) => c.method === 'Target.attachToTarget');
     expect(attach!.params).toEqual({ targetId: 'T-OOPIF', flatten: true });
   });
@@ -177,7 +190,10 @@ describe('switchToFrame', () => {
       'Runtime.evaluate': { result: { result: { value: 'https://f.test/frame' } } },
       'Page.getFrameTree': frameTreeWith('https://other.test/elsewhere'),
     });
-    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({ url: 'https://f.test/frame', sessionId: null });
+    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({
+      url: 'https://f.test/frame',
+      sessionId: null,
+    });
     expect(calls.map((c) => c.method)).not.toContain('Target.getTargets');
   });
 });

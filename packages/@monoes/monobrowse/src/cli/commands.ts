@@ -3,11 +3,11 @@
  * Provides ref-based element model and token-efficient accessibility snapshots
  */
 
-import type { Command, CommandContext, CommandResult } from './types.js';
-import { output } from './output.js';
+import type { CdpClient, ElementRef, FindAction, NetworkRoute } from '../index.js';
 import { createActionCommand } from './action.js';
+import { output } from './output.js';
 import { createPlatformCommand } from './platform.js';
-import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '../index.js';
+import type { Command, CommandContext, CommandResult } from './types.js';
 
 // Runtime state (single session per CLI process)
 const DEFAULT_PORT = 9222;
@@ -51,7 +51,11 @@ function ensureSignalCleanupHandlers(): void {
           } else {
             const pid = browser.getLaunchedPid(_port);
             if (pid !== undefined) {
-              try { process.kill(pid, 'SIGKILL'); } catch { /* already exited */ }
+              try {
+                process.kill(pid, 'SIGKILL');
+              } catch {
+                /* already exited */
+              }
             }
           }
         } catch {
@@ -69,7 +73,9 @@ function ensureSignalCleanupHandlers(): void {
 // ref-cache.ts's saveActivePort/loadActivePort) so subsequent commands
 // attach to the browser the user actually opened instead of silently
 // launching/attaching to a second, unrelated Chrome instance on 9222.
-async function resolveDefaultPort(browser: Awaited<ReturnType<typeof getBrowser>>): Promise<number> {
+async function resolveDefaultPort(
+  browser: Awaited<ReturnType<typeof getBrowser>>,
+): Promise<number> {
   const persisted = await browser.loadActivePortInfo();
   if (!persisted) return DEFAULT_PORT;
   if (!persisted.launched) {
@@ -78,10 +84,14 @@ async function resolveDefaultPort(browser: Awaited<ReturnType<typeof getBrowser>
     // user's debug port and silently swap which browser commands act on —
     // fail loudly instead.
     try {
-      await fetch(`http://127.0.0.1:${persisted.port}/json/version`, { signal: AbortSignal.timeout(1500) });
+      await fetch(`http://127.0.0.1:${persisted.port}/json/version`, {
+        signal: AbortSignal.timeout(1500),
+      });
     } catch {
       await browser.clearActivePort();
-      throw new Error(`Connected browser on port ${persisted.port} is gone — re-run \`connect\` (or \`open\` to launch a fresh one).`);
+      throw new Error(
+        `Connected browser on port ${persisted.port} is gone — re-run \`connect\` (or \`open\` to launch a fresh one).`,
+      );
     }
   }
   return persisted.port;
@@ -89,7 +99,7 @@ async function resolveDefaultPort(browser: Awaited<ReturnType<typeof getBrowser>
 
 async function ensureConnected(port: number, targetId?: string) {
   const browser = await getBrowser();
-  if (!_client || !_client.isConnected()) {
+  if (!_client?.isConnected()) {
     if (_client && _sessionId) {
       browser.teardownRouteInterception(_sessionId);
       browser.stopRequestCapture(_sessionId);
@@ -128,20 +138,20 @@ async function ensureConnected(port: number, targetId?: string) {
 async function hydrateRefsFromCache(
   browser: Awaited<ReturnType<typeof getBrowser>>,
   targetId: string,
-  currentUrl: string
+  currentUrl: string,
 ): Promise<void> {
   const cached = await browser.loadRefCache(targetId);
   if (!cached) return;
   if (currentUrl && cached.url && currentUrl !== cached.url) {
     output.printError(
-      `Stale references — page has navigated (cache: ${cached.url} → current: ${currentUrl}). Re-run snapshot before using @eN refs.`
+      `Stale references — page has navigated (cache: ${cached.url} → current: ${currentUrl}). Re-run snapshot before using @eN refs.`,
     );
     return; // leave _refs empty — do not attempt to resolve refs against a different page
   }
   _refs = cached.refs;
   if (cached.stale) {
     output.printWarning(
-      `AX ref cache is ${Math.round(cached.ageMs / 1000)}s old — page may have changed since the last snapshot; re-run snapshot if refs don't resolve as expected`
+      `AX ref cache is ${Math.round(cached.ageMs / 1000)}s old — page may have changed since the last snapshot; re-run snapshot if refs don't resolve as expected`,
     );
   }
 }
@@ -150,23 +160,45 @@ async function hydrateRefsFromCache(
 // Excludes 'auth', 'oauth', 'sso', 'saml' — their callback/ACS/token paths
 // (/auth/callback, /sso/callback, /saml/acs) are completion endpoints, not walls.
 // DOM detection (password field, CAPTCHA widgets) handles SSO/SAML login pages.
-const ATTENTION_URL_RE = /\/(login|log-in|signin|sign-in|captcha|mfa|2fa|account\/login|accounts\/login|session\/new|users\/sign_in)(?:[/?#]|$)/i;
+const ATTENTION_URL_RE =
+  /\/(login|log-in|signin|sign-in|captcha|mfa|2fa|account\/login|accounts\/login|session\/new|users\/sign_in)(?:[/?#]|$)/i;
 
-async function detectAttentionNeeded(client: CdpClient, sessionId: string, url: string): Promise<'login' | 'captcha' | null> {
+async function detectAttentionNeeded(
+  client: CdpClient,
+  sessionId: string,
+  url: string,
+): Promise<'login' | 'captcha' | null> {
   if (ATTENTION_URL_RE.test(url)) return 'login';
   try {
-    const hasPassword = await client.send<{ result: { value: boolean } }>('Runtime.evaluate', {
-      expression: '!!document.querySelector("input[type=password]")',
-      returnByValue: true,
-    }, sessionId).then(r => r.result?.value === true).catch(() => false);
+    const hasPassword = await client
+      .send<{ result: { value: boolean } }>(
+        'Runtime.evaluate',
+        {
+          expression: '!!document.querySelector("input[type=password]")',
+          returnByValue: true,
+        },
+        sessionId,
+      )
+      .then((r) => r.result?.value === true)
+      .catch(() => false);
     if (hasPassword) return 'login';
 
-    const hasCaptcha = await client.send<{ result: { value: boolean } }>('Runtime.evaluate', {
-      expression: '!!(document.querySelector("iframe[src*=recaptcha]") || document.querySelector("iframe[src*=hcaptcha]") || document.querySelector(".g-recaptcha") || document.querySelector(".h-captcha") || document.querySelector("[data-sitekey]"))',
-      returnByValue: true,
-    }, sessionId).then(r => r.result?.value === true).catch(() => false);
+    const hasCaptcha = await client
+      .send<{ result: { value: boolean } }>(
+        'Runtime.evaluate',
+        {
+          expression:
+            '!!(document.querySelector("iframe[src*=recaptcha]") || document.querySelector("iframe[src*=hcaptcha]") || document.querySelector(".g-recaptcha") || document.querySelector(".h-captcha") || document.querySelector("[data-sitekey]"))',
+          returnByValue: true,
+        },
+        sessionId,
+      )
+      .then((r) => r.result?.value === true)
+      .catch(() => false);
     if (hasCaptcha) return 'captcha';
-  } catch { /* ignore CDP errors */ }
+  } catch {
+    /* ignore CDP errors */
+  }
   return null;
 }
 
@@ -174,13 +206,19 @@ function waitForEnter(): Promise<void> {
   if (!process.stdin.isTTY) {
     // Non-interactive context (MCP server, piped input, CI) — cannot safely read stdin.
     // Auto-continue after a short grace period so automation isn't blocked.
-    output.printWarning('Non-interactive mode: auto-continuing in 30s. Switch to headed manually if needed.');
-    return new Promise(resolve => setTimeout(resolve, 30_000));
+    output.printWarning(
+      'Non-interactive mode: auto-continuing in 30s. Switch to headed manually if needed.',
+    );
+    return new Promise((resolve) => setTimeout(resolve, 30_000));
   }
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
-    const onData = () => { process.stdin.pause(); process.stdin.off('data', onData); resolve(); };
+    const onData = () => {
+      process.stdin.pause();
+      process.stdin.off('data', onData);
+      resolve();
+    };
     process.stdin.once('data', onData);
   });
 }
@@ -191,7 +229,11 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
   // Snapshot cookies from current headless session before closing
   let savedCookies: unknown[] = [];
   if (_client && _sessionId) {
-    try { savedCookies = await browser.getCookies(_client, _sessionId); } catch { /* ignore */ }
+    try {
+      savedCookies = await browser.getCookies(_client, _sessionId);
+    } catch {
+      /* ignore */
+    }
     browser.teardownRouteInterception(_sessionId);
     browser.stopRequestCapture(_sessionId);
     browser.teardownDialogHandling(_sessionId);
@@ -215,7 +257,9 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
     _sessionId = fallback.sessionId;
     _targetId = fallback.target.id;
     _refs = new Map();
-    throw new Error(`Cannot open headed browser: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Cannot open headed browser: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   const conn = await browser.connectToTarget(headedPort);
   _client = conn.client;
@@ -224,16 +268,28 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
   _refs = new Map();
 
   if (savedCookies.length) {
-    try { await browser.setCookies(_client, _sessionId, savedCookies as Parameters<typeof browser.setCookies>[2]); } catch { /* ignore */ }
+    try {
+      await browser.setCookies(
+        _client,
+        _sessionId,
+        savedCookies as Parameters<typeof browser.setCookies>[2],
+      );
+    } catch {
+      /* ignore */
+    }
   }
   await browser.openUrl(_client, _sessionId, url);
 
-  output.printInfo('Browser window opened. Complete the required action (login / CAPTCHA), then press Enter to continue in headless mode...');
+  output.printInfo(
+    'Browser window opened. Complete the required action (login / CAPTCHA), then press Enter to continue in headless mode...',
+  );
   await waitForEnter();
 
   // Capture post-auth cookies
   const authCookies = await browser.getCookies(_client, _sessionId).catch(() => [] as unknown[]);
-  const authLocalStorage = await browser.getLocalStorage(_client, _sessionId).catch(() => ({}) as Record<string, string>);
+  const authLocalStorage = await browser
+    .getLocalStorage(_client, _sessionId)
+    .catch(() => ({}) as Record<string, string>);
 
   // Close headed session — actually terminate the underlying Chrome process
   // (Browser.close CDP command, PID-kill fallback), not just our CDP client
@@ -258,10 +314,22 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
   _refs = new Map();
 
   if (authCookies.length) {
-    try { await browser.setCookies(_client, _sessionId, authCookies as Parameters<typeof browser.setCookies>[2]); } catch { /* ignore */ }
+    try {
+      await browser.setCookies(
+        _client,
+        _sessionId,
+        authCookies as Parameters<typeof browser.setCookies>[2],
+      );
+    } catch {
+      /* ignore */
+    }
   }
   if (authLocalStorage && Object.keys(authLocalStorage).length) {
-    try { await browser.setLocalStorage(_client, _sessionId, authLocalStorage); } catch { /* ignore */ }
+    try {
+      await browser.setLocalStorage(_client, _sessionId, authLocalStorage);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -278,7 +346,7 @@ function imageFormat<T extends string>(value: unknown, allowed: readonly T[], fa
 }
 
 function print(msg: string) {
-  process.stdout.write(msg + '\n');
+  process.stdout.write(`${msg}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -290,7 +358,12 @@ const openCommand: Command = {
   description: 'Open a URL in the browser. Usage: monomind browse open <url>',
   options: [
     { name: 'port', short: 'p', type: 'number', description: 'CDP port', default: 9222 },
-    { name: 'headed', type: 'boolean', description: 'Force visible browser window', default: false },
+    {
+      name: 'headed',
+      type: 'boolean',
+      description: 'Force visible browser window',
+      default: false,
+    },
     { name: 'session', short: 's', type: 'string', description: 'Session name to restore' },
     { name: 'state', type: 'string', description: 'State file to load' },
   ],
@@ -306,13 +379,25 @@ const openCommand: Command = {
       const prevSid = _sessionId;
       const prevClient = _client;
       if (browser.getHarStatus(prevSid).recording) {
-        try { await browser.stopHarRecording(prevClient, prevSid); } catch { /* ignore */ }
+        try {
+          await browser.stopHarRecording(prevClient, prevSid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.getTraceStatus(prevSid)) {
-        try { await browser.stopTrace(prevClient, prevSid); } catch { /* ignore */ }
+        try {
+          await browser.stopTrace(prevClient, prevSid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.isProfilingActive(prevSid)) {
-        try { await browser.stopCpuProfile(prevClient, prevSid); } catch { /* ignore */ }
+        try {
+          await browser.stopCpuProfile(prevClient, prevSid);
+        } catch {
+          /* ignore */
+        }
       }
       browser.teardownRouteInterception(prevSid);
       browser.stopRequestCapture(prevSid);
@@ -352,7 +437,10 @@ const openCommand: Command = {
       // launched it) instead of overwriting with undefined.
       const existing = await browser.loadActivePortInfo();
       const preserved = existing && existing.port === _port ? existing : undefined;
-      await browser.saveActivePort(_port, { pid: preserved?.pid, userDataDir: preserved?.userDataDir });
+      await browser.saveActivePort(_port, {
+        pid: preserved?.pid,
+        userDataDir: preserved?.userDataDir,
+      });
     }
     ensureSignalCleanupHandlers();
     const conn = await browser.connectToTarget(_port);
@@ -381,10 +469,14 @@ const openCommand: Command = {
     if (!forceHeaded) {
       const attentionType = await detectAttentionNeeded(_client, _sessionId, currentUrl);
       if (attentionType) {
-        output.printWarning(`${attentionType === 'captcha' ? 'CAPTCHA' : 'Login'} detected — switching to headed mode`);
+        output.printWarning(
+          `${attentionType === 'captcha' ? 'CAPTCHA' : 'Login'} detected — switching to headed mode`,
+        );
         await switchToHeaded(currentUrl, port);
         await browser.openUrl(_client!, _sessionId, currentUrl);
-        output.printSuccess(`Resumed headless after ${attentionType === 'captcha' ? 'CAPTCHA' : 'login'}`);
+        output.printSuccess(
+          `Resumed headless after ${attentionType === 'captcha' ? 'CAPTCHA' : 'login'}`,
+        );
       }
     }
 
@@ -400,15 +492,50 @@ const snapshotCommand: Command = {
   name: 'snapshot',
   description: 'Capture accessibility snapshot with ref-based element handles (@e1, @e2, ...)',
   options: [
-    { name: 'interactive', short: 'i', type: 'boolean', description: 'Interactive elements only (93% token reduction)', default: false },
-    { name: 'compact', short: 'c', type: 'boolean', description: 'Compact output format', default: false },
+    {
+      name: 'interactive',
+      short: 'i',
+      type: 'boolean',
+      description: 'Interactive elements only (93% token reduction)',
+      default: false,
+    },
+    {
+      name: 'compact',
+      short: 'c',
+      type: 'boolean',
+      description: 'Compact output format',
+      default: false,
+    },
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
     { name: 'depth', short: 'd', type: 'number', description: 'Max depth of AX tree to show' },
-    { name: 'selector', short: 's', type: 'string', description: 'Scope snapshot to a CSS selector' },
-    { name: 'save', type: 'string', description: 'Save snapshot text to file (baseline for --diff)' },
-    { name: 'diff', type: 'string', description: 'Compare current snapshot against a saved baseline file' },
-    { name: 'content-boundaries', type: 'boolean', description: 'Wrap output in sentinel markers to prevent page-content injection attacks', default: false },
-    { name: 'max-output', type: 'number', description: 'Truncate output to N characters (prevents context window blowout on large pages)' },
+    {
+      name: 'selector',
+      short: 's',
+      type: 'string',
+      description: 'Scope snapshot to a CSS selector',
+    },
+    {
+      name: 'save',
+      type: 'string',
+      description: 'Save snapshot text to file (baseline for --diff)',
+    },
+    {
+      name: 'diff',
+      type: 'string',
+      description: 'Compare current snapshot against a saved baseline file',
+    },
+    {
+      name: 'content-boundaries',
+      type: 'boolean',
+      description: 'Wrap output in sentinel markers to prevent page-content injection attacks',
+      default: false,
+    },
+    {
+      name: 'max-output',
+      type: 'number',
+      description:
+        'Truncate output to N characters (prevents context window blowout on large pages)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
@@ -436,8 +563,8 @@ const snapshotCommand: Command = {
 
     // --save: write snapshot text to baseline file
     if (ctx.flags.save) {
-      const { writeFile, mkdir } = await import('fs/promises');
-      const { dirname } = await import('path');
+      const { writeFile, mkdir } = await import('node:fs/promises');
+      const { dirname } = await import('node:path');
       const savePath = ctx.flags.save as string;
       await mkdir(dirname(savePath), { recursive: true }).catch(() => {});
       await writeFile(savePath, result.text, 'utf8');
@@ -447,35 +574,58 @@ const snapshotCommand: Command = {
 
     // --diff: compare against baseline file
     if (ctx.flags.diff) {
-      const { readFile } = await import('fs/promises');
+      const { readFile } = await import('node:fs/promises');
       const baselinePath = ctx.flags.diff as string;
       let baseline: string;
-      try { baseline = await readFile(baselinePath, 'utf8'); }
-      catch { throw new Error(`Baseline not found: ${baselinePath}. Run snapshot --save first.`); }
+      try {
+        baseline = await readFile(baselinePath, 'utf8');
+      } catch {
+        throw new Error(`Baseline not found: ${baselinePath}. Run snapshot --save first.`);
+      }
       const currentLines = result.text.split('\n');
       const baselineLines = baseline.split('\n');
-      const added: string[] = [], removed: string[] = [];
+      const added: string[] = [],
+        removed: string[] = [];
       const baseSet = new Set(baselineLines);
       const curSet = new Set(currentLines);
       for (const l of currentLines) if (!baseSet.has(l)) added.push(l);
       for (const l of baselineLines) if (!curSet.has(l)) removed.push(l);
       const changed = added.length > 0 || removed.length > 0;
       if (ctx.flags.json) {
-        print(JSON.stringify({ changed, additions: added.length, removals: removed.length, added, removed }));
+        print(
+          JSON.stringify({
+            changed,
+            additions: added.length,
+            removals: removed.length,
+            added,
+            removed,
+          }),
+        );
       } else {
-        if (!changed) { output.printSuccess('No snapshot changes detected'); }
-        else {
+        if (!changed) {
+          output.printSuccess('No snapshot changes detected');
+        } else {
           output.printWarning(`Snapshot changed: +${added.length} lines, -${removed.length} lines`);
           for (const l of added) print(`\x1b[32m+ ${l}\x1b[0m`);
           for (const l of removed) print(`\x1b[31m- ${l}\x1b[0m`);
         }
       }
-      return { success: true, data: { changed, additions: added.length, removals: removed.length } };
+      return {
+        success: true,
+        data: { changed, additions: added.length, removals: removed.length },
+      };
     }
 
     if (ctx.flags.json) {
       const refsObj = Object.fromEntries([...result.refs.entries()].map(([k, v]) => [k, v]));
-      print(JSON.stringify({ url: result.url, title: result.title, refs: refsObj, snapshot: result.text }));
+      print(
+        JSON.stringify({
+          url: result.url,
+          title: result.title,
+          refs: refsObj,
+          snapshot: result.text,
+        }),
+      );
     } else {
       print(`[${result.title}] ${result.url}\n`);
       print(applyOutputLimits(result.text));
@@ -563,11 +713,20 @@ const waitCommand: Command = {
     { name: 'text', type: 'string', description: 'Wait for text to appear in page' },
     { name: 'not-text', type: 'string', description: 'Wait for text to disappear from page' },
     { name: 'selector', type: 'string', description: 'Wait for CSS selector to appear' },
-    { name: 'load', type: 'string', description: 'Wait for load event: load|networkidle|domcontentloaded' },
+    {
+      name: 'load',
+      type: 'string',
+      description: 'Wait for load event: load|networkidle|domcontentloaded',
+    },
     { name: 'fn', type: 'string', description: 'Wait until JS expression returns truthy' },
     { name: 'ms', type: 'number', description: 'Wait N milliseconds' },
     { name: 'timeout', short: 't', type: 'number', description: 'Timeout in ms', default: 30000 },
-    { name: 'download', type: 'string', description: 'Wait for a file download to complete and save to path (monitors Browser.downloadProgress events)' },
+    {
+      name: 'download',
+      type: 'string',
+      description:
+        'Wait for a file download to complete and save to path (monitors Browser.downloadProgress events)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
@@ -584,12 +743,17 @@ const waitCommand: Command = {
     if (ctx.flags.fn) {
       const expr = ctx.flags.fn as string;
       const rawTimeout = (ctx.flags.timeout as number) ?? 30000;
-      const timeout = Number.isFinite(rawTimeout) ? Math.max(100, Math.min(rawTimeout, 300_000)) : 30000; // cap at 5min
+      const timeout = Number.isFinite(rawTimeout)
+        ? Math.max(100, Math.min(rawTimeout, 300_000))
+        : 30000; // cap at 5min
       const interval = 200;
       const deadline = Date.now() + timeout;
       while (Date.now() < deadline) {
         const result = await browser.evaluateJs(client, sessionId, expr);
-        if (result) { output.printSuccess('Wait function returned truthy'); return { success: true }; }
+        if (result) {
+          output.printSuccess('Wait function returned truthy');
+          return { success: true };
+        }
         await new Promise((r) => setTimeout(r, interval));
       }
       throw new Error(`Timeout waiting for --fn: ${expr}`);
@@ -601,8 +765,15 @@ const waitCommand: Command = {
       const interval = 200;
       const deadline = Date.now() + timeout;
       while (Date.now() < deadline) {
-        const text = await browser.evaluateJs(client, sessionId, 'document.body?.innerText ?? ""') as string;
-        if (!text.includes(target)) { output.printSuccess('Text disappeared'); return { success: true }; }
+        const text = (await browser.evaluateJs(
+          client,
+          sessionId,
+          'document.body?.innerText ?? ""',
+        )) as string;
+        if (!text.includes(target)) {
+          output.printSuccess('Text disappeared');
+          return { success: true };
+        }
         await new Promise((r) => setTimeout(r, interval));
       }
       throw new Error(`Timeout waiting for text to disappear: "${target}"`);
@@ -610,28 +781,52 @@ const waitCommand: Command = {
 
     if (ctx.flags.download) {
       const savePath = ctx.flags.download as string;
-      const { mkdir } = await import('fs/promises');
-      const { dirname, join } = await import('path');
-      const { tmpdir } = await import('os');
+      const { mkdir } = await import('node:fs/promises');
+      const { dirname, join } = await import('node:path');
+      const { tmpdir } = await import('node:os');
       const downloadDir = join(tmpdir(), `mm-dl-wait-${Date.now()}`);
       await mkdir(downloadDir, { recursive: true });
-      await client.send('Browser.setDownloadBehavior', {
-        behavior: 'allow', downloadPath: downloadDir, eventsEnabled: true,
-      }, undefined).catch(() =>
-        client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir }, sessionId).catch(() => {})
-      );
+      await client
+        .send(
+          'Browser.setDownloadBehavior',
+          {
+            behavior: 'allow',
+            downloadPath: downloadDir,
+            eventsEnabled: true,
+          },
+          undefined,
+        )
+        .catch(() =>
+          client
+            .send(
+              'Page.setDownloadBehavior',
+              { behavior: 'allow', downloadPath: downloadDir },
+              sessionId,
+            )
+            .catch(() => {}),
+        );
       const MAX_DOWNLOAD_TIMEOUT = 5 * 60 * 1000; // I6: cap at 5 minutes
       const rawTimeout = Math.min((ctx.flags.timeout as number) ?? 30000, MAX_DOWNLOAD_TIMEOUT);
       const finalPath = await new Promise<string>((resolve, reject) => {
         let guid = '';
         let settled = false;
         // C2: capture off() functions to avoid listener leaks
-        const offBegin = client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => { guid = params.guid as string; });
+        const offBegin = client.on(
+          'Browser.downloadWillBegin',
+          (params: Record<string, unknown>) => {
+            guid = params.guid as string;
+          },
+        );
         let offProgress: (() => void) | undefined;
         // cleanup defined before setTimeout so the timeout callback can call it
         let tid: ReturnType<typeof setTimeout>;
         let pollTid: ReturnType<typeof setInterval> | undefined;
-        const cleanup = () => { clearTimeout(tid); clearInterval(pollTid); offBegin?.(); offProgress?.(); };
+        const cleanup = () => {
+          clearTimeout(tid);
+          clearInterval(pollTid);
+          offBegin?.();
+          offProgress?.();
+        };
         const finish = (path: string) => {
           if (settled) return;
           settled = true;
@@ -645,24 +840,27 @@ const waitCommand: Command = {
           reject(err);
         };
         tid = setTimeout(() => fail(new Error('Download timed out')), rawTimeout);
-        offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
-          if (params.guid === guid && params.state === 'completed') {
-            const { readdir, rename, rmdir } = await import('fs/promises');
-            const files = await readdir(downloadDir);
-            if (files.length > 0) {
-              const src = join(downloadDir, files[0]);
-              await mkdir(dirname(savePath), { recursive: true });
-              await rename(src, savePath);
-              await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
-              finish(savePath);
-            } else {
-              await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
-              fail(new Error('Download completed but no file found'));
+        offProgress = client.on(
+          'Browser.downloadProgress',
+          async (params: Record<string, unknown>) => {
+            if (params.guid === guid && params.state === 'completed') {
+              const { readdir, rename, rmdir } = await import('node:fs/promises');
+              const files = await readdir(downloadDir);
+              if (files.length > 0) {
+                const src = join(downloadDir, files[0]);
+                await mkdir(dirname(savePath), { recursive: true });
+                await rename(src, savePath);
+                await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
+                finish(savePath);
+              } else {
+                await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
+                fail(new Error('Download completed but no file found'));
+              }
+            } else if (params.guid === guid && params.state === 'canceled') {
+              fail(new Error('Download was canceled'));
             }
-          } else if (params.guid === guid && params.state === 'canceled') {
-            fail(new Error('Download was canceled'));
-          }
-        });
+          },
+        );
 
         // Fallback for the empty-guid race: this process's listener attaches
         // AFTER a separate `click` process may have already started (and even
@@ -675,7 +873,7 @@ const waitCommand: Command = {
         pollTid = setInterval(async () => {
           if (settled || guid) return; // a real CDP event has taken over
           try {
-            const { stat } = await import('fs/promises');
+            const { stat } = await import('node:fs/promises');
             const st = await stat(savePath);
             if (st.isFile() && st.size > 0 && st.size === lastSize) {
               stableReads++;
@@ -708,13 +906,25 @@ const waitCommand: Command = {
 
 const screenshotCommand: Command = {
   name: 'screenshot',
-  description: 'Capture a screenshot. Usage: monomind browse screenshot [path] [--annotate] [--hide-scrollbars]',
+  description:
+    'Capture a screenshot. Usage: monomind browse screenshot [path] [--annotate] [--hide-scrollbars]',
   options: [
     { name: 'full', type: 'boolean', description: 'Full page screenshot', default: false },
     { name: 'format', type: 'string', description: 'Format: png|jpeg|webp', default: 'png' },
     { name: 'quality', type: 'number', description: 'Quality 0-100 for jpeg/webp', default: 80 },
-    { name: 'annotate', type: 'boolean', description: 'Overlay numbered labels keyed to @eN refs from last snapshot (viewport-only; do not combine with --full)', default: false },
-    { name: 'hide-scrollbars', type: 'boolean', description: 'Hide native scrollbars via CSS injection before capture', default: false },
+    {
+      name: 'annotate',
+      type: 'boolean',
+      description:
+        'Overlay numbered labels keyed to @eN refs from last snapshot (viewport-only; do not combine with --full)',
+      default: false,
+    },
+    {
+      name: 'hide-scrollbars',
+      type: 'boolean',
+      description: 'Hide native scrollbars via CSS injection before capture',
+      default: false,
+    },
     { name: 'json', type: 'boolean', description: 'Output JSON with path', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -723,10 +933,16 @@ const screenshotCommand: Command = {
 
     const hideScrollbars = ctx.flags['hide-scrollbars'] as boolean;
     if (hideScrollbars) {
-      await client.send('Runtime.evaluate', {
-        expression: `(function(){var s=document.getElementById('__mm_noscroll__');if(s)return;var el=document.createElement('style');el.id='__mm_noscroll__';el.textContent='*::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}';document.head.appendChild(el);})()`,
-        returnByValue: false,
-      }, sessionId).catch(() => {});
+      await client
+        .send(
+          'Runtime.evaluate',
+          {
+            expression: `(function(){var s=document.getElementById('__mm_noscroll__');if(s)return;var el=document.createElement('style');el.id='__mm_noscroll__';el.textContent='*::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}';document.head.appendChild(el);})()`,
+            returnByValue: false,
+          },
+          sessionId,
+        )
+        .catch(() => {});
     }
 
     const annotate = ctx.flags.annotate as boolean;
@@ -743,10 +959,16 @@ const screenshotCommand: Command = {
       });
     } finally {
       if (hideScrollbars) {
-        await client.send('Runtime.evaluate', {
-          expression: `(function(){var s=document.getElementById('__mm_noscroll__');if(s)s.remove();})()`,
-          returnByValue: false,
-        }, sessionId).catch(() => {});
+        await client
+          .send(
+            'Runtime.evaluate',
+            {
+              expression: `(function(){var s=document.getElementById('__mm_noscroll__');if(s)s.remove();})()`,
+              returnByValue: false,
+            },
+            sessionId,
+          )
+          .catch(() => {});
       }
     }
 
@@ -762,16 +984,16 @@ const screenshotCommand: Command = {
 
 const getCommand: Command = {
   name: 'get',
-  description: 'Get page info. Usage: monomind browse get url|title|text|html|value|attr|count|box|styles [@ref] [attrName]',
-  options: [
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
-  ],
+  description:
+    'Get page info. Usage: monomind browse get url|title|text|html|value|attr|count|box|styles [@ref] [attrName]',
+  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
 
     const what = ctx.args[0] as string;
-    if (!what) throw new Error('Usage: monomind browse get url|title|text|html|value|attr|count|box|styles');
+    if (!what)
+      throw new Error('Usage: monomind browse get url|title|text|html|value|attr|count|box|styles');
 
     let value: unknown;
 
@@ -790,19 +1012,32 @@ const getCommand: Command = {
           if (!ref) throw new Error(`Ref @${refKey} not found`);
           const objectId = await browser.getObjectIdForRef(client, sessionId, ref);
           if (!objectId) throw new Error('Element not in DOM');
-          const result = await client.send<{ result: { value?: string } }>('Runtime.callFunctionOn', {
-            functionDeclaration: 'function() { return this.innerText || this.textContent || ""; }',
-            objectId,
-            returnByValue: true,
-          }, sessionId);
+          const result = await client.send<{ result: { value?: string } }>(
+            'Runtime.callFunctionOn',
+            {
+              functionDeclaration:
+                'function() { return this.innerText || this.textContent || ""; }',
+              objectId,
+              returnByValue: true,
+            },
+            sessionId,
+          );
           value = result.result?.value ?? '';
         } else {
-          value = (await browser.evaluateJs(client, sessionId, 'document.body?.innerText ?? ""')) as string;
+          value = (await browser.evaluateJs(
+            client,
+            sessionId,
+            'document.body?.innerText ?? ""',
+          )) as string;
         }
         break;
       }
       case 'html':
-        value = (await browser.evaluateJs(client, sessionId, 'document.documentElement.outerHTML')) as string;
+        value = (await browser.evaluateJs(
+          client,
+          sessionId,
+          'document.documentElement.outerHTML',
+        )) as string;
         break;
       case 'value': {
         const refArg = ctx.args[1] as string;
@@ -812,33 +1047,48 @@ const getCommand: Command = {
         if (!ref) throw new Error(`Ref @${refKey} not found`);
         const objectId = await browser.getObjectIdForRef(client, sessionId, ref);
         if (!objectId) throw new Error('Element not in DOM');
-        const r = await client.send<{ result: { value?: string } }>('Runtime.callFunctionOn', {
-          functionDeclaration: 'function() { return this.value ?? null; }',
-          objectId, returnByValue: true,
-        }, sessionId);
+        const r = await client.send<{ result: { value?: string } }>(
+          'Runtime.callFunctionOn',
+          {
+            functionDeclaration: 'function() { return this.value ?? null; }',
+            objectId,
+            returnByValue: true,
+          },
+          sessionId,
+        );
         value = r.result?.value ?? null;
         break;
       }
       case 'attr': {
         const refArg = ctx.args[1] as string;
         const attrName = ctx.args[2] as string;
-        if (!refArg || !attrName) throw new Error('Usage: monomind browse get attr @ref <attrName>');
+        if (!refArg || !attrName)
+          throw new Error('Usage: monomind browse get attr @ref <attrName>');
         const refKey = refArg.startsWith('@') ? refArg.slice(1) : refArg;
         const ref = _refs.get(refKey);
         if (!ref) throw new Error(`Ref @${refKey} not found`);
         const objectId = await browser.getObjectIdForRef(client, sessionId, ref);
         if (!objectId) throw new Error('Element not in DOM');
-        const r = await client.send<{ result: { value?: string } }>('Runtime.callFunctionOn', {
-          functionDeclaration: `function() { return this.getAttribute(${JSON.stringify(attrName)}); }`,
-          objectId, returnByValue: true,
-        }, sessionId);
+        const r = await client.send<{ result: { value?: string } }>(
+          'Runtime.callFunctionOn',
+          {
+            functionDeclaration: `function() { return this.getAttribute(${JSON.stringify(attrName)}); }`,
+            objectId,
+            returnByValue: true,
+          },
+          sessionId,
+        );
         value = r.result?.value ?? null;
         break;
       }
       case 'count': {
         const selector = ctx.args[1] as string;
         if (!selector) throw new Error('Usage: monomind browse get count <cssSelector>');
-        value = await browser.evaluateJs(client, sessionId, `document.querySelectorAll(${JSON.stringify(selector)}).length`);
+        value = await browser.evaluateJs(
+          client,
+          sessionId,
+          `document.querySelectorAll(${JSON.stringify(selector)}).length`,
+        );
         break;
       }
       case 'box': {
@@ -859,11 +1109,21 @@ const getCommand: Command = {
         if (!ref) throw new Error(`Ref @${refKey} not found`);
         const objectId = await browser.getObjectIdForRef(client, sessionId, ref);
         if (!objectId) throw new Error('Element not in DOM');
-        const r = await client.send<{ result: { value?: string } }>('Runtime.callFunctionOn', {
-          functionDeclaration: 'function() { const s = window.getComputedStyle(this); return JSON.stringify(Object.fromEntries([...s].map(k => [k, s.getPropertyValue(k)]))); }',
-          objectId, returnByValue: true,
-        }, sessionId);
-        try { value = JSON.parse(r.result?.value ?? '{}'); } catch { value = {}; }
+        const r = await client.send<{ result: { value?: string } }>(
+          'Runtime.callFunctionOn',
+          {
+            functionDeclaration:
+              'function() { const s = window.getComputedStyle(this); return JSON.stringify(Object.fromEntries([...s].map(k => [k, s.getPropertyValue(k)]))); }',
+            objectId,
+            returnByValue: true,
+          },
+          sessionId,
+        );
+        try {
+          value = JSON.parse(r.result?.value ?? '{}');
+        } catch {
+          value = {};
+        }
         break;
       }
       default:
@@ -882,11 +1142,17 @@ const getCommand: Command = {
 
 const scrollCommand: Command = {
   name: 'scroll',
-  description: 'Scroll the page. Usage: monomind browse scroll up|down|left|right [amount] [--selector ".sidebar"]',
+  description:
+    'Scroll the page. Usage: monomind browse scroll up|down|left|right [amount] [--selector ".sidebar"]',
   options: [
     { name: 'amount', short: 'a', type: 'number', description: 'Pixels to scroll', default: 300 },
     { name: 'ref', type: 'string', description: 'Element ref to scroll within' },
-    { name: 'selector', short: 's', type: 'string', description: 'CSS selector of element to scroll within' },
+    {
+      name: 'selector',
+      short: 's',
+      type: 'string',
+      description: 'CSS selector of element to scroll within',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
@@ -896,18 +1162,29 @@ const scrollCommand: Command = {
     if (!direction) throw new Error('Usage: monomind browse scroll up|down|left|right [amount]');
 
     // Support positional amount: scroll down 300
-    const positionalAmount = ctx.args[1] !== undefined ? parseInt(ctx.args[1] as string, 10) : undefined;
-    const amount = (positionalAmount && Number.isFinite(positionalAmount)) ? positionalAmount : (ctx.flags.amount as number) ?? 300;
+    const positionalAmount =
+      ctx.args[1] !== undefined ? parseInt(ctx.args[1] as string, 10) : undefined;
+    const amount =
+      positionalAmount && Number.isFinite(positionalAmount)
+        ? positionalAmount
+        : ((ctx.flags.amount as number) ?? 300);
 
     if (ctx.flags.selector) {
       const sel = ctx.flags.selector as string;
       const dx = direction === 'right' ? amount : direction === 'left' ? -amount : 0;
       const dy = direction === 'down' ? amount : direction === 'up' ? -amount : 0;
-      const posJson = await browser.evaluateJs(client, sessionId,
-        `(function(){var el=document.querySelector(${JSON.stringify(sel)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`) as string | null;
+      const posJson = (await browser.evaluateJs(
+        client,
+        sessionId,
+        `(function(){var el=document.querySelector(${JSON.stringify(sel)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`,
+      )) as string | null;
       if (!posJson) throw new Error(`Selector not found: ${sel}`);
       const pos = JSON.parse(posJson) as { x: number; y: number };
-      await client.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pos.x, y: pos.y, deltaX: dx, deltaY: dy }, sessionId);
+      await client.send(
+        'Input.dispatchMouseEvent',
+        { type: 'mouseWheel', x: pos.x, y: pos.y, deltaX: dx, deltaY: dy },
+        sessionId,
+      );
       output.printSuccess(`Scrolled ${direction} in ${sel}`);
       return { success: true };
     }
@@ -916,7 +1193,7 @@ const scrollCommand: Command = {
     if (ctx.flags.ref) {
       const refKey = (ctx.flags.ref as string).startsWith('@')
         ? (ctx.flags.ref as string).slice(1)
-        : ctx.flags.ref as string;
+        : (ctx.flags.ref as string);
       ref = _refs.get(refKey);
     }
 
@@ -942,15 +1219,26 @@ const navigateCommand: Command = {
       let offFrameStarted: () => void = () => {};
       const frameStartedPromise = new Promise<void>((resolve) => {
         offFrameStarted = client.on('Page.frameStartedLoading', (_params, sid) => {
-          if (sid === sessionId) { const off = offFrameStarted; offFrameStarted = () => {}; off(); resolve(); }
+          if (sid === sessionId) {
+            const off = offFrameStarted;
+            offFrameStarted = () => {};
+            off();
+            resolve();
+          }
         });
       });
       try {
-        await client.send('Runtime.evaluate', {
-          expression: direction === 'back' ? 'history.back()' : 'history.forward()',
-        }, sessionId);
+        await client.send(
+          'Runtime.evaluate',
+          {
+            expression: direction === 'back' ? 'history.back()' : 'history.forward()',
+          },
+          sessionId,
+        );
         let fallbackHandle: ReturnType<typeof setTimeout> | undefined;
-        const fallbackPromise = new Promise<void>((r) => { fallbackHandle = setTimeout(r, 2000); });
+        const fallbackPromise = new Promise<void>((r) => {
+          fallbackHandle = setTimeout(r, 2000);
+        });
         await Promise.race([frameStartedPromise, fallbackPromise]);
         if (fallbackHandle !== undefined) clearTimeout(fallbackHandle);
       } finally {
@@ -975,29 +1263,44 @@ const navigateCommand: Command = {
 
 const setCommand: Command = {
   name: 'set',
-  description: 'Configure browser settings. Usage: monomind browse set viewport|device|geo|offline|media|credentials|useragent <args>',
+  description:
+    'Configure browser settings. Usage: monomind browse set viewport|device|geo|offline|media|credentials|useragent <args>',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
 
     const setting = ctx.args[0] as string;
-    if (!setting) throw new Error('Usage: monomind browse set viewport|device|geo|offline|media|credentials|useragent <args>');
+    if (!setting)
+      throw new Error(
+        'Usage: monomind browse set viewport|device|geo|offline|media|credentials|useragent <args>',
+      );
 
     switch (setting) {
       case 'viewport': {
         const width = parseInt(ctx.args[1] as string, 10);
         const height = parseInt(ctx.args[2] as string, 10);
         const dpr = parseFloat(ctx.args[3] as string) || undefined;
-        if (isNaN(width) || isNaN(height)) throw new Error('Usage: set viewport <width> <height> [dpr]');
-        await client.send('Emulation.setDeviceMetricsOverride', {
-          width, height, deviceScaleFactor: dpr ?? 1, mobile: false,
-        }, sessionId);
+        if (Number.isNaN(width) || Number.isNaN(height))
+          throw new Error('Usage: set viewport <width> <height> [dpr]');
+        await client.send(
+          'Emulation.setDeviceMetricsOverride',
+          {
+            width,
+            height,
+            deviceScaleFactor: dpr ?? 1,
+            mobile: false,
+          },
+          sessionId,
+        );
         output.printSuccess(`Viewport set to ${width}x${height}${dpr ? ` @${dpr}x` : ''}`);
         break;
       }
       case 'device': {
         const deviceName = ctx.args[1] as string;
-        if (!deviceName) throw new Error(`Usage: set device <name>. Available: ${browser.listDevices().join(', ')}`);
+        if (!deviceName)
+          throw new Error(
+            `Usage: set device <name>. Available: ${browser.listDevices().join(', ')}`,
+          );
         await browser.emulateDevice(client, sessionId, deviceName);
         output.printSuccess(`Emulating device: ${deviceName}`);
         break;
@@ -1006,7 +1309,8 @@ const setCommand: Command = {
         const lat = parseFloat(ctx.args[1] as string);
         const lon = parseFloat(ctx.args[2] as string);
         const acc = parseFloat(ctx.args[3] as string) || 100;
-        if (isNaN(lat) || isNaN(lon)) throw new Error('Usage: set geo <latitude> <longitude> [accuracy]');
+        if (Number.isNaN(lat) || Number.isNaN(lon))
+          throw new Error('Usage: set geo <latitude> <longitude> [accuracy]');
         await browser.setGeolocation(client, sessionId, lat, lon, acc);
         output.printSuccess(`Geolocation set: ${lat}, ${lon}`);
         break;
@@ -1042,7 +1346,9 @@ const setCommand: Command = {
         break;
       }
       default:
-        throw new Error(`Unknown setting: ${setting}. Use: viewport|device|geo|offline|media|credentials|useragent`);
+        throw new Error(
+          `Unknown setting: ${setting}. Use: viewport|device|geo|offline|media|credentials|useragent`,
+        );
     }
 
     return { success: true };
@@ -1051,9 +1357,14 @@ const setCommand: Command = {
 
 const stateCommand: Command = {
   name: 'state',
-  description: 'Manage browser session state. Usage: monomind browse state save|load|list|rename|clean [name]',
+  description:
+    'Manage browser session state. Usage: monomind browse state save|load|list|rename|clean [name]',
   options: [
-    { name: 'older-than', type: 'number', description: 'For state clean: remove sessions older than N days' },
+    {
+      name: 'older-than',
+      type: 'number',
+      description: 'For state clean: remove sessions older than N days',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const browser = await getBrowser();
@@ -1104,7 +1415,13 @@ const stateCommand: Command = {
         const title = await browser.getCurrentTitle(c, sid);
         const cookies = await browser.getCookies(c, sid);
         const ls = await browser.getAllLocalStorage(c, sid);
-        const info = { url, title, cookies: cookies.length, localStorage: Object.keys(ls).length, refs: _refs.size };
+        const info = {
+          url,
+          title,
+          cookies: cookies.length,
+          localStorage: Object.keys(ls).length,
+          refs: _refs.size,
+        };
         print(JSON.stringify(info, null, 2));
         return { success: true, data: info };
       }
@@ -1121,18 +1438,26 @@ const stateCommand: Command = {
       case 'rename': {
         const oldName = ctx.args[1] as string;
         const newName = ctx.args[2] as string;
-        if (!oldName || !newName) throw new Error('Usage: monomind browse state rename <old-name> <new-name>');
+        if (!oldName || !newName)
+          throw new Error('Usage: monomind browse state rename <old-name> <new-name>');
         const sessions = await browser.listSessions();
         if (!sessions.includes(oldName)) throw new Error(`Session not found: ${oldName}`);
         // W1: validate newName to prevent path traversal
-        const { basename: basenameFn } = await import('path');
+        const { basename: basenameFn } = await import('node:path');
         const safeName = basenameFn(newName);
         if (safeName !== newName || safeName.startsWith('.') || safeName.includes('/')) {
-          throw new Error('Invalid session name — must not contain path separators or start with "."');
+          throw new Error(
+            'Invalid session name — must not contain path separators or start with "."',
+          );
         }
-        const { unlink: unlinkRename, readFile, writeFile, mkdir: mkdirRename } = await import('fs/promises');
-        const { join: joinR } = await import('path');
-        const { homedir } = await import('os');
+        const {
+          unlink: unlinkRename,
+          readFile,
+          writeFile,
+          mkdir: mkdirRename,
+        } = await import('node:fs/promises');
+        const { join: joinR } = await import('node:path');
+        const { homedir } = await import('node:os');
         const sessionDir = joinR(homedir(), '.monomind', 'browser-sessions');
         const oldPath = joinR(sessionDir, `${oldName}.json`);
         const newPath = joinR(sessionDir, `${newName}.json`);
@@ -1146,9 +1471,9 @@ const stateCommand: Command = {
       }
       case 'clean': {
         const days = (ctx.flags['older-than'] as number) ?? 7;
-        const { unlink, stat } = await import('fs/promises');
-        const { join: joinC } = await import('path');
-        const { homedir: homedirC } = await import('os');
+        const { unlink, stat } = await import('node:fs/promises');
+        const { join: joinC } = await import('node:path');
+        const { homedir: homedirC } = await import('node:os');
         const sessionDir = joinC(homedirC(), '.monomind', 'browser-sessions');
         const sessions = await browser.listSessions();
         const cutoff = Date.now() - days * 86400 * 1000;
@@ -1180,30 +1505,52 @@ const networkCommand: Command = {
     { name: 'status', type: 'number', description: 'HTTP status for fulfill', default: 200 },
     { name: 'headers', type: 'string', description: 'JSON headers object' },
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
-    { name: 'filter', type: 'string', description: 'Filter requests by URL substring (for network requests)' },
-    { name: 'method', type: 'string', description: 'Filter by HTTP method, e.g. GET, POST (for network requests)' },
-    { name: 'status-code', type: 'number', description: 'Filter by HTTP status code (for network requests)' },
-    { name: 'type', type: 'string', description: 'Filter by resource type: xhr|fetch|document|script|stylesheet|image (for network requests)' },
+    {
+      name: 'filter',
+      type: 'string',
+      description: 'Filter requests by URL substring (for network requests)',
+    },
+    {
+      name: 'method',
+      type: 'string',
+      description: 'Filter by HTTP method, e.g. GET, POST (for network requests)',
+    },
+    {
+      name: 'status-code',
+      type: 'number',
+      description: 'Filter by HTTP status code (for network requests)',
+    },
+    {
+      name: 'type',
+      type: 'string',
+      description:
+        'Filter by resource type: xhr|fetch|document|script|stylesheet|image (for network requests)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
     const action = ctx.args[0] as string;
-    if (!action) throw new Error('Usage: monomind browse network route|unroute|cookies|headers|requests');
+    if (!action)
+      throw new Error('Usage: monomind browse network route|unroute|cookies|headers|requests');
 
     switch (action) {
       case 'route': {
         const pattern = ctx.flags.pattern as string;
         if (!pattern) throw new Error('--pattern required for network route');
-        const routes: NetworkRoute[] = [{
-          pattern,
-          action: ctx.flags.abort ? 'abort' : ctx.flags.fulfill ? 'fulfill' : 'continue',
-          response: ctx.flags.fulfill ? {
-            status: ctx.flags.status as number,
-            body: ctx.flags.fulfill as string,
-            headers: ctx.flags.headers ? JSON.parse(ctx.flags.headers as string) : {},
-          } : undefined,
-        }];
+        const routes: NetworkRoute[] = [
+          {
+            pattern,
+            action: ctx.flags.abort ? 'abort' : ctx.flags.fulfill ? 'fulfill' : 'continue',
+            response: ctx.flags.fulfill
+              ? {
+                  status: ctx.flags.status as number,
+                  body: ctx.flags.fulfill as string,
+                  headers: ctx.flags.headers ? JSON.parse(ctx.flags.headers as string) : {},
+                }
+              : undefined,
+          },
+        ];
         await browser.setupRoutes(client, sessionId, routes);
         output.printSuccess(`Network route set: ${pattern}`);
         break;
@@ -1225,7 +1572,7 @@ const networkCommand: Command = {
         break;
       }
       case 'capture': {
-        const subAction = ctx.args[1] as string ?? 'start';
+        const subAction = (ctx.args[1] as string) ?? 'start';
         if (subAction === 'start') {
           browser.startRequestCapture(client, sessionId);
           output.printSuccess('Request capture started');
@@ -1245,13 +1592,22 @@ const networkCommand: Command = {
         const filterStatus = ctx.flags['status-code'] as number | undefined;
         const filterType = ctx.flags.type as string | undefined;
         if (filterUrl) reqs = reqs.filter((r) => r.url.includes(filterUrl));
-        if (filterMethod) reqs = reqs.filter((r) => (r.method ?? 'GET').toUpperCase() === filterMethod.toUpperCase());
+        if (filterMethod)
+          reqs = reqs.filter(
+            (r) => (r.method ?? 'GET').toUpperCase() === filterMethod.toUpperCase(),
+          );
         if (filterStatus) reqs = reqs.filter((r) => r.status === filterStatus);
-        if (filterType) reqs = reqs.filter((r) => (r as Record<string, unknown>).resourceType === filterType || (r as Record<string, unknown>).type === filterType);
+        if (filterType)
+          reqs = reqs.filter(
+            (r) =>
+              (r as Record<string, unknown>).resourceType === filterType ||
+              (r as Record<string, unknown>).type === filterType,
+          );
         if (ctx.flags.json) print(JSON.stringify({ data: reqs }));
         else {
-          if (reqs.length === 0) { output.printInfo('No captured requests. Run: network capture start'); }
-          else for (const r of reqs) print(`  ${r.method ?? 'GET'} ${r.status ?? '-'} ${r.url}`);
+          if (reqs.length === 0) {
+            output.printInfo('No captured requests. Run: network capture start');
+          } else for (const r of reqs) print(`  ${r.method ?? 'GET'} ${r.status ?? '-'} ${r.url}`);
         }
         return { success: true, data: { requests: reqs } };
       }
@@ -1259,14 +1615,23 @@ const networkCommand: Command = {
         const reqId = ctx.args[1] as string;
         if (!reqId) throw new Error('Usage: monomind browse network request <requestId>');
         const reqs = browser.getCapturedRequests(sessionId);
-        const req = reqs.find((r) => (r as Record<string, unknown>).requestId === reqId || (r as Record<string, unknown>).id === reqId);
-        if (!req) { output.printWarning(`Request not found: ${reqId}`); return { success: false }; }
+        const req = reqs.find(
+          (r) =>
+            (r as Record<string, unknown>).requestId === reqId ||
+            (r as Record<string, unknown>).id === reqId,
+        );
+        if (!req) {
+          output.printWarning(`Request not found: ${reqId}`);
+          return { success: false };
+        }
         if (ctx.flags.json) print(JSON.stringify({ data: req }));
         else print(JSON.stringify(req, null, 2));
         return { success: true, data: { request: req } };
       }
       default:
-        throw new Error(`Unknown: ${action}. Use: route|unroute|cookies|headers|capture|requests|request`);
+        throw new Error(
+          `Unknown: ${action}. Use: route|unroute|cookies|headers|capture|requests|request`,
+        );
     }
 
     return { success: true };
@@ -1282,7 +1647,7 @@ const DEFAULT_EVAL_MAX_OUTPUT = 50_000;
 
 function truncateForOutput(text: string, maxOutput: number): string {
   if (!(maxOutput > 0) || text.length <= maxOutput) return text;
-  return text.slice(0, maxOutput) + `\n[... truncated at ${maxOutput} chars]`;
+  return `${text.slice(0, maxOutput)}\n[... truncated at ${maxOutput} chars]`;
 }
 
 const evalCommand: Command = {
@@ -1290,9 +1655,22 @@ const evalCommand: Command = {
   description: 'Evaluate JavaScript in page context. Usage: monomind browse eval "document.title"',
   options: [
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
-    { name: 'stdin', type: 'boolean', description: 'Read JS expression from stdin (heredoc-friendly for multiline scripts)', default: false },
-    { name: 'max-output', type: 'number', description: `Truncate printed output to N characters (default ${DEFAULT_EVAL_MAX_OUTPUT}; 0 disables truncation)` },
-    { name: 'timeout', type: 'number', description: 'Max ms to wait for evaluation to settle (default 30000)' },
+    {
+      name: 'stdin',
+      type: 'boolean',
+      description: 'Read JS expression from stdin (heredoc-friendly for multiline scripts)',
+      default: false,
+    },
+    {
+      name: 'max-output',
+      type: 'number',
+      description: `Truncate printed output to N characters (default ${DEFAULT_EVAL_MAX_OUTPUT}; 0 disables truncation)`,
+    },
+    {
+      name: 'timeout',
+      type: 'number',
+      description: 'Max ms to wait for evaluation to settle (default 30000)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
@@ -1330,13 +1708,25 @@ const closeCommand: Command = {
       const client = _client;
       // Tear down per-session Maps and listeners before closing
       if (browser.getHarStatus(sid).recording) {
-        try { await browser.stopHarRecording(client, sid); } catch { /* ignore */ }
+        try {
+          await browser.stopHarRecording(client, sid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.getTraceStatus(sid)) {
-        try { await browser.stopTrace(client, sid); } catch { /* ignore */ }
+        try {
+          await browser.stopTrace(client, sid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.isProfilingActive(sid)) {
-        try { await browser.stopCpuProfile(client, sid); } catch { /* ignore */ }
+        try {
+          await browser.stopCpuProfile(client, sid);
+        } catch {
+          /* ignore */
+        }
       }
       browser.teardownRouteInterception(sid);
       browser.stopRequestCapture(sid);
@@ -1370,7 +1760,11 @@ const closeCommand: Command = {
           } finally {
             // Always drop our websocket — a hung Browser.close must not keep
             // this CLI process's event loop alive.
-            try { conn.client.close(); } catch { /* already gone */ }
+            try {
+              conn.client.close();
+            } catch {
+              /* already gone */
+            }
           }
           // closeBrowser has no PID fallback in a fresh process (launchedPids
           // is per-process) — re-probe so we report what actually happened.
@@ -1380,19 +1774,28 @@ const closeCommand: Command = {
           const probeDeadline = Date.now() + 3000;
           while (stillUp && Date.now() < probeDeadline) {
             try {
-              await fetch(`http://127.0.0.1:${persisted.port}/json/version`, { signal: AbortSignal.timeout(800) });
-              await new Promise(r => setTimeout(r, 300));
-            } catch { stillUp = false; }
+              await fetch(`http://127.0.0.1:${persisted.port}/json/version`, {
+                signal: AbortSignal.timeout(800),
+              });
+              await new Promise((r) => setTimeout(r, 300));
+            } catch {
+              stillUp = false;
+            }
           }
-          if (stillUp) output.printWarning(`Browser on port ${persisted.port} did not exit — kill it manually if needed`);
+          if (stillUp)
+            output.printWarning(
+              `Browser on port ${persisted.port} did not exit — kill it manually if needed`,
+            );
           else output.printSuccess(`Closed browser on port ${persisted.port}`);
         } catch {
           output.printInfo(`No browser answering on port ${persisted.port} — nothing to close`);
         }
       } else {
-        output.printInfo(persisted
-          ? `Detached from browser on port ${persisted.port} (attached via connect — left running)`
-          : 'No active browser session');
+        output.printInfo(
+          persisted
+            ? `Detached from browser on port ${persisted.port} (attached via connect — left running)`
+            : 'No active browser session',
+        );
       }
       await browser.clearActivePort();
       await browser.clearRefCache();
@@ -1439,7 +1842,8 @@ const focusCommand: Command = {
 
 const typeCommand: Command = {
   name: 'type',
-  description: 'Type text into element (appends, does not clear). Usage: monomind browse type @e1 "text"',
+  description:
+    'Type text into element (appends, does not clear). Usage: monomind browse type @e1 "text"',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -1566,7 +1970,7 @@ async function resolveElementObjectId(
   client: import('../index.js').CdpClient,
   sessionId: string,
   refs: Map<string, import('../index.js').ElementRef>,
-  refOrSelector: string
+  refOrSelector: string,
 ): Promise<string> {
   const browser = await getBrowser();
   if (refOrSelector.startsWith('@') || /^e\d+$/.test(refOrSelector)) {
@@ -1577,11 +1981,16 @@ async function resolveElementObjectId(
     return objectId;
   }
   // CSS selector path
-  const res = await client.send<{ result: { objectId?: string; subtype?: string } }>('Runtime.evaluate', {
-    expression: `document.querySelector(${JSON.stringify(refOrSelector)})`,
-    returnByValue: false,
-  }, sessionId);
-  if (!res.result?.objectId || res.result?.subtype === 'null') throw new Error(`Selector not found: ${refOrSelector}`);
+  const res = await client.send<{ result: { objectId?: string; subtype?: string } }>(
+    'Runtime.evaluate',
+    {
+      expression: `document.querySelector(${JSON.stringify(refOrSelector)})`,
+      returnByValue: false,
+    },
+    sessionId,
+  );
+  if (!res.result?.objectId || res.result?.subtype === 'null')
+    throw new Error(`Selector not found: ${refOrSelector}`);
   return res.result.objectId;
 }
 
@@ -1594,63 +2003,87 @@ const isvisibleCommand: Command = {
     const arg = ctx.args[0] as string;
     if (!arg) throw new Error('Usage: monomind browse isvisible @e1|".selector"');
     const objectId = await resolveElementObjectId(client, sessionId, _refs, arg);
-    const r = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
-      functionDeclaration: `function(){var r=this.getBoundingClientRect(),s=window.getComputedStyle(this);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&parseFloat(s.opacity)>0;}`,
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    const r = await client.send<{ result: { value?: boolean } }>(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: `function(){var r=this.getBoundingClientRect(),s=window.getComputedStyle(this);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&parseFloat(s.opacity)>0;}`,
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     const visible = r.result?.value ?? false;
-    if (ctx.flags.json) { print(JSON.stringify({ visible })); }
-    else { output.printSuccess(`isvisible: ${visible}`); }
+    if (ctx.flags.json) {
+      print(JSON.stringify({ visible }));
+    } else {
+      output.printSuccess(`isvisible: ${visible}`);
+    }
     return { success: true, data: { visible } };
   },
 };
 
 const isenabledCommand: Command = {
   name: 'isenabled',
-  description: 'Check if element is enabled (not disabled). Usage: monomind browse isenabled @e1|"selector"',
+  description:
+    'Check if element is enabled (not disabled). Usage: monomind browse isenabled @e1|"selector"',
   options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const arg = ctx.args[0] as string;
     if (!arg) throw new Error('Usage: monomind browse isenabled @e1|".selector"');
     const objectId = await resolveElementObjectId(client, sessionId, _refs, arg);
-    const r = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
-      functionDeclaration: `function(){return !this.disabled;}`,
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    const r = await client.send<{ result: { value?: boolean } }>(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: `function(){return !this.disabled;}`,
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     const enabled = r.result?.value ?? true;
-    if (ctx.flags.json) { print(JSON.stringify({ enabled })); }
-    else { output.printSuccess(`isenabled: ${enabled}`); }
+    if (ctx.flags.json) {
+      print(JSON.stringify({ enabled }));
+    } else {
+      output.printSuccess(`isenabled: ${enabled}`);
+    }
     return { success: true, data: { enabled } };
   },
 };
 
 const ischeckedCommand: Command = {
   name: 'ischecked',
-  description: 'Check if checkbox/radio is checked. Usage: monomind browse ischecked @e1|"selector"',
+  description:
+    'Check if checkbox/radio is checked. Usage: monomind browse ischecked @e1|"selector"',
   options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const arg = ctx.args[0] as string;
     if (!arg) throw new Error('Usage: monomind browse ischecked @e1|".selector"');
     const objectId = await resolveElementObjectId(client, sessionId, _refs, arg);
-    const r = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
-      functionDeclaration: `function(){var el=this,tag=el.tagName&&el.tagName.toUpperCase();if(tag==='INPUT'&&(el.type==='checkbox'||el.type==='radio'))return el.checked;var role=el.getAttribute&&el.getAttribute('role');if(role&&['checkbox','radio','switch','menuitemcheckbox','menuitemradio','option','treeitem'].indexOf(role)!==-1)return el.getAttribute('aria-checked')==='true';var label=tag!=='LABEL'?el.closest&&el.closest('label'):el;if(label&&label.control&&(label.control.type==='checkbox'||label.control.type==='radio'))return label.control.checked;var inp=el.querySelector&&el.querySelector('input[type="checkbox"],input[type="radio"]');return inp?inp.checked:false;}`,
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    const r = await client.send<{ result: { value?: boolean } }>(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: `function(){var el=this,tag=el.tagName&&el.tagName.toUpperCase();if(tag==='INPUT'&&(el.type==='checkbox'||el.type==='radio'))return el.checked;var role=el.getAttribute&&el.getAttribute('role');if(role&&['checkbox','radio','switch','menuitemcheckbox','menuitemradio','option','treeitem'].indexOf(role)!==-1)return el.getAttribute('aria-checked')==='true';var label=tag!=='LABEL'?el.closest&&el.closest('label'):el;if(label&&label.control&&(label.control.type==='checkbox'||label.control.type==='radio'))return label.control.checked;var inp=el.querySelector&&el.querySelector('input[type="checkbox"],input[type="radio"]');return inp?inp.checked:false;}`,
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     const checked = r.result?.value ?? false;
-    if (ctx.flags.json) { print(JSON.stringify({ checked })); }
-    else { output.printSuccess(`ischecked: ${checked}`); }
+    if (ctx.flags.json) {
+      print(JSON.stringify({ checked }));
+    } else {
+      output.printSuccess(`ischecked: ${checked}`);
+    }
     return { success: true, data: { checked } };
   },
 };
 
 const tapCommand: Command = {
   name: 'tap',
-  description: 'Tap element with a touch event (mobile testing). Usage: monomind browse tap @e1|"selector"',
+  description:
+    'Tap element with a touch event (mobile testing). Usage: monomind browse tap @e1|"selector"',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -1669,13 +2102,21 @@ const tapCommand: Command = {
       x = Math.round(box.x);
       y = Math.round(box.y);
     } else {
-      const posJson = await browser.evaluateJs(client, sessionId,
-        `(function(){var el=document.querySelector(${JSON.stringify(arg)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`) as string | null;
+      const posJson = (await browser.evaluateJs(
+        client,
+        sessionId,
+        `(function(){var el=document.querySelector(${JSON.stringify(arg)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`,
+      )) as string | null;
       if (!posJson) throw new Error(`Selector not found: ${arg}`);
       const pos = JSON.parse(posJson) as { x: number; y: number };
-      x = Math.round(pos.x); y = Math.round(pos.y);
+      x = Math.round(pos.x);
+      y = Math.round(pos.y);
     }
-    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }, sessionId);
+    await client.send(
+      'Input.dispatchTouchEvent',
+      { type: 'touchStart', touchPoints: [{ x, y }] },
+      sessionId,
+    );
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }, sessionId);
     output.printSuccess(`Tapped at (${x}, ${y})`);
     return { success: true, data: { x, y } };
@@ -1684,31 +2125,62 @@ const tapCommand: Command = {
 
 const swipeCommand: Command = {
   name: 'swipe',
-  description: 'Swipe gesture (mobile). Usage: monomind browse swipe up|down|left|right [distance] [--x N] [--y N]',
+  description:
+    'Swipe gesture (mobile). Usage: monomind browse swipe up|down|left|right [distance] [--x N] [--y N]',
   options: [
-    { name: 'x', type: 'number', description: 'Start X coordinate (default: center)', default: 200 },
-    { name: 'y', type: 'number', description: 'Start Y coordinate (default: center)', default: 400 },
-    { name: 'distance', short: 'd', type: 'number', description: 'Swipe distance in pixels', default: 300 },
+    {
+      name: 'x',
+      type: 'number',
+      description: 'Start X coordinate (default: center)',
+      default: 200,
+    },
+    {
+      name: 'y',
+      type: 'number',
+      description: 'Start Y coordinate (default: center)',
+      default: 400,
+    },
+    {
+      name: 'distance',
+      short: 'd',
+      type: 'number',
+      description: 'Swipe distance in pixels',
+      default: 300,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
-    const direction = (ctx.args[0] as string) as 'up' | 'down' | 'left' | 'right';
+    const direction = ctx.args[0] as string as 'up' | 'down' | 'left' | 'right';
     if (!['up', 'down', 'left', 'right'].includes(direction)) {
-      throw new Error('Usage: monomind browse swipe up|down|left|right [--x N] [--y N] [--distance N]');
+      throw new Error(
+        'Usage: monomind browse swipe up|down|left|right [--x N] [--y N] [--distance N]',
+      );
     }
     const startX = (ctx.flags.x as number) ?? 200;
     const startY = (ctx.flags.y as number) ?? 400;
-    const positionalDistance = ctx.args[1] !== undefined ? parseInt(ctx.args[1] as string, 10) : undefined;
-    const distance = (positionalDistance && Number.isFinite(positionalDistance)) ? positionalDistance : (ctx.flags.distance as number) ?? 300;
+    const positionalDistance =
+      ctx.args[1] !== undefined ? parseInt(ctx.args[1] as string, 10) : undefined;
+    const distance =
+      positionalDistance && Number.isFinite(positionalDistance)
+        ? positionalDistance
+        : ((ctx.flags.distance as number) ?? 300);
     const dx = direction === 'right' ? distance : direction === 'left' ? -distance : 0;
     const dy = direction === 'down' ? distance : direction === 'up' ? -distance : 0;
 
-    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: startX, y: startY }] }, sessionId);
+    await client.send(
+      'Input.dispatchTouchEvent',
+      { type: 'touchStart', touchPoints: [{ x: startX, y: startY }] },
+      sessionId,
+    );
     const steps = 10;
     for (let i = 1; i <= steps; i++) {
-      const x = Math.round(startX + dx * i / steps);
-      const y = Math.round(startY + dy * i / steps);
-      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] }, sessionId);
+      const x = Math.round(startX + (dx * i) / steps);
+      const y = Math.round(startY + (dy * i) / steps);
+      await client.send(
+        'Input.dispatchTouchEvent',
+        { type: 'touchMove', touchPoints: [{ x, y }] },
+        sessionId,
+      );
       await new Promise((r) => setTimeout(r, 16));
     }
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }, sessionId);
@@ -1761,7 +2233,8 @@ const uploadCommand: Command = {
     const browser = await getBrowser();
     const refArg = ctx.args[0] as string;
     const files = ctx.args.slice(1) as string[];
-    if (!refArg || files.length === 0) throw new Error('Usage: monomind browse upload @e1 <file1> [file2...]');
+    if (!refArg || files.length === 0)
+      throw new Error('Usage: monomind browse upload @e1 <file1> [file2...]');
     const refKey = refArg.startsWith('@') ? refArg.slice(1) : refArg;
     const ref = await browser.resolveRef(client, sessionId, _refs, refKey);
     await browser.uploadFile(client, sessionId, ref, files);
@@ -1772,37 +2245,57 @@ const uploadCommand: Command = {
 
 const downloadCommand: Command = {
   name: 'download',
-  description: 'Click an element and capture the triggered file download. Usage: monomind browse download @e1 ./output.pdf',
+  description:
+    'Click an element and capture the triggered file download. Usage: monomind browse download @e1 ./output.pdf',
   options: [
-    { name: 'timeout', short: 't', type: 'number', description: 'Max wait for download in ms', default: 30000 },
+    {
+      name: 'timeout',
+      short: 't',
+      type: 'number',
+      description: 'Max wait for download in ms',
+      default: 30000,
+    },
     { name: 'json', type: 'boolean', description: 'Output result as JSON', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
-    const browser = await getBrowser();
+    const _browser = await getBrowser();
     const refOrSel = ctx.args[0] as string;
     const savePath = ctx.args[1] as string;
-    if (!refOrSel || !savePath) throw new Error('Usage: monomind browse download @e1|selector <save-path>');
+    if (!refOrSel || !savePath)
+      throw new Error('Usage: monomind browse download @e1|selector <save-path>');
 
-    const { mkdir } = await import('fs/promises');
-    const { dirname } = await import('path');
-    const { tmpdir } = await import('os');
-    const { join } = await import('path');
+    const { mkdir } = await import('node:fs/promises');
+    const { dirname } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
     const downloadDir = join(tmpdir(), `mm-download-${Date.now()}`);
     await mkdir(downloadDir, { recursive: true });
 
     // Enable Page.downloadWillBegin / Page.downloadProgress events
-    await client.send('Browser.setDownloadBehavior', {
-      behavior: 'allow',
-      downloadPath: downloadDir,
-      eventsEnabled: true,
-    }, undefined).catch(() => {
-      // Fallback: older Chrome API (session-scoped)
-      return client.send('Page.setDownloadBehavior', {
-        behavior: 'allow',
-        downloadPath: downloadDir,
-      }, sessionId).catch(() => {});
-    });
+    await client
+      .send(
+        'Browser.setDownloadBehavior',
+        {
+          behavior: 'allow',
+          downloadPath: downloadDir,
+          eventsEnabled: true,
+        },
+        undefined,
+      )
+      .catch(() => {
+        // Fallback: older Chrome API (session-scoped)
+        return client
+          .send(
+            'Page.setDownloadBehavior',
+            {
+              behavior: 'allow',
+              downloadPath: downloadDir,
+            },
+            sessionId,
+          )
+          .catch(() => {});
+      });
 
     // Track when download completes
     const downloadPromise = new Promise<string>((resolve, reject) => {
@@ -1814,38 +2307,52 @@ const downloadCommand: Command = {
       let offProgress: (() => void) | undefined;
       // cleanup defined before setTimeout so the timeout callback can call it
       let timeout: ReturnType<typeof setTimeout>;
-      const cleanup = () => { clearTimeout(timeout); offBegin?.(); offProgress?.(); };
-      timeout = setTimeout(() => { cleanup(); reject(new Error('Download timed out')); }, ctx.flags.timeout as number);
-      offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
-        if (params.guid === guid && params.state === 'completed') {
-          cleanup();
-          // Find the downloaded file in downloadDir
-          const { readdir, rename, rmdir } = await import('fs/promises');
-          const files = await readdir(downloadDir);
-          if (files.length > 0) {
-            const src = join(downloadDir, files[0]);
-            await mkdir(dirname(savePath), { recursive: true });
-            await rename(src, savePath);
-            await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
-            resolve(savePath);
-          } else {
-            await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
-            reject(new Error('Download completed but no file found'));
+      const cleanup = () => {
+        clearTimeout(timeout);
+        offBegin?.();
+        offProgress?.();
+      };
+      timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Download timed out'));
+      }, ctx.flags.timeout as number);
+      offProgress = client.on(
+        'Browser.downloadProgress',
+        async (params: Record<string, unknown>) => {
+          if (params.guid === guid && params.state === 'completed') {
+            cleanup();
+            // Find the downloaded file in downloadDir
+            const { readdir, rename, rmdir } = await import('node:fs/promises');
+            const files = await readdir(downloadDir);
+            if (files.length > 0) {
+              const src = join(downloadDir, files[0]);
+              await mkdir(dirname(savePath), { recursive: true });
+              await rename(src, savePath);
+              await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
+              resolve(savePath);
+            } else {
+              await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
+              reject(new Error('Download completed but no file found'));
+            }
+          } else if (params.guid === guid && params.state === 'canceled') {
+            cleanup();
+            reject(new Error('Download was canceled'));
           }
-        } else if (params.guid === guid && params.state === 'canceled') {
-          cleanup();
-          reject(new Error('Download was canceled'));
-        }
-      });
+        },
+      );
     });
 
     // Click the element to trigger download
     const objectId = await resolveElementObjectId(client, sessionId, _refs, refOrSel);
-    await client.send<{ result: unknown }>('Runtime.callFunctionOn', {
-      functionDeclaration: 'function(){ this.click(); }',
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    await client.send<{ result: unknown }>(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: 'function(){ this.click(); }',
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
 
     const finalPath = await downloadPromise;
     if (ctx.flags.json) print(JSON.stringify({ data: { path: finalPath } }));
@@ -1982,7 +2489,8 @@ const dialogCommand: Command = {
 
 const frameCommand: Command = {
   name: 'frame',
-  description: 'Switch to iframe or back to main. Usage: monomind browse frame "#frame-id" | frame main',
+  description:
+    'Switch to iframe or back to main. Usage: monomind browse frame "#frame-id" | frame main',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -2015,9 +2523,7 @@ const frameCommand: Command = {
 const tabCommand: Command = {
   name: 'tab',
   description: 'Tab management. Usage: monomind browse tab list|new|close [url]',
-  options: [
-    { name: 'label', type: 'string', description: 'Label for new tab' },
-  ],
+  options: [{ name: 'label', type: 'string', description: 'Label for new tab' }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -2042,13 +2548,25 @@ const tabCommand: Command = {
           const sid = _sessionId;
           // Stop profiling before closing the tab so CDP commands still reach the live session
           if (browser.getHarStatus(sid).recording) {
-            try { await browser.stopHarRecording(client, sid); } catch { /* ignore */ }
+            try {
+              await browser.stopHarRecording(client, sid);
+            } catch {
+              /* ignore */
+            }
           }
           if (browser.getTraceStatus(sid)) {
-            try { await browser.stopTrace(client, sid); } catch { /* ignore */ }
+            try {
+              await browser.stopTrace(client, sid);
+            } catch {
+              /* ignore */
+            }
           }
           if (browser.isProfilingActive(sid)) {
-            try { await browser.stopCpuProfile(client, sid); } catch { /* ignore */ }
+            try {
+              await browser.stopCpuProfile(client, sid);
+            } catch {
+              /* ignore */
+            }
           }
           browser.teardownRouteInterception(sid);
           browser.stopRequestCapture(sid);
@@ -2072,13 +2590,25 @@ const tabCommand: Command = {
         const newSid = await browser.activateTab(client, sessionId, action);
         const oldSid = _sessionId;
         if (browser.getHarStatus(oldSid).recording) {
-          try { await browser.stopHarRecording(client, oldSid); } catch { /* ignore */ }
+          try {
+            await browser.stopHarRecording(client, oldSid);
+          } catch {
+            /* ignore */
+          }
         }
         if (browser.getTraceStatus(oldSid)) {
-          try { await browser.stopTrace(client, oldSid); } catch { /* ignore */ }
+          try {
+            await browser.stopTrace(client, oldSid);
+          } catch {
+            /* ignore */
+          }
         }
         if (browser.isProfilingActive(oldSid)) {
-          try { await browser.stopCpuProfile(client, oldSid); } catch { /* ignore */ }
+          try {
+            await browser.stopCpuProfile(client, oldSid);
+          } catch {
+            /* ignore */
+          }
         }
         await browser.disableInterception(client, oldSid).catch(() => {});
         browser.stopRequestCapture(oldSid);
@@ -2105,23 +2635,47 @@ const windowCommand: Command = {
 
     if (!action || action === 'new') {
       // Create isolated browser context (incognito-like) with a fresh page
-      const ctxResult = await client.send<{ browserContextId: string }>('Target.createBrowserContext', {}, undefined);
+      const ctxResult = await client.send<{ browserContextId: string }>(
+        'Target.createBrowserContext',
+        {},
+        undefined,
+      );
       const browserContextId = ctxResult.browserContextId;
       const url = (ctx.args[1] as string) || 'about:blank';
-      const targetResult = await client.send<{ targetId: string }>('Target.createTarget', { url, browserContextId }, undefined);
+      const targetResult = await client.send<{ targetId: string }>(
+        'Target.createTarget',
+        { url, browserContextId },
+        undefined,
+      );
       const targetId = targetResult.targetId;
-      const attachResult = await client.send<{ sessionId: string }>('Target.attachToTarget', { targetId, flatten: true }, undefined);
+      const attachResult = await client.send<{ sessionId: string }>(
+        'Target.attachToTarget',
+        { targetId, flatten: true },
+        undefined,
+      );
       const newSessionId = attachResult.sessionId;
       // W3: fully tear down old session before switching
       const oldSid = _sessionId;
       if (browser.getHarStatus(oldSid).recording) {
-        try { await browser.stopHarRecording(client, oldSid); } catch { /* ignore */ }
+        try {
+          await browser.stopHarRecording(client, oldSid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.getTraceStatus(oldSid)) {
-        try { await browser.stopTrace(client, oldSid); } catch { /* ignore */ }
+        try {
+          await browser.stopTrace(client, oldSid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.isProfilingActive(oldSid)) {
-        try { await browser.stopCpuProfile(client, oldSid); } catch { /* ignore */ }
+        try {
+          await browser.stopCpuProfile(client, oldSid);
+        } catch {
+          /* ignore */
+        }
       }
       browser.teardownRouteInterception(oldSid);
       browser.stopRequestCapture(oldSid);
@@ -2196,7 +2750,8 @@ const errorsCommand: Command = {
 
 const storageCommand: Command = {
   name: 'storage',
-  description: 'localStorage/sessionStorage management. Usage: monomind browse storage local|session [key] [--set val] [--clear]',
+  description:
+    'localStorage/sessionStorage management. Usage: monomind browse storage local|session [key] [--set val] [--clear]',
   options: [
     { name: 'set', type: 'string', description: 'Value to set for key' },
     { name: 'clear', type: 'boolean', description: 'Clear all storage', default: false },
@@ -2221,7 +2776,8 @@ const storageCommand: Command = {
     }
 
     if (key && ctx.flags.set !== undefined) {
-      if (isLocal) await browser.setLocalStorageKey(client, sessionId, key, ctx.flags.set as string);
+      if (isLocal)
+        await browser.setLocalStorageKey(client, sessionId, key, ctx.flags.set as string);
       else await browser.setSessionStorageKey(client, sessionId, key, ctx.flags.set as string);
       output.printSuccess(`Set ${key}`);
       return { success: true };
@@ -2281,11 +2837,13 @@ const cookiesCommand: Command = {
         if (!name || value === undefined) {
           throw new Error('Usage: monomind browse cookies set <name> <value> [--domain <d>]');
         }
-        await browser.setCookies(client, sessionId, [{
-          name,
-          value,
-          domain: ctx.flags.domain as string,
-        }]);
+        await browser.setCookies(client, sessionId, [
+          {
+            name,
+            value,
+            domain: ctx.flags.domain as string,
+          },
+        ]);
         output.printSuccess(`Cookie set: ${name}`);
         break;
       }
@@ -2323,9 +2881,7 @@ const pdfCommand: Command = {
 const isCommand: Command = {
   name: 'is',
   description: 'Check element state. Usage: monomind browse is visible|enabled|checked @e1',
-  options: [
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
-  ],
+  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -2338,10 +2894,17 @@ const isCommand: Command = {
 
     let result: boolean;
     switch (check) {
-      case 'visible': result = await browser.isVisible(client, sessionId, ref); break;
-      case 'enabled': result = await browser.isEnabled(client, sessionId, ref); break;
-      case 'checked': result = await browser.isChecked(client, sessionId, ref); break;
-      default: throw new Error(`Unknown check: ${check}. Use: visible|enabled|checked`);
+      case 'visible':
+        result = await browser.isVisible(client, sessionId, ref);
+        break;
+      case 'enabled':
+        result = await browser.isEnabled(client, sessionId, ref);
+        break;
+      case 'checked':
+        result = await browser.isChecked(client, sessionId, ref);
+        break;
+      default:
+        throw new Error(`Unknown check: ${check}. Use: visible|enabled|checked`);
     }
 
     if (ctx.flags.json) {
@@ -2355,7 +2918,8 @@ const isCommand: Command = {
 
 const findCommand: Command = {
   name: 'find',
-  description: 'Find elements by semantic locators. Usage: monomind browse find role|text|label|placeholder|testid|alttext|title|selector <value> [action]',
+  description:
+    'Find elements by semantic locators. Usage: monomind browse find role|text|label|placeholder|testid|alttext|title|selector <value> [action]',
   options: [
     { name: 'name', type: 'string', description: 'Filter by accessible name' },
     { name: 'exact', type: 'boolean', description: 'Require exact match', default: false },
@@ -2369,7 +2933,10 @@ const findCommand: Command = {
     const value = ctx.args[1] as string;
     const action = ctx.args[2] as FindAction | undefined;
 
-    if (!locator || !value) throw new Error('Usage: monomind browse find role|text|label|placeholder|testid|alttext|title|selector <value> [action]');
+    if (!locator || !value)
+      throw new Error(
+        'Usage: monomind browse find role|text|label|placeholder|testid|alttext|title|selector <value> [action]',
+      );
 
     const opts = {
       name: ctx.flags.name as string,
@@ -2382,9 +2949,15 @@ const findCommand: Command = {
     if (locator === 'alttext') {
       // I2: use JS attribute comparison to avoid broken CSS selectors for values with spaces/quotes
       const valJson = JSON.stringify(value);
-      const found = await browser.evaluateJs(client, sessionId,
-        `(function(v){var el=document.querySelector('img[alt]')||null;var all=document.querySelectorAll('[alt]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('alt')===v){all[i].setAttribute('data-mm-located','true');return true;}}return false;})(${valJson})`) as boolean;
-      if (!found) { output.printWarning(`alttext not found: ${value}`); return { success: false }; }
+      const found = (await browser.evaluateJs(
+        client,
+        sessionId,
+        `(function(v){var el=document.querySelector('img[alt]')||null;var all=document.querySelectorAll('[alt]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('alt')===v){all[i].setAttribute('data-mm-located','true');return true;}}return false;})(${valJson})`,
+      )) as boolean;
+      if (!found) {
+        output.printWarning(`alttext not found: ${value}`);
+        return { success: false };
+      }
       output.printSuccess(`Found element with alt="${value}"`);
       return { success: true, data: { alttext: value } };
     }
@@ -2393,28 +2966,49 @@ const findCommand: Command = {
     if (locator === 'title') {
       // I2: use JS attribute comparison to avoid broken CSS selectors for values with spaces/quotes
       const valJson = JSON.stringify(value);
-      const found = await browser.evaluateJs(client, sessionId,
-        `(function(v){var all=document.querySelectorAll('[title]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('title')===v){all[i].setAttribute('data-mm-located','true');return true;}}return false;})(${valJson})`) as boolean;
-      if (!found) { output.printWarning(`title not found: ${value}`); return { success: false }; }
+      const found = (await browser.evaluateJs(
+        client,
+        sessionId,
+        `(function(v){var all=document.querySelectorAll('[title]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('title')===v){all[i].setAttribute('data-mm-located','true');return true;}}return false;})(${valJson})`,
+      )) as boolean;
+      if (!found) {
+        output.printWarning(`title not found: ${value}`);
+        return { success: false };
+      }
       output.printSuccess(`Found element with title="${value}"`);
       return { success: true, data: { title: value } };
     }
 
     let ref: ElementRef | null = null;
     switch (locator) {
-      case 'role': ref = await browser.findByRole(client, sessionId, _refs, value, opts); break;
-      case 'text': ref = await browser.findByText(client, sessionId, _refs, value, opts); break;
-      case 'label': ref = await browser.findByLabel(client, sessionId, _refs, value, opts); break;
-      case 'placeholder': ref = await browser.findByPlaceholder(client, sessionId, _refs, value, opts); break;
-      case 'selector': ref = await browser.findBySelector(client, sessionId, _refs, value, opts); break;
+      case 'role':
+        ref = await browser.findByRole(client, sessionId, _refs, value, opts);
+        break;
+      case 'text':
+        ref = await browser.findByText(client, sessionId, _refs, value, opts);
+        break;
+      case 'label':
+        ref = await browser.findByLabel(client, sessionId, _refs, value, opts);
+        break;
+      case 'placeholder':
+        ref = await browser.findByPlaceholder(client, sessionId, _refs, value, opts);
+        break;
+      case 'selector':
+        ref = await browser.findBySelector(client, sessionId, _refs, value, opts);
+        break;
       case 'testid': {
         const sel = await browser.findByTestId(client, sessionId, value);
-        if (!sel) { output.printWarning(`testid not found: ${value}`); return { success: false }; }
+        if (!sel) {
+          output.printWarning(`testid not found: ${value}`);
+          return { success: false };
+        }
         output.printSuccess(`Found testid selector: ${sel}`);
         return { success: true, data: { selector: sel } };
       }
       default:
-        throw new Error(`Unknown locator: ${locator}. Use: role|text|label|placeholder|testid|alttext|title|selector`);
+        throw new Error(
+          `Unknown locator: ${locator}. Use: role|text|label|placeholder|testid|alttext|title|selector`,
+        );
     }
 
     if (!ref) {
@@ -2426,7 +3020,9 @@ const findCommand: Command = {
 
     if (action) {
       switch (action) {
-        case 'click': await browser.clickElement(client, sessionId, ref); break;
+        case 'click':
+          await browser.clickElement(client, sessionId, ref);
+          break;
         case 'fill': {
           const fillValue = ctx.args[3] as string;
           await browser.fillElement(client, sessionId, ref, fillValue ?? '');
@@ -2437,18 +3033,31 @@ const findCommand: Command = {
           await browser.typeIntoElement(client, sessionId, ref, typeValue ?? '');
           break;
         }
-        case 'hover': await browser.hoverElement(client, sessionId, ref); break;
-        case 'focus': await browser.focusElement(client, sessionId, ref); break;
-        case 'check': await browser.checkElement(client, sessionId, ref, true); break;
-        case 'uncheck': await browser.checkElement(client, sessionId, ref, false); break;
+        case 'hover':
+          await browser.hoverElement(client, sessionId, ref);
+          break;
+        case 'focus':
+          await browser.focusElement(client, sessionId, ref);
+          break;
+        case 'check':
+          await browser.checkElement(client, sessionId, ref, true);
+          break;
+        case 'uncheck':
+          await browser.checkElement(client, sessionId, ref, false);
+          break;
         case 'text': {
           const objectId = await browser.getObjectIdForRef(client, sessionId, ref);
           if (objectId) {
-            const r = await client.send<{ result: { value?: string } }>('Runtime.callFunctionOn', {
-              functionDeclaration: 'function() { return this.innerText || this.textContent || ""; }',
-              objectId,
-              returnByValue: true,
-            }, sessionId);
+            const r = await client.send<{ result: { value?: string } }>(
+              'Runtime.callFunctionOn',
+              {
+                functionDeclaration:
+                  'function() { return this.innerText || this.textContent || ""; }',
+                objectId,
+                returnByValue: true,
+              },
+              sessionId,
+            );
             print(r.result?.value ?? '');
           }
           break;
@@ -2478,9 +3087,16 @@ const highlightCommand: Command = {
 
 const diffCommand: Command = {
   name: 'diff',
-  description: 'Compare two URLs or snapshots. Usage: monomind browse diff url <url1> <url2> [--interactive] [--json]',
+  description:
+    'Compare two URLs or snapshots. Usage: monomind browse diff url <url1> <url2> [--interactive] [--json]',
   options: [
-    { name: 'interactive', short: 'i', type: 'boolean', description: 'Snapshot interactive elements only', default: false },
+    {
+      name: 'interactive',
+      short: 'i',
+      type: 'boolean',
+      description: 'Snapshot interactive elements only',
+      default: false,
+    },
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -2496,12 +3112,16 @@ const diffCommand: Command = {
       // Capture snapshot at url1
       await browser.openUrl(client, sessionId, url1);
       await browser.waitFor(client, sessionId, { load: 'load', timeout: 15000 });
-      const snap1 = await browser.captureSnapshot(client, sessionId, { interactiveOnly: ctx.flags.interactive as boolean });
+      const snap1 = await browser.captureSnapshot(client, sessionId, {
+        interactiveOnly: ctx.flags.interactive as boolean,
+      });
 
       // Capture snapshot at url2
       await browser.openUrl(client, sessionId, url2);
       await browser.waitFor(client, sessionId, { load: 'load', timeout: 15000 });
-      const snap2 = await browser.captureSnapshot(client, sessionId, { interactiveOnly: ctx.flags.interactive as boolean });
+      const snap2 = await browser.captureSnapshot(client, sessionId, {
+        interactiveOnly: ctx.flags.interactive as boolean,
+      });
 
       _refs = snap2.refs;
       await browser.saveRefCache(_targetId, snap2.url, _refs);
@@ -2516,17 +3136,32 @@ const diffCommand: Command = {
       const changed = onlyIn1.length > 0 || onlyIn2.length > 0;
 
       if (ctx.flags.json) {
-        print(JSON.stringify({ changed, url1, url2, onlyIn1, onlyIn2, additions: onlyIn2.length, removals: onlyIn1.length }));
+        print(
+          JSON.stringify({
+            changed,
+            url1,
+            url2,
+            onlyIn1,
+            onlyIn2,
+            additions: onlyIn2.length,
+            removals: onlyIn1.length,
+          }),
+        );
       } else {
         if (!changed) {
           output.printSuccess(`No differences between ${url1} and ${url2}`);
         } else {
-          output.printWarning(`Diff: ${url1} vs ${url2} — +${onlyIn2.length} lines, -${onlyIn1.length} lines`);
+          output.printWarning(
+            `Diff: ${url1} vs ${url2} — +${onlyIn2.length} lines, -${onlyIn1.length} lines`,
+          );
           for (const l of onlyIn1) print(`\x1b[31m- ${l}\x1b[0m`);
           for (const l of onlyIn2) print(`\x1b[32m+ ${l}\x1b[0m`);
         }
       }
-      return { success: true, data: { changed, url1, url2, additions: onlyIn2.length, removals: onlyIn1.length } };
+      return {
+        success: true,
+        data: { changed, url1, url2, additions: onlyIn2.length, removals: onlyIn1.length },
+      };
     }
 
     throw new Error('Usage: monomind browse diff url <url1> <url2>');
@@ -2557,12 +3192,18 @@ function tokenizeBatchCommand(input: string): string[] {
   let inQuote: '"' | "'" | null = null;
   for (const ch of input.trim()) {
     if (inQuote) {
-      if (ch === inQuote) { inQuote = null; }
-      else { current += ch; }
+      if (ch === inQuote) {
+        inQuote = null;
+      } else {
+        current += ch;
+      }
     } else if (ch === '"' || ch === "'") {
       inQuote = ch;
     } else if (/\s/.test(ch)) {
-      if (current) { tokens.push(current); current = ''; }
+      if (current) {
+        tokens.push(current);
+        current = '';
+      }
     } else {
       current += ch;
     }
@@ -2597,8 +3238,15 @@ function tokenizeBatchCommand(input: string): string[] {
  * Exported for direct unit testing — not part of the CLI's public API.
  */
 export function deriveBoxOutput(
-  center: { x: number; y: number; width: number; height: number } | null
-): { x: number; y: number; width: number; height: number; centerX: number; centerY: number } | null {
+  center: { x: number; y: number; width: number; height: number } | null,
+): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+} | null {
   if (!center) return null;
   return {
     x: center.x - center.width / 2,
@@ -2610,7 +3258,11 @@ export function deriveBoxOutput(
   };
 }
 
-export function parseBatchCommandLine(cmdStr: string): { subName: string; subArgs: string[]; flags: Record<string, unknown> } {
+export function parseBatchCommandLine(cmdStr: string): {
+  subName: string;
+  subArgs: string[];
+  flags: Record<string, unknown>;
+} {
   const trimmed = cmdStr.trim();
   const evalMatch = trimmed.match(/^eval\b\s*/);
   if (!evalMatch) {
@@ -2635,7 +3287,6 @@ export function parseBatchCommandLine(cmdStr: string): { subName: string; subArg
       flags[boolFlag[1]] = true;
       rest = rest.slice(boolFlag[0].length);
       consumedAnother = true;
-      continue;
     }
   }
   return { subName: 'eval', subArgs: [rest], flags };
@@ -2643,7 +3294,8 @@ export function parseBatchCommandLine(cmdStr: string): { subName: string; subArg
 
 const batchCommand: Command = {
   name: 'batch',
-  description: 'Execute multiple commands. Usage: monomind browse batch "open url" "snapshot -i" "click @e1"',
+  description:
+    'Execute multiple commands. Usage: monomind browse batch "open url" "snapshot -i" "click @e1"',
   options: [
     { name: 'bail', type: 'boolean', description: 'Stop on first error', default: false },
     { name: 'json', type: 'boolean', description: 'Input from JSON stdin', default: false },
@@ -2692,7 +3344,11 @@ const batchCommand: Command = {
             } else {
               parsedFlags[key] = true;
             }
-          } else if (subArgs[i].startsWith('-') && subArgs[i].length === 2 && /[a-zA-Z]/.test(subArgs[i][1])) {
+          } else if (
+            subArgs[i].startsWith('-') &&
+            subArgs[i].length === 2 &&
+            /[a-zA-Z]/.test(subArgs[i][1])
+          ) {
             consumedIndices.add(i);
             const shortKey = subArgs[i][1];
             const optDef = subCmd.options?.find((o) => o.short === shortKey);
@@ -2723,7 +3379,11 @@ const batchCommand: Command = {
 
         const cmdResult = await subCmd.action(fakeCtx);
         const succeeded = cmdResult?.success !== false;
-        results.push({ command: cmdStr, success: succeeded, error: succeeded ? undefined : 'Command returned failure' });
+        results.push({
+          command: cmdStr,
+          success: succeeded,
+          error: succeeded ? undefined : 'Command returned failure',
+        });
         if (!succeeded && ctx.flags.bail) break;
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
@@ -2741,7 +3401,8 @@ const batchCommand: Command = {
 
 const addinitscriptCommand: Command = {
   name: 'addinitscript',
-  description: 'Add script to run before page navigation. Usage: monomind browse addinitscript "window.x=1"',
+  description:
+    'Add script to run before page navigation. Usage: monomind browse addinitscript "window.x=1"',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -2755,7 +3416,8 @@ const addinitscriptCommand: Command = {
 
 const removeinitscriptCommand: Command = {
   name: 'removeinitscript',
-  description: 'Remove a previously added init script. Usage: monomind browse removeinitscript <id>',
+  description:
+    'Remove a previously added init script. Usage: monomind browse removeinitscript <id>',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
@@ -2769,11 +3431,17 @@ const removeinitscriptCommand: Command = {
 
 const connectCommand: Command = {
   name: 'connect',
-  description: 'Connect to existing Chrome instance; later commands reuse this session (note: `open` without --port still launches on its own default). Usage: monomind browse connect [--port 9222] [--target <id>] [--auto-connect]',
+  description:
+    'Connect to existing Chrome instance; later commands reuse this session (note: `open` without --port still launches on its own default). Usage: monomind browse connect [--port 9222] [--target <id>] [--auto-connect]',
   options: [
     { name: 'port', short: 'p', type: 'number', description: 'CDP port', default: 9222 },
     { name: 'target', type: 'string', description: 'Target ID to attach to' },
-    { name: 'auto-connect', type: 'boolean', description: 'Auto-discover running Chrome on ports 9222 and 9229', default: false },
+    {
+      name: 'auto-connect',
+      type: 'boolean',
+      description: 'Auto-discover running Chrome on ports 9222 and 9229',
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let port = (ctx.flags.port as number) ?? 9222;
@@ -2784,10 +3452,19 @@ const connectCommand: Command = {
       for (const p of probePorts) {
         try {
           const r = await fetch(`http://127.0.0.1:${p}/json/version`);
-          if (r.ok) { port = p; found = true; break; }
-        } catch { /* port not open */ }
+          if (r.ok) {
+            port = p;
+            found = true;
+            break;
+          }
+        } catch {
+          /* port not open */
+        }
       }
-      if (!found) throw new Error('No running Chrome instance found. Launch Chrome with --remote-debugging-port or use --port.');
+      if (!found)
+        throw new Error(
+          'No running Chrome instance found. Launch Chrome with --remote-debugging-port or use --port.',
+        );
     }
 
     const browser = await getBrowser();
@@ -2796,13 +3473,25 @@ const connectCommand: Command = {
       const prevSid = _sessionId;
       const prevClient = _client;
       if (browser.getHarStatus(prevSid).recording) {
-        try { await browser.stopHarRecording(prevClient, prevSid); } catch { /* ignore */ }
+        try {
+          await browser.stopHarRecording(prevClient, prevSid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.getTraceStatus(prevSid)) {
-        try { await browser.stopTrace(prevClient, prevSid); } catch { /* ignore */ }
+        try {
+          await browser.stopTrace(prevClient, prevSid);
+        } catch {
+          /* ignore */
+        }
       }
       if (browser.isProfilingActive(prevSid)) {
-        try { await browser.stopCpuProfile(prevClient, prevSid); } catch { /* ignore */ }
+        try {
+          await browser.stopCpuProfile(prevClient, prevSid);
+        } catch {
+          /* ignore */
+        }
       }
       browser.teardownRouteInterception(prevSid);
       browser.stopRequestCapture(prevSid);
@@ -2880,7 +3569,10 @@ const recordCommand: Command = {
       case 'status': {
         const status = browser.getRecordingStatus(sessionId);
         if (ctx.flags.json) print(JSON.stringify({ data: status }));
-        else print(`Recording: ${status.recording} | Frames: ${status.frames}${status.autoStopped ? ' (auto-stopped: buffer limit reached — run "record stop" to save)' : ''}`);
+        else
+          print(
+            `Recording: ${status.recording} | Frames: ${status.frames}${status.autoStopped ? ' (auto-stopped: buffer limit reached — run "record stop" to save)' : ''}`,
+          );
         return { success: true, data: status };
       }
       default:
@@ -2904,7 +3596,9 @@ const traceCommand: Command = {
 
     switch (action) {
       case 'start':
-        await browser.startTrace(client, sessionId, { screenshots: ctx.flags.screenshots as boolean });
+        await browser.startTrace(client, sessionId, {
+          screenshots: ctx.flags.screenshots as boolean,
+        });
         output.printSuccess('Trace started');
         return { success: true };
       case 'stop': {
@@ -2937,7 +3631,9 @@ const profilerCommand: Command = {
 
     switch (action) {
       case 'start':
-        await browser.startCpuProfile(client, sessionId, { samplingInterval: ctx.flags.interval as number });
+        await browser.startCpuProfile(client, sessionId, {
+          samplingInterval: ctx.flags.interval as number,
+        });
         output.printSuccess('CPU profiler started');
         return { success: true };
       case 'stop': {
@@ -2997,7 +3693,12 @@ const harCommand: Command = {
         output.printSuccess('HAR recording started');
         return { success: true };
       case 'stop': {
-        const path = await browser.stopHarRecording(client, sessionId, ctx.args[1] as string, ctx.flags.bodies as boolean);
+        const path = await browser.stopHarRecording(
+          client,
+          sessionId,
+          ctx.args[1] as string,
+          ctx.flags.bodies as boolean,
+        );
         if (ctx.flags.json) print(JSON.stringify({ data: { path } }));
         else output.printSuccess(`HAR saved: ${path}`);
         return { success: true, data: { path } };
@@ -3022,7 +3723,8 @@ const resizeCommand: Command = {
     const browser = await getBrowser();
     const width = parseInt(ctx.args[0] as string, 10);
     const height = parseInt(ctx.args[1] as string, 10);
-    if (isNaN(width) || isNaN(height)) throw new Error('Usage: monomind browse resize <width> <height>');
+    if (Number.isNaN(width) || Number.isNaN(height))
+      throw new Error('Usage: monomind browse resize <width> <height>');
     await browser.setViewport(client, sessionId, width, height);
     output.printSuccess(`Resized to ${width}x${height}`);
     return { success: true, data: { width, height } };
@@ -3169,7 +3871,10 @@ const browseCommand: Command = {
   ],
   examples: [
     { command: 'monomind browse open https://example.com', description: 'Open a URL' },
-    { command: 'monomind browse snapshot -i', description: 'Interactive-only snapshot (93% token reduction)' },
+    {
+      command: 'monomind browse snapshot -i',
+      description: 'Interactive-only snapshot (93% token reduction)',
+    },
     { command: 'monomind browse click @e3', description: 'Click element by ref' },
     { command: 'monomind browse fill @e1 "user@example.com"', description: 'Fill an input' },
     { command: 'monomind browse press Enter', description: 'Press Enter key' },
@@ -3183,7 +3888,10 @@ const browseCommand: Command = {
     { command: 'monomind browse state save my-session', description: 'Save session state' },
     { command: 'monomind browse navigate back', description: 'Navigate back' },
     { command: 'monomind browse eval "document.title"', description: 'Evaluate JavaScript' },
-    { command: 'monomind browse network route --pattern "https://api.*" --abort', description: 'Abort API calls' },
+    {
+      command: 'monomind browse network route --pattern "https://api.*" --abort',
+      description: 'Abort API calls',
+    },
     { command: 'monomind browse close', description: 'Close browser session' },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {

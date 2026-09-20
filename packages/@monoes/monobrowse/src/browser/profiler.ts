@@ -1,7 +1,7 @@
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export interface ProfilerOptions {
   path?: string;
@@ -14,14 +14,18 @@ const _heapSessions = new Set<string>();
 export async function startCpuProfile(
   client: CdpClient,
   sessionId: string,
-  options: ProfilerOptions = {}
+  options: ProfilerOptions = {},
 ): Promise<void> {
   if (_sessions.has(sessionId)) {
     throw new Error('CPU profiler already running for this session');
   }
   await client.send('Profiler.enable', {}, sessionId);
   if (options.samplingInterval !== undefined) {
-    await client.send('Profiler.setSamplingInterval', { interval: options.samplingInterval }, sessionId);
+    await client.send(
+      'Profiler.setSamplingInterval',
+      { interval: options.samplingInterval },
+      sessionId,
+    );
   }
   await client.send('Profiler.start', {}, sessionId);
   _sessions.add(sessionId);
@@ -30,7 +34,7 @@ export async function startCpuProfile(
 export async function stopCpuProfile(
   client: CdpClient,
   sessionId: string,
-  outputPath?: string
+  outputPath?: string,
 ): Promise<string> {
   if (!_sessions.has(sessionId)) {
     throw new Error('No active CPU profiler for this session');
@@ -57,7 +61,7 @@ export function isProfilingActive(sessionId: string): boolean {
 export async function startHeapSnapshot(
   client: CdpClient,
   sessionId: string,
-  outputPath?: string
+  outputPath?: string,
 ): Promise<string> {
   if (_heapSessions.has(sessionId)) {
     throw new Error('Heap snapshot already in progress for this session');
@@ -79,10 +83,19 @@ export async function startHeapSnapshot(
       }, 120_000);
       const off2 = client.on('HeapProfiler.reportHeapSnapshotProgress', (params, sid) => {
         if (sid !== sessionId) return;
-        if (params.finished) { clearTimeout(timeoutHandle); off2(); resolve(); }
+        if (params.finished) {
+          clearTimeout(timeoutHandle);
+          off2();
+          resolve();
+        }
       });
-      client.send('HeapProfiler.takeHeapSnapshot', { reportProgress: true }, sessionId)
-        .catch((err) => { clearTimeout(timeoutHandle); off2(); reject(err); });
+      client
+        .send('HeapProfiler.takeHeapSnapshot', { reportProgress: true }, sessionId)
+        .catch((err) => {
+          clearTimeout(timeoutHandle);
+          off2();
+          reject(err);
+        });
     });
   } finally {
     off();

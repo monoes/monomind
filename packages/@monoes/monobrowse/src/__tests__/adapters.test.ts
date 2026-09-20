@@ -2,7 +2,7 @@
  * Platform adapters are pure declarations plus two tiny page-probing methods.
  * A fake PageInterface (evaluate + url) is all that's needed — no browser.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { adapters, getAdapter, type PageInterface } from '../browser/adapters/index.js';
 
 const PLATFORMS = ['linkedin', 'instagram', 'x', 'gemini', 'google', 'microsoft'] as const;
@@ -32,7 +32,7 @@ describe('getAdapter', () => {
 
   it('throws for an unknown platform, listing the supported ones', () => {
     expect(() => getAdapter('myspace')).toThrow(
-      `Unknown platform: myspace. Supported: ${PLATFORMS.join(', ')}`
+      `Unknown platform: myspace. Supported: ${PLATFORMS.join(', ')}`,
     );
   });
 
@@ -72,12 +72,19 @@ describe('adapter invariants', () => {
 
 describe('isLoggedIn', () => {
   it('coerces the page probe to the boolean the caller expects', async () => {
-    await expect(getAdapter('linkedin').isLoggedIn(fakePage({ evaluate: true }))).resolves.toBe(true);
-    await expect(getAdapter('linkedin').isLoggedIn(fakePage({ evaluate: false }))).resolves.toBe(false);
+    await expect(getAdapter('linkedin').isLoggedIn(fakePage({ evaluate: true }))).resolves.toBe(
+      true,
+    );
+    await expect(getAdapter('linkedin').isLoggedIn(fakePage({ evaluate: false }))).resolves.toBe(
+      false,
+    );
   });
 
   it('google short-circuits to false on the sign-in page without probing the DOM', async () => {
-    const page = fakePage({ url: 'https://accounts.google.com/signin/v2/identifier', evaluate: true });
+    const page = fakePage({
+      url: 'https://accounts.google.com/signin/v2/identifier',
+      evaluate: true,
+    });
     await expect(getAdapter('google').isLoggedIn(page)).resolves.toBe(false);
     expect(page.evaluated).toEqual([]);
   });
@@ -109,9 +116,9 @@ describe('isLoggedIn', () => {
 describe('extractUsername', () => {
   it('returns whatever the page evaluation yields', async () => {
     for (const key of PLATFORMS) {
-      await expect(getAdapter(key).extractUsername(fakePage({ evaluate: 'someuser' }))).resolves.toBe(
-        'someuser'
-      );
+      await expect(
+        getAdapter(key).extractUsername(fakePage({ evaluate: 'someuser' })),
+      ).resolves.toBe('someuser');
     }
   });
 

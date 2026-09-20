@@ -1,13 +1,13 @@
-import { resolve } from 'path';
+import { resolve } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import type { ElementRef, ClickOptions } from './types.js';
-import { getObjectIdForRef, getElementBox } from './snapshot.js';
+import { getElementBox, getObjectIdForRef } from './snapshot.js';
+import type { ClickOptions, ElementRef } from './types.js';
 
 export async function clickElement(
   client: CdpClient,
   sessionId: string,
   ref: ElementRef,
-  options: ClickOptions = {}
+  options: ClickOptions = {},
 ): Promise<void> {
   const box = await getElementBox(client, sessionId, ref);
 
@@ -19,11 +19,15 @@ export async function clickElement(
   // Fallback: use JS click via objectId
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (objectId) {
-    await client.send('Runtime.callFunctionOn', {
-      functionDeclaration: 'function() { this.click(); }',
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    await client.send(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: 'function() { this.click(); }',
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     return;
   }
 
@@ -35,7 +39,7 @@ export async function clickPoint(
   sessionId: string,
   x: number,
   y: number,
-  options: ClickOptions = {}
+  options: ClickOptions = {},
 ): Promise<void> {
   const button = options.button ?? 'left';
   // Cap clickCount to prevent unbounded loop DoS
@@ -47,8 +51,21 @@ export async function clickPoint(
 
   for (let i = 0; i < clickCount; i++) {
     const count = i + 1;
-    await client.send('Input.dispatchMouseEvent', { ...shared, type: 'mousePressed', buttons: buttonsMask, clickCount: count }, sessionId);
-    await client.send('Input.dispatchMouseEvent', { ...shared, type: 'mouseReleased', buttons: i < clickCount - 1 ? buttonsMask : 0, clickCount: count }, sessionId);
+    await client.send(
+      'Input.dispatchMouseEvent',
+      { ...shared, type: 'mousePressed', buttons: buttonsMask, clickCount: count },
+      sessionId,
+    );
+    await client.send(
+      'Input.dispatchMouseEvent',
+      {
+        ...shared,
+        type: 'mouseReleased',
+        buttons: i < clickCount - 1 ? buttonsMask : 0,
+        clickCount: count,
+      },
+      sessionId,
+    );
   }
 }
 
@@ -56,7 +73,7 @@ export async function fillElement(
   client: CdpClient,
   sessionId: string,
   ref: ElementRef,
-  value: string
+  value: string,
 ): Promise<void> {
   const box = await getElementBox(client, sessionId, ref);
 
@@ -68,8 +85,13 @@ export async function fillElement(
   // Select all and replace
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (objectId) {
-    const fillSelectResult = await client.send<{ result: unknown; exceptionDetails?: { text: string; exception?: { description?: string } } }>('Runtime.callFunctionOn', {
-      functionDeclaration: `function() {
+    const fillSelectResult = await client.send<{
+      result: unknown;
+      exceptionDetails?: { text: string; exception?: { description?: string } };
+    }>(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: `function() {
         this.focus();
         if (this.tagName === 'INPUT' || this.tagName === 'TEXTAREA') {
           this.select();
@@ -80,11 +102,15 @@ export async function fillElement(
           if (sel) { sel.removeAllRanges(); sel.addRange(range); }
         }
       }`,
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     if (fillSelectResult.exceptionDetails) {
-      throw new Error(`fillElement select-all failed: ${fillSelectResult.exceptionDetails.exception?.description ?? fillSelectResult.exceptionDetails.text}`);
+      throw new Error(
+        `fillElement select-all failed: ${fillSelectResult.exceptionDetails.exception?.description ?? fillSelectResult.exceptionDetails.text}`,
+      );
     }
   } else if (box) {
     // Fallback for elements without a resolvable objectId: keyboard select-all clears existing content
@@ -108,42 +134,62 @@ export async function pressKeyCombo(
   client: CdpClient,
   sessionId: string,
   key: string,
-  modifiers: number
+  modifiers: number,
 ): Promise<void> {
   const { text: _text, ...keyInfo } = resolveKey(key);
   // rawKeyDown prevents Chrome from inserting the character text; only the shortcut fires
-  await client.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...keyInfo, modifiers }, sessionId);
+  await client.send(
+    'Input.dispatchKeyEvent',
+    { type: 'rawKeyDown', ...keyInfo, modifiers },
+    sessionId,
+  );
   await client.send('Input.dispatchKeyEvent', { type: 'keyUp', ...keyInfo, modifiers }, sessionId);
 }
 
-export async function pressKey(
-  client: CdpClient,
-  sessionId: string,
-  key: string
-): Promise<void> {
+export async function pressKey(client: CdpClient, sessionId: string, key: string): Promise<void> {
   const { text, ...keyInfo } = resolveKey(key);
 
   // rawKeyDown does not insert text; the explicit char event handles insertion
-  await client.send('Input.dispatchKeyEvent', {
-    type: 'rawKeyDown',
-    ...keyInfo,
-  }, sessionId);
+  await client.send(
+    'Input.dispatchKeyEvent',
+    {
+      type: 'rawKeyDown',
+      ...keyInfo,
+    },
+    sessionId,
+  );
 
   if (text) {
-    await client.send('Input.dispatchKeyEvent', {
-      type: 'char',
-      text,
-    }, sessionId);
+    await client.send(
+      'Input.dispatchKeyEvent',
+      {
+        type: 'char',
+        text,
+      },
+      sessionId,
+    );
   }
 
-  await client.send('Input.dispatchKeyEvent', {
-    type: 'keyUp',
-    ...keyInfo,
-  }, sessionId);
+  await client.send(
+    'Input.dispatchKeyEvent',
+    {
+      type: 'keyUp',
+      ...keyInfo,
+    },
+    sessionId,
+  );
 }
 
-function resolveKey(key: string): { key: string; code: string; text?: string; windowsVirtualKeyCode?: number } {
-  const keyMap: Record<string, { key: string; code: string; text?: string; windowsVirtualKeyCode?: number }> = {
+function resolveKey(key: string): {
+  key: string;
+  code: string;
+  text?: string;
+  windowsVirtualKeyCode?: number;
+} {
+  const keyMap: Record<
+    string,
+    { key: string; code: string; text?: string; windowsVirtualKeyCode?: number }
+  > = {
     Enter: { key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 },
     Tab: { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 },
     Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
@@ -186,14 +232,19 @@ function resolveKey(key: string): { key: string; code: string; text?: string; wi
       return { key, code: `Digit${key}`, text: key, windowsVirtualKeyCode: charCode };
     }
     if ((charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122)) {
-      return { key, code: `Key${key.toUpperCase()}`, text: key, windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0) };
+      return {
+        key,
+        code: `Key${key.toUpperCase()}`,
+        text: key,
+        windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0),
+      };
     }
     // Symbol keys: map to the physical key's code and Windows virtual key code
     const symbolMap: Record<string, { code: string; windowsVirtualKeyCode: number }> = {
       '!': { code: 'Digit1', windowsVirtualKeyCode: 49 },
       '@': { code: 'Digit2', windowsVirtualKeyCode: 50 },
       '#': { code: 'Digit3', windowsVirtualKeyCode: 51 },
-      '$': { code: 'Digit4', windowsVirtualKeyCode: 52 },
+      $: { code: 'Digit4', windowsVirtualKeyCode: 52 },
       '%': { code: 'Digit5', windowsVirtualKeyCode: 53 },
       '^': { code: 'Digit6', windowsVirtualKeyCode: 54 },
       '&': { code: 'Digit7', windowsVirtualKeyCode: 55 },
@@ -201,7 +252,7 @@ function resolveKey(key: string): { key: string; code: string; text?: string; wi
       '(': { code: 'Digit9', windowsVirtualKeyCode: 57 },
       ')': { code: 'Digit0', windowsVirtualKeyCode: 48 },
       '-': { code: 'Minus', windowsVirtualKeyCode: 189 },
-      '_': { code: 'Minus', windowsVirtualKeyCode: 189 },
+      _: { code: 'Minus', windowsVirtualKeyCode: 189 },
       '=': { code: 'Equal', windowsVirtualKeyCode: 187 },
       '+': { code: 'Equal', windowsVirtualKeyCode: 187 },
       '[': { code: 'BracketLeft', windowsVirtualKeyCode: 219 },
@@ -224,7 +275,8 @@ function resolveKey(key: string): { key: string; code: string; text?: string; wi
       '?': { code: 'Slash', windowsVirtualKeyCode: 191 },
     };
     const sym = symbolMap[key];
-    if (sym) return { key, code: sym.code, text: key, windowsVirtualKeyCode: sym.windowsVirtualKeyCode };
+    if (sym)
+      return { key, code: sym.code, text: key, windowsVirtualKeyCode: sym.windowsVirtualKeyCode };
     // Unknown/non-ASCII character — omit code since no valid DOM KeyboardEvent.code exists
     return { key, code: '', text: key };
   }
@@ -237,7 +289,7 @@ export async function scrollElement(
   sessionId: string,
   direction: 'up' | 'down' | 'left' | 'right',
   amount = 300,
-  ref?: ElementRef
+  ref?: ElementRef,
 ): Promise<void> {
   // Cap scroll amount to prevent extreme delta values
   amount = Math.min(Math.max(1, Math.floor(amount)), 100_000);
@@ -249,60 +301,86 @@ export async function scrollElement(
   if (ref) {
     const box = await getElementBox(client, sessionId, ref);
     if (!box) throw new Error(`Cannot scroll: ref @${ref.ref} not found in DOM`);
-    x = box.x; y = box.y;
+    x = box.x;
+    y = box.y;
   } else {
     // Center of viewport
-    const vp = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
-      expression: 'JSON.stringify({w: window.innerWidth, h: window.innerHeight})',
-      returnByValue: true,
-    }, sessionId);
+    const vp = await client.send<{ result: { value: string } }>(
+      'Runtime.evaluate',
+      {
+        expression: 'JSON.stringify({w: window.innerWidth, h: window.innerHeight})',
+        returnByValue: true,
+      },
+      sessionId,
+    );
     const dims = JSON.parse(vp.result?.value ?? '{"w":1280,"h":720}');
     x = dims.w / 2;
     y = dims.h / 2;
   }
 
   switch (direction) {
-    case 'down': deltaY = amount; break;
-    case 'up': deltaY = -amount; break;
-    case 'right': deltaX = amount; break;
-    case 'left': deltaX = -amount; break;
+    case 'down':
+      deltaY = amount;
+      break;
+    case 'up':
+      deltaY = -amount;
+      break;
+    case 'right':
+      deltaX = amount;
+      break;
+    case 'left':
+      deltaX = -amount;
+      break;
   }
 
-  await client.send('Input.dispatchMouseEvent', {
-    type: 'mouseWheel',
-    x,
-    y,
-    deltaX,
-    deltaY,
-  }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    {
+      type: 'mouseWheel',
+      x,
+      y,
+      deltaX,
+      deltaY,
+    },
+    sessionId,
+  );
 }
 
 export async function hoverElement(
   client: CdpClient,
   sessionId: string,
-  ref: ElementRef
+  ref: ElementRef,
 ): Promise<void> {
   const box = await getElementBox(client, sessionId, ref);
   if (!box) throw new Error(`Cannot hover ref @${ref.ref}: element not found in DOM`);
 
-  await client.send('Input.dispatchMouseEvent', {
-    type: 'mouseMoved',
-    x: box.x,
-    y: box.y,
-  }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    {
+      type: 'mouseMoved',
+      x: box.x,
+      y: box.y,
+    },
+    sessionId,
+  );
 }
 
 export async function selectOption(
   client: CdpClient,
   sessionId: string,
   ref: ElementRef,
-  value: string
+  value: string,
 ): Promise<void> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (!objectId) throw new Error(`Cannot select: ref @${ref.ref} not found in DOM`);
 
-  const selectResult = await client.send<{ result: unknown; exceptionDetails?: { text: string; exception?: { description?: string } } }>('Runtime.callFunctionOn', {
-    functionDeclaration: `function(value) {
+  const selectResult = await client.send<{
+    result: unknown;
+    exceptionDetails?: { text: string; exception?: { description?: string } };
+  }>(
+    'Runtime.callFunctionOn',
+    {
+      functionDeclaration: `function(value) {
       if (this.tagName !== 'SELECT') throw new Error('Not a select element');
       for (const opt of this.options) {
         if (opt.value === value || opt.textContent.trim() === value) {
@@ -313,12 +391,16 @@ export async function selectOption(
       }
       throw new Error('Option not found: ' + value);
     }`,
-    objectId,
-    arguments: [{ value }],
-    returnByValue: true,
-  }, sessionId);
+      objectId,
+      arguments: [{ value }],
+      returnByValue: true,
+    },
+    sessionId,
+  );
   if (selectResult.exceptionDetails) {
-    throw new Error(`selectOption failed: ${selectResult.exceptionDetails.exception?.description ?? selectResult.exceptionDetails.text}`);
+    throw new Error(
+      `selectOption failed: ${selectResult.exceptionDetails.exception?.description ?? selectResult.exceptionDetails.text}`,
+    );
   }
 }
 
@@ -326,34 +408,51 @@ export async function checkElement(
   client: CdpClient,
   sessionId: string,
   ref: ElementRef,
-  checked = true
+  checked = true,
 ): Promise<void> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (!objectId) throw new Error(`Cannot check: ref @${ref.ref} not found in DOM`);
 
-  const checkResult = await client.send<{ result: unknown; exceptionDetails?: { text: string; exception?: { description?: string } } }>('Runtime.callFunctionOn', {
-    functionDeclaration: `function(checked) {
+  const checkResult = await client.send<{
+    result: unknown;
+    exceptionDetails?: { text: string; exception?: { description?: string } };
+  }>(
+    'Runtime.callFunctionOn',
+    {
+      functionDeclaration: `function(checked) {
       if (this.checked !== checked) {
         this.click();
       }
     }`,
-    objectId,
-    arguments: [{ value: checked }],
-    returnByValue: true,
-  }, sessionId);
+      objectId,
+      arguments: [{ value: checked }],
+      returnByValue: true,
+    },
+    sessionId,
+  );
   if (checkResult.exceptionDetails) {
-    throw new Error(`checkElement failed: ${checkResult.exceptionDetails.exception?.description ?? checkResult.exceptionDetails.text}`);
+    throw new Error(
+      `checkElement failed: ${checkResult.exceptionDetails.exception?.description ?? checkResult.exceptionDetails.text}`,
+    );
   }
 }
 
-export async function focusElement(client: CdpClient, sessionId: string, ref: ElementRef): Promise<void> {
+export async function focusElement(
+  client: CdpClient,
+  sessionId: string,
+  ref: ElementRef,
+): Promise<void> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (objectId) {
-    await client.send('Runtime.callFunctionOn', {
-      functionDeclaration: 'function() { this.focus(); }',
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    await client.send(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration: 'function() { this.focus(); }',
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     return;
   }
   const box = await getElementBox(client, sessionId, ref);
@@ -368,7 +467,7 @@ export async function typeIntoElement(
   client: CdpClient,
   sessionId: string,
   ref: ElementRef,
-  text: string
+  text: string,
 ): Promise<void> {
   await focusElement(client, sessionId, ref);
   await typeText(client, sessionId, text);
@@ -384,7 +483,12 @@ export async function keyUp(client: CdpClient, sessionId: string, key: string): 
   await client.send('Input.dispatchKeyEvent', { type: 'keyUp', ...keyInfo }, sessionId);
 }
 
-export async function mouseMove(client: CdpClient, sessionId: string, x: number, y: number): Promise<void> {
+export async function mouseMove(
+  client: CdpClient,
+  sessionId: string,
+  x: number,
+  y: number,
+): Promise<void> {
   await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, sessionId);
 }
 
@@ -393,10 +497,14 @@ export async function mouseDown(
   sessionId: string,
   x: number,
   y: number,
-  button: 'left' | 'right' | 'middle' = 'left'
+  button: 'left' | 'right' | 'middle' = 'left',
 ): Promise<void> {
   const buttonsMask = button === 'right' ? 2 : button === 'middle' ? 4 : 1;
-  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, buttons: buttonsMask, clickCount: 1 }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mousePressed', x, y, button, buttons: buttonsMask, clickCount: 1 },
+    sessionId,
+  );
 }
 
 export async function mouseUp(
@@ -404,9 +512,13 @@ export async function mouseUp(
   sessionId: string,
   x: number,
   y: number,
-  button: 'left' | 'right' | 'middle' = 'left'
+  button: 'left' | 'right' | 'middle' = 'left',
 ): Promise<void> {
-  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, buttons: 0, clickCount: 1 }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseReleased', x, y, button, buttons: 0, clickCount: 1 },
+    sessionId,
+  );
 }
 
 export async function mouseWheel(
@@ -415,47 +527,71 @@ export async function mouseWheel(
   x: number,
   y: number,
   deltaY: number,
-  deltaX = 0
+  deltaX = 0,
 ): Promise<void> {
-  await client.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX, deltaY }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseWheel', x, y, deltaX, deltaY },
+    sessionId,
+  );
 }
 
 export async function dragAndDrop(
   client: CdpClient,
   sessionId: string,
   src: ElementRef,
-  tgt: ElementRef
+  tgt: ElementRef,
 ): Promise<void> {
   const srcBox = await getElementBox(client, sessionId, src);
   const tgtBox = await getElementBox(client, sessionId, tgt);
   if (!srcBox || !tgtBox) throw new Error('Cannot drag: one or both elements not found in DOM');
 
-  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: srcBox.x, y: srcBox.y, button: 'left', buttons: 1, clickCount: 1 }, sessionId);
-  await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: srcBox.x, y: srcBox.y, button: 'left', buttons: 1 }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mousePressed', x: srcBox.x, y: srcBox.y, button: 'left', buttons: 1, clickCount: 1 },
+    sessionId,
+  );
+  await client.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseMoved', x: srcBox.x, y: srcBox.y, button: 'left', buttons: 1 },
+    sessionId,
+  );
 
   // Move in steps for smooth drag
   const steps = 10;
   for (let i = 1; i <= steps; i++) {
     const x = srcBox.x + (tgtBox.x - srcBox.x) * (i / steps);
     const y = srcBox.y + (tgtBox.y - srcBox.y) * (i / steps);
-    await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 }, sessionId);
+    await client.send(
+      'Input.dispatchMouseEvent',
+      { type: 'mouseMoved', x, y, button: 'left', buttons: 1 },
+      sessionId,
+    );
   }
 
-  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tgtBox.x, y: tgtBox.y, button: 'left', buttons: 0, clickCount: 1 }, sessionId);
+  await client.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseReleased', x: tgtBox.x, y: tgtBox.y, button: 'left', buttons: 0, clickCount: 1 },
+    sessionId,
+  );
 }
 
 export async function uploadFile(
   client: CdpClient,
   sessionId: string,
   ref: ElementRef,
-  filePaths: string[]
+  filePaths: string[],
 ): Promise<void> {
   if (!ref.backendDOMNodeId) throw new Error(`Cannot upload: ref @${ref.ref} has no DOM node`);
 
-  await client.send('DOM.setFileInputFiles', {
-    files: filePaths.map((f) => resolve(f)),
-    backendNodeId: ref.backendDOMNodeId,
-  }, sessionId);
+  await client.send(
+    'DOM.setFileInputFiles',
+    {
+      files: filePaths.map((f) => resolve(f)),
+      backendNodeId: ref.backendDOMNodeId,
+    },
+    sessionId,
+  );
 }
 
 export async function readClipboard(client: CdpClient, sessionId: string): Promise<string> {
@@ -463,7 +599,11 @@ export async function readClipboard(client: CdpClient, sessionId: string): Promi
   return result as string;
 }
 
-export async function writeClipboard(client: CdpClient, sessionId: string, text: string): Promise<void> {
+export async function writeClipboard(
+  client: CdpClient,
+  sessionId: string,
+  text: string,
+): Promise<void> {
   // Cap to 100 KB to prevent OOM when serializing the CDP expression
   const safeText = text.length > 102_400 ? text.slice(0, 102_400) : text;
   await evaluateJs(client, sessionId, `navigator.clipboard.writeText(${JSON.stringify(safeText)})`);
@@ -471,7 +611,10 @@ export async function writeClipboard(client: CdpClient, sessionId: string, text:
 
 export async function pushState(client: CdpClient, sessionId: string, url: string): Promise<void> {
   // Try Next.js router first, then fallback to history.pushState
-  await evaluateJs(client, sessionId, `
+  await evaluateJs(
+    client,
+    sessionId,
+    `
     (function() {
       const url = ${JSON.stringify(url)};
       if (window.next && window.next.router) {
@@ -482,17 +625,30 @@ export async function pushState(client: CdpClient, sessionId: string, url: strin
         window.dispatchEvent(new PopStateEvent('popstate'));
       }
     })()
-  `);
+  `,
+  );
 }
 
-export async function addInitScript(client: CdpClient, sessionId: string, script: string): Promise<string> {
-  const result = await client.send<{ identifier: string }>('Page.addScriptToEvaluateOnNewDocument', {
-    source: script,
-  }, sessionId);
+export async function addInitScript(
+  client: CdpClient,
+  sessionId: string,
+  script: string,
+): Promise<string> {
+  const result = await client.send<{ identifier: string }>(
+    'Page.addScriptToEvaluateOnNewDocument',
+    {
+      source: script,
+    },
+    sessionId,
+  );
   return result.identifier;
 }
 
-export async function removeInitScript(client: CdpClient, sessionId: string, identifier: string): Promise<void> {
+export async function removeInitScript(
+  client: CdpClient,
+  sessionId: string,
+  identifier: string,
+): Promise<void> {
   await client.send('Page.removeScriptToEvaluateOnNewDocument', { identifier }, sessionId);
 }
 
@@ -509,29 +665,38 @@ export async function evaluateJs(
   client: CdpClient,
   sessionId: string,
   expression: string,
-  timeoutMs: number = DEFAULT_EVAL_TIMEOUT_MS
+  timeoutMs: number = DEFAULT_EVAL_TIMEOUT_MS,
 ): Promise<unknown> {
   const evalPromise = client.send<{
     result: { value?: unknown; type: string; description?: string };
     exceptionDetails?: { text: string; exception?: { description?: string } };
-  }>('Runtime.evaluate', {
-    expression,
-    returnByValue: true,
-    awaitPromise: true,
-  }, sessionId);
+  }>(
+    'Runtime.evaluate',
+    {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    },
+    sessionId,
+  );
 
   const result = await (timeoutMs > 0
     ? Promise.race([
         evalPromise,
         new Promise<never>((_, reject) => {
-          const t = setTimeout(() => reject(new Error(`JS evaluation timed out after ${timeoutMs}ms`)), timeoutMs);
+          const t = setTimeout(
+            () => reject(new Error(`JS evaluation timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+          );
           t.unref?.();
         }),
       ])
     : evalPromise);
 
   if (result.exceptionDetails) {
-    throw new Error(`JS evaluation error: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`);
+    throw new Error(
+      `JS evaluation error: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`,
+    );
   }
 
   return result.result?.value;

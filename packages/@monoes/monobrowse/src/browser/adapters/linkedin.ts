@@ -1,5 +1,5 @@
 // src/browser/adapters/linkedin.ts
-import type { PlatformAdapter, PageInterface } from './index.js';
+import type { PageInterface, PlatformAdapter } from './index.js';
 
 export const linkedinAdapter: PlatformAdapter = {
   platform: 'linkedin',
@@ -10,6 +10,8 @@ export const linkedinAdapter: PlatformAdapter = {
     return page.evaluate<boolean>("!!document.querySelector('.global-nav__me-photo')");
   },
   async extractUsername(page: PageInterface): Promise<string> {
-    return page.evaluate<string>("document.querySelector('.profile-rail-card__actor-link')?.textContent?.trim() ?? ''");
+    return page.evaluate<string>(
+      "document.querySelector('.profile-rail-card__actor-link')?.textContent?.trim() ?? ''",
+    );
   },
 };

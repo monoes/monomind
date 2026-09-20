@@ -1,7 +1,7 @@
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export interface TraceOptions {
   path?: string;
@@ -27,7 +27,7 @@ const _sessions = new Map<string, { events: unknown[]; offData: () => void }>();
 export async function startTrace(
   client: CdpClient,
   sessionId: string,
-  options: TraceOptions = {}
+  options: TraceOptions = {},
 ): Promise<void> {
   if (_sessions.has(sessionId)) {
     throw new Error('Trace already in progress for this session');
@@ -47,12 +47,16 @@ export async function startTrace(
   if (options.screenshots) cats.push('disabled-by-default-devtools.screenshot');
 
   try {
-    await client.send('Tracing.start', {
-      traceConfig: {
-        includedCategories: cats.filter((c) => !c.startsWith('-')),
-        excludedCategories: cats.filter((c) => c.startsWith('-')).map((c) => c.slice(1)),
+    await client.send(
+      'Tracing.start',
+      {
+        traceConfig: {
+          includedCategories: cats.filter((c) => !c.startsWith('-')),
+          excludedCategories: cats.filter((c) => c.startsWith('-')).map((c) => c.slice(1)),
+        },
       },
-    }, sessionId);
+      sessionId,
+    );
   } catch (err) {
     offData();
     _sessions.delete(sessionId);
@@ -63,7 +67,7 @@ export async function startTrace(
 export async function stopTrace(
   client: CdpClient,
   sessionId: string,
-  outputPath?: string
+  outputPath?: string,
 ): Promise<string> {
   const state = _sessions.get(sessionId);
   if (!state) throw new Error('No active trace for this session');

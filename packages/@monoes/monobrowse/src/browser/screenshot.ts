@@ -1,9 +1,9 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import type { ElementRef } from './types.js';
 import { getObjectIdForRef } from './snapshot.js';
-import { writeFile, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
-import { tmpdir } from 'os';
+import type { ElementRef } from './types.js';
 
 export interface ScreenshotOptions {
   path?: string;
@@ -17,16 +17,21 @@ export interface ScreenshotOptions {
 async function getViewportTopLeft(
   client: CdpClient,
   sessionId: string,
-  ref: ElementRef
+  ref: ElementRef,
 ): Promise<{ x: number; y: number } | null> {
   const objectId = await getObjectIdForRef(client, sessionId, ref).catch(() => null);
   if (!objectId) return null;
   try {
-    const r = await client.send<{ result: { value?: string } }>('Runtime.callFunctionOn', {
-      functionDeclaration: 'function() { var r=this.getBoundingClientRect(); if(r.width===0&&r.height===0)return null; return JSON.stringify({x:Math.round(r.left),y:Math.round(r.top)}); }',
-      objectId,
-      returnByValue: true,
-    }, sessionId);
+    const r = await client.send<{ result: { value?: string } }>(
+      'Runtime.callFunctionOn',
+      {
+        functionDeclaration:
+          'function() { var r=this.getBoundingClientRect(); if(r.width===0&&r.height===0)return null; return JSON.stringify({x:Math.round(r.left),y:Math.round(r.top)}); }',
+        objectId,
+        returnByValue: true,
+      },
+      sessionId,
+    );
     if (!r.result?.value) return null;
     return JSON.parse(r.result.value) as { x: number; y: number };
   } catch {
@@ -37,7 +42,7 @@ async function getViewportTopLeft(
 async function injectAnnotationOverlay(
   client: CdpClient,
   sessionId: string,
-  refs: Map<string, ElementRef>
+  refs: Map<string, ElementRef>,
 ): Promise<void> {
   const badges: Array<{ num: number; x: number; y: number }> = [];
   for (const [key, ref] of refs) {
@@ -49,8 +54,11 @@ async function injectAnnotationOverlay(
   if (badges.length === 0) return;
 
   const badgesJson = JSON.stringify(badges);
-  await client.send('Runtime.evaluate', {
-    expression: `(function(){
+  await client
+    .send(
+      'Runtime.evaluate',
+      {
+        expression: `(function(){
       var p=document.getElementById('__mm_ann__');if(p)p.remove();
       var c=document.createElement('div');
       c.id='__mm_ann__';
@@ -64,21 +72,30 @@ async function injectAnnotationOverlay(
       });
       document.body.appendChild(c);
     })()`,
-    returnByValue: false,
-  }, sessionId).catch(() => {});
+        returnByValue: false,
+      },
+      sessionId,
+    )
+    .catch(() => {});
 }
 
 async function removeAnnotationOverlay(client: CdpClient, sessionId: string): Promise<void> {
-  await client.send('Runtime.evaluate', {
-    expression: `(function(){var e=document.getElementById('__mm_ann__');if(e)e.remove();})()`,
-    returnByValue: false,
-  }, sessionId).catch(() => {});
+  await client
+    .send(
+      'Runtime.evaluate',
+      {
+        expression: `(function(){var e=document.getElementById('__mm_ann__');if(e)e.remove();})()`,
+        returnByValue: false,
+      },
+      sessionId,
+    )
+    .catch(() => {});
 }
 
 export async function captureScreenshot(
   client: CdpClient,
   sessionId: string,
-  options: ScreenshotOptions = {}
+  options: ScreenshotOptions = {},
 ): Promise<{ path: string; dataUrl: string }> {
   const format = options.format ?? 'png';
   const params: Record<string, unknown> = { format };
@@ -88,10 +105,15 @@ export async function captureScreenshot(
   }
 
   if (options.fullPage) {
-    const dims = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
-      expression: 'JSON.stringify({w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight})',
-      returnByValue: true,
-    }, sessionId);
+    const dims = await client.send<{ result: { value: string } }>(
+      'Runtime.evaluate',
+      {
+        expression:
+          'JSON.stringify({w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight})',
+        returnByValue: true,
+      },
+      sessionId,
+    );
     const { w, h } = JSON.parse(dims.result?.value ?? '{"w":1280,"h":720}');
     params.clip = { x: 0, y: 0, width: w, height: h, scale: 1 };
     params.captureBeyondViewport = true;
@@ -123,20 +145,24 @@ export async function setViewport(
   client: CdpClient,
   sessionId: string,
   width: number,
-  height: number
+  height: number,
 ): Promise<void> {
-  await client.send('Emulation.setDeviceMetricsOverride', {
-    width,
-    height,
-    deviceScaleFactor: 1,
-    mobile: false,
-  }, sessionId);
+  await client.send(
+    'Emulation.setDeviceMetricsOverride',
+    {
+      width,
+      height,
+      deviceScaleFactor: 1,
+      mobile: false,
+    },
+    sessionId,
+  );
 }
 
 export async function setUserAgent(
   client: CdpClient,
   sessionId: string,
-  userAgent: string
+  userAgent: string,
 ): Promise<void> {
   await client.send('Emulation.setUserAgentOverride', { userAgent }, sessionId);
 }

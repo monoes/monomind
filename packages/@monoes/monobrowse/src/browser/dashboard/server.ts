@@ -1,11 +1,11 @@
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
-import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createServer, type IncomingMessage } from 'node:http';
+import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export interface StepEvent {
   type: string;
@@ -23,10 +23,12 @@ export interface RunRecord {
 
 const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
 
-function readBody(req: IncomingMessage): Promise<string> {
+function _readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString();
+    });
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
@@ -36,13 +38,15 @@ async function loadPersistedRuns(): Promise<RunRecord[]> {
   if (!existsSync(RUNS_FILE)) return [];
   try {
     return JSON.parse(await readFile(RUNS_FILE, 'utf-8')) as RunRecord[];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 const _require = createRequire(import.meta.url);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PORT = parseInt(process.env['MONOBROWSE_DASHBOARD_PORT'] ?? '4242', 10);
+const DEFAULT_PORT = parseInt(process.env.MONOBROWSE_DASHBOARD_PORT ?? '4242', 10);
 const MAX_RUN_HISTORY = 50;
 
 export interface DashboardServer {
@@ -67,7 +71,9 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   try {
     const authFileDir = join(homedir(), '.monomind');
     mkdirSync(authFileDir, { recursive: true });
-    writeFileSync(join(authFileDir, 'monobrowse-dashboard-token'), dashboardAuthValue, { mode: 0o600 });
+    writeFileSync(join(authFileDir, 'monobrowse-dashboard-token'), dashboardAuthValue, {
+      mode: 0o600,
+    });
   } catch {
     // best-effort: if we can't persist the token, mutating routes still
     // enforce it in-memory — trusted callers just won't be able to read it.
@@ -114,8 +120,8 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
 
     if (url === '/runs' && req.method === 'GET') {
       const persisted = await loadPersistedRuns().catch(() => [] as RunRecord[]);
-      const seen = new Set(runHistory.map(r => r.id));
-      const merged = [...runHistory, ...persisted.filter(r => !seen.has(r.id))]
+      const seen = new Set(runHistory.map((r) => r.id));
+      const merged = [...runHistory, ...persisted.filter((r) => !seen.has(r.id))]
         .sort((a, b) => b.startedAt - a.startedAt)
         .slice(0, MAX_RUN_HISTORY);
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -130,7 +136,8 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     // every non-GET/HEAD route; GET/SSE reads stay open on the loopback baseline.
     if (url.startsWith('/stop/') && req.method === 'POST') {
       const parsedAuth = new URL(url, 'http://localhost');
-      const suppliedAuth = req.headers['x-monobrowse-token'] || parsedAuth.searchParams.get('token') || '';
+      const suppliedAuth =
+        req.headers['x-monobrowse-token'] || parsedAuth.searchParams.get('token') || '';
       if (suppliedAuth !== dashboardAuthValue) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
@@ -144,18 +151,26 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     }
 
     const parsed = new URL(url, 'http://localhost');
-    if (parsed.pathname === '/events' && (req.method === 'GET' || req.method === 'HEAD') && !WebSocketServer) {
+    if (
+      parsed.pathname === '/events' &&
+      (req.method === 'GET' || req.method === 'HEAD') &&
+      !WebSocketServer
+    ) {
       // SSE fallback when ws not available
       const subscribedDir = parsed.searchParams.get('dir') ?? null;
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
       });
       res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
       clientDirs.set(res, subscribedDir);
       const heartbeat = setInterval(() => {
-        try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
+        try {
+          res.write(': keep-alive\n\n');
+        } catch {
+          clearInterval(heartbeat);
+        }
       }, 30_000);
       req.on('close', () => {
         clearInterval(heartbeat);
@@ -176,8 +191,8 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       const subscribedDir = upgradeParsed.searchParams.get('dir') ?? null;
       clientDirs.set(ws, subscribedDir);
       const persisted = await loadPersistedRuns().catch(() => [] as RunRecord[]);
-      const seen = new Set(runHistory.map(r => r.id));
-      const merged = [...runHistory, ...persisted.filter(r => !seen.has(r.id))]
+      const seen = new Set(runHistory.map((r) => r.id));
+      const merged = [...runHistory, ...persisted.filter((r) => !seen.has(r.id))]
         .sort((a, b) => b.startedAt - a.startedAt)
         .slice(0, MAX_RUN_HISTORY);
       ws.send(JSON.stringify({ type: 'history', runs: merged }));
@@ -205,7 +220,11 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   function broadcast(event: StepEvent): void {
     const msg = JSON.stringify(event);
     for (const [client, subscribedDir] of clientDirs) {
-      if (subscribedDir !== null && event.projectDir !== undefined && subscribedDir !== event.projectDir) {
+      if (
+        subscribedDir !== null &&
+        event.projectDir !== undefined &&
+        subscribedDir !== event.projectDir
+      ) {
         continue;
       }
       try {
@@ -221,7 +240,7 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   }
 
   function addRunRecord(record: RunRecord): void {
-    const idx = runHistory.findIndex(r => r.id === record.id);
+    const idx = runHistory.findIndex((r) => r.id === record.id);
     if (idx >= 0) {
       runHistory[idx] = record;
     } else {
@@ -229,9 +248,9 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       if (runHistory.length > MAX_RUN_HISTORY) runHistory.pop();
     }
     const dir = join(homedir(), '.monomind');
-    mkdir(dir, { recursive: true }).then(() =>
-      writeFile(RUNS_FILE, JSON.stringify(runHistory, null, 2))
-    ).catch(() => {});
+    mkdir(dir, { recursive: true })
+      .then(() => writeFile(RUNS_FILE, JSON.stringify(runHistory, null, 2)))
+      .catch(() => {});
   }
 
   function isStopRequested(runId: string): boolean {

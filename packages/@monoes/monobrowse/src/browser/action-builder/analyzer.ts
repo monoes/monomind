@@ -1,5 +1,5 @@
 // src/browser/action-builder/analyzer.ts
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
 import type { ActionDef } from './types.js';
 
 export interface AnalyzerPage {
@@ -45,7 +45,15 @@ function claudeCliCall(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       'claude',
-      ['--print', '--model', 'haiku', '--strict-mcp-config', '--no-session-persistence', '--', prompt],
+      [
+        '--print',
+        '--model',
+        'haiku',
+        '--strict-mcp-config',
+        '--no-session-persistence',
+        '--',
+        prompt,
+      ],
       { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
     );
     let stdout = '';
@@ -54,11 +62,19 @@ function claudeCliCall(prompt: string): Promise<string> {
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      try { child.kill('SIGTERM'); } catch { /* ignore */ }
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* ignore */
+      }
       reject(new Error('claude --print timed out after 60s'));
     }, 60_000);
-    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
-    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    child.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString();
+    });
+    child.stderr.on('data', (d: Buffer) => {
+      stderr += d.toString();
+    });
     child.on('close', (code) => {
       if (settled) return;
       settled = true;
@@ -70,7 +86,11 @@ function claudeCliCall(prompt: string): Promise<string> {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      reject(new Error(`claude CLI not found — is Claude Code installed? (${(err as NodeJS.ErrnoException).code})`));
+      reject(
+        new Error(
+          `claude CLI not found — is Claude Code installed? (${(err as NodeJS.ErrnoException).code})`,
+        ),
+      );
     });
   });
 }
@@ -103,7 +123,7 @@ ActionDef schema:
 export async function analyzePageForAction(
   page: AnalyzerPage,
   task: string,
-  options: AnalyzerOptions = {},
+  _options: AnalyzerOptions = {},
 ): Promise<ActionDef> {
   const url = await page.url();
   const title = await page.evaluate<string>('document.title');
@@ -119,13 +139,15 @@ export async function analyzePageForAction(
   const domContext = `URL: ${url}
 Title: ${title}
 Interactive elements (${elements.length}):
-${elements.map((el, i) => {
-  const attrs = Object.entries(el.attrs)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `${k}="${v}"`)
-    .join(' ');
-  return `${i + 1}. <${el.tag}${attrs ? ' ' + attrs : ''}>${el.text}</${el.tag}>`;
-}).join('\n')}`;
+${elements
+  .map((el, i) => {
+    const attrs = Object.entries(el.attrs)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}="${v}"`)
+      .join(' ');
+    return `${i + 1}. <${el.tag}${attrs ? ` ${attrs}` : ''}>${el.text}</${el.tag}>`;
+  })
+  .join('\n')}`;
 
   const fullPrompt = `${SYSTEM_PROMPT}\n\nTask: ${task}\n\nPage context:\n${domContext}`;
   const responseText = await claudeCliCall(fullPrompt);
@@ -138,7 +160,9 @@ ${elements.map((el, i) => {
   }
 
   if (!actionDef.id || !actionDef.steps || !Array.isArray(actionDef.steps)) {
-    throw new Error(`Claude returned invalid ActionDef: missing id or steps\n${responseText.slice(0, 500)}`);
+    throw new Error(
+      `Claude returned invalid ActionDef: missing id or steps\n${responseText.slice(0, 500)}`,
+    );
   }
 
   return actionDef;

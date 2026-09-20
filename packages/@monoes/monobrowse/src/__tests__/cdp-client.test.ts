@@ -5,7 +5,7 @@
  * `ws` module (so we can drive 'message'/'close'/'error' by hand), and
  * fetchTargets/fetchNewTarget run against a stubbed global fetch.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- fake `ws` -------------------------------------------------------------
 // Captures the most recently constructed socket so tests can drive its events.
@@ -140,7 +140,9 @@ describe('send', () => {
   it('refuses to exceed the 1000 in-flight command cap', async () => {
     const { client } = await connected();
     const inflight = Array.from({ length: 1000 }, () => client.send('A').catch(() => {}));
-    await expect(client.send('A')).rejects.toThrow('CDP command queue full (>1000 in-flight commands)');
+    await expect(client.send('A')).rejects.toThrow(
+      'CDP command queue full (>1000 in-flight commands)',
+    );
     client.close();
     await Promise.all(inflight);
   });
@@ -152,7 +154,9 @@ describe('send', () => {
     it('rejects a command with no response after the default 30s timeout', async () => {
       const { client } = await connected();
       const p = client.send('Runtime.evaluate');
-      const assertion = expect(p).rejects.toThrow('CDP command "Runtime.evaluate" timed out after 30000ms');
+      const assertion = expect(p).rejects.toThrow(
+        'CDP command "Runtime.evaluate" timed out after 30000ms',
+      );
       await vi.advanceTimersByTimeAsync(30_000);
       await assertion;
     });
@@ -171,7 +175,13 @@ describe('send', () => {
       await vi.advanceTimersByTimeAsync(60_000);
       // Still pending — no timeout fired.
       let settled = false;
-      void p.then(() => { settled = true; }).catch(() => { settled = true; });
+      void p
+        .then(() => {
+          settled = true;
+        })
+        .catch(() => {
+          settled = true;
+        });
       await Promise.resolve();
       expect(settled).toBe(false);
       ws.deliver({ id: 1, result: {} });
@@ -331,21 +341,27 @@ describe('fetchTargets / fetchNewTarget', () => {
     globalThis.fetch = realFetch;
   });
 
-  function stubFetch(impl: (url: string, init?: RequestInit) => Response): ReturnType<typeof vi.fn> {
+  function stubFetch(
+    impl: (url: string, init?: RequestInit) => Response,
+  ): ReturnType<typeof vi.fn> {
     const fn = vi.fn((url: string, init?: RequestInit) => Promise.resolve(impl(url, init)));
     globalThis.fetch = fn as unknown as typeof fetch;
     return fn;
   }
 
   it('fetchTargets hits /json/list on the given port', async () => {
-    const fn = stubFetch(() => new Response(JSON.stringify([{ id: 'T1', type: 'page' }]), { status: 200 }));
+    const fn = stubFetch(
+      () => new Response(JSON.stringify([{ id: 'T1', type: 'page' }]), { status: 200 }),
+    );
     await expect(fetchTargets(9333)).resolves.toEqual([{ id: 'T1', type: 'page' }]);
     expect(fn.mock.calls[0]![0]).toBe('http://127.0.0.1:9333/json/list');
   });
 
   it('fetchTargets throws on a non-OK response', async () => {
     stubFetch(() => new Response('nope', { status: 500, statusText: 'Internal Server Error' }));
-    await expect(fetchTargets(9222)).rejects.toThrow('Failed to fetch targets: Internal Server Error');
+    await expect(fetchTargets(9222)).rejects.toThrow(
+      'Failed to fetch targets: Internal Server Error',
+    );
   });
 
   it('fetchNewTarget uses PUT and percent-encodes the URL', async () => {
@@ -354,7 +370,7 @@ describe('fetchTargets / fetchNewTarget', () => {
     const [url, init] = fn.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe('PUT');
     expect(url).toBe(
-      'http://127.0.0.1:9222/json/new?' + encodeURIComponent('https://x.test/a?b=1&c=2')
+      `http://127.0.0.1:9222/json/new?${encodeURIComponent('https://x.test/a?b=1&c=2')}`,
     );
     // The query separators of the target URL must not leak into Chrome's own query.
     expect(url.split('?').length).toBe(2);
@@ -363,7 +379,7 @@ describe('fetchTargets / fetchNewTarget', () => {
   it('fetchNewTarget throws on a non-OK response', async () => {
     stubFetch(() => new Response('', { status: 405, statusText: 'Method Not Allowed' }));
     await expect(fetchNewTarget(9222, 'about:blank')).rejects.toThrow(
-      'Failed to create target: Method Not Allowed'
+      'Failed to create target: Method Not Allowed',
     );
   });
 

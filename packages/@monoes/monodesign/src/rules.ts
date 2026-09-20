@@ -57,8 +57,7 @@ const ABSOLUTE_BANS_STATIC: AbsoluteBan[] = [
   {
     id: 'glassmorphism-default',
     rule: 'No glassmorphism as default',
-    description:
-      'Blurs and glass cards used decoratively. Rare and purposeful, or nothing.',
+    description: 'Blurs and glass cards used decoratively. Rare and purposeful, or nothing.',
   },
   {
     id: 'hero-metric-template',
@@ -108,7 +107,11 @@ export const SHADOW_MAX_ALPHA = 0.15;
 export function shadowAlphaComplies(shadow: string): boolean {
   const matches = shadow.match(/rgba?\([^)]+\)/g) ?? [];
   for (const m of matches) {
-    const parts = m.replace(/rgba?\(/, '').replace(')', '').split(',').map(Number);
+    const parts = m
+      .replace(/rgba?\(/, '')
+      .replace(')', '')
+      .split(',')
+      .map(Number);
     const alpha = parts.length === 4 ? parts[3] : 1;
     if (alpha > SHADOW_MAX_ALPHA) return false;
   }

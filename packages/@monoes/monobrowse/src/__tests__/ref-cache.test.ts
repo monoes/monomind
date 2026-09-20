@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, readFile, rm, stat } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // We need to mock process.cwd() before importing ref-cache so CACHE_DIR
 // resolves to our temp directory.
@@ -26,7 +26,9 @@ async function importRefCache() {
   return import('../browser/ref-cache.js');
 }
 
-function makeRefs(count = 2): Map<string, { ref: string; role: string; name: string; nodeId: number }> {
+function makeRefs(
+  count = 2,
+): Map<string, { ref: string; role: string; name: string; nodeId: number }> {
   const map = new Map();
   for (let i = 1; i <= count; i++) {
     map.set(`ref${i}`, { ref: `ref${i}`, role: 'button', name: `Button ${i}`, nodeId: i });
@@ -68,7 +70,7 @@ describe('ref-cache', () => {
 
     // Now overwrite the file with invalid JSON
     const cacheFile = join(tempDir, '.monomind', 'monobrowse', 'ax-snapshot.json');
-    const { writeFile: wf } = await import('fs/promises');
+    const { writeFile: wf } = await import('node:fs/promises');
     await wf(cacheFile, '{{{not valid json!!!');
 
     const loaded = await mod.loadRefCache('t');
@@ -117,7 +119,7 @@ describe('ref-cache', () => {
     const cacheFile = join(tempDir, '.monomind', 'monobrowse', 'ax-snapshot.json');
     const raw = JSON.parse(await readFile(cacheFile, 'utf8'));
     raw.savedAt = Date.now() - mod.REF_CACHE_STALE_MS - 5000;
-    const { writeFile: wf } = await import('fs/promises');
+    const { writeFile: wf } = await import('node:fs/promises');
     await wf(cacheFile, JSON.stringify(raw));
 
     const loaded = await mod.loadRefCache('t1');
@@ -138,13 +140,21 @@ describe('active-port persistence', () => {
     const mod = await importRefCache();
     await mod.saveActivePort(9333);
     expect(await mod.loadActivePort()).toBe(9333);
-    expect(await mod.loadActivePortInfo()).toEqual({ port: 9333, launched: true, savedAt: expect.any(Number) });
+    expect(await mod.loadActivePortInfo()).toEqual({
+      port: 9333,
+      launched: true,
+      savedAt: expect.any(Number),
+    });
   });
 
   it('connect provenance: launched:false survives the round-trip', async () => {
     const mod = await importRefCache();
     await mod.saveActivePort(9229, { launched: false });
-    expect(await mod.loadActivePortInfo()).toEqual({ port: 9229, launched: false, savedAt: expect.any(Number) });
+    expect(await mod.loadActivePortInfo()).toEqual({
+      port: 9229,
+      launched: false,
+      savedAt: expect.any(Number),
+    });
   });
 
   it('clear removes the file; load returns null afterwards', async () => {
@@ -196,11 +206,14 @@ describe('active-port persistence', () => {
 
   it('#115: a non-numeric or non-positive persisted pid is dropped, not trusted', async () => {
     const mod = await importRefCache();
-    const { writeFile, mkdir } = await import('fs/promises');
+    const { writeFile, mkdir } = await import('node:fs/promises');
     const dir = join(process.cwd(), '.monomind', 'monobrowse');
     await mkdir(dir, { recursive: true });
     for (const badPid of ['54321', -1, 0, 1.5, null]) {
-      await writeFile(join(dir, 'active-port.json'), JSON.stringify({ port: 9333, launched: true, pid: badPid }));
+      await writeFile(
+        join(dir, 'active-port.json'),
+        JSON.stringify({ port: 9333, launched: true, pid: badPid }),
+      );
       const info = await mod.loadActivePortInfo();
       expect(info!.pid).toBeUndefined();
     }
@@ -208,7 +221,7 @@ describe('active-port persistence', () => {
 
   it('rejects out-of-range or non-integer persisted ports', async () => {
     const mod = await importRefCache();
-    const { writeFile, mkdir } = await import('fs/promises');
+    const { writeFile, mkdir } = await import('node:fs/promises');
     const dir = join(process.cwd(), '.monomind', 'monobrowse');
     await mkdir(dir, { recursive: true });
     for (const bad of [80, 70000, 1.5, '9222', null]) {

@@ -8,9 +8,10 @@
  * Fixed port range (23470-23479) chosen to avoid colliding with real
  * services; each test binds/tears down its own listeners.
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import { createServer as createTcpServer, type Server as TcpServer, type Socket } from 'net';
-import { createServer as createHttpServer, type Server as HttpServer } from 'http';
+
+import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+import { createServer as createTcpServer, type Socket, type Server as TcpServer } from 'node:net';
+import { afterEach, describe, expect, it } from 'vitest';
 import { launchBrowser } from '../browser/browser.js';
 
 const BASE = 23470;
@@ -24,16 +25,21 @@ afterEach(async () => {
   // to close on their own, which can outlast the test. Destroy explicitly.
   for (const sock of sockets) sock.destroy();
   sockets = [];
-  await Promise.all(servers.map(s => new Promise<void>(resolve => s.close(() => resolve()))));
+  await Promise.all(servers.map((s) => new Promise<void>((resolve) => s.close(() => resolve()))));
   servers = [];
 }, 5000);
 
 /** Bind a bare TCP listener — accepts connections but speaks no HTTP/CDP. */
 function occupyNonChrome(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const s = createTcpServer(sock => { sockets.push(sock); /* accept and do nothing — no CDP response */ });
+    const s = createTcpServer((sock) => {
+      sockets.push(sock); /* accept and do nothing — no CDP response */
+    });
     s.once('error', reject);
-    s.listen(port, '127.0.0.1', () => { servers.push(s); resolve(); });
+    s.listen(port, '127.0.0.1', () => {
+      servers.push(s);
+      resolve();
+    });
   });
 }
 
@@ -45,12 +51,16 @@ function occupyChrome(port: number): Promise<void> {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ Browser: 'Chrome/999.0.0.0' }));
       } else {
-        res.writeHead(404); res.end();
+        res.writeHead(404);
+        res.end();
       }
     });
-    s.on('connection', sock => sockets.push(sock));
+    s.on('connection', (sock) => sockets.push(sock));
     s.once('error', reject);
-    s.listen(port, '127.0.0.1', () => { servers.push(s); resolve(); });
+    s.listen(port, '127.0.0.1', () => {
+      servers.push(s);
+      resolve();
+    });
   });
 }
 
@@ -65,8 +75,9 @@ describe('launchBrowser — port scan/attach decisions', () => {
     const port = BASE + 1;
     await occupyNonChrome(port);
     await occupyChrome(port + 1); // would succeed if scanning happened — must not be reached
-    await expect(launchBrowser({ port, strictPort: true }))
-      .rejects.toThrow(/does not identify as Chrome/);
+    await expect(launchBrowser({ port, strictPort: true })).rejects.toThrow(
+      /does not identify as Chrome/,
+    );
   });
 
   it('strictPort: attaches on an occupied Chrome requested port (identical to non-strict)', async () => {
@@ -80,7 +91,7 @@ describe('launchBrowser — port scan/attach decisions', () => {
     // Occupy the full 10-port scan window with non-Chrome listeners.
     for (let i = 0; i < 10; i++) await occupyNonChrome(port + i);
     await expect(launchBrowser({ port })).rejects.toThrow(
-      new RegExp(`Ports ${port}-${port + 9} are all occupied`)
+      new RegExp(`Ports ${port}-${port + 9} are all occupied`),
     );
   }, 15000); // generous margin — 10 candidates, each a fast isTcpPortOpen check
 
@@ -92,11 +103,11 @@ describe('launchBrowser — port scan/attach decisions', () => {
     // skipped, so if every candidate is occupied the call still fails even
     // though one of them is an attachable Chrome.
     const port = BASE + 4;
-    await occupyNonChrome(port);       // requested port: occupied, not Chrome
-    await occupyChrome(port + 1);      // scanned candidate: IS Chrome — must be skipped, not attached
+    await occupyNonChrome(port); // requested port: occupied, not Chrome
+    await occupyChrome(port + 1); // scanned candidate: IS Chrome — must be skipped, not attached
     for (let i = 2; i < 10; i++) await occupyNonChrome(port + i); // remaining candidates: occupied
     await expect(launchBrowser({ port })).rejects.toThrow(
-      new RegExp(`Ports ${port}-${port + 9} are all occupied`)
+      new RegExp(`Ports ${port}-${port + 9} are all occupied`),
     );
   }, 15000); // generous margin — 10 candidates, each a fast isTcpPortOpen check
 });

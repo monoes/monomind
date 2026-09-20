@@ -11,11 +11,12 @@
  *
  * Fixed port range (23490-23499) chosen to avoid colliding with real services.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createServer as createHttpServer, type Server as HttpServer } from 'http';
-import { mkdtemp, rm, mkdir, writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CdpTarget } from '../browser/types.js';
 
 const BASE = 23490;
@@ -48,7 +49,7 @@ class FakeWs {
   close(): void {}
   /** Methods this socket was asked to run, e.g. ['Browser.close']. */
   methods(): string[] {
-    return this.sent.map(s => (JSON.parse(s) as { method: string }).method);
+    return this.sent.map((s) => (JSON.parse(s) as { method: string }).method);
   }
 }
 
@@ -73,7 +74,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await Promise.all(servers.map(s => new Promise<void>(resolve => s.close(() => resolve()))));
+  await Promise.all(servers.map((s) => new Promise<void>((resolve) => s.close(() => resolve()))));
   servers = [];
   vi.restoreAllMocks();
   await rm(tempDir, { recursive: true, force: true });
@@ -85,33 +86,45 @@ function fakeChrome(port: number, targets: Partial<CdpTarget>[]): Promise<void> 
     const s = createHttpServer((req, res) => {
       if (req.url === '/json/version') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          Browser: 'Chrome/999.0.0.0',
-          webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/browser/fake-browser-id`,
-        }));
+        res.end(
+          JSON.stringify({
+            Browser: 'Chrome/999.0.0.0',
+            webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/browser/fake-browser-id`,
+          }),
+        );
       } else if (req.url === '/json/list') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(targets));
       } else {
-        res.writeHead(404); res.end();
+        res.writeHead(404);
+        res.end();
       }
     });
     s.once('error', reject);
-    s.listen(port, '127.0.0.1', () => { servers.push(s); resolve(); });
+    s.listen(port, '127.0.0.1', () => {
+      servers.push(s);
+      resolve();
+    });
   });
 }
 
 const PORT_FILE = () => join(tempDir, '.monomind', 'monobrowse', 'active-port.json');
 
-async function writePersistedPort(
-  record: { port: number; pid?: number; launched: boolean; savedAt: number }
-): Promise<void> {
+async function writePersistedPort(record: {
+  port: number;
+  pid?: number;
+  launched: boolean;
+  savedAt: number;
+}): Promise<void> {
   await mkdir(join(tempDir, '.monomind', 'monobrowse'), { recursive: true });
   await writeFile(PORT_FILE(), JSON.stringify(record), 'utf-8');
 }
 
 async function portFileExists(): Promise<boolean> {
-  return readFile(PORT_FILE(), 'utf-8').then(() => true, () => false);
+  return readFile(PORT_FILE(), 'utf-8').then(
+    () => true,
+    () => false,
+  );
 }
 
 async function loadBrowser() {
@@ -122,7 +135,10 @@ async function loadBrowser() {
 /** A page target as Chrome reports it when NO debugger is attached to it. */
 function idlePageTarget(id: string, port: number): Partial<CdpTarget> {
   return {
-    id, type: 'page', title: 'Example', url: 'https://example.com/',
+    id,
+    type: 'page',
+    title: 'Example',
+    url: 'https://example.com/',
     webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/${id}`,
   };
 }
@@ -131,7 +147,12 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
   it('reaps a launched instance that has had zero targets past the idle threshold', async () => {
     const port = BASE + 0;
     await fakeChrome(port, []);
-    await writePersistedPort({ port, pid: 54321, launched: true, savedAt: Date.now() - 45 * MINUTE });
+    await writePersistedPort({
+      port,
+      pid: 54321,
+      launched: true,
+      savedAt: Date.now() - 45 * MINUTE,
+    });
 
     const { reapIdleLaunchedBrowser } = await loadBrowser();
     await expect(reapIdleLaunchedBrowser()).resolves.toBe(port);
@@ -146,7 +167,12 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
   it('does NOT reap a launched instance that still has open page targets', async () => {
     const port = BASE + 1;
     await fakeChrome(port, [idlePageTarget('AAA', port)]);
-    await writePersistedPort({ port, pid: 54322, launched: true, savedAt: Date.now() - 45 * MINUTE });
+    await writePersistedPort({
+      port,
+      pid: 54322,
+      launched: true,
+      savedAt: Date.now() - 45 * MINUTE,
+    });
 
     const { reapIdleLaunchedBrowser } = await loadBrowser();
     await expect(reapIdleLaunchedBrowser()).resolves.toBeNull();
@@ -160,7 +186,12 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     // `connect` records launched:false — that browser belongs to the user.
     const port = BASE + 2;
     await fakeChrome(port, []);
-    await writePersistedPort({ port, pid: 54323, launched: false, savedAt: Date.now() - 48 * 60 * MINUTE });
+    await writePersistedPort({
+      port,
+      pid: 54323,
+      launched: false,
+      savedAt: Date.now() - 48 * 60 * MINUTE,
+    });
 
     const { reapIdleLaunchedBrowser } = await loadBrowser();
     await expect(reapIdleLaunchedBrowser()).resolves.toBeNull();
@@ -174,8 +205,15 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     // Chrome omits webSocketDebuggerUrl from a target that already has a
     // debugger attached — an in-flight session, not an abandoned browser.
     const port = BASE + 3;
-    await fakeChrome(port, [{ id: 'BBB', type: 'page', title: 'Example', url: 'https://example.com/' }]);
-    await writePersistedPort({ port, pid: 54324, launched: true, savedAt: Date.now() - 45 * MINUTE });
+    await fakeChrome(port, [
+      { id: 'BBB', type: 'page', title: 'Example', url: 'https://example.com/' },
+    ]);
+    await writePersistedPort({
+      port,
+      pid: 54324,
+      launched: true,
+      savedAt: Date.now() - 45 * MINUTE,
+    });
 
     const { reapIdleLaunchedBrowser } = await loadBrowser();
     await expect(reapIdleLaunchedBrowser()).resolves.toBeNull();
@@ -220,7 +258,12 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     // chance to give back a port a previous session abandoned.
     const port = BASE + 6;
     await fakeChrome(port, []);
-    await writePersistedPort({ port, pid: 54327, launched: true, savedAt: Date.now() - 45 * MINUTE });
+    await writePersistedPort({
+      port,
+      pid: 54327,
+      launched: true,
+      savedAt: Date.now() - 45 * MINUTE,
+    });
 
     const { launchBrowser } = await loadBrowser();
     // The fake Chrome stays listening, so launchBrowser attaches to it after

@@ -33,7 +33,10 @@ function errorsFor(sessionId: string): PageError[] {
 export function setupConsoleCapture(client: CdpClient, sessionId: string): void {
   // Remove stale listeners from any prior connection on this sessionId
   const prevOffs = _consoleListeners.get(sessionId);
-  if (prevOffs) { for (const off of prevOffs) off(); _consoleListeners.delete(sessionId); }
+  if (prevOffs) {
+    for (const off of prevOffs) off();
+    _consoleListeners.delete(sessionId);
+  }
 
   _consoleMessages.set(sessionId, []);
   _pageErrors.set(sessionId, []);
@@ -52,7 +55,12 @@ export function setupConsoleCapture(client: CdpClient, sessionId: string): void 
 
   const off2 = client.on('Log.entryAdded', (params, sid) => {
     if (sid !== sessionId) return;
-    const entry = params.entry as { level?: string; text?: string; url?: string; lineNumber?: number };
+    const entry = params.entry as {
+      level?: string;
+      text?: string;
+      url?: string;
+      lineNumber?: number;
+    };
     // CDP uses 'warning' but ConsoleMessage type uses 'warn'
     const rawLevel = entry.level === 'warning' ? 'warn' : entry.level;
     messagesFor(sessionId).push({
@@ -92,29 +100,38 @@ export async function enableConsoleCapture(client: CdpClient, sessionId: string)
 }
 
 export function getConsoleMessages(sessionId?: string): ConsoleMessage[] {
-  if (sessionId) return [...(messagesFor(sessionId))];
+  if (sessionId) return [...messagesFor(sessionId)];
   // Fallback: return all messages across all sessions (legacy callers)
   return [..._consoleMessages.values()].flat();
 }
 
 export function clearConsoleMessages(sessionId?: string): void {
-  if (sessionId) { _consoleMessages.set(sessionId, []); return; }
+  if (sessionId) {
+    _consoleMessages.set(sessionId, []);
+    return;
+  }
   _consoleMessages.clear();
 }
 
 export function getPageErrors(sessionId?: string): PageError[] {
-  if (sessionId) return [...(errorsFor(sessionId))];
+  if (sessionId) return [...errorsFor(sessionId)];
   return [..._pageErrors.values()].flat();
 }
 
 export function clearPageErrors(sessionId?: string): void {
-  if (sessionId) { _pageErrors.set(sessionId, []); return; }
+  if (sessionId) {
+    _pageErrors.set(sessionId, []);
+    return;
+  }
   _pageErrors.clear();
 }
 
 export function teardownConsoleCapture(sessionId: string): void {
   const offs = _consoleListeners.get(sessionId);
-  if (offs) { for (const off of offs) off(); _consoleListeners.delete(sessionId); }
+  if (offs) {
+    for (const off of offs) off();
+    _consoleListeners.delete(sessionId);
+  }
   _consoleMessages.delete(sessionId);
   _pageErrors.delete(sessionId);
 }

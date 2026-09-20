@@ -2,7 +2,11 @@ import type { CdpClient } from './cdp.js';
 import type { CdpCookie, NetworkRoute } from './types.js';
 
 export async function getCookies(client: CdpClient, sessionId: string): Promise<CdpCookie[]> {
-  const result = await client.send<{ cookies: CdpCookie[] }>('Network.getAllCookies', {}, sessionId);
+  const result = await client.send<{ cookies: CdpCookie[] }>(
+    'Network.getAllCookies',
+    {},
+    sessionId,
+  );
   return result.cookies ?? [];
 }
 
@@ -12,12 +16,24 @@ export async function getCookies(client: CdpClient, sessionId: string): Promise<
  * profile. Used for session save/export so we don't leak session tokens for
  * unrelated domains the user happens to be logged into.
  */
-export async function getCookiesForUrls(client: CdpClient, sessionId: string, urls: string[]): Promise<CdpCookie[]> {
-  const result = await client.send<{ cookies: CdpCookie[] }>('Network.getCookies', { urls }, sessionId);
+export async function getCookiesForUrls(
+  client: CdpClient,
+  sessionId: string,
+  urls: string[],
+): Promise<CdpCookie[]> {
+  const result = await client.send<{ cookies: CdpCookie[] }>(
+    'Network.getCookies',
+    { urls },
+    sessionId,
+  );
   return result.cookies ?? [];
 }
 
-export async function setCookies(client: CdpClient, sessionId: string, cookies: CdpCookie[]): Promise<void> {
+export async function setCookies(
+  client: CdpClient,
+  sessionId: string,
+  cookies: CdpCookie[],
+): Promise<void> {
   await client.send('Network.setCookies', { cookies }, sessionId);
 }
 
@@ -28,15 +44,19 @@ export async function clearCookies(client: CdpClient, sessionId: string): Promis
 export async function setExtraHeaders(
   client: CdpClient,
   sessionId: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
 ): Promise<void> {
   await client.send('Network.setExtraHTTPHeaders', { headers }, sessionId);
 }
 
 export async function enableInterception(client: CdpClient, sessionId: string): Promise<void> {
-  await client.send('Fetch.enable', {
-    patterns: [{ requestStage: 'Request' }],
-  }, sessionId);
+  await client.send(
+    'Fetch.enable',
+    {
+      patterns: [{ requestStage: 'Request' }],
+    },
+    sessionId,
+  );
 }
 
 const _routeListeners = new Map<string, () => void>();
@@ -44,11 +64,14 @@ const _routeListeners = new Map<string, () => void>();
 export async function setupRoutes(
   client: CdpClient,
   sessionId: string,
-  routes: NetworkRoute[]
+  routes: NetworkRoute[],
 ): Promise<void> {
   // Remove previous route listener for this session before registering a new one
   const prevOff = _routeListeners.get(sessionId);
-  if (prevOff) { prevOff(); _routeListeners.delete(sessionId); }
+  if (prevOff) {
+    prevOff();
+    _routeListeners.delete(sessionId);
+  }
 
   if (routes.length === 0) {
     await client.send('Fetch.disable', {}, sessionId).catch(() => {});
@@ -77,14 +100,21 @@ export async function setupRoutes(
           await client.send('Fetch.failRequest', { requestId, errorReason: 'Failed' }, sessionId);
           break;
         case 'fulfill':
-          await client.send('Fetch.fulfillRequest', {
-            requestId,
-            responseCode: matchedRoute.response?.status ?? 200,
-            responseHeaders: Object.entries(matchedRoute.response?.headers ?? {}).map(([name, value]) => ({ name, value })),
-            body: matchedRoute.response?.body ? Buffer.from(matchedRoute.response.body).toString('base64') : '',
-          }, sessionId);
+          await client.send(
+            'Fetch.fulfillRequest',
+            {
+              requestId,
+              responseCode: matchedRoute.response?.status ?? 200,
+              responseHeaders: Object.entries(matchedRoute.response?.headers ?? {}).map(
+                ([name, value]) => ({ name, value }),
+              ),
+              body: matchedRoute.response?.body
+                ? Buffer.from(matchedRoute.response.body).toString('base64')
+                : '',
+            },
+            sessionId,
+          );
           break;
-        case 'continue':
         default:
           await client.send('Fetch.continueRequest', { requestId }, sessionId);
           break;
@@ -96,15 +126,29 @@ export async function setupRoutes(
   });
   _routeListeners.set(sessionId, off);
 
-  await client.send('Fetch.enable', {
-    patterns: routes.map((r) => ({ urlPattern: globToFetchPattern(r.pattern), requestStage: 'Request' })),
-  }, sessionId);
+  await client.send(
+    'Fetch.enable',
+    {
+      patterns: routes.map((r) => ({
+        urlPattern: globToFetchPattern(r.pattern),
+        requestStage: 'Request',
+      })),
+    },
+    sessionId,
+  );
 }
 
 type CapturedRequest = {
-  id: string; url: string; method: string; status?: number; mimeType?: string;
-  requestHeaders?: Record<string, string>; responseHeaders?: Record<string, string>;
-  startTime: number; endTime?: number; encodedSize?: number;
+  id: string;
+  url: string;
+  method: string;
+  status?: number;
+  mimeType?: string;
+  requestHeaders?: Record<string, string>;
+  responseHeaders?: Record<string, string>;
+  startTime: number;
+  endTime?: number;
+  encodedSize?: number;
 };
 
 const _capturedRequests = new Map<string, Map<string, CapturedRequest>>();
@@ -121,29 +165,53 @@ export function startRequestCapture(client: CdpClient, sessionId: string): void 
 
   const offReq = client.on('Network.requestWillBeSent', (params, sid) => {
     if (sid !== sessionId) return;
-    const p = params as { requestId: string; request: { url: string; method: string; headers: Record<string, string> }; timestamp: number };
-    idx().set(p.requestId, { id: p.requestId, url: p.request.url, method: p.request.method, requestHeaders: p.request.headers, startTime: p.timestamp * 1000 });
+    const p = params as {
+      requestId: string;
+      request: { url: string; method: string; headers: Record<string, string> };
+      timestamp: number;
+    };
+    idx().set(p.requestId, {
+      id: p.requestId,
+      url: p.request.url,
+      method: p.request.method,
+      requestHeaders: p.request.headers,
+      startTime: p.timestamp * 1000,
+    });
   });
 
   const offResp = client.on('Network.responseReceived', (params, sid) => {
     if (sid !== sessionId) return;
-    const p = params as { requestId: string; response: { status: number; mimeType: string; headers: Record<string, string> }; timestamp: number };
+    const p = params as {
+      requestId: string;
+      response: { status: number; mimeType: string; headers: Record<string, string> };
+      timestamp: number;
+    };
     const entry = idx().get(p.requestId);
-    if (entry) { entry.status = p.response.status; entry.mimeType = p.response.mimeType; entry.responseHeaders = p.response.headers; entry.endTime = p.timestamp * 1000; }
+    if (entry) {
+      entry.status = p.response.status;
+      entry.mimeType = p.response.mimeType;
+      entry.responseHeaders = p.response.headers;
+      entry.endTime = p.timestamp * 1000;
+    }
   });
 
   const offFinished = client.on('Network.loadingFinished', (params, sid) => {
     if (sid !== sessionId) return;
     const p = params as { requestId: string; encodedDataLength: number; timestamp: number };
     const entry = idx().get(p.requestId);
-    if (entry) { entry.encodedSize = p.encodedDataLength; entry.endTime = p.timestamp * 1000; }
+    if (entry) {
+      entry.encodedSize = p.encodedDataLength;
+      entry.endTime = p.timestamp * 1000;
+    }
   });
 
   const offFailed = client.on('Network.loadingFailed', (params, sid) => {
     if (sid !== sessionId) return;
     const p = params as { requestId: string; timestamp: number };
     const entry = idx().get(p.requestId);
-    if (entry) { entry.endTime = p.timestamp * 1000; }
+    if (entry) {
+      entry.endTime = p.timestamp * 1000;
+    }
   });
 
   _captureListeners.set(sessionId, [offReq, offResp, offFinished, offFailed]);
@@ -151,7 +219,10 @@ export function startRequestCapture(client: CdpClient, sessionId: string): void 
 
 export function stopRequestCapture(sessionId: string): void {
   const offs = _captureListeners.get(sessionId);
-  if (offs) { for (const off of offs) off(); _captureListeners.delete(sessionId); }
+  if (offs) {
+    for (const off of offs) off();
+    _captureListeners.delete(sessionId);
+  }
   _capturedRequests.delete(sessionId);
 }
 
@@ -165,20 +236,36 @@ export function clearCapturedRequests(sessionId: string): void {
 
 export async function disableInterception(client: CdpClient, sessionId: string): Promise<void> {
   const prevOff = _routeListeners.get(sessionId);
-  if (prevOff) { prevOff(); _routeListeners.delete(sessionId); }
+  if (prevOff) {
+    prevOff();
+    _routeListeners.delete(sessionId);
+  }
   await client.send('Fetch.disable', {}, sessionId);
 }
 
 export function teardownRouteInterception(sessionId: string): void {
   const prevOff = _routeListeners.get(sessionId);
-  if (prevOff) { prevOff(); _routeListeners.delete(sessionId); }
+  if (prevOff) {
+    prevOff();
+    _routeListeners.delete(sessionId);
+  }
 }
 
-export async function getLocalStorage(client: CdpClient, sessionId: string): Promise<Record<string, string>> {
-  const result = await client.send<{ result: { value?: string }; exceptionDetails?: { text: string; exception?: { description?: string } } }>('Runtime.evaluate', {
-    expression: 'JSON.stringify(Object.fromEntries(Object.entries(localStorage)))',
-    returnByValue: true,
-  }, sessionId);
+export async function getLocalStorage(
+  client: CdpClient,
+  sessionId: string,
+): Promise<Record<string, string>> {
+  const result = await client.send<{
+    result: { value?: string };
+    exceptionDetails?: { text: string; exception?: { description?: string } };
+  }>(
+    'Runtime.evaluate',
+    {
+      expression: 'JSON.stringify(Object.fromEntries(Object.entries(localStorage)))',
+      returnByValue: true,
+    },
+    sessionId,
+  );
   if (result.exceptionDetails) return {};
   try {
     return JSON.parse(result.result?.value ?? '{}');
@@ -190,7 +277,7 @@ export async function getLocalStorage(client: CdpClient, sessionId: string): Pro
 export async function setLocalStorage(
   client: CdpClient,
   sessionId: string,
-  data: Record<string, string>
+  data: Record<string, string>,
 ): Promise<void> {
   const script = Object.entries(data)
     .map(([k, v]) => `localStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(v)})`)
@@ -201,16 +288,28 @@ export async function setLocalStorage(
       exceptionDetails?: { text: string; exception?: { description?: string } };
     }>('Runtime.evaluate', { expression: script, returnByValue: true }, sessionId);
     if (result.exceptionDetails) {
-      throw new Error(`setLocalStorage failed: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`);
+      throw new Error(
+        `setLocalStorage failed: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`,
+      );
     }
   }
 }
 
-export async function getSessionStorage(client: CdpClient, sessionId: string): Promise<Record<string, string>> {
-  const result = await client.send<{ result: { value?: string }; exceptionDetails?: { text: string; exception?: { description?: string } } }>('Runtime.evaluate', {
-    expression: 'JSON.stringify(Object.fromEntries(Object.entries(sessionStorage)))',
-    returnByValue: true,
-  }, sessionId);
+export async function getSessionStorage(
+  client: CdpClient,
+  sessionId: string,
+): Promise<Record<string, string>> {
+  const result = await client.send<{
+    result: { value?: string };
+    exceptionDetails?: { text: string; exception?: { description?: string } };
+  }>(
+    'Runtime.evaluate',
+    {
+      expression: 'JSON.stringify(Object.fromEntries(Object.entries(sessionStorage)))',
+      returnByValue: true,
+    },
+    sessionId,
+  );
   if (result.exceptionDetails) return {};
   try {
     return JSON.parse(result.result?.value ?? '{}');
@@ -222,7 +321,7 @@ export async function getSessionStorage(client: CdpClient, sessionId: string): P
 export async function setSessionStorage(
   client: CdpClient,
   sessionId: string,
-  data: Record<string, string>
+  data: Record<string, string>,
 ): Promise<void> {
   const script = Object.entries(data)
     .map(([k, v]) => `sessionStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(v)})`)
@@ -233,7 +332,9 @@ export async function setSessionStorage(
       exceptionDetails?: { text: string; exception?: { description?: string } };
     }>('Runtime.evaluate', { expression: script, returnByValue: true }, sessionId);
     if (result.exceptionDetails) {
-      throw new Error(`setSessionStorage failed: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`);
+      throw new Error(
+        `setSessionStorage failed: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`,
+      );
     }
   }
 }

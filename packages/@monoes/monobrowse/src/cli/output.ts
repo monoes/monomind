@@ -17,20 +17,20 @@ class OutputFormatter {
   }
 
   printSuccess(message: string): void {
-    console.log(this.c('green', '✓') + ' ' + message);
+    console.log(`${this.c('green', '✓')} ${message}`);
   }
 
   printError(message: string, details?: string): void {
-    console.error(this.c('red', '✗') + ' ' + message);
-    if (details) console.error(this.c('red', '  ' + details));
+    console.error(`${this.c('red', '✗')} ${message}`);
+    if (details) console.error(this.c('red', `  ${details}`));
   }
 
   printWarning(message: string): void {
-    console.warn(this.c('yellow', '⚠') + ' ' + message);
+    console.warn(`${this.c('yellow', '⚠')} ${message}`);
   }
 
   printInfo(message: string): void {
-    console.log(this.c('cyan', 'ℹ') + ' ' + message);
+    console.log(`${this.c('cyan', 'ℹ')} ${message}`);
   }
 }
 

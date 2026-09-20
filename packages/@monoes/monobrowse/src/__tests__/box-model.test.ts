@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
-import { deriveBoxOutput } from '../cli/commands.js';
+import { describe, expect, it, vi } from 'vitest';
 import { getElementBox } from '../browser/snapshot.js';
 import type { ElementRef } from '../browser/types.js';
+import { deriveBoxOutput } from '../cli/commands.js';
 
 describe('getElementBox (issue #15: center-vs-top-left contract)', () => {
-  it('averages the CDP content quad\'s four corners into a center point', async () => {
+  it("averages the CDP content quad's four corners into a center point", async () => {
     // Content quad order per CDP DOM.getBoxModel: [x1,y1 top-left, x2,y2
     // top-right, x3,y3 bottom-right, x4,y4 bottom-left]. A 372x37 box whose
     // top-left is (454, 513.5) — matching the issue's own reproduction data.
@@ -28,8 +28,12 @@ describe('deriveBoxOutput (issue #15: get box exposing both conventions)', () =>
     const center = { x: 640, y: 532, width: 372, height: 37 };
     const result = deriveBoxOutput(center);
     expect(result).toEqual({
-      x: 454, y: 513.5, width: 372, height: 37,
-      centerX: 640, centerY: 532,
+      x: 454,
+      y: 513.5,
+      width: 372,
+      height: 37,
+      centerX: 640,
+      centerY: 532,
     });
   });
 

@@ -11,11 +11,12 @@
  * fake `ws` socket (same pattern as cdp-client.test.ts), and process.kill is
  * spied on rather than actually signaling anything.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, rm, mkdir, writeFile } from 'fs/promises';
-import { setTimeout as realDelay } from 'timers/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { setTimeout as realDelay } from 'node:timers/promises';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let lastSocket: FakeWs | null = null;
 
@@ -73,7 +74,11 @@ afterEach(async () => {
 async function writePersistedPort(port: number, pid: number, savedAt: number): Promise<void> {
   const dir = join(tempDir, '.monomind', 'monobrowse');
   await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, 'active-port.json'), JSON.stringify({ port, pid, launched: true, savedAt }), 'utf-8');
+  await writeFile(
+    join(dir, 'active-port.json'),
+    JSON.stringify({ port, pid, launched: true, savedAt }),
+    'utf-8',
+  );
 }
 
 /**

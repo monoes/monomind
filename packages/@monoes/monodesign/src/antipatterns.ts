@@ -21,7 +21,11 @@ export interface DetectionResult {
 
 // Shape of the bundled engine (cli/engine/detect-antipatterns.mjs).
 interface DetectorEngine {
-  detectText: (content: string, filePath: string, options?: Record<string, unknown>) => RawFinding[];
+  detectText: (
+    content: string,
+    filePath: string,
+    options?: Record<string, unknown>,
+  ) => RawFinding[];
   detectHtml: (filePath: string, options?: Record<string, unknown>) => Promise<RawFinding[]>;
   detectUrl: (url: string, options?: Record<string, unknown>) => Promise<RawFinding[]>;
   walkDir: (dir: string) => string[];
@@ -101,9 +105,7 @@ export async function detectAntipatterns(target: string): Promise<DetectionResul
   }
 
   const start = Date.now();
-  const categoryById = new Map(
-    engine.ANTIPATTERNS.map((ap) => [ap.id, ap.category ?? 'quality']),
-  );
+  const categoryById = new Map(engine.ANTIPATTERNS.map((ap) => [ap.id, ap.category ?? 'quality']));
 
   let raw: RawFinding[] = [];
   let fileCount = 0;

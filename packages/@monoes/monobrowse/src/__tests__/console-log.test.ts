@@ -3,14 +3,14 @@
  * two per-session Maps. Nothing here touches a browser — we hand it a fake
  * client that just records handlers and lets us fire events by hand.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { CdpClient } from '../browser/cdp.js';
 import {
-  setupConsoleCapture,
-  getConsoleMessages,
   clearConsoleMessages,
-  getPageErrors,
   clearPageErrors,
+  getConsoleMessages,
+  getPageErrors,
+  setupConsoleCapture,
   teardownConsoleCapture,
 } from '../browser/console-log.js';
 
@@ -91,13 +91,17 @@ describe('Runtime.consoleAPICalled capture', () => {
     client.emit(
       'Runtime.consoleAPICalled',
       { type: 'log', args: [{ value: 'count:' }, { value: 42 }, { description: 'Object {a: 1}' }] },
-      'S1'
+      'S1',
     );
     expect(getConsoleMessages('S1')[0]!.text).toBe('count: 42 Object {a: 1}');
   });
 
   it('normalizes CDP\'s "warning" to the "warn" type used by ConsoleMessage', () => {
-    client.emit('Runtime.consoleAPICalled', { type: 'warning', args: [{ value: 'careful' }] }, 'S1');
+    client.emit(
+      'Runtime.consoleAPICalled',
+      { type: 'warning', args: [{ value: 'careful' }] },
+      'S1',
+    );
     expect(getConsoleMessages('S1')[0]!.type).toBe('warn');
   });
 
@@ -123,8 +127,15 @@ describe('Log.entryAdded capture', () => {
   it('records text, url and lineNumber and maps "warning" to "warn"', () => {
     client.emit(
       'Log.entryAdded',
-      { entry: { level: 'warning', text: 'deprecated API', url: 'https://x.test/a.js', lineNumber: 17 } },
-      'S1'
+      {
+        entry: {
+          level: 'warning',
+          text: 'deprecated API',
+          url: 'https://x.test/a.js',
+          lineNumber: 17,
+        },
+      },
+      'S1',
     );
     const [msg] = getConsoleMessages('S1');
     expect(msg).toMatchObject({
@@ -156,7 +167,7 @@ describe('Runtime.exceptionThrown capture', () => {
           columnNumber: 9,
         },
       },
-      'S1'
+      'S1',
     );
     expect(getPageErrors('S1')[0]).toMatchObject({
       text: 'TypeError: x is not a function',
@@ -167,7 +178,11 @@ describe('Runtime.exceptionThrown capture', () => {
   });
 
   it('falls back to text, then to "Unknown error"', () => {
-    client.emit('Runtime.exceptionThrown', { exceptionDetails: { text: 'Uncaught (in promise)' } }, 'S1');
+    client.emit(
+      'Runtime.exceptionThrown',
+      { exceptionDetails: { text: 'Uncaught (in promise)' } },
+      'S1',
+    );
     client.emit('Runtime.exceptionThrown', { exceptionDetails: {} }, 'S1');
     expect(getPageErrors('S1').map((e) => e.text)).toEqual([
       'Uncaught (in promise)',
@@ -191,14 +206,22 @@ describe('multi-session isolation and clearing', () => {
     client.emit('Runtime.exceptionThrown', { exceptionDetails: { text: 'e2' } }, 'S2');
   });
 
-  it('keeps each session\'s buffers separate', () => {
+  it("keeps each session's buffers separate", () => {
     expect(getConsoleMessages('S1').map((m) => m.text)).toEqual(['one']);
     expect(getConsoleMessages('S2').map((m) => m.text)).toEqual(['two']);
   });
 
   it('returns a flattened view across sessions when no session id is given', () => {
-    expect(getConsoleMessages().map((m) => m.text).sort()).toEqual(['one', 'two']);
-    expect(getPageErrors().map((e) => e.text).sort()).toEqual(['e1', 'e2']);
+    expect(
+      getConsoleMessages()
+        .map((m) => m.text)
+        .sort(),
+    ).toEqual(['one', 'two']);
+    expect(
+      getPageErrors()
+        .map((e) => e.text)
+        .sort(),
+    ).toEqual(['e1', 'e2']);
   });
 
   it('returns a copy, so mutating the result does not corrupt the buffer', () => {

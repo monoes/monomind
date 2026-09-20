@@ -1,7 +1,7 @@
+import { writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import { writeFile } from 'fs/promises';
-import { join, resolve, relative, isAbsolute } from 'path';
-import { tmpdir, homedir } from 'os';
 
 interface HarRequest {
   id: string;
@@ -24,14 +24,17 @@ interface HarRequest {
 const MAX_CONCURRENT_SESSIONS = 100;
 const MAX_REQUESTS_PER_SESSION = 5_000;
 
-const _sessions = new Map<string, {
-  requests: Map<string, Partial<HarRequest>>;
-  offReq: () => void;
-  offResp: () => void;
-  offFinished: () => void;
-  startTime: number;
-  startWallMs: number;
-}>();
+const _sessions = new Map<
+  string,
+  {
+    requests: Map<string, Partial<HarRequest>>;
+    offReq: () => void;
+    offResp: () => void;
+    offFinished: () => void;
+    startTime: number;
+    startWallMs: number;
+  }
+>();
 
 /** Validate output path is within cwd or home dir to prevent path traversal. */
 function safeOutputPath(p: string): string {
@@ -40,8 +43,10 @@ function safeOutputPath(p: string): string {
   const home = homedir();
   const relCwd = relative(cwd, resolved);
   const relHome = relative(home, resolved);
-  if ((!relCwd.startsWith('..') && !isAbsolute(relCwd)) ||
-      (!relHome.startsWith('..') && !isAbsolute(relHome))) {
+  if (
+    (!relCwd.startsWith('..') && !isAbsolute(relCwd)) ||
+    (!relHome.startsWith('..') && !isAbsolute(relHome))
+  ) {
     return resolved;
   }
   // Reject out-of-scope paths — fall back to tmpdir
@@ -51,7 +56,9 @@ function safeOutputPath(p: string): string {
 export async function startHarRecording(client: CdpClient, sessionId: string): Promise<void> {
   if (_sessions.has(sessionId)) throw new Error('HAR recording already in progress');
   if (_sessions.size >= MAX_CONCURRENT_SESSIONS) {
-    throw new Error(`HAR recording limit reached (max ${MAX_CONCURRENT_SESSIONS} concurrent sessions)`);
+    throw new Error(
+      `HAR recording limit reached (max ${MAX_CONCURRENT_SESSIONS} concurrent sessions)`,
+    );
   }
 
   const requests = new Map<string, Partial<HarRequest>>();
@@ -68,7 +75,11 @@ export async function startHarRecording(client: CdpClient, sessionId: string): P
     if (sid !== sessionId) return;
     // Cap to prevent unbounded memory growth on high-traffic pages
     if (requests.size >= MAX_REQUESTS_PER_SESSION) return;
-    const p = params as { requestId: string; request: { url: string; method: string; headers: Record<string, string> }; timestamp: number };
+    const p = params as {
+      requestId: string;
+      request: { url: string; method: string; headers: Record<string, string> };
+      timestamp: number;
+    };
     requests.set(p.requestId, {
       id: p.requestId,
       url: p.request.url,
@@ -81,7 +92,19 @@ export async function startHarRecording(client: CdpClient, sessionId: string): P
 
   const offResp = client.on('Network.responseReceived', (params, sid) => {
     if (sid !== sessionId) return;
-    const p = params as { requestId: string; response: { url: string; status: number; statusText: string; mimeType: string; headers: Record<string, string>; fromDiskCache: boolean; fromServiceWorker: boolean }; timestamp: number };
+    const p = params as {
+      requestId: string;
+      response: {
+        url: string;
+        status: number;
+        statusText: string;
+        mimeType: string;
+        headers: Record<string, string>;
+        fromDiskCache: boolean;
+        fromServiceWorker: boolean;
+      };
+      timestamp: number;
+    };
     const entry = requests.get(p.requestId);
     if (entry) {
       entry.status = p.response.status;
@@ -110,7 +133,7 @@ export async function stopHarRecording(
   client: CdpClient,
   sessionId: string,
   outputPath?: string,
-  captureResponseBodies = false
+  captureResponseBodies = false,
 ): Promise<string> {
   const state = _sessions.get(sessionId);
   if (!state) throw new Error('No active HAR recording for this session');
@@ -125,7 +148,9 @@ export async function stopHarRecording(
     for (const [reqId, entry] of state.requests.entries()) {
       try {
         const body = await client.send<{ body: string; base64Encoded: boolean }>(
-          'Network.getResponseBody', { requestId: reqId }, sessionId
+          'Network.getResponseBody',
+          { requestId: reqId },
+          sessionId,
         );
         entry.responseBody = body.body;
         entry.bodyEncoding = body.base64Encoded ? 'base64' : undefined;
@@ -139,7 +164,9 @@ export async function stopHarRecording(
   }
 
   const har = buildHar(Array.from(state.requests.values()), state.startTime);
-  const safePath = outputPath ? safeOutputPath(outputPath) : join(tmpdir(), `monomind-har-${Date.now()}.har`);
+  const safePath = outputPath
+    ? safeOutputPath(outputPath)
+    : join(tmpdir(), `monomind-har-${Date.now()}.har`);
   await writeFile(safePath, JSON.stringify(har, null, 2));
   return safePath;
 }
@@ -159,12 +186,14 @@ function buildHar(entries: Partial<HarRequest>[], startTime: number) {
     log: {
       version: '1.2',
       creator: { name: 'monomind browse', version: '1.0.0' },
-      pages: [{
-        startedDateTime: new Date(startTime).toISOString(),
-        id: 'page_1',
-        title: '',
-        pageTimings: {},
-      }],
+      pages: [
+        {
+          startedDateTime: new Date(startTime).toISOString(),
+          id: 'page_1',
+          title: '',
+          pageTimings: {},
+        },
+      ],
       entries: entries.map((e) => ({
         startedDateTime: new Date(e.startTime ?? startTime).toISOString(),
         time: (e.endTime ?? e.startTime ?? startTime) - (e.startTime ?? startTime),
@@ -183,7 +212,10 @@ function buildHar(entries: Partial<HarRequest>[], startTime: number) {
           statusText: e.statusText ?? '',
           httpVersion: 'HTTP/1.1',
           cookies: [],
-          headers: Object.entries(e.responseHeaders ?? {}).map(([name, value]) => ({ name, value })),
+          headers: Object.entries(e.responseHeaders ?? {}).map(([name, value]) => ({
+            name,
+            value,
+          })),
           content: {
             size: e.size ?? -1,
             mimeType: e.mimeType ?? 'application/octet-stream',

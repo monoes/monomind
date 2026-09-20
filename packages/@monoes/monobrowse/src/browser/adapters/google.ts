@@ -1,5 +1,5 @@
 // src/browser/adapters/google.ts
-import type { PlatformAdapter, PageInterface } from './index.js';
+import type { PageInterface, PlatformAdapter } from './index.js';
 
 export const googleAdapter: PlatformAdapter = {
   platform: 'google',
@@ -10,11 +10,13 @@ export const googleAdapter: PlatformAdapter = {
     const url = await page.url();
     // Logged in if we're on a Google service page (not the sign-in page)
     if (url.includes('accounts.google.com/signin')) return false;
-    return page.evaluate<boolean>("!!(document.querySelector('[aria-label*=\"Google Account\"]') || document.querySelector('.gb_A') || document.cookie.includes('SSID'))");
+    return page.evaluate<boolean>(
+      "!!(document.querySelector('[aria-label*=\"Google Account\"]') || document.querySelector('.gb_A') || document.cookie.includes('SSID'))",
+    );
   },
   async extractUsername(page: PageInterface): Promise<string> {
     return page.evaluate<string>(
-      "document.querySelector('[data-email]')?.getAttribute('data-email') ?? document.querySelector('.gb_A.gb_Sa')?.textContent?.trim() ?? ''"
+      "document.querySelector('[data-email]')?.getAttribute('data-email') ?? document.querySelector('.gb_A.gb_Sa')?.textContent?.trim() ?? ''",
     );
   },
 };

@@ -5,24 +5,27 @@
  * evaluateJs's error/timeout contract is what this file pins down.
  * Fake client throughout — no browser.
  */
-import { describe, it, expect, vi } from 'vitest';
-import type { CdpClient } from '../browser/cdp.js';
+import { describe, expect, it, vi } from 'vitest';
 import { evaluateJs } from '../browser/actions.js';
+import type { CdpClient } from '../browser/cdp.js';
 import {
-  getLocalStorageKey,
-  setLocalStorageKey,
-  removeLocalStorageKey,
   clearLocalStorage,
-  getAllLocalStorage,
-  getSessionStorageKey,
-  setSessionStorageKey,
-  removeSessionStorageKey,
   clearSessionStorage,
+  getAllLocalStorage,
   getAllSessionStorage,
+  getLocalStorageKey,
+  getSessionStorageKey,
+  removeLocalStorageKey,
+  removeSessionStorageKey,
+  setLocalStorageKey,
+  setSessionStorageKey,
 } from '../browser/storage.js';
 
 /** Client stub returning a fixed Runtime.evaluate value, recording expressions. */
-function stubClient(value?: unknown, exceptionDetails?: unknown): {
+function stubClient(
+  value?: unknown,
+  exceptionDetails?: unknown,
+): {
   client: CdpClient;
   exprs: string[];
   sids: Array<string | undefined>;
@@ -33,7 +36,9 @@ function stubClient(value?: unknown, exceptionDetails?: unknown): {
     send: vi.fn(async (_m: string, params: { expression: string }, sid?: string) => {
       exprs.push(params.expression);
       sids.push(sid);
-      return exceptionDetails ? { result: {}, exceptionDetails } : { result: { value, type: 'string' } };
+      return exceptionDetails
+        ? { result: {}, exceptionDetails }
+        : { result: { value, type: 'string' } };
     }),
   } as unknown as CdpClient;
   return { client, exprs, sids };
@@ -58,19 +63,21 @@ describe('evaluateJs', () => {
       exception: { description: 'ReferenceError: foo is not defined' },
     });
     await expect(evaluateJs(client, 'S1', 'foo')).rejects.toThrow(
-      'JS evaluation error: ReferenceError: foo is not defined'
+      'JS evaluation error: ReferenceError: foo is not defined',
     );
   });
 
   it('falls back to exceptionDetails.text when there is no description', async () => {
     const { client } = stubClient(undefined, { text: 'Uncaught SyntaxError' });
     await expect(evaluateJs(client, 'S1', '{{')).rejects.toThrow(
-      'JS evaluation error: Uncaught SyntaxError'
+      'JS evaluation error: Uncaught SyntaxError',
     );
   });
 
   it('returns undefined for an expression with no value', async () => {
-    const client = { send: vi.fn(async () => ({ result: { type: 'undefined' } })) } as unknown as CdpClient;
+    const client = {
+      send: vi.fn(async () => ({ result: { type: 'undefined' } })),
+    } as unknown as CdpClient;
     await expect(evaluateJs(client, 'S1', 'void 0')).resolves.toBeUndefined();
   });
 
@@ -79,14 +86,19 @@ describe('evaluateJs', () => {
     // without the race; a 20ms budget proves the timer is armed.
     const client = { send: vi.fn(() => new Promise(() => {})) } as unknown as CdpClient;
     await expect(evaluateJs(client, 'S1', 'new Promise(() => {})', 20)).rejects.toThrow(
-      'JS evaluation timed out after 20ms'
+      'JS evaluation timed out after 20ms',
     );
   });
 
   it('waits indefinitely when the timeout is disabled with 0', async () => {
     let resolveSend: (v: unknown) => void = () => {};
     const client = {
-      send: vi.fn(() => new Promise((r) => { resolveSend = r; })),
+      send: vi.fn(
+        () =>
+          new Promise((r) => {
+            resolveSend = r;
+          }),
+      ),
     } as unknown as CdpClient;
     const p = evaluateJs(client, 'S1', 'slow()', 0);
     resolveSend({ result: { value: 'done', type: 'string' } });
@@ -165,7 +177,9 @@ describe('sessionStorage helpers mirror the localStorage ones', () => {
   });
 
   it('getAll parses, and degrades to {} on garbage', async () => {
-    await expect(getAllSessionStorage(stubClient('{"s":"1"}').client, 'S1')).resolves.toEqual({ s: '1' });
+    await expect(getAllSessionStorage(stubClient('{"s":"1"}').client, 'S1')).resolves.toEqual({
+      s: '1',
+    });
     await expect(getAllSessionStorage(stubClient('<html>').client, 'S1')).resolves.toEqual({});
   });
 });

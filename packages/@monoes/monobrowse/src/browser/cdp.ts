@@ -13,8 +13,18 @@ export const DEFAULT_CDP_SEND_TIMEOUT_MS = 30_000;
 
 export class CdpClient {
   private ws: WebSocket | null = null;
-  private pendingCommands = new Map<number, { resolve: (r: CdpResponse) => void; reject: (e: Error) => void; timer?: ReturnType<typeof setTimeout> }>();
-  private eventListeners = new Map<string, Set<(params: Record<string, unknown>, sessionId?: string) => void>>();
+  private pendingCommands = new Map<
+    number,
+    {
+      resolve: (r: CdpResponse) => void;
+      reject: (e: Error) => void;
+      timer?: ReturnType<typeof setTimeout>;
+    }
+  >();
+  private eventListeners = new Map<
+    string,
+    Set<(params: Record<string, unknown>, sessionId?: string) => void>
+  >();
   private nextId = 1;
   private connected = false;
 
@@ -73,7 +83,11 @@ export class CdpClient {
             const listeners = this.eventListeners.get(msg.method);
             if (listeners) {
               for (const fn of listeners) {
-                try { fn(msg.params ?? {}, msg.sessionId); } catch { /* isolate per-listener errors */ }
+                try {
+                  fn(msg.params ?? {}, msg.sessionId);
+                } catch {
+                  /* isolate per-listener errors */
+                }
               }
             }
           }
@@ -88,7 +102,7 @@ export class CdpClient {
     method: string,
     params?: Record<string, unknown>,
     sessionId?: string,
-    timeoutMs: number = DEFAULT_CDP_SEND_TIMEOUT_MS
+    timeoutMs: number = DEFAULT_CDP_SEND_TIMEOUT_MS,
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       if (!this.ws || !this.connected) {
@@ -114,8 +128,14 @@ export class CdpClient {
       }
 
       this.pendingCommands.set(id, {
-        resolve: (r) => { if (timer) clearTimeout(timer); resolve((r.result ?? {}) as T); },
-        reject: (e) => { if (timer) clearTimeout(timer); reject(e); },
+        resolve: (r) => {
+          if (timer) clearTimeout(timer);
+          resolve((r.result ?? {}) as T);
+        },
+        reject: (e) => {
+          if (timer) clearTimeout(timer);
+          reject(e);
+        },
         timer,
       });
       this.ws.send(JSON.stringify(cmd), (err) => {
@@ -188,7 +208,9 @@ export async function fetchTargets(port: number): Promise<CdpTarget[]> {
 
 export async function fetchNewTarget(port: number, url: string): Promise<CdpTarget> {
   // Chrome v92+ requires PUT for /json/new; GET returns 405. URL must be encoded.
-  const res = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
+  const res = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, {
+    method: 'PUT',
+  });
   if (!res.ok) throw new Error(`Failed to create target: ${res.statusText}`);
   return readCdpJson(res) as Promise<CdpTarget>;
 }
@@ -203,7 +225,10 @@ export async function createBrowserPage(url: string, port = 9222): Promise<Brows
   const target = await fetchNewTarget(port, url);
   const wsDebuggerUrl = target.webSocketDebuggerUrl;
   if (!wsDebuggerUrl) {
-    throw new Error('Chrome did not return a WebSocket debugger URL. Ensure Chrome is running with --remote-debugging-port=' + port);
+    throw new Error(
+      'Chrome did not return a WebSocket debugger URL. Ensure Chrome is running with --remote-debugging-port=' +
+        port,
+    );
   }
 
   const client = new CdpClient();
@@ -218,7 +243,9 @@ export async function createBrowserPage(url: string, port = 9222): Promise<Brows
     await Promise.race([
       loadPromise,
       new Promise<void>((_, reject) =>
-        AbortSignal.timeout(30_000).addEventListener('abort', () => reject(new Error('Page load timeout after 30s')))
+        AbortSignal.timeout(30_000).addEventListener('abort', () =>
+          reject(new Error('Page load timeout after 30s')),
+        ),
       ),
     ]);
   } catch (err) {
@@ -228,7 +255,9 @@ export async function createBrowserPage(url: string, port = 9222): Promise<Brows
 
   const closeTab = async (): Promise<void> => {
     try {
-      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(target.id)}`, { method: 'GET' });
+      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(target.id)}`, {
+        method: 'GET',
+      });
     } catch {
       // best-effort: tab may already be gone
     }
@@ -243,7 +272,10 @@ export async function createBrowserPage(url: string, port = 9222): Promise<Brows
       return result.result.value;
     },
     evaluate: async <T>(expression: string): Promise<T> => {
-      const result = await client.send<{ result: { value: T; }; exceptionDetails?: { text: string } }>('Runtime.evaluate', {
+      const result = await client.send<{
+        result: { value: T };
+        exceptionDetails?: { text: string };
+      }>('Runtime.evaluate', {
         expression,
         returnByValue: true,
       });

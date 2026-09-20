@@ -8,6 +8,6 @@
  *   - Skill invocation helpers
  */
 
-export * from './tokens.js';
 export * from './antipatterns.js';
 export * from './rules.js';
+export * from './tokens.js';

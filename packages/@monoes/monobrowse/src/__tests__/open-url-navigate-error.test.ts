@@ -7,8 +7,8 @@
  * this checks that response before doing anything else.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { CdpClient } from '../browser/cdp.js';
 import { openUrl } from '../browser/browser.js';
+import type { CdpClient } from '../browser/cdp.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -43,9 +43,7 @@ describe('openUrl navigation-failure detection', () => {
     await expect(openUrl(client, 'sess-1', 'http://127.0.0.1:1/')).rejects.toThrow(
       /net::ERR_CONNECTION_REFUSED/,
     );
-    expect(calls).toEqual([
-      { method: 'Page.navigate', params: { url: 'http://127.0.0.1:1/' } },
-    ]);
+    expect(calls).toEqual([{ method: 'Page.navigate', params: { url: 'http://127.0.0.1:1/' } }]);
   });
 
   it('rejects the 2 MB URL guard before ever calling Page.navigate', async () => {

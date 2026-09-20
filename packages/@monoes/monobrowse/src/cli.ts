@@ -4,10 +4,10 @@
  * Dispatches to the same command tree used by `monomind browse`
  */
 
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import browseCommand from './cli/commands.js';
 import { output } from './cli/output.js';
-import type { Command, CommandContext, CommandOption, ParsedFlags } from './cli/types.js';
+import type { Command, CommandContext, ParsedFlags } from './cli/types.js';
 
 const _require = createRequire(import.meta.url);
 
@@ -16,7 +16,7 @@ const _require = createRequire(import.meta.url);
 // ---------------------------------------------------------------------------
 
 function findSub(name: string, subs: Command[]): Command | undefined {
-  return subs.find(s => s.name === name || s.aliases?.includes(name));
+  return subs.find((s) => s.name === name || s.aliases?.includes(name));
 }
 
 // ---------------------------------------------------------------------------
@@ -33,11 +33,14 @@ function buildShortMap(cmd: Command | undefined): Record<string, string> {
 }
 
 function isBooleanOpt(name: string, cmd: Command | undefined): boolean {
-  const opt = cmd?.options?.find(o => o.name === name);
+  const opt = cmd?.options?.find((o) => o.name === name);
   return opt?.type === 'boolean';
 }
 
-function parseArgv(argv: string[], sub: Command | undefined): { args: string[]; flags: ParsedFlags } {
+function parseArgv(
+  argv: string[],
+  sub: Command | undefined,
+): { args: string[]; flags: ParsedFlags } {
   const shortMap = buildShortMap(sub);
   const flags: ParsedFlags = { _: [] };
   const positional: string[] = [];
@@ -81,7 +84,7 @@ function parseArgv(argv: string[], sub: Command | undefined): { args: string[]; 
   }
 
   // Coerce number options
-  for (const opt of (sub?.options ?? [])) {
+  for (const opt of sub?.options ?? []) {
     if (opt.type === 'number' && typeof flags[opt.name] === 'string') {
       flags[opt.name] = Number(flags[opt.name]);
     }
@@ -95,11 +98,12 @@ function parseArgv(argv: string[], sub: Command | undefined): { args: string[]; 
 // ---------------------------------------------------------------------------
 
 function printHelp(cmd: Command, prefix = 'monobrowse'): void {
-  const usage = cmd.name === 'browse'
-    ? `${prefix} <subcommand> [options]`
-    : `${prefix} ${cmd.name} [subcommand] [options]`;
+  const usage =
+    cmd.name === 'browse'
+      ? `${prefix} <subcommand> [options]`
+      : `${prefix} ${cmd.name} [subcommand] [options]`;
   console.log(`\nUsage: ${usage}\n`);
-  console.log(cmd.description + '\n');
+  console.log(`${cmd.description}\n`);
 
   if (cmd.subcommands?.length) {
     console.log('Subcommands:');
@@ -160,7 +164,12 @@ async function dispatch(cmd: Command, argv: string[]): Promise<void> {
     const nested = findSub(rest[0], sub.subcommands);
     if (nested?.action) {
       const { args, flags } = parseArgv(rest.slice(1), nested);
-      const ctx: CommandContext = { args, flags, cwd: process.cwd(), interactive: !!process.stdout.isTTY };
+      const ctx: CommandContext = {
+        args,
+        flags,
+        cwd: process.cwd(),
+        interactive: !!process.stdout.isTTY,
+      };
       const result = await nested.action(ctx);
       if (result && !result.success) process.exitCode = result.exitCode ?? 1;
       return;
@@ -174,7 +183,12 @@ async function dispatch(cmd: Command, argv: string[]): Promise<void> {
   }
 
   const { args, flags } = parseArgv(rest, sub);
-  const ctx: CommandContext = { args, flags, cwd: process.cwd(), interactive: !!process.stdout.isTTY };
+  const ctx: CommandContext = {
+    args,
+    flags,
+    cwd: process.cwd(),
+    interactive: !!process.stdout.isTTY,
+  };
   const result = await sub.action(ctx);
   if (result && !result.success) process.exitCode = result.exitCode ?? 1;
 }
@@ -200,9 +214,11 @@ async function main(): Promise<void> {
   await dispatch(browseCommand, userArgs);
 }
 
-main().then(() => {
-  process.exit(process.exitCode ?? 0);
-}).catch(err => {
-  output.printError(err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(process.exitCode ?? 0);
+  })
+  .catch((err) => {
+    output.printError(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });

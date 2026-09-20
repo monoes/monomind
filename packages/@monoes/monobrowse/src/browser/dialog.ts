@@ -9,7 +9,11 @@ export interface DialogInfo {
 const _pendingDialogs = new Map<string, DialogInfo | null>();
 const _dialogListeners = new Map<string, Array<() => void>>();
 
-export function setupDialogAutoHandling(client: CdpClient, sessionId: string, autoAccept = true): void {
+export function setupDialogAutoHandling(
+  client: CdpClient,
+  sessionId: string,
+  autoAccept = true,
+): void {
   if (_pendingDialogs.has(sessionId)) return;
   _pendingDialogs.set(sessionId, null);
 
@@ -27,7 +31,9 @@ export function setupDialogAutoHandling(client: CdpClient, sessionId: string, au
     if (autoAccept) {
       try {
         await client.send('Page.handleJavaScriptDialog', { accept: true }, sessionId);
-      } catch { /* dialog may have already been dismissed */ }
+      } catch {
+        /* dialog may have already been dismissed */
+      }
       _pendingDialogs.set(sessionId, null);
     }
   });
@@ -41,15 +47,26 @@ export function setupDialogAutoHandling(client: CdpClient, sessionId: string, au
 
 export function teardownDialogHandling(sessionId: string): void {
   const offs = _dialogListeners.get(sessionId);
-  if (offs) { for (const off of offs) off(); _dialogListeners.delete(sessionId); }
+  if (offs) {
+    for (const off of offs) off();
+    _dialogListeners.delete(sessionId);
+  }
   _pendingDialogs.delete(sessionId);
 }
 
-export async function acceptDialog(client: CdpClient, sessionId: string, text?: string): Promise<void> {
-  await client.send('Page.handleJavaScriptDialog', {
-    accept: true,
-    promptText: text,
-  }, sessionId);
+export async function acceptDialog(
+  client: CdpClient,
+  sessionId: string,
+  text?: string,
+): Promise<void> {
+  await client.send(
+    'Page.handleJavaScriptDialog',
+    {
+      accept: true,
+      promptText: text,
+    },
+    sessionId,
+  );
   _pendingDialogs.set(sessionId, null);
 }
 

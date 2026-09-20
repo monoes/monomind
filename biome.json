@@ -9,6 +9,7 @@
     "includes": [
       "packages/*/src/**",
       "packages/@monomind/*/src/**",
+      "packages/@monoes/*/src/**",
       "tests/**",
       "scripts/**",
       "!**/dist",
@@ -24,7 +25,10 @@
   },
   "overrides": [
     {
-      "includes": ["packages/@monomind/cli/src/ui/**"],
+      "includes": [
+        "packages/@monomind/cli/src/ui/**",
+        "packages/@monoes/monobrowse/src/browser/dashboard/**"
+      ],
       "linter": {
         "rules": {
           "a11y": "off"

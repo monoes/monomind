@@ -1,9 +1,17 @@
-import type { CdpClient } from './cdp.js';
-import type { ElementRef } from './types.js';
 import { evaluateJs } from './actions.js';
+import type { CdpClient } from './cdp.js';
 import { getObjectIdForRef } from './snapshot.js';
+import type { ElementRef } from './types.js';
 
-export type FindAction = 'click' | 'fill' | 'type' | 'hover' | 'focus' | 'check' | 'uncheck' | 'text';
+export type FindAction =
+  | 'click'
+  | 'fill'
+  | 'type'
+  | 'hover'
+  | 'focus'
+  | 'check'
+  | 'uncheck'
+  | 'text';
 
 export interface FindOptions {
   name?: string;
@@ -18,7 +26,7 @@ export async function findBySelector(
   sessionId: string,
   refs: Map<string, ElementRef>,
   selector: string,
-  options: FindOptions = {}
+  options: FindOptions = {},
 ): Promise<ElementRef | null> {
   if (options.nth !== undefined && options.nth < 1) {
     throw new Error(`nth must be >= 1 (received ${options.nth})`);
@@ -29,14 +37,20 @@ export async function findBySelector(
     let targetNodeId: number;
     if (options.nth !== undefined || options.last) {
       const result = await client.send<{ nodeIds: number[] }>(
-        'DOM.querySelectorAll', { nodeId: doc.root.nodeId, selector }, sessionId
+        'DOM.querySelectorAll',
+        { nodeId: doc.root.nodeId, selector },
+        sessionId,
       );
       const nodeIds = result.nodeIds ?? [];
       if (nodeIds.length === 0) return null;
-      targetNodeId = options.last ? nodeIds[nodeIds.length - 1] : (nodeIds[(options.nth ?? 1) - 1] ?? 0);
+      targetNodeId = options.last
+        ? nodeIds[nodeIds.length - 1]
+        : (nodeIds[(options.nth ?? 1) - 1] ?? 0);
     } else {
       const result = await client.send<{ nodeId: number }>(
-        'DOM.querySelector', { nodeId: doc.root.nodeId, selector }, sessionId
+        'DOM.querySelector',
+        { nodeId: doc.root.nodeId, selector },
+        sessionId,
       );
       targetNodeId = result.nodeId ?? 0;
     }
@@ -44,7 +58,9 @@ export async function findBySelector(
     if (!targetNodeId) return null;
 
     const desc = await client.send<{ node: { backendNodeId: number } }>(
-      'DOM.describeNode', { nodeId: targetNodeId }, sessionId
+      'DOM.describeNode',
+      { nodeId: targetNodeId },
+      sessionId,
     );
     const backendDOMNodeId = desc.node?.backendNodeId;
     if (!backendDOMNodeId) return null;
@@ -54,7 +70,13 @@ export async function findBySelector(
     if (existing) return existing;
 
     // Synthetic ref for elements not represented in the AX tree — insert into refs so it can be used in subsequent commands
-    const syntheticRef: ElementRef = { ref: `sel-${backendDOMNodeId}`, role: 'generic', name: selector, nodeId: targetNodeId, backendDOMNodeId };
+    const syntheticRef: ElementRef = {
+      ref: `sel-${backendDOMNodeId}`,
+      role: 'generic',
+      name: selector,
+      nodeId: targetNodeId,
+      backendDOMNodeId,
+    };
     refs.set(syntheticRef.ref, syntheticRef);
     return syntheticRef;
   } catch (err: unknown) {
@@ -65,11 +87,11 @@ export async function findBySelector(
 }
 
 export async function findByRole(
-  client: CdpClient,
-  sessionId: string,
+  _client: CdpClient,
+  _sessionId: string,
   refs: Map<string, ElementRef>,
   role: string,
-  options: FindOptions = {}
+  options: FindOptions = {},
 ): Promise<ElementRef | null> {
   if (options.nth !== undefined && options.nth < 1) {
     throw new Error(`nth must be >= 1 (received ${options.nth})`);
@@ -92,18 +114,18 @@ export async function findByRole(
 }
 
 export async function findByText(
-  client: CdpClient,
-  sessionId: string,
+  _client: CdpClient,
+  _sessionId: string,
   refs: Map<string, ElementRef>,
   text: string,
-  options: FindOptions = {}
+  options: FindOptions = {},
 ): Promise<ElementRef | null> {
   if (options.nth !== undefined && options.nth < 1) {
     throw new Error(`nth must be >= 1 (received ${options.nth})`);
   }
   const lower = text.toLowerCase();
   const candidates = [...refs.values()].filter((r) =>
-    options.exact ? r.name.toLowerCase() === lower : r.name.toLowerCase().includes(lower)
+    options.exact ? r.name.toLowerCase() === lower : r.name.toLowerCase().includes(lower),
   );
   if (options.nth !== undefined) return candidates[options.nth - 1] ?? null;
   if (options.last) return candidates[candidates.length - 1] ?? null;
@@ -115,17 +137,17 @@ export async function findByLabel(
   sessionId: string,
   refs: Map<string, ElementRef>,
   label: string,
-  options: FindOptions = {}
+  options: FindOptions = {},
 ): Promise<ElementRef | null> {
   return findByText(client, sessionId, refs, label, options);
 }
 
 export async function findByPlaceholder(
-  client: CdpClient,
-  sessionId: string,
+  _client: CdpClient,
+  _sessionId: string,
   refs: Map<string, ElementRef>,
   placeholder: string,
-  options: FindOptions = {}
+  options: FindOptions = {},
 ): Promise<ElementRef | null> {
   if (options.nth !== undefined && options.nth < 1) {
     throw new Error(`nth must be >= 1 (received ${options.nth})`);
@@ -143,7 +165,7 @@ export async function findByPlaceholder(
 export async function findByTestId(
   client: CdpClient,
   sessionId: string,
-  testId: string
+  testId: string,
 ): Promise<string | null> {
   const escapedId = testId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const selectors = [
@@ -152,18 +174,28 @@ export async function findByTestId(
     `[data-test="${escapedId}"]`,
   ];
   for (const sel of selectors) {
-    const result = await evaluateJs(client, sessionId, `!!document.querySelector(${JSON.stringify(sel)})`);
+    const result = await evaluateJs(
+      client,
+      sessionId,
+      `!!document.querySelector(${JSON.stringify(sel)})`,
+    );
     if (result) return sel;
   }
   return null;
 }
 
-export async function isVisible(client: CdpClient, sessionId: string, ref: ElementRef): Promise<boolean> {
+export async function isVisible(
+  client: CdpClient,
+  sessionId: string,
+  ref: ElementRef,
+): Promise<boolean> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (!objectId) return false;
 
-  const result = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
-    functionDeclaration: `function() {
+  const result = await client.send<{ result: { value?: boolean } }>(
+    'Runtime.callFunctionOn',
+    {
+      functionDeclaration: `function() {
       const rect = this.getBoundingClientRect();
       const style = window.getComputedStyle(this);
       return rect.width > 0 && rect.height > 0 &&
@@ -171,45 +203,74 @@ export async function isVisible(client: CdpClient, sessionId: string, ref: Eleme
              style.visibility !== 'hidden' &&
              style.opacity !== '0';
     }`,
-    objectId,
-    returnByValue: true,
-  }, sessionId);
+      objectId,
+      returnByValue: true,
+    },
+    sessionId,
+  );
   return result.result?.value ?? false;
 }
 
-export async function isEnabled(client: CdpClient, sessionId: string, ref: ElementRef): Promise<boolean> {
+export async function isEnabled(
+  _client: CdpClient,
+  _sessionId: string,
+  ref: ElementRef,
+): Promise<boolean> {
   return !ref.disabled;
 }
 
-export async function isChecked(client: CdpClient, sessionId: string, ref: ElementRef): Promise<boolean> {
+export async function isChecked(
+  client: CdpClient,
+  sessionId: string,
+  ref: ElementRef,
+): Promise<boolean> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (!objectId) return false;
 
-  const result = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
-    functionDeclaration: 'function() { return !!this.checked; }',
-    objectId,
-    returnByValue: true,
-  }, sessionId);
+  const result = await client.send<{ result: { value?: boolean } }>(
+    'Runtime.callFunctionOn',
+    {
+      functionDeclaration: 'function() { return !!this.checked; }',
+      objectId,
+      returnByValue: true,
+    },
+    sessionId,
+  );
   return result.result?.value ?? false;
 }
 
-export async function scrollIntoView(client: CdpClient, sessionId: string, ref: ElementRef): Promise<void> {
+export async function scrollIntoView(
+  client: CdpClient,
+  sessionId: string,
+  ref: ElementRef,
+): Promise<void> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (!objectId) throw new Error(`Cannot scroll: ref @${ref.ref} not found in DOM`);
 
-  await client.send('Runtime.callFunctionOn', {
-    functionDeclaration: 'function() { this.scrollIntoView({ behavior: "smooth", block: "center" }); }',
-    objectId,
-    returnByValue: true,
-  }, sessionId);
+  await client.send(
+    'Runtime.callFunctionOn',
+    {
+      functionDeclaration:
+        'function() { this.scrollIntoView({ behavior: "smooth", block: "center" }); }',
+      objectId,
+      returnByValue: true,
+    },
+    sessionId,
+  );
 }
 
-export async function highlightElement(client: CdpClient, sessionId: string, ref: ElementRef): Promise<void> {
+export async function highlightElement(
+  client: CdpClient,
+  sessionId: string,
+  ref: ElementRef,
+): Promise<void> {
   const objectId = await getObjectIdForRef(client, sessionId, ref);
   if (!objectId) return;
 
-  await client.send('Runtime.callFunctionOn', {
-    functionDeclaration: `function() {
+  await client.send(
+    'Runtime.callFunctionOn',
+    {
+      functionDeclaration: `function() {
       const prev = this.style.outline;
       const prevBg = this.style.backgroundColor;
       this.style.outline = '3px solid #ff5722';
@@ -219,7 +280,9 @@ export async function highlightElement(client: CdpClient, sessionId: string, ref
         this.style.backgroundColor = prevBg;
       }, 2000);
     }`,
-    objectId,
-    returnByValue: true,
-  }, sessionId);
+      objectId,
+      returnByValue: true,
+    },
+    sessionId,
+  );
 }

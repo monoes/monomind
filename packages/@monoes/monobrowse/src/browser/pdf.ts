@@ -1,7 +1,7 @@
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export interface PdfOptions {
   path?: string;
@@ -19,7 +19,7 @@ export interface PdfOptions {
 export async function capturePdf(
   client: CdpClient,
   sessionId: string,
-  options: PdfOptions = {}
+  options: PdfOptions = {},
 ): Promise<string> {
   const params: Record<string, unknown> = {
     landscape: options.landscape ?? false,

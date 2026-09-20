@@ -569,33 +569,33 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
 // NAV
 // ═══════════════════════════════════════════════════════════════════
 function navigateToPanel(target) {
-  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
-  var navItem = document.querySelector('[data-panel="' + target + '"]');
+  document.querySelectorAll('.nav-item').forEach((n) => { n.classList.remove('active'); });
+  var navItem = document.querySelector(`[data-panel="${target}"]`);
   if (navItem) navItem.classList.add('active');
-  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.panel').forEach((p) => { p.classList.remove('active'); });
   var panelId = target === 'playbooks' ? 'pb-panel'
               : target === 'builder'   ? 'builder-panel'
-              : target + '-panel';
+              : `${target}-panel`;
   var panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
   if (target === 'builder') renderEdges();
   location.hash = target;
 }
 
-document.querySelectorAll('.nav-item').forEach(function(item) {
-  item.addEventListener('click', function() {
+document.querySelectorAll('.nav-item').forEach((item) => {
+  item.addEventListener('click', () => {
     var target = item.getAttribute('data-panel');
     navigateToPanel(target);
   });
 });
 
 // Hash-based routing on load
-(function() {
+(() => {
   var hash = location.hash.replace('#', '');
   var validPanels = ['playbooks', 'builder', 'agents', 'memory', 'sessions'];
   if (hash && validPanels.indexOf(hash) !== -1) {
     // defer until after renderEdges is defined
-    window.addEventListener('load', function() { navigateToPanel(hash); });
+    window.addEventListener('load', () => { navigateToPanel(hash); });
   }
 })();
 
@@ -620,11 +620,11 @@ function updateHeader() {
     else if (s === 'completed') done++;
     else if (s === 'failed') fail++;
   }
-  document.getElementById('p-run').textContent = '● ' + running;
-  document.getElementById('p-done').textContent = '✓ ' + done;
-  document.getElementById('p-fail').textContent = '✗ ' + fail;
+  document.getElementById('p-run').textContent = `● ${running}`;
+  document.getElementById('p-done').textContent = `✓ ${done}`;
+  document.getElementById('p-fail').textContent = `✗ ${fail}`;
   document.getElementById('nb-run').textContent = String(running || Object.keys(runs).length);
-  document.getElementById('nb-run').className = 'nav-badge' + (running ? '' : ' green');
+  document.getElementById('nb-run').className = `nav-badge${running ? '' : ' green'}`;
   var total = Object.keys(runs).length;
   document.getElementById('pb-subtitle').textContent = total + (total === 1 ? ' run' : ' runs');
 }
@@ -641,25 +641,25 @@ function statusLabel(r) {
 }
 function elapsed(r) {
   var ms = (r.endedAt || r.completedAt || Date.now()) - r.startedAt;
-  if (ms < 1000) return ms + 'ms';
-  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
-  return Math.floor(ms / 60000) + 'm ' + Math.floor((ms % 60000) / 1000) + 's';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 }
 function renderCards() {
   var cards = document.getElementById('pb-cards');
   var empty = document.getElementById('pb-empty');
-  var sorted = Object.values(runs).sort(function(a, b) { return b.startedAt - a.startedAt; });
+  var sorted = Object.values(runs).sort((a, b) => b.startedAt - a.startedAt);
   if (!sorted.length) { cards.innerHTML = ''; empty.style.display = 'flex'; return; }
   empty.style.display = 'none';
-  cards.innerHTML = sorted.map(function(r) {
+  cards.innerHTML = sorted.map((r) => {
     var sl = statusLabel(r);
     var isRunning = r.status === 'running';
     var pct = progressPct(r);
     var logLines = (runLogs[r.id] || []).slice(-4);
     var logHtml = logLines.length
-      ? logLines.map(function(l) {
+      ? logLines.map((l) => {
           var cls = l.type === 'ok' ? 'log-ok' : l.type === 'err' ? 'log-err' : 'log-info';
-          return '<div><span class="log-ts">' + esc(l.ts) + '</span> <span class="' + cls + '">' + esc(l.text) + '</span></div>';
+          return `<div><span class="log-ts">${esc(l.ts)}</span> <span class="${cls}">${esc(l.text)}</span></div>`;
         }).join('')
       : '<div style="color:#2a2a3a">no events yet</div>';
     return '<div class="card' + (!isRunning ? ' done' : '') + '">' +
@@ -671,14 +671,14 @@ function renderCards() {
         '<span class="mitem">⏱ ' + esc(elapsed(r)) + '</span>' +
         '<span class="mitem">📦 ' + esc(r.itemsProcessed) + '/' + esc(r.itemsTotal || '?') + '</span>' +
         '<span class="mitem" style="color:#3a3a5a">id: ' + esc(r.id.slice(0,8)) + '</span>' +
-        (isRunning ? '<button class="stop-btn" onclick="stopRun(\'' + esc(r.id) + '\')">■ stop</button>' : '') +
+        (isRunning ? `<button class="stop-btn" onclick="stopRun('${esc(r.id)}')">■ stop</button>` : '') +
       '</div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="log-area">' + logHtml + '</div>' +
     '</div>';
   }).join('');
 }
-function stopRun(id) { fetch('/stop/' + id, { method: 'POST', headers: { 'x-monobrowse-token': (window.__MONOBROWSE_TOKEN__ || '') } }).catch(function() {}); }
+function _stopRun(id) { fetch(`/stop/${id}`, { method: 'POST', headers: { 'x-monobrowse-token': (window.__MONOBROWSE_TOKEN__ || '') } }).catch(() => {}); }
 
 // ═══════════════════════════════════════════════════════════════════
 // NODE PALETTE DEFINITIONS
@@ -921,11 +921,11 @@ var canvas = {
 };
 var _nodeSeq = 1;
 
-function uid() { return 'n' + (_nodeSeq++) + '_' + Date.now().toString(36); }
+function uid() { return `n${_nodeSeq++}_${Date.now().toString(36)}`; }
 
 // Find node type def
 function getNodeDef(type) {
-  return NODE_TYPES.find(function(t) { return t.type === type; }) || null;
+  return NODE_TYPES.find((t) => t.type === type) || null;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -935,13 +935,11 @@ function buildPalette(filter) {
   filter = (filter || '').toLowerCase();
   var list = document.getElementById('palette-list');
   var html = '';
-  CAT_ORDER.forEach(function(cat) {
-    var nodes = NODE_TYPES.filter(function(n) {
-      return n.cat === cat && (!filter || n.label.toLowerCase().includes(filter) || n.type.toLowerCase().includes(filter));
-    });
+  CAT_ORDER.forEach((cat) => {
+    var nodes = NODE_TYPES.filter((n) => n.cat === cat && (!filter || n.label.toLowerCase().includes(filter) || n.type.toLowerCase().includes(filter)));
     if (!nodes.length) return;
-    html += '<div class="palette-cat-label">' + cat + '</div>';
-    nodes.forEach(function(n) {
+    html += `<div class="palette-cat-label">${cat}</div>`;
+    nodes.forEach((n) => {
       html += '<div class="palette-node" draggable="true" data-type="' + n.type + '" data-label="' + esc(n.label) + '">' +
         '<div class="palette-dot" style="background:' + n.color + '"></div>' +
         '<span>' + esc(n.label) + '</span></div>';
@@ -949,15 +947,15 @@ function buildPalette(filter) {
   });
   list.innerHTML = html;
 
-  list.querySelectorAll('.palette-node').forEach(function(el) {
-    el.addEventListener('dragstart', function(e) {
+  list.querySelectorAll('.palette-node').forEach((el) => {
+    el.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', el.getAttribute('data-type'));
       e.dataTransfer.effectAllowed = 'copy';
     });
   });
 }
 
-document.getElementById('palette-search').addEventListener('input', function(e) {
+document.getElementById('palette-search').addEventListener('input', (e) => {
   buildPalette(e.target.value);
 });
 buildPalette('');
@@ -967,7 +965,7 @@ buildPalette('');
 // ═══════════════════════════════════════════════════════════════════
 function applyTransform() {
   document.getElementById('canvas-nodes').style.transform =
-    'translate(' + canvas.panX + 'px,' + canvas.panY + 'px) scale(' + canvas.zoom + ')';
+    `translate(${canvas.panX}px,${canvas.panY}px) scale(${canvas.zoom})`;
   renderEdges();
 }
 
@@ -995,7 +993,7 @@ document.getElementById('canvas-wrap').addEventListener('mousedown', function(e)
     e.preventDefault();
   }
 });
-document.addEventListener('mousemove', function(e) {
+document.addEventListener('mousemove', (e) => {
   if (_panning) {
     canvas.panX = e.clientX - _panStart.x;
     canvas.panY = e.clientY - _panStart.y;
@@ -1004,7 +1002,7 @@ document.addEventListener('mousemove', function(e) {
   if (_dragEdge.active) updateDragEdge(e);
   if (_draggingNode) updateNodeDrag(e);
 });
-document.addEventListener('mouseup', function(e) {
+document.addEventListener('mouseup', (e) => {
   _panning = false;
   if (_draggingNode) endNodeDrag(e);
   if (_dragEdge.active) endDragEdge(e);
@@ -1020,7 +1018,7 @@ document.getElementById('canvas-wrap').addEventListener('mousedown', function(e)
 });
 
 // Drop from palette
-document.getElementById('canvas-wrap').addEventListener('dragover', function(e) { e.preventDefault(); });
+document.getElementById('canvas-wrap').addEventListener('dragover', (e) => { e.preventDefault(); });
 document.getElementById('canvas-wrap').addEventListener('drop', function(e) {
   e.preventDefault();
   var type = e.dataTransfer.getData('text/plain');
@@ -1034,15 +1032,15 @@ document.getElementById('canvas-wrap').addEventListener('drop', function(e) {
 });
 
 // Zoom buttons
-document.getElementById('btn-zoom-in').addEventListener('click', function() {
+document.getElementById('btn-zoom-in').addEventListener('click', () => {
   canvas.zoom = Math.min(3, canvas.zoom * 1.2);
   applyTransform();
 });
-document.getElementById('btn-zoom-out').addEventListener('click', function() {
+document.getElementById('btn-zoom-out').addEventListener('click', () => {
   canvas.zoom = Math.max(0.2, canvas.zoom / 1.2);
   applyTransform();
 });
-document.getElementById('btn-fit').addEventListener('click', function() {
+document.getElementById('btn-fit').addEventListener('click', () => {
   fitCanvas();
 });
 
@@ -1051,7 +1049,7 @@ function fitCanvas() {
   var wrap = document.getElementById('canvas-wrap');
   var W = wrap.clientWidth, H = wrap.clientHeight;
   var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  canvas.nodes.forEach(function(n) {
+  canvas.nodes.forEach((n) => {
     minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
     maxX = Math.max(maxX, n.x + 200); maxY = Math.max(maxY, n.y + nodeH(n));
   });
@@ -1096,8 +1094,8 @@ function addNode(type, x, y) {
 }
 
 function removeNode(id) {
-  canvas.nodes = canvas.nodes.filter(function(n) { return n.id !== id; });
-  canvas.edges = canvas.edges.filter(function(e) { return e.from !== id && e.to !== id; });
+  canvas.nodes = canvas.nodes.filter((n) => n.id !== id);
+  canvas.edges = canvas.edges.filter((e) => e.from !== id && e.to !== id);
   if (canvas.selectedId === id) { canvas.selectedId = null; renderPropsPanel(); }
   renderNodes();
   renderEdges();
@@ -1112,7 +1110,7 @@ var _dragNodeStart = null;
 function startNodeDrag(e, nodeId) {
   e.stopPropagation();
   _draggingNode = nodeId;
-  var n = canvas.nodes.find(function(n) { return n.id === nodeId; });
+  var n = canvas.nodes.find((n) => n.id === nodeId);
   _dragNodeStart = {
     mx: e.clientX, my: e.clientY,
     nx: n.x, ny: n.y,
@@ -1125,7 +1123,7 @@ function updateNodeDrag(e) {
   if (!_draggingNode) return;
   var dx = (e.clientX - _dragNodeStart.mx) / canvas.zoom;
   var dy = (e.clientY - _dragNodeStart.my) / canvas.zoom;
-  var n = canvas.nodes.find(function(n) { return n.id === _draggingNode; });
+  var n = canvas.nodes.find((n) => n.id === _draggingNode);
   if (n) { n.x = _dragNodeStart.nx + dx; n.y = _dragNodeStart.ny + dy; }
   renderNodePosition(_draggingNode);
   renderEdges();
@@ -1135,9 +1133,9 @@ function endNodeDrag(e) {
   _dragNodeStart = null;
 }
 function renderNodePosition(id) {
-  var el = document.querySelector('[data-node-id="' + id + '"]');
-  var n = canvas.nodes.find(function(n) { return n.id === id; });
-  if (el && n) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+  var el = document.querySelector(`[data-node-id="${id}"]`);
+  var n = canvas.nodes.find((n) => n.id === id);
+  if (el && n) { el.style.left = `${n.x}px`; el.style.top = `${n.y}px`; }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1164,7 +1162,7 @@ function updateDragEdge(e) {
   var sx = _dragEdge.x, sy = _dragEdge.y;
   var dx = Math.max(60, Math.abs(tx - sx) * 0.5);
   document.getElementById('drag-edge').setAttribute('d',
-    'M' + sx + ',' + sy + ' C' + (sx+dx) + ',' + sy + ' ' + (tx-dx) + ',' + ty + ' ' + tx + ',' + ty);
+    `M${sx},${sy} C${sx+dx},${sy} ${tx-dx},${ty} ${tx},${ty}`);
 }
 function endDragEdge(e) {
   document.getElementById('drag-edge').style.display = 'none';
@@ -1174,13 +1172,11 @@ function dropOnInputPort(e, toNodeId, toPortIdx) {
   if (!_dragEdge.active) return;
   e.stopPropagation();
   if (_dragEdge.fromNodeId === toNodeId) { endDragEdge(e); return; }
-  var fromNode = canvas.nodes.find(function(n) { return n.id === _dragEdge.fromNodeId; });
+  var fromNode = canvas.nodes.find((n) => n.id === _dragEdge.fromNodeId);
   var def = fromNode && (fromNode._def || getNodeDef(fromNode.type));
-  var handle = def && def.outputs[_dragEdge.fromPortIdx] ? def.outputs[_dragEdge.fromPortIdx].label : undefined;
+  var handle = def?.outputs[_dragEdge.fromPortIdx] ? def.outputs[_dragEdge.fromPortIdx].label : undefined;
   // Remove existing edge from same out port if any
-  canvas.edges = canvas.edges.filter(function(ed) {
-    return !(ed.from === _dragEdge.fromNodeId && ed.fromPort === _dragEdge.fromPortIdx && ed.to === toNodeId && ed.toPort === toPortIdx);
-  });
+  canvas.edges = canvas.edges.filter((ed) => !(ed.from === _dragEdge.fromNodeId && ed.fromPort === _dragEdge.fromPortIdx && ed.to === toNodeId && ed.toPort === toPortIdx));
   canvas.edges.push({
     id: uid(),
     from: _dragEdge.fromNodeId,
@@ -1194,12 +1190,12 @@ function dropOnInputPort(e, toNodeId, toPortIdx) {
 }
 
 function getOutPortPos(nodeId, portIdx) {
-  var n = canvas.nodes.find(function(n) { return n.id === nodeId; });
+  var n = canvas.nodes.find((n) => n.id === nodeId);
   if (!n) return {x:0,y:0};
   return { x: n.x + 200, y: n.y + 40 + 6 + portIdx * 26 + 13 };
 }
-function getInPortPos(nodeId, portIdx) {
-  var n = canvas.nodes.find(function(n) { return n.id === nodeId; });
+function _getInPortPos(nodeId, portIdx) {
+  var n = canvas.nodes.find((n) => n.id === nodeId);
   if (!n) return {x:0,y:0};
   return { x: n.x, y: n.y + 40 + 6 + portIdx * 26 + 13 };
 }
@@ -1210,14 +1206,14 @@ function getInPortPos(nodeId, portIdx) {
 function renderNodes() {
   var container = document.getElementById('canvas-nodes');
   var existingIds = new Set();
-  canvas.nodes.forEach(function(n) { existingIds.add(n.id); });
+  canvas.nodes.forEach((n) => { existingIds.add(n.id); });
   // Remove nodes that no longer exist
-  container.querySelectorAll('[data-node-id]').forEach(function(el) {
+  container.querySelectorAll('[data-node-id]').forEach((el) => {
     if (!existingIds.has(el.getAttribute('data-node-id'))) el.remove();
   });
   // Add or update each node
-  canvas.nodes.forEach(function(n) {
-    var existing = container.querySelector('[data-node-id="' + n.id + '"]');
+  canvas.nodes.forEach((n) => {
+    var existing = container.querySelector(`[data-node-id="${n.id}"]`);
     var def = n._def || getNodeDef(n.type) || { inputs:[{label:'in'}], outputs:[{label:'out'}], color:'#7c3aed' };
     var color = def.color || '#7c3aed';
     var rows = Math.max(def.inputs.length, def.outputs.length, 1);
@@ -1226,21 +1222,21 @@ function renderNodes() {
 
     if (!existing) {
       var el = document.createElement('div');
-      el.className = 'cn' + (isSelected ? ' selected' : '') + (n.runStatus === 'running' ? ' running' : '');
+      el.className = `cn${isSelected ? ' selected' : ''}${n.runStatus === 'running' ? ' running' : ''}`;
       el.setAttribute('data-node-id', n.id);
-      el.style.left = n.x + 'px';
-      el.style.top  = n.y + 'px';
-      el.style.height = h + 'px';
+      el.style.left = `${n.x}px`;
+      el.style.top  = `${n.y}px`;
+      el.style.height = `${h}px`;
       el.style.borderColor = isSelected ? color : (n.runStatus === 'error' ? '#ef444444' : n.runStatus === 'ok' ? '#10b98133' : 'rgba(124,58,237,0.15)');
 
       // Status badge
       var statusHtml = '';
       if (n.runStatus) {
-        var statusText = n.runStatus === 'ok' ? '✓ ' + n.runItems + ' item' + (n.runItems !== 1 ? 's' : '') + (n.runDuration ? ' · ' + n.runDuration + 'ms' : '')
+        var statusText = n.runStatus === 'ok' ? `✓ ${n.runItems} item${n.runItems !== 1 ? 's' : ''}${n.runDuration ? ` · ${n.runDuration}ms` : ''}`
           : n.runStatus === 'running' ? '⏳ running'
           : n.runStatus === 'error' ? '✕ error'
           : '— skipped';
-        statusHtml = '<div class="cn-status ' + n.runStatus + '">' + esc(statusText) + '</div>';
+        statusHtml = `<div class="cn-status ${n.runStatus}">${esc(statusText)}</div>`;
       }
 
       // Header
@@ -1279,11 +1275,11 @@ function renderNodes() {
       el.innerHTML = statusHtml + headerHtml + portsHtml;
 
       // Events
-      el.querySelector('.cn-header').addEventListener('mousedown', function(e) {
+      el.querySelector('.cn-header').addEventListener('mousedown', (e) => {
         if (e.target.closest('.cn-del')) return;
         startNodeDrag(e, n.id);
       });
-      el.addEventListener('mousedown', function(e) {
+      el.addEventListener('mousedown', (e) => {
         if (e.target.closest('.cn-del') || e.target.closest('.cn-port')) return;
         e.stopPropagation();
         canvas.selectedId = n.id;
@@ -1291,47 +1287,47 @@ function renderNodes() {
         renderNodes();
       });
       var delBtn = el.querySelector('.cn-del');
-      if (delBtn) delBtn.addEventListener('mousedown', function(e) {
+      if (delBtn) delBtn.addEventListener('mousedown', (e) => {
         e.stopPropagation();
         removeNode(n.id);
       });
-      el.querySelectorAll('.cn-port.out').forEach(function(port) {
-        port.addEventListener('mousedown', function(e) {
+      el.querySelectorAll('.cn-port.out').forEach((port) => {
+        port.addEventListener('mousedown', (e) => {
           e.stopPropagation();
           var portIdx = parseInt(port.getAttribute('data-out-port'), 10);
           startDragEdge(e, n.id, portIdx);
         });
       });
-      el.querySelectorAll('.cn-port.in').forEach(function(port) {
-        port.addEventListener('mouseup', function(e) {
+      el.querySelectorAll('.cn-port.in').forEach((port) => {
+        port.addEventListener('mouseup', (e) => {
           var portIdx = parseInt(port.getAttribute('data-in-port'), 10);
           dropOnInputPort(e, n.id, portIdx);
         });
-        port.addEventListener('mouseenter', function() { port.classList.add('highlight'); });
-        port.addEventListener('mouseleave', function() { port.classList.remove('highlight'); });
+        port.addEventListener('mouseenter', () => { port.classList.add('highlight'); });
+        port.addEventListener('mouseleave', () => { port.classList.remove('highlight'); });
       });
 
       container.appendChild(el);
     } else {
       // Update position, selection, status
-      existing.style.left = n.x + 'px';
-      existing.style.top  = n.y + 'px';
-      existing.className = 'cn' + (isSelected ? ' selected' : '') + (n.runStatus === 'running' ? ' running' : '');
+      existing.style.left = `${n.x}px`;
+      existing.style.top  = `${n.y}px`;
+      existing.className = `cn${isSelected ? ' selected' : ''}${n.runStatus === 'running' ? ' running' : ''}`;
       existing.style.borderColor = isSelected ? color : (n.runStatus === 'error' ? '#ef444444' : n.runStatus === 'ok' ? '#10b98133' : 'rgba(124,58,237,0.15)');
       // Update status badge
       var badge = existing.querySelector('.cn-status');
       if (n.runStatus) {
-        var statusText2 = n.runStatus === 'ok' ? '✓ ' + n.runItems + ' item' + (n.runItems !== 1 ? 's' : '') + (n.runDuration ? ' · ' + n.runDuration + 'ms' : '')
+        var statusText2 = n.runStatus === 'ok' ? `✓ ${n.runItems} item${n.runItems !== 1 ? 's' : ''}${n.runDuration ? ` · ${n.runDuration}ms` : ''}`
           : n.runStatus === 'running' ? '⏳ running'
           : n.runStatus === 'error' ? '✕ error'
           : '— skipped';
         if (!badge) {
           var newBadge = document.createElement('div');
-          newBadge.className = 'cn-status ' + n.runStatus;
+          newBadge.className = `cn-status ${n.runStatus}`;
           newBadge.textContent = statusText2;
           existing.insertBefore(newBadge, existing.firstChild);
         } else {
-          badge.className = 'cn-status ' + n.runStatus;
+          badge.className = `cn-status ${n.runStatus}`;
           badge.textContent = statusText2;
         }
       } else if (badge) {
@@ -1347,16 +1343,16 @@ function renderNodes() {
 function renderEdges() {
   var layer = document.getElementById('edge-layer');
   layer.innerHTML = '';
-  canvas.edges.forEach(function(edge) {
-    var fromNode = canvas.nodes.find(function(n) { return n.id === edge.from; });
-    var toNode   = canvas.nodes.find(function(n) { return n.id === edge.to; });
+  canvas.edges.forEach((edge) => {
+    var fromNode = canvas.nodes.find((n) => n.id === edge.from);
+    var toNode   = canvas.nodes.find((n) => n.id === edge.to);
     if (!fromNode || !toNode) return;
     var sx = (fromNode.x + 200) * canvas.zoom + canvas.panX;
     var sy = (fromNode.y + 40 + 6 + edge.fromPort * 26 + 13) * canvas.zoom + canvas.panY;
     var tx = toNode.x * canvas.zoom + canvas.panX;
     var ty = (toNode.y + 40 + 6 + edge.toPort * 26 + 13) * canvas.zoom + canvas.panY;
     var dx = Math.max(60, Math.abs(tx - sx) * 0.5) * canvas.zoom;
-    var d = 'M' + sx + ',' + sy + ' C' + (sx+dx) + ',' + sy + ' ' + (tx-dx) + ',' + ty + ' ' + tx + ',' + ty;
+    var d = `M${sx},${sy} C${sx+dx},${sy} ${tx-dx},${ty} ${tx},${ty}`;
     var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', d);
     path.setAttribute('stroke', '#7c3aed88');
@@ -1367,7 +1363,7 @@ function renderEdges() {
     layer.appendChild(path);
 
     // Remove edge on click
-    (function(edgeId, midX, midY) {
+    ((edgeId, _midX, _midY) => {
       path.style.cursor = 'pointer';
       path.style.strokeWidth = '4';
       path.style.stroke = 'transparent';
@@ -1377,8 +1373,8 @@ function renderEdges() {
       hit.setAttribute('stroke-width', '8');
       hit.setAttribute('fill', 'none');
       hit.style.cursor = 'pointer';
-      hit.addEventListener('click', function() {
-        canvas.edges = canvas.edges.filter(function(e) { return e.id !== edgeId; });
+      hit.addEventListener('click', () => {
+        canvas.edges = canvas.edges.filter((e) => e.id !== edgeId);
         renderEdges();
       });
       layer.appendChild(hit);
@@ -1391,7 +1387,7 @@ function renderEdges() {
 // ═══════════════════════════════════════════════════════════════════
 function renderPropsPanel() {
   var body = document.getElementById('props-body');
-  var node = canvas.nodes.find(function(n) { return n.id === canvas.selectedId; });
+  var node = canvas.nodes.find((n) => n.id === canvas.selectedId);
   if (!node) {
     body.innerHTML = '<div class="empty" style="padding:20px;color:#333;font-size:11px;text-align:center">Select a node to edit its properties</div>';
     return;
@@ -1401,41 +1397,37 @@ function renderPropsPanel() {
     '<input class="prop-input" id="prop-node-name" value="' + esc(node.name || '') + '" /></div>';
   html += '<div class="prop-row"><div class="prop-label">On error</div>' +
     '<select class="prop-select" id="prop-on-error">' +
-    ['stop','skip'].map(function(v) {
-      return '<option value="' + v + '"' + (node.onError === v ? ' selected' : '') + '>' + v + '</option>';
-    }).join('') + '</select></div>';
+    ['stop','skip'].map((v) => `<option value="${v}"${node.onError === v ? ' selected' : ''}>${v}</option>`).join('') + '</select></div>';
 
-  fields.forEach(function(f) {
+  fields.forEach((f) => {
     var val = node.config[f.key] !== undefined ? String(node.config[f.key]) : '';
-    html += '<div class="prop-row"><div class="prop-label">' + esc(f.label) + '</div>';
+    html += `<div class="prop-row"><div class="prop-label">${esc(f.label)}</div>`;
     if (f.type === 'select') {
       html += '<select class="prop-select" data-key="' + f.key + '">' +
-        (f.options || []).map(function(o) {
-          return '<option value="' + esc(o) + '"' + (val === o ? ' selected' : '') + '>' + esc(o) + '</option>';
-        }).join('') + '</select>';
+        (f.options || []).map((o) => `<option value="${esc(o)}"${val === o ? ' selected' : ''}>${esc(o)}</option>`).join('') + '</select>';
     } else if (f.type === 'textarea') {
-      html += '<textarea class="prop-textarea" data-key="' + f.key + '">' + esc(val) + '</textarea>';
+      html += `<textarea class="prop-textarea" data-key="${f.key}">${esc(val)}</textarea>`;
     } else {
-      html += '<input class="prop-input" data-key="' + f.key + '" value="' + esc(val) + '" />';
+      html += `<input class="prop-input" data-key="${f.key}" value="${esc(val)}" />`;
     }
     html += '</div>';
   });
 
   body.innerHTML = html;
 
-  body.querySelector('#prop-node-name').addEventListener('input', function(e) {
+  body.querySelector('#prop-node-name').addEventListener('input', (e) => {
     node.name = e.target.value;
-    var el = document.querySelector('[data-node-id="' + node.id + '"] .cn-label');
+    var el = document.querySelector(`[data-node-id="${node.id}"] .cn-label`);
     if (el) el.textContent = node.name;
   });
-  body.querySelector('#prop-on-error').addEventListener('change', function(e) {
+  body.querySelector('#prop-on-error').addEventListener('change', (e) => {
     node.onError = e.target.value;
   });
-  body.querySelectorAll('[data-key]').forEach(function(el) {
-    el.addEventListener('input', function() {
+  body.querySelectorAll('[data-key]').forEach((el) => {
+    el.addEventListener('input', () => {
       node.config[el.getAttribute('data-key')] = el.value;
     });
-    el.addEventListener('change', function() {
+    el.addEventListener('change', () => {
       node.config[el.getAttribute('data-key')] = el.value;
     });
   });
@@ -1445,16 +1437,14 @@ function renderPropsPanel() {
 // PLAYBOOK SERIALIZATION
 // ═══════════════════════════════════════════════════════════════════
 function toPlaybookDef() {
-  var id = canvas.playbookId || ('pb_' + Date.now().toString(36));
+  var id = canvas.playbookId || (`pb_${Date.now().toString(36)}`);
   canvas.playbookId = id;
   var name = document.getElementById('pb-name-input').value.trim() || 'Untitled Playbook';
   return {
     id: id,
     name: name,
-    nodes: canvas.nodes.map(function(n) {
-      return { id: n.id, type: n.type, name: n.name, config: n.config, onError: n.onError || 'stop' };
-    }),
-    connections: canvas.edges.map(function(e) {
+    nodes: canvas.nodes.map((n) => ({ id: n.id, type: n.type, name: n.name, config: n.config, onError: n.onError || 'stop' })),
+    connections: canvas.edges.map((e) => {
       var res = { from: e.from, to: e.to };
       if (e.handle && e.handle !== 'main' && e.handle !== 'out' && e.handle !== 'items') res.handle = e.handle;
       return res;
@@ -1473,7 +1463,7 @@ function loadPlaybookDef(pb) {
 
   // Lay out nodes in a simple column if no positions stored
   var x = 100, y = 60;
-  (pb.nodes || []).forEach(function(n, i) {
+  (pb.nodes || []).forEach((n, i) => {
     var def = getNodeDef(n.type) || { inputs:[{label:'in'}], outputs:[{label:'out'}], color:'#7c3aed', label: n.type };
     var node = {
       id: n.id,
@@ -1492,13 +1482,13 @@ function loadPlaybookDef(pb) {
   });
 
   // Build edges from connections
-  (pb.connections || []).forEach(function(c) {
-    var fromNode = canvas.nodes.find(function(n) { return n.id === c.from; });
-    var toNode   = canvas.nodes.find(function(n) { return n.id === c.to; });
+  (pb.connections || []).forEach((c) => {
+    var fromNode = canvas.nodes.find((n) => n.id === c.from);
+    var toNode   = canvas.nodes.find((n) => n.id === c.to);
     if (!fromNode || !toNode) return;
     var fromDef = fromNode._def || { outputs: [{label:'main'}] };
     var handle = c.handle || (fromDef.outputs[0] ? fromDef.outputs[0].label : 'main');
-    var fromPortIdx = fromDef.outputs.findIndex(function(o) { return o.label === handle; });
+    var fromPortIdx = fromDef.outputs.findIndex((o) => o.label === handle);
     if (fromPortIdx < 0) fromPortIdx = 0;
     canvas.edges.push({
       id: uid(),
@@ -1519,7 +1509,7 @@ function loadPlaybookDef(pb) {
 // ═══════════════════════════════════════════════════════════════════
 // TOOLBAR ACTIONS
 // ═══════════════════════════════════════════════════════════════════
-document.getElementById('btn-new').addEventListener('click', function() {
+document.getElementById('btn-new').addEventListener('click', () => {
   canvas.nodes = [];
   canvas.edges = [];
   canvas.playbookId = null;
@@ -1531,25 +1521,25 @@ document.getElementById('btn-new').addEventListener('click', function() {
   renderPropsPanel();
 });
 
-document.getElementById('btn-save').addEventListener('click', function() {
+document.getElementById('btn-save').addEventListener('click', () => {
   var pb = toPlaybookDef();
   fetch('/api/playbooks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pb),
-  }).then(function(r) { return r.json(); }).then(function(saved) {
+  }).then((r) => r.json()).then((saved) => {
     canvas.playbookId = saved.id;
-    showToast('Playbook saved: ' + saved.name);
-  }).catch(function(e) {
-    showToast('Save failed: ' + e, true);
+    showToast(`Playbook saved: ${saved.name}`);
+  }).catch((e) => {
+    showToast(`Save failed: ${e}`, true);
   });
 });
 
-document.getElementById('btn-open').addEventListener('click', function() {
+document.getElementById('btn-open').addEventListener('click', () => {
   openPlaybookList();
 });
 
-document.getElementById('btn-run').addEventListener('click', function() {
+document.getElementById('btn-run').addEventListener('click', () => {
   if (!canvas.playbookId) {
     // Auto-save first
     var pb = toPlaybookDef();
@@ -1557,9 +1547,9 @@ document.getElementById('btn-run').addEventListener('click', function() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pb),
-    }).then(function() {
+    }).then(() => {
       runCurrentPlaybook(pb.id);
-    }).catch(function(e) { showToast('Error: ' + e, true); });
+    }).catch((e) => { showToast(`Error: ${e}`, true); });
   } else {
     // Save then run
     var pb2 = toPlaybookDef();
@@ -1567,29 +1557,29 @@ document.getElementById('btn-run').addEventListener('click', function() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pb2),
-    }).then(function() {
+    }).then(() => {
       runCurrentPlaybook(pb2.id);
-    }).catch(function(e) { showToast('Error: ' + e, true); });
+    }).catch((e) => { showToast(`Error: ${e}`, true); });
   }
 });
 
 function runCurrentPlaybook(playbookId) {
   // Reset node statuses
-  canvas.nodes.forEach(function(n) { n.runStatus = null; n.runItems = 0; n.runDuration = null; });
+  canvas.nodes.forEach((n) => { n.runStatus = null; n.runItems = 0; n.runDuration = null; });
   renderNodes();
-  fetch('/api/playbooks/' + playbookId + '/run', { method: 'POST' })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
+  fetch(`/api/playbooks/${playbookId}/run`, { method: 'POST' })
+    .then((r) => r.json())
+    .then((res) => {
       if (res.ok) {
         showToast('Playbook started — watch the Runs tab');
         // Switch to runs panel
-        document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+        document.querySelectorAll('.nav-item').forEach((n) => { n.classList.remove('active'); });
         document.querySelector('[data-panel="playbooks"]').classList.add('active');
-        document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelectorAll('.panel').forEach((p) => { p.classList.remove('active'); });
         document.getElementById('pb-panel').classList.add('active');
       }
     })
-    .catch(function(e) { showToast('Run failed: ' + e, true); });
+    .catch((e) => { showToast(`Run failed: ${e}`, true); });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1599,36 +1589,34 @@ function openPlaybookList() {
   var overlay = document.getElementById('pb-list-overlay');
   overlay.classList.add('show');
   fetch('/api/playbooks')
-    .then(function(r) { return r.json(); })
-    .then(function(list) {
+    .then((r) => r.json())
+    .then((list) => {
       var body = document.getElementById('pblo-body');
       if (!list.length) {
         body.innerHTML = '<div class="pblo-empty">No saved playbooks yet. Build one and click Save!</div>';
         return;
       }
-      body.innerHTML = list.map(function(pb) {
-        return '<div class="pblo-item" data-pb-id="' + esc(pb.id) + '">' +
+      body.innerHTML = list.map((pb) => '<div class="pblo-item" data-pb-id="' + esc(pb.id) + '">' +
           '<span class="pblo-item-name">' + esc(pb.name) + '</span>' +
           '<span class="pblo-item-meta">' + (pb.nodes ? pb.nodes.length : 0) + ' nodes</span>' +
           '<button class="pblo-del" data-del-id="' + esc(pb.id) + '" title="Delete">✕</button>' +
-          '</div>';
-      }).join('');
-      body.querySelectorAll('.pblo-item').forEach(function(el) {
-        el.addEventListener('click', function(e) {
+          '</div>').join('');
+      body.querySelectorAll('.pblo-item').forEach((el) => {
+        el.addEventListener('click', (e) => {
           if (e.target.closest('.pblo-del')) return;
           var pbId = el.getAttribute('data-pb-id');
-          fetch('/api/playbooks/' + pbId).then(function(r) { return r.json(); }).then(function(pb) {
+          fetch(`/api/playbooks/${pbId}`).then((r) => r.json()).then((pb) => {
             loadPlaybookDef(pb);
             overlay.classList.remove('show');
           });
         });
       });
-      body.querySelectorAll('.pblo-del').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
+      body.querySelectorAll('.pblo-del').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
           e.stopPropagation();
           var delId = btn.getAttribute('data-del-id');
           if (!confirm('Delete this playbook?')) return;
-          fetch('/api/playbooks/' + delId, { method: 'DELETE' }).then(function() {
+          fetch(`/api/playbooks/${delId}`, { method: 'DELETE' }).then(() => {
             if (canvas.playbookId === delId) {
               canvas.playbookId = null;
               canvas.nodes = [];
@@ -1645,12 +1633,12 @@ function openPlaybookList() {
         });
       });
     })
-    .catch(function() {
+    .catch(() => {
       document.getElementById('pblo-body').innerHTML = '<div class="pblo-empty">Failed to load playbooks.</div>';
     });
 }
 
-document.getElementById('pblo-close-btn').addEventListener('click', function() {
+document.getElementById('pblo-close-btn').addEventListener('click', () => {
   document.getElementById('pb-list-overlay').classList.remove('show');
 });
 
@@ -1663,7 +1651,7 @@ function showToast(msg, isError) {
   t.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;padding:8px 14px;border-radius:6px;font-size:11px;font-family:monospace;max-width:320px;pointer-events:none;transition:opacity .3s;' +
     (isError ? 'background:#ef444420;border:1px solid #ef444466;color:#ef4444;' : 'background:#7c3aed20;border:1px solid #7c3aed66;color:#c4b5fd;');
   document.body.appendChild(t);
-  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 2500);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => { t.remove(); }, 300); }, 2500);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1671,7 +1659,7 @@ function showToast(msg, isError) {
 // ═══════════════════════════════════════════════════════════════════
 function handleBuilderEvent(evt) {
   if (!evt.nodeId) return;
-  var node = canvas.nodes.find(function(n) { return n.id === evt.nodeId; });
+  var node = canvas.nodes.find((n) => n.id === evt.nodeId);
   if (!node) return;
   if (evt.eventType === 'step_started') {
     node.runStatus = 'running';
@@ -1711,17 +1699,17 @@ function handleEvent(evt) {
     r.status = 'running';
     r.startedAt = evt.timestamp || Date.now();
   } else if (evt.eventType === 'step_started') {
-    runLogs[id].push({ ts: t, type: 'info', text: (evt.nodeName || '?') + ' — started' });
+    runLogs[id].push({ ts: t, type: 'info', text: `${evt.nodeName || '?'} — started` });
   } else if (evt.eventType === 'step_completed') {
     r.itemsProcessed = (r.itemsProcessed || 0) + (evt.itemTotal || 1);
-    runLogs[id].push({ ts: t, type: 'ok', text: (evt.nodeName || '?') + ' ✓ ' + (evt.durationMs ? evt.durationMs + 'ms' : '') });
+    runLogs[id].push({ ts: t, type: 'ok', text: `${evt.nodeName || '?'} ✓ ${evt.durationMs ? `${evt.durationMs}ms` : ''}` });
   } else if (evt.eventType === 'step_failed') {
-    runLogs[id].push({ ts: t, type: 'err', text: (evt.nodeName || '?') + ' ✗ ' + (evt.error || '') });
+    runLogs[id].push({ ts: t, type: 'err', text: `${evt.nodeName || '?'} ✗ ${evt.error || ''}` });
   } else if (evt.eventType === 'run_completed') {
     r.status = 'completed';
     r.endedAt = evt.timestamp || Date.now();
     // Clear running status on nodes
-    canvas.nodes.forEach(function(n) {
+    canvas.nodes.forEach((n) => {
       if (n.runStatus === 'running') { n.runStatus = null; }
     });
   } else if (evt.eventType === 'run_failed') {
@@ -1763,9 +1751,9 @@ var _sseRetryDelay = 1000;
 function connectSSE() {
   setConnStatus('connecting');
   var es = new EventSource('/events');
-  es.onopen = function() { setConnStatus('live'); _sseRetryDelay = 1000; };
-  es.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
-  es.onerror = function() {
+  es.onopen = () => { setConnStatus('live'); _sseRetryDelay = 1000; };
+  es.onmessage = (e) => { handleEvent(JSON.parse(e.data)); };
+  es.onerror = () => {
     setConnStatus('error');
     es.close();
     setTimeout(connectSSE, Math.min(_sseRetryDelay *= 2, 30000));
@@ -1774,12 +1762,12 @@ function connectSSE() {
 
 function connect() {
   setConnStatus('connecting');
-  var sock = new WebSocket('ws://' + location.host + '/ws');
-  sock.onopen = function() { setConnStatus('live'); };
-  sock.onmessage = function(e) {
+  var sock = new WebSocket(`ws://${location.host}/ws`);
+  sock.onopen = () => { setConnStatus('live'); };
+  sock.onmessage = (e) => {
     var msg = JSON.parse(e.data);
     if (msg.type === 'history') {
-      msg.runs.forEach(function(r) {
+      msg.runs.forEach((r) => {
         runs[r.id] = r;
         if (!runLogs[r.id]) runLogs[r.id] = [];
       });
@@ -1790,13 +1778,13 @@ function connect() {
     }
   };
   var wsFailedOnce = false;
-  sock.onclose = function() {
+  sock.onclose = () => {
     setConnStatus('error');
     if (!wsFailedOnce) {
       wsFailedOnce = true;
-      fetch('/events', { method: 'HEAD' }).then(function(r) {
+      fetch('/events', { method: 'HEAD' }).then((r) => {
         if (r.ok) { connectSSE(); } else { setTimeout(connect, 2500); }
-      }).catch(function() { setTimeout(connect, 2500); });
+      }).catch(() => { setTimeout(connect, 2500); });
     } else {
       setTimeout(connect, 2500);
     }
@@ -1805,7 +1793,7 @@ function connect() {
 
 // ── init ───────────────────────────────────────────────────
 connect();
-setInterval(function() { if (Object.values(runs).some(function(r){return r.status==='running';})) renderCards(); }, 5000);
+setInterval(() => { if (Object.values(runs).some((r)=> r.status==='running')) renderCards(); }, 5000);
 </script>
 </body>
 </html>

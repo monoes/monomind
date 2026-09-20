@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The module exports a singleton `output` which reads process.stdout.isTTY at
 // construction time. We need to control that, so we reset modules per test.

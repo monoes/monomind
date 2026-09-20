@@ -1,7 +1,7 @@
+import { getCurrentTitle, getCurrentUrl } from './browser.js';
 import type { CdpClient } from './cdp.js';
 import type { ElementRef, SnapshotOptions, SnapshotResult } from './types.js';
 import { INTERACTIVE_ROLES } from './types.js';
-import { getCurrentUrl, getCurrentTitle } from './browser.js';
 
 interface AXNode {
   nodeId: number;
@@ -20,7 +20,7 @@ interface AXNode {
 export async function captureSnapshot(
   client: CdpClient,
   sessionId: string,
-  options: SnapshotOptions = {}
+  options: SnapshotOptions = {},
 ): Promise<SnapshotResult> {
   const { interactiveOnly = false, compact = false, maxDepth, selector } = options;
 
@@ -28,25 +28,39 @@ export async function captureSnapshot(
   let nodes: AXNode[];
   if (selector) {
     const doc = await client.send<{ root: { nodeId: number } }>('DOM.getDocument', {}, sessionId);
-    const found = await client.send<{ nodeId: number }>(
-      'DOM.querySelector',
-      { nodeId: doc.root.nodeId, selector },
-      sessionId
-    ).catch(() => ({ nodeId: 0 }));
+    const found = await client
+      .send<{ nodeId: number }>(
+        'DOM.querySelector',
+        { nodeId: doc.root.nodeId, selector },
+        sessionId,
+      )
+      .catch(() => ({ nodeId: 0 }));
 
     if (found.nodeId) {
-      const partial = await client.send<{ nodes: AXNode[] }>(
-        'Accessibility.getPartialAXTree',
-        { nodeId: found.nodeId, fetchRelatives: false },
-        sessionId
-      ).catch(async () => client.send<{ nodes: AXNode[] }>('Accessibility.getFullAXTree', {}, sessionId));
+      const partial = await client
+        .send<{ nodes: AXNode[] }>(
+          'Accessibility.getPartialAXTree',
+          { nodeId: found.nodeId, fetchRelatives: false },
+          sessionId,
+        )
+        .catch(async () =>
+          client.send<{ nodes: AXNode[] }>('Accessibility.getFullAXTree', {}, sessionId),
+        );
       nodes = partial.nodes;
     } else {
-      const full = await client.send<{ nodes: AXNode[] }>('Accessibility.getFullAXTree', {}, sessionId);
+      const full = await client.send<{ nodes: AXNode[] }>(
+        'Accessibility.getFullAXTree',
+        {},
+        sessionId,
+      );
       nodes = full.nodes;
     }
   } else {
-    const full = await client.send<{ nodes: AXNode[] }>('Accessibility.getFullAXTree', {}, sessionId);
+    const full = await client.send<{ nodes: AXNode[] }>(
+      'Accessibility.getFullAXTree',
+      {},
+      sessionId,
+    );
     nodes = full.nodes;
   }
 
@@ -192,10 +206,10 @@ function extractProperties(node: AXNode): {
 }
 
 export async function resolveRef(
-  client: CdpClient,
-  sessionId: string,
+  _client: CdpClient,
+  _sessionId: string,
   refs: Map<string, ElementRef>,
-  refKey: string
+  refKey: string,
 ): Promise<ElementRef> {
   const ref = refs.get(refKey);
   if (!ref) throw new Error(`Element ref @${refKey} not found. Run snapshot first.`);
@@ -205,14 +219,14 @@ export async function resolveRef(
 export async function getObjectIdForRef(
   client: CdpClient,
   sessionId: string,
-  ref: ElementRef
+  ref: ElementRef,
 ): Promise<string | null> {
   if (!ref.backendDOMNodeId) return null;
 
   const result = await client.send<{ object: { objectId?: string } }>(
     'DOM.resolveNode',
     { backendNodeId: ref.backendDOMNodeId },
-    sessionId
+    sessionId,
   );
   return result.object?.objectId ?? null;
 }
@@ -231,7 +245,7 @@ export async function getObjectIdForRef(
 export async function getElementBox(
   client: CdpClient,
   sessionId: string,
-  ref: ElementRef
+  ref: ElementRef,
 ): Promise<{ x: number; y: number; width: number; height: number } | null> {
   if (!ref.backendDOMNodeId) return null;
 

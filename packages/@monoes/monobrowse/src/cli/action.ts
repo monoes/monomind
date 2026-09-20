@@ -1,10 +1,11 @@
 // src/commands/browse-action.ts
-import { Command } from 'commander';
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+
 import { existsSync } from 'node:fs';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { analyzePageForAction, type AnalyzerPage } from '../index.js';
+import { Command } from 'commander';
 import type { ActionDef, StepDef } from '../index.js';
+import { type AnalyzerPage, analyzePageForAction } from '../index.js';
 
 async function readAction(filePath: string): Promise<ActionDef> {
   return JSON.parse(await readFile(filePath, 'utf8')) as ActionDef;
@@ -34,7 +35,7 @@ const BUILTIN_ACTIONS: { id: string; platform: string; name: string }[] = [
 async function getCustomActions(): Promise<ActionDef[]> {
   const dir = join(process.cwd(), '.monomind', 'actions');
   if (!existsSync(dir)) return [];
-  const files = (await readdir(dir)).filter(f => f.endsWith('.json'));
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.json'));
   const results: ActionDef[] = [];
   for (const f of files) {
     try {
@@ -63,10 +64,16 @@ export function createActionCommand(): Command {
       try {
         // Dynamic import to avoid crashing if CDP is unavailable
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mod = await (import('@monoes/monobrowse' as string) as Promise<any>).catch(() => null);
-        const createBrowserPage = mod?.createBrowserPage as ((url: string) => Promise<AnalyzerPage>) | null;
+        const mod = await (import('@monoes/monobrowse' as string) as Promise<any>).catch(
+          () => null,
+        );
+        const createBrowserPage = mod?.createBrowserPage as
+          | ((url: string) => Promise<AnalyzerPage>)
+          | null;
         if (!createBrowserPage) {
-          throw new Error('Browser CDP client not available. Ensure Chrome is running with --remote-debugging-port=9222');
+          throw new Error(
+            'Browser CDP client not available. Ensure Chrome is running with --remote-debugging-port=9222',
+          );
         }
         const page = await createBrowserPage(opts.url);
         actionDef = await analyzePageForAction(page, opts.task);
@@ -98,10 +105,12 @@ export function createActionCommand(): Command {
       console.log(`Running action: ${actionId} with account: ${opts.account}`);
 
       const custom = await getCustomActions();
-      const def = custom.find(a => a.id === actionId);
+      const def = custom.find((a) => a.id === actionId);
       if (!def) {
         console.error(`Action not found in custom actions: ${actionId}`);
-        console.error('Built-in actions require adapter step definitions — use "action build" to create a custom action.');
+        console.error(
+          'Built-in actions require adapter step definitions — use "action build" to create a custom action.',
+        );
         process.exit(1);
       }
 
@@ -126,8 +135,13 @@ export function createActionCommand(): Command {
               break;
             case 'find': {
               for (const sel of step.selectors) {
-                const found = await findBySelector(client, sessionId, refs, interpolate(sel)).catch(() => null);
-                if (found) { refs.set(step.as, found); break; }
+                const found = await findBySelector(client, sessionId, refs, interpolate(sel)).catch(
+                  () => null,
+                );
+                if (found) {
+                  refs.set(step.as, found);
+                  break;
+                }
               }
               console.log(`  find → ${step.as}`);
               break;
@@ -150,9 +164,12 @@ export function createActionCommand(): Command {
               if (step.condition === 'network_idle') {
                 await waitFor(client, sessionId, { load: 'networkidle', timeout: step.timeout });
               } else if (step.condition === 'selector' && step.selector) {
-                await waitFor(client, sessionId, { selector: step.selector, timeout: step.timeout });
+                await waitFor(client, sessionId, {
+                  selector: step.selector,
+                  timeout: step.timeout,
+                });
               } else if (step.condition === 'duration') {
-                await new Promise(r => setTimeout(r, step.timeout ?? 1000));
+                await new Promise((r) => setTimeout(r, step.timeout ?? 1000));
               }
               console.log(`  wait → ${step.condition}`);
               break;
@@ -160,8 +177,16 @@ export function createActionCommand(): Command {
               const ref = refs.get(step.target);
               if (!ref) throw new Error(`Element "${step.target}" not found`);
               const val = step.attribute
-                ? await evaluateJs(client, sessionId, `document.querySelector('[data-ref="${ref.ref}"]')?.getAttribute('${step.attribute}')`)
-                : await evaluateJs(client, sessionId, `document.querySelector('[data-ref="${ref.ref}"]')?.textContent`);
+                ? await evaluateJs(
+                    client,
+                    sessionId,
+                    `document.querySelector('[data-ref="${ref.ref}"]')?.getAttribute('${step.attribute}')`,
+                  )
+                : await evaluateJs(
+                    client,
+                    sessionId,
+                    `document.querySelector('[data-ref="${ref.ref}"]')?.textContent`,
+                  );
               console.log(`  extract → ${step.as}: ${val}`);
               break;
             }
@@ -189,10 +214,10 @@ export function createActionCommand(): Command {
     .action(async (opts: { platform?: string }) => {
       const custom = await getCustomActions();
       const all = [
-        ...BUILTIN_ACTIONS.map(a => ({ ...a, source: 'built-in' })),
-        ...custom.map(a => ({ id: a.id, platform: a.platform, name: a.name, source: 'custom' })),
+        ...BUILTIN_ACTIONS.map((a) => ({ ...a, source: 'built-in' })),
+        ...custom.map((a) => ({ id: a.id, platform: a.platform, name: a.name, source: 'custom' })),
       ];
-      const filtered = opts.platform ? all.filter(a => a.platform === opts.platform) : all;
+      const filtered = opts.platform ? all.filter((a) => a.platform === opts.platform) : all;
       if (filtered.length === 0) {
         console.log('No actions found.');
         return;
@@ -210,7 +235,7 @@ export function createActionCommand(): Command {
     .action(async (actionId: string) => {
       // Check custom actions first
       const dir = join(process.cwd(), '.monomind', 'actions');
-      const fileName = actionId.replace(':', '-') + '.json';
+      const fileName = `${actionId.replace(':', '-')}.json`;
       const customPath = join(dir, fileName);
       if (existsSync(customPath)) {
         const def = await readAction(customPath);
@@ -218,9 +243,15 @@ export function createActionCommand(): Command {
         return;
       }
       // Check built-ins
-      const builtin = BUILTIN_ACTIONS.find(a => a.id === actionId);
+      const builtin = BUILTIN_ACTIONS.find((a) => a.id === actionId);
       if (builtin) {
-        console.log(JSON.stringify({ ...builtin, note: 'Built-in action — steps defined in browser/adapters/' }, null, 2));
+        console.log(
+          JSON.stringify(
+            { ...builtin, note: 'Built-in action — steps defined in browser/adapters/' },
+            null,
+            2,
+          ),
+        );
         return;
       }
       console.error(`Action not found: ${actionId}`);

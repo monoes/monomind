@@ -1,14 +1,14 @@
-import { spawn, execSync } from 'child_process';
-import { existsSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { connect } from 'net';
-import { CdpClient, fetchTargets, fetchNewTarget } from './cdp.js';
-import type { BrowserConfig, CdpTarget } from './types.js';
-import { CHROME_EXECUTABLES } from './types.js';
+import { execSync, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { connect } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { CdpClient, fetchNewTarget, fetchTargets } from './cdp.js';
 import { enableConsoleCapture, setupConsoleCapture } from './console-log.js';
 import { setupDialogAutoHandling } from './dialog.js';
-import { loadActivePortInfo, clearActivePort } from './ref-cache.js';
+import { clearActivePort, loadActivePortInfo } from './ref-cache.js';
+import type { BrowserConfig, CdpTarget } from './types.js';
+import { CHROME_EXECUTABLES } from './types.js';
 
 const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
@@ -57,14 +57,17 @@ function findChrome(executablePath?: string): string {
   }
   // Try PATH
   try {
-    const result = execSync('which google-chrome chromium-browser chromium microsoft-edge microsoft-edge-stable 2>/dev/null', { encoding: 'utf8' }).trim();
+    const result = execSync(
+      'which google-chrome chromium-browser chromium microsoft-edge microsoft-edge-stable 2>/dev/null',
+      { encoding: 'utf8' },
+    ).trim();
     const first = result.split('\n')[0];
     if (first) return first;
   } catch {
     // ignore
   }
   throw new Error(
-    'No supported browser found. Install Google Chrome, Microsoft Edge, or Chromium — or pass executablePath in BrowserConfig.'
+    'No supported browser found. Install Google Chrome, Microsoft Edge, or Chromium — or pass executablePath in BrowserConfig.',
   );
 }
 
@@ -85,7 +88,9 @@ export async function isPortOpen(port: number): Promise<boolean> {
  */
 async function isChromeIdentity(port: number): Promise<boolean> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) });
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`, {
+      signal: AbortSignal.timeout(1000),
+    });
     if (!res.ok) return false;
     const info = (await res.json()) as { Browser?: string };
     // Edge's Browser field is "Edg/<version>" with no "chrome"/"chromium"
@@ -143,14 +148,15 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
       if (await isChromeIdentity(rawPort)) return rawPort;
       throw new Error(
         `Port ${rawPort} is occupied by a process that does not identify as Chrome/Chromium. ` +
-        `Refusing to attach — pass a different port or free port ${rawPort}.`
+          `Refusing to attach — pass a different port or free port ${rawPort}.`,
       );
     }
     return launchOnFreePort(config, rawPort);
   }
 
   const candidates: number[] = [];
-  for (let i = 0; i < LAUNCH_PORT_SCAN_TRIES && rawPort + i <= 65535; i++) candidates.push(rawPort + i);
+  for (let i = 0; i < LAUNCH_PORT_SCAN_TRIES && rawPort + i <= 65535; i++)
+    candidates.push(rawPort + i);
 
   // Attach-if-already-Chrome only applies to the EXACT requested port — the
   // original, deliberate, single-port risk ("don't silently take over an
@@ -180,7 +186,7 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   }
   throw new Error(
     `Ports ${candidates[0]}-${candidates[candidates.length - 1]} are all occupied and port ${candidates[0]} ` +
-    `isn't a Chrome/Chromium instance to attach to. Pass a different --port.`
+      `isn't a Chrome/Chromium instance to attach to. Pass a different --port.`,
   );
 }
 
@@ -233,7 +239,7 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
       if (await isChromeIdentity(port)) return port;
       throw new Error(
         `Port ${port} is occupied by a CDP-speaking process that does not identify as Chrome/Chromium. ` +
-        `Refusing to attach — pass a different port or free port ${port}.`
+          `Refusing to attach — pass a different port or free port ${port}.`,
       );
     }
   }
@@ -244,7 +250,7 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
   if (await isTcpPortOpen(port)) {
     throw new Error(
       `Port ${port} is occupied by a non-Chrome process (TCP connection succeeds but no CDP response within ${launchTimeout}ms). ` +
-      `Free the port or pass a different one.`
+        `Free the port or pass a different one.`,
     );
   }
 
@@ -264,7 +270,10 @@ export async function enableSessionDomains(client: CdpClient, sessionId: string)
   setupDialogAutoHandling(client, sessionId);
 }
 
-export async function connectToTarget(port: number, targetId?: string): Promise<{ client: CdpClient; target: CdpTarget; sessionId: string }> {
+export async function connectToTarget(
+  port: number,
+  targetId?: string,
+): Promise<{ client: CdpClient; target: CdpTarget; sessionId: string }> {
   const targets = await fetchTargets(port);
   const pageTargets = targets.filter((t) => t.type === 'page');
 
@@ -316,7 +325,10 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
     await Promise.race([
       client.send('Browser.close', {}),
       new Promise<never>((_, reject) => {
-        const t = setTimeout(() => reject(new Error('Browser.close timed out')), BROWSER_CLOSE_TIMEOUT_MS);
+        const t = setTimeout(
+          () => reject(new Error('Browser.close timed out')),
+          BROWSER_CLOSE_TIMEOUT_MS,
+        );
         t.unref?.();
       }),
     ]);
@@ -361,7 +373,9 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
     try {
       process.kill(pid, 0);
       process.kill(pid, 'SIGKILL');
-    } catch { /* already exited, or never was — nothing to do */ }
+    } catch {
+      /* already exited, or never was — nothing to do */
+    }
     return;
   }
 
@@ -441,13 +455,20 @@ export async function reapIdleLaunchedBrowser(): Promise<number | null> {
       await Promise.race([
         client.connect(wsUrl),
         new Promise<never>((_, reject) => {
-          const t = setTimeout(() => reject(new Error('Reap: CDP connect timed out')), REAP_CONNECT_TIMEOUT_MS);
+          const t = setTimeout(
+            () => reject(new Error('Reap: CDP connect timed out')),
+            REAP_CONNECT_TIMEOUT_MS,
+          );
           t.unref?.();
         }),
       ]);
       await closeBrowser(client, session.port);
     } finally {
-      try { client.close(); } catch { /* already gone */ }
+      try {
+        client.close();
+      } catch {
+        /* already gone */
+      }
     }
     launchedPids.delete(session.port);
     launchedUserDataDirs.delete(session.port);
@@ -462,7 +483,9 @@ export async function reapIdleLaunchedBrowser(): Promise<number | null> {
  *  connection `Browser.close` belongs on. Null if the port isn't answering as
  *  a Chrome/Chromium CDP endpoint (same identity check as isChromeIdentity). */
 async function fetchBrowserWebSocketUrl(port: number): Promise<string | null> {
-  const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) });
+  const res = await fetch(`http://127.0.0.1:${port}/json/version`, {
+    signal: AbortSignal.timeout(1000),
+  });
   if (!res.ok) return null;
   const info = (await res.json()) as { Browser?: string; webSocketDebuggerUrl?: string };
   if (typeof info.Browser !== 'string' || !/chrom(e|ium)|edg/i.test(info.Browser)) return null;
@@ -485,14 +508,24 @@ export async function waitForLoad(
   client: CdpClient,
   sessionId: string,
   condition: 'load' | 'networkidle' | 'domcontentloaded' = 'load',
-  timeout = 30_000
+  timeout = 30_000,
 ): Promise<void> {
   if (condition === 'load' || condition === 'domcontentloaded') {
     // Guard against race where the page loads before the listener is registered
-    const readyExpr = condition === 'load' ? 'document.readyState === "complete"' : 'document.readyState !== "loading"';
-    const readyCheck = await client.send<{ result: { value?: boolean } }>('Runtime.evaluate', {
-      expression: readyExpr, returnByValue: true,
-    }, sessionId).catch(() => ({ result: { value: false } }));
+    const readyExpr =
+      condition === 'load'
+        ? 'document.readyState === "complete"'
+        : 'document.readyState !== "loading"';
+    const readyCheck = await client
+      .send<{ result: { value?: boolean } }>(
+        'Runtime.evaluate',
+        {
+          expression: readyExpr,
+          returnByValue: true,
+        },
+        sessionId,
+      )
+      .catch(() => ({ result: { value: false } }));
     if (readyCheck.result?.value) return;
 
     const event = condition === 'load' ? 'Page.loadEventFired' : 'Page.domContentEventFired';
@@ -500,7 +533,10 @@ export async function waitForLoad(
     let timedOut = false;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<void>((resolve) => {
-      timeoutHandle = setTimeout(() => { timedOut = true; resolve(); }, timeout);
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        resolve();
+      }, timeout);
     });
     try {
       await Promise.race([eventPromise, timeoutPromise]);
@@ -520,7 +556,7 @@ async function waitForNetworkIdle(
   client: CdpClient,
   sessionId: string,
   idleMs: number,
-  timeout: number
+  timeout: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let pending = 0;
@@ -532,9 +568,16 @@ async function waitForNetworkIdle(
     }, timeout);
 
     const cleanup = () => {
-      if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
       clearTimeout(killTimer);
-      offReq(); offResp(); offFail(); offCache(); offResp2();
+      offReq();
+      offResp();
+      offFail();
+      offCache();
+      offResp2();
     };
 
     const settle = () => {
@@ -547,24 +590,34 @@ async function waitForNetworkIdle(
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(settle, idleMs);
       } else {
-        if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+        if (idleTimer) {
+          clearTimeout(idleTimer);
+          idleTimer = null;
+        }
       }
     };
 
     const offReq = client.on('Network.requestWillBeSent', (params, sid) => {
       if (sid !== sessionId) return;
       const id = params.requestId as string;
-      if (!inflight.has(id)) { inflight.add(id); pending++; check(); }
+      if (!inflight.has(id)) {
+        inflight.add(id);
+        pending++;
+        check();
+      }
     });
 
     const decrement = (params: Record<string, unknown>, sid?: string) => {
       if (sid !== sessionId) return;
       const id = params.requestId as string;
-      if (inflight.delete(id)) { pending = Math.max(0, pending - 1); check(); }
+      if (inflight.delete(id)) {
+        pending = Math.max(0, pending - 1);
+        check();
+      }
     };
 
-    const offResp  = client.on('Network.loadingFinished',        decrement);
-    const offFail  = client.on('Network.loadingFailed',          decrement);
+    const offResp = client.on('Network.loadingFinished', decrement);
+    const offFail = client.on('Network.loadingFailed', decrement);
     const offCache = client.on('Network.requestServedFromCache', decrement);
     // Guard against requests that never fire loadingFinished/loadingFailed (e.g. data: URLs)
     // Skip 3xx redirect responses — the request continues under the same requestId
@@ -579,18 +632,26 @@ async function waitForNetworkIdle(
 }
 
 export async function getCurrentUrl(client: CdpClient, sessionId: string): Promise<string> {
-  const result = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
-    expression: 'location.href',
-    returnByValue: true,
-  }, sessionId);
+  const result = await client.send<{ result: { value: string } }>(
+    'Runtime.evaluate',
+    {
+      expression: 'location.href',
+      returnByValue: true,
+    },
+    sessionId,
+  );
   return result.result?.value ?? '';
 }
 
 export async function getCurrentTitle(client: CdpClient, sessionId: string): Promise<string> {
-  const result = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
-    expression: 'document.title',
-    returnByValue: true,
-  }, sessionId);
+  const result = await client.send<{ result: { value: string } }>(
+    'Runtime.evaluate',
+    {
+      expression: 'document.title',
+      returnByValue: true,
+    },
+    sessionId,
+  );
   return result.result?.value ?? '';
 }
 

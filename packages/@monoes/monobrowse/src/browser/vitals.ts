@@ -1,5 +1,5 @@
-import type { CdpClient } from './cdp.js';
 import { evaluateJs } from './actions.js';
+import type { CdpClient } from './cdp.js';
 
 export interface WebVitals {
   lcp?: number;
@@ -16,7 +16,7 @@ export interface WebVitals {
 export async function collectVitals(
   client: CdpClient,
   sessionId: string,
-  waitMs = 2000
+  waitMs = 2000,
 ): Promise<WebVitals> {
   // Inject PerformanceObserver collectors and wait for data
   const script = `
@@ -97,26 +97,43 @@ export async function collectVitals(
 
 export function formatVitals(vitals: WebVitals): string {
   const lines: string[] = [];
-  const ms = (v?: number) => v !== undefined ? `${Math.round(v)}ms` : 'n/a';
+  const ms = (v?: number) => (v !== undefined ? `${Math.round(v)}ms` : 'n/a');
   const score = (metric: string, v?: number): string => {
     if (v === undefined) return '';
-    if (metric === 'lcp') return v < 2500 ? ' ✓ good' : v < 4000 ? ' ~ needs improvement' : ' ✗ poor';
-    if (metric === 'fcp') return v < 1800 ? ' ✓ good' : v < 3000 ? ' ~ needs improvement' : ' ✗ poor';
-    if (metric === 'cls') return v < 0.1 ? ' ✓ good' : v < 0.25 ? ' ~ needs improvement' : ' ✗ poor';
+    if (metric === 'lcp')
+      return v < 2500 ? ' ✓ good' : v < 4000 ? ' ~ needs improvement' : ' ✗ poor';
+    if (metric === 'fcp')
+      return v < 1800 ? ' ✓ good' : v < 3000 ? ' ~ needs improvement' : ' ✗ poor';
+    if (metric === 'cls')
+      return v < 0.1 ? ' ✓ good' : v < 0.25 ? ' ~ needs improvement' : ' ✗ poor';
     if (metric === 'inp') return v < 200 ? ' ✓ good' : v < 500 ? ' ~ needs improvement' : ' ✗ poor';
-    if (metric === 'ttfb') return v < 800 ? ' ✓ good' : v < 1800 ? ' ~ needs improvement' : ' ✗ poor';
+    if (metric === 'ttfb')
+      return v < 800 ? ' ✓ good' : v < 1800 ? ' ~ needs improvement' : ' ✗ poor';
     return '';
   };
 
-  if (vitals.lcp !== undefined) lines.push(`  LCP  (Largest Contentful Paint):  ${ms(vitals.lcp)}${score('lcp', vitals.lcp)}`);
-  if (vitals.fcp !== undefined) lines.push(`  FCP  (First Contentful Paint):     ${ms(vitals.fcp)}${score('fcp', vitals.fcp)}`);
-  if (vitals.cls !== undefined) lines.push(`  CLS  (Cumulative Layout Shift):    ${vitals.cls?.toFixed(4)}${score('cls', vitals.cls)}`);
-  if (vitals.inp !== undefined) lines.push(`  INP  (Interaction to Next Paint):  ${ms(vitals.inp)}${score('inp', vitals.inp)}`);
-  if (vitals.ttfb !== undefined) lines.push(`  TTFB (Time to First Byte):         ${ms(vitals.ttfb)}${score('ttfb', vitals.ttfb)}`);
-  if (vitals.domInteractive !== undefined) lines.push(`  DOM Interactive:                   ${ms(vitals.domInteractive)}`);
-  if (vitals.domContentLoaded !== undefined) lines.push(`  DOMContentLoaded:                  ${ms(vitals.domContentLoaded)}`);
-  if (vitals.loadTime !== undefined) lines.push(`  Load:                              ${ms(vitals.loadTime)}`);
-  if (vitals.resources !== undefined) lines.push(`  Resources loaded:                  ${vitals.resources}`);
+  if (vitals.lcp !== undefined)
+    lines.push(`  LCP  (Largest Contentful Paint):  ${ms(vitals.lcp)}${score('lcp', vitals.lcp)}`);
+  if (vitals.fcp !== undefined)
+    lines.push(`  FCP  (First Contentful Paint):     ${ms(vitals.fcp)}${score('fcp', vitals.fcp)}`);
+  if (vitals.cls !== undefined)
+    lines.push(
+      `  CLS  (Cumulative Layout Shift):    ${vitals.cls?.toFixed(4)}${score('cls', vitals.cls)}`,
+    );
+  if (vitals.inp !== undefined)
+    lines.push(`  INP  (Interaction to Next Paint):  ${ms(vitals.inp)}${score('inp', vitals.inp)}`);
+  if (vitals.ttfb !== undefined)
+    lines.push(
+      `  TTFB (Time to First Byte):         ${ms(vitals.ttfb)}${score('ttfb', vitals.ttfb)}`,
+    );
+  if (vitals.domInteractive !== undefined)
+    lines.push(`  DOM Interactive:                   ${ms(vitals.domInteractive)}`);
+  if (vitals.domContentLoaded !== undefined)
+    lines.push(`  DOMContentLoaded:                  ${ms(vitals.domContentLoaded)}`);
+  if (vitals.loadTime !== undefined)
+    lines.push(`  Load:                              ${ms(vitals.loadTime)}`);
+  if (vitals.resources !== undefined)
+    lines.push(`  Resources loaded:                  ${vitals.resources}`);
 
   return lines.join('\n');
 }

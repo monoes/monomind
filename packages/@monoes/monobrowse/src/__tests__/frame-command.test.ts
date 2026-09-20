@@ -4,7 +4,7 @@
  * frame, and `frame main` must detach the frame session and restore the
  * page session. The browser engine is mocked; no real Chrome.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Command, CommandContext } from '../cli/types.js';
 
 const mocks = vi.hoisted(() => {
@@ -22,7 +22,12 @@ const mocks = vi.hoisted(() => {
       })),
       loadActivePortInfo: vi.fn(async () => null),
       loadRefCache: vi.fn(async () => null),
-      switchToFrame: vi.fn(async (): Promise<{ url: string | null; sessionId: string | null }> => ({ url: 'https://f.test/frame', sessionId: 'S-FRAME' })),
+      switchToFrame: vi.fn(
+        async (): Promise<{ url: string | null; sessionId: string | null }> => ({
+          url: 'https://f.test/frame',
+          sessionId: 'S-FRAME',
+        }),
+      ),
       enableSessionDomains: vi.fn(async () => {}),
       teardownRouteInterception: vi.fn(),
       stopRequestCapture: vi.fn(),
@@ -52,7 +57,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.browser.loadActivePortInfo.mockResolvedValue(null);
   mocks.browser.loadRefCache.mockResolvedValue(null);
-  mocks.browser.switchToFrame.mockResolvedValue({ url: 'https://f.test/frame', sessionId: 'S-FRAME' });
+  mocks.browser.switchToFrame.mockResolvedValue({
+    url: 'https://f.test/frame',
+    sessionId: 'S-FRAME',
+  });
   mocks.browser.connectToTarget.mockResolvedValue({
     client: mocks.client,
     sessionId: 'S-PAGE',
@@ -72,9 +80,7 @@ describe('browse frame command (#97)', () => {
 
     // Back to main — must detach the FRAME session (proves _sessionId was updated)
     await frame.action!(ctx(['main']));
-    const detach = mocks.send.mock.calls.find(
-      ([m]) => m === 'Target.detachFromTarget'
-    );
+    const detach = mocks.send.mock.calls.find(([m]) => m === 'Target.detachFromTarget');
     expect(detach).toBeDefined();
     expect(detach![1]).toEqual({ sessionId: 'S-FRAME' });
 

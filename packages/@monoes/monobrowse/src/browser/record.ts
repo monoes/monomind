@@ -1,7 +1,7 @@
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CdpClient } from './cdp.js';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export interface RecordOptions {
   path?: string;
@@ -34,7 +34,7 @@ const _sessions = new Map<string, RecordingState>();
 export async function startRecording(
   client: CdpClient,
   sessionId: string,
-  options: RecordOptions = {}
+  options: RecordOptions = {},
 ): Promise<void> {
   const existing = _sessions.get(sessionId);
   if (existing && !existing.autoStopped) {
@@ -48,7 +48,12 @@ export async function startRecording(
     _sessions.delete(sessionId);
   }
 
-  const state: RecordingState = { frames: [], offScreencast: null, totalBytes: 0, autoStopped: false };
+  const state: RecordingState = {
+    frames: [],
+    offScreencast: null,
+    totalBytes: 0,
+    autoStopped: false,
+  };
   _sessions.set(sessionId, state);
 
   state.offScreencast = client.on('Page.screencastFrame', async (params, sid) => {
@@ -63,22 +68,28 @@ export async function startRecording(
         // eslint-disable-next-line no-console
         console.error(
           `[monobrowse] Screen recording auto-stopped: reached ${Math.round(MAX_SCREENCAST_BYTES / (1024 * 1024))}MB ` +
-          `of buffered frame data (${state.frames.length} frames). Call "record stop" to save what was captured.`
+            `of buffered frame data (${state.frames.length} frames). Call "record stop" to save what was captured.`,
         );
         await client.send('Page.stopScreencast', {}, sessionId).catch(() => {});
       }
     }
-    await client.send('Page.screencastFrameAck', { sessionId: frameSessionId }, sessionId).catch(() => {});
+    await client
+      .send('Page.screencastFrameAck', { sessionId: frameSessionId }, sessionId)
+      .catch(() => {});
   });
 
   try {
-    await client.send('Page.startScreencast', {
-      format: options.format ?? 'jpeg',
-      quality: options.quality ?? 80,
-      everyNthFrame: options.everyNthFrame ?? 1,
-      ...(options.maxWidth ? { maxWidth: options.maxWidth } : {}),
-      ...(options.maxHeight ? { maxHeight: options.maxHeight } : {}),
-    }, sessionId);
+    await client.send(
+      'Page.startScreencast',
+      {
+        format: options.format ?? 'jpeg',
+        quality: options.quality ?? 80,
+        everyNthFrame: options.everyNthFrame ?? 1,
+        ...(options.maxWidth ? { maxWidth: options.maxWidth } : {}),
+        ...(options.maxHeight ? { maxHeight: options.maxHeight } : {}),
+      },
+      sessionId,
+    );
   } catch (err) {
     state.offScreencast?.();
     _sessions.delete(sessionId);
@@ -89,7 +100,7 @@ export async function startRecording(
 export async function stopRecording(
   client: CdpClient,
   sessionId: string,
-  outputPath?: string
+  outputPath?: string,
 ): Promise<string> {
   const state = _sessions.get(sessionId);
   if (!state) throw new Error('No active recording for this session');
@@ -110,16 +121,24 @@ export async function stopRecording(
   return path;
 }
 
-export function getRecordingStatus(sessionId: string): { recording: boolean; frames: number; autoStopped: boolean } {
+export function getRecordingStatus(sessionId: string): {
+  recording: boolean;
+  frames: number;
+  autoStopped: boolean;
+} {
   const state = _sessions.get(sessionId);
-  return { recording: !!state && !state.autoStopped, frames: state?.frames.length ?? 0, autoStopped: state?.autoStopped ?? false };
+  return {
+    recording: !!state && !state.autoStopped,
+    frames: state?.frames.length ?? 0,
+    autoStopped: state?.autoStopped ?? false,
+  };
 }
 
 export async function saveFrameAsPng(
-  client: CdpClient,
+  _client: CdpClient,
   sessionId: string,
   frameIndex: number,
-  outputPath: string
+  outputPath: string,
 ): Promise<void> {
   const state = _sessions.get(sessionId);
   if (!state || frameIndex >= state.frames.length) {

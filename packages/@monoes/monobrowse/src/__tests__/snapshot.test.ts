@@ -4,9 +4,14 @@
  * resolves against. That transform is pure — the only browser interaction is
  * the AX-tree fetch, which a stub answers from a literal node array.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CdpClient } from '../browser/cdp.js';
-import { captureSnapshot, resolveRef, getObjectIdForRef, getElementBox } from '../browser/snapshot.js';
+import {
+  captureSnapshot,
+  getElementBox,
+  getObjectIdForRef,
+  resolveRef,
+} from '../browser/snapshot.js';
 import type { ElementRef } from '../browser/types.js';
 
 interface AXProp {
@@ -29,7 +34,7 @@ interface AXNode {
 /** Client that serves a fixed AX tree plus location.href / document.title. */
 function axClient(
   nodes: AXNode[],
-  extra: { url?: string; title?: string; partial?: AXNode[]; selectorNodeId?: number } = {}
+  extra: { url?: string; title?: string; partial?: AXNode[]; selectorNodeId?: number } = {},
 ): { client: CdpClient; calls: string[] } {
   const calls: string[] = [];
   const client = {
@@ -49,8 +54,8 @@ function axClient(
             result: {
               value:
                 (params as { expression: string }).expression === 'location.href'
-                  ? extra.url ?? 'https://x.test/'
-                  : extra.title ?? 'Test Page',
+                  ? (extra.url ?? 'https://x.test/')
+                  : (extra.title ?? 'Test Page'),
             },
           };
         default:
@@ -80,10 +85,14 @@ describe('captureSnapshot — tree shape', () => {
     expect(snap.text).toBe(
       'RootWebArea "Test Page" [ref=e1]\n' +
         '  form "Login" [ref=e2]\n' +
-        '    button "Submit" [ref=e3]'
+        '    button "Submit" [ref=e3]',
     );
     expect([...snap.refs.keys()]).toEqual(['e1', 'e2', 'e3']);
-    expect(snap.refs.get('e3')).toMatchObject({ role: 'button', name: 'Submit', backendDOMNodeId: 30 });
+    expect(snap.refs.get('e3')).toMatchObject({
+      role: 'button',
+      name: 'Submit',
+      backendDOMNodeId: 30,
+    });
     expect(snap).toMatchObject({ url: 'https://x.test/', title: 'Test Page' });
   });
 
@@ -157,13 +166,13 @@ describe('captureSnapshot — options', () => {
   });
 
   it('compact drops indentation and descriptions', async () => {
-    const { client } = axClient([
-      button(1, 'Go', { description: { value: 'primary action' } }),
-    ]);
+    const { client } = axClient([button(1, 'Go', { description: { value: 'primary action' } })]);
     const spaced = await captureSnapshot(client, 'S1');
     expect(spaced.text).toBe('button "Go" (primary action) [ref=e1]');
 
-    const { client: c2 } = axClient([button(1, 'Go', { description: { value: 'primary action' } })]);
+    const { client: c2 } = axClient([
+      button(1, 'Go', { description: { value: 'primary action' } }),
+    ]);
     const compact = await captureSnapshot(c2, 'S1', { compact: true });
     expect(compact.text).toBe('button "Go" [ref=e1]');
     // The description is still available on the ref even when not printed.
@@ -198,7 +207,13 @@ describe('captureSnapshot — options', () => {
 describe('captureSnapshot — property extraction and rendering', () => {
   async function snapOf(props: AXProp[], over: Partial<AXNode> = {}) {
     const { client } = axClient([
-      { nodeId: 1, role: { value: 'textbox' }, name: { value: 'Email' }, properties: props, ...over },
+      {
+        nodeId: 1,
+        role: { value: 'textbox' },
+        name: { value: 'Email' },
+        properties: props,
+        ...over,
+      },
     ]);
     return captureSnapshot(client, 'S1');
   }
@@ -210,14 +225,18 @@ describe('captureSnapshot — property extraction and rendering', () => {
       { name: 'required', value: { value: true } },
     ]);
     expect(snap.text).toBe(
-      'textbox "Email" [ref=e1, value="a@b.c", placeholder="you@example.com", required]'
+      'textbox "Email" [ref=e1, value="a@b.c", placeholder="you@example.com", required]',
     );
     expect(snap.refs.get('e1')).toMatchObject({ value: 'a@b.c', placeholder: 'you@example.com' });
   });
 
   it('renders disabled as a bare flag only when true', async () => {
-    expect((await snapOf([{ name: 'disabled', value: { value: true } }])).text).toContain(', disabled]');
-    expect((await snapOf([{ name: 'disabled', value: { value: false } }])).text).not.toContain('disabled');
+    expect((await snapOf([{ name: 'disabled', value: { value: true } }])).text).toContain(
+      ', disabled]',
+    );
+    expect((await snapOf([{ name: 'disabled', value: { value: false } }])).text).not.toContain(
+      'disabled',
+    );
   });
 
   it('accepts checked/expanded as either the boolean or the string "true"', async () => {
@@ -280,12 +299,14 @@ describe('resolveRef', () => {
     const refs = new Map<string, ElementRef>([
       ['e1', { ref: 'e1', role: 'button', name: 'Go', nodeId: 1 }],
     ]);
-    await expect(resolveRef({} as CdpClient, 'S1', refs, 'e1')).resolves.toMatchObject({ ref: 'e1' });
+    await expect(resolveRef({} as CdpClient, 'S1', refs, 'e1')).resolves.toMatchObject({
+      ref: 'e1',
+    });
   });
 
   it('throws a snapshot-first hint when the ref is unknown', async () => {
     await expect(resolveRef({} as CdpClient, 'S1', new Map(), 'e9')).rejects.toThrow(
-      'Element ref @e9 not found. Run snapshot first.'
+      'Element ref @e9 not found. Run snapshot first.',
     );
   });
 });
@@ -295,7 +316,7 @@ describe('getObjectIdForRef', () => {
     const send = vi.fn();
     const client = { send } as unknown as CdpClient;
     await expect(
-      getObjectIdForRef(client, 'S1', { ref: 'e1', role: 'button', name: '', nodeId: 1 })
+      getObjectIdForRef(client, 'S1', { ref: 'e1', role: 'button', name: '', nodeId: 1 }),
     ).resolves.toBeNull();
     expect(send).not.toHaveBeenCalled();
   });
@@ -304,7 +325,13 @@ describe('getObjectIdForRef', () => {
     const send = vi.fn(async () => ({ object: { objectId: 'OBJ' } }));
     const client = { send } as unknown as CdpClient;
     await expect(
-      getObjectIdForRef(client, 'S1', { ref: 'e1', role: 'button', name: '', nodeId: 1, backendDOMNodeId: 77 })
+      getObjectIdForRef(client, 'S1', {
+        ref: 'e1',
+        role: 'button',
+        name: '',
+        nodeId: 1,
+        backendDOMNodeId: 77,
+      }),
     ).resolves.toBe('OBJ');
     expect(send.mock.calls[0]).toEqual(['DOM.resolveNode', { backendNodeId: 77 }, 'S1']);
   });
@@ -312,7 +339,13 @@ describe('getObjectIdForRef', () => {
   it('returns null when the node no longer resolves to an object', async () => {
     const client = { send: vi.fn(async () => ({ object: {} })) } as unknown as CdpClient;
     await expect(
-      getObjectIdForRef(client, 'S1', { ref: 'e1', role: 'button', name: '', nodeId: 1, backendDOMNodeId: 77 })
+      getObjectIdForRef(client, 'S1', {
+        ref: 'e1',
+        role: 'button',
+        name: '',
+        nodeId: 1,
+        backendDOMNodeId: 77,
+      }),
     ).resolves.toBeNull();
   });
 });
@@ -325,7 +358,13 @@ describe('getElementBox', () => {
       })),
     } as unknown as CdpClient;
     await expect(
-      getElementBox(client, 'S1', { ref: 'e1', role: 'button', name: '', nodeId: 1, backendDOMNodeId: 5 })
+      getElementBox(client, 'S1', {
+        ref: 'e1',
+        role: 'button',
+        name: '',
+        nodeId: 1,
+        backendDOMNodeId: 5,
+      }),
     ).resolves.toEqual({ x: 60, y: 40, width: 100, height: 40 });
   });
 });

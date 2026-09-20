@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parseBatchCommandLine } from '../cli/commands.js';
 
 describe('parseBatchCommandLine — eval expressions inside a batch command string', () => {
@@ -25,7 +25,9 @@ describe('parseBatchCommandLine — eval expressions inside a batch command stri
     const input = "eval [...document.querySelectorAll('li')].map(x => x.textContent.trim())";
     const { subName, subArgs } = parseBatchCommandLine(input);
     expect(subName).toBe('eval');
-    expect(subArgs).toEqual(["[...document.querySelectorAll('li')].map(x => x.textContent.trim())"]);
+    expect(subArgs).toEqual([
+      "[...document.querySelectorAll('li')].map(x => x.textContent.trim())",
+    ]);
   });
 
   it('still recognizes --json and --max-output flags placed before the expression', () => {

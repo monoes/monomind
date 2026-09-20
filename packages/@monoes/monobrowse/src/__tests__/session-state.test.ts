@@ -6,23 +6,21 @@
  * validation logic: the CdpClient is a stub that answers the handful of CDP
  * commands the round trip issues.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, rm, readFile, stat, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+
+import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CdpClient } from '../browser/cdp.js';
-import {
-  saveStateFile,
-  loadStateFile,
-  saveSession,
-  loadSession,
-  listSessions,
-} from '../browser/session.js';
+import { loadSession, loadStateFile, saveSession, saveStateFile } from '../browser/session.js';
 
 const COOKIES = [{ name: 'sid', value: 'abc', domain: 'x.test', path: '/' }];
 
 /** Records every CDP command and answers the ones session.ts depends on. */
-function stubClient(): { client: CdpClient; calls: Array<{ method: string; params: unknown; sid?: string }> } {
+function stubClient(): {
+  client: CdpClient;
+  calls: Array<{ method: string; params: unknown; sid?: string }>;
+} {
   const calls: Array<{ method: string; params: unknown; sid?: string }> = [];
   const client = {
     send: vi.fn(async (method: string, params: unknown, sid?: string) => {
@@ -30,8 +28,10 @@ function stubClient(): { client: CdpClient; calls: Array<{ method: string; param
       if (method === 'Network.getCookies') return { cookies: COOKIES };
       if (method === 'Runtime.evaluate') {
         const expr = (params as { expression: string }).expression;
-        if (expr.includes('Object.entries(localStorage)')) return { result: { value: '{"k":"v"}' } };
-        if (expr.includes('Object.entries(sessionStorage)')) return { result: { value: '{"s":"1"}' } };
+        if (expr.includes('Object.entries(localStorage)'))
+          return { result: { value: '{"k":"v"}' } };
+        if (expr.includes('Object.entries(sessionStorage)'))
+          return { result: { value: '{"s":"1"}' } };
       }
       return {};
     }),
@@ -69,7 +69,7 @@ describe('validateSessionName (via saveSession/loadSession)', () => {
   for (const [label, name] of bad) {
     it(`rejects ${label}`, async () => {
       await expect(saveSession(client, 'S1', 'T1', name, 'https://x.test', 'T')).rejects.toThrow(
-        /Invalid session name/
+        /Invalid session name/,
       );
       await expect(loadSession(client, 'S1', name)).rejects.toThrow(/Invalid session name/);
     });
@@ -77,7 +77,7 @@ describe('validateSessionName (via saveSession/loadSession)', () => {
 
   it('accepts an ordinary name (fails later, on the missing file, not on validation)', async () => {
     await expect(loadSession(client, 'S1', 'no-such-session-xyz')).rejects.toThrow(
-      'Session not found: no-such-session-xyz'
+      'Session not found: no-such-session-xyz',
     );
   });
 
@@ -103,7 +103,7 @@ describe('validateFilePath (via saveStateFile/loadStateFile)', () => {
   for (const [label, filePath] of bad) {
     it(`rejects ${label}`, async () => {
       await expect(
-        saveStateFile(client, 'S1', 'T1', filePath, 'https://x.test', 'T')
+        saveStateFile(client, 'S1', 'T1', filePath, 'https://x.test', 'T'),
       ).rejects.toThrow(/Invalid file path/);
       await expect(loadStateFile(client, 'S1', filePath)).rejects.toThrow(/Invalid file path/);
     });
@@ -111,7 +111,9 @@ describe('validateFilePath (via saveStateFile/loadStateFile)', () => {
 
   it('allows a plain absolute path', async () => {
     const p = join(dir, 'state.json');
-    await expect(saveStateFile(client, 'S1', 'T1', p, 'https://x.test', 'T')).resolves.toBeUndefined();
+    await expect(
+      saveStateFile(client, 'S1', 'T1', p, 'https://x.test', 'T'),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -164,38 +166,41 @@ describe('state file round trip', () => {
   it('rejects a state file whose cookies field is not an array', async () => {
     const { client } = stubClient();
     const p = join(dir, 'bad.json');
-    const { writeFile } = await import('fs/promises');
+    const { writeFile } = await import('node:fs/promises');
     await writeFile(p, JSON.stringify({ cookies: { name: 'sid' } }));
     await expect(loadStateFile(client, 'S1', p)).rejects.toThrow(
-      'Invalid state file: cookies is not an array'
+      'Invalid state file: cookies is not an array',
     );
   });
 
   it('rejects a state file whose localStorage is an array rather than an object', async () => {
     const { client } = stubClient();
     const p = join(dir, 'bad2.json');
-    const { writeFile } = await import('fs/promises');
+    const { writeFile } = await import('node:fs/promises');
     await writeFile(p, JSON.stringify({ cookies: [], localStorage: ['nope'] }));
     await expect(loadStateFile(client, 'S1', p)).rejects.toThrow(
-      'Invalid state file: localStorage is not a plain object'
+      'Invalid state file: localStorage is not a plain object',
     );
   });
 
   it('rejects a state file whose sessionStorage is an array', async () => {
     const { client } = stubClient();
     const p = join(dir, 'bad3.json');
-    const { writeFile } = await import('fs/promises');
+    const { writeFile } = await import('node:fs/promises');
     await writeFile(p, JSON.stringify({ cookies: [], sessionStorage: ['nope'] }));
     await expect(loadStateFile(client, 'S1', p)).rejects.toThrow(
-      'Invalid state file: sessionStorage is not a plain object'
+      'Invalid state file: sessionStorage is not a plain object',
     );
   });
 
   it('accepts a state file with neither storage map present', async () => {
     const { client, calls } = stubClient();
     const p = join(dir, 'minimal.json');
-    const { writeFile } = await import('fs/promises');
-    await writeFile(p, JSON.stringify({ targetId: 'T', sessionId: 'S', url: '', title: '', cookies: [] }));
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(
+      p,
+      JSON.stringify({ targetId: 'T', sessionId: 'S', url: '', title: '', cookies: [] }),
+    );
     await expect(loadStateFile(client, 'S1', p)).resolves.toMatchObject({ cookies: [] });
     expect(calls.filter((c) => c.method === 'Runtime.evaluate')).toEqual([]);
   });
@@ -224,7 +229,7 @@ describe('listSessions', () => {
   it('lists only .json files, with the extension stripped', async () => {
     const sessionDir = join(dir, '.monomind', 'browser-sessions');
     await mkdir(sessionDir, { recursive: true });
-    const { writeFile } = await import('fs/promises');
+    const { writeFile } = await import('node:fs/promises');
     await writeFile(join(sessionDir, 'alpha.json'), '{}');
     await writeFile(join(sessionDir, 'beta.json'), '{}');
     await writeFile(join(sessionDir, 'notes.txt'), 'ignore me');
@@ -236,7 +241,14 @@ describe('listSessions', () => {
   it('saveSession writes into the session dir and loadSession reads it back', async () => {
     const mod = await withHome(dir);
     const saver = stubClient();
-    const filePath = await mod.saveSession(saver.client, 'S1', 'T1', 'my-session', 'https://x.test', 'T');
+    const filePath = await mod.saveSession(
+      saver.client,
+      'S1',
+      'T1',
+      'my-session',
+      'https://x.test',
+      'T',
+    );
     expect(filePath).toBe(join(dir, '.monomind', 'browser-sessions', 'my-session.json'));
     expect((await stat(filePath)).mode & 0o777).toBe(0o600);
     expect((await stat(join(dir, '.monomind', 'browser-sessions'))).mode & 0o777).toBe(0o700);

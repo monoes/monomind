@@ -14,12 +14,12 @@ export interface PlatformAdapter {
   extractUsername(page: PageInterface): Promise<string>;
 }
 
-import { linkedinAdapter } from './linkedin.js';
-import { instagramAdapter } from './instagram.js';
-import { xAdapter } from './x.js';
 import { geminiAdapter } from './gemini.js';
 import { googleAdapter } from './google.js';
+import { instagramAdapter } from './instagram.js';
+import { linkedinAdapter } from './linkedin.js';
 import { microsoftAdapter } from './microsoft.js';
+import { xAdapter } from './x.js';
 
 export const adapters: Map<string, PlatformAdapter> = new Map([
   ['linkedin', linkedinAdapter],
@@ -32,6 +32,7 @@ export const adapters: Map<string, PlatformAdapter> = new Map([
 
 export function getAdapter(platform: string): PlatformAdapter {
   const adapter = adapters.get(platform);
-  if (!adapter) throw new Error(`Unknown platform: ${platform}. Supported: ${[...adapters.keys()].join(', ')}`);
+  if (!adapter)
+    throw new Error(`Unknown platform: ${platform}. Supported: ${[...adapters.keys()].join(', ')}`);
   return adapter;
 }

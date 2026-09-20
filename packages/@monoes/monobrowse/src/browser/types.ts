@@ -127,10 +127,29 @@ export interface BrowserSession {
 }
 
 export const INTERACTIVE_ROLES = new Set([
-  'button', 'link', 'textbox', 'combobox', 'listbox', 'checkbox', 'radio',
-  'slider', 'spinbutton', 'searchbox', 'option', 'menuitem', 'tab', 'switch',
-  'treeitem', 'menuitemcheckbox', 'menuitemradio', 'row', 'gridcell', 'cell',
-  'columnheader', 'rowheader', 'scrollbar',
+  'button',
+  'link',
+  'textbox',
+  'combobox',
+  'listbox',
+  'checkbox',
+  'radio',
+  'slider',
+  'spinbutton',
+  'searchbox',
+  'option',
+  'menuitem',
+  'tab',
+  'switch',
+  'treeitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'row',
+  'gridcell',
+  'cell',
+  'columnheader',
+  'rowheader',
+  'scrollbar',
 ]);
 
 export const CHROME_EXECUTABLES = [
