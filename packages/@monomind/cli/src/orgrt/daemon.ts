@@ -55,9 +55,13 @@ import { attachForwarder } from './forwarder.js';
 import { GrokAgentRunner } from './grok-runner.js';
 import { HermesAgentRunner } from './hermes-runner.js';
 import {
+  advanceHold,
   clearIdleRecord,
-  type IdleHold,
+  type HoldTrack,
+  type IdleHoldState,
+  noProgressRoles,
   projectIdleStop,
+  type WaitHold,
   writeIdleRecord,
 } from './idle-deadline.js';
 import { drainInbox, newMessageId, queueMessage } from './inbox.js';
@@ -975,6 +979,13 @@ export class OrgDaemon {
     // boss that's genuinely out of ideas can loop forever making zero
     // progress without ever tripping the watchdog.
     let lastToolActivity = 0;
+    // ADR-O001 D4 (no-progress detector): the idle clock above is org-wide and
+    // says nothing at all while a hold is in force — the 8.3-hour stall looked
+    // perfectly healthy from it. Per-role last-activity is what tells a role
+    // that is nominally working but producing nothing from one that is simply
+    // waiting its turn.
+    const roleActivity = new Map<string, number>();
+    const noProgressAlarmed = new Set<string>();
     // Org-wide budget ceiling (bug 1): tracks whether run_config.budget_tokens
     // has already been enforced this run, so the close-all-mailboxes sweep
     // below only fires once instead of on every subsequent usage event.
@@ -984,10 +995,17 @@ export class OrgDaemon {
         e.data?.content != null ? { ...e, data: { ...e.data, content: undefined } } : e;
       collected.push(slim);
       if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
-      // The watchdog's own nudge event must not count as org activity, or a
-      // hung boss would never trip the "nudge produced no activity" stop.
-      if (e.reason !== 'idle-nudge') lastActivity = Date.now();
+      // The watchdog's own events must not count as org activity, or a hung
+      // boss would never trip the "nudge produced no activity" stop and a
+      // silent role would clear its own no-progress alarm.
+      const selfEmitted =
+        e.reason === 'idle-nudge' || e.reason === 'no-progress' || e.reason === 'hold-expired';
+      if (!selfEmitted) lastActivity = Date.now();
       if (e.type === 'tool') lastToolActivity = Date.now();
+      if (e.from && !selfEmitted) {
+        roleActivity.set(e.from, Date.now());
+        noProgressAlarmed.delete(e.from);
+      }
       // org_complete IS the end of the run — self-stop instead of sitting
       // "running" forever after a recorded outcome. Deferred (unref'd) so the
       // tool call's receipt reaches the boss and its final turn text still
@@ -1382,7 +1400,7 @@ export class OrgDaemon {
       // written when it changes; a failed write must not throw out of the
       // interval (that would reach the process crash handlers).
       let published = '';
-      const publishDeadline = (hold: IdleHold | null): void => {
+      const publishDeadline = (hold: IdleHoldState | null): void => {
         if (stopping) return;
         const bossRt = running.agents.get(bossRole.id);
         const at = hold
@@ -1397,7 +1415,7 @@ export class OrgDaemon {
                 bossReachable: bossRt?.status === 'running' && !bossRt.mailbox.isClosed,
               }),
             ).toISOString();
-        const key = `${at}|${hold}`;
+        const key = `${at}|${hold?.reason ?? null}|${hold?.until ?? null}`;
         if (key === published) return;
         try {
           writeIdleRecord(this.root, name, {
@@ -1414,8 +1432,37 @@ export class OrgDaemon {
           );
         }
       };
-      // The legitimate waits the watchdog never nudges or stops through.
-      const holdReason = (): IdleHold | null => {
+      // ADR-O001 D4 — Gas Town's "30 minutes hooked without progress" alarm.
+      // The org-wide idle clock is silent while a hold is in force, so a role
+      // that is nominally running and producing nothing gets its own, loud
+      // audit event. Once per spell: the bus subscriber clears the flag as
+      // soon as the role emits anything.
+      const alarmNoProgress = (now: number): void => {
+        const stalled = noProgressRoles(
+          [...running.agents].map(([id, rt]) => ({
+            id,
+            working: rt.status === 'running' && !rt.mailbox.isClosed,
+            lastActivity: roleActivity.get(id) ?? lastActivity,
+            alarmed: noProgressAlarmed.has(id),
+          })),
+          now,
+        );
+        for (const role of stalled) {
+          noProgressAlarmed.add(role.id);
+          bus.emit({
+            type: 'audit',
+            from: role.id,
+            reason: 'no-progress',
+            msg:
+              `role "${role.id}" has been running for ${Math.round(role.silentMs / 60_000)}m ` +
+              `without a single bus event — it is hooked but producing nothing`,
+            data: { role: role.id, silentMinutes: Math.round(role.silentMs / 60_000) },
+          });
+        }
+      };
+      // The legitimate waits the watchdog holds through — every one of them
+      // with a deadline attached by advanceHold (ADR-O001 D4).
+      const holdReason = (): WaitHold | { reason: WaitHold; until: number } | null => {
         if (this.restarting.has(name)) return 'restarting'; // boss auto-restart in flight
         // A pending gate means the org is legitimately waiting for human input
         const pendingGates = this.readGates(name).gates.filter((g) => g.status === 'pending');
@@ -1427,27 +1474,35 @@ export class OrgDaemon {
         // agent. Without this check the watchdog nudges (and, after enough
         // nudges, idle-stops) an org that's simply waiting on a human answer
         // that's already on its way.
-        const pendingQuestions = questionOps
-          .readQuestions(this.root, name)
-          .questions.filter((q) => q.answer === null);
-        if (pendingQuestions.length > 0) return 'pending-question';
+        //
+        // ADR-O001 D4: only a question the asker declared BLOCKING counts. The
+        // 8.3-hour stall was held open by a question whose own text opened
+        // with "no answer needed for the run to continue; I am not blocking on
+        // this" — it suppressed the watchdog exactly like a real blocker.
+        if (questionOps.pendingBlockingQuestions(this.root, name).length > 0)
+          return 'pending-question';
         // M1 (C-41): a pending tool approval is the same kind of legitimate
         // wait — the role was told to wait for `org approve/deny`.
         if ((this.approvals.get(name) ?? []).some((a) => a.approved === null))
           return 'pending-approval';
         // M2 (C-41): a delivered endpoint message whose reply is still due.
         if (hasActiveEndpointWait(running)) return 'endpoint-reply-due';
+        // A task blocked on a real-world time still in the future is
+        // legitimate waiting, same as a pending gate — don't nudge about it.
+        // Its deadline is the time the asker actually named, not the default
+        // hold TTL, so a block set hours out is honoured exactly.
+        const blockedUntil = running.taskDag?.activeBlockUntil(Date.now()) ?? null;
+        if (blockedUntil !== null) return { reason: 'task-blocked', until: blockedUntil };
         return null;
       };
-      const check = (): IdleHold | null => {
-        const hold = holdReason();
-        if (hold) return hold;
-        // Auto-resume any task whose org_task_block time has passed: flip it
-        // back to 'running' and re-push it into the assignee's mailbox, same
-        // as a fresh dispatch. This IS real activity, so fall through to the
-        // normal idleFor check below rather than returning early — an
-        // unblocked task should reset the idle clock, not just silently
-        // update state nobody notices until the next nudge.
+      // Auto-resume any task whose org_task_block time has passed: flip it
+      // back to 'running' and re-push it into the assignee's mailbox, same as
+      // a fresh dispatch. This IS real activity, so it feeds the normal
+      // idleFor check rather than short-circuiting it — an unblocked task
+      // should reset the idle clock, not just silently update state nobody
+      // notices until the next nudge. Runs on every tick, a hold in force
+      // included: a block that expires mid-wait is real work again.
+      const resumeExpiredBlocks = (): void => {
         const unblocked = running.taskDag?.unblockExpired(Date.now()) ?? [];
         for (const task of unblocked) {
           const agent = running.agents.get(task.assignee);
@@ -1462,19 +1517,20 @@ export class OrgDaemon {
             data: { taskId: task.id, assignee: task.assignee },
           });
         }
-        // A task blocked on a real-world time still in the future is
-        // legitimate waiting, same as a pending gate — don't nudge about it.
-        if (running.taskDag?.hasActiveBlock(Date.now())) return 'task-blocked';
+      };
+      // The normal idle path: nudge the boss, then stop if the nudge produced
+      // nothing. Runs only when nothing (still) holds the watchdog.
+      const check = (): void => {
         const idleFor = Date.now() - lastActivity;
         if (idleFor < idleMs) {
           nudges = resolvedIdleNudgeCount(nudgedAt, nudges, lastToolActivity);
           nudgedAt = 0;
-          return null;
+          return;
         }
         if (nudgedAt === 0) {
           if (nudges >= MAX_IDLE_NUDGES) {
             idleStop(`org idle again after ${nudges} nudges — stopping run`);
-            return null;
+            return;
           }
           const bossRt = running.agents.get(bossRole.id);
           // #205: a budget-exhausted boss closed its own mailbox on
@@ -1489,13 +1545,13 @@ export class OrgDaemon {
                 `${budgetReason === 'token-budget' ? 'token' : 'USD'} budget — raise the role's ` +
                 `${budgetReason === 'token-budget' ? 'budget_tokens' : 'budget_usd'} (or run_config's) and resume from checkpoint — stopping run`,
             );
-            return null;
+            return;
           }
           if (bossRt?.status !== 'running' || bossRt.mailbox.isClosed) {
             idleStop(
               `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`,
             );
-            return null;
+            return;
           }
           nudges++;
           nudgedAt = Date.now();
@@ -1517,11 +1573,36 @@ export class OrgDaemon {
             `nudge produced no activity for another ${Math.round(idleMs / 60_000)}m — boss appears hung, stopping run`,
           );
         }
+      };
+      // One watchdog tick. The hold is resolved FIRST and with a deadline, so
+      // a wait that outlives its deadline hands the run back to the idle path
+      // instead of suppressing it forever (ADR-O001 D4).
+      let holdTrack: HoldTrack | null = null;
+      const tick = (): IdleHoldState | null => {
+        const now = Date.now();
+        alarmNoProgress(now);
+        resumeExpiredBlocks();
+        const step = advanceHold(holdTrack, holdReason(), now);
+        holdTrack = step.track;
+        if (step.expired) {
+          bus.emit({
+            type: 'audit',
+            reason: 'hold-expired',
+            msg:
+              `the "${step.expired}" hold on org "${name}" outlived its deadline — the idle ` +
+              `watchdog is running again and will nudge, then stop the run if nothing happens`,
+            data: { hold: step.expired },
+          });
+        }
+        if (step.hold) return step.hold;
+        check();
         return null;
       };
-      publishDeadline(holdReason());
+      const initialHold = advanceHold(null, holdReason(), Date.now());
+      holdTrack = initialHold.track;
+      publishDeadline(initialHold.hold);
       const wd = setInterval(
-        () => publishDeadline(check()),
+        () => publishDeadline(tick()),
         Math.max(200, Math.min(idleMs / 2, 30_000)),
       );
       (wd as { unref?: () => void }).unref?.();
@@ -1532,7 +1613,7 @@ export class OrgDaemon {
           run,
           idle_minutes: 0,
           idle_stop_at: null,
-          hold: 'disabled',
+          hold: { reason: 'disabled', until: null },
         });
       } catch (err) {
         console.error(
@@ -1789,7 +1870,8 @@ export class OrgDaemon {
       },
       deliver: (from: string, to: string, subject: string, body: string) =>
         this.deliver(name, from, to, subject, body),
-      askHuman: (r: string, question: string) => this.askHuman(name, r, question),
+      askHuman: (r: string, question: string, blocking?: boolean) =>
+        this.askHuman(name, r, question, blocking),
       onGate: (r: string, gateName: string, gateDesc: string) =>
         this.createGate(name, r, gateName, gateDesc),
       circuitBreaker: (() => {
@@ -1845,9 +1927,7 @@ export class OrgDaemon {
               // human" fact either way.
               const pendingHumanWaits =
                 this.listGates(name, 'pending').length +
-                questionOps
-                  .readQuestions(this.root, name)
-                  .questions.filter((q) => q.answer === null).length;
+                questionOps.pendingBlockingQuestions(this.root, name).length;
               return resolveOrgComplete(bus, r, outcome, summary, blocker, blockerDetail, {
                 mode: def.run_config.completion ?? 'boss',
                 maxBudgetFraction,
@@ -2995,8 +3075,8 @@ export class OrgDaemon {
   }
 
   // questions.ts
-  async askHuman(org: string, role: string, question: string): Promise<string> {
-    return questionOps.askHuman(this, org, role, question);
+  async askHuman(org: string, role: string, question: string, blocking?: boolean): Promise<string> {
+    return questionOps.askHuman(this, org, role, question, blocking);
   }
   async answerQuestion(
     org: string,
