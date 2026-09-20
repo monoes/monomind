@@ -105,9 +105,14 @@ function hasBulletRouterSection(body: string): boolean {
  *  Limit: detects a markdown pipe-table whose header ROW carries both an
  *  `Intent` cell and a `primary route` cell (case/spacing tolerant). It does
  *  NOT detect a header split across two rows, or an HTML `<table>` — both
- *  measured undetected in review round 3. Practical exposure is bounded: any
- *  such file that also carries ≥2 `- \`mastermind-*\`` bullets is caught by
- *  the exact-set assertion above regardless of table syntax. */
+ *  measured undetected in review round 3. Bound, stated precisely because it
+ *  is narrower than it sounds: a file carrying ≥2 `- \`mastermind-*\`` bullets
+ *  is caught by the exact-set assertion above regardless of table syntax —
+ *  but a capability-catalog router expresses routes in table cells
+ *  (`Skill("mastermind-debug")`), not as list items. The real second router
+ *  this item deleted carried zero such bullets, so for that shape the bullet
+ *  backstop does not apply; what catches it is the header detection above,
+ *  and only while the header stays on one row. */
 function hasCatalogRouterTable(body: string): boolean {
   for (const line of stripFencedCode(body).split('\n')) {
     if (!line.trim().startsWith('|')) continue;
