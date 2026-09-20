@@ -29,6 +29,31 @@ measurement**, and the thread log conflates an agent talking to itself with an a
 
 ## 2. The measurement bug — root of everything else
 
+> **MEASURED, 2026-09-20 (supersedes the inference below).** Claude Code writes every session
+> transcript to `~/.claude/projects/` with the full `usage` object. Across 60 transcripts and
+> 10,271 usage records from the run window:
+>
+> | field | tokens |
+> |---|---|
+> | `input_tokens` (uncached) | **0.0M** |
+> | `output_tokens` | 8.1M |
+> | `cache_read_input_tokens` | **2,728.5M** |
+> | `cache_creation_input_tokens` | 28.4M |
+> | **total billable** | **2,765.0M** |
+>
+> `policy.usage` records **8.1M of 2,765M — it misses 99.7%.** The undercount is ~230x, not the
+> 37x estimated earlier. Models seen: claude-sonnet-5 1,811M, claude-opus-5 916M.
+>
+> **And note why `input_tokens` is zero: caching is working near-perfectly.** `input_tokens` is
+> the *uncached remainder*, so the better the cache performs, the less our meter sees. The
+> counter reports almost nothing precisely when the system behaves well.
+>
+> **Consequence for strategy:** prompt-caching optimisation is NOT the opportunity — caching has
+> already done nearly all it can. The opportunity is that we re-send 2.7 billion tokens at all,
+> even at 0.1x. Volume, not rate.
+
+
+
 `session.ts:841` and `:879`:
 
 ```ts
@@ -71,8 +96,8 @@ estimates, not authoritative billing data… computed locally from a price table
 time… Do not bill end users or trigger financial decisions from these fields."* Treat it as
 accurate to within price-table drift, not as an invoice.
 
-**The one measurement that would settle everything** is the Console Usage page for that 3-hour
-window, grouped by model and API key. Nobody in this investigation could reach it.
+**This was subsequently measured locally** — see the box at the top of this section. The Console
+Usage page would still give invoice-accurate dollars, but the token question is settled.
 
 ---
 
@@ -206,6 +231,109 @@ Anthropic's own measured run — the item most likely to be applied backwards.
 
 ---
 
+---
+
+## 7b. The target architecture — what both systems actually do
+
+Both reference repos were cloned and read (Gas Town @ `649b832`, 1,231 Go files; Paperclip via
+`--depth 1`). An earlier draft of this document framed them as opposed — Gas Town disposing of
+sessions, Paperclip preserving them. **That was wrong. They converge.**
+
+### The three residency levels
+
+The distinction that matters, and the one our runtime does not make:
+
+| level | Paperclip | Gas Town mainline | Gas Town `--ralph` | our bill |
+|---|---|---|---|---|
+| 1. OS process | ephemeral | ephemeral | ephemeral | irrelevant |
+| 2. **provider/model session** (the cached prefix) | **persisted, resumed** | **preserved** (`claude --continue`) | discarded | **this is the 98.7%** |
+| 3. control plane (task state) | durable (Postgres) | durable (Dolt) | durable | — |
+
+Paperclip's *"does not keep an agent process alive between turns"* is a statement about **level 1
+only**. The rest of its codebase exists to preserve level 2 across exactly those process deaths.
+The motivation is in the code, ticketed (`server/src/services/heartbeat.ts:5596-5600`):
+
+> *"Issue-scoped timer wakes are continuation work, so reuse their task session to avoid paying
+> the full session-start and re-orientation cost on every heartbeat."*
+
+Gas Town's mainline agrees: `gt prime`'s compact/resume path fires when context is warm and emits
+**~5 lines instead of ~1,200**, because *"the agent already has role context and work state in
+compressed memory"*, and `gt handoff --cycle` restarts with `claude --continue`. Full prime is the
+**cold-start** path. `--ralph` (fresh context per step) has two callers and is the exception.
+
+**For us this is decisive.** With 2,728M cache reads against 0.0M uncached input, a design that
+discards the model session would convert 0.1x reads into 1.0x input plus 1.25x writes. Adopting
+`--ralph` would have made the bill dramatically worse while looking like an efficiency win.
+
+### Session identity as a first-class, auditable record
+
+Paperclip keys sessions to the **task**, not the agent and not the run —
+`packages/db/src/schema/agent_task_sessions.ts:16-57`:
+
+```
+uniqueIndex (companyId, agentId, adapterType, taskKey)
+  sessionParamsJson   jsonb   -- adapter resume params incl. sessionId, cwd
+  sessionDisplayId    text
+  lastRunId           uuid
+  lastError           text
+```
+
+`deriveTaskKey` resolves to the issue id for ordinary work. One agent across 40 heartbeats on one
+issue gets **one** session. Each run records `sessionIdBefore` and `sessionIdAfter` — *"how you
+audit whether a heartbeat actually reused a session"*. **monomind has no equivalent, so we cannot
+currently tell whether a resume worked.**
+
+Warm state is explicitly bounded: native warm checkpoint **8 MiB**, remote archive 64 MiB /
+20,000 entries, durable identity 2 MiB, runner state 16 MiB.
+
+### The ledger, and the one hard property worth stealing
+
+Gas Town's ledger is Dolt (SQL + git commit graph). Everything is one `issues` table — tasks,
+mail (`issue_type='message'`, no separate mail table), agent identity, workflow steps, gates. All
+agents write directly to `main`; every write is `BEGIN / UPDATE / DOLT_COMMIT / COMMIT`. The read
+pattern is **one row by id** (`bd show <id>`), not a scan — the agent was handed its id at prime.
+
+State does not travel in a transcript, and that is enforced three ways
+(`internal/cmd/done.go:498-526`):
+
+1. **A hard property.** `gt done` fatally errors on review work unless the bead carries a fresh
+   evidence comment passing five tests: posted after `attached_at`, authored by the assignee,
+   prefixed `report:|findings:|review:|evidence:|verdict:|decision:`, not machine-generated, and
+   **`head_sha:` equal to the current `git rev-parse HEAD`**. The session cannot retire; the
+   Witness re-dispatches.
+2. **Structural absence.** No channel carries a transcript forward; teardown is `ClearHistory` +
+   `RespawnPane -k`.
+3. **Convention.** A prompt rule for code work, verified by nothing.
+
+Against our **223 gate verdicts that nothing could check**, (1) is the most transferable idea in
+either repository.
+
+### Tool output: neither system solves it — but both show the pattern
+
+**Verified negative (exhaustive multi-pass grep, three additional surfaces closed):**
+
+> *"Gas Town bounds no tool output on the path to the model. Every truncation in the repository is
+> on a logging, display, or RPC-ingress path — OTEL log fields, TUI columns, feed-file rotation,
+> HTTP request bodies. Its answer to context cost is not to shrink what enters context but to make
+> the whole context disposable and cheap to rebuild."*
+
+Stated as "does not bound", not "cannot": deployments merge their own hooks, so one could add
+`PostToolUse`; none evidently does.
+
+**But the mechanism we need already exists, aimed elsewhere.** `gt prime` injects mail as
+**`id/from/subject` only — bodies are pulled on demand with `gt mail read`**. Our runtime does the
+same thing: mail over 4,096 chars spills to `.mail/<id>.md` with a 1,024-char digest
+(`cross-org.ts:38-129`).
+
+So spill-and-reference is implemented in both systems, and in both it is pointed at **mail** —
+0.1% of our context mass — while **tool results at 76% are untouched**. We do not need to invent
+this. We need to point an existing mechanism at Bash and Read output.
+
+Gas Town's own leak, for honesty: memories in `gt prime` are **uncapped** — its author's words,
+*"the one leak"*.
+
+---
+
 ## 8. Recommendations, in order
 
 Ranked by (expected saving) ÷ (risk), with verification status.
@@ -216,9 +344,11 @@ Ranked by (expected saving) ÷ (risk), with verification status.
 2. **Bound tool results in the transcript.** 76% of context mass, currently unbounded, while the
    0.1% channel already has a 4,096-char guard. Collapse to one-line extracts at phase
    boundaries. Note the long tail — a per-result cap alone will not do it. `[verified]`
-3. **Cycle sessions.** Cost is quadratic in turns against a never-reset transcript. This is Gas
-   Town's "session cycling is normal operation" and Paperclip's heartbeats, arrived at
-   independently by both. `[verified: one query() per role, zero resets, no compaction]`
+3. **Cycle the process, keep the session.** Cost is quadratic in turns against a never-reset
+   transcript — but the fix is NOT to discard the model session. Both reference systems keep
+   level 2 warm and make only level 1 ephemeral (§7b). Add a task-keyed session record with
+   `sessionIdBefore`/`sessionIdAfter` so resume is auditable. `[verified: one query() per role,
+   zero resets, no compaction; Paperclip schema read]`
 4. **Never let a non-blocking question set a watchdog hold.** Process fix *and* the single most
    expensive request of the run. `[verified]`
 5. **Meter and cap in dollars.** `maxBudgetUsd` is compared against the running total; the
@@ -238,10 +368,11 @@ Ranked by (expected saving) ÷ (risk), with verification status.
 
 Stated plainly, because the temptation is to present this as more settled than it is.
 
-- **Actual billed tokens and cost.** Everything here is SDK estimate plus inference. One Console
-  lookup would replace the whole of §2.
-- **Cache hit rate.** Unknown and unknowable until recommendation 1 ships. The size of every
-  caching-related prize depends on it.
+- **Invoice-accurate dollars.** Billed *tokens* are now measured (2,765M, §2); the dollar figure
+  remains an SDK price-table estimate. A Console lookup would close that last gap.
+- **Cache hit rate — now known, and it inverts a recommendation.** `input_tokens` is 0.0M against
+  2,728.5M cache reads: caching is near-optimal. Prefix-unification and cache tuning are
+  therefore NOT opportunities. Volume is.
 - **Whether prefix unification would help.** Diagnosis is sound; magnitude was estimated at
   5.1×, corrected by its own author to 1.1–4× expected case, conditional on a hit rate nobody
   can see.
