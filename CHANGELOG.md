@@ -4,6 +4,19 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-09-20
+
+> **Upgrading from 2.12.x — read this if you use `monomind memory`.**
+> This release changes how the memory store's project root is resolved. If your
+> project has a bare `.monomind` directory with no `package.json` (or other
+> project marker) beside it, that store is **no longer found** and
+> `monomind memory list` will report `No entries found`. **Nothing is deleted** —
+> but it looks identical to data loss, so it is called out here rather than only
+> in the entry below. **Fix, either:** put a project marker (e.g. `package.json`)
+> next to that `.monomind` directory, or set `MONOMIND_PROJECT_ROOT` to the
+> intended root. `monomind doctor` diagnoses this on a plain run.
+
+
 ### Fixed (data loss)
 
 - **`monomind init` no longer deletes files a user added inside a skill, command, or agent directory.** Two ways to trigger it, both fixed:
