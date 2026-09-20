@@ -150,3 +150,89 @@ export function formatMonoesLeakWarning(reasons) {
     '',
   ].join('\n');
 }
+
+// i-052 commit 3 — a sibling detector, not an extension of
+// detectMonoesTokenLeak() above: `.monomind/dashboard-token` is a
+// different credential (a local dashboard auth token, not a monoes.me
+// OAuth token), with a different remedy. Revoking at monoes.me is simply
+// wrong advice here — there is nothing to revoke there, and no
+// Disconnect flow for it. `.gitignore` does nothing once a path is
+// already tracked (gitignored by default since i-052 commits 1-2), which
+// is the actual shape of the live incident this item fixes — this
+// detector exists to catch exactly that case, at both `init` (see
+// executor.ts) and dashboard startup (see ui/server.mjs).
+//
+// Exported so AC-5 clause (d) — "says the value must be treated as
+// burned" — can be asserted BY IDENTITY against the sentence the user
+// actually sees, not a substring guess at it. A substring match passes
+// for any sentence containing the phrase and never fails for wrongness;
+// pinning the export and asserting `toContain(EXPORT)` fails on a
+// rewording as reliably as on an omission (i-050's AC-3 amendment
+// pattern, applied here per plan §5b).
+export const DASHBOARD_TOKEN_BURNED_NOTICE =
+  'the value must be treated as burned — the historical blob remains in git history even after this file stops being tracked';
+
+/**
+ * Detects whether `.monomind/dashboard-token` is tracked by git in this
+ * project.
+ * @param {string} projectDir
+ * @param {{ isTracked?: (projectDir: string, relPath: string) => Promise<boolean> }} [opts]
+ *   i-052 plan §5b amendment: `isTracked` is an injectable seam so this
+ *   function's branch logic — tracked vs. untracked, and the message text
+ *   each branch produces — is unit-testable with no real git repo at all.
+ *   Defaults to the real `git ls-files --error-unmatch` check (identical
+ *   mechanism to detectMonoesTokenLeak() above). The seam proves the
+ *   logic; a real-git integration test (see
+ *   __tests__/dashboard-token-detection.test.ts) proves the default
+ *   wiring actually calls git correctly — neither substitutes for the
+ *   other.
+ * @returns {Promise<string[]>}
+ */
+export async function detectDashboardTokenLeak(projectDir, opts = {}) {
+  const isTracked = opts.isTracked ?? defaultDashboardTokenIsTracked;
+  const reasons = [];
+
+  const relPath = path.join('.monomind', 'dashboard-token');
+  const fullPath = path.join(projectDir, relPath);
+  if (fs.existsSync(fullPath) && (await isTracked(projectDir, relPath))) {
+    reasons.push(`${relPath} is tracked by git`);
+  }
+
+  return reasons;
+}
+
+async function defaultDashboardTokenIsTracked(projectDir, relPath) {
+  try {
+    await execFileAsync('git', ['ls-files', '--error-unmatch', relPath], {
+      cwd: projectDir,
+      timeout: 2000,
+    });
+    return true; // exit 0 => tracked
+  } catch {
+    return false; // non-zero exit (untracked) or git unavailable
+  }
+}
+
+/**
+ * Formats a loud warning for `detectDashboardTokenLeak()` results. Names
+ * the file, never the value (there is none available to it — presence
+ * only, same contract as formatMonoesLeakWarning above), and gives the
+ * remedy that actually applies: adding a `.gitignore` line does nothing
+ * for an already-tracked file, so the only real fix is to untrack it.
+ * @param {string[]} reasons
+ * @returns {string|null}
+ */
+export function formatDashboardTokenLeakWarning(reasons) {
+  if (reasons.length === 0) return null;
+  return [
+    '',
+    '⚠ ⚠ ⚠  dashboard-token exposure detected — action required  ⚠ ⚠ ⚠',
+    ...reasons.map((r) => `  - ${r}`),
+    '',
+    'Adding a .gitignore line does NOT remove an already-tracked file.',
+    '',
+    '  1. Untrack it: git rm --cached .monomind/dashboard-token',
+    `  2. Then, ${DASHBOARD_TOKEN_BURNED_NOTICE}.`,
+    '',
+  ].join('\n');
+}

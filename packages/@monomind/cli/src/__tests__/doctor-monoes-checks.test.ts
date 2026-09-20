@@ -40,6 +40,7 @@ vi.mock('fs', async (importOriginal) => {
 import {
   checkMonoesTokenExposure,
   checkMonoesTools,
+  DASHBOARD_TOKEN_BURNED_NOTICE,
   fixMonoesTools,
 } from '../commands/doctor-monoes-checks.js';
 
@@ -361,5 +362,99 @@ describe('checkMonoesTokenExposure', () => {
     });
     const result = await checkMonoesTokenExposure();
     expect(result.message).not.toContain('super-secret-value-xyz');
+  });
+
+  // i-052 commit 3 — `.gitignore` does nothing once a file is already
+  // tracked, which is the actual shape of the live incident. Same
+  // git-mocked-via-runCommand harness as the monoes-connection.json cases
+  // above; this function's git usage was already unit-testable with no
+  // real git repo, so no separate seam is needed here (see
+  // mcp/monoes-mcp-entry.mjs's detectDashboardTokenLeak for the sibling
+  // detector on the `init` path, which needed one because it shells out
+  // directly via execFile rather than through this file's mockable
+  // runCommand wrapper).
+  const DASHBOARD_TOKEN_PATH = '/project/.monomind/dashboard-token';
+
+  it('AC-7 (control): dashboard-token exists but is untracked — no warning', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === DASHBOARD_TOKEN_PATH);
+    runCommandMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
+      if (cmd.startsWith('git ls-files --error-unmatch')) throw new Error('not tracked');
+      throw new Error('not found');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('pass');
+  });
+
+  it('regression guard (mirrors the connection-file case): outside a git work tree, an existing dashboard-token does not produce a fail', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === DASHBOARD_TOKEN_PATH);
+    // rejectAll() from beforeEach already makes `git rev-parse --is-inside-work-tree` throw.
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('pass');
+  });
+
+  it('AC-5: fails, names the file, gives the untrack command, and states the burned notice by identity — when dashboard-token is tracked by git', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === DASHBOARD_TOKEN_PATH);
+    runCommandMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
+      if (cmd.startsWith('git ls-files --error-unmatch')) return '.monomind/dashboard-token';
+      throw new Error('not found');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('fail');
+    // (a) names the file
+    expect(result.message).toContain('.monomind/dashboard-token');
+    // (c) gives the exact remedy — adding a .gitignore line does nothing
+    // for an already-tracked file, so the remedy must be the untrack
+    // command, not ignore advice.
+    expect(result.message).toContain('git rm --cached .monomind/dashboard-token');
+    // (d) — by identity against the export, not a substring guess, so this
+    // assertion fails on a REWORDING as reliably as on an omission (i-050's
+    // AC-3 amendment pattern, applied here per plan §5b).
+    expect(result.message).toContain(DASHBOARD_TOKEN_BURNED_NOTICE);
+  });
+
+  it('AC-5 clause (b): never prints the token value — there is none available to this check, only presence', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === DASHBOARD_TOKEN_PATH);
+    runCommandMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
+      if (cmd.startsWith('git ls-files --error-unmatch')) return '.monomind/dashboard-token';
+      throw new Error('not found');
+    });
+    const result = await checkMonoesTokenExposure();
+    // The function never reads dashboard-token's content (only existsSync
+    // plus git tracked status) — there is no value in scope that could
+    // leak, unlike the .mcp.json bearer-token path above.
+    expect(result.message.toLowerCase()).not.toContain('unreadable');
+  });
+
+  it('a dashboard-token-only exposure never suggests revoking at monoes.me — that advice is for a different credential', async () => {
+    existsSyncMock.mockImplementation((p: string) => p === DASHBOARD_TOKEN_PATH);
+    runCommandMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
+      if (cmd.startsWith('git ls-files --error-unmatch')) return '.monomind/dashboard-token';
+      throw new Error('not found');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.message.toLowerCase()).not.toContain('monoes.me');
+    expect(result.message).not.toContain('Disconnect');
+  });
+
+  it('combines a dashboard-token exposure with a monoes.me connection-file exposure into one failure with both remedies', async () => {
+    existsSyncMock.mockImplementation(
+      (p: string) => p === DASHBOARD_TOKEN_PATH || p === CONNECTION_JSON,
+    );
+    runCommandMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'git rev-parse --is-inside-work-tree') return 'true';
+      if (cmd.startsWith('git check-ignore')) throw new Error('not ignored');
+      if (cmd.startsWith('git ls-files --error-unmatch')) return 'tracked';
+      throw new Error('not found');
+    });
+    const result = await checkMonoesTokenExposure();
+    expect(result.status).toBe('fail');
+    expect(result.message).toContain('.monomind/dashboard-token');
+    expect(result.message).toContain('.monomind/monoes-connection.json');
+    expect(result.message).toContain('git rm --cached .monomind/dashboard-token');
+    expect(result.message.toLowerCase()).toContain('revoke');
   });
 });

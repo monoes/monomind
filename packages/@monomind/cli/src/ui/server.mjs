@@ -7,6 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import {
+  detectDashboardTokenLeak,
+  formatDashboardTokenLeakWarning,
+} from '../mcp/monoes-mcp-entry.mjs';
+import {
   collectAgents,
   collectAll,
   collectHooks,
@@ -999,6 +1003,18 @@ export async function startServer({
 } = {}) {
   // #308: resolve the home now that the caller's project dir is in hand.
   MONOMIND_HOME = getMonomindHome(projectDir, projectDirExplicit);
+  // i-052 commit 3: warn on every start, not only at `init` (executor.ts).
+  // The dashboard is what WRITES dashboard-token — a user who never
+  // re-runs `init` after the file got committed (e.g. before commits 1-2
+  // shipped `.gitignore` coverage) would otherwise never see this warning
+  // at all. Same "name the file, never the value" contract as the
+  // monoes.me leak warning; best-effort (never blocks startup on a git
+  // failure — detectDashboardTokenLeak already treats git-unavailable as
+  // "not a leak signal", not an error).
+  const dashboardTokenStartupWarning = formatDashboardTokenLeakWarning(
+    await detectDashboardTokenLeak(projectDir || process.cwd()),
+  );
+  if (dashboardTokenStartupWarning) console.error(dashboardTokenStartupWarning);
   // Extra Host names accepted beyond loopback (see isAllowedHost above).
   const _allowedHosts = resolveAllowedHosts(allowedHosts);
   // ── Security: per-process auth credential for mutating (non-GET) requests ─

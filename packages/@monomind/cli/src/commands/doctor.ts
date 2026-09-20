@@ -88,7 +88,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, metrics-freshness, security-audit, documents, platforms, crash-reporting)',
+        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -216,6 +216,13 @@ export const doctorCommand: Command = {
       'memory-proficiency': checkMemoryProficiency,
       'monoes-tools': checkMonoesTools,
       'monoes-token': checkMonoesTokenExposure,
+      // i-052 commit 3: same function as 'monoes-token' — it now covers
+      // both credentials (see checkMonoesTokenExposure's own doc comment)
+      // and is already always-on, so this alias exists purely so a user
+      // (or an incident writeup) can find the check by the name of the
+      // credential that leaked, not just the one that motivated the
+      // original i-066 check.
+      'dashboard-token': checkMonoesTokenExposure,
       'metrics-freshness': checkMetricsFreshness,
       'security-audit': checkSecurityAuditFindings,
       documents: checkDocumentExtractors,

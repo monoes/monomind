@@ -16,7 +16,12 @@ const __dirname = dirname(__filename);
 // i-066 follow-up finding 9: shared with routes-monoes.mjs and
 // write-claude.ts — see monoes-mcp-entry.mjs's own doc comment for why this
 // lives in a .mjs sibling rather than here.
-import { detectMonoesTokenLeak, formatMonoesLeakWarning } from '../mcp/monoes-mcp-entry.mjs';
+import {
+  detectDashboardTokenLeak,
+  detectMonoesTokenLeak,
+  formatDashboardTokenLeakWarning,
+  formatMonoesLeakWarning,
+} from '../mcp/monoes-mcp-entry.mjs';
 import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 // Split modules
@@ -187,6 +192,15 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // write-runtime-config.ts rather than kept in both places).
     const leakWarning = formatMonoesLeakWarning(await detectMonoesTokenLeak(targetDir));
     if (leakWarning) console.error(leakWarning);
+
+    // i-052 commit 3: same ordering guarantee, same reason — a project
+    // re-inited after the dashboard already wrote (and possibly
+    // committed) `.monomind/dashboard-token` must see this warning
+    // regardless of which components are selected.
+    const dashboardTokenWarning = formatDashboardTokenLeakWarning(
+      await detectDashboardTokenLeak(targetDir),
+    );
+    if (dashboardTokenWarning) console.error(dashboardTokenWarning);
 
     // Generate and write settings.json
     if (options.components.settings) {
