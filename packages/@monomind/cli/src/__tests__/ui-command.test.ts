@@ -6,7 +6,7 @@ import type { CommandContext } from '../types.js';
 // The command only reaches its `catch` (and so returns instead of parking on
 // SIGINT) if startServer rejects — which is all this needs, since the
 // assertion is on the options it was handed.
-const startServer = vi.fn(async () => {
+const startServer = vi.fn(async (_opts: unknown) => {
   throw new Error('not starting a real dashboard in a unit test');
 });
 vi.mock('../ui/server.mjs', () => ({ startServer: (opts: unknown) => startServer(opts as never) }));
@@ -41,9 +41,16 @@ describe('ui command → startServer project-dir wiring (#308)', () => {
     return { args: [], flags: { _: [], ...flags } as never, cwd: '/tmp/some-project', interactive: false };
   }
 
+  // `Command.action` is typed optional (other command's subcommands may omit
+  // it); `uiCommand`'s is always defined at runtime, but the type checker
+  // doesn't know that. Same narrowing pattern used elsewhere (e.g.
+  // monograph-search-format.test.ts) rather than a non-null assertion.
+  if (!uiCommand.action) throw new Error('ui command action not found');
+  const action = uiCommand.action;
+
   it('marks the project dir explicit when --project-dir was passed', async () => {
     startServer.mockClear();
-    await uiCommand.action(context({ 'project-dir': '/tmp/named-project', open: false }));
+    await action(context({ 'project-dir': '/tmp/named-project', open: false }));
     expect(startServer.mock.calls[0][0]).toMatchObject({
       projectDir: '/tmp/named-project',
       projectDirExplicit: true,
@@ -52,7 +59,7 @@ describe('ui command → startServer project-dir wiring (#308)', () => {
 
   it('marks the cwd default as not explicit when the flag is absent', async () => {
     startServer.mockClear();
-    await uiCommand.action(context({ open: false }));
+    await action(context({ open: false }));
     expect(startServer.mock.calls[0][0]).toMatchObject({
       projectDir: '/tmp/some-project',
       projectDirExplicit: false,
