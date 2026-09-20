@@ -2,7 +2,7 @@
  * Dashboard server (src/ui/server.mjs, incl. the org routes it mounts from
  * src/ui/routes-org.mjs) — security and cost-reporting correctness.
  *
- * Five defects are pinned here:
+ * Six defects are pinned here:
  *
  *   (a) No Host-header validation. The server binds 127.0.0.1 and GET / embeds a
  *       live auth credential in the HTML. A page on attacker.example whose DNS
@@ -35,14 +35,24 @@
  *       .monomind — any dashboard client could read .env, .git/config, or other
  *       arbitrary project files via this route.
  *
+ *   (f) getMonomindHome() (#308) ignored --project-dir and walked up from
+ *       process.cwd() to the FIRST ancestor holding .monomind/control.json.
+ *       Per-project state written under that home — the monoes.me connection
+ *       file with its OAuth tokens, capture/, orgs/ — landed in whichever
+ *       ancestor happened to have a control.json left over from an earlier
+ *       dashboard run, not in the project the dashboard was started for.
+ *       Reported repro: with /tmp/scratch/.monomind/control.json already
+ *       present, `cd /tmp/scratch/connect && monomind ui --port 4252
+ *       --project-dir .` read and wrote /tmp/scratch/.monomind/monoes-connection.json.
+ *
  * The Host and compaction cases run against a REAL bound server on a real socket
  * — a unit test of the predicate alone would not prove the check is actually
  * wired ahead of the open routes, which is the whole point of (a). (d) and (e)
  * do the same for the org routes.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, utimesSync } from 'node:fs';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, realpathSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import http from 'node:http';
@@ -404,5 +414,138 @@ describe('(e) GET /api/org/:name/artifact is scoped to the org\'s own .monomind/
       { headers: auth() },
     );
     expect(r.status).toBe(403);
+  });
+});
+
+// (f) — the resolver is exercised directly rather than through a bound server:
+// the home is read at startServer() time, so a server-level assertion could
+// only observe it indirectly via where files land.
+describe('(f) getMonomindHome — project scoping (#308)', () => {
+  const { getMonomindHome } = uiServer as any;
+  const prevEnvHome = process.env.MONOMIND_HOME;
+  let root = '';
+
+  beforeAll(() => {
+    // realpath: on some platforms $TMPDIR is a symlink, and the walk compares
+    // resolved parent paths.
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'mm-home-')));
+    delete process.env.MONOMIND_HOME;
+  });
+
+  afterAll(() => {
+    if (prevEnvHome === undefined) delete process.env.MONOMIND_HOME;
+    else process.env.MONOMIND_HOME = prevEnvHome;
+  });
+
+  /** Runs fn with process.cwd() reporting `dir`. */
+  function withCwd<T>(dir: string, fn: () => T): T {
+    const spy = vi.spyOn(process, 'cwd').mockReturnValue(dir);
+    try {
+      return fn();
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it('uses an explicitly named project dir as home even when a parent has .monomind/control.json', () => {
+    const parent = join(root, 'scratch');
+    const child = join(parent, 'connect');
+    mkdirSync(join(parent, '.monomind'), { recursive: true });
+    writeFileSync(join(parent, '.monomind', 'control.json'), '{"port":4242}');
+    mkdirSync(child, { recursive: true });
+
+    expect(withCwd(child, () => getMonomindHome(child, true))).toBe(child);
+  });
+
+  // The regression guard for the explicit/defaulted distinction: `monomind ui`
+  // with no flag still passes a projectDir (it defaults to cwd), so a
+  // resolver that short-circuits on the dir alone would move the home of
+  // every dashboard started from a subdirectory down into that subdirectory,
+  // away from the capture/, orgs/ and monoes-connection.json already sitting
+  // at the project root.
+  it('ignores a projectDir that was merely defaulted to cwd, and walks up to the project', () => {
+    const repo = join(root, 'defaulted');
+    const sub = join(repo, 'packages', 'foo');
+    mkdirSync(join(repo, '.monomind'), { recursive: true });
+    writeFileSync(join(repo, '.monomind', 'control.json'), '{"port":4242}');
+    mkdirSync(join(repo, '.git'), { recursive: true });
+    mkdirSync(sub, { recursive: true });
+
+    expect(withCwd(sub, () => getMonomindHome(sub, false))).toBe(repo);
+  });
+
+  it('stops the walk at the enclosing git root instead of escaping the repo', () => {
+    const outer = join(root, 'outer');
+    const repo = join(outer, 'repo');
+    const sub = join(repo, 'packages', 'thing');
+    mkdirSync(join(outer, '.monomind'), { recursive: true });
+    writeFileSync(join(outer, '.monomind', 'control.json'), '{"port":4242}');
+    mkdirSync(join(repo, '.git'), { recursive: true });
+    mkdirSync(sub, { recursive: true });
+
+    expect(withCwd(sub, () => getMonomindHome())).toBe(sub);
+  });
+
+  it('still walks up within the repo when no project dir is given', () => {
+    const repo = join(root, 'walkable');
+    const sub = join(repo, 'packages', 'thing');
+    mkdirSync(join(repo, '.monomind'), { recursive: true });
+    writeFileSync(join(repo, '.monomind', 'control.json'), '{"port":4242}');
+    mkdirSync(join(repo, '.git'), { recursive: true });
+    mkdirSync(sub, { recursive: true });
+
+    expect(withCwd(sub, () => getMonomindHome())).toBe(repo);
+  });
+
+  it('lets MONOMIND_HOME beat a defaulted project dir and the walk', () => {
+    const envHome = join(root, 'env-home');
+    const repo = join(root, 'walkable');
+    mkdirSync(envHome, { recursive: true });
+    process.env.MONOMIND_HOME = envHome;
+    try {
+      expect(withCwd(repo, () => getMonomindHome(repo, false))).toBe(envHome);
+    } finally {
+      delete process.env.MONOMIND_HOME;
+    }
+  });
+
+  it('lets an explicitly named project dir beat MONOMIND_HOME', () => {
+    // An explicit CLI flag outranks an ambient env var — otherwise
+    // `monomind ui --project-dir X` silently writes X's state elsewhere.
+    const envHome = join(root, 'env-home');
+    const named = join(root, 'named');
+    mkdirSync(envHome, { recursive: true });
+    mkdirSync(named, { recursive: true });
+    process.env.MONOMIND_HOME = envHome;
+    try {
+      expect(getMonomindHome(named, true)).toBe(named);
+    } finally {
+      delete process.env.MONOMIND_HOME;
+    }
+  });
+
+  // The run-directly block at the bottom of server.mjs passes
+  // projectDir = CLAUDE_PROJECT_DIR || process.cwd() and marks it explicit
+  // only when the env var is set — these pin what each of those two shapes
+  // must resolve to.
+  it('honours CLAUDE_PROJECT_DIR as an explicit dir on the auto-start path', () => {
+    const named = join(root, 'claude-project');
+    mkdirSync(join(named, 'sub'), { recursive: true });
+    mkdirSync(join(root, 'claude-project', '.git'), { recursive: true });
+
+    expect(withCwd(join(named, 'sub'), () => getMonomindHome(named, true))).toBe(named);
+  });
+
+  it('still walks up on the auto-start path when CLAUDE_PROJECT_DIR is unset', () => {
+    const repo = join(root, 'autostart');
+    const sub = join(repo, 'nested');
+    mkdirSync(join(repo, '.monomind'), { recursive: true });
+    writeFileSync(join(repo, '.monomind', 'control.json'), '{"port":4242}');
+    mkdirSync(join(repo, '.git'), { recursive: true });
+    mkdirSync(sub, { recursive: true });
+
+    // projectDir === cwd, explicit false — exactly what the block passes with
+    // no CLAUDE_PROJECT_DIR in the environment.
+    expect(withCwd(sub, () => getMonomindHome(sub, false))).toBe(repo);
   });
 });
