@@ -336,14 +336,21 @@ describe('getProjectRoot', () => {
     // cases. validateAnchor now resolves and validates the REAL path, so
     // this must be rejected the same way a literal '/' is.
     //
-    // STATED LIMIT this test does NOT cover (verifier, o-16 revision 2): a
-    // TOCTOU gap remains between validateAnchor's ONE-TIME real-path
-    // resolution and getDbPath's guard, which re-resolves the cached path
-    // fresh on EVERY call — see the comment at getDbPath's `relCwd` line in
-    // memory-bridge.ts. Swapping the filesystem entry at the anchor path
-    // for a symlink to '/' AFTER this test's validation but BEFORE a later
-    // guard check would bypass it live; this test only proves validation
-    // rejects a symlink that is ALREADY pointing at '/' at validation time.
+    // STATED LIMIT this test does NOT cover (verifier, o-16 revision 2;
+    // corrected in revision 3 — the first version of this comment wrongly
+    // named the anchor path as the vulnerable one): a TOCTOU gap remains
+    // between validateAnchor's ONE-TIME resolution of the anchor to a REAL
+    // path (cached as that real-path STRING) and getDbPath's guard, which
+    // re-resolves that SAME cached real-path string fresh on EVERY call —
+    // see the comment at getDbPath's `relCwd` line in memory-bridge.ts.
+    // Swapping the filesystem entry AT THE ANCHOR PATH after validation
+    // does nothing (the anchor is never consulted again once cached).
+    // Swapping the filesystem entry AT THE RESOLVED REAL TARGET — the path
+    // this test's `root` variable names, once validated — for a symlink to
+    // '/' AFTER validation but BEFORE a later guard check would bypass it
+    // live; this test only proves validation rejects a symlink that is
+    // ALREADY pointing at '/' at validation time, not a target swapped out
+    // from under an already-cached resolution.
     it('a symlinked MONOMIND_PROJECT_ROOT anchor whose real target is "/" does not widen the guard (AC-5, leg C)', async () => {
       const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
       marker(root, '.git');
@@ -363,6 +370,52 @@ describe('getProjectRoot', () => {
         expect(outsidePath).toBe(defaultPath);
       } finally {
         rmSync(outside, { recursive: true, force: true });
+      }
+    });
+
+    // The stated limit above, as a test rather than only prose (dev-lead,
+    // o-16 revision 3): proves the distinction the corrected comment makes.
+    // Swapping the ANCHOR path after caching has NO effect (the anchor is
+    // resolved once and never consulted again); swapping the RESOLVED REAL
+    // TARGET does bypass the guard, because getDbPath re-resolves that same
+    // cached string fresh on every call. This fails if the boundary between
+    // "resolved once" and "re-resolved every call" ever moves again.
+    it('TOCTOU: an anchor-path swap after caching is inert; a resolved-target swap bypasses the guard (accepted limit)', async () => {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const realAnchorDir = join(root, 'real-anchor');
+      mkdirSync(realAnchorDir, { recursive: true });
+      const anchorLink = join(root, 'anchor-link');
+      symlinkSync(realAnchorDir, anchorLink);
+      const outside = join(root, '..', `o16-outside-toctou-${Date.now()}`);
+      mkdirSync(outside, { recursive: true });
+      process.env.MONOMIND_CWD = realAnchorDir;
+      process.env.MONOMIND_PROJECT_ROOT = anchorLink;
+
+      try {
+        // Populate the cache: validates the anchor, resolves it to
+        // realAnchorDir, and caches THAT REAL PATH STRING.
+        expect(getProjectRoot()).toBe(realAnchorDir);
+        const defaultPath = bridgeGetDbPath();
+
+        // Case A — swap the ANCHOR itself (repoint anchorLink at '/').
+        // The cache already holds realAnchorDir and the anchor string is
+        // never read again this process, so this must do nothing.
+        rmSync(anchorLink, { force: true });
+        symlinkSync('/', anchorLink);
+        expect(getProjectRoot()).toBe(realAnchorDir); // cache unaffected
+        expect(bridgeGetDbPath(outside)).toBe(defaultPath); // guard unaffected, still rejects
+
+        // Case B — swap the RESOLVED REAL TARGET (realAnchorDir) for a
+        // symlink to '/'. getDbPath's guard re-resolves this exact cached
+        // string fresh on every call, so THIS bypasses — the accepted,
+        // now-documented limit, not a passing security property.
+        rmSync(realAnchorDir, { recursive: true, force: true });
+        symlinkSync('/', realAnchorDir);
+        expect(bridgeGetDbPath(outside)).toBe(outside);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+        rmSync(anchorLink, { force: true });
+        rmSync(realAnchorDir, { recursive: true, force: true });
       }
     });
   });

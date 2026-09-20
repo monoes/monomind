@@ -402,21 +402,27 @@ function getDbPath(customPath?: string): string {
   // Guard against path traversal from MCP inputs: only allow paths inside the
   // project, the per-project home data dir, or the global brain.
   //
-  // STATED LIMIT (o-16 revision 2, verifier): `validateAnchor` resolves a
-  // `MONOMIND_PROJECT_ROOT` anchor's real path ONCE, and `getProjectRoot()`
-  // then returns that cached string on every subsequent call in this
-  // process (see `_rootCacheVal` above) — but the line below calls
-  // `realOrResolved()` (a fresh `fs.realpathSync`) on that cached string
-  // EVERY time `getDbPath` runs. If the filesystem entry at the anchor path
-  // is swapped for a symlink to `/` (or anywhere else) AFTER validation but
-  // BEFORE a later call here, this re-resolves to the new real target live,
-  // and the guard is bypassed for that call — a classic TOCTOU gap. NOT
-  // defended against: closing it properly means validating and consuming a
-  // single resolved handle rather than a path string, which is a real
-  // design change and out of scope for this fix. Accepted because it needs
-  // filesystem write access at the exact anchor path, timed against a live
-  // process — an attacker with that capability already has easier routes
-  // than this guard.
+  // STATED LIMIT (o-16 revision 2, corrected in revision 3 — verifier found
+  // the first version of this comment named the wrong path): `validateAnchor`
+  // resolves a `MONOMIND_PROJECT_ROOT` anchor to its REAL path ONCE via
+  // `fs.realpathSync`, and caches THAT REAL PATH STRING in `_rootCacheVal`
+  // (see above) — `getProjectRoot()` returns this cached real-path string on
+  // every subsequent call in this process; it does not re-read the anchor
+  // or re-run `validateAnchor`. So swapping the filesystem entry AT THE
+  // ANCHOR PATH after validation does nothing — the anchor itself is never
+  // consulted again. The actual gap is one level further in: the line below
+  // calls `realOrResolved()` (a fresh `fs.realpathSync`) on that cached
+  // REAL-PATH STRING every time `getDbPath` runs. If the filesystem entry
+  // AT THAT RESOLVED TARGET (not the anchor) is swapped for a symlink to
+  // `/` after validation but before a later call here, this re-resolves to
+  // the new real target live, and the guard is bypassed for that call — a
+  // TOCTOU gap between a one-time resolution and a re-resolved-every-call
+  // consumption of the same path string. NOT defended against: closing it
+  // properly means validating and consuming a single resolved handle rather
+  // than a path string, which is a real design change and out of scope for
+  // this fix. Accepted because it needs filesystem write access at the
+  // resolved target's path, timed against a live process — an attacker
+  // with that capability already has easier routes than this guard.
   const relCwd = path.relative(realOrResolved(getProjectRoot()), resolved);
   const relHome = path.relative(realOrResolved(projectDataDir()), resolved);
   const relGlobal = path.relative(realOrResolved(getGlobalBrainDir()), resolved);
