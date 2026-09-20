@@ -322,8 +322,25 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       summary.push(`Skipped: ${result.skipped.length} (already exist)`);
     }
 
+    // o-38: a retirement is a destructive action and must never be folded
+    // into "Files: N created" — that is exactly how the original data-loss
+    // bug went unreported. Named on a default run, no --verbose gate, with
+    // every entry printed (a count alone repeats the same sin at lower
+    // volume).
+    if (result.removed.length > 0) {
+      summary.push(`Retired: ${result.removed.length} (moved to .monomind/backups/…)`);
+    }
+
     output.printBox(summary.join('\n'), 'Summary');
     output.writeln();
+
+    if (result.removed.length > 0) {
+      output.printBox(
+        result.removed.join('\n'),
+        'Retired (your files were preserved, not deleted)',
+      );
+      output.writeln();
+    }
 
     if (
       options.components.claudeMd ||
