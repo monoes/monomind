@@ -501,10 +501,10 @@ function getRetireRoot(targetDir: string, result: InitResult): string {
  * `label` doubles as the retirement's section plus display name, e.g.
  * `skills/my-retired-skill` — the first path segment is an
  * `InitManifestSection` value for the five real call sites, or a
- * descriptive mirror label (`gemini-skills`, `agents-skills`) for a mirror
- * copy that turned out to hold user-added content (see `copySkills`).
+ * descriptive mirror label (`gemini-skills`, `agents-skills`,
+ * `opencode-skills`) for a mirror copy that turned out to hold user-added
+ * content (see `copySkills` / `writeOpencodeFiles`).
  *
-
  * On any failure, the entry is LEFT IN PLACE and a warning is recorded in
  * `result.errors` — this must never fall back to deleting; a fix that
  * deletes when the move fails is the original bug with extra steps.
@@ -765,6 +765,24 @@ export function findSourceDir(
   }
 
   return null;
+}
+
+/** Relative file paths under `dir` (files only). Used by every o-38 mirror
+ *  sweep (copySkills's `.gemini`/`.agents`, writeOpencodeFiles's
+ *  `.opencode/skills`) to tell "content the source regenerated" from "a file
+ *  someone added directly inside the mirror" (o-38 §2·0b). */
+export function listFilesRecursive(dir: string): Set<string> {
+  const out = new Set<string>();
+  if (!fs.existsSync(dir)) return out;
+  const walk = (d: string) => {
+    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else out.add(path.relative(dir, full));
+    }
+  };
+  walk(dir);
+  return out;
 }
 
 /**

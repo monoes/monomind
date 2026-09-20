@@ -13,29 +13,13 @@ import {
   copyDirRecursive,
   countFiles,
   findSourceDir,
+  listFilesRecursive,
   previouslyGenerated,
   recordGenerated,
   retireGeneratedEntry,
   SKILLS_MAP,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
-
-/** Relative file paths under `dir` (files only). Used by `copySkills`'s
- *  mirror sweep to tell "content the source regenerated" from "a file
- *  someone added directly inside the mirror" (o-38 §2·0b). */
-function listFilesRecursive(dir: string): Set<string> {
-  const out = new Set<string>();
-  if (!fs.existsSync(dir)) return out;
-  const walk = (d: string) => {
-    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else out.add(path.relative(dir, full));
-    }
-  };
-  walk(dir);
-  return out;
-}
 
 /**
  * Copy skills from source
