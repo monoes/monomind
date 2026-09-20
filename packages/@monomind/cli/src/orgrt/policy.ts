@@ -11,6 +11,20 @@ export type Decision =
   | { behavior: 'allow'; updatedInput: Record<string, unknown> }
   | { behavior: 'deny'; message: string };
 
+/** ADR-O001 D1: the four token quantities an Anthropic response bills for.
+ *  They are SIBLINGS, not subsets — `input` is the uncached remainder only,
+ *  while `cacheRead` (~0.1x input) and `cacheCreation` (~1.25x input) are
+ *  billed on top of it. Summing only `input + output`, as this engine used
+ *  to, reports ~0.3% of real consumption on a well-cached run. */
+export interface TokenUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheCreation: number;
+}
+
+const zeroTokens = (): TokenUsage => ({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 });
+
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit']);
 /** Harness messaging tools that bypass the org bus. Always denied: an agent
  *  that picks one gets the SDK's misleading "no agent named X is reachable"
@@ -132,7 +146,8 @@ export interface PolicyToolContext {
 const ORG_TOOL_NS = 'mcp__org__';
 
 export class PolicyEngine {
-  private used = 0;
+  /** ADR-O001 D1: the four billable quantities, tracked separately. */
+  private tokens: TokenUsage = zeroTokens();
   /** ORG-7: accumulated USD cost for this role, mirrors `used` (tokens). */
   private usedUsd = 0;
   private toolContext: PolicyToolContext = {};
@@ -165,18 +180,61 @@ export class PolicyEngine {
     };
   }
 
+  /** Legacy scalar accumulator. A caller with no breakdown to give (a
+   *  pre-ADR-O001 checkpoint, a runner that reports one number) lands on the
+   *  uncached `input` bucket — the basis such a number has always been on —
+   *  so it counts toward both `usage` and `budgetedUsage` and nothing that
+   *  used to bind stops binding. */
   addUsage(tokens: number): void {
-    this.used += tokens;
+    this.tokens.input += tokens;
   }
+  /** ADR-O001 D1: add one turn's real usage, per quantity. */
+  addTokenUsage(u: Partial<TokenUsage>): void {
+    this.tokens.input += u.input ?? 0;
+    this.tokens.output += u.output ?? 0;
+    this.tokens.cacheRead += u.cacheRead ?? 0;
+    this.tokens.cacheCreation += u.cacheCreation ?? 0;
+  }
+  /** The honest meter: every billable token this role has consumed, cache
+   *  reads and cache writes included. Reporting, checkpoints and dashboards
+   *  read this. */
   get usage(): number {
-    return this.used;
+    return (
+      this.tokens.input + this.tokens.output + this.tokens.cacheRead + this.tokens.cacheCreation
+    );
   }
-  /** Set usage counter directly for checkpoint/resume - Pattern 3 */
+  /** The four quantities, for per-role persistence (checkpoint.ts). */
+  get tokenUsage(): TokenUsage {
+    return { ...this.tokens };
+  }
+  /** ADR-O001 D1: what `maxTokens` (role.budget_tokens / run_config.budget_tokens)
+   *  is compared against.
+   *
+   *  It deliberately is NOT `usage`. Counting cache tokens multiplies the
+   *  observed volume by ~100x on a well-cached run, so an existing
+   *  `budget_tokens` — including the schema's 1M default, which every org
+   *  gets whether or not it asked for one — would exhaust within a couple of
+   *  turns and close every mailbox. The meter therefore becomes honest while
+   *  the budget keeps the basis it was written against, unless a config opts
+   *  in via `run_config.budget_tokens_basis: 'billable'`. USD budgets
+   *  (`budget_usd`) are unaffected and are the control ADR-O001 recommends. */
+  get budgetedUsage(): number {
+    return this.policy.maxTokensBasis === 'billable'
+      ? this.usage
+      : this.tokens.input + this.tokens.output;
+  }
+  /** Set usage counter directly for checkpoint/resume - Pattern 3.
+   *  Scalar form: a pre-ADR-O001 checkpoint has no breakdown to restore, so
+   *  the value lands on the legacy (uncached) basis it was recorded on. */
   setUsage(tokens: number): void {
-    this.used = tokens;
+    this.tokens = { ...zeroTokens(), input: tokens };
+  }
+  /** Restore a persisted breakdown (checkpoint.ts's `tokenUsage`). */
+  setTokenUsage(u: TokenUsage): void {
+    this.tokens = { ...u };
   }
   get overBudget(): boolean {
-    return this.policy.maxTokens != null && this.used >= this.policy.maxTokens;
+    return this.policy.maxTokens != null && this.budgetedUsage >= this.policy.maxTokens;
   }
 
   /** ORG-7: accumulate real USD cost (from 'usage' bus events' data.cost_usd). */
@@ -259,7 +317,7 @@ export class PolicyEngine {
         `${tool} does not reach org agents — inter-agent messaging goes through the org_send tool only; resend via org_send (to, subject, message)`,
       );
     if (this.overBudget)
-      return deny(`token budget exhausted (${this.used}/${this.policy.maxTokens})`);
+      return deny(`token budget exhausted (${this.budgetedUsage}/${this.policy.maxTokens})`);
     if (this.overBudgetUsd)
       return deny(`USD budget exhausted ($${this.usedUsd.toFixed(4)}/$${this.policy.maxUsd})`);
     // denyTools entries use the bare name (`org_send`, `monoagent__x`), the

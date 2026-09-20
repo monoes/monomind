@@ -1432,10 +1432,26 @@ export async function startServer({
                 } catch (_e) {}
                 if (!_st.agents) _st.agents = {};
                 const _ex = _st.agents[_arole] || {};
-                const _tokensIn = event.type === 'agent:usage' ? Number(event.tokens_in) || 0 : 0;
-                const _tokensOut = event.type === 'agent:usage' ? Number(event.tokens_out) || 0 : 0;
-                // 'org:usage' carries a single total (data.tokens), not an in/out split —
-                // counted toward tokens_used so the budget total still reflects it honestly.
+                // ADR-O001 D1: orgrt's 'org:usage' now carries the four billable
+                // quantities separately (tokens_in / tokens_out / cache_read /
+                // cache_creation) alongside the `tokens` total, so the per-role rows
+                // record real values instead of the 0s they used to persist.
+                const _tokensIn =
+                  event.type === 'agent:usage'
+                    ? Number(event.tokens_in) || 0
+                    : Number(event.data?.tokens_in) || 0;
+                const _tokensOut =
+                  event.type === 'agent:usage'
+                    ? Number(event.tokens_out) || 0
+                    : Number(event.data?.tokens_out) || 0;
+                const _cacheRead =
+                  event.type === 'org:usage' ? Number(event.data?.cache_read) || 0 : 0;
+                const _cacheCreation =
+                  event.type === 'org:usage' ? Number(event.data?.cache_creation) || 0 : 0;
+                // 'org:usage' carries the billable total in data.tokens (cache
+                // reads and writes included) — counted toward tokens_used, and NOT
+                // re-added from the split fields, which are that same total broken
+                // down rather than an extra amount.
                 const _tokensTotal =
                   event.type === 'org:usage' ? Number(event.data?.tokens) || 0 : 0;
                 const _costUsd =
@@ -1446,7 +1462,11 @@ export async function startServer({
                   ..._ex,
                   tokens_in: (_ex.tokens_in || 0) + _tokensIn,
                   tokens_out: (_ex.tokens_out || 0) + _tokensOut,
-                  tokens_used: (_ex.tokens_used || 0) + _tokensIn + _tokensOut + _tokensTotal,
+                  cache_read_tokens: (_ex.cache_read_tokens || 0) + _cacheRead,
+                  cache_creation_tokens: (_ex.cache_creation_tokens || 0) + _cacheCreation,
+                  tokens_used:
+                    (_ex.tokens_used || 0) +
+                    (event.type === 'org:usage' ? _tokensTotal : _tokensIn + _tokensOut),
                   total_cost_usd: (_ex.total_cost_usd || 0) + _costUsd,
                   lastUpdated: event.ts,
                 };

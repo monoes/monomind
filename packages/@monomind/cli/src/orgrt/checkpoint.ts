@@ -4,6 +4,7 @@
 import { createHash } from 'node:crypto';
 import type { AgentRuntime, RunningOrg } from './daemon.js';
 import { isRecoverableCloseReason } from './mailbox.js';
+import type { TokenUsage } from './policy.js';
 import type { OrgTask } from './task-dag.js';
 
 /** Checkpoint state for a single agent role */
@@ -16,8 +17,14 @@ export interface RoleCheckpoint {
    *  isRecoverableCloseReason in mailbox.ts; resume checks this before
    *  re-closing the restored mailbox. */
   mailboxCloseReason?: string;
-  /** Token usage counter from policy engine */
+  /** Total BILLABLE token usage from the policy engine (ADR-O001 D1: input +
+   *  output + cache reads + cache writes). Pre-ADR checkpoints hold the old
+   *  input+output-only number here; `tokenUsage` tells the two apart. */
   tokensUsed: number;
+  /** ADR-O001 D1: the four quantities, separately. Absent in checkpoints
+   *  written before this existed — resume falls back to `tokensUsed` on its
+   *  original (uncached) basis, so an old file still resumes. */
+  tokenUsage?: TokenUsage;
   /** Cost tracking */
   costUsd: number;
   /** Last message ID for threading */
@@ -120,6 +127,7 @@ export function captureCheckpoint(
       mailboxClosed: runtime.mailbox.isClosed,
       mailboxCloseReason: runtime.mailbox.closeReason,
       tokensUsed: runtime.policy.usage,
+      tokenUsage: runtime.policy.tokenUsage,
       costUsd: runtime.metrics.costUsd,
       lastMessageId: runtime.lastMessageId,
       sessionId: runtime.sessionId, // P2-13: populated by session layer via onSessionId callback
@@ -329,12 +337,18 @@ export function mergeCheckpoint(
       runtime.mailbox.close(roleState.mailboxCloseReason);
     }
 
-    // Restore policy usage counters
-    if (restorePolicy && roleState.tokensUsed > 0) {
-      const currentUsage = runtime.policy.usage;
-      const diff = roleState.tokensUsed - currentUsage;
-      if (diff > 0) {
-        runtime.policy.addUsage(diff);
+    // Restore policy usage counters. A checkpoint carrying the ADR-O001
+    // breakdown restores all four quantities exactly; one without it (written
+    // before the breakdown existed) still resumes, with its scalar landing on
+    // the uncached basis it was recorded on.
+    if (restorePolicy) {
+      if (roleState.tokenUsage) {
+        runtime.policy.setTokenUsage(roleState.tokenUsage);
+      } else if (roleState.tokensUsed > 0) {
+        const diff = roleState.tokensUsed - runtime.policy.usage;
+        if (diff > 0) {
+          runtime.policy.addUsage(diff);
+        }
       }
     }
 
