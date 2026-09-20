@@ -5,6 +5,14 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 ## [Unreleased]
 
 ## [2.12.0] — 2026-09-20
+### Fixed (data loss)
+
+- **`monomind init` no longer deletes files a user added inside a skill, command, or agent directory.** Two ways to trigger it, both fixed:
+  - **`monomind init --minimal` (or any narrower `--only-*`/component selection) on a project previously initialised with defaults.** The stale-cleanup sweep compared a manifest-recorded name against *this run's selected subset* rather than the full shipped catalogue, so a skill this version still ships but you simply didn't select this time — e.g. `github-toolkit` under `--minimal` — was deleted outright, along with anything you had added inside it. A deselected-but-still-shipped entry is now left completely alone: no delete, no retire, no mirror change.
+  - **Upgrading across a release that stops shipping a skill/command/agent you have.** A manifest-recorded name genuinely absent from the new version's catalogue is now *retired* — moved to `.monomind/backups/<timestamp>-<pid>/retired/…` — instead of `rmSync`'d. Your files survive byte-identical and findable; the entry still disappears from the agent's active skill list, which was the sweep's actual purpose.
+  - Retirement is reported honestly: a `Retired: N (moved to …)` line plus every entry, on a default run with no extra flag — previously this was folded into `Files: N created`, or (on the `--minimal` path) not reported at all. `.monomind/init-manifest.json` keeps a permanent `retired` record of what was moved and where, across runs.
+  - The regenerated `.gemini/skills/`, `.agents/skills/`, and `.kimi-code/skills/` mirrors are kept consistent with `.claude/skills/`: a retired skill is removed from them too (deleted outright, since mirrors hold no user content by construction — unless one is found to hold a file the source copy did not, in which case it is retired like everything else).
+  - A retire that fails for any reason (e.g. the backup destination is unwritable) leaves the entry in place and records a warning; it never falls back to deleting.
 
 ### Security
 
