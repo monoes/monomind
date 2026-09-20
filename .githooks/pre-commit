@@ -26,10 +26,32 @@ echo "🔒 Scanning staged files for secrets..."
 node <<'NODE_SCAN'
 const { execSync } = require('child_process');
 
+// The three generic name=value rules below are the backstop for secrets in
+// formats the specific rules don't know. Their value half is matched as a
+// capture group so notASecretValue() can discard a hit whose "value" is
+// plainly code rather than a literal — see that function for why a gate that
+// cries wolf is worse than one rule fewer.
+const GENERIC_VALUE_PATTERNS = [
+  /(?:api[_-]?key|apikey)\s*[:=]\s*(['"]?[^\s'"]{8,}['"]?)/gi,
+  /(?:secret|password|passwd|pwd)\s*[:=]\s*(['"]?[^\s'"]{8,}['"]?)/gi,
+  /(?:token|bearer)\s*[:=]\s*(['"]?[^\s'"]{10,}['"]?)/gi,
+];
+
+// A literal secret cannot be any of these, so matching one is a false
+// positive — and a false positive is not free: it trains people to reach for
+// SKIP_PRE_COMMIT=1, which disables every rule in this file, not just the one
+// that misfired. Each entry is a shape that is code or documentation by
+// construction, never a pasted credential.
+function notASecretValue(value) {
+  const v = value.replace(/^['"]|['"]$/g, '');
+  return (
+    v.includes('${') ||                      // `?token=${apiToken}` — interpolation
+    /^(?:process\.env|import\.meta\.env)\./.test(v) || // read from the environment
+    /^<[^>]+>$/.test(v)                      // <your-token-here> — a docs placeholder
+  );
+}
+
 const patterns = [
-  /(?:api[_-]?key|apikey)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:secret|password|passwd|pwd)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:token|bearer)\s*[:=]\s*['"]?[^\s'"]{10,}['"]?/gi,
   /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
   /sk-ant-[a-zA-Z0-9_-]{20,}/g,
   /sk-[a-zA-Z0-9_-]{20,}/g,
@@ -82,6 +104,14 @@ for (const relPath of files) {
   if (SKIP_EXT.test(relPath)) continue;
   const content = addedLines(relPath);
   if (!content) continue;
+  for (const p of GENERIC_VALUE_PATTERNS) {
+    for (const m of content.matchAll(p)) {
+      if (notASecretValue(m[1])) continue;
+      const preview = m[0].length > 50 ? `${m[0].slice(0, 50)}…` : m[0];
+      console.error(`  ❌ ${relPath}: ${preview}`);
+      hits++;
+    }
+  }
   for (const p of patterns) {
     const matches = content.match(p);
     if (!matches) continue;
