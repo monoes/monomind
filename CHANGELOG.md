@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Security
+
+- **`.monomind/dashboard-token` (the dashboard's per-process auth credential) was not covered by the generated `.gitignore` in any of three independently-maintained lists, and a project inited before this fix keeps the old `.gitignore` forever unless it's re-inited.** The file is extensionless, so the existing `*.token` pattern never matched it. One instance of this reached a public GitHub repository; the exposed value had already been rotated by a subsequent dashboard restart before disclosure, so the specific committed value was not live at the time it was found, but the underlying gap was real and durable.
+  Fixed in four parts: (1) a single source of truth (`MONOMIND_NEVER_COMMIT`) now feeds all three previously-disagreeing lists, and an existing project gets the missing coverage appended on its next `init` (no `--force` needed) or via `monomind doctor --fix`; (2) a freshly-inited project's `.monomind/.gitignore` is now deny-by-default (ignore everything, explicitly allow-list what's meant to be committed), so a file monomind starts writing tomorrow is protected without anyone having to remember to add it; (3) `monomind init` and `monomind doctor` (and dashboard startup itself) now detect and warn when the file is already tracked by git — `.gitignore` does nothing for an already-tracked path, so the warning gives the untrack command and states that the value must be treated as burned; (4) the dashboard now enforces file mode `0600` on every token rewrite, not only on first creation, and ensures the same `.gitignore` coverage on any paired project it propagates a token into — the mechanism by which the file reached other, never-`init`-ed repositories — plus best-effort cleanup of the token file on a clean shutdown.
+  No action is required from users who have run `monomind doctor --fix` or a non-forced `monomind init` since this release; a repository where the file was ever committed should still run `git rm --cached .monomind/dashboard-token` (the tool will now tell you this) and treat any historical value as compromised regardless of rotation, since removing the file from the working tree does not remove it from git history.
+
 ## [2.12.0] — 2026-09-20
 
 ### Security
