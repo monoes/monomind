@@ -23,6 +23,7 @@ const SILENT_SESSION_MS = 4 * 60_000;
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
 
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
@@ -758,6 +759,17 @@ async function runOneSession(
       maxTurns: opts.maxTurns ?? 30,
       resume,
       claudeRestrictions: gitEnforcement.claudeRestrictions,
+      // ADR-O001 D2: tool results are 76% of a role's context mass and nothing
+      // bounded them. Under the ORG STATE dir (never the workspace cwd, which
+      // may be the repo), and under orgRoot — which file-roots.ts already
+      // makes readable to the role's file tools and role-sandbox.ts already
+      // makes readable to Bash — so the path in the digest actually resolves
+      // when the role decides it needs the full text.
+      toolSpillDir: join(
+        opts.orgDir ?? opts.cwd,
+        'tool-results',
+        role.id.replace(/[^a-zA-Z0-9_.-]/g, '_'),
+      ),
       canUseTool: gatedCanUseTool(
         policy,
         opts.beforeTool,
