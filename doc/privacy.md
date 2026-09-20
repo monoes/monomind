@@ -31,8 +31,16 @@ content but are neither executed nor served as a page — a design-system
 citation link is not a request monomind makes). **Stated limit, not swept
 under the rug:** it cannot see a runtime-assembled host
 (`'https://' + host` or `` `https://${host}` ``) — no literal substring
-means no static scanner, this one included, can find it. Read that test,
-not just this page, if you need the full reasoning.
+means no static scanner, this one included, can find it.
+
+**A second stated limit, about this page itself:** the guard verifies that
+every external host found in shipped source is **reviewed and classified**
+— as a table row, a verdict, or a deliberate exclusion. It does **not**
+verify that the description attached to each host below is **accurate**. A
+row that misdescribes what triggers a request, or misclassifies a
+non-request (an XML namespace, a `$schema` string) as one, will not be
+caught here — only that the host itself was not silently omitted. Read the
+test, not just this page, if you need the full reasoning.
 
 ## The table
 

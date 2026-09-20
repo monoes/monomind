@@ -229,18 +229,16 @@ describe('privacy-claims (i-078)', () => {
   });
 
   // §3b (i-078 revision 3 — INVERTED per dev-lead's design; supersedes the
-  // call-site walker from revisions 1-2). Each prior round closed one named
-  // call-syntax shape and left an adjacent one open — "find every outbound
-  // call" requires understanding call syntax, which is unbounded. INVERTED
-  // CLAIM: instead of finding calls and checking they're documented, assert
-  // that every external host appearing ANYWHERE in shipped source — in a
-  // fetch(), a <script src>, or a comment — is CLASSIFIED below (a table
+  // call-site walker from revisions 1-2, which kept closing one named
+  // call-syntax shape and leaving an adjacent one open). INVERTED CLAIM:
+  // assert that every external host appearing ANYWHERE in shipped source —
+  // a fetch(), a <script src>, a comment — is CLASSIFIED below (a table
   // row, a verdict, or a reviewed-hosts entry with a reason). Deliberately
   // NOT "every host is an outbound request": `gexf.net`,
   // `graphml.graphdrawing.org` are XML namespace URIs, `raw.githubusercontent.com`
-  // is a SARIF $schema, `www.apple.com` is a launchd plist DOCTYPE — none of
-  // those are requests, and forcing a false table row for a namespace URI
-  // (or silently dropping it) is the same failure this lane exists to fix.
+  // is a SARIF $schema, `www.apple.com` is a launchd plist DOCTYPE — forcing
+  // a false table row for a namespace URI (or silently dropping it) is the
+  // same failure this lane exists to fix.
   //
   // SCOPE (stated, not implicit — an inventory that doesn't say what it
   // counts has the o-09 overclaiming shape): covers literal `https?://`
@@ -253,25 +251,32 @@ describe('privacy-claims (i-078)', () => {
   // and in-`src` reference documentation (.md files ship as package content
   // but are neither executed nor served as a page — a design-system
   // citation link is not a request monomind makes). Measured on this tree:
-  // 66 distinct external hosts. Reconciled against dev-lead's independent
-  // 82-host count (full method: $RUN/logs/reviewer/i-078-host-set-
-  // reconciliation.log): extensions explained 2 of the gap, excluding
-  // `__tests__` explained the other 23 (attack fixtures, correctly
-  // excluded) — and the residual gap ran the OTHER way, since this scan's
-  // `files`-derived roots include `scripts/`, which the reviewer's literal
-  // `src`-only glob missed entirely (that's understand-analyze.mjs's LIVE
-  // api.anthropic.com call, finding 1's sibling). 66 stands.
+  // **62** distinct external hosts, re-derived directly from REVIEWED_HOSTS
+  // (an earlier draft said "66" — stale, corrected). Reconciled against two
+  // independent counts (full method: $RUN/logs/reviewer/i-078-host-set-
+  // reconciliation.log): dev-lead's 82 was inflated by unexcluded test
+  // fixtures (SSRF-guard/browser-adapter attack hosts, 23 of the gap) and a
+  // missing extension filter (2 more); the verifier's independent replica
+  // then matched REVIEWED_HOSTS exactly, 62=62, zero diff either direction.
   //
-  // STATED LIMIT (required, not optional — same remedy as o-09's
-  // overclaiming check name): this does NOT and CANNOT close non-literal
-  // hosts. `'https://' + host` and `` `https://${host}` `` produce no
-  // literal substring, so a runtime-assembled destination is invisible to
-  // ANY static scanner, this one included. `orgrt/endpoint-roles.ts` and
+  // STATED LIMIT 1: this does NOT and CANNOT close non-literal hosts.
+  // `'https://' + host` and `` `https://${host}` `` produce no literal
+  // substring, so a runtime-assembled destination is invisible to ANY
+  // static scanner, this one included. `orgrt/endpoint-roles.ts` and
   // `monograph/src/security/safe-fetch.ts` legitimately have no literal
   // host — the destination is user-supplied — so a blanket "every
   // network-touching file must have a literal host" rule would
-  // false-positive on exactly those legitimate cases and is deliberately
-  // not added.
+  // false-positive on those legitimate cases and is not added.
+  //
+  // STATED LIMIT 2 (found by the verifier planting a FALSE row — "gexf.net
+  // is fetched every time you export GEXF", a namespace URI misdescribed as
+  // a request — and watching all tests stay green): this guard verifies
+  // every host is REVIEWED AND CLASSIFIED (a row, a verdict, or an
+  // exclusion). It does NOT verify that a row's DESCRIPTION is accurate —
+  // that would mean parsing the doc and cross-checking each claim against
+  // its call site, materially larger than this item, so the limit is
+  // stated rather than chased into a fourth code round (same disposal as
+  // o-09's check name, o-16's TOCTOU statement, and STATED LIMIT 1 above).
   describe('§3b — every external host in shipped source is classified (row, verdict, or reviewed exclusion)', () => {
     const PACKAGE_DIRS = [
       'packages/monofence-ai',
@@ -285,10 +290,7 @@ describe('privacy-claims (i-078)', () => {
       'packages/@monomind/routing',
     ];
 
-    // Executes (.ts/.mjs/.js) or is served/rendered (.html/.svg) — the SCOPE
-    // paragraph above this describe block states the full rule and why
-    // .md/.json/.yaml/.sh/.cjs are excluded. (.json/.yaml/.sh/.cjs: measured
-    // zero literal hosts anywhere in today's shipped surface either way.)
+    // Executes or is served/rendered — see the SCOPE paragraph above.
     const SCAN_EXTENSIONS = ['.ts', '.mjs', '.js', '.html', '.svg'];
 
     /** Every source root a package actually SHIPS — see §3b's sibling
