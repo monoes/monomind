@@ -23,6 +23,7 @@ import {
   isSafeConversionTarget,
   previouslyGenerated,
   recordGenerated,
+  retireGeneratedEntry,
   walkMdFiles,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -203,22 +204,32 @@ export async function writeKimiFiles(
     }
   }
 
-  // Remove stale .kimi-code/skills/ and .kimi-code/plugin/commands/ entries
+  // Retire stale .kimi-code/skills/ and .kimi-code/plugin/commands/ entries
   // that a PREVIOUS init generated and this run no longer produces (source
   // command renamed or removed upstream). Without this sweep, output here
   // only ever grows — proven live by
   // .kimi-code/plugin/commands/monomind-monomind-monomind-monoswarm-monoswarm.md,
   // a leftover from before the 0529e2708 prefix-stacking fix that survived
-  // every subsequent --force run because nothing ever swept it. User-authored
-  // skills are never touched: they were never recorded in the manifest, so
-  // they can never match a stale-sweep candidate.
+  // every subsequent --force run because nothing ever swept it.
+  //
+  // o-38: the comment this replaces claimed "user-authored skills are never
+  // touched: they were never recorded in the manifest, so they can never
+  // match a stale-sweep candidate" — true for a whole directory the user
+  // created, FALSE for user files inside a directory that WAS recorded,
+  // which is exactly the reproduced defect (a note beside a retired skill).
+  // retireGeneratedEntry moves the recorded entry instead of deleting it, so
+  // a real user file inside survives byte-identical either way.
   const kimiSkillsDir = path.join(kimiDir, 'skills');
   const priorKimiSkills = previouslyGenerated(targetDir, 'kimiSkills');
   if (fs.existsSync(kimiSkillsDir) && skillsDestSafe) {
     for (const existing of fs.readdirSync(kimiSkillsDir)) {
       if (!writtenSkillDirs.has(existing) && priorKimiSkills.has(existing)) {
-        fs.rmSync(path.join(kimiSkillsDir, existing), { recursive: true, force: true });
-        result.created.files.push(`[cleaned] .kimi-code/skills/${existing} (stale)`);
+        retireGeneratedEntry(
+          targetDir,
+          `kimiSkills/${existing}`,
+          path.join(kimiSkillsDir, existing),
+          result,
+        );
       }
     }
   }
@@ -231,8 +242,12 @@ export async function writeKimiFiles(
   if (fs.existsSync(destPluginCommands) && pluginCommandsDestSafe) {
     for (const existing of fs.readdirSync(destPluginCommands)) {
       if (!writtenPluginCommands.has(existing) && priorKimiPluginCommands.has(existing)) {
-        fs.rmSync(path.join(destPluginCommands, existing), { recursive: true, force: true });
-        result.created.files.push(`[cleaned] .kimi-code/plugin/commands/${existing} (stale)`);
+        retireGeneratedEntry(
+          targetDir,
+          `kimiPluginCommands/${existing}`,
+          path.join(destPluginCommands, existing),
+          result,
+        );
       }
     }
   }
