@@ -19,7 +19,9 @@ import {
   extractFmName,
   isLikelyUserFile,
   isSafeConversionTarget,
+  listFilesRecursive,
   mergeGeneratedBlock,
+  retireGeneratedEntry,
   walkMdFiles,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -145,8 +147,9 @@ export async function writeOpencodeFiles(
 
   // Skills → .opencode/skills/<name>/SKILL.md (same shape)
   const srcSkills = path.join(claudeDir, 'skills');
+  const destSkillsRoot = path.join(targetDir, '.opencode', 'skills');
+  const writtenOpencodeSkills = new Set<string>();
   if (fs.existsSync(srcSkills)) {
-    const destSkillsRoot = path.join(targetDir, '.opencode', 'skills');
     if (isSafeConversionTarget(destSkillsRoot, claudeDir, result, '.opencode/skills')) {
       for (const rel of walkMdFiles(srcSkills)) {
         // rel looks like "<skillName>/SKILL.md"
@@ -159,7 +162,30 @@ export async function writeOpencodeFiles(
         const destDir = path.join(destSkillsRoot, skillName);
         fs.mkdirSync(destDir, { recursive: true });
         atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
+        writtenOpencodeSkills.add(skillName);
         skillCount++;
+      }
+    }
+  }
+
+  // o-38 revision: .opencode/skills is a DEFAULT mirror (a plain `init`
+  // reaches components.opencode=true — verified live), but unlike
+  // .gemini/.agents it has no manifest section of its own, and unlike
+  // .kimi-code it is regenerated fresh from .claude/skills's CURRENT
+  // (already-retired) state on every run — so "not in writtenOpencodeSkills
+  // this run" is already the correct staleness signal, no manifest needed.
+  // Converted output is always exactly one SKILL.md per skill, so an entry
+  // holding anything else was added directly inside the mirror and is
+  // retired rather than deleted, same rule as the .gemini/.agents sweep.
+  if (fs.existsSync(destSkillsRoot)) {
+    for (const existing of fs.readdirSync(destSkillsRoot)) {
+      if (writtenOpencodeSkills.has(existing)) continue;
+      const stalePath = path.join(destSkillsRoot, existing);
+      const extraFiles = [...listFilesRecursive(stalePath)].filter((f) => f !== 'SKILL.md');
+      if (extraFiles.length > 0) {
+        retireGeneratedEntry(targetDir, `opencode-skills/${existing}`, stalePath, result);
+      } else {
+        fs.rmSync(stalePath, { recursive: true, force: true });
       }
     }
   }
