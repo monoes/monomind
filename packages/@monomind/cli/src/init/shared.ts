@@ -316,6 +316,25 @@ export const DIRECTORIES = {
  */
 export const INIT_MANIFEST_REL = path.join('.monomind', 'init-manifest.json');
 
+/**
+ * One retired entry's provenance (o-38): a name the manifest recorded that
+ * this version no longer ships, moved to `movedTo` instead of deleted.
+ * Appended-only — a later run's `recordGenerated` never drops this array, so
+ * the run after next can still tell a user what was retired and where it went.
+ */
+export interface RetiredEntry {
+  /** The manifest section for a `.claude`/`.kimi-code` entry (an
+   *  `InitManifestSection` value), or a descriptive label for a mirror
+   *  retirement (e.g. `gemini-skills`) — mirrors have no manifest section
+   *  of their own, so this is an audit-trail label, not a lookup key. */
+  section: string;
+  name: string;
+  /** Path (relative to targetDir) the entry was moved to. */
+  movedTo: string;
+  /** ISO timestamp of the retirement. */
+  at: string;
+}
+
 export interface InitManifest {
   version: number;
   /** Entry names directly under .claude/skills that init generated. */
@@ -328,6 +347,13 @@ export interface InitManifest {
   kimiSkills: string[];
   /** File names directly under .kimi-code/plugin/commands that init generated. */
   kimiPluginCommands: string[];
+  /** Directory names directly under .opencode/skills that init generated.
+   *  Absent in manifests written before this field existed; normalised to
+   *  an empty list on read, which the sweep treats as "delete nothing". */
+  opencodeSkills: string[];
+  /** Every entry ever retired (o-38) — see `RetiredEntry`. Absent on a
+   *  manifest written before this field existed; treated as empty. */
+  retired?: RetiredEntry[];
 }
 
 export type InitManifestSection =
@@ -335,7 +361,8 @@ export type InitManifestSection =
   | 'commands'
   | 'agents'
   | 'kimiSkills'
-  | 'kimiPluginCommands';
+  | 'kimiPluginCommands'
+  | 'opencodeSkills';
 
 /**
  * Read the provenance manifest. Returns null when absent or unreadable —
@@ -363,6 +390,20 @@ export function readInitManifest(targetDir: string): InitManifest | null {
         : [],
       kimiPluginCommands: Array.isArray(parsed.kimiPluginCommands)
         ? parsed.kimiPluginCommands.filter((s: unknown) => typeof s === 'string')
+        : [],
+      opencodeSkills: Array.isArray(parsed.opencodeSkills)
+        ? parsed.opencodeSkills.filter((s: unknown) => typeof s === 'string')
+        : [],
+      retired: Array.isArray(parsed.retired)
+        ? parsed.retired.filter(
+            (r: unknown): r is RetiredEntry =>
+              !!r &&
+              typeof r === 'object' &&
+              typeof (r as RetiredEntry).section === 'string' &&
+              typeof (r as RetiredEntry).name === 'string' &&
+              typeof (r as RetiredEntry).movedTo === 'string' &&
+              typeof (r as RetiredEntry).at === 'string',
+          )
         : [],
     };
   } catch {
@@ -397,6 +438,7 @@ export function recordGenerated(
     agents: [],
     kimiSkills: [],
     kimiPluginCommands: [],
+    opencodeSkills: [],
   };
   manifest.version = 1;
   manifest[section] = [...new Set(entries)].sort();
@@ -406,6 +448,149 @@ export function recordGenerated(
   } catch {
     // Non-fatal: without a manifest the next run simply deletes nothing.
   }
+}
+
+/**
+ * Append one retirement to the manifest's `retired` array (o-38). A separate
+ * read-modify-write from `recordGenerated`'s, deliberately: `recordGenerated`
+ * REPLACES one section's active-entry list, and calling it after every single
+ * retirement (the stale-sweep loop can retire several names) would be wrong.
+ * This only ever appends, and appending here happens before the sweep's
+ * `recordGenerated` call, so `retired` survives that call's read of the
+ * manifest — `recordGenerated` never touches this field.
+ */
+function appendRetiredProvenance(targetDir: string, entry: RetiredEntry): void {
+  const manifestPath = path.join(targetDir, INIT_MANIFEST_REL);
+  const existing = readInitManifest(targetDir);
+  const manifest: InitManifest = existing ?? {
+    version: 1,
+    skills: [],
+    commands: [],
+    agents: [],
+    kimiSkills: [],
+    kimiPluginCommands: [],
+    opencodeSkills: [],
+    retired: [],
+  };
+  manifest.retired = [...(manifest.retired ?? []), entry];
+  try {
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    atomicWriteFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  } catch {
+    // Non-fatal, same as recordGenerated: the retire itself already
+    // succeeded (the file is safe); only the audit trail entry is lost.
+  }
+}
+
+// One shared retire-destination root per init run, keyed by the run's own
+// InitResult object (created once per `executeInit` call) rather than
+// targetDir — safe under concurrent/sequential runs against different
+// targetDirs in the same process (e.g. a test suite), and lets every
+// retirement in a run land under one timestamped directory instead of a
+// different one per call.
+const retireRoots = new WeakMap<InitResult, string>();
+
+function getRetireRoot(targetDir: string, result: InitResult): string {
+  let root = retireRoots.get(result);
+  if (!root) {
+    root = path.join(targetDir, '.monomind', 'backups', `${Date.now()}-${process.pid}`, 'retired');
+    retireRoots.set(result, root);
+  }
+  return root;
+}
+
+/**
+ * Retire a generated entry instead of deleting it (o-38): a name the
+ * manifest recorded that this version no longer ships anywhere is moved to
+ * `.monomind/backups/<run-timestamp>-<pid>/retired/<label>/` rather than
+ * `rmSync`-ed. The manifest's granularity is per-top-level-entry — "did init
+ * ever generate this name" — not per-file, so a stale-sweep candidate can
+ * still hold user files added since (a note beside a retired skill, e.g.)
+ * that must survive byte-identical.
+ *
+ * `label` doubles as the retirement's section plus display name, e.g.
+ * `skills/my-retired-skill` — the first path segment is an
+ * `InitManifestSection` value for the five real call sites, or a
+ * descriptive mirror label (`gemini-skills`, `agents-skills`,
+ * `opencode-skills`) for a mirror copy that turned out to hold user-added
+ * content (see `copySkills` / `writeOpencodeFiles`).
+ *
+ * On any failure, the entry is LEFT IN PLACE and a warning is recorded in
+ * `result.errors` — this must never fall back to deleting; a fix that
+ * deletes when the move fails is the original bug with extra steps.
+ */
+export function retireGeneratedEntry(
+  targetDir: string,
+  label: string,
+  stalePath: string,
+  result: InitResult,
+): void {
+  const sepIndex = label.indexOf('/');
+  const section = sepIndex === -1 ? label : label.slice(0, sepIndex);
+  const name = sepIndex === -1 ? label : label.slice(sepIndex + 1);
+  const dest = path.join(getRetireRoot(targetDir, result), label);
+  try {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    try {
+      fs.renameSync(stalePath, dest);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
+      fs.cpSync(stalePath, dest, { recursive: true });
+      fs.rmSync(stalePath, { recursive: true, force: true });
+    }
+    const movedTo = path.relative(targetDir, dest);
+    result.removed.push(`[retired] ${label} → ${movedTo}`);
+    appendRetiredProvenance(targetDir, { section, name, movedTo, at: new Date().toISOString() });
+  } catch (error) {
+    result.errors.push(
+      `Could not retire ${label} (left in place): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/**
+ * Every skill name this version ships, across ALL `SKILLS_MAP` sections —
+ * unlike the run's `skillsToCopy` selection (filtered by
+ * `options.skills.{core,memory,github,browser,advanced,all}`), this ignores
+ * what the user asked for THIS run entirely. o-38: the stale sweep must ask
+ * "does this version still ship X" and never "did the user select X this
+ * run" — the two questions were conflated, so `--minimal` (a documented
+ * flag, no upgrade required) deleted every previously-installed skill
+ * outside the minimal set, user files inside included. `mastermind-*`
+ * expands against `sourceSkillsDir` exactly as `copySkills`'s own expansion
+ * does — the two must agree, or a name real to one and not the other would
+ * either wrongly survive as "shipped" or wrongly retire as "gone".
+ */
+export function allShippedSkills(sourceSkillsDir: string): Set<string> {
+  const shipped = new Set<string>();
+  for (const entry of new Set(Object.values(SKILLS_MAP).flat())) {
+    if (!entry.endsWith('*')) {
+      shipped.add(entry);
+      continue;
+    }
+    const prefix = entry.slice(0, -1);
+    if (!fs.existsSync(sourceSkillsDir)) continue;
+    for (const name of fs.readdirSync(sourceSkillsDir)) {
+      if (name.startsWith(prefix) && fs.existsSync(path.join(sourceSkillsDir, name, 'SKILL.md'))) {
+        shipped.add(name);
+      }
+    }
+  }
+  return shipped;
+}
+
+/** Every command name this version ships, across ALL `COMMANDS_MAP`
+ *  sections — see `allShippedSkills`'s doc comment; `COMMANDS_MAP` has no
+ *  glob entries, so this is a plain flatten. */
+export function allShippedCommands(): Set<string> {
+  return new Set(Object.values(COMMANDS_MAP).flat());
+}
+
+/** Every agent category name this version ships, across ALL `AGENTS_MAP`
+ *  sections — see `allShippedSkills`'s doc comment; `AGENTS_MAP` has no
+ *  glob entries, so this is a plain flatten. */
+export function allShippedAgents(): Set<string> {
+  return new Set(Object.values(AGENTS_MAP).flat());
 }
 
 /**
@@ -590,6 +775,24 @@ export function findSourceDir(
   }
 
   return null;
+}
+
+/** Relative file paths under `dir` (files only). Used by every o-38 mirror
+ *  sweep (copySkills's `.gemini`/`.agents`, writeOpencodeFiles's
+ *  `.opencode/skills`) to tell "content the source regenerated" from "a file
+ *  someone added directly inside the mirror" (o-38 §2·0b). */
+export function listFilesRecursive(dir: string): Set<string> {
+  const out = new Set<string>();
+  if (!fs.existsSync(dir)) return out;
+  const walk = (d: string) => {
+    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else out.add(path.relative(dir, full));
+    }
+  };
+  walk(dir);
+  return out;
 }
 
 /**

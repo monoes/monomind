@@ -24,6 +24,7 @@ function createResult(): InitResult {
     created: { directories: [], files: [] },
     updated: [],
     skipped: [],
+    removed: [],
     errors: [],
     summary: { agentsCount: 0, commandsCount: 0, hooksEnabled: 0, skillsCount: 0 },
   };

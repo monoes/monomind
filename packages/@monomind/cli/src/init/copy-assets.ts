@@ -6,12 +6,17 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   AGENTS_MAP,
+  allShippedAgents,
+  allShippedCommands,
+  allShippedSkills,
   COMMANDS_MAP,
   copyDirRecursive,
   countFiles,
   findSourceDir,
+  listFilesRecursive,
   previouslyGenerated,
   recordGenerated,
+  retireGeneratedEntry,
   SKILLS_MAP,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -63,17 +68,49 @@ export async function copySkills(
     );
   }
 
-  // Remove stale skill directories that a PREVIOUS init generated and this
-  // version no longer ships. Entries init never wrote (user-authored skills,
-  // skills installed by other tools) are left untouched — see readInitManifest.
+  // Retire skill directories that this version no longer ships ANYWHERE —
+  // not "the user didn't select this run". o-38: the sweep used to compare
+  // against `knownSkills` (this run's selection, filtered by
+  // options.skills.{core,memory,github,browser,advanced,all}), so a
+  // documented flag like `--minimal` deleted every previously-installed
+  // skill outside the minimal set — no version skew needed. The correct
+  // comparison is the full shipped catalogue: a skill still shipped but
+  // merely not selected this run is left completely alone (no retire, no
+  // delete, no mirror change); only a name absent from every SKILLS_MAP
+  // section — genuinely dropped upstream — is stale. Entries init never
+  // wrote at all (user-authored skills, skills installed by other tools)
+  // are left untouched either way — see readInitManifest.
   const knownSkills = new Set([...new Set(skillsToCopy)]);
+  const shippedSkills = allShippedSkills(sourceSkillsDir);
   const priorSkills = previouslyGenerated(targetDir, 'skills');
   if (fs.existsSync(targetSkillsDir)) {
     for (const existing of fs.readdirSync(targetSkillsDir)) {
-      if (!knownSkills.has(existing) && priorSkills.has(existing)) {
-        const stalePath = path.join(targetSkillsDir, existing);
-        fs.rmSync(stalePath, { recursive: true, force: true });
-        result.created.files.push(`[cleaned] .claude/skills/${existing} (stale)`);
+      if (shippedSkills.has(existing) || !priorSkills.has(existing)) continue;
+      const stalePath = path.join(targetSkillsDir, existing);
+      // Capture the .claude copy's own file list before retiring it, so the
+      // mirror sweep below can tell regenerated content from a file added
+      // directly inside a mirror.
+      const claudeFiles = listFilesRecursive(stalePath);
+      retireGeneratedEntry(targetDir, `skills/${existing}`, stalePath, result);
+
+      // o-38 §2·0b: mirrors are regenerated from source every run and hold
+      // no user content by construction, so a genuinely retired skill is
+      // DELETED from them outright, not retired — otherwise it stays
+      // advertised on two other platforms after disappearing from
+      // .claude/skills. If a mirror is found to hold a file the .claude
+      // copy did not, retire it too rather than deleting (same rule).
+      for (const [mirrorLabel, mirrorSkillsDir] of [
+        ['gemini-skills', path.join(targetDir, '.gemini', 'skills')],
+        ['agents-skills', path.join(targetDir, '.agents', 'skills')],
+      ] as const) {
+        const mirrorPath = path.join(mirrorSkillsDir, existing);
+        if (!fs.existsSync(mirrorPath)) continue;
+        const mirrorHasExtra = [...listFilesRecursive(mirrorPath)].some((f) => !claudeFiles.has(f));
+        if (mirrorHasExtra) {
+          retireGeneratedEntry(targetDir, `${mirrorLabel}/${existing}`, mirrorPath, result);
+        } else {
+          fs.rmSync(mirrorPath, { recursive: true, force: true });
+        }
       }
     }
   }
@@ -176,16 +213,18 @@ export async function copyCommands(
     return;
   }
 
-  // Remove stale command files/directories that a PREVIOUS init generated and
-  // this version no longer ships. User-authored commands are never touched.
+  // Retire command files/directories that this version no longer ships
+  // ANYWHERE — see copySkills's doc comment for why this compares against
+  // the full shipped catalogue rather than `knownCommands` (this run's
+  // selection). User-authored commands are never touched either way.
   const knownCommands = new Set([...new Set(commandsToCopy)]);
+  const shippedCommands = allShippedCommands();
   const priorCommands = previouslyGenerated(targetDir, 'commands');
   if (fs.existsSync(targetCommandsDir)) {
     for (const existing of fs.readdirSync(targetCommandsDir)) {
-      if (!knownCommands.has(existing) && priorCommands.has(existing)) {
+      if (!shippedCommands.has(existing) && priorCommands.has(existing)) {
         const stalePath = path.join(targetCommandsDir, existing);
-        fs.rmSync(stalePath, { recursive: true, force: true });
-        result.created.files.push(`[cleaned] .claude/commands/${existing} (stale)`);
+        retireGeneratedEntry(targetDir, `commands/${existing}`, stalePath, result);
       }
     }
   }
@@ -249,16 +288,18 @@ export async function copyAgents(
     return;
   }
 
-  // Remove stale agent category directories that a PREVIOUS init generated and
-  // this version no longer ships. User-authored agent dirs are never touched.
+  // Retire agent category directories that this version no longer ships
+  // ANYWHERE — see copySkills's doc comment for why this compares against
+  // the full shipped catalogue rather than `knownAgents` (this run's
+  // selection). User-authored agent dirs are never touched either way.
   const knownAgents = new Set([...new Set(agentsToCopy)]);
+  const shippedAgents = allShippedAgents();
   const priorAgents = previouslyGenerated(targetDir, 'agents');
   if (fs.existsSync(targetAgentsDir)) {
     for (const existing of fs.readdirSync(targetAgentsDir)) {
-      if (!knownAgents.has(existing) && priorAgents.has(existing)) {
+      if (!shippedAgents.has(existing) && priorAgents.has(existing)) {
         const stalePath = path.join(targetAgentsDir, existing);
-        fs.rmSync(stalePath, { recursive: true, force: true });
-        result.created.files.push(`[cleaned] .claude/agents/${existing} (stale)`);
+        retireGeneratedEntry(targetDir, `agents/${existing}`, stalePath, result);
       }
     }
   }

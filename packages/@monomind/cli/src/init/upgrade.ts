@@ -362,6 +362,7 @@ export async function executeUpgrade(
       created: { directories: [], files: [] },
       updated: [],
       skipped: [],
+      removed: [],
       errors: [],
       summary: { skillsCount: 0, commandsCount: 0, agentsCount: 0, hooksEnabled: 0 },
     };
