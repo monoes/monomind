@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Security
+
+- **A checked-in `.monomind/enable-terminal.json` can no longer arm `terminal_execute` on behalf of a user who never wrote it.** The opt-in flag file was resolved against the project directory, so anyone who opened a repository containing that file (deliberately committed, or copied in by mistake) got shell execution — reproduced end-to-end over the real MCP stdio path: a fixture with only that file present, no env var set, ran a real command. `terminal_execute`'s own metacharacter denylist cannot prevent exfiltration via a direct binary (`curl`, `aws`, `scp`) with no piping, so the opt-in was the only real gate, not a second layer alongside it. The flag now resolves against `~/.monomind/enable-terminal.json` (the user's home directory) instead; `MONOMIND_ENABLE_TERMINAL=1` still works unchanged. An existing in-project flag file is detected only to name it in the refusal error — it is never read for its value and never migrated to the new location (a "helpful" first-run copy would preserve the exact same attack with one extra hop and a now-persistent grant).
+
 ## [2.12.0] — 2026-09-20
 
 ### Security
