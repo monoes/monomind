@@ -90,6 +90,21 @@ describe('doctorCommand', () => {
     expect(data.passed).toBe(1);
   }, 15000);
 
+  it('i-052 commit 3: -c dashboard-token reaches the always-on monoes-token check by its own name', async () => {
+    // Same registered check as 'monoes-token' (checkMonoesTokenExposure now
+    // covers both credentials) — this alias exists so the check is
+    // findable by the name of whichever credential leaked. Empty `dir`
+    // fixture has neither `.mcp.json` nor `.monomind/dashboard-token`, so
+    // this exercises the real pass path, not a mock.
+    const result = await doctorCommand.action?.(
+      makeCtx({ flags: { _: [], component: 'dashboard-token' } }),
+    );
+    const data = resultData(result);
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].name).toBe('monoes Token Exposure');
+    expect(data.results[0].status).toBe('pass');
+  });
+
   it("i-090 (surviving finding): '--component's --help description lists 'native', not just componentMap", () => {
     // The `native`/`native-modules` component was already wired up and
     // working (`doctor -c native` -> "better-sqlite3 loads under Node
@@ -99,6 +114,7 @@ describe('doctorCommand', () => {
     expect(componentOption).toBeDefined();
     expect(componentOption?.description).toContain('native');
     expect(componentOption?.description).toContain('crash-reporting');
+    expect(componentOption?.description).toContain('dashboard-token');
   });
 
   it('i-055 doctor follow-up: -c crash-reporting reaches the registered check', async () => {

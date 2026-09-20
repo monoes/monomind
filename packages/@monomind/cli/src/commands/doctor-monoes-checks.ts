@@ -37,6 +37,21 @@ const REVOKE_LINE =
   'Treat this token as compromised: revoke it at https://monoes.me (Settings -> Connected apps). If it reached git history, rewriting the file does not remove it.';
 const DISCONNECT_LINE = 'Run `monomind ui`, then monoes.me -> Disconnect -> Connect.';
 
+// i-052 commit 3 — a dashboard-token leak is a different credential from
+// the monoes.me OAuth token above (REVOKE_LINE/DISCONNECT_LINE do not
+// apply: there is nothing to revoke at monoes.me and no Disconnect flow
+// for it), and its remedy is different in kind: `.gitignore` does nothing
+// for an already-tracked file, so the only real fix is to untrack it.
+// `DASHBOARD_TOKEN_BURNED_NOTICE` is exported so AC-5 clause (d) can assert
+// by identity against the sentence the user actually sees, not a substring
+// guess at it (i-050's AC-3 amendment pattern, applied here per plan §5b).
+// Deliberately duplicated from mcp/monoes-mcp-entry.mjs's identical
+// constant rather than imported — same "two call sites is not a shared
+// abstraction" convention as hasLegacyMonoesBearerEntry() above.
+export const DASHBOARD_TOKEN_BURNED_NOTICE =
+  'the value must be treated as burned — the historical blob remains in git history even after this file stops being tracked';
+const DASHBOARD_TOKEN_REMEDIATION_LINE = `Untrack it: git rm --cached .monomind/dashboard-token. Then ${DASHBOARD_TOKEN_BURNED_NOTICE}.`;
+
 /**
  * True if `.mcp.json`'s raw text contains a literal bearer token, checked
  * at the specific path this item's writers ever wrote one
@@ -220,6 +235,14 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
   // review finding 13, which caught the previous version of this function
   // doing exactly that).
   let hasConnectionFileIssue = false;
+  // i-052 commit 3: whether ANY monoes.me-credential issue fired (the mcp
+  // bearer token or the connection file) — distinct from
+  // hasDashboardTokenIssue below, because the two exposures are different
+  // credentials with different remedies (REVOKE_LINE's "revoke at
+  // monoes.me" is simply wrong advice for a dashboard-token leak, which
+  // has nothing to do with monoes.me).
+  let hasMonoesTokenIssue = false;
+  let hasDashboardTokenIssue = false;
 
   const mcpJsonPath = join(cwd, '.mcp.json');
   if (existsSync(mcpJsonPath)) {
@@ -227,6 +250,7 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
       const raw = readFileSync(mcpJsonPath, 'utf8');
       if (hasLegacyMonoesBearerEntry(raw)) {
         issues.push('.mcp.json contains a literal bearer token');
+        hasMonoesTokenIssue = true;
       }
     } catch {
       // unreadable — nothing to check
@@ -235,13 +259,19 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
 
   const connectionRelPath = '.monomind/monoes-connection.json';
   const connectionPath = join(cwd, connectionRelPath);
-  if (existsSync(connectionPath)) {
+  const dashboardTokenRelPath = '.monomind/dashboard-token';
+  const dashboardTokenPath = join(cwd, dashboardTokenRelPath);
+
+  if (existsSync(connectionPath) || existsSync(dashboardTokenPath)) {
     // i-066 reviewer finding 5: outside a git work tree, `git check-ignore`
     // and `git ls-files` both exit non-zero for reasons that have nothing
     // to do with exposure (there is no git to leak through at all) — the
     // old code read that as tracked=false, ignored=false and failed a
     // zero-exposure user in a non-git project. Probe for a real work tree
-    // first; if there isn't one, this check simply doesn't apply.
+    // first; if there isn't one, neither check below applies. Computed
+    // once and shared: it's the same probe regardless of which file it's
+    // gating (i-052 commit 3 reuses it for dashboard-token rather than
+    // re-running the same command a second time).
     let insideWorkTree = false;
     try {
       await runCommand('git rev-parse --is-inside-work-tree');
@@ -251,26 +281,50 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
     }
 
     if (insideWorkTree) {
-      let ignored = false;
-      try {
-        await runCommand(`git check-ignore "${connectionRelPath}"`);
-        ignored = true;
-      } catch {
-        ignored = false;
+      if (existsSync(connectionPath)) {
+        let ignored = false;
+        try {
+          await runCommand(`git check-ignore "${connectionRelPath}"`);
+          ignored = true;
+        } catch {
+          ignored = false;
+        }
+        let tracked = false;
+        try {
+          await runCommand(`git ls-files --error-unmatch "${connectionRelPath}"`);
+          tracked = true;
+        } catch {
+          tracked = false;
+        }
+        if (tracked) {
+          issues.push(`${connectionRelPath} is tracked by git — treat the token as compromised`);
+          hasConnectionFileIssue = true;
+          hasMonoesTokenIssue = true;
+        } else if (!ignored) {
+          issues.push(`${connectionRelPath} exists but is not covered by .gitignore`);
+          hasConnectionFileIssue = true;
+          hasMonoesTokenIssue = true;
+        }
       }
-      let tracked = false;
-      try {
-        await runCommand(`git ls-files --error-unmatch "${connectionRelPath}"`);
-        tracked = true;
-      } catch {
-        tracked = false;
-      }
-      if (tracked) {
-        issues.push(`${connectionRelPath} is tracked by git — treat the token as compromised`);
-        hasConnectionFileIssue = true;
-      } else if (!ignored) {
-        issues.push(`${connectionRelPath} exists but is not covered by .gitignore`);
-        hasConnectionFileIssue = true;
+
+      // i-052 commit 3 — the actual incident's shape: dashboard-token is
+      // gitignored by default since commits 1-2, but `.gitignore` does
+      // nothing once a path is already tracked. AC-7 (control): a file
+      // that exists but is untracked (whether ignored or not — being
+      // untracked is what matters here, not the ignore pattern) produces
+      // no warning, or this becomes noise that gets ignored.
+      if (existsSync(dashboardTokenPath)) {
+        let tracked = false;
+        try {
+          await runCommand(`git ls-files --error-unmatch "${dashboardTokenRelPath}"`);
+          tracked = true;
+        } catch {
+          tracked = false;
+        }
+        if (tracked) {
+          issues.push(`${dashboardTokenRelPath} is tracked by git`);
+          hasDashboardTokenIssue = true;
+        }
       }
     }
   }
@@ -285,20 +339,33 @@ export async function checkMonoesTokenExposure(): Promise<HealthCheck> {
 
   // Fixed literals only, never interpolated — this message can reach a
   // terminal or CI log, so it must never echo a caught error or a token
-  // value. REVOKE_LINE applies to every failure here: a literal bearer
-  // token in .mcp.json is a real credential exposure independent of
-  // whether THIS user ever connected (a teammate's commit, an older
-  // install, a pulled branch can all put it there) — a token you didn't
-  // create and can't rotate yourself is more urgent to escalate, not less.
-  // DISCONNECT_LINE is additive, only when an actual connection file was
-  // found and flagged by git — that's the only case where there's a live
-  // app connection to disconnect from at all.
-  const remediation = hasConnectionFileIssue ? `${REVOKE_LINE} ${DISCONNECT_LINE}` : REVOKE_LINE;
+  // value. Each remediation line is gated on the exposure it actually
+  // applies to (i-052 commit 3: previously REVOKE_LINE was unconditional
+  // whenever ANY issue fired — wrong once a dashboard-token-only exposure
+  // became possible, since that credential has nothing to do with
+  // monoes.me). REVOKE_LINE applies whenever a monoes.me credential issue
+  // fired: a literal bearer token in .mcp.json is a real credential
+  // exposure independent of whether THIS user ever connected (a
+  // teammate's commit, an older install, a pulled branch can all put it
+  // there) — a token you didn't create and can't rotate yourself is more
+  // urgent to escalate, not less. DISCONNECT_LINE is additive, only when
+  // an actual connection file was found and flagged by git — that's the
+  // only case where there's a live app connection to disconnect from at
+  // all.
+  const remediationParts: string[] = [];
+  if (hasMonoesTokenIssue) {
+    remediationParts.push(
+      hasConnectionFileIssue ? `${REVOKE_LINE} ${DISCONNECT_LINE}` : REVOKE_LINE,
+    );
+  }
+  if (hasDashboardTokenIssue) {
+    remediationParts.push(DASHBOARD_TOKEN_REMEDIATION_LINE);
+  }
 
   return {
     name: 'monoes Token Exposure',
     status: 'fail',
-    message: `${issues.join('; ')}. ${remediation}`,
+    message: `${issues.join('; ')}. ${remediationParts.join(' ')}`,
   };
 }
 

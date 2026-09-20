@@ -7,6 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import {
+  detectDashboardTokenLeak,
+  formatDashboardTokenLeakWarning,
+} from '../mcp/monoes-mcp-entry.mjs';
+import {
   collectAgents,
   collectAll,
   collectHooks,
@@ -999,6 +1003,18 @@ export async function startServer({
 } = {}) {
   // #308: resolve the home now that the caller's project dir is in hand.
   MONOMIND_HOME = getMonomindHome(projectDir, projectDirExplicit);
+  // i-052 commit 3: warn on every start, not only at `init` (executor.ts).
+  // The dashboard is what WRITES dashboard-token — a user who never
+  // re-runs `init` after the file got committed (e.g. before commits 1-2
+  // shipped `.gitignore` coverage) would otherwise never see this warning
+  // at all. Same "name the file, never the value" contract as the
+  // monoes.me leak warning; best-effort (never blocks startup on a git
+  // failure — detectDashboardTokenLeak already treats git-unavailable as
+  // "not a leak signal", not an error).
+  const dashboardTokenStartupWarning = formatDashboardTokenLeakWarning(
+    await detectDashboardTokenLeak(projectDir || process.cwd()),
+  );
+  if (dashboardTokenStartupWarning) console.error(dashboardTokenStartupWarning);
   // Extra Host names accepted beyond loopback (see isAllowedHost above).
   const _allowedHosts = resolveAllowedHosts(allowedHosts);
   // ── Security: per-process auth credential for mutating (non-GET) requests ─
@@ -1014,6 +1030,17 @@ export async function startServer({
   // silently degrading per-prompt Second Brain injection to keyword fallback.
   // So the write is deferred to bind time and gated: primary instances write
   // `dashboard-token`; secondaries write `dashboard-token-<port>` instead.
+  // i-052 commit 4: the path THIS process actually wrote (primary
+  // `dashboard-token` xor its own `dashboard-token-<port>` secondary) — set
+  // once, at the bottom of writeDashboardToken(), and read by shutdown()
+  // below for best-effort cleanup on a clean exit. `mode` is create-only
+  // on `fs.writeFileSync` (POSIX `open(2)` ignores it when the file
+  // exists) — measured on this machine: 2 of 11 token files were 644
+  // despite every write site passing `{ mode: 0o600 }`, because a prior
+  // run had already created them. `fs.chmodSync` after every write, here
+  // and in propagateDashboardToken() below, enforces the mode on rewrite
+  // too, not just on first creation.
+  let _dashboardTokenFilePath = null;
   async function writeDashboardToken(actualPort) {
     try {
       actualPort = Number(actualPort);
@@ -1055,14 +1082,17 @@ export async function startServer({
       } catch (_) {
         /* no readable control.json — treat as primary */
       }
-      fs.writeFileSync(
-        path.join(authFileDir, primary ? 'dashboard-token' : `dashboard-token-${actualPort}`),
-        dashboardAuthValue,
-        { mode: 0o600 },
+      const tokenPath = path.join(
+        authFileDir,
+        primary ? 'dashboard-token' : `dashboard-token-${actualPort}`,
       );
+      fs.writeFileSync(tokenPath, dashboardAuthValue, { mode: 0o600 });
+      fs.chmodSync(tokenPath, 0o600); // enforce on rewrite — {mode} above is create-only
+      _dashboardTokenFilePath = tokenPath;
       // Sweep stale secondary tokens (dead scratch/test instances) so they
       // don't accumulate as orphaned credential files.
-      // monolean: age-based sweep only — no on-exit unlink plumbing.
+      // Age-based sweep — the belt-and-braces backstop for a dirty death
+      // (kill -9) that never reaches shutdown()'s cleanup below.
       try {
         const weekMs = 7 * 24 * 3600 * 1000;
         for (const f of fs.readdirSync(authFileDir)) {
@@ -1073,9 +1103,45 @@ export async function startServer({
       } catch (_) {}
     } catch (_) {}
   }
+  // i-052 commit 4: this is the code path that actually planted
+  // dashboard-token in the incident's other repos — a paired project may
+  // never have run `init` (so it never got commits 1-2's `.gitignore`
+  // coverage) yet still receives a live token here on every restart.
+  // Ensures the SAME coverage `init` would have given it before writing
+  // the token, content-guarded exactly like write-runtime-config.ts's
+  // append (creates the file if absent; appends the one missing line if
+  // present; no-ops if already covered) — duplicated locally rather than
+  // imported because this file ships as plain ESM with no build step and
+  // cannot import compiled TypeScript (see monoes-mcp-entry.mjs's own doc
+  // comment for the identical constraint). Best-effort: a coverage-ensure
+  // failure must never block token delivery, which is the more urgent
+  // property (a stale token 401s every cross-project caller).
+  function ensureDashboardTokenGitignoreCoverage(kpMonoDir) {
+    try {
+      const gitignorePath = path.join(kpMonoDir, '.gitignore');
+      const reason =
+        'live monomind dashboard credential (i-052) — grants cross-project file reads and agent execution; rewritten on every dashboard restart, so an already-tracked path re-commits a fresh live token on every restart';
+      if (!fs.existsSync(gitignorePath)) {
+        fs.mkdirSync(kpMonoDir, { recursive: true });
+        fs.writeFileSync(gitignorePath, `# ${reason}\ndashboard-token\n`);
+        return;
+      }
+      const existing = fs.readFileSync(gitignorePath, 'utf8');
+      const existingLines = new Set(existing.split('\n').map((l) => l.trim()));
+      if (!existingLines.has('dashboard-token')) {
+        fs.writeFileSync(gitignorePath, `${existing.trimEnd()}\n# ${reason}\ndashboard-token\n`);
+      }
+    } catch (_) {
+      /* best effort — see doc comment above */
+    }
+  }
+
   // Propagate the fresh token to every known project whose control.json points
   // at this server — otherwise each restart silently orphans cross-project
-  // callers (their curls/CLI reads a stale token and 401s forever).
+  // callers (their curls/CLI reads a stale token and 401s forever). The
+  // population is `data/known-projects.json`'s own content, never a
+  // directory glob (i-052 owner correction: the incident's affected-repo
+  // count included projects outside any assumed directory layout).
   // Called after bind so the match uses the ACTUAL bound port.
   function propagateDashboardToken(actualPort) {
     try {
@@ -1087,9 +1153,10 @@ export async function startServer({
           const _kpCtl = JSON.parse(fs.readFileSync(path.join(_kpMono, 'control.json'), 'utf8'));
           // Only pair projects that direct their traffic to this server's port.
           if (_kpCtl && String(_kpCtl.url || '').includes(`:${actualPort}`)) {
-            fs.writeFileSync(path.join(_kpMono, 'dashboard-token'), dashboardAuthValue, {
-              mode: 0o600,
-            });
+            ensureDashboardTokenGitignoreCoverage(_kpMono);
+            const _kpTokenPath = path.join(_kpMono, 'dashboard-token');
+            fs.writeFileSync(_kpTokenPath, dashboardAuthValue, { mode: 0o600 });
+            fs.chmodSync(_kpTokenPath, 0o600); // enforce on rewrite — {mode} above is create-only
           }
         } catch (_) {
           /* project missing/unreadable — skip */
@@ -5933,6 +6000,21 @@ export async function startServer({
 
     // Close all SSE connections
     closeSseClients();
+
+    // i-052 commit 4: best-effort cleanup of the credential THIS process
+    // wrote (primary `dashboard-token`, or this process's own
+    // `dashboard-token-<port>` secondary) — belt-and-braces only.
+    // writeDashboardToken's age-based sweep is the actual backstop for a
+    // dirty death: SIGKILL never reaches this handler at all, and a
+    // failed unlink here (permissions, already-gone) must not block the
+    // rest of shutdown.
+    if (_dashboardTokenFilePath) {
+      try {
+        fs.unlinkSync(_dashboardTokenFilePath);
+      } catch (_) {
+        /* already gone, or unremovable — the age sweep is the backstop */
+      }
+    }
 
     // Drain in-flight JSONL appends before closing (prevents truncated writes on fast SIGTERM)
     Promise.all([..._writeQueue.values()])

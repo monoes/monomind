@@ -4,9 +4,12 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { MONOMIND_NEVER_COMMIT } from './never-commit.js';
 import { atomicWriteFile, MAX_EXEC_FILE_BYTES, writeGeneratedFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
+
+export { MONOMIND_NEVER_COMMIT };
 
 /**
  * Replacement list for a project-root `.gitignore`'s blanket `.monomind/`
@@ -25,14 +28,8 @@ export const MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES = [
   '.monomind/*.db',
   '.monomind/*.db-wal',
   '.monomind/*.db-shm',
-  '.monomind/monoes-connection.json',
+  ...MONOMIND_NEVER_COMMIT.map(({ file }) => `.monomind/${file}`),
 ];
-
-/** The line the generated `.monomind/.gitignore` needs to cover the
- * monoes.me refresh token — kept as one constant so the "does the existing
- * file already cover it" check and the line we'd append can never drift
- * from each other. */
-const MONOES_CONNECTION_GITIGNORE_LINE = 'monoes-connection.json';
 
 /**
  * Write runtime configuration (.monomind/)
@@ -90,48 +87,67 @@ mcp:
   writeGeneratedFile(configPath, config);
   result.created.files.push('.monomind/config.yaml');
 
-  // Write .monomind/.gitignore — commit config/knowledge/metrics, exclude sensitive data
+  // Write .monomind/.gitignore.
   const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
-  const gitignore = `# Monomind — exclude files that may contain secrets or sensitive prompt data
-# Sessions contain conversation history (prompts, code snippets, user data)
-sessions/
-# Security scan results may expose vulnerability details
-security/
-# Temporary and machine-specific files
-*.tmp
-*.log
-daemon.pid
-# Never commit credentials or keys
-*.key
-*.token
-*.secret
-.env
-# monoes.me OAuth refresh token (i-066) — must never be committed
-monoes-connection.json
-`;
 
   if (!fs.existsSync(gitignorePath) || options.force) {
+    // i-052 §2(ii) — deny-by-default for FRESH projects. Three
+    // independently-maintained denylists (this file's old body,
+    // MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES, and doctor's
+    // REQUIRED_GITIGNORE_PATTERNS) all separately omitted `dashboard-token`
+    // — a denylist can always miss its next dangerous entry. Ignoring
+    // everything under .monomind/ and explicitly un-ignoring only what's
+    // genuinely meant to be shared means a file monomind starts writing
+    // tomorrow is protected by construction, with no list to remember to
+    // update. Order matters for git's "can't re-include inside an excluded
+    // parent" rule: `!orgs/` must precede `!orgs/*.json`.
+    const gitignore = `# Monomind — deny by default, allow-list what's meant to be committed.
+# See doc/privacy.md and i-052: a curated denylist can always miss its
+# next dangerous entry (this repo shipped a live credential leak because
+# three separate ones did). Ignoring everything and un-ignoring only what
+# monomind genuinely wants shared makes "we forgot to un-ignore something
+# harmless" the failure mode instead of "we leaked a credential".
+*
+
+# What monomind wants committed:
+!.gitignore
+!config.yaml
+!CAPABILITIES.md
+!orgs/
+!orgs/*.json
+
+# Deliberately NOT allow-listed: knowledge/ — chunks.jsonl and
+# doc-metadata.jsonl are the actual ingested content of the user's own
+# files, not metadata (doctor-project-checks.ts's REQUIRED_GITIGNORE_PATTERNS
+# ignores it for the same reason). README/privacy.md's "Your notes never
+# leave your computer" claim is about exactly this data; un-ignoring it by
+# default would be a larger privacy regression than the credential this
+# item exists to fix.
+`;
     atomicWriteFile(gitignorePath, gitignore);
     result.created.files.push('.monomind/.gitignore');
   } else {
-    // i-066 reviewer finding 3: a project inited BEFORE this fix — every
-    // project that could hold a monoes.me token, since you have to have
-    // connected to have one — keeps its old .monomind/.gitignore forever
-    // unless --force is passed, and none of that file's original patterns
-    // (*.key, *.token, *.secret, .env) match a file literally named
-    // monoes-connection.json. Make the fix additive: append the missing
-    // coverage line even on a non-forced re-init, content-guarded so a
-    // second run is a no-op.
+    // i-066 reviewer finding 3, generalised for i-052: a project inited
+    // BEFORE a MONOMIND_NEVER_COMMIT entry existed keeps its old
+    // .monomind/.gitignore forever unless --force is passed, and none of
+    // that file's original patterns (*.key, *.token, *.secret, .env) match
+    // an extensionless or otherwise-shaped file like `dashboard-token`.
+    // Make the fix additive: append every currently-missing entry even on
+    // a non-forced re-init, content-guarded per line so a second run is a
+    // no-op and existing entries are never duplicated. This one loop is
+    // what originally only covered monoes-connection.json (i-066) — turned
+    // from a single hardcoded line into a list so a future
+    // MONOMIND_NEVER_COMMIT addition reaches the installed base too,
+    // without a fourth hand-written append site.
     const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
-    const alreadyCovered = existingGitignore
-      .split('\n')
-      .some((line) => line.trim() === MONOES_CONNECTION_GITIGNORE_LINE);
-    if (!alreadyCovered) {
-      atomicWriteFile(
-        gitignorePath,
-        `${existingGitignore.trimEnd()}\n# monoes.me OAuth refresh token (i-066) — must never be committed\n${MONOES_CONNECTION_GITIGNORE_LINE}\n`,
+    const existingLines = new Set(existingGitignore.split('\n').map((line) => line.trim()));
+    const missing = MONOMIND_NEVER_COMMIT.filter(({ file }) => !existingLines.has(file));
+    if (missing.length > 0) {
+      const appendLines = missing.map(({ file, reason }) => `# ${reason}\n${file}`).join('\n');
+      atomicWriteFile(gitignorePath, `${existingGitignore.trimEnd()}\n${appendLines}\n`);
+      result.updated.push(
+        `.monomind/.gitignore (added ${missing.map(({ file }) => file).join(', ')} coverage)`,
       );
-      result.updated.push('.monomind/.gitignore (added monoes-connection.json coverage)');
     }
   }
 

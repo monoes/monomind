@@ -20,6 +20,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOCTOR_TRACKED_HELPERS, OBSOLETE_HELPER_NAMES } from '../init/helpers-generator.js';
+import { MONOMIND_NEVER_COMMIT } from '../init/never-commit.js';
 import {
   classifyNativeModuleError,
   extractNativeModulePackageName,
@@ -972,6 +973,12 @@ export async function checkMonoesIntegration(): Promise<HealthCheck> {
   }
 }
 
+// i-052: derived from MONOMIND_NEVER_COMMIT (write-runtime-config.ts), the
+// single source of truth for files that must never be committed — this was
+// the THIRD independently-maintained list that omitted `dashboard-token`,
+// and it is the one written specifically to catch gitignore gaps. Consuming
+// the shared list here means `monomind doctor --fix` (fixGitignoreCoverage
+// below) appends any missing entry for existing users for free.
 const REQUIRED_GITIGNORE_PATTERNS = [
   { pattern: '.monomind/sessions/', reason: 'session files contain cwd and machine paths' },
   { pattern: '.monomind/data/', reason: 'intelligence data with edit file paths' },
@@ -986,6 +993,7 @@ const REQUIRED_GITIGNORE_PATTERNS = [
   { pattern: 'data/mastermind-*.jsonl', reason: 'mastermind event logs' },
   { pattern: '**/.claude-flow/', reason: 'claude-flow runtime data with paths' },
   { pattern: '.monomind/monoswarm/', reason: 'monoswarm state files' },
+  ...MONOMIND_NEVER_COMMIT.map(({ file, reason }) => ({ pattern: `.monomind/${file}`, reason })),
 ];
 
 /** Strip the parts that don't change what a pattern matches, so `**​/.monomind/`,

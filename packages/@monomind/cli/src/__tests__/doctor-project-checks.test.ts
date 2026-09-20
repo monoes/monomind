@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   utimesSync,
   writeFileSync,
@@ -63,8 +64,10 @@ import {
   checkProjectRoot,
   checkSecondBrainModel,
   checkSecurityAuditFindings,
+  fixGitignoreCoverage,
   fixStaleHelpers,
 } from '../commands/doctor-project-checks.js';
+import { MONOMIND_NEVER_COMMIT } from '../init/never-commit.js';
 
 // Env var names built from parts at runtime, not as literal `X_API_KEY`
 // source text — matches the convention already used in terminal-tools.test.ts
@@ -825,6 +828,10 @@ describe('doctor-project-checks', () => {
         'data/mastermind-*.jsonl',
         '**/.claude-flow/',
         '.monomind/monoswarm/',
+        // i-052: every MONOMIND_NEVER_COMMIT entry is now also required —
+        // read from the export, not retyped, so this test can't silently
+        // drift from the list it's meant to be checking.
+        ...MONOMIND_NEVER_COMMIT.map(({ file }) => `.monomind/${file}`),
       ];
       writeFileSync(join(dir, '.gitignore'), `${patterns.join('\n')}\n`);
       const result = await checkGitignoreCoverage();
@@ -840,6 +847,32 @@ describe('doctor-project-checks', () => {
       const result = await checkGitignoreCoverage();
       expect(result.status).toBe('warn');
       expect(result.message).toContain('.monomind/monoswarm/');
+    });
+
+    // i-052 AC-4: the doctor check written specifically to catch gitignore
+    // gaps was itself blind to dashboard-token — this pins that it now
+    // sees the gap AND that `doctor --fix` closes it.
+    it('flags .monomind/dashboard-token as missing when absent', async () => {
+      writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
+      const result = await checkGitignoreCoverage();
+      expect(result.status).toBe('warn');
+      expect(result.message).toContain('.monomind/dashboard-token');
+    });
+
+    it('fixGitignoreCoverage appends dashboard-token coverage and the check then passes for it', async () => {
+      writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
+      const before = await checkGitignoreCoverage();
+      expect(before.message).toContain('.monomind/dashboard-token');
+
+      const wrote = await fixGitignoreCoverage();
+      expect(wrote).toBe(true);
+
+      const after = await checkGitignoreCoverage();
+      expect(after.message ?? '').not.toContain('.monomind/dashboard-token');
+      const gitignoreAfter = readFileSync(join(dir, '.gitignore'), 'utf-8');
+      expect(gitignoreAfter).toContain('.monomind/dashboard-token');
+      // The user's existing line must survive, not be replaced.
+      expect(gitignoreAfter).toContain('node_modules/');
     });
   });
 
