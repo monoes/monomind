@@ -38,7 +38,12 @@ describe('ui command', () => {
 // resolution depends on.
 describe('ui command → startServer project-dir wiring (#308)', () => {
   function context(flags: Record<string, unknown>): CommandContext {
-    return { args: [], flags: { _: [], ...flags } as never, cwd: '/tmp/some-project', interactive: false };
+    return {
+      args: [],
+      flags: { _: [], ...flags } as never,
+      cwd: '/tmp/some-project',
+      interactive: false,
+    };
   }
 
   // `Command.action` is typed optional (other command's subcommands may omit
