@@ -364,6 +364,16 @@ export const OrgDefSchema = z
          *  with no populated DAG (the common case today) gets no benefit
          *  from it, only a new refusal path. See completion-gate.ts. */
         completion: z.enum(['boss', 'dag']).optional(),
+        /** ADR-O001 D5: gate `org_task_done` on machine-checkable evidence —
+         *  acceptance commands with their real exit codes, pinned to the
+         *  workspace's current commit sha. Adjacent FLAG rather than a third
+         *  `completion` value because it constrains a different call
+         *  (org_task_done, per item) than `completion` does (org_complete,
+         *  per run): an org wants to choose both independently. Default
+         *  false — turning it on refuses task completions that previously
+         *  succeeded, which is the point, but must not happen on upgrade.
+         *  See completion-gate.ts's `checkTaskEvidence`. */
+        completion_evidence: z.boolean().optional(),
         /** Where role sessions run.
          *  'repo' (default) — the project root, so roles can Read/Edit real files.
          *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
@@ -424,6 +434,7 @@ export const OrgDefSchema = z
         stale_base_threshold: 0,
         max_role_respawns: 0,
         completion: 'boss' as const,
+        completion_evidence: false,
         respawn_drain_timeout_ms: 30_000,
         respawn_force_stop_timeout_ms: 5_000,
         respawn_start_timeout_ms: 60_000,

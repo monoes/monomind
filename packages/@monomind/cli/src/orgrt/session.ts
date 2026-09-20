@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import type { OrgBus } from './bus.js';
+import type { TaskEvidence } from './completion-gate.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
 import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
@@ -309,8 +310,17 @@ export interface SessionOpts {
   onGate?: (role: string, name: string, description: string) => Promise<string>;
   /** Task DAG: create a task with dependencies. */
   createTask?: (role: string, title: string, assignee: string, deps: string[]) => string;
-  /** Task DAG: mark a task as completed. */
-  completeTask?: (role: string, taskId: string, result?: string) => string;
+  /** Task DAG: mark a task as completed. `evidence` is ADR-O001 D5's
+   *  machine-checkable proof — acceptance commands with their real exit
+   *  codes, pinned to a commit sha. Only demanded when the org sets
+   *  run_config.completion_evidence (see `requireTaskEvidence`). */
+  completeTask?: (role: string, taskId: string, result?: string, evidence?: TaskEvidence) => string;
+  /** run_config.completion_evidence: when true, org_task_done advertises the
+   *  evidence argument as required. Off by default, so a role in an org that
+   *  has not opted in sees a byte-identical tool description (D7: the tool
+   *  list is prefix position 0 — changing it for every org would invalidate
+   *  every cached prompt). */
+  requireTaskEvidence?: boolean;
   /** Task DAG: list all tasks. */
   listTasks?: () => string;
   splitTask?: (
@@ -1284,11 +1294,36 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   if (completeTask) {
     tools.push({
       name: 'org_task_done',
-      description:
-        'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
-      schema: { taskId: z.string(), result: z.string().optional() },
+      description: opts.requireTaskEvidence
+        ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. Evidence pinned to an older commit is stale and will be refused, and a refused completion puts the task back in your queue with the reason. Any downstream tasks whose deps are now all done become ready and are dispatched.'
+        : 'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
+      schema: {
+        taskId: z.string(),
+        result: z.string().optional(),
+        evidence: z
+          .object({
+            headSha: z.string(),
+            checks: z
+              .array(
+                z.object({
+                  command: z.string(),
+                  exitCode: z.number().int(),
+                  output: z.string().optional(),
+                }),
+              )
+              .default([]),
+          })
+          .optional(),
+      },
       handler: async (args) =>
-        text(completeTask(role.id, args.taskId as string, args.result as string | undefined)),
+        text(
+          completeTask(
+            role.id,
+            args.taskId as string,
+            args.result as string | undefined,
+            args.evidence as TaskEvidence | undefined,
+          ),
+        ),
     });
   }
   const listTasks = opts.listTasks;

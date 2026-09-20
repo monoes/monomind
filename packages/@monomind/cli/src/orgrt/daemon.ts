@@ -30,7 +30,7 @@ import {
 } from './checkpoint.js';
 import * as checkpointOps from './checkpoint-ops.js';
 import { CodexAgentRunner } from './codex-runner.js';
-import { type CompletionFacts, checkCompletion } from './completion-gate.js';
+import { type CompletionFacts, checkCompletion, type TaskEvidence } from './completion-gate.js';
 import { CopilotAgentRunner } from './copilot-runner.js';
 import * as crossOrg from './cross-org.js';
 import { CrushAgentRunner } from './crush-runner.js';
@@ -2006,9 +2006,12 @@ export class OrgDaemon {
       createTask: (r: string, title: string, assignee: string, deps: string[]) => {
         return this.dagCreateTask(name, r, title, assignee, deps);
       },
-      completeTask: (r: string, taskId: string, result?: string) => {
-        return this.dagCompleteTask(name, r, taskId, result);
+      completeTask: (r: string, taskId: string, result?: string, evidence?: TaskEvidence) => {
+        return this.dagCompleteTask(name, r, taskId, result, evidence);
       },
+      // ADR-O001 D5: only an org that opted in advertises the evidence
+      // argument, so every other org's tool list stays byte-identical.
+      requireTaskEvidence: def.run_config.completion_evidence === true,
       listTasks: () => {
         const running = this.orgs.get(name);
         return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
@@ -3116,8 +3119,14 @@ export class OrgDaemon {
   ): string {
     return decisionOps.dagCreateTask(this, org, role, title, assignee, deps);
   }
-  private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
-    return decisionOps.dagCompleteTask(this, org, role, taskId, result);
+  private dagCompleteTask(
+    org: string,
+    role: string,
+    taskId: string,
+    result?: string,
+    evidence?: TaskEvidence,
+  ): string {
+    return decisionOps.dagCompleteTask(this, org, role, taskId, result, evidence);
   }
   private dagSplitTask(
     org: string,
