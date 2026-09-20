@@ -141,6 +141,104 @@ describe('the kimi surface (o-38 §2d)', () => {
   );
 });
 
+describe('the .opencode/skills mirror (o-38 revision: it is a DEFAULT mirror too)', () => {
+  let tmpDir: string;
+  let fakeHome: string;
+  let realHome: string | undefined;
+  let ctx: CommandContext;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-retire-opencode-'));
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-retire-opencode-home-'));
+    realHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+    ctx = {
+      args: [],
+      flags: { _: [], yes: true, 'no-watch': true, 'no-start-all': true, 'no-install': true },
+      cwd: tmpDir,
+      interactive: false,
+    };
+  });
+
+  afterEach(async () => {
+    await closeBridge();
+    process.env.HOME = realHome;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(fakeHome, { recursive: true, force: true });
+  });
+
+  it(
+    'a genuinely retired skill disappears from .opencode/skills/ too (a plain init already creates it)',
+    async () => {
+      const first = await initCommand.action!(ctx);
+      expect(first.success).toBe(true);
+      // Sanity: a PLAIN init (no --opencode flag) really does create this —
+      // components.opencode resolves true whenever no explicit
+      // --target/--platform narrows the default 'all' selection.
+      expect(fs.existsSync(path.join(tmpDir, '.opencode', 'skills', 'mastermind'))).toBe(true);
+
+      const manifestPath = path.join(tmpDir, '.monomind', 'init-manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const staleName = 'my-retired-skill-opencode';
+      const staleDir = path.join(tmpDir, '.claude', 'skills', staleName);
+      fs.mkdirSync(staleDir, { recursive: true });
+      fs.writeFileSync(path.join(staleDir, 'SKILL.md'), 'stale skill\n');
+      manifest.skills.push(staleName);
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+      // Simulate the opencode mirror as a previous run would have left it.
+      const opencodeStale = path.join(tmpDir, '.opencode', 'skills', staleName);
+      fs.mkdirSync(opencodeStale, { recursive: true });
+      fs.writeFileSync(path.join(opencodeStale, 'SKILL.md'), 'converted stale skill\n');
+
+      ctx.flags = { ...ctx.flags, force: true };
+      const second = await initCommand.action!(ctx);
+      expect(second.success).toBe(true);
+
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'skills', staleName))).toBe(false);
+      expect(fs.existsSync(opencodeStale)).toBe(false);
+    },
+    180_000,
+  );
+
+  it(
+    'an .opencode/skills entry holding a file beyond the converted SKILL.md is retired, not deleted',
+    async () => {
+      const first = await initCommand.action!(ctx);
+      expect(first.success).toBe(true);
+
+      const manifestPath = path.join(tmpDir, '.monomind', 'init-manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const staleName = 'my-retired-skill-opencode-extra';
+      const staleDir = path.join(tmpDir, '.claude', 'skills', staleName);
+      fs.mkdirSync(staleDir, { recursive: true });
+      fs.writeFileSync(path.join(staleDir, 'SKILL.md'), 'stale skill\n');
+      manifest.skills.push(staleName);
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+      const opencodeStale = path.join(tmpDir, '.opencode', 'skills', staleName);
+      fs.mkdirSync(opencodeStale, { recursive: true });
+      fs.writeFileSync(path.join(opencodeStale, 'SKILL.md'), 'converted stale skill\n');
+      // A file added directly inside the mirror — never written by the
+      // converter, which only ever emits SKILL.md.
+      fs.writeFileSync(path.join(opencodeStale, 'MY-EXTRA-NOTE.md'), 'do not delete me\n');
+
+      ctx.flags = { ...ctx.flags, force: true };
+      const second = await initCommand.action!(ctx);
+      expect(second.success).toBe(true);
+
+      expect(fs.existsSync(opencodeStale)).toBe(false);
+      const retired = findRetired(tmpDir, `opencode-skills/${staleName}`);
+      expect(retired).toHaveLength(1);
+      expect(fs.existsSync(path.join(retired[0], 'MY-EXTRA-NOTE.md'))).toBe(true);
+      expect(fs.readFileSync(path.join(retired[0], 'MY-EXTRA-NOTE.md'), 'utf8')).toBe(
+        'do not delete me\n',
+      );
+    },
+    180_000,
+  );
+});
+
 describe('retireGeneratedEntry never falls back to deleting on failure (o-38)', () => {
   let tmpDir: string;
 
