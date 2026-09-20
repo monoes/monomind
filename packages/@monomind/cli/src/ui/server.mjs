@@ -574,17 +574,34 @@ function _getGitMonomindDir(workDir) {
 }
 
 // Returns the monomind home directory for server-level data (capture, control.json, loops).
-// Priority: MONOMIND_HOME env var > walk up from cwd finding .monomind/control.json > cwd fallback
-function getMonomindHome() {
+// Priority: an EXPLICIT project dir (--project-dir / CLAUDE_PROJECT_DIR) > MONOMIND_HOME env
+// var > walk up from cwd finding .monomind/control.json, never past the enclosing git root >
+// cwd fallback.
+//
+// #308: the walk used to run unconditionally, ignoring --project-dir, so it could resolve to
+// any ancestor that happened to hold a control.json from an earlier dashboard run. Per-project
+// state written under this home — the monoes.me connection file with its OAuth tokens,
+// capture/, orgs/ — then landed in that ancestor instead of the project the dashboard is for.
+//
+// `projectDirExplicit` is what keeps the walk alive: both entry points always hand startServer
+// a projectDir (`monomind ui` defaults the flag to cwd, the run-directly block below defaults
+// CLAUDE_PROJECT_DIR to cwd), so short-circuiting on the dir alone would silently move the home
+// of every dashboard started from a subdirectory of its project down into that subdirectory.
+// Only a dir the caller actually named counts.
+export function getMonomindHome(projectDir, projectDirExplicit) {
+  if (projectDirExplicit && projectDir) return path.resolve(projectDir);
   if (process.env.MONOMIND_HOME) return path.resolve(process.env.MONOMIND_HOME);
   let dir = process.cwd();
   while (dir !== path.dirname(dir)) {
     if (fs.existsSync(path.join(dir, '.monomind', 'control.json'))) return dir;
+    if (fs.existsSync(path.join(dir, '.git'))) break;
     dir = path.dirname(dir);
   }
   return process.cwd();
 }
-const MONOMIND_HOME = getMonomindHome();
+// Re-resolved from the options at startServer() time (the projectDir only exists then); the
+// call sites below all read it from inside startServer, after that assignment.
+let MONOMIND_HOME = getMonomindHome();
 
 // Resolve an org's project directory by searching across known projects.
 // Returns the first project dir where {dir}/.monomind/orgs/{orgName}.json exists, or null.
@@ -878,6 +895,9 @@ function bindServer(server, port) {
  * @param {object} [options]
  * @param {number}  [options.port=4242]        - Preferred port. Tries up to port+10 on collision.
  * @param {string}  [options.projectDir]       - Root of the project to collect data from.
+ * @param {boolean} [options.projectDirExplicit=false] - True when projectDir was named by the
+ *   caller (--project-dir / CLAUDE_PROJECT_DIR) rather than defaulted to cwd; only then does it
+ *   set the monomind home (see getMonomindHome, #308).
  * @param {boolean} [options.openBrowser=true] - Whether to open the dashboard in the default browser.
  * @returns {Promise<{port: number, url: string, server: http.Server}>}
  */
@@ -973,9 +993,12 @@ function _resolveSlugToPathUncached(slug, projDir) {
 export async function startServer({
   port = 4242,
   projectDir,
+  projectDirExplicit = false,
   openBrowser = true,
   allowedHosts,
 } = {}) {
+  // #308: resolve the home now that the caller's project dir is in hand.
+  MONOMIND_HOME = getMonomindHome(projectDir, projectDirExplicit);
   // Extra Host names accepted beyond loopback (see isAllowedHost above).
   const _allowedHosts = resolveAllowedHosts(allowedHosts);
   // ── Security: per-process auth credential for mutating (non-GET) requests ─
@@ -5955,8 +5978,14 @@ export function getServerStatus() {
 const _isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (_isMain) {
   const _port = parseInt(process.argv[2] || process.env.CONTROL_PORT || '4242', 10);
+  // CLAUDE_PROJECT_DIR names a project; the bare cwd fallback does not (#308).
   const _dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  startServer({ port: _port, openBrowser: false, projectDir: _dir }).catch((err) => {
+  startServer({
+    port: _port,
+    openBrowser: false,
+    projectDir: _dir,
+    projectDirExplicit: Boolean(process.env.CLAUDE_PROJECT_DIR),
+  }).catch((err) => {
     process.stderr.write(`[server] failed to start: ${err.message}\n`);
     process.exit(1);
   });

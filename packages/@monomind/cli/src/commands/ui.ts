@@ -57,6 +57,10 @@ export const uiCommand: Command = {
         port,
         openBrowser,
         projectDir: path.resolve(projectDir),
+        // #308: only a dir the user actually named sets the monomind home —
+        // the cwd default above must not, or a dashboard started from a
+        // subdirectory silently relocates its project's state there.
+        projectDirExplicit: Boolean(ctx.flags['project-dir']),
       });
 
       output.writeln();

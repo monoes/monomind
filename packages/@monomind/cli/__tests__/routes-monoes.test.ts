@@ -539,3 +539,91 @@ describe('monoes.me connection → .mcp.json sync', () => {
     }
   });
 });
+
+// #307: the registered client is bound to ONE redirect_uri (the port the
+// dashboard happened to be on the first time anyone connected), but only
+// `clientId` was cached — so a dashboard on any other port reused that
+// client, monoes.me redirected to the port the client was registered for,
+// and the browser landed on ERR_CONNECTION_REFUSED. Anyone whose dashboard
+// ever fell back to another port (4242 busy -> 4243) hits this.
+describe('POST /api/monoes/connect — cached client vs. dashboard port (#307)', () => {
+  function stubRegister(clientIds: string[]) {
+    const registered: string[] = [];
+    let next = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: { body?: string }) => {
+        if (String(url).includes('/oauth2/register')) {
+          registered.push(JSON.parse(String(init?.body)).redirect_uris[0]);
+          return { ok: true, json: async () => ({ client_id: clientIds[next++] }) };
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+    return registered;
+  }
+
+  async function connect(dashboardPort: number) {
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort, projectDir: monomindHome };
+    const { req, res, send, getBody } = fakeRequestResponse('POST', '/api/monoes/connect');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+    return new URL(getBody().authorizeUrl).searchParams;
+  }
+
+  it('re-registers when the dashboard is on a different port than the cached client', async () => {
+    const registered = stubRegister(['client-4242', 'client-4243']);
+
+    const first = await connect(4242);
+    expect(first.get('client_id')).toBe('client-4242');
+
+    // Same machine, same home, dashboard fell back to 4243.
+    const second = await connect(4243);
+    expect(registered).toEqual([
+      'http://127.0.0.1:4242/api/monoes/callback',
+      'http://127.0.0.1:4243/api/monoes/callback',
+    ]);
+    // The authorize request must carry the client that was registered FOR
+    // this port — otherwise monoes.me redirects back to 4242 and the
+    // connection never completes.
+    expect(second.get('client_id')).toBe('client-4243');
+    expect(second.get('redirect_uri')).toBe('http://127.0.0.1:4243/api/monoes/callback');
+    expect(readMonoesConnection(monomindHome)).toMatchObject({
+      clientId: 'client-4243',
+      redirectUri: 'http://127.0.0.1:4243/api/monoes/callback',
+    });
+  });
+
+  it('reuses the cached client when the port is unchanged', async () => {
+    const registered = stubRegister(['client-4242', 'client-should-not-be-used']);
+
+    await connect(4242);
+    const second = await connect(4242);
+
+    expect(registered).toEqual(['http://127.0.0.1:4242/api/monoes/callback']);
+    expect(second.get('client_id')).toBe('client-4242');
+  });
+
+  it('drops a cached client the OAuth server rejects, so the next connect registers a fresh one', async () => {
+    stubRegister(['client-stale']);
+    const state = (await connect(4242)).get('state');
+
+    // monoes.me no longer knows this client (revoked, server re-provisioned,
+    // registration expired) — the token exchange comes back 400. Keeping the
+    // dead id cached makes every later attempt fail the same way forever.
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400 })));
+    const cb = fakeRequestResponse('GET', `/api/monoes/callback?code=abc&state=${state}`);
+    await handleMonoesRoutes(cb.req, cb.res, cb.req.url, undefined, {
+      MONOMIND_HOME: monomindHome,
+      dashboardPort: 4242,
+      projectDir: monomindHome,
+    });
+    await cb.send();
+
+    expect(readMonoesConnection(monomindHome)?.clientId).toBeUndefined();
+
+    const registered = stubRegister(['client-fresh']);
+    expect((await connect(4242)).get('client_id')).toBe('client-fresh');
+    expect(registered).toEqual(['http://127.0.0.1:4242/api/monoes/callback']);
+  });
+});
