@@ -63,9 +63,11 @@ describe('core platform artifacts', () => {
         content: expect.stringMatching(/^---\nname: mastermind\ndescription: .+\n---\n/m),
       }),
     ]));
+    // o-09: MASTERMIND_SKILLS gained mastermind-idea and mastermind-design
+    // (they were shipped skills the manifest never listed) — 8 -> 10.
     expect(
       plan.intents.filter(({ kind, relativePath }) => kind === 'skill' && relativePath?.endsWith('/SKILL.md')),
-    ).toHaveLength(8);
+    ).toHaveLength(10);
   });
 
   it.each(PLATFORM_IDS)('%s emits no fabricated instruction or skill for an evidence-gated capability', (platform) => {
