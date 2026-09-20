@@ -111,6 +111,15 @@ function getTerminalPath(): string {
 // working. It is never read for its `enabled` value and never migrated: a
 // "helpful" first-run copy to ~/.monomind/ would preserve the exact same
 // attack with one extra hop and a now-persistent grant.
+//
+// STATED BOUNDARY, not closed by this fix: `MONOMIND_ENABLE_TERMINAL=1` is
+// still read from `process.env` with no provenance check, and monomind's
+// own `init` writes a repo-local `.mcp.json` with an `env` block a project
+// commits — so a committed `.mcp.json` carrying that var could arm this
+// gate through a file the user never wrote either, the same channel one
+// hop over. Not fixed here: whether an MCP client actually honours
+// repo-local `env` for this var is unverified, not merely unclosed —
+// tracked separately as o-48.
 function readEnabledFlag(flagPath: string): boolean {
   try {
     if (!existsSync(flagPath)) return false;
