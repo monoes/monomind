@@ -100,7 +100,14 @@ function hasBulletRouterSection(body: string): boolean {
  *  finding A2: the literal-substring check missed a header spelled with a
  *  capital "Route". No tree should have one of these under `skills/` —
  *  multi-domain routing already lives in the bullet router's
- *  `run <skill> --print` fallback. */
+ *  `run <skill> --print` fallback.
+ *
+ *  Limit: detects a markdown pipe-table whose header ROW carries both an
+ *  `Intent` cell and a `primary route` cell (case/spacing tolerant). It does
+ *  NOT detect a header split across two rows, or an HTML `<table>` — both
+ *  measured undetected in review round 3. Practical exposure is bounded: any
+ *  such file that also carries ≥2 `- \`mastermind-*\`` bullets is caught by
+ *  the exact-set assertion above regardless of table syntax. */
 function hasCatalogRouterTable(body: string): boolean {
   for (const line of stripFencedCode(body).split('\n')) {
     if (!line.trim().startsWith('|')) continue;
