@@ -281,3 +281,8 @@ test-results/
 
 # monomind runtime state
 .monomind/monoswarm/
+
+# monomind runtime state
+.monomind/monoes-connection.json
+.monomind/dashboard-token
+.monomind/enable-terminal.json
