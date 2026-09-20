@@ -207,7 +207,7 @@ export interface SessionOpts {
    *  processes killed) when the session ends. */
   buildProviderTools?: () => Promise<{ tools: OrgToolDef[]; close(): void } | undefined>;
   deliver: DeliverFn;
-  askHuman?: (role: string, question: string) => Promise<string>;
+  askHuman?: (role: string, question: string, blocking?: boolean) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run
    *  history) — #302: the daemon gathers the facts, calls the completion
    *  gate, and returns a refusal string instead of recording anything when
@@ -1294,11 +1294,20 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   tools.push({
     name: 'ask_human',
     description:
-      'Ask a human a free-form question and pause for their answer. Use only when you genuinely need human judgment.',
-    schema: { question: z.string() },
+      'Ask a human a free-form question. Use only when you genuinely need human judgment. ' +
+      'Set blocking: true ONLY if you cannot continue until it is answered — a blocking question pauses the ' +
+      "org's idle watchdog (for up to an hour; after that the run resumes its normal idle checks either way). " +
+      'If you can keep working while you wait — an FYI, a preference, anything you would describe as "not blocking on this" — ' +
+      'pass blocking: false and carry on; the question is still recorded and answered, it just does not freeze the run. ' +
+      'Defaults to blocking.',
+    schema: { question: z.string(), blocking: z.boolean().optional() },
     handler: async (args) => {
       if (!opts.askHuman) return text('ask_human is not available in this session');
-      const receipt = await opts.askHuman(role.id, args.question as string);
+      const receipt = await opts.askHuman(
+        role.id,
+        args.question as string,
+        args.blocking as boolean | undefined,
+      );
       return text(receipt);
     },
   });

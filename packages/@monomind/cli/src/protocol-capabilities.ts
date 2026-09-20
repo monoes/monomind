@@ -27,7 +27,8 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `org-endpoint-roles` — roles with `kind: "endpoint"` delivered by HTTP POST
  *  - `org-federation` — `federation.allow_from/allow_to` enforced across project roots
  *  - `org-idle-deadline` — `org status --json` reports `idle_stop_at`,
- *    `idle_stop_in_seconds` and `idle_hold` for a running org
+ *    `idle_stop_in_seconds`, `idle_hold` and `idle_hold_until` for a running
+ *    org (every hold carries a deadline — ADR-O001 D4)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',

@@ -21,6 +21,11 @@ export function readQuestions(
     ts: number;
     answer: string | null;
     answeredAt: number | null;
+    /** ADR-O001 D4: does the asking role actually need this answered before
+     *  it can continue? Only a blocking question holds the idle watchdog or
+     *  counts as an org_complete `human` blocker. Absent on pre-D4 records
+     *  (and when a caller omits it), which are read as blocking. */
+    blocking?: boolean;
     /** M5: who answered (`human` by default). */
     resolvedBy?: string;
   }>;
@@ -64,6 +69,30 @@ export function clearQuestionsForFreshStart(daemon: OrgDaemon, org: string): voi
     writeQuestions(daemon.root, org, { ...data, questions: answered });
 }
 
+/** Pending questions that legitimately hold the run (ADR-O001 D4).
+ *
+ *  THE INCIDENT: a `monomind-dev` run sat wedged for 8.3 hours on
+ *  `{"idle_minutes":60,"idle_stop_at":null,"hold":"pending-question"}`. The
+ *  question behind that hold had been declared NON-BLOCKING by its own
+ *  author, whose text opened with "no answer needed for the run to continue;
+ *  I am not blocking on this" — yet every unanswered question suppressed the
+ *  idle watchdog identically, so a question that said it was not blocking
+ *  disabled the only mechanism that could have stopped or restarted the run.
+ *
+ *  A question that does not block is still recorded, listed by `org
+ *  questions` and answerable; it simply does not freeze anything. An
+ *  unflagged question is treated as blocking, so nothing silently stops
+ *  waiting for an answer a role really is waiting on (the hold it sets still
+ *  expires — see `advanceHold`). */
+export function pendingBlockingQuestions(
+  root: string,
+  org: string,
+): ReturnType<typeof readQuestions>['questions'] {
+  return readQuestions(root, org).questions.filter(
+    (q) => q.answer === null && q.blocking !== false,
+  );
+}
+
 /** Serialize question mutations per org (same pattern as withApprovalLock).
  *  askHuman and answerQuestion race on questions.json without this. */
 function withQuestionsLock<T>(daemon: OrgDaemon, org: string, fn: () => Promise<T>): Promise<T> {
@@ -87,6 +116,7 @@ export function askHuman(
   org: string,
   role: string,
   question: string,
+  blocking = true,
 ): Promise<string> {
   return withQuestionsLock(daemon, org, async () => {
     const running = daemon.orgs.get(org);
@@ -99,10 +129,13 @@ export function askHuman(
       ts: Date.now(),
       answer: null,
       answeredAt: null,
+      blocking,
     });
     writeQuestions(daemon.root, org, data);
-    running?.bus.emit({ type: 'question', from: role, data: { questionId, question } });
-    return `Question recorded (id ${questionId}) — a human will answer it; you'll receive the answer as a new message.`;
+    running?.bus.emit({ type: 'question', from: role, data: { questionId, question, blocking } });
+    return blocking
+      ? `Question recorded (id ${questionId}) — a human will answer it; you'll receive the answer as a new message. It is marked BLOCKING, so it pauses the org's idle watchdog for up to an hour; after that the run resumes its normal idle checks whether or not the answer has arrived.`
+      : `Question recorded (id ${questionId}) — a human will answer it; you'll receive the answer as a new message. It is marked non-blocking, so it does NOT pause the run: keep working.`;
   });
 }
 

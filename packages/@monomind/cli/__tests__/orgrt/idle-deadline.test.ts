@@ -49,8 +49,10 @@ describe('OrgDaemon — idle deadline record', () => {
 
     await d.askHuman('alpha', 'boss', 'ship it?');
     const t0 = Date.now();
-    while (read().hold !== 'pending-question' && Date.now() - t0 < 3_000) await new Promise(r => setTimeout(r, 50));
-    expect(read()).toMatchObject({ idle_stop_at: null, hold: 'pending-question' });
+    while (read().hold?.reason !== 'pending-question' && Date.now() - t0 < 3_000) await new Promise(r => setTimeout(r, 50));
+    // ADR-O001 D4: the hold carries the instant it stops suppressing the clock.
+    expect(read()).toMatchObject({ idle_stop_at: null, hold: { reason: 'pending-question' } });
+    expect(Date.parse(read().hold.until)).toBeGreaterThan(Date.now());
 
     await d.stopOrg('alpha');
     expect(existsSync(file)).toBe(false);
@@ -59,7 +61,7 @@ describe('OrgDaemon — idle deadline record', () => {
   it('reports the watchdog as disabled for idle_minutes: 0', async () => {
     const { d, read } = setup(0);
     const running = await d.startOrg('alpha');
-    expect(read()).toMatchObject({ run: running.run, idle_minutes: 0, idle_stop_at: null, hold: 'disabled' });
+    expect(read()).toMatchObject({ run: running.run, idle_minutes: 0, idle_stop_at: null, hold: { reason: 'disabled', until: null } });
     await d.stopOrg('alpha');
   }, 10_000);
 });

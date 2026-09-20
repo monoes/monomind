@@ -158,16 +158,29 @@ export class TaskDag {
    *  block on one task (e.g. a feature deferred for weeks) must not silence
    *  the watchdog for the entire org while other roles sit genuinely idle. */
   hasActiveBlock(now: number): boolean {
-    let sawBlocked = false;
+    return this.activeBlockUntil(now) !== null;
+  }
+
+  /** When `hasActiveBlock` next goes false: the EARLIEST active block expiry
+   *  (at that moment `unblockExpired` resumes that task, so there is
+   *  dispatchable work again), or null if nothing is blocking.
+   *
+   *  ADR-O001 D4 — the idle watchdog records a deadline on every hold, and a
+   *  time-blocked task already has a real one: the time the asker named. It
+   *  gets that, not an arbitrary timeout, so a block legitimately set hours
+   *  out is not nudged about in the meantime. */
+  activeBlockUntil(now: number): number | null {
+    let earliest: number | null = null;
     for (const t of this.tasks.values()) {
       if (TERMINAL.has(t.status)) continue;
-      if (t.status === 'blocked' && (t.blockedUntil ?? 0) > now) {
-        sawBlocked = true;
+      const until = t.blockedUntil ?? 0;
+      if (t.status === 'blocked' && until > now) {
+        if (earliest === null || until < earliest) earliest = until;
         continue;
       }
-      return false;
+      return null;
     }
-    return sawBlocked;
+    return earliest;
   }
 
   split(parentId: string, children: SplitChild[]): OrgTask[] {
