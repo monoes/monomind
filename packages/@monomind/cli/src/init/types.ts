@@ -588,6 +588,11 @@ export interface InitResult {
   };
   updated: string[];
   skipped: string[];
+  /** Entries retired (moved to `.monomind/backups/…`) because this version
+   *  no longer ships them — o-38. Never `created.files`: a destructive
+   *  action reported inside a "created" total is how the original bug went
+   *  unnoticed. */
+  removed: string[];
   errors: string[];
   summary: {
     skillsCount: number;

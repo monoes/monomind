@@ -57,6 +57,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     },
     updated: [],
     skipped: [],
+    removed: [],
     errors: [],
     summary: {
       skillsCount: 0,
