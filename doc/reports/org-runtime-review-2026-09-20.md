@@ -170,6 +170,15 @@ Recommendations 1, 2 and 4 are the ones that change the economics. They are all 
 
 ---
 
+> **SUPERSEDED — correction notice (2026-09-20, later same day).** The addendum below claims
+> "2,003 of 2,468 messages (81%) were broadcast to `all`". **That is false.** There is no
+> broadcast mechanism in the runtime; `forwarder.ts:249` relabels assistant narration as
+> `to: 'all'` for the dashboard. Real inter-agent traffic was 465 directed messages, and
+> inter-agent mail is ~0.1% of context mass. The per-token figures here also rest on a counter
+> that omits cache and subagent tokens and under-reports by more than an order of magnitude.
+> The per-role **cost** table (§A1) was measured from cost and still stands.
+> See `org-cost-deep-dive-2026-09-20.md` for the corrected analysis.
+
 # Addendum — where the money actually went
 
 Added after the first review, to answer a narrower question: **why does an org run cost so
