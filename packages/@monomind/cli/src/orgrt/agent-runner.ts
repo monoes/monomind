@@ -158,6 +158,27 @@ export interface AgentMessage {
   duration_ms?: number; // tool_result
   input_tokens?: number; // result, assistant (that turn's own usage)
   output_tokens?: number; // result, assistant (that turn's own usage)
+  /** ADR-O001 D1: cache tokens are SIBLINGS of input_tokens in the Anthropic
+   *  API (verified against @anthropic-ai/sdk's BetaUsage), not subsets of it —
+   *  `input_tokens` is the uncached remainder. Both are billable (~0.1x and
+   *  ~1.25x the input rate), so a meter that ignores them reports ~0.3% of a
+   *  well-cached run. A runner whose provider does not report them omits
+   *  them. */
+  cache_read_input_tokens?: number; // result, assistant
+  cache_creation_input_tokens?: number; // result, assistant
+  /** ADR-O001 D1: result only, and only from runners whose SDK reports
+   *  whole-pipeline usage — the Claude Agent SDK's `modelUsage`, which covers
+   *  Task subagents, sidechains and compaction that its `usage` field
+   *  explicitly excludes ("MAIN AGENT LOOP ONLY ... Prefer modelUsage for
+   *  token/cost accounting"). Like `cost_usd` it is CUMULATIVE per session,
+   *  not per turn, so session.ts converts it to a delta against the previous
+   *  value for the same session_id instead of adding it. */
+  cumulative_tokens?: {
+    input: number;
+    output: number;
+    cache_read: number;
+    cache_creation: number;
+  };
   cost_usd?: number; // result
 }
 
@@ -371,8 +392,13 @@ export class ClaudeAgentRunner implements AgentRunner {
             text,
             input_tokens: m.message?.usage?.input_tokens,
             output_tokens: m.message?.usage?.output_tokens,
+            // BetaUsage types both cache fields as `number | null`; normalize
+            // null to undefined so `?? 0` downstream reads the same either way.
+            cache_read_input_tokens: m.message?.usage?.cache_read_input_tokens ?? undefined,
+            cache_creation_input_tokens: m.message?.usage?.cache_creation_input_tokens ?? undefined,
           };
         } else if (m.type === 'result') {
+          const cumulative = sumModelUsage(m.modelUsage);
           yield {
             type: 'result',
             session_id,
@@ -380,6 +406,9 @@ export class ClaudeAgentRunner implements AgentRunner {
             is_error: m.is_error,
             input_tokens: m.usage?.input_tokens ?? 0,
             output_tokens: m.usage?.output_tokens ?? 0,
+            cache_read_input_tokens: m.usage?.cache_read_input_tokens ?? undefined,
+            cache_creation_input_tokens: m.usage?.cache_creation_input_tokens ?? undefined,
+            ...(cumulative ? { cumulative_tokens: cumulative } : {}),
             cost_usd: m.total_cost_usd,
           };
         } else if (m.type === 'user') {
@@ -409,6 +438,29 @@ export class ClaudeAgentRunner implements AgentRunner {
       unsubscribe();
     }
   }
+}
+
+/** ADR-O001 D1: collapse SDKResultMessage.modelUsage (a per-model record whose
+ *  fields are camelCase: inputTokens / outputTokens / cacheReadInputTokens /
+ *  cacheCreationInputTokens) into one total. Unlike `usage` it covers Task
+ *  subagents and other auxiliary calls — on the measured run, 46 subagent
+ *  calls the main-loop counter never saw. Returns undefined when the SDK
+ *  reported no modelUsage at all, so session.ts can fall back to `usage`. */
+function sumModelUsage(
+  modelUsage: unknown,
+): { input: number; output: number; cache_read: number; cache_creation: number } | undefined {
+  if (!modelUsage || typeof modelUsage !== 'object') return undefined;
+  const entries = Object.values(modelUsage as Record<string, any>);
+  if (entries.length === 0) return undefined;
+  const total = { input: 0, output: 0, cache_read: 0, cache_creation: 0 };
+  for (const u of entries) {
+    if (!u || typeof u !== 'object') continue;
+    total.input += Number(u.inputTokens) || 0;
+    total.output += Number(u.outputTokens) || 0;
+    total.cache_read += Number(u.cacheReadInputTokens) || 0;
+    total.cache_creation += Number(u.cacheCreationInputTokens) || 0;
+  }
+  return total;
 }
 
 /** #289: a tool_result block's `content` is either a plain string or an array

@@ -447,7 +447,20 @@ describe('CopilotAgentRunner token accounting (#181)', () => {
       runner: new CopilotAgentRunner('/usr/local/bin/copilot'),
     });
 
-    expect(usageEvents).toEqual([{ tokens: 30569, cost_usd: undefined, subtype: 'success' }]);
+    // ADR-O001 D1: the event now also carries the per-quantity breakdown.
+    // Copilot reports no cache split, so both cache fields are 0 and the
+    // billable total still equals in + out.
+    expect(usageEvents).toEqual([
+      {
+        tokens: 30569,
+        cost_usd: undefined,
+        subtype: 'success',
+        tokens_in: 30522,
+        tokens_out: 47,
+        cache_read: 0,
+        cache_creation: 0,
+      },
+    ]);
     expect(policy.usage).toBe(30569);
     expect(budgetTrips.length).toBeGreaterThan(0);
   });

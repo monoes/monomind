@@ -1032,7 +1032,10 @@ export class OrgDaemon {
         const orgBudget = def.run_config.budget_tokens;
         if (orgBudget != null) {
           let orgUsage = 0;
-          for (const rt of running.agents.values()) orgUsage += rt.policy.usage;
+          // ADR-O001 D1: budgetedUsage, not usage — the org-wide ceiling is
+          // the same declared number as the per-role one and must be compared
+          // on the same basis.
+          for (const rt of running.agents.values()) orgUsage += rt.policy.budgetedUsage;
           // Mid-run role replacement retires a policy engine's usage into the
           // slot instead of discarding it (see role-slot.ts / respawnRole) -
           // include it here or a replacement could silently reset spend and
@@ -1700,6 +1703,11 @@ export class OrgDaemon {
       role.id,
       {
         maxTokens: role.budget_tokens ?? perRoleBudget,
+        // ADR-O001 D1: which basis that ceiling is enforced on. Defaults to
+        // the historical uncached basis so the honest (cache-aware) meter
+        // introduced alongside it cannot exhaust an existing budget_tokens —
+        // including the schema's 1M default — roughly 100x early.
+        maxTokensBasis: def.run_config.budget_tokens_basis ?? 'uncached',
         maxUsd: role.budget_usd,
         ...(role.policy ?? {}),
       },
@@ -1715,7 +1723,12 @@ export class OrgDaemon {
       providerPrefixes: () => roleProviderPrefixes(role),
       trace: () => this.roleTrace(name, role.id),
     });
-    if (roleCheckpoint?.tokensUsed) {
+    // ADR-O001 D1: prefer the persisted four-quantity breakdown; a checkpoint
+    // written before it existed still resumes via the scalar, on the uncached
+    // basis it was recorded on.
+    if (roleCheckpoint?.tokenUsage) {
+      policy.setTokenUsage(roleCheckpoint.tokenUsage);
+    } else if (roleCheckpoint?.tokensUsed) {
       policy.setUsage(roleCheckpoint.tokensUsed);
     }
     // ORG-7: restore accumulated USD spend across resume so a stop/resume
@@ -2376,7 +2389,10 @@ export class OrgDaemon {
     slot.queuedDuringSwap.push(...reclaimedQueue);
     // Step 9: retire accounting BEFORE replacing the runtime.
     slot.retiredUsage = {
-      tokens: slot.retiredUsage.tokens + oldRuntime.policy.usage,
+      // Budgeted basis: this total is summed with live policy.budgetedUsage
+      // against the org-wide budget_tokens ceiling (ADR-O001 D1), so the two
+      // terms must share a basis.
+      tokens: slot.retiredUsage.tokens + oldRuntime.policy.budgetedUsage,
       costUsd: slot.retiredUsage.costUsd + oldRuntime.metrics.costUsd,
     };
 

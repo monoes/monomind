@@ -9,7 +9,7 @@ import { endpointBriefingLines } from './endpoint-roles.js';
 import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
 import { Mailbox } from './mailbox.js';
-import type { Decision, PolicyEngine } from './policy.js';
+import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
 import { StateDetector } from './state-detector.js';
 import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types.js';
@@ -436,6 +436,9 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   // SDK session id here (it must outlive individual runOneSession calls,
   // since resume continues the same billing session) and emit only deltas.
   const sessionCostTotals = new Map<string, number>();
+  // ADR-O001 D1: modelUsage is cumulative per session exactly like
+  // total_cost_usd, so it needs the same prev-value map to become a delta.
+  const sessionTokenTotals = new Map<string, TokenUsage>();
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
@@ -446,7 +449,13 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     let hitTurnLimit: boolean | undefined = false;
     const attempt = { replied: false };
     try {
-      const res = await runOneSession(opts, resumeSessionId, sessionCostTotals, attempt);
+      const res = await runOneSession(
+        opts,
+        resumeSessionId,
+        sessionCostTotals,
+        attempt,
+        sessionTokenTotals,
+      );
       sessionId = res.sessionId;
       hitTurnLimit = res.hitTurnLimit;
       resumeSessionId = sessionId;
@@ -551,6 +560,68 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   }
 }
 
+/** ADR-O001 D1 — token-metering helpers.
+ *
+ *  `cache_read_input_tokens` and `cache_creation_input_tokens` are siblings
+ *  of `input_tokens` in the Anthropic API, not subsets of it, and both are
+ *  billable. Everything below therefore sums all four. */
+function totalTokens(u: TokenUsage): number {
+  return u.input + u.output + u.cacheRead + u.cacheCreation;
+}
+
+function addTo(target: TokenUsage, add: TokenUsage): void {
+  target.input += add.input;
+  target.output += add.output;
+  target.cacheRead += add.cacheRead;
+  target.cacheCreation += add.cacheCreation;
+}
+
+/** One model turn's own usage, off an 'assistant' (or per-turn 'result')
+ *  message. */
+function turnBreakdown(m: AgentMessage): TokenUsage {
+  return {
+    input: m.input_tokens ?? 0,
+    output: m.output_tokens ?? 0,
+    cacheRead: m.cache_read_input_tokens ?? 0,
+    cacheCreation: m.cache_creation_input_tokens ?? 0,
+  };
+}
+
+/** What a 'result' message says this mailbox message consumed.
+ *
+ *  When the runner reports `cumulative_tokens` (the Claude SDK's whole-pipeline
+ *  `modelUsage`, which unlike `usage` includes Task subagents and sidechains),
+ *  that value is CUMULATIVE per session — the same lifecycle as
+ *  `total_cost_usd` — so it is converted to a delta against the previous value
+ *  for the same session_id. A fresh/restarted session has no prior entry and
+ *  correctly yields its full value; a value that ticks down (a provider-side
+ *  correction) floors at 0 rather than re-adding the whole cumulative total.
+ *  Without `cumulative_tokens` the per-turn fields are used as before. */
+function resultBreakdown(
+  m: AgentMessage,
+  tokenTotals: Map<string, TokenUsage> | undefined,
+  sid: string,
+): TokenUsage {
+  const cum = m.cumulative_tokens;
+  if (!cum) return turnBreakdown(m);
+  const now: TokenUsage = {
+    input: cum.input,
+    output: cum.output,
+    cacheRead: cum.cache_read,
+    cacheCreation: cum.cache_creation,
+  };
+  if (!tokenTotals) return now;
+  const prev = tokenTotals.get(sid);
+  tokenTotals.set(sid, now);
+  if (!prev) return now;
+  return {
+    input: Math.max(0, now.input - prev.input),
+    output: Math.max(0, now.output - prev.output),
+    cacheRead: Math.max(0, now.cacheRead - prev.cacheRead),
+    cacheCreation: Math.max(0, now.cacheCreation - prev.cacheCreation),
+  };
+}
+
 /** One bounded SDK session for a role; resolves with the SDK's session_id (for
  *  resuming on restart) and whether it ended by hitting the turn limit (so the
  *  caller can push a continuation) when the stream ends (mailbox closed or
@@ -560,6 +631,7 @@ async function runOneSession(
   resume?: string,
   costTotals?: Map<string, number>,
   progress?: { replied: boolean },
+  tokenTotals?: Map<string, TokenUsage>,
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
   // Read lastMessageId live from opts instead of capturing at session start
@@ -597,7 +669,7 @@ async function runOneSession(
   // time a 'result' message ends one mailbox message and the next one starts.
   // Exists purely so the 'result' branch never re-adds what this branch
   // already added (see there for why it can't just always add).
-  let messageTurnTokens = 0;
+  let messageTurnTokens: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
   // Abort hook for the runner (AgentRunArgs.signal): the silent-stream
   // abort below used to call iterator.return() only, which queues behind a
   // subprocess runner blocked in `for await (child.stdout)` — the child was
@@ -838,10 +910,18 @@ async function runOneSession(
         // .d.ts, which puts `usage`/token counts on BetaMessage but cost only
         // on SDKResultSuccess.total_cost_usd/modelUsage. overBudgetUsd is
         // still checked below, once per message, same as before this fix.)
-        const turnTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+        //
+        // ADR-O001 D1: the sum must include BOTH cache fields. They are
+        // siblings of input_tokens in the Anthropic API, not subsets of it —
+        // `input_tokens` is the uncached remainder — and both are billable
+        // (~0.1x and ~1.25x input). Omitting them meant the better the cache
+        // worked the less the meter saw: on one measured run, 2,765M tokens
+        // billed against 8.1M recorded, with input_tokens at 0.0M.
+        const turn = turnBreakdown(m);
+        const turnTokens = totalTokens(turn);
         if (turnTokens > 0) {
-          messageTurnTokens += turnTokens;
-          policy.addUsage(turnTokens);
+          addTo(messageTurnTokens, turn);
+          policy.addTokenUsage(turn);
           if (policy.overBudget) {
             bus.emit({
               type: 'status',
@@ -876,19 +956,47 @@ async function runOneSession(
           data: data as unknown as Record<string, unknown>,
         });
       } else if (m.type === 'result') {
-        const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+        // ADR-O001 D1: prefer the SDK's `modelUsage` over `usage`. The SDK
+        // documents `usage` as "MAIN AGENT LOOP ONLY — excludes Task
+        // subagent, sidechain, and auxiliary model calls ... Prefer
+        // modelUsage for token/cost accounting"; the measured run made 46
+        // subagent calls this counter never saw. modelUsage is CUMULATIVE per
+        // session (same lifecycle as total_cost_usd, per its own type doc),
+        // so it is converted to a delta here rather than added, exactly as
+        // cost is below. A runner that reports no modelUsage falls back to
+        // the per-turn `usage` fields, which keep their old semantics.
+        const resultTokens = resultBreakdown(m, tokenTotals, m.session_id ?? sessionId ?? '');
         // Per the SDK's own type docs, a 'result' message's usage is that
         // message's own (effectively last-turn) usage in streaming-input mode,
         // NOT a cumulative total across every turn of the mailbox message —
         // and that last turn was already counted above via its own 'assistant'
         // message, specifically so overBudget could trip mid-message. Adding
-        // `tokens` again here unconditionally would double-count it. Only make
+        // the result's own usage again unconditionally would double-count it.
+        // (A modelUsage-derived delta is per-session-cumulative, so the same
+        // subtraction is exactly right there too: it removes what the
+        // assistant turns of THIS message already contributed and leaves the
+        // subagent/auxiliary volume the main loop never reported.) Only make
         // up the shortfall (never negative) so a turn whose usage somehow
         // never reached the 'assistant' branch (e.g. a runner/test double that
         // doesn't emit per-turn usage) still gets counted at least once.
-        const shortfall = Math.max(0, tokens - messageTurnTokens);
-        if (shortfall > 0) policy.addUsage(shortfall);
-        messageTurnTokens = 0;
+        const shortfall: TokenUsage = {
+          input: Math.max(0, resultTokens.input - messageTurnTokens.input),
+          output: Math.max(0, resultTokens.output - messageTurnTokens.output),
+          cacheRead: Math.max(0, resultTokens.cacheRead - messageTurnTokens.cacheRead),
+          cacheCreation: Math.max(0, resultTokens.cacheCreation - messageTurnTokens.cacheCreation),
+        };
+        if (totalTokens(shortfall) > 0) policy.addTokenUsage(shortfall);
+        // What this whole mailbox message actually added to the meter: the
+        // per-turn accounting above plus whatever the result topped up. This
+        // is what the 'usage' event reports, so a consumer summing events
+        // lands on the same number as policy.usage.
+        const messageTokens: TokenUsage = {
+          input: messageTurnTokens.input + shortfall.input,
+          output: messageTurnTokens.output + shortfall.output,
+          cacheRead: messageTurnTokens.cacheRead + shortfall.cacheRead,
+          cacheCreation: messageTurnTokens.cacheCreation + shortfall.cacheCreation,
+        };
+        messageTurnTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
         // Convert the SDK's cumulative-per-session total_cost_usd into a
         // per-result delta before emitting - downstream sums usage events.
         // costTotals is keyed by session_id, so a genuinely new/restarted
@@ -912,7 +1020,19 @@ async function runOneSession(
         bus.emit({
           type: 'usage',
           from: role.id,
-          data: { tokens, cost_usd: costDelta, subtype: m.subtype },
+          // ADR-O001 D1: the four quantities travel separately so every
+          // downstream consumer (forwarder → dashboard state.json, reporting,
+          // `org costs`) can record real values instead of the 0s they used
+          // to persist. `tokens` stays the single billable total.
+          data: {
+            tokens: totalTokens(messageTokens),
+            cost_usd: costDelta,
+            subtype: m.subtype,
+            tokens_in: messageTokens.input,
+            tokens_out: messageTokens.output,
+            cache_read: messageTokens.cacheRead,
+            cache_creation: messageTokens.cacheCreation,
+          },
         });
         if (m.subtype && m.subtype !== 'success') {
           if (m.subtype === 'error_max_turns') hitTurnLimit = true;

@@ -156,6 +156,13 @@ export const RolePolicySchema = z
      *  'api.example.com'), '*.example.com' wildcard, or '*' for any host. */
     webAllow: z.array(z.string()).optional(),
     maxTokens: z.number().int().positive().optional(),
+    /** ADR-O001 D1: which token basis `maxTokens` is compared against.
+     *  'uncached' (default) — input + output only, the basis every existing
+     *  budget_tokens value was written against. 'billable' — also counts
+     *  cache reads and cache writes, i.e. what is actually billed. Derived by
+     *  the daemon from `run_config.budget_tokens_basis`; never set per role in
+     *  a config. */
+    maxTokensBasis: z.enum(['uncached', 'billable']).optional(),
     /** USD spend cap for this role (ORG-7). Enforced the same way maxTokens/overBudget
      *  is: PolicyEngine.decide() denies once accumulated cost meets or exceeds it. */
     maxUsd: z.number().positive().optional(),
@@ -335,6 +342,15 @@ export const OrgDefSchema = z
       .object({
         max_concurrent_agents: z.number().int().positive().default(4),
         budget_tokens: z.number().int().positive().default(1_000_000),
+        /** ADR-O001 D1: which token basis `budget_tokens` is enforced on.
+         *  'uncached' (default) counts input + output, the basis this value
+         *  has always meant. 'billable' also counts cache reads/writes — the
+         *  honest basis, but ~100x larger on a well-cached run, so opting in
+         *  means re-sizing budget_tokens. The meter itself is always billable
+         *  (usage events, checkpoints, dashboards); this knob only governs
+         *  enforcement, so switching it can never change what is reported.
+         *  Prefer `budget_usd`, which needs no basis. */
+        budget_tokens_basis: z.enum(['uncached', 'billable']).optional(),
         memory_namespace: z.string().optional(),
         max_turns_per_message: z.number().int().positive().default(DEFAULT_MAX_TURNS_PER_MESSAGE),
         /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
@@ -402,6 +418,7 @@ export const OrgDefSchema = z
       .transform((rc) => ({
         max_concurrent_agents: 4,
         budget_tokens: 1_000_000,
+        budget_tokens_basis: 'uncached' as const,
         max_turns_per_message: DEFAULT_MAX_TURNS_PER_MESSAGE,
         workspace: 'repo' as string,
         stale_base_threshold: 0,
