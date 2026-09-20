@@ -166,3 +166,107 @@ uncommitted where its own stop path would have deleted it, and spent seven hours
 question that said it was not blocking blocked everything.
 
 Recommendations 1, 2 and 4 are the ones that change the economics. They are all small.
+
+
+---
+
+# Addendum — where the money actually went
+
+Added after the first review, to answer a narrower question: **why does an org run cost so
+much more than doing the same work in a single session?** Everything below is measured from
+`monomind-dev-threads.jsonl` and `monomind-dev-state.json` for run `run-20260919221725-nb4b`.
+
+## A1. Spend is decoupled from work — you pay for presence, not output
+
+| role | tokens | cost | messages sent |
+|---|---|---|---|
+| dev-lead | 2.09M | $485 | 463 |
+| developer-1 | 1.92M | $467 | 293 |
+| verifier | 1.82M | $421 | 418 |
+| developer-2 | 1.81M | $395 | 416 |
+| architect | 1.42M | $324 | **93** |
+| product-evaluator | 1.37M | $330 | **572** |
+| reviewer | 1.27M | $227 | 181 |
+| integrator | 0.15M | $14 | 32 |
+
+Excluding `integrator` (which had an empty tool allowlist and could not act), output varies by
+**6×** — 93 messages to 572 — while spend varies by **17%**. `architect` sent 93 messages and
+burned *more* than `product-evaluator`, which sent 572.
+
+**This is the finding that explains the bill.** A role's token consumption is dominated by the
+shared stream it must read every turn, not by the work it does. Eight roles idling in a loop
+cost nearly what eight roles working cost.
+
+## A2. 81% of messages were broadcast, and a broadcast is re-paid every turn
+
+Of 2,468 messages: **2,003 went to `all`**, 465 were directed.
+
+Authored volume is only ~617k tokens. But a broadcast lands in 7 other contexts, and in an agent
+loop it stays there — every message is re-read on every subsequent turn of that role. Counting
+one read each, messaging is ~17% of the 11.9M total; counting re-reads across a growing context,
+it is the dominant term.
+
+Message sizes are bimodal: **median 119 chars, p90 3,582, max 24,811**. The long tail is
+dispatch and review prose — exactly the content broadcast to everyone.
+
+## A3. Gate churn: 223 verdicts for 15 completed items
+
+Roughly **15 gate verdicts per finished item**. The worst: o-16 (32), o-09 (28), i-035 (26),
+i-090 (23). Each verdict means a role read a diff, ran tests and wrote an opinion.
+
+Some of that churn was worth it — three gate divergences were decided correctly in the
+verifier's favour, and five controls that could not fail were caught. But nothing caps the loop,
+and o-09 reached revision 3 while o-16 reached revision 4.
+
+## A4. The run cannot see its own cost drivers
+
+`tokens_in` and `tokens_out` are **0 for every role**; only a blended `tokens_used` is recorded.
+The vendor runners parse `cache_read_input_tokens` (qwen, antigravity, copilot) but nothing
+persists it for the Claude adapter.
+
+Consequences: the input:output ratio is unknown, and **cache effectiveness is invisible**. For a
+pattern whose defining feature is eight agents repeatedly re-reading a growing shared context,
+prompt caching is the single largest lever — and it is the one thing not measured. No model-tier
+recommendation can be made responsibly from this data either, because per-model spend cannot be
+separated.
+
+## A5. Breadth was traded for depth without anyone choosing it
+
+154 ledger items: **15 done, 10 skipped, 37 never triaged at all**. Meanwhile individual items
+absorbed four revision rounds. The run went deep on what it found first and never reached a
+quarter of its own backlog.
+
+## A6. What to change
+
+Ordered by expected saving.
+
+1. **Stop broadcasting by default.** Make `to: all` the exception — state changes and
+   completions only — and require a named recipient otherwise. 81% → a small fraction cuts the
+   dominant term directly. This is a messaging-policy change, not an architecture change.
+
+2. **Record `tokens_in` / `tokens_out` / `cache_read` per role.** Without the split, every other
+   optimisation here is guesswork. The runners already parse it for three vendors; persist it.
+
+3. **Don't keep idle roles resident.** `integrator` cost $14 and did nothing, but the other
+   seven each burned 1.3–2.1M whether or not they had work. Spawn a role when it has a task and
+   retire it when it does not, rather than running `max_concurrent_agents: 8` continuously.
+
+4. **Cap gate rounds at three, then escalate to the owner.** 15 verdicts per item is not rigour,
+   it is an uncapped loop. The divergences that mattered happened in rounds 1–2.
+
+5. **Make the budget bind.** `budget_tokens: 160_000_000` against 11.9M used is decoration. Add
+   a wall-clock ceiling and a dollar ceiling, defaulted to something that can actually stop a run.
+
+6. **Triage everything before building anything.** 37 untriaged items means the run cannot know
+   whether what it built was the most valuable thing available. Cheap triage first, then depth.
+
+## A7. The honest comparison
+
+This run cost **$2,663** and merged **two** items itself (o-18, o-43); the remaining seven were
+finished by hand after it was stopped. That is not a like-for-like productivity comparison — the
+run also triaged ~100 items, produced five genuine discoveries, and filed five issues against its
+own runtime, none of which a single session would have done unprompted.
+
+The fair summary is narrower: **the org's discovery is worth paying for; its execution loop is
+not yet worth what it costs.** Recommendations 1–3 target the gap without touching what makes
+discovery good.
