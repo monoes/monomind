@@ -230,24 +230,37 @@ describe('privacy-claims (i-078)', () => {
 
   // §3b (i-078 revision 3 — INVERTED per dev-lead's design; supersedes the
   // call-site walker from revisions 1-2). Each prior round closed one named
-  // call-syntax shape and left an adjacent one open (file granularity, an
-  // aliased-fetch pattern, a src/-only scope hole) — round 3's review found
-  // a file-TYPE gap: .html, a shipped file whose <script src> tags are
-  // outbound by construction, was never scanned, so cdn.jsdelivr.net shipped
-  // in three HTML files with zero coverage. "Find every outbound call"
-  // requires understanding call syntax, which is unbounded.
+  // call-syntax shape and left an adjacent one open — "find every outbound
+  // call" requires understanding call syntax, which is unbounded. INVERTED
+  // CLAIM: instead of finding calls and checking they're documented, assert
+  // that every external host appearing ANYWHERE in shipped source — in a
+  // fetch(), a <script src>, or a comment — is CLASSIFIED below (a table
+  // row, a verdict, or a reviewed-hosts entry with a reason). Deliberately
+  // NOT "every host is an outbound request": `gexf.net`,
+  // `graphml.graphdrawing.org` are XML namespace URIs, `raw.githubusercontent.com`
+  // is a SARIF $schema, `www.apple.com` is a launchd plist DOCTYPE — none of
+  // those are requests, and forcing a false table row for a namespace URI
+  // (or silently dropping it) is the same failure this lane exists to fix.
   //
-  // INVERTED CLAIM: instead of finding calls and checking they're
-  // documented, assert the set of external hosts appearing ANYWHERE in
-  // shipped source — in a fetch(), a <script src>, or a comment — is
-  // exactly the reviewed set below. No call-syntax understanding, no
-  // call-syntax blind spot, and it catches the .html gap (and any future
-  // file type) for free. Measured on this tree: 66 distinct external hosts
-  // across every .ts/.mjs/.js/.html/.svg file under every package's shipped
-  // source root. Dev-lead's independent count was 82; the gap is scope
-  // (their sweep evidently covered more file types and/or locations) —
-  // both are real measurements, not estimates; 66 is what THIS scan, run
-  // against THIS reviewed set, finds and fully accounts for below.
+  // SCOPE (stated, not implicit — an inventory that doesn't say what it
+  // counts has the o-09 overclaiming shape): covers literal `https?://`
+  // hosts in files that SHIP AND (EXECUTE OR are SERVED to a client) —
+  // .ts/.mjs/.js (execute) and .html/.svg (served/rendered). It deliberately
+  // EXCLUDES: test fixtures (`__tests__/`, `*.test.ts` — SSRF-guard and
+  // browser-adapter test data includes deliberate attack hosts like
+  // `169.254.169.254`/`metadata.google.internal`, which do not belong in a
+  // privacy inventory at all); top-level project docs (README.md, doc/**);
+  // and in-`src` reference documentation (.md files ship as package content
+  // but are neither executed nor served as a page — a design-system
+  // citation link is not a request monomind makes). Measured on this tree:
+  // 66 distinct external hosts. Reconciled against dev-lead's independent
+  // 82-host count (full method: $RUN/logs/reviewer/i-078-host-set-
+  // reconciliation.log): extensions explained 2 of the gap, excluding
+  // `__tests__` explained the other 23 (attack fixtures, correctly
+  // excluded) — and the residual gap ran the OTHER way, since this scan's
+  // `files`-derived roots include `scripts/`, which the reviewer's literal
+  // `src`-only glob missed entirely (that's understand-analyze.mjs's LIVE
+  // api.anthropic.com call, finding 1's sibling). 66 stands.
   //
   // STATED LIMIT (required, not optional — same remedy as o-09's
   // overclaiming check name): this does NOT and CANNOT close non-literal
@@ -258,9 +271,8 @@ describe('privacy-claims (i-078)', () => {
   // host — the destination is user-supplied — so a blanket "every
   // network-touching file must have a literal host" rule would
   // false-positive on exactly those legitimate cases and is deliberately
-  // not added. Treat "the reviewed set is complete" as "complete for
-  // literal hosts", nothing stronger.
-  describe('§3b — the set of external hosts in shipped source is the reviewed set', () => {
+  // not added.
+  describe('§3b — every external host in shipped source is classified (row, verdict, or reviewed exclusion)', () => {
     const PACKAGE_DIRS = [
       'packages/monofence-ai',
       'packages/@monoes/monobrowse',
@@ -273,18 +285,10 @@ describe('privacy-claims (i-078)', () => {
       'packages/@monomind/routing',
     ];
 
-    // Every file type that actually SHIPS and can carry an outbound host:
-    // .ts/.mjs/.js execute; .html is served and its <script src> tags fetch
-    // by construction (the gap this revision fixes); .svg is served inline
-    // and could in principle carry one too (measured: today its only host
-    // is the standard SVG XML namespace, already in REVIEWED_HOSTS).
-    // Deliberately NOT scanned: .md (documentation prose — already covered
-    // by §1/§3's own checks; a host-inventory sweep over doc links would
-    // flag every legitimate reference URL in every doc and turn this into
-    // a doc-editing tax rather than a privacy guard) and .json/.yaml/.sh/
-    // .cjs (measured: zero literal hosts anywhere in the shipped surface
-    // today; adding them costs nothing if that ever changes, but they are
-    // left out for now since there is nothing there to protect against).
+    // Executes (.ts/.mjs/.js) or is served/rendered (.html/.svg) — the SCOPE
+    // paragraph above this describe block states the full rule and why
+    // .md/.json/.yaml/.sh/.cjs are excluded. (.json/.yaml/.sh/.cjs: measured
+    // zero literal hosts anywhere in today's shipped surface either way.)
     const SCAN_EXTENSIONS = ['.ts', '.mjs', '.js', '.html', '.svg'];
 
     /** Every source root a package actually SHIPS — see §3b's sibling
@@ -457,13 +461,13 @@ describe('privacy-claims (i-078)', () => {
       }
     });
 
-    it('every external host in shipped source is in the reviewed set', () => {
+    it('every external host in shipped source is classified — not necessarily a request, but never silent', () => {
       const found = findAllExternalHosts();
       const unexpected = [...found.keys()].filter((h) => !REVIEWED_HOSTS.has(h));
       const detail = unexpected.map((h) => `${h} (in ${found.get(h)?.join(', ')})`);
       expect(
         detail,
-        'unreviewed external host(s) found in shipped source — each needs a doc/privacy.md row, verdict, "on purpose" bullet, or a reviewed-hosts entry with a reason (not silence)',
+        'unclassified external host(s) found in shipped source — each needs a doc/privacy.md row, verdict, "on purpose" bullet, or a reviewed-hosts entry with a reason (not silence, and not necessarily a new request row — e.g. an XML namespace URI is classified as "not a request", not given a false table row)',
       ).toEqual([]);
     });
   });

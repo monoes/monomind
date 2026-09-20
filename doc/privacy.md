@@ -9,14 +9,30 @@ this file. It is kept honest by
 than trying to find every `fetch`/`httpsGet`/`http(s).request` call site (a
 call-syntax-shaped detector that took three revisions to keep missing an
 adjacent shape — file granularity, an aliased-fetch pattern, then `.html`
-`<script src>` tags), §3b asserts that **the set of distinct external hosts
-appearing anywhere in monomind's shipped source — in a fetch call, a
-`<script src>` tag, or a comment — is exactly one reviewed list.** A new host
-showing up anywhere fails the check, regardless of the shape it appears in.
-**Stated limit, not swept under the rug:** this cannot see a
-runtime-assembled host (`'https://' + host` or `` `https://${host}` ``) —
-no literal substring means no static scanner, this one included, can find
-it. Read that test, not just this page, if you need the full reasoning.
+`<script src>` tags), §3b asserts that **every external host appearing
+anywhere in monomind's shipped source — in a fetch call, a `<script src>`
+tag, or a comment — is CLASSIFIED**: into a row in the table below, a
+verdict, or a reviewed exclusion with a reason. That is deliberately not
+"every host is a request" — a JSON Schema `$id`, a SARIF `$schema`, a
+launchd plist DOCTYPE are hosts that appear in shipped source and are not
+requests at all, and forcing a false row for one (or silently dropping it)
+would be its own kind of inaccuracy. A new, unclassified host anywhere
+fails the check, regardless of the shape it appears in.
+
+**Scope, stated rather than implied:** this inventory covers literal
+`https?://` hosts in files that ship **and** (execute **or** are served to
+a client) — `.ts`/`.mjs`/`.js` source and `.html`/`.svg` served/rendered
+content. It deliberately **excludes** test fixtures (`__tests__/`, which
+contain deliberate SSRF-guard/browser-adapter attack hosts like
+`169.254.169.254` and `metadata.google.internal` — those do not belong in
+a privacy inventory at all), top-level project docs (README.md, `doc/**`),
+and in-`src` reference documentation (`.md` files that ship as package
+content but are neither executed nor served as a page — a design-system
+citation link is not a request monomind makes). **Stated limit, not swept
+under the rug:** it cannot see a runtime-assembled host
+(`'https://' + host` or `` `https://${host}` ``) — no literal substring
+means no static scanner, this one included, can find it. Read that test,
+not just this page, if you need the full reasoning.
 
 ## The table
 
