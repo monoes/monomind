@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
 import {
   MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES,
+  MONOMIND_NEVER_COMMIT,
   writeRuntimeConfig,
 } from '../init/write-runtime-config.js';
 
@@ -78,6 +79,42 @@ describe('generated .monomind/.gitignore covers monoes-connection.json (real mat
   });
 });
 
+// i-052 — the live incident this item fixes: `.monomind/dashboard-token`
+// (a live monomind dashboard credential) was not gitignored anywhere,
+// because none of the three curated lists named it and `*.token` requires
+// a dot, which the extensionless filename doesn't have. Real matcher, not
+// a string search against the generated file — `*.token` is present in the
+// file already and still doesn't match this specific name, which is
+// exactly how the gap shipped undetected.
+describe('generated .monomind/.gitignore covers every MONOMIND_NEVER_COMMIT entry (i-052)', () => {
+  it.each(MONOMIND_NEVER_COMMIT.map(({ file }) => file))(
+    'git check-ignore -v exits 0 for .monomind/%s',
+    async (file) => {
+      await run();
+      const { exitCode } = gitCheckIgnore(`.monomind/${file}`);
+      expect(exitCode).toBe(0);
+    },
+  );
+
+  // AC-0's positive controls: proves the harness (git, the test repo, the
+  // matcher call) actually works, so a passing dashboard-token assertion
+  // can't be explained by a broken check that would pass anything.
+  it('positive controls: .monomind/foo.token and .monomind/daemon.pid are still ignored', async () => {
+    await run();
+    expect(gitCheckIgnore('.monomind/foo.token').exitCode).toBe(0);
+    expect(gitCheckIgnore('.monomind/daemon.pid').exitCode).toBe(0);
+  });
+
+  // Negative control matching the ORIGINAL bug report exactly: `*.token`
+  // alone (without this fix) does not match an extensionless filename.
+  // This assertion is about the underlying glob semantics, not this
+  // module — it documents WHY the bug was invisible to a reader who only
+  // checked "is *.token in the file".
+  it('control: a bare *.token pattern alone would not have matched dashboard-token', () => {
+    expect('dashboard-token').not.toMatch(/\.token$/);
+  });
+});
+
 describe('init never narrows an existing blanket .monomind/ ignore', () => {
   it('a bare `.monomind/` line in the root .gitignore survives init untouched', async () => {
     writeFileSync(join(targetDir, '.gitignore'), 'node_modules/\n.monomind/\n');
@@ -111,12 +148,14 @@ describe('init never narrows an existing blanket .monomind/ ignore', () => {
   });
 });
 
-// i-066 reviewer finding 3 (MAJOR, priority): a project inited BEFORE this
-// fix — every project that could hold a monoes.me token, since you have to
-// have connected to have one — must still get monoes-connection.json
-// coverage on a later, non-forced init. The original T3 only proved the
-// fresh-install path, since run() hardcoded force:true.
-describe('an existing pre-fix .monomind/.gitignore gets monoes-connection.json coverage even without --force', () => {
+// i-066 reviewer finding 3 (MAJOR, priority), generalised for i-052: a
+// project inited BEFORE a MONOMIND_NEVER_COMMIT entry existed — which, for
+// `dashboard-token`, is every project on the machine, since the dashboard
+// writes it on every restart regardless of when `init` last ran — must
+// still get coverage on a later, non-forced init. AC-2: this is the
+// criterion that reaches the installed base, which commit 2's deny-by-
+// default inversion (new projects only) explicitly does not.
+describe('an existing pre-fix .monomind/.gitignore gets every MONOMIND_NEVER_COMMIT entry appended, even without --force', () => {
   const PRE_FIX_GITIGNORE = `# Monomind — exclude files that may contain secrets or sensitive prompt data
 sessions/
 security/
@@ -129,14 +168,16 @@ daemon.pid
 .env
 `;
 
-  it('appends coverage on a force:false re-init', async () => {
+  it('appends coverage for every entry on a force:false re-init', async () => {
     const gitignorePath = join(targetDir, '.monomind', '.gitignore');
     writeFileSync(gitignorePath, PRE_FIX_GITIGNORE);
 
     await run(freshResult(), false);
 
-    const { exitCode } = gitCheckIgnore('.monomind/monoes-connection.json');
-    expect(exitCode).toBe(0);
+    for (const { file } of MONOMIND_NEVER_COMMIT) {
+      const { exitCode } = gitCheckIgnore(`.monomind/${file}`);
+      expect(exitCode, `.monomind/${file} should be ignored after the append`).toBe(0);
+    }
     // The user's original lines must survive untouched, not be replaced.
     const after = readFileSync(gitignorePath, 'utf-8');
     expect(after).toContain('sessions/');
@@ -150,7 +191,7 @@ daemon.pid
     const firstResult = freshResult();
     await run(firstResult, false);
     expect(firstResult.updated).toEqual([
-      '.monomind/.gitignore (added monoes-connection.json coverage)',
+      `.monomind/.gitignore (added ${MONOMIND_NEVER_COMMIT.map(({ file }) => file).join(', ')} coverage)`,
     ]);
     const afterFirst = readFileSync(gitignorePath, 'utf-8');
 
@@ -160,9 +201,9 @@ daemon.pid
     expect(readFileSync(gitignorePath, 'utf-8')).toBe(afterFirst);
   });
 
-  it('does not touch an existing .monomind/.gitignore that already covers the file', async () => {
+  it('does not touch an existing .monomind/.gitignore that already covers every entry', async () => {
     const gitignorePath = join(targetDir, '.monomind', '.gitignore');
-    const alreadyCovered = `${PRE_FIX_GITIGNORE}monoes-connection.json\n`;
+    const alreadyCovered = `${PRE_FIX_GITIGNORE}${MONOMIND_NEVER_COMMIT.map(({ file }) => file).join('\n')}\n`;
     writeFileSync(gitignorePath, alreadyCovered);
 
     const result = freshResult();
@@ -170,6 +211,23 @@ daemon.pid
 
     expect(result.updated).toEqual([]);
     expect(readFileSync(gitignorePath, 'utf-8')).toBe(alreadyCovered);
+  });
+
+  it('appends only the entries actually missing when some are already covered', async () => {
+    const gitignorePath = join(targetDir, '.monomind', '.gitignore');
+    // Already covers monoes-connection.json (i-066's original fix), but
+    // predates dashboard-token and enable-terminal.json.
+    writeFileSync(gitignorePath, `${PRE_FIX_GITIGNORE}monoes-connection.json\n`);
+
+    const result = freshResult();
+    await run(result, false);
+
+    expect(result.updated).toEqual([
+      '.monomind/.gitignore (added dashboard-token, enable-terminal.json coverage)',
+    ]);
+    expect(gitCheckIgnore('.monomind/monoes-connection.json').exitCode).toBe(0);
+    expect(gitCheckIgnore('.monomind/dashboard-token').exitCode).toBe(0);
+    expect(gitCheckIgnore('.monomind/enable-terminal.json').exitCode).toBe(0);
   });
 });
 
