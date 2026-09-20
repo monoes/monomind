@@ -60,6 +60,7 @@ import {
   checkMonoesMemory,
   checkMonograph,
   checkMonographFreshness,
+  checkProjectRoot,
   checkSecondBrainModel,
   checkSecurityAuditFindings,
   fixStaleHelpers,
@@ -189,6 +190,96 @@ describe('doctor-project-checks', () => {
       const result = await checkMemoryDatabase();
       expect(result.status).toBe('pass');
       expect(result.message).toContain('.swarm/memory.db');
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // checkProjectRoot (o-16 AC-6): discloses the resolved project root and why,
+  // so a wrong resolution (a shared scratch parent's bare `.monomind`
+  // silently adopted, the actual incident behind this item) is visible
+  // instead of a plausible-but-silent path.
+  // ---------------------------------------------------------------------
+  describe('checkProjectRoot', () => {
+    let savedProjectRootEnv: string | undefined;
+
+    beforeEach(() => {
+      savedProjectRootEnv = process.env.MONOMIND_PROJECT_ROOT;
+      delete process.env.MONOMIND_PROJECT_ROOT;
+    });
+
+    afterEach(() => {
+      if (savedProjectRootEnv === undefined) delete process.env.MONOMIND_PROJECT_ROOT;
+      else process.env.MONOMIND_PROJECT_ROOT = savedProjectRootEnv;
+    });
+
+    it('is always info status, naming the resolved root and the "git" reason', async () => {
+      mkdirSync(join(dir, '.git'), { recursive: true });
+      const result = await checkProjectRoot();
+      // o-16 revision 1 (reviewer MAJOR 2): scoped to "Memory Project Root",
+      // not a bare "Project Root" — MONOMIND_PROJECT_ROOT has a second,
+      // independent consumer (guidance-tools.ts) that can legitimately
+      // resolve a different directory; a generic label would overclaim.
+      expect(result.name).toBe('Memory Project Root');
+      expect(result.status).toBe('info');
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('.git ancestor');
+    });
+
+    it('reports "starting directory carries .monomind" when the cwd itself has the marker', async () => {
+      mkdirSync(join(dir, '.monomind'), { recursive: true });
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('starting directory carries .monomind');
+    });
+
+    it('discloses an ignored bare .monomind ancestor by name (the o-16 incident)', async () => {
+      // homeState.dir is this test's mocked $HOME; put a bare .monomind (no
+      // .git, no manifest — the exact shape that captured an unrelated
+      // fixture in production) at a parent of the project, and confirm the
+      // check names it instead of silently adopting it.
+      const parent = join(homeState.dir, 'scratch-parent');
+      mkdirSync(join(parent, '.monomind'), { recursive: true });
+      const proj = join(parent, 'fixture-proj');
+      mkdirSync(proj, { recursive: true });
+      process.chdir(proj);
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(proj);
+      expect(result.message).toContain('ignored bare .monomind');
+      expect(result.message).toContain(parent);
+    });
+
+    it('honors MONOMIND_PROJECT_ROOT as an explicit anchor', async () => {
+      const anchor = join(dir, 'anchor');
+      mkdirSync(anchor, { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = anchor;
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(anchor);
+      expect(result.message).toContain('MONOMIND_PROJECT_ROOT anchor');
+    });
+
+    // o-16 revision 1 (dev-lead Addition 1): disclosure must cover the
+    // ambiguous case it exists to resolve — a SET-but-INVALID anchor — not
+    // just the happy path. A user who typo'd MONOMIND_PROJECT_ROOT must be
+    // able to see, in one command, that it was set and ignored, and why.
+    it('discloses a non-existent MONOMIND_PROJECT_ROOT as ignored, naming the value and the reason', async () => {
+      mkdirSync(join(dir, '.git'), { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = join(dir, 'tpyo-does-not-exist');
+      const result = await checkProjectRoot();
+      // Falls through to the real .git root — not silently dropped.
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('tpyo-does-not-exist');
+      expect(result.message).toContain('ignored');
+      expect(result.message).toContain('does not exist');
+    });
+
+    it('discloses MONOMIND_PROJECT_ROOT="/" as ignored (would disable the path-traversal guard)', async () => {
+      mkdirSync(join(dir, '.git'), { recursive: true });
+      process.env.MONOMIND_PROJECT_ROOT = '/';
+      const result = await checkProjectRoot();
+      expect(result.message).toContain(dir);
+      expect(result.message).toContain('"/"');
+      expect(result.message).toContain('ignored');
+      expect(result.message).toContain('filesystem root');
     });
   });
 

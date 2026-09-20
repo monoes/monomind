@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Changed
+
+- **Memory project-root resolution now requires a project marker beside a bare `.monomind` ancestor, not just `.monomind` itself.** Walking up from the working directory, an ancestor's `.git` was already trusted unconditionally; a bare `.monomind` with no `package.json` (or other project marker) alongside it previously resolved too, non-deterministically — which ancestor's `.monomind` won depended on directory layout and could change between runs on the same machine. That's not "a working thing broke", it's "a coin flip became a rule": the store this resolves to is now the same every time, which is the property that makes `monomind memory list` and everything that reads through it trustworthy at all.
+  **Practical effect, in the shapes we measured:** `.monomind` co-located with `package.json` (adopted, unaffected); `.git` found while walking up from a subdirectory — unaffected, **provided no bare `.monomind` sits between the working directory and that `.git`**; the walk stops at the first marker it finds and does not continue on to the enclosing git root; and a bare `.monomind` with no project marker beside it (the only shape that changes, including the composed case just described — a bare `.monomind` inside a git repo does not fall back to the enclosing `.git` root either). Only the last shape loses reachability. A store that was written under a bare-`.monomind` ancestor now reports no entries (`monomind memory list` → `No entries found`) instead of silently resolving to whichever ancestor won the old coin flip. Nothing is deleted, but to a user this looks the same as data loss.
+  **Remedy, either of:** add a project marker (e.g. `package.json`) next to that `.monomind` directory, or set `MONOMIND_PROJECT_ROOT` explicitly to the intended root. `monomind doctor` diagnoses this condition on a plain run — it's registered as an always-on check, not gated behind `-c`.
+
 ## [2.12.0] — 2026-09-20
 ### Fixed (data loss)
 
