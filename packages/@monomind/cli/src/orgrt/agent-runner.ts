@@ -19,6 +19,7 @@
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import type { z } from 'zod';
 import { omitAnthropicManagedKeys } from './provider.js';
+import { toolResultSpillHook } from './tool-spill.js';
 
 /** A platform-agnostic org tool definition. `schema` is a zod object because
  *  both the Claude SDK's `tool()` and opencode's `tool()` consume zod. */
@@ -76,6 +77,12 @@ export interface AgentRunArgs {
    *  policy.git (#258, role-sandbox.ts). ClaudeAgentRunner passes them to
    *  query() as `sandbox` / `disallowedTools`; other runners ignore them. */
   claudeRestrictions?: { sandbox?: Record<string, unknown>; disallowedTools?: string[] };
+  /** ADR-O001 D2: directory for spilled tool-result bodies. When set,
+   *  ClaudeAgentRunner installs a PostToolUse hook that writes an oversized
+   *  result here in full and replaces it in the transcript with a bounded
+   *  digest plus this path (see tool-spill.ts). Claude-only: no vendor CLI
+   *  exposes an equivalent seam. Unset = today's unbounded behavior. */
+  toolSpillDir?: string;
   /** Abort hook. An async generator's return() queues behind its in-flight
    *  next(), so a subprocess runner blocked in `for await (child.stdout)`
    *  never reaches its finally/kill on return() alone — the child is
@@ -279,6 +286,13 @@ export class ClaudeAgentRunner implements AgentRunner {
         ...(args.claudeRestrictions?.sandbox ? { sandbox: args.claudeRestrictions.sandbox } : {}),
         ...(args.claudeRestrictions?.disallowedTools?.length
           ? { disallowedTools: args.claudeRestrictions.disallowedTools }
+          : {}),
+        // ADR-O001 D2. A PROGRAMMATIC hook, not a filesystem one: these are
+        // registered over the SDK's control protocol at initialize() time and
+        // so are unaffected by `settingSources: []` above (which only stops
+        // the CLI discovering the invoking user's own hooks).
+        ...(args.toolSpillDir
+          ? { hooks: { PostToolUse: [{ hooks: [toolResultSpillHook(args.toolSpillDir)] }] } }
           : {}),
         ...(args.extras || {}),
       } as any,
