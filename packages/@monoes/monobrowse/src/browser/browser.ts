@@ -8,7 +8,7 @@ import type { BrowserConfig, CdpTarget } from './types.js';
 import { CHROME_EXECUTABLES } from './types.js';
 import { enableConsoleCapture, setupConsoleCapture } from './console-log.js';
 import { setupDialogAutoHandling } from './dialog.js';
-import { loadActivePortInfo } from './ref-cache.js';
+import { loadActivePortInfo, clearActivePort } from './ref-cache.js';
 
 const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
@@ -22,6 +22,10 @@ const PROCESS_EXIT_POLL_MS = 50;
 // A cross-process persisted PID older than this is not trusted for the
 // SIGKILL fallback in closeBrowser() — see the call site for why.
 const PERSISTED_PID_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// A browser WE launched that has had no targets for longer than this is
+// reaped at the next launch/attach — see reapIdleLaunchedBrowser().
+const IDLE_REAP_AFTER_MS = 30 * 60 * 1000;
+const REAP_CONNECT_TIMEOUT_MS = 3000;
 
 // Tracks the PID of Chrome instances *we* spawned, keyed by CDP port, so
 // closeBrowser() has a kill fallback when the graceful `Browser.close` CDP
@@ -123,6 +127,12 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   if (!Number.isInteger(rawPort) || rawPort < 1024 || rawPort > 65535) {
     throw new Error(`Invalid port: ${rawPort}. Must be an integer between 1024 and 65535.`);
   }
+
+  // Every launch/attach is this tool's only chance to notice that a previous
+  // session abandoned a browser on a CDP port and never gave it back — there
+  // is no daemon to do it on a timer. Bounded and non-throwing; a stale
+  // instance on the port we are about to use is freed before we probe it.
+  await reapIdleLaunchedBrowser();
 
   // strictPort: fail fast on the exact requested port, matching the old
   // behavior (Vite has the same escape hatch for the same reason) — for
@@ -382,6 +392,81 @@ async function waitForProcessExit(pid: number): Promise<boolean> {
       t.unref?.();
     });
   }
+}
+
+/**
+ * Give back the CDP port of a browser we launched that nothing is using any
+ * more. A launched Chrome is deliberately detached and unref'd so it outlives
+ * the command that spawned it and later commands can reattach — but nothing
+ * reaped it afterwards, so an abandoned session kept listening on its port
+ * (9222 by convention, which other local tools want) indefinitely. A foreign
+ * CDP server *answers* there rather than refusing the connection, so those
+ * tools retry the wrong port and report misleading errors instead of moving on.
+ *
+ * Nothing long-lived exists to run this on a timer — every CLI command is its
+ * own short-lived process — so it runs at the next launch/attach instead
+ * (see launchBrowser). A browser is reaped only when ALL of these hold:
+ *   - the persisted session says WE launched it — `connect` records
+ *     launched:false for a browser that belongs to the user, never touched;
+ *   - that session is older than IDLE_REAP_AFTER_MS;
+ *   - the CDP endpoint still answers and reports ZERO targets. An open tab,
+ *     or a client attached to one (Chrome drops webSocketDebuggerUrl from an
+ *     attached target but still lists it), means the session is live and
+ *     reattach-across-commands must keep working.
+ *
+ * Shutdown goes through closeBrowser() on the browser-level websocket — the
+ * only connection left once every target is gone — so a recycled PID can
+ * never be signaled by mistake: graceful `Browser.close` reaches whatever is
+ * actually listening on that port, at any age, and the persisted PID is only
+ * ever used for closeBrowser's own age-bounded force-kill.
+ *
+ * Never throws: a failed reap must not stop a launch. Returns the reaped
+ * port, or null when there was nothing to reap.
+ */
+export async function reapIdleLaunchedBrowser(): Promise<number | null> {
+  try {
+    const session = await loadActivePortInfo();
+    if (!session?.launched || session.savedAt === undefined) return null;
+    if (Date.now() - session.savedAt < IDLE_REAP_AFTER_MS) return null;
+
+    const wsUrl = await fetchBrowserWebSocketUrl(session.port);
+    if (!wsUrl) return null;
+    if ((await fetchTargets(session.port)).length > 0) return null;
+
+    const client = new CdpClient();
+    try {
+      // CdpClient.connect() has no timeout of its own — a socket that never
+      // opens (and never errors) would hang the launch this reap is running
+      // inside of, which is strictly worse than leaving the port squatted.
+      await Promise.race([
+        client.connect(wsUrl),
+        new Promise<never>((_, reject) => {
+          const t = setTimeout(() => reject(new Error('Reap: CDP connect timed out')), REAP_CONNECT_TIMEOUT_MS);
+          t.unref?.();
+        }),
+      ]);
+      await closeBrowser(client, session.port);
+    } finally {
+      try { client.close(); } catch { /* already gone */ }
+    }
+    launchedPids.delete(session.port);
+    launchedUserDataDirs.delete(session.port);
+    await clearActivePort();
+    return session.port;
+  } catch {
+    return null;
+  }
+}
+
+/** Chrome's browser-level debugger endpoint, from /json/version — the
+ *  connection `Browser.close` belongs on. Null if the port isn't answering as
+ *  a Chrome/Chromium CDP endpoint (same identity check as isChromeIdentity). */
+async function fetchBrowserWebSocketUrl(port: number): Promise<string | null> {
+  const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) });
+  if (!res.ok) return null;
+  const info = (await res.json()) as { Browser?: string; webSocketDebuggerUrl?: string };
+  if (typeof info.Browser !== 'string' || !/chrom(e|ium)|edg/i.test(info.Browser)) return null;
+  return typeof info.webSocketDebuggerUrl === 'string' ? info.webSocketDebuggerUrl : null;
 }
 
 export async function openUrl(client: CdpClient, sessionId: string, url: string): Promise<void> {
