@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-09-20
+
 ### Security
 
 - **Org roles no longer inherit ambient `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` when running a non-Anthropic provider or CLI.** Every vendor-CLI runner (codex, grok, qwen, opencode, hermes, copilot, kimicode, pi, antigravity, crush) and the version-probe used by `monomind agent scan` built their child environment as `{ ...process.env, ...args.env }` — a spread does not delete, so `resolveProviderEnv`'s deliberate strip of these three keys for `subscription` mode (the default) was silently restored by the fallback before the child ever saw it. **Migration:** if your org relied on an exported `ANTHROPIC_API_KEY` reaching a `subscription`-provider role (the previous, unintended behaviour), set an explicit provider block instead: `provider: { kind: 'api-key', apiKeyEnv: 'ANTHROPIC_API_KEY' }`. Without this change, a role that suddenly can't see the key fails with a generic, misleading "Not logged in" rather than an explanation.
@@ -13,6 +15,15 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 - **Node.js >=22.12.0 is now required by every published package** (root `monomind`, `@monoes/monomindcli`, `@monoes/hooks`, `@monoes/monograph`, `@monoes/monobrowse`, `@monoes/mcp`, `@monoes/memory`, `@monoes/routing`, `@monoes/monodesign`, `monofence-ai`). The declared floor had already stopped matching reality: `engines.node` was `>=20.0.0` in some manifests, `>=18.0.0` in others, and absent from four published packages entirely. Two optional dependencies were already ahead of it: `@monoes/monodesign`'s optional `puppeteer@25.3.0` declares `engines.node ">=22.12.0"`, and `@monoes/monomindcli`'s optional `ai@7.0.59` (resolved from its declared `^7.0.58`) declares `">=22"`. `monomind doctor` reported "pass" on Node 20 the whole time; it now reports `warn`/`fail` below `22.12.0` and names the real floor. Node 20 reached EOL 2026-04-30.
   What this means in practice, measured on a real Node 20.20.2 install of the packed packages, **differs by installer and is not a blanket block**: `npm install` with `engine-strict=true` (this repo's own `.npmrc`, i.e. installing this workspace as a contributor) hard-fails with `EBADENGINE`, naming the exact package and floor. A default `npm install` (`engine-strict` unset — what `npm install monomind` gives a real end user) only **warns** `EBADENGINE` for every affected package and installs anyway. `pnpm install`/`pnpm add`, with or without `engine-strict`, gives **no warning or error at all** — it silently installs a package whose declared engines the running Node does not satisfy (measured with the closure wired through local `file:` overrides, i-090-install-p3-pnpm-v2.log — the first attempt, passing bare tarball paths directly, died on `ERR_PNPM_NO_MATCHING_VERSION` before reaching any engine check, because those bumped sibling versions are not on the real registry; it measured nothing about engines). A dedicated runtime floor check in the CLI entrypoint, so an unsupported Node actually gets stopped or clearly warned regardless of installer, is a candidate follow-up, not part of this change.
   `.github/workflows/publish-smoke-test.yml`'s smoke jobs move off Node 20 onto 22 and 26.
+
+### Added
+
+- `monomind init upgrade` now refreshes the generated `CLAUDE.md` and `.monomind/CAPABILITIES.md` alongside the statusline and helpers, so an existing project picks up corrections to those documents instead of keeping whatever its first `init` wrote.
+
+### Fixed
+
+- **The generated `CLAUDE.md` and `CAPABILITIES.md` told new projects things that were not true.** They asserted that Claude Code MUST initialize the monoswarm before complex work — nothing in `src/` requires or enforces that — and hard-coded a background-worker count that drifted from the real roster. The worker count and the command tables are now derived at doc-generation time from the actual registry rather than restated by hand, so they cannot silently go stale again.
+- Optional packages are resolved with `import.meta.resolve` instead of `require.resolve`, which failed for callers whose module graph never referenced the package.
 
 ## [2.11.12] — 2026-09-19
 
