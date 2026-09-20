@@ -106,12 +106,31 @@ async function _registerClient(redirectUri) {
   return data.client_id;
 }
 
+// #307: a registered client is bound to the ONE redirect_uri it was
+// registered with, so the cached clientId is only reusable while the
+// dashboard is still on that port. Caching the id alone meant a dashboard
+// that fell back to another port (4242 busy -> 4243) sent the old client
+// with a new redirect_uri, and monoes.me redirected the browser to the port
+// the client was registered for — ERR_CONNECTION_REFUSED, connection never
+// completes. Store the redirectUri alongside the id and re-register when
+// they no longer agree.
 async function _getOrRegisterClientId(monomindHome, redirectUri) {
   const existing = readMonoesConnection(monomindHome);
-  if (existing?.clientId) return existing.clientId;
+  if (existing?.clientId && existing.redirectUri === redirectUri) return existing.clientId;
   const clientId = await _registerClient(redirectUri);
-  _writeMonoesConnection(monomindHome, { ...(existing || {}), clientId });
+  _writeMonoesConnection(monomindHome, { ...(existing || {}), clientId, redirectUri });
   return clientId;
+}
+
+/** Forgets the cached OAuth client (keeping any tokens) after monoes.me has
+ * rejected it — a client that the server no longer knows stays dead for
+ * every future attempt unless it is dropped, so the next connect must
+ * register a fresh one rather than retrying the same dead id. */
+function _forgetMonoesClient(monomindHome) {
+  const existing = readMonoesConnection(monomindHome);
+  if (!existing) return;
+  const { clientId: _clientId, redirectUri: _redirectUri, ...rest } = existing;
+  _writeMonoesConnection(monomindHome, rest);
 }
 
 /** Merges (or removes) the `monoes` entry in the project's existing
@@ -248,7 +267,12 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
           code_verifier: pending.codeVerifier,
         }),
       });
-      if (!tokenRes.ok) throw new Error(`token exchange failed: ${tokenRes.status}`);
+      if (!tokenRes.ok) {
+        // 400/401 here means the client itself was refused (unknown client,
+        // or a redirect_uri it isn't registered for) — see #307.
+        if (tokenRes.status === 400 || tokenRes.status === 401) _forgetMonoesClient(MONOMIND_HOME);
+        throw new Error(`token exchange failed: ${tokenRes.status}`);
+      }
       const tokenData = await tokenRes.json();
 
       const meRes = await fetch(`${MONOES_BASE_URL}/api/community/me`, {
@@ -258,6 +282,7 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
 
       _writeMonoesConnection(MONOMIND_HOME, {
         clientId: existing.clientId,
+        redirectUri: existing.redirectUri,
         accessToken: /* value */ tokenData.access_token,
         refreshToken: /* value */ tokenData.refresh_token || null,
         expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000,
