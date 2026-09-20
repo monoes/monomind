@@ -143,6 +143,10 @@ describe('privacy-claims (i-078)', () => {
         updated: [],
         skipped: [],
         errors: [],
+        // o-38 added `removed` to InitResult (retired entries are reported
+        // separately from created ones). This fixture only exercises the
+        // description pass-through, so an empty list is the accurate value.
+        removed: [],
         summary: { skillsCount: 0, commandsCount: 0, agentsCount: 0, hooksEnabled: 0 },
       };
       writeSharedInstructions(tmp, true, result);
