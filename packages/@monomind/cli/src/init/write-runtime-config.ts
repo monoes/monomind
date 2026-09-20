@@ -87,29 +87,43 @@ mcp:
   writeGeneratedFile(configPath, config);
   result.created.files.push('.monomind/config.yaml');
 
-  // Write .monomind/.gitignore — commit config/knowledge/metrics, exclude sensitive data
+  // Write .monomind/.gitignore.
   const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
-  const neverCommitLines = MONOMIND_NEVER_COMMIT.map(
-    ({ file, reason }) => `# ${reason}\n${file}`,
-  ).join('\n');
-  const gitignore = `# Monomind — exclude files that may contain secrets or sensitive prompt data
-# Sessions contain conversation history (prompts, code snippets, user data)
-sessions/
-# Security scan results may expose vulnerability details
-security/
-# Temporary and machine-specific files
-*.tmp
-*.log
-daemon.pid
-# Never commit credentials or keys
-*.key
-*.token
-*.secret
-.env
-${neverCommitLines}
-`;
 
   if (!fs.existsSync(gitignorePath) || options.force) {
+    // i-052 §2(ii) — deny-by-default for FRESH projects. Three
+    // independently-maintained denylists (this file's old body,
+    // MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES, and doctor's
+    // REQUIRED_GITIGNORE_PATTERNS) all separately omitted `dashboard-token`
+    // — a denylist can always miss its next dangerous entry. Ignoring
+    // everything under .monomind/ and explicitly un-ignoring only what's
+    // genuinely meant to be shared means a file monomind starts writing
+    // tomorrow is protected by construction, with no list to remember to
+    // update. Order matters for git's "can't re-include inside an excluded
+    // parent" rule: `!orgs/` must precede `!orgs/*.json`.
+    const gitignore = `# Monomind — deny by default, allow-list what's meant to be committed.
+# See doc/privacy.md and i-052: a curated denylist can always miss its
+# next dangerous entry (this repo shipped a live credential leak because
+# three separate ones did). Ignoring everything and un-ignoring only what
+# monomind genuinely wants shared makes "we forgot to un-ignore something
+# harmless" the failure mode instead of "we leaked a credential".
+*
+
+# What monomind wants committed:
+!.gitignore
+!config.yaml
+!CAPABILITIES.md
+!orgs/
+!orgs/*.json
+
+# Deliberately NOT allow-listed: knowledge/ — chunks.jsonl and
+# doc-metadata.jsonl are the actual ingested content of the user's own
+# files, not metadata (doctor-project-checks.ts's REQUIRED_GITIGNORE_PATTERNS
+# ignores it for the same reason). README/privacy.md's "Your notes never
+# leave your computer" claim is about exactly this data; un-ignoring it by
+# default would be a larger privacy regression than the credential this
+# item exists to fix.
+`;
     atomicWriteFile(gitignorePath, gitignore);
     result.created.files.push('.monomind/.gitignore');
   } else {

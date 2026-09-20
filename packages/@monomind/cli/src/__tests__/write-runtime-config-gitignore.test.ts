@@ -54,16 +54,31 @@ function run(result: InitResult = freshResult(), force = true) {
   return writeRuntimeConfig(targetDir, options, result);
 }
 
+// Deliberately NOT `-v`: `git check-ignore -v` prints the last matching
+// pattern (including a negation) but its documented exit status ("0 = the
+// path is ignored") does not actually hold once that last match is a
+// negation — empirically, `-v` exits 0 whenever ANY pattern matched, ignore
+// or un-ignore. Plain `check-ignore` (no `-v`) exits 0 only when the path is
+// genuinely ignored, which is what every caller here relies on (i-052
+// commit 2's AC-11 assertions are exactly the "un-ignored by a negation"
+// case that `-v` gets wrong). The `-v` output is captured separately, only
+// as a diagnostic — never as the source of `exitCode`.
 function gitCheckIgnore(relPath: string): { exitCode: number; stdout: string } {
+  let stdout = '';
   try {
-    const stdout = execFileSync('git', ['check-ignore', '-v', relPath], {
+    stdout = execFileSync('git', ['check-ignore', '-v', relPath], {
       cwd: targetDir,
       encoding: 'utf8',
     });
+  } catch (err) {
+    stdout = String((err as { stdout?: Buffer | string }).stdout ?? '');
+  }
+  try {
+    execFileSync('git', ['check-ignore', relPath], { cwd: targetDir, stdio: 'pipe' });
     return { exitCode: 0, stdout };
   } catch (err) {
-    const e = err as { status?: number; stdout?: Buffer | string };
-    return { exitCode: e.status ?? 1, stdout: String(e.stdout ?? '') };
+    const e = err as { status?: number };
+    return { exitCode: e.status ?? 1, stdout };
   }
 }
 
@@ -243,5 +258,85 @@ describe('the specific-excludes replacement list is never itself blanket-shaped'
       /^\.monomind\/\*{1,2}\/?$/.test(line.trim()),
     );
     expect(blanketShaped).toEqual([]);
+  });
+});
+
+// i-052 §2(ii) / commit 2 — deny-by-default. Three independently-maintained
+// denylists (§1 of the plan) all separately omitted `dashboard-token`; a
+// denylist can always omit its next dangerous file too. Inverting a FRESH
+// project's generated .monomind/.gitignore to `*` plus a narrow allow-list
+// means a file monomind starts writing tomorrow, that nobody remembers to
+// add anywhere, is ignored by construction — the failure mode becomes
+// "forgot to un-ignore something harmless" (visible, recoverable) instead
+// of "leaked a credential". Existing projects are migrated ONLY by the
+// content-guarded append (already covered above) — never rewritten to this
+// shape, since a user may have deliberately committed something under
+// .monomind/ and silently un-committing it is a different kind of harm.
+describe('deny-by-default: a fresh .monomind/.gitignore ignores everything except the allow-list (commit 2)', () => {
+  it('ignores a file monomind has never named anywhere, by construction', async () => {
+    await run();
+    // Deliberately NOT in MONOMIND_NEVER_COMMIT, MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES,
+    // or any specific pattern anywhere — the point is that nobody has to add it.
+    const { exitCode } = gitCheckIgnore('.monomind/some-future-file-nobody-named.dat');
+    expect(exitCode).toBe(0);
+  });
+
+  it('still ignores every MONOMIND_NEVER_COMMIT entry (belt-and-braces with the allow-list inversion)', async () => {
+    await run();
+    for (const { file } of MONOMIND_NEVER_COMMIT) {
+      expect(gitCheckIgnore(`.monomind/${file}`).exitCode, `.monomind/${file}`).toBe(0);
+    }
+  });
+
+  // AC-11: the inversion's own risk is an allow-list that forgets an entry,
+  // silently stopping the user committing their org configs. These must
+  // stay committable after commit 2, same as before it.
+  it('AC-11: config.yaml, CAPABILITIES.md and orgs/*.json remain committable', async () => {
+    await run();
+    writeFileSync(join(targetDir, '.monomind', 'config.yaml'), 'version: "3.0.0"\n');
+    writeFileSync(join(targetDir, '.monomind', 'CAPABILITIES.md'), '# Capabilities\n');
+    mkdirSync(join(targetDir, '.monomind', 'orgs'), { recursive: true });
+    writeFileSync(join(targetDir, '.monomind', 'orgs', 'sample-team.json'), '{}\n');
+
+    expect(gitCheckIgnore('.monomind/config.yaml').exitCode).toBe(1);
+    expect(gitCheckIgnore('.monomind/CAPABILITIES.md').exitCode).toBe(1);
+    expect(gitCheckIgnore('.monomind/orgs/sample-team.json').exitCode).toBe(1);
+  });
+
+  // AC-11 (anti-over-correction, the other direction): dev-lead ruling —
+  // the plan's original allow-list named `knowledge/`, but
+  // `.monomind/knowledge/{chunks,doc-metadata}.jsonl` is the actual
+  // ingested content of the user's own files, not metadata — exactly what
+  // README/privacy.md's "Your notes never leave your computer" claim is
+  // about (also independently required ignored by doctor-project-checks.ts's
+  // pre-existing REQUIRED_GITIGNORE_PATTERNS). Un-ignoring it by default
+  // would be a larger privacy regression than the credential this item
+  // fixes. Pinned here so a future "why isn't knowledge/ on the allow-list,
+  // that looks like an omission" fix is caught by a red test instead of
+  // silently reintroducing the leak.
+  it('AC-11 (anti-over-correction): .monomind/knowledge/ stays ignored on a fresh init', async () => {
+    await run();
+    mkdirSync(join(targetDir, '.monomind', 'knowledge'), { recursive: true });
+    writeFileSync(join(targetDir, '.monomind', 'knowledge', 'chunks.jsonl'), '{}\n');
+    expect(gitCheckIgnore('.monomind/knowledge/chunks.jsonl').exitCode).toBe(0);
+  });
+
+  it('the generated .monomind/.gitignore file itself remains committable', async () => {
+    await run();
+    expect(gitCheckIgnore('.monomind/.gitignore').exitCode).toBe(1);
+  });
+
+  it('does NOT apply to an existing pre-fix project — the append path is untouched by the inversion', async () => {
+    const gitignorePath = join(targetDir, '.monomind', '.gitignore');
+    const preFix = '*.tmp\ndaemon.pid\n';
+    writeFileSync(gitignorePath, preFix);
+
+    await run(freshResult(), false);
+
+    const after = readFileSync(gitignorePath, 'utf-8');
+    // Still additive: the user's original content survives, and no bare
+    // `*` deny-by-default line was introduced by the append path.
+    expect(after).toContain('*.tmp');
+    expect(after.split('\n').map((l) => l.trim())).not.toContain('*');
   });
 });
