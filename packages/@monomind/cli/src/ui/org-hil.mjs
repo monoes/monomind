@@ -58,11 +58,11 @@ export function writeFileAtomic(dest, text) {
   const tmp = `${dest}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
   const fd = fs.openSync(tmp, 'wx', 0o600);
   try {
-    fs.writeFileSync(fd, text);
-  } finally {
-    fs.closeSync(fd);
-  }
-  try {
+    try {
+      fs.writeFileSync(fd, text);
+    } finally {
+      fs.closeSync(fd);
+    }
     fs.renameSync(tmp, dest);
   } catch (err) {
     fs.rmSync(tmp, { force: true });
@@ -206,21 +206,27 @@ export async function resolveApproval(root, org, requestId, approved) {
   if (!entry) throw new HilError(404, `approval "${requestId}" not found for org "${org}"`);
   if (entry.approved !== null)
     throw new HilError(409, `approval "${requestId}" already ${approvalStatus(entry)}`);
-  const live = await callDaemon(root, org, '/api/set-approval', {
-    org,
-    role: entry.roleId,
-    action: entry.action,
-    approved,
-    resolvedBy: DASHBOARD_RESOLVER,
-    requestId,
-  });
+  const ended = `approval "${requestId}" ended with the run that asked for it; the role asks again when it needs to`;
+  let live;
+  try {
+    live = await callDaemon(root, org, '/api/set-approval', {
+      org,
+      role: entry.roleId,
+      action: entry.action,
+      approved,
+      resolvedBy: DASHBOARD_RESOLVER,
+      requestId,
+    });
+  } catch (err) {
+    // A daemon started since (e.g. `--resume` in a new process) holds only
+    // the approvals its own run asked for.
+    if (err instanceof HilError && err.status === 404) throw new HilError(409, ended);
+    throw err;
+  }
   if (live) return { delivery: 'live' };
   // Unlike gates and answers, nothing reads a recorded approval back: the
-  // request lived in the run that asked, and a new run asks again.
-  throw new HilError(
-    409,
-    `org "${org}" is not running — approval "${requestId}" ended with the run that asked for it; the role asks again when the org next runs`,
-  );
+  // request lived in the daemon's memory, and a new run asks again.
+  throw new HilError(409, `no running daemon hosts org "${org}" for this project — ${ended}`);
 }
 
 export async function resolveGate(root, org, gateId, approved, resolution) {

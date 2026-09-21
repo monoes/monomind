@@ -9,6 +9,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -260,13 +261,34 @@ describe('org-hil with a running org (daemon registered in the broker)', () => {
 
   it('uses the daemon registered for this project root', async () => {
     writeOrgFile('gates.json', { gates: [pendingGate] });
+    writeOrgFile('approvals.json', { approvals: [pendingApproval] });
     writeOperatorCredential(ORG, 'op-cred', operatorDir);
     const d = await fakeDaemon(undefined, root);
     try {
+      expect(hil.listApprovals(root, ORG)[0].status).toBe('pending');
       await expect(hil.resolveGate(root, ORG, 'gate-1', true)).resolves.toEqual({
         delivery: 'live',
       });
       expect(d.calls).toHaveLength(1);
+    } finally {
+      await d.close();
+    }
+  });
+
+  it('reports an approval the live daemon no longer holds as ended with its run (409), not 404', async () => {
+    writeOrgFile('approvals.json', { approvals: [pendingApproval] });
+    writeOperatorCredential(ORG, 'op-cred', operatorDir);
+    // e.g. left over from before a --resume in a new process
+    const d = await fakeDaemon({
+      status: 404,
+      body: { ok: false, error: 'No pending approval apr-1 found for coder action Bash' },
+    });
+    try {
+      const err = await hil.resolveApproval(root, ORG, 'apr-1', true).catch((e: Error) => e);
+      expect(hil.hilErrorStatus(err)).toMatchObject({
+        status: 409,
+        error: expect.stringContaining('ended with the run'),
+      });
     } finally {
       await d.close();
     }
@@ -312,9 +334,18 @@ describe('org-hil with no running org', () => {
     const err = await hil.resolveApproval(root, ORG, 'apr-1', false).catch((e: Error) => e);
     expect(hil.hilErrorStatus(err)).toMatchObject({
       status: 409,
-      error: expect.stringContaining('not running'),
+      error: expect.stringContaining('no running daemon'),
     });
     expect(readOrgFile('approvals.json').approvals[0].approved).toBeNull();
+  });
+
+  it('leaves no temp file behind when the write fails', async () => {
+    writeOrgFile('gates.json', { gates: [pendingGate] });
+    // a directory where the file goes makes the rename fail
+    rmSync(join(orgDir(), 'gates.json'));
+    mkdirSync(join(orgDir(), 'gates.json', 'x'), { recursive: true });
+    expect(() => hil.writeFileAtomic(join(orgDir(), 'gates.json'), '{}')).toThrow();
+    expect(readdirSync(orgDir()).filter((f) => f.endsWith('.tmp'))).toEqual([]);
   });
 
   it('never writes through a link planted where its temp file goes', async () => {

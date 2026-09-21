@@ -40,6 +40,7 @@ export const RUNTIME_AUDIT_REASONS = new Set([
   'loadout-mismatch',
   'agent-session-crash',
   'agent-context-limit',
+  'boss-context-limit',
 ]);
 const MAX_AUDIT = 60;
 
