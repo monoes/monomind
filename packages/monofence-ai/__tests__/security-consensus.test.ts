@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateSecurityConsensus } from '../src/index.js';
-import type { AttentionContext, ThreatDetectionResult, Threat } from '../src/index.js';
+import type { AttentionContext, Threat } from '../src/index.js';
 
 function makeAssessment(
   safe: boolean,

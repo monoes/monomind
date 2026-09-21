@@ -206,7 +206,7 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     const def = createTestDef('Checkpoint TTL test');
     writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(def));
 
-    const running = await daemon.startOrg(orgName);
+    await daemon.startOrg(orgName);
     await daemon.stopOrg(orgName);
 
     // Manually age the checkpoint

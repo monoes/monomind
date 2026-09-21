@@ -11,7 +11,7 @@
  * Uses vitest with mocks to isolate from external dependencies.
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ============================================================================
 // Mock setup - must be before imports
@@ -1099,7 +1099,7 @@ describe('MCP Tools Deep Test Suite', () => {
 
     it('every property in schema has a type or description', () => {
       for (const tool of ALL_TOOLS) {
-        for (const [propName, prop] of Object.entries(tool.inputSchema.properties)) {
+        for (const prop of Object.values(tool.inputSchema.properties)) {
           const p = prop as Record<string, unknown>;
           // Every property should have at least a type or description
           const hasType = p.type !== undefined;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { CapabilityModule, DirectoryScan, FileEntry, Fingerprint } from '../../src/capabilities/types.js';
+import type { DirectoryScan, Fingerprint } from '../../src/capabilities/types.js';
 
 describe('capability types', () => {
   it('DirectoryScan has required fields', () => {

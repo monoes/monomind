@@ -286,7 +286,7 @@ describe('collectStaticDesignSystemFindings()', () => {
       _style: style,
       childNodes: text ? [{ nodeType: 3, textContent: text }] : [],
       getAttribute(name) {
-        return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null;
+        return Object.hasOwn(attrs, name) ? attrs[name] : null;
       },
     };
   }

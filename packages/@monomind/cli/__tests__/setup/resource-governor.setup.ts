@@ -8,7 +8,7 @@
 // flaky and non-deterministic — a role could vanish from a run depending on
 // what else happened to be running on the machine at test time. Neutralize
 // the gate for the whole suite so it never observes real host state.
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { configureResourceLimits } from '../../src/utils/resource-governor.js';
 

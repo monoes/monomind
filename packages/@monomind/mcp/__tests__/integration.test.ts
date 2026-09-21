@@ -10,9 +10,8 @@ import {
   createTextResource,
   definePrompt,
   textMessage,
-  resourceMessage,
 } from '../src/index.js';
-import type { ILogger, MCPRequest, MCPResponse } from '../src/types.js';
+import type { ILogger } from '../src/types.js';
 
 const createMockLogger = (): ILogger => ({
   debug: vi.fn(),

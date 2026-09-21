@@ -46,8 +46,6 @@ import {
   resolveHarness,
   normalizeHookEvent,
   expandScanTargets,
-  parseStaticStyleImports,
-  coLocatedStylesheets,
   runHook,
   payload,
   extractFindingIgnoreValue,
@@ -1299,7 +1297,6 @@ rounded:
 
   it('emits one-shot suppression notice on the 7th edit and silences after', async () => {
     const file = writeFixture('src/Card.tsx', 'noop');
-    const det = fakeDetector([finding('side-tab', 1)]);
     let last;
     for (let i = 0; i < 8; i++) {
       // Use a different line each time so we don't dedup; we want to hit
@@ -1317,7 +1314,6 @@ rounded:
 
   it('emits suppressionNotice text on the threshold-crossing edit', async () => {
     const file = writeFixture('src/Card.tsx', 'noop');
-    const det = fakeDetector([finding('side-tab', 1)]);
     let r;
     for (let i = 0; i < 7; i++) {
       const f = [finding('side-tab', i + 1)];

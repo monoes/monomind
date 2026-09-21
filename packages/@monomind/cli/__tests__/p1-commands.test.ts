@@ -3,7 +3,7 @@
  * Tests for init, start, status, task, and session commands
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { initCommand } from '../src/commands/init.js';
 import { startCommand } from '../src/commands/start.js';
 import { statusCommand } from '../src/commands/status.js';
@@ -13,7 +13,6 @@ import { CommandParser } from '../src/parser.js';
 import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';
 import * as fs from 'fs';
-import * as path from 'path';
 
 // Mock fs module
 vi.mock('fs', () => ({

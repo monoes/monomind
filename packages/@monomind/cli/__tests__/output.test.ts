@@ -18,19 +18,17 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OutputFormatter } from '../src/output.js';
 
 describe('OutputFormatter', () => {
-  let stdoutWrite: ReturnType<typeof vi.spyOn>;
-  let stderrWrite: ReturnType<typeof vi.spyOn>;
   let captured: string[];
   let errorCaptured: string[];
 
   beforeEach(() => {
     captured = [];
     errorCaptured = [];
-    stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation((s: string | Uint8Array) => {
+    vi.spyOn(process.stdout, 'write').mockImplementation((s: string | Uint8Array) => {
       captured.push(String(s));
       return true;
     });
-    stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation((s: string | Uint8Array) => {
+    vi.spyOn(process.stderr, 'write').mockImplementation((s: string | Uint8Array) => {
       errorCaptured.push(String(s));
       return true;
     });

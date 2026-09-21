@@ -15,11 +15,7 @@ import {
   AlertSeverity,
   WORKER_CONFIGS,
   createWorkerManager,
-  createHealthWorker,
-  createSecurityWorker,
-  createDDDWorker,
   type WorkerResult,
-  type AlertThreshold,
 } from '../src/index.js';
 
 // ============================================================================

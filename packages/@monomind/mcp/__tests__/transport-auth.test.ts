@@ -13,8 +13,8 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { WebSocket } from 'ws';
-import { createHttpTransport, HttpTransport } from '../src/transport/http.js';
-import { createWebSocketTransport, WebSocketTransport } from '../src/transport/websocket.js';
+import { createHttpTransport, type HttpTransport } from '../src/transport/http.js';
+import { createWebSocketTransport, type WebSocketTransport } from '../src/transport/websocket.js';
 import type { ILogger, MCPRequest, MCPResponse } from '../src/types.js';
 
 const createMockLogger = (): ILogger => ({

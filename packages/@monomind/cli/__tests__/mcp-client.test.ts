@@ -3,7 +3,7 @@
  * Tests for MCP tool invocation with proper mocking
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   callMCPTool,
   getToolMetadata,

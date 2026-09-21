@@ -9,7 +9,7 @@ import { lookupOrg, readOperatorCredential, registerOrg } from '../../src/orgrt/
 import { checkApproval } from '../../src/orgrt/approvals.js';
 
 const echoQuery = ({ prompt }: any) => (async function* () {
-  for await (const m of prompt) {
+  for await (const _m of prompt) {
     yield { type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } };
     yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
   }

@@ -1,10 +1,9 @@
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, existsSync, unlinkSync } from 'fs';
+import { mkdirSync, writeFileSync, rmSync, unlinkSync } from 'fs';
 import { buildAsync, buildIncrementalAsync } from '../../src/pipeline/orchestrator.js';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { countNodes } from '../../src/storage/node-store.js';
-import { countEdges } from '../../src/storage/edge-store.js';
 import { ftsSearch } from '../../src/storage/fts-store.js';
 import { getNodesForFile } from '../../src/storage/node-store.js';
 

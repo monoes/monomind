@@ -5,7 +5,7 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
@@ -287,7 +287,7 @@ describe('wrapCli integration', () => {
 </body></html>`;
     writeFileSync(join(tmp, 'page.html'), html);
 
-    const result = JSON.parse(execSync(
+    JSON.parse(execSync(
       `node skill/scripts/live-wrap.mjs --id id123 --count 2 --element-id "pricing" --file "${join(tmp, 'page.html')}"`,
       { cwd: process.cwd(), encoding: 'utf-8' }
     ));

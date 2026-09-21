@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DiffClassifier, createDiffClassifier, type DiffAnalysis, type FileDiff } from '../../src/monovector/diff-classifier';
+import { DiffClassifier, createDiffClassifier, type FileDiff } from '../../src/monovector/diff-classifier';
 
 // Mock the @monoes/diff module
 vi.mock('@monoes/diff', () => ({

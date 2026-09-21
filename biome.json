@@ -10,6 +10,12 @@
       "packages/*/src/**",
       "packages/@monomind/*/src/**",
       "packages/@monoes/*/src/**",
+      "packages/*/__tests__/**",
+      "packages/@monomind/*/__tests__/**",
+      "packages/@monoes/*/__tests__/**",
+      "packages/@monoes/*/tests/**",
+      "!packages/@monomind/monograph/__tests__/fixtures",
+      "!packages/@monoes/monodesign/tests/fixtures",
       "tests/**",
       "scripts/**",
       "!**/dist",
@@ -32,6 +38,31 @@
       "linter": {
         "rules": {
           "a11y": "off"
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/*/__tests__/**",
+        "packages/@monomind/*/__tests__/**",
+        "packages/@monoes/*/__tests__/**",
+        "packages/@monoes/*/tests/**"
+      ],
+      "formatter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
+      },
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useYield": "off",
+            "noUnusedFunctionParameters": "off"
+          },
+          "complexity": {
+            "noAdjacentSpacesInRegex": "off"
+          }
         }
       }
     }

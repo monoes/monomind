@@ -266,7 +266,6 @@ describe('@monoes/mcp', () => {
 
     it('should update session activity', () => {
       const session = manager.createSession('stdio');
-      const originalTime = session.lastActivityAt;
 
       // Small delay to ensure time difference
       const result = manager.updateActivity(session.id);

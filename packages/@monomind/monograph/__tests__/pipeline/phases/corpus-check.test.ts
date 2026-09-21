@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assessCorpus, type CorpusAssessment } from '../../../src/pipeline/phases/scan.js';
+import { assessCorpus } from '../../../src/pipeline/phases/scan.js';
 
 describe('assessCorpus', () => {
   it('warns when corpus is too small (< 50K estimated words)', () => {
