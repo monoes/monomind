@@ -7,10 +7,68 @@ import * as path from 'node:path';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
+/** `monomind dashboard open` — a one-time login link to the running dashboard
+ *  (ui/human-auth.mjs). The dashboard only acts for a browser opened this
+ *  way; a link is valid once, for ten minutes. */
+const openSubcommand: Command = {
+  name: 'open',
+  description: 'Open the running dashboard in your browser with a one-time login link',
+  options: [
+    {
+      name: 'port',
+      short: 'p',
+      description: 'Dashboard port (default: from control.json, else 4242)',
+      type: 'number',
+    },
+    {
+      name: 'print',
+      description: 'Print the login link instead of opening a browser (e.g. over SSH)',
+      type: 'boolean',
+      default: false,
+    },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { existsSync, readFileSync } = await import('node:fs');
+    let port = Number(ctx.flags.port) || 0;
+    if (!port) {
+      const control = path.join(ctx.cwd, '.monomind', 'control.json');
+      try {
+        if (existsSync(control)) port = Number(JSON.parse(readFileSync(control, 'utf8')).port) || 0;
+      } catch {
+        /* fall back to the default port */
+      }
+    }
+    port ||= 4242;
+    let nonce: string;
+    try {
+      const auth = await import('../ui/human-auth.mjs');
+      nonce = auth.issueLoginNonce();
+    } catch (error) {
+      output.printError(
+        `Cannot issue a login link: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { success: false, exitCode: 1 };
+    }
+    const url = `http://localhost:${port}/?login=${nonce}`;
+    if (ctx.flags.print) {
+      output.writeln(url);
+      output.printInfo('Valid once, for 10 minutes.');
+      return { success: true, data: { url } };
+    }
+    const serverMod = await import('../ui/server.mjs');
+    await serverMod.openUrl(url);
+    output.printSuccess(
+      `Opened the dashboard on port ${port} (login link valid once, for 10 minutes).`,
+    );
+    return { success: true, data: { port } };
+  },
+};
+
 export const uiCommand: Command = {
   name: 'ui',
   aliases: ['dashboard'],
   description: 'Start the Monomind Neural Control Room (web UI dashboard)',
+  subcommands: [openSubcommand],
   options: [
     {
       name: 'port',
@@ -43,6 +101,10 @@ export const uiCommand: Command = {
     { command: 'monomind ui --no-open', description: 'Start server without opening browser' },
     { command: 'monomind ui --port 4300', description: 'Start on a custom port' },
     { command: 'monomind dashboard', description: 'Alias for monomind ui' },
+    {
+      command: 'monomind dashboard open',
+      description: 'Log a browser in to the running dashboard',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawPort = ctx.flags.port as number | undefined;

@@ -60,6 +60,7 @@ import http from 'node:http';
 // server.mjs is plain ESM shipped as-is; import it directly.
 // @ts-expect-error — .mjs sibling has no type declarations
 import * as uiServer from '../src/ui/server.mjs';
+import { loggedInPage } from './helpers/dashboard-login.js';
 
 const { startServer, isAllowedHost, parseHostHeader, _sjHasPricing } = uiServer as any;
 let httpServer: any = null;
@@ -70,6 +71,7 @@ const CRED_RE = /mm-token" content="([a-f0-9]+)"/;
 let baseUrl = '';
 let port = 0;
 let cred = '';
+let session = '';
 let projectDir = '';
 let homeDir = '';
 const prevHome = process.env.HOME;
@@ -108,8 +110,9 @@ beforeAll(async () => {
   port = res.port;
   baseUrl = `http://127.0.0.1:${port}`;
 
-  const html = await (await fetch(`${baseUrl}/`)).text();
-  cred = (html.match(CRED_RE) || [])[1] || '';
+  const page = await loggedInPage(baseUrl);
+  session = page.cookie;
+  cred = (page.html.match(CRED_RE) || [])[1] || '';
 }, 60_000);
 
 afterAll(async () => {
@@ -153,7 +156,7 @@ describe('(a) DNS-rebinding: Host header validation', () => {
     // assertion below would pass for the wrong reason.
     expect(cred, 'no credential recovered from GET / — server did not serve the page').toMatch(/^[a-f0-9]{16,}$/);
     for (const host of [`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]) {
-      const r = await raw('/', { headers: { Host: host } });
+      const r = await raw('/', { headers: { Host: host, Cookie: session } });
       expect(r.status, `Host: ${host} must be served`).toBe(200);
       expect(r.body).toMatch(CRED_RE);
     }
@@ -547,5 +550,55 @@ describe('(f) getMonomindHome — project scoping (#308)', () => {
     // projectDir === cwd, explicit false — exactly what the block passes with
     // no CLAUDE_PROJECT_DIR in the environment.
     expect(withCwd(sub, () => getMonomindHome(sub, false))).toBe(repo);
+  });
+});
+
+describe('human session: the page and the decision routes need a logged-in browser', () => {
+  it('serves a login page without the token to a browser with no session', async () => {
+    const r = await raw('/', { headers: { Host: `127.0.0.1:${port}` } });
+    expect(r.status).toBe(401);
+    expect(r.body).not.toMatch(CRED_RE);
+    expect(r.body).toContain('monomind dashboard open');
+    for (const page of ['/orgs', '/mastermind', '/v2']) {
+      expect((await raw(page, { headers: { Host: `127.0.0.1:${port}` } })).body).not.toMatch(CRED_RE);
+    }
+  });
+
+  it('spends a login link once', async () => {
+    // @ts-expect-error — .mjs sibling has no type declarations
+    const { issueLoginNonce } = await import('../src/ui/human-auth.mjs');
+    const nonce = issueLoginNonce();
+    const first = await raw(`/?login=${nonce}`, { headers: { Host: `127.0.0.1:${port}` } });
+    expect(first.status).toBe(302);
+    expect(String(first.headers['set-cookie'])).toMatch(/mm_human=[0-9a-f]{64}; HttpOnly; SameSite=Strict/);
+    const again = await raw(`/?login=${nonce}`, { headers: { Host: `127.0.0.1:${port}` } });
+    expect(again.status).toBe(401);
+  });
+
+  it('refuses a decision with the token alone, and accepts it from the logged-in browser', async () => {
+    const opts = (cookie?: string) => ({
+      method: 'POST',
+      headers: {
+        Host: `127.0.0.1:${port}`,
+        'Content-Type': 'application/json',
+        'x-monomind-token': cred,
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+      body: JSON.stringify({ action: 'approve' }),
+    });
+    const tokenOnly = await raw('/api/org/nosuchorg/approvals/apr-1', opts());
+    expect(tokenOnly.status).toBe(403);
+    expect(tokenOnly.body).toContain('monomind dashboard open');
+    // Past the human check: the route itself answers (no such approval).
+    const human = await raw('/api/org/nosuchorg/approvals/apr-1', opts(session));
+    expect(human.status).not.toBe(403);
+  });
+
+  it('tells a pairing hook where the token file is, never the token', async () => {
+    const r = await raw('/api/identity', { headers: { Host: `127.0.0.1:${port}` } });
+    expect(r.status).toBe(200);
+    const id = JSON.parse(r.body);
+    expect(id).toMatchObject({ pid: process.pid, dir: projectDir });
+    expect(r.body).not.toContain(cred);
   });
 });

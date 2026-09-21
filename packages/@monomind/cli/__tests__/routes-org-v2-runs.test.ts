@@ -30,10 +30,12 @@ import { tmpdir } from 'node:os';
 // server.mjs is plain ESM shipped as-is; import it directly.
 // @ts-expect-error — .mjs sibling has no type declarations
 import * as uiServer from '../src/ui/server.mjs';
+import { loggedInPage } from './helpers/dashboard-login.js';
 
 const { startServer } = uiServer as any;
 
 const CRED_RE = /mm-token" content="([a-f0-9]+)"/;
+const prevHome = process.env.HOME;
 const ORG = 'v2chatorg';
 const RUN_ID = 'run-20260913101934-abcd';
 
@@ -73,11 +75,13 @@ beforeAll(async () => {
   );
 
   process.chdir(projectDir);
+  // The login secret lives under $HOME — keep it out of the real one.
+  process.env.HOME = mkdtempSync(join(tmpdir(), 'v2runs-home-'));
   const res = await startServer({ port: 4918, projectDir, openBrowser: false });
   httpServer = res.server;
   baseUrl = `http://127.0.0.1:${res.port}`;
 
-  const html = await (await fetch(`${baseUrl}/`)).text();
+  const { html } = await loggedInPage(baseUrl);
   cred = (html.match(CRED_RE) || [])[1] || '';
 
   // Populate server.mjs's in-memory activeOrgRuns the same way a real running
@@ -94,6 +98,8 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  if (prevHome === undefined) delete process.env.HOME;
+  else process.env.HOME = prevHome;
   try {
     httpServer?.closeAllConnections?.();
     httpServer?.close();

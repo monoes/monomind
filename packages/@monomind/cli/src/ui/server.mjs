@@ -22,6 +22,13 @@ import {
   collectSystem,
   collectTokens,
 } from './collector.mjs';
+import {
+  consumeLoginNonce,
+  humanSessionCookie,
+  isHumanRequest,
+  issueLoginNonce,
+  loginRequiredPage,
+} from './human-auth.mjs';
 import { handleMonoesRoutes } from './routes-monoes.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
@@ -856,7 +863,7 @@ export function watchSafely(watcher, label) {
 /**
  * Opens a URL in the default browser, cross-platform.
  */
-async function openUrl(url) {
+export async function openUrl(url) {
   const { exec } = await import('node:child_process');
   const cmd =
     process.platform === 'darwin'
@@ -1921,7 +1928,20 @@ export async function startServer({
     '/orgs-files.js',
     '/markdown.js',
     '/favicon.ico',
+    '/api/identity',
   ]);
+  // Pages that embed the token: served only to a browser with the human session.
+  const _HUMAN_PAGES = new Set(['/', '/v2', '/orgs', '/mastermind']);
+  // Mutations that act as the human supervising an org (org-hil.mjs,
+  // org-runtime.mjs's config patch): the token alone is not enough.
+  const _HUMAN_ROUTES = [
+    /^\/api\/questions\/answer$/,
+    /^\/api\/org\/[^/]+\/approvals\/[^/]+$/,
+    /^\/api\/org\/[^/]+\/gates\/[^/]+$/,
+    /^\/api\/org\/[^/]+\/config$/,
+    /^\/api\/orgs\/[^/]+\/chat$/,
+  ];
+  const _isHumanRoute = (url) => _HUMAN_ROUTES.some((re) => re.test(url));
   const _isOpenRoute = (url, method) =>
     (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') &&
     (_OPEN_ROUTES.has(url) ||
@@ -2000,6 +2020,67 @@ export async function startServer({
           return;
         }
       }
+    }
+
+    // ------------------------------------------------ GET /api/identity
+    // Which process serves this port and where its token file is — never the
+    // token itself. control-start.cjs pairs another project with a server it
+    // finds already listening, by reading that file as the same user.
+    if (req.method === 'GET' && url === '/api/identity') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          pid: process.pid,
+          dir: projectDir || process.cwd(),
+          tokenFile: _dashboardTokenFilePath,
+        }),
+      );
+      return;
+    }
+
+    // ── Human session (human-auth.mjs) ─────────────────────────────────────
+    // The pages embed the dashboard token, and the decision routes act as the
+    // human who supervises an org — both need the browser session cookie, not
+    // just the token any local process can obtain. A one-time `?login=` link
+    // sets that cookie.
+    if (req.method === 'GET' && _HUMAN_PAGES.has(url)) {
+      const _login = new URL(req.url, 'http://localhost').searchParams.get('login');
+      if (_login && consumeLoginNonce(_login)) {
+        res.writeHead(302, {
+          Location: url,
+          'Set-Cookie': humanSessionCookie(),
+          'Cache-Control': 'no-store',
+        });
+        res.end();
+        return;
+      }
+      if (!isHumanRequest(req)) {
+        res.writeHead(401, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        });
+        res.end(loginRequiredPage());
+        return;
+      }
+    }
+    if (
+      req.method !== 'GET' &&
+      req.method !== 'HEAD' &&
+      _isHumanRoute(url) &&
+      !isHumanRequest(req)
+    ) {
+      res.writeHead(403, {
+        'Content-Type': 'application/json',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error:
+            'this acts as the human supervising the org — open the dashboard with `monomind dashboard open` and do it from that browser',
+        }),
+      );
+      return;
     }
 
     // ------------------------------------------------------------------ GET /
@@ -6091,7 +6172,14 @@ export async function startServer({
 
   // ---------------------------------------------------------- Auto-open
   if (openBrowser) {
-    openUrl(url).catch(() => {
+    // A one-time login link, so the browser this opens gets the human session.
+    let _openAt = url;
+    try {
+      _openAt = `${url}/?login=${issueLoginNonce()}`;
+    } catch (_) {
+      /* no session possible — the page explains how to get one */
+    }
+    openUrl(_openAt).catch(() => {
       // Non-fatal: browser open failure should not crash the server
     });
   }

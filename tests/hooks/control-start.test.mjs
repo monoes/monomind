@@ -327,8 +327,10 @@ describe('control-start: foreign-server pairing works without lsof (Windows regr
   // dashboard-token was never refreshed after the shared server restarted,
   // silently 401ing every subsequent event/hook call from the adopting
   // project. fetchForeignServerInfo() replaces both lsof calls with a
-  // portable HTTP round trip (GET / for the open mm-token, then an
-  // authenticated GET /api/status for pid+dir) that works on every platform.
+  // portable HTTP round trip — GET /api/identity for pid, dir and the token
+  // FILE, which it then reads — that works on every platform. The page no
+  // longer embeds the token for anything but a logged-in browser, so the
+  // mock's GET / carries none.
   it('pairs dashboard-token and known-projects.json via HTTP only, using a dead childPid to force the foreign-server path', async () => {
     const { spawn } = await import('node:child_process');
     const port = isolatedPort();
@@ -337,28 +339,31 @@ describe('control-start: foreign-server pairing works without lsof (Windows regr
     // Real server homes always have a data/ dir (packaged with the CLI) —
     // pre-create it so this test doesn't hit an unrelated missing-dir ENOENT.
     fs.mkdirSync(path.join(serverHomeDir, 'data'), { recursive: true });
+    fs.mkdirSync(path.join(serverHomeDir, '.monomind'), { recursive: true });
+    const tokenFile = path.join(serverHomeDir, '.monomind', 'dashboard-token');
+    fs.writeFileSync(tokenFile, mockAuth, { mode: 0o600 });
 
     const mockScript = path.join(tmpDir, 'mock-foreign-server.cjs');
     fs.writeFileSync(
       mockScript,
       `
       const http = require('http');
-      const AUTH_VALUE = ${JSON.stringify(mockAuth)};
       const server = http.createServer((req, res) => {
         const url = req.url.split('?')[0];
         if (url === '/') {
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end('<head>\\n<meta name="mm-token" content="' + AUTH_VALUE + '">\\n</head>');
+          res.writeHead(401, { 'Content-Type': 'text/html' });
+          res.end('<main>Open the dashboard from your terminal</main>');
           return;
         }
         if (url === '/api/status') {
-          if (req.headers['x-monomind-token'] !== AUTH_VALUE) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
-            return;
-          }
+          // Like the real server: the API needs the token; identity does not.
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
+          return;
+        }
+        if (url === '/api/identity') {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ pid: process.pid, dir: ${JSON.stringify(serverHomeDir)} }));
+          res.end(JSON.stringify({ pid: process.pid, dir: ${JSON.stringify(serverHomeDir)}, tokenFile: ${JSON.stringify(tokenFile)} }));
           return;
         }
         res.writeHead(404); res.end('Not found');

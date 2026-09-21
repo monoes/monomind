@@ -158,11 +158,10 @@ function probePort(p) {
 // shelling out to `lsof` (Unix-only — unavailable on Windows, which left the
 // pairing step below permanently broken there: control.json stuck at pid:0
 // forever, dashboard-token never refreshed after the shared server restarts).
-// GET / is an intentionally-open route that embeds the live auth token in a
-// <meta name="mm-token"> tag for exactly this same-machine, loopback-trusted
-// purpose; re-using it here to authenticate a follow-up GET /api/status call
-// gets both the pid and the project `dir` in one portable HTTP round trip —
-// no OS-specific process inspection needed on any platform.
+// GET /api/identity names the server's pid, project `dir` and token FILE —
+// never the token itself (the dashboard's pages only embed it for a logged-in
+// browser). The token is read from that file as the same user, in one
+// portable HTTP round trip — no OS-specific process inspection needed.
 function fetchForeignServerInfo(p) {
   const http = require('http');
   const getBody = (reqPath, headers) => new Promise((resolve) => {
@@ -175,16 +174,14 @@ function fetchForeignServerInfo(p) {
     req.on('timeout', () => { req.destroy(); resolve(null); });
   });
   return (async () => {
-    const home = await getBody('/');
-    if (!home) return null;
-    const m = home.body.match(/name="mm-token" content="([^"]*)"/);
-    const token = m ? m[1] : null;
-    if (!token) return null;
-    const status = await getBody('/api/status', { 'x-monomind-token': token });
-    if (!status) return null;
+    const id = await getBody('/api/identity');
+    if (!id || id.statusCode !== 200) return null;
     try {
-      const parsed = JSON.parse(status.body);
+      const parsed = JSON.parse(id.body);
       if (typeof parsed.pid !== 'number' || typeof parsed.dir !== 'string') return null;
+      const tokenFile = typeof parsed.tokenFile === 'string' ? parsed.tokenFile : path.join(parsed.dir, '.monomind', 'dashboard-token');
+      const token = fs.readFileSync(tokenFile, 'utf8').trim();
+      if (!token) return null;
       return { pid: parsed.pid, dir: parsed.dir, token };
     } catch { return null; }
   })();
