@@ -127,7 +127,9 @@ Design:
      the agent sees.
 3. **The task key** is parsed from the message text: the leading `[task:<id>]`. An untagged
    message (mail, answers, nudges, turn-limit continuations) belongs to the role's current or
-   last key. In task scope, `queueDispatch` pushes each task line **separately** instead of
+   last key. *Follow-up:* mail sent from a task's session gets `[task:<id>]` added to its subject.
+   Inbound mail is routed by a tag in its subject line, else by the task whose session last wrote
+   to that sender, and only then falls back to the current key (`mailRouteKey`). In task scope, `queueDispatch` pushes each task line **separately** instead of
    joined, so one message carries one key.
 4. **The process cycles and the model session is resumed.** `stream()` gains two options:
    - `stopBefore(next)`: end the stream **before** yielding a message that belongs to a

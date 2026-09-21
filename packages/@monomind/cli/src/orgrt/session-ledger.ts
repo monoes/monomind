@@ -66,6 +66,23 @@ export function taskKeyOf(text: string): string | undefined {
   return /^\[task:([^\]\s]+)\]/.exec(text)?.[1];
 }
 
+/** The task session a message belongs to, or undefined for "whichever is
+ *  current". A dispatch leads with `[task:<id>]`; mail arrives as
+ *  `[message from <sender>] subject: <subject>` and is routed by a
+ *  `[task:<id>]` in its subject line (task-scoped senders add one), else by
+ *  the task whose session last wrote to that sender. The body is never read:
+ *  a quoted tag there says nothing about where the message belongs. */
+export function mailRouteKey(
+  text: string,
+  correspondents: ReadonlyMap<string, string>,
+): string | undefined {
+  const tagged = taskKeyOf(text);
+  if (tagged) return tagged;
+  const head = /^\[message from ([^\]]+)\] subject: ([^\n]*)/.exec(text);
+  if (!head) return undefined;
+  return /\[task:([^\]\s]+)\]/.exec(head[2])?.[1] ?? correspondents.get(head[1]);
+}
+
 /** 'role' (one session for the role's life — the pre-D3 behaviour) unless the
  *  org or the role opts into 'task'. The coordinator's work spans tasks, so an
  *  org-wide 'task' does not apply to it; it can still opt in itself. */

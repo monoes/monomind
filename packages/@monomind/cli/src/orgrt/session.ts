@@ -34,10 +34,10 @@ import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
 import type { SessionStartReason } from './session-ledger.js';
 import {
+  mailRouteKey,
   ROLE_SESSION_KEY,
   resolveSessionScope,
   SessionLedger,
-  taskKeyOf,
 } from './session-ledger.js';
 import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
@@ -530,6 +530,9 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   // task-scoped session carries its task's loadout (D7).
   let sessionOpts: SessionOpts = opts;
   let promptHash = '*';
+  // Task scope: which task last wrote to each correspondent, so their
+  // untagged reply goes back to that task's session (see mailRouteKey).
+  const correspondents = new Map<string, string>();
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
@@ -550,12 +553,21 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     } else if (scope === 'task') {
       // An untagged message (mail, an answer, a continuation) belongs to the
       // session the role is already in.
-      taskKey = taskKeyOf(mailbox.peek() ?? '') ?? taskKey;
-      // D7: this task's session is built with this task's loadout.
-      sessionOpts =
-        taskKey !== ROLE_SESSION_KEY && opts.loadoutFor
-          ? { ...opts, loadout: opts.loadoutFor(taskKey) }
-          : opts;
+      taskKey = mailRouteKey(mailbox.peek() ?? '', correspondents) ?? taskKey;
+      const key = taskKey;
+      sessionOpts = {
+        ...opts,
+        // D7: this task's session is built with this task's loadout.
+        ...(key !== ROLE_SESSION_KEY && opts.loadoutFor ? { loadout: opts.loadoutFor(key) } : {}),
+        // Mail sent from a task's session names the task in its subject, so
+        // the reader knows what it is about and a reply can find its way back.
+        deliver: (from, to, subject, body) => {
+          if (key === ROLE_SESSION_KEY) return opts.deliver(from, to, subject, body);
+          correspondents.set(to, key);
+          const tagged = subject.includes('[task:') ? subject : `[task:${key}] ${subject}`;
+          return opts.deliver(from, to, tagged, body);
+        },
+      };
       promptHash = createHash('sha256')
         .update(rolePromptFor(sessionOpts))
         .digest('hex')
@@ -582,7 +594,7 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
         : scope === 'task'
           ? {
               stopBefore: (next) => {
-                const k = taskKeyOf(next);
+                const k = mailRouteKey(next, correspondents);
                 return k !== undefined && k !== sessionKey;
               },
               idleExitMs,
