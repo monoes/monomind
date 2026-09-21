@@ -89,5 +89,17 @@ for (const mod of MODULES) {
 output += '})();\n';
 
 const outPath = path.join(engineDir, 'detect-antipatterns-browser.js');
-fs.writeFileSync(outPath, output);
-console.log(`Wrote ${outPath} (${output.split('\n').length} lines)`);
+// --check: fail (exit 1) when the committed bundle differs from what the
+// sources build, instead of writing it. The bundle is what browsers run, so a
+// stale one silently ships old detection logic.
+if (process.argv.includes('--check')) {
+  const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : '';
+  if (current !== output) {
+    console.error(`${outPath} is stale — run: node scripts/build-browser-detector.js`);
+    process.exit(1);
+  }
+  console.log(`${outPath} is up to date`);
+} else {
+  fs.writeFileSync(outPath, output);
+  console.log(`Wrote ${outPath} (${output.split('\n').length} lines)`);
+}

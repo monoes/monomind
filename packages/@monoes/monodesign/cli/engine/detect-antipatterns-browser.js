@@ -672,7 +672,7 @@ function contrastRatio(c1, c2) {
 }
 
 function parseGradientColors(bgImage) {
-  if (!bgImage || !bgImage.includes('gradient')) return [];
+  if (!bgImage?.includes('gradient')) return [];
   const colors = [];
   for (const m of bgImage.matchAll(/rgba?\([^)]+\)/g)) {
     const c = parseRgb(m[0]);
@@ -805,7 +805,7 @@ function checkColors(opts) {
   if (hasDirectText && textColor && !isEmojiOnly) {
     // Run background-dependent checks against either a solid bg or, if the
     // ancestor is a gradient, against every gradient stop (use the worst case).
-    const bgs = effectiveBg ? [effectiveBg] : (effectiveBgStops && effectiveBgStops.length ? effectiveBgStops : null);
+    const bgs = effectiveBg ? [effectiveBg] : (effectiveBgStops?.length ? effectiveBgStops : null);
     if (bgs) {
       // Gray on colored background — flag if every stop is chromatic
       const textLum = relativeLuminance(textColor);
@@ -986,7 +986,6 @@ function isAccentColor(cssColor) {
   if (!cssColor) return false;
   const s = String(cssColor).trim();
   // rgb / rgba — direct channel-distance check.
-  const rgbM = /rgba?\(\s*(\d+)\s*,?\s+|\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s.replace(/rgba?\(\s*/, 'rgb(').replace(/,/g, ', '));
   const rgbStrict = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s);
   if (rgbStrict) {
     const r = +rgbStrict[1], g = +rgbStrict[2], b = +rgbStrict[3];
@@ -1031,7 +1030,7 @@ function isAccentColor(cssColor) {
 // uppercase eyebrow OR the modern accent-colored bold eyebrow.
 function checkHeroEyebrow(opts) {
   const {
-    headingTag, headingText, headingFontSize,
+    headingTag, headingText,
     siblingTag, siblingText, siblingTextTransform,
     siblingFontSize, siblingLetterSpacing,
     siblingFontWeight, siblingColor,
@@ -1502,7 +1501,7 @@ function parseRadiusToPx(value, widthPx) {
   return num;
 }
 
-function resolveBorderRadiusPx(el, style, widthPx, win) {
+function resolveBorderRadiusPx(_el, style, widthPx, _win) {
   const fromComputed = parseRadiusToPx(style.borderRadius, widthPx);
   if (fromComputed !== null) return fromComputed;
   return 0;
@@ -1653,7 +1652,7 @@ function buildCustomPropMap(document) {
       if (!style) continue;
       for (let i = 0; i < style.length; i++) {
         const prop = style[i];
-        if (!prop || !prop.startsWith('--')) continue;
+        if (!prop?.startsWith('--')) continue;
         const val = style.getPropertyValue(prop).trim();
         if (val) map.set(prop, val);
       }
@@ -1997,7 +1996,7 @@ function resolveFontSizePx(el, win) {
     const v = chain[i];
     if (!v || v === 'inherit') continue;
     const num = parseFloat(v);
-    if (isNaN(num)) continue;
+    if (Number.isNaN(num)) continue;
     if (v.endsWith('px')) px = num;
     else if (v.endsWith('rem')) px = num * 16;
     else if (v.endsWith('em')) px = num * px;
@@ -2012,7 +2011,7 @@ function resolveFontSizePx(el, win) {
 function resolveLengthPx(value, fontSizePx) {
   if (!value || value === 'normal' || value === 'auto' || value === 'inherit') return null;
   const num = parseFloat(value);
-  if (isNaN(num)) return null;
+  if (Number.isNaN(num)) return null;
   if (value.endsWith('px')) return num;
   if (value.endsWith('rem')) return num * 16;
   if (value.endsWith('em')) return num * fontSizePx;
@@ -2128,7 +2127,7 @@ function checkQuality(opts) {
   // font-size — bigger text demands proportionally more padding.
   //   vertical:   max(4px, fontSize × 0.3)
   //   horizontal: max(8px, fontSize × 0.5)
-  const isInlineCode = tag === 'code' && !(el.closest && el.closest('pre'));
+  const isInlineCode = tag === 'code' && !el.closest?.('pre');
   if (!isInlineCode && rect && hasDirectText && textLen > 20 && rect.width > 100 && rect.height > 30) {
     const borders = {
       top: parseFloat(style.borderTopWidth) || 0,
@@ -2244,7 +2243,7 @@ function checkQuality(opts) {
         const CHILD_INSULATE_THRESHOLD = 4;
         const childrenInsulate = { top: false, right: false, bottom: false, left: false };
         for (const child of el.children) {
-          let childStyle = getComputedStyleFor(win, child);
+          const childStyle = getComputedStyleFor(win, child);
           if (!childStyle) continue;
           const childPad = {
             top:    resolveLengthPx(childStyle.paddingTop,    fontSize) ?? 0,
@@ -2376,7 +2375,7 @@ function checkQuality(opts) {
   // Only flag actual body content, not UI labels (buttons, tabs, badges, captions, footer text, etc.)
   if (hasDirectText && textLen > 20 && fontSize < 12) {
     const skipTags = ['sub', 'sup', 'code', 'kbd', 'samp', 'var', 'caption', 'figcaption'];
-    const inUIContext = el.closest && el.closest('button, a, label, summary, pre, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], nav, footer, [aria-hidden="true"], [class*="badge" i], [class*="caption" i], [class*="chip" i], [class*="code" i], [class*="console" i], [class*="diff" i], [class*="label" i], [class*="meta" i], [class*="mock" i], [class*="pill" i], [class*="preview" i], [class*="tag" i], [class*="terminal" i], [class*="writes" i]');
+    const inUIContext = el.closest?.('button, a, label, summary, pre, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], nav, footer, [aria-hidden="true"], [class*="badge" i], [class*="caption" i], [class*="chip" i], [class*="code" i], [class*="console" i], [class*="diff" i], [class*="label" i], [class*="meta" i], [class*="mock" i], [class*="pill" i], [class*="preview" i], [class*="tag" i], [class*="terminal" i], [class*="writes" i]');
     const isUppercase = style.textTransform === 'uppercase';
     if (!skipTags.includes(tag) && !inUIContext && !isUppercase) {
       findings.push({ id: 'tiny-text', snippet: `${fontSize}px body text` });
@@ -2489,7 +2488,7 @@ function checkElementBorders(tag, style, overrides, resolvedRadius) {
     if (widths[s] === 0 && overrides && overrides[s]) {
       widths[s] = overrides[s].width;
       colors[s] = overrides[s].color;
-    } else if (colors[s] && colors[s].startsWith('var(') && overrides && overrides[s]) {
+    } else if (colors[s]?.startsWith('var(') && overrides?.[s]) {
       // Longhand case: jsdom kept the width but left the color as the
       // literal `var(...)` string. Substitute the resolved color.
       colors[s] = overrides[s].color;
@@ -2677,7 +2676,7 @@ function checkTypography() {
   let totalTextElements = 0;
   for (const el of document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span')) {
     // Skip monodesign's own elements
-    if (el.closest && el.closest('.monodesign-overlay, .monodesign-label, .monodesign-banner, .monodesign-tooltip')) continue;
+    if (el.closest?.('.monodesign-overlay, .monodesign-label, .monodesign-banner, .monodesign-tooltip')) continue;
     // Only count elements that actually have visible direct text
     const hasText = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
     if (!hasText) continue;
@@ -2969,7 +2968,7 @@ function checkCreamPalette(doc, win) {
   // 2. Tailwind class fallback — for the static path, where utility classes
   //    never resolve to computed CSS.
   for (const el of [body, html]) {
-    const tok = creamFromClassList(el && el.getAttribute ? el.getAttribute('class') : '');
+    const tok = creamFromClassList(el?.getAttribute ? el.getAttribute('class') : '');
     if (tok) {
       findings.push({ id: 'cream-palette', snippet: `cream/beige page background (Tailwind ${tok})` });
       break;
@@ -3005,7 +3004,7 @@ function checkOversizedH1({ tag, fontSize, headingText, rect = null, viewportWid
   return [];
 }
 
-function checkElementOversizedH1(el, style, tag, window) {
+function checkElementOversizedH1(el, _style, tag, window) {
   if (tag !== 'h1') return [];
   const fontSize = resolveFontSizePx(el, window);
   const headingText = (el.textContent || '').trim().replace(/\s+/g, ' ');
@@ -3089,7 +3088,7 @@ function borderColorsFromStyle(style) {
   ];
 }
 
-function checkElementGptBorderShadow(el, style) {
+function checkElementGptBorderShadow(_el, style) {
   return checkGptThinBorderWideShadow({ borderWidths: borderWidthsFromStyle(style), borderColors: borderColorsFromStyle(style), boxShadow: style.boxShadow || '' });
 }
 
@@ -3239,7 +3238,7 @@ function checkClippedOverflow(el, style, getStyle) {
   return [];
 }
 
-function checkElementClippedOverflow(el, style, tag, window) {
+function checkElementClippedOverflow(el, style, _tag, window) {
   return checkClippedOverflow(el, style, (n) => window.getComputedStyle(n));
 }
 
@@ -3358,6 +3357,29 @@ function checkElementTextOverflowDOM(el) {
 // conditions can't be read off a resting element. Shared by the regex, static
 // and browser engines (each hands over its own CSS text).
 
+// Split a selector list on top-level commas only — i.e. commas inside a
+// functional pseudo-class's parens (`:is(a, button)`, `:where(a, b)`,
+// `:not(a, b)`, `:has(x, y)`) don't split. A naive `str.split(',')` breaks
+// `:is(a, button):focus { outline: none }` into `:is(a` and `button):focus`,
+// which both selectorTargetsInteractive() and the dark/light selector maps
+// below then treat as two unrelated (and malformed) selectors — producing
+// false-positive missing-focus-visible findings and double-counted rules.
+function splitTopLevelCommas(str) {
+  const parts = [];
+  let depth = 0, start = 0;
+  for (let k = 0; k < str.length; k++) {
+    const ch = str[k];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) {
+      parts.push(str.slice(start, k));
+      start = k + 1;
+    }
+  }
+  parts.push(str.slice(start));
+  return parts;
+}
+
 // Parse flat CSS into { selector, body, dark } tuples, tracking one level of
 // dark-scheme context (a `@media (prefers-color-scheme: dark)` ancestor).
 // @supports / @layer / @container / @scope are transparently descended.
@@ -3387,7 +3409,7 @@ function collectCssRules(css, dark = false, depth = 0) {
       }
       continue;
     }
-    for (const sel of prelude.split(',').map(s => s.trim()).filter(Boolean)) {
+    for (const sel of splitTopLevelCommas(prelude).map(s => s.trim()).filter(Boolean)) {
       out.push({ selector: sel, body, dark });
     }
   }
@@ -3562,7 +3584,7 @@ function checkElementImageDimensions(el, style) {
   const parts = [el.getAttribute?.('style') || el.attribs?.style || ''];
   const ar = style && (style.aspectRatio || style['aspect-ratio']);
   if (ar && ar !== 'auto') parts.push(`aspect-ratio:${ar}`);
-  const h = style && style.height;
+  const h = style?.height;
   if (h && h !== 'auto' && h !== '') parts.push(`height:${h}`);
   return checkImageDimensions({ hasWidthAttr, hasHeightAttr, style: parts.join(';') });
 }
@@ -3622,7 +3644,7 @@ function checkElementSmallTouchTarget(el, style, tag) {
   // (button-like). jsdom returns '' for the default inline display, so key
   // off "not blockish" rather than "== inline".
   const isBlockish = /^(block|flex|grid|inline-block|inline-flex|table)/.test(style.display || '');
-  const inProse = !!(el.closest && el.closest(PROSE_ANCESTOR_SELECTOR));
+  const inProse = !!el.closest?.(PROSE_ANCESTOR_SELECTOR);
   const isInlineLinkInProse = tag === 'a' && !isBlockish && inProse;
   return checkSmallTouchTarget({ tag, role, href, inputType, widthPx, heightPx, isInlineLinkInProse });
 }
@@ -3636,7 +3658,7 @@ function checkElementSmallTouchTargetDOM(el) {
   const inputType = el.getAttribute('type') || '';
   const style = getComputedStyle(el);
   const isBlockish = /^(block|flex|grid|inline-block|inline-flex|table)/.test(style.display || '');
-  const inProse = !!(el.closest && el.closest(PROSE_ANCESTOR_SELECTOR));
+  const inProse = !!el.closest?.(PROSE_ANCESTOR_SELECTOR);
   const isInlineLinkInProse = tag === 'a' && !isBlockish && inProse;
   return checkSmallTouchTarget({ tag, role, href, inputType, widthPx: rect.width, heightPx: rect.height, isInlineLinkInProse });
 }
@@ -3756,7 +3778,7 @@ if (IS_BROWSER) {
   }
 
   function showSpotlight(target) {
-    if (!target || !target.getBoundingClientRect) return;
+    if (!target?.getBoundingClientRect) return;
     // Respect the spotlightBlur setting: if disabled, don't show the backdrop
     if (window.__MONODESIGN_CONFIG__?.spotlightBlur === false) {
       spotlightTarget = target;
@@ -3902,10 +3924,8 @@ if (IS_BROWSER) {
     }
   });
 
-  const highlight = function(el, findings) {
+  const highlight = (el, findings) => {
     if (el._monodesignOverlay) detachOverlay(el._monodesignOverlay);
-    const hasSlop = findings.some(f => RULE_CATEGORY[f.type || f.id] === 'slop');
-
     const fixed = isInFixedContext(el);
     const rect = el.getBoundingClientRect();
     const outline = document.createElement('div');
@@ -4049,7 +4069,7 @@ if (IS_BROWSER) {
     overlays.push(outline);
   };
 
-  const showPageBanner = function(findings) {
+  const showPageBanner = (findings) => {
     if (!findings.length) return;
     const banner = document.createElement('div');
     banner.className = 'monodesign-overlay monodesign-banner';
@@ -4544,7 +4564,7 @@ if (IS_BROWSER) {
   function sampleDrawablePixel(drawable, sourcePoint) {
     if (visualContrastRasterCache.has(drawable)) {
       const cached = visualContrastRasterCache.get(drawable);
-      if (!cached || !cached.ctx) return { status: 'unresolved', reason: cached?.reason || 'image sample failed' };
+      if (!cached?.ctx) return { status: 'unresolved', reason: cached?.reason || 'image sample failed' };
       try {
         const x = Math.max(0, Math.min(cached.width - 1, Math.floor(sourcePoint.x * cached.scaleX)));
         const y = Math.max(0, Math.min(cached.height - 1, Math.floor(sourcePoint.y * cached.scaleY)));
@@ -4679,7 +4699,7 @@ if (IS_BROWSER) {
     const unresolved = [];
 
     for (const node of nodes) {
-      if (!node || node.nodeType !== 1) continue;
+      if (node?.nodeType !== 1) continue;
       if (node.closest?.('.monodesign-overlay, .monodesign-label, .monodesign-banner, .monodesign-tooltip')) continue;
       const tag = node.tagName?.toLowerCase();
       if (tag === 'img') {
@@ -4876,7 +4896,7 @@ if (IS_BROWSER) {
     }));
   }
 
-  const printSummary = function(allFindings) {
+  const printSummary = (allFindings) => {
     if (allFindings.length === 0) {
       console.log('%c[monodesign] No anti-patterns found.', 'color: #22c55e; font-weight: bold');
       return;
@@ -5476,7 +5496,7 @@ if (IS_BROWSER) {
   }
 
   let firstScanDone = false;
-  const scan = function(options = {}) {
+  const scan = (options = {}) => {
     clearOverlays();
     const generation = scanGeneration;
     const collected = collectBrowserFindings();
@@ -5493,7 +5513,7 @@ if (IS_BROWSER) {
     return allFindings;
   };
 
-  const scanAsync = async function(options = {}) {
+  const scanAsync = async (options = {}) => {
     clearOverlays();
     const generation = scanGeneration;
     if (shouldRunVisualContrast(options)) {
@@ -5505,13 +5525,13 @@ if (IS_BROWSER) {
     return renderBrowserFindings(collectBrowserFindings(), options);
   };
 
-  const detect = function(options = {}) {
+  const detect = (options = {}) => {
     lastVisualContrastAnalyses = [];
     const { allFindings } = collectBrowserFindings();
     return options.serialize === false ? allFindings : serializeFindings(allFindings);
   };
 
-  const detectAsync = async function(options = {}) {
+  const detectAsync = async (options = {}) => {
     if (shouldRunVisualContrast(options)) {
       const { allFindings } = await collectBrowserFindingsAsync(options);
       return options.serialize === false ? allFindings : serializeFindings(allFindings);
