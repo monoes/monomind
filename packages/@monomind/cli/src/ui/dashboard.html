@@ -2094,6 +2094,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <div id="org-detail-tabs">
             <button class="odt-btn active" data-tab="chart" onclick="v2SwitchOrgTab('chart')">Chart</button>
             <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
+            <button class="odt-btn" data-tab="runtime"      onclick="v2SwitchOrgTab('runtime')">Runtime</button>
             <div class="odt-tab-sep" title="Secondary tabs"></div>
             <button class="odt-btn secondary" data-tab="config"        onclick="v2SwitchOrgTab('config')">Config</button>
             <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
@@ -2103,6 +2104,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
             <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-runtime" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-approvals"></div>
@@ -5983,6 +5985,7 @@ function v2RenderOrgTab(tab) {
     return;
   }
   if (tab === 'chart')          v2RenderOrgChart();
+  else if (tab === 'runtime')    v2RenderOrgRuntime();
   else if (tab === 'roles')      v2RenderOrgRoles();
   else if (tab === 'health')     v2RenderOrgHealth();
   else if (tab === 'heartbeats') v2RenderOrgHeartbeats();
@@ -8583,6 +8586,7 @@ function _odtHandleLiveEvent(ev) {
   if (ev?.type === 'org:question' && ev.from) {
     if (ev.org === _v2SelOrg) v2ShowQuestionBubble(ev.from, ev.question || '');
   }
+  _v2RuntimeNudge(ev);
   // Anything a human must act on, or just did: refresh the Human Input list,
   // its badge, and the selected org's approvals/decisions panes.
   if (['org:question', 'org:gate', 'org:question-answered', 'org:approval:resolved', 'org:gate:resolved'].includes(ev?.type)) {
@@ -8701,90 +8705,273 @@ function _odtHandleLiveEvent(ev) {
   }
 }
 
+// ── RUNTIME ────────────────────────────────────────────────
+// What the org is doing, from the runtime's own sources (GET /api/org/:n/runtime):
+// live status, idle watchdog + hold deadline, budget on its enforcement basis,
+// per-role model/effort/tier and usage (cache tokens included), the task DAG
+// with evidence-gate failures, gate/watchdog audit events, and how runs ended.
+let _v2RuntimeTimer = null;
+let _v2RuntimeReload = null;
+
+function _rtTok(n) {
+  if (n === null || n === undefined) return '?';
+  n = Number(n) || 0;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
+}
+function _rtClock(iso) {
+  const t = typeof iso === 'number' ? iso : Date.parse(iso || '');
+  return t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+function _rtIn(iso) {
+  const ms = (typeof iso === 'number' ? iso : Date.parse(iso || '')) - Date.now();
+  if (!Number.isFinite(ms)) return '';
+  return ms <= 0 ? 'now' : `in ${fmtDur(ms)}`;
+}
+const _RT_CLOSED_BY = {
+  'org-complete': 'boss called org_complete',
+  'idle-stop': 'idle watchdog stopped it',
+  'failed-start': 'failed to start',
+  'scheduled-deadline': 'scheduled deadline',
+  'boss-restart': 'boss restarted',
+  'boss-restart-exhausted': 'boss restarts exhausted',
+  'mark-complete': 'marked complete by hand',
+};
+const _RT_AUDIT_COLOR = {
+  'task-evidence-refused': 'var(--amber, #d29922)',
+  'task-evidence-escalated': 'var(--red)',
+  'org-complete-refused': 'var(--amber, #d29922)',
+  'hold-expired': 'var(--amber, #d29922)',
+  'no-progress': 'var(--amber, #d29922)',
+  'idle-nudge': 'var(--text-lo)',
+  'idle-stop': 'var(--red)',
+};
+
+function _rtCard(label, value, sub) {
+  return `<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;min-width:0">
+    <div style="font-size:9px;letter-spacing:1.5px;color:var(--text-xs)">${label}</div>
+    <div style="font-size:14px;color:var(--text-hi);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</div>
+    ${sub ? `<div style="font-size:11px;color:var(--text-lo);margin-top:2px">${sub}</div>` : ''}
+  </div>`;
+}
+function _rtTable(title, head, rows, empty) {
+  const h = `<div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin:18px 0 6px">${title}</div>`;
+  if (!rows.length) return `${h}<div class="empty" style="padding:8px 0">${empty}</div>`;
+  return `${h}<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:var(--text-xs);text-align:left">${head.map(c => `<th style="padding:4px 8px;font-weight:500;white-space:nowrap">${c}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr style="border-top:1px solid var(--border)">${r.map(c => `<td style="padding:5px 8px;vertical-align:top">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+async function v2RenderOrgRuntime() {
+  const el = document.getElementById('odt-runtime');
+  if (!el || !_v2SelOrg) return;
+  clearTimeout(_v2RuntimeTimer);
+  const _rendOrg = _v2SelOrg;
+  if (!el.dataset.org || el.dataset.org !== _rendOrg) el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  let v;
+  try {
+    const res = await fetch(`/api/org/${enc(_rendOrg)}/runtime${DIR ? `?dir=${enc(DIR)}` : ''}`);
+    v = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(v.error || `HTTP ${res.status}`);
+  } catch (e) {
+    if (_v2SelOrg === _rendOrg) el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (_v2SelOrg !== _rendOrg || _v2OrgTab !== 'runtime') return;
+  el.dataset.org = _rendOrg;
+  const s = v.settings || {};
+  const mono = t => `<span style="font-family:var(--mono)">${t}</span>`;
+
+  // Status strip
+  const statusSub = v.live
+    ? `${esc(v.run || '')}${v.startedAt ? ` · up ${fmtDur(Date.now() - v.startedAt)}` : ''}`
+    : `${esc(v.run || 'no run yet')}${v.closedBy ? ` · ${esc(_RT_CLOSED_BY[v.closedBy] || v.closedBy)}` : ''}`;
+  let idle = '—', idleSub = s.idle_minutes === 0 ? 'watchdog disabled' : `window ${s.idle_minutes}m`;
+  if (v.idle) {
+    if (v.idle.idle_hold && v.idle.idle_hold !== 'unknown') {
+      idle = `held: ${esc(v.idle.idle_hold)}`;
+      idleSub = v.idle.idle_hold_until ? `hold ends ${_rtClock(v.idle.idle_hold_until)} (${_rtIn(v.idle.idle_hold_until)})` : 'hold has no deadline';
+    } else if (v.idle.idle_stop_at) {
+      idle = `stops ${_rtIn(v.idle.idle_stop_at)}`;
+      idleSub = `if idle until ${_rtClock(v.idle.idle_stop_at)}`;
+    } else idle = 'not reported yet';
+  }
+  const b = v.budget || {};
+  const pct = b.tokens && b.used !== null ? Math.min(100, (b.used / b.tokens) * 100) : null;
+  const budget = b.used === null ? 'unknown' : `${_rtTok(b.used)} / ${_rtTok(b.tokens)}`;
+  const budgetWhy = b.used === null ? ' · run predates cache metering' : '';
+  const budgetSub = `${esc(b.basis)} basis${pct !== null ? ` · ${pct.toFixed(1)}%` : ''}${budgetWhy} · ${fmtCost(v.totals?.cost_usd)}`;
+  const gate = s.completion_evidence ? 'evidence required' : 'off';
+  const gateSub = s.completion_evidence
+    ? `escalate after ${s.max_evidence_attempts} refusals · org_complete: ${esc(s.completion)}`
+    : `org_complete gate: ${esc(s.completion)}`;
+
+  let html = '<div style="padding:16px">';
+  if (!v.valid) html += `<div class="empty" style="color:var(--red);text-align:left;margin-bottom:10px">Definition does not parse — <code>org run</code> will refuse it:<br>${v.problems.map(esc).join('<br>')}</div>`;
+  if (v.liveError) html += `<div class="empty" style="color:var(--amber, #d29922);text-align:left;margin-bottom:10px">A daemon is registered for this org but did not answer: ${esc(v.liveError)}</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+    ${_rtCard('STATUS', `<span class="ss-pill ${v.live ? 'on' : ''}">${esc(v.status)}</span>`, statusSub)}
+    ${_rtCard('IDLE WATCHDOG', idle, idleSub)}
+    ${_rtCard('BUDGET (THIS RUN)', budget, budgetSub)}
+    ${_rtCard('COMPLETION GATE', gate, gateSub)}
+    ${_rtCard('SESSIONS', `per ${esc(s.session_scope)}`, `workspace: ${esc(s.workspace)} · max ${s.max_concurrent_agents} agents`)}
+  </div>`;
+
+  // Roles
+  html += _rtTable(`ROLES${v.run ? ` — USAGE IN ${esc(v.run)}` : ''}`,
+    ['Role', 'Runtime', 'Model', 'Effort', 'Tier', 'Status', 'In', 'Out', 'Cache read', 'Cache write', 'Cost', 'Last active'],
+    (v.roles || []).map(r => [
+      `<span style="color:var(--text-hi)">${esc(r.title)}</span>${r.title !== r.id ? `<div style="font-size:10px;color:var(--text-xs)">${esc(r.id)}</div>` : ''}`,
+      esc(r.runtime),
+      r.tierError
+        ? `<span style="color:var(--red)" title="${esc(r.tierError)}">tier error</span>`
+        : `<span style="white-space:nowrap">${mono(esc(r.model || 'default'))}</span><div style="font-size:10px;color:var(--text-xs)">${esc(r.modelSource)}</div>`,
+      esc(r.effort || '—'),
+      esc(r.tier || '—'),
+      `<span class="ss-pill ${r.status === 'running' || r.status === 'working' ? 'on' : ''}">${esc(r.status)}</span>`,
+      // A run recorded before the four-way meter only has an input+output total.
+      ...(r.usage.legacy_tokens && !r.usage.tokens
+        ? [`<span title="Recorded before the meter split input, output and cache tokens">${mono(_rtTok(r.usage.legacy_tokens))} in+out</span>`, '—', '—', '—']
+        : [mono(_rtTok(r.usage.tokens_in)), mono(_rtTok(r.usage.tokens_out)),
+           mono(_rtTok(r.usage.cache_read)), mono(_rtTok(r.usage.cache_creation))]),
+      mono(fmtCost(r.usage.cost_usd)),
+      `<span style="color:var(--text-xs)">${r.lastActivity ? relTime(r.lastActivity) : '—'}</span>`,
+    ]), 'No roles');
+
+  // Tasks
+  const open = (v.tasks || []).filter(t => !['done', 'cancelled', 'merged', 'split'].includes(t.status));
+  html += _rtTable(`TASKS (${open.length} open of ${(v.tasks || []).length})`,
+    ['Task', 'Assignee', 'Status', 'Evidence refusals', 'Loadout', 'Blocked'],
+    [...open, ...(v.tasks || []).filter(t => !open.includes(t))].slice(0, 60).map(t => [
+      `<span style="color:var(--text-hi)">${esc(t.title || t.id)}</span><div style="font-size:10px;color:var(--text-xs)">${esc(t.id)}</div>`,
+      esc(t.assignee || '—'),
+      `<span class="ss-pill ${t.status === 'done' ? 'on' : t.status === 'failed' || t.status === 'blocked' ? 'warn' : ''}">${esc(t.status)}</span>`,
+      t.evidenceFailures ? `<span style="color:${t.evidenceFailures >= s.max_evidence_attempts ? 'var(--red)' : 'var(--amber, #d29922)'}">${t.evidenceFailures} / ${s.max_evidence_attempts}</span>` : '—',
+      esc(t.loadout || '—'),
+      t.blockedUntil ? `until ${_rtClock(t.blockedUntil)}${t.blockedReason ? ` — ${esc(t.blockedReason)}` : ''}` : '—',
+    ]), 'No task graph for this run (the boss has not used org_task)');
+
+  // Audit trail
+  html += _rtTable('EVIDENCE GATE & WATCHDOG EVENTS', ['When', 'Event', 'Role', 'Detail'],
+    (v.audit || []).map(a => [
+      `<span style="color:var(--text-xs);white-space:nowrap">${_rtClock(a.ts)}</span>`,
+      `<span class="ss-pill" style="color:${_RT_AUDIT_COLOR[a.reason] || 'var(--text-lo)'};border-color:currentColor;white-space:nowrap">${esc(a.reason)}</span>`,
+      esc(a.from || '—'),
+      `<div style="white-space:pre-wrap;max-height:120px;overflow:auto">${esc(a.msg)}${a.data?.refusal ? `\n<span style="color:var(--text-lo)">${esc(a.data.refusal)}</span>` : ''}</div>`,
+    ]), 'None in this run');
+
+  // History
+  html += _rtTable('RECENT RUNS', ['Run', 'Ended', 'Duration', 'How it ended', 'Outcome', 'Open tasks at stop', 'Tokens', 'Cost'],
+    (v.history || []).map(h => [
+      mono(esc(h.run)),
+      `<span style="color:var(--text-xs)">${relTime(h.endedAt)}</span>`,
+      h.durationMs ? fmtDur(h.durationMs) : '—',
+      esc(h.closedBy ? (_RT_CLOSED_BY[h.closedBy] || h.closedBy) : 'stopped (manual or shutdown)') + (h.crashes?.length ? `<div style="color:var(--red);font-size:10px">crashed: ${h.crashes.map(esc).join(', ')}</div>` : ''),
+      h.outcome
+        ? `<span class="ss-pill ${h.outcome.status === 'achieved' ? 'on' : 'warn'}">${esc(h.outcome.status)}</span>${h.blocker ? ` blocker: ${esc(h.blocker)}` : ''}<div style="font-size:11px;color:var(--text-lo);max-width:320px;white-space:pre-wrap;max-height:80px;overflow:auto">${esc(h.blockerDetail || h.outcome.summary || '')}</div>`
+        : '<span style="color:var(--text-xs)">none claimed</span>',
+      h.runnableTasksAtStop ? `<span style="color:var(--amber, #d29922)">${h.runnableTasksAtStop}</span>` : '0',
+      mono(_rtTok(h.totalTokens)),
+      mono(fmtCost(h.totalCostUsd)),
+    ]), 'No finished runs yet');
+  html += '</div>';
+  el.innerHTML = html;
+  // A live run changes by the second; poll lightly on top of the SSE nudges.
+  if (v.live) _v2RuntimeTimer = setTimeout(() => { if (_v2OrgTab === 'runtime') v2RenderOrgRuntime(); }, 15000);
+}
+
+/** SSE nudge: refresh the Runtime pane shortly after an event for its org. */
+function _v2RuntimeNudge(ev) {
+  if (_v2OrgTab !== 'runtime' || !ev?.org || ev.org !== _v2SelOrg) return;
+  clearTimeout(_v2RuntimeReload);
+  _v2RuntimeReload = setTimeout(v2RenderOrgRuntime, 2000);
+}
+
 // ── ORG CONFIG ─────────────────────────────────────────────
+// Edits the Org Runtime v2 definition (goal, schedule, run_config, default
+// cost tier). Saved through POST /api/org/:n/config, which merges into the file
+// on disk and refuses anything `org run` would refuse. Roles, policies and
+// providers stay in the JSON (Files tab / `monomind org edit`).
 function v2RenderOrgConfig() {
   const el = document.getElementById('odt-config');
   if (!el || !_v2OrgData || !_v2SelOrg) return;
-  const d = _v2OrgData;
+  const d = _v2OrgData.config || _v2OrgData;
   const rc = d.run_config || {};
-  const gov = (d.governance && typeof d.governance === 'object') ? d.governance : { policy: d.governance || 'auto' };
-  const topos = ['hierarchical','hierarchical-mesh','mesh','star','ring','adaptive','hybrid'];
-  const modes = [{ v: 'daemon', l: 'persistent (daemon)' }, { v: 'once', l: 'once' }, { v: 'scheduled', l: 'scheduled' }];
-  const statuses = ['active','paused','archived'];
-  const govPolicies = ['auto','board','strict'];
-  const inp = (id,val,type,extra) => `<input class="filter-input" id="${id}" type="${type||'text'}" value="${esc(String(val??''))}" ${extra||''} style="width:100%;box-sizing:border-box">`;
-  const sel = (id,opts,cur) => `<select class="filter-input" id="${id}" style="width:100%;box-sizing:border-box;cursor:pointer">${opts.map(o=>`<option${cur===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
-  const fld = (lbl,html) => `<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">${lbl}</div>${html}</div>`;
-  const sec = (title,inner) => `<div style="margin-bottom:22px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">${title}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">${inner}</div></div>`;
-  el.innerHTML = '<div style="padding:18px;overflow-y:auto;max-width:660px">'
-    +sec('GENERAL',
-      fld('Name', inp('oc-name', d.name||'','text','readonly style="opacity:0.5"'))
-      +fld('Status', sel('oc-status', statuses, d.status||'active'))
-      +'<div style="grid-column:1/-1">'+fld('Goal', `<textarea id="oc-goal" class="filter-input" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">${esc(d.goal||'')}</textarea>`)+'</div>'
-      +fld('Mode', `<select class="filter-input" id="oc-mode" style="width:100%;box-sizing:border-box;cursor:pointer">${modes.map(o=>`<option value="${esc(o.v)}"${(d.mode||'daemon')===o.v?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`)
-      +fld('Topology', sel('oc-topology', topos, d.topology||'hierarchical'))
-      +'<div style="grid-column:1/-1">'+fld('Schedule', inp('oc-schedule', d.schedule||''))+'</div>'
-    )
-    +sec('RUN CONFIG',
-      fld('Max Concurrent Agents', inp('oc-max-agents', rc.max_concurrent_agents??6,'number','min="1" max="32"'))
-      +fld('Checkpoint Interval (min)', inp('oc-checkpoint', rc.checkpoint_interval_min??30,'number','min="5"'))
-      +fld('Budget Tokens (0=unlimited)', inp('oc-budget', rc.budget_tokens??0,'number','min="0"'))
-      +fld('Alert Threshold (0-1)', inp('oc-alert', rc.alert_threshold??0.8,'number','step="0.05" min="0" max="1"'))
-      +fld('Boss Role ID', inp('oc-boss', rc.boss_role||''))
-      +fld('Memory Namespace', inp('oc-namespace', rc.memory_namespace||(`org:${d.name}`)))
-      +'<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" id="oc-spawn-all" '+(rc.spawn_all_roles?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer"><label for="oc-spawn-all" style="font-size:12px;color:var(--text-mid);cursor:pointer">Spawn all roles as separate agents</label></div>'
-    )
-    +sec('GOVERNANCE',
-      fld('Approval Policy', sel('oc-gov-policy', govPolicies, gov.policy||'auto'))
-      +fld('Approvals File', inp('oc-gov-file', gov.approvals_file||(`.monomind/orgs/${d.name}-approvals.json`)))
-    )
-    +'<div style="display:flex;align-items:center;gap:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveOrgConfig()">Save Config</button><span id="oc-status-msg" style="font-size:11px;color:var(--text-lo)"></span></div>'
-    +'</div>';
+  const inp = (id, val, type, extra) => `<input class="filter-input" id="${id}" type="${type || 'text'}" value="${esc(String(val ?? ''))}" ${extra || ''} style="width:100%;box-sizing:border-box">`;
+  const sel = (id, opts, cur) => `<select class="filter-input" id="${id}" style="width:100%;box-sizing:border-box;cursor:pointer">${opts.map(([v, l]) => `<option value="${esc(v)}"${String(cur ?? '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const fld = (lbl, html, hint) => `<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">${lbl}</div>${html}${hint ? `<div style="font-size:10px;color:var(--text-xs)">${hint}</div>` : ''}</div>`;
+  const sec = (title, inner) => `<div style="margin-bottom:22px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">${title}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">${inner}</div></div>`;
+  const tiers = ['standard', 'economy', 'budget', ...Object.keys(d.cost_tiers?.tiers || {})];
+  el.innerHTML = '<div style="padding:18px;overflow-y:auto;max-width:720px">'
+    + sec('GENERAL',
+      fld('Name', inp('oc-name', d.name || '', 'text', 'readonly style="opacity:0.5"'))
+      + fld('Schedule', inp('oc-schedule', d.schedule ?? '', 'text', 'placeholder="cron, or empty for none"'))
+      + `<div style="grid-column:1/-1">${fld('Goal', `<textarea id="oc-goal" class="filter-input" rows="4" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">${esc(d.goal || '')}</textarea>`)}</div>`)
+    + sec('BUDGET & CONCURRENCY',
+      fld('Budget tokens (per run)', inp('oc-budget', rc.budget_tokens ?? '', 'number', 'min="1" placeholder="1000000"'), 'Must be positive.')
+      + fld('Budget basis', sel('oc-basis', [['', 'uncached (default)'], ['uncached', 'uncached — input + output'], ['billable', 'billable — includes cache tokens']], rc.budget_tokens_basis ?? ''), 'billable is ~100x larger on a cached run; resize the budget with it.')
+      + fld('Max concurrent agents', inp('oc-max-agents', rc.max_concurrent_agents ?? '', 'number', 'min="1" placeholder="4"'))
+      + fld('Max turns per message', inp('oc-max-turns', rc.max_turns_per_message ?? '', 'number', 'min="1"')))
+    + sec('COMPLETION',
+      fld('org_complete gate', sel('oc-completion', [['', 'boss (default)'], ['boss', 'boss — partial needs a real blocker'], ['dag', 'dag — also refuse while tasks are runnable']], rc.completion ?? ''))
+      + fld('Evidence gate on org_task_done', sel('oc-evidence', [['false', 'off'], ['true', 'on — commands + exit codes pinned to HEAD']], String(!!rc.completion_evidence)))
+      + fld('Escalate after N evidence refusals', inp('oc-evidence-max', rc.max_evidence_attempts ?? '', 'number', 'min="1" placeholder="3"'), 'Then the task is failed and handed to the boss.'))
+    + sec('SESSIONS & WATCHDOG',
+      fld('Idle minutes (0 disables)', inp('oc-idle', rc.idle_minutes ?? '', 'number', 'min="0" step="any" placeholder="10"'), 'Every hold on the idle clock expires after an hour.')
+      + fld('Session scope', sel('oc-scope', [['', 'role (default)'], ['role', 'role — one session per role'], ['task', 'task — one session per task']], rc.session_scope ?? ''))
+      + fld('Workspace', inp('oc-workspace', rc.workspace ?? '', 'text', 'placeholder="repo | isolated | worktree | worktree-per-role | /abs/path"'))
+      + fld('Memory namespace', inp('oc-namespace', rc.memory_namespace ?? '', 'text', `placeholder="org:${esc(d.name || '')}"`)))
+    + sec('COST TIERS',
+      fld('Default tier', sel('oc-tier', [['', 'none — models as configured'], ...[...new Set(tiers)].map(t => [t, t])], d.cost_tiers?.default ?? ''), 'Per-role tiers and exemptions: edit cost_tiers.roles in the JSON.'))
+    + '<div style="display:flex;align-items:flex-start;gap:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveOrgConfig()">Save Config</button><span id="oc-status-msg" style="font-size:11px;color:var(--text-lo);white-space:pre-wrap"></span></div>'
+    + '</div>';
 }
 
 async function _v2SaveOrgConfig() {
   if (!_v2SelOrg || !_v2OrgData) return;
   const g = id => document.getElementById(id);
-  // Only include org config fields — exclude runtime data (state, goals, routines, approvals,
-  // running, tasks, config nested copy) that would corrupt the org .json file.
-  const _RUNTIME_KEYS = new Set(['config','state','goals','routines','approvals','running','tasks']);
-  const _baseConfig = Object.fromEntries(
-    Object.entries(_v2OrgData).filter(([k]) => !k.startsWith('_') && !_RUNTIME_KEYS.has(k))
-  );
-  const cfg = {
-    ..._baseConfig,
-    status:   (g('oc-status')?.value)   || _v2OrgData.status,
-    goal:     (g('oc-goal')?.value)     || _v2OrgData.goal,
-    mode:     (g('oc-mode')?.value)     || _v2OrgData.mode,
-    topology: (g('oc-topology')?.value) || _v2OrgData.topology,
-    schedule: (g('oc-schedule')?.value||'').trim() || null,
-    run_config: { ...(_v2OrgData.run_config||{}),
-      max_concurrent_agents:   parseInt(g('oc-max-agents')?.value, 10)||6,
-      checkpoint_interval_min: parseInt(g('oc-checkpoint')?.value, 10)||30,
-      budget_tokens:           parseInt(g('oc-budget')?.value, 10)||0,
-      alert_threshold:         parseFloat(g('oc-alert')?.value)||0.8,
-      boss_role:               (g('oc-boss')?.value||'').trim(),
-      memory_namespace:        (g('oc-namespace')?.value||'').trim()||(`org:${_v2SelOrg}`),
-      spawn_all_roles:         !!(g('oc-spawn-all')?.checked),
+  // '' = not set → null removes the key so the runtime default applies.
+  const num = id => { const v = (g(id)?.value || '').trim(); return v === '' ? null : Number(v); };
+  const str = id => { const v = (g(id)?.value || '').trim(); return v === '' ? null : v; };
+  const patch = {
+    goal: g('oc-goal')?.value ?? '',
+    // A numeric schedule (an interval) stays a number; a cron stays a string.
+    schedule: (() => {
+      const v = str('oc-schedule');
+      const was = (_v2OrgData.config || _v2OrgData).schedule;
+      return v !== null && typeof was === 'number' && /^\d+$/.test(v) ? Number(v) : v;
+    })(),
+    run_config: {
+      budget_tokens: num('oc-budget'),
+      budget_tokens_basis: str('oc-basis'),
+      max_concurrent_agents: num('oc-max-agents'),
+      max_turns_per_message: num('oc-max-turns'),
+      completion: str('oc-completion'),
+      completion_evidence: g('oc-evidence')?.value === 'true' ? true : null,
+      max_evidence_attempts: num('oc-evidence-max'),
+      idle_minutes: num('oc-idle'),
+      session_scope: str('oc-scope'),
+      workspace: str('oc-workspace'),
+      memory_namespace: str('oc-namespace'),
     },
-    governance: {
-      policy:         (g('oc-gov-policy')?.value)||'auto',
-      approvals_file: (g('oc-gov-file')?.value||'').trim()||(`.monomind/orgs/${_v2SelOrg}-approvals.json`),
-    },
+    cost_tiers_default: str('oc-tier') || '',
   };
-  const msg = document.getElementById('oc-status-msg');
-  if (msg) { msg.style.color='var(--text-lo)'; msg.textContent='Saving...'; }
+  const msg = g('oc-status-msg');
+  if (msg) { msg.style.color = 'var(--text-lo)'; msg.textContent = 'Saving…'; }
   try {
-    const qs = (typeof DIR !== 'undefined' && DIR) ? `?dir=${encodeURIComponent(DIR)}` : '';
-    const r = await fetch(`/api/orgs${qs}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) });
-    const json = await r.json();
-    if (json.ok) {
-      _v2OrgData = Object.assign({}, _v2OrgData, cfg);
-      if (msg) { msg.style.color='oklch(68% 0.20 150)'; msg.textContent='Saved'; setTimeout(()=>{ if(msg) msg.textContent=''; }, 2500); }
-      if (typeof showToast === 'function') showToast('Config saved','','ok');
-    } else { throw new Error(json.error||'Save failed'); }
-  } catch(e) {
-    if (msg) { msg.style.color='oklch(60% 0.22 25)'; msg.textContent=`Error: ${e.message}`; }
+    const r = await fetch(`/api/org/${enc(_v2SelOrg)}/config${DIR ? `?dir=${enc(DIR)}` : ''}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+    });
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok || !json.ok) throw new Error((json.error || `HTTP ${r.status}`).split('; ').join('\n'));
+    if (_v2OrgData.config) _v2OrgData.config = json.def;
+    Object.assign(_v2OrgData, { goal: json.def.goal, schedule: json.def.schedule, run_config: json.def.run_config, cost_tiers: json.def.cost_tiers });
+    if (msg) { msg.style.color = 'oklch(68% 0.20 150)'; msg.textContent = 'Saved — applies from the next run'; setTimeout(() => { if (msg) msg.textContent = ''; }, 4000); }
+    showToast('Config saved', 'Validated against the org schema', 'ok');
+  } catch (e) {
+    if (msg) { msg.style.color = 'oklch(60% 0.22 25)'; msg.textContent = `Not saved:\n${e.message}`; }
   }
 }
 
