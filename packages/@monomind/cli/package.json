@@ -102,8 +102,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.226",
-    "@monoes/monobrowse": "^1.0.6",
-    "@monoes/monodesign": "^1.2.2",
+    "@monoes/monobrowse": "workspace:*",
+    "@monoes/monodesign": "workspace:*",
     "@monoes/monograph": "workspace:*",
     "fflate": "^0.8.3",
     "mammoth": "^1.12.0",
@@ -133,7 +133,7 @@
     "@monoes/memory": "workspace:*",
     "@monoes/routing": "workspace:*",
     "@opencode-ai/sdk": "^1.18.15",
-    "monofence-ai": "^1.0.2",
+    "monofence-ai": "workspace:*",
     "sql.js": "^1.14.1"
   },
   "publishConfig": {

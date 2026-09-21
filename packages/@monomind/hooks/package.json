@@ -65,6 +65,6 @@
     "access": "public"
   },
   "optionalDependencies": {
-    "monofence-ai": "^1.0.2"
+    "monofence-ai": "workspace:*"
   }
 }
