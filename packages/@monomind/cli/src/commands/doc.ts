@@ -3,7 +3,7 @@
  */
 
 import * as path from 'node:path';
-import { getGlobalBrainDir, getProjectRoot } from '../memory/memory-bridge.js';
+import { getProjectRoot } from '../memory/memory-bridge.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { FILTER_OPTIONS, hasFilter, libraryFilterFromFlags } from './doc-filters.js';
@@ -397,7 +397,7 @@ const exportDocCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { exportToOKF } = await import('../knowledge/document-pipeline.js');
+    const { exportToOKF, getKnowledgeRoot } = await import('../knowledge/document-pipeline.js');
     const outDir = path.resolve(String(ctx.flags.output || '.monomind/knowledge-export'));
     const isGlobal = ctx.flags.global === true;
     const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
@@ -406,11 +406,10 @@ const exportDocCommand: Command = {
     spinner.start();
 
     try {
-      const result = await exportToOKF(
-        outDir,
-        isGlobal ? getGlobalBrainDir() : getProjectRoot(),
-        scope,
-      );
+      // The scope decides the store, not the flag alone: `--scope profile:<id>`
+      // lives in that profile's brain, and reading the project's log for it
+      // exported an empty bundle.
+      const result = await exportToOKF(outDir, getKnowledgeRoot(scope, getProjectRoot()), scope);
       spinner.succeed(`Exported ${result.exported} documents to ${result.outputDir}`);
       return { success: true, data: result };
     } catch (err) {
@@ -456,10 +455,15 @@ const removeDocCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    const { listDocuments, removeDocument } = await import('../knowledge/document-pipeline.js');
+    const { getKnowledgeRoot, listDocuments, removeDocument } = await import(
+      '../knowledge/document-pipeline.js'
+    );
     const isGlobal = ctx.flags.global === true;
     const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
-    const root = isGlobal ? getGlobalBrainDir() : getProjectRoot();
+    // The scope decides the store: a `profile:<id>` document is in that
+    // profile's brain, and looking for it in the project's log reported a
+    // document that is plainly indexed as "not indexed".
+    const root = getKnowledgeRoot(scope, getProjectRoot());
     const resolved = path.resolve(target);
 
     // The metadata log keys on the resolved path recorded at ingest, so a
@@ -522,10 +526,13 @@ const reconcileDocCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { reconcileIndex } = await import('../knowledge/document-pipeline.js');
+    const { getKnowledgeRoot, reconcileIndex } = await import('../knowledge/document-pipeline.js');
     const isGlobal = ctx.flags.global === true;
     const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
-    const root = isGlobal ? getGlobalBrainDir() : getProjectRoot();
+    // The scope decides the store — reconciling a `profile:<id>` scope against
+    // the project's log swept a store with nothing in it and reported a clean
+    // bill of health for the one that was actually asked about.
+    const root = getKnowledgeRoot(scope, getProjectRoot());
     const apply = ctx.flags.apply === true;
 
     let report;
@@ -616,7 +623,7 @@ const importDocCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    const { importFromOKF } = await import('../knowledge/document-pipeline.js');
+    const { getKnowledgeRoot, importFromOKF } = await import('../knowledge/document-pipeline.js');
     const fs = await import('node:fs');
     const resolved = path.resolve(bundle);
 
@@ -634,10 +641,12 @@ const importDocCommand: Command = {
     try {
       // importFromOKF, not ingestDirectory: the bundle's own index.md is a
       // manifest, not knowledge, and plain ingest would index it as a document.
+      // The scope decides the store (`ingestDocument` resolves it the same way
+      // per file; passing the matching root keeps the two in step).
       const result = await importFromOKF(
         resolved,
         scope,
-        isGlobal ? getGlobalBrainDir() : getProjectRoot(),
+        getKnowledgeRoot(scope, getProjectRoot()),
       );
       spinner.succeed(
         `Imported ${result.totalChunks} chunks from ${result.filesProcessed} documents (${result.filesSkipped} already indexed)`,

@@ -271,11 +271,16 @@ describe('RCL-06 — hash dedupe and versioning', () => {
     expect(v2.supersedes).toBe(v1Hash);
     expect(v1.version).toBe(1);
 
-    // One row for the page, not two — and the first capture's chunks are
-    // retired rather than left orphaned in the store.
+    // One row for the page, not two — pointing at the NEW capture, and the
+    // first capture's chunks are retired rather than left orphaned in the
+    // store. The row names that capture's `readable.md`, not the `page.html`
+    // this test handed in: the readable pass is what was extracted and
+    // indexed, so it is what the record documents (see the envelope redirect
+    // in document-ingest). Asserting the archive's path here was only ever
+    // true because the walk happened to reach it first.
     const all = await docs();
     expect(all).toHaveLength(1);
-    expect(all[0].filePath).toBe(second);
+    expect(all[0].filePath).toBe(join(ROOT, 'inbox', '20260922-alpha', 'readable.md'));
     expect(await liveHashes()).not.toContain(v1Hash);
   });
 
