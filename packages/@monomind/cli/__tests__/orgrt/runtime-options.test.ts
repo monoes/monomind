@@ -31,7 +31,7 @@ describe('buildRuntimeOptions', () => {
   it('keeps installed-detection distinct from auth/remote-model validation (no auth fields present)', async () => {
     const result = await buildRuntimeOptions();
     for (const r of result.runtimes) {
-      expect(Object.prototype.hasOwnProperty.call(r, 'authenticated')).toBe(false);
+      expect(Object.hasOwn(r, 'authenticated')).toBe(false);
     }
   });
 });

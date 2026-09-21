@@ -287,7 +287,7 @@ describe('wrapCli integration', () => {
 </body></html>`;
     writeFileSync(join(tmp, 'page.html'), html);
 
-    const result = JSON.parse(execSync(
+    JSON.parse(execSync(
       `node skill/scripts/live-wrap.mjs --id id123 --count 2 --element-id "pricing" --file "${join(tmp, 'page.html')}"`,
       { cwd: process.cwd(), encoding: 'utf-8' }
     ));

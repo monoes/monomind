@@ -153,7 +153,7 @@ describe('cross-process inter-org delivery', () => {
     const srvA = await startOrgServer(daemonA, 0);
     cleanups.push(() => srvA.close());
     daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.operatorCredential);
-    const alpha = await daemonA.startOrg('alpha');
+    await daemonA.startOrg('alpha');
     cleanups.push(() => daemonA.stopAll());
 
     const rootB = mkdtempSync(join(tmpdir(), 'projH-'));

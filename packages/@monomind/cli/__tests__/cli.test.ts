@@ -14,7 +14,6 @@ describe('CLI', () => {
   let cli: CLI;
   let consoleOutput: string[];
   let consoleErrorOutput: string[];
-  let processExitMock: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     // Capture console output
@@ -32,9 +31,9 @@ describe('CLI', () => {
     });
 
     // Mock process.exit to prevent actual exits
-    processExitMock = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
+    vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
       throw new Error(`process.exit: ${code}`);
-    }) as unknown as ReturnType<typeof vi.spyOn>;
+    });
 
     // Create CLI instance (non-interactive for testing)
     cli = new CLI({ interactive: false });
@@ -137,7 +136,7 @@ describe('CLI', () => {
       try {
         await cli.run(['invalid-command']);
         // Should throw, but might not in current implementation
-      } catch (e) {
+      } catch {
         // Error may or may not be thrown (process.exit throws)
       }
 
@@ -155,7 +154,7 @@ describe('CLI', () => {
 
       try {
         await cli.run(['nonexistent']);
-      } catch (e) {
+      } catch {
         // Error may or may not be thrown (process.exit throws)
       }
 
@@ -172,7 +171,7 @@ describe('CLI', () => {
 
       try {
         await cli.run(['agnet']);
-      } catch (e) {
+      } catch {
         // Error may or may not be thrown (process.exit throws)
       }
 

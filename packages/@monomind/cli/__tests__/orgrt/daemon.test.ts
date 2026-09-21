@@ -238,7 +238,7 @@ describe('OrgDaemon', () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-answer-offline-'));
     fixture(root, 'alpha');
     const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
-    const running = await d.startOrg('alpha');
+    await d.startOrg('alpha');
     await d.askHuman('alpha', 'coder', 'red or blue?');
     const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
     const questionId = saved.questions[0].questionId;
@@ -896,7 +896,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
       try {
         fixture(root, 'alpha');
         const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
-        const running = await d.startOrg('alpha');
+        await d.startOrg('alpha');
 
         // Send a message to the coder (triggers lazy spawn)
         await d.deliver('alpha', 'boss', 'coder', 'task', 'first message');
@@ -973,7 +973,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
       try {
         fixture(root, 'alpha');
         const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
-        const running = await d.startOrg('alpha');
+        await d.startOrg('alpha');
 
         // Wait for lazy spawn to complete
         await d.deliver('alpha', 'boss', 'coder', 'task', 'first');

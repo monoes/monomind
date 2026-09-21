@@ -20,7 +20,7 @@ function fixture(root: string, name: string): void {
 
 // Mock SDK query function that emits usage events
 const queryWithUsage = ({ prompt }: any) => (async function* () {
-  for await (const m of prompt) {
+  for await (const _m of prompt) {
     yield { type: 'assistant', message: { content: [{ type: 'text', text: 'response' }] } };
     yield {
       type: 'result',

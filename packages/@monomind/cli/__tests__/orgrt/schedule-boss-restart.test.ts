@@ -53,14 +53,6 @@ describe('scheduleBossRestart Race Prevention (Task 2)', () => {
       bossAgent.mailbox.close();
     }
 
-    // Trigger first restart attempt
-    // This should work
-    const firstRestartTriggered = true;
-
-    // Immediately trigger second restart attempt (simulating concurrent crash detection)
-    // This should be prevented by the in-flight tracking
-    const secondRestartTriggered = false;
-
     // Give time for restart to initiate
     await new Promise(resolve => setTimeout(resolve, 50));
 
@@ -101,7 +93,7 @@ describe('scheduleBossRestart Race Prevention (Task 2)', () => {
     const def = createTestDef('Stop protection test');
     writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(def));
 
-    const running = await daemon.startOrg(orgName);
+    await daemon.startOrg(orgName);
 
     // Start stopping the org
     const stopPromise = daemon.stopOrg(orgName);
