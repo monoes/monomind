@@ -98,6 +98,75 @@ export function appendMetadata(rootDir: string, meta: DocumentMeta): void {
   fs.appendFileSync(metadataPath(rootDir), `${JSON.stringify(meta)}\n`, 'utf-8');
 }
 
+/**
+ * One ingest's live view of the metadata log — the answer to "what is already
+ * indexed here", kept current as the ingest itself indexes things.
+ *
+ * WHY IT IS NOT AN ARRAY. `ingestDirectory` used to read the log once and hand
+ * the same frozen snapshot to every file, which made a batch blind to its own
+ * writes: two members of one capture envelope both looked new, both got
+ * indexed, and a first-ever ingest of one page reported two documents and
+ * `versions: 2`. Re-reading the log per file would have fixed that by throwing
+ * away the very thing the cache exists for — the log is read once and parsed
+ * once, however large it has grown.
+ *
+ * So the cache stays, and the WRITES go through it: `record` after a version
+ * commits, `forget` after a tombstone, mirroring `readMetadata`'s last-wins
+ * key. It is keyed by root as well, because a sweep can route captures to
+ * several stores (`global`, `profile:<id>`) and each has its own log.
+ *
+ * Deliberately not shared between ingests: it is a within-one-call view, not a
+ * process-wide cache that could go stale behind a concurrent writer.
+ */
+export interface MetadataCache {
+  /** The live record this ingest would supersede, by path or by capture
+   *  identity — the rule `ingestDocument` keys dedupe on. */
+  find(
+    rootDir: string,
+    filePath: string,
+    scope: string,
+    canonicalUrl?: string,
+  ): DocumentMeta | undefined;
+  /** A version just committed under `rootDir`. */
+  record(rootDir: string, meta: DocumentMeta): void;
+  /** A record just tombstoned under `rootDir`. */
+  forget(rootDir: string, filePath: string, scope: string): void;
+}
+
+export function createMetadataCache(): MetadataCache {
+  const key = (filePath: string, scope: string | undefined) => `${filePath} ${scope}`;
+  const roots = new Map<string, Map<string, DocumentMeta>>();
+  const load = (rootDir: string): Map<string, DocumentMeta> => {
+    let byKey = roots.get(rootDir);
+    if (!byKey) {
+      byKey = new Map(readMetadata(rootDir).map((m) => [key(m.filePath, m.scope), m]));
+      roots.set(rootDir, byKey);
+    }
+    return byKey;
+  };
+
+  return {
+    find(rootDir, filePath, scope, canonicalUrl) {
+      const byKey = load(rootDir);
+      const samePath = byKey.get(key(filePath, scope));
+      if (samePath) return samePath;
+      // RCL-06: identity is the PAGE, not the path — a re-capture lands in a
+      // new timestamped directory.
+      if (!canonicalUrl) return undefined;
+      for (const m of byKey.values()) {
+        if (m.scope === scope && m.canonicalUrl === canonicalUrl) return m;
+      }
+      return undefined;
+    },
+    record(rootDir, meta) {
+      load(rootDir).set(key(meta.filePath, meta.scope), meta);
+    },
+    forget(rootDir, filePath, scope) {
+      load(rootDir).delete(key(filePath, scope));
+    },
+  };
+}
+
 export function removeMetadataEntry(rootDir: string, filePath: string, scope: string): void {
   const file = metadataPath(rootDir);
   if (!fs.existsSync(file)) return;

@@ -32,12 +32,13 @@ import { spanTag } from './citation.js';
 import { chunkDocument, enrichChunks, type TextChunk } from './document-chunking.js';
 import {
   appendMetadata,
+  createMetadataCache,
   isResourceFork,
-  readMetadata,
+  type MetadataCache,
   removeMetadataEntry,
 } from './document-index.js';
 import { contentHash, effectiveRoot, getBridge, namespace, storeDbPath } from './document-store.js';
-import type { BatchIngestResult, DocumentMeta, IngestResult } from './document-types.js';
+import type { BatchIngestResult, IngestResult } from './document-types.js';
 import { captureScope } from './profile-store.js';
 
 const IGNORE_DIRS = new Set([
@@ -70,10 +71,14 @@ export async function ingestDocument(
   filePath: string,
   scope = 'shared',
   rootDir = getProjectRoot(),
-  _metadataCache?: DocumentMeta[],
+  _metadataCache?: MetadataCache,
 ): Promise<IngestResult> {
-  const resolved = path.resolve(filePath);
-  const ext = path.extname(resolved).toLowerCase();
+  // Both are reassigned once, by the capture-envelope redirect below: an
+  // archived `page.html` IS its envelope's `readable.md` as far as indexing is
+  // concerned, so that is the path and the extension the rest of this function
+  // works with.
+  let resolved = path.resolve(filePath);
+  let ext = path.extname(resolved).toLowerCase();
 
   // AppleDouble resource forks (`._name.md`) are binary macOS sidecars, not
   // documents. The directory walk has skipped dotfiles since 3e429194
@@ -114,6 +119,45 @@ export async function ingestDocument(
     return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: 'file not found' };
   }
 
+  // RCL-01/RCL-06: one capture envelope is ONE document, whichever of its
+  // members the caller points at.
+  //
+  // `page.html`/`page.mhtml` are not refused, because extraction reads their
+  // sibling `readable.md` anyway (see capture-text) — but the DOCUMENT they
+  // produce is that readable.md, and the record has to say so. Recording the
+  // archive's path instead named a file whose own text was never indexed, and
+  // made the answer depend on readdir order: a directory sweep reaches
+  // `page.html` before `readable.md` on ext4 and the other way round
+  // elsewhere, so the same capture was filed under a different path per
+  // machine. Redirecting here — rather than skipping the member — is also what
+  // keeps `doc ingest .../page.html` on a fresh store indexing the capture
+  // instead of silently doing nothing.
+  //
+  // `page.pdf` is refused outright: its text differs from the readable pass,
+  // so ingesting it alongside would version-flip the same page back and forth
+  // on every sweep.
+  const envelopePrimary = envelopePrimaryDocument(path.dirname(resolved));
+  if (envelopePrimary && envelopePrimary !== resolved) {
+    const isMember = (ENVELOPE_DOCUMENTS as readonly string[]).includes(path.basename(resolved));
+    const redirectsToPrimary =
+      path.basename(envelopePrimary) === ENVELOPE_READABLE_FILE &&
+      (ext === '.html' || ext === '.htm' || ext === '.xhtml' || ext === '.mhtml' || ext === '.mht');
+    if (isMember && redirectsToPrimary) {
+      resolved = envelopePrimary;
+      ext = path.extname(resolved).toLowerCase();
+    } else if (isMember) {
+      return {
+        filePath: resolved,
+        chunksIndexed: 0,
+        scope,
+        skipped: true,
+        error: `capture envelope: ${path.basename(envelopePrimary)} is this capture's document`,
+      };
+    }
+  }
+
+  // After the redirect: the size recorded on the version record is the size of
+  // the file that was actually indexed.
   const stat = fs.statSync(resolved);
   if (stat.size > MAX_FILE_SIZE) {
     return {
@@ -125,35 +169,15 @@ export async function ingestDocument(
     };
   }
 
-  // RCL-01/RCL-06: one capture envelope is ONE document, whichever of its
-  // members the caller points at. `page.html`/`page.mhtml` need no guard —
-  // extraction already redirects them to `readable.md`, so they hash
-  // identically and fall out as "unchanged" below. `page.pdf` does not: its
-  // text differs from the readable pass, so ingesting it alongside would
-  // version-flip the same page back and forth on every sweep.
-  const envelopePrimary = envelopePrimaryDocument(path.dirname(resolved));
-  if (envelopePrimary && envelopePrimary !== resolved) {
-    const isMember = (ENVELOPE_DOCUMENTS as readonly string[]).includes(path.basename(resolved));
-    const redirectsToPrimary =
-      path.basename(envelopePrimary) === ENVELOPE_READABLE_FILE &&
-      (ext === '.html' || ext === '.htm' || ext === '.xhtml' || ext === '.mhtml' || ext === '.mht');
-    if (isMember && !redirectsToPrimary) {
-      return {
-        filePath: resolved,
-        chunksIndexed: 0,
-        scope,
-        skipped: true,
-        error: `capture envelope: ${path.basename(envelopePrimary)} is this capture's document`,
-      };
-    }
-  }
-
   // A capture that names a profile belongs to that profile's store, whoever
   // is ingesting it and whatever scope they reached for — see
   // knowledge/profile-store.ts. A no-op for everything else.
   scope = captureScope(scope, resolved);
   rootDir = effectiveRoot(scope, rootDir);
-  const meta = _metadataCache ?? readMetadata(rootDir);
+  // A batch passes its own cache so the files in it can see each other's
+  // commits; a lone ingest gets a private one, which reads the log exactly
+  // once for this call and is thrown away with it.
+  const metaCache = _metadataCache ?? createMetadataCache();
 
   // RCL-07: provenance is read before extraction so it is recorded even when a
   // later step degrades. Absent, truncated or wrong-typed `meta.json` yields
@@ -164,11 +188,7 @@ export async function ingestDocument(
   // RCL-06: identity is the PAGE, not the path. A re-capture lands in a new
   // timestamped directory, so matching on filePath alone would file every
   // capture of one article as a separate document.
-  const existing =
-    meta.find((m) => m.filePath === resolved && m.scope === scope) ??
-    (canonicalUrl
-      ? meta.find((m) => m.scope === scope && m.canonicalUrl === canonicalUrl)
-      : undefined);
+  const existing = metaCache.find(rootDir, resolved, scope, canonicalUrl);
   let fullContent: string;
 
   try {
@@ -268,7 +288,7 @@ export async function ingestDocument(
   // filtering keeps them out of search (see `liveContentHashes`).
   const complete = indexed === chunks.length;
   if (complete) {
-    appendMetadata(rootDir, {
+    const record = {
       filePath: resolved,
       contentHash: hash,
       chunkCount: indexed,
@@ -279,7 +299,12 @@ export async function ingestDocument(
       ...(supersedes ? { supersedes } : {}),
       ...(canonicalUrl ? { canonicalUrl } : {}),
       ...(provenance ? { provenance } : {}),
-    });
+    };
+    appendMetadata(rootDir, record);
+    // Into the caller's view of the log as well as the log itself, so the rest
+    // of a batch sees this document as indexed. Without it the two members of
+    // one capture envelope each looked new and both got indexed.
+    metaCache.record(rootDir, record);
 
     // A re-capture of the same page arrives at a NEW path, so the previous
     // version's record is a different (filePath, scope) key and survives
@@ -292,6 +317,7 @@ export async function ingestDocument(
     // fix above exists to prevent.
     if (existing && existing.filePath !== resolved) {
       removeMetadataEntry(rootDir, existing.filePath, scope);
+      metaCache.forget(rootDir, existing.filePath, scope);
     }
 
     // RCL-04: the reader's own highlights, stored as notes linked to this
@@ -361,7 +387,16 @@ export async function ingestDirectory(
   opts?: { rootDir?: string; onProgress?: (file: string, done: number, total: number) => void },
 ): Promise<BatchIngestResult> {
   const scanDir = path.resolve(dirPath);
-  const rootDir = path.resolve(opts?.rootDir ?? getProjectRoot());
+  // Through `effectiveRoot`, exactly as `ingestDocument` does one line after
+  // it resolves the scope. The batch reads its metadata cache from this root
+  // while every version record is written to the SCOPE's store — so a root
+  // taken from the project alone meant a `global` or `profile:<id>` sweep read
+  // a store nothing had ever been written to. `existing` was then never found,
+  // `unchanged` could never fire, and every sweep re-indexed the whole tree at
+  // a new version. `effectiveRoot` is idempotent, so applying it here and
+  // again inside `ingestDocument` (where a capture may re-route the scope to a
+  // profile) resolves to the same place.
+  const rootDir = effectiveRoot(scope, path.resolve(opts?.rootDir ?? getProjectRoot()));
   const files: string[] = [];
 
   function walk(dir: string, depth = 0) {
@@ -389,7 +424,10 @@ export async function ingestDirectory(
 
   walk(scanDir);
 
-  const metadataCache = readMetadata(rootDir);
+  // One view of the log for the whole sweep, updated by each ingest that
+  // commits — see `createMetadataCache`. Still one read per store, which is
+  // what this cache was always for.
+  const metadataCache = createMetadataCache();
   const result: BatchIngestResult = {
     filesProcessed: 0,
     filesSkipped: 0,

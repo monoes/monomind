@@ -418,13 +418,16 @@ const knowledgeRemove: MCPTool = {
       };
     }
 
-    const { listDocuments, removeDocument } = await import('../knowledge/document-pipeline.js');
-    const { getGlobalBrainDir, getProjectRoot } = await import('../memory/memory-bridge.js');
+    const { getKnowledgeRoot, listDocuments, removeDocument } = await import(
+      '../knowledge/document-pipeline.js'
+    );
+    const { getProjectRoot } = await import('../memory/memory-bridge.js');
     const pathMod = await import('node:path');
 
     const isGlobal = input.global === true;
     const scope = isGlobal ? 'global' : String(input.scope || 'shared');
-    const root = isGlobal ? getGlobalBrainDir() : getProjectRoot();
+    // The scope decides the store — see the same fix in `doc remove`.
+    const root = getKnowledgeRoot(scope, getProjectRoot());
     const target = pathMod.resolve(pathCheck.sanitized!);
 
     try {

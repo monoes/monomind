@@ -6,7 +6,7 @@
  */
 
 import type { LibrarySort } from '../knowledge/library.js';
-import { getGlobalBrainDir, getProjectRoot } from '../memory/memory-bridge.js';
+import { getProjectRoot } from '../memory/memory-bridge.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { FILTER_OPTIONS, hasFilter, libraryFilterFromFlags } from './doc-filters.js';
@@ -47,11 +47,14 @@ export const listDocCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { listDocuments } = await import('../knowledge/document-pipeline.js');
+    const { getKnowledgeRoot, listDocuments } = await import('../knowledge/document-pipeline.js');
     const { libraryFacets, listLibrary } = await import('../knowledge/library.js');
     const isGlobal = ctx.flags.global === true;
     const scope = isGlobal ? 'global' : ctx.flags.scope ? String(ctx.flags.scope) : undefined;
-    const docs = listDocuments(isGlobal ? getGlobalBrainDir() : getProjectRoot(), scope);
+    // The scope decides the store: `--scope profile:<id>` reads that profile's
+    // brain, not the project's log filtered to a scope it never holds — which
+    // listed nothing and looked like an empty library.
+    const docs = listDocuments(getKnowledgeRoot(scope ?? 'shared', getProjectRoot()), scope);
     const filter = libraryFilterFromFlags(ctx);
 
     const rows = listLibrary(docs, {
