@@ -13,7 +13,7 @@ import path from 'node:path';
 // re-export keeps `generateMCPConfig()` and the existing test's
 // `import { buildMonoesMcpEntry } from './mcp-generator.js'` working.
 import { buildMonoesMcpEntry } from '../mcp/monoes-mcp-entry.mjs';
-import { mcpCommand, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
+import { mcpAddHint, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
 
 export { buildMonoesMcpEntry };
@@ -38,9 +38,14 @@ export function generateMCPConfig(options: InitOptions): object {
   // process's env doing nothing. Writing an unread var into real config is
   // the same class of lie as a wrong count in a doc string.
   if (config.monomind) {
-    mcpServers.monomind = mcpServerEntry('claude', {
-      ...npmEnv,
-    });
+    mcpServers.monomind = mcpServerEntry(
+      'claude',
+      {
+        ...npmEnv,
+      },
+      process.platform,
+      config.pin,
+    );
   }
 
   // Monograph knowledge graph — built into monomind MCP server since v1.8.0.
@@ -82,8 +87,7 @@ export function generateMCPCommands(options: InitOptions): string[] {
   const commands: string[] = [];
   const config = options.mcp;
 
-  if (config.monomind)
-    commands.push(`claude mcp add monomind -- ${mcpCommand('claude').join(' ')}`);
+  if (config.monomind) commands.push(mcpAddHint(config.pin));
 
   return commands;
 }
