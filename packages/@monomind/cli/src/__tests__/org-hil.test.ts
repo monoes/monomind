@@ -294,6 +294,30 @@ describe('org-hil with a running org (daemon registered in the broker)', () => {
     }
   });
 
+  it('says an approval resolved meanwhile is already resolved, not ended', async () => {
+    writeOrgFile('approvals.json', { approvals: [pendingApproval] });
+    writeOperatorCredential(ORG, 'op-cred', operatorDir);
+    const server = http.createServer((_req, res) => {
+      // another resolver got there first: the daemon has already written it
+      writeOrgFile('approvals.json', {
+        approvals: [{ ...pendingApproval, approved: false, resolvedBy: 'human:cli' }],
+      });
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'No pending approval apr-1 found' }));
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    registerOrg(ORG, `http://127.0.0.1:${(server.address() as AddressInfo).port}`, brokerDir);
+    try {
+      const err = await hil.resolveApproval(root, ORG, 'apr-1', true).catch((e: Error) => e);
+      expect(hil.hilErrorStatus(err)).toMatchObject({
+        status: 409,
+        error: expect.stringContaining('already denied'),
+      });
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
   it("reports the daemon's receipt when it refuses a chat message", async () => {
     writeOperatorCredential(ORG, 'op-cred', operatorDir);
     const d = await fakeDaemon({

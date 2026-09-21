@@ -227,9 +227,13 @@ describe('runtimeView — org not running', () => {
       { ts: 4, type: 'audit', from: 'dev', reason: 'agent-session-crash', msg: 'crashed' },
       { ts: 5, type: 'audit', from: 'dev', reason: 'agent-context-limit', msg: 'context full' },
       { ts: 5.5, type: 'audit', from: 'lead', reason: 'boss-context-limit', msg: 'restart' },
+      { ts: 5.7, type: 'audit', from: 'lead', reason: 'boss-restart', msg: 'boss crashed' },
+      { ts: 5.8, type: 'audit', from: 'lead', reason: 'boss-restart-exhausted', msg: 'gave up' },
       { ts: 6, type: 'status', from: 'lead', msg: 'session starting' },
     ]);
     expect((await rt.runtimeView(root, ORG)).audit.map((a: any) => a.reason)).toEqual([
+      'boss-restart-exhausted',
+      'boss-restart',
       'boss-context-limit',
       'agent-context-limit',
       'agent-session-crash',

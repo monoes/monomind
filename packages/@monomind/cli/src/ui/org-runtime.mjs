@@ -41,6 +41,8 @@ export const RUNTIME_AUDIT_REASONS = new Set([
   'agent-session-crash',
   'agent-context-limit',
   'boss-context-limit',
+  'boss-restart',
+  'boss-restart-exhausted',
 ]);
 const MAX_AUDIT = 60;
 

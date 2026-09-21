@@ -4501,7 +4501,7 @@ function _hiScheduleReload() {
   _hiReloadTimer = setTimeout(() => {
     // The reload rebuilds the list; wait while an answer or note is being typed.
     const typing = [...document.querySelectorAll('#hi-content .hi-answer-input')]
-      .some(i => i === document.activeElement || i.value.trim());
+      .some(i => i === document.activeElement && i.value.trim());
     if (typing) _hiScheduleReload();
     else renderHumanInputView();
   }, 400);

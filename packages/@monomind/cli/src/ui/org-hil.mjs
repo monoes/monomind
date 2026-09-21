@@ -220,7 +220,15 @@ export async function resolveApproval(root, org, requestId, approved) {
   } catch (err) {
     // A daemon started since (e.g. `--resume` in a new process) holds only
     // the approvals its own run asked for.
-    if (err instanceof HilError && err.status === 404) throw new HilError(409, ended);
+    if (err instanceof HilError && err.status === 404) {
+      // …or someone resolved it first: the daemon writes the file before it answers.
+      const now = readList(root, org, 'approvals.json', 'approvals').find(
+        (a) => a.requestId === requestId,
+      );
+      if (now && now.approved !== null)
+        throw new HilError(409, `approval "${requestId}" already ${approvalStatus(now)}`);
+      throw new HilError(409, ended);
+    }
     throw err;
   }
   if (live) return { delivery: 'live' };
