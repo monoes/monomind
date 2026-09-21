@@ -9,6 +9,7 @@ import path from 'node:path';
 // importing them here doesn't pull in attachForwarder's spawn/heal logic.
 import { companionEvents, translate } from '../orgrt/forwarder.js';
 import * as hil from './org-hil.mjs';
+import * as orgRuntime from './org-runtime.mjs';
 import { getMmClientCount } from './sse-manager.mjs';
 
 /** listApprovals for read-only views, where an unreadable file shows as none. */
@@ -1079,97 +1080,42 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // GET /api/org/:name/health — aggregate org health metrics
+  // GET /api/org/:name/health — aggregate org health, from the same runtime
+  // sources as /runtime: live role sessions, the task DAG, this run's usage on
+  // the budget's enforcement basis, and how the last 7 days of runs ended.
   if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/health$/i)) {
-    try {
-      const orgName = decodeURIComponent(url.split('/')[3]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('Invalid org name');
-        return true;
-      }
-      const _healthQs = new URL(req.url, 'http://localhost').searchParams;
-      const base = path.join(
-        path.resolve(_healthQs.get('dir') || ctx.projectDir || process.cwd()),
-        '.monomind',
-        'orgs',
-      );
-
-      let agentsRunning = 0,
-        agentsIdle = 0,
-        openIssues = 0,
-        inProgressIssues = 0;
-      let budgetUsedTokens = 0,
-        budgetMaxTokens = 0;
-      let successRuns = 0,
-        totalRuns = 0;
-
-      // State: agent statuses
-      try {
-        const state = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-state.json`), 'utf8'));
-        const agents = state.agents || {};
-        Object.values(agents).forEach((a) => {
-          if (a.status === 'running') agentsRunning++;
-          else agentsIdle++;
-          budgetUsedTokens += a.tokens_used || (a.tokens_in || 0) + (a.tokens_out || 0);
-        });
-      } catch (_) {}
-
-      // Budget cap from org config
-      try {
-        const cfg = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
-        budgetMaxTokens = cfg.run_config?.budget_tokens || cfg.budget_tokens || 0;
-      } catch (_) {}
-
-      // Issues: open count
-      try {
-        const iss = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-issues.json`), 'utf8'));
-        openIssues = (iss.issues || []).filter((i) => i.status === 'open').length;
-        inProgressIssues = (iss.issues || []).filter((i) => i.status === 'in_progress').length;
-      } catch (_) {}
-
-      // Activity: 7-day success rate
-      try {
-        const actPath = path.join(base, `${orgName}-activity.jsonl`);
-        const lines = fs.readFileSync(actPath, 'utf8').split('\n').filter(Boolean);
-        const cutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        lines.forEach((line) => {
-          try {
-            const ev = JSON.parse(line);
-            const evMs = typeof ev.ts === 'number' ? ev.ts : ev.ts ? Date.parse(ev.ts) : 0;
-            if (!evMs || evMs < cutoffMs) return;
-            totalRuns++;
-            if (ev.type?.includes('complete')) successRuns++;
-          } catch (_) {}
-        });
-      } catch (_) {}
-
-      const budgetUsedPct =
-        budgetMaxTokens > 0 ? Math.round((budgetUsedTokens / budgetMaxTokens) * 100) : null;
-      const successRate = totalRuns > 0 ? Math.round((successRuns / totalRuns) * 100) : null;
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          agents_running: agentsRunning,
-          agents_idle: agentsIdle,
-          agents_active: agentsRunning,
-          open_issues: openIssues,
-          in_progress_issues: inProgressIssues,
-          tasks_pending: openIssues + inProgressIssues,
-          budget_used_tokens: budgetUsedTokens,
-          budget_max_tokens: budgetMaxTokens,
-          budget_used_pct: budgetUsedPct,
-          run_success_rate_7d: successRate,
-          total_runs_7d: totalRuns,
-          errors: [],
-        }),
-      );
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{}');
-    }
-    return true;
+    const orgName = decodeURIComponent(url.split('/')[3]);
+    return hilRespond(res, corsOrigin, async () => {
+      const v = await orgRuntime.runtimeView(hilRoot(req, ctx), orgName);
+      if (!v) throw Object.assign(new Error(`org "${orgName}" has no definition`), { status: 404 });
+      const running = v.roles.filter((r) => r.status === 'running').length;
+      const openTasks = v.tasks.filter((t) =>
+        ['pending', 'ready', 'blocked'].includes(t.status),
+      ).length;
+      const activeTasks = v.tasks.filter((t) => t.status === 'running').length;
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const week = v.history.filter((h) => (h.endedAt || 0) >= weekAgo);
+      // Only a boss's gate-checked org_complete with 'achieved' counts as success.
+      const achieved = week.filter(
+        (h) => h.closedBy === 'org-complete' && h.outcome?.status === 'achieved',
+      ).length;
+      const { used, tokens } = v.budget;
+      return {
+        agents_running: running,
+        agents_idle: v.roles.length - running,
+        agents_active: running,
+        open_issues: openTasks,
+        in_progress_issues: activeTasks,
+        tasks_pending: openTasks + activeTasks,
+        budget_used_tokens: used,
+        budget_max_tokens: tokens,
+        budget_basis: v.budget.basis,
+        budget_used_pct: tokens && used !== null ? Math.round((used / tokens) * 100) : null,
+        run_success_rate_7d: week.length ? Math.round((achieved / week.length) * 100) : null,
+        total_runs_7d: week.length,
+        errors: [...v.problems, ...(v.liveError ? [`daemon: ${v.liveError}`] : [])],
+      };
+    });
   }
 
   // GET /api/org/:name/environments — org execution environments (strips key material)
@@ -1422,6 +1368,38 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
+  // GET /api/org/:name/runtime — what the org is doing now, from the runtime's
+  // own sources (live daemon status, run bus, idle watchdog, history).
+  if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/runtime$/i)) {
+    const orgName = decodeURIComponent(url.split('/')[3]);
+    return hilRespond(res, corsOrigin, async () => {
+      const view = await orgRuntime.runtimeView(hilRoot(req, ctx), orgName);
+      if (!view)
+        throw Object.assign(new Error(`org "${orgName}" has no definition`), { status: 404 });
+      return view;
+    });
+  }
+
+  // POST /api/org/:name/config — edit the org definition's goal, schedule,
+  // run_config and default cost tier; refused unless the result passes the
+  // same OrgDefSchema parse `org run` does.
+  if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/config$/i)) {
+    const orgName = decodeURIComponent(url.split('/')[3]);
+    const body = await readHilBody(req);
+    const root = hilRoot(req, ctx);
+    return hilRespond(res, corsOrigin, () => {
+      if (!body || typeof body !== 'object')
+        throw Object.assign(new Error('JSON body required'), { status: 400 });
+      try {
+        return { ok: true, def: orgRuntime.patchOrgConfig(root, orgName, body) };
+      } catch (err) {
+        if (err instanceof orgRuntime.ConfigRejected)
+          throw Object.assign(new Error(err.message), { status: 400 });
+        throw err;
+      }
+    });
+  }
+
   // GET /api/org/:name/agents — agents from roles + merged heartbeat state
   if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agents$/i)) {
     try {
@@ -1450,17 +1428,25 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       const roles = config.roles || [];
       const agents = roles.map((r) => {
         const s = agentState[r.id] || {};
+        // Runtime and model the role actually runs with (cost tiers included).
+        const m = orgRuntime.describeRoleModel(r, config);
         return {
           id: r.id,
           title: r.title || r.id,
-          adapterType: r.agent_type || r.type || null,
-          adapterModel: r.adapter_config?.model || r.adapter?.model || null,
+          adapterType: m.runtime,
+          adapterModel: m.model,
+          effort: m.effort,
+          tier: m.tier,
           governance: r.governance || null,
           reportsTo: r.reports_to || null,
           status: s.status || 'idle',
           lastHeartbeat: s.last_heartbeat || s.lastHeartbeat || null,
           tokensIn: s.tokens_in || 0,
           tokensOut: s.tokens_out || 0,
+          cacheRead: s.cache_read_tokens || 0,
+          cacheCreation: s.cache_creation_tokens || 0,
+          tokensUsed: s.tokens_used || 0,
+          costUsd: s.total_cost_usd || 0,
         };
       });
       res.writeHead(200, {

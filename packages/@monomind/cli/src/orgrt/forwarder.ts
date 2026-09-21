@@ -308,17 +308,27 @@ export function translate(e: BusEvent): Record<string, unknown> {
           goal: (e.data as { goal?: string } | undefined)?.goal ?? '',
         };
       if (kind === 'stopped') return { ...base, type: 'org:complete' };
+      // `role` and `from` both carry the role: readers use either.
       if (msg === 'session starting')
         return {
           ...base,
           type: 'org:agent:online',
           role: e.from,
+          from: e.from,
           title: e.from,
           agent_type: e.from,
         };
       if (msg === 'session ended' || msg.startsWith('session error'))
-        return { ...base, type: 'org:agent:offline', from: e.from, reason: msg };
-      return { ...base, type: 'org:checkpoint', progress: msg, from: e.from };
+        return { ...base, type: 'org:agent:offline', role: e.from, from: e.from, reason: msg };
+      // reason/data carry the task DAG and evidence-gate detail (task-done's evidence).
+      return {
+        ...base,
+        type: 'org:checkpoint',
+        progress: msg,
+        from: e.from,
+        ...(e.reason ? { reason: e.reason } : {}),
+        ...(e.data !== undefined ? { data: e.data } : {}),
+      };
     }
     default:
       // tool / usage / audit — no native widget; keep raw for run file + SSE

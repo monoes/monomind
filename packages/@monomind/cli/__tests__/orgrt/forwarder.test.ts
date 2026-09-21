@@ -91,6 +91,26 @@ describe('attachForwarder', () => {
       .toMatchObject({ type: 'org:question', from: 'coder', questionId: 'q1', question: 'proceed with X or Y?' });
   });
 
+  it('names the role in both role and from on online/offline, so every reader flips it', () => {
+    const mk = (msg: string) => ({ ts: 1, org: 'o', run: 'r', type: 'status', from: 'coder', msg }) as BusEvent;
+    expect(translate(mk('session starting'))).toMatchObject({ role: 'coder', from: 'coder' });
+    expect(translate(mk('session ended'))).toMatchObject({ type: 'org:agent:offline', role: 'coder', from: 'coder' });
+  });
+
+  it('keeps reason and data on org:checkpoint (task DAG and evidence-gate detail)', () => {
+    const ev = translate({
+      ts: 1,
+      org: 'o',
+      run: 'r',
+      type: 'status',
+      from: 'coder',
+      reason: 'task-done',
+      msg: 'task t1 done',
+      data: { taskId: 't1', evidence: { sha: 'abc' } },
+    } as BusEvent);
+    expect(ev).toMatchObject({ type: 'org:checkpoint', reason: 'task-done', data: { taskId: 't1', evidence: { sha: 'abc' } } });
+  });
+
   it('keeps what the Human Input view needs on org:question: blocking, and an approval\'s requestId', () => {
     const mk = (data: Record<string, unknown>) =>
       ({ ts: 1, org: 'o', run: 'r', type: 'question', from: 'coder', data }) as BusEvent;

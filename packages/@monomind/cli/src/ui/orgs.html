@@ -1827,6 +1827,9 @@ async function loadRunHistory() {
               ? `<span style="color:${outcomeColor(h.outcome.status)}">${esc(h.outcome.status.toUpperCase())}</span>
                  <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.outcome.summary || '')}</span>`
               : `<span style="color:var(--dim)">NO OUTCOME</span>`}
+            ${h.blocker ? `<span style="color:var(--amber, #d90)">blocker: ${esc(h.blocker)}</span>` : ''}
+            <span style="color:var(--dim);white-space:nowrap" title="How the run actually ended (history closedBy)">${esc(h.closedBy ? `closed by ${h.closedBy}` : 'stopped manually')}</span>
+            ${Number(h.runnableTasksAtStop) > 0 ? `<span style="color:var(--amber, #d90);white-space:nowrap">${Number(h.runnableTasksAtStop)} tasks open</span>` : ''}
             ${Array.isArray(h.crashes) && h.crashes.length ? `<span style="color:var(--red)">✗ ${Number(h.crashes.length)} crash</span>` : ''}
           </div>`).join('')}
       </div>`;
@@ -2320,13 +2323,13 @@ function connectSSE() {
           renderActivity();
         }
         // Reload org list if start/stop event
-        if (ev.type === 'org:start' || ev.type === 'org:stop') {
+        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:complete') {
           setTimeout(loadOrgs, 400);
         }
         // Update live strip for selected org on chart tab
         if (name === selectedOrg && currentTab === 'chart') {
           if (ev.type === 'org:start') orgRunStartMs = Date.now();
-          if (ev.type === 'org:stop') orgRunStartMs = null;
+          if (ev.type === 'org:stop' || ev.type === 'org:complete') orgRunStartMs = null;
           appendLiveFeedRow(ev, true);
           updateLiveStrip();
         }
