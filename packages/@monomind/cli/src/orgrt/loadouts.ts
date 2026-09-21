@@ -27,7 +27,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { loadBuiltinRoleSkill } from './role-skills.js';
+import { getSkill } from './skill-library.js';
 import type { OrgTask, TaskDag } from './task-dag.js';
 import type { OrgDef } from './types.js';
 
@@ -87,7 +87,7 @@ export function validateLoadouts(
     }
     for (const s of l.skills ?? []) {
       // Name check first: a skill is a file lookup, so "../x" must never reach it.
-      if (!NAME_RE.test(s) || !loadBuiltinRoleSkill(s)) {
+      if (!getSkill(s, root)) {
         errors.push(`loadout "${name}": unknown skill "${s}"`);
       }
     }
@@ -124,7 +124,7 @@ export function resolveLoadout(
   const parts = [`## Loadout: ${name}`];
   if (l.prompt?.trim()) parts.push(l.prompt.trim());
   for (const s of l.skills ?? []) {
-    const text = NAME_RE.test(s) ? loadBuiltinRoleSkill(s) : null;
+    const text = getSkill(s, root)?.body;
     if (text) parts.push(text);
   }
   if (l.instructions_file) {

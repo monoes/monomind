@@ -100,6 +100,8 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
       const loadoutFindings = validateLoadouts(def, ctx.cwd || process.cwd());
       errors.push(...loadoutFindings.errors);
       warnings.push(...loadoutFindings.warnings);
+      const { validateRoleSkills } = await import('../orgrt/skill-library.js');
+      errors.push(...def.roles.flatMap((r) => validateRoleSkills(r, ctx.cwd || process.cwd())));
       // #258: roles whose policy.git won't have the OS sandbox behind it here
       const gitFindings = gitEnforcementFindings(def);
       errors.push(...gitFindings.errors);

@@ -429,7 +429,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
             { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal },
             roster,
             glossary,
-            resolveRoleExtraGuidance(role),
+            resolveRoleExtraGuidance(role, ctx.cwd),
             role.id === bossId ? endpointBriefingLines(def) : undefined,
           ),
         );
@@ -2152,6 +2152,47 @@ export const orgCommand: Command = {
   name: 'org',
   description: 'SDK-based org runtime — run agent organizations as a controlled daemon',
   subcommands: [
+    {
+      name: 'skills',
+      description:
+        'Browse the org skill library and import skills (MIT/Apache-2.0) from other repos',
+      options: [
+        { name: 'tag', description: 'Filter by tag (list, search)', type: 'string' },
+        { name: 'limit', description: 'Max search results (default 10)', type: 'number' },
+        {
+          name: 'global',
+          description: 'import: into ~/.monomind/org-skills instead of this project',
+          type: 'boolean',
+        },
+        { name: 'into', description: 'import: into this library directory', type: 'string' },
+        { name: 'only', description: 'import: comma-separated skill names', type: 'string' },
+        {
+          name: 'tags',
+          description: 'import: comma-separated tags to give imported skills',
+          type: 'string',
+        },
+        {
+          name: 'overwrite',
+          description: 'import: replace skills already in the library',
+          type: 'boolean',
+        },
+      ],
+      examples: [
+        {
+          command: 'monomind org skills search "backend api reviewer"',
+          description: 'Find skills for a role',
+        },
+        { command: 'monomind org skills show systematic-debugging', description: 'Read one skill' },
+        {
+          command: 'monomind org skills import obra/superpowers --global',
+          description: "Import a repo's skills",
+        },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const { orgSkillsAction } = await import('./org-skills.js');
+        return orgSkillsAction(ctx);
+      },
+    },
     {
       name: 'run',
       description: 'Start an org (foreground daemon)',

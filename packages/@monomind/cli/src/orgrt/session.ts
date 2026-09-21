@@ -33,7 +33,6 @@ import type { StreamOptions } from './mailbox.js';
 import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
-import { loadBuiltinRoleSkill } from './role-skills.js';
 import type { SessionStartReason } from './session-ledger.js';
 import {
   mailRouteKey,
@@ -41,20 +40,20 @@ import {
   resolveSessionScope,
   SessionLedger,
 } from './session-ledger.js';
+import { loadSkillText, roleSkillGuidance, roleSkillNames } from './skill-library.js';
 import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
- * Resolves the extra system-prompt block for a role: built-in archetype
- * best-practices (keyed by `role.ui.icon`) plus the role's own
- * `instructions_file`, if either is present — both are optional and
- * independent, so either, both, or neither can contribute text. A missing
- * or unreadable `instructions_file` is skipped (not an error): a role
- * shouldn't fail to start a session over a stale/typo'd custom-file path.
+ * Resolves the extra system-prompt block for a role: its pinned library
+ * skills and on-demand skill catalog (skill-library.ts) plus the role's own
+ * `instructions_file`, if any — all optional and independent. A missing or
+ * unreadable `instructions_file` is skipped (not an error): a role shouldn't
+ * fail to start a session over a stale/typo'd custom-file path.
  */
-export function resolveRoleExtraGuidance(role: OrgRole): string | undefined {
+export function resolveRoleExtraGuidance(role: OrgRole, projectRoot?: string): string | undefined {
   const parts: string[] = [];
-  const builtin = loadBuiltinRoleSkill(role.ui?.icon);
-  if (builtin) parts.push(builtin);
+  const skills = roleSkillGuidance(role, projectRoot);
+  if (skills) parts.push(skills);
   if (role.instructions_file) {
     try {
       const custom = readFileSync(role.instructions_file, 'utf-8').trim();
@@ -391,9 +390,8 @@ export interface SessionOpts {
 
 /** Role briefing given to each agent session (SDK systemPrompt option).
  *  `extraGuidance` carries pre-resolved text the caller already loaded from
- *  disk — built-in archetype best-practices (role-skills.ts, keyed by
- *  `role.ui.icon`) and/or the role's own `instructions_file`, if either
- *  resolved to something. Kept as a plain string param (not read here)
+ *  disk — the role's library skills and/or its own `instructions_file`,
+ *  if either resolved to something. Kept as a plain string param (not read here)
  *  so this function stays synchronous/pure and trivially testable. */
 export function buildRolePrompt(
   role: OrgRole,
@@ -444,8 +442,9 @@ function rolePromptFor(opts: SessionOpts): string {
     opts.glossary,
     // D7: the loadout's text follows the role's own guidance. With no
     // loadout this is exactly resolveRoleExtraGuidance(role), as before.
-    [resolveRoleExtraGuidance(opts.role), opts.loadout?.guidance].filter(Boolean).join('\n\n') ||
-      undefined,
+    [resolveRoleExtraGuidance(opts.role, opts.orgRoot ?? opts.cwd), opts.loadout?.guidance]
+      .filter(Boolean)
+      .join('\n\n') || undefined,
     opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
   );
 }
@@ -1418,6 +1417,24 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         "Semantic search over the user's Second Brain: this project's indexed documents plus their personal cross-project global brain. Use to ground work in the user's actual notes, handbooks, and documents.",
       schema: { query: z.string() },
       handler: async (args) => text(await searchKnowledge(role.id, args.query as string)),
+    });
+  }
+  const skillRoot = opts.orgRoot ?? opts.cwd;
+  const allowedSkills = roleSkillNames(role, skillRoot);
+  if (allowedSkills.length) {
+    tools.push({
+      name: 'org_skill_load',
+      description: `Load the full text of one of your skills (or one of its reference files) when the work in front of you calls for it. Your skills: ${allowedSkills.join(', ')}.`,
+      schema: { name: z.string(), file: z.string().optional() },
+      handler: async (args) => {
+        const name = args.name as string;
+        if (!allowedSkills.includes(name)) {
+          return text(
+            `ERROR: "${name}" is not one of your skills. Yours: ${allowedSkills.join(', ')}`,
+          );
+        }
+        return text(loadSkillText(name, args.file as string | undefined, skillRoot));
+      },
     });
   }
   const recall = opts.recall;

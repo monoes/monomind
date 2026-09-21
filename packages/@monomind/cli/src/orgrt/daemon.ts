@@ -98,6 +98,7 @@ import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-optio
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { SessionLedger } from './session-ledger.js';
+import { effectiveToolProviders } from './skill-library.js';
 import { TaskDag } from './task-dag.js';
 import {
   type ChainTrace,
@@ -949,6 +950,11 @@ export class OrgDaemon {
     const loadoutErrors = validateLoadouts(def, this.root).errors;
     if (loadoutErrors.length) {
       throw new Error(`org ${name}: ${loadoutErrors.join('; ')}`);
+    }
+    const { validateRoleSkills } = await import('./skill-library.js');
+    const skillErrors = def.roles.flatMap((r) => validateRoleSkills(r, this.root));
+    if (skillErrors.length) {
+      throw new Error(`org ${name}: ${skillErrors.join('; ')}`);
     }
 
     // Validate per-role providers before spawning anything (fail-fast: a
@@ -1832,7 +1838,8 @@ export class OrgDaemon {
       fileToolRoots({ cwd: roleCwd, orgRoot: this.root }, role.policy?.sandbox),
     );
     policy.setToolContext({
-      providerPrefixes: () => roleProviderPrefixes(role),
+      providerPrefixes: () =>
+        roleProviderPrefixes({ tool_providers: effectiveToolProviders(role, this.root) }),
       trace: () => this.roleTrace(name, role.id),
     });
     // ADR-O001 D1: prefer the persisted four-quantity breakdown; a checkpoint
@@ -1907,7 +1914,7 @@ export class OrgDaemon {
       // M1: role tool providers — listed at session start, processes spawned
       // lazily on first call and killed when the session ends.
       buildProviderTools: async () => {
-        const providers = role.tool_providers ?? [];
+        const providers = effectiveToolProviders(role, this.root);
         if (providers.length === 0) return undefined;
         return this.toolProviders.buildRoleTools({
           ctx: { org: name, run, role: role.id, root: this.root },

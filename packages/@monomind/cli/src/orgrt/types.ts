@@ -251,12 +251,16 @@ export const RoleSchema = z
     reports_to: z.string().nullable().default(null),
     responsibilities: z.array(z.string()).default([]),
     instructions_file: z.string().optional(),
+    /** Skills from the org skill library (orgrt/skill-library.ts) pinned into
+     *  this role's system prompt for its whole life. */
+    skills: z.array(z.string()).optional(),
+    /** Skills this role may load mid-run with org_skill_load: names or
+     *  `tag:<tag>` selectors. Only their one-line descriptions sit in the
+     *  prompt, so it stays a stable cache prefix. */
+    skill_pool: z.array(z.string()).optional(),
     /** Canvas/UI-owned metadata (position, icon, color) — round-tripped
-     *  unchanged by the runtime, which only reads `icon`: it's the archetype
-     *  id used to key a bundled best-practices doc under orgrt/role-skills/
-     *  (see loadBuiltinRoleSkill in role-skills.ts). Typed here (rather than
-     *  left to bare passthrough) purely so that lookup has a real accessor;
-     *  still `.passthrough()` so unknown UI-client fields keep round-tripping. */
+     *  unchanged by the runtime, which never reads it. Still `.passthrough()`
+     *  so unknown UI-client fields keep round-tripping. */
     ui: z
       .object({
         x: z.number().optional(),
@@ -425,7 +429,7 @@ export const LoadoutSchema = z
     description: z.string().optional(),
     /** Role-prompt text for this kind of work. */
     prompt: z.string().optional(),
-    /** Built-in role skills (orgrt/role-skills/<name>.md) to include. */
+    /** Skills from the org skill library (orgrt/skill-library.ts) to include. */
     skills: z.array(z.string()).optional(),
     /** Extra guidance file, resolved against the project root. */
     instructions_file: z.string().optional(),

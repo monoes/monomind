@@ -71,15 +71,28 @@ Exactly one role must have `reports_to: null`. If the user's role list has none,
 
 A role is **persona-based** if its title is a named real person, a well-known fictional character, or a celebrity/historical figure referred to by name. An org is persona-based if ≥50% of its roles are character names, or the goal/prompt contains `panel`, `debate`, `simulation`, `roleplay`, `celebrity`, `character`, `virtual [name]`, `impersonate`, `as [name]`.
 
-Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside `ui.icon`'s built-in archetype content and `instructions_file`, if either is set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
+Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside the role's `skills` and `instructions_file`, if set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
 
 ---
 
-## Step 2.3 — Built-in Archetype Best-Practices (fully optional — skip freely)
+## Step 2.3 — Skills (pick per role from the skill library)
 
-createorg does **not** need to use these bundled archetypes for anything — a role built entirely from `responsibilities` is complete and normal. This step is a shortcut to reach for only when a role you're scaffolding happens to match one of the ~111 bundled role archetypes (the same set the MonoAgent Org Designer's palette offers — coder, security-auditor, devops-automator, sales-engineer, and so on; see `src/orgrt/role-skills/` for the full list of ids). When it does, set that role's `ui.icon` to the matching archetype id: `"ui": { "icon": "security-auditor" }`. At session start, `buildRolePrompt` then injects that archetype's bundled best-practices document into the role's briefing — real, researched guidance (tool checklists, common pitfalls, domain-specific techniques) for free, with zero extra fields to author. This is purely additive to `responsibilities` (which still carries the role's specific duties for THIS org) — don't duplicate general best-practices guidance into `responsibilities` when a matching `ui.icon` would supply it automatically; do still use `responsibilities` for anything specific to this particular org/goal.
+Every role can draw on the **org skill library**: ~380 curated skills (engineering practice, languages and frameworks, design, product, marketing, sales, finance, legal, ops, research) from monomind and MIT/Apache-2.0 open-source repos. Find candidates for each role by searching with its title and responsibilities:
 
-Skip `ui.icon` whenever there isn't a clean match — an unmatched or omitted `icon` is normal and not an error, it just means the role gets no bundled content (still fine; `responsibilities` alone is enough for most roles). Never force-fit a role into a nearby-but-wrong archetype just to get the bundled content.
+```bash
+npx monomind org skills search "backend engineer API design postgres" --limit 8
+npx monomind org skills search "landing page conversion copy" --tag marketing
+npx monomind org skills show <name>   # read one before choosing it
+```
+
+Give each role two fields:
+
+- **`skills`** — 1–3 skills that define the role, pinned into its system prompt for the whole run (e.g. a backend dev: `["backend-developer", "test-driven-development", "monograph-code-navigation"]`). Keep this short: every pinned skill is prompt text the role pays for on every turn.
+- **`skill_pool`** — skills the role may load mid-run with `org_skill_load` when a task calls for one. Only their one-line descriptions sit in the prompt, so this can be wider: names, or `"tag:<tag>"` for a whole tag (e.g. `["systematic-debugging", "tag:security"]`).
+
+Match skills to the work, not to a vague fit: a copywriter gets marketing/writing skills, never code skills. **Tools follow skills automatically** — a skill that declares monomind tools (`monograph_*` for code roles, `monodesign_*` for UI roles) gives its role exactly those tools, so only roles that work on software get the code graph and only UI roles get design tooling. For roles that write or review code, include `monograph-code-navigation` (and `monolean-minimal-change` for implementers); for roles that build or review web UI, include `monodesign-ui-quality`.
+
+`ui.icon` is only the role's picture on the canvas — it has no effect on the prompt. Leave `skills` off when nothing in the library fits cleanly; `responsibilities` alone is a complete role. `org validate` fails on an unknown skill name.
 
 ---
 
@@ -147,6 +160,8 @@ Produce an org config object matching `OrgDefSchema` exactly:
       "type": "boss | specialist | <domain synonym>",
       "reports_to": "<role id, or null for the single boss>",
       "responsibilities": ["<3-6 specific duties — this text becomes part of the agent's role briefing>"],
+      "skills": ["<optional: 1-3 library skills pinned into the briefing — Step 2.3>"],
+      "skill_pool": ["<optional: skills or tag:<tag> the role may load mid-run — Step 2.3>"],
       "adapter_config": { "model": "<explicit model from Step 2.4, e.g. claude-sonnet-5>" }
     }
   ]

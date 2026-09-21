@@ -262,7 +262,7 @@ prompt**.
 
 **As implemented** (`packages/@monomind/cli/src/orgrt/loadouts.ts`). An org grows an optional
 `loadouts` catalog; each entry is `{ description?, prompt?, skills?, instructions_file? }`
-(`skills` are built-in `orgrt/role-skills/<name>.md` archetypes, `instructions_file` resolves
+(`skills` name org skill library entries — `orgrt/skill-library.ts` — and `instructions_file` resolves
 against the project root). `org_task` and each `org_plan_graph` spec take an optional
 `loadout` — an enum of the catalog's names — which is recorded on the task row and read back by
 every dispatch and re-dispatch (evidence refusal, escalation, checkpoint requeue, block expiry).

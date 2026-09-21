@@ -564,22 +564,21 @@ describe('runAgentSession', () => {
 });
 
 describe('resolveRoleExtraGuidance', () => {
-  it('returns the built-in archetype skill when role.ui.icon matches a bundled file', async () => {
+  it('inlines a pinned library skill named in role.skills', async () => {
     const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
-    // "coder" is one of the 111 bundled archetypes shipped in src/orgrt/role-skills/.
-    const text = resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'coder' } } as any);
-    expect(text).toBeTruthy();
+    const text = resolveRoleExtraGuidance({ id: 'x', skills: ['coder'] } as any);
+    expect(text).toContain('## Skill: coder');
     expect(text).toContain('Best Practices');
   });
 
-  it('returns undefined for a role with no ui.icon and no instructions_file', async () => {
+  it('returns undefined for a role with no skills and no instructions_file', async () => {
     const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
     expect(resolveRoleExtraGuidance({ id: 'x' } as any)).toBeUndefined();
   });
 
-  it('returns undefined (not a throw) for an unknown ui.icon', async () => {
+  it('ignores ui.icon — an icon is a picture, not a skill', async () => {
     const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
-    expect(resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'totally-not-a-real-archetype' } } as any)).toBeUndefined();
+    expect(resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'coder' } } as any)).toBeUndefined();
   });
 
   it('includes instructions_file content, and combines it with the built-in skill when both are present', async () => {
@@ -590,7 +589,7 @@ describe('resolveRoleExtraGuidance', () => {
     const path = join(mkdtempSync(join(tmpdir(), 'instr-')), 'notes.md');
     writeFileSync(path, 'Follow the client\'s custom style guide.');
 
-    const both = resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'coder' }, instructions_file: path } as any);
+    const both = resolveRoleExtraGuidance({ id: 'x', skills: ['coder'], instructions_file: path } as any);
     expect(both).toContain('Best Practices');
     expect(both).toContain('Follow the client');
 

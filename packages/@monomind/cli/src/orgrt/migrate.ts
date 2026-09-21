@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { endpointStructureErrors } from './endpoint-roles.js';
 import { parseSchedule } from './scheduler.js';
+import { getSkill } from './skill-library.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 
 const V1_TOP_LEVEL_KEYS = [
@@ -99,6 +100,13 @@ export function migrateOrgConfig(raw: Record<string, unknown>): {
           r.type = r.agent_type;
           notes.push(`role ${String(r.id)}: agent_type → type`);
         }
+      }
+      // Roles once got archetype guidance keyed off their canvas icon; that
+      // guidance is now a library skill, named explicitly.
+      const icon = (r.ui as { icon?: unknown } | undefined)?.icon;
+      if (typeof icon === 'string' && r.skills == null && getSkill(icon)?.origin === 'bundled') {
+        r.skills = [icon];
+        notes.push(`role ${String(r.id)}: ui.icon "${icon}" → skills ["${icon}"]`);
       }
       for (const k of V1_ROLE_KEYS) {
         if (k in r) {

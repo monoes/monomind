@@ -41,7 +41,6 @@ const def = {
       type: 'specialist',
       reports_to: 'boss',
       responsibilities: ['write code', 'write tests'],
-      ui: { icon: 'coder' },
     },
   ],
   run_config: {},
@@ -144,5 +143,7 @@ describe('ADR-O001 D7: an org with no loadout catalog is unchanged', () => {
 // Captured against 8546057f7 (pre-D7).
 const COORDINATOR_PROMPT_SHA = 'aac1470d23beab53bc0e30aa5a8af493bd06bc9e78254cdc52e6ca4157fc4ed0';
 const WORKER_PROMPT_SHA = 'dff3a95ffbbb6d7238d544976ed42b593ff2738653456a4ce3f5058643a4e0dc';
-const SESSION_PROMPT_SHA = '6648688bada64531dcef77f4092ad54649fa8697322508e84c6a1d4d90c40dec';
+// Recaptured when role guidance stopped being keyed off ui.icon: the fixture's
+// dev role no longer carries archetype text, so its prompt has none.
+const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e9c63ac6d9fc1';
 const TOOLS_SHA = '767532cd68b16dd9a553a0e874b0e12ca1f58e07b3c23b44a56181caddac2613';
