@@ -359,6 +359,8 @@ export interface RunningOrg {
   /** ADR-O001 D3: this run's model-session records (`<run>/sessions.json`),
    *  shared by every incarnation of every role so a replacement resumes too. */
   sessionLedger?: SessionLedger;
+  /** Decision gates held in memory for the run (decisions.ts's gatesFor). */
+  gates?: { gates: DecisionGate[] };
   bus: OrgBus;
   agents: Map<string, AgentRuntime>;
   busEvents: () => BusEvent[];
@@ -1125,6 +1127,7 @@ export class OrgDaemon {
       def,
       run,
       sessionLedger: new SessionLedger(join(dir, 'sessions.json')),
+      gates: decisionOps.readGates(this.root, name),
       bus,
       agents: new Map(),
       roleSlots: new Map(),
@@ -2754,6 +2757,15 @@ export class OrgDaemon {
       this.watchdogs.delete(name);
     }
     clearIdleRecord(this.root, name);
+    // The run's gates are authoritative; put them back over whatever the file
+    // holds now (a role may have rewritten it).
+    if (org.gates) {
+      try {
+        decisionOps.writeGates(this.root, name, org.gates);
+      } catch {
+        /* the next start reads the last write-through */
+      }
+    }
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     // Capture THIS run's forwarder now: an autoWake-restart of the same org
@@ -3182,7 +3194,7 @@ export class OrgDaemon {
 
   // decisions.ts
   private readGates(org: string): { gates: DecisionGate[] } {
-    return decisionOps.readGates(this.root, org);
+    return decisionOps.gatesFor(this, org);
   }
   async createGate(org: string, role: string, name: string, description: string): Promise<string> {
     return decisionOps.createGate(this, org, role, name, description);

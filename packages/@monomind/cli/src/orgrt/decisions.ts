@@ -30,6 +30,19 @@ export function readGates(root: string, org: string): { gates: DecisionGate[] } 
   }
 }
 
+/** A RUNNING org's gates live in memory (loaded when it starts, written
+ *  through on every change, flushed when it stops) and are never re-read from
+ *  disk during the run: gates.json sits in a directory the org's own roles can
+ *  write, so a role that rewrote it — directly, or by swapping the directory —
+ *  could otherwise approve its own gate. A stopped org's gates are the file,
+ *  which is how an offline resolution reaches the next run. */
+export function gatesFor(daemon: OrgDaemon, org: string): { gates: DecisionGate[] } {
+  const running = daemon.orgs.get(org);
+  if (!running) return readGates(daemon.root, org);
+  running.gates ??= readGates(daemon.root, org);
+  return running.gates;
+}
+
 export function writeGates(root: string, org: string, data: { gates: DecisionGate[] }): void {
   const dest = gatesPath(root, org);
   mkdirSync(join(root, ORG_DIR, org), { recursive: true });
@@ -70,7 +83,7 @@ export async function createGate(
       status: 'pending',
       createdAt: Date.now(),
     };
-    const data = readGates(daemon.root, org);
+    const data = gatesFor(daemon, org);
     data.gates.push(gate);
     writeGates(daemon.root, org, data);
     running?.bus.emit({ type: 'gate', from: role, data: { gateId, name, description } });
@@ -87,7 +100,7 @@ export async function resolveGate(
   resolvedBy?: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   return withGatesLock(daemon, org, async () => {
-    const data = readGates(daemon.root, org);
+    const data = gatesFor(daemon, org);
     const idx = data.gates.findIndex((g) => g.id === gateId);
     if (idx === -1) return { ok: false, error: `gate "${gateId}" not found for org "${org}"` };
     if (data.gates[idx].status !== 'pending')
@@ -137,7 +150,7 @@ export function listGates(
   org: string,
   status?: 'pending' | 'approved' | 'rejected',
 ): DecisionGate[] {
-  const data = readGates(daemon.root, org);
+  const data = gatesFor(daemon, org);
   return status ? data.gates.filter((g) => g.status === status) : data.gates;
 }
 
