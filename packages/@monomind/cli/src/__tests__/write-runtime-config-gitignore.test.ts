@@ -292,7 +292,7 @@ describe('deny-by-default: a fresh .monomind/.gitignore ignores everything excep
   // AC-11: the inversion's own risk is an allow-list that forgets an entry,
   // silently stopping the user committing their org configs. These must
   // stay committable after commit 2, same as before it.
-  it('AC-11: config.yaml, CAPABILITIES.md and orgs/*.json remain committable', async () => {
+  it('AC-11: config.yaml, CAPABILITIES.md and orgs/sample-team.json remain committable', async () => {
     await run();
     writeFileSync(join(targetDir, '.monomind', 'config.yaml'), 'version: "3.0.0"\n');
     writeFileSync(join(targetDir, '.monomind', 'CAPABILITIES.md'), '# Capabilities\n');
@@ -320,6 +320,42 @@ describe('deny-by-default: a fresh .monomind/.gitignore ignores everything excep
     mkdirSync(join(targetDir, '.monomind', 'knowledge'), { recursive: true });
     writeFileSync(join(targetDir, '.monomind', 'knowledge', 'chunks.jsonl'), '{}\n');
     expect(gitCheckIgnore('.monomind/knowledge/chunks.jsonl').exitCode).toBe(0);
+  });
+
+  // AC-11's allow-list originally read `!orgs/*.json`, which quietly undid
+  // the inversion for the one subtree that most needed it: `.monomind/orgs/`
+  // is the org runtime's WORKING directory, not a folder of definitions, and
+  // the runtime plus the mastermind skills write ~20 sibling <org>-*.json
+  // files into it — `-state`, `-members`, `-approvals`, `-join-requests`,
+  // `-budgets`, and `-secrets`. A `*.json` glob re-included all of them, so
+  // the first org a user created re-armed exactly the failure this file's
+  // deny-by-default exists to prevent. The allow-list now names the one org
+  // definition init itself writes (write-sample-org.ts), and any further org
+  // is un-ignored by name.
+  it.each([
+    'orgs/sample-team-secrets.json',
+    'orgs/sample-team-state.json',
+    'orgs/sample-team-members.json',
+    'orgs/sample-team-approvals.json',
+    'orgs/sample-team-join-requests.json',
+    'orgs/sample-team-budgets.json',
+    'orgs/sample-team-threads.jsonl',
+    'orgs/sample-team-memory/projects/notes.md',
+    'orgs/sample-team/runtime.json',
+    'orgs/sample-team/run-1/bus.jsonl',
+    'orgs/.secrets/sample-team/OPENAI_API_KEY',
+    'orgs/some-future-runtime-file.json',
+  ])('a fresh .monomind/.gitignore still ignores .monomind/%s', async (relPath) => {
+    await run();
+    expect(gitCheckIgnore(`.monomind/${relPath}`).exitCode).toBe(0);
+  });
+
+  it('the generated allow-list un-ignores org definitions by name, never with a *.json glob', async () => {
+    await run();
+    const lines = readFileSync(join(targetDir, '.monomind', '.gitignore'), 'utf-8')
+      .split('\n')
+      .map((line) => line.trim());
+    expect(lines.filter((line) => /^!orgs\/.*\*/.test(line))).toEqual([]);
   });
 
   it('the generated .monomind/.gitignore file itself remains committable', async () => {

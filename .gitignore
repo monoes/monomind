@@ -70,7 +70,20 @@ eval-row6-*.json
 !.monomind/config.yaml
 !.monomind/orgs/
 .monomind/orgs/*
+# ADR-O001 D6: org DEFINITIONS are version-controlled, so a config change has
+# history, review and rollback instead of living on one machine only.
+#
+# One explicit line per org, never `!.monomind/orgs/*.json`. This directory is
+# not a folder of definitions — it is the org runtime's working directory, and
+# the runtime and the mastermind skills write ~20 sibling <org>-*.json files
+# into it (-state, -secrets, -members, -approvals, -join-requests, -budgets,
+# -issues, …). A *.json glob re-includes every one of them, <org>-secrets.json
+# included, which is precisely the deny-by-default guarantee i-052 exists to
+# hold. Adding an org costs one line here; forgetting it is visible and
+# recoverable, whereas tracking a secrets file is neither.
 !.monomind/orgs/sample-team.json
+!.monomind/orgs/monomind-dev.json
+!.monomind/orgs/release-gate.json
 **/.monomind/parse-cache/
 .monomind/*.db-shm
 .monomind/*.db-wal
