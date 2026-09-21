@@ -4,6 +4,37 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.14.1] — 2026-09-21
+
+> **On the version number.** By content this is a minor release — it adds browser
+> instruments as MCP tools, capture ingest, a monobrowse report command and
+> task-scoped org mail routing. It is numbered as a patch at the maintainer's
+> request; the feature entries below are marked **Added** so the record is
+> accurate even though the number understates it.
+
+### Added
+
+- **monobrowse's instruments are reachable from an agent.** Console, network, web-vitals and profiler data were collected by monobrowse but had no MCP surface, so an agent could not read any of it. They are now exposed as MCP tools.
+- **Web captures are ingested into the document brain with provenance.** A capture records where it came from, which version it is, and the citations it supports, so a retrieved excerpt can be traced back to the page and the moment it was taken.
+- **`monobrowse report`** — a report command with performance budgets, accessibility results and run history, including trend and evidence rendering across runs.
+- **Captures are served as MCP resources from every stdio entry point.** Both `bin/cli.js` and `bin/mcp-server.js` previously advertised `resources: { subscribe: true, listChanged: true }` and then answered `Method not found` to every `resources/*` call — the capability was announced but never implemented. Both now delegate `resources/list`, `resources/templates/list` and `resources/read` to a single implementation, and advertise `subscribe: false, listChanged: false`, which is what these stdio loops actually do: they send no server-initiated notifications. A client that relied on the old advertisement was already receiving nothing, so narrowing it removes a false claim rather than a working feature.
+- **An org role's untagged mail now reaches the task session it belongs to** (ADR-O001 D3). Mail arriving without an explicit task tag was handled outside the task-keyed sessions introduced in 2.14.0, so a reply could land in a session with no context for it.
+
+### Fixed
+
+- **`startHeapSnapshot` always wrote a 0-byte file.** It resolved on Chrome's `HeapProfiler.reportHeapSnapshotProgress` with `finished: true`, which Chrome emits *before* the first `addHeapSnapshotChunk` — so the chunk listener was detached before any data arrived and every snapshot came back empty, with no error. It now awaits the `takeHeapSnapshot` command response under an explicit timeout. Verified against real Chrome: 2,199,580 bytes where it previously wrote 0.
+
+
+- **A publish guard could not see a sibling package pinned by registry range, and that gap reached a release.** `check-package-bumps` and `check-published-pins` are a matched pair, and both rest on one premise, stated in the first of them: every sibling is pinned as `workspace:*`, which pnpm rewrites at pack time to the version that package declares. That is what makes a missing bump visible (the pin would resolve to the tarball already on npm) and a stranded bump visible (the pin would name a version that is not on npm).
+  Five dependency edges did not hold that premise and so were invisible to both guards — pnpm leaves a plain semver range alone at pack time, so the published package resolves whatever the registry currently offers and the workspace copy never reaches a consumer. The hole was invisible *because* both guards stayed green.
+  It was not hypothetical: `@monoes/monodesign` was 1.2.10 in the workspace and 1.2.9 on npm while the CLI's `^1.2.2` resolved to the published 1.2.9 — the same shape as the 2.11.4 monograph incident, and it passed through the 2.14.0 release with every existing guard green. That particular delta was a single test file, so **nothing shipped wrong in 2.14.0**; the only reason it was harmless is which file happened to change.
+  A new guard (`scripts/check-workspace-protocol.mjs`, wired into `check:versions` and `prepublishOnly`, and run in the test suite rather than only at release time) now fails on any sibling depended on by registry range. All five edges were converted to `workspace:*`. Optional dependencies are checked too — "optional" says installation may fail, not that the version may be wrong. A private sibling is not checked, since it has no published tarball for a range to fall back to. `MONOMIND_ALLOW_REGISTRY_SIBLINGS=1` waives it for a deliberate exception.
+
+### Security
+
+- **The repository no longer publishes the owner's home directory paths from tracked files.** Fifteen session snapshots and a ranked-context cache under `.claude/skills/.monomind/` had been committed before `**/.monomind/` was ignored, and carried `/Users/<owner>/` paths; they are now untracked (they stay on disk and remain ignored). The remaining owner paths in a plan, `milestone.md`, two comments and a test fixture were replaced with `$HOME`, `git rev-parse`, `~` or a placeholder user. A guard now checks every tracked file for `/home/<name>/` or `/Users/<name>/` outside a small allowlist of placeholder names.
+
+
 ## [2.14.0] — 2026-09-21
 
 > **If you run a monomind org, read the metering note under *Fixed (billing visibility)*.**
