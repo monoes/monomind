@@ -101,6 +101,10 @@ export const doctorCommand: Command = {
     { command: 'monomind doctor -c version', description: 'Check for stale npx cache' },
     { command: 'monomind doctor -c claude', description: 'Check Claude Code CLI only' },
     {
+      command: 'monomind doctor -c mcp',
+      description: 'Start the configured MCP server and verify it answers initialize',
+    },
+    {
       command: 'monomind doctor -c monoes-tools --install',
       description:
         'Check/fix monotask, mono-agent, mono-clip install issues (opt-in, not in the default run)',
@@ -199,7 +203,12 @@ export const doctorCommand: Command = {
       memory: checkMemoryDatabase,
       api: checkApiKeys,
       git: checkGit,
-      mcp: checkMcpServers,
+      // i-312: asking for the MCP check by name means "is my server actually
+      // usable", so this one starts it and speaks `initialize`. The full
+      // `doctor` run keeps the registry-only check — a start-up probe there
+      // would spawn a subprocess (and, with an npx entry, possibly a package
+      // download) on every invocation, interactive and CI alike.
+      mcp: () => checkMcpServers({ probe: true }),
       disk: checkDiskSpace,
       'second-brain': checkSecondBrainModel,
       kg: checkMemoryKnowledgeGraph,
