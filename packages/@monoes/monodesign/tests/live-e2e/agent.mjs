@@ -35,21 +35,21 @@ export function buildVariantBlock({ sessionId, original, indent = '    ' }) {
     `  :scope > section { padding: 32px; text-align: center; }`,
     `  :scope > section h1 { font-size: 28px; letter-spacing: 1px; }`,
     `}`,
-  ].map((line) => indent + '  ' + line).join('\n');
+  ].map((line) => `${indent}  ${line}`).join('\n');
 
   const variant = (n, hidden) =>
     `${indent}<div data-monodesign-variant="${n}"${hidden ? ' style="display: none"' : ''}>\n`
-    + reindent(original, indent + '  ')
+    + reindent(original, `${indent}  `)
     + `\n${indent}</div>`;
 
-  return [
+  return `${[
     `${indent}<style data-monodesign-css="${sessionId}">`,
     css,
     `${indent}</style>`,
     variant(1, false),
     variant(2, true),
     variant(3, true),
-  ].join('\n') + '\n';
+  ].join('\n')}\n`;
 }
 
 /**

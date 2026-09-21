@@ -109,7 +109,7 @@ describe('live-browser-dom helpers', () => {
     const rootHit = {};
     const documentHit = {};
     doc.elementsById.set('fallback', documentHit);
-    const { context, createHelpers } = loadFactory(doc, { CSS: { escape: (id) => 'escaped-' + id } });
+    const { context, createHelpers } = loadFactory(doc, { CSS: { escape: (id) => `escaped-${id}` } });
     context.__MONODESIGN_LIVE_UI_ROOT__ = {
       appendChild() {},
       getElementById() { return null; },

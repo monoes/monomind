@@ -140,7 +140,7 @@ export function getLiveUiElementById(id, env = globalThis) {
     if (found) return found;
   }
   if (root?.querySelector) {
-    const found = root.querySelector('#' + escapeCssIdent(id));
+    const found = root.querySelector(`#${escapeCssIdent(id)}`);
     if (found) return found;
   }
   return doc?.getElementById?.(id) || null;

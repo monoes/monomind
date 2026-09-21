@@ -103,9 +103,9 @@ export function patchSvelteLayout(content) {
     const scriptMatch = out.match(/<script(?:\s[^>]*)?>/i);
     if (scriptMatch) {
       const insertAt = scriptMatch.index + scriptMatch[0].length;
-      out = out.slice(0, insertAt) + '\n  ' + SVELTE_ROOT_IMPORT + out.slice(insertAt);
+      out = `${out.slice(0, insertAt)}\n  ${SVELTE_ROOT_IMPORT}${out.slice(insertAt)}`;
     } else {
-      out = `<script>\n  ${SVELTE_ROOT_IMPORT}\n</script>\n\n` + out;
+      out = `<script>\n  ${SVELTE_ROOT_IMPORT}\n</script>\n\n${out}`;
     }
   }
 
@@ -117,7 +117,7 @@ export function patchSvelteLayout(content) {
     if (match) {
       out = out.slice(0, match.index) + block + out.slice(match.index);
     } else {
-      out = out.replace(/\s*$/, '\n\n' + block);
+      out = out.replace(/\s*$/, `\n\n${block}`);
     }
   }
 
@@ -134,7 +134,7 @@ export function unpatchSvelteLayout(content) {
     'g',
   );
   out = out.replace(blockRe, '$1');
-  out = out.replace(new RegExp('^\\s*' + escapeRegExp(SVELTE_ROOT_IMPORT) + '\\s*\\n?', 'gm'), '');
+  out = out.replace(new RegExp(`^\\s*${escapeRegExp(SVELTE_ROOT_IMPORT)}\\s*\\n?`, 'gm'), '');
   out = out.replace(/<script>\s*<\/script>\s*\n?/g, '');
   return out.replace(/\n{3,}/g, '\n\n');
 }

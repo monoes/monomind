@@ -51,7 +51,7 @@ export function createLiveSessionStore({ cwd = process.cwd(), sessionId } = {}) 
         ts: new Date().toISOString(),
         event: normalized,
       };
-      fs.appendFileSync(journalPath, JSON.stringify(entry) + '\n');
+      fs.appendFileSync(journalPath, `${JSON.stringify(entry)}\n`);
       const next = applyEvent(prior.snapshot, entry, prior.diagnostics);
       snapshotCache.set(normalized.id, { snapshot: next, diagnostics: next.diagnostics || [], nextSeq: seq + 1 });
       writeSnapshot(snapshotPath, next);
@@ -92,15 +92,15 @@ function normalizeEvent(event, fallbackId) {
 }
 
 function getJournalPath(rootDir, id) {
-  return path.join(rootDir, safeSessionId(id) + '.jsonl');
+  return path.join(rootDir, `${safeSessionId(id)}.jsonl`);
 }
 
 function getSnapshotPath(rootDir, id) {
-  return path.join(rootDir, safeSessionId(id) + '.snapshot.json');
+  return path.join(rootDir, `${safeSessionId(id)}.snapshot.json`);
 }
 
 function safeSessionId(id) {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error('invalid session id: ' + id);
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error(`invalid session id: ${id}`);
   return id;
 }
 
@@ -289,5 +289,5 @@ function upsertArtifact(artifacts, artifact) {
 }
 
 function writeSnapshot(snapshotPath, snapshot) {
-  fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + '\n');
+  fs.writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
 }

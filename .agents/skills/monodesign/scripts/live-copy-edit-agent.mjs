@@ -131,7 +131,7 @@ export async function runCopyEditBatchAgent(batch, opts = {}) {
   if (parsed) return parsed;
 
   const tail = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf-8').slice(-1200) : output.slice(-1200);
-  throw new Error('AI copy-edit batch did not return a valid completion payload. ' + tail.trim());
+  throw new Error(`AI copy-edit batch did not return a valid completion payload. ${tail.trim()}`);
 }
 
 export function runCopyEditPostApplyChecks({ cwd = process.cwd(), files = [] } = {}) {
@@ -545,7 +545,7 @@ function tryParseJson(text) {
 function truncate(value, max) {
   if (typeof value !== 'string') return value;
   if (value.length <= max) return value;
-  return value.slice(0, max) + `... [truncated ${value.length - max} chars]`;
+  return `${value.slice(0, max)}... [truncated ${value.length - max} chars]`;
 }
 
 function commandExists(command) {

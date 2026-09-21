@@ -309,9 +309,9 @@ async function detectCli() {
   allFindings = filterByScopes(allFindings, scopes);
 
   if (allFindings.length > 0) {
-    if (jsonMode) process.stdout.write(formatFindings(allFindings, true) + '\n');
-    else if (quietMode) process.stderr.write(formatFindingSummary(allFindings.length) + '\n');
-    else process.stderr.write(formatFindings(allFindings, false) + '\n');
+    if (jsonMode) process.stdout.write(`${formatFindings(allFindings, true)}\n`);
+    else if (quietMode) process.stderr.write(`${formatFindingSummary(allFindings.length)}\n`);
+    else process.stderr.write(`${formatFindings(allFindings, false)}\n`);
     process.exit(2);
   }
   if (jsonMode) process.stdout.write('[]\n');

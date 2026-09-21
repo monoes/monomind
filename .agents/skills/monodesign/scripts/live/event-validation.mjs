@@ -67,25 +67,25 @@ function validateReplaceGenerate(msg) {
 }
 
 function validateManualEditEvent(msg, label) {
-  if (!isValidId(msg.id)) return label + ': missing or malformed id';
-  if (!msg.pageUrl || typeof msg.pageUrl !== 'string') return label + ': missing pageUrl';
-  if (!msg.element || typeof msg.element !== 'object') return label + ': missing element';
-  if (!Array.isArray(msg.ops) || msg.ops.length === 0) return label + ': ops must be non-empty array';
-  if (msg.ops.length > 100) return label + ': too many ops (max 100)';
+  if (!isValidId(msg.id)) return `${label}: missing or malformed id`;
+  if (!msg.pageUrl || typeof msg.pageUrl !== 'string') return `${label}: missing pageUrl`;
+  if (!msg.element || typeof msg.element !== 'object') return `${label}: missing element`;
+  if (!Array.isArray(msg.ops) || msg.ops.length === 0) return `${label}: ops must be non-empty array`;
+  if (msg.ops.length > 100) return `${label}: too many ops (max 100)`;
   for (const op of msg.ops) {
-    if (typeof op.ref !== 'string') return label + ': op.ref required';
-    if (typeof op.tag !== 'string') return label + ': op.tag required';
-    if (typeof op.originalText !== 'string') return label + ': op.originalText required';
+    if (typeof op.ref !== 'string') return `${label}: op.ref required`;
+    if (typeof op.tag !== 'string') return `${label}: op.tag required`;
+    if (typeof op.originalText !== 'string') return `${label}: op.originalText required`;
     if (op.deleted !== true && typeof op.newText !== 'string') {
-      return label + ': text op requires newText';
+      return `${label}: text op requires newText`;
     }
     if (typeof op.newText === 'string') {
       if (op.deleted !== true && op.newText.trim().length === 0) {
-        return label + ': newText cannot be empty';
+        return `${label}: newText cannot be empty`;
       }
       const forbidden = validateManualEditText(op.newText);
       if (forbidden) {
-        return label + ': newText cannot contain ' + forbidden.join(' ') + ' (plain text only; ask the AI to insert markup)';
+        return `${label}: newText cannot contain ${forbidden.join(' ')} (plain text only; ask the AI to insert markup)`;
       }
     }
   }
@@ -132,6 +132,6 @@ export function validateEvent(msg) {
       if (msg.pageUrl !== undefined && typeof msg.pageUrl !== 'string') return 'steer: pageUrl must be string';
       return null;
     default:
-      return 'Unknown event type: ' + msg.type;
+      return `Unknown event type: ${msg.type}`;
   }
 }

@@ -57,7 +57,7 @@ describe('live-session-store', () => {
     assert.equal(
       active.length,
       1,
-      'event=live_session_store.active_restart actor=agent operation=list_active_sessions risk=server_restart_loses_live_state expected=one active session actual=' + active.length + ' suggestion=inspect journal replay and completed phase filtering',
+      `event=live_session_store.active_restart actor=agent operation=list_active_sessions risk=server_restart_loses_live_state expected=one active session actual=${active.length} suggestion=inspect journal replay and completed phase filtering`,
     );
     assert.equal(active[0].id, 'session-a');
   });
@@ -87,7 +87,7 @@ describe('live-session-store', () => {
     const dir = getLiveSessionsDir(tmp);
     mkdirSync(dir, { recursive: true });
     appendFileSync(join(dir, 'corrupt-then-valid.jsonl'), '{not json}\n');
-    appendFileSync(join(dir, 'corrupt-then-valid.jsonl'), JSON.stringify({
+    appendFileSync(join(dir, 'corrupt-then-valid.jsonl'), `${JSON.stringify({
       seq: 1,
       id: 'corrupt-then-valid',
       type: 'generate',
@@ -99,7 +99,7 @@ describe('live-session-store', () => {
         count: 2,
         element: { outerHTML: '<h1>Title</h1>', tagName: 'h1' },
       },
-    }) + '\n');
+    })}\n`);
 
     const store = createLiveSessionStore({ cwd: tmp, sessionId: 'corrupt-then-valid' });
     const snapshot = store.getSnapshot('corrupt-then-valid');
@@ -109,7 +109,7 @@ describe('live-session-store', () => {
     assert.equal(
       parseDiagnostics.length,
       1,
-      'event=live_session_store.duplicate_parse_diagnostic actor=store operation=journal_replay risk=duplicate_status_noise expected=1 actual=' + parseDiagnostics.length,
+      `event=live_session_store.duplicate_parse_diagnostic actor=store operation=journal_replay risk=duplicate_status_noise expected=1 actual=${parseDiagnostics.length}`,
     );
   });
 
@@ -130,7 +130,7 @@ describe('live-session-store', () => {
     assert.equal(
       snapshot.checkpointRevision,
       0,
-      'event=live_session_store.zero_checkpoint_revision actor=browser operation=checkpoint_replay risk=zero_revision_dropped expected=0 actual=' + snapshot.checkpointRevision,
+      `event=live_session_store.zero_checkpoint_revision actor=browser operation=checkpoint_replay risk=zero_revision_dropped expected=0 actual=${snapshot.checkpointRevision}`,
     );
     assert.equal(snapshot.phase, '');
     assert.equal(snapshot.activeOwner, '');
@@ -157,7 +157,7 @@ describe('live-session-store', () => {
     assert.equal(
       snapshot.diagnostics.some((d) => d.error === 'stale_checkpoint_ignored' && d.revision === 2),
       true,
-      'event=live_session_store.stale_checkpoint actor=browser operation=checkpoint_replay risk=old_browser_state_overwrites_newer_choice expected=stale diagnostic actual=' + JSON.stringify(snapshot.diagnostics),
+      `event=live_session_store.stale_checkpoint actor=browser operation=checkpoint_replay risk=old_browser_state_overwrites_newer_choice expected=stale diagnostic actual=${JSON.stringify(snapshot.diagnostics)}`,
     );
   });
 
@@ -175,7 +175,7 @@ describe('live-session-store', () => {
     assert.equal(
       snapshot.phase,
       'carbonize_required',
-      'event=live_session_store.carbonize_required actor=agent operation=accept_ack risk=carbonize_session_hidden_from_recovery expected=carbonize_required actual=' + snapshot.phase,
+      `event=live_session_store.carbonize_required actor=agent operation=accept_ack risk=carbonize_session_hidden_from_recovery expected=carbonize_required actual=${snapshot.phase}`,
     );
     assert.equal(snapshot.sourceFile, 'src/App.jsx');
     assert.equal(snapshot.pendingEvent, null);
@@ -205,7 +205,7 @@ describe('live-session-store', () => {
     assert.equal(
       store.listActiveSessions()[0].pendingEvent,
       null,
-      'event=live_session_store.agent_error_ack actor=agent operation=restart_replay risk=acknowledged_error_event_redelivered expected=null actual=' + JSON.stringify(store.listActiveSessions()[0].pendingEvent),
+      `event=live_session_store.agent_error_ack actor=agent operation=restart_replay risk=acknowledged_error_event_redelivered expected=null actual=${JSON.stringify(store.listActiveSessions()[0].pendingEvent)}`,
     );
   });
 
@@ -256,7 +256,7 @@ describe('live-session-store', () => {
   it('recovers legacy journals from .monodesign-live/sessions', () => {
     const legacyDir = getLegacyLiveSessionsDir(tmp);
     mkdirSync(legacyDir, { recursive: true });
-    appendFileSync(join(legacyDir, 'legacy-session.jsonl'), JSON.stringify({
+    appendFileSync(join(legacyDir, 'legacy-session.jsonl'), `${JSON.stringify({
       seq: 1,
       id: 'legacy-session',
       type: 'generate',
@@ -268,7 +268,7 @@ describe('live-session-store', () => {
         count: 2,
         element: { outerHTML: '<section>Legacy</section>', tagName: 'section' },
       },
-    }) + '\n');
+    })}\n`);
 
     const store = createLiveSessionStore({ cwd: tmp, sessionId: 'legacy-session' });
     const snapshot = store.getSnapshot('legacy-session');

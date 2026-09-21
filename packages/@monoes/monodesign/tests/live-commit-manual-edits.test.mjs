@@ -930,7 +930,7 @@ describe('live-commit-manual-edits.mjs batched AI apply', () => {
   it('caps weak literal and locator evidence so manual Apply payloads stay compact', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'src', 'page.jsx'),
-      Array.from({ length: 30 }, (_, index) => `<span className="metric">${index % 2 === 0 ? '33' : '44'}</span>`).join('\n') + '\n',
+      `${Array.from({ length: 30 }, (_, index) => `<span className="metric">${index % 2 === 0 ? '33' : '44'}</span>`).join('\n')}\n`,
     );
     writeBuffer(tmpDir, {
       entries: [

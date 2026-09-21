@@ -44,12 +44,12 @@ export function buildPollReplyPayload(token, { id, type, message, file, data }) 
 
 export function manualApplyPollBanner(event = {}) {
   const id = event.id || 'EVENT_ID';
-  return [
+  return `${[
     `Manual Apply action required: edit source, then reply with \`live-poll.mjs --reply ${id} done --data '<json>'\`.`,
     'The JSON data must include status, appliedEntryIds, failed, files, and notes; summary counters are only a recovery fallback.',
     'Do not run live-commit-manual-edits.mjs for this leased event.',
     'Do not poll again before replying.',
-  ].join('\n') + '\n';
+  ].join('\n')}\n`;
 }
 
 /**
@@ -72,7 +72,7 @@ export function parseReplyArgs(args) {
     try {
       data = JSON.parse(args[dataIdx + 1]);
     } catch (err) {
-      const wrapped = new Error('--data must be valid JSON: ' + err.message);
+      const wrapped = new Error(`--data must be valid JSON: ${err.message}`);
       wrapped.code = 'INVALID_DATA_JSON';
       throw wrapped;
     }
@@ -234,10 +234,10 @@ export function buildAcceptScriptArgs(event) {
 
 export function writeCarbonizeBanner(event) {
   if (event.type === 'manual_edit_apply') {
-    process.stderr.write('\n' + manualApplyPollBanner(event) + '\n');
+    process.stderr.write(`\n${manualApplyPollBanner(event)}\n`);
   }
   if (event._acceptResult?.carbonize === true) {
-    process.stderr.write('\n⚠ Carbonize cleanup REQUIRED before next poll. After cleanup, run live-complete.mjs --id ' + event.id + '. See reference/live.md "Required after accept".\n\n');
+    process.stderr.write(`\n⚠ Carbonize cleanup REQUIRED before next poll. After cleanup, run live-complete.mjs --id ${event.id}. See reference/live.md "Required after accept".\n\n`);
   }
 }
 

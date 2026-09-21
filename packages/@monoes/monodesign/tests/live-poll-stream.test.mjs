@@ -46,7 +46,7 @@ function startServer(_legacyPort, { cwd = REPO_ROOT } = {}) {
       _reject(err);
     };
     const timer = setTimeout(
-      () => reject(new Error('Server start timeout. Output: ' + output)),
+      () => reject(new Error(`Server start timeout. Output: ${output}`)),
       5000,
     );
 
@@ -77,7 +77,7 @@ function readStdoutLine(streamProc, timeoutMs = 8000) {
     let buffer = '';
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error('Timed out waiting for stdout line. Buffer: ' + buffer.slice(0, 200)));
+      reject(new Error(`Timed out waiting for stdout line. Buffer: ${buffer.slice(0, 200)}`));
     }, timeoutMs);
 
     function onData(chunk) {

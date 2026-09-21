@@ -58,7 +58,8 @@
   const Z = { highlight: 100001, bar: 100005, picker: 100007, toast: 100010 };
   const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'; // ease-out-quint
   const PREFIX = 'monodesign-live';
-  const MONODESIGN_COMMAND = (window.__MONODESIGN_COMMAND_PREFIX__ || '/') + 'monodesign';
+  const MONODESIGN_COMMAND = `${window.__MONODESIGN_COMMAND_PREFIX__ || '/'}monodesign`;
+  // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:663
   const PICK_CURSOR_STYLE_ID = PREFIX + '-pick-cursor-style';
   const MANUAL_APPLY_STATE_TTL_MS = 15 * 60 * 1000;
   const sessionState = window.__MONODESIGN_LIVE_SESSION__?.createLiveBrowserSessionState({
@@ -78,7 +79,7 @@
     ', height 140ms ' + EASE +
     ', opacity 150ms ease';
   const TOOLTIP_TRANSITION =
-    'top 140ms ' + EASE + ', left 140ms ' + EASE + ', opacity 150ms ease';
+    `top 140ms ${EASE}, left 140ms ${EASE}, opacity 150ms ease`;
 
   const SKIP_TAGS = new Set([
     'html', 'head', 'body', 'script', 'style', 'link', 'meta', 'noscript', 'br', 'wbr',
@@ -99,20 +100,20 @@
 
   const LIVE_CHROME_MOUNT_CONTRACT = ['root', 'transport', 'state', 'actions'];
   const LIVE_UI_SURFACES = [
-    { key: 'global-bottom-bar', ids: [PREFIX + '-global-bar', PREFIX + '-global-bar-brand', PREFIX + '-pick-toggle', PREFIX + '-insert-toggle', PREFIX + '-detect-toggle', PREFIX + '-detect-badge', PREFIX + '-design-toggle', PREFIX + '-page-chat', PREFIX + '-page-chat-input', PREFIX + '-page-chat-voice'] },
-    { key: 'pending-copy-edit-dock', ids: [PREFIX + '-pending-dock'] },
-    { key: 'element-selection-chrome', ids: [PREFIX + '-highlight', PREFIX + '-tooltip', PREFIX + '-bar', PREFIX + '-selection-pill', PREFIX + '-input', PREFIX + '-configure-voice', PREFIX + '-configure-bar-tooltip'] },
-    { key: 'action-picker', ids: [PREFIX + '-picker'] },
-    { key: 'edit-chrome', ids: [PREFIX + '-edit-badge'] },
-    { key: 'generating-row', ids: [PREFIX + '-bar', PREFIX + '-shader'] },
-    { key: 'variant-cycling-row', ids: [PREFIX + '-bar', PREFIX + '-params-panel'] },
-    { key: 'variant-params-panel', ids: [PREFIX + '-params-panel'] },
-    { key: 'saving-confirmed-rows', ids: [PREFIX + '-bar'] },
-    { key: 'insert-mode-chrome', ids: [PREFIX + '-insert-line', PREFIX + '-insert-placeholder', PREFIX + '-placeholder-resize', PREFIX + '-insert-input', PREFIX + '-insert-voice', PREFIX + '-insert-create', PREFIX + '-insert-create-tooltip'] },
-    { key: 'annotation-chrome', ids: [PREFIX + '-annot', PREFIX + '-annot-svg', PREFIX + '-annot-pins', PREFIX + '-annot-clear'] },
-    { key: 'design-system-panel', ids: [PREFIX + '-design-host'] },
-    { key: 'toasts-and-errors', ids: [PREFIX + '-toast'] },
-    { key: 'css-isolation-boundary', ids: [PREFIX + '-root'] },
+    { key: 'global-bottom-bar', ids: [`${PREFIX}-global-bar`, `${PREFIX}-global-bar-brand`, `${PREFIX}-pick-toggle`, `${PREFIX}-insert-toggle`, `${PREFIX}-detect-toggle`, `${PREFIX}-detect-badge`, `${PREFIX}-design-toggle`, `${PREFIX}-page-chat`, `${PREFIX}-page-chat-input`, `${PREFIX}-page-chat-voice`] },
+    { key: 'pending-copy-edit-dock', ids: [`${PREFIX}-pending-dock`] },
+    { key: 'element-selection-chrome', ids: [`${PREFIX}-highlight`, `${PREFIX}-tooltip`, `${PREFIX}-bar`, `${PREFIX}-selection-pill`, `${PREFIX}-input`, `${PREFIX}-configure-voice`, `${PREFIX}-configure-bar-tooltip`] },
+    { key: 'action-picker', ids: [`${PREFIX}-picker`] },
+    { key: 'edit-chrome', ids: [`${PREFIX}-edit-badge`] },
+    { key: 'generating-row', ids: [`${PREFIX}-bar`, `${PREFIX}-shader`] },
+    { key: 'variant-cycling-row', ids: [`${PREFIX}-bar`, `${PREFIX}-params-panel`] },
+    { key: 'variant-params-panel', ids: [`${PREFIX}-params-panel`] },
+    { key: 'saving-confirmed-rows', ids: [`${PREFIX}-bar`] },
+    { key: 'insert-mode-chrome', ids: [`${PREFIX}-insert-line`, `${PREFIX}-insert-placeholder`, `${PREFIX}-placeholder-resize`, `${PREFIX}-insert-input`, `${PREFIX}-insert-voice`, `${PREFIX}-insert-create`, `${PREFIX}-insert-create-tooltip`] },
+    { key: 'annotation-chrome', ids: [`${PREFIX}-annot`, `${PREFIX}-annot-svg`, `${PREFIX}-annot-pins`, `${PREFIX}-annot-clear`] },
+    { key: 'design-system-panel', ids: [`${PREFIX}-design-host`] },
+    { key: 'toasts-and-errors', ids: [`${PREFIX}-toast`] },
+    { key: 'css-isolation-boundary', ids: [`${PREFIX}-root`] },
   ];
   const LIVE_UI_COMPONENT_IDS = [...new Set(LIVE_UI_SURFACES.flatMap((surface) => surface.ids))];
 
@@ -264,10 +265,10 @@
 
   function initHighlight() {
     highlightEl = document.createElement('div');
-    highlightEl.id = PREFIX + '-highlight';
+    highlightEl.id = `${PREFIX}-highlight`;
     Object.assign(highlightEl.style, {
       position: 'fixed', top: '0', left: '0', width: '0', height: '0',
-      border: '2px solid ' + C.brand, borderRadius: '3px',
+      border: `2px solid ${C.brand}`, borderRadius: '3px',
       pointerEvents: 'none', zIndex: Z.highlight, boxSizing: 'border-box',
       transition: HIGHLIGHT_TRANSITION,
       display: 'none', opacity: '0',
@@ -275,7 +276,7 @@
     uiAppend(highlightEl);
 
     tooltipEl = document.createElement('div');
-    tooltipEl.id = PREFIX + '-tooltip';
+    tooltipEl.id = `${PREFIX}-tooltip`;
     Object.assign(tooltipEl.style, {
       position: 'fixed',
       background: C.ink, color: C.white,
@@ -304,8 +305,8 @@
     if (!el || !highlightEl) return;
     if (el.hasAttribute?.('data-monodesign-insert-placeholder')) return;
     const r = el.getBoundingClientRect();
-    const top = (r.top - 2) + 'px', left = (r.left - 2) + 'px';
-    const width = (r.width + 4) + 'px', height = (r.height + 4) + 'px';
+    const top = `${r.top - 2}px`, left = `${r.left - 2}px`;
+    const width = `${r.width + 4}px`, height = `${r.height + 4}px`;
     const showTagTooltip = shouldShowHighlightTagTooltip();
 
     const hiWasHidden = highlightEl.style.display === 'none' || highlightEl.style.opacity === '0';
@@ -326,8 +327,8 @@
     }
 
     const tipTop = r.top - 20;
-    const tipY = (tipTop < 4 ? r.bottom + 4 : tipTop) + 'px';
-    const tipX = Math.max(4, r.left) + 'px';
+    const tipY = `${tipTop < 4 ? r.bottom + 4 : tipTop}px`;
+    const tipX = `${Math.max(4, r.left)}px`;
     tooltipEl.textContent = desc(el);
     if (hiWasHidden) {
       tooltipEl.style.transition = 'none';
@@ -374,7 +375,7 @@
 
   function initAnnotOverlay() {
     annotOverlayEl = document.createElement('div');
-    annotOverlayEl.id = PREFIX + '-annot';
+    annotOverlayEl.id = `${PREFIX}-annot`;
     Object.assign(annotOverlayEl.style, {
       position: 'fixed', top: '0', left: '0', width: '0', height: '0',
       pointerEvents: 'auto', zIndex: Z.highlight + 2,
@@ -383,7 +384,7 @@
     });
 
     annotSvgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    annotSvgEl.id = PREFIX + '-annot-svg';
+    annotSvgEl.id = `${PREFIX}-annot-svg`;
     Object.assign(annotSvgEl.style, {
       position: 'absolute', top: '0', left: '0',
       width: '100%', height: '100%',
@@ -394,7 +395,7 @@
     annotOverlayEl.appendChild(annotSvgEl);
 
     annotPinsEl = document.createElement('div');
-    annotPinsEl.id = PREFIX + '-annot-pins';
+    annotPinsEl.id = `${PREFIX}-annot-pins`;
     Object.assign(annotPinsEl.style, {
       position: 'absolute', inset: '0',
       pointerEvents: 'none',
@@ -402,7 +403,7 @@
     annotOverlayEl.appendChild(annotPinsEl);
 
     annotClearChipEl = document.createElement('div');
-    annotClearChipEl.id = PREFIX + '-annot-clear';
+    annotClearChipEl.id = `${PREFIX}-annot-clear`;
     annotClearChipEl.dataset.annotClear = 'true';
     annotClearChipEl.textContent = 'Clear';
     Object.assign(annotClearChipEl.style, {
@@ -418,7 +419,7 @@
     annotOverlayEl.appendChild(annotClearChipEl);
 
     placeholderResizeLayerEl = document.createElement('div');
-    placeholderResizeLayerEl.id = PREFIX + '-placeholder-resize';
+    placeholderResizeLayerEl.id = `${PREFIX}-placeholder-resize`;
     Object.assign(placeholderResizeLayerEl.style, {
       position: 'absolute',
       inset: '0',
@@ -468,10 +469,10 @@
     if (!annotOverlayEl || !el) return;
     const r = el.getBoundingClientRect();
     Object.assign(annotOverlayEl.style, {
-      top: r.top + 'px', left: r.left + 'px',
-      width: r.width + 'px', height: r.height + 'px',
+      top: `${r.top}px`, left: `${r.left}px`,
+      width: `${r.width}px`, height: `${r.height}px`,
     });
-    annotSvgEl.setAttribute('viewBox', '0 0 ' + r.width + ' ' + r.height);
+    annotSvgEl.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
     syncPlaceholderResizeHandles();
   }
 
@@ -658,9 +659,9 @@
 
   function pointsToPath(points) {
     if (!points || points.length === 0) return '';
-    let d = 'M' + points[0][0].toFixed(1) + ' ' + points[0][1].toFixed(1);
+    let d = `M${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
     for (let i = 1; i < points.length; i++) {
-      d += ' L' + points[i][0].toFixed(1) + ' ' + points[i][1].toFixed(1);
+      d += ` L${points[i][0].toFixed(1)} ${points[i][1].toFixed(1)}`;
     }
     return d;
   }
@@ -722,7 +723,7 @@
     if (interactive) wrap.dataset.annotPin = String(idx);
     Object.assign(wrap.style, {
       position: 'absolute',
-      left: (comment.x - 7) + 'px', top: (comment.y - 7) + 'px',
+      left: `${comment.x - 7}px`, top: `${comment.y - 7}px`,
       pointerEvents: interactive ? 'auto' : 'none',
       display: 'flex', alignItems: 'flex-start', gap: '6px',
       cursor: interactive ? 'grab' : 'default',
@@ -731,7 +732,7 @@
     const dot = document.createElement('div');
     Object.assign(dot.style, {
       width: '14px', height: '14px', borderRadius: '50%',
-      background: C.brand, border: '2px solid ' + C.white,
+      background: C.brand, border: `2px solid ${C.white}`,
       boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
       flexShrink: '0',
     });
@@ -754,7 +755,7 @@
   }
 
   function beginEditPin(idx) {
-    const wrapEl = annotPinsEl.querySelector('[data-annot-pin="' + idx + '"]');
+    const wrapEl = annotPinsEl.querySelector(`[data-annot-pin="${idx}"]`);
     if (!wrapEl) return;
     // Strip any existing bubble (but keep the dot)
     wrapEl.querySelectorAll('div:not(:first-child)').forEach(n => n.remove());
@@ -765,7 +766,7 @@
       background: C.ink, color: C.white,
       fontFamily: FONT, fontSize: '12px', lineHeight: '1.4',
       padding: '4px 8px', borderRadius: '3px',
-      border: '1px solid ' + C.brand,
+      border: `1px solid ${C.brand}`,
       outline: 'none', marginTop: '-2px',
       width: '220px', pointerEvents: 'auto',
     });
@@ -834,12 +835,12 @@
     const wrap = document.createElement('div');
     Object.assign(wrap.style, {
       position: 'absolute', top: '0', left: '0',
-      width: rect.width + 'px', height: rect.height + 'px',
+      width: `${rect.width}px`, height: `${rect.height}px`,
       pointerEvents: 'none', overflow: 'visible',
     });
     if (strokes.length > 0) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', '0 0 ' + rect.width + ' ' + rect.height);
+      svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
       Object.assign(svg.style, {
         position: 'absolute', top: '0', left: '0',
         width: '100%', height: '100%', overflow: 'visible',
@@ -932,8 +933,8 @@
       cssCustomProperties: props,
       parentContext: el.parentElement
         ? '<' + el.parentElement.tagName.toLowerCase()
-          + (el.parentElement.id ? ' id="' + el.parentElement.id + '"' : '')
-          + (el.parentElement.className ? ' class="' + el.parentElement.className + '"' : '')
+          + (el.parentElement.id ? ` id="${el.parentElement.id}"` : '')
+          + (el.parentElement.className ? ` class="${el.parentElement.className}"` : '')
           + '>'
         : null,
       boundingRect: { width: Math.round(r.width), height: Math.round(r.height) },
@@ -1026,16 +1027,16 @@
   function initBar() {
     BP = barPaletteForTheme(detectPageTheme());
     barEl = document.createElement('div');
-    barEl.id = PREFIX + '-bar';
+    barEl.id = `${PREFIX}-bar`;
     Object.assign(barEl.style, {
       position: 'fixed', zIndex: Z.bar,
       display: 'none', opacity: '0',
       transform: 'translateY(6px)',
       background: BP.surface,
-      border: '1px solid ' + BP.border,
+      border: `1px solid ${BP.border}`,
       borderRadius: '8px',
       boxShadow: BP.shadow,
-      transition: 'box-shadow 0.2s ease, opacity 0.25s ' + EASE + ', transform 0.3s ' + EASE,
+      transition: `box-shadow 0.2s ease, opacity 0.25s ${EASE}, transform 0.3s ${EASE}`,
       fontFamily: FONT, fontSize: '13px', color: BP.text,
       padding: '5px',
       maxWidth: '560px', minWidth: '340px',
@@ -1061,7 +1062,7 @@
         : GLOBAL_BAR_RESERVE;
       const top = window.innerHeight - barH - reserve;
       const left = Math.max(GAP, (window.innerWidth - barW) / 2);
-      Object.assign(barEl.style, { top: top + 'px', left: left + 'px' });
+      Object.assign(barEl.style, { top: `${top}px`, left: `${left}px` });
       return;
     }
 
@@ -1086,7 +1087,7 @@
     let left = r.left + (r.width - barW) / 2;
     if (left < GAP) left = GAP;
     if (left + barW > window.innerWidth - GAP) left = window.innerWidth - barW - GAP;
-    Object.assign(barEl.style, { top: top + 'px', left: left + 'px' });
+    Object.assign(barEl.style, { top: `${top}px`, left: `${left}px` });
   }
 
   function showBar(mode) {
@@ -1183,13 +1184,13 @@
     barEl.style.padding = '5px';
     barEl.style.background = BP.surface;
     barEl.style.overflow = '';
-    barEl.style.border = '1px solid ' + BP.border;
+    barEl.style.border = `1px solid ${BP.border}`;
     barEl.style.borderColor = BP.border;
     barEl.style.boxShadow = BP.shadow;
   }
 
   function syncConfigureInputChrome() {
-    const input = uiGetById(PREFIX + '-input') || uiGetById(PREFIX + '-insert-input');
+    const input = uiGetById(`${PREFIX}-input`) || uiGetById(`${PREFIX}-insert-input`);
     const surface = barEl?.dataset.configureSurface === 'true' ? barEl : null;
     if (!surface || !input) return;
     const focused = activeElementDeep() === input;
@@ -1231,6 +1232,7 @@
     };
   }
 
+  // biome-ignore-start lint/style/useTemplate: padding source pinned by tests/live-browser-regression.test.mjs:778 (a comment inside the body would overflow its {0,120} window)
   function configureInputShellStyle() {
     return {
       display: 'flex', alignItems: 'center', gap: '6px',
@@ -1238,6 +1240,7 @@
       padding: '0 6px 0 ' + CONFIGURE_BAR_INSET,
     };
   }
+  // biome-ignore-end lint/style/useTemplate: see above
 
   function configureSelectionPillStyle(extra = {}) {
     const P = configureBarPalette();
@@ -1266,7 +1269,7 @@
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       gap: '2px', height: 'auto', minHeight: CONFIGURE_ROW_TRACK_H,
-      padding: CONFIGURE_PILL_PAD_Y + ' 8px', flexShrink: '0',
+      padding: `${CONFIGURE_PILL_PAD_Y} 8px`, flexShrink: '0',
       boxSizing: 'border-box',
       border: '1px solid transparent',
       borderRadius: CONFIGURE_PILL_RADIUS,
@@ -1322,7 +1325,7 @@
       padding: '6px 9px',
       borderRadius: '7px',
       background: P.chatSurface,
-      border: '1px solid ' + P.hairline,
+      border: `1px solid ${P.hairline}`,
       boxShadow: P.shadow,
       color: P.text,
       fontFamily: FONT,
@@ -1333,7 +1336,7 @@
       whiteSpace: 'normal',
       wordBreak: 'break-word',
     });
-    configureBarTooltipEl.id = PREFIX + '-configure-bar-tooltip';
+    configureBarTooltipEl.id = `${PREFIX}-configure-bar-tooltip`;
     uiAppend(configureBarTooltipEl);
     return configureBarTooltipEl;
   }
@@ -1350,8 +1353,8 @@
     const tipH = tip.offsetHeight;
     const left = Math.max(8, Math.min(window.innerWidth - tipW - 8, r.left + r.width / 2 - tipW / 2));
     const top = Math.max(8, r.top - tipH - 8);
-    tip.style.left = left + 'px';
-    tip.style.top = top + 'px';
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
   }
 
   function hideConfigureBarTooltip() {
@@ -1372,8 +1375,8 @@
     let node = el;
     while (node && node.nodeType === 1 && node !== document.body) {
       let part = node.tagName.toLowerCase();
-      if (node.id) part += '#' + node.id;
-      else if (node.classList?.length) part += '.' + [...node.classList].slice(0, 2).join('.');
+      if (node.id) part += `#${node.id}`;
+      else if (node.classList?.length) part += `.${[...node.classList].slice(0, 2).join('.')}`;
       parts.unshift(part);
       node = node.parentElement;
       if (parts.length >= maxDepth) break;
@@ -1384,7 +1387,7 @@
   function variantCountTooltipText(count) {
     const n = Number(count) || selectedCount;
     const word = n === 1 ? 'variant' : 'variants';
-    return 'Click to change \u00b7 ' + n + ' ' + word;
+    return `Click to change \u00b7 ${n} ${word}`;
   }
 
   function removeConfigureSelection() {
@@ -1402,9 +1405,9 @@
     const path = elementPath(targetEl);
     const P = configureBarPalette();
     const pill = el('button', configureSelectionPillStyle({ minWidth: '32px' }));
-    pill.id = PREFIX + '-selection-pill';
+    pill.id = `${PREFIX}-selection-pill`;
     pill.type = 'button';
-    pill.setAttribute('aria-label', 'Selected element: ' + tag);
+    pill.setAttribute('aria-label', `Selected element: ${tag}`);
     pill.disabled = controlsLocked;
     pill.style.cursor = controlsLocked ? 'not-allowed' : 'pointer';
     pill.style.opacity = controlsLocked ? '0.58' : '1';
@@ -1437,7 +1440,7 @@
       clearFace.style.opacity = armed ? '1' : '0';
       pill.style.background = armed ? P.toggleActive : 'transparent';
       pill.style.border = CONFIGURE_SELECTION_PILL_BORDER;
-      pill.setAttribute('aria-label', armed ? 'Clear selection' : 'Selected element: ' + tag);
+      pill.setAttribute('aria-label', armed ? 'Clear selection' : `Selected element: ${tag}`);
     };
     const arm = () => {
       if (controlsLocked) {
@@ -1509,7 +1512,7 @@
     const count = el('button', configureInlineControlStyle({
       fontFamily: MONO, fontWeight: '600', letterSpacing: '0',
     }));
-    count.textContent = '\u00D7' + selectedCount;
+    count.textContent = `\u00D7${selectedCount}`;
     count.disabled = controlsLocked;
     count.style.cursor = controlsLocked ? 'not-allowed' : 'pointer';
     count.style.opacity = controlsLocked ? '0.58' : '1';
@@ -1525,7 +1528,7 @@
       boxSizing: 'border-box',
       width: CONFIGURE_BAR_H, height: '100%', flexShrink: '0',
       padding: '0', margin: '0',
-      border: 'none', borderRight: '1px solid ' + BP.hairline,
+      border: 'none', borderRight: `1px solid ${BP.hairline}`,
       borderRadius: '0', background: 'transparent',
       color: BP.textDim, cursor: 'pointer',
       transition: 'color 0.12s ease, background 0.12s ease',
@@ -1545,7 +1548,7 @@
   function buildConfigureTrailingCluster(controls, voiceBtn, submitBtn) {
     const cluster = el('div', {
       display: 'inline-flex', alignItems: 'stretch', flexShrink: '0',
-      height: '100%', borderLeft: '1px solid ' + BP.hairline,
+      height: '100%', borderLeft: `1px solid ${BP.hairline}`,
     });
     if (controls.length) {
       const controlsWrap = el('div', {
@@ -1555,7 +1558,7 @@
       controls.forEach((control) => controlsWrap.appendChild(control));
       cluster.appendChild(controlsWrap);
     }
-    voiceBtn.style.borderLeft = '1px solid ' + BP.hairline;
+    voiceBtn.style.borderLeft = `1px solid ${BP.hairline}`;
     cluster.appendChild(voiceBtn);
     cluster.appendChild(submitBtn);
     return cluster;
@@ -1566,7 +1569,7 @@
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       boxSizing: 'border-box', width: CONFIGURE_BAR_H, height: CONFIGURE_BAR_H,
       padding: '0', flexShrink: '0',
-      border: 'none', borderLeft: '1px solid ' + BP.hairline,
+      border: 'none', borderLeft: `1px solid ${BP.hairline}`,
       borderRadius: '0',
       background: BP.accent, color: C.ink,
       cursor: controlsLocked ? 'not-allowed' : 'pointer',
@@ -1770,12 +1773,12 @@
     placeholder.style.width = '';
     if (sizing.kind === 'flex') {
       placeholder.style.flex = sizing.flex;
-      placeholder.style.minWidth = sizing.minWidth + 'px';
+      placeholder.style.minWidth = `${sizing.minWidth}px`;
     } else if (sizing.kind === 'percent') {
       placeholder.style.width = '100%';
       placeholder.style.maxWidth = '100%';
     } else if (sizing.kind === 'explicit') {
-      placeholder.style.width = sizing.width + 'px';
+      placeholder.style.width = `${sizing.width}px`;
     }
   }
 
@@ -1787,7 +1790,7 @@
     placeholder.style.flex = '';
     placeholder.style.minWidth = '';
     placeholder.style.maxWidth = '';
-    placeholder.style.width = w + 'px';
+    placeholder.style.width = `${w}px`;
     placeholder.dataset.monodesignPlaceholderWidth = 'explicit';
   }
 
@@ -1849,12 +1852,12 @@
   function ensureInsertLine() {
     if (insertLineEl) return insertLineEl;
     insertLineEl = document.createElement('div');
-    insertLineEl.id = PREFIX + '-insert-line';
+    insertLineEl.id = `${PREFIX}-insert-line`;
     Object.assign(insertLineEl.style, {
       position: 'fixed',
       zIndex: String(Z.highlight),
       height: '0',
-      borderTop: '2px dotted ' + C.brand,
+      borderTop: `2px dotted ${C.brand}`,
       pointerEvents: 'none',
       display: 'none',
       opacity: '0.9',
@@ -1871,22 +1874,22 @@
     if (coords.axis === 'row') {
       Object.assign(line.style, {
         display: 'block',
-        top: coords.top + 'px',
-        left: coords.left + 'px',
+        top: `${coords.top}px`,
+        left: `${coords.left}px`,
         width: '0',
-        height: coords.height + 'px',
+        height: `${coords.height}px`,
         borderTop: 'none',
-        borderLeft: '2px dotted ' + C.brand,
+        borderLeft: `2px dotted ${C.brand}`,
       });
     } else {
       Object.assign(line.style, {
         display: 'block',
-        top: coords.top + 'px',
-        left: coords.left + 'px',
-        width: coords.width + 'px',
+        top: `${coords.top}px`,
+        left: `${coords.left}px`,
+        width: `${coords.width}px`,
         height: '0',
         borderLeft: 'none',
-        borderTop: '2px dotted ' + C.brand,
+        borderTop: `2px dotted ${C.brand}`,
       });
     }
     insertHoverAnchor = resolved.anchor;
@@ -1961,7 +1964,7 @@
       if (anchor) return anchor;
     }
     if (currentSessionId && (state === 'GENERATING' || state === 'CYCLING')) {
-      const wrapper = document.querySelector('[data-monodesign-variants="' + currentSessionId + '"]');
+      const wrapper = document.querySelector(`[data-monodesign-variants="${currentSessionId}"]`);
       if (wrapper) {
         const variantCount = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])').length;
         if (variantCount > 0 && visibleVariant > 0) {
@@ -2020,7 +2023,7 @@
     const tag = (snap.anchorTag || 'div').toLowerCase();
     const cls = (snap.anchorClasses || '').split(/\s+/).filter(Boolean)[0];
     const needle = snap.anchorText || '';
-    const sel = cls ? tag + '.' + cls : tag;
+    const sel = cls ? `${tag}.${cls}` : tag;
     const candidates = document.querySelectorAll(sel);
     for (const candidate of candidates) {
       if (own(candidate)) continue;
@@ -2032,14 +2035,14 @@
 
   function isInsertGeneratingSession() {
     if (state !== 'GENERATING' || !currentSessionId) return false;
-    const wrapper = document.querySelector('[data-monodesign-variants="' + currentSessionId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${currentSessionId}"]`);
     return !!wrapper && wrapper.dataset.monodesignMode === 'insert';
   }
 
   /** Recreate the dotted placeholder if Astro/Vite HMR removed it mid-generation. */
   function ensureInsertPlaceholder() {
     if (!isInsertGeneratingSession()) return placeholderElement;
-    const wrapper = document.querySelector('[data-monodesign-variants="' + currentSessionId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${currentSessionId}"]`);
     const variantCount = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])').length;
     if (variantCount > 0) return placeholderElement;
     if (placeholderElement && document.body.contains(placeholderElement)) return placeholderElement;
@@ -2069,10 +2072,10 @@
     const ph = placeholderElement;
     if (!ph) return;
     materializePlaceholderWidth(ph);
-    ph.style.width = width + 'px';
-    ph.style.height = height + 'px';
-    ph.style.marginLeft = marginLeft ? marginLeft + 'px' : '';
-    ph.style.marginTop = marginTop ? marginTop + 'px' : '';
+    ph.style.width = `${width}px`;
+    ph.style.height = `${height}px`;
+    ph.style.marginLeft = marginLeft ? `${marginLeft}px` : '';
+    ph.style.marginTop = marginTop ? `${marginTop}px` : '';
     positionAnnotOverlay(ph);
     positionBar();
   }
@@ -2099,12 +2102,12 @@
         pointerEvents: 'auto',
         cursor: cursorForPlaceholderEdge(spec.edge),
       });
-      if (spec.top != null) handle.style.top = spec.top + 'px';
-      if (spec.bottom != null) handle.style.bottom = spec.bottom + 'px';
-      if (spec.left != null) handle.style.left = spec.left + 'px';
-      if (spec.right != null) handle.style.right = spec.right + 'px';
-      if (spec.width != null) handle.style.width = spec.width + 'px';
-      if (spec.height != null) handle.style.height = spec.height + 'px';
+      if (spec.top != null) handle.style.top = `${spec.top}px`;
+      if (spec.bottom != null) handle.style.bottom = `${spec.bottom}px`;
+      if (spec.left != null) handle.style.left = `${spec.left}px`;
+      if (spec.right != null) handle.style.right = `${spec.right}px`;
+      if (spec.width != null) handle.style.width = `${spec.width}px`;
+      if (spec.height != null) handle.style.height = `${spec.height}px`;
       handle.dataset.monodesignPlaceholderResize = spec.edge;
       handle.setAttribute('aria-label', 'Resize placeholder');
       handle.title = 'Drag to resize';
@@ -2159,13 +2162,14 @@
       anchorFlex: ast.flex,
     });
     const placeholder = document.createElement('div');
-    placeholder.id = PREFIX + '-insert-placeholder';
+    placeholder.id = `${PREFIX}-insert-placeholder`;
     placeholder.setAttribute('data-monodesign-insert-placeholder', 'true');
     placeholder.setAttribute('aria-hidden', 'true');
     Object.assign(placeholder.style, {
       boxSizing: 'border-box',
-      height: PLACEHOLDER_DEFAULT_HEIGHT + 'px',
-      minHeight: PLACEHOLDER_MIN_HEIGHT + 'px',
+      height: `${PLACEHOLDER_DEFAULT_HEIGHT}px`,
+      minHeight: `${PLACEHOLDER_MIN_HEIGHT}px`,
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:643
       border: '2px dotted ' + BP.accent,
       borderRadius: '0',
       background: 'transparent',
@@ -2190,7 +2194,7 @@
   }
 
   function isInsertCreateEnabled(btn) {
-    btn = btn || uiGetById(PREFIX + '-insert-create');
+    btn = btn || uiGetById(`${PREFIX}-insert-create`);
     return !!btn && btn.getAttribute('aria-disabled') !== 'true';
   }
 
@@ -2207,7 +2211,7 @@
       padding: '6px 9px',
       borderRadius: '7px',
       background: BP.chatSurface,
-      border: '1px solid ' + BP.hairline,
+      border: `1px solid ${BP.hairline}`,
       boxShadow: BP.shadow,
       color: BP.text,
       fontFamily: FONT,
@@ -2215,7 +2219,7 @@
       fontWeight: '500',
       lineHeight: '1.35',
     });
-    insertCreateTooltipEl.id = PREFIX + '-insert-create-tooltip';
+    insertCreateTooltipEl.id = `${PREFIX}-insert-create-tooltip`;
     uiAppend(insertCreateTooltipEl);
     return insertCreateTooltipEl;
   }
@@ -2230,8 +2234,8 @@
     const tipH = tip.offsetHeight;
     const left = Math.max(8, Math.min(window.innerWidth - tipW - 8, r.left + r.width / 2 - tipW / 2));
     const top = Math.max(8, r.top - tipH - 8);
-    tip.style.left = left + 'px';
-    tip.style.top = top + 'px';
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
   }
 
   function hideInsertCreateTooltip() {
@@ -2248,8 +2252,8 @@
   }
 
   function syncInsertCreateButton(btn, input) {
-    btn = btn || uiGetById(PREFIX + '-insert-create');
-    input = input || uiGetById(PREFIX + '-insert-input');
+    btn = btn || uiGetById(`${PREFIX}-insert-create`);
+    input = input || uiGetById(`${PREFIX}-insert-input`);
     if (!btn || !input) return;
     const gate = insertCreateGateState(input);
     const ok = canCreateInsert(gate);
@@ -2266,7 +2270,7 @@
     } else {
       btn.style.background = 'transparent';
       btn.style.color = BP.textDim;
-      btn.style.border = '1px solid ' + BP.hairline;
+      btn.style.border = `1px solid ${BP.hairline}`;
       btn.style.opacity = '0.72';
       btn.style.cursor = 'not-allowed';
     }
@@ -2274,9 +2278,9 @@
 
   /** Stylesheet shared by the replace and insert configure rows. */
   function ensureConfigureInputStyle() {
-    if (uiGetById(PREFIX + '-configure-input-style')) return;
+    if (uiGetById(`${PREFIX}-configure-input-style`)) return;
     const s = document.createElement('style');
-    s.id = PREFIX + '-configure-input-style';
+    s.id = `${PREFIX}-configure-input-style`;
     s.textContent =
       '@keyframes monodesign-configure-voice-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }' +
       '#' + PREFIX + '-input, #' + PREFIX + '-insert-input { box-sizing: border-box; height: ' + CONFIGURE_ROW_TRACK_H + '; line-height: ' + CONFIGURE_ROW_TRACK_H + '; padding: 0; margin: 0; caret-color: ' + CONFIGURE_PILL_TEXT + '; }' +
@@ -2296,7 +2300,7 @@
     const inputShell = el('div', configureInputShellStyle());
 
     const input = document.createElement('input');
-    input.id = PREFIX + '-input';
+    input.id = `${PREFIX}-input`;
     input.type = 'text';
     input.placeholder = '';
     input.setAttribute('aria-label', 'Describe the change');
@@ -2322,7 +2326,7 @@
       onClick: (e) => {
         e.stopPropagation();
         if (controlsLocked) { showManualApplyBusyToast(); return; }
-        count.textContent = '\u00D7' + cycleSelectedCount();
+        count.textContent = `\u00D7${cycleSelectedCount()}`;
         if (count.matches(':hover')) {
           showConfigureBarTooltip(count, variantCountTooltipText(selectedCount));
         }
@@ -2350,7 +2354,7 @@
     });
 
     const voiceBtn = buildConfigureVoiceButton({
-      id: PREFIX + '-configure-voice',
+      id: `${PREFIX}-configure-voice`,
       controlsLocked,
       onClick: (e) => {
         e.stopPropagation();
@@ -2386,7 +2390,7 @@
     const inputShell = el('div', configureInputShellStyle());
 
     const input = document.createElement('input');
-    input.id = PREFIX + '-insert-input';
+    input.id = `${PREFIX}-insert-input`;
     input.type = 'text';
     input.placeholder = '';
     input.setAttribute('aria-label', 'Describe the new element');
@@ -2403,7 +2407,7 @@
       onClick: (e) => {
         e.stopPropagation();
         if (controlsLocked) { showManualApplyBusyToast(); return; }
-        count.textContent = '\u00D7' + cycleSelectedCount();
+        count.textContent = `\u00D7${cycleSelectedCount()}`;
         if (count.matches(':hover')) {
           showConfigureBarTooltip(count, variantCountTooltipText(selectedCount));
         }
@@ -2439,7 +2443,7 @@
     input.addEventListener('blur', () => syncConfigureInputChrome());
 
     const voiceBtn = buildConfigureVoiceButton({
-      id: PREFIX + '-insert-voice',
+      id: `${PREFIX}-insert-voice`,
       controlsLocked,
       onClick: (e) => {
         e.stopPropagation();
@@ -2459,6 +2463,7 @@
         handleInsertCreate();
       },
     });
+    // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:688
     create.id = PREFIX + '-insert-create';
     create.addEventListener('mouseenter', () => {
       if (controlsLocked) return;
@@ -2506,7 +2511,7 @@
     status.textContent = recoveryWaitingForAnchor
       ? 'Variants ready. Reveal the selected element to resume.'
       : (arrivedVariants < expectedVariants
-        ? 'Generating ' + expectedVariants + ' variants...'
+        ? `Generating ${expectedVariants} variants...`
         : 'Done');
     row.appendChild(status);
 
@@ -2528,7 +2533,7 @@
 
     // Prev
     const prev = navBtn('\u2190');
-    prev.id = PREFIX + '-variant-prev';
+    prev.id = `${PREFIX}-variant-prev`;
     prev.addEventListener('click', (e) => { e.stopPropagation(); cycleVariant(-1); });
     if (visibleVariant <= 1) prev.style.opacity = '0.3';
     row.appendChild(prev);
@@ -2541,13 +2546,13 @@
       fontFamily: MONO, fontSize: '11px', fontWeight: '500',
       color: BP.textDim, minWidth: '24px', textAlign: 'center',
     });
-    counter.id = PREFIX + '-variant-counter';
-    counter.textContent = visibleVariant + '/' + arrivedVariants;
+    counter.id = `${PREFIX}-variant-counter`;
+    counter.textContent = `${visibleVariant}/${arrivedVariants}`;
     row.appendChild(counter);
 
     // Next
     const next = navBtn('\u2192');
-    next.id = PREFIX + '-variant-next';
+    next.id = `${PREFIX}-variant-next`;
     next.addEventListener('click', (e) => { e.stopPropagation(); cycleVariant(1); });
     if (visibleVariant >= arrivedVariants) next.style.opacity = '0.3';
     row.appendChild(next);
@@ -2584,7 +2589,7 @@
       });
       tuneBadge.textContent = String(visParams.length);
       tune.appendChild(tuneBadge);
-      tune.title = 'Tune this variant (' + visParams.length + ' knob' + (visParams.length === 1 ? '' : 's') + ')';
+      tune.title = `Tune this variant (${visParams.length} knob${visParams.length === 1 ? '' : 's'})`;
       tune.addEventListener('mouseenter', () => {
         if (!tuneOpen) tune.style.background = BP.accentSoft;
       });
@@ -2619,7 +2624,7 @@
     // Discard
     const discard = el('button', {
       padding: '4px 6px', borderRadius: '5px',
-      border: '1px solid ' + BP.hairline, background: 'transparent',
+      border: `1px solid ${BP.hairline}`, background: 'transparent',
       fontFamily: FONT, fontSize: '11px', color: BP.textDim,
       cursor: 'pointer', transition: 'color 0.12s ease, border-color 0.12s ease',
     });
@@ -2644,7 +2649,7 @@
     });
     const spinner = el('div', {
       width: '14px', height: '14px', borderRadius: '50%',
-      border: '2px solid ' + BP.hairline,
+      border: `2px solid ${BP.hairline}`,
       borderTopColor: BP.accent,
       animation: 'monodesign-spin 0.6s linear infinite',
       flexShrink: '0',
@@ -2698,7 +2703,7 @@
       const dotBg = active ? C.brand
         : arrived ? BP.textDim
         : 'transparent';
-      const dotBorder = arrived ? 'none' : '1.5px solid ' + BP.hairline;
+      const dotBorder = arrived ? 'none' : `1.5px solid ${BP.hairline}`;
       const dot = el('div', {
         width: active ? '8px' : '6px',
         height: active ? '8px' : '6px',
@@ -2706,7 +2711,7 @@
         background: dotBg,
         border: dotBorder,
         boxSizing: 'border-box',
-        transition: 'all 0.2s ' + EASE,
+        transition: `all 0.2s ${EASE}`,
         cursor: (clickable && arrived) ? 'pointer' : 'default',
         transform: arrived ? 'scale(1)' : 'scale(0.85)',
         opacity: arrived ? (active ? '1' : '0.6') : '0.4',
@@ -2726,7 +2731,7 @@
   function navBtn(text) {
     const b = el('button', {
       width: '26px', height: '26px', borderRadius: '5px',
-      border: '1px solid ' + BP.hairline, background: 'transparent',
+      border: `1px solid ${BP.hairline}`, background: 'transparent',
       color: BP.text, fontFamily: FONT, fontSize: '13px',
       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
       transition: 'border-color 0.12s ease, background 0.12s ease',
@@ -2757,15 +2762,15 @@
   function initActionPicker() {
     const P = barPaletteForTheme(detectPageTheme());
     pickerEl = document.createElement('div');
-    pickerEl.id = PREFIX + '-picker';
+    pickerEl.id = `${PREFIX}-picker`;
     Object.assign(pickerEl.style, {
       position: 'fixed', zIndex: Z.picker,
       display: 'none', opacity: '0',
       transform: 'scale(0.96) translateY(4px)',
       transformOrigin: 'bottom right',
-      transition: 'opacity 0.18s ' + EASE + ', transform 0.2s ' + EASE,
+      transition: `opacity 0.18s ${EASE}, transform 0.2s ${EASE}`,
       background: P.surface,
-      border: '1px solid ' + P.border,
+      border: `1px solid ${P.border}`,
       borderRadius: '8px',
       boxShadow: P.shadow,
       padding: '6px',
@@ -2809,11 +2814,11 @@
       chip.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const prompt = uiGetById(PREFIX + '-input')?.value || '';
+        const prompt = uiGetById(`${PREFIX}-input`)?.value || '';
         selectedAction = action.value;
         hideActionPicker();
         updateBarContent('configure');
-        const input = uiGetById(PREFIX + '-input');
+        const input = uiGetById(`${PREFIX}-input`);
         if (input && prompt) input.value = prompt;
       });
       grid.appendChild(chip);
@@ -2848,8 +2853,8 @@
     let left = barRect.right - pickerW;
     left = Math.max(8, Math.min(left, window.innerWidth - pickerW - 8));
     Object.assign(pickerEl.style, {
-      top: top + 'px',
-      left: left + 'px',
+      top: `${top}px`,
+      left: `${left}px`,
     });
     requestAnimationFrame(() => {
       pickerEl.style.opacity = '1';
@@ -2933,7 +2938,7 @@
     // hides everything initially; as it grows, content is revealed from
     // the bar edge outward.
     paramsPanelEl = document.createElement('div');
-    paramsPanelEl.id = PREFIX + '-params-panel';
+    paramsPanelEl.id = `${PREFIX}-params-panel`;
     Object.assign(paramsPanelEl.style, {
       position: 'fixed', zIndex: String(Z.bar - 1),
       background: P.surfaceDeep,
@@ -2948,7 +2953,7 @@
       // transition support across engines. Closed state clips from the far
       // edge; open = inset(0) shows everything.
       clipPath: 'inset(0 0 100% 0)',
-      transition: 'clip-path 0.44s ' + EASE,
+      transition: `clip-path 0.44s ${EASE}`,
 
       // Park off-screen until positionParamsPanel places it. These are NOT
       // in the transition list, so they snap instantly - no fly-in from the
@@ -2990,9 +2995,9 @@
         || svelteComponentSession.wrapperEl
         || null;
     }
-    const wrapper = document.querySelector('[data-monodesign-variants="' + currentSessionId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${currentSessionId}"]`);
     if (!wrapper) return null;
-    return wrapper.querySelector('[data-monodesign-variant="' + visibleVariant + '"]');
+    return wrapper.querySelector(`[data-monodesign-variant="${visibleVariant}"]`);
   }
 
   function parseVariantParams(variantEl) {
@@ -3019,7 +3024,7 @@
 
   function applyParamValue(variantEl, param, value) {
     if (!variantEl) return;
-    const attr = 'data-p-' + param.id;
+    const attr = `data-p-${param.id}`;
     if (param.kind === 'toggle') {
       const on = !!value;
       if (on) variantEl.setAttribute(attr, 'on');
@@ -3033,8 +3038,9 @@
     // so there is no React hydration to mismatch. Drive range/toggle --p-* inline
     // on the mounted element so scoped preview CSS resolves them.
     if (svelteComponentSession?.sessionId === currentSessionId) {
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:335
       if (param.kind === 'range') variantEl.style.setProperty('--p-' + param.id, String(value));
-      else if (param.kind === 'toggle') variantEl.style.setProperty('--p-' + param.id, value ? '1' : '0');
+      else if (param.kind === 'toggle') variantEl.style.setProperty(`--p-${param.id}`, value ? '1' : '0');
       return;
     }
     // range/toggle --p-* custom properties are driven through the injected
@@ -3115,7 +3121,7 @@
           left: initial ? '18px' : '2px',
           width: '16px', height: '16px', borderRadius: '50%',
           background: 'oklch(98% 0 0)',
-          transition: 'left 0.18s ' + EASE,
+          transition: `left 0.18s ${EASE}`,
           boxShadow: '0 1px 2px oklch(0% 0 0 / 0.2)',
         });
         track.appendChild(knob);
@@ -3138,7 +3144,7 @@
         readout.textContent = activeOpt ? activeOpt.label : String(p.default);
         const segRow = el('div', {
           display: 'grid',
-          gridTemplateColumns: 'repeat(' + opts.length + ', 1fr)',
+          gridTemplateColumns: `repeat(${opts.length}, 1fr)`,
           gap: '1px', padding: '2px',
           background: P.hairline, borderRadius: '5px',
         });
@@ -3488,11 +3494,11 @@
 
   function documentRefSegment(el) {
     const tag = el.tagName.toLowerCase();
-    return tag + documentRefIdSuffix(el) + documentRefClassSuffix(el) + ':nth-of-type(' + indexAmongSameTag(el) + ')';
+    return `${tag + documentRefIdSuffix(el) + documentRefClassSuffix(el)}:nth-of-type(${indexAmongSameTag(el)})`;
   }
 
   function documentRefIdSuffix(el) {
-    return el.id ? '#' + normalizeDocumentRefToken(el.id) : '';
+    return el.id ? `#${normalizeDocumentRefToken(el.id)}` : '';
   }
 
   function documentRefClassSuffix(el) {
@@ -3503,7 +3509,7 @@
       classes.push(normalizeDocumentRefToken(cls));
       if (classes.length === 2) break;
     }
-    return classes.length ? '.' + classes.join('.') : '';
+    return classes.length ? `.${classes.join('.')}` : '';
   }
 
   function normalizeDocumentRefToken(value) {
@@ -3590,7 +3596,7 @@
         }
         const forbidden = forbiddenManualTextChars(newText);
         if (forbidden.length > 0) {
-          showToast('Save rejected: newText cannot contain ' + forbidden.join(' ') + ' (plain text only; ask the AI to insert markup)', 5500);
+          showToast(`Save rejected: newText cannot contain ${forbidden.join(' ')} (plain text only; ask the AI to insert markup)`, 5500);
           return;
         }
         const locator = buildLocatorForLeaf(row.el, selectedElement);
@@ -3618,6 +3624,7 @@
     const container = copyEditContainerContext(contextElement);
     if (container) for (const op of ops) op.container = container;
     try {
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-source.test.mjs:18
       const res = await fetch('http://localhost:' + PORT + '/manual-edit-stash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3631,7 +3638,7 @@
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || ('HTTP ' + res.status));
+        throw new Error(errBody.error || (`HTTP ${res.status}`));
       }
       const stashResult = await res.json();
       updatePendingCounter(stashResult.pendingCount || 0);
@@ -3645,7 +3652,7 @@
       console.error('[monodesign] manual edit stash failed:', err);
       const detail = String(err?.message || '');
       if (detail.includes('newText cannot contain') || detail.includes('newText cannot be empty')) {
-        showToast('Save rejected: ' + detail.replace(/^manual_edits:\s*/, ''), 5500);
+        showToast(`Save rejected: ${detail.replace(/^manual_edits:\s*/, '')}`, 5500);
       } else {
         showToast('Save failed - retry or cancel', 4000);
       }
@@ -3662,8 +3669,9 @@
     const width = globalBarEl.offsetWidth;
     const height = globalBarEl.offsetHeight;
     if (!width || !height) return;
-    pendingDockEl.style.left = Math.round((window.innerWidth / 2) - (width / 2) - 18) + 'px';
+    pendingDockEl.style.left = `${Math.round((window.innerWidth / 2) - (width / 2) - 18)}px`;
     pendingDockEl.style.top = 'auto';
+    // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-source.test.mjs:204
     pendingDockEl.style.bottom = Math.round(14 + (height / 2)) + 'px';
   }
 
@@ -3695,9 +3703,9 @@
   }
 
   function ensureSpinKeyframes() {
-    if (uiGetById(PREFIX + '-keyframes')) return;
+    if (uiGetById(`${PREFIX}-keyframes`)) return;
     const style = document.createElement('style');
-    style.id = PREFIX + '-keyframes';
+    style.id = `${PREFIX}-keyframes`;
     style.textContent = '@keyframes monodesign-spin { to { transform: rotate(360deg); } }';
     uiAppendStyle(style);
   }
@@ -3711,7 +3719,7 @@
   }
 
   function manualApplyStateKey() {
-    return PREFIX + ':manual-apply:' + PORT + ':' + TOKEN + ':' + location.pathname;
+    return `${PREFIX}:manual-apply:${PORT}:${TOKEN}:${location.pathname}`;
   }
 
   function readStoredManualApplyState() {
@@ -3776,13 +3784,14 @@
     if (stored?.phase === 'repairing') {
       const attempt = Number(stored.repairAttempt) || 1;
       const max = Number(stored.repairMaxAttempts) || 3;
-      return 'Fixing apply issue, attempt ' + attempt + '/' + max;
+      return `Fixing apply issue, attempt ${attempt}/${max}`;
     }
     if (stored?.phase === 'verifying') return 'Verifying copy edits';
     const remaining = Number.isFinite(Number(stored?.remainingCount))
       ? Number(stored.remainingCount)
       : Number(fallbackCount) || 0;
     return remaining > 0
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-source.test.mjs:151
       ? 'Applying ' + remaining + ' copy edit' + (remaining === 1 ? '' : 's')
       : 'Verifying copy edits';
   }
@@ -3832,10 +3841,10 @@
       closeTunePopover();
     }
     if (barEl && barEl.style.display !== 'none' && state === 'CONFIGURING') {
-      const input = uiGetById(PREFIX + '-input');
+      const input = uiGetById(`${PREFIX}-input`);
       const prompt = input ? input.value : '';
       updateBarContent('configure');
-      const nextInput = uiGetById(PREFIX + '-input');
+      const nextInput = uiGetById(`${PREFIX}-input`);
       if (nextInput) nextInput.value = prompt;
     }
     if (editBadgeEl && editBadgeEl.style.display !== 'none') {
@@ -3914,7 +3923,7 @@
     }
     pendingPillLabelEl.textContent = pendingApplyLabel(currentPageCount);
     pendingPillCountEl.textContent = String(currentPageCount);
-    pendingPillEl.setAttribute('aria-label', 'Apply ' + currentPageCount + ' copy edit' + (currentPageCount === 1 ? '' : 's') + ' to source');
+    pendingPillEl.setAttribute('aria-label', `Apply ${currentPageCount} copy edit${currentPageCount === 1 ? '' : 's'} to source`);
     pendingPillEl.style.display = 'inline-flex';
     pendingTrashBtn.style.display = 'inline-flex';
     pendingDockEl.style.display = 'inline-flex';
@@ -3933,7 +3942,7 @@
   async function fetchPendingCount() {
     try {
       const res = await fetch(
-        'http://localhost:' + PORT + '/manual-edit-stash?token=' + encodeURIComponent(TOKEN) + '&pageUrl=' + encodeURIComponent(location.pathname),
+        `http://localhost:${PORT}/manual-edit-stash?token=${encodeURIComponent(TOKEN)}&pageUrl=${encodeURIComponent(location.pathname)}`,
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -3946,19 +3955,19 @@
   async function onPendingPillClick() {
     const count = parseInt(pendingPillEl?.dataset.count || '0', 10);
     if (count <= 0 || pendingApplyInFlight) return;
-    const ok = confirm('Apply ' + count + ' copy edit' + (count === 1 ? '' : 's') + ' to source?');
+    const ok = confirm(`Apply ${count} copy edit${count === 1 ? '' : 's'} to source?`);
     if (!ok) return;
     let waitForSseCompletion = false;
     resetManualApplyProgress(count);
     setPendingApplyLoading(true, count);
     try {
       const res = await fetch(
-        'http://localhost:' + PORT + '/manual-edit-commit?token=' + encodeURIComponent(TOKEN) + '&pageUrl=' + encodeURIComponent(location.pathname) + '&async=1',
+        `http://localhost:${PORT}/manual-edit-commit?token=${encodeURIComponent(TOKEN)}&pageUrl=${encodeURIComponent(location.pathname)}&async=1`,
         { method: 'POST', keepalive: true },
       );
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || ('HTTP ' + res.status));
+        throw new Error(errBody.error || (`HTTP ${res.status}`));
       }
       const result = await res.json();
       if (res.status === 202 || result.status === 'started') {
@@ -3969,11 +3978,11 @@
       updatePendingCounter(remaining);
       if (result.failed && result.failed.length > 0) {
         console.warn('[monodesign] some copy edits failed:', result.failed);
-        showToast('Applied ' + (result.applied?.length || 0) + ', ' + result.failed.length + ' failed - see console', 5000);
+        showToast(`Applied ${result.applied?.length || 0}, ${result.failed.length} failed - see console`, 5000);
       } else {
         const n = Array.isArray(result.applied) ? result.applied.length : (result.cleared || 0);
         if (n > 0) {
-          showToast('Applied ' + n + ' edit' + (n === 1 ? '' : 's'), 2500);
+          showToast(`Applied ${n} edit${n === 1 ? '' : 's'}`, 2500);
         } else {
           console.warn('[monodesign] apply returned no verified edits:', result);
           showToast('No edits applied - see console', 4000);
@@ -3994,21 +4003,21 @@
   async function onPendingTrashClick() {
     const count = parseInt(pendingPillEl?.dataset.count || '0', 10);
     if (count <= 0 || pendingApplyInFlight) return;
-    const ok = confirm('Discard ' + count + ' copy edit' + (count === 1 ? '' : 's') + ' on this page?');
+    const ok = confirm(`Discard ${count} copy edit${count === 1 ? '' : 's'} on this page?`);
     if (!ok) return;
     try {
       const res = await fetch(
-        'http://localhost:' + PORT + '/manual-edit-discard?token=' + encodeURIComponent(TOKEN) + '&pageUrl=' + encodeURIComponent(location.pathname),
+        `http://localhost:${PORT}/manual-edit-discard?token=${encodeURIComponent(TOKEN)}&pageUrl=${encodeURIComponent(location.pathname)}`,
         { method: 'POST' },
       );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json().catch(() => ({}));
       const restoreFailures = restoreDiscardedManualEdits(result.entries || []);
       updatePendingCounter(0);
       if (restoreFailures > 0) {
-        showToast('Discarded ' + count + ' copy edit' + (count === 1 ? '' : 's') + ' - refresh to reset ' + restoreFailures, 4000);
+        showToast(`Discarded ${count} copy edit${count === 1 ? '' : 's'} - refresh to reset ${restoreFailures}`, 4000);
       } else {
-        showToast('Discarded ' + count + ' copy edit' + (count === 1 ? '' : 's'), 2500);
+        showToast(`Discarded ${count} copy edit${count === 1 ? '' : 's'}`, 2500);
       }
     } catch (err) {
       console.error('[monodesign] discard failed:', err);
@@ -4047,10 +4056,10 @@
     updateManualApplyRepairState({ attempt: 1, maxAttempts: 3 }, 'repairing');
     try {
       const res = await fetch(
-        'http://localhost:' + PORT + '/manual-edit-commit?token=' + encodeURIComponent(TOKEN) + '&pageUrl=' + encodeURIComponent(location.pathname) + '&async=1&repair=1',
+        `http://localhost:${PORT}/manual-edit-commit?token=${encodeURIComponent(TOKEN)}&pageUrl=${encodeURIComponent(location.pathname)}&async=1&repair=1`,
         { method: 'POST', keepalive: true },
       );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (pendingKeepFixingBtn) pendingKeepFixingBtn.style.display = 'none';
       if (pendingRollbackBtn) pendingRollbackBtn.style.display = 'none';
       if (pendingTrashBtn) pendingTrashBtn.style.display = 'inline-flex';
@@ -4066,14 +4075,14 @@
     if (!ok) return;
     try {
       const res = await fetch(
-        'http://localhost:' + PORT + '/manual-edit-repair-decision?token=' + encodeURIComponent(TOKEN) + '&pageUrl=' + encodeURIComponent(location.pathname),
+        `http://localhost:${PORT}/manual-edit-repair-decision?token=${encodeURIComponent(TOKEN)}&pageUrl=${encodeURIComponent(location.pathname)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: TOKEN, pageUrl: location.pathname, action: 'rollback' }),
         },
       );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json().catch(() => ({}));
       clearStoredManualApplyState();
       updatePendingCounter(numberOrNull(result.remainingCount) || 0);
@@ -4160,9 +4169,9 @@
         const failedCount = numberOrNull(msg.failedCount) || 0;
         const appliedCount = numberOrNull(msg.appliedCount) || numberOrNull(msg.cleared) || 0;
         if (failedCount > 0) {
-          showToast('Applied ' + appliedCount + ', ' + failedCount + ' failed - see console', 5000);
+          showToast(`Applied ${appliedCount}, ${failedCount} failed - see console`, 5000);
         } else if (appliedCount > 0) {
-          showToast('Applied ' + appliedCount + ' edit' + (appliedCount === 1 ? '' : 's'), 2500);
+          showToast(`Applied ${appliedCount} edit${appliedCount === 1 ? '' : 's'}`, 2500);
         }
       }
       return;
@@ -4250,7 +4259,7 @@
     }
     const tag = op?.tag || op?.leaf?.tagName || '*';
     const classes = Array.isArray(op?.classes) ? op.classes : (Array.isArray(op?.leaf?.classes) ? op.leaf.classes : []);
-    const selector = (tag === '*' ? '' : tag) + classes.map((cls) => '.' + cssIdent(cls)).join('') || '*';
+    const selector = (tag === '*' ? '' : tag) + classes.map((cls) => `.${cssIdent(cls)}`).join('') || '*';
     let matches = [];
     try {
       matches = Array.from(document.querySelectorAll(selector));
@@ -4326,7 +4335,7 @@
 
   function usesShadowChromeRoot() {
     const root = liveUiRoot();
-    return root && root !== document.body && root.host && root.host.id === PREFIX + '-root';
+    return root && root !== document.body && root.host && root.host.id === `${PREFIX}-root`;
   }
 
   function setImportantStyle(el, name, value) {
@@ -4336,7 +4345,7 @@
   function initEditBadgeHitProxies() {
     if (!usesShadowChromeRoot() || editBadgeProxyRoot) return;
     editBadgeProxyRoot = document.createElement('div');
-    editBadgeProxyRoot.id = PREFIX + '-edit-badge-hit-proxies';
+    editBadgeProxyRoot.id = `${PREFIX}-edit-badge-hit-proxies`;
     editBadgeProxyRoot.setAttribute('aria-hidden', 'true');
     const styles = {
       all: 'initial',
@@ -4350,7 +4359,7 @@
       overflow: 'visible',
     };
     for (const [name, value] of Object.entries(styles)) {
-      setImportantStyle(editBadgeProxyRoot, name.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase()), value);
+      setImportantStyle(editBadgeProxyRoot, name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`), value);
     }
     document.body.appendChild(editBadgeProxyRoot);
   }
@@ -4361,10 +4370,10 @@
     const styles = {
       all: 'initial',
       position: 'fixed',
-      left: rect.left + 'px',
-      top: rect.top + 'px',
-      width: rect.width + 'px',
-      height: rect.height + 'px',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
       margin: '0',
       padding: '0',
       border: '0',
@@ -4377,7 +4386,7 @@
       zIndex: String(Z.toast + 2),
     };
     for (const [name, value] of Object.entries(styles)) {
-      setImportantStyle(proxy, name.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase()), value);
+      setImportantStyle(proxy, name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`), value);
     }
   }
 
@@ -4481,7 +4490,7 @@
 
   function initEditBadge() {
     editBadgeEl = document.createElement('div');
-    editBadgeEl.id = PREFIX + '-edit-badge';
+    editBadgeEl.id = `${PREFIX}-edit-badge`;
     Object.assign(editBadgeEl.style, {
       position: 'fixed',
       zIndex: String(Z.highlight + 1),
@@ -4493,9 +4502,9 @@
     initEditBadgeHitProxies();
 
     // Remove focus rings on edit badge buttons + contenteditable elements
-    if (!uiGetById(PREFIX + '-edit-badge-focus-style')) {
+    if (!uiGetById(`${PREFIX}-edit-badge-focus-style`)) {
       const s = document.createElement('style');
-      s.id = PREFIX + '-edit-badge-focus-style';
+      s.id = `${PREFIX}-edit-badge-focus-style`;
       s.textContent =
         '#' + PREFIX + '-edit-badge button { outline: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important; }' +
         '#' + PREFIX + '-edit-badge button:focus { outline: none !important; }' +
@@ -4516,8 +4525,8 @@
     const bw = editBadgeEl.offsetWidth;
     // Match showHighlight's 2px outset so the badge right edge lines up with the outline.
     const outlineRight = r.right + 2;
-    editBadgeEl.style.top = Math.max(4, r.top - 28) + 'px';
-    editBadgeEl.style.left = Math.min(window.innerWidth - bw - 4, outlineRight - bw) + 'px';
+    editBadgeEl.style.top = `${Math.max(4, r.top - 28)}px`;
+    editBadgeEl.style.left = `${Math.min(window.innerWidth - bw - 4, outlineRight - bw)}px`;
     syncEditBadgeHitProxies();
   }
 
@@ -4546,7 +4555,7 @@
       color: color,
       background: SURFACE,
       padding: '2px 8px',
-      border: '1px solid ' + (borderColor || color),
+      border: `1px solid ${borderColor || color}`,
       borderRadius: '6px',
       boxSizing: 'border-box',
       minHeight: '22px',
@@ -4585,7 +4594,7 @@
         btn.style.cursor = 'not-allowed';
         btn.style.opacity = '0.55';
         btn.disabled = true;
-        const disabledTip = EDIT_COPY_LABEL + ' is disabled while the current copy edit is applying';
+        const disabledTip = `${EDIT_COPY_LABEL} is disabled while the current copy edit is applying`;
         btn.addEventListener('mouseenter', () => showConfigureBarTooltip(btn, disabledTip));
         btn.addEventListener('mouseleave', hideConfigureBarTooltip);
       } else {
@@ -4654,20 +4663,20 @@
     const prevDirection = paramsPanelEl.dataset.tuneDirection;
 
     // top/left/width are NOT in the transition list, so they snap instantly.
-    paramsPanelEl.style.left = br.left + 'px';
-    paramsPanelEl.style.width = br.width + 'px';
+    paramsPanelEl.style.left = `${br.left}px`;
+    paramsPanelEl.style.width = `${br.width}px`;
 
     if (direction === 'below') {
-      paramsPanelEl.style.top = (br.bottom - TUNE_OVERLAP) + 'px';
+      paramsPanelEl.style.top = `${br.bottom - TUNE_OVERLAP}px`;
       paramsPanelEl.style.borderRadius = '0 0 10px 10px';
-      paramsPanelEl.style.paddingTop = (14 + TUNE_OVERLAP) + 'px';
+      paramsPanelEl.style.paddingTop = `${14 + TUNE_OVERLAP}px`;
       paramsPanelEl.style.paddingBottom = '14px';
     } else {
       const ih = paramsPanelEl.offsetHeight || 80;
-      paramsPanelEl.style.top = (br.top - ih + TUNE_OVERLAP) + 'px';
+      paramsPanelEl.style.top = `${br.top - ih + TUNE_OVERLAP}px`;
       paramsPanelEl.style.borderRadius = '10px 10px 0 0';
       paramsPanelEl.style.paddingTop = '14px';
-      paramsPanelEl.style.paddingBottom = (14 + TUNE_OVERLAP) + 'px';
+      paramsPanelEl.style.paddingBottom = `${14 + TUNE_OVERLAP}px`;
     }
     paramsPanelEl.dataset.tuneDirection = direction;
 
@@ -4788,10 +4797,10 @@
     const shown = svelteComponentSession?.sessionId === currentSessionId && svelteComponentSession.mountedVariant > 0
       ? svelteComponentSession.mountedVariant
       : visibleVariant;
-    const counter = uiGetById(PREFIX + '-variant-counter');
-    if (counter && arrivedVariants > 0) counter.textContent = shown + '/' + arrivedVariants;
-    const prev = uiGetById(PREFIX + '-variant-prev');
-    const next = uiGetById(PREFIX + '-variant-next');
+    const counter = uiGetById(`${PREFIX}-variant-counter`);
+    if (counter && arrivedVariants > 0) counter.textContent = `${shown}/${arrivedVariants}`;
+    const prev = uiGetById(`${PREFIX}-variant-prev`);
+    const next = uiGetById(`${PREFIX}-variant-next`);
     if (prev) prev.style.opacity = shown <= 1 ? '0.3' : '1';
     if (next) next.style.opacity = shown >= arrivedVariants ? '0.3' : '1';
     if (currentSessionId && state === 'CYCLING') saveSession();
@@ -4807,7 +4816,7 @@
       scheduleCyclingBarSync(sessionId, num);
       return true;
     }
-    const wrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
     if (!wrapper) return false;
     updateVariantStateStylesheet(sessionId, num);
     // Unconditional refresh - covers first-reveal (no-op if state isn't
@@ -4823,7 +4832,7 @@
 
   function parseOriginalMarkupElement(originalMarkup) {
     const parser = new DOMParser();
-    const doc = parser.parseFromString('<div id="monodesign-anchor">' + originalMarkup + '</div>', 'text/html');
+    const doc = parser.parseFromString(`<div id="monodesign-anchor">${originalMarkup}</div>`, 'text/html');
     return doc.getElementById('monodesign-anchor')?.firstElementChild || null;
   }
 
@@ -4988,7 +4997,7 @@
       // A wrapper can land incomplete ("wrap HMR landed, variant insert did
       // not"); injectVariantsFromSource owns both cases - it replaces an
       // existing wrapper from source and clears recoveryWaitingForAnchor.
-      const wrapperLanded = !!document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+      const wrapperLanded = !!document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
       if (!wrapperLanded) {
         const liveEl = resolveLiveInjectionAnchor(originalMarkup);
         if (!liveEl?.parentElement) return;
@@ -5031,8 +5040,8 @@
   async function loadSvelteComponentParams(manifest) {
     const dir = String(manifest?.componentDir || '').replace(/^\/+/, '');
     if (!dir) return {};
-    const paramsPath = dir + '/params.json';
-    const url = 'http://localhost:' + PORT + '/source?token=' + TOKEN + '&path=' + encodeURIComponent(paramsPath);
+    const paramsPath = `${dir}/params.json`;
+    const url = `http://localhost:${PORT}/source?token=${TOKEN}&path=${encodeURIComponent(paramsPath)}`;
     try {
       const res = await fetch(url);
       if (!res.ok) return {};
@@ -5051,8 +5060,8 @@
   async function loadSvelteComponentVariantSource(manifest, variantNum) {
     const dir = String(manifest?.componentDir || '').replace(/^\/+/, '');
     if (!dir || !variantNum) return '';
-    const sourcePath = dir + '/v' + variantNum + '.svelte';
-    const url = 'http://localhost:' + PORT + '/source?token=' + TOKEN + '&path=' + encodeURIComponent(sourcePath);
+    const sourcePath = `${dir}/v${variantNum}.svelte`;
+    const url = `http://localhost:${PORT}/source?token=${TOKEN}&path=${encodeURIComponent(sourcePath)}`;
     try {
       const res = await fetch(url);
       if (!res.ok) return '';
@@ -5091,7 +5100,7 @@
   }
 
   function scopeCssToSveltePreview(css, sessionId) {
-    const prefix = '[data-monodesign-variants="' + String(sessionId).replace(/"/g, '\\"') + '"] ';
+    const prefix = `[data-monodesign-variants="${String(sessionId).replace(/"/g, '\\"')}"] `;
     return scopeCssBlock(String(css || ''), prefix).trim();
   }
 
@@ -5118,11 +5127,11 @@
       }
       const body = css.slice(open + 1, close);
       if (shouldScopeNestedCssAtRule(prelude)) {
-        out += prelude + ' {\n' + scopeCssBlock(body, prefix) + '\n}';
+        out += `${prelude} {\n${scopeCssBlock(body, prefix)}\n}`;
       } else if (prelude.startsWith('@')) {
-        out += prelude + ' {' + body + '}';
+        out += `${prelude} {${body}}`;
       } else {
-        out += prefixCssSelectors(prelude, prefix) + ' {' + body + '}';
+        out += `${prefixCssSelectors(prelude, prefix)} {${body}}`;
       }
       i = close + 1;
     }
@@ -5207,7 +5216,7 @@
     if (!sourceOriginal) return values;
     const map = buildSvelteExpressionTextMap(sourceOriginal, liveEl);
     for (const entry of contract) {
-      const token = '{' + entry.expr + '}';
+      const token = `{${entry.expr}}`;
       values[entry.prop] = map.get(token) || '';
     }
     return values;
@@ -5220,8 +5229,8 @@
       const previousAnchor = getMountedSvelteComponentAnchor(svelteComponentSession) || selectedElement;
       svelteComponentSession.swapAnchor = makeFrozenAnchor(previousAnchor) || svelteComponentSession.swapAnchor || null;
       const runtime = await loadSvelteRuntime(manifest.runtimeModule);
-      const modulePath = '/' + String(manifest.componentDir || '').replace(/^\/+/, '') + '/v' + variantNum + '.svelte';
-      const moduleUrl = new URL(modulePath, location.origin).href + '?t=' + Date.now();
+      const modulePath = `/${String(manifest.componentDir || '').replace(/^\/+/, '')}/v${variantNum}.svelte`;
+      const moduleUrl = `${new URL(modulePath, location.origin).href}?t=${Date.now()}`;
       const mod = await import(/* @vite-ignore */ moduleUrl);
       const Component = mod.default;
       if (svelteComponentSession.mountedInstance && runtime.unmount) {
@@ -5261,7 +5270,7 @@
       if (svelteComponentSession?.sessionId === sessionId) {
         svelteComponentSession.swapAnchor = null;
       }
-      console.error('[monodesign] Failed to mount Svelte variant ' + variantNum + ' for ' + sessionId + ':', err);
+      console.error(`[monodesign] Failed to mount Svelte variant ${variantNum} for ${sessionId}:`, err);
       return false;
     }
   }
@@ -5318,7 +5327,7 @@
   }
 
   async function injectSvelteComponentsFromManifest(manifestPath, sessionId) {
-    const url = 'http://localhost:' + PORT + '/source?token=' + TOKEN + '&path=' + encodeURIComponent(manifestPath);
+    const url = `http://localhost:${PORT}/source?token=${TOKEN}&path=${encodeURIComponent(manifestPath)}`;
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
@@ -5335,7 +5344,7 @@
       });
       if (state !== 'CYCLING') setLiveState('GENERATING');
 
-      const existingWrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+      const existingWrapper = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
       if (existingWrapper && svelteComponentSession?.sessionId === sessionId) {
         recoveryWaitingForAnchor = false;
         svelteComponentSession.paramsByVariant = paramsByVariant;
@@ -5431,7 +5440,7 @@
       refreshParamsPanel();
       positionBar();
       saveSession();
-      console.log('[monodesign] Mounted ' + arrivedVariants + ' Svelte component variants.');
+      console.log(`[monodesign] Mounted ${arrivedVariants} Svelte component variants.`);
     } catch (err) {
       console.error('[monodesign] Failed to mount Svelte component variants:', err);
       abortSvelteComponentInjection(sessionId, 'Could not load variants. Fix the error and re-run.');
@@ -5463,7 +5472,7 @@
       if (svelteComponentSession?.sessionId === sessionId) {
         teardownSvelteComponentSession(true);
       } else {
-        const orphan = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+        const orphan = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
         if (orphan) orphan.remove();
       }
     } catch (err) {
@@ -5499,7 +5508,7 @@
       return;
     }
     rememberSessionFileMeta({ file: filePath });
-    const url = 'http://localhost:' + PORT + '/source?token=' + TOKEN + '&path=' + encodeURIComponent(filePath);
+    const url = `http://localhost:${PORT}/source?token=${TOKEN}&path=${encodeURIComponent(filePath)}`;
     fetch(url)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
       .then(html => {
@@ -5507,15 +5516,15 @@
         let srcWrapper = null;
 
         // Full-file parse works for HTML/JSX; Astro/Vue sources need marker extraction.
-        const startMark = '<!-- monodesign-variants-start ' + sessionId + ' -->';
-        const endMark = '<!-- monodesign-variants-end ' + sessionId + ' -->';
+        const startMark = `<!-- monodesign-variants-start ${sessionId} -->`;
+        const endMark = `<!-- monodesign-variants-end ${sessionId} -->`;
         const startIdx = html.indexOf(startMark);
         const endIdx = html.indexOf(endMark);
         const block = startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
           ? html.slice(startIdx + startMark.length, endIdx).trim()
           : html;
         const doc = parser.parseFromString(normalizeSourceFallbackBlock(block, filePath), 'text/html');
-        srcWrapper = doc.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+        srcWrapper = doc.querySelector(`[data-monodesign-variants="${sessionId}"]`);
         if (!srcWrapper) {
           console.warn('[monodesign] Variant wrapper not found in source file.');
           return;
@@ -5525,7 +5534,7 @@
         const wrapper = srcWrapper.cloneNode(true);
 
         // Wrapper already in DOM (wrap HMR landed, variant insert did not).
-        const existingWrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+        const existingWrapper = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
         if (existingWrapper) {
           existingWrapper.parentElement.replaceChild(wrapper, existingWrapper);
         } else {
@@ -5557,6 +5566,7 @@
         // when a late HMR/source reinjection lands after they have cycled.
         const variants = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])');
         arrivedVariants = variants.length;
+        // biome-ignore lint/correctness/useParseIntRadix: data-monodesign-variant-count can be hand-written in page source (reference/live.md), so a 0x value is not provably excluded
         expectedVariants = parseInt(wrapper.dataset.monodesignVariantCount || arrivedVariants);
         if (arrivedVariants <= 0) {
           recoverEmptyCycling('source-fallback-empty');
@@ -5580,7 +5590,7 @@
         refreshParamsPanel();
         positionBar();
         saveSession();
-        console.log('[monodesign] Injected ' + arrivedVariants + ' variants from source file.');
+        console.log(`[monodesign] Injected ${arrivedVariants} variants from source file.`);
       })
       .catch(err => {
         console.error('[monodesign] Failed to fetch source:', err);
@@ -5593,16 +5603,16 @@
     return String(block)
       .replace(
         /<style\b([^>]*)>\s*\{\s*`([\s\S]*?)`\s*\}\s*<\/style>/g,
-        (_match, attrs, css) => '<style' + attrs + '>' + css + '</style>',
+        (_match, attrs, css) => `<style${attrs}>${css}</style>`,
       )
       .replace(/\bclassName\s*=\s*\{\s*`([^`]*?)`\s*\}/g, (_match, value) => {
         const literalClasses = value.replace(/\$\{[^}]*\}/g, ' ').replace(/\s+/g, ' ').trim();
-        return literalClasses ? 'class="' + escapeHtml(literalClasses) + '"' : '';
+        return literalClasses ? `class="${escapeHtml(literalClasses)}"` : '';
       })
       .replace(/\bclassName\s*=/g, 'class=')
       .replace(/\sstyle=\{\{([\s\S]*?)\}\}/g, (_match, body) => {
         const css = jsxStyleObjectToCss(body);
-        return css ? ' style="' + escapeHtml(css) + '"' : '';
+        return css ? ` style="${escapeHtml(css)}"` : '';
       });
   }
 
@@ -5614,7 +5624,7 @@
       const prop = jsxStylePropToCss(match[1]);
       const value = match[2] ?? match[3] ?? match[4] ?? '';
       if (!prop || value === '') continue;
-      declarations.push(prop + ': ' + value);
+      declarations.push(`${prop}: ${value}`);
     }
     return declarations.join('; ');
   }
@@ -5623,7 +5633,7 @@
     const out = String(prop || '').trim().replace(/^["']|["']$/g, '');
     if (!out) return '';
     if (out.startsWith('--')) return out;
-    return out.replace(/[A-Z]/g, (ch) => '-' + ch.toLowerCase()).replace(/^-ms-/, '-ms-');
+    return out.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`).replace(/^-ms-/, '-ms-');
   }
 
   function buildSvelteExpressionTextMap(sourceOriginal, liveOriginal) {
@@ -5679,7 +5689,7 @@
       pattern += '(.*?)';
       cursor = index + token.length;
     }
-    pattern += escapeRegExp(sourceText.slice(cursor)).replace(/\s+/g, '\\s*') + '$';
+    pattern += `${escapeRegExp(sourceText.slice(cursor)).replace(/\s+/g, '\\s*')}$`;
     return new RegExp(pattern);
   }
 
@@ -5749,7 +5759,7 @@
       if (anchor && !anchor.__monodesignFrozenAnchor) selectedElement = anchor;
       return;
     }
-    const wrapper = document.querySelector('[data-monodesign-variants="' + currentSessionId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${currentSessionId}"]`);
     if (!wrapper) return;
     const visEl = pickVariantContent(wrapper, visibleVariant);
     if (visEl) selectedElement = visEl;
@@ -5759,7 +5769,7 @@
     if (svelteComponentSession?.sessionId === sessionId && svelteComponentSession.mountedVariant > 0) {
       return svelteComponentSession.mountedVariant;
     }
-    const wrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
     if (!wrapper) return 0;
     const variants = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])');
     for (const variant of variants) {
@@ -5778,7 +5788,7 @@
   // (it wraps all of them and gets correct bounds).
   function pickVariantContent(wrapper, index) {
     if (!wrapper) return null;
-    const variantDiv = wrapper.querySelector('[data-monodesign-variant="' + index + '"]');
+    const variantDiv = wrapper.querySelector(`[data-monodesign-variant="${index}"]`);
     if (!variantDiv) return null;
     const NON_VISUAL = new Set(['STYLE', 'SCRIPT', 'LINK', 'META', 'TEMPLATE']);
     const visual = [];
@@ -5805,11 +5815,11 @@
   // single variant (`… > [data-monodesign-variant="N"]`); without it, targets
   // every variant via the bare `[data-monodesign-variant]` attribute.
   function variantStateSelector(sessionId, num) {
-    const wrapper = '[data-monodesign-variants="' + sessionId + '"]';
+    const wrapper = `[data-monodesign-variants="${sessionId}"]`;
     const variant = num == null
       ? '[data-monodesign-variant]'
-      : '[data-monodesign-variant="' + num + '"]';
-    return wrapper + ' > ' + variant;
+      : `[data-monodesign-variant="${num}"]`;
+    return `${wrapper} > ${variant}`;
   }
 
   // Serialize the visible variant's knob values into `--p-<id>` custom-property
@@ -5818,8 +5828,8 @@
   function variantParamDecls(values) {
     return Object.entries(values || {})
       .map(([id, val]) => {
-        if (typeof val === 'number') return ' --p-' + id + ': ' + val + ';';
-        if (typeof val === 'boolean') return ' --p-' + id + ': ' + (val ? '1' : '0') + ';';
+        if (typeof val === 'number') return ` --p-${id}: ${val};`;
+        if (typeof val === 'boolean') return ` --p-${id}: ${val ? '1' : '0'};`;
         return '';
       })
       .join('');
@@ -5844,7 +5854,7 @@
     const showVisible = variantStateSelector(sessionId, num)
       + ' { ' + VARIANT_SHOW_DECL + variantParamDecls(paramsCurrentValues) + ' }';
 
-    styleEl.textContent = hideOthers + '\n' + showVisible + '\n';
+    styleEl.textContent = `${hideOthers}\n${showVisible}\n`;
   }
 
   function removeVariantStateStylesheet() {
@@ -5895,12 +5905,12 @@
 
     scrollLockObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        if (m.target?.closest?.('[data-monodesign-variants="' + sessionId + '"]')) {
+        if (m.target?.closest?.(`[data-monodesign-variants="${sessionId}"]`)) {
           schedule('mutation-in-wrapper');
           return;
         }
         for (const n of m.addedNodes) {
-          if (n.nodeType === 1 && (n.matches?.('[data-monodesign-variants="' + sessionId + '"]') || n.querySelector?.('[data-monodesign-variants="' + sessionId + '"]'))) {
+          if (n.nodeType === 1 && (n.matches?.(`[data-monodesign-variants="${sessionId}"]`) || n.querySelector?.(`[data-monodesign-variants="${sessionId}"]`))) {
             schedule('wrapper-added');
             return;
           }
@@ -5934,7 +5944,7 @@
     window.addEventListener('touchstart', () => markGesture('touchstart'), { passive: true, ...sig });
     window.addEventListener('touchmove', () => markGesture('touchmove'), { passive: true, ...sig });
     window.addEventListener('keydown', (e) => {
-      if (['PageDown', 'PageUp', ' ', 'End', 'Home', 'ArrowDown', 'ArrowUp'].includes(e.key)) markGesture('key:' + e.key);
+      if (['PageDown', 'PageUp', ' ', 'End', 'Home', 'ArrowDown', 'ArrowUp'].includes(e.key)) markGesture(`key:${e.key}`);
     }, sig);
 
     // Correct on EVERY scroll event: whether it's the browser's
@@ -5999,7 +6009,7 @@
       }
       if (!dominated) return;
 
-      const wrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
+      const wrapper = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
       if (!wrapper) return;
 
       const variants = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])');
@@ -6046,6 +6056,7 @@
         if (visEl) selectedElement = visEl;
       }
 
+      // biome-ignore lint/correctness/useParseIntRadix: data-monodesign-variant-count can be hand-written in page source (reference/live.md), so a 0x value is not provably excluded
       const expected = parseInt(wrapper.dataset.monodesignVariantCount || '0');
       if (expected > 0) expectedVariants = expected;
 
@@ -6119,7 +6130,7 @@
   const SSE_MAX_RETRIES = 20;  // generous: heartbeats keep the connection alive, so retries mean real trouble
 
   function connectSSE() {
-    evtSource = new EventSource('http://localhost:' + PORT + '/events?token=' + TOKEN);
+    evtSource = new EventSource(`http://localhost:${PORT}/events?token=${TOKEN}`);
 
     evtSource.onopen = () => {
       sseRetries = 0; // reset on successful (re)connect
@@ -6220,7 +6231,7 @@
           }
           if (maybeCompleteSteer(msg)) break;
           console.error('[monodesign] Error:', msg.message);
-          showToast('Error: ' + msg.message, 5000);
+          showToast(`Error: ${msg.message}`, 5000);
           hideBar();
           renderEditBadge('hidden');
           setLiveState('PICKING');
@@ -6231,7 +6242,7 @@
     evtSource.onerror = () => {
       sseRetries++;
       if (sseRetries <= SSE_MAX_RETRIES) {
-        console.log('[monodesign] SSE connection lost. Retry ' + sseRetries + '/' + SSE_MAX_RETRIES + '...');
+        console.log(`[monodesign] SSE connection lost. Retry ${sseRetries}/${SSE_MAX_RETRIES}...`);
         return; // EventSource auto-reconnects
       }
       // Server is gone. Clean up gracefully.
@@ -6276,13 +6287,14 @@
       console.debug('[monodesign] Dropped optional live event:', err);
       return null;
     }
-    return fetch('http://localhost:' + PORT + '/events', {
+    return fetch(`http://localhost:${PORT}/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(msg),
     }).then(async res => {
       if (res.ok) return res;
       const body = await res.json().catch(() => ({}));
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-source.test.mjs:278
       return handleFailure(new Error(body.error || ('HTTP ' + res.status + ' ' + res.statusText)));
     }).catch(handleFailure);
   }
@@ -6529,7 +6541,9 @@
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return false;
     if (!/^(INPUT|TEXTAREA)$/.test(deepActive.tagName || '')) return false;
     if (deepActive.value) return false;
+    // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:491
     if (deepActive.id === PREFIX + '-input' && state === 'CONFIGURING') return true;
+    // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:496
     if (deepActive.id === PREFIX + '-page-chat-input' && state === 'PICKING') return true;
     return false;
   }
@@ -6656,7 +6670,7 @@
     if (pendingApplyInFlight) { showManualApplyBusyToast(); return; }
     if (!selectedElement || state !== 'CONFIGURING') return;
     stopVoice({ suppressSubmit: true });
-    const input = uiGetById(PREFIX + '-input');
+    const input = uiGetById(`${PREFIX}-input`);
     const prompt = input ? input.value.trim() : '';
 
     // Commit any pending pin edit BEFORE we snapshot annotations.
@@ -6730,7 +6744,7 @@
 
   function handleInsertCreate() {
     if (!placeholderElement || !insertAnchorElement || state !== 'CONFIGURING' || configureKind !== 'insert') return;
-    const input = uiGetById(PREFIX + '-insert-input');
+    const input = uiGetById(`${PREFIX}-insert-input`);
     const prompt = input ? input.value.trim() : '';
     if (annotEditing) finalizeEditingPin();
     const snapshot = {
@@ -6795,7 +6809,7 @@
     if (msLoadPromise) return msLoadPromise;
     msLoadPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'http://localhost:' + PORT + '/modern-screenshot.js';
+      s.src = `http://localhost:${PORT}/modern-screenshot.js`;
       s.onload = () => resolve(window.modernScreenshot);
       s.onerror = () => { msLoadPromise = null; reject(new Error('modern-screenshot failed to load')); };
       uiAppendStyle(s);
@@ -6840,12 +6854,12 @@
         const buf = await res.arrayBuffer();
         const ext = url.toLowerCase().match(FONT_EXT_RE)?.[1] || 'woff2';
         const mime = FONT_MIME[ext] || 'application/octet-stream';
-        map.set(url, 'data:' + mime + ';base64,' + bufferToBase64(buf));
+        map.set(url, `data:${mime};base64,${bufferToBase64(buf)}`);
       } catch { /* skip; fall through to URL */ }
     }));
     return cssText.replace(urlRe, (orig, q, url) => {
       const data = map.get(url);
-      return data ? 'url(' + q + data + q + ')' : orig;
+      return data ? `url(${q}${data}${q})` : orig;
     });
   }
   async function collectFontCssText() {
@@ -6919,20 +6933,20 @@
       if (!node || node === document.body || nodes.includes(node)) return;
       nodes.push(node);
     };
-    add(document.getElementById(PREFIX + '-root'));
+    add(document.getElementById(`${PREFIX}-root`));
     [
-      PREFIX + '-highlight',
-      PREFIX + '-tooltip',
-      PREFIX + '-bar',
-      PREFIX + '-picker',
-      PREFIX + '-params-panel',
-      PREFIX + '-insert-line',
-      PREFIX + '-insert-placeholder',
-      PREFIX + '-insert-create-tooltip',
-      PREFIX + '-annot',
-      PREFIX + '-design-host',
-      PREFIX + '-toast',
-      PREFIX + '-shader',
+      `${PREFIX}-highlight`,
+      `${PREFIX}-tooltip`,
+      `${PREFIX}-bar`,
+      `${PREFIX}-picker`,
+      `${PREFIX}-params-panel`,
+      `${PREFIX}-insert-line`,
+      `${PREFIX}-insert-placeholder`,
+      `${PREFIX}-insert-create-tooltip`,
+      `${PREFIX}-annot`,
+      `${PREFIX}-design-host`,
+      `${PREFIX}-toast`,
+      `${PREFIX}-shader`,
     ].forEach((id) => add(uiGetById(id)));
     return nodes;
   }
@@ -7299,7 +7313,7 @@ void main() {
     for (let p = 0; p < w * h; p += stride) {
       const i = p * 4;
       if (data[i + 3] < 16) continue;
-      const key = (data[i] >> 4) + ',' + (data[i + 1] >> 4) + ',' + (data[i + 2] >> 4);
+      const key = `${data[i] >> 4},${data[i + 1] >> 4},${data[i + 2] >> 4}`;
       const bucket = buckets.get(key) || { count: 0, r: 0, g: 0, b: 0 };
       bucket.count += 1;
       bucket.r += data[i];
@@ -7343,7 +7357,7 @@ void main() {
     if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
       const info = gl.getShaderInfoLog(sh);
       gl.deleteShader(sh);
-      throw new Error('shader compile failed: ' + info);
+      throw new Error(`shader compile failed: ${info}`);
     }
     return sh;
   }
@@ -7354,8 +7368,8 @@ void main() {
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
     Object.assign(shaderState.canvas.style, {
-      top: r.top + 'px', left: r.left + 'px',
-      width: r.width + 'px', height: r.height + 'px',
+      top: `${r.top}px`, left: `${r.left}px`,
+      width: `${r.width}px`, height: `${r.height}px`,
     });
   }
 
@@ -7373,16 +7387,17 @@ void main() {
     canvas.remove();
     const objectUrl = URL.createObjectURL(blob);
     const fallback = document.createElement('div');
-    fallback.id = PREFIX + '-shader';
+    fallback.id = `${PREFIX}-shader`;
     // Copy positioning via cssText. Object.assign across CSSStyleDeclaration
     // throws in modern Chromium because the source's indexed properties
     // (style[0], [1], ...) are read-only and the engine forbids writing
     // them on the destination.
     fallback.style.cssText = canvas.style.cssText;
+    // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:62
     fallback.style.backgroundImage = 'url("' + objectUrl + '")';
     fallback.style.backgroundSize = '100% 100%';
     fallback.style.backgroundRepeat = 'no-repeat';
-    fallback.style.outline = '2px dashed ' + C.brand;
+    fallback.style.outline = `2px dashed ${C.brand}`;
     fallback.style.outlineOffset = '-2px';
     uiAppend(fallback);
     shaderState = { canvas: fallback, gl: null, program: null, texture: null, rafId: 0, startTime: 0, objectUrl };
@@ -7392,15 +7407,15 @@ void main() {
     hideShaderOverlay();
     if (!blob || !el) return;
     const canvas = document.createElement('canvas');
-    canvas.id = PREFIX + '-shader';
+    canvas.id = `${PREFIX}-shader`;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const radius = getComputedStyle(el).borderRadius;
     canvas.width = Math.max(1, Math.floor(rect.width * dpr));
     canvas.height = Math.max(1, Math.floor(rect.height * dpr));
     Object.assign(canvas.style, {
       position: 'fixed',
-      top: rect.top + 'px', left: rect.left + 'px',
-      width: rect.width + 'px', height: rect.height + 'px',
+      top: `${rect.top}px`, left: `${rect.left}px`,
+      width: `${rect.width}px`, height: `${rect.height}px`,
       borderRadius: radius,
       overflow: 'hidden',
       pointerEvents: 'none',
@@ -7426,7 +7441,7 @@ void main() {
       gl.attachShader(program, fs);
       gl.linkProgram(program);
       if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        throw new Error('program link failed: ' + gl.getProgramInfoLog(program));
+        throw new Error(`program link failed: ${gl.getProgramInfoLog(program)}`);
       }
       // Full-screen quad
       const buf = gl.createBuffer();
@@ -7515,7 +7530,7 @@ void main() {
       variantId: String(visibleVariant),
       pageUrl: location.pathname,
     };
-    const acceptWrapper = document.querySelector('[data-monodesign-variants="' + currentSessionId + '"]');
+    const acceptWrapper = document.querySelector(`[data-monodesign-variants="${currentSessionId}"]`);
     if (Object.keys(paramsCurrentValues).length > 0) {
       acceptPayload.paramValues = { ...paramsCurrentValues };
     }
@@ -7587,8 +7602,8 @@ void main() {
   }
 
   function snapshotAcceptedVariantDom(sessionId, variantId) {
-    const wrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
-    const accepted = wrapper?.querySelector?.('[data-monodesign-variant="' + variantId + '"]');
+    const wrapper = document.querySelector(`[data-monodesign-variants="${sessionId}"]`);
+    const accepted = wrapper?.querySelector?.(`[data-monodesign-variant="${variantId}"]`);
     const root = accepted?.firstElementChild || null;
     return {
       acceptedHtml: accepted ? accepted.innerHTML : '',
@@ -7604,7 +7619,7 @@ void main() {
     const tag = root.tagName.toLowerCase();
     const classes = [...(root.classList || [])].filter(Boolean);
     if (classes.length === 0) return tag;
-    return tag + classes.map((cls) => '.' + cssIdent(cls)).join('');
+    return tag + classes.map((cls) => `.${cssIdent(cls)}`).join('');
   }
 
   function acceptedDomAlreadyClean(pending) {
@@ -7625,7 +7640,7 @@ void main() {
     }
     for (const wrapper of wrappers) {
       if (!wrapper?.isConnected) continue;
-      const accepted = wrapper.querySelector?.('[data-monodesign-variant="' + variantId + '"]');
+      const accepted = wrapper.querySelector?.(`[data-monodesign-variant="${variantId}"]`);
       if (!accepted) {
         wrapper.remove();
         continue;
@@ -7643,7 +7658,9 @@ void main() {
   function findAcceptedRuntimeWrappers(sessionId) {
     if (!sessionId) return [];
     return [...new Set([
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-source.test.mjs:344
       ...document.querySelectorAll('[data-monodesign-variants="' + sessionId + '"]'),
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-source.test.mjs:344
       ...document.querySelectorAll('[data-monodesign-carbonize="' + sessionId + '"]'),
     ])];
   }
@@ -7672,7 +7689,7 @@ void main() {
 
   function reloadAfterMissingAcceptedDom(pending) {
     if (acceptedDomAlreadyClean(pending)) return;
-    if (pending?.id && document.querySelector('[data-monodesign-variants="' + pending.id + '"]')) return;
+    if (pending?.id && document.querySelector(`[data-monodesign-variants="${pending.id}"]`)) return;
     location.reload();
   }
 
@@ -7899,11 +7916,11 @@ void main() {
       // reconciler later tries to remove a wrapper we already removed.
       // Schedule a 2s fallback that does the manual swap only if HMR hasn't
       // replaced the wrapper by then (keeps static-server / no-HMR flows alive).
-      const wrapper = document.querySelector('[data-monodesign-variants="' + cleanupSessionId + '"]');
+      const wrapper = document.querySelector(`[data-monodesign-variants="${cleanupSessionId}"]`);
       if (wrapper) wrapper.style.display = 'none';
       setTimeout(() => {
         if (!cleanupSessionId) return;
-        const lateWrapper = document.querySelector('[data-monodesign-variants="' + cleanupSessionId + '"]');
+        const lateWrapper = document.querySelector(`[data-monodesign-variants="${cleanupSessionId}"]`);
         if (!lateWrapper) return;
         const orig = lateWrapper.querySelector('[data-monodesign-variant="original"]');
         if (orig) {
@@ -7955,17 +7972,17 @@ void main() {
       ? Math.max(16, window.innerHeight - barRect.top + 12)
       : 16;
     const currentToast = el('div', {
-      position: 'fixed', bottom: barTopFromBottom + 'px', left: '50%',
+      position: 'fixed', bottom: `${barTopFromBottom}px`, left: '50%',
       transform: 'translateX(-50%) translateY(8px)',
       background: C.ink, color: C.white,
       fontFamily: FONT, fontSize: '12px',
       padding: '8px 16px', borderRadius: '8px',
       zIndex: Z.toast, opacity: '0',
-      transition: 'opacity 0.25s ' + EASE + ', transform 0.25s ' + EASE,
+      transition: `opacity 0.25s ${EASE}, transform 0.25s ${EASE}`,
       pointerEvents: 'none', maxWidth: '420px', textAlign: 'center',
     });
     toastEl = currentToast;
-    currentToast.id = PREFIX + '-toast';
+    currentToast.id = `${PREFIX}-toast`;
     currentToast.textContent = message;
     uiAppend(currentToast);
     requestAnimationFrame(() => {
@@ -8050,6 +8067,7 @@ void main() {
     }
 
     currentSessionId = sessionId;
+    // biome-ignore lint/correctness/useParseIntRadix: data-monodesign-variant-count can be hand-written in page source (reference/live.md), so a 0x value is not provably excluded
     expectedVariants = parseInt(wrapper.dataset.monodesignVariantCount || '0');
     const variants = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])');
     arrivedVariants = variants.length;
@@ -8316,10 +8334,10 @@ void main() {
 
   function globalBarModeToggles() {
     return [
-      uiGetById(PREFIX + '-pick-toggle'),
-      uiGetById(PREFIX + '-insert-toggle'),
-      uiGetById(PREFIX + '-detect-toggle'),
-      uiGetById(PREFIX + '-design-toggle'),
+      uiGetById(`${PREFIX}-pick-toggle`),
+      uiGetById(`${PREFIX}-insert-toggle`),
+      uiGetById(`${PREFIX}-detect-toggle`),
+      uiGetById(`${PREFIX}-design-toggle`),
     ].filter(Boolean);
   }
 
@@ -8346,13 +8364,13 @@ void main() {
   }
 
   function pageChatExpandedWidth() {
-    if (!pageChatEl || !globalBarEl) return PAGE_CHAT_EXPANDED_MAX_W + 'px';
+    if (!pageChatEl || !globalBarEl) return `${PAGE_CHAT_EXPANDED_MAX_W}px`;
     const currentChatWidth = pageChatEl.getBoundingClientRect().width || pageChatCollapsedWidthPx();
     const barWidth = Math.max(globalBarEl.getBoundingClientRect().width || 0, globalBarEl.scrollWidth || 0);
     const nonChatWidth = Math.max(0, barWidth - currentChatWidth);
     const available = window.innerWidth - 16 - nonChatWidth;
     const next = Math.max(pageChatCollapsedWidthPx(), Math.min(PAGE_CHAT_EXPANDED_MAX_W, available));
-    return Math.round(next) + 'px';
+    return `${Math.round(next)}px`;
   }
 
   function syncPageChatExpandedWidth() {
@@ -8505,7 +8523,7 @@ void main() {
   function steerFocusTargetLabel(el) {
     if (!el || el === document.body) return 'body';
     if (el === document.documentElement) return 'html';
-    if (el.id) return el.tagName.toLowerCase() + '#' + el.id;
+    if (el.id) return `${el.tagName.toLowerCase()}#${el.id}`;
     return el.tagName?.toLowerCase() || String(el);
   }
 
@@ -8538,7 +8556,7 @@ void main() {
 
   function focusConfigureInput(reason) {
     steerFocusLog('focusConfigureInput', { reason });
-    const inputId = configureKind === 'insert' ? PREFIX + '-insert-input' : PREFIX + '-input';
+    const inputId = configureKind === 'insert' ? `${PREFIX}-insert-input` : `${PREFIX}-input`;
     const input = uiGetById(inputId);
     if (!input) {
       steerFocusLog('focusConfigureInput missing', { reason });
@@ -8645,8 +8663,8 @@ void main() {
         display: 'inline-block',
         width: '4px', height: '4px', borderRadius: '50%',
         background: P.patinaPale,
-        boxShadow: '0 0 6px ' + P.patinaSoft,
-        animation: 'monodesign-steer-dot 1.05s ease-in-out ' + (i * 0.14) + 's infinite',
+        boxShadow: `0 0 6px ${P.patinaSoft}`,
+        animation: `monodesign-steer-dot 1.05s ease-in-out ${i * 0.14}s infinite`,
       }));
     }
     return wrap;
@@ -8832,7 +8850,7 @@ void main() {
       case 'aborted':
         return null;
       default:
-        return 'Voice input failed (' + code + ')';
+        return `Voice input failed (${code})`;
     }
   }
 
@@ -8850,7 +8868,7 @@ void main() {
     } else if (voiceCtx?.mode === 'configure') {
       // The bar shows either the replace row's voice button or the insert
       // row's - both run voice through the 'configure' mode.
-      const voiceBtn = uiGetById(PREFIX + '-configure-voice') || uiGetById(PREFIX + '-insert-voice');
+      const voiceBtn = uiGetById(`${PREFIX}-configure-voice`) || uiGetById(`${PREFIX}-insert-voice`);
       if (voiceBtn) {
         voiceBtn.dataset.active = listening ? 'true' : 'false';
         voiceBtn.dataset.listening = listening ? 'true' : 'false';
@@ -8921,7 +8939,7 @@ void main() {
     if (ctx.beforeStart) ctx.beforeStart();
 
     voiceInterimBase = ctx.input.value.trim()
-      ? ctx.input.value.trim() + ' '
+      ? `${ctx.input.value.trim()} `
       : '';
 
     const rec = new Ctor();
@@ -8984,7 +9002,7 @@ void main() {
 
   function configureVoiceContext() {
     const input = uiGetById(
-      configureKind === 'insert' ? PREFIX + '-insert-input' : PREFIX + '-input',
+      configureKind === 'insert' ? `${PREFIX}-insert-input` : `${PREFIX}-input`,
     );
     return {
       mode: 'configure',
@@ -9090,7 +9108,7 @@ void main() {
   function initPageChat(parent, P) {
     pageChatEl = el('div', {
       display: 'inline-flex', alignItems: 'center',
-      height: '28px', margin: '0 4px 0 ' + (GLOBAL_BAR_SECTION_GAP - GLOBAL_BAR_INNER_GAP) + 'px',
+      height: '28px', margin: `0 4px 0 ${GLOBAL_BAR_SECTION_GAP - GLOBAL_BAR_INNER_GAP}px`,
       borderRadius: '7px',
       background: P.chatSurface,
       border: '1px solid transparent',
@@ -9100,6 +9118,7 @@ void main() {
       width: PAGE_CHAT_COLLAPSED_W,
       transition: 'border-color 0.15s ease',
     });
+    // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:388
     pageChatEl.id = PREFIX + '-page-chat';
     pageChatEl.dataset.expanded = 'false';
     pageChatEl.title = 'Steer the page';
@@ -9122,7 +9141,7 @@ void main() {
     pageChatHint.textContent = 'Steer';
 
     pageChatInput = document.createElement('input');
-    pageChatInput.id = PREFIX + '-page-chat-input';
+    pageChatInput.id = `${PREFIX}-page-chat-input`;
     pageChatInput.type = 'text';
     pageChatInput.placeholder = PAGE_CHAT_PLACEHOLDER_COLLAPSED;
     pageChatInput.setAttribute('aria-label', 'Steer the page');
@@ -9143,7 +9162,7 @@ void main() {
       color: P.textDim, cursor: 'pointer',
       transition: 'color 0.12s ease, background 0.12s ease',
     });
-    pageChatVoiceBtn.id = PREFIX + '-page-chat-voice';
+    pageChatVoiceBtn.id = `${PREFIX}-page-chat-voice`;
     pageChatVoiceBtn.type = 'button';
     pageChatVoiceBtn.setAttribute('aria-label', 'Voice input');
     pageChatVoiceBtn.innerHTML = ICON_PAGE_VOICE;
@@ -9153,9 +9172,9 @@ void main() {
     pageChatEl.appendChild(pageChatInput);
     pageChatEl.appendChild(pageChatVoiceBtn);
 
-    if (!uiGetById(PREFIX + '-page-chat-style')) {
+    if (!uiGetById(`${PREFIX}-page-chat-style`)) {
       const s = document.createElement('style');
-      s.id = PREFIX + '-page-chat-style';
+      s.id = `${PREFIX}-page-chat-style`;
       s.textContent =
         '@keyframes monodesign-steer-dot { 0%, 70%, 100% { opacity: 0.28; transform: scale(0.82); } 35% { opacity: 1; transform: scale(1); } }' +
         '@keyframes monodesign-steer-processing { 0%, 100% { border-color: oklch(70% 0.12 188 / 0.28); box-shadow: 0 0 0 0 oklch(70% 0.12 188 / 0); } 50% { border-color: oklch(82% 0.07 188 / 0.55); box-shadow: 0 0 14px oklch(70% 0.12 188 / 0.18); } }' +
@@ -9284,7 +9303,7 @@ void main() {
       padding: '6px 9px',
       borderRadius: '7px',
       background: P.chatSurface,
-      border: '1px solid ' + P.hairline,
+      border: `1px solid ${P.hairline}`,
       boxShadow: P.shadow,
       color: P.text,
       fontFamily: FONT,
@@ -9294,7 +9313,7 @@ void main() {
       letterSpacing: '0.01em',
       whiteSpace: 'normal',
     });
-    agentPollTooltipEl.id = PREFIX + '-agent-poll-tooltip';
+    agentPollTooltipEl.id = `${PREFIX}-agent-poll-tooltip`;
     agentPollTooltipEl.textContent = AGENT_DISCONNECTED_TIP;
     uiAppend(agentPollTooltipEl);
     return agentPollTooltipEl;
@@ -9311,8 +9330,8 @@ void main() {
     const tipH = tip.offsetHeight;
     const left = Math.max(8, Math.min(window.innerWidth - tipW - 8, r.left + r.width / 2 - tipW / 2));
     const top = Math.max(8, r.top - tipH - 8);
-    tip.style.left = left + 'px';
-    tip.style.top = top + 'px';
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
   }
 
   function hideAgentPollTooltip() {
@@ -9329,7 +9348,7 @@ void main() {
   }
 
   function fetchAgentPollingStatus() {
-    fetch('http://localhost:' + PORT + '/status?token=' + TOKEN, { cache: 'no-store' })
+    fetch(`http://localhost:${PORT}/status?token=${TOKEN}`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && typeof data.agentPolling === 'boolean') syncAgentPollingUi(data.agentPolling);
@@ -9350,9 +9369,9 @@ void main() {
     // Custom focus-visible for bar buttons. Browser default is a heavy
     // blue ring that looks jarring on the dark capsule. Replace with a
     // soft accent-tinted inner ring that respects the bar's palette.
-    if (!uiGetById(PREFIX + '-bar-focus-style')) {
+    if (!uiGetById(`${PREFIX}-bar-focus-style`)) {
       const s = document.createElement('style');
-      s.id = PREFIX + '-bar-focus-style';
+      s.id = `${PREFIX}-bar-focus-style`;
       s.textContent =
         '#' + PREFIX + '-global-bar button:focus { outline: none; }' +
         '#' + PREFIX + '-global-bar button:focus-visible {' +
@@ -9373,7 +9392,7 @@ void main() {
       gap: '0',
       width: 'max-content',
       background: P.surface,
-      border: '1px solid ' + P.border,
+      border: `1px solid ${P.border}`,
       borderRadius: '8px',
       boxShadow: P.shadow,
       fontFamily: FONT, fontSize: '12px', lineHeight: '1',
@@ -9381,21 +9400,21 @@ void main() {
       overflow: 'hidden',          // clip the full-bleed brand mark to the bar radius
       maxWidth: 'calc(100vw - 16px)',
       boxSizing: 'border-box',
-      transition: 'opacity 0.3s ' + EASE + ', transform 0.3s ' + EASE,
+      transition: `opacity 0.3s ${EASE}, transform 0.3s ${EASE}`,
     });
-    globalBarEl.id = PREFIX + '-global-bar';
+    globalBarEl.id = `${PREFIX}-global-bar`;
     globalBarEl.dataset.theme = theme;
 
     // Brand mark - kinpaku Monodesign icon (site header / favicon paths).
     const brand = el('span', {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       alignSelf: 'stretch', position: 'relative',
-      padding: '0 ' + (GLOBAL_BAR_SECTION_GAP - GLOBAL_BAR_INNER_PAD_LEFT) + 'px 0 14px',
+      padding: `0 ${GLOBAL_BAR_SECTION_GAP - GLOBAL_BAR_INNER_PAD_LEFT}px 0 14px`,
       background: 'transparent',
       color: P.accent,
       flexShrink: '0',
     });
-    brand.id = PREFIX + '-global-bar-brand';
+    brand.id = `${PREFIX}-global-bar-brand`;
     brand.dataset.agentConnected = 'false';
     brand.setAttribute('role', 'img');
     brand.setAttribute('aria-label', 'Monodesign live mode - agent not polling');
@@ -9411,7 +9430,7 @@ void main() {
       position: 'absolute', right: '-1px', bottom: '7px',
       width: '6px', height: '6px', borderRadius: '50%',
       background: 'oklch(77% 0.13 82)',
-      boxShadow: '0 0 0 2px ' + P.surface,
+      boxShadow: `0 0 0 2px ${P.surface}`,
       display: 'none', pointerEvents: 'none',
     });
     agentDot.dataset.agentDot = 'true';
@@ -9428,10 +9447,10 @@ void main() {
     // Inner wrapper: holds the toggles with normal bar padding.
     const inner = el('div', {
       display: 'flex', alignItems: 'center',
-      padding: '4px 5px 4px ' + GLOBAL_BAR_INNER_PAD_LEFT + 'px', gap: GLOBAL_BAR_INNER_GAP + 'px',
+      padding: `4px 5px 4px ${GLOBAL_BAR_INNER_PAD_LEFT}px`, gap: `${GLOBAL_BAR_INNER_GAP}px`,
       flex: '0 0 auto',
     });
-    inner.id = PREFIX + '-global-bar-inner';
+    inner.id = `${PREFIX}-global-bar-inner`;
     globalBarEl.appendChild(inner);
 
     // Button factory: icon-only at rest, label slides in on hover/active.
@@ -9478,7 +9497,7 @@ void main() {
 
     // Pick toggle - restored from localStorage; both pick and insert may be off.
     const pickBtn = makeIconBtn({
-      id: PREFIX + '-pick-toggle',
+      id: `${PREFIX}-pick-toggle`,
       svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>',
       label: 'Pick',
       ariaLabel: 'Pick element',
@@ -9487,6 +9506,7 @@ void main() {
     inner.appendChild(pickBtn);
 
     const insertBtn = makeIconBtn({
+      // biome-ignore lint/style/useTemplate: source pinned by tests/live-browser-regression.test.mjs:620
       id: PREFIX + '-insert-toggle',
       svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
       label: 'Insert',
@@ -9497,7 +9517,7 @@ void main() {
 
     // Detect toggle
     const detectBtn = makeIconBtn({
-      id: PREFIX + '-detect-toggle',
+      id: `${PREFIX}-detect-toggle`,
       svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
       label: 'Detect',
       ariaLabel: 'Detect anti-patterns',
@@ -9509,13 +9529,13 @@ void main() {
       background: P.accent, color: C.ink,
       display: 'none', fontFamily: MONO, marginLeft: '4px',
     });
-    detectBadge.id = PREFIX + '-detect-badge';
+    detectBadge.id = `${PREFIX}-detect-badge`;
     detectBtn.appendChild(detectBadge);
     inner.appendChild(detectBtn);
 
     // DESIGN.md panel toggle - quartet of color squares as the mark.
     const designBtn = makeIconBtn({
-      id: PREFIX + '-design-toggle',
+      id: `${PREFIX}-design-toggle`,
       svg: `<span style="display:inline-grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:14px;height:14px;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px oklch(92% 0 0 / 0.13);flex-shrink:0">
         <span style="background:oklch(84% 0.19 80.46)"></span>
         <span style="background:oklch(70% 0.12 188)"></span>
@@ -9545,7 +9565,7 @@ void main() {
       fontFamily: FONT,
       pointerEvents: 'auto',
     });
-    pendingDockEl.id = PREFIX + '-pending-dock';
+    pendingDockEl.id = `${PREFIX}-pending-dock`;
 
     pendingPillEl = el('button', {
       display: 'none',
@@ -9622,7 +9642,7 @@ void main() {
       justifyContent: 'center',
       padding: '0', boxSizing: 'border-box',
       width: '30px', height: '30px', borderRadius: '999px',
-      border: '1px solid ' + P.hairline,
+      border: `1px solid ${P.hairline}`,
       background: P.chatSurface,
       color: P.textDim,
       overflow: 'visible',
@@ -9648,7 +9668,7 @@ void main() {
       lineHeight: '1',
       whiteSpace: 'nowrap',
       textAlign: 'center',
-      transition: 'opacity 0.16s ease, transform 0.18s ' + EASE,
+      transition: `opacity 0.16s ease, transform 0.18s ${EASE}`,
     });
     pendingTrashTooltipEl.textContent = 'Discard copy edits';
     pendingTrashTooltipEl.setAttribute('role', 'tooltip');
@@ -9681,7 +9701,7 @@ void main() {
         height: '30px',
         padding: '0 12px',
         borderRadius: '999px',
-        border: '1px solid ' + (accent ? P.accent : P.hairline),
+        border: `1px solid ${accent ? P.accent : P.hairline}`,
         background: accent ? P.accent : P.chatSurface,
         color: accent ? C.ink : P.textDim,
         fontFamily: FONT,
@@ -9734,7 +9754,7 @@ void main() {
       color: P.textDim, fontFamily: FONT, fontSize: '0', lineHeight: '0',
       cursor: 'pointer', transition: 'color 0.12s ease, background 0.12s ease',
     });
-    exitBtn.id = PREFIX + '-exit';
+    exitBtn.id = `${PREFIX}-exit`;
     exitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>';
     exitBtn.title = 'Exit live mode';
     exitBtn.addEventListener('mouseenter', () => { exitBtn.style.color = 'oklch(58% 0.15 35)'; exitBtn.style.background = P.exitHover; });
@@ -9783,11 +9803,11 @@ void main() {
   }
 
   function updateGlobalBarState() {
-    const detectToggle = uiGetById(PREFIX + '-detect-toggle');
-    const detectBadge = uiGetById(PREFIX + '-detect-badge');
-    const pickToggle = uiGetById(PREFIX + '-pick-toggle');
-    const insertToggle = uiGetById(PREFIX + '-insert-toggle');
-    const designToggle = uiGetById(PREFIX + '-design-toggle');
+    const detectToggle = uiGetById(`${PREFIX}-detect-toggle`);
+    const detectBadge = uiGetById(`${PREFIX}-detect-badge`);
+    const pickToggle = uiGetById(`${PREFIX}-pick-toggle`);
+    const insertToggle = uiGetById(`${PREFIX}-insert-toggle`);
+    const designToggle = uiGetById(`${PREFIX}-design-toggle`);
     const theme = globalBarEl?.dataset.theme || 'light';
     const P = barPaletteForTheme(theme);
 
@@ -9921,7 +9941,7 @@ void main() {
     if (detectScriptLoaded) return;
     detectScriptLoaded = true;
     const s = document.createElement('script');
-    s.src = 'http://localhost:' + PORT + '/detect.js';
+    s.src = `http://localhost:${PORT}/detect.js`;
     s.dataset.monodesignExtension = 'true';
     document.head.appendChild(s);
   }
@@ -10063,7 +10083,7 @@ void main() {
 
   function initDesignPanel() {
     designHost = document.createElement('div');
-    designHost.id = PREFIX + '-design-host';
+    designHost.id = `${PREFIX}-design-host`;
     Object.assign(designHost.style, {
       position: 'fixed', top: '0', left: '0',
       width: '0', height: '0',
@@ -10730,7 +10750,7 @@ void main() {
       // The system's actual sample size for this role, shown as small mono meta below.
       if (t.sampleSize) {
         const scale = document.createElement('div');
-        scale.style.cssText = 'font-family:' + MONO + '; font-size: 10px; color:' + DP.meta + '; margin-top: 2px;';
+        scale.style.cssText = `font-family:${MONO}; font-size: 10px; color:${DP.meta}; margin-top: 2px;`;
         scale.textContent = t.sampleSize;
         tile.appendChild(scale);
       }
@@ -10899,7 +10919,7 @@ void main() {
       card: 'Cards',
       custom: 'Components',
     };
-    return labels[kind] || (kind ? kind.charAt(0).toUpperCase() + kind.slice(1) + 's' : 'Components');
+    return labels[kind] || (kind ? `${kind.charAt(0).toUpperCase() + kind.slice(1)}s` : 'Components');
   }
 
   // Collapsibles.
@@ -10975,7 +10995,7 @@ void main() {
     if (n.northStar) {
       const star = document.createElement('span');
       star.className = 'north-star';
-      star.textContent = '“' + n.northStar + '”';
+      star.textContent = `“${n.northStar}”`;
       ov.appendChild(star);
     }
     if (n.overview) {
@@ -11135,7 +11155,7 @@ void main() {
     if (!text) return;
     try {
       navigator.clipboard.writeText(text);
-      showToast('Copied: ' + text);
+      showToast(`Copied: ${text}`);
     } catch { /* ignore */ }
   }
 
@@ -11172,12 +11192,12 @@ void main() {
         if (!wrapper) return;
         scout.disconnect();
         if (resumeSession()) {
-          console.log('[monodesign] Resumed deferred session ' + currentSessionId + ' (post-hydration).');
+          console.log(`[monodesign] Resumed deferred session ${currentSessionId} (post-hydration).`);
         }
       });
       scout.observe(document.body, { childList: true, subtree: true });
     } else {
-      console.log('[monodesign] Resumed active variant session ' + currentSessionId + ' (' + arrivedVariants + '/' + expectedVariants + ' variants).');
+      console.log(`[monodesign] Resumed active variant session ${currentSessionId} (${arrivedVariants}/${expectedVariants} variants).`);
     }
 
     if (state === 'IDLE' && (pickActive || insertActive)) setLiveState('PICKING');

@@ -22,7 +22,7 @@
     const tagsToSkip = skipTags || new Set();
 
     function own(el) {
-      return el && (el.id?.startsWith(prefix) || el.closest?.('[id^="' + prefix + '"]'));
+      return el && (el.id?.startsWith(prefix) || el.closest?.(`[id^="${prefix}"]`));
     }
 
     function pickable(el) {
@@ -36,8 +36,8 @@
     function desc(el) {
       if (!el) return '';
       let s = el.tagName.toLowerCase();
-      if (el.id) s += '#' + el.id;
-      else if (el.classList.length) s += '.' + [...el.classList].slice(0, 2).join('.');
+      if (el.id) s += `#${el.id}`;
+      else if (el.classList.length) s += `.${[...el.classList].slice(0, 2).join('.')}`;
       return s;
     }
 
@@ -100,7 +100,7 @@
         if (found) return found;
       }
       if (uiRoot?.querySelector) {
-        const found = uiRoot.querySelector('#' + cssId(id));
+        const found = uiRoot.querySelector(`#${cssId(id)}`);
         if (found) return found;
       }
       return doc.getElementById(id);

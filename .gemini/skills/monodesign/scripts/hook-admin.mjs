@@ -184,7 +184,7 @@ function writeHookConfig(cwd, hookConfig, opts = {}) {
   // (consent, quiet, auditLog) survive an Monodesign hooks edit.
   const next = { ...existing, hook: { ...existingHook, ...hookConfig } };
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(next, null, 2) + '\n');
+  fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`);
   return filePath;
 }
 
@@ -202,14 +202,14 @@ function writeDetectorConfig(cwd, detectorConfig, opts = {}) {
   if (Object.keys(nextHook).length > 0) next.hook = nextHook;
   else delete next.hook;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(next, null, 2) + '\n');
+  fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`);
   return filePath;
 }
 
 function mergeHookConfig(existing) {
   const base = existing && typeof existing === 'object' ? existing : {};
   return {
-    enabled: base.enabled === false ? false : true,
+    enabled: base.enabled !== false,
     limits: {
       maxFindings: Number.isFinite(base?.limits?.maxFindings) ? base.limits.maxFindings : DEFAULT_CONFIG.limits.maxFindings,
       maxChars: Number.isFinite(base?.limits?.maxChars) ? base.limits.maxChars : DEFAULT_CONFIG.limits.maxChars,
@@ -234,7 +234,7 @@ function mergeDetectorConfig(existing, seed = null) {
   if (base.designSystem && typeof base.designSystem === 'object' && !Array.isArray(base.designSystem)) {
     out.designSystem = {
       ...(out.designSystem || {}),
-      enabled: base.designSystem.enabled === false ? false : true,
+      enabled: base.designSystem.enabled !== false,
     };
   }
   if (Array.isArray(base.ignoreRules)) {
@@ -644,7 +644,7 @@ function reset(cwd) {
       if (Object.keys(rest).length === 0) {
         fs.unlinkSync(filePath);
       } else {
-        fs.writeFileSync(filePath, JSON.stringify(rest, null, 2) + '\n');
+        fs.writeFileSync(filePath, `${JSON.stringify(rest, null, 2)}\n`);
       }
       removed.push(path.relative(cwd, filePath).split(path.sep).join('/') || filePath);
     } catch { /* ignore */ }
@@ -684,7 +684,7 @@ function main() {
       case 'ignore-value': out = addIgnoreValue(cwd, rest); break;
       case 'reset':  out = reset(cwd); break;
     }
-    process.stdout.write(out + '\n');
+    process.stdout.write(`${out}\n`);
   } catch (err) {
     process.stderr.write(`Error: ${err.message || err}\n`);
     process.exit(1);

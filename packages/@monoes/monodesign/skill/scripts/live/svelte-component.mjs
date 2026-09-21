@@ -166,7 +166,7 @@ export function scaffoldSvelteComponentSession({
     runtimeModule: `/${SVELTE_RUNTIME_FILE}`,
   };
 
-  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(path.join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   for (let n = 1; n <= count; n++) {
     const variantFile = path.join(dir, `v${n}.svelte`);
@@ -216,7 +216,7 @@ export function scaffoldSvelteComponentInsertSession({
     runtimeModule: `/${SVELTE_RUNTIME_FILE}`,
   };
 
-  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(path.join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   for (let n = 1; n <= count; n++) {
     const variantFile = path.join(dir, `v${n}.svelte`);
@@ -270,14 +270,14 @@ export function resolveSourceFile(sourceFile, cwd = process.cwd()) {
     throw new Error('Svelte-component source file escapes project root');
   }
   if (!fs.existsSync(full)) {
-    throw new Error('Svelte-component source file not found: ' + sourceFile);
+    throw new Error(`Svelte-component source file not found: ${sourceFile}`);
   }
   return full;
 }
 
 function appendCssToSvelteStyle(lines, cssLines) {
   const closeIdx = findLastStyleCloseLine(lines);
-  const prepared = ['', ...cssLines.map((line) => (line.trim() === '' ? '' : '  ' + line.trimStart()))];
+  const prepared = ['', ...cssLines.map((line) => (line.trim() === '' ? '' : `  ${line.trimStart()}`))];
   if (closeIdx === -1) {
     return [...lines, '', '<style>', ...prepared.slice(1), '</style>'];
   }
@@ -537,7 +537,7 @@ export function inlineSvelteComponentAccept(manifest, variantNum, paramValues = 
   const start = Number(manifest.sourceStartLine) - 1;
   const end = Number(manifest.sourceEndLine) - 1;
   if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end >= sourceLines.length) {
-    return { handled: false, error: 'Invalid source line range for ' + manifest.sourceFile, ...resultBase };
+    return { handled: false, error: `Invalid source line range for ${manifest.sourceFile}`, ...resultBase };
   }
 
   const indent = sourceLines[start].match(/^(\s*)/)?.[1] || '';
@@ -561,7 +561,7 @@ export function inlineSvelteComponentAccept(manifest, variantNum, paramValues = 
   try {
     fs.writeFileSync(sourceFile, newLines.join('\n'), 'utf-8');
   } catch (err) {
-    return { handled: false, error: 'Failed to write Svelte source: ' + err.message, ...resultBase };
+    return { handled: false, error: `Failed to write Svelte source: ${err.message}`, ...resultBase };
   }
   removeSvelteComponentSession(manifest.id, cwd);
 
@@ -596,7 +596,7 @@ function inlineSvelteComponentInsertAccept({
   const sourceLines = sourceContent.split('\n');
   const insertIndex = Number(manifest.insertLine) - 1;
   if (!Number.isInteger(insertIndex) || insertIndex < 0 || insertIndex > sourceLines.length) {
-    return { handled: false, error: 'Invalid insert line for ' + manifest.sourceFile, ...resultBase };
+    return { handled: false, error: `Invalid insert line for ${manifest.sourceFile}`, ...resultBase };
   }
 
   const nearbyLine = sourceLines[insertIndex] ?? sourceLines[insertIndex - 1] ?? '';
@@ -621,7 +621,7 @@ function inlineSvelteComponentInsertAccept({
   try {
     fs.writeFileSync(sourceFile, newLines.join('\n'), 'utf-8');
   } catch (err) {
-    return { handled: false, error: 'Failed to write Svelte source: ' + err.message, ...resultBase };
+    return { handled: false, error: `Failed to write Svelte source: ${err.message}`, ...resultBase };
   }
   removeSvelteComponentSession(manifest.id, cwd);
 
@@ -675,7 +675,7 @@ function mergeOriginalTopLevelAttrs(markup, originalMarkup) {
   const nextOpen = variantOpen.prefix
     + variantOpen.tag
     + attrs
-    + additions.map((attr) => ' ' + attr.trim()).join('')
+    + additions.map((attr) => ` ${attr.trim()}`).join('')
     + variantOpen.close;
   return markup.slice(0, variantOpen.index) + nextOpen + markup.slice(variantOpen.index + variantOpen.raw.length);
 }
@@ -761,7 +761,7 @@ export function writeDeferredAccept(entry, cwd = process.cwd()) {
   const data = readDeferredAccepts(cwd);
   data.accepts = (data.accepts || []).filter((item) => item.id !== entry.id);
   data.accepts.push({ ...entry, createdAt: new Date().toISOString() });
-  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, 'utf-8');
 }
 
 export function applyDeferredSvelteComponentAccepts(cwd = process.cwd()) {
@@ -792,7 +792,7 @@ export function applyDeferredSvelteComponentAccepts(cwd = process.cwd()) {
     }
   }
   if (remaining.length > 0) {
-    fs.writeFileSync(file, JSON.stringify({ accepts: remaining }, null, 2) + '\n', 'utf-8');
+    fs.writeFileSync(file, `${JSON.stringify({ accepts: remaining }, null, 2)}\n`, 'utf-8');
   } else {
     try { fs.rmSync(file, { force: true }); } catch {}
   }

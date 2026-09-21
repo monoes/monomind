@@ -262,7 +262,7 @@ function findLiteralMatches(searchFiles, needle, { max }) {
 }
 
 function findObjectKeyMatches(searchFiles, text, { max }) {
-  const re = new RegExp('(["\\\'`])' + escapeRegExp(text) + '\\1(?=\\s*:)', 'g');
+  const re = new RegExp(`(["\\'\`])${escapeRegExp(text)}\\1(?=\\s*:)`, 'g');
   const out = [];
   for (const file of searchFiles) {
     for (const match of file.content.matchAll(re)) {
@@ -279,13 +279,13 @@ function findLocatorMatches(searchFiles, op, { max }) {
   for (const cls of op.classes || []) {
     if (cls) needles.push({ kind: 'class', needle: cls });
   }
-  if (op.tag) needles.push({ kind: 'tag', needle: '<' + op.tag });
+  if (op.tag) needles.push({ kind: 'tag', needle: `<${op.tag}` });
 
   const out = [];
   const seen = new Set();
   for (const { kind, needle } of needles) {
     for (const match of findMatches(searchFiles, needle, { kind, max })) {
-      const key = match.file + ':' + match.line + ':' + kind + ':' + needle;
+      const key = `${match.file}:${match.line}:${kind}:${needle}`;
       if (seen.has(key)) continue;
       seen.add(key);
       out.push({ ...match, needle });
@@ -300,7 +300,7 @@ function findContextMatches(searchFiles, hints, { maxPerHint, max }) {
   const seen = new Set();
   for (const hint of hints || []) {
     for (const match of findMatches(searchFiles, hint, { kind: 'context', max: maxPerHint })) {
-      const key = match.file + ':' + match.line + ':' + hint;
+      const key = `${match.file}:${match.line}:${hint}`;
       if (seen.has(key)) continue;
       seen.add(key);
       out.push({ ...match, needle: hint });

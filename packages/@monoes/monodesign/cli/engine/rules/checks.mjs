@@ -821,7 +821,7 @@ function checkElementColorsDOM(el) {
     effectiveBg,
     effectiveBgStops: effectiveBg ? null : resolveGradientStops(el),
     fontSize: parseFloat(style.fontSize) || 16,
-    fontWeight: parseInt(style.fontWeight) || 400,
+    fontWeight: parseInt(style.fontWeight, 10) || 400,
     hasDirectText,
     isEmojiOnly: isEmojiOnlyText(directText),
     bgClip: style.webkitBackgroundClip || style.backgroundClip || '',
@@ -971,7 +971,7 @@ function oklchToRgb(L, C, H) {
   const bLin = -0.0041960863 * lc - 0.7034186147 * mc + 1.7076147010 * sc;
   const enc = (x) => {
     const c = Math.max(0, Math.min(1, x));
-    return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+    return c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
   };
   return {
     r: Math.round(enc(rLin) * 255),
@@ -1717,7 +1717,7 @@ function checkPageQualityFromDoc(doc) {
   let prevLevel = 0;
   let prevText = '';
   for (const h of headings) {
-    const level = parseInt(h.tagName[1]);
+    const level = parseInt(h.tagName[1], 10);
     const text = (h.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60);
     if (prevLevel > 0 && level > prevLevel + 1) {
       findings.push({
@@ -1826,7 +1826,7 @@ function checkElementColors(el, style, tag, window, customPropMap, hasAnchorInhe
     effectiveBg,
     effectiveBgStops: effectiveBg ? null : resolveGradientStops(el, window),
     fontSize: parseFloat(style.fontSize) || 16,
-    fontWeight: parseInt(style.fontWeight) || 400,
+    fontWeight: parseInt(style.fontWeight, 10) || 400,
     hasDirectText,
     isEmojiOnly: isEmojiOnlyText(directText),
     bgClip: style.webkitBackgroundClip || style.backgroundClip || '',
@@ -1994,7 +1994,7 @@ function checkTypography() {
     const sorted = [...sizes].sort((a, b) => a - b);
     const ratio = sorted[sorted.length - 1] / sorted[0];
     if (ratio < 2.0) {
-      findings.push({ type: 'flat-type-hierarchy', detail: `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
+      findings.push({ type: 'flat-type-hierarchy', detail: `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
     }
   }
 
@@ -2113,7 +2113,7 @@ function checkPageTypography(doc, win) {
     const sorted = [...sizes].sort((a, b) => a - b);
     const ratio = sorted[sorted.length - 1] / sorted[0];
     if (ratio < 2.0) {
-      findings.push({ id: 'flat-type-hierarchy', snippet: `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
+      findings.push({ id: 'flat-type-hierarchy', snippet: `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
     }
   }
 

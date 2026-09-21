@@ -46,7 +46,7 @@ function resolveImport(specifier, fromDir, fileSet) {
   }
   // index file convention
   for (const ext of SCANNABLE_EXTENSIONS) {
-    const indexFile = path.join(base, 'index' + ext);
+    const indexFile = path.join(base, `index${ext}`);
     if (fileSet.has(indexFile)) return indexFile;
   }
   return null;

@@ -63,7 +63,7 @@ const ROLLBACK_SKIP_DIRS = new Set([
 const DEFAULT_REPAIR_ATTEMPTS = 3;
 
 function argVal(args, name) {
-  const prefix = name + '=';
+  const prefix = `${name}=`;
   for (const arg of args) {
     if (arg === name) return true;
     if (arg.startsWith(prefix)) return arg.slice(prefix.length);
@@ -300,7 +300,7 @@ function verificationTargetsForOp(batch, op, reportedFiles, cwd) {
 
   const seen = new Set();
   return out.filter((target) => {
-    const key = target.file + ':' + target.line + ':' + target.kind;
+    const key = `${target.file}:${target.line}:${target.kind}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -315,11 +315,11 @@ function objectKeyCandidatesForOp(batch, op) {
 
 function lineHasObjectKey(line, text) {
   if (typeof text !== 'string' || text.length === 0) return false;
-  const quotedKey = new RegExp('(^|[\\s,{])([\'"`])' + escapeRegExp(text) + '\\2\\s*:');
+  const quotedKey = new RegExp(`(^|[\\s,{])(['"\`])${escapeRegExp(text)}\\2\\s*:`);
   if (quotedKey.test(line)) return true;
   const identifierSafe = /^[A-Za-z_$][\w$]*$/.test(text);
   if (!identifierSafe) return false;
-  const bareKey = new RegExp('(^|[\\s,{])' + escapeRegExp(text) + '\\s*:');
+  const bareKey = new RegExp(`(^|[\\s,{])${escapeRegExp(text)}\\s*:`);
   return bareKey.test(line);
 }
 
@@ -438,12 +438,12 @@ function opHasLocator(op) {
 
 function lineMatchesManualEditLocator(line, op) {
   if (op.tag) {
-    const tagRe = new RegExp('<\\s*' + escapeRegExp(op.tag) + '(?=[\\s>/]|$)', 'i');
+    const tagRe = new RegExp(`<\\s*${escapeRegExp(op.tag)}(?=[\\s>/]|$)`, 'i');
     if (!tagRe.test(line)) return false;
   }
 
   if (op.elementId) {
-    const idRe = new RegExp('\\bid\\s*=\\s*["\']' + escapeRegExp(op.elementId) + '["\']');
+    const idRe = new RegExp(`\\bid\\s*=\\s*["']${escapeRegExp(op.elementId)}["']`);
     if (!idRe.test(line)) return false;
   }
 

@@ -28,7 +28,7 @@ function seedBuffer(entries) {
 
 function entry({ pageUrl, ops }) {
   return {
-    id: 'e' + Math.random().toString(36).slice(2, 8),
+    id: `e${Math.random().toString(36).slice(2, 8)}`,
     pageUrl,
     element: { tagName: 'h1' },
     ops,

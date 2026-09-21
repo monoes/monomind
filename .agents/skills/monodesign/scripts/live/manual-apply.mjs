@@ -326,7 +326,7 @@ export function writeManualApplyEvidence(eventId, batch, cwd = process.cwd()) {
   const dir = manualApplyEvidenceDir(cwd);
   fs.mkdirSync(dir, { recursive: true });
   const evidencePath = path.join(dir, `${eventId}.json`);
-  fs.writeFileSync(evidencePath, JSON.stringify(batch, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(evidencePath, `${JSON.stringify(batch, null, 2)}\n`, 'utf-8');
   return evidencePath;
 }
 
@@ -743,7 +743,7 @@ export function writeManualApplyTransaction({ cwd = process.cwd(), pageUrl = nul
     }),
   };
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(`${file}.tmp`, JSON.stringify(transaction, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(`${file}.tmp`, `${JSON.stringify(transaction, null, 2)}\n`, 'utf-8');
   fs.renameSync(`${file}.tmp`, file);
   return transaction;
 }
@@ -935,5 +935,5 @@ export function compactManualLogText(value, max = 200) {
   if (typeof value !== 'string') return undefined;
   const normalized = value.replace(/\s+/g, ' ').trim();
   if (normalized.length <= max) return normalized;
-  return normalized.slice(0, max) + `... [truncated ${normalized.length - max} chars]`;
+  return `${normalized.slice(0, max)}... [truncated ${normalized.length - max} chars]`;
 }

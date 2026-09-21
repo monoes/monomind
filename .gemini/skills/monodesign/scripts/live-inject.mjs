@@ -151,7 +151,7 @@ Output (JSON):
   // read the per-process credential live-server.mjs persisted at startup.
   const liveInfo = readLiveServerInfo(process.cwd());
   const credentialFields = liveInfo?.info ?? {};
-  const authCred = credentialFields['token'];
+  const authCred = credentialFields.token;
   if (!authCred) {
     console.error(JSON.stringify({ ok: false, error: 'missing_auth_credential', detail: 'no running live server info found for this project — start it before injecting' }));
     process.exit(1);
@@ -200,7 +200,7 @@ export function ensureLiveGitIgnores(cwd = process.cwd()) {
   if (markerRe.test(existing)) {
     updated = existing.replace(markerRe, block);
   } else {
-    const prefix = existing.length === 0 ? '' : existing.endsWith('\n') ? existing : existing + '\n';
+    const prefix = existing.length === 0 ? '' : existing.endsWith('\n') ? existing : `${existing}\n`;
     updated = `${prefix}${prefix.endsWith('\n\n') || prefix === '' ? '' : '\n'}${block}\n`;
   }
 
@@ -323,14 +323,14 @@ function globToRegex(pattern) {
       re += '[^/]';
       i += 1;
     } else if (/[.+^${}()|[\]\\]/.test(c)) {
-      re += '\\' + c;
+      re += `\\${c}`;
       i += 1;
     } else {
       re += c;
       i += 1;
     }
   }
-  return new RegExp('^' + re + '$');
+  return new RegExp(`^${re}$`);
 }
 
 // ---------------------------------------------------------------------------
@@ -510,7 +510,7 @@ function appendOriginToDirective(csp, directive, origin) {
   // Directive missing — add it. Use 'self' + origin so we don't inadvertently
   // narrow the policy compared to the default-src fallback (most users with
   // an explicit CSP have 'self' there).
-  return csp.trim().replace(/;?\s*$/, '') + `; ${directive} 'self' ${origin}`;
+  return `${csp.trim().replace(/;?\s*$/, '')}; ${directive} 'self' ${origin}`;
 }
 
 export function patchCspMeta(content, port) {
@@ -548,7 +548,7 @@ export function patchCspMeta(content, port) {
     // `<meta … />` round-trips byte-for-byte.
     const trailingWs = (attrs.match(/[ \t]*$/) || [''])[0];
     const attrsBody = attrs.slice(0, attrs.length - trailingWs.length);
-    const newAttrs = attrsBody.replace(contentAttr.full, newContentAttr) + ' ' + marker + trailingWs;
+    const newAttrs = `${attrsBody.replace(contentAttr.full, newContentAttr)} ${marker}${trailingWs}`;
     const newTag = tag.full.replace(attrs, newAttrs);
 
     result = result.slice(0, tag.start) + newTag + result.slice(tag.end);

@@ -41,7 +41,7 @@ function readBufferInternal(cwd, { strict }) {
     return { version: BUFFER_VERSION, entries: parsed.entries };
   } catch (err) {
     if (strict && err?.code !== 'ENOENT') {
-      throw new Error('manual_edit_buffer_unreadable: ' + (err.message || String(err)));
+      throw new Error(`manual_edit_buffer_unreadable: ${err.message || String(err)}`);
     }
     return { version: BUFFER_VERSION, entries: [] };
   }

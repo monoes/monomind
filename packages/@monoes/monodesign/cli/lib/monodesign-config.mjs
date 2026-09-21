@@ -74,7 +74,7 @@ function applyDetectionConfigSource(config, raw) {
   if (raw.designSystem && typeof raw.designSystem === 'object' && !Array.isArray(raw.designSystem)) {
     config.designSystem = {
       ...config.designSystem,
-      enabled: raw.designSystem.enabled === false ? false : true,
+      enabled: raw.designSystem.enabled !== false,
     };
   }
   if (Array.isArray(raw.ignoreRules)) {
@@ -153,7 +153,7 @@ function normalizeDetectionConfigForWrite(config) {
   out.ignoreValues = normalizeIgnoreValueEntries(config?.ignoreValues || []);
   if (config?.designSystem && typeof config.designSystem === 'object' && !Array.isArray(config.designSystem)) {
     out.designSystem = {
-      enabled: config.designSystem.enabled === false ? false : true,
+      enabled: config.designSystem.enabled !== false,
     };
   }
   return out;

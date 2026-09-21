@@ -74,7 +74,7 @@ function checkStaticPageTypography(document, window) {
     const sorted = [...sizes].sort((a, b) => a - b);
     const ratio = sorted[sorted.length - 1] / sorted[0];
     if (ratio < 2.0) {
-      findings.push({ id: 'flat-type-hierarchy', snippet: `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
+      findings.push({ id: 'flat-type-hierarchy', snippet: `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
     }
   }
   return findings;

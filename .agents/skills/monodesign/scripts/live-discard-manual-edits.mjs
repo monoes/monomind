@@ -19,7 +19,7 @@
 import { readBuffer, removeEntries, truncateBuffer } from './live/manual-edits-buffer.mjs';
 
 function argVal(args, name) {
-  const prefix = name + '=';
+  const prefix = `${name}=`;
   for (const a of args) {
     if (a === name) return true;
     if (a.startsWith(prefix)) return a.slice(prefix.length);

@@ -60,6 +60,7 @@ The agent should insert variant HTML at insertLine.`);
   }
 
   const id = argVal(args, '--id');
+  // biome-ignore lint/correctness/useParseIntRadix: --count is caller-supplied CLI input; radix 10 would change how a 0x value parses
   const count = parseInt(argVal(args, '--count') || '3');
   const elementId = argVal(args, '--element-id');
   const classes = argVal(args, '--classes');
@@ -148,7 +149,7 @@ The agent should insert variant HTML at insertLine.`);
       if (candidates.length === 1) break;
     }
     if (candidates.length === 0) {
-      console.error(JSON.stringify({ error: 'Found file but could not locate element in ' + targetFile + '. Searched for: ' + queries.join(', ') }));
+      console.error(JSON.stringify({ error: `Found file but could not locate element in ${targetFile}. Searched for: ${queries.join(', ')}` }));
       process.exit(1);
     }
     if (candidates.length === 1) {
@@ -186,7 +187,7 @@ The agent should insert variant HTML at insertLine.`);
       if (match) break;
     }
     if (!match) {
-      console.error(JSON.stringify({ error: 'Found file but could not locate element in ' + targetFile + '. Searched for: ' + queries.join(', ') }));
+      console.error(JSON.stringify({ error: `Found file but could not locate element in ${targetFile}. Searched for: ${queries.join(', ')}` }));
       process.exit(1);
     }
   }
@@ -286,25 +287,25 @@ The agent should insert variant HTML at insertLine.`);
   // replacement range to include the wrapper's `<div>` open / close lines
   // so the entire scaffold gets removed cleanly.
   const wrapperLines = isJsx ? [
-    indent + '<div data-monodesign-variants="' + id + '" data-monodesign-variant-count="' + count + '" ' + styleContents + '>',
-    indent + '  ' + commentSyntax.open + ' monodesign-variants-start ' + id + ' ' + commentSyntax.close,
-    indent + '  ' + commentSyntax.open + ' Original ' + commentSyntax.close,
-    indent + '  <div data-monodesign-variant="original">',
+    `${indent}<div data-monodesign-variants="${id}" data-monodesign-variant-count="${count}" ${styleContents}>`,
+    `${indent}  ${commentSyntax.open} monodesign-variants-start ${id} ${commentSyntax.close}`,
+    `${indent}  ${commentSyntax.open} Original ${commentSyntax.close}`,
+    `${indent}  <div data-monodesign-variant="original">`,
     reindentOriginal('    '),
-    indent + '  </div>',
-    indent + '  ' + commentSyntax.open + ' Variants: insert below this line ' + commentSyntax.close,
-    indent + '  ' + commentSyntax.open + ' monodesign-variants-end ' + id + ' ' + commentSyntax.close,
-    indent + '</div>',
+    `${indent}  </div>`,
+    `${indent}  ${commentSyntax.open} Variants: insert below this line ${commentSyntax.close}`,
+    `${indent}  ${commentSyntax.open} monodesign-variants-end ${id} ${commentSyntax.close}`,
+    `${indent}</div>`,
   ] : [
-    indent + commentSyntax.open + ' monodesign-variants-start ' + id + ' ' + commentSyntax.close,
-    indent + '<div data-monodesign-variants="' + id + '" data-monodesign-variant-count="' + count + '" ' + styleContents + '>',
-    indent + '  ' + commentSyntax.open + ' Original ' + commentSyntax.close,
-    indent + '  <div data-monodesign-variant="original">',
+    `${indent + commentSyntax.open} monodesign-variants-start ${id} ${commentSyntax.close}`,
+    `${indent}<div data-monodesign-variants="${id}" data-monodesign-variant-count="${count}" ${styleContents}>`,
+    `${indent}  ${commentSyntax.open} Original ${commentSyntax.close}`,
+    `${indent}  <div data-monodesign-variant="original">`,
     originalIndented,
-    indent + '  </div>',
-    indent + '  ' + commentSyntax.open + ' Variants: insert below this line ' + commentSyntax.close,
-    indent + '</div>',
-    indent + commentSyntax.open + ' monodesign-variants-end ' + id + ' ' + commentSyntax.close,
+    `${indent}  </div>`,
+    `${indent}  ${commentSyntax.open} Variants: insert below this line ${commentSyntax.close}`,
+    `${indent}</div>`,
+    `${indent + commentSyntax.open} monodesign-variants-end ${id} ${commentSyntax.close}`,
   ];
 
   let outputFile = targetFile;
@@ -384,7 +385,7 @@ The agent should insert variant HTML at insertLine.`);
 // ---------------------------------------------------------------------------
 
 function argVal(args, flag) {
-  const prefix = flag + '=';
+  const prefix = `${flag}=`;
   for (const arg of args) {
     if (arg.startsWith(prefix)) return arg.slice(prefix.length);
   }
@@ -478,13 +479,13 @@ function applyBufferedManualEditToLines(originalLines, selectionStartLine, op) {
 
 function lineMatchesManualEditLocator(line, op) {
   if (op.tag) {
-    const tagRe = new RegExp('<\\s*' + escapeRegExp(op.tag) + '(?=[\\s>/]|$)', 'i');
+    const tagRe = new RegExp(`<\\s*${escapeRegExp(op.tag)}(?=[\\s>/]|$)`, 'i');
     if (!tagRe.test(line)) return false;
   }
 
   if (op.elementId) {
     const id = escapeRegExp(op.elementId);
-    const idRe = new RegExp('\\bid\\s*=\\s*["\']' + id + '["\']');
+    const idRe = new RegExp(`\\bid\\s*=\\s*["']${id}["']`);
     if (!idRe.test(line)) return false;
   }
 
@@ -527,7 +528,7 @@ function buildSearchQueries(elementId, classes, tag, query) {
 
   // 1. ID is the most specific
   if (elementId) {
-    queries.push('id="' + elementId + '"');
+    queries.push(`id="${elementId}"`);
   }
 
   // 2. Full class attribute match (for elements with distinctive multi-class combos).
@@ -538,8 +539,8 @@ function buildSearchQueries(elementId, classes, tag, query) {
     if (classList.length > 1) {
       const joined = classList.join(' ');
       const sorted = [...classList].sort((a, b) => b.length - a.length);
-      queries.push('class="' + joined + '"');
-      queries.push('className="' + joined + '"');
+      queries.push(`class="${joined}"`);
+      queries.push(`className="${joined}"`);
       for (const className of sorted) {
         queries.push(className);
       }
@@ -552,8 +553,8 @@ function buildSearchQueries(elementId, classes, tag, query) {
   // Same dual-emit for JSX compatibility.
   if (tag && classes) {
     const firstClass = splitClassList(classes)[0];
-    queries.push('<' + tag + ' class="' + firstClass);
-    queries.push('<' + tag + ' className="' + firstClass);
+    queries.push(`<${tag} class="${firstClass}`);
+    queries.push(`<${tag} className="${firstClass}`);
   }
 
   // 4. Raw fallback query
@@ -843,9 +844,9 @@ function findClosingLine(lines, start) {
 
   const tagName = openMatch[1];
   let depth = 0;
-  const openRe = new RegExp('<' + tagName + '(?=[\\s/>]|$)', 'g');
-  const selfCloseRe = new RegExp('<' + tagName + '[^>]*/>', 'g');
-  const closeRe = new RegExp('</' + tagName + '\\s*>', 'g');
+  const openRe = new RegExp(`<${tagName}(?=[\\s/>]|$)`, 'g');
+  const selfCloseRe = new RegExp(`<${tagName}[^>]*/>`, 'g');
+  const closeRe = new RegExp(`</${tagName}\\s*>`, 'g');
 
   for (let i = start; i < lines.length; i++) {
     const line = lines[i];
