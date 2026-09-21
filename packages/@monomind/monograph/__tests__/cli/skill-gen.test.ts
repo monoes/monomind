@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, existsSync, rmSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, existsSync, rmSync } from 'node:fs';
 
 // Mock the db module so tests don't require a real indexed repo
 vi.mock('../../src/storage/db.js', () => ({
@@ -192,7 +192,7 @@ describe('generateSkillFiles', () => {
   });
 
   it('generated skill file contains community label', async () => {
-    const { readFileSync } = await import('fs');
+    const { readFileSync } = await import('node:fs');
 
     const db = makeMockDb({
       communities: [{ community_id: 1, label: 'Parser', member_count: 3 }],
@@ -219,7 +219,7 @@ describe('generateSkillFiles', () => {
   });
 
   it('generated skill file is valid markdown with frontmatter', async () => {
-    const { readFileSync } = await import('fs');
+    const { readFileSync } = await import('node:fs');
 
     const db = makeMockDb({
       communities: [{ community_id: 3, label: 'Storage', member_count: 2 }],
@@ -238,7 +238,7 @@ describe('generateSkillFiles', () => {
   });
 
   it('skill file contains How to Explore section', async () => {
-    const { readFileSync } = await import('fs');
+    const { readFileSync } = await import('node:fs');
 
     const db = makeMockDb({
       communities: [{ community_id: 4, label: 'Auth', member_count: 5 }],

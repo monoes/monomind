@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import Database from 'better-sqlite3';
 import { groupQuery } from '../../src/groups/group-search.js';
 import type { GroupConfig } from '../../src/groups/group-config.js';

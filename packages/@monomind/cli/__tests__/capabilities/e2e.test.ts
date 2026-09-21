@@ -5,9 +5,9 @@ import { mediaCapability } from '../../src/capabilities/cap-media.js';
 import { dataCapability } from '../../src/capabilities/cap-data.js';
 import { graphCapability } from '../../src/capabilities/cap-graph.js';
 import { timelineCapability } from '../../src/capabilities/cap-timeline.js';
-import path from 'path';
-import fs from 'fs';
-import os from 'os';
+import path from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures');
 

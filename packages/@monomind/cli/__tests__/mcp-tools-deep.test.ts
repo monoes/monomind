@@ -161,8 +161,8 @@ vi.mock('../src/mcp-tools/auto-install.js', () => ({
 // Import all tool modules (after mocks are set up)
 // ============================================================================
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { agentTools } from '../src/mcp-tools/agent-tools.js';
 import { analyzeTools } from '../src/mcp-tools/analyze-tools.js';
 import { claimsTools } from '../src/mcp-tools/claims-tools.js';

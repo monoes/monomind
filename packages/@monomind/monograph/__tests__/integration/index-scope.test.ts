@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, unlinkSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, unlinkSync } from 'node:fs';
 import { buildAsync } from '../../src/pipeline/orchestrator.js';
 import { readIndexScope } from '../../src/pipeline/index-scope.js';
 import { openDb, closeDb } from '../../src/storage/db.js';

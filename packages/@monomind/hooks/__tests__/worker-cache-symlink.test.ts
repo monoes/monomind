@@ -10,10 +10,10 @@
  * closes it by realpath-ing both sides before comparing.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { symlinkSync } from 'fs';
-import * as os from 'os';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { symlinkSync } from 'node:fs';
+import * as os from 'node:os';
 import { createCacheWorker } from '../src/index.js';
 
 let projectRoot: string;

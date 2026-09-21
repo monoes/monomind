@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { agentCommand } from '../src/commands/agent.js';
 import { monoswarmCommand as swarmCommand } from '../src/commands/monoswarm.js';
 import { memoryCommand } from '../src/commands/memory.js';

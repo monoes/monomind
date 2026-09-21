@@ -12,10 +12,10 @@ import { sessionCommand } from '../src/commands/session.js';
 import { CommandParser } from '../src/parser.js';
 import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 
 // Mock fs module
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
   statSync: vi.fn().mockReturnValue({ size: 0 }),
   mkdirSync: vi.fn(),

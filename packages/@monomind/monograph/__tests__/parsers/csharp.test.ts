@@ -1,5 +1,5 @@
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseFile } from '../../src/parsers/loader.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

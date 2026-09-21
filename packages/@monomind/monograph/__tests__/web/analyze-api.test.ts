@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { createServer } from 'http';
+import { createServer } from 'node:http';
 import { registerAnalyzeRoute } from '../../src/web/analyze-api.js';
 
 // Mock buildAsync so tests don't need a real repo

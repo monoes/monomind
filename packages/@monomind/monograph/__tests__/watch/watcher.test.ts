@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, appendFileSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, appendFileSync } from 'node:fs';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { MonographWatcher } from '../../src/watch/watcher.js';
 

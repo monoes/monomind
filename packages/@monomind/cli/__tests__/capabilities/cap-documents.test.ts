@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 import { documentsCapability, extractText } from '../../src/capabilities/cap-documents.js';
 import type { DirectoryScan, FileEntry } from '../../src/capabilities/types.js';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures', 'documents');
 const hasXlsx = (() => {

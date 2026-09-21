@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, existsSync, unlinkSync, readdirSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, existsSync, unlinkSync, readdirSync } from 'node:fs';
 import { vi } from 'vitest';
 
 // Regression: the extraction cache is flushed to disk BEFORE the build's SQL

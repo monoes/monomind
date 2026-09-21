@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync, existsSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // The no-llmClient/no-llmConfig default path in generateWikiPage now routes

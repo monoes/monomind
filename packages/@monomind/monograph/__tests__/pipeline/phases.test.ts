@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { scanPhase } from '../../src/pipeline/phases/scan.js';
 import { structurePhase } from '../../src/pipeline/phases/structure.js';
 import type { PipelineContext } from '../../src/pipeline/types.js';

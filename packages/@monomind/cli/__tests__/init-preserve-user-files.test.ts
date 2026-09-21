@@ -9,10 +9,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { EventEmitter } from 'events';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { EventEmitter } from 'node:events';
 import { initCommand } from '../src/commands/init.js';
 import { statusCommand } from '../src/commands/status.js';
 import { CommandParser } from '../src/parser.js';

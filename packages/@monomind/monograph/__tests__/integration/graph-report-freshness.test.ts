@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 
 // Regression (issue #91): the graph report used to be generated inside the
 // open build transaction via the string overload of generateGraphReport,

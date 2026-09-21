@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync, existsSync } from 'node:fs';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { startLspServer } from '../../src/lsp/server.js';
 import type { MonographDb } from '../../src/storage/db.js';

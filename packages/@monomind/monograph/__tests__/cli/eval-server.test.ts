@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createEvalServer } from '../../src/cli/eval-server.js';
 import { openDb, closeDb } from '../../src/storage/db.js';
 

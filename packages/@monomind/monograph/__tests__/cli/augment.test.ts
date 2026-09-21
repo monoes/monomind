@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Mock the db and search modules so tests don't require a real indexed repo
 vi.mock('../../src/storage/db.js', () => ({

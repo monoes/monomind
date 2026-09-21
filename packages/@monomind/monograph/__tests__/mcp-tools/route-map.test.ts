@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
 import { insertEdge } from '../../src/storage/edge-store.js';

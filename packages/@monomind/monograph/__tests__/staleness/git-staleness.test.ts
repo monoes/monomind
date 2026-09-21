@@ -1,16 +1,16 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync, existsSync } from 'node:fs';
 import { vi, describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { checkStaleness } from '../../src/staleness/git-staleness.js';
 
 // vi.mock must be at top level for Vitest hoisting
-vi.mock('child_process', () => ({
+vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
 }));
 
-import { execSync } from 'child_process';
+import { execSync } from 'node:child_process';
 
 const dbPath = join(tmpdir(), `monograph-staleness-${Date.now()}.db`);
 let db: ReturnType<typeof openDb>;
