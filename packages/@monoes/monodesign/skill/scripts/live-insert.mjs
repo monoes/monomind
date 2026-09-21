@@ -47,20 +47,20 @@ export function buildInsertWrapperLines({ id, count, indent, commentSyntax, isJs
 
   if (isJsx) {
     return [
-      indent + '<div ' + attrs + '>',
-      indent + '  ' + commentSyntax.open + ' monodesign-variants-start ' + id + ' ' + commentSyntax.close,
-      indent + '  ' + commentSyntax.open + ' Variants: insert below this line ' + commentSyntax.close,
-      indent + '  ' + commentSyntax.open + ' monodesign-variants-end ' + id + ' ' + commentSyntax.close,
-      indent + '</div>',
+      `${indent}<div ${attrs}>`,
+      `${indent}  ${commentSyntax.open} monodesign-variants-start ${id} ${commentSyntax.close}`,
+      `${indent}  ${commentSyntax.open} Variants: insert below this line ${commentSyntax.close}`,
+      `${indent}  ${commentSyntax.open} monodesign-variants-end ${id} ${commentSyntax.close}`,
+      `${indent}</div>`,
     ];
   }
 
   return [
-    indent + commentSyntax.open + ' monodesign-variants-start ' + id + ' ' + commentSyntax.close,
-    indent + '<div ' + attrs + '>',
-    indent + '  ' + commentSyntax.open + ' Variants: insert below this line ' + commentSyntax.close,
-    indent + '</div>',
-    indent + commentSyntax.open + ' monodesign-variants-end ' + id + ' ' + commentSyntax.close,
+    `${indent + commentSyntax.open} monodesign-variants-start ${id} ${commentSyntax.close}`,
+    `${indent}<div ${attrs}>`,
+    `${indent}  ${commentSyntax.open} Variants: insert below this line ${commentSyntax.close}`,
+    `${indent}</div>`,
+    `${indent + commentSyntax.open} monodesign-variants-end ${id} ${commentSyntax.close}`,
   ];
 }
 
@@ -134,7 +134,7 @@ Output (JSON):
 
   if (!id) { console.error('Missing --id'); process.exit(1); }
   if (!position) { console.error('Missing --position (before | after)'); process.exit(1); }
-  if (!isInsertPosition(position)) { console.error('Invalid --position: ' + position); process.exit(1); }
+  if (!isInsertPosition(position)) { console.error(`Invalid --position: ${position}`); process.exit(1); }
   if (!elementId && !classes && !query) {
     console.error('Need at least one of: --element-id, --classes, --query');
     process.exit(1);

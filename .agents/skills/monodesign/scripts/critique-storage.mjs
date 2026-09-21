@@ -381,7 +381,7 @@ function main(argv) {
     }
     case 'trend': {
       const rows = readTrend(args[0], { limit: args[1] ? Number(args[1]) : 5 });
-      process.stdout.write(JSON.stringify(rows, null, 2) + '\n');
+      process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`);
       return;
     }
     case 'recall': {

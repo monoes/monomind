@@ -930,7 +930,7 @@ async function cli() {
   const targetExists = targetProvided ? pathExistsForTarget(process.cwd(), cliOptions.targetPath) : null;
   const selection = resolveTargetSelection(process.cwd(), cliOptions);
   if (selection) {
-    process.stdout.write(buildTargetSelectionDirective(selection) + '\n');
+    process.stdout.write(`${buildTargetSelectionDirective(selection)}\n`);
     process.exit(0);
   }
   const ctx = loadContext(process.cwd(), cliOptions);
@@ -952,7 +952,7 @@ async function cli() {
       parts.push(buildMissingTargetDirective());
     }
     if (updateDirective) parts.push(updateDirective);
-    process.stdout.write(parts.join('\n\n---\n\n') + '\n');
+    process.stdout.write(`${parts.join('\n\n---\n\n')}\n`);
     process.exit(0);
   }
   const parts = [`# PRODUCT.md\n\n${ctx.product.trim()}`];
@@ -989,7 +989,7 @@ async function cli() {
     }
   }
   if (updateDirective) parts.push(updateDirective);
-  process.stdout.write(parts.join('\n\n---\n\n') + '\n');
+  process.stdout.write(`${parts.join('\n\n---\n\n')}\n`);
 }
 
 function parseCliOptions(args) {

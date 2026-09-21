@@ -158,7 +158,7 @@ class Expectation {
 
 function format(value) {
   try {
-    if (typeof value === 'string') return JSON.stringify(value.length > 120 ? value.slice(0, 117) + '...' : value);
+    if (typeof value === 'string') return JSON.stringify(value.length > 120 ? `${value.slice(0, 117)}...` : value);
     return String(JSON.stringify(value))?.slice(0, 120) ?? String(value);
   } catch {
     return String(value);

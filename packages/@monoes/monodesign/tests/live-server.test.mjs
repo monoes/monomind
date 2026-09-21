@@ -62,7 +62,7 @@ function startServer(_legacyPort, { cwd = REPO_ROOT, env = {} } = {}) {
       _reject(err);
     };
     const timer = setTimeout(
-      () => reject(new Error('Server start timeout. Output: ' + output)),
+      () => reject(new Error(`Server start timeout. Output: ${output}`)),
       5000,
     );
 
@@ -148,7 +148,7 @@ async function waitForManualActivity(server, type, { timeoutMs = 1000 } = {}) {
     if (last.manualEdits?.lastActivity?.type === type) return last;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  assert.fail('timed out waiting for manual edit activity ' + type + '; last=' + JSON.stringify(last?.manualEdits?.lastActivity || null));
+  assert.fail(`timed out waiting for manual edit activity ${type}; last=${JSON.stringify(last?.manualEdits?.lastActivity || null)}`);
 }
 
 async function stashManualEdit(server, entry) {
@@ -320,23 +320,23 @@ describe('live-server integration', () => {
     assert.ok(browserInitIndex !== -1);
     assert.ok(
       preludeIndex < sessionPartIndex,
-      'event=live_server.browser_script_order actor=browser operation=load_live_js risk=prelude_after_script_part expected=prelude before parts actual=' + preludeIndex + ':' + sessionPartIndex,
+      `event=live_server.browser_script_order actor=browser operation=load_live_js risk=prelude_after_script_part expected=prelude before parts actual=${preludeIndex}:${sessionPartIndex}`,
     );
     assert.ok(
       sessionPartIndex < domPartIndex,
-      'event=live_server.browser_script_order actor=browser operation=load_live_js risk=dom_part_before_session_helper expected=session part before dom part actual=' + sessionPartIndex + ':' + domPartIndex,
+      `event=live_server.browser_script_order actor=browser operation=load_live_js risk=dom_part_before_session_helper expected=session part before dom part actual=${sessionPartIndex}:${domPartIndex}`,
     );
     assert.ok(
       domPartIndex < browserPartIndex,
-      'event=live_server.browser_script_order actor=browser operation=load_live_js risk=browser_part_before_dom_helpers expected=dom part before browser part actual=' + domPartIndex + ':' + browserPartIndex,
+      `event=live_server.browser_script_order actor=browser operation=load_live_js risk=browser_part_before_dom_helpers expected=dom part before browser part actual=${domPartIndex}:${browserPartIndex}`,
     );
     assert.ok(
       sessionHelperIndex < browserInitIndex,
-      'event=live_server.browser_helper_order actor=browser operation=load_live_js risk=session_helper_missing_before_browser_init expected=session helper before live init actual=' + sessionHelperIndex + ':' + browserInitIndex,
+      `event=live_server.browser_helper_order actor=browser operation=load_live_js risk=session_helper_missing_before_browser_init expected=session helper before live init actual=${sessionHelperIndex}:${browserInitIndex}`,
     );
     assert.ok(
       domHelperIndex < browserInitIndex,
-      'event=live_server.browser_helper_order actor=browser operation=load_live_js risk=dom_helper_missing_before_browser_init expected=dom helper before live init actual=' + domHelperIndex + ':' + browserInitIndex,
+      `event=live_server.browser_helper_order actor=browser operation=load_live_js risk=dom_helper_missing_before_browser_init expected=dom helper before live init actual=${domHelperIndex}:${browserInitIndex}`,
     );
   });
 
@@ -885,7 +885,7 @@ colors: {}
     try {
       mkdirSync(join(tmp, 'src'), { recursive: true });
       const sourcePath = join(tmp, 'src', 'page.html');
-      writeFileSync(sourcePath, Array.from({ length: 7 }, (_, index) => `<p>Item ${String(index + 1).padStart(2, '0')}</p>`).join('\n') + '\n');
+      writeFileSync(sourcePath, `${Array.from({ length: 7 }, (_, index) => `<p>Item ${String(index + 1).padStart(2, '0')}</p>`).join('\n')}\n`);
 
       chunkServer = await startServer(8528, {
         cwd: tmp,
@@ -989,13 +989,13 @@ colors: {}
     try {
       mkdirSync(join(tmp, 'src'), { recursive: true });
       const sourcePath = join(tmp, 'src', 'page.html');
-      writeFileSync(sourcePath, [
+      writeFileSync(sourcePath, `${[
         '<h1>Alpha</h1>',
         '<p>Bravo</p>',
         '<h2>Charlie</h2>',
         '<p>Delta</p>',
         '<button>Echo</button>',
-      ].join('\n') + '\n');
+      ].join('\n')}\n`);
 
       chunkServer = await startServer(8544, {
         cwd: tmp,
@@ -1104,7 +1104,7 @@ colors: {}
     try {
       mkdirSync(join(tmp, 'src'), { recursive: true });
       const sourcePath = join(tmp, 'src', 'page.html');
-      writeFileSync(sourcePath, ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((text) => `<span>${text}</span>`).join('\n') + '\n');
+      writeFileSync(sourcePath, `${['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((text) => `<span>${text}</span>`).join('\n')}\n`);
 
       splitServer = await startServer(8529, {
         cwd: tmp,
@@ -1199,7 +1199,7 @@ colors: {}
     try {
       mkdirSync(join(tmp, 'src'), { recursive: true });
       const sourcePath = join(tmp, 'src', 'page.html');
-      const originalSource = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((text) => `<span>${text}</span>`).join('\n') + '\n';
+      const originalSource = `${['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((text) => `<span>${text}</span>`).join('\n')}\n`;
       writeFileSync(sourcePath, originalSource);
 
       failServer = await startServer(8530, {
@@ -1724,7 +1724,7 @@ colors: {}
     try {
       mkdirSync(join(tmp, 'src'), { recursive: true });
       const sourcePath = join(tmp, 'src', 'page.html');
-      const originalSource = Array.from({ length: 4 }, (_, index) => `<p>Item ${index + 1}</p>`).join('\n') + '\n';
+      const originalSource = `${Array.from({ length: 4 }, (_, index) => `<p>Item ${index + 1}</p>`).join('\n')}\n`;
       writeFileSync(sourcePath, originalSource);
 
       abandonedServer = await startServer(8547, {
@@ -2287,7 +2287,7 @@ colors: {}
     assert.equal(
       polled.type,
       'timeout',
-      'event=live_server.checkpoint_not_polled actor=browser operation=checkpoint risk=checkpoint_starves_agent_queue expected=timeout actual=' + polled.type + ' suggestion=journal checkpoint without enqueueing agent work',
+      `event=live_server.checkpoint_not_polled actor=browser operation=checkpoint risk=checkpoint_starves_agent_queue expected=timeout actual=${polled.type} suggestion=journal checkpoint without enqueueing agent work`,
     );
 
     const snapshot = JSON.parse(readFileSync(join(getLiveSessionsDir(server.cwd), 'a1b2c3d7.snapshot.json'), 'utf-8'));
@@ -2326,7 +2326,7 @@ colors: {}
       assert.equal(
         replayed.id,
         'a1b2c3d8',
-        'event=live_server.restart_replay actor=agent operation=poll_after_helper_restart risk=server_restart_loses_unpolled_event expected=a1b2c3d8 actual=' + replayed.id + ' suggestion=rebuild pending poll queue from live-session-store active snapshots on startup',
+        `event=live_server.restart_replay actor=agent operation=poll_after_helper_restart risk=server_restart_loses_unpolled_event expected=a1b2c3d8 actual=${replayed.id} suggestion=rebuild pending poll queue from live-session-store active snapshots on startup`,
       );
       assert.equal(replayed.type, 'generate');
     } finally {
@@ -2395,7 +2395,7 @@ colors: {}
     assert.equal(
       stale.type,
       'timeout',
-      'event=live_complete.running_server_ack actor=agent operation=manual_complete risk=completed_session_redelivered_from_memory expected=timeout actual=' + stale.id,
+      `event=live_complete.running_server_ack actor=agent operation=manual_complete risk=completed_session_redelivered_from_memory expected=timeout actual=${stale.id}`,
     );
   });
 
@@ -2427,7 +2427,7 @@ colors: {}
     assert.equal(
       redelivered.id,
       'a1b2c3da',
-      'event=live_poll.lease_redelivery actor=agent operation=poll_after_missed_ack risk=agent_missed_event_loses_live_state expected=same event redelivered after lease expiry actual=' + redelivered.id + ' suggestion=inspect pending event lease bookkeeping',
+      `event=live_poll.lease_redelivery actor=agent operation=poll_after_missed_ack risk=agent_missed_event_loses_live_state expected=same event redelivered after lease expiry actual=${redelivered.id} suggestion=inspect pending event lease bookkeeping`,
     );
 
     await fetch(`http://localhost:${server.port}/poll`, {
@@ -2466,11 +2466,11 @@ colors: {}
     assert.equal(
       redelivered.id,
       'a1b2c3db',
-      'event=live_poll.lease_expiry_wakeup actor=agent operation=poll_before_lease_expiry risk=parked_poll_waits_full_timeout expected=a1b2c3db actual=' + redelivered.id,
+      `event=live_poll.lease_expiry_wakeup actor=agent operation=poll_before_lease_expiry risk=parked_poll_waits_full_timeout expected=a1b2c3db actual=${redelivered.id}`,
     );
     assert.ok(
       elapsed < 250,
-      'event=live_poll.lease_expiry_latency actor=agent operation=poll_before_lease_expiry risk=redelivery_waits_full_timeout expected=<250 actual=' + elapsed,
+      `event=live_poll.lease_expiry_latency actor=agent operation=poll_before_lease_expiry risk=redelivery_waits_full_timeout expected=<250 actual=${elapsed}`,
     );
 
     await fetch(`http://localhost:${server.port}/poll`, {
@@ -2607,7 +2607,7 @@ colors: {}
   });
 
   it('POST /annotation writes PNG to session dir and returns path', async () => {
-    const eventId = 'test-' + Math.random().toString(36).slice(2, 10);
+    const eventId = `test-${Math.random().toString(36).slice(2, 10)}`;
     // Minimal valid PNG header + IEND chunk (enough to prove we wrote bytes)
     const png = new Uint8Array([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -2619,7 +2619,7 @@ colors: {}
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.ok, true);
-    assert.ok(data.path.endsWith(eventId + '.png'));
+    assert.ok(data.path.endsWith(`${eventId}.png`));
     const written = readFileSync(data.path);
     assert.equal(written.length, png.length);
   });

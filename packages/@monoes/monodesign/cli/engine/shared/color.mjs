@@ -109,7 +109,7 @@ function getHue(c) {
 
 function colorToHex(c) {
   if (!c) return '?';
-  return '#' + [c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('');
+  return `#${[c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 export {

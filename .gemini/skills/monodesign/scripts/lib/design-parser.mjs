@@ -243,7 +243,7 @@ function collectBullets(lines) {
     }
     // continuation of a bullet (indented line)
     if (current && raw.match(/^\s{2,}\S/)) {
-      current += ' ' + raw.trim();
+      current += ` ${raw.trim()}`;
       continue;
     }
     // blank line ends a bullet
@@ -578,7 +578,7 @@ function extractElevation(section) {
   const shadows = [];
   const seen = new Set();
   const dedupe = (entry) => {
-    const key = (entry.name || '') + '::' + entry.value;
+    const key = `${entry.name || ''}::${entry.value}`;
     if (seen.has(key)) return;
     seen.add(key);
     shadows.push(entry);
@@ -627,7 +627,7 @@ function extractInlineShadows(text) {
         .trim();
       if (stripped) {
         name =
-          stripped.charAt(0).toUpperCase() + stripped.slice(1) + ' shadow';
+          `${stripped.charAt(0).toUpperCase() + stripped.slice(1)} shadow`;
       }
     }
     out.push({

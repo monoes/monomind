@@ -300,7 +300,7 @@ function broadcastAgentPollingIfChanged() {
 
 /** Push a message to all connected SSE clients. */
 function broadcast(msg) {
-  const data = 'data: ' + JSON.stringify(msg) + '\n\n';
+  const data = `data: ${JSON.stringify(msg)}\n\n`;
   for (const res of state.sseClients) {
     try { res.write(data); } catch { /* client gone */ }
   }
@@ -318,7 +318,7 @@ function recordManualEditActivity(type, details = {}) {
     try {
       const filePath = path.join(getLiveDir(process.cwd()), 'manual-edit-events.jsonl');
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      fs.appendFileSync(filePath, JSON.stringify(entry) + '\n');
+      fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`);
     } catch {
       /* diagnostics are best-effort; never block live mode on observability */
     }
@@ -367,7 +367,7 @@ function loadBrowserScripts() {
   try {
     assertLiveBrowserScriptParts(liveScriptParts);
   } catch (err) {
-    process.stderr.write('Error: ' + err.message + '\n');
+    process.stderr.write(`Error: ${err.message}\n`);
     process.exit(1);
   }
 
@@ -432,7 +432,7 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
         parts = readLiveBrowserScriptParts(liveScriptParts);
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Error reading live browser scripts: ' + err.message);
+        res.end(`Error reading live browser scripts: ${err.message}`);
         return;
       }
       const body = assembleLiveBrowserScript({
@@ -514,12 +514,12 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
       });
       req.on('end', () => {
         if (aborted) return;
-        const absPath = path.join(state.sessionDir, eventId + '.png');
+        const absPath = path.join(state.sessionDir, `${eventId}.png`);
         try {
           fs.writeFileSync(absPath, Buffer.concat(chunks));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Write failed: ' + err.message }));
+          res.end(JSON.stringify({ error: `Write failed: ${err.message}` }));
           return;
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -614,7 +614,7 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
         try {
           response.sidecar = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
         } catch (err) {
-          response.sidecarError = 'Failed to parse .monodesign/design.json: ' + err.message;
+          response.sidecarError = `Failed to parse .monodesign/design.json: ${err.message}`;
         }
       }
 
@@ -662,12 +662,12 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       });
-      res.write('data: ' + JSON.stringify({
+      res.write(`data: ${JSON.stringify({
         type: 'connected',
         hasProjectContext: hasProjectContext(),
         agentPolling: agentPollingConnected(),
         activeSessions: activeSessionSummaries(),
-      }) + '\n\n');
+      })}\n\n`);
 
       state.sseClients.add(res);
 
@@ -1132,7 +1132,7 @@ if (existingRecord?.info) {
   try {
     process.kill(existing.pid, 0);
     console.error(`Live server already running on port ${existing.port} (pid ${existing.pid}).`);
-    console.error('Stop it first with: node ' + path.basename(fileURLToPath(import.meta.url)) + ' stop');
+    console.error(`Stop it first with: node ${path.basename(fileURLToPath(import.meta.url))} stop`);
     process.exit(1);
   } catch {
     try { fs.unlinkSync(existingRecord.path); } catch {}

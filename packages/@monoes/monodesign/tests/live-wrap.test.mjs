@@ -371,7 +371,7 @@ const title = 'Astro title';
     assert.equal(
       result.styleMode,
       'astro-global-prefixed',
-      'event=live_wrap.astro_css_mode actor=agent operation=wrap_astro_file risk=astro_scopes_preview_css_away expected=styleMode astro-global-prefixed actual=' + result.styleMode + ' suggestion=inspect live-wrap output metadata for .astro files'
+      `event=live_wrap.astro_css_mode actor=agent operation=wrap_astro_file risk=astro_scopes_preview_css_away expected=styleMode astro-global-prefixed actual=${result.styleMode} suggestion=inspect live-wrap output metadata for .astro files`
     );
     assert.deepEqual(result.cssSelectorPrefixExamples, [
       '[data-monodesign-variant="1"]',

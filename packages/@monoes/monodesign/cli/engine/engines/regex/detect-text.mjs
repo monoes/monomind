@@ -226,7 +226,7 @@ const REGEX_ANALYZERS = [
     const lines = content.split('\n');
     let line = 1;
     for (let i = 0; i < lines.length; i++) { if (/font-size/i.test(lines[i]) || /\btext-(?:xs|sm|base|lg|xl|\d)/i.test(lines[i])) { line = i + 1; break; } }
-    return [finding('flat-type-hierarchy', filePath, `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)`, line)];
+    return [finding('flat-type-hierarchy', filePath, `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)`, line)];
   },
   // Monotonous spacing (regex)
   (content, filePath) => {

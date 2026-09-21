@@ -53,7 +53,7 @@ function isBrandFontOnOwnDomain(font) {
   const allowed = BRAND_FONT_DOMAINS[font];
   if (!allowed) return false;
   const host = location.hostname.toLowerCase();
-  return allowed.some(suffix => host === suffix || host.endsWith('.' + suffix));
+  return allowed.some(suffix => host === suffix || host.endsWith(`.${suffix}`));
 }
 
 const GENERIC_FONTS = new Set([

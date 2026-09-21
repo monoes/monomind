@@ -22,7 +22,7 @@ describe('live-poll reply payloads', () => {
     assert.deepEqual(
       payload.data,
       { carbonize: true },
-      'event=live_poll.reply_data actor=agent operation=completion_ack risk=carbonize_flag_dropped_before_server_journal expected={"carbonize":true} actual=' + JSON.stringify(payload.data),
+      `event=live_poll.reply_data actor=agent operation=completion_ack risk=carbonize_flag_dropped_before_server_journal expected={"carbonize":true} actual=${JSON.stringify(payload.data)}`,
     );
   });
 });

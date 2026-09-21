@@ -58,7 +58,7 @@ describe('live-browser-session state helper', () => {
     assert.equal(
       second.nextCheckpointRevision(),
       3,
-      'event=live_browser_session.revision_resume actor=browser operation=reload_checkpoint risk=durable_store_ignores_stale_checkpoint expected=3 actual=' + second.currentCheckpointRevision(),
+      `event=live_browser_session.revision_resume actor=browser operation=reload_checkpoint risk=durable_store_ignores_stale_checkpoint expected=3 actual=${second.currentCheckpointRevision()}`,
     );
   });
 });

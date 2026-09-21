@@ -1360,7 +1360,7 @@ export function writeAuditLog(env, entry, cwd = process.cwd()) {
       expanded = path.resolve(baseCwd, target);
     }
     fs.mkdirSync(path.dirname(expanded), { recursive: true });
-    const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n';
+    const line = `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`;
     fs.appendFileSync(expanded, line);
     return true;
   } catch {

@@ -67,7 +67,7 @@ function isBrandFontOnOwnDomain(font) {
   const allowed = BRAND_FONT_DOMAINS[font];
   if (!allowed) return false;
   const host = location.hostname.toLowerCase();
-  return allowed.some(suffix => host === suffix || host.endsWith('.' + suffix));
+  return allowed.some(suffix => host === suffix || host.endsWith(`.${suffix}`));
 }
 
 const GENERIC_FONTS = new Set([
@@ -709,7 +709,7 @@ function getHue(c) {
 
 function colorToHex(c) {
   if (!c) return '?';
-  return '#' + [c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('');
+  return `#${[c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 // --- cli/engine/shared/fonts.mjs ---
@@ -2717,7 +2717,7 @@ function checkTypography() {
     const sorted = [...sizes].sort((a, b) => a - b);
     const ratio = sorted[sorted.length - 1] / sorted[0];
     if (ratio < 2.0) {
-      findings.push({ type: 'flat-type-hierarchy', detail: `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
+      findings.push({ type: 'flat-type-hierarchy', detail: `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
     }
   }
 
@@ -2836,7 +2836,7 @@ function checkPageTypography(doc, win) {
     const sorted = [...sizes].sort((a, b) => a - b);
     const ratio = sorted[sorted.length - 1] / sorted[0];
     if (ratio < 2.0) {
-      findings.push({ id: 'flat-type-hierarchy', snippet: `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
+      findings.push({ id: 'flat-type-hierarchy', snippet: `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)` });
     }
   }
 
@@ -4169,7 +4169,7 @@ if (IS_BROWSER) {
         .filter(c => !c.startsWith('monodesign-') && !isLikelyHashedClass(c))
         .slice(0, 2);
       if (classes.length > 0) {
-        sel += '.' + classes.map(c => CSS.escape(c)).join('.');
+        sel += `.${classes.map(c => CSS.escape(c)).join('.')}`;
       }
     }
 
@@ -4177,7 +4177,7 @@ if (IS_BROWSER) {
     const parent = el.parentElement;
     if (parent) {
       try {
-        const matching = parent.querySelectorAll(':scope > ' + sel);
+        const matching = parent.querySelectorAll(`:scope > ${sel}`);
         if (matching.length > 1) {
           const sameType = [...parent.children].filter(c => c.tagName === el.tagName);
           const idx = sameType.indexOf(el) + 1;
@@ -4194,7 +4194,7 @@ if (IS_BROWSER) {
   function generateSelector(el) {
     if (el === document.body) return 'body';
     if (el === document.documentElement) return 'html';
-    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.id) return `#${CSS.escape(el.id)}`;
 
     const parts = [];
     let current = el;
@@ -4206,7 +4206,7 @@ if (IS_BROWSER) {
 
       // Anchor on an ancestor's ID and stop walking up
       if (current.id) {
-        parts[0] = '#' + CSS.escape(current.id);
+        parts[0] = `#${CSS.escape(current.id)}`;
         break;
       }
 
@@ -5223,7 +5223,7 @@ if (IS_BROWSER) {
       try { rules = sheet.cssRules; } catch { continue; }
       if (!rules) continue;
       for (const rule of Array.from(rules)) {
-        try { stylesheetCssText += rule.cssText + '\n'; } catch { /* ignore */ }
+        try { stylesheetCssText += `${rule.cssText}\n`; } catch { /* ignore */ }
       }
     }
     const stylesheetFindings = [

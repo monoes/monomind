@@ -76,7 +76,7 @@ Output (JSON):
   const svelteComponentManifest = found ? null : findSvelteComponentManifest(id, process.cwd());
 
   if (!found && !svelteComponentManifest) {
-    console.log(JSON.stringify({ handled: false, error: 'Session markers not found for id: ' + id }));
+    console.log(JSON.stringify({ handled: false, error: `Session markers not found for id: ${id}` }));
     process.exit(0);
   }
 
@@ -112,7 +112,7 @@ Output (JSON):
       };
     }
     if (result.carbonize) {
-      result.todo = 'REQUIRED before next poll: carbonize cleanup in ' + result.file + '. See reference/live.md "Required after accept".';
+      result.todo = `REQUIRED before next poll: carbonize cleanup in ${result.file}. See reference/live.md "Required after accept".`;
     }
     console.log(JSON.stringify({ handled: result.handled !== false, ...result }));
     return;
@@ -155,7 +155,7 @@ Output (JSON):
     // five-step checklist lives in reference/live.md (loaded once per
     // session); repeating it per-event would waste tokens.
     if (result.carbonize) {
-      result.todo = 'REQUIRED before next poll: carbonize cleanup in ' + relFile + '. See reference/live.md "Required after accept".';
+      result.todo = `REQUIRED before next poll: carbonize cleanup in ${relFile}. See reference/live.md "Required after accept".`;
     }
     // Scrub stash entries whose text appeared inside the just-replaced
     // original wrap block. The accept embodies those manual edits (wrap was
@@ -292,29 +292,29 @@ function buildCarbonizeReplacement({
     : 'style="display: contents"';
 
   const pushCarbonizeBody = (bodyIndent) => {
-    const bodyRestored = reindentContent(restored, indent, bodyIndent + '  ');
-    lines.push(bodyIndent + commentSyntax.open + ' monodesign-carbonize-start ' + id + ' ' + commentSyntax.close);
-    lines.push(bodyIndent + '<style data-monodesign-css="' + id + '">' + (isJsx ? '{`' : ''));
+    const bodyRestored = reindentContent(restored, indent, `${bodyIndent}  `);
+    lines.push(`${bodyIndent + commentSyntax.open} monodesign-carbonize-start ${id} ${commentSyntax.close}`);
+    lines.push(`${bodyIndent}<style data-monodesign-css="${id}">${isJsx ? '{`' : ''}`);
     for (const cssLine of cssContent) {
       lines.push(bodyIndent + cssLine.trimStart());
     }
     lines.push(bodyIndent + (isJsx ? '`}</style>' : '</style>'));
     if (paramValues && Object.keys(paramValues).length > 0) {
       lines.push(
-        bodyIndent + commentSyntax.open + ' monodesign-param-values ' + id + ': ' + JSON.stringify(paramValues) + ' ' + commentSyntax.close,
+        `${bodyIndent + commentSyntax.open} monodesign-param-values ${id}: ${JSON.stringify(paramValues)} ${commentSyntax.close}`,
       );
     }
-    lines.push(bodyIndent + commentSyntax.open + ' monodesign-carbonize-end ' + id + ' ' + commentSyntax.close);
-    lines.push(bodyIndent + '<div data-monodesign-variant="' + variantNum + '" ' + variantStyleAttr + '>');
+    lines.push(`${bodyIndent + commentSyntax.open} monodesign-carbonize-end ${id} ${commentSyntax.close}`);
+    lines.push(`${bodyIndent}<div data-monodesign-variant="${variantNum}" ${variantStyleAttr}>`);
     lines.push(...bodyRestored);
-    lines.push(bodyIndent + '</div>');
+    lines.push(`${bodyIndent}</div>`);
   };
 
   if (isJsx) {
     const wrapperStyle = 'style={{ display: "contents" }}';
-    lines.push(indent + '<div data-monodesign-carbonize="' + id + '" ' + wrapperStyle + '>');
-    pushCarbonizeBody(indent + '  ');
-    lines.push(indent + '</div>');
+    lines.push(`${indent}<div data-monodesign-carbonize="${id}" ${wrapperStyle}>`);
+    pushCarbonizeBody(`${indent}  `);
+    lines.push(`${indent}</div>`);
   } else {
     pushCarbonizeBody(indent);
   }
@@ -345,7 +345,7 @@ function handleAccept(id, variantNum, lines, targetFile, paramValues) {
 
   // Extract the chosen variant's inner content
   const variantContent = extractVariant(lines, block, variantNum);
-  if (!variantContent) return { handled: false, error: 'Variant ' + variantNum + ' not found' };
+  if (!variantContent) return { handled: false, error: `Variant ${variantNum} not found` };
   const originalContent = extractOriginal(lines, block);
 
   // Extract CSS block if present
@@ -382,7 +382,7 @@ function handleAccept(id, variantNum, lines, targetFile, paramValues) {
 
 function readSourceShadowPreviewMeta(content, id) {
   const escaped = escapeRegExp(id);
-  const wrapperRe = new RegExp('<[^>]+data-monodesign-variants=(["\'])' + escaped + '\\1[^>]*>');
+  const wrapperRe = new RegExp(`<[^>]+data-monodesign-variants=(["'])${escaped}\\1[^>]*>`);
   const match = String(content || '').match(wrapperRe);
   if (!match) return null;
   const tag = match[0];
@@ -395,7 +395,7 @@ function readSourceShadowPreviewMeta(content, id) {
 }
 
 function readHtmlAttr(tag, name) {
-  const match = String(tag || '').match(new RegExp('\\s' + escapeRegExp(name) + '\\s*=\\s*(["\'])(.*?)\\1'));
+  const match = String(tag || '').match(new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*(["'])(.*?)\\1`));
   if (!match) return null;
   return decodeHtmlAttr(match[2]);
 }
@@ -419,8 +419,8 @@ function decodeHtmlAttr(value) {
 function findMarkerBlock(id, lines) {
   let start = -1;
   let end = -1;
-  const startPattern = 'monodesign-variants-start ' + id;
-  const endPattern = 'monodesign-variants-end ' + id;
+  const startPattern = `monodesign-variants-start ${id}`;
+  const endPattern = `monodesign-variants-end ${id}`;
 
   for (let i = 0; i < lines.length; i++) {
     if (start === -1 && lines[i].includes(startPattern)) start = i;
@@ -504,7 +504,7 @@ function escapeRegExp(value) {
 }
 
 function isVariantEndMarkerLine(line, id) {
-  return new RegExp('monodesign-variants-end\\s+' + escapeRegExp(id) + '(?:\\s|--|\\*/|$)').test(line);
+  return new RegExp(`monodesign-variants-end\\s+${escapeRegExp(id)}(?:\\s|--|\\*/|$)`).test(line);
 }
 
 function hasVariantWrapperAttr(line, id) {
@@ -562,7 +562,7 @@ function stripStyleAndJoin(lines, block) {
  * Returns the inner string (may be empty), or null if not found.
  */
 function extractInnerByAttr(text, attrMatch) {
-  const openerRe = new RegExp('<([A-Za-z][A-Za-z0-9]*)\\b[^>]*' + attrMatch + '[^>]*>');
+  const openerRe = new RegExp(`<([A-Za-z][A-Za-z0-9]*)\\b[^>]*${attrMatch}[^>]*>`);
   const openMatch = text.match(openerRe);
   if (!openMatch) return null;
 
@@ -571,7 +571,7 @@ function extractInnerByAttr(text, attrMatch) {
 
   // Match any opener or closer of this tag name after innerStart.
   // (Does not match self-closing <TAG … />, which doesn't contribute to depth.)
-  const tagRe = new RegExp('<(?:/)?' + tagName + '\\b[^>]*>', 'g');
+  const tagRe = new RegExp(`<(?:/)?${tagName}\\b[^>]*>`, 'g');
   tagRe.lastIndex = innerStart;
 
   let depth = 1;
@@ -606,7 +606,7 @@ function extractOriginal(lines, block) {
  */
 function extractVariant(lines, block, variantNum) {
   const text = stripStyleAndJoin(lines, block);
-  const inner = extractInnerByAttr(text, 'data-monodesign-variant="' + variantNum + '"');
+  const inner = extractInnerByAttr(text, `data-monodesign-variant="${variantNum}"`);
   if (inner === null) return null;
   const result = inner.split('\n');
   // Collapse a lone empty leading/trailing line (common after string splice).
@@ -626,7 +626,7 @@ function extractVariant(lines, block, variantNum) {
  *      the lines between them.
  */
 function extractCss(lines, block, id) {
-  const styleAttr = 'data-monodesign-css="' + id + '"';
+  const styleAttr = `data-monodesign-css="${id}"`;
   let inStyle = false;
   const content = [];
 
@@ -747,7 +747,7 @@ function detectCommentSyntax(filePath) {
 // ---------------------------------------------------------------------------
 
 function findSessionFile(id, cwd) {
-  const marker = 'monodesign-variants-start ' + id;
+  const marker = `monodesign-variants-start ${id}`;
   const searchDirs = ['src', 'app', 'pages', 'components', 'public', 'views', 'templates', '.'];
   const seen = new Set();
 

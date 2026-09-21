@@ -238,14 +238,14 @@ function globToRegex(pattern) {
       re += '[^/]';
       i += 1;
     } else if (/[.+^${}()|[\]\\]/.test(c)) {
-      re += '\\' + c;
+      re += `\\${c}`;
       i += 1;
     } else {
       re += c;
       i += 1;
     }
   }
-  return new RegExp('^' + re + '$');
+  return new RegExp(`^${re}$`);
 }
 
 // ---------------------------------------------------------------------------

@@ -66,7 +66,7 @@ describe('slugFromTarget', () => {
   });
 
   it('caps overly long slugs from the tail', () => {
-    const longPath = 'a/'.repeat(60) + 'file.tsx';   // way over 50
+    const longPath = `${'a/'.repeat(60)}file.tsx`;   // way over 50
     const slug = slugFromTarget(longPath, { cwd });
     assert.ok(slug.length <= 50);
     assert.ok(slug.endsWith('file-tsx'));

@@ -44,7 +44,7 @@ describe('live recovery CLI commands', () => {
     assert.match(
       resume.nextAction,
       /live-poll\.mjs/,
-      'event=live_resume.next_action actor=agent operation=recover_session risk=agent_has_state_but_no_next_step expected=live-poll.mjs actual=' + resume.nextAction,
+      `event=live_resume.next_action actor=agent operation=recover_session risk=agent_has_state_but_no_next_step expected=live-poll.mjs actual=${resume.nextAction}`,
     );
   }));
 
@@ -96,7 +96,7 @@ describe('live recovery CLI commands', () => {
     assert.match(
       resume.nextAction,
       /Finish carbonize cleanup in src\/App\.jsx/,
-      'event=live_resume.carbonize_next_action actor=agent operation=recover_carbonize risk=carbonize_cleanup_hidden_after_accept expected=cleanup-specific action actual=' + resume.nextAction,
+      `event=live_resume.carbonize_next_action actor=agent operation=recover_carbonize risk=carbonize_cleanup_hidden_after_accept expected=cleanup-specific action actual=${resume.nextAction}`,
     );
   }));
 
