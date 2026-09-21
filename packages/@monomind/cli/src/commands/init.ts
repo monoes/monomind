@@ -5,6 +5,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { VERSION } from '../index.js';
 import {
   DEFAULT_INIT_OPTIONS,
   executeInit,
@@ -48,6 +49,10 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const requestedPlatforms = ctx.flags.platform as string | undefined;
   const enablePlatformHooks = ctx.flags['enable-hooks'] === true;
   const noInstall = (ctx.flags['no-install'] || ctx.flags.noInstall) as boolean;
+  // `--pin` with no value pins to the running CLI; `--pin <version>` pins to
+  // that exact version. Absent (the default) keeps the floating command.
+  const pinFlag = ctx.flags.pin;
+  const pin = pinFlag === true ? VERSION : typeof pinFlag === 'string' ? pinFlag : undefined;
   const cwd = ctx.cwd;
 
   const initialized = isInitialized(cwd);
@@ -162,6 +167,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     selectedTargets.delete('claude');
     selectedPlatforms = selectedPlatforms.filter((platform) => platform !== 'claude');
   }
+  if (pin) options.mcp = { ...options.mcp, pin };
   options.selectedPlatforms = selectedPlatforms;
   options.enablePlatformHooks = enablePlatformHooks;
   options.components.antigravity = selectedTargets.has('antigravity');
@@ -851,6 +857,17 @@ export const initCommand: Command = {
       description: 'Opt in to deterministic native platform hooks',
       type: 'boolean',
       default: false,
+    },
+    {
+      // Opt-in on purpose (#312): a pin written without being asked for would
+      // silently freeze the project on whichever version happened to run
+      // `init`, and upgrading monomind would stop changing the MCP server it
+      // starts. Projects whose policy forbids `@latest` ask for it explicitly.
+      name: 'pin',
+      description:
+        'Pin the generated MCP entry to an exact version instead of monomind@latest ' +
+        '(bare --pin uses the running version; --pin <version> uses that one)',
+      type: 'string',
     },
     {
       name: 'opencode',

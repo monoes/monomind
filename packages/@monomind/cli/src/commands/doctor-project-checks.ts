@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOCTOR_TRACKED_HELPERS, OBSOLETE_HELPER_NAMES } from '../init/helpers-generator.js';
 import { MONOMIND_NEVER_COMMIT } from '../init/never-commit.js';
+import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
 import {
   classifyNativeModuleError,
   extractNativeModulePackageName,
@@ -383,7 +384,7 @@ export async function checkMcpServers(options: McpCheckOptions = {}): Promise<He
           name: 'MCP Servers',
           status: 'warn',
           message: `${count} servers (monomind not found)`,
-          fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start',
+          fix: mcpAddHint(),
         };
       } catch {
         /* try next */
@@ -394,7 +395,7 @@ export async function checkMcpServers(options: McpCheckOptions = {}): Promise<He
     name: 'MCP Servers',
     status: 'warn',
     message: 'No MCP config found',
-    fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start',
+    fix: mcpAddHint(),
   };
 }
 

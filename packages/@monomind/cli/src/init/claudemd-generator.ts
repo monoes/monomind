@@ -14,6 +14,7 @@ import { memoryCommand } from '../commands/memory.js';
 import { monoswarmCommand } from '../commands/monoswarm.js';
 import { sessionCommand } from '../commands/session.js';
 import { taskCommand } from '../commands/task.js';
+import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
 import { WORKER_COUNT, WORKER_ROWS } from './generated-counts.js';
 import { _isOptionalPackageResolvable, subcommandCount, workerTableRows } from './shared.js';
 import { detectProjectProfile } from './shared-instructions-generator.js';
@@ -532,7 +533,7 @@ function setupAndBoundary(): string {
 
 \`\`\`bash
 # Add MCP server — includes monograph, monoswarm, memory, hooks, all 66+ tools
-claude mcp add monomind -- npx -y monomind mcp start
+${mcpAddHint()}
 
 # Verify everything works
 npx monomind doctor --fix
