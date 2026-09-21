@@ -8248,7 +8248,8 @@ async function v2RenderOrgRuntime() {
   const pct = b.tokens && b.used !== null ? Math.min(100, (b.used / b.tokens) * 100) : null;
   const budget = b.used === null ? 'unknown' : `${_rtTok(b.used)} / ${_rtTok(b.tokens)}`;
   const budgetWhy = b.used === null ? ' · run predates cache metering' : '';
-  const budgetSub = `${esc(b.basis)} basis${pct !== null ? ` · ${pct.toFixed(1)}%` : ''}${budgetWhy} · ${fmtCost(v.totals?.cost_usd)}`;
+  // 'daemon' = what the running org enforces; 'run log' = recorded usage events.
+  const budgetSub = `${esc(b.basis)} basis${pct !== null ? ` · ${pct.toFixed(1)}%` : ''}${budgetWhy} · ${b.source === 'daemon' ? 'as enforced' : 'from the run log'} · ${fmtCost(v.totals?.cost_usd)}`;
   const gate = s.completion_evidence ? 'evidence required' : 'off';
   const gateSub = s.completion_evidence
     ? `escalate after ${esc(s.max_evidence_attempts)} refusals · org_complete: ${esc(s.completion)}`
@@ -8256,6 +8257,7 @@ async function v2RenderOrgRuntime() {
 
   let html = '<div style="padding:16px">';
   if (!v.valid) html += `<div class="empty" style="color:var(--red);text-align:left;margin-bottom:10px">Definition does not parse — <code>org run</code> will refuse it:<br>${v.problems.map(esc).join('<br>')}</div>`;
+  if (v.pending?.length) html += `<div class="empty" style="color:var(--amber, #d29922);text-align:left;margin-bottom:10px">Saved config not in force yet — applies from the next run:<br>${v.pending.map(p => `${esc(p.field)}: running <code>${esc(JSON.stringify(p.running ?? null))}</code>, saved <code>${esc(JSON.stringify(p.saved ?? null))}</code>`).join('<br>')}</div>`;
   if (v.liveError) html += `<div class="empty" style="color:var(--amber, #d29922);text-align:left;margin-bottom:10px">A daemon is registered for this org but did not answer: ${esc(v.liveError)}</div>`;
   html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
     ${_rtCard('STATUS', `<span class="ss-pill ${v.live ? 'on' : ''}">${esc(v.status)}</span>`, statusSub)}
@@ -8267,7 +8269,7 @@ async function v2RenderOrgRuntime() {
 
   // Roles
   html += _rtTable(`ROLES${v.run ? ` — USAGE IN ${esc(v.run)}` : ''}`,
-    ['Role', 'Runtime', 'Model', 'Effort', 'Tier', 'Status', 'In', 'Out', 'Cache read', 'Cache write', 'Cost', 'Last active'],
+    ['Role', 'Runtime', 'Model', 'Effort', 'Tier', 'Status', 'Budget', 'In', 'Out', 'Cache read', 'Cache write', 'Cost', 'Last active'],
     (v.roles || []).map(r => [
       `<span style="color:var(--text-hi)">${esc(r.title)}</span>${r.title !== r.id ? `<div style="font-size:10px;color:var(--text-xs)">${esc(r.id)}</div>` : ''}`,
       esc(r.runtime),
@@ -8277,6 +8279,10 @@ async function v2RenderOrgRuntime() {
       esc(r.effort || '—'),
       esc(r.tier || '—'),
       `<span class="ss-pill ${r.status === 'running' || r.status === 'working' ? 'on' : ''}">${esc(r.status)}</span>`,
+      // The role's own ceiling, as its policy engine enforces it (running org only).
+      r.enforced?.maxTokens
+        ? `<span style="color:${r.enforced.budgeted >= r.enforced.maxTokens * 0.9 ? 'var(--amber, #d29922)' : 'inherit'}">${mono(`${_rtTok(r.enforced.budgeted)} / ${_rtTok(r.enforced.maxTokens)}`)}</span>`
+        : '<span style="color:var(--text-xs)">—</span>',
       // A run recorded before the four-way meter only has an input+output total.
       ...(r.usage.legacy_tokens && !r.usage.tokens
         ? [`<span title="Recorded before the meter split input, output and cache tokens">${mono(_rtTok(r.usage.legacy_tokens))} in+out</span>`, '—', '—', '—']

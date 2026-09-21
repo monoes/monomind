@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { registerOrg } from '../orgrt/broker.js';
+import { OrgDefSchema } from '../orgrt/types.js';
 import * as rt from '../ui/org-runtime.mjs';
 import { handleOrgRoutes } from '../ui/routes-org.mjs';
 
@@ -171,7 +172,7 @@ describe('runtimeView — org not running', () => {
       legacy_tokens: 0,
     });
     // uncached basis (default) = in + out, not the billable total
-    expect(v.budget).toEqual({ tokens: 1000, basis: 'uncached', used: 250 });
+    expect(v.budget).toEqual({ tokens: 1000, basis: 'uncached', used: 250, source: 'run log' });
     expect(v.settings).toMatchObject({
       completion_evidence: true,
       max_evidence_attempts: 3,
@@ -263,9 +264,24 @@ describe('runtimeView — org running', () => {
             {
               name: ORG,
               run: RUN,
-              roles: [{ id: 'dev', status: 'running' }],
+              roles: [
+                {
+                  id: 'dev',
+                  status: 'running',
+                  usage: { budgeted: 450, billable: 9000, maxTokens: 500, costUsd: 1.2 },
+                },
+              ],
               pendingRoles: ['lead'],
               tasks: [{ id: 't2', status: 'running' }],
+              budget: { tokens: 1000, basis: 'uncached', used: 700 },
+              // the run loaded an older definition than the one on disk
+              loaded: {
+                goal: 'ship it',
+                schedule: null,
+                // parsed like the daemon parses it, so schema defaults match
+                run_config: OrgDefSchema.parse(def({ run_config: { budget_tokens: 1000, idle_minutes: 10, completion_evidence: true, legacy_key: 'kept' } })).run_config,
+                cost_tiers_default: 'economy',
+              },
             },
           ],
         }),
@@ -288,6 +304,12 @@ describe('runtimeView — org running', () => {
       });
       // no watchdog record yet → reported as unknown, not guessed
       expect(v.idle).toMatchObject({ idle_hold: 'unknown' });
+      // the enforced numbers, not the (smaller) run-log sum
+      expect(v.budget).toEqual({ tokens: 1000, basis: 'uncached', used: 700, source: 'daemon' });
+      expect(v.roles.find((r: any) => r.id === 'dev').enforced).toMatchObject({ budgeted: 450, maxTokens: 500 });
+      // settings in force are the loaded ones; the saved edit is pending
+      expect(v.settings.idle_minutes).toBe(10);
+      expect(v.pending).toEqual([{ field: 'run_config.idle_minutes', running: 10, saved: 30 }]);
     } finally {
       await new Promise<void>((r) => server.close(() => r()));
     }
