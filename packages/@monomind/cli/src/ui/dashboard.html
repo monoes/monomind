@@ -4499,9 +4499,11 @@ let _hiReloadTimer = null;
 function _hiScheduleReload() {
   clearTimeout(_hiReloadTimer);
   _hiReloadTimer = setTimeout(() => {
-    // The reload rebuilds the list; wait while an answer or note is being typed.
+    // Drafts survive the rebuild (renderHiCurrentTab); still wait while one is
+    // being typed, or while its row has focus (a press on its Answer button),
+    // so the row is not replaced under the cursor or the click.
     const typing = [...document.querySelectorAll('#hi-content .hi-answer-input')]
-      .some(i => i === document.activeElement && i.value.trim());
+      .some(i => i.value.trim() && i.closest('.sess-row')?.contains(document.activeElement));
     if (typing) _hiScheduleReload();
     else renderHumanInputView();
   }, 400);
@@ -4587,7 +4589,12 @@ function renderHiCurrentTab(projectCount, errors) {
     el.innerHTML = `${errHtml}<div class="empty"><div class="empty-ico">❓</div><div>${_hiTab === 'answered' ? 'Nothing resolved yet' : 'Nothing waiting on you'}</div></div>`;
     return;
   }
+  // Rebuilding the list must not lose an answer or note typed into a row.
+  const draftKey = i => { const b = i.closest('.sess-row')?.querySelector('[data-id]'); return b ? [b.dataset.kind, b.dataset.dir, b.dataset.org, b.dataset.id].join('\n') : null; };
+  const drafts = new Map();
+  el.querySelectorAll('.hi-answer-input').forEach(i => { const k = draftKey(i); if (k && i.value) drafts.set(k, i.value); });
   el.innerHTML = `${errHtml}<div class="sess-list">${entries.map(_hiEntryHtml).join('')}</div>`;
+  if (drafts.size) el.querySelectorAll('.hi-answer-input').forEach(i => { const k = draftKey(i); if (k && drafts.has(k)) i.value = drafts.get(k); });
 }
 
 function updateHumanInputBadge(count) {
