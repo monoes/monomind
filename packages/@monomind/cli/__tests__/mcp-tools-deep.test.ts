@@ -11,7 +11,7 @@
  * Uses vitest with mocks to isolate from external dependencies.
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ============================================================================
 // Mock setup - must be before imports

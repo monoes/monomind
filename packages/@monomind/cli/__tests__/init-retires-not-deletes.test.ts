@@ -27,7 +27,6 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initCommand } from '../src/commands/init.js';
 import { copySkills } from '../src/init/copy-assets.js';
-import { retireGeneratedEntry } from '../src/init/shared.js';
 import { DEFAULT_INIT_OPTIONS, detectPlatform } from '../src/init/types.js';
 import type { InitResult } from '../src/init/types.js';
 import { output } from '../src/output.js';

@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -35,7 +35,7 @@ function collectResponses(child: ChildProcessWithoutNullStreams, count: number, 
 
     child.stdout.on('data', (chunk: Buffer) => {
       buffer += chunk.toString();
-      let lines = buffer.split('\n');
+      const lines = buffer.split('\n');
       buffer = lines.pop() || '';
       for (const line of lines) {
         if (!line.trim()) continue;

@@ -14,8 +14,7 @@
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
-import { spawnSync, spawn } from 'node:child_process';
-import http from 'node:http';
+import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';

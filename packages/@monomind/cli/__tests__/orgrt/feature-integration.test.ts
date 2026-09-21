@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { OrgDefSchema, ORG_DIR } from '../../src/orgrt/types.js';
 import { ScrollbackBuffer } from '../../src/orgrt/daemon.js';
-import { captureCheckpoint, validateCheckpoint, mergeCheckpoint } from '../../src/orgrt/checkpoint.js';
+import { captureCheckpoint, validateCheckpoint } from '../../src/orgrt/checkpoint.js';
 import { runPrechecks } from '../../src/orgrt/prechecks.js';
 import { resolveProviderEnv } from '../../src/orgrt/provider.js';
 import { loadRemoteRegistry, lookupRemoteOrg } from '../../src/orgrt/remote.js';

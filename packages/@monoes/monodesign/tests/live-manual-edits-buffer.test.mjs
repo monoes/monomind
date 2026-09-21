@@ -6,7 +6,6 @@ import os from 'node:os';
 import {
   readBuffer,
   readBufferStrict,
-  writeBuffer,
   stageEntry,
   removeEntries,
   countByPage,

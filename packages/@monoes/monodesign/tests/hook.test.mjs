@@ -46,8 +46,6 @@ import {
   resolveHarness,
   normalizeHookEvent,
   expandScanTargets,
-  parseStaticStyleImports,
-  coLocatedStylesheets,
   runHook,
   payload,
   extractFindingIgnoreValue,

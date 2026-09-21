@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync, execSync, spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import {
   getDesignSidecarPath,
   getLiveDir,

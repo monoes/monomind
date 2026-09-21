@@ -16,7 +16,6 @@
  * wrote, with a kill -9 control showing the cleanup is a nicety, not a
  * guarantee (the age-based sweep is the real backstop).
  */
-import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

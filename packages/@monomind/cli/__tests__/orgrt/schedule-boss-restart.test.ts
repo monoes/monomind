@@ -123,7 +123,7 @@ describe('scheduleBossRestart Race Prevention (Task 2)', () => {
     writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(def));
 
     // Start org
-    let running = await daemon.startOrg(orgName);
+    const running = await daemon.startOrg(orgName);
     expect(running).toBeDefined();
 
     // Simulate boss crash - first restart should be scheduled
