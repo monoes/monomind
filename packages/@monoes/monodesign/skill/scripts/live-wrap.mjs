@@ -60,6 +60,7 @@ The agent should insert variant HTML at insertLine.`);
   }
 
   const id = argVal(args, '--id');
+  // biome-ignore lint/correctness/useParseIntRadix: --count is caller-supplied CLI input; radix 10 would change how a 0x value parses
   const count = parseInt(argVal(args, '--count') || '3');
   const elementId = argVal(args, '--element-id');
   const classes = argVal(args, '--classes');

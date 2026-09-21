@@ -680,7 +680,7 @@ if (IS_BROWSER) {
 
       const textColor = parseRgb(style.color);
       const fontSize = parseFloat(style.fontSize) || 16;
-      const fontWeight = parseInt(style.fontWeight) || 400;
+      const fontWeight = parseInt(style.fontWeight, 10) || 400;
       const isLargeText = fontSize >= WCAG_LARGE_TEXT_PX || (fontSize >= WCAG_LARGE_BOLD_TEXT_PX && fontWeight >= 700);
       const threshold = isLargeText ? 3.0 : 4.5;
       const clip = {

@@ -5566,6 +5566,7 @@
         // when a late HMR/source reinjection lands after they have cycled.
         const variants = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])');
         arrivedVariants = variants.length;
+        // biome-ignore lint/correctness/useParseIntRadix: data-monodesign-variant-count can be hand-written in page source (reference/live.md), so a 0x value is not provably excluded
         expectedVariants = parseInt(wrapper.dataset.monodesignVariantCount || arrivedVariants);
         if (arrivedVariants <= 0) {
           recoverEmptyCycling('source-fallback-empty');
@@ -6055,6 +6056,7 @@
         if (visEl) selectedElement = visEl;
       }
 
+      // biome-ignore lint/correctness/useParseIntRadix: data-monodesign-variant-count can be hand-written in page source (reference/live.md), so a 0x value is not provably excluded
       const expected = parseInt(wrapper.dataset.monodesignVariantCount || '0');
       if (expected > 0) expectedVariants = expected;
 
@@ -8065,6 +8067,7 @@ void main() {
     }
 
     currentSessionId = sessionId;
+    // biome-ignore lint/correctness/useParseIntRadix: data-monodesign-variant-count can be hand-written in page source (reference/live.md), so a 0x value is not provably excluded
     expectedVariants = parseInt(wrapper.dataset.monodesignVariantCount || '0');
     const variants = wrapper.querySelectorAll('[data-monodesign-variant]:not([data-monodesign-variant="original"])');
     arrivedVariants = variants.length;
