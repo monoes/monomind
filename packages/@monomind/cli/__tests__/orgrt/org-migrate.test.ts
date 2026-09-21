@@ -303,6 +303,39 @@ describe('listOrgConfigFiles ignores non-org JSON files (#309)', () => {
   });
 });
 
+describe('listOrgConfigFiles requires org shape, not just a valid stem (#309)', () => {
+  it('skips a same-named tool config with no `name` field, keeps the real org', async () => {
+    const { listOrgConfigFiles } = await import('../../src/commands/org.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'org-migrate-shape-'));
+    try {
+      const orgsDir = join(cwd, ORG_DIR);
+      mkdirSync(orgsDir, { recursive: true });
+      const files = {
+        'my-org.json': JSON.stringify({ name: 'my-org', roles: [{ id: 'boss', reports_to: null }] }),
+        // valid stem, valid JSON, but no `name` — not an org config's shape
+        'toolconfig.json': JSON.stringify({ mcpServers: { foo: { command: 'bar' } } }),
+      };
+      for (const [name, contents] of Object.entries(files)) {
+        writeFileSync(join(orgsDir, name), contents);
+      }
+      const configs = listOrgConfigFiles(orgsDir);
+      expect(configs).toEqual(['my-org.json']);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('still lists a file that fails to parse at all, so corruption is reported rather than hidden', async () => {
+    const { listOrgConfigFiles } = await import('../../src/commands/org.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'org-migrate-shape-parse-'));
+    try {
+      const orgsDir = join(cwd, ORG_DIR);
+      mkdirSync(orgsDir, { recursive: true });
+      writeFileSync(join(orgsDir, 'broken.json'), '{ this is not json');
+      const configs = listOrgConfigFiles(orgsDir);
+      expect(configs).toContain('broken.json');
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+});
+
 describe('legacy reports_to "undefined" artifact', () => {
   it('treats the literal string "undefined" as unset', async () => {
     const { migrateOrgConfig } = await import('../../src/orgrt/migrate.js');

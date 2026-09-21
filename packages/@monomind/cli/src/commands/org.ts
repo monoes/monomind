@@ -92,13 +92,34 @@ export function listOrgConfigFiles(orgsDir: string): string[] {
   // org that `org list` reports but validateOrgName rejects everywhere else.
   // This subsumes the old `._` AppleDouble check (a leading dot fails the
   // pattern) since a leading `.` doesn't match the required first character.
-  return readdirSync(orgsDir).filter(
-    (f) =>
-      f.endsWith('.json') &&
-      !f.endsWith('.v1.json') &&
-      !ORG_ARTIFACT_SUFFIXES.some((suf) => f.endsWith(`${suf}.json`)) &&
-      ORG_NAME_RE.test(f.slice(0, -'.json'.length)),
-  );
+  //
+  // A valid-looking stem isn't enough (#309 follow-up): a same-directory
+  // tool config can still pass ORG_NAME_RE (e.g. `toolconfig.json`). When a
+  // candidate parses as JSON, also require it to carry the one field every
+  // org config schema requires (OrgDefSchema's `name`) before calling it an
+  // org, so an unrelated tool config is skipped rather than surfaced as one.
+  // A file that fails to parse at all is left in the list on purpose: that's
+  // a real org config corrupted on disk, and callers like `org validate`
+  // (no name given) and `org list` already detect and report that case
+  // (invalid-config / validation failure) rather than treating it as healthy
+  // — silently dropping it here would hide the corruption instead.
+  return readdirSync(orgsDir).filter((f) => {
+    if (
+      !f.endsWith('.json') ||
+      f.endsWith('.v1.json') ||
+      ORG_ARTIFACT_SUFFIXES.some((suf) => f.endsWith(`${suf}.json`)) ||
+      !ORG_NAME_RE.test(f.slice(0, -'.json'.length))
+    ) {
+      return false;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(join(orgsDir, f), 'utf8'));
+    } catch {
+      return true;
+    }
+    return OrgDefSchema.pick({ name: true }).safeParse(parsed).success;
+  });
 }
 
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
