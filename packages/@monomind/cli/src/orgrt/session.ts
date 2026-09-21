@@ -1727,7 +1727,12 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   tools.push({
     name: 'org_send',
     description:
-      'Send a message to another agent (role id) or another org ("org:role"). This is the only inter-agent channel.',
+      'Send a message to another agent (role id) or another org ("org:role"). This is the only inter-agent channel.' +
+      // D3: only orgs with a task-scoped role see this, so every other org's
+      // tool list (prefix position 0) is unchanged.
+      (opts.def?.roles.some((r) => resolveSessionScope(r, opts.def) === 'task')
+        ? " When a message is about a task, start its subject with [task:<id>] so a task-scoped recipient reads it in that task's session."
+        : ''),
     schema: { to: z.string(), subject: z.string(), message: z.string() },
     handler: async (args) => {
       if (opts.beforeTool) {
