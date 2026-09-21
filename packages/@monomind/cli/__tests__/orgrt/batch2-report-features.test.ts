@@ -14,7 +14,7 @@ describe('Batch 2 report features', () => {
     mkdirSync(join(cwd, ORG_DIR, orgName, run), { recursive: true });
     writeFileSync(
       join(cwd, ORG_DIR, orgName, run, 'bus.jsonl'),
-      events.map(e => JSON.stringify(e)).join('\n') + '\n'
+      `${events.map(e => JSON.stringify(e)).join('\n')}\n`
     );
   };
 

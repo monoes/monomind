@@ -63,7 +63,7 @@ beforeAll(() => {
 
 afterAll(() => {
   closeDb(db);
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (existsSync(p)) unlinkSync(p);
   }
   // Cleanup temp files

@@ -65,7 +65,7 @@ beforeAll(() => {
 
 afterAll(() => {
   closeDb(db);
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (existsSync(p)) unlinkSync(p);
   }
 });
@@ -119,7 +119,7 @@ describe('getToolMap', () => {
       expect(result).toHaveLength(0);
     } finally {
       closeDb(emptyDb);
-      for (const p of [emptyDbPath, emptyDbPath + '-wal', emptyDbPath + '-shm']) {
+      for (const p of [emptyDbPath, `${emptyDbPath}-wal`, `${emptyDbPath}-shm`]) {
         if (existsSync(p)) unlinkSync(p);
       }
     }

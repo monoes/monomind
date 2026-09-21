@@ -22,7 +22,7 @@ import {
 // Test Setup
 // ============================================================================
 
-const TEST_PROJECT_ROOT = path.join(os.tmpdir(), 'monomind-test-' + Date.now());
+const TEST_PROJECT_ROOT = path.join(os.tmpdir(), `monomind-test-${Date.now()}`);
 
 async function setupTestDir(): Promise<void> {
   await fs.mkdir(path.join(TEST_PROJECT_ROOT, '.monomind', 'metrics'), { recursive: true });
@@ -770,7 +770,7 @@ describe('Reflexion Worker (MEM-14 regression)', () => {
 
   async function writeRouteOutcomes(records: Record<string, unknown>[]): Promise<void> {
     const outcomesPath = path.join(TEST_PROJECT_ROOT, '.monomind', 'route-outcomes.jsonl');
-    const jsonl = records.map(r => JSON.stringify(r)).join('\n') + '\n';
+    const jsonl = `${records.map(r => JSON.stringify(r)).join('\n')}\n`;
     await fs.writeFile(outcomesPath, jsonl, 'utf-8');
   }
 
@@ -865,7 +865,7 @@ describe('Reflexion Worker (MEM-14 regression)', () => {
 // single-package fallback layout — with no reference to this repo's paths.
 
 describe('DDD Worker Package Discovery (MEM-13 regression)', () => {
-  const DDD_TEST_ROOT = path.join(os.tmpdir(), 'monomind-ddd-test-' + Date.now());
+  const DDD_TEST_ROOT = path.join(os.tmpdir(), `monomind-ddd-test-${Date.now()}`);
 
   afterEach(async () => {
     await fs.rm(DDD_TEST_ROOT, { recursive: true, force: true }).catch(() => {});

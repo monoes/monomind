@@ -44,7 +44,7 @@ let projectDir = '';
 const prevCwd = process.cwd();
 
 function busLine(overrides: Record<string, unknown>): string {
-  return JSON.stringify({ id: 'x', org: ORG, run: RUN_ID, ...overrides }) + '\n';
+  return `${JSON.stringify({ id: 'x', org: ORG, run: RUN_ID, ...overrides })}\n`;
 }
 
 beforeAll(async () => {

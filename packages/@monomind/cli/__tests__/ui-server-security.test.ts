@@ -91,11 +91,11 @@ beforeAll(async () => {
   const usage = { input_tokens: 1_000_000, output_tokens: 1_000_000 };
   writeFileSync(
     join(claudeProjects, 'unknown-model.jsonl'),
-    JSON.stringify({ type: 'assistant', timestamp: '2026-07-26T00:00:00Z', message: { model: 'totally-made-up-model-9', usage } }) + '\n',
+    `${JSON.stringify({ type: 'assistant', timestamp: '2026-07-26T00:00:00Z', message: { model: 'totally-made-up-model-9', usage } })}\n`,
   );
   writeFileSync(
     join(claudeProjects, 'known-model.jsonl'),
-    JSON.stringify({ type: 'assistant', timestamp: '2026-07-26T00:00:00Z', message: { model: 'claude-sonnet-4-5', usage } }) + '\n',
+    `${JSON.stringify({ type: 'assistant', timestamp: '2026-07-26T00:00:00Z', message: { model: 'claude-sonnet-4-5', usage } })}\n`,
   );
 
   // os.homedir() reads $HOME on POSIX — this is what points the cost endpoints

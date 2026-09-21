@@ -20,8 +20,8 @@ afterAll(() => {
     unlinkSync(dbPath);
   }
   // Also cleanup WAL files
-  if (existsSync(dbPath + '-wal')) unlinkSync(dbPath + '-wal');
-  if (existsSync(dbPath + '-shm')) unlinkSync(dbPath + '-shm');
+  if (existsSync(`${dbPath}-wal`)) unlinkSync(`${dbPath}-wal`);
+  if (existsSync(`${dbPath}-shm`)) unlinkSync(`${dbPath}-shm`);
 });
 
 describe('node-store', () => {

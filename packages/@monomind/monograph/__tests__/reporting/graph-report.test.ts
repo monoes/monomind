@@ -84,7 +84,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm', outputPath]) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`, outputPath]) {
     if (existsSync(p)) {
       try { unlinkSync(p); } catch { /* ignore */ }
     }

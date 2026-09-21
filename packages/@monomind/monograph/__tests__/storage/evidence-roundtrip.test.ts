@@ -36,8 +36,8 @@ beforeAll(() => {
 afterAll(() => {
   closeDb(db);
   if (existsSync(dbPath)) unlinkSync(dbPath);
-  if (existsSync(dbPath + '-wal')) unlinkSync(dbPath + '-wal');
-  if (existsSync(dbPath + '-shm')) unlinkSync(dbPath + '-shm');
+  if (existsSync(`${dbPath}-wal`)) unlinkSync(`${dbPath}-wal`);
+  if (existsSync(`${dbPath}-shm`)) unlinkSync(`${dbPath}-shm`);
 });
 
 describe('evidence round-trip', () => {

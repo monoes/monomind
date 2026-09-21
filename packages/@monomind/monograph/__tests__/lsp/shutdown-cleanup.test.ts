@@ -60,7 +60,7 @@ describe('MONO-7: LSP shutdown releases DB + stdin listeners', () => {
     process.stdin.removeAllListeners('data');
     process.stdin.removeAllListeners('end');
     try { closeDb(db); } catch { /* already closed */ }
-    for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+    for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
       if (existsSync(p)) {
         try { unlinkSync(p); } catch { /* best effort */ }
       }

@@ -15,7 +15,7 @@ describe('tools phase — server.tool() pattern', () => {
 
     writeFileSync(
       join(base, 'src', 'mcp-server.ts'),
-      [
+      `${[
         `import { Server } from '@modelcontextprotocol/sdk/server/index.js';`,
         `const server = new Server({ name: 'example', version: '1.0.0' });`,
         ``,
@@ -24,7 +24,7 @@ describe('tools phase — server.tool() pattern', () => {
         `}`,
         ``,
         `server.tool('greet', { name: { type: 'string' } }, greetHandler);`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -85,7 +85,7 @@ describe('tools phase — TOOLS array pattern', () => {
 
     writeFileSync(
       join(base, 'src', 'tools.ts'),
-      [
+      `${[
         `export const TOOLS = [`,
         `  {`,
         `    name: 'search',`,
@@ -98,7 +98,7 @@ describe('tools phase — TOOLS array pattern', () => {
         `    inputSchema: { text: { type: 'string' } },`,
         `  },`,
         `];`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -134,12 +134,12 @@ describe('tools phase — exported constant tool pattern', () => {
 
     writeFileSync(
       join(base, 'src', 'my-tool.ts'),
-      [
+      `${[
         `export const MY_TOOL = {`,
         `  name: 'my-tool',`,
         `  description: 'A useful tool',`,
         `};`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);

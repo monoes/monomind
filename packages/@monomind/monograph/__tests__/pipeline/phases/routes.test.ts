@@ -165,14 +165,14 @@ describe('routes phase — Express-style routes', () => {
 
     writeFileSync(
       join(base, 'src', 'server.ts'),
-      [
+      `${[
         `import express from 'express';`,
         `const app = express();`,
         `function getUsers(req: any, res: any) { res.json([]); }`,
         `app.get('/api/items', getUsers);`,
         `app.post('/api/items', getUsers);`,
         `app.listen(3000);`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);

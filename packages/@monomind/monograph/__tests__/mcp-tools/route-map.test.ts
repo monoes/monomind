@@ -65,7 +65,7 @@ beforeAll(() => {
 
 afterAll(() => {
   closeDb(db);
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (existsSync(p)) unlinkSync(p);
   }
 });
@@ -205,7 +205,7 @@ describe('getMonographRouteMap — middleware detection (query-time)', () => {
 
   afterAll(() => {
     closeDb(db2);
-    for (const p of [dbPath2, dbPath2 + '-wal', dbPath2 + '-shm']) {
+    for (const p of [dbPath2, `${dbPath2}-wal`, `${dbPath2}-shm`]) {
       if (existsSync(p)) unlinkSync(p);
     }
   });

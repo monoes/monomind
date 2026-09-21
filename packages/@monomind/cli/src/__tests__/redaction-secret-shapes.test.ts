@@ -170,7 +170,7 @@ describe('redact() — AC-i116-E3: self-identifying credential prefixes need no 
     // interpolation syntax itself as that run. Concatenating breaks the
     // adjacency in the source text while producing an identical runtime
     // string, so the test still exercises the real fixture.
-    const out = redact('export GITHUB_TOKEN=' + GHP_CLASSIC);
+    const out = redact(`export GITHUB_TOKEN=${GHP_CLASSIC}`);
     expect(out).not.toContain(GHP_CLASSIC);
   });
 
@@ -209,7 +209,7 @@ describe('redact() — AC-i116-E3: self-identifying credential prefixes need no 
 
   it('redacts an npm publish token (npm_), widened from the old exact-36 bound', () => {
     // Concatenated — see the ghp_ test above for why.
-    const out = redact('//registry.npmjs.org/:_authToken=' + NPM_TOKEN);
+    const out = redact(`//registry.npmjs.org/:_authToken=${NPM_TOKEN}`);
     expect(out).not.toContain(NPM_TOKEN);
   });
 
@@ -324,12 +324,12 @@ describe('AC-i116-E1 — the secret does not reach the artefact (crash-reporter.
       `stack trace at /home/user/project/index.ts:42`,
       `Authorization: Bearer ${secrets.bearerHeader}`,
       `{"accessToken":"${secrets.jsonAccessTokenValue}"}`,
-      'GITHUB_TOKEN=' + secrets.ghpClassic,
+      `GITHUB_TOKEN=${secrets.ghpClassic}`,
       `fine-grained auth header value: ${secrets.githubPat}`,
       `CI job failed, see ${secrets.glpat} in the logs`,
       `slack notify failed with ${secrets.xoxb}`,
       `Stripe.setApiKey(${secrets.skLive})`,
-      '//registry.npmjs.org/:_authToken=' + secrets.npmToken,
+      `//registry.npmjs.org/:_authToken=${secrets.npmToken}`,
     ].join('\n');
 
     const result = await reportCrash({ repo: 'monoes/monomind', title: 'crash: e1', body });

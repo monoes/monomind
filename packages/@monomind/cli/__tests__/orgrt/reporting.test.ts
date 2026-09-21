@@ -219,7 +219,7 @@ describe('org command — observe surface', () => {
   const seedRun = (cwd: string, org: string, runId: string, events: BusEvent[]): void => {
     const dir = join(cwd, ORG_DIR, org, runId);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'bus.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
+    writeFileSync(join(dir, 'bus.jsonl'), `${events.map(e => JSON.stringify(e)).join('\n')}\n`);
     writeFileSync(join(cwd, ORG_DIR, `${org}.json`), JSON.stringify({ name: org, roles: [{ id: 'boss' }] }));
   };
 
@@ -270,7 +270,7 @@ describe('org command — observe surface', () => {
     try {
       seedRun(cwd, 'alpha', 'run-1', [ev({})]);
       const summary = summarizeRun([ev({ type: 'message', from: 'boss', to: 'x', subject: 's' })]);
-      writeFileSync(join(cwd, ORG_DIR, 'alpha', 'history.jsonl'), JSON.stringify(summary) + '\n');
+      writeFileSync(join(cwd, ORG_DIR, 'alpha', 'history.jsonl'), `${JSON.stringify(summary)}\n`);
       const res = await run('report', cwd, ['alpha'], { all: true });
       expect(res?.success).toBe(true);
       expect(readHistory(cwd, 'alpha')).toHaveLength(1);

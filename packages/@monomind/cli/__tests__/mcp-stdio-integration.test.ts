@@ -79,9 +79,9 @@ describe('MCP stdio integration (real child process, issue #36 regression)', () 
     // `notifications/initialized` is a notification (no id -> no response).
     const responsesPromise = collectResponses(child, 2, 20000);
 
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }) + '\n');
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`);
 
     const responses = await responsesPromise;
 
@@ -114,8 +114,8 @@ describe('MCP stdio integration (real child process, issue #36 regression)', () 
     const responsesPromise = collectResponses(child, 3, 20000);
 
     child.stdin.write('{not valid json\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }) + '\n');
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`);
 
     const responses = await responsesPromise;
 
@@ -148,8 +148,8 @@ describe('MCP stdio in-flight handler drop on stdin end (issue #39 regression)',
     // whose response must survive stdin closing right after it's sent.
     const responsesPromise = collectResponses(child, 2, 20000);
 
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }) + '\n');
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`);
     // Close stdin immediately — before the async tools/list handler (which
     // lazy-loads ~26 tool categories) has any realistic chance to resolve.
     child.stdin.end();

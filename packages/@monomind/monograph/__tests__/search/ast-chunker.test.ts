@@ -37,7 +37,7 @@ describe('chunkSource', () => {
 
   it('splits oversized chunk with overlap', () => {
     // Create a source that is definitely > 512 tokens (>2048 chars)
-    const bigFn = `function big() {\n` + '  const x = 1;\n'.repeat(200) + `}`;
+    const bigFn = `function big() {\n${'  const x = 1;\n'.repeat(200)}}`;
     const chunks = chunkSource(bigFn, { maxTokens: 50 });
     expect(chunks.length).toBeGreaterThan(1);
     // Adjacent chunks should overlap

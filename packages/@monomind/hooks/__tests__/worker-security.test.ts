@@ -57,7 +57,7 @@ async function chmodQuiet(p: string, mode: number): Promise<void> {
 
 describe('security worker — unreadable files', () => {
   beforeEach(async () => {
-    ROOT = path.join(os.tmpdir(), 'monomind-sec-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    ROOT = path.join(os.tmpdir(), `monomind-sec-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     SRC = path.join(ROOT, 'src');
     await fs.mkdir(SRC, { recursive: true });
     await fs.writeFile(path.join(SRC, LOCKED), 'const harmless = 1;\n');
@@ -145,7 +145,7 @@ describe('security worker — unreadable files', () => {
 
 describe('scanDirectoryForPatterns', () => {
   it('reports unreadable files in `skipped` instead of aborting', async (ctx) => {
-    const root = path.join(os.tmpdir(), 'monomind-scan-' + Date.now());
+    const root = path.join(os.tmpdir(), `monomind-scan-${Date.now()}`);
     await fs.mkdir(root, { recursive: true });
     const locked = path.join(root, 'a.ts');
     await fs.writeFile(locked, 'const x = 1;\n');
@@ -168,7 +168,7 @@ describe('scanDirectoryForPatterns', () => {
 
   it('returns an empty, non-skipped result for a directory that does not exist', async () => {
     const res = await scanDirectoryForPatterns(
-      path.join(os.tmpdir(), 'monomind-nope-' + Date.now()),
+      path.join(os.tmpdir(), `monomind-nope-${Date.now()}`),
       [/password/gi],
       []
     );
@@ -191,7 +191,7 @@ describe('collectFiles — unreadable directories', () => {
   let locked: string;
 
   beforeEach(async () => {
-    root = path.join(os.tmpdir(), 'monomind-cf-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    root = path.join(os.tmpdir(), `monomind-cf-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     locked = path.join(root, 'locked');
     await fs.mkdir(locked, { recursive: true });
     await fs.writeFile(path.join(root, 'visible.ts'), 'const ok = 1;\n');
@@ -217,7 +217,7 @@ describe('collectFiles — unreadable directories', () => {
   });
 
   it('does not mark a directory that simply does not exist as skipped', async () => {
-    const res = await collectFiles(path.join(os.tmpdir(), 'monomind-cf-nope-' + Date.now()), '.ts');
+    const res = await collectFiles(path.join(os.tmpdir(), `monomind-cf-nope-${Date.now()}`), '.ts');
     expect(res).toEqual({ files: [], skipped: [] });
   });
 
@@ -241,7 +241,7 @@ describe('security worker — unreadable directories', () => {
   let locked: string;
 
   beforeEach(async () => {
-    root = path.join(os.tmpdir(), 'monomind-secdir-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    root = path.join(os.tmpdir(), `monomind-secdir-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     locked = path.join(root, 'src', 'locked');
     await fs.mkdir(locked, { recursive: true });
     await fs.writeFile(path.join(locked, 'hidden.ts'), 'const password = "hunter2";\n');
@@ -278,7 +278,7 @@ describe('security worker — unreadable directories', () => {
 
 describe('searchDDDPatterns — unreadable directories', () => {
   it('returns counts alongside the paths it could not read', async (ctx) => {
-    const root = path.join(os.tmpdir(), 'monomind-ddd-' + Date.now());
+    const root = path.join(os.tmpdir(), `monomind-ddd-${Date.now()}`);
     const locked = path.join(root, 'locked');
     await fs.mkdir(locked, { recursive: true });
     await fs.writeFile(path.join(root, 'ok.ts'), 'class UserRepository {}\n');

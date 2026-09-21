@@ -15,22 +15,22 @@ describe('scope-resolution phase — method call resolution', () => {
 
     writeFileSync(
       join(base, 'src', 'service.ts'),
-      [
+      `${[
         `export class UserService {`,
         `  findById(id: string) {`,
         `    return id;`,
         `  }`,
         `}`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     writeFileSync(
       join(base, 'src', 'controller.ts'),
-      [
+      `${[
         `import { UserService } from './service';`,
         `const svc = new UserService();`,
         `svc.findById('1');`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -97,13 +97,13 @@ describe('scope-resolution phase — dynamic calls produce no edges', () => {
 
     writeFileSync(
       join(base, 'src', 'dynamic.ts'),
-      [
+      `${[
         `const handlers: Record<string, () => void> = {};`,
         `const key = 'myHandler';`,
         `// Dynamic call: obj[key](`,
         `const fn = handlers[key];`,
         `if (fn) fn();`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);

@@ -113,8 +113,8 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     expect(proc.written[0]).toBe('{"type":"user","message":{"content":"You are a test agent.\\n\\n---\\n\\nhello"}}\n');
 
     proc.emitStdout('{"type":"system","subtype":"init","session_id":"s1"}\n');
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'Hi there' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 10, output_tokens: 5 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'Hi there' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 10, output_tokens: 5 } })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -134,9 +134,9 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     const resultsPromise = collect(runner.run(args));
     await new Promise((r) => setTimeout(r, 10));
 
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'working on it' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'done now' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'working on it' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'done now' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -155,9 +155,9 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello')))); // no extras
 
     await new Promise((r) => setTimeout(r, 10));
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'working on it' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'done now' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'working on it' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'done now' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -182,16 +182,16 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     const fence = '```tool_call\n{"name":"org_send","arguments":{"to":"boss","subject":"s","message":"m"}}\n```';
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: `Sending now.\n${fence}` }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: `Sending now.\n${fence}` }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
     await new Promise((r) => setTimeout(r, 10));
 
     const secondMessage = proc.written.find((w, i) => i > 0);
     expect(secondMessage).toBeDefined();
     expect(secondMessage).not.toContain('You are a test agent');
 
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'Done.' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'Done.' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -206,7 +206,7 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
     await new Promise((r) => setTimeout(r, 10));
 
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'error', session_id: 's1', usage: { input_tokens: 0, output_tokens: 0 }, error: { message: 'quota exceeded' } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'error', session_id: 's1', usage: { input_tokens: 0, output_tokens: 0 }, error: { message: 'quota exceeded' } })}\n`);
 
     await expect(resultsPromise).rejects.toThrow(/quota exceeded/);
   });
@@ -247,13 +247,13 @@ describe('QwenRpcAgentRunner — turn-completion state machine', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     expect(proc.written[0]).toContain('You are a test agent');
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'ok1' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'ok1' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
     await new Promise((r) => setTimeout(r, 10));
 
     expect(proc.written[1]).toBe('{"type":"user","message":{"content":"second"}}\n');
-    proc.emitStdout(JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'ok2' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
+    proc.emitStdout(`${JSON.stringify({ type: 'assistant', session_id: 's1', message: { content: [{ type: 'text', text: 'ok2' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { input_tokens: 1, output_tokens: 1 } })}\n`);
     proc.emitClose(0);
 
     await resultsPromise;

@@ -18,17 +18,17 @@ import type { CommandContext } from '../src/types.js';
 vi.mock('../src/memory/memory-initializer.js', () => ({
   storeEntry: vi.fn(async (options: Record<string, unknown>) => ({
     success: true,
-    id: 'mock-id-' + options.key,
+    id: `mock-id-${options.key}`,
     embedding: { dimensions: 384, model: 'mock' }
   })),
   getEntry: vi.fn(async (options: Record<string, unknown>) => ({
     success: true,
     found: true,
     entry: {
-      id: 'mock-id-' + options.key,
+      id: `mock-id-${options.key}`,
       key: options.key,
       namespace: options.namespace ?? 'default',
-      content: 'mock-value-for-' + options.key,
+      content: `mock-value-for-${options.key}`,
       accessCount: 5,
       createdAt: '2024-01-01T00:00:00Z',
       updatedAt: '2024-01-01T00:00:00Z',

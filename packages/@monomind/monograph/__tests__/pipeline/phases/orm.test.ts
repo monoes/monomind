@@ -15,7 +15,7 @@ describe('orm phase — TypeORM @Entity()', () => {
 
     writeFileSync(
       join(base, 'src', 'user.entity.ts'),
-      [
+      `${[
         `import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';`,
         ``,
         `@Entity()`,
@@ -29,7 +29,7 @@ describe('orm phase — TypeORM @Entity()', () => {
         `  @Column()`,
         `  email: string;`,
         `}`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -92,7 +92,7 @@ describe('orm phase — Prisma schema.prisma', () => {
 
     writeFileSync(
       join(base, 'schema.prisma'),
-      [
+      `${[
         `datasource db {`,
         `  provider = "postgresql"`,
         `  url      = env("DATABASE_URL")`,
@@ -104,7 +104,7 @@ describe('orm phase — Prisma schema.prisma', () => {
         `  content   String?`,
         `  published Boolean @default(false)`,
         `}`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -154,7 +154,7 @@ describe('orm phase — Mongoose new Schema()', () => {
 
     writeFileSync(
       join(base, 'src', 'product.model.js'),
-      [
+      `${[
         `const mongoose = require('mongoose');`,
         `const { Schema } = mongoose;`,
         ``,
@@ -165,7 +165,7 @@ describe('orm phase — Mongoose new Schema()', () => {
         `});`,
         ``,
         `module.exports = mongoose.model('Product', productSchema);`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -201,7 +201,7 @@ describe('orm phase — Sequelize Model.init()', () => {
 
     writeFileSync(
       join(base, 'src', 'order.model.ts'),
-      [
+      `${[
         `import { Model, DataTypes, Sequelize } from 'sequelize';`,
         ``,
         `class Order extends Model {}`,
@@ -216,7 +216,7 @@ describe('orm phase — Sequelize Model.init()', () => {
         `);`,
         ``,
         `export { Order };`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -264,7 +264,7 @@ describe('orm phase — Sequelize sequelize.define()', () => {
 
     writeFileSync(
       join(base, 'src', 'product.js'),
-      [
+      `${[
         `const { DataTypes } = require('sequelize');`,
         ``,
         `const Product = sequelize.define('Product', {`,
@@ -274,7 +274,7 @@ describe('orm phase — Sequelize sequelize.define()', () => {
         `});`,
         ``,
         `module.exports = Product;`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
@@ -310,7 +310,7 @@ describe('orm phase — MikroORM @Entity() with @Property()', () => {
 
     writeFileSync(
       join(base, 'src', 'book.entity.ts'),
-      [
+      `${[
         `import { Entity, PrimaryKey, Property, ManyToOne } from '@mikro-orm/core';`,
         ``,
         `@Entity()`,
@@ -324,7 +324,7 @@ describe('orm phase — MikroORM @Entity() with @Property()', () => {
         `  @Property()`,
         `  isbn!: string;`,
         `}`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);
