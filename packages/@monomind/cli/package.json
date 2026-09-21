@@ -101,7 +101,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.226",
-    "@monoes/monobrowse": "^1.0.6",
+    "@monoes/monobrowse": "workspace:*",
     "@monoes/monodesign": "^1.2.2",
     "@monoes/monograph": "workspace:*",
     "fflate": "^0.8.3",
