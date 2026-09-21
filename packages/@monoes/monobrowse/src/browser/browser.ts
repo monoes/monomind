@@ -363,20 +363,30 @@ export async function connectToTarget(
  */
 export async function closeBrowser(client: CdpClient, port: number): Promise<void> {
   let gracefullyClosed = false;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
       client.send('Browser.close', {}),
+      // Deliberately NOT unref'd, for the same reason waitForProcessExit()'s
+      // poll below is not. This timer is the only thing that settles the race
+      // when Chrome's socket dies without ever acknowledging the close, and
+      // closeBrowser() is actively awaited by callers. An unref'd timer does
+      // not hold the event loop open, so Node would consider the loop drained
+      // and exit — status 0, before the caller's verdict was ever printed.
+      // Cleared in the finally so a close that IS acknowledged does not pin
+      // the loop for the rest of BROWSER_CLOSE_TIMEOUT_MS.
       new Promise<never>((_, reject) => {
-        const t = setTimeout(
+        closeTimer = setTimeout(
           () => reject(new Error('Browser.close timed out')),
           BROWSER_CLOSE_TIMEOUT_MS,
         );
-        t.unref?.();
       }),
     ]);
     gracefullyClosed = true;
   } catch {
     // fall through to PID-kill fallback below
+  } finally {
+    clearTimeout(closeTimer);
   }
 
   let pid = launchedPids.get(port);
@@ -501,22 +511,27 @@ export async function reapIdleLaunchedBrowser(): Promise<number | null> {
     if ((await fetchTargets(session.port)).length > 0) return null;
 
     const client = new CdpClient();
+    let reapTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       // CdpClient.connect() has no timeout of its own — a socket that never
       // opens (and never errors) would hang the launch this reap is running
       // inside of, which is strictly worse than leaving the port squatted.
+      // Not unref'd (see closeBrowser): a socket that never opens and never
+      // errors leaves this timer as the only thing that can settle the race,
+      // and the reap is awaited inside launch/attach. Cleared in the finally
+      // below so a connect that succeeds does not pin the event loop.
       await Promise.race([
         client.connect(wsUrl),
         new Promise<never>((_, reject) => {
-          const t = setTimeout(
+          reapTimer = setTimeout(
             () => reject(new Error('Reap: CDP connect timed out')),
             REAP_CONNECT_TIMEOUT_MS,
           );
-          t.unref?.();
         }),
       ]);
       await closeBrowser(client, session.port);
     } finally {
+      clearTimeout(reapTimer);
       try {
         client.close();
       } catch {

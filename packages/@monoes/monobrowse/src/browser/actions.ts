@@ -680,18 +680,27 @@ export async function evaluateJs(
     sessionId,
   );
 
-  const result = await (timeoutMs > 0
-    ? Promise.race([
-        evalPromise,
-        new Promise<never>((_, reject) => {
-          const t = setTimeout(
-            () => reject(new Error(`JS evaluation timed out after ${timeoutMs}ms`)),
-            timeoutMs,
-          );
-          t.unref?.();
-        }),
-      ])
-    : evalPromise);
+  // Not unref'd (same rule as CdpClient.send): this timer settles the awaited
+  // race, so it has to hold the event loop open while the evaluation is in
+  // flight. Cleared in the finally so a fast evaluation does not keep the
+  // process alive for the rest of timeoutMs.
+  let evalTimer: ReturnType<typeof setTimeout> | undefined;
+  let result: Awaited<typeof evalPromise>;
+  try {
+    result = await (timeoutMs > 0
+      ? Promise.race([
+          evalPromise,
+          new Promise<never>((_, reject) => {
+            evalTimer = setTimeout(
+              () => reject(new Error(`JS evaluation timed out after ${timeoutMs}ms`)),
+              timeoutMs,
+            );
+          }),
+        ])
+      : evalPromise);
+  } finally {
+    clearTimeout(evalTimer);
+  }
 
   if (result.exceptionDetails) {
     throw new Error(

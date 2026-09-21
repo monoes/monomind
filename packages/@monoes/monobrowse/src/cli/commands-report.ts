@@ -186,6 +186,34 @@ export const reportCommand: Command = {
       trendWindow: ctx.flags['trend-window'] as number | undefined,
     };
 
+    // Closing the browser is cleanup, not part of the verdict. It used to run
+    // in a `finally` sitting between "we have the result" and "we print it",
+    // which meant anything that wedged the teardown — a Chrome that never
+    // acknowledged `Browser.close`, a CDP socket that died silently — took the
+    // verdict down with it: no output at all, and exit 0 on a page that FAILED
+    // its budgets. That is exactly the signal CI, agents and `&&` chains gate
+    // on, so a hung teardown reported success on a broken page. The verdict is
+    // now printed and the exit code fixed BEFORE any of this runs.
+    const teardown = async (): Promise<void> => {
+      // A report is a one-shot command — CI should not be left with an
+      // orphan Chrome. Only close a browser THIS process launched: an
+      // attached one belongs to the user's own `open`/`connect` session.
+      if (ctx.flags['keep-open'] || browser.getLaunchedPid(session.port) === undefined) return;
+      browser.stopRequestCapture(sessionId);
+      browser.teardownConsoleCapture(sessionId);
+      try {
+        await browser.closeBrowser(client, session.port);
+      } catch {
+        /* best-effort */
+      }
+      session.client = null;
+      session.sessionId = '';
+      session.targetId = '';
+      session.refs = new Map();
+      await browser.clearActivePort();
+      await browser.clearRefCache();
+    };
+
     let result:
       | Awaited<ReturnType<typeof runReport>>
       | Awaited<ReturnType<typeof runReportRepeated>>;
@@ -193,25 +221,11 @@ export const reportCommand: Command = {
       result = repeat
         ? await runReportRepeated(client, sessionId, { ...runOptions, repeat })
         : await runReport(client, sessionId, runOptions);
-    } finally {
-      // A report is a one-shot command — CI should not be left with an
-      // orphan Chrome. Only close a browser THIS process launched: an
-      // attached one belongs to the user's own `open`/`connect` session.
-      if (!ctx.flags['keep-open'] && browser.getLaunchedPid(session.port) !== undefined) {
-        browser.stopRequestCapture(sessionId);
-        browser.teardownConsoleCapture(sessionId);
-        try {
-          await browser.closeBrowser(client, session.port);
-        } catch {
-          /* best-effort */
-        }
-        session.client = null;
-        session.sessionId = '';
-        session.targetId = '';
-        session.refs = new Map();
-        await browser.clearActivePort();
-        await browser.clearRefCache();
-      }
+    } catch (err) {
+      // No verdict to print on this path, so the old ordering still applies:
+      // clean up, then let the error propagate to the CLI's error handler.
+      await teardown();
+      throw err;
     }
 
     const { report, htmlPath, jsonPath, summary, historyDir } = result;
@@ -219,6 +233,15 @@ export const reportCommand: Command = {
     // With --repeat the flake verdict governs: a check that failed 2 of 5
     // runs must not exit 0 just because the last run happened to be green.
     const passed = flake ? flake.verdict === 'pass' : report.verdict === 'pass';
+
+    // Set the process-wide failure code up front, before printing and before
+    // teardown. Returning `exitCode` below is the normal channel, but it only
+    // reaches the CLI if this function returns; if teardown never settles,
+    // Node drains the event loop and exits on its own — and a natural exit
+    // uses process.exitCode. Setting it here means a failing page cannot exit
+    // 0 no matter what happens after this line. Only ever set on failure, so
+    // this never clears a non-zero code set elsewhere.
+    if (!passed) process.exitCode = 1;
 
     if (ctx.flags.json) {
       const { toJsonReport } = await import('../report/index.js');
@@ -264,6 +287,10 @@ export const reportCommand: Command = {
       print(`JSON:   ${jsonPath}`);
       if (historyDir) print(`History: ${historyDir}`);
     }
+
+    // Verdict is printed and the exit code is fixed — only now is it safe to
+    // close the browser.
+    await teardown();
 
     // Non-zero exit is the point of RIG-06 — CI and agents gate on it.
     return {

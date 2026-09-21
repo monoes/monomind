@@ -60,11 +60,21 @@ function mapWaitUntil(waitUntil) {
   return 'load';
 }
 
+// This timer is deliberately NOT unref'd. Both call sites race it against CDP
+// I/O that can die silently: goto() awaits a promise settled only by a
+// Page.loadEventFired/domContentEventFired event, and close() races
+// Browser.close — the very command that tears the websocket down. An unref'd
+// timer never fires once nothing else pins the event loop, and a launched
+// Chrome is detached and unref'd, so that websocket is the only ref'd handle
+// here — exactly the one that goes away. Node would then consider the loop
+// drained and exit 0 with the race still pending, instead of surfacing the
+// timeout. The .finally() below clears it either way, so keeping it ref'd
+// only ever costs a caller `ms`, never a hang. (Same rule as monobrowse's
+// waitForProcessExit, #314.)
 function withTimeout(promise, ms, label) {
   let handle;
   const timeout = new Promise((_, reject) => {
     handle = setTimeout(() => reject(new Error(`Timeout waiting for ${label} after ${ms}ms`)), ms);
-    handle.unref?.();
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(handle));
 }
