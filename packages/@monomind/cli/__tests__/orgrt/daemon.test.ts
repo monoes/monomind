@@ -817,7 +817,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
         const running = await d.startOrg('alpha');
 
         // Request approval for sensitive action (Bash)
-        const approvalResult = await d['checkApproval']('alpha', 'coder', 'Bash');
+        const approvalResult = await d.checkApproval('alpha', 'coder', 'Bash');
         expect(approvalResult).toBeNull(); // Pending human approval
 
         // Verify persisted to approvals.json
@@ -851,7 +851,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
         expect(statusEvents.length).toBeGreaterThan(0);
 
         // Verify calling checkApproval again returns the approved decision
-        const cachedApproval = await d['checkApproval']('alpha', 'coder', 'Bash');
+        const cachedApproval = await d.checkApproval('alpha', 'coder', 'Bash');
         expect(cachedApproval).toBe(true); // Auto-approved from cache
 
         await d.stopAll();
@@ -870,7 +870,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
         const running = await d.startOrg('alpha');
 
         // Non-sensitive action should be auto-approved
-        const approvalResult = await d['checkApproval']('alpha', 'coder', 'Read');
+        const approvalResult = await d.checkApproval('alpha', 'coder', 'Read');
         expect(approvalResult).toBe(true); // Auto-approved
 
         // Verify no approvals.json was created

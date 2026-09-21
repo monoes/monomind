@@ -72,7 +72,7 @@ describe('WorkerManager', () => {
 
     it('should load persisted state on initialize', async () => {
       // Save some state
-      const healthMetrics = manager['metrics'].get('health')!;
+      const healthMetrics = manager.metrics.get('health')!;
       healthMetrics.runCount = 5;
 
       await manager.saveState();

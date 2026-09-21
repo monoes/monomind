@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { queueMessage, drainInbox, inboxCount } from '../../src/orgrt/inbox.js';
