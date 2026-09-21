@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
-import { buildReviewPacket, reviewDiff } from './review-packet.js';
+import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
 import type { OrgTask } from './task-dag.js';
 import {
@@ -160,6 +160,7 @@ export function dagCreateTask(
   if (refusal) return JSON.stringify({ error: refusal });
   try {
     const task = running.taskDag.add(title, assignee, deps, loadout);
+    task.createdBy = role;
     running.bus.emit({
       type: 'status',
       from: role,
@@ -217,6 +218,7 @@ export function dagPlanGraph(
         if (!afters.every((a) => nameToId.has(a) || running.taskDag?.get(a))) continue;
         const depIds = afters.map((a) => nameToId.get(a) ?? a);
         const task = running.taskDag.add(s.title, s.assignee, depIds, s.loadout);
+        task.createdBy = role;
         nameToId.set(s.name, task.id);
         created.push({
           name: s.name,
@@ -489,6 +491,19 @@ export function dagCompleteTask(
       data: { taskId, promoted: promoted.map((t) => t.id), evidence },
     });
     if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
+    // run_config.notify_task_creator: a completion otherwise lives only on
+    // the bus, and a creator waiting on it stays idle until the watchdog.
+    const creator = task?.createdBy;
+    if (running.def.run_config.notify_task_creator && creator && creator !== role) {
+      const summary = result ? ` Result: ${capText(result, 1_500)}` : '';
+      const ev = evidence ? `\n${evidenceSummary(evidence)}` : '';
+      const next = promoted.length ? `\nNow ready: ${promoted.map((t) => t.id).join(', ')}.` : '';
+      queueDispatch(
+        running,
+        creator,
+        `[task:${taskId}] DONE — "${task.title}" was completed by "${role}".${summary}${ev}${next}`,
+      );
+    }
     return JSON.stringify({
       done: taskId,
       promoted: promoted.map((t) => ({ id: t.id, title: t.title, assignee: t.assignee })),

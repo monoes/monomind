@@ -42,6 +42,9 @@ export interface OrgTask {
    *  reset on every crash or resume and the cap would bound nothing.
    *  Cleared by `complete()`; see `recordEvidenceFailure`. */
   evidenceFailures?: number;
+  /** The role that created the task (org_task / org_plan_graph; split
+   *  children inherit it). Read by run_config.notify_task_creator. */
+  createdBy?: string;
   /** ADR-O001 D7: the loadout the boss selected for this task. Set once at
    *  creation and never re-selected: every dispatch and re-dispatch (evidence
    *  refusal, checkpoint requeue, block expiry) reads it from here, so a retry
@@ -264,6 +267,7 @@ export class TaskDag {
         splitFrom: parentId,
         // D7: a split is the same work in smaller pieces — same loadout.
         ...(parent.loadout ? { loadout: parent.loadout } : {}),
+        ...(parent.createdBy ? { createdBy: parent.createdBy } : {}),
       };
       this.tasks.set(id, child);
       created.push(child);

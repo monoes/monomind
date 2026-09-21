@@ -500,6 +500,12 @@ export const OrgDefSchema = z
          *  (the process parks, as before). Idle residency costs no tokens,
          *  so this is about process count, not spend. */
         session_idle_exit_ms: z.number().int().positive().optional(),
+        /** When a task completes, send its creator (the role that called
+         *  org_task / org_plan_graph) a `[task:<id>] DONE` message with the
+         *  result and evidence summary. Off by default: without it a
+         *  completion is only a bus event, and a creator waiting on it idles
+         *  until the watchdog nudges. */
+        notify_task_creator: z.boolean().optional(),
         /** Where role sessions run.
          *  'repo' (default) — the project root, so roles can Read/Edit real files.
          *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
