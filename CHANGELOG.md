@@ -49,7 +49,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   - `monomind doctor -c mcp` now **starts** the configured server and reports when it dies, instead of only checking that a config entry exists — which is why the original breakage was invisible to `doctor`. A server that starts and stays quiet is reported as a warning, not a failure, because a cold `npx` fetch legitimately takes far longer than the probe waits; only a process that *exits* is a failure. The probe runs under `-c mcp` only, so a plain `doctor` run still spawns nothing.
   - `monomind init --pin` writes `npx -y --package=<pkg>@<version> monomind mcp start`, the form that resolves even against versions published before the bin existed — which is the whole point of pinning to an already-released version. Bare `--pin` uses the running CLI's version, `--pin <version>` uses that one. **Unpinned output is byte-identical to before**; pinning stays opt-in, because a default pin would freeze every newly-initialised project on whichever version happened to run `init` and silently stop upgrades from taking effect.
 
-- **The dashboard's human-in-the-loop controls did nothing against an Org Runtime v2 org.** Approvals and replies were written against the v1 shape and never reached a v2 runtime.
+- **The dashboard's human-in-the-loop controls did nothing against an Org Runtime v2 org.** Approving wrote to the v1 `<org>-approvals.json`, which the runtime never reads, so the waiting role stayed blocked; answers and chat messages reached the daemon without the operator credential and were rejected with 401; decision gates could be viewed but not resolved. The dashboard now does what `monomind org approve / gate-approve / answer` do: a running org gets the decision on its operator-only routes and the waiting role is woken; an org that is not running has it recorded in its own `approvals.json`, `gates.json`, `questions.json` or `inbox.jsonl` for its next run. Every decision is attributed `resolvedBy: "human:dashboard"`. The Human Input view now lists approvals and decision gates alongside questions, marks each question blocking or non-blocking, and counts them on page load.
+  **Behaviour change:** answering a question for an org that is not running no longer starts it (`npx monomind@latest org run` in the background). The answer is queued and delivered when you next start the org — an unattended run can cost real money and could run a different monomind version than the one installed.
 
 ### Fixed (billing visibility)
 
@@ -65,12 +66,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
   - **Cold, artifact-only reviewer sessions** — a reviewer sees the artifact, not the author's reasoning trace, which both cuts context and removes the self-review bias a warm reviewer carries.
   - **Bounded tool results** entering a role's context, and a **bounded evidence-gate re-dispatch loop** that escalates instead of retrying indefinitely.
   - These apply to task execution. Deliberation and debate are explicitly out of scope and unchanged — see the "what this does not apply to" section of ADR-O001.
-- **The dashboard shows what an org's runtime is actually doing**, and can edit a v2 org's config.
+- **The dashboard shows what an org's runtime is actually doing**, and can edit a v2 org's config. A new Runtime tab reads the runtime's own files and the live daemon: the idle watchdog's stop time or hold deadline, budget used this run on its enforcement basis, each role's resolved model / effort / cost tier and its input, output and cache tokens, the task graph with evidence-gate refusals, evidence-gate and watchdog events, and how each recent run actually ended (`closedBy`, outcome, blocker). The Config tab edits only v2 fields and refuses a change that `org run` would reject — including the old "budget 0 = unlimited", which made the definition unparseable.
 - **Org definitions under `.monomind/orgs` are version-controlled**, so an org is reproducible from the repository.
 
 ### Security
 
-- **The dashboard token and operator credentials are no longer handed to every role in an org.** A role that never needed them could read them.
+- **An org's roles could read the dashboard token and the operator credentials**, and either one is enough to approve that role's own gates and approvals. Both are now denied to every role's file tools and, for Claude-runtime roles, to its sandboxed shell.
 - **Org config secrets were not covered by the generated deny-by-default `.gitignore`.** The generator's own allow-list entry for `orgs/*.json` re-exposed exactly the files most likely to hold credentials.
 - **The pre-commit gate now catches literal secrets in JSON config**, not only in source.
 - **Tracked org configs no longer publish absolute home paths**, which leaked the operator's username and directory layout into the repository.
