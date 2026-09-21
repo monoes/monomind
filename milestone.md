@@ -36,14 +36,14 @@ the pre-commit secret gate false-positives on a query string that puts the liter
 These items need a human. An org in a headless Linux sandbox can't do them: they need another OS, a real TTY or browser, your monoes.me account, npm/GitHub, locally installed agent CLIs, or a product decision. Tick each box when it's done. On FAIL, or for a decision, write the result under the entry (date, command, output or choice); the next org run reads this section and turns failures into items.
 
 ```bash
-REPO=/home/monoes/projects/monoes/monomind
+REPO=$(git rev-parse --show-toplevel)
 CLI="node $REPO/packages/@monomind/cli/bin/cli.js"
-T=/home/monoes/mdev-tmp                       # scratch root — never /tmp
+T=$HOME/mdev-tmp                             # scratch root — never /tmp
 RUN=$REPO/.monomind/orgs/monomind-dev/runs/run-20260918173821-ded9
 ```
 
 - [x] **#1 — Build, then confirm the baseline outside the org sandbox (do first).** `cd $REPO && pnpm build && pnpm verify`. This comes first because when this revision was written, `packages/@monomind/cli/dist` didn't match main: it had no `mcp monoes-proxy`, and its `redact()` still leaked `Authorization: Bearer …`. **PASS:** all green, or only `checkSecondBrainModel` fails (it reads real machine state; known, i-127). The 17 tests exempted inside the org sandbox (cli `role-sandbox.test.ts`, monograph `hooks-marker`/`hooks-install`/`hooks-status`) must pass here; they failed only because the sandbox exports `GIT_CONFIG_KEY_*`.
-  **Result 2026-09-19 (run by Claude, outside the sandbox): PASS.** `pnpm build` and `pnpm verify` exit 0. Root suite 641 files / 6,430 tests passed, 54 skipped, 0 failed; other packages all green. `checkSecondBrainModel` did not fail. Logs: `/home/monoes/mdev-tmp/owner-1-{build,verify}.log`.
+  **Result 2026-09-19 (run by Claude, outside the sandbox): PASS.** `pnpm build` and `pnpm verify` exit 0. Root suite 641 files / 6,430 tests passed, 54 skipped, 0 failed; other packages all green. `checkSecondBrainModel` did not fail. Logs: `$T/owner-1-{build,verify}.log`.
 
 - [x] **#2 — Crash-report consent prompt in a real terminal (`0ef431f`, `c644690`, `cf68658`).** Use a scratch `HOME` so your real `~/.monomind/crash-reporting.json` is untouched:
   ```bash

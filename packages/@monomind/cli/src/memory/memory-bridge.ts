@@ -92,7 +92,7 @@ function capResultContent(content: string): string {
 // more. Treating a bare `.monomind` ancestor as adoptable is a feedback
 // loop: a wrong resolution creates the very marker that captures every
 // future descendant. Measured against the actual incident:
-// `/home/monoes/mdev-tmp/.monomind` and `/home/monoes/.monomind` both exist,
+// `~/mdev-tmp/.monomind` and `~/.monomind` both exist,
 // neither has a `.git` or manifest, and neither is a project — both are
 // monomind's own state directories. `INDEPENDENT_PROJECT_MARKERS` (other
 // than `.git`, handled unconditionally) is what makes a `.monomind`

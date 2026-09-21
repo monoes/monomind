@@ -38,3 +38,46 @@ describe('tracked org configs', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/** Names used as obvious placeholders in fixtures and docs. Anything else
+ *  under /home or /Users in a tracked file is someone's real machine layout. */
+const PLACEHOLDER_USERS = new Set([
+  'alice',
+  'bob',
+  'carol',
+  'foo',
+  'user',
+  'u',
+  'owner',
+  'someone',
+  'ci',
+  'monomind',
+  'runner',
+  'me',
+  'you',
+  'example',
+]);
+
+describe('every tracked file', () => {
+  it('names no real home directory', () => {
+    // git grep, not a file walk: it reads exactly what is committed-to-be.
+    let out = '';
+    try {
+      out = execFileSync('git', ['grep', '-IonE', '/(home|Users)/[A-Za-z0-9._-]+/'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      });
+    } catch (err) {
+      if ((err as { status?: number }).status !== 1) throw err; // 1 = no matches
+    }
+    const offenders = out
+      .split('\n')
+      .filter(Boolean)
+      .filter((line) => {
+        const user = /\/(?:home|Users)\/([A-Za-z0-9._-]+)\/$/.exec(line)?.[1];
+        return user !== undefined && !PLACEHOLDER_USERS.has(user);
+      });
+    expect(offenders).toEqual([]);
+  });
+});

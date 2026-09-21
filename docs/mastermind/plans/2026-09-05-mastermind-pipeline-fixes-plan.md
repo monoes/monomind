@@ -126,7 +126,7 @@ The review's #4 recommends making `OrgDaemon` load open issues from `<org>-issue
 - [x] Run: (worktree numbers already equaled HEAD — no corruption in this worktree's `.claude/skills` copies; skipped to Step 0.3 per the plan's own branch)
 
 ```bash
-cd /home/monoes/Desktop/monoes/repos/monomind
+cd "$(git rev-parse --show-toplevel)"
 for f in mastermind-plan mastermind-execute mastermind-debug; do
   printf '%-22s HEAD=%-5s worktree=%s\n' "$f" \
     "$(git show HEAD:.claude/skills/$f/SKILL.md | wc -l)" \

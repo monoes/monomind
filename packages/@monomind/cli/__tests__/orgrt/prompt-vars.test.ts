@@ -78,8 +78,8 @@ describe('expandRolePromptVars', () => {
 
   it('yields the old literal prompt when org_root/home equal the old paths', () => {
     // Excerpt of monomind-dev's rewritten COMMON RULES / SETUP lines.
-    const oldRoot = '/home/monoes/projects/monoes/monomind';
-    const oldHome = '/home/monoes';
+    const oldRoot = '/home/owner/projects/monomind';
+    const oldHome = '/home/owner';
     const literal = role([
       `REPO=${oldRoot} (the main checkout). TMPDIR=${oldHome}/mdev-tmp; fake HOMEs go in ${oldHome}/mdev-tmp/<item-id>-<check>.`,
       `git -C ${oldRoot} worktree add -b sync/main-VERSION ${oldRoot}-sync-VERSION main; live trials use the real HOME=${oldHome} (logins live there).`,

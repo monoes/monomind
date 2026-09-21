@@ -99,7 +99,7 @@ describe('getProjectRoot', () => {
   // `.monomind` is created by monomind itself as a side effect of running
   // anywhere; a vendored directory with no `.git` and no manifest is
   // indistinguishable, from the filesystem alone, from monomind's own
-  // droppings — which is precisely how `/home/monoes/mdev-tmp/.monomind`
+  // droppings — which is precisely how `~/mdev-tmp/.monomind`
   // came to silently capture an unrelated fixture. The walk also does not
   // continue PAST an ignored bare `.monomind` to adopt some more distant
   // ancestor's `.git` (that would merge the vendored dir into the outer
@@ -142,7 +142,7 @@ describe('getProjectRoot', () => {
   // o-16 round 2 (revised plan): the actual incident. `dir === home` was
   // never the cause — the corruption happened entirely INSIDE $HOME. A bare
   // `.monomind` ancestor (monomind's own droppings: no `.git`, no manifest —
-  // exactly `/home/monoes/mdev-tmp/.monomind`'s shape) is not independent
+  // exactly `~/mdev-tmp/.monomind`'s shape) is not independent
   // evidence of a project, and worse is a feedback loop: a wrong resolution
   // creates the very marker that captures every future descendant.
   describe('o-16: .git and .monomind are categorically different markers', () => {
