@@ -4,6 +4,34 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.1] — 2026-09-21
+
+Numbered a patch at the maintainer's request. One entry below is additive
+(the idle-watchdog line in `org status`); everything else is a fix.
+
+### Fixed
+
+- **`monomind org` no longer reports a stray JSON file as an org.** (#309) `listOrgConfigFiles` accepted any `.json` in the orgs folder whose filename looked like a valid identifier, so an unrelated tool config appeared as a phantom org. A candidate must now also carry the org shape, checked against the existing schema (`OrgDefSchema.pick({ name: true })`) rather than a new heuristic. A file that fails to parse at all is deliberately **kept** in the listing — that is a corrupted *real* org config, and `org list`/`org validate` already report it as a validation failure; hiding it would swallow a broken org silently.
+- **The dashboard could advertise a port it never bound.** (#307) In `bindServer()`, each failed `listen()` attempt had its `'error'` listener cleared but not its `'listening'` callback, which closes over that attempt's port. When a later attempt finally bound, Node fired every still-armed listener in registration order, so the **first, failed** attempt won the resolve and returned the busy port. That value then propagated into `currentPort`, `dashboardPort` and the `redirect_uri` sent to monoes.me — which is the second cause of the dead-port OAuth callback, the first having been fixed earlier. Listeners are now cleared between retries and the port is read from `server.address().port`.
+- **`@monoes/monodesign`'s browser-detector guard failed on any CRLF checkout.** Its extractor matched the array close as `/\n\];\n/`, which cannot match `\r\n];\r\n`, so a Windows checkout reported the source as malformed. Now CRLF-tolerant, with output byte-identical where it already worked.
+- **Chrome is launched with `--no-sandbox --disable-dev-shm-usage` under CI.** Its setuid sandbox cannot initialise on most runners and containers, and a container's default 64MB `/dev/shm` crashes it the same way. Scoped to `process.env.CI`, so a real user's browser keeps its sandbox.
+- **272 test files were linted for the first time.** (#311) biome's scope had been widened to cover the package-level `__tests__` trees, but the resulting backlog was never cleared: 25 diagnostics across 4 files, now 0, with no suppression comments.
+
+### Added
+
+- **`monomind org status` shows the idle-watchdog deadline.** (#296) The `--json` output has carried `idle_stop_at`/`idle_stop_in_seconds`/`idle_hold` since 2.11.8, but the human-readable status printed nothing, so an operator reading normal output could not see it. It now prints `idle stop: in 4m12s (at 18:22:05Z)`, or that the hold is held, or that the watchdog is disabled — and prints nothing rather than a misleading zero when no record exists yet.
+
+### Internal
+
+- **CI had been red on every push since the 2.15.0 cycle began, including two releases.** The matrix step that builds workspace dependencies was gated to the CLI alone, on the reasoning that no other package imported an unbuilt sibling. Converting five sibling edges to `workspace:*` falsified that without updating it, so `@monoes/hooks` resolved a monofence-ai whose `dist/` nothing built and its security hooks registered zero guards. The step now runs for every matrix entry on both platforms.
+- **`@monoes/monodesign` depends on `@monoes/monobrowse` by registry range again**, recorded as a documented exception in the workspace-protocol guard rather than a silent one. monodesign loads monobrowse through `await import()` inside an *optional* driver, so whether that import resolves decides whether its browser tests execute at all — pinning it to the workspace broke the package on both CI platforms in opposite directions.
+- **The `Disable git autocrlf` step now runs before checkout**, where it can do what its own comment claims. It sat after `actions/checkout@v4`, so the bytes were already converted and it only affected later git operations.
+
+### Known issue
+
+- **`launchMonobrowseBrowser()` never settles on CI runners** ([#314](https://github.com/monoes/monomind/issues/314)). It fails in ~695ms with `Promise resolution is still pending but the event loop has already resolved` — not the launch timeout, and not the sandbox. monodesign's driver-lifecycle test is skipped under `CI` with that issue referenced inline; it still runs locally, where it passes. The test had in fact never executed on CI before, because its guard also requires a resolvable `@monoes/monobrowse` import that the job never had — so this is an untested path rather than a regression.
+
+
 ## [2.15.0] — 2026-09-21
 
 > **Upgrading — the dashboard now requires a login.** Its pages and human-decision
