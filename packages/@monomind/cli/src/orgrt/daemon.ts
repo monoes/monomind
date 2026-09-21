@@ -1917,6 +1917,24 @@ export class OrgDaemon {
       maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
       resumeSessionId: roleCheckpoint?.sessionId,
       sessionLedger: running.sessionLedger,
+      // ADR-O001 D3 x D7: a task-scoped session is built with its task's own
+      // recorded loadout. Unresolvable → no loadout, loudly (as at spawn).
+      loadoutFor: (taskId: string) => {
+        const name = running.taskDag?.get(taskId)?.loadout;
+        if (!name) return undefined;
+        try {
+          return resolveLoadout(def, name, this.root);
+        } catch (err) {
+          bus.emit({
+            type: 'audit',
+            from: role.id,
+            reason: 'loadout-unresolvable',
+            msg: `task ${taskId} session built without loadout "${name}": ${err instanceof Error ? err.message : err}`,
+            data: { loadout: name, taskId },
+          });
+          return undefined;
+        }
+      },
       lastMessageId: () => runtime.lastMessageId,
       onOutput: (line: string) => runtime.scrollback.push(line),
       onSessionId: (id: string) => {

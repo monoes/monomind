@@ -6,9 +6,9 @@ import { join } from 'node:path';
 import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
-import type { OrgTask } from './task-dag.js';
 import { buildReviewPacket, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
+import type { OrgTask } from './task-dag.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
   type DecisionGate,
@@ -612,6 +612,10 @@ function noteLoadoutMismatch(
   sessionLoadout: string | undefined,
 ): void {
   if (!task.loadout || task.loadout === sessionLoadout) return;
+  // D3: a task-scoped assignee builds a session per task with that task's
+  // loadout, so there is no live session to mismatch.
+  const role = running.def?.roles.find((r) => r.id === task.assignee);
+  if (role && resolveSessionScope(role, running.def) === 'task') return;
   running.bus.emit({
     type: 'status',
     from: 'dag',

@@ -166,6 +166,11 @@ Checked against this ADR before coding:
   to expose.
 - **D6 hook**: a `'cold'` scope is `stopBefore: () => true` with resume never consulted. It uses
   the same machinery.
+- **With D7** (added at integration): a task-scoped session is built with *its task's* recorded
+  loadout (`SessionOpts.loadoutFor`), not the loadout the role was spawned with. So
+  `loadout-mismatch` cannot occur for a task-scoped role, and it is no longer emitted for one. A
+  retry resumes under a byte-identical prompt, because the prompt hash is part of the resume
+  check.
 
 ### D4 — Continuity is a property of durable state, not of a process
 

@@ -27,8 +27,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveRoleCostTier } from './cost-tier.js';
-import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import type { StreamOptions } from './mailbox.js';
+import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
@@ -348,6 +348,10 @@ export interface SessionOpts {
    *  D3 hook: a task-keyed session for (role, taskKey) passes
    *  `resolveLoadout(def, task.loadout, root)` here. */
   loadout?: ResolvedLoadout;
+  /** ADR-O001 D3 x D7: in task scope each task's session is built with that
+   *  task's recorded loadout (undefined = none selected) instead of the
+   *  incarnation's `loadout`, which then only serves untagged mail. */
+  loadoutFor?: (taskId: string) => ResolvedLoadout | undefined;
   /** Task DAG: mark a task as completed. `evidence` is ADR-O001 D5's
    *  machine-checkable proof — acceptance commands with their real exit
    *  codes, pinned to a commit sha. Only demanded when the org sets
@@ -517,15 +521,15 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     ?.session_idle_exit_ms;
   const ledger = opts.sessionLedger ?? new SessionLedger();
   const runtimeKey = opts.role.runtime ?? opts.def?.runtime ?? 'claude';
-  const promptHash =
-    scope === 'task'
-      ? createHash('sha256').update(rolePromptFor(opts)).digest('hex').slice(0, 16)
-      : '*';
   let taskKey = ROLE_SESSION_KEY;
   // Why the next fresh session for a key is fresh, when the loop itself threw
   // the record away (stale resume, turn-limit error) — recorded, not guessed.
   const droppedBecause = new Map<string, SessionStartReason>();
   const staleTried = new Set<string>();
+  // The options THIS session is built from — the role's own, except that a
+  // task-scoped session carries its task's loadout (D7).
+  let sessionOpts: SessionOpts = opts;
+  let promptHash = '*';
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
@@ -547,6 +551,15 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       // An untagged message (mail, an answer, a continuation) belongs to the
       // session the role is already in.
       taskKey = taskKeyOf(mailbox.peek() ?? '') ?? taskKey;
+      // D7: this task's session is built with this task's loadout.
+      sessionOpts =
+        taskKey !== ROLE_SESSION_KEY && opts.loadoutFor
+          ? { ...opts, loadout: opts.loadoutFor(taskKey) }
+          : opts;
+      promptHash = createHash('sha256')
+        .update(rolePromptFor(sessionOpts))
+        .digest('hex')
+        .slice(0, 16);
       const pick = ledger.resumeFor({
         role: opts.role.id,
         runtime: runtimeKey,
@@ -605,7 +618,7 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     const attempt = { replied: false };
     try {
       const res = await runOneSession(
-        opts,
+        sessionOpts,
         resumeSessionId,
         sessionCostTotals,
         attempt,
