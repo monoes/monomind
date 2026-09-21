@@ -1127,6 +1127,20 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     // Enriched progress for running orgs
     if (state.status === 'running' && state.run) {
+      // #296: when the idle watchdog will stop this org, or why it won't.
+      // Say nothing for 'unknown' (no record yet) rather than a misleading zero.
+      const idle = readIdleStatus(ctx.cwd, t, state.run);
+      if (idle.idle_stop_at) {
+        log(
+          `  idle stop: in ${fmtDuration(idle.idle_stop_in_seconds! * 1000)} (at ${utcTime(Date.parse(idle.idle_stop_at))})`,
+        );
+      } else if (idle.idle_hold === 'disabled') {
+        log(`  idle watchdog: disabled`);
+      } else if (idle.idle_hold && idle.idle_hold !== 'unknown') {
+        const until = idle.idle_hold_until ? ` until ${utcTime(Date.parse(idle.idle_hold_until))}` : '';
+        log(`  idle stop: held — ${idle.idle_hold}${until}`);
+      }
+
       const events = readRunEvents(ctx.cwd, t, state.run);
       if (events.length) {
         const summary = summarizeRun(events);

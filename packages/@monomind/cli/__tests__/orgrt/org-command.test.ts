@@ -421,6 +421,36 @@ describe('org command', () => {
       } finally { rmSync(cwd, { recursive: true, force: true }); }
     });
 
+    it('#296: reports the idle-watchdog deadline in the human-readable status line', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-status-idle-text-'));
+      try {
+        setup(cwd, 'live', { status: 'running', run: 'run-live', pid: 999999999 }, { busAgeMs: 5_000 });
+        const rec = join(cwd, ORG_DIR, 'live', 'idle-watchdog.json');
+
+        // Armed: says how long and when.
+        const at = new Date(Date.now() + 252_000).toISOString();
+        writeFileSync(rec, JSON.stringify({ run: 'run-live', idle_minutes: 5, idle_stop_at: at, hold: null }));
+        let { log } = await runStatus(cwd, 'live');
+        expect(log).toMatch(/idle stop: in 4m1[12]s \(at \d\d:\d\d:\d\dZ\)/);
+
+        // Held: names the reason instead of a deadline.
+        writeFileSync(rec, JSON.stringify({ run: 'run-live', idle_minutes: 5, idle_stop_at: null, hold: 'pending-approval' }));
+        ({ log } = await runStatus(cwd, 'live'));
+        expect(log).toMatch(/idle stop: held.*pending-approval/);
+        expect(log).not.toMatch(/idle stop: in 0/);
+
+        // Disabled: says so plainly instead of a misleading zero.
+        writeFileSync(rec, JSON.stringify({ run: 'run-live', idle_minutes: 0, idle_stop_at: null, hold: 'disabled' }));
+        ({ log } = await runStatus(cwd, 'live'));
+        expect(log).toMatch(/idle watchdog: disabled/);
+
+        // No record yet (unknown): says nothing rather than guessing.
+        rmSync(rec, { force: true });
+        ({ log } = await runStatus(cwd, 'live'));
+        expect(log).not.toMatch(/idle stop|idle watchdog/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
     it('trusts a fresh serve heartbeat that still lists the org when the recorded pid is stale', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-status-hb-'));
       try {
