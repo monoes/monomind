@@ -8,11 +8,19 @@
 // flaky and non-deterministic — a role could vanish from a run depending on
 // what else happened to be running on the machine at test time. Neutralize
 // the gate for the whole suite so it never observes real host state.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configureResourceLimits } from '../../src/utils/resource-governor.js';
 
 configureResourceLimits({ minFreeMemBytes: 0, maxSdkProcesses: Number.MAX_SAFE_INTEGER, spawnStaggerMs: 0 });
+
+// Anything that queues an org inbox message creates the signing key in the
+// operator-credential dir (orgrt/inbox.ts). Keep the suite out of the real
+// ~/.monomind/orgrt-operator; a test that sets its own dir still wins.
+if (!process.env.MONOMIND_ORGRT_OPERATOR_DIR) {
+  process.env.MONOMIND_ORGRT_OPERATOR_DIR = mkdtempSync(join(tmpdir(), 'mm-operator-'));
+}
 
 // Warn (not fail) when a live org daemon is running — contention causes phantom
 // timeouts that look like real test failures (#56).

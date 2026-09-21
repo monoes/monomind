@@ -2,7 +2,7 @@
 // Persistent message queue for offline orgs. Messages that can't be delivered
 // (target org not running) are spooled here and drained when the org starts.
 
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
@@ -10,8 +10,10 @@ import {
   readFileSync,
   renameSync,
   unlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { defaultOperatorDir } from './broker.js';
 import { ORG_DIR } from './types.js';
 
 /** M3: id of one logical message — `msg-<ms>-<8 hex>` — generated once at the
@@ -40,6 +42,60 @@ export interface QueuedMessage {
   };
 }
 
+/** The inbox sits in the org's own directory, which its roles can write, and
+ *  a drained message is delivered with the sender it names — `human` among
+ *  them. So every entry is signed with a key kept in the operator-credential
+ *  directory, which no role can read (file-roots.ts), and an entry that does
+ *  not verify is delivered as UNVERIFIED rather than as its claimed sender.
+ *  Every legitimate writer (daemon, `org` CLI, dashboard) runs outside the
+ *  roles and goes through queueMessage. */
+function inboxKey(create: boolean): Buffer | null {
+  const dir = defaultOperatorDir();
+  const file = join(dir, 'inbox.key');
+  try {
+    return readFileSync(file);
+  } catch {
+    if (!create) return null;
+  }
+  try {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    writeFileSync(file, randomBytes(32), { mode: 0o600, flag: 'wx' });
+  } catch {
+    /* another writer created it first — read theirs */
+  }
+  try {
+    return readFileSync(file);
+  } catch {
+    return null;
+  }
+}
+
+function signatureOf(key: Buffer, msg: QueuedMessage): string {
+  return createHmac('sha256', key)
+    .update(
+      JSON.stringify([msg.fromQualified, msg.toRole, msg.subject, msg.body, msg.ts, msg.messageId ?? null]),
+    )
+    .digest('hex');
+}
+
+/** A read entry, stripped of its signature: as written when it verifies,
+ *  otherwise with its sender and subject marked unverified. */
+function verified(msg: QueuedMessage & { sig?: unknown }): QueuedMessage {
+  const { sig, ...rest } = msg;
+  const key = typeof sig === 'string' ? inboxKey(false) : null;
+  if (key) {
+    const want = Buffer.from(signatureOf(key, rest));
+    const got = Buffer.from(sig as string);
+    if (got.length === want.length && timingSafeEqual(got, want)) return rest;
+  }
+  if (rest.fromQualified.startsWith('unverified(')) return rest;
+  return {
+    ...rest,
+    fromQualified: `unverified(${rest.fromQualified})`,
+    subject: `[UNVERIFIED: found in the inbox file, not queued by the org daemon, CLI or dashboard] ${rest.subject}`,
+  };
+}
+
 function inboxPath(root: string, orgName: string): string {
   return join(root, ORG_DIR, orgName, 'inbox.jsonl');
 }
@@ -48,7 +104,10 @@ export function queueMessage(root: string, orgName: string, msg: QueuedMessage):
   try {
     const dir = join(root, ORG_DIR, orgName);
     mkdirSync(dir, { recursive: true });
-    appendFileSync(inboxPath(root, orgName), `${JSON.stringify(msg)}\n`);
+    const { sig: _drop, ...clean } = msg as QueuedMessage & { sig?: unknown };
+    const key = inboxKey(true);
+    const line = key ? { ...clean, sig: signatureOf(key, clean) } : clean;
+    appendFileSync(inboxPath(root, orgName), `${JSON.stringify(line)}\n`);
     return true;
   } catch (err) {
     // Log error but don't throw — caller needs to know delivery failed
@@ -66,7 +125,7 @@ function parseLines(raw: string): QueuedMessage[] {
   for (const line of raw.trim().split('\n')) {
     if (!line) continue;
     try {
-      msgs.push(JSON.parse(line));
+      msgs.push(verified(JSON.parse(line)));
     } catch {
       /* skip corrupt lines */
     }

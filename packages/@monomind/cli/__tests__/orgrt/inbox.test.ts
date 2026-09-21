@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { queueMessage, drainInbox, inboxCount } from '../../src/orgrt/inbox.js';
@@ -69,7 +69,9 @@ describe('orgrt inbox', () => {
     try {
       const dir = join(root, ORG_DIR, 'corrupt');
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, 'inbox.jsonl'), '{"fromQualified":"a:b","toRole":"c","subject":"ok","body":"","ts":1}\nBAD JSON\n');
+      // Queued (signed) like every real writer; the corrupt line is appended raw.
+      queueMessage(root, 'corrupt', { fromQualified: 'a:b', toRole: 'c', subject: 'ok', body: '', ts: 1 });
+      appendFileSync(join(dir, 'inbox.jsonl'), 'BAD JSON\n');
 
       const msgs = drainInbox(root, 'corrupt');
       expect(msgs).toHaveLength(1);
