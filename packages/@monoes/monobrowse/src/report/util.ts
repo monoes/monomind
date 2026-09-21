@@ -3,10 +3,13 @@
 /** Budget for one non-navigation collector (AX tree, screenshot, eval). */
 export const STEP_TIMEOUT_MS = 15_000;
 
+/** Not unref'd: callers `await sleep(...)` (e.g. the web-vitals settle
+ *  window), so this timer is on an actively-awaited path. An unref'd timer
+ *  does not keep the event loop alive, so once the CDP socket closes Node
+ *  would drain and exit mid-report instead of resuming after the sleep. */
 export function sleep(ms: number): Promise<void> {
   return new Promise((r) => {
-    const t = setTimeout(r, ms);
-    t.unref?.();
+    setTimeout(r, ms);
   });
 }
 
@@ -23,9 +26,12 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number, label: str
   try {
     return await Promise.race([
       promise,
+      // Not unref'd: this timer is the only thing that settles the race when
+      // `promise` is waiting on a socket that quietly went away, and every
+      // caller awaits the result. The finally below clears it, so work that
+      // finishes in time never holds the event loop open.
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-        timer.unref?.();
       }),
     ]);
   } finally {

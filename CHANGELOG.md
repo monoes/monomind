@@ -4,6 +4,35 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.3] — 2026-09-21
+
+### Fixed
+
+- **`monobrowse report` exited 0 on a page that failed its budget.** (#316) It printed nothing and exited 0 while writing a report whose own JSON said `"verdict": "fail"` — so CI, an agent, or a shell `&&` gating on exit status saw green on a failing page, which defeats the point of having budgets at all.
+  Teardown ran in a `finally` sitting between "we have the result" and "we print it", so anything that wedged during teardown took the verdict and the exit code with it. Teardown now runs **after** the verdict is printed, and `process.exitCode = 1` is set before either — a natural event-loop drain honours it, so a failing page cannot exit 0 no matter what happens afterwards. Set only on failure, so it never clears a code set elsewhere.
+  Worth noting what this is *not*: the underlying teardown hang was a separate defect, fixed in 2.15.2 (#314, the `unref()`'d poll timer — not the `Browser.close` race it resembled). This fix is about the verdict being swallowed, which would still have been possible whenever teardown was slow for any reason.
+- **The websocket-teardown timeout in monodesign's driver is kept**, rather than being dropped as redundant — it still guards a dying websocket.
+
+
+## [2.15.2] — 2026-09-21
+
+### Fixed
+
+- **A browser launch or close could hang forever instead of failing.** ([#314](https://github.com/monoes/monomind/issues/314)) Two independent defects in `@monoes/monobrowse`, both reproduced rather than inferred:
+  - **The spawned Chrome had no `'error'` listener.** A spawn failure (EACCES/ENOENT — the binary passed `existsSync()` when it was found, then failed to actually exec) fires Node's `'error'` event asynchronously. With nothing listening, Node rethrows it as an uncaught exception and takes the process down, leaving the launch promise pending forever instead of rejecting with a usable message. Reproduced by pointing the launcher at a non-executable file: the process died before the fix, and rejects in ~200ms after.
+  - **`closeBrowser()` polled for process exit with an `unref()`'d timer.** An unref'd timer does not count toward keeping the event loop alive, so once Chrome's CDP websocket closed during its own shutdown nothing pinned the loop, Node considered it drained, and the timer never fired — `closeBrowser()` never settled. This is the one that bit ordinary launch → close → launch cycles rather than only failures, and it is the direct cause of the CI symptom `Promise resolution is still pending but the event loop has already resolved`.
+  The skipped regression test (`monobrowse detection driver lifecycle`) is re-enabled and passes under `CI` in ~1.2s.
+- **One capture envelope is one document again.** (#315) A first-ever `doc ingest` of a single envelope indexed it as **two** documents and reported `versions: 2`; `unchanged` never fired, so every re-ingest inflated the version count without bound, and `doc lookup` returned a `page.html` whose own text was never indexed. Three separate defects, each proved with a vehicle that structurally cannot exercise the others:
+  - `ingestDirectory` resolved its root without `effectiveRoot`, so for `global` or `profile:<id>` scope it read the metadata cache from the *project* store while `ingestDocument` wrote to the global one — `existing` could never be found.
+  - The cache was read once before the loop and the same snapshot handed to every call, so files in one batch could not see each other. That is why one envelope became two documents.
+  - The recorded path was `readdir`-order dependent, visible only once the first two were fixed: whichever envelope member the walk reached first won the record, so the indexed path was machine-dependent.
+  The tempting fix — tightening the member guard to skip `page.html` — was deliberately not taken: it would have made envelopes look correct while leaving re-ingest, versioning and `cite` broken for every document.
+
+### Internal
+
+- `@monoes/monodesign` depends on `@monoes/monobrowse` through `workspace:*` again, and the guard exception added in 2.15.1 is removed. That exception existed only because of #314; with the hang fixed the workspace link is correct, and it matters — while the dependency pointed at the older published monobrowse, the re-enabled regression test would have exercised stale code and reported the fix as verified without ever running it.
+
+
 ## [2.15.1] — 2026-09-21
 
 Numbered a patch at the maintainer's request. One entry below is additive

@@ -32,25 +32,15 @@ try {
   // The test is optional on hosts without a locally installed Chromium browser.
 }
 
-// Skipped on CI, and this is a real gap rather than a tidy-up: see #314.
-//
-// The test has never actually executed on CI. Its guard also requires
-// `await import('@monoes/monobrowse')` to resolve, and for most of its life the
-// CI job had no built monobrowse to import, so it silently skipped. When the
-// import started resolving, the test ran on a runner for the first time and
-// failed in 695ms with "Promise resolution is still pending but the event loop
-// has already resolved" — a promise inside launchMonobrowseBrowser() that never
-// settles, not the bounded launch timeout, and not Chrome's sandbox (tried:
-// --no-sandbox --disable-dev-shm-usage changed nothing).
-//
-// Skipping restores the state this test was always in on CI instead of leaving
-// main red over a path that has never worked there. It still runs locally,
-// where it passes. #314 tracks making the launch path work under CI.
-const skipReason = !monobrowseAvailable
-  ? 'no local Chrome/Chromium available'
-  : process.env.CI
-    ? 'monobrowse launch does not settle on CI runners — see #314'
-    : false;
+// #314: this used to also skip under process.env.CI. The launch path had two
+// promises that could be left pending forever once Chrome failed to start —
+// spawn() had no 'error' listener (an uncaught EACCES/ENOENT crashed the
+// process instead of rejecting), and closeBrowser()'s waitForProcessExit poll
+// used an unref'd timer that never fires once nothing else pins the event
+// loop (reproducible locally with a real Chrome: launch, close, and the close
+// call hangs forever). Both are fixed in monobrowse's browser.ts, so this now
+// runs on CI too.
+const skipReason = !monobrowseAvailable ? 'no local Chrome/Chromium available' : false;
 
 describe('monobrowse detection driver lifecycle', { skip: skipReason }, () => {
   it('releases a forced CDP port before the next browser launch', async () => {
