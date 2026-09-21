@@ -280,7 +280,7 @@ export function resolveFiles(rootDir, config) {
       continue;
     }
     for (const ent of matches) {
-      if (!ent.isFile || !ent.isFile()) continue;
+      if (!ent.isFile?.()) continue;
       const abs = path.join(ent.parentPath || ent.path || rootDir, ent.name);
       const rel = path.relative(rootDir, abs).split(path.sep).join('/');
       if (isExcluded(rel)) continue;

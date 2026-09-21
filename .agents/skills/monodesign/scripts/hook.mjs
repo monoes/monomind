@@ -51,7 +51,7 @@ main().catch((err) => {
     writeAuditLog(process.env, {
       ts: new Date().toISOString(),
       event: 'PostToolUse',
-      error: String(err && err.message ? err.message : err),
+      error: String(err?.message ? err.message : err),
     });
   } catch { /* swallow */ }
   if (process.env.MONODESIGN_HOOK_DEBUG) {

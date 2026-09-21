@@ -5,7 +5,8 @@
  * chrome mounting, lookup, focus, and picker helpers without depending on the
  * full overlay UI bundle.
  */
-(function (root) {
+((root) => {
+  // biome-ignore lint/suspicious/noRedundantUseStrict: served to the page as a classic <script> (not an ES module despite package type=module), so this directive is what enables strict mode
   'use strict';
   if (!root) return;
 
@@ -25,7 +26,7 @@
     }
 
     function pickable(el) {
-      if (!el || el.nodeType !== 1) return false;
+      if (el?.nodeType !== 1) return false;
       if (tagsToSkip.has(String(el.tagName || '').toLowerCase())) return false;
       if (own(el)) return false;
       const r = el.getBoundingClientRect();
@@ -45,7 +46,7 @@
     }
 
     function makeFrozenAnchor(el) {
-      if (!el || !el.getBoundingClientRect) return null;
+      if (!el?.getBoundingClientRect) return null;
       const r = el.getBoundingClientRect();
       if (!rectIsUsableAnchor(r)) return null;
       const rect = {

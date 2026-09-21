@@ -495,7 +495,7 @@ function invalidManualApplyResult(reason, eventId, extra = {}) {
 }
 
 export function validateManualApplyResultMessage(msg, deferred) {
-  let data = msg?.data;
+  const data = msg?.data;
   const eventId = msg?.id || deferred?.event?.id || 'EVENT_ID';
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return invalidManualApplyResult('missing_result_data', eventId);

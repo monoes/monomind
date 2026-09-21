@@ -73,6 +73,15 @@ export const SENSITIVE_PATH = new RegExp([
 // Hard-skip regex for generated, lock, minified, and build-output paths.
 export const GENERATED_PATH = /(?:\.generated\.[a-z]+$|\.d\.ts$|\.min\.[a-z]+$|[/\\]node_modules[/\\]|[/\\](?:dist|build|out|\.next|\.cache|coverage)[/\\]|[/\\]?[^/\\]+\.lock(?:\.json)?$)/i;
 
+// GENERATED_PATH checked against the path inside the project, so a project
+// that lives under e.g. ~/.cache/ or /srv/build/ is still scanned. Paths
+// outside the project root fall back to the absolute path.
+export function isGeneratedPath(filePath, projectRoot) {
+  const rel = path.relative(path.resolve(projectRoot), path.resolve(filePath));
+  const inside = rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  return GENERATED_PATH.test(inside ? path.sep + rel : filePath);
+}
+
 export const TRUTHY = /^(1|true|yes|on)$/i;
 
 export const DEFAULT_CONFIG = Object.freeze({
@@ -184,7 +193,7 @@ export function resolveCacheCwd(primaryFile, sessionCwd) {
 export function resolveProjectPlatform(cwd) {
   try {
     const ctx = loadContext(cwd);
-    return extractPlatform(ctx && ctx.product);
+    return extractPlatform(ctx?.product);
   } catch {
     return null;
   }
@@ -302,10 +311,10 @@ export function matchConfiguredExtension(filePath, extensions) {
 
 function applyConfigSource(config, raw) {
   if (!raw || typeof raw !== 'object') return config;
-  if (Object.prototype.hasOwnProperty.call(raw, 'enabled')) {
+  if (Object.hasOwn(raw, 'enabled')) {
     config.enabled = raw.enabled === false ? false : true;
   }
-  if (Object.prototype.hasOwnProperty.call(raw, 'quiet')) {
+  if (Object.hasOwn(raw, 'quiet')) {
     config.quiet = raw.quiet === true;
   }
   if (typeof raw.auditLog === 'string' && raw.auditLog.trim()) {
@@ -399,7 +408,7 @@ function splitColorArgs(body) {
   if (text.includes(',')) {
     const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
     const last = parts[parts.length - 1];
-    if (last && last.includes('/')) {
+    if (last?.includes('/')) {
       const split = last.split('/').map((part) => part.trim()).filter(Boolean);
       return [...parts.slice(0, -1), ...split];
     }
@@ -944,7 +953,7 @@ function clampGroupedToBudget(header, lines, footer, maxChars) {
     footer,
   ].join('\n');
 
-  let working = lines.slice();
+  const working = lines.slice();
   let omitted = false;
   let assembled = assemble(working, omitted);
   while (assembled.length > maxChars && working.length > 1) {
@@ -967,7 +976,7 @@ function clampToBudget(header, lines, more, footer, maxChars) {
     return blocks.join('\n');
   };
 
-  let working = lines.slice();
+  const working = lines.slice();
   let moreText = more;
   let assembled = assemble(working, moreText);
   while (assembled.length > maxChars && working.length > 1) {
@@ -1573,7 +1582,7 @@ export async function runHook({ stdinJson, env = {}, cwd = process.cwd(), now = 
         lastSkip = 'sensitive';
         continue;
       }
-      if (GENERATED_PATH.test(filePath)) {
+      if (isGeneratedPath(filePath, projectCwd)) {
         lastSkip = 'generated';
         continue;
       }
@@ -1756,7 +1765,7 @@ export async function runHook({ stdinJson, env = {}, cwd = process.cwd(), now = 
     return {
       exitCode: 0,
       stdout: '',
-      audit: { ...audit, error: String(err && err.message ? err.message : err) },
+      audit: { ...audit, error: String(err?.message ? err.message : err) },
     };
   }
 }

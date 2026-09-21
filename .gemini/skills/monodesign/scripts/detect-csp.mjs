@@ -71,11 +71,6 @@ const INLINE_HEADER_SIGNALS = [
   /\bscript-src\b/,
   /\bconnect-src\b/,
 ];
-const NUXT_ROUTE_RULES_SIGNALS = [
-  /\brouteRules\b/,
-  /Content-Security-Policy/i,
-  /\bscript-src\b/,
-];
 
 const MIDDLEWARE_HINT = /headers\.set\(\s*["']Content-Security-Policy["']/i;
 const META_TAG_HINT = /http-equiv\s*=\s*["']Content-Security-Policy["']/i;

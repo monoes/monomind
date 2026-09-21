@@ -93,7 +93,7 @@ The agent should then:
   // 1. Check config (fail fast if missing — no point starting anything else)
   const checkOut = runScript('live-inject.mjs', ['--check'], { cwd: activeCwd });
   const checkResult = safeParse(checkOut);
-  if (!checkResult || !checkResult.ok) {
+  if (!checkResult?.ok) {
     console.log(JSON.stringify({
       ...(checkResult || { ok: false, error: 'check_failed', raw: checkOut }),
       targetPath: outputTargetPath,
@@ -113,7 +113,7 @@ The agent should then:
   // 3. Inject the script tag at the current port
   const injectOut = runScript('live-inject.mjs', ['--port', String(serverInfo.port)], { cwd: activeCwd });
   const injectResult = safeParse(injectOut);
-  if (!injectResult || !injectResult.ok) {
+  if (!injectResult?.ok) {
     console.log(JSON.stringify({
       ok: false,
       error: 'inject_failed',
@@ -274,7 +274,7 @@ function ensureServerRunning(cwd = process.cwd()) {
   // Try to reuse an existing server
   try {
     const existing = readLiveServerInfo(cwd)?.info;
-    if (existing && existing.pid) {
+    if (existing?.pid) {
       try {
         process.kill(existing.pid, 0); // throws if dead
         return existing;

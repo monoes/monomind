@@ -32,6 +32,7 @@ import crypto from 'node:crypto';
 // ~400 candidates from ColorHunt + synthesis + Radix/brand/Pantone anchors).
 // Each carries a mood + strategy the judging model produced — surfaced as
 // hints, not commands; the brief still drives composition.
+// biome-ignore-start lint/suspicious/noApproximativeNumericConstant: OKLCH lightness values (e.g. 0.400, 0.700) that merely resemble Math.LOG10E/LOG2E; they are curated colour data, not those constants
 const SEEDS = [
   { id: "seed-200", oklch: [0.360, 0.137, 0.0],
     mood: "Aesop apothecary shelf — oxblood bottle glass against linen, considered and unhurried",
@@ -421,6 +422,7 @@ const SEEDS = [
     mood: "modern beauty brand DTC — Glossier-adjacent pink, confident and current without being saccharine",
     strategy: "Pure white surface so the rose-pink primary carries all the brand warmth, paired with a near-black ink and a desaturated mauve accent for editorial restraint." },
 ];
+// biome-ignore-end lint/suspicious/noApproximativeNumericConstant: end of curated seed data
 
 function parseArgs(argv) {
   const args = { id: null, from: null };
@@ -499,7 +501,7 @@ function hueWord(H) {
 
 const args = parseArgs(process.argv.slice(2));
 const seed = pickSeed(SEEDS, args);
-const [L, C, H] = seed.oklch;
+const [, , H] = seed.oklch;
 
 // The mood + strategy on each seed were derived by the model that
 // originally judged it. We surface them as *hints*, not commands —

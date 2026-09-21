@@ -130,9 +130,6 @@ function parseScalar(raw) {
 
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/g;
 const OKLCH_RE = /oklch\([^)]+\)/gi;
-const RGBA_RE = /rgba?\([^)]+\)/gi;
-const BOX_SHADOW_RE = /(?:box-shadow:\s*)?((?:-?\d[\w\d\s\-.,/()#%]*)+)/;
-const NAMED_RULE_RE = /\*\*(The [^*]+?Rule)\.\*\*\s*(.+)/;
 
 // ---------- Section splitting ----------
 
@@ -415,7 +412,7 @@ function parseColorBullet(bullet) {
 
   // Case 1 (Monodesign): **Name** (value-with-maybe-nested-parens): description
   const bold = text.match(/^\*\*(.+?)\*\*\s*(.*)$/);
-  if (bold && bold[2].startsWith('(')) {
+  if (bold?.[2].startsWith('(')) {
     const value = extractParenGroup(bold[2]);
     if (value !== null) {
       const after = bold[2].slice(value.length + 2).trimStart();
@@ -483,36 +480,6 @@ function detectFormat(v) {
   if (/^oklch/i.test(v)) return 'oklch';
   if (/^rgb/i.test(v)) return 'rgb';
   return 'unknown';
-}
-
-function scanInlineColors(lines) {
-  const out = [];
-  for (const line of lines) {
-    if (!/^\s*[-*]\s/.test(line)) continue;
-    const trimmed = line.replace(/^\s*[-*]\s+/, '');
-    const color = parseColorBullet(trimmed);
-    if (color) out.push(color);
-  }
-  return out;
-}
-
-function parseStitchInlineGroups(lines) {
-  // Stitch writes: `*   **Primary (`#00478d` to `#005eb8`):** Use for "..."`
-  // Each bullet IS its own role. Group them under the spoken role name.
-  const out = [];
-  for (const line of lines) {
-    if (!/^\s*[-*]\s/.test(line)) continue;
-    const trimmed = line.replace(/^\s*[-*]\s+/, '').trim();
-    const m = trimmed.match(
-      /^\*\*([A-Z][a-zA-Z]+)\s*\(([^)]+)\):\*\*\s*(.*)$/
-    );
-    if (m) {
-      const role = m[1];
-      const color = buildColor(role, m[2], m[3]);
-      out.push({ role, colors: [color] });
-    }
-  }
-  return out;
 }
 
 function extractTypography(section) {

@@ -17,11 +17,11 @@ import path from 'node:path';
 import {
   ALLOWED_EXTS,
   EDIT_COUNT_THRESHOLD,
-  GENERATED_PATH,
   SENSITIVE_PATH,
   appendDesignSystemNote,
   designSystemOptions,
   filterFindings,
+  isGeneratedPath,
   isNativePlatform,
   loadDetector,
   matchConfiguredExtension,
@@ -162,7 +162,7 @@ function replaceOnce(original, oldString, newString) {
 
 function readExistingProjectFile(filePath, cwd) {
   if (!isInsideProject(filePath, cwd)) return null;
-  if (SENSITIVE_PATH.test(filePath) || GENERATED_PATH.test(filePath)) return null;
+  if (SENSITIVE_PATH.test(filePath) || isGeneratedPath(filePath, cwd)) return null;
   try {
     const stat = fs.statSync(filePath);
     if (!stat.isFile() || stat.size > 1024 * 1024) return null;
@@ -233,7 +233,7 @@ function shellCopiedFileContent(command, cwd) {
   if (!source) return '';
   const sourcePath = path.isAbsolute(source) ? source : path.resolve(cwd, source);
   if (!isInsideProject(sourcePath, cwd)) return '';
-  if (SENSITIVE_PATH.test(sourcePath) || GENERATED_PATH.test(sourcePath)) return '';
+  if (SENSITIVE_PATH.test(sourcePath) || isGeneratedPath(sourcePath, cwd)) return '';
   try {
     const stat = fs.statSync(sourcePath);
     if (!stat.isFile() || stat.size > 1024 * 1024) return '';
@@ -416,7 +416,7 @@ async function main() {
   if (!filePath) return allow({ ...audit, skipped: 'no-file-path', durationMs: Date.now() - started });
   if (!isInsideProject(filePath, cwd)) return allow({ ...audit, skipped: 'outside-project', durationMs: Date.now() - started });
   if (SENSITIVE_PATH.test(filePath)) return allow({ ...audit, skipped: 'sensitive', durationMs: Date.now() - started });
-  if (GENERATED_PATH.test(filePath)) return allow({ ...audit, skipped: 'generated', durationMs: Date.now() - started });
+  if (isGeneratedPath(filePath, cwd)) return allow({ ...audit, skipped: 'generated', durationMs: Date.now() - started });
 
   // Config is read before the extension gate so `detector.extensions` entries
   // (e.g. `.blade.php` template files, issue #316) can widen it.

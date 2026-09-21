@@ -62,7 +62,7 @@ function validateInsertGenerate(msg) {
 
 function validateReplaceGenerate(msg) {
   if (!msg.action || !VISUAL_ACTIONS.includes(msg.action)) return 'generate: invalid action';
-  if (!msg.element || !msg.element.outerHTML) return 'generate: missing element context';
+  if (!msg.element?.outerHTML) return 'generate: missing element context';
   return validateAnnotationFields(msg);
 }
 
