@@ -4,6 +4,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+> **Action needed if you use the dashboard.** It now requires a logged-in browser. Run
+> `monomind dashboard open` (or `--print` over SSH) to get a one-time login link; the
+> session then lasts 30 days in that browser. Opening `http://localhost:4242` directly
+> shows how to log in instead of the dashboard.
+
+### Changed
+
+- **The dashboard only acts for a browser you logged in yourself.** Its pages used to hand the dashboard token to any local program that asked, and that token could approve tool calls, resolve gates, answer questions, message roles and edit org config, so anything running as you, org roles included, could act as you. The pages now need a session cookie, which a browser gets from a one-time, ten-minute login link (`monomind dashboard open`, or the tab the dashboard opens when it starts). Approvals, gates, answers, chat and config edits are refused without it, even with the token. The token keeps its machine uses (hooks, the CLI, event forwarding), so nothing else changes. The session-start hook that pairs a project with a dashboard already running for another project no longer scrapes the page; it reads the new `GET /api/identity` (pid, project dir, token file path, never the token).
+- **Removed dashboard code for the v1 org model**: 22 org tabs that could no longer be shown, and 10 `GET /api/org/:name/…` routes that only read v1 files nothing writes (`projects`, `members`, `issues`, `environments`, `workspaces`, `invites`, `my-issues`, `secrets`, `join-requests`, `goals`). No live view used them.
+
 ### Fixed
 
 - **Approving a tool call for an org that is not running looked like it worked, but did nothing.** 2.14.0 recorded the decision in the org's `approvals.json`, but nothing reads that file back: an approval request lives in the run that asked for it, and a new run asks again. The dashboard now refuses the decision (409) and says why. It does the same when a daemon started since then (for example a `--resume` in a new process) no longer holds the request, instead of reporting a bare 404. While no daemon hosts the org, its pending approvals show as `expired` instead of counting as waiting on you. Gates and answers are unchanged, because the next run does read those.
@@ -17,6 +27,9 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 - **An org role could redirect the dashboard's file writes to any file the user owns.** When the dashboard recorded a decision for an org that was not running, or saved its config, it wrote through a predictable temp file (`<file>.<pid>.tmp`) in a directory roles can write to. A link planted there redirected the write, with agent-chosen content, to a file such as `~/.bashrc`. Temp files are now created exclusively (`O_EXCL`) with a random name.
 - **Values from runtime files an agent can write reached the Runtime tab's HTML unescaped.** They came from the run checkpoint, the run history and the settings panel. They are now escaped.
+- **An org role could approve its own decision gate.** A running org re-read `gates.json` for every pending-gate check, and that file sits in a directory the org's roles can write to. A role that rewrote it, or swapped the directory holding it, unblocked itself. A running org now holds its gates in memory and writes the file only as a record, restoring it when the run stops.
+- **An org role could pose as you in the next run.** The org inbox (`inbox.jsonl`) is delivered when an org starts, as whichever sender each line names, `human` included. Entries are now signed with a key the roles cannot read. A line that does not verify arrives as `unverified(<sender>)` with a marked subject. Messages queued by a version before this one also arrive unverified.
+- **Roles at `policy.git: push`, roles with the sandbox off, and every non-Claude runtime could read the operator credentials and write the decision files.** Only Claude roles below `push` ran sandboxed. Every role is now kept from human authority: the operator-credential and dashboard-auth directories are hidden, the dashboard token files are unreadable, and `gates.json`, `approvals.json`, `questions.json` and `inbox.jsonl` are read-only. Roles outside the SDK sandbox get this from a minimal bubblewrap layer that adds no other restriction. Where bubblewrap cannot run, the role starts anyway and an `authority-mask-unavailable` audit event says so.
 - **A relative `MONOMIND_ORGRT_OPERATOR_DIR` was not masked from roles.** The broker uses a relative value as-is, but the role deny rules only accepted absolute paths. They now resolve it the same way.
 
 ## [2.14.1] — 2026-09-21
