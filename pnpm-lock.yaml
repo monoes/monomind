@@ -109,8 +109,8 @@ importers:
         version: 18.0.6
     optionalDependencies:
       '@monoes/monobrowse':
-        specifier: ^1.0.14
-        version: 1.0.14
+        specifier: workspace:*
+        version: link:../monobrowse
       puppeteer:
         specifier: ^25.1.0
         version: 25.3.0(yauzl@2.10.0)
@@ -1042,11 +1042,6 @@ packages:
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
-
-  '@monoes/monobrowse@1.0.14':
-    resolution: {integrity: sha512-Je+SDvFonwZwV27ivH16DhB4RNRNuFKTM/I6Gkcc6kXxkL74N5U5KJsAkqcYdf1ERFs0a4cdrUPDu3V5+z/zRQ==}
-    engines: {node: '>=22.12.0'}
-    hasBin: true
 
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
@@ -3390,15 +3385,6 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
-
-  '@monoes/monobrowse@1.0.14':
-    dependencies:
-      commander: 12.1.0
-      ws: 8.21.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-    optional: true
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:

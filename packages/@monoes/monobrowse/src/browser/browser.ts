@@ -237,6 +237,32 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     detached: true,
     stdio: 'ignore',
   });
+
+  // Without this, a spawn failure (e.g. EACCES/ENOENT — chromePath exists per
+  // findChrome()'s existsSync check but isn't actually executable, or is
+  // removed between the check and exec) fires Node's 'error' event on the
+  // next tick. With no listener, Node throws it as an uncaught exception and
+  // the whole process goes down — which strands this function's promise
+  // forever pending rather than rejecting it (issue #314: node:test reports
+  // that as "cancelledByParent" / "still pending" because nothing here ever
+  // got the chance to settle it). Recording the failure and having the poll
+  // loop below notice it turns that crash into a normal rejection. 'exit'
+  // covers the twin case: Chrome execs fine but the process itself dies
+  // immediately (missing shared libraries, a container's sandbox refusing
+  // it, etc.) — that fires 'exit', not 'error', and without this the poll
+  // loop would just burn its whole timeout probing a port nothing will ever
+  // open on.
+  let earlyFailure: Error | null = null;
+  child.on('error', (err) => {
+    earlyFailure ??= new Error(`Chrome failed to start on port ${port}: ${err.message}`);
+  });
+  child.on('exit', (code, signal) => {
+    earlyFailure ??= new Error(
+      `Chrome exited before the CDP endpoint opened on port ${port} ` +
+        `(code=${code ?? 'null'}, signal=${signal ?? 'null'})`,
+    );
+  });
+
   child.unref();
   if (child.pid) {
     launchedPids.set(port, child.pid);
@@ -246,7 +272,9 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
   const launchTimeout = config.launchTimeoutMs ?? LAUNCH_TIMEOUT;
   const deadline = Date.now() + launchTimeout;
   while (Date.now() < deadline) {
+    if (earlyFailure) throw earlyFailure;
     await sleep(POLL_INTERVAL);
+    if (earlyFailure) throw earlyFailure;
     if (await isPortOpen(port)) {
       if (await isChromeIdentity(port)) return port;
       throw new Error(
@@ -255,6 +283,8 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
       );
     }
   }
+
+  if (earlyFailure) throw earlyFailure;
 
   // Timed out waiting for our Chrome to come up on the port. Distinguish
   // "nothing is listening" (real launch failure) from "something non-CDP is
@@ -403,7 +433,19 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
 
 /** Poll until `pid` is gone or PROCESS_EXIT_TIMEOUT_MS elapses. Returns
  *  whether it exited. `process.kill(pid, 0)` throws once the process is no
- *  longer there, on Windows as well as POSIX. */
+ *  longer there, on Windows as well as POSIX.
+ *
+ *  This timer is deliberately NOT unref'd. closeBrowser() awaits this poll
+ *  as part of its own return value — a caller that awaits closeBrowser() is
+ *  actively blocked on it, not doing other work in the background. Once
+ *  Chrome's CDP websocket closes (which happens right around here, as part
+ *  of it shutting down), nothing else may be left holding the event loop
+ *  open; an unref'd timer at that point never fires because Node considers
+ *  the loop drained and exits without running it, leaving this promise (and
+ *  closeBrowser()'s) pending forever — reproduced locally by closing a real
+ *  launched browser with nothing else scheduled. Bounded by
+ *  PROCESS_EXIT_TIMEOUT_MS (5s) either way, so keeping it ref'd only ever
+ *  costs a caller a few seconds, never a hang. */
 async function waitForProcessExit(pid: number): Promise<boolean> {
   const deadline = Date.now() + PROCESS_EXIT_TIMEOUT_MS;
   for (;;) {
@@ -414,8 +456,7 @@ async function waitForProcessExit(pid: number): Promise<boolean> {
     }
     if (Date.now() >= deadline) return false;
     await new Promise((resolve) => {
-      const t = setTimeout(resolve, PROCESS_EXIT_POLL_MS);
-      t.unref?.();
+      setTimeout(resolve, PROCESS_EXIT_POLL_MS);
     });
   }
 }
