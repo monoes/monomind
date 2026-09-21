@@ -96,6 +96,7 @@ import {
 import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
+import { SessionLedger } from './session-ledger.js';
 import { TaskDag } from './task-dag.js';
 import {
   type ChainTrace,
@@ -349,6 +350,9 @@ export interface AgentRuntime {
 export interface RunningOrg {
   def: OrgDef;
   run: string;
+  /** ADR-O001 D3: this run's model-session records (`<run>/sessions.json`),
+   *  shared by every incarnation of every role so a replacement resumes too. */
+  sessionLedger?: SessionLedger;
   bus: OrgBus;
   agents: Map<string, AgentRuntime>;
   busEvents: () => BusEvent[];
@@ -1107,6 +1111,7 @@ export class OrgDaemon {
     const running: RunningOrg = {
       def,
       run,
+      sessionLedger: new SessionLedger(join(dir, 'sessions.json')),
       bus,
       agents: new Map(),
       roleSlots: new Map(),
@@ -1873,6 +1878,7 @@ export class OrgDaemon {
       },
       maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
       resumeSessionId: roleCheckpoint?.sessionId,
+      sessionLedger: running.sessionLedger,
       lastMessageId: () => runtime.lastMessageId,
       onOutput: (line: string) => runtime.scrollback.push(line),
       onSessionId: (id: string) => {

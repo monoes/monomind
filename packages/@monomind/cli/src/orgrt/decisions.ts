@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
+import { resolveSessionScope } from './session-ledger.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
   type DecisionGate,
@@ -496,6 +497,13 @@ function queueDispatch(running: RunningOrg, assignee: string, line: string): voi
     running.pendingDispatch?.delete(assignee);
     const mailbox = running.agents.get(assignee)?.mailbox;
     if (!mailbox || mailbox.isClosed) return;
+    // ADR-O001 D3: in task scope a message is routed to the model session of
+    // the task it names, so a batch naming several tasks has to stay apart.
+    const role = running.def?.roles.find((r) => r.id === assignee);
+    if (role && resolveSessionScope(role, running.def) === 'task') {
+      for (const line of entry.lines) mailbox.push(line);
+      return;
+    }
     mailbox.push(entry.lines.join('\n\n'));
   }, DISPATCH_COALESCE_MS);
   entry.timer.unref?.();

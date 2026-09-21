@@ -22,12 +22,21 @@ import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types
 const SILENT_SESSION_MS = 4 * 60_000;
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveRoleCostTier } from './cost-tier.js';
+import type { StreamOptions } from './mailbox.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
+import type { SessionStartReason } from './session-ledger.js';
+import {
+  ROLE_SESSION_KEY,
+  resolveSessionScope,
+  SessionLedger,
+  taskKeyOf,
+} from './session-ledger.js';
 import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
@@ -302,6 +311,10 @@ export interface SessionOpts {
    *  first query() call resumes it instead of starting a fresh conversation
    *  (P2-13: this is what actually makes checkpoint resume resume). */
   resumeSessionId?: string;
+  /** ADR-O001 D3: the run's task-keyed session records. Every session run is
+   *  recorded here (sessionIdBefore/After) in every scope; only
+   *  `session_scope: 'task'` resumes from it. Omitted = in-memory. */
+  sessionLedger?: SessionLedger;
   /** Circuit breaker config for this role. */
   circuitBreaker?: { threshold: number; state: { failures: number; tripped: boolean } };
   /** Called when the coordinator's context window is exhausted. */
@@ -389,6 +402,18 @@ export function buildRolePrompt(
     .join('\n\n');
 }
 
+/** The system prompt one session of this role is built with. */
+function rolePromptFor(opts: SessionOpts): string {
+  return buildRolePrompt(
+    opts.role,
+    (opts.def ?? { name: opts.org, goal: '' }) as OrgDef,
+    opts.def?.roles.map((r) => r.id) ?? [opts.role.id],
+    opts.glossary,
+    resolveRoleExtraGuidance(opts.role),
+    opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
+  );
+}
+
 /**
  * Runs a role for the life of the org, transparently restarting the
  * underlying SDK session whenever it ends on its own (`maxTurns` reached)
@@ -451,11 +476,90 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   // ADR-O001 D1: modelUsage is cumulative per session exactly like
   // total_cost_usd, so it needs the same prev-value map to become a delta.
   const sessionTokenTotals = new Map<string, TokenUsage>();
+  // ADR-O001 D3. 'role' scope (the default) keeps the pre-D3 loop exactly: one
+  // model session for the role's life, resumed across maxTurns restarts via
+  // resumeSessionId. 'task' scope keys model sessions by the task a message
+  // belongs to: the process exits at a task boundary (or on idle) and the next
+  // one resumes that task's session from the ledger. Either way every session
+  // run is recorded with its session id before and after.
+  const scope = resolveSessionScope(opts.role, opts.def);
+  const idleExitMs = (opts.def?.run_config as { session_idle_exit_ms?: number } | undefined)
+    ?.session_idle_exit_ms;
+  const ledger = opts.sessionLedger ?? new SessionLedger();
+  const runtimeKey = opts.role.runtime ?? opts.def?.runtime ?? 'claude';
+  const promptHash =
+    scope === 'task'
+      ? createHash('sha256').update(rolePromptFor(opts)).digest('hex').slice(0, 16)
+      : '*';
+  let taskKey = ROLE_SESSION_KEY;
+  // Why the next fresh session for a key is fresh, when the loop itself threw
+  // the record away (stale resume, turn-limit error) — recorded, not guessed.
+  const droppedBecause = new Map<string, SessionStartReason>();
+  const staleTried = new Set<string>();
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
   // would skip that drain entirely.
   while (true) {
+    // Opt-in only: keep the process DOWN until there is mail, instead of
+    // starting a query() that parks on an empty mailbox. waitForMessage()
+    // still returns true for a closed mailbox with queued items.
+    if ((scope === 'task' || idleExitMs !== undefined) && !(await mailbox.waitForMessage())) return;
+    let startReason: SessionStartReason;
+    if (scope === 'task') {
+      // An untagged message (mail, an answer, a continuation) belongs to the
+      // session the role is already in.
+      taskKey = taskKeyOf(mailbox.peek() ?? '') ?? taskKey;
+      const pick = ledger.resumeFor({
+        role: opts.role.id,
+        runtime: runtimeKey,
+        taskKey,
+        cwd: opts.cwd,
+        promptHash,
+      });
+      resumeSessionId = pick.sessionId;
+      startReason =
+        pick.reason === 'fresh-no-record'
+          ? (droppedBecause.get(taskKey) ?? pick.reason)
+          : pick.reason;
+    } else {
+      startReason = resumeSessionId ? 'resumed' : 'fresh-no-record';
+    }
+    const sessionKey = taskKey;
+    const streamOpts: StreamOptions | undefined =
+      scope === 'task'
+        ? {
+            stopBefore: (next) => {
+              const k = taskKeyOf(next);
+              return k !== undefined && k !== sessionKey;
+            },
+            idleExitMs,
+          }
+        : idleExitMs !== undefined
+          ? { idleExitMs }
+          : undefined;
+    const sessionIdBefore = resumeSessionId;
+    const startedAt = Date.now();
+    const recordRun = (after: string | undefined, error?: string): void => {
+      const run = ledger.recordRun({
+        role: opts.role.id,
+        runtime: runtimeKey,
+        taskKey: sessionKey,
+        sessionIdBefore,
+        sessionIdAfter: after,
+        reason: startReason,
+        startedAt,
+        endedAt: Date.now(),
+        ...(error ? { error } : {}),
+      });
+      opts.bus.emit({
+        type: 'audit',
+        from: opts.role.id,
+        reason: 'session-run',
+        msg: `session ${run.resumed ? 'resumed' : 'started fresh'} (${startReason}) for ${sessionKey}`,
+        data: run as unknown as Record<string, unknown>,
+      });
+    };
     const realBefore = mailbox.consumedRealCount;
     let sessionId: string | undefined;
     let hitTurnLimit: boolean | undefined = false;
@@ -467,12 +571,26 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
         sessionCostTotals,
         attempt,
         sessionTokenTotals,
+        streamOpts,
       );
       sessionId = res.sessionId;
       hitTurnLimit = res.hitTurnLimit;
       resumeSessionId = sessionId;
+      recordRun(sessionId);
+      if (scope === 'task' && sessionId) {
+        droppedBecause.delete(sessionKey);
+        ledger.set({
+          role: opts.role.id,
+          runtime: runtimeKey,
+          taskKey: sessionKey,
+          cwd: opts.cwd,
+          promptHash,
+          sessionId,
+        });
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      recordRun(undefined, errMsg);
       // #304 (review round 3): an org's own stop aborts whatever this attempt
       // was doing — max-turns and stale-resume below are diagnoses for a
       // genuinely failed attempt, not for one the org itself just cut off.
@@ -493,8 +611,37 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
         sessionId = undefined;
         resumeSessionId = undefined;
         hitTurnLimit = true;
+        if (scope === 'task') {
+          ledger.drop({ role: opts.role.id, runtime: runtimeKey, taskKey: sessionKey });
+          droppedBecause.set(sessionKey, 'fresh-after-turn-limit');
+        }
       } else if (
         !stopping &&
+        scope === 'task' &&
+        sessionIdBefore !== undefined &&
+        !staleTried.has(sessionKey) &&
+        !attempt.replied
+      ) {
+        // D3's per-key form of #149 below: a recorded session that fails
+        // before replying is treated as expired — forget it and retry that
+        // task fresh once. Anything it had already pulled goes back first.
+        staleTried.add(sessionKey);
+        ledger.drop({ role: opts.role.id, runtime: runtimeKey, taskKey: sessionKey });
+        droppedBecause.set(sessionKey, 'fresh-after-stale-resume');
+        mailbox.reclaimInFlight();
+        sessionId = undefined;
+        resumeSessionId = undefined;
+        hitTurnLimit = false;
+        opts.bus.emit({
+          type: 'status',
+          from: opts.role.id,
+          reason: 'resume-session-stale',
+          msg: `agent "${opts.role.id}" could not resume its session for ${sessionKey} — retrying with a fresh session`,
+          data: { error: errMsg },
+        });
+      } else if (
+        !stopping &&
+        scope === 'role' &&
         resumeSessionId &&
         resumeSessionId === initialResumeSessionId &&
         !triedFreshAfterResumeFailure &&
@@ -562,6 +709,16 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
           msg: 'turn limit hit repeatedly with no new input — parking for idle watchdog',
         });
       }
+    } else if (mailbox.lastStreamEnd) {
+      // D3: the process ended on purpose — a task boundary or idle — and the
+      // model session is kept for the next wake.
+      opts.bus.emit({
+        type: 'status',
+        from: opts.role.id,
+        reason: 'session-cycled',
+        msg: `process cycled (${mailbox.lastStreamEnd}); model session kept for ${sessionKey}`,
+        data: { taskKey: sessionKey, end: mailbox.lastStreamEnd, sessionId },
+      });
     } else {
       opts.bus.emit({
         type: 'status',
@@ -644,6 +801,7 @@ async function runOneSession(
   costTotals?: Map<string, number>,
   progress?: { replied: boolean },
   tokenTotals?: Map<string, TokenUsage>,
+  streamOpts?: StreamOptions,
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
   // Read lastMessageId live from opts instead of capturing at session start
@@ -733,15 +891,9 @@ async function runOneSession(
     });
     const stream = runner.run({
       tools,
-      prompt: mailbox.stream(),
-      systemPrompt: buildRolePrompt(
-        role,
-        (opts.def ?? { name: org, goal: '' }) as OrgDef,
-        opts.def?.roles.map((r) => r.id) ?? [role.id],
-        opts.glossary,
-        resolveRoleExtraGuidance(role),
-        opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
-      ),
+      // No options = the pre-D3 stream, exactly.
+      prompt: streamOpts ? mailbox.stream('', streamOpts) : mailbox.stream(),
+      systemPrompt: rolePromptFor(opts),
       model,
       cwd,
       effort: tier?.effort,

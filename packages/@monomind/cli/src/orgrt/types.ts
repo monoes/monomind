@@ -280,6 +280,8 @@ export const RoleSchema = z
       .optional(),
     provider: ProviderSchema.optional(),
     policy: RolePolicySchema.optional(),
+    /** ADR-O001 D3: overrides run_config.session_scope for this role. */
+    session_scope: z.enum(['role', 'task']).optional(),
     /** Per-role runtime override: when set, this role's sessions run on the given
      *  agent runtime regardless of the org-level `runtime` field or the
      *  MONOMIND_RUNTIME env var ('claude' explicitly forces the Claude default).
@@ -447,6 +449,19 @@ export const OrgDefSchema = z
          *  `OrgTask.evidenceFailures`). Only meaningful with
          *  `completion_evidence` on — without the gate nothing fails. */
         max_evidence_attempts: z.number().int().positive().default(3),
+        /** ADR-O001 D3: how a role's MODEL sessions are keyed. 'role'
+         *  (the default, and the behaviour before D3) keeps one session for
+         *  the role's life. 'task' keeps one per task: the role's process
+         *  exits at a task boundary and the next wake resumes that task's
+         *  session from the run's session ledger. Applies to every role
+         *  except the coordinator, whose work spans tasks — a role's own
+         *  `session_scope` overrides it either way. */
+        session_scope: z.enum(['role', 'task']).optional(),
+        /** ADR-O001 D3: end a role's process after this many ms with no mail;
+         *  the next message resumes the same model session. Absent = never
+         *  (the process parks, as before). Idle residency costs no tokens,
+         *  so this is about process count, not spend. */
+        session_idle_exit_ms: z.number().int().positive().optional(),
         /** Where role sessions run.
          *  'repo' (default) — the project root, so roles can Read/Edit real files.
          *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
