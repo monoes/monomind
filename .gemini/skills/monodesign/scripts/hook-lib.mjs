@@ -248,7 +248,7 @@ function applyDetectorConfigSource(config, raw) {
   if (raw.designSystem && typeof raw.designSystem === 'object' && !Array.isArray(raw.designSystem)) {
     config.designSystem = {
       ...config.designSystem,
-      enabled: raw.designSystem.enabled === false ? false : true,
+      enabled: raw.designSystem.enabled !== false,
     };
   }
   if (Array.isArray(raw.ignoreRules)) {
@@ -312,7 +312,7 @@ export function matchConfiguredExtension(filePath, extensions) {
 function applyConfigSource(config, raw) {
   if (!raw || typeof raw !== 'object') return config;
   if (Object.hasOwn(raw, 'enabled')) {
-    config.enabled = raw.enabled === false ? false : true;
+    config.enabled = raw.enabled !== false;
   }
   if (Object.hasOwn(raw, 'quiet')) {
     config.quiet = raw.quiet === true;

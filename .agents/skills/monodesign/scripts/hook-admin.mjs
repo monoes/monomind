@@ -209,7 +209,7 @@ function writeDetectorConfig(cwd, detectorConfig, opts = {}) {
 function mergeHookConfig(existing) {
   const base = existing && typeof existing === 'object' ? existing : {};
   return {
-    enabled: base.enabled === false ? false : true,
+    enabled: base.enabled !== false,
     limits: {
       maxFindings: Number.isFinite(base?.limits?.maxFindings) ? base.limits.maxFindings : DEFAULT_CONFIG.limits.maxFindings,
       maxChars: Number.isFinite(base?.limits?.maxChars) ? base.limits.maxChars : DEFAULT_CONFIG.limits.maxChars,
@@ -234,7 +234,7 @@ function mergeDetectorConfig(existing, seed = null) {
   if (base.designSystem && typeof base.designSystem === 'object' && !Array.isArray(base.designSystem)) {
     out.designSystem = {
       ...(out.designSystem || {}),
-      enabled: base.designSystem.enabled === false ? false : true,
+      enabled: base.designSystem.enabled !== false,
     };
   }
   if (Array.isArray(base.ignoreRules)) {

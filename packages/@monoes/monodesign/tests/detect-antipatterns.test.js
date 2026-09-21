@@ -1,8 +1,8 @@
 import { describe, test, expect } from './lib/bun-test-shim.mjs';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { spawnSync } from 'child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   ANTIPATTERNS, checkElementBorders, checkElementMotion, checkElementGlow, isNeutralColor, isFullPage,

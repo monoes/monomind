@@ -797,11 +797,11 @@ export function parseDesignMd(md) {
     schemaVersion: 2,
     title,
     frontmatter,
-    overview: extractOverview(sections['Overview']),
-    colors: extractColors(sections['Colors']),
-    typography: extractTypography(sections['Typography']),
-    elevation: extractElevation(sections['Elevation']),
-    components: extractComponents(sections['Components']),
+    overview: extractOverview(sections.Overview),
+    colors: extractColors(sections.Colors),
+    typography: extractTypography(sections.Typography),
+    elevation: extractElevation(sections.Elevation),
+    components: extractComponents(sections.Components),
     dosDonts: extractDosDonts(sections["Do's and Don'ts"]),
   };
 }

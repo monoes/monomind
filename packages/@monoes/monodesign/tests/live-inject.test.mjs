@@ -21,6 +21,7 @@ const INJECT = resolve(__dirname, '..', 'skill/scripts/live-inject.mjs');
 const TEST_AUTH_CRED = 'test-only-not-a-real-credential';
 function seedServerInfo(cwd, port = 0) {
   const info = { pid: process.pid, port };
+  // biome-ignore lint/complexity/useLiteralKeys: bracket access keeps a `token = <value>` assignment out of the .githooks/pre-commit secret pattern
   info['token'] = TEST_AUTH_CRED;
   writeLiveServerInfo(cwd, info);
 }

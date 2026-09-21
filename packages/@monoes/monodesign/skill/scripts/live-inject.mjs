@@ -151,7 +151,7 @@ Output (JSON):
   // read the per-process credential live-server.mjs persisted at startup.
   const liveInfo = readLiveServerInfo(process.cwd());
   const credentialFields = liveInfo?.info ?? {};
-  const authCred = credentialFields['token'];
+  const authCred = credentialFields.token;
   if (!authCred) {
     console.error(JSON.stringify({ ok: false, error: 'missing_auth_credential', detail: 'no running live server info found for this project — start it before injecting' }));
     process.exit(1);
