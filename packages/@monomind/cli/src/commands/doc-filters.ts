@@ -38,6 +38,11 @@ export const FILTER_OPTIONS: CommandOption[] = [
     type: 'string',
   },
   { name: 'captured', description: 'Only pages captured from the web', type: 'boolean' },
+  // A substring filter over title, URL, path and note — for finding a shelf of
+  // the library by name. It is NOT a URL lookup: an exact "is this page
+  // saved?" is `doc lookup`, which matches on capture identity rather than on
+  // a substring, and answers with the note as well.
+  { name: 'text', description: 'Substring match over title, URL, path and note', type: 'string' },
 ];
 
 export function flagList(value: unknown): string[] | undefined {
@@ -58,6 +63,7 @@ export function libraryFilterFromFlags(ctx: CommandContext): LibraryFilter {
     ...(ctx.flags.since ? { since: String(ctx.flags.since) } : {}),
     ...(ctx.flags.until ? { until: String(ctx.flags.until) } : {}),
     ...(ctx.flags.captured === true ? { capturedOnly: true } : {}),
+    ...(ctx.flags.text ? { text: String(ctx.flags.text) } : {}),
   };
 }
 

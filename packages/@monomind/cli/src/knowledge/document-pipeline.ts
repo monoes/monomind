@@ -326,6 +326,10 @@ export interface IngestResult {
   supersedes?: string;
   /** RCL-07: provenance read from the capture envelope's `meta.json`. */
   provenance?: CaptureProvenance;
+  /** RCL-04: the envelope's `highlights.json`, stored as notes against this
+   *  document. Absent when the capture carried none. `stored < found` means
+   *  some notes did not land — the DOCUMENT is still fully indexed. */
+  highlights?: { found: number; stored: number; anchored: number; error?: string };
 }
 
 export interface BatchIngestResult {
@@ -677,6 +681,7 @@ export async function ingestDocument(
   const chunks = enrichChunks(rawChunks, fullContent, resolved);
   const bridge = await getBridge();
   let indexed = 0;
+  let highlights: IngestResult['highlights'];
 
   for (const chunk of chunks) {
     const key = `doc:${hash}:${chunk.chunkIndex}`;
@@ -750,6 +755,43 @@ export async function ingestDocument(
     if (existing && existing.filePath !== resolved) {
       removeMetadataEntry(rootDir, existing.filePath, scope);
     }
+
+    // RCL-04: the reader's own highlights, stored as notes linked to this
+    // document — see knowledge/highlights.ts. AFTER the version is committed,
+    // because a note pointing at an uncommitted version would be a citation
+    // into something search cannot return.
+    //
+    // Wrapped, and never fatal: a malformed highlight, a failed note store,
+    // anything at all here must not cost someone their capture. The page is
+    // already committed above; the annotations are a bonus that reports its
+    // own shortfall through `IngestResult.highlights`.
+    try {
+      const { ingestHighlights, readHighlightsFor } = await import('./highlights.js');
+      const found = readHighlightsFor(resolved);
+      if (found.length) {
+        const result = await ingestHighlights(
+          {
+            filePath: resolved,
+            scope,
+            contentHash: hash,
+            text: fullContent,
+            ...(canonicalUrl ? { canonicalUrl } : {}),
+            ...(provenance ? { provenance } : {}),
+          },
+          { highlights: found, ...(storeDbPath(scope) ? { dbPath: storeDbPath(scope) } : {}) },
+        );
+        highlights = {
+          found: result.found,
+          stored: result.stored,
+          anchored: result.anchored,
+          ...(result.error ? { error: result.error } : {}),
+        };
+      }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error(`[ingestDocument] highlights for ${resolved}:`, e);
+      highlights = { found: 0, stored: 0, anchored: 0, error: String(e) };
+    }
   }
 
   return {
@@ -759,6 +801,7 @@ export async function ingestDocument(
     skipped: false,
     ...(complete ? { version, ...(supersedes ? { supersedes } : {}) } : {}),
     ...(provenance ? { provenance } : {}),
+    ...(highlights ? { highlights } : {}),
     ...(complete
       ? {}
       : indexed > 0

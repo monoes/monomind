@@ -151,6 +151,64 @@ const citeCommand: Command = {
   },
 };
 
+// ── doc lookup (RCL-02) ────────────────────────────────────────────
+
+const lookupCommand: Command = {
+  name: 'lookup',
+  description: 'Is this URL already saved, and what was noted about it',
+  options: [
+    {
+      name: 'highlights',
+      description: 'Also count the highlights saved on the page',
+      type: 'boolean',
+    },
+    ...STORE_OPTIONS,
+  ],
+  examples: [
+    {
+      command: 'monomind doc lookup https://example.com/post --json',
+      description: 'What the extension badge asks on every navigation',
+    },
+    {
+      command: 'monomind doc lookup https://example.com/post --highlights --json',
+      description: 'Same, plus how many passages were highlighted',
+    },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const url = ctx.args[0];
+    if (!url) {
+      output.printError('URL required: monomind doc lookup <url> --json');
+      return { success: false, exitCode: 1 };
+    }
+    const store = await resolveStore(ctx, url);
+    const { lookupUrl } = await import('../knowledge/lookup.js');
+    const found = lookupUrl(url, {
+      rootDir: store.root,
+      scope: store.scope,
+      withHighlights: ctx.flags.highlights === true,
+    });
+
+    if (asJson(ctx)) return printJson(found);
+    if (!found.saved) {
+      output.writeln(output.dim('Not saved.'));
+      return { success: true, data: found };
+    }
+    output.writeln(`Saved — ${output.highlight(found.title ?? found.url)}`);
+    // The note is the whole difference between this and a bookmark.
+    if (found.note) output.writeln(`  ${found.note}`);
+    const facets = [
+      found.capturedAt ? `captured ${found.capturedAt.slice(0, 10)}` : undefined,
+      found.versions > 1 ? `${found.versions} versions` : undefined,
+      found.collection,
+      found.tags.length ? `#${found.tags.join(' #')}` : undefined,
+      found.highlights ? `${found.highlights} highlights` : undefined,
+    ].filter(Boolean);
+    if (facets.length) output.writeln(output.dim(`  ${facets.join(' · ')}`));
+    if (found.envelope) output.writeln(output.dim(`  ${found.envelope}`));
+    return { success: true, data: found };
+  },
+};
+
 // ── doc related (RCL-03) ───────────────────────────────────────────
 
 const relatedCommand: Command = {
@@ -416,5 +474,10 @@ const watchCommand: Command = {
   },
 };
 
-export const libraryCommands: Command[] = [citeCommand, relatedCommand, watchCommand];
-export { citeCommand, relatedCommand, watchCommand };
+export const libraryCommands: Command[] = [
+  citeCommand,
+  lookupCommand,
+  relatedCommand,
+  watchCommand,
+];
+export { citeCommand, lookupCommand, relatedCommand, watchCommand };
