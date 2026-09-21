@@ -8,6 +8,20 @@ export { agentTools } from './agent-tools.js';
 export { analyzeTools } from './analyze-tools.js';
 export { autopilotTools } from './autopilot-tools.js';
 export { browserTools } from './browser-tools.js';
+// GLU-07: captures as MCP resources — the `capture://` scheme, its listing,
+// its reads, and the tools that expose the same thing to clients that do not
+// implement resources.
+export { captureResourceTools } from './capture-resource-tools.js';
+export {
+  buildCaptureUri,
+  CAPTURE_URI_TEMPLATE,
+  captureLibraryIndex,
+  captureUriFor,
+  isCaptureUri,
+  listCaptureResources,
+  loadCaptureDocuments,
+  parseCaptureUri,
+} from './capture-resources.js';
 export { claimsTools } from './claims-tools.js';
 export { configTools } from './config-tools.js';
 export { embeddingsTools } from './embeddings-tools.js';
@@ -21,6 +35,7 @@ export { monomindTools } from './monomind-tools.js';
 export { monoswarmTools } from './monoswarm-tools.js';
 export { performanceTools } from './performance-tools.js';
 export { platformsTools } from './platforms-tools.js';
+export { handleResourceMethod, listResources, readResource } from './resource-router.js';
 export { securityTools } from './security-tools.js';
 export { sessionTools } from './session-tools.js';
 // V2 Compatibility tools

@@ -30,12 +30,23 @@ export const DOC_EXTENSIONS = new Set([
   '.odt',
   '.ods',
   '.odp',
+  // Web captures (RCL-01) — MHTML is what CDP Page.captureSnapshot writes
+  '.html',
+  '.htm',
+  '.xhtml',
+  '.mhtml',
+  '.mht',
   // Other
   '.pdf',
   '.rtf',
   '.epub',
   '.pages',
 ]);
+
+/** Mirrors `knowledge/capture-text.ts` — kept here so the common path does
+ *  not pay a dynamic import to find out the file is a PDF. */
+const CAPTURE_EXTENSIONS = new Set(['.html', '.htm', '.xhtml', '.mhtml', '.mht']);
+
 const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024;
 
 type XlsxModule = {
@@ -221,6 +232,14 @@ export async function extractText(file: FileEntry): Promise<string> {
     } catch {
       return '';
     }
+  }
+
+  // HTML / XHTML / MHTML — web captures (RCL-01), no dependency. Imported
+  // dynamically so the dependency on `knowledge/` stays one-way: that package
+  // imports THIS file back.
+  if (CAPTURE_EXTENSIONS.has(ext)) {
+    const { extractCaptureText } = await import('../knowledge/capture-text.js');
+    return extractCaptureText(file.absolutePath, ext);
   }
 
   // PDF — native Rust extraction via @firecrawl/pdf-inspector
@@ -456,6 +475,14 @@ export const documentsCapability: CapabilityModule = {
         hint: 'Install it when needed: pnpm add xlsx (project) or npm install -g xlsx (global)',
       });
     }
+
+    // HTML/MHTML extraction is built in — listed so `doctor` shows the web
+    // capture path as supported rather than silently absent.
+    checks.push({
+      name: 'HTML/MHTML',
+      status: 'pass',
+      message: 'built-in extractor, no dependency required',
+    });
 
     // PPTX/ODT/ODP/EPUB use fflate (pure JS, no system dep) — cross-platform
     try {

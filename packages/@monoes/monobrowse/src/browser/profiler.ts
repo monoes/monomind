@@ -8,6 +8,9 @@ export interface ProfilerOptions {
   samplingInterval?: number;
 }
 
+/** Heap snapshots on a large page take far longer than the 30s CDP default. */
+const HEAP_SNAPSHOT_TIMEOUT_MS = 120_000;
+
 const _sessions = new Set<string>();
 const _heapSessions = new Set<string>();
 
@@ -76,31 +79,35 @@ export async function startHeapSnapshot(
   });
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      const timeoutHandle = setTimeout(() => {
-        off2();
-        reject(new Error('Timeout waiting for heap snapshot (120s)'));
-      }, 120_000);
-      const off2 = client.on('HeapProfiler.reportHeapSnapshotProgress', (params, sid) => {
-        if (sid !== sessionId) return;
-        if (params.finished) {
-          clearTimeout(timeoutHandle);
-          off2();
-          resolve();
-        }
-      });
-      client
-        .send('HeapProfiler.takeHeapSnapshot', { reportProgress: true }, sessionId)
-        .catch((err) => {
-          clearTimeout(timeoutHandle);
-          off2();
-          reject(err);
-        });
-    });
+    // Resolve on takeHeapSnapshot's own RESPONSE, not on
+    // `HeapProfiler.reportHeapSnapshotProgress` with finished:true. Chrome
+    // emits that progress event once it has finished WALKING the heap, which
+    // is before it has streamed a single addHeapSnapshotChunk (verified
+    // against Chrome 153) — so resolving there detached the chunk listener in
+    // the `finally` below and wrote a 0-byte snapshot every single time. The
+    // command response is the only signal that every chunk has been sent.
+    //
+    // reportProgress is off for the same reason: nothing consumes those
+    // events any more, and they are pure noise on the wire.
+    await client.send(
+      'HeapProfiler.takeHeapSnapshot',
+      { reportProgress: false },
+      sessionId,
+      HEAP_SNAPSHOT_TIMEOUT_MS,
+    );
   } finally {
     off();
     _heapSessions.delete(sessionId);
     await client.send('HeapProfiler.disable', {}, sessionId).catch(() => {});
+  }
+
+  // A zero-chunk snapshot is not a snapshot. Writing the empty file anyway is
+  // how this bug stayed invisible — the caller got a path, and only noticed
+  // when DevTools refused to load it.
+  if (chunks.length === 0) {
+    throw new Error(
+      'Heap snapshot produced no data — Chrome accepted HeapProfiler.takeHeapSnapshot but sent no chunks',
+    );
   }
 
   const path = outputPath ?? join(tmpdir(), `monomind-heap-${Date.now()}.heapsnapshot`);

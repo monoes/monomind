@@ -3,6 +3,7 @@
  */
 
 import { validateInput } from '../utils/input-guards.js';
+import { captureResourceTools } from './capture-resource-tools.js';
 import type { MCPTool, MCPToolResult } from './types.js';
 
 const knowledgeIngest: MCPTool = {
@@ -468,4 +469,11 @@ const knowledgeRemove: MCPTool = {
   },
 };
 
-export const knowledgeTools: MCPTool[] = [knowledgeIngest, knowledgeSearch, knowledgeRemove];
+export const knowledgeTools: MCPTool[] = [
+  knowledgeIngest,
+  knowledgeSearch,
+  knowledgeRemove,
+  // GLU-07: browsing and reading the `capture://` resources — see
+  // capture-resource-tools.ts for why the resource surface needs tools too.
+  ...captureResourceTools,
+];

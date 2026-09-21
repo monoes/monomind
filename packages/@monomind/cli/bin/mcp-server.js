@@ -124,7 +124,9 @@ async function handleMessage(message) {
             serverInfo: { name: 'monomind', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
-              resources: { subscribe: true, listChanged: true },
+              // No server-initiated notifications on this stdio loop, so
+              // subscribe/listChanged are advertised as what they are.
+              resources: { subscribe: false, listChanged: false },
             },
           },
         };
@@ -174,6 +176,24 @@ async function handleMessage(message) {
             },
           };
         }
+      }
+
+      case 'resources/list':
+      case 'resources/templates/list':
+      case 'resources/read': {
+        // GLU-07: the resource surface (the code graph AND the capture
+        // library) has ONE implementation, in mcp-tools/resource-router.ts.
+        // This is the `monomind-mcp` entry point, one of three stdio loops
+        // that advertise a resources capability; without this delegation it
+        // answered "Method not found" to every resource request.
+        const { handleResourceMethod } = await import('../dist/src/mcp-tools/resource-router.js');
+        const handled = await handleResourceMethod(message.method, params);
+        if (handled) return { jsonrpc: '2.0', id: message.id, ...handled };
+        return {
+          jsonrpc: '2.0',
+          id: message.id,
+          error: { code: -32601, message: `Method not found: ${message.method}` },
+        };
       }
 
       case 'notifications/initialized':

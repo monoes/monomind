@@ -6,217 +6,27 @@
  * on the configured port (default: MONOBROWSE_CDP_PORT env var or 9222).
  */
 
-import type { MCPTool, MCPToolResult } from './types.js';
-
-const MAX_BROWSER_SESSIONS = 5;
-const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-/** Tracking metadata for a single browser session. */
-interface BrowserSessionInfo {
-  sessionId: string;
-  createdAt: string;
-  lastActivity: string;
-}
-
-interface BrowserConnection {
-  client: import('@monoes/monobrowse').CdpClient;
-  cdpSessionId: string;
-  refs: Map<string, import('@monoes/monobrowse').ElementRef>;
-}
-
-// Session registry for multi-session support (sessionId → connection)
-const browserSessions = new Map<string, BrowserSessionInfo>();
-const connectionCache = new Map<string, BrowserConnection>();
-
-async function pruneExpiredSessions(): Promise<void> {
-  const cutoff = Date.now() - SESSION_TTL_MS;
-  const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
-  for (const [id, info] of browserSessions) {
-    if (new Date(info.lastActivity).getTime() < cutoff) {
-      browserSessions.delete(id);
-      const conn = connectionCache.get(id);
-      connectionCache.delete(id);
-      if (conn) await closeTarget(conn, port);
-    }
-  }
-}
-
-function touchSession(sessionId: string): void {
-  const info = browserSessions.get(sessionId);
-  if (info) info.lastActivity = new Date().toISOString();
-}
-
-async function getConnection(sessionId: string): Promise<BrowserConnection> {
-  if (connectionCache.has(sessionId)) {
-    const conn = connectionCache.get(sessionId)!;
-    try {
-      // Liveness check — evict stale CDP connections
-      await conn.client.send(
-        'Runtime.evaluate',
-        { expression: '1', returnByValue: true },
-        conn.cdpSessionId,
-      );
-      return conn;
-    } catch {
-      const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
-      connectionCache.delete(sessionId);
-      await closeTarget(conn, port);
-    }
-  }
-  const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
-  const { connectToTarget } = await import('@monoes/monobrowse');
-  const { client, sessionId: cdpSessionId } = await connectToTarget(port);
-  const conn: BrowserConnection = { client, cdpSessionId, refs: new Map() };
-  connectionCache.set(sessionId, conn);
-  return conn;
-}
-
-async function releaseConnection(sessionId: string): Promise<void> {
-  const conn = connectionCache.get(sessionId);
-  connectionCache.delete(sessionId);
-  browserSessions.delete(sessionId);
-  if (conn) {
-    const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
-    // Close the actual Chrome tab — just closing the WebSocket leaves the
-    // renderer process alive and consuming ~250MB+ RAM each. Awaited (not
-    // fire-and-forget) so a burst of session churn can't pile up concurrent
-    // in-flight closes and leak renderers when one fails silently.
-    await closeTarget(conn, port);
-  }
-}
-
-async function closeTarget(conn: BrowserConnection, port: number): Promise<void> {
-  try {
-    // Get the target ID for this session so we can close the tab
-    const result = await conn.client.send<{ targetInfo: { targetId: string } }>(
-      'Target.getTargetInfo',
-      {},
-      conn.cdpSessionId,
-    );
-    const targetId = result?.targetInfo?.targetId;
-    if (targetId) {
-      // Close via HTTP endpoint — works even if the CDP session is stale
-      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(targetId)}`, {
-        method: 'GET',
-      });
-    }
-  } catch {
-    /* best-effort */
-  }
-  try {
-    conn.client.close();
-  } catch {
-    /* ignore */
-  }
-}
-
-function ok(data: Record<string, unknown> = {}): MCPToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) }] };
-}
-
-function fail(message: string): MCPToolResult {
-  return {
-    content: [{ type: 'text', text: JSON.stringify({ success: false, error: message }) }],
-    isError: true,
-  };
-}
-
-/** Validate a session ID against a strict allowlist. */
-function validateSessionId(value: unknown): string {
-  if (value === undefined || value === null || value === '') return 'default';
-  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(value)) {
-    throw new Error('session: must match ^[A-Za-z0-9_-]{1,64}$');
-  }
-  return value;
-}
-
-/** Validate a URL against a scheme allowlist. */
-const ALLOWED_URL_SCHEMES = new Set(['http:', 'https:', 'about:']);
-
-function validateUrl(value: unknown): string {
-  if (typeof value !== 'string') throw new Error('url: must be a string');
-  if (value.length > 4096) throw new Error('url: too long (max 4096)');
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new Error(`url: not a valid URL: ${value}`);
-  }
-  if (!ALLOWED_URL_SCHEMES.has(parsed.protocol)) {
-    throw new Error(`url: scheme "${parsed.protocol}" not allowed (only http/https/about)`);
-  }
-  return value;
-}
-
-/**
- * Validate a screenshot path. Resolved path must be within
- * `<projectRoot>/.monomind/screenshots` and must not already exist.
- */
-async function validateScreenshotPath(value: unknown): Promise<string> {
-  if (typeof value !== 'string' || value.length === 0)
-    throw new Error('path: must be a non-empty string');
-  if (value.startsWith('-')) throw new Error('path: must not start with "-"');
-  const path = await import('node:path');
-  const fs = await import('node:fs');
-  const root = path.resolve(process.cwd(), '.monomind', 'screenshots');
-  await fs.promises.mkdir(root, { recursive: true });
-  const resolved = path.resolve(value);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-    throw new Error(`path: must be within ${root}`);
-  }
-  if (fs.existsSync(resolved))
-    throw new Error(`path: refuses to overwrite existing file at ${resolved}`);
-  return resolved;
-}
-
-/** Reject strings starting with '-' (flag-injection defense). */
-function rejectFlagLike(value: unknown, field: string): string {
-  if (typeof value !== 'string') throw new Error(`${field}: must be a string`);
-  if (value.startsWith('-'))
-    throw new Error(`${field}: must not start with '-' (flag-injection defense)`);
-  return value;
-}
+import { browserInstrumentTools } from './browser-instrument-tools.js';
+import { browserProfileTools } from './browser-profile-tools.js';
+import {
+  browserSessions,
+  fail,
+  findElement,
+  getConnection,
+  MAX_BROWSER_SESSIONS,
+  ok,
+  pruneExpiredSessions,
+  rejectFlagLike,
+  releaseConnection,
+  touchSession,
+  validateScreenshotPath,
+  validateSessionId,
+  validateUrl,
+} from './browser-session.js';
+import type { MCPTool } from './types.js';
 
 /** Cap on browser_eval scripts. */
 const MAX_BROWSER_EVAL_BYTES = 16 * 1024;
-
-/**
- * Resolve an element target using monobrowse finders.
- * target: CSS selector string (e.g. "#id", ".class", "button")
- * locator: "selector" (default) | "role" | "text" | "label" | "placeholder"
- */
-async function findElement(
-  conn: BrowserConnection,
-  target: string,
-  locator = 'selector',
-): Promise<import('@monoes/monobrowse').ElementRef> {
-  const { findBySelector, findByRole, findByText, findByLabel, findByPlaceholder } = await import(
-    '@monoes/monobrowse'
-  );
-
-  let ref: import('@monoes/monobrowse').ElementRef | null = null;
-  switch (locator) {
-    case 'selector':
-      ref = await findBySelector(conn.client, conn.cdpSessionId, conn.refs, target);
-      break;
-    case 'role':
-      ref = await findByRole(conn.client, conn.cdpSessionId, conn.refs, target);
-      break;
-    case 'text':
-      ref = await findByText(conn.client, conn.cdpSessionId, conn.refs, target);
-      break;
-    case 'label':
-      ref = await findByLabel(conn.client, conn.cdpSessionId, conn.refs, target);
-      break;
-    case 'placeholder':
-      ref = await findByPlaceholder(conn.client, conn.cdpSessionId, conn.refs, target);
-      break;
-    default:
-      throw new Error(`Unknown locator "${locator}". Use: selector|role|text|label|placeholder`);
-  }
-  if (!ref) throw new Error(`Element not found: ${locator}="${target}"`);
-  return ref;
-}
 
 // ---------------------------------------------------------------------------
 // Exported tool list
@@ -1252,6 +1062,13 @@ export const browserTools: MCPTool[] = [
       return ok({ sessions, count: sessions.length });
     },
   },
+  // ==========================================================================
+  // Instrumentation Tools
+  // ==========================================================================
+  // Console/network/vitals and profiling/emulation live in sibling modules to
+  // keep each file readable; they are part of the same `browser_*` surface.
+  ...browserInstrumentTools,
+  ...browserProfileTools,
 ];
 
 export default browserTools;

@@ -1,3 +1,4 @@
+export * from '../report/index.js';
 export * from './actions.js';
 export * from './batch.js';
 export * from './browser.js';
