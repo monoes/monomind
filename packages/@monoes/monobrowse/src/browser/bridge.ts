@@ -237,13 +237,16 @@ export class BridgeTransport implements CdpTransport {
     const envelope: BridgeEnvelope = { id, type, params };
     if (this.tabId) envelope.tabId = this.tabId;
     return new Promise<BridgeReply>((resolve, reject) => {
+      // Not unref'd (same rule as CdpClient.send): this timer settles a
+      // promise the caller awaits, so it must count toward keeping the event
+      // loop alive — otherwise a dead bridge socket lets Node exit 0 rather
+      // than surfacing the timeout. Cleared on every settle path below.
       let timer: ReturnType<typeof setTimeout> | undefined;
       if (timeoutMs > 0) {
         timer = setTimeout(() => {
           this.pending.delete(id);
           reject(new Error(`bridge ${type} timed out after ${timeoutMs}ms`));
         }, timeoutMs);
-        timer.unref?.();
       }
       this.pending.set(id, (reply) => {
         if (timer) clearTimeout(timer);

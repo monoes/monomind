@@ -125,13 +125,20 @@ export class CdpClient {
       const cmd: CdpCommand = { id, method, params };
       if (sessionId) cmd.sessionId = sessionId;
 
+      // This timer is deliberately NOT unref'd. It is the backstop for the
+      // exact case described at the top of this file — a socket that dies
+      // without ever firing 'close'/'error', so flushPending() never runs.
+      // send()'s promise is awaited by essentially every caller; an unref'd
+      // timer cannot hold the event loop open, so Node would drain and exit
+      // (status 0, no output) instead of rejecting with a timeout the caller
+      // can report. Every settle path below clears it, so a command that gets
+      // its response never keeps the loop alive.
       let timer: ReturnType<typeof setTimeout> | undefined;
       if (timeoutMs > 0) {
         timer = setTimeout(() => {
           this.pendingCommands.delete(id);
           reject(new Error(`CDP command "${method}" timed out after ${timeoutMs}ms`));
         }, timeoutMs);
-        timer.unref?.();
       }
 
       this.pendingCommands.set(id, {
