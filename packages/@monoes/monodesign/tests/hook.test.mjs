@@ -1269,6 +1269,33 @@ rounded:
     assert.equal(r.audit.skipped, 'generated');
   });
 
+  it('scans a project whose location sits under a build-output-named directory', async () => {
+    // `~/.cache/...`, `/srv/build/...`: the generated-path gate applies to the
+    // path inside the project, not to the directories the project lives in.
+    for (const outer of ['.cache', 'build', 'dist', 'out', 'coverage', 'node_modules']) {
+      const root = path.join(cwd, outer, 'app');
+      const file = path.join(root, 'src', 'Card.tsx');
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(path.join(root, 'package.json'), '{}');
+      fs.writeFileSync(file, 'noop');
+      const r = await runHook({
+        stdinJson: JSON.stringify({ ...eventFor(file), cwd: root }),
+        env: {}, cwd: root, detector: fakeDetector([finding('side-tab', 1)]),
+      });
+      assert.equal(r.audit.skipped, undefined, `outer dir ${outer}`);
+      assert.equal(r.audit.emitted, true, `outer dir ${outer}`);
+
+      const inner = path.join(root, 'dist', 'Card.tsx');
+      fs.mkdirSync(path.dirname(inner), { recursive: true });
+      fs.writeFileSync(inner, 'noop');
+      const g = await runHook({
+        stdinJson: JSON.stringify({ ...eventFor(inner), cwd: root }),
+        env: {}, cwd: root, detector: fakeDetector([finding('side-tab', 1)]),
+      });
+      assert.equal(g.audit.skipped, 'generated', `outer dir ${outer}`);
+    }
+  });
+
   it('rejects path traversal in file_path', async () => {
     const r = await runHook({
       stdinJson: JSON.stringify({ ...eventFor('/foo/../etc/passwd') }),
@@ -2219,6 +2246,33 @@ describe('Cursor hook scripts', () => {
     assert.equal(entries[0].event, 'preToolUse');
     assert.equal(entries[0].blocked, true);
     assert.equal(entries[0].blockedFindings, 1);
+  });
+
+  it('preToolUse gates projects that live under a build-output-named directory', () => {
+    const root = path.join(cwd, '.cache', 'app');
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(path.join(root, 'package.json'), '{}');
+    const out = execFileSync(process.execPath, [path.join('skill', 'scripts', 'hook-before-edit.mjs')], {
+      cwd: path.resolve('.'),
+      input: JSON.stringify({
+        hook_event_name: 'preToolUse',
+        cwd: root,
+        tool_name: 'Write',
+        tool_input: {
+          file_path: path.join(root, 'src/Card.html'),
+          content: `
+            <style>
+              .card { border-left: 4px solid #7c3aed; border-radius: 16px; }
+            </style>
+            <div class="card">Hello</div>
+          `,
+        },
+      }),
+      env: { ...process.env, MONODESIGN_HOOK_LOG: '' },
+      encoding: 'utf-8',
+    });
+
+    assert.equal(JSON.parse(out).permission, 'deny');
   });
 
   it('preToolUse allows writes with findings when the project platform is native', () => {

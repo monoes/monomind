@@ -73,6 +73,15 @@ export const SENSITIVE_PATH = new RegExp([
 // Hard-skip regex for generated, lock, minified, and build-output paths.
 export const GENERATED_PATH = /(?:\.generated\.[a-z]+$|\.d\.ts$|\.min\.[a-z]+$|[/\\]node_modules[/\\]|[/\\](?:dist|build|out|\.next|\.cache|coverage)[/\\]|[/\\]?[^/\\]+\.lock(?:\.json)?$)/i;
 
+// GENERATED_PATH checked against the path inside the project, so a project
+// that lives under e.g. ~/.cache/ or /srv/build/ is still scanned. Paths
+// outside the project root fall back to the absolute path.
+export function isGeneratedPath(filePath, projectRoot) {
+  const rel = path.relative(path.resolve(projectRoot), path.resolve(filePath));
+  const inside = rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  return GENERATED_PATH.test(inside ? path.sep + rel : filePath);
+}
+
 export const TRUTHY = /^(1|true|yes|on)$/i;
 
 export const DEFAULT_CONFIG = Object.freeze({
@@ -1573,7 +1582,7 @@ export async function runHook({ stdinJson, env = {}, cwd = process.cwd(), now = 
         lastSkip = 'sensitive';
         continue;
       }
-      if (GENERATED_PATH.test(filePath)) {
+      if (isGeneratedPath(filePath, projectCwd)) {
         lastSkip = 'generated';
         continue;
       }
