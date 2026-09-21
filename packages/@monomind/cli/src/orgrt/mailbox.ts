@@ -22,6 +22,14 @@ export function isRecoverableCloseReason(reason: string | undefined): boolean {
   return reason !== undefined && BUDGET_CLOSE_REASONS.has(reason);
 }
 
+/** ADR-O001 D3 — optional stream boundaries. Omitted = the pre-D3 stream. */
+export interface StreamOptions {
+  /** End the stream before yielding a message this rejects (not the first). */
+  stopBefore?: (next: string) => boolean;
+  /** End the stream after this long with an empty queue. */
+  idleExitMs?: number;
+}
+
 /**
  * Async message queue feeding one persistent SDK session.
  * push() from the daemon (deliveries from other agents / the user);
@@ -56,6 +64,7 @@ export class Mailbox {
    *  next one or parking on wake. Sticky for the life of this Mailbox
    *  instance — a draining mailbox is being retired, not reused. */
   private draining = false;
+  private lastStreamEndValue?: 'boundary' | 'idle';
 
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
   get consumedRealCount(): number {
@@ -143,8 +152,10 @@ export class Mailbox {
    * the generator; redelivering would duplicate work and can livelock the
    * restart loop).
    */
-  async *stream(sessionId = ''): AsyncGenerator<OrgUserMessage> {
+  async *stream(sessionId = '', opts: StreamOptions = {}): AsyncGenerator<OrgUserMessage> {
     const gen = ++this.generation;
+    this.lastStreamEndValue = undefined;
+    let yielded = false;
     // Drop (never resolve) any stale waker — see detach().
     this.wake = null;
     // A fresh generator starts with nothing in flight — any prior value
@@ -155,7 +166,16 @@ export class Mailbox {
       while (this.queue.length > 0) {
         if (gen !== this.generation) return; // superseded — leave the queue for the live generator
         if (this.draining) return;
+        // D3: a message belonging to another model session ends this stream
+        // (so its query() ends and the process exits) and stays queued for
+        // the session that owns it. Never applied to the first message —
+        // the caller chose this session FOR that message.
+        if (yielded && opts.stopBefore?.(this.queue[0])) {
+          this.lastStreamEndValue = 'boundary';
+          return;
+        }
         const content = this.queue.shift()!;
+        yielded = true;
         if (!content.startsWith(Mailbox.CONTINUE_PREFIX)) this.consumedReal++;
         this.inFlight = content;
         yield {
@@ -172,10 +192,45 @@ export class Mailbox {
         if (this.draining) return;
       }
       if (this.closed || gen !== this.generation || this.draining) return;
+      const woke = await new Promise<boolean>((r) => {
+        this.wake = () => r(true);
+        if (opts.idleExitMs !== undefined) {
+          const t = setTimeout(() => r(false), opts.idleExitMs);
+          (t as { unref?: () => void }).unref?.();
+        }
+      });
+      if (gen !== this.generation) return;
+      if (!woke) {
+        // D3: idle long enough — end the stream so the role's process can
+        // exit; the next push waits in the queue for a resumed session.
+        this.wake = null;
+        this.lastStreamEndValue = 'idle';
+        return;
+      }
+    }
+  }
+
+  /** Why the most recent stream() returned early, if it did: 'boundary'
+   *  (stopBefore rejected the next message) or 'idle' (idleExitMs elapsed). */
+  get lastStreamEnd(): 'boundary' | 'idle' | undefined {
+    return this.lastStreamEndValue;
+  }
+
+  /** The next queued message, without consuming it. */
+  peek(): string | undefined {
+    return this.queue[0];
+  }
+
+  /** Resolves true once a message is queued, false if the mailbox closes or
+   *  drains first. Used to keep a role's process down while it has no mail. */
+  async waitForMessage(): Promise<boolean> {
+    while (true) {
+      if (this.draining) return false;
+      if (this.queue.length > 0) return true;
+      if (this.closed) return false;
       await new Promise<void>((r) => {
         this.wake = r;
       });
-      if (gen !== this.generation) return;
     }
   }
 

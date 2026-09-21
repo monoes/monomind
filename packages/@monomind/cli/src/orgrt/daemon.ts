@@ -97,6 +97,7 @@ import {
 import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
+import { SessionLedger } from './session-ledger.js';
 import { TaskDag } from './task-dag.js';
 import {
   type ChainTrace,
@@ -355,6 +356,9 @@ export interface AgentRuntime {
 export interface RunningOrg {
   def: OrgDef;
   run: string;
+  /** ADR-O001 D3: this run's model-session records (`<run>/sessions.json`),
+   *  shared by every incarnation of every role so a replacement resumes too. */
+  sessionLedger?: SessionLedger;
   bus: OrgBus;
   agents: Map<string, AgentRuntime>;
   busEvents: () => BusEvent[];
@@ -1120,6 +1124,7 @@ export class OrgDaemon {
     const running: RunningOrg = {
       def,
       run,
+      sessionLedger: new SessionLedger(join(dir, 'sessions.json')),
       bus,
       agents: new Map(),
       roleSlots: new Map(),
@@ -1911,6 +1916,7 @@ export class OrgDaemon {
       },
       maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
       resumeSessionId: roleCheckpoint?.sessionId,
+      sessionLedger: running.sessionLedger,
       lastMessageId: () => runtime.lastMessageId,
       onOutput: (line: string) => runtime.scrollback.push(line),
       onSessionId: (id: string) => {
@@ -2070,6 +2076,12 @@ export class OrgDaemon {
       // ADR-O001 D5: only an org that opted in advertises the evidence
       // argument, so every other org's tool list stays byte-identical.
       requireTaskEvidence: def.run_config.completion_evidence === true,
+      // ADR-O001 D6: only an org with an artifact-only reviewer gets org_review,
+      // so every other org's tool list stays byte-identical.
+      requestReview: def.roles.some((r) => r.review_input === 'artifact-only')
+        ? (r: string, taskId: string, reviewer: string, base?: string) =>
+            this.dagRequestReview(name, r, taskId, reviewer, base)
+        : undefined,
       listTasks: () => {
         const running = this.orgs.get(name);
         return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
@@ -3186,6 +3198,16 @@ export class OrgDaemon {
     evidence?: TaskEvidence,
   ): string {
     return decisionOps.dagCompleteTask(this, org, role, taskId, result, evidence);
+  }
+  /** ADR-O001 D6 — see decisions.ts's dagRequestReview. */
+  dagRequestReview(
+    org: string,
+    role: string,
+    taskId: string,
+    reviewer: string,
+    base?: string,
+  ): string {
+    return decisionOps.dagRequestReview(this, org, role, taskId, reviewer, base);
   }
   private dagSplitTask(
     org: string,

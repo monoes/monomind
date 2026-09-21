@@ -96,6 +96,77 @@ emits ~5 lines where a cold prime emits ~1,200.
 1.0× input plus 1.25× writes. Modelled: cutting 50% of re-sent context while sending 30% of the
 remainder cold costs **$1,948 against a $1,050 baseline** — an 86% increase.
 
+#### D3 implementation plan (written before coding, 2026-09-21)
+
+What the code actually does today, which this plan is built on:
+
+- A task reaches a role only as mailbox **text**: `[task:<id>] <title>` (`decisions.ts`
+  `dispatchReadyTasks`). `Mailbox.push` takes a plain string, and `queueDispatch` **coalesces**
+  every dispatch to one assignee inside a 500 ms window into ONE message, so one message can name
+  several tasks. Task ids are `task-N` and **repeat across runs**, but `org run --resume` keeps
+  the run id.
+- The mailbox's `stream()` yields the next message only when the consumer pulls again, which
+  it does only after the previous turn completes. The code already relies on this
+  (`inFlight` / `reclaimInFlight`).
+
+Design:
+
+1. **`run_config.session_scope: 'role' | 'task'`**, default `'role'` = today, byte-for-byte. A
+   role-level `session_scope` overrides it. The coordinator stays role-scoped unless it opts in
+   itself, because its work spans tasks.
+2. **A session ledger** (`orgrt/session-ledger.ts`) at `.monomind/orgs/<org>/<run>/sessions.json`.
+   That path is under the gitignored state dir, and scoping it to the run means a repeated
+   `task-N` in a later run never resumes a stranger's session, while `--resume` keeps its
+   sessions.
+   - **Record** keyed `(role, runtime, taskKey)`. The runtime is part of the key, as Paperclip
+     puts `adapterType` in its unique index, so switching adapters lands on a new row. It stores
+     `sessionId`, `cwd` and `promptHash`.
+   - **Per-session run entry**: `sessionIdBefore`, `sessionIdAfter`, `resumed`, `reason`,
+     timestamps and any error. The history is capped, because warm state must be bounded.
+   - **Always written, for every scope.** This is the audit D1 asked for. It changes no input
+     the agent sees.
+3. **The task key** is parsed from the message text: the leading `[task:<id>]`. An untagged
+   message (mail, answers, nudges, turn-limit continuations) belongs to the role's current or
+   last key. In task scope, `queueDispatch` pushes each task line **separately** instead of
+   joined, so one message carries one key.
+4. **The process cycles and the model session is resumed.** `stream()` gains two options:
+   - `stopBefore(next)`: end the stream **before** yielding a message that belongs to a
+     different key. It is never applied to the stream's first message.
+   - `idleExitMs`: end the stream after N ms with an empty queue.
+
+   Ending the stream ends the `query()`, so the process exits. The loop then waits for mail and
+   starts the next `query()` with `resume` = the ledger's record for the new key.
+5. **When a session starts fresh instead of resuming**, the run entry records the reason:
+   - no record for the key;
+   - the record's `cwd` or `promptHash` differs (a changed system prompt is a different session,
+     per D7: never edit a system prompt mid-session);
+   - a resume failed before any reply (#149 generalised per key; the in-flight message is
+     reclaimed, not lost);
+   - an `error_max_turns` throw (the record is dropped, as the role path already drops
+     `resumeSessionId`).
+6. **`run_config.session_idle_exit_ms`** is optional and absent by default, so the process never
+   idles out unless an org opts in. It works in either scope.
+
+Checked against this ADR before coding:
+
+- **Model session discarded?** No, never merely to save tokens. A new task starts a new
+  session, but its system prompt and tools are byte-identical, so the prompt cache (which is
+  content-addressed, not session-addressed) still reads the prefix at 0.1×. What task keying
+  drops is only the *other tasks'* transcript, which is the unbounded growth §4 of the deep dive
+  measured (4.4× $/Mtok from first third to last). A retry of the same task resumes that task's
+  session.
+- **Meter (D1 gotcha)**: `sessionCostTotals` / `sessionTokenTotals` are already keyed by
+  session id and outlive single `runOneSession` calls, so switching sessions cannot double-count.
+  A test pins it.
+- **Default off**: with no `session_scope`, the runner receives the same `resume` values, the
+  mailbox yields the same sequence, and dispatch coalescing is unchanged. That is asserted by
+  tests, not claimed.
+- **Non-Claude runners**: a runner that ignores `resume` simply shows
+  `sessionIdBefore !== sessionIdAfter` in the ledger. That is exactly the case the audit exists
+  to expose.
+- **D6 hook**: a `'cold'` scope is `stopBefore: () => true` with resume never consulted. It uses
+  the same machinery.
+
 ### D4 — Continuity is a property of durable state, not of a process
 
 The invariant, already described by the `mastermind-liveness` skill:
@@ -134,6 +205,29 @@ reviewer had approved, and the verifier was right each time.
   share of turns and this is the one place fresh context is worth real money.
 - Give the reviewer the diff, the acceptance commands and their output, and the issue text.
   **Not** the doer's reasoning, the thread, prior rounds, or the attempt count.
+
+#### D6 implementation plan (built on D3, 2026-09-21)
+
+- **Opt in per role: `review_input: 'artifact-only'`.** Absent = today. It is per role, not
+  org-wide, so a deliberative synthesiser (see the table below) simply doesn't set it.
+- **Cold sessions.** Such a role runs in D3's `'cold'` scope: every message is served by a new
+  model session. The ledger is never consulted and the start reason is recorded as
+  `fresh-cold`. The process stays down while the role has no mail.
+- **The runtime writes the reviewer's input; no agent does.** A new tool,
+  `org_review(taskId, reviewer, base?)`, takes ids and a ref only, never free text. The packet
+  holds:
+  - the task title (the issue text);
+  - the task's **latest submitted D5 evidence**: `headSha`, and every command with its exit code
+    and output, capped;
+  - the runtime's own `git diff <base>...<headSha>`.
+
+  It leaves out the doer's `result` prose, `evidenceFailures` (the attempt count), earlier
+  evidence, and any thread.
+- **Agent mail to an artifact-only role is refused**, with a pointer to `org_review`. Otherwise
+  the doer's framing could simply be `org_send`-ed in. Messages from the human (`fromRole:
+  'human'`) still get through.
+- **Default off, asserted.** `org_review` is registered only in an org that has an
+  artifact-only role, so every other org's tool list (prefix position 0) stays byte-identical.
 
 ### D7 — Specialisation via a small catalog of stable loadouts
 

@@ -1,5 +1,8 @@
 // packages/@monomind/cli/src/orgrt/task-dag.ts
 
+import type { TaskEvidence } from './completion-gate.js';
+import { capText, EVIDENCE_OUTPUT_CAP } from './review-packet.js';
+
 export type OrgTaskStatus =
   | 'pending'
   | 'ready'
@@ -45,6 +48,11 @@ export interface OrgTask {
    *  is the same attempt again rather than a re-roll. Rides the checkpoint
    *  with the rest of the row. Absent when none was selected. */
   loadout?: string;
+  /** ADR-O001 D6: the most recent evidence the assignee submitted with
+   *  org_task_done, accepted or refused — what an artifact-only reviewer is
+   *  shown. Only the latest: earlier rounds are exactly what D6 withholds.
+   *  Outputs are capped so the row stays small on the checkpoint. */
+  lastEvidence?: TaskEvidence;
 }
 
 export interface SplitChild {
@@ -116,6 +124,19 @@ export class TaskDag {
   /** ADR-O001 D4: record one failed completion-evidence check against a task
    *  and return its running total. Per task on purpose — a cap counted
    *  org-wide would escalate a healthy task because unrelated ones failed. */
+  recordEvidence(id: string, ev: TaskEvidence): void {
+    const t = this.tasks.get(id);
+    if (!t) return;
+    t.lastEvidence = {
+      headSha: ev.headSha,
+      checks: ev.checks.map((c) => ({
+        command: c.command,
+        exitCode: c.exitCode,
+        ...(c.output !== undefined ? { output: capText(c.output, EVIDENCE_OUTPUT_CAP) } : {}),
+      })),
+    };
+  }
+
   recordEvidenceFailure(id: string): number {
     const t = this.tasks.get(id);
     if (!t) return 0;

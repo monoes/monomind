@@ -7,6 +7,8 @@ import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import type { OrgTask } from './task-dag.js';
+import { buildReviewPacket, reviewDiff } from './review-packet.js';
+import { resolveSessionScope } from './session-ledger.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
   type DecisionGate,
@@ -402,6 +404,11 @@ export function dagCompleteTask(
   // the org opted in (run_config.completion_evidence), and only for a task
   // that exists — an unknown id falls through to complete()'s own error.
   const task = running.taskDag.get(taskId);
+  // ADR-O001 D6: keep the latest evidence the ASSIGNEE submitted, accepted or
+  // not — it is what an artifact-only reviewer is shown. Another role's
+  // evidence is not recorded: it would let a non-assignee plant the reviewer's
+  // input.
+  if (task && evidence && role === task.assignee) running.taskDag.recordEvidence(taskId, evidence);
   if (task && running.def.run_config.completion_evidence) {
     const refusal = checkTaskEvidence({
       required: true,
@@ -487,6 +494,70 @@ export function dagCompleteTask(
   }
 }
 
+/** ADR-O001 D6: hand an artifact-only reviewer a runtime-built packet for
+ *  `taskId` — the issue, the runtime's own diff, and the latest submitted
+ *  evidence. The caller supplies ids and a ref only, never text, so nothing
+ *  the doer wrote about the work reaches the reviewer. */
+export function dagRequestReview(
+  daemon: OrgDaemon,
+  org: string,
+  role: string,
+  taskId: string,
+  reviewer: string,
+  base = 'main',
+): string {
+  const running = daemon.orgs.get(org);
+  if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  const target = running.def.roles.find((r) => r.id === reviewer);
+  if (target?.review_input !== 'artifact-only') {
+    return JSON.stringify({
+      error: `org_review refused: "${reviewer}" is not an artifact-only reviewer (review_input: 'artifact-only'). Send ordinary work with org_send or org_task instead.`,
+    });
+  }
+  const task = running.taskDag.get(taskId);
+  if (!task) return JSON.stringify({ error: `task "${taskId}" not found` });
+  const evidence = task.lastEvidence;
+  if (!evidence) {
+    return JSON.stringify({
+      error: `org_review refused: task ${taskId} has no evidence yet — its assignee submits it with org_task_done (headSha plus the acceptance commands it ran). Without it there is nothing checkable to review.`,
+    });
+  }
+  let agent = running.agents.get(reviewer);
+  const pending = running.pendingRoles?.get(reviewer);
+  if (!agent && pending) {
+    const limit = running.def.run_config.max_concurrent_agents;
+    if (limit != null && activeRoleCount(running) >= limit) {
+      return JSON.stringify({
+        error: `org_review deferred: "${reviewer}" is not running and the org is at max_concurrent_agents (${limit}). Request the review again once a role finishes.`,
+      });
+    }
+    running.pendingRoles?.delete(reviewer);
+    running.spawnRole?.(pending);
+    agent = running.agents.get(reviewer);
+  }
+  if (!agent || agent.mailbox.isClosed) {
+    return JSON.stringify({ error: `org_review refused: reviewer "${reviewer}" is unavailable` });
+  }
+  const packet = buildReviewPacket({
+    taskId,
+    issue: task.title,
+    evidence,
+    diff: reviewDiff(running.workdir ?? daemon.root, base, evidence.headSha),
+    replyTo: role,
+    base,
+  });
+  agent.mailbox.push(packet);
+  running.bus.emit({
+    type: 'audit',
+    from: role,
+    to: reviewer,
+    reason: 'review-requested',
+    msg: `artifact-only review of ${taskId} @ ${evidence.headSha} sent to ${reviewer}`,
+    data: { taskId, reviewer, headSha: evidence.headSha, base },
+  });
+  return JSON.stringify({ requested: taskId, reviewer, headSha: evidence.headSha });
+}
+
 /** How long an auto-dispatched task is held before it enters the assignee's
  *  mailbox.
  *
@@ -517,6 +588,13 @@ function queueDispatch(running: RunningOrg, assignee: string, line: string): voi
     running.pendingDispatch?.delete(assignee);
     const mailbox = running.agents.get(assignee)?.mailbox;
     if (!mailbox || mailbox.isClosed) return;
+    // ADR-O001 D3: in task scope a message is routed to the model session of
+    // the task it names, so a batch naming several tasks has to stay apart.
+    const role = running.def?.roles.find((r) => r.id === assignee);
+    if (role && resolveSessionScope(role, running.def) === 'task') {
+      for (const line of entry.lines) mailbox.push(line);
+      return;
+    }
     mailbox.push(entry.lines.join('\n\n'));
   }, DISPATCH_COALESCE_MS);
   entry.timer.unref?.();
