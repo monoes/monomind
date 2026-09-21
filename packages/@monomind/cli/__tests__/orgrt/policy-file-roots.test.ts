@@ -19,9 +19,10 @@
  */
 import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { OrgBus } from '../../src/orgrt/bus.js';
+import { operatorDirOverride } from '../../src/orgrt/file-roots.js';
 import { PolicyEngine } from '../../src/orgrt/policy.js';
 
 const REAL_TMPDIR = realpathSync(tmpdir());
@@ -285,5 +286,15 @@ describe('PolicyEngine — human-authority credentials stay out of every role', 
       const d = await p.decide('Read', { file_path: f });
       expect(d.behavior, f).toBe('allow');
     }
+  });
+});
+
+describe('operatorDirOverride', () => {
+  it('resolves a relative MONOMIND_ORGRT_OPERATOR_DIR the way broker.ts uses it (against cwd)', () => {
+    expect(operatorDirOverride({ MONOMIND_ORGRT_OPERATOR_DIR: 'op-creds' })).toBe(
+      resolve('op-creds'),
+    );
+    expect(operatorDirOverride({ MONOMIND_ORGRT_OPERATOR_DIR: '/abs/op' })).toBe('/abs/op');
+    expect(operatorDirOverride({})).toBeUndefined();
   });
 });

@@ -22,7 +22,7 @@
 
 import { readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join, resolve } from 'node:path';
 
 /** Files under $HOME that would undo the guard (git/shell/Claude config) —
  *  writable $HOME must not include them. Moved verbatim from
@@ -82,10 +82,11 @@ export function dashboardCredentialPaths(roots: Array<string | undefined>): stri
 }
 
 /** The operator-credential dir when MONOMIND_ORGRT_OPERATOR_DIR moves it off
- *  the HOME_DENY_READ default. */
+ *  the HOME_DENY_READ default. broker.ts uses a relative value as-is, i.e.
+ *  against the daemon's cwd, so it resolves the same way here. */
 export function operatorDirOverride(env: NodeJS.ProcessEnv): string | undefined {
   const dir = env.MONOMIND_ORGRT_OPERATOR_DIR;
-  return dir && isAbsolute(dir) ? dir : undefined;
+  return dir ? resolve(dir) : undefined;
 }
 
 /** Sockets and runtime dirs a role must not reach. The XDG runtime dir is the
