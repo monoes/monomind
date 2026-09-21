@@ -9,7 +9,8 @@
  * configure (pick action + go), generating (progressive dots), and cycling
  * (prev/next + accept/discard). Feels like Spotlight, not a modal.
  */
-(function () {
+(() => {
+  // biome-ignore lint/suspicious/noRedundantUseStrict: served to the page as a classic <script> (not an ES module despite package type=module), so this directive is what enables strict mode
   'use strict';
   if (typeof window === 'undefined') return;
 
@@ -218,7 +219,6 @@
     rectIsUsableAnchor,
     makeFrozenAnchor,
     id8,
-    cssId,
     liveUiRoot,
     uiAppend,
     uiAppendStyle,
@@ -361,7 +361,7 @@
   let annotSvgEl = null;
   let annotPinsEl = null;
   let annotClearChipEl = null;
-  let annotState = { comments: [], strokes: [] };
+  const annotState = { comments: [], strokes: [] };
   let annotActive = false;
   // `annotPointer` is either:
   //   { kind: 'new',   x0, y0, moved, strokeEl, strokePoints }   creating a stroke/pin
@@ -868,7 +868,7 @@
   //
 
   function stripManualEditRuntimeState(root) {
-    if (!root || root.nodeType !== 1) return;
+    if (root?.nodeType !== 1) return;
     unwrapMixedContentTextNodes(root);
     const nodes = [root, ...root.querySelectorAll('[data-monodesign-editable], [data-monodesign-original-text], [data-monodesign-text-wrap]')];
     for (const node of nodes) {
@@ -891,7 +891,7 @@
   }
 
   function sanitizedContextOuterHTML(el, maxLength) {
-    if (!el || !el.cloneNode) return '';
+    if (!el?.cloneNode) return '';
     const clone = el.cloneNode(true);
     stripManualEditRuntimeState(clone);
     return clone.outerHTML ? clone.outerHTML.slice(0, maxLength) : '';
@@ -967,7 +967,7 @@
   }
 
   function isUsefulManualEditContext(candidate, leafEl, editedTexts) {
-    if (!candidate || !candidate.contains(leafEl)) return false;
+    if (!candidate?.contains(leafEl)) return false;
     if (!candidate.id && candidate.classList.length === 0 && candidate.children.length < 2) return false;
     return collectManualContextPieces(candidate, editedTexts).length > 0;
   }
@@ -1260,6 +1260,7 @@
     };
   }
 
+  // biome-ignore lint/correctness/noUnusedVariables: kept as the configure-row chip style contract pinned by tests/live-browser-regression.test.mjs
   function configureModifierPillStyle(extra = {}) {
     const P = configureBarPalette();
     return {
@@ -1304,21 +1305,6 @@
     btn.addEventListener('mouseleave', () => {
       if (controlsLocked) return;
       btn.style.color = configureBarPalette().textDim;
-    });
-  }
-
-  function bindConfigureModifierPillHover(btn, controlsLocked) {
-    btn.addEventListener('mouseenter', () => {
-      if (controlsLocked) return;
-      const P = configureBarPalette();
-      btn.style.color = P.text;
-      btn.style.background = P.toggleActive;
-    });
-    btn.addEventListener('mouseleave', () => {
-      if (controlsLocked) return;
-      const P = configureBarPalette();
-      btn.style.color = P.textDim;
-      btn.style.background = 'transparent';
     });
   }
 
@@ -1622,7 +1608,7 @@
   }
 
   function detectInsertAxis(parent) {
-    if (!parent || parent.nodeType !== 1) return 'column';
+    if (parent?.nodeType !== 1) return 'column';
     const st = getComputedStyle(parent);
     return detectInsertAxisFromStyle({
       display: st.display,
@@ -2926,7 +2912,6 @@
   //
 
   let paramsPanelEl = null;     // outer wrapper (overflow:hidden, clips the slide)
-  let paramsPanelInner = null;  // translating content (carries bg, padding, knobs)
   let paramsPanelBody = null;   // grid holding the knob cells
   let paramsCurrentValues = {}; // {paramId: value} - mirror of the visible variant's live values
   let tuneOpen = false;         // whether the Tune popover is open right now
@@ -2983,7 +2968,6 @@
     // click-through) and 'auto' (open) on its own. Just silence the host's
     // outside-interaction listeners while the panel is open.
     defangOutsideHandlers(paramsPanelEl, { setPointerEvents: false });
-    paramsPanelInner = paramsPanelEl; // compatibility alias for the rest of the code
   }
 
 
@@ -3069,7 +3053,7 @@
   function formatRangeValue(input) {
     const max = parseFloat(input.max), min = parseFloat(input.min);
     const v = parseFloat(input.value);
-    if (!isFinite(v)) return input.value;
+    if (!Number.isFinite(v)) return input.value;
     return (max - min) <= 2 ? v.toFixed(2) : String(Math.round(v));
   }
 
@@ -3209,15 +3193,15 @@
   const MIXED_WRAP_SKIP = { script: 1, style: 1, template: 1, noscript: 1, svg: 1, code: 1, pre: 1 };
 
   function collectEditableTextRows(rootEl, opts) {
-    if (!rootEl || rootEl.nodeType !== 1) return [];
-    const isOwn = (opts && opts.isOwn) || (() => false);
+    if (rootEl?.nodeType !== 1) return [];
+    const isOwn = opts?.isOwn || (() => false);
     const rows = [];
 
     function visit(el) {
-      if (!el || el.nodeType !== 1) return;
+      if (el?.nodeType !== 1) return;
       const tag = el.tagName.toLowerCase();
       if (MIXED_WRAP_SKIP[tag]) return;
-      if (el.hasAttribute && el.hasAttribute('contenteditable')) return;
+      if (el.hasAttribute?.('contenteditable')) return;
       if (el !== rootEl && isOwn(el)) return;
 
       const children = Array.from(el.childNodes);
@@ -3251,7 +3235,7 @@
   }
 
   function wrapMixedContentTextNodes(rootEl) {
-    if (!rootEl || rootEl.nodeType !== 1) return;
+    if (rootEl?.nodeType !== 1) return;
     const tag = rootEl.tagName.toLowerCase();
     if (MIXED_WRAP_SKIP[tag]) return;
     if (rootEl.hasAttribute('contenteditable')) return;
@@ -3270,13 +3254,13 @@
       }
     }
     for (const child of Array.from(rootEl.children)) {
-      if (!child.dataset || !child.dataset.monodesignTextWrap) {
+      if (!child.dataset?.monodesignTextWrap) {
         wrapMixedContentTextNodes(child);
       }
     }
   }
   function unwrapMixedContentTextNodes(rootEl) {
-    if (!rootEl || rootEl.nodeType !== 1) return;
+    if (rootEl?.nodeType !== 1) return;
     const wraps = rootEl.querySelectorAll('[data-monodesign-text-wrap="true"]');
     for (const wrap of wraps) {
       const parent = wrap.parentNode;
@@ -3339,7 +3323,7 @@
     // (mixed-content paragraphs included). Mirrors what the wrap+walk path
     // will produce in enableInlineEdit.
     function check(node) {
-      if (!node || node.nodeType !== 1) return false;
+      if (node?.nodeType !== 1) return false;
       const tag = node.tagName.toLowerCase();
       if (MIXED_WRAP_SKIP[tag]) return false;
       if (node !== el && own(node)) return false;
@@ -3363,9 +3347,11 @@
     enableInlineEdit(selectedElement);
     // Focus first editable element and position cursor at end
     if (inlineEditRows.length > 0) {
+      // biome-ignore lint/complexity/useOptionalChain: exact text pinned by tests/live-browser-regression.test.mjs
       const firstEditable = inlineEditRows[0] && inlineEditRows[0].el;
       setTimeout(() => {
         const el = firstEditable;
+        // biome-ignore lint/complexity/useOptionalChain: test-pinned
         if (!el || !el.isConnected || state !== 'EDITING') return;
         el.focus();
         const range = document.createRange();
@@ -3460,7 +3446,7 @@
   }
 
   function sourceHintForElement(el) {
-    if (!el || !el.getAttribute) return null;
+    if (!el?.getAttribute) return null;
     const file = el.getAttribute('data-astro-source-file');
     const loc = el.getAttribute('data-astro-source-loc');
     if (file || loc) {
@@ -3479,12 +3465,12 @@
     const match = String(loc || '').match(/^(\d+)(?::(\d+))?/);
     return {
       line: match ? Number(match[1]) : null,
-      column: match && match[2] ? Number(match[2]) : null,
+      column: match?.[2] ? Number(match[2]) : null,
     };
   }
 
   function documentRefForElement(el) {
-    if (!el || el.nodeType !== 1) return null;
+    if (el?.nodeType !== 1) return null;
     const parts = [];
     let cur = el;
     while (cur && cur.nodeType === 1) {
@@ -3682,7 +3668,7 @@
   }
 
   function playPendingIntroAnimation() {
-    if (!pendingPillEl || !pendingPillEl.animate || (matchMedia?.('(prefers-reduced-motion: reduce)').matches)) return;
+    if (!pendingPillEl?.animate || (matchMedia?.('(prefers-reduced-motion: reduce)').matches)) return;
     if (pendingIntroAnimation) pendingIntroAnimation.cancel();
     pendingIntroAnimation = pendingPillEl.animate([
       {
@@ -4219,7 +4205,7 @@
   }
 
   function mixedTextWrapRestoreHint(el) {
-    if (!el || !el.dataset || el.dataset.monodesignTextWrap !== 'true' || !el.parentElement) return null;
+    if (el?.dataset?.monodesignTextWrap !== 'true' || !el.parentElement) return null;
     const siblings = directMixedTextRestoreNodes(el.parentElement);
     const textIndex = siblings.indexOf(el);
     return {
@@ -4231,7 +4217,7 @@
 
   function restoreMixedTextNodeManualEdit(op) {
     const restore = op?.restore;
-    if (!restore || restore.kind !== 'mixedTextNode' || typeof op?.originalText !== 'string') return false;
+    if (restore?.kind !== 'mixedTextNode' || typeof op?.originalText !== 'string') return false;
     const parent = queryManualEditRef(restore.parentRef);
     if (!parent) return false;
     const textNodes = directMixedTextRestoreNodes(parent).filter((node) => node.nodeType === 3);
@@ -4317,7 +4303,7 @@
     if (el.tagName.toLowerCase() !== segment.tag) return false;
     if (segment.id && el.id !== segment.id) return false;
     for (const cls of segment.classes) {
-      if (!el.classList || !el.classList.contains(cls)) return false;
+      if (!el.classList?.contains(cls)) return false;
     }
     if (segment.nth && indexAmongSameTag(el) !== segment.nth) return false;
     return true;
@@ -4854,7 +4840,7 @@
   }
 
   function buildPickedAnchorSnapshot(el) {
-    if (!el || el.nodeType !== 1) return null;
+    if (el?.nodeType !== 1) return null;
     return {
       tag: el.tagName,
       id: el.id || '',
@@ -5634,7 +5620,7 @@
   }
 
   function jsxStylePropToCss(prop) {
-    let out = String(prop || '').trim().replace(/^["']|["']$/g, '');
+    const out = String(prop || '').trim().replace(/^["']|["']$/g, '');
     if (!out) return '';
     if (out.startsWith('--')) return out;
     return out.replace(/[A-Z]/g, (ch) => '-' + ch.toLowerCase()).replace(/^-ms-/, '-ms-');
@@ -5668,7 +5654,7 @@
         }
 
         const match = liveText.match(expressionTextMatcher(sourceText, [token]));
-        if (match && match[1]) map.set(token, match[1].trim());
+        if (match?.[1]) map.set(token, match[1].trim());
         continue;
       }
 
@@ -5869,7 +5855,7 @@
   // session's wrapper (HMR patches, variant inserts, cycle swaps).
   function startScrollLock(sessionId, initialTargetY) {
     stopScrollLock();
-    scrollLockTargetY = typeof initialTargetY === 'number' && isFinite(initialTargetY)
+    scrollLockTargetY = typeof initialTargetY === 'number' && Number.isFinite(initialTargetY)
       ? initialTargetY
       : window.scrollY;
 
@@ -5892,7 +5878,7 @@
       (document.head || document.documentElement).appendChild(anchorLockStyle);
     }
 
-    const correct = (why) => {
+    const correct = (_why) => {
       scrollLockRaf = null;
       if (scrollLockTargetY == null) return;
       const before = window.scrollY;
@@ -5935,9 +5921,8 @@
     let userGestureAt = 0;
     const USER_GESTURE_WINDOW_MS = 250;
 
-    const reanchor = (why) => {
+    const reanchor = (_why) => {
       if (scrollLockRaf != null) { cancelAnimationFrame(scrollLockRaf); scrollLockRaf = null; }
-      const prevTarget = scrollLockTargetY;
       scrollLockTargetY = window.scrollY;
       writeScrollY(scrollLockTargetY);
     };
@@ -6283,6 +6268,7 @@
   function sendEvent(msg, opts) {
     msg.token = TOKEN;
     function handleFailure(err) {
+      // biome-ignore lint/complexity/useOptionalChain: exact text pinned by tests/live-browser-source.test.mjs
       if (opts && opts.throwOnError) {
         console.error('[monodesign] Failed to send event:', err);
         throw err;
@@ -6550,7 +6536,7 @@
 
   function handleKeyDown(e) {
     // When the annotation input is focused, let it handle its own keys.
-    if (annotEditing && annotEditing.input && e.target === annotEditing.input) return;
+    if (annotEditing?.input && e.target === annotEditing.input) return;
     const deepActive = activeElementDeep();
     if (
       deepActive
@@ -7586,8 +7572,9 @@ void main() {
   }
 
   function scheduleAcceptCleanup(accepted) {
-    setTimeout(function() {
+    setTimeout(() => {
       if (!accepted?.isSvelteComponent && !acceptedDomAlreadyClean(accepted)) {
+        // biome-ignore lint/complexity/useArrowFunction: tests/live-browser-source.test.mjs pins this fallback as `setTimeout(function() {`
         setTimeout(function() {
           if (pendingAcceptedSession?.id !== accepted?.id) return;
           if (!accepted?.isSvelteComponent) ensureAcceptedDomClean(accepted);
@@ -7613,7 +7600,7 @@ void main() {
   }
 
   function selectorForAcceptedRoot(root) {
-    if (!root || !root.tagName) return '';
+    if (!root?.tagName) return '';
     const tag = root.tagName.toLowerCase();
     const classes = [...(root.classList || [])].filter(Boolean);
     if (classes.length === 0) return tag;
@@ -7705,28 +7692,6 @@ void main() {
     pendingAcceptedSession = null;
     renderEditBadge('hidden');
     setLiveState('PICKING');
-  }
-
-  function commitAcceptedVariantToDom(sessionId, variantId) {
-    const wrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
-    if (!wrapper) return false;
-    const accepted = wrapper.querySelector('[data-monodesign-variant="' + variantId + '"]');
-    if (!accepted || !accepted.firstElementChild) return false;
-    const parent = wrapper.parentElement;
-    if (!parent) return false;
-
-    const style = wrapper.querySelector('style[data-monodesign-css]');
-    if (style && !document.querySelector('style[data-monodesign-accepted-css="' + sessionId + '"]')) {
-      const promotedStyle = style.cloneNode(true);
-      promotedStyle.setAttribute('data-monodesign-accepted-css', sessionId);
-      parent.insertBefore(promotedStyle, wrapper);
-    }
-
-    const committed = accepted.cloneNode(true);
-    committed.removeAttribute('hidden');
-    committed.style.display = 'contents';
-    parent.replaceChild(committed, wrapper);
-    return true;
   }
 
   function handleDiscard() {
@@ -7936,7 +7901,7 @@ void main() {
       // replaced the wrapper by then (keeps static-server / no-HMR flows alive).
       const wrapper = document.querySelector('[data-monodesign-variants="' + cleanupSessionId + '"]');
       if (wrapper) wrapper.style.display = 'none';
-      setTimeout(function() {
+      setTimeout(() => {
         if (!cleanupSessionId) return;
         const lateWrapper = document.querySelector('[data-monodesign-variants="' + cleanupSessionId + '"]');
         if (!lateWrapper) return;
@@ -8214,14 +8179,6 @@ void main() {
     } catch { /* ignore */ }
   }
 
-  function loadPickPref() {
-    return loadInteractionPrefs().pickActive;
-  }
-
-  function savePickPref() {
-    saveInteractionPrefs();
-  }
-
   let pickActive = loadInteractionPrefs().pickActive;
   let insertActive = loadInteractionPrefs().insertActive;
   let configureKind = 'replace';
@@ -8268,7 +8225,6 @@ void main() {
   /** @type {{ mode: 'steer'|'configure', input: HTMLInputElement, submit: () => void, beforeStart?: () => void } | null} */
   let voiceCtx = null;
   const PAGE_CHAT_COLLAPSED_W = '104px';
-  const PAGE_CHAT_PROCESSING_W = '76px';
   const PAGE_CHAT_PLACEHOLDER_COLLAPSED = 'Steer…';
   const PAGE_CHAT_PLACEHOLDER_EXPANDED = 'Steer the page…';
   const STEER_AWAIT_TIMEOUT_MS = 120000;
@@ -8734,7 +8690,7 @@ void main() {
     return true;
   }
 
-  function focusPageChatInput(reason) {
+  function focusPageChatInput(_reason) {
     if (!preparePageChatInputForTyping() || steerLocked) return false;
     try { pageChatInput.focus({ preventScroll: true }); } catch { pageChatInput.focus(); }
     const focused = activeElementDeep() === pageChatInput;
@@ -8906,7 +8862,7 @@ void main() {
   }
 
   function releaseVoiceEngine(opts) {
-    if (opts && opts.suppressSubmit) voiceSuppressSubmit = true;
+    if (opts?.suppressSubmit) voiceSuppressSubmit = true;
     const rec = voiceRecognition;
     voiceRecognition = null;
     if (!rec) return;
@@ -8915,7 +8871,7 @@ void main() {
     rec.onerror = null;
     rec.onend = null;
     try {
-      if (opts && opts.abort) rec.abort();
+      if (opts?.abort) rec.abort();
       else rec.stop();
     } catch { /* already ended */ }
   }
@@ -8924,7 +8880,7 @@ void main() {
     releaseVoiceEngine(opts);
     syncVoiceUi(false);
     voiceCtx = null;
-    if (opts && opts.message) showToast(String(opts.message), opts.duration || 4000);
+    if (opts?.message) showToast(String(opts.message), opts.duration || 4000);
   }
 
   function finishVoiceSession() {
@@ -9099,7 +9055,7 @@ void main() {
   }
 
   function expandPageChat(opts) {
-    const focus = !opts || opts.focus !== false;
+    const focus = opts?.focus !== false;
     if (!pageChatEl || !pageChatInput || steerLocked) return;
     preparePageChatInputForTyping();
     syncPageChatChrome();
@@ -9860,6 +9816,7 @@ void main() {
     // If the bar is currently under the cursor, keep all labels expanded -
     // otherwise clicking a toggle that deactivates (e.g. closing DESIGN.md)
     // would collapse its label while the user's mouse is still on the bar.
+    // biome-ignore lint/complexity/useOptionalChain: `?.` would pass undefined instead of null, which switches syncGlobalBarExpandedLabels onto its default-parameter path
     syncGlobalBarExpandedLabels(globalBarEl && globalBarEl.matches(':hover'));
 
     if (detectBadge) {
@@ -10039,7 +9996,7 @@ void main() {
     if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
     if (barEl) { barEl.remove(); barEl = null; }
     if (pickerEl) { pickerEl.remove(); pickerEl = null; }
-    if (paramsPanelEl) { paramsPanelEl.remove(); paramsPanelEl = null; paramsPanelInner = null; paramsPanelBody = null; }
+    if (paramsPanelEl) { paramsPanelEl.remove(); paramsPanelEl = null; paramsPanelBody = null; }
     if (editBadgeProxyRoot) { editBadgeProxyRoot.remove(); editBadgeProxyRoot = null; editBadgeProxyByTarget = new Map(); }
     if (evtSource) { evtSource.close(); evtSource = null; }
     document.removeEventListener('mousemove', handleMouseMove, true);
@@ -10064,7 +10021,7 @@ void main() {
 
   let designHost = null;
   let designShadow = null;
-  let designState = {
+  const designState = {
     open: false,
     tab: 'visual',          // 'visual' | 'raw'
     parsed: null,           // parseDesignMd output (frontmatter + body sections)
@@ -10674,7 +10631,7 @@ void main() {
   }
 
   function findProseDescription(proseColors, key, displayName) {
-    if (!proseColors || !proseColors.groups) return null;
+    if (!proseColors?.groups) return null;
     const needles = [key, displayName].filter(Boolean).map((s) => s.toLowerCase());
     for (const g of proseColors.groups) {
       for (const c of g.colors || []) {
@@ -10924,7 +10881,7 @@ void main() {
     const groups = [];
     for (const c of components) {
       const last = groups[groups.length - 1];
-      if (last && last[0].kind && c.kind === last[0].kind) {
+      if (last?.[0].kind && c.kind === last[0].kind) {
         last.push(c);
       } else {
         groups.push([c]);
@@ -10933,7 +10890,7 @@ void main() {
     return groups;
   }
 
-  function titleForKind(kind, count) {
+  function titleForKind(kind, _count) {
     const labels = {
       button: 'Buttons',
       input: 'Inputs',
@@ -11163,10 +11120,6 @@ void main() {
     // Italic (only single *…*, skip if inside bold already handled)
     s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
     return s;
-  }
-
-  function highlightBold(text) {
-    return inlineMd(text);
   }
 
   function escapeHtml(s) {

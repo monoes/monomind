@@ -81,7 +81,7 @@ function checkStaticPageTypography(document, window) {
 }
 
 function checkElementBrokenImage(el) {
-  const src = (el.getAttribute && el.getAttribute('src')) ?? el.attribs?.src;
+  const src = el.getAttribute?.('src') ?? el.attribs?.src;
   // Missing src attribute entirely
   if (src === undefined || src === null) {
     return [{ id: 'broken-image', snippet: '<img> with no src attribute' }];
@@ -95,10 +95,10 @@ function checkElementBrokenImage(el) {
 }
 
 const STATIC_ELEMENT_RULES = [
-  { id: 'border-rules', selector: '*', run: (el, tag, style, window, customPropMap) => checkElementBorders(tag, style, null, resolveBorderRadiusPx(el, style, parseFloat(style.width) || 0, window)) },
+  { id: 'border-rules', selector: '*', run: (el, tag, style, window, _customPropMap) => checkElementBorders(tag, style, null, resolveBorderRadiusPx(el, style, parseFloat(style.width) || 0, window)) },
   { id: 'color-rules', selector: '*', run: (el, tag, style, window, customPropMap) => checkElementColors(el, style, tag, window, customPropMap, false) },
   { id: 'dark-glow', selector: '*', run: (el, tag, style, window, customPropMap) => checkElementGlow(tag, style, resolveBackground(el.parentElement || el, window, customPropMap)) },
-  { id: 'motion-rules', selector: '*', run: (el, tag, style) => checkElementMotion(tag, style) },
+  { id: 'motion-rules', selector: '*', run: (_el, tag, style) => checkElementMotion(tag, style) },
   { id: 'icon-tile-stack', selector: 'h1,h2,h3,h4,h5,h6', run: (el, tag, _style, window) => checkElementIconTile(el, tag, window) },
   { id: 'italic-serif-display', selector: 'h1,h2', run: (el, tag, style) => checkElementItalicSerif(el, style, tag) },
   { id: 'hero-eyebrow-chip', selector: 'h1', run: (el, tag, style, window, customPropMap) => checkElementHeroEyebrow(el, style, tag, window, customPropMap) },
@@ -106,8 +106,8 @@ const STATIC_ELEMENT_RULES = [
   { id: 'quality-rules', selector: '*', run: (el, tag, style, window) => checkElementQuality(el, style, tag, window) },
   { id: 'oversized-h1', selector: 'h1', run: (el, tag, style, window) => checkElementOversizedH1(el, style, tag, window) },
   { id: 'clipped-overflow-container', selector: '*', run: (el, tag, style, window) => checkElementClippedOverflow(el, style, tag, window) },
-  { id: 'gpt-thin-border-wide-shadow', selector: '*', run: (el, tag, style) => checkElementGptBorderShadow(el, style) },
-  { id: 'image-missing-dimensions', selector: 'img', run: (el, tag, style) => checkElementImageDimensions(el, style) },
+  { id: 'gpt-thin-border-wide-shadow', selector: '*', run: (el, _tag, style) => checkElementGptBorderShadow(el, style) },
+  { id: 'image-missing-dimensions', selector: 'img', run: (el, _tag, style) => checkElementImageDimensions(el, style) },
   { id: 'small-touch-target', selector: 'a,button,input,select,summary,[role=button],[role=link],[role=menuitem],[role=tab],[role=switch]', run: (el, tag, style) => checkElementSmallTouchTarget(el, style, tag) },
 ];
 

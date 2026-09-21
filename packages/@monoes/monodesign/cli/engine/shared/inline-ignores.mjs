@@ -117,10 +117,10 @@ function setMatches(set, rule) {
 }
 
 function isInlineIgnored(finding, directives) {
-  const rule = normalizeRule(finding && finding.antipattern);
+  const rule = normalizeRule(finding?.antipattern);
   if (!rule) return false;
   if (setMatches(directives.file, rule)) return true;
-  const line = Number(finding && finding.line) || 0;
+  const line = Number(finding?.line) || 0;
   if (line > 0) {
     if (setMatches(directives.line.get(line), rule)) return true;
     if (setMatches(directives.nextLine.get(line), rule)) return true;

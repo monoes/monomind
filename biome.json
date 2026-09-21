@@ -20,6 +20,7 @@
       "packages/@monoes/monodesign/skill/**",
       "packages/@monoes/monodesign/scripts/**",
       "!packages/@monoes/monodesign/skill/scripts/modern-screenshot.umd.js",
+      "!packages/@monoes/monodesign/cli/engine/detect-antipatterns-browser.js",
       "tests/**",
       "scripts/**",
       "!**/dist",

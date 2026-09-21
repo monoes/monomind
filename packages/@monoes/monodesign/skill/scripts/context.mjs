@@ -205,7 +205,7 @@ function resolveLocalContextDir(root) {
 
 function resolveEnvContextDir(cwd) {
   const envDir = process.env.MONODESIGN_CONTEXT_DIR;
-  if (!envDir || !envDir.trim()) return null;
+  if (!envDir?.trim()) return null;
   const trimmed = envDir.trim();
   return path.isAbsolute(trimmed) ? trimmed : path.resolve(cwd, trimmed);
 }

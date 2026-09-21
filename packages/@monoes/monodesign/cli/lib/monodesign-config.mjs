@@ -36,11 +36,11 @@ function safeReadJson(filePath) {
 }
 
 function hookSection(raw) {
-  return raw && raw.hook && typeof raw.hook === 'object' && !Array.isArray(raw.hook) ? raw.hook : null;
+  return raw?.hook && typeof raw.hook === 'object' && !Array.isArray(raw.hook) ? raw.hook : null;
 }
 
 function detectorSection(raw) {
-  return raw && raw.detector && typeof raw.detector === 'object' && !Array.isArray(raw.detector) ? raw.detector : null;
+  return raw?.detector && typeof raw.detector === 'object' && !Array.isArray(raw.detector) ? raw.detector : null;
 }
 
 const DETECTOR_CONFIG_KEYS = new Set(['ignoreRules', 'ignoreFiles', 'ignoreValues', 'designSystem']);
@@ -242,7 +242,7 @@ function splitColorArgs(body) {
   if (text.includes(',')) {
     const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
     const last = parts[parts.length - 1];
-    if (last && last.includes('/')) {
+    if (last?.includes('/')) {
       const split = last.split('/').map((part) => part.trim()).filter(Boolean);
       return [...parts.slice(0, -1), ...split];
     }

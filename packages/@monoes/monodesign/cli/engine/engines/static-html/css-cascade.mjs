@@ -118,17 +118,17 @@ function buildBorderOverrideMap(document, window) {
 
       for (const [prop, side] of SIDE_PROPS) {
         const val = rule.style[prop];
-        if (!val || !val.includes('var(')) continue;
+        if (!val?.includes('var(')) continue;
         const parsed = parseShorthand(resolveVar(val));
-        if (parsed && parsed.color) perSide[side] = parsed;
+        if (parsed?.color) perSide[side] = parsed;
       }
 
       // Uniform `border: <w> <style> var(...)` applies to every side the
       // per-side map didn't already claim.
       const borderAll = rule.style.border;
-      if (borderAll && borderAll.includes('var(')) {
+      if (borderAll?.includes('var(')) {
         const parsed = parseShorthand(resolveVar(borderAll));
-        if (parsed && parsed.color) {
+        if (parsed?.color) {
           for (const s of ['Top', 'Right', 'Bottom', 'Left']) {
             if (!perSide[s]) perSide[s] = parsed;
           }
@@ -144,7 +144,7 @@ function buildBorderOverrideMap(document, window) {
         ['borderBottomColor', 'Bottom'],
       ]) {
         const val = rule.style[prop];
-        if (!val || !val.includes('var(')) continue;
+        if (!val?.includes('var(')) continue;
         const resolved = resolveVar(val).trim();
         if (!resolved) continue;
         // Width may or may not come from this rule — that's fine; the
@@ -185,6 +185,7 @@ function buildBorderOverrideMap(document, window) {
 // styles. We walk the source character-by-character, balancing braces
 // so we correctly handle nested style rules inside the layer block.
 function unwrapCssAtLayer(source) {
+  // biome-ignore lint/complexity/useOptionalChain: exported helper with no typed callers; `source?.includes` would throw for a falsy non-string (0/false) that this guard currently returns unchanged
   if (!source || !source.includes('@layer')) return source;
   // Find `@layer <name>? {` openers. The match starts at the @, and
   // we then balance braces from the opening { onward.

@@ -130,7 +130,7 @@ function groupByRule(findings) {
 async function runFix(targets, options = {}) {
   const cwd = options.cwd || process.cwd();
   const dryRun = Boolean(options.dryRun);
-  const ruleFilter = options.rules && options.rules.length ? new Set(options.rules) : null;
+  const ruleFilter = options.rules?.length ? new Set(options.rules) : null;
   const config = options.noConfig
     ? { ignoreRules: [], ignoreFiles: [], ignoreValues: [] }
     : readDetectionConfig(cwd);
