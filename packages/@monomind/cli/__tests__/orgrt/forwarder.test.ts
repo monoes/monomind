@@ -91,6 +91,19 @@ describe('attachForwarder', () => {
       .toMatchObject({ type: 'org:question', from: 'coder', questionId: 'q1', question: 'proceed with X or Y?' });
   });
 
+  it('keeps what the Human Input view needs on org:question: blocking, and an approval\'s requestId', () => {
+    const mk = (data: Record<string, unknown>) =>
+      ({ ts: 1, org: 'o', run: 'r', type: 'question', from: 'coder', data }) as BusEvent;
+    expect(translate(mk({ questionId: 'q1', question: 'fyi', blocking: false }))).toMatchObject({ blocking: false });
+    // pre-D4 records carry no flag and are read as blocking
+    expect(translate(mk({ questionId: 'q2', question: 'which?' }))).toMatchObject({ blocking: true });
+    const approval = translate(
+      mk({ question: 'Approval required for Bash', action: 'Bash', requestId: 'apr-1', input: { command: 'ls' } }),
+    );
+    expect(approval).toMatchObject({ requestId: 'apr-1', action: 'Bash' });
+    expect(approval).not.toHaveProperty('blocking');
+  });
+
   it('emits session:start BEFORE org:start so the dashboard session record exists first', async () => {
     // src/ui/orgs.html only adds a run to chatSessions on session:start;
     // every later event (including org:start itself) is dropped client-side

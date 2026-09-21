@@ -20,8 +20,9 @@
  * silently.
  */
 
+import { readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 
 /** Files under $HOME that would undo the guard (git/shell/Claude config) —
  *  writable $HOME must not include them. Moved verbatim from
@@ -49,7 +50,43 @@ export const HOME_DENY_READ = [
   '.config/git/credentials',
   '.config/gh',
   '.netrc',
+  // The org daemons' operator credentials (broker.ts's defaultOperatorDir()):
+  // they authorize approvals, gates and answers, so a role that can read one
+  // can approve its own gates.
+  '.monomind/orgrt-operator',
 ];
+
+/** The dashboard's bearer credential, written into a project's `.monomind/`
+ *  as `dashboard-token` (or `dashboard-token-<port>` for a secondary server).
+ *  The dashboard resolves approvals, gates and answers with the operator
+ *  credential, so its token carries the same human authority. */
+const DASHBOARD_CREDENTIAL = /^dashboard-token(-\d+)?$/;
+
+export function isDashboardCredential(p: string): boolean {
+  return DASHBOARD_CREDENTIAL.test(basename(p));
+}
+
+/** Existing dashboard credential files in each root's `.monomind/` — the
+ *  concrete paths the OS sandbox masks (it cannot mask a pattern). */
+export function dashboardCredentialPaths(roots: Array<string | undefined>): string[] {
+  const out: string[] = [];
+  for (const root of uniq(roots)) {
+    const dir = join(root, '.monomind');
+    try {
+      for (const e of readdirSync(dir)) if (DASHBOARD_CREDENTIAL.test(e)) out.push(join(dir, e));
+    } catch {
+      /* no .monomind here — nothing to mask */
+    }
+  }
+  return out;
+}
+
+/** The operator-credential dir when MONOMIND_ORGRT_OPERATOR_DIR moves it off
+ *  the HOME_DENY_READ default. */
+export function operatorDirOverride(env: NodeJS.ProcessEnv): string | undefined {
+  const dir = env.MONOMIND_ORGRT_OPERATOR_DIR;
+  return dir && isAbsolute(dir) ? dir : undefined;
+}
 
 /** Sockets and runtime dirs a role must not reach. The XDG runtime dir is the
  *  important one: it carries the session D-Bus, and through it the login
@@ -104,5 +141,6 @@ export function fileToolDenied(home: string, env: NodeJS.ProcessEnv): string[] {
     ...HOME_DENY_WRITE.map((p) => join(home, p)),
     ...DAEMON_SOCKETS,
     runtimeDir(env),
+    operatorDirOverride(env),
   ]);
 }

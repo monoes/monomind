@@ -232,3 +232,58 @@ describe('PolicyEngine roots (#303) — negative: the widening must not leak', (
     expect(d.behavior).toBe('deny');
   });
 });
+
+describe('PolicyEngine — human-authority credentials stay out of every role', () => {
+  it('denies Read and Write of the dashboard token (primary and per-port) inside cwd', async () => {
+    const cwd = scratch('pfr-cwd-');
+    mkdirSync(join(cwd, '.monomind'));
+    for (const f of ['dashboard-token', 'dashboard-token-4261'])
+      writeFileSync(join(cwd, '.monomind', f), 'tok\n');
+    const p = new PolicyEngine('coder', {}, mkBus(), cwd);
+    for (const f of ['dashboard-token', 'dashboard-token-4261']) {
+      for (const tool of ['Read', 'Write']) {
+        const d = await p.decide(tool, { file_path: join(cwd, '.monomind', f) });
+        expect(d.behavior, `${tool} ${f}`).toBe('deny');
+      }
+    }
+  });
+
+  it('denies Read of the dashboard token under the org root, via a relative path too', async () => {
+    const cwd = scratch('pfr-cwd-');
+    const orgRoot = scratch('pfr-orgroot-');
+    mkdirSync(join(orgRoot, '.monomind'));
+    writeFileSync(join(orgRoot, '.monomind', 'dashboard-token'), 'tok\n');
+    const p = new PolicyEngine('coder', {}, mkBus(), cwd, [orgRoot]);
+    const d = await p.decide('Read', { file_path: join(orgRoot, '.monomind', 'dashboard-token') });
+    expect(d.behavior).toBe('deny');
+    const inCwd = new PolicyEngine('coder', {}, mkBus(), orgRoot);
+    const rel = await inCwd.decide('Read', { file_path: '.monomind/dashboard-token' });
+    expect(rel.behavior).toBe('deny');
+  });
+
+  it('denies Read of an operator credential even when allowWrite admits $HOME', async () => {
+    const home = fakeHome();
+    mkdirSync(join(home, '.monomind', 'orgrt-operator'), { recursive: true });
+    writeFileSync(join(home, '.monomind', 'orgrt-operator', 'acme.json'), '{"credential":"x"}');
+    const cwd = scratch('pfr-cwd-');
+    const p = new PolicyEngine('coder', {}, mkBus(), cwd, [home]);
+    const d = await p.decide('Read', {
+      file_path: join(home, '.monomind', 'orgrt-operator', 'acme.json'),
+    });
+    expect(d.behavior).toBe('deny');
+  });
+
+  it('still allows the rest of .monomind, including spilled tool results under the org root', async () => {
+    const cwd = scratch('pfr-cwd-');
+    const orgRoot = scratch('pfr-orgroot-');
+    const spill = join(orgRoot, '.monomind', 'orgs', 'acme', 'tool-results', 'coder');
+    mkdirSync(spill, { recursive: true });
+    writeFileSync(join(spill, 't1.txt'), 'big output\n');
+    writeFileSync(join(orgRoot, '.monomind', 'control.json'), '{}');
+    const p = new PolicyEngine('coder', {}, mkBus(), cwd, [orgRoot]);
+    for (const f of [join(spill, 't1.txt'), join(orgRoot, '.monomind', 'control.json')]) {
+      const d = await p.decide('Read', { file_path: f });
+      expect(d.behavior, f).toBe('allow');
+    }
+  });
+});

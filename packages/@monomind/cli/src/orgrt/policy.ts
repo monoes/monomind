@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
-import { fileToolDenied } from './file-roots.js';
+import { fileToolDenied, isDashboardCredential } from './file-roots.js';
 import { checkGitPolicy } from './policy-git.js';
 import { type RolePolicy, TOOL_RESULT_OUTPUT_MAX_CHARS } from './types.js';
 
@@ -405,6 +405,10 @@ export class PolicyEngine {
         if (deniedHit)
           return deny(
             `path ${p} resolves inside ${deniedHit}, which no role may touch regardless of scope, root, or allowWrite (credential store, guard config, socket, or runtime dir)`,
+          );
+        if (isDashboardCredential(real))
+          return deny(
+            `path ${p} is a dashboard credential, which no role may touch regardless of scope, root, or allowWrite`,
           );
         if (
           !grantedByAbsoluteGlob &&

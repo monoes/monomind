@@ -276,13 +276,26 @@ export function translate(e: BusEvent): Record<string, unknown> {
       };
     }
     case 'question': {
-      const q = (e.data as { questionId?: string; question?: string } | undefined) ?? {};
+      const q =
+        (e.data as
+          | {
+              questionId?: string;
+              question?: string;
+              blocking?: boolean;
+              requestId?: string;
+              action?: string;
+            }
+          | undefined) ?? {};
       return {
         ...base,
         type: 'org:question',
         from: e.from,
         questionId: q.questionId,
         question: q.question,
+        // ask_human: does the role wait on the answer? (pre-D4: absent = blocking)
+        ...(q.questionId ? { blocking: q.blocking !== false } : {}),
+        // approvals.ts reuses this event for tool approvals, keyed by requestId
+        ...(q.requestId ? { requestId: q.requestId, action: q.action } : {}),
       };
     }
     case 'status': {
