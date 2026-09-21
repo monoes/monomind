@@ -336,6 +336,10 @@ export interface SessionOpts {
    *  list is prefix position 0 — changing it for every org would invalidate
    *  every cached prompt). */
   requireTaskEvidence?: boolean;
+  /** ADR-O001 D6: request an artifact-only review. Set only when the org has
+   *  a role with review_input: 'artifact-only'; otherwise org_review is not
+   *  registered and the tool list is unchanged. */
+  requestReview?: (role: string, taskId: string, reviewer: string, base?: string) => string;
   /** Task DAG: list all tasks. */
   listTasks?: () => string;
   splitTask?: (
@@ -504,9 +508,16 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     // Opt-in only: keep the process DOWN until there is mail, instead of
     // starting a query() that parks on an empty mailbox. waitForMessage()
     // still returns true for a closed mailbox with queued items.
-    if ((scope === 'task' || idleExitMs !== undefined) && !(await mailbox.waitForMessage())) return;
+    if (scope !== 'role' || idleExitMs !== undefined) {
+      if (!(await mailbox.waitForMessage())) return;
+    }
     let startReason: SessionStartReason;
-    if (scope === 'task') {
+    if (scope === 'cold') {
+      // D6: nothing carries over — not a checkpointed session, not the last
+      // message's. Paying the cache miss here is the point.
+      resumeSessionId = undefined;
+      startReason = 'fresh-cold';
+    } else if (scope === 'task') {
       // An untagged message (mail, an answer, a continuation) belongs to the
       // session the role is already in.
       taskKey = taskKeyOf(mailbox.peek() ?? '') ?? taskKey;
@@ -527,17 +538,19 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     }
     const sessionKey = taskKey;
     const streamOpts: StreamOptions | undefined =
-      scope === 'task'
-        ? {
-            stopBefore: (next) => {
-              const k = taskKeyOf(next);
-              return k !== undefined && k !== sessionKey;
-            },
-            idleExitMs,
-          }
-        : idleExitMs !== undefined
-          ? { idleExitMs }
-          : undefined;
+      scope === 'cold'
+        ? { stopBefore: () => true, idleExitMs }
+        : scope === 'task'
+          ? {
+              stopBefore: (next) => {
+                const k = taskKeyOf(next);
+                return k !== undefined && k !== sessionKey;
+              },
+              idleExitMs,
+            }
+          : idleExitMs !== undefined
+            ? { idleExitMs }
+            : undefined;
     const sessionIdBefore = resumeSessionId;
     const startedAt = Date.now();
     const recordRun = (after: string | undefined, error?: string): void => {
@@ -1509,6 +1522,28 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             args.taskId as string,
             args.result as string | undefined,
             args.evidence as TaskEvidence | undefined,
+          ),
+        ),
+    });
+  }
+  const requestReview = opts.requestReview;
+  if (requestReview) {
+    tools.push({
+      name: 'org_review',
+      description:
+        "Ask an artifact-only reviewer for a verdict on a task. You pass ids only: the runtime builds the review from the task's text, its assignee's latest org_task_done evidence (commands, exit codes, output) and its own git diff of base...headSha — nothing you write is added, so there is no summary to give. The reviewer starts cold every time and replies to you with org_send. Refused if the task has no evidence yet.",
+      schema: {
+        taskId: z.string(),
+        reviewer: z.string(),
+        base: z.string().optional().describe("git ref to diff against (default 'main')"),
+      },
+      handler: async (args) =>
+        text(
+          requestReview(
+            role.id,
+            args.taskId as string,
+            args.reviewer as string,
+            args.base as string | undefined,
           ),
         ),
     });

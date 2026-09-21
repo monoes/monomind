@@ -206,6 +206,29 @@ reviewer had approved, and the verifier was right each time.
 - Give the reviewer the diff, the acceptance commands and their output, and the issue text.
   **Not** the doer's reasoning, the thread, prior rounds, or the attempt count.
 
+#### D6 implementation plan (built on D3, 2026-09-21)
+
+- **Opt in per role: `review_input: 'artifact-only'`.** Absent = today. It is per role, not
+  org-wide, so a deliberative synthesiser (see the table below) simply doesn't set it.
+- **Cold sessions.** Such a role runs in D3's `'cold'` scope: every message is served by a new
+  model session. The ledger is never consulted and the start reason is recorded as
+  `fresh-cold`. The process stays down while the role has no mail.
+- **The runtime writes the reviewer's input; no agent does.** A new tool,
+  `org_review(taskId, reviewer, base?)`, takes ids and a ref only, never free text. The packet
+  holds:
+  - the task title (the issue text);
+  - the task's **latest submitted D5 evidence**: `headSha`, and every command with its exit code
+    and output, capped;
+  - the runtime's own `git diff <base>...<headSha>`.
+
+  It leaves out the doer's `result` prose, `evidenceFailures` (the attempt count), earlier
+  evidence, and any thread.
+- **Agent mail to an artifact-only role is refused**, with a pointer to `org_review`. Otherwise
+  the doer's framing could simply be `org_send`-ed in. Messages from the human (`fromRole:
+  'human'`) still get through.
+- **Default off, asserted.** `org_review` is registered only in an org that has an
+  artifact-only role, so every other org's tool list (prefix position 0) stays byte-identical.
+
 ### D7 — Specialisation via a small catalog of stable loadouts
 
 `buildRolePrompt` is called once per session (`session.ts:636`), so role text is a **stable

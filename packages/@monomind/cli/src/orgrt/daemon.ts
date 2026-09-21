@@ -2028,6 +2028,12 @@ export class OrgDaemon {
       // ADR-O001 D5: only an org that opted in advertises the evidence
       // argument, so every other org's tool list stays byte-identical.
       requireTaskEvidence: def.run_config.completion_evidence === true,
+      // ADR-O001 D6: only an org with an artifact-only reviewer gets org_review,
+      // so every other org's tool list stays byte-identical.
+      requestReview: def.roles.some((r) => r.review_input === 'artifact-only')
+        ? (r: string, taskId: string, reviewer: string, base?: string) =>
+            this.dagRequestReview(name, r, taskId, reviewer, base)
+        : undefined,
       listTasks: () => {
         const running = this.orgs.get(name);
         return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
@@ -3143,6 +3149,16 @@ export class OrgDaemon {
     evidence?: TaskEvidence,
   ): string {
     return decisionOps.dagCompleteTask(this, org, role, taskId, result, evidence);
+  }
+  /** ADR-O001 D6 — see decisions.ts's dagRequestReview. */
+  dagRequestReview(
+    org: string,
+    role: string,
+    taskId: string,
+    reviewer: string,
+    base?: string,
+  ): string {
+    return decisionOps.dagRequestReview(this, org, role, taskId, reviewer, base);
   }
   private dagSplitTask(
     org: string,

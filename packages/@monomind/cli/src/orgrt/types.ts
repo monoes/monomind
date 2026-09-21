@@ -282,6 +282,11 @@ export const RoleSchema = z
     policy: RolePolicySchema.optional(),
     /** ADR-O001 D3: overrides run_config.session_scope for this role. */
     session_scope: z.enum(['role', 'task']).optional(),
+    /** ADR-O001 D6: 'artifact-only' makes this a cold reviewer — a new model
+     *  session per message, fed only runtime-built review packets
+     *  (org_review); other agents' org_send to it is refused, so the doer's
+     *  framing cannot reach it. Absent = an ordinary role. */
+    review_input: z.enum(['artifact-only']).optional(),
     /** Per-role runtime override: when set, this role's sessions run on the given
      *  agent runtime regardless of the org-level `runtime` field or the
      *  MONOMIND_RUNTIME env var ('claude' explicitly forces the Claude default).

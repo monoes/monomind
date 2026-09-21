@@ -24,7 +24,8 @@ export const ROLE_SESSION_KEY = '_role';
 /** Warm state is bounded (Paperclip caps every warm store); so is this history. */
 export const MAX_SESSION_RUNS = 500;
 
-export type SessionScope = 'role' | 'task';
+/** 'cold' (ADR-O001 D6): a new model session per message, never resumed. */
+export type SessionScope = 'role' | 'task' | 'cold';
 
 export type SessionStartReason =
   | 'resumed'
@@ -32,7 +33,8 @@ export type SessionStartReason =
   | 'fresh-cwd-changed'
   | 'fresh-prompt-changed'
   | 'fresh-after-stale-resume'
-  | 'fresh-after-turn-limit';
+  | 'fresh-after-turn-limit'
+  | 'fresh-cold';
 
 interface RecordKey {
   role: string;
@@ -68,9 +70,12 @@ export function taskKeyOf(text: string): string | undefined {
  *  org or the role opts into 'task'. The coordinator's work spans tasks, so an
  *  org-wide 'task' does not apply to it; it can still opt in itself. */
 export function resolveSessionScope(
-  role: Pick<OrgRole, 'reports_to'> & { session_scope?: SessionScope },
+  role: Pick<OrgRole, 'reports_to'> & { session_scope?: SessionScope; review_input?: string },
   def: Pick<OrgDef, 'run_config'> | undefined,
 ): SessionScope {
+  // D6: an artifact-only reviewer is cold whatever else is configured — a
+  // reviewer that remembers earlier rounds is exactly what D6 removes.
+  if (role.review_input === 'artifact-only') return 'cold';
   if (role.session_scope) return role.session_scope;
   if (role.reports_to == null) return 'role';
   const rc = def?.run_config as { session_scope?: SessionScope } | undefined;

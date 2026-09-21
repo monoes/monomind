@@ -217,6 +217,20 @@ export async function deliver(
   } = resolveAddress(fromOrg, to);
   const targetOrg = daemon.orgs.get(targetOrgName);
   const src = daemon.orgs.get(fromOrg);
+  // ADR-O001 D6: an artifact-only reviewer takes runtime-built packets only.
+  // Another agent's mail is exactly the doer's framing D6 keeps out, so it is
+  // refused with the way to get a review instead. The human is not an agent.
+  const reviewerRole = targetOrg?.def.roles.find((r) => r.id === targetRole);
+  if (reviewerRole?.review_input === 'artifact-only' && (cross || fromRole !== 'human')) {
+    src?.bus.emit({
+      type: 'audit',
+      from: fromRole,
+      to: toQualified,
+      reason: 'review-mail-refused',
+      msg: `mail to artifact-only reviewer ${toQualified} refused: ${subject}`,
+    });
+    return `REFUSED: "${toQualified}" is an artifact-only reviewer and does not take messages from agents. Request a review with org_review(taskId, "${targetRole}") — it is built from the task, its evidence and the diff.`;
+  }
   // M2: an endpoint role has no mailbox — POST to its endpoint instead.
   const endpointRole = targetOrg ? findEndpointRole(targetOrg.def, targetRole) : undefined;
   if (targetOrg && endpointRole) {
