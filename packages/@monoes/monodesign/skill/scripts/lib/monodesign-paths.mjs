@@ -43,7 +43,7 @@ export function getLegacyLiveConfigPath(scriptsDir) {
 }
 
 export function resolveLiveConfigPath({ cwd = process.cwd(), scriptsDir, env = process.env, targetPath } = {}) {
-  if (env.MONODESIGN_LIVE_CONFIG && env.MONODESIGN_LIVE_CONFIG.trim()) {
+  if (env.MONODESIGN_LIVE_CONFIG?.trim()) {
     const configured = env.MONODESIGN_LIVE_CONFIG.trim();
     return path.isAbsolute(configured) ? configured : path.resolve(cwd, configured);
   }

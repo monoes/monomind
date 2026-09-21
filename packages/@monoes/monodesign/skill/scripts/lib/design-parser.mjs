@@ -412,7 +412,7 @@ function parseColorBullet(bullet) {
 
   // Case 1 (Monodesign): **Name** (value-with-maybe-nested-parens): description
   const bold = text.match(/^\*\*(.+?)\*\*\s*(.*)$/);
-  if (bold && bold[2].startsWith('(')) {
+  if (bold?.[2].startsWith('(')) {
     const value = extractParenGroup(bold[2]);
     if (value !== null) {
       const after = bold[2].slice(value.length + 2).trimStart();

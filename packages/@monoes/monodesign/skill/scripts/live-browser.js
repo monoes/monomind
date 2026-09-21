@@ -868,7 +868,7 @@
   //
 
   function stripManualEditRuntimeState(root) {
-    if (!root || root.nodeType !== 1) return;
+    if (root?.nodeType !== 1) return;
     unwrapMixedContentTextNodes(root);
     const nodes = [root, ...root.querySelectorAll('[data-monodesign-editable], [data-monodesign-original-text], [data-monodesign-text-wrap]')];
     for (const node of nodes) {
@@ -891,7 +891,7 @@
   }
 
   function sanitizedContextOuterHTML(el, maxLength) {
-    if (!el || !el.cloneNode) return '';
+    if (!el?.cloneNode) return '';
     const clone = el.cloneNode(true);
     stripManualEditRuntimeState(clone);
     return clone.outerHTML ? clone.outerHTML.slice(0, maxLength) : '';
@@ -967,7 +967,7 @@
   }
 
   function isUsefulManualEditContext(candidate, leafEl, editedTexts) {
-    if (!candidate || !candidate.contains(leafEl)) return false;
+    if (!candidate?.contains(leafEl)) return false;
     if (!candidate.id && candidate.classList.length === 0 && candidate.children.length < 2) return false;
     return collectManualContextPieces(candidate, editedTexts).length > 0;
   }
@@ -1608,7 +1608,7 @@
   }
 
   function detectInsertAxis(parent) {
-    if (!parent || parent.nodeType !== 1) return 'column';
+    if (parent?.nodeType !== 1) return 'column';
     const st = getComputedStyle(parent);
     return detectInsertAxisFromStyle({
       display: st.display,
@@ -3193,15 +3193,15 @@
   const MIXED_WRAP_SKIP = { script: 1, style: 1, template: 1, noscript: 1, svg: 1, code: 1, pre: 1 };
 
   function collectEditableTextRows(rootEl, opts) {
-    if (!rootEl || rootEl.nodeType !== 1) return [];
-    const isOwn = (opts && opts.isOwn) || (() => false);
+    if (rootEl?.nodeType !== 1) return [];
+    const isOwn = opts?.isOwn || (() => false);
     const rows = [];
 
     function visit(el) {
-      if (!el || el.nodeType !== 1) return;
+      if (el?.nodeType !== 1) return;
       const tag = el.tagName.toLowerCase();
       if (MIXED_WRAP_SKIP[tag]) return;
-      if (el.hasAttribute && el.hasAttribute('contenteditable')) return;
+      if (el.hasAttribute?.('contenteditable')) return;
       if (el !== rootEl && isOwn(el)) return;
 
       const children = Array.from(el.childNodes);
@@ -3235,7 +3235,7 @@
   }
 
   function wrapMixedContentTextNodes(rootEl) {
-    if (!rootEl || rootEl.nodeType !== 1) return;
+    if (rootEl?.nodeType !== 1) return;
     const tag = rootEl.tagName.toLowerCase();
     if (MIXED_WRAP_SKIP[tag]) return;
     if (rootEl.hasAttribute('contenteditable')) return;
@@ -3254,13 +3254,13 @@
       }
     }
     for (const child of Array.from(rootEl.children)) {
-      if (!child.dataset || !child.dataset.monodesignTextWrap) {
+      if (!child.dataset?.monodesignTextWrap) {
         wrapMixedContentTextNodes(child);
       }
     }
   }
   function unwrapMixedContentTextNodes(rootEl) {
-    if (!rootEl || rootEl.nodeType !== 1) return;
+    if (rootEl?.nodeType !== 1) return;
     const wraps = rootEl.querySelectorAll('[data-monodesign-text-wrap="true"]');
     for (const wrap of wraps) {
       const parent = wrap.parentNode;
@@ -3323,7 +3323,7 @@
     // (mixed-content paragraphs included). Mirrors what the wrap+walk path
     // will produce in enableInlineEdit.
     function check(node) {
-      if (!node || node.nodeType !== 1) return false;
+      if (node?.nodeType !== 1) return false;
       const tag = node.tagName.toLowerCase();
       if (MIXED_WRAP_SKIP[tag]) return false;
       if (node !== el && own(node)) return false;
@@ -3347,9 +3347,11 @@
     enableInlineEdit(selectedElement);
     // Focus first editable element and position cursor at end
     if (inlineEditRows.length > 0) {
+      // biome-ignore lint/complexity/useOptionalChain: exact text pinned by tests/live-browser-regression.test.mjs
       const firstEditable = inlineEditRows[0] && inlineEditRows[0].el;
       setTimeout(() => {
         const el = firstEditable;
+        // biome-ignore lint/complexity/useOptionalChain: test-pinned
         if (!el || !el.isConnected || state !== 'EDITING') return;
         el.focus();
         const range = document.createRange();
@@ -3444,7 +3446,7 @@
   }
 
   function sourceHintForElement(el) {
-    if (!el || !el.getAttribute) return null;
+    if (!el?.getAttribute) return null;
     const file = el.getAttribute('data-astro-source-file');
     const loc = el.getAttribute('data-astro-source-loc');
     if (file || loc) {
@@ -3463,12 +3465,12 @@
     const match = String(loc || '').match(/^(\d+)(?::(\d+))?/);
     return {
       line: match ? Number(match[1]) : null,
-      column: match && match[2] ? Number(match[2]) : null,
+      column: match?.[2] ? Number(match[2]) : null,
     };
   }
 
   function documentRefForElement(el) {
-    if (!el || el.nodeType !== 1) return null;
+    if (el?.nodeType !== 1) return null;
     const parts = [];
     let cur = el;
     while (cur && cur.nodeType === 1) {
@@ -3666,7 +3668,7 @@
   }
 
   function playPendingIntroAnimation() {
-    if (!pendingPillEl || !pendingPillEl.animate || (matchMedia?.('(prefers-reduced-motion: reduce)').matches)) return;
+    if (!pendingPillEl?.animate || (matchMedia?.('(prefers-reduced-motion: reduce)').matches)) return;
     if (pendingIntroAnimation) pendingIntroAnimation.cancel();
     pendingIntroAnimation = pendingPillEl.animate([
       {
@@ -4203,7 +4205,7 @@
   }
 
   function mixedTextWrapRestoreHint(el) {
-    if (!el || !el.dataset || el.dataset.monodesignTextWrap !== 'true' || !el.parentElement) return null;
+    if (el?.dataset?.monodesignTextWrap !== 'true' || !el.parentElement) return null;
     const siblings = directMixedTextRestoreNodes(el.parentElement);
     const textIndex = siblings.indexOf(el);
     return {
@@ -4215,7 +4217,7 @@
 
   function restoreMixedTextNodeManualEdit(op) {
     const restore = op?.restore;
-    if (!restore || restore.kind !== 'mixedTextNode' || typeof op?.originalText !== 'string') return false;
+    if (restore?.kind !== 'mixedTextNode' || typeof op?.originalText !== 'string') return false;
     const parent = queryManualEditRef(restore.parentRef);
     if (!parent) return false;
     const textNodes = directMixedTextRestoreNodes(parent).filter((node) => node.nodeType === 3);
@@ -4301,7 +4303,7 @@
     if (el.tagName.toLowerCase() !== segment.tag) return false;
     if (segment.id && el.id !== segment.id) return false;
     for (const cls of segment.classes) {
-      if (!el.classList || !el.classList.contains(cls)) return false;
+      if (!el.classList?.contains(cls)) return false;
     }
     if (segment.nth && indexAmongSameTag(el) !== segment.nth) return false;
     return true;
@@ -4838,7 +4840,7 @@
   }
 
   function buildPickedAnchorSnapshot(el) {
-    if (!el || el.nodeType !== 1) return null;
+    if (el?.nodeType !== 1) return null;
     return {
       tag: el.tagName,
       id: el.id || '',
@@ -5652,7 +5654,7 @@
         }
 
         const match = liveText.match(expressionTextMatcher(sourceText, [token]));
-        if (match && match[1]) map.set(token, match[1].trim());
+        if (match?.[1]) map.set(token, match[1].trim());
         continue;
       }
 
@@ -6266,6 +6268,7 @@
   function sendEvent(msg, opts) {
     msg.token = TOKEN;
     function handleFailure(err) {
+      // biome-ignore lint/complexity/useOptionalChain: exact text pinned by tests/live-browser-source.test.mjs
       if (opts && opts.throwOnError) {
         console.error('[monodesign] Failed to send event:', err);
         throw err;
@@ -6533,7 +6536,7 @@
 
   function handleKeyDown(e) {
     // When the annotation input is focused, let it handle its own keys.
-    if (annotEditing && annotEditing.input && e.target === annotEditing.input) return;
+    if (annotEditing?.input && e.target === annotEditing.input) return;
     const deepActive = activeElementDeep();
     if (
       deepActive
@@ -7597,7 +7600,7 @@ void main() {
   }
 
   function selectorForAcceptedRoot(root) {
-    if (!root || !root.tagName) return '';
+    if (!root?.tagName) return '';
     const tag = root.tagName.toLowerCase();
     const classes = [...(root.classList || [])].filter(Boolean);
     if (classes.length === 0) return tag;
@@ -8859,7 +8862,7 @@ void main() {
   }
 
   function releaseVoiceEngine(opts) {
-    if (opts && opts.suppressSubmit) voiceSuppressSubmit = true;
+    if (opts?.suppressSubmit) voiceSuppressSubmit = true;
     const rec = voiceRecognition;
     voiceRecognition = null;
     if (!rec) return;
@@ -8868,7 +8871,7 @@ void main() {
     rec.onerror = null;
     rec.onend = null;
     try {
-      if (opts && opts.abort) rec.abort();
+      if (opts?.abort) rec.abort();
       else rec.stop();
     } catch { /* already ended */ }
   }
@@ -8877,7 +8880,7 @@ void main() {
     releaseVoiceEngine(opts);
     syncVoiceUi(false);
     voiceCtx = null;
-    if (opts && opts.message) showToast(String(opts.message), opts.duration || 4000);
+    if (opts?.message) showToast(String(opts.message), opts.duration || 4000);
   }
 
   function finishVoiceSession() {
@@ -9052,7 +9055,7 @@ void main() {
   }
 
   function expandPageChat(opts) {
-    const focus = !opts || opts.focus !== false;
+    const focus = opts?.focus !== false;
     if (!pageChatEl || !pageChatInput || steerLocked) return;
     preparePageChatInputForTyping();
     syncPageChatChrome();
@@ -9813,6 +9816,7 @@ void main() {
     // If the bar is currently under the cursor, keep all labels expanded -
     // otherwise clicking a toggle that deactivates (e.g. closing DESIGN.md)
     // would collapse its label while the user's mouse is still on the bar.
+    // biome-ignore lint/complexity/useOptionalChain: `?.` would pass undefined instead of null, which switches syncGlobalBarExpandedLabels onto its default-parameter path
     syncGlobalBarExpandedLabels(globalBarEl && globalBarEl.matches(':hover'));
 
     if (detectBadge) {
@@ -10627,7 +10631,7 @@ void main() {
   }
 
   function findProseDescription(proseColors, key, displayName) {
-    if (!proseColors || !proseColors.groups) return null;
+    if (!proseColors?.groups) return null;
     const needles = [key, displayName].filter(Boolean).map((s) => s.toLowerCase());
     for (const g of proseColors.groups) {
       for (const c of g.colors || []) {
@@ -10877,7 +10881,7 @@ void main() {
     const groups = [];
     for (const c of components) {
       const last = groups[groups.length - 1];
-      if (last && last[0].kind && c.kind === last[0].kind) {
+      if (last?.[0].kind && c.kind === last[0].kind) {
         last.push(c);
       } else {
         groups.push([c]);

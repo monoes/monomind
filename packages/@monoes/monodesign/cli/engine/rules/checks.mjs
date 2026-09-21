@@ -82,7 +82,7 @@ function checkColors(opts) {
   if (hasDirectText && textColor && !isEmojiOnly) {
     // Run background-dependent checks against either a solid bg or, if the
     // ancestor is a gradient, against every gradient stop (use the worst case).
-    const bgs = effectiveBg ? [effectiveBg] : (effectiveBgStops && effectiveBgStops.length ? effectiveBgStops : null);
+    const bgs = effectiveBg ? [effectiveBg] : (effectiveBgStops?.length ? effectiveBgStops : null);
     if (bgs) {
       // Gray on colored background — flag if every stop is chromatic
       const textLum = relativeLuminance(textColor);
@@ -929,7 +929,7 @@ function buildCustomPropMap(document) {
       if (!style) continue;
       for (let i = 0; i < style.length; i++) {
         const prop = style[i];
-        if (!prop || !prop.startsWith('--')) continue;
+        if (!prop?.startsWith('--')) continue;
         const val = style.getPropertyValue(prop).trim();
         if (val) map.set(prop, val);
       }
@@ -1404,7 +1404,7 @@ function checkQuality(opts) {
   // font-size — bigger text demands proportionally more padding.
   //   vertical:   max(4px, fontSize × 0.3)
   //   horizontal: max(8px, fontSize × 0.5)
-  const isInlineCode = tag === 'code' && !(el.closest && el.closest('pre'));
+  const isInlineCode = tag === 'code' && !el.closest?.('pre');
   if (!isInlineCode && rect && hasDirectText && textLen > 20 && rect.width > 100 && rect.height > 30) {
     const borders = {
       top: parseFloat(style.borderTopWidth) || 0,
@@ -1652,7 +1652,7 @@ function checkQuality(opts) {
   // Only flag actual body content, not UI labels (buttons, tabs, badges, captions, footer text, etc.)
   if (hasDirectText && textLen > 20 && fontSize < 12) {
     const skipTags = ['sub', 'sup', 'code', 'kbd', 'samp', 'var', 'caption', 'figcaption'];
-    const inUIContext = el.closest && el.closest('button, a, label, summary, pre, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], nav, footer, [aria-hidden="true"], [class*="badge" i], [class*="caption" i], [class*="chip" i], [class*="code" i], [class*="console" i], [class*="diff" i], [class*="label" i], [class*="meta" i], [class*="mock" i], [class*="pill" i], [class*="preview" i], [class*="tag" i], [class*="terminal" i], [class*="writes" i]');
+    const inUIContext = el.closest?.('button, a, label, summary, pre, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], nav, footer, [aria-hidden="true"], [class*="badge" i], [class*="caption" i], [class*="chip" i], [class*="code" i], [class*="console" i], [class*="diff" i], [class*="label" i], [class*="meta" i], [class*="mock" i], [class*="pill" i], [class*="preview" i], [class*="tag" i], [class*="terminal" i], [class*="writes" i]');
     const isUppercase = style.textTransform === 'uppercase';
     if (!skipTags.includes(tag) && !inUIContext && !isUppercase) {
       findings.push({ id: 'tiny-text', snippet: `${fontSize}px body text` });
@@ -1765,7 +1765,7 @@ function checkElementBorders(tag, style, overrides, resolvedRadius) {
     if (widths[s] === 0 && overrides && overrides[s]) {
       widths[s] = overrides[s].width;
       colors[s] = overrides[s].color;
-    } else if (colors[s] && colors[s].startsWith('var(') && overrides && overrides[s]) {
+    } else if (colors[s]?.startsWith('var(') && overrides?.[s]) {
       // Longhand case: jsdom kept the width but left the color as the
       // literal `var(...)` string. Substitute the resolved color.
       colors[s] = overrides[s].color;
@@ -1953,7 +1953,7 @@ function checkTypography() {
   let totalTextElements = 0;
   for (const el of document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span')) {
     // Skip monodesign's own elements
-    if (el.closest && el.closest('.monodesign-overlay, .monodesign-label, .monodesign-banner, .monodesign-tooltip')) continue;
+    if (el.closest?.('.monodesign-overlay, .monodesign-label, .monodesign-banner, .monodesign-tooltip')) continue;
     // Only count elements that actually have visible direct text
     const hasText = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
     if (!hasText) continue;
@@ -2245,7 +2245,7 @@ function checkCreamPalette(doc, win) {
   // 2. Tailwind class fallback — for the static path, where utility classes
   //    never resolve to computed CSS.
   for (const el of [body, html]) {
-    const tok = creamFromClassList(el && el.getAttribute ? el.getAttribute('class') : '');
+    const tok = creamFromClassList(el?.getAttribute ? el.getAttribute('class') : '');
     if (tok) {
       findings.push({ id: 'cream-palette', snippet: `cream/beige page background (Tailwind ${tok})` });
       break;
@@ -2861,7 +2861,7 @@ function checkElementImageDimensions(el, style) {
   const parts = [el.getAttribute?.('style') || el.attribs?.style || ''];
   const ar = style && (style.aspectRatio || style['aspect-ratio']);
   if (ar && ar !== 'auto') parts.push(`aspect-ratio:${ar}`);
-  const h = style && style.height;
+  const h = style?.height;
   if (h && h !== 'auto' && h !== '') parts.push(`height:${h}`);
   return checkImageDimensions({ hasWidthAttr, hasHeightAttr, style: parts.join(';') });
 }
@@ -2921,7 +2921,7 @@ function checkElementSmallTouchTarget(el, style, tag) {
   // (button-like). jsdom returns '' for the default inline display, so key
   // off "not blockish" rather than "== inline".
   const isBlockish = /^(block|flex|grid|inline-block|inline-flex|table)/.test(style.display || '');
-  const inProse = !!(el.closest && el.closest(PROSE_ANCESTOR_SELECTOR));
+  const inProse = !!el.closest?.(PROSE_ANCESTOR_SELECTOR);
   const isInlineLinkInProse = tag === 'a' && !isBlockish && inProse;
   return checkSmallTouchTarget({ tag, role, href, inputType, widthPx, heightPx, isInlineLinkInProse });
 }
@@ -2935,7 +2935,7 @@ function checkElementSmallTouchTargetDOM(el) {
   const inputType = el.getAttribute('type') || '';
   const style = getComputedStyle(el);
   const isBlockish = /^(block|flex|grid|inline-block|inline-flex|table)/.test(style.display || '');
-  const inProse = !!(el.closest && el.closest(PROSE_ANCESTOR_SELECTOR));
+  const inProse = !!el.closest?.(PROSE_ANCESTOR_SELECTOR);
   const isInlineLinkInProse = tag === 'a' && !isBlockish && inProse;
   return checkSmallTouchTarget({ tag, role, href, inputType, widthPx: rect.width, heightPx: rect.height, isInlineLinkInProse });
 }

@@ -73,7 +73,7 @@ export function buildPropContract(expressions) {
 
 function derivePropName(expr, index) {
   const tail = expr.match(/(?:\.|\[)(\w+)\s*\]?$/);
-  if (tail && tail[1] && /^[A-Za-z_$][\w$]*$/.test(tail[1])) {
+  if (tail?.[1] && /^[A-Za-z_$][\w$]*$/.test(tail[1])) {
     return tail[1];
   }
   return `prop${index}`;

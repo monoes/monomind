@@ -184,7 +184,7 @@ export function resolveCacheCwd(primaryFile, sessionCwd) {
 export function resolveProjectPlatform(cwd) {
   try {
     const ctx = loadContext(cwd);
-    return extractPlatform(ctx && ctx.product);
+    return extractPlatform(ctx?.product);
   } catch {
     return null;
   }
@@ -399,7 +399,7 @@ function splitColorArgs(body) {
   if (text.includes(',')) {
     const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
     const last = parts[parts.length - 1];
-    if (last && last.includes('/')) {
+    if (last?.includes('/')) {
       const split = last.split('/').map((part) => part.trim()).filter(Boolean);
       return [...parts.slice(0, -1), ...split];
     }
@@ -1756,7 +1756,7 @@ export async function runHook({ stdinJson, env = {}, cwd = process.cwd(), now = 
     return {
       exitCode: 0,
       stdout: '',
-      audit: { ...audit, error: String(err && err.message ? err.message : err) },
+      audit: { ...audit, error: String(err?.message ? err.message : err) },
     };
   }
 }

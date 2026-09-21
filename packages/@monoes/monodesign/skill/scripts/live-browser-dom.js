@@ -26,7 +26,7 @@
     }
 
     function pickable(el) {
-      if (!el || el.nodeType !== 1) return false;
+      if (el?.nodeType !== 1) return false;
       if (tagsToSkip.has(String(el.tagName || '').toLowerCase())) return false;
       if (own(el)) return false;
       const r = el.getBoundingClientRect();
@@ -46,7 +46,7 @@
     }
 
     function makeFrozenAnchor(el) {
-      if (!el || !el.getBoundingClientRect) return null;
+      if (!el?.getBoundingClientRect) return null;
       const r = el.getBoundingClientRect();
       if (!rectIsUsableAnchor(r)) return null;
       const rect = {

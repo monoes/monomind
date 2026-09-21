@@ -44,7 +44,7 @@
     }
 
     function saveSession(session) {
-      if (!session || !session.id) return;
+      if (!session?.id) return;
       const payload = {
         ...session,
         checkpointRevision,

@@ -81,7 +81,7 @@ function checkStaticPageTypography(document, window) {
 }
 
 function checkElementBrokenImage(el) {
-  const src = (el.getAttribute && el.getAttribute('src')) ?? el.attribs?.src;
+  const src = el.getAttribute?.('src') ?? el.attribs?.src;
   // Missing src attribute entirely
   if (src === undefined || src === null) {
     return [{ id: 'broken-image', snippet: '<img> with no src attribute' }];
