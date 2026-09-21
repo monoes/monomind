@@ -112,6 +112,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
@@ -266,7 +267,7 @@ export class HermesAgentRunner implements AgentRunner {
     const cliArgs: string[] = ['chat', '--query-file', promptFile, '--oneshot', '-Q'];
     if (args.model) cliArgs.push('-m', args.model);
 
-    const child = spawn(bin, cliArgs, {
+    const child = spawn(...maskedCommand(args.authorityMask, bin, cliArgs), {
       cwd: args.cwd,
       // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
       // vendor CLI; an explicit value in args.env still wins below.

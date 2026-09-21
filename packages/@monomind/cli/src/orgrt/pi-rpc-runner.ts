@@ -94,10 +94,11 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { computeSafeChunk } from './antigravity-runner.js';
 // Reused, not reimplemented — see antigravity-runner.ts's own header for why
 // a fence can legitimately span multiple incremental deltas and must never
 // surface, complete or partial, in visible text.
-import { computeSafeChunk } from './antigravity-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
@@ -251,7 +252,7 @@ export class PiRpcAgentRunner implements AgentRunner {
     const cliArgs = ['--mode', 'rpc', '--session-dir', sessionDir];
     if (args.model) cliArgs.push('--model', args.model);
 
-    const child = this.spawnFn(bin, cliArgs, {
+    const child = this.spawnFn(...maskedCommand(args.authorityMask, bin, cliArgs), {
       cwd: args.cwd,
       // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
       // vendor CLI; an explicit value in args.env still wins below.

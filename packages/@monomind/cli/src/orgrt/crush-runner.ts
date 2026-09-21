@@ -82,6 +82,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
@@ -325,7 +326,11 @@ export class CrushAgentRunner implements AgentRunner {
     };
     if (proxy && this.usageProxyOpts) env[this.usageProxyOpts.baseUrlEnvVar] = proxy.url();
 
-    const child = spawn(bin, cliArgs, { cwd: args.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(...maskedCommand(args.authorityMask, bin, cliArgs), {
+      cwd: args.cwd,
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     let stderrTail = '';
     child.stderr?.on('data', (c: Buffer) => {

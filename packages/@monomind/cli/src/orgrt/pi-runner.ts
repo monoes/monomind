@@ -75,6 +75,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
@@ -349,7 +350,7 @@ export class PiAgentRunner implements AgentRunner {
     if (args.model) cliArgs.push('--model', args.model);
     cliArgs.push(prompt);
 
-    const child = spawn(bin, cliArgs, {
+    const child = spawn(...maskedCommand(args.authorityMask, bin, cliArgs), {
       cwd: args.cwd,
       // PI_TELEMETRY/PI_SKIP_VERSION_CHECK: confirmed via pi's own docs —
       // suppresses install/update telemetry and version-check network calls

@@ -98,6 +98,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
@@ -415,7 +416,7 @@ export class CopilotAgentRunner implements AgentRunner {
     if (args.model) cliArgs.push(`--model=${args.model}`);
     cliArgs.push('--add-dir', args.cwd);
 
-    const child = spawn(bin, cliArgs, {
+    const child = spawn(...maskedCommand(args.authorityMask, bin, cliArgs), {
       cwd: args.cwd,
       // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
       // vendor CLI; an explicit value in args.env still wins below.

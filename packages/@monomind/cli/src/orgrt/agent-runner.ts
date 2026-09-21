@@ -16,11 +16,37 @@
  * opencode executes through exactly the same code path it always did.
  */
 
+import { spawn } from 'node:child_process';
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import type { z } from 'zod';
+import { maskedCommand } from './authority-mask.js';
 import type { OrgEffortLevel } from './cost-tier.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { toolResultSpillHook } from './tool-spill.js';
+
+/** Launch the Claude Code process inside the authority mask. Same stdio as the
+ *  SDK's own spawn; stderr is drained (an unread pipe would stall the CLI once
+ *  its buffer fills), keeping the tail for diagnostics. */
+function maskedClaudeSpawn(mask: string[]) {
+  return (o: {
+    command: string;
+    args: string[];
+    cwd?: string;
+    env: Record<string, string | undefined>;
+    signal?: AbortSignal;
+  }) => {
+    const [cmd, argv] = maskedCommand(mask, o.command, o.args);
+    const child = spawn(cmd, argv, {
+      cwd: o.cwd,
+      env: o.env as NodeJS.ProcessEnv,
+      signal: o.signal,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    child.stderr?.resume();
+    return child;
+  };
+}
 
 /** A platform-agnostic org tool definition. `schema` is a zod object because
  *  both the Claude SDK's `tool()` and opencode's `tool()` consume zod. */
@@ -88,6 +114,10 @@ export interface AgentRunArgs {
    *  policy.git (#258, role-sandbox.ts). ClaudeAgentRunner passes them to
    *  query() as `sandbox` / `disallowedTools`; other runners ignore them. */
   claudeRestrictions?: { sandbox?: Record<string, unknown>; disallowedTools?: string[] };
+  /** bubblewrap arguments hiding human authority (authority-mask.ts) from a
+   *  role that runs outside the SDK sandbox. Subprocess runners launch their
+   *  CLI inside it; ClaudeAgentRunner launches the Claude Code process in it. */
+  authorityMask?: string[];
   /** ADR-O001 D2: directory for spilled tool-result bodies. When set,
    *  ClaudeAgentRunner installs a PostToolUse hook that writes an oversized
    *  result here in full and replaces it in the transcript with a bounded
@@ -326,6 +356,9 @@ export class ClaudeAgentRunner implements AgentRunner {
         ...(args.claudeRestrictions?.sandbox ? { sandbox: args.claudeRestrictions.sandbox } : {}),
         ...(args.claudeRestrictions?.disallowedTools?.length
           ? { disallowedTools: args.claudeRestrictions.disallowedTools }
+          : {}),
+        ...(args.authorityMask?.length
+          ? { spawnClaudeCodeProcess: maskedClaudeSpawn(args.authorityMask) }
           : {}),
         // ADR-O001 D2. A PROGRAMMATIC hook, not a filesystem one: these are
         // registered over the SDK's control protocol at initialize() time and

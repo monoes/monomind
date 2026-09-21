@@ -83,6 +83,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { computeSafeChunk } from './antigravity-runner.js';
 // Reused, not reimplemented: this protocol's `assistant` events are already
 // whole, complete messages (no per-token deltas — see this file's header),
 // but a ```tool_call fence can still legitimately arrive inside one of them,
@@ -93,7 +94,7 @@ import {
 // one) by scanning the FULL accumulated text each time, not each event's
 // text in isolation, so reuse it exactly as antigravity-runner.ts does
 // rather than re-deriving the same fence-boundary logic here.
-import { computeSafeChunk } from './antigravity-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
@@ -208,7 +209,7 @@ export class QwenRpcAgentRunner implements AgentRunner {
     const cliArgs = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--yolo'];
     if (args.model) cliArgs.push('-m', args.model);
 
-    const child = this.spawnFn(bin, cliArgs, {
+    const child = this.spawnFn(...maskedCommand(args.authorityMask, bin, cliArgs), {
       cwd: args.cwd,
       // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
       // vendor CLI; an explicit value in args.env still wins below.

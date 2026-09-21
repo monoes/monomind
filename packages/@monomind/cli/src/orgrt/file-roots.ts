@@ -54,6 +54,9 @@ export const HOME_DENY_READ = [
   // they authorize approvals, gates and answers, so a role that can read one
   // can approve its own gates.
   '.monomind/orgrt-operator',
+  // The dashboard's human-auth secret (its login link and session cookie
+  // derive from it; see authority-mask.ts).
+  '.monomind/dashboard-auth',
 ];
 
 /** The dashboard's bearer credential, written into a project's `.monomind/`

@@ -72,6 +72,7 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
@@ -290,7 +291,7 @@ export class KimiCodeAgentRunner implements AgentRunner {
     // kimi rejects model changes on resume.
     if (args.model && !sessionId) cliArgs.push('--model', args.model);
 
-    const child = spawn(bin, cliArgs, {
+    const child = spawn(...maskedCommand(args.authorityMask, bin, cliArgs), {
       cwd: args.cwd,
       env: {
         // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic

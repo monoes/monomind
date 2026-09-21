@@ -2,6 +2,7 @@
 import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { isDecisionFile } from './authority-mask.js';
 import type { OrgBus } from './bus.js';
 import { fileToolDenied, isDashboardCredential } from './file-roots.js';
 import { checkGitPolicy } from './policy-git.js';
@@ -405,6 +406,10 @@ export class PolicyEngine {
         if (deniedHit)
           return deny(
             `path ${p} resolves inside ${deniedHit}, which no role may touch regardless of scope, root, or allowWrite (credential store, guard config, socket, or runtime dir)`,
+          );
+        if (WRITE_TOOLS.has(tool) && isDecisionFile(real))
+          return deny(
+            `path ${p} records a human's decisions (gates, approvals, questions, inbox) — only the org daemon writes it`,
           );
         if (isDashboardCredential(real))
           return deny(

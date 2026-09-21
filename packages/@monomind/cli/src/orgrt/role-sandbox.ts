@@ -33,6 +33,13 @@
 import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join } from 'node:path';
+import {
+  authorityDirs,
+  authorityMaskArgs,
+  authorityMaskAvailability,
+  DECISION_FILES,
+  decisionFilePaths,
+} from './authority-mask.js';
 import type { OrgBus } from './bus.js';
 import { CLI_SANDBOX_MODES } from './cli-sandbox.js';
 import {
@@ -40,7 +47,6 @@ import {
   dashboardCredentialPaths,
   HOME_DENY_READ,
   HOME_DENY_WRITE,
-  operatorDirOverride,
   runtimeDir,
 } from './file-roots.js';
 import {
@@ -188,10 +194,13 @@ export function buildClaudeRestrictions(
       rule('Read', join(r, '.monomind', 'dashboard-token*')),
       rule('Edit', join(r, '.monomind', 'dashboard-token*')),
     ]),
-    ...uniq([join(home, '.monomind', 'orgrt-operator'), operatorDirOverride(env)]).flatMap((d) => [
-      rule('Read', `${d}/**`),
-      rule('Edit', `${d}/**`),
-    ]),
+    ...authorityDirs(home, env).flatMap((d) => [rule('Read', `${d}/**`), rule('Edit', `${d}/**`)]),
+    // Decision files: only the daemon writes them (authority-mask.ts).
+    ...(ctx.orgRoot
+      ? DECISION_FILES.map((f) =>
+          rule('Edit', join(ctx.orgRoot as string, '.monomind', 'orgs', '*', f)),
+        )
+      : []),
   ];
   if (!sandboxEnabled) return { disallowedTools };
 
@@ -214,13 +223,14 @@ export function buildClaudeRestrictions(
         ...(lockedRepo ? gitDirs : gitDirs.flatMap((d) => [join(d, 'config'), join(d, 'hooks')])),
         ...gitDirs.flatMap(gitLocalRemotePaths),
         ...HOME_DENY_WRITE.map((p) => join(home, p)),
+        ...decisionFilePaths(ctx.orgRoot),
       ]),
       denyRead: existing([
         ...(guard.level === 'none' ? gitDirs : []),
         runtimeDir(env),
         ...(unixSockets ? agentSocketPaths(home, env, tmp) : []),
         ...dashboardCredentialPaths([ctx.cwd, ctx.orgRoot]),
-        operatorDirOverride(env),
+        ...authorityDirs(home, env),
       ]),
     },
     credentials: {
@@ -249,6 +259,44 @@ function auditOnce(
 }
 
 const safeSegment = (s: string) => s.replace(/[^A-Za-z0-9_.-]/g, '_');
+
+/**
+ * The authority mask (authority-mask.ts) for a role the SDK sandbox does not
+ * cover: a `push` role, a role whose sandbox is off or unavailable, or any
+ * non-Claude CLI runtime. Undefined when the SDK sandbox already applies it,
+ * for an in-process runtime (no shell), or when bubblewrap cannot run here —
+ * the last one audited once, like `git-sandbox-unavailable` (fail open).
+ */
+export function roleAuthorityMask(args: {
+  bus: OrgBus;
+  roleId: string;
+  inSdkSandbox: boolean;
+  inProcess: boolean;
+  cwd: string;
+  orgRoot?: string;
+  home?: string;
+  env?: NodeJS.ProcessEnv;
+  availability?: { available: boolean; reason?: string };
+}): string[] | undefined {
+  if (args.inSdkSandbox || args.inProcess) return undefined;
+  const availability = args.availability ?? authorityMaskAvailability();
+  if (!availability.available) {
+    auditOnce(
+      args.bus,
+      args.roleId,
+      'authority-mask-unavailable',
+      `cannot hide human authority from role ${args.roleId} (${availability.reason}): it can read the operator credentials and the dashboard's human-auth secret. Decision gates and inbox entries stay protected by the daemon.`,
+      { reason: availability.reason },
+    );
+    return undefined;
+  }
+  return authorityMaskArgs({
+    home: args.home ?? homedir(),
+    env: args.env ?? process.env,
+    roots: [args.cwd, args.orgRoot],
+    orgRoot: args.orgRoot,
+  });
+}
 
 /**
  * Per-session enforcement for one role: the git guard env (every runtime) and,

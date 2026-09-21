@@ -75,10 +75,11 @@ import {
   type AgentRunner,
   killOnAbort,
 } from './agent-runner.js';
+import { computeSafeChunk } from './antigravity-runner.js';
 // Reused, not reimplemented — see antigravity-runner.ts's own header for why
 // a fence can legitimately span multiple incremental deltas and must never
 // surface, complete or partial, in visible text.
-import { computeSafeChunk } from './antigravity-runner.js';
+import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
@@ -438,14 +439,17 @@ const SERVER_START_TIMEOUT_MS = 30_000;
 function startOpencodeServer(args: AgentRunArgs): Promise<{ url: string; close(): void }> {
   // Mirrors runner-registry.ts's OPENCODE_BIN override for this runtime.
   const bin = process.env.OPENCODE_BIN || 'opencode';
-  const child = spawn(bin, ['serve', '--hostname=127.0.0.1', '--port=0'], {
-    cwd: args.cwd,
-    // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
-    // vendor CLI; an explicit value in args.env still wins below (this is
-    // the #262 path opencode-runner.test.ts's base-url provider test uses).
-    env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const child = spawn(
+    ...maskedCommand(args.authorityMask, bin, ['serve', '--hostname=127.0.0.1', '--port=0']),
+    {
+      cwd: args.cwd,
+      // o-18: ambient ANTHROPIC_* creds never belong to a non-Anthropic
+      // vendor CLI; an explicit value in args.env still wins below (this is
+      // the #262 path opencode-runner.test.ts's base-url provider test uses).
+      env: { ...omitAnthropicManagedKeys(process.env), ...args.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   // kill() on an exited child is a no-op (same as the SDK's own stop()).
   const close = () => void child.kill();
   return new Promise((resolve, reject) => {

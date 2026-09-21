@@ -73,7 +73,14 @@ function inboxKey(create: boolean): Buffer | null {
 function signatureOf(key: Buffer, msg: QueuedMessage): string {
   return createHmac('sha256', key)
     .update(
-      JSON.stringify([msg.fromQualified, msg.toRole, msg.subject, msg.body, msg.ts, msg.messageId ?? null]),
+      JSON.stringify([
+        msg.fromQualified,
+        msg.toRole,
+        msg.subject,
+        msg.body,
+        msg.ts,
+        msg.messageId ?? null,
+      ]),
     )
     .digest('hex');
 }

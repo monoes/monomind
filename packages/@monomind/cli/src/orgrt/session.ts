@@ -25,12 +25,14 @@ const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.c
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { ensureAuthorityDirs } from './authority-mask.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { StreamOptions } from './mailbox.js';
 import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
-import { resolveRoleGitEnforcement } from './role-sandbox.js';
+import { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
 import type { SessionStartReason } from './session-ledger.js';
 import {
@@ -943,6 +945,8 @@ async function runOneSession(
     // classification — guard env for every runtime, OS sandbox + file-tool
     // deny rules for Claude. Throws (session fails) when the role requires
     // the sandbox and it can't start.
+    // Before the sandbox is built: it can only mask directories that exist.
+    ensureAuthorityDirs(homedir(), process.env);
     const gitEnforcement = resolveRoleGitEnforcement({
       org,
       role,
@@ -952,6 +956,15 @@ async function runOneSession(
       bus,
       claudeRuntime: runner instanceof ClaudeAgentRunner,
       runtime: role.runtime ?? opts.def?.runtime,
+    });
+    const authorityMask = roleAuthorityMask({
+      bus,
+      roleId: role.id,
+      inSdkSandbox: !!gitEnforcement.claudeRestrictions?.sandbox,
+      // vercel runs in-process with no shell; its file tools go through the policy engine.
+      inProcess: (role.runtime ?? opts.def?.runtime) === 'vercel',
+      cwd,
+      orgRoot: opts.orgRoot,
     });
     const stream = runner.run({
       tools,
@@ -998,6 +1011,7 @@ async function runOneSession(
       maxTurns: opts.maxTurns ?? 30,
       resume,
       claudeRestrictions: gitEnforcement.claudeRestrictions,
+      authorityMask,
       // ADR-O001 D2: tool results are 76% of a role's context mass and nothing
       // bounded them. Under the ORG STATE dir (never the workspace cwd, which
       // may be the repo), and under orgRoot — which file-roots.ts already
