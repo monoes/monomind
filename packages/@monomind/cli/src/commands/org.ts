@@ -366,6 +366,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       );
       const { buildRolePrompt, resolveRoleExtraGuidance } = await import('../orgrt/session.js');
       const { agentRoles, endpointBriefingLines } = await import('../orgrt/endpoint-roles.js');
+      const { expandRolePromptVars, promptVarsFor } = await import('../orgrt/prompt-vars.js');
       const roster = def.roles.map((r) => r.id);
       // M2: endpoint roles get no session, so no briefing and no budget share.
       const sessionRoles = agentRoles(def.roles);
@@ -402,7 +403,8 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
         );
         log(
           buildRolePrompt(
-            role,
+            // Same org root the live daemon uses (new OrgDaemon(ctx.cwd)).
+            expandRolePromptVars(role, promptVarsFor(ctx.cwd)),
             { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal },
             roster,
             glossary,

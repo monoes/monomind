@@ -91,6 +91,9 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
       // as well as at daemon start, so it's caught before a run is attempted.
       const { validateCostTiers } = await import('../orgrt/cost-tier.js');
       errors.push(...validateCostTiers(def));
+      // S3: a typo'd placeholder would reach the prompt verbatim.
+      const { unknownPromptVarErrors } = await import('../orgrt/prompt-vars.js');
+      errors.push(...unknownPromptVarErrors(def));
       // #258: roles whose policy.git won't have the OS sandbox behind it here
       const gitFindings = gitEnforcementFindings(def);
       errors.push(...gitFindings.errors);
