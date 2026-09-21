@@ -855,6 +855,142 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
+  // GET /api/org/:name/search?q=<query> — fuzzy search across org data
+  if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/search(\?.*)?$/i.test(url)) {
+    try {
+      const urlObj = new URL(`http://x${req.url}`);
+      const orgName = decodeURIComponent(urlObj.pathname.split('/')[3]);
+      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+        res.writeHead(400);
+        res.end('{}');
+        return true;
+      }
+      const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
+      if (!q || q.length < 2) {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
+        res.end('{"hits":[]}');
+        return true;
+      }
+
+      const d = path.resolve(urlObj.searchParams.get('dir') || ctx.projectDir || process.cwd());
+      const orgsDir = path.join(d, '.monomind', 'orgs');
+      const readJ = (f) => {
+        try {
+          return JSON.parse(fs.readFileSync(f, 'utf8'));
+        } catch (_) {
+          return null;
+        }
+      };
+
+      const hits = [];
+      const match = (str) => str?.toLowerCase().includes(q);
+
+      // Agents
+      const config = readJ(path.join(orgsDir, `${orgName}.json`));
+      for (const role of config?.roles || []) {
+        if (
+          match(role.id) ||
+          match(role.title) ||
+          (role.responsibilities || []).some((r) => match(r))
+        ) {
+          hits.push({ type: 'agent', id: role.id, title: role.title, meta: role.agent_type });
+        }
+      }
+
+      // Goals
+      const goals = readJ(path.join(orgsDir, `${orgName}-goals.json`));
+      for (const g of goals?.goals || []) {
+        if (match(g.title) || match(g.text) || match(g.goal) || match(g.description)) {
+          hits.push({
+            type: 'goal',
+            id: g.id,
+            title: g.title || g.text || g.goal,
+            meta: g.status || 'open',
+          });
+        }
+      }
+
+      // Routines
+      const routines = readJ(path.join(orgsDir, `${orgName}-routines.json`));
+      for (const r of routines?.routines || []) {
+        if (match(r.name) || match(r.description)) {
+          hits.push({ type: 'routine', id: r.name, title: r.name, meta: r.schedule || '' });
+        }
+      }
+
+      // Approvals
+      for (const a of approvalsOrEmpty(orgsDir, orgName)) {
+        if (match(a.action) || match(a.roleId)) {
+          hits.push({
+            type: 'approval',
+            id: a.id,
+            title: `${a.roleId}: ${a.action}`,
+            meta: a.status,
+          });
+        }
+      }
+
+      // Projects
+      const projects = readJ(path.join(orgsDir, `${orgName}-projects.json`));
+      for (const p of projects?.projects || []) {
+        if (match(p.name) || match(p.description)) {
+          hits.push({
+            type: 'project',
+            id: p.id || p.name,
+            title: p.name,
+            meta: p.status || 'active',
+          });
+        }
+      }
+
+      // Issues
+      const issuesData = readJ(path.join(orgsDir, `${orgName}-issues.json`));
+      for (const i of issuesData?.issues || []) {
+        if (match(i.title) || match(i.description) || match(i.slug)) {
+          hits.push({
+            type: 'issue',
+            id: i.id || i.slug,
+            title: i.title || i.slug,
+            meta: i.status || 'open',
+          });
+        }
+      }
+
+      // Recent activity events
+      const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
+      if (fs.existsSync(eventsFile)) {
+        const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean).slice(-500);
+        for (const l of lines) {
+          try {
+            const e = JSON.parse(l);
+            if (e.org === orgName && match(JSON.stringify(e))) {
+              hits.push({
+                type: 'event',
+                id: String(e.ts),
+                title: e.type,
+                meta: e.role || e.task || '',
+              });
+              if (hits.length >= 50) break;
+            }
+          } catch (_) {}
+        }
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      });
+      res.end(JSON.stringify({ q, hits: hits.slice(0, 50) }));
+    } catch (_) {
+      res.writeHead(500);
+      res.end('{}');
+    }
+    return true;
+  }
+
   // GET /api/org/:name/health — aggregate org health, from the same runtime
   // sources as /runtime: live role sessions, the task DAG, this run's usage on
   // the budget's enforcement basis, and how the last 7 days of runs ended.
@@ -1303,6 +1439,162 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
     } catch (_) {
       res.writeHead(500);
       res.end('{"org_budget":{},"agent_budgets":{},"agents":[]}');
+    }
+    return true;
+  }
+
+  // GET /api/org/:name/threads — conversation threads from threads.jsonl
+  // Returns: { threads: [{id, subject, authorId, authorName, issueId, createdAt, messages:[]}] }
+  if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/threads$/i)) {
+    try {
+      const orgName = decodeURIComponent(url.split('/')[3]);
+      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+        res.writeHead(400);
+        res.end('Invalid org name');
+        return true;
+      }
+      const _threadsQs = new URL(req.url, 'http://localhost').searchParams;
+      const _threadsRoot = path.resolve(_threadsQs.get('dir') || ctx.projectDir || process.cwd());
+      const _threadsProjDir = ctx._resolveOrgProjectDir(orgName, _threadsRoot) || _threadsRoot;
+      const threadsFile = path.join(
+        _threadsProjDir,
+        '.monomind',
+        'orgs',
+        `${orgName}-threads.jsonl`,
+      );
+      let threads = [];
+      try {
+        const lines = fs
+          .readFileSync(threadsFile, 'utf8')
+          .split('\n')
+          .filter((l) => l.trim());
+        threads = lines
+          .map((l) => {
+            try {
+              return JSON.parse(l);
+            } catch (_) {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        // Group 'message' entries (from org:comms) by run_id into synthetic thread objects
+        const msgsByRun = {};
+        threads
+          .filter((t) => t.type === 'message')
+          .forEach((m) => {
+            const rid = m.run_id || 'unknown';
+            if (!msgsByRun[rid])
+              msgsByRun[rid] = {
+                id: `thread-${rid}`,
+                type: 'thread',
+                subject: `Run ${rid}`,
+                run_id: rid,
+                createdAt: m.ts,
+                messages: [],
+              };
+            msgsByRun[rid].messages.push({ from: m.from, to: m.to, msg: m.msg, ts: m.ts });
+          });
+        const syntheticThreads = Object.values(msgsByRun).map((t) => ({
+          ...t,
+          messageCount: t.messages.length,
+          author: t.messages[0]?.from || null,
+        }));
+        threads = threads
+          .filter((t) => t.type === 'thread' || !t.type)
+          .map((t) => ({
+            ...t,
+            author: t.author || t.authorName || t.createdBy || t.authorId || null,
+            messageCount:
+              t.messageCount != null
+                ? t.messageCount
+                : Array.isArray(t.messages)
+                  ? t.messages.length
+                  : typeof t.messages === 'number'
+                    ? t.messages
+                    : null,
+          }));
+        threads = [...threads, ...syntheticThreads];
+      } catch (_) {}
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ threads }));
+    } catch (_) {
+      res.writeHead(500);
+      res.end('{"threads":[]}');
+    }
+    return true;
+  }
+
+  // GET /api/org/:name/routines — read org routines (falls back to synthesizing from org config's loop object)
+  if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
+    try {
+      const orgName = decodeURIComponent(url.split('/')[3]);
+      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+        res.writeHead(400);
+        res.end('Invalid org name');
+        return true;
+      }
+      const _routinesQs = new URL(req.url, 'http://localhost').searchParams;
+      const _routinesBase = path.resolve(_routinesQs.get('dir') || ctx.projectDir || process.cwd());
+      const _routinesProjDir = ctx._resolveOrgProjectDir(orgName, _routinesBase) || _routinesBase;
+      const routinesFile = path.join(
+        _routinesProjDir,
+        '.monomind',
+        'orgs',
+        `${orgName}-routines.json`,
+      );
+      let data = { routines: [] };
+      try {
+        data = JSON.parse(fs.readFileSync(routinesFile, 'utf8'));
+      } catch (_) {}
+      // Synthesize routines from org config's loop/schedule settings when no explicit routines are defined
+      if (!data.routines?.length) {
+        try {
+          const orgCfg = JSON.parse(
+            fs.readFileSync(
+              path.join(_routinesProjDir, '.monomind', 'orgs', `${orgName}.json`),
+              'utf8',
+            ),
+          );
+          const loop = orgCfg.loop;
+          if (loop && (loop.poll_interval_minutes || loop.interval_minutes)) {
+            const intervalMin = loop.poll_interval_minutes || loop.interval_minutes;
+            data.routines = [
+              {
+                name: `${orgName}-cycle`,
+                description: orgCfg.goal ? orgCfg.goal.slice(0, 120) : 'Org iteration cycle',
+                schedule: `every ${intervalMin}m`,
+                cron: null,
+                enabled: orgCfg.status === 'active',
+                status: orgCfg.status || 'stopped',
+                prompt_file: loop.run_prompt_file || null,
+                source: 'loop-config',
+                lastRun: null,
+              },
+            ];
+          } else if (orgCfg.schedule) {
+            data.routines = [
+              {
+                name: `${orgName}-schedule`,
+                description: orgCfg.goal ? orgCfg.goal.slice(0, 120) : 'Org scheduled run',
+                schedule: String(orgCfg.schedule),
+                cron: null,
+                enabled: orgCfg.status === 'active',
+                status: orgCfg.status || 'stopped',
+                source: 'schedule-config',
+                lastRun: null,
+              },
+            ];
+          }
+        } catch (_) {}
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      });
+      res.end(JSON.stringify({ routines: data.routines || [] }));
+    } catch (_) {
+      res.writeHead(500);
+      res.end('{"routines":[]}');
     }
     return true;
   }

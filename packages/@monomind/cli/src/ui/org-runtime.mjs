@@ -231,8 +231,6 @@ export async function runtimeView(root, org) {
       ...describeRoleModel(r, def),
       status: lr?.status ?? (pendingRoles.has(r.id) ? 'not started' : isLive ? 'idle' : 'stopped'),
       usage: digest?.usage[r.id] ?? zeroUsage(),
-      // What the role's policy engine enforces, while the org runs.
-      enforced: lr?.usage ?? null,
       lastActivity: digest?.lastActivity[r.id] ?? null,
     };
   });
@@ -241,9 +239,6 @@ export async function runtimeView(root, org) {
     return t;
   }, zeroUsage());
   const basis = rc.budget_tokens_basis ?? 'uncached';
-  // While the org runs, its own loaded definition is what is in force.
-  const loaded = isLive ? live.loaded : null;
-  const inForce = loaded?.run_config ?? rc;
 
   return {
     org,
@@ -260,57 +255,32 @@ export async function runtimeView(root, org) {
     updated: runtime?.updated ?? null,
     idle: isLive && run ? readIdleStatus(root, org, run) : null,
     settings: {
-      completion: inForce.completion ?? 'boss',
-      completion_evidence: !!inForce.completion_evidence,
-      max_evidence_attempts: inForce.max_evidence_attempts ?? 3,
-      idle_minutes: inForce.idle_minutes ?? 10,
-      session_scope: inForce.session_scope ?? 'role',
-      workspace: inForce.workspace ?? 'repo',
-      max_concurrent_agents: inForce.max_concurrent_agents ?? 4,
+      completion: rc.completion ?? 'boss',
+      completion_evidence: !!rc.completion_evidence,
+      max_evidence_attempts: rc.max_evidence_attempts ?? 3,
+      idle_minutes: rc.idle_minutes ?? 10,
+      session_scope: rc.session_scope ?? 'role',
+      workspace: rc.workspace ?? 'repo',
+      max_concurrent_agents: rc.max_concurrent_agents ?? 4,
     },
-    pending: loaded && parsed.success ? pendingChanges(def, loaded) : [],
-    budget:
-      live?.budget && isLive
-        ? { ...live.budget, source: 'daemon' }
-        : {
-            tokens: rc.budget_tokens ?? null,
-            basis,
-            // Enforcement counts cache tokens only on 'billable'. Pre-split usage
-            // (legacy_tokens) is uncached, so it leaves a billable total unknown.
-            used:
-              basis === 'billable'
-                ? totals.legacy_tokens > 0
-                  ? null
-                  : totals.tokens
-                : totals.tokens_in + totals.tokens_out + totals.legacy_tokens,
-            source: 'run log',
-          },
+    budget: {
+      tokens: rc.budget_tokens ?? null,
+      basis,
+      // Enforcement counts cache tokens only on 'billable'. Pre-split usage
+      // (legacy_tokens) is uncached, so it leaves a billable total unknown.
+      used:
+        basis === 'billable'
+          ? totals.legacy_tokens > 0
+            ? null
+            : totals.tokens
+          : totals.tokens_in + totals.tokens_out + totals.legacy_tokens,
+    },
     totals,
     roles,
     tasks: (isLive ? live.tasks : runtime?.checkpoint?.tasks) ?? [],
     audit: digest?.audit ?? [],
     history: readRecentHistory(root, org),
   };
-}
-
-/** Config-tab fields whose saved value differs from what the running org
- *  loaded — they apply from the next run. */
-function pendingChanges(def, loaded) {
-  const out = [];
-  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-  if (!same(def.goal, loaded.goal))
-    out.push({ field: 'goal', running: loaded.goal, saved: def.goal });
-  if (!same(def.schedule, loaded.schedule))
-    out.push({ field: 'schedule', running: loaded.schedule, saved: def.schedule });
-  const tier = def.cost_tiers?.default ?? null;
-  if (!same(tier, loaded.cost_tiers_default))
-    out.push({ field: 'cost_tiers.default', running: loaded.cost_tiers_default, saved: tier });
-  for (const k of EDITABLE_RUN_CONFIG) {
-    const saved = def.run_config?.[k];
-    const running = loaded.run_config?.[k];
-    if (!same(saved, running)) out.push({ field: `run_config.${k}`, running, saved });
-  }
-  return out;
 }
 
 /** run_config keys the dashboard's Config tab may set. Everything else in the

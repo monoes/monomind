@@ -719,49 +719,19 @@ export class OrgDaemon {
     for (const [name, running] of this.orgs) {
       const roles: Record<string, unknown>[] = [];
       for (const [roleId, agent] of running.agents) {
-        const p = agent.policy;
         roles.push({
           id: roleId,
           status: agent.status,
           worktree: agent.worktreePath ?? null,
           metrics: agent.metrics,
-          // What the policy engine enforces, not what the bus recorded: a
-          // turn that never reaches a result is metered here but emits no
-          // usage event.
-          usage: {
-            budgeted: p.budgetedUsage,
-            billable: p.usage,
-            tokens: p.tokenUsage,
-            costUsd: p.usageUsd,
-            maxTokens: p.policy.maxTokens ?? null,
-            maxUsd: p.policy.maxUsd ?? null,
-          },
         });
       }
-      // The org-wide ceiling, computed the way the usage listener enforces it.
-      let budgetUsed = 0;
-      for (const rt of running.agents.values()) budgetUsed += rt.policy.budgetedUsage;
-      for (const slot of running.roleSlots.values()) budgetUsed += slot.retiredUsage.tokens;
-      const rc = running.def.run_config;
       orgs.push({
         name,
         run: running.run,
         roles,
         pendingRoles: running.pendingRoles ? [...running.pendingRoles.keys()] : [],
         tasks: running.taskDag?.all() ?? [],
-        budget: {
-          tokens: rc.budget_tokens ?? null,
-          basis: rc.budget_tokens_basis ?? 'uncached',
-          used: budgetUsed,
-        },
-        // The definition this run loaded — a saved edit applies from the next run.
-        loaded: {
-          goal: running.def.goal,
-          schedule: running.def.schedule ?? null,
-          run_config: rc,
-          cost_tiers_default:
-            (running.def as { cost_tiers?: { default?: string } }).cost_tiers?.default ?? null,
-        },
       });
     }
     return { orgs };
