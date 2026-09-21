@@ -106,22 +106,22 @@ const REGEX_MATCHERS = [
     fmt: (m) => `Google Fonts: ${m.overusedGoogleFont || firstOverusedGoogleFont(m[0])}` },
   // --- Gradient text ---
   { id: 'gradient-text', regex: /background-clip\s*:\s*text|-webkit-background-clip\s*:\s*text/gi,
-    test: (m, line) => /gradient/i.test(line),
+    test: (_m, line) => /gradient/i.test(line),
     fmt: () => 'background-clip: text + gradient' },
   // --- Gradient text (Tailwind) ---
   { id: 'gradient-text', regex: /\bbg-clip-text\b/g,
-    test: (m, line) => /\bbg-gradient-to-/i.test(line),
+    test: (_m, line) => /\bbg-gradient-to-/i.test(line),
     fmt: () => 'bg-clip-text + bg-gradient' },
   // --- Tailwind gray on colored bg ---
   { id: 'gray-on-color', regex: /\btext-(?:gray|slate|zinc|neutral|stone)-(\d+)\b/g,
-    test: (m, line) => /\bbg-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d+\b/.test(line),
+    test: (_m, line) => /\bbg-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d+\b/.test(line),
     fmt: (m, line) => { const bg = line.match(/\bbg-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d+\b/); return `${m[0]} on ${bg?.[0] || '?'}`; } },
   // --- Tailwind AI palette ---
   { id: 'ai-color-palette', regex: /\btext-(?:purple|violet|indigo)-(\d+)\b/g,
-    test: (m, line) => /\btext-(?:[2-9]xl|[3-9]xl)\b|<h[1-3]/i.test(line),
+    test: (_m, line) => /\btext-(?:[2-9]xl|[3-9]xl)\b|<h[1-3]/i.test(line),
     fmt: (m) => `${m[0]} on heading` },
   { id: 'ai-color-palette', regex: /\bfrom-(?:purple|violet|indigo)-(\d+)\b/g,
-    test: (m, line) => /\bto-(?:purple|violet|indigo|blue|cyan|pink|fuchsia)-\d+\b/.test(line),
+    test: (_m, line) => /\bto-(?:purple|violet|indigo|blue|cyan|pink|fuchsia)-\d+\b/.test(line),
     fmt: (m) => `${m[0]} gradient` },
   // --- Bounce/elastic easing ---
   { id: 'bounce-easing', regex: /\banimate-bounce\b/g,
@@ -226,7 +226,7 @@ const REGEX_ANALYZERS = [
     const lines = content.split('\n');
     let line = 1;
     for (let i = 0; i < lines.length; i++) { if (/font-size/i.test(lines[i]) || /\btext-(?:xs|sm|base|lg|xl|\d)/i.test(lines[i])) { line = i + 1; break; } }
-    return [finding('flat-type-hierarchy', filePath, `Sizes: ${sorted.map(s => s + 'px').join(', ')} (ratio ${ratio.toFixed(1)}:1)`, line)];
+    return [finding('flat-type-hierarchy', filePath, `Sizes: ${sorted.map(s => `${s}px`).join(', ')} (ratio ${ratio.toFixed(1)}:1)`, line)];
   },
   // Monotonous spacing (regex)
   (content, filePath) => {

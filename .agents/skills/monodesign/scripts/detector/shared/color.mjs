@@ -72,7 +72,7 @@ function contrastRatio(c1, c2) {
 }
 
 function parseGradientColors(bgImage) {
-  if (!bgImage || !bgImage.includes('gradient')) return [];
+  if (!bgImage?.includes('gradient')) return [];
   const colors = [];
   for (const m of bgImage.matchAll(/rgba?\([^)]+\)/g)) {
     const c = parseRgb(m[0]);
@@ -109,7 +109,7 @@ function getHue(c) {
 
 function colorToHex(c) {
   if (!c) return '?';
-  return '#' + [c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('');
+  return `#${[c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 export {

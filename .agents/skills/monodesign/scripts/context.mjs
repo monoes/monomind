@@ -205,7 +205,7 @@ function resolveLocalContextDir(root) {
 
 function resolveEnvContextDir(cwd) {
   const envDir = process.env.MONODESIGN_CONTEXT_DIR;
-  if (!envDir || !envDir.trim()) return null;
+  if (!envDir?.trim()) return null;
   const trimmed = envDir.trim();
   return path.isAbsolute(trimmed) ? trimmed : path.resolve(cwd, trimmed);
 }
@@ -880,7 +880,7 @@ async function computeUpdateDirective(now = Date.now()) {
   // there is no separate registry endpoint to poll. Kept as a stub so the boot
   // path (and MONODESIGN_NO_UPDATE_CHECK-aware tests) stays unchanged.
   return null;
-  // eslint-disable-next-line no-unreachable
+  // biome-ignore lint/correctness/noUnreachable: disabled on purpose (see above); kept to re-enable
   try {
     if (process.env.MONODESIGN_NO_UPDATE_CHECK) return null;
     if (updateCheckDisabledByConfig()) return null;
@@ -930,7 +930,7 @@ async function cli() {
   const targetExists = targetProvided ? pathExistsForTarget(process.cwd(), cliOptions.targetPath) : null;
   const selection = resolveTargetSelection(process.cwd(), cliOptions);
   if (selection) {
-    process.stdout.write(buildTargetSelectionDirective(selection) + '\n');
+    process.stdout.write(`${buildTargetSelectionDirective(selection)}\n`);
     process.exit(0);
   }
   const ctx = loadContext(process.cwd(), cliOptions);
@@ -952,7 +952,7 @@ async function cli() {
       parts.push(buildMissingTargetDirective());
     }
     if (updateDirective) parts.push(updateDirective);
-    process.stdout.write(parts.join('\n\n---\n\n') + '\n');
+    process.stdout.write(`${parts.join('\n\n---\n\n')}\n`);
     process.exit(0);
   }
   const parts = [`# PRODUCT.md\n\n${ctx.product.trim()}`];
@@ -989,7 +989,7 @@ async function cli() {
     }
   }
   if (updateDirective) parts.push(updateDirective);
-  process.stdout.write(parts.join('\n\n---\n\n') + '\n');
+  process.stdout.write(`${parts.join('\n\n---\n\n')}\n`);
 }
 
 function parseCliOptions(args) {

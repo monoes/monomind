@@ -130,7 +130,7 @@ function groupByRule(findings) {
 async function runFix(targets, options = {}) {
   const cwd = options.cwd || process.cwd();
   const dryRun = Boolean(options.dryRun);
-  const ruleFilter = options.rules && options.rules.length ? new Set(options.rules) : null;
+  const ruleFilter = options.rules?.length ? new Set(options.rules) : null;
   const config = options.noConfig
     ? { ignoreRules: [], ignoreFiles: [], ignoreValues: [] }
     : readDetectionConfig(cwd);
@@ -409,8 +409,8 @@ async function runFixCli(args) {
   const report = await runFix(targets, options);
   for (const warning of report.warnings) process.stderr.write(`${warning}\n`);
   const formatted = formatFixReport(report, jsonMode);
-  if (jsonMode || report.dryRun) process.stdout.write(formatted + '\n');
-  else process.stderr.write(formatted + '\n');
+  if (jsonMode || report.dryRun) process.stdout.write(`${formatted}\n`);
+  else process.stderr.write(`${formatted}\n`);
   process.exit(!report.dryRun && report.remaining.length > 0 ? 2 : 0);
 }
 

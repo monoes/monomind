@@ -204,7 +204,7 @@ Single-file edits, doc/config changes, quick fixes where you already know the ex
 
 ```bash
 # Add MCP server — includes monograph, monoswarm, memory, hooks, all 66+ tools
-claude mcp add monomind -- npx -y monomind mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Verify everything works
 npx monomind doctor --fix

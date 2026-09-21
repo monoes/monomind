@@ -527,7 +527,7 @@ function filterByProviders(findings, providers = []) {
   if (!GATED_PROVIDERS.size) return findings;
   return findings.filter(f => {
     const rule = getAntipattern(f.antipattern);
-    if (!rule || !rule.gated) return true;
+    if (!rule?.gated) return true;
     return enabled.has(rule.gated);
   });
 }

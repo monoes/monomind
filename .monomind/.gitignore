@@ -1,14 +1,34 @@
-# Monomind — exclude files that may contain secrets or sensitive prompt data
-# Sessions contain conversation history (prompts, code snippets, user data)
-sessions/
-# Security scan results may expose vulnerability details
-security/
-# Temporary and machine-specific files
-*.tmp
-*.log
-daemon.pid
-# Never commit credentials or keys
-*.key
-*.token
-*.secret
-.env
+# Monomind — deny by default, allow-list what's meant to be committed.
+# See doc/privacy.md and i-052: a curated denylist can always miss its
+# next dangerous entry (this repo shipped a live credential leak because
+# three separate ones did). Ignoring everything and un-ignoring only what
+# monomind genuinely wants shared makes "we forgot to un-ignore something
+# harmless" the failure mode instead of "we leaked a credential".
+*
+
+# What monomind wants committed:
+!.gitignore
+!config.yaml
+!CAPABILITIES.md
+!orgs/
+!orgs/sample-team.json
+!orgs/monomind-dev.json
+!orgs/release-gate.json
+
+# Org DEFINITIONS are meant to be committed (ADR-O001 D6) — but by NAME, one
+# line per org, never `!orgs/*.json`. `orgs/` is the org runtime's working
+# directory, not a folder of definitions: the runtime and the mastermind
+# skills write ~20 sibling <org>-*.json files into it (-state, -members,
+# -approvals, -join-requests, -budgets, -issues, and -secrets). A *.json glob
+# re-includes every one of them, so the first org you create re-arms exactly
+# the leak this deny-by-default inversion exists to prevent. Only
+# sample-team.json (which `monomind init` itself writes) is listed here; add
+# a `!orgs/<your-org>.json` line for each org you want under version control.
+
+# Deliberately NOT allow-listed: knowledge/ — chunks.jsonl and
+# doc-metadata.jsonl are the actual ingested content of the user's own
+# files, not metadata (doctor-project-checks.ts's REQUIRED_GITIGNORE_PATTERNS
+# ignores it for the same reason). README/privacy.md's "Your notes never
+# leave your computer" claim is about exactly this data; un-ignoring it by
+# default would be a larger privacy regression than the credential this
+# item exists to fix.

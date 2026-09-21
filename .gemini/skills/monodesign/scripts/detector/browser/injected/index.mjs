@@ -112,7 +112,7 @@ if (IS_BROWSER) {
   }
 
   function showSpotlight(target) {
-    if (!target || !target.getBoundingClientRect) return;
+    if (!target?.getBoundingClientRect) return;
     // Respect the spotlightBlur setting: if disabled, don't show the backdrop
     if (window.__MONODESIGN_CONFIG__?.spotlightBlur === false) {
       spotlightTarget = target;
@@ -258,10 +258,8 @@ if (IS_BROWSER) {
     }
   });
 
-  const highlight = function(el, findings) {
+  const highlight = (el, findings) => {
     if (el._monodesignOverlay) detachOverlay(el._monodesignOverlay);
-    const hasSlop = findings.some(f => RULE_CATEGORY[f.type || f.id] === 'slop');
-
     const fixed = isInFixedContext(el);
     const rect = el.getBoundingClientRect();
     const outline = document.createElement('div');
@@ -405,7 +403,7 @@ if (IS_BROWSER) {
     overlays.push(outline);
   };
 
-  const showPageBanner = function(findings) {
+  const showPageBanner = (findings) => {
     if (!findings.length) return;
     const banner = document.createElement('div');
     banner.className = 'monodesign-overlay monodesign-banner';
@@ -505,7 +503,7 @@ if (IS_BROWSER) {
         .filter(c => !c.startsWith('monodesign-') && !isLikelyHashedClass(c))
         .slice(0, 2);
       if (classes.length > 0) {
-        sel += '.' + classes.map(c => CSS.escape(c)).join('.');
+        sel += `.${classes.map(c => CSS.escape(c)).join('.')}`;
       }
     }
 
@@ -513,7 +511,7 @@ if (IS_BROWSER) {
     const parent = el.parentElement;
     if (parent) {
       try {
-        const matching = parent.querySelectorAll(':scope > ' + sel);
+        const matching = parent.querySelectorAll(`:scope > ${sel}`);
         if (matching.length > 1) {
           const sameType = [...parent.children].filter(c => c.tagName === el.tagName);
           const idx = sameType.indexOf(el) + 1;
@@ -530,7 +528,7 @@ if (IS_BROWSER) {
   function generateSelector(el) {
     if (el === document.body) return 'body';
     if (el === document.documentElement) return 'html';
-    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.id) return `#${CSS.escape(el.id)}`;
 
     const parts = [];
     let current = el;
@@ -542,7 +540,7 @@ if (IS_BROWSER) {
 
       // Anchor on an ancestor's ID and stop walking up
       if (current.id) {
-        parts[0] = '#' + CSS.escape(current.id);
+        parts[0] = `#${CSS.escape(current.id)}`;
         break;
       }
 
@@ -682,7 +680,7 @@ if (IS_BROWSER) {
 
       const textColor = parseRgb(style.color);
       const fontSize = parseFloat(style.fontSize) || 16;
-      const fontWeight = parseInt(style.fontWeight) || 400;
+      const fontWeight = parseInt(style.fontWeight, 10) || 400;
       const isLargeText = fontSize >= WCAG_LARGE_TEXT_PX || (fontSize >= WCAG_LARGE_BOLD_TEXT_PX && fontWeight >= 700);
       const threshold = isLargeText ? 3.0 : 4.5;
       const clip = {
@@ -900,7 +898,7 @@ if (IS_BROWSER) {
   function sampleDrawablePixel(drawable, sourcePoint) {
     if (visualContrastRasterCache.has(drawable)) {
       const cached = visualContrastRasterCache.get(drawable);
-      if (!cached || !cached.ctx) return { status: 'unresolved', reason: cached?.reason || 'image sample failed' };
+      if (!cached?.ctx) return { status: 'unresolved', reason: cached?.reason || 'image sample failed' };
       try {
         const x = Math.max(0, Math.min(cached.width - 1, Math.floor(sourcePoint.x * cached.scaleX)));
         const y = Math.max(0, Math.min(cached.height - 1, Math.floor(sourcePoint.y * cached.scaleY)));
@@ -1035,7 +1033,7 @@ if (IS_BROWSER) {
     const unresolved = [];
 
     for (const node of nodes) {
-      if (!node || node.nodeType !== 1) continue;
+      if (node?.nodeType !== 1) continue;
       if (node.closest?.('.monodesign-overlay, .monodesign-label, .monodesign-banner, .monodesign-tooltip')) continue;
       const tag = node.tagName?.toLowerCase();
       if (tag === 'img') {
@@ -1232,7 +1230,7 @@ if (IS_BROWSER) {
     }));
   }
 
-  const printSummary = function(allFindings) {
+  const printSummary = (allFindings) => {
     if (allFindings.length === 0) {
       console.log('%c[monodesign] No anti-patterns found.', 'color: #22c55e; font-weight: bold');
       return;
@@ -1559,7 +1557,7 @@ if (IS_BROWSER) {
       try { rules = sheet.cssRules; } catch { continue; }
       if (!rules) continue;
       for (const rule of Array.from(rules)) {
-        try { stylesheetCssText += rule.cssText + '\n'; } catch { /* ignore */ }
+        try { stylesheetCssText += `${rule.cssText}\n`; } catch { /* ignore */ }
       }
     }
     const stylesheetFindings = [
@@ -1832,7 +1830,7 @@ if (IS_BROWSER) {
   }
 
   let firstScanDone = false;
-  const scan = function(options = {}) {
+  const scan = (options = {}) => {
     clearOverlays();
     const generation = scanGeneration;
     const collected = collectBrowserFindings();
@@ -1849,7 +1847,7 @@ if (IS_BROWSER) {
     return allFindings;
   };
 
-  const scanAsync = async function(options = {}) {
+  const scanAsync = async (options = {}) => {
     clearOverlays();
     const generation = scanGeneration;
     if (shouldRunVisualContrast(options)) {
@@ -1861,13 +1859,13 @@ if (IS_BROWSER) {
     return renderBrowserFindings(collectBrowserFindings(), options);
   };
 
-  const detect = function(options = {}) {
+  const detect = (options = {}) => {
     lastVisualContrastAnalyses = [];
     const { allFindings } = collectBrowserFindings();
     return options.serialize === false ? allFindings : serializeFindings(allFindings);
   };
 
-  const detectAsync = async function(options = {}) {
+  const detectAsync = async (options = {}) => {
     if (shouldRunVisualContrast(options)) {
       const { allFindings } = await collectBrowserFindingsAsync(options);
       return options.serialize === false ? allFindings : serializeFindings(allFindings);

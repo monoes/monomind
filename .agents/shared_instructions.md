@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-Open-source CLI extension for Claude Code, OpenCode, Antigravity, Kimi Code, and Codex. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. Apache 2.0 licensed. See doc/privacy.md for what leaves your machine and when.
+Open-source CLI extension for Claude Code, OpenCode, Antigravity, Kimi Code, and Codex. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. Apache 2.0 licensed. See https://github.com/monoes/monomind/blob/main/doc/privacy.md for what leaves your machine and when.
 
 - **Language:** TypeScript
 - **Package manager:** pnpm

@@ -36,11 +36,11 @@ function safeReadJson(filePath) {
 }
 
 function hookSection(raw) {
-  return raw && raw.hook && typeof raw.hook === 'object' && !Array.isArray(raw.hook) ? raw.hook : null;
+  return raw?.hook && typeof raw.hook === 'object' && !Array.isArray(raw.hook) ? raw.hook : null;
 }
 
 function detectorSection(raw) {
-  return raw && raw.detector && typeof raw.detector === 'object' && !Array.isArray(raw.detector) ? raw.detector : null;
+  return raw?.detector && typeof raw.detector === 'object' && !Array.isArray(raw.detector) ? raw.detector : null;
 }
 
 const DETECTOR_CONFIG_KEYS = new Set(['ignoreRules', 'ignoreFiles', 'ignoreValues', 'designSystem']);
@@ -74,7 +74,7 @@ function applyDetectionConfigSource(config, raw) {
   if (raw.designSystem && typeof raw.designSystem === 'object' && !Array.isArray(raw.designSystem)) {
     config.designSystem = {
       ...config.designSystem,
-      enabled: raw.designSystem.enabled === false ? false : true,
+      enabled: raw.designSystem.enabled !== false,
     };
   }
   if (Array.isArray(raw.ignoreRules)) {
@@ -153,7 +153,7 @@ function normalizeDetectionConfigForWrite(config) {
   out.ignoreValues = normalizeIgnoreValueEntries(config?.ignoreValues || []);
   if (config?.designSystem && typeof config.designSystem === 'object' && !Array.isArray(config.designSystem)) {
     out.designSystem = {
-      enabled: config.designSystem.enabled === false ? false : true,
+      enabled: config.designSystem.enabled !== false,
     };
   }
   return out;
@@ -242,7 +242,7 @@ function splitColorArgs(body) {
   if (text.includes(',')) {
     const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
     const last = parts[parts.length - 1];
-    if (last && last.includes('/')) {
+    if (last?.includes('/')) {
       const split = last.split('/').map((part) => part.trim()).filter(Boolean);
       return [...parts.slice(0, -1), ...split];
     }
