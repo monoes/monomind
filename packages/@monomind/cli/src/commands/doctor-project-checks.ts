@@ -337,7 +337,19 @@ export async function checkApiKeys(): Promise<HealthCheck> {
   };
 }
 
-export async function checkMcpServers(): Promise<HealthCheck> {
+export interface McpCheckOptions {
+  /**
+   * Actually start the configured monomind server and speak `initialize`
+   * (i-312). Off by default: the plain `monomind doctor` run must not spawn a
+   * subprocess — with an `npx`-based entry that can mean a package download —
+   * on every invocation. `doctor -c mcp` opts in.
+   */
+  probe?: boolean;
+  /** Probe budget; defaults to MCP_PROBE_TIMEOUT_MS. */
+  timeoutMs?: number;
+}
+
+export async function checkMcpServers(options: McpCheckOptions = {}): Promise<HealthCheck> {
   const mcpConfigPaths = [
     join(homedir(), '.claude/claude_desktop_config.json'),
     join(homedir(), '.config/claude/mcp.json'),
@@ -353,12 +365,20 @@ export async function checkMcpServers(): Promise<HealthCheck> {
         const servers = content.mcpServers || content.servers || {};
         const count = Object.keys(servers).length;
         const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers;
-        if (hasMonomind)
+        if (hasMonomind) {
+          if (options.probe)
+            return await probeConfiguredMcpServer(
+              servers.monomind ?? servers.monomind_alpha,
+              count,
+              configPath,
+              options.timeoutMs,
+            );
           return {
             name: 'MCP Servers',
             status: 'pass',
             message: `${count} servers (monomind configured)`,
           };
+        }
         return {
           name: 'MCP Servers',
           status: 'warn',
@@ -375,6 +395,64 @@ export async function checkMcpServers(): Promise<HealthCheck> {
     status: 'warn',
     message: 'No MCP config found',
     fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start',
+  };
+}
+
+/**
+ * i-312: start the configured monomind server and wait for its `initialize`
+ * answer, so a registered-but-unstartable entry cannot report a pass.
+ */
+async function probeConfiguredMcpServer(
+  entry: unknown,
+  count: number,
+  configPath: string,
+  timeoutMs?: number,
+): Promise<HealthCheck> {
+  const server = (entry ?? {}) as { command?: unknown; args?: unknown; env?: unknown };
+  if (typeof server.command !== 'string' || server.command.length === 0)
+    return {
+      name: 'MCP Servers',
+      status: 'pass',
+      message: `${count} servers (monomind configured; no stdio command in ${configPath} — not probed)`,
+    };
+
+  const args = Array.isArray(server.args) ? server.args.map(String) : [];
+  const commandLine = [server.command, ...args].join(' ');
+  const { MCP_PROBE_TIMEOUT_MS, probeMcpServer } = await import('./doctor-mcp-probe.js');
+  const budget = timeoutMs ?? MCP_PROBE_TIMEOUT_MS;
+  const result = await probeMcpServer({
+    command: server.command,
+    args,
+    env:
+      server.env && typeof server.env === 'object'
+        ? (server.env as Record<string, string>)
+        : undefined,
+    timeoutMs: budget,
+  });
+
+  if (result.outcome === 'ok')
+    return {
+      name: 'MCP Servers',
+      status: 'pass',
+      message: `${count} servers (monomind answers initialize in ${result.elapsedMs}ms)`,
+    };
+
+  if (result.outcome === 'timeout')
+    // Not a failure: a cold `npx` fetch of the server package takes far longer
+    // than any budget doctor can spend. Say "unknown", not "broken".
+    return {
+      name: 'MCP Servers',
+      status: 'warn',
+      message: `monomind MCP server did not answer initialize within ${budget}ms — may still be fetching packages (cold npx)`,
+      fix: `Run it once by hand to warm the cache, then re-run: ${commandLine}`,
+    };
+
+  const cause = result.stderr || `exited with code ${result.exitCode ?? 'unknown'}`;
+  return {
+    name: 'MCP Servers',
+    status: 'fail',
+    message: `monomind MCP server failed to start (${configPath}): ${cause}`,
+    fix: `Run it by hand to confirm: ${commandLine}  # a pinned scoped package needs: npx -y --package=@monoes/monomindcli@<version> monomind mcp start`,
   };
 }
 
