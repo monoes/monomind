@@ -100,7 +100,7 @@ mcp:
     // genuinely meant to be shared means a file monomind starts writing
     // tomorrow is protected by construction, with no list to remember to
     // update. Order matters for git's "can't re-include inside an excluded
-    // parent" rule: `!orgs/` must precede `!orgs/*.json`.
+    // parent" rule: `!orgs/` must precede any `!orgs/<org>.json` line.
     const gitignore = `# Monomind — deny by default, allow-list what's meant to be committed.
 # See doc/privacy.md and i-052: a curated denylist can always miss its
 # next dangerous entry (this repo shipped a live credential leak because
@@ -114,7 +114,17 @@ mcp:
 !config.yaml
 !CAPABILITIES.md
 !orgs/
-!orgs/*.json
+!orgs/sample-team.json
+
+# Org DEFINITIONS are meant to be committed (ADR-O001 D6) — but by NAME, one
+# line per org, never \`!orgs/*.json\`. \`orgs/\` is the org runtime's working
+# directory, not a folder of definitions: the runtime and the mastermind
+# skills write ~20 sibling <org>-*.json files into it (-state, -members,
+# -approvals, -join-requests, -budgets, -issues, and -secrets). A *.json glob
+# re-includes every one of them, so the first org you create re-arms exactly
+# the leak this deny-by-default inversion exists to prevent. Only
+# sample-team.json (which \`monomind init\` itself writes) is listed here; add
+# a \`!orgs/<your-org>.json\` line for each org you want under version control.
 
 # Deliberately NOT allow-listed: knowledge/ — chunks.jsonl and
 # doc-metadata.jsonl are the actual ingested content of the user's own
