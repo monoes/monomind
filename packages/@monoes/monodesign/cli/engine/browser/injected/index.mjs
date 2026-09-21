@@ -260,8 +260,6 @@ if (IS_BROWSER) {
 
   const highlight = function(el, findings) {
     if (el._monodesignOverlay) detachOverlay(el._monodesignOverlay);
-    const hasSlop = findings.some(f => RULE_CATEGORY[f.type || f.id] === 'slop');
-
     const fixed = isInFixedContext(el);
     const rect = el.getBoundingClientRect();
     const outline = document.createElement('div');

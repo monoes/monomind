@@ -6,6 +6,7 @@
  * window.__MONODESIGN_LIVE_SESSION__.
  */
 (function (root) {
+  // biome-ignore lint/suspicious/noRedundantUseStrict: served to the page as a classic <script> (not an ES module despite package type=module), so this directive is what enables strict mode
   'use strict';
 
   function createLiveBrowserSessionState({ prefix, storage, idFactory }) {
@@ -92,7 +93,7 @@
       const raw = safeRead(scrollKey);
       if (raw == null) return null;
       const n = parseFloat(raw);
-      return isFinite(n) ? n : null;
+      return Number.isFinite(n) ? n : null;
     }
 
     function clearScrollY() {

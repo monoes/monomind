@@ -436,7 +436,7 @@ function rewriteAcceptedSvelteSelectorPart(selector, variantNum, paramValues, ro
 function rewriteParamSelectors(selector, paramValues) {
   let keep = true;
   const next = selector.replace(/\[data-p-([A-Za-z0-9_-]+)(?:=(["'])(.*?)\2)?\]/g, (_match, key, _quote, expected) => {
-    if (!paramValues || !Object.prototype.hasOwnProperty.call(paramValues, key)) return '';
+    if (!paramValues || !Object.hasOwn(paramValues, key)) return '';
     const actual = paramValues[key];
     if (expected != null && String(actual) !== String(expected)) {
       keep = false;

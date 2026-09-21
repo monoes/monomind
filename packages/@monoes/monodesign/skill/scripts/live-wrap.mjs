@@ -83,11 +83,10 @@ The agent should insert variant HTML at insertLine.`);
   // Find the source file. Generated files are excluded from auto-search so we
   // don't silently write variants into a file the next build will wipe.
   let targetFile = filePath;
-  let matchedQuery = null;
   if (!targetFile) {
     for (const q of queries) {
       targetFile = findFileWithQuery(q, process.cwd(), genOpts);
-      if (targetFile) { matchedQuery = q; break; }
+      if (targetFile) break;
     }
     if (!targetFile) {
       // Nothing in source. Did the element show up in a generated file? That
@@ -124,7 +123,6 @@ The agent should insert variant HTML at insertLine.`);
       }));
       process.exit(1);
     }
-    matchedQuery = queries[0];
   }
 
   const content = fs.readFileSync(targetFile, 'utf-8');
@@ -310,7 +308,6 @@ The agent should insert variant HTML at insertLine.`);
   ];
 
   let outputFile = targetFile;
-  let outputLines;
   let outputStartLine = startLine + 1;
   let outputEndLine = startLine + wrapperLines.length + (originalLines.length - 1);
   let insertLine;
@@ -569,14 +566,6 @@ function buildSearchQueries(elementId, classes, tag, query) {
 
 function splitClassList(classes) {
   return String(classes).split(/[,\s]+/).map(c => c.trim()).filter(Boolean);
-}
-
-function attrEscapeDouble(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function detectCommentSyntax(filePath) {

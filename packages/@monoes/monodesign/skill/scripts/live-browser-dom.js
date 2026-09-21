@@ -6,6 +6,7 @@
  * full overlay UI bundle.
  */
 (function (root) {
+  // biome-ignore lint/suspicious/noRedundantUseStrict: served to the page as a classic <script> (not an ES module despite package type=module), so this directive is what enables strict mode
   'use strict';
   if (!root) return;
 

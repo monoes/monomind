@@ -263,7 +263,6 @@ function isAccentColor(cssColor) {
   if (!cssColor) return false;
   const s = String(cssColor).trim();
   // rgb / rgba — direct channel-distance check.
-  const rgbM = /rgba?\(\s*(\d+)\s*,?\s+|\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s.replace(/rgba?\(\s*/, 'rgb(').replace(/,/g, ', '));
   const rgbStrict = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s);
   if (rgbStrict) {
     const r = +rgbStrict[1], g = +rgbStrict[2], b = +rgbStrict[3];
@@ -308,7 +307,7 @@ function isAccentColor(cssColor) {
 // uppercase eyebrow OR the modern accent-colored bold eyebrow.
 function checkHeroEyebrow(opts) {
   const {
-    headingTag, headingText, headingFontSize,
+    headingTag, headingText,
     siblingTag, siblingText, siblingTextTransform,
     siblingFontSize, siblingLetterSpacing,
     siblingFontWeight, siblingColor,
@@ -779,7 +778,7 @@ function parseRadiusToPx(value, widthPx) {
   return num;
 }
 
-function resolveBorderRadiusPx(el, style, widthPx, win) {
+function resolveBorderRadiusPx(_el, style, widthPx, _win) {
   const fromComputed = parseRadiusToPx(style.borderRadius, widthPx);
   if (fromComputed !== null) return fromComputed;
   return 0;
@@ -1274,7 +1273,7 @@ function resolveFontSizePx(el, win) {
     const v = chain[i];
     if (!v || v === 'inherit') continue;
     const num = parseFloat(v);
-    if (isNaN(num)) continue;
+    if (Number.isNaN(num)) continue;
     if (v.endsWith('px')) px = num;
     else if (v.endsWith('rem')) px = num * 16;
     else if (v.endsWith('em')) px = num * px;
@@ -1289,7 +1288,7 @@ function resolveFontSizePx(el, win) {
 function resolveLengthPx(value, fontSizePx) {
   if (!value || value === 'normal' || value === 'auto' || value === 'inherit') return null;
   const num = parseFloat(value);
-  if (isNaN(num)) return null;
+  if (Number.isNaN(num)) return null;
   if (value.endsWith('px')) return num;
   if (value.endsWith('rem')) return num * 16;
   if (value.endsWith('em')) return num * fontSizePx;
@@ -1521,7 +1520,7 @@ function checkQuality(opts) {
         const CHILD_INSULATE_THRESHOLD = 4;
         const childrenInsulate = { top: false, right: false, bottom: false, left: false };
         for (const child of el.children) {
-          let childStyle = getComputedStyleFor(win, child);
+          const childStyle = getComputedStyleFor(win, child);
           if (!childStyle) continue;
           const childPad = {
             top:    resolveLengthPx(childStyle.paddingTop,    fontSize) ?? 0,
@@ -2282,7 +2281,7 @@ function checkOversizedH1({ tag, fontSize, headingText, rect = null, viewportWid
   return [];
 }
 
-function checkElementOversizedH1(el, style, tag, window) {
+function checkElementOversizedH1(el, _style, tag, window) {
   if (tag !== 'h1') return [];
   const fontSize = resolveFontSizePx(el, window);
   const headingText = (el.textContent || '').trim().replace(/\s+/g, ' ');
@@ -2366,7 +2365,7 @@ function borderColorsFromStyle(style) {
   ];
 }
 
-function checkElementGptBorderShadow(el, style) {
+function checkElementGptBorderShadow(_el, style) {
   return checkGptThinBorderWideShadow({ borderWidths: borderWidthsFromStyle(style), borderColors: borderColorsFromStyle(style), boxShadow: style.boxShadow || '' });
 }
 
@@ -2516,7 +2515,7 @@ function checkClippedOverflow(el, style, getStyle) {
   return [];
 }
 
-function checkElementClippedOverflow(el, style, tag, window) {
+function checkElementClippedOverflow(el, style, _tag, window) {
   return checkClippedOverflow(el, style, (n) => window.getComputedStyle(n));
 }
 

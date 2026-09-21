@@ -10,6 +10,7 @@
  * (prev/next + accept/discard). Feels like Spotlight, not a modal.
  */
 (function () {
+  // biome-ignore lint/suspicious/noRedundantUseStrict: served to the page as a classic <script> (not an ES module despite package type=module), so this directive is what enables strict mode
   'use strict';
   if (typeof window === 'undefined') return;
 
@@ -218,7 +219,6 @@
     rectIsUsableAnchor,
     makeFrozenAnchor,
     id8,
-    cssId,
     liveUiRoot,
     uiAppend,
     uiAppendStyle,
@@ -361,7 +361,7 @@
   let annotSvgEl = null;
   let annotPinsEl = null;
   let annotClearChipEl = null;
-  let annotState = { comments: [], strokes: [] };
+  const annotState = { comments: [], strokes: [] };
   let annotActive = false;
   // `annotPointer` is either:
   //   { kind: 'new',   x0, y0, moved, strokeEl, strokePoints }   creating a stroke/pin
@@ -1260,6 +1260,7 @@
     };
   }
 
+  // biome-ignore lint/correctness/noUnusedVariables: kept as the configure-row chip style contract pinned by tests/live-browser-regression.test.mjs
   function configureModifierPillStyle(extra = {}) {
     const P = configureBarPalette();
     return {
@@ -1304,21 +1305,6 @@
     btn.addEventListener('mouseleave', () => {
       if (controlsLocked) return;
       btn.style.color = configureBarPalette().textDim;
-    });
-  }
-
-  function bindConfigureModifierPillHover(btn, controlsLocked) {
-    btn.addEventListener('mouseenter', () => {
-      if (controlsLocked) return;
-      const P = configureBarPalette();
-      btn.style.color = P.text;
-      btn.style.background = P.toggleActive;
-    });
-    btn.addEventListener('mouseleave', () => {
-      if (controlsLocked) return;
-      const P = configureBarPalette();
-      btn.style.color = P.textDim;
-      btn.style.background = 'transparent';
     });
   }
 
@@ -2926,7 +2912,6 @@
   //
 
   let paramsPanelEl = null;     // outer wrapper (overflow:hidden, clips the slide)
-  let paramsPanelInner = null;  // translating content (carries bg, padding, knobs)
   let paramsPanelBody = null;   // grid holding the knob cells
   let paramsCurrentValues = {}; // {paramId: value} - mirror of the visible variant's live values
   let tuneOpen = false;         // whether the Tune popover is open right now
@@ -2983,7 +2968,6 @@
     // click-through) and 'auto' (open) on its own. Just silence the host's
     // outside-interaction listeners while the panel is open.
     defangOutsideHandlers(paramsPanelEl, { setPointerEvents: false });
-    paramsPanelInner = paramsPanelEl; // compatibility alias for the rest of the code
   }
 
 
@@ -3069,7 +3053,7 @@
   function formatRangeValue(input) {
     const max = parseFloat(input.max), min = parseFloat(input.min);
     const v = parseFloat(input.value);
-    if (!isFinite(v)) return input.value;
+    if (!Number.isFinite(v)) return input.value;
     return (max - min) <= 2 ? v.toFixed(2) : String(Math.round(v));
   }
 
@@ -5634,7 +5618,7 @@
   }
 
   function jsxStylePropToCss(prop) {
-    let out = String(prop || '').trim().replace(/^["']|["']$/g, '');
+    const out = String(prop || '').trim().replace(/^["']|["']$/g, '');
     if (!out) return '';
     if (out.startsWith('--')) return out;
     return out.replace(/[A-Z]/g, (ch) => '-' + ch.toLowerCase()).replace(/^-ms-/, '-ms-');
@@ -5869,7 +5853,7 @@
   // session's wrapper (HMR patches, variant inserts, cycle swaps).
   function startScrollLock(sessionId, initialTargetY) {
     stopScrollLock();
-    scrollLockTargetY = typeof initialTargetY === 'number' && isFinite(initialTargetY)
+    scrollLockTargetY = typeof initialTargetY === 'number' && Number.isFinite(initialTargetY)
       ? initialTargetY
       : window.scrollY;
 
@@ -5892,7 +5876,7 @@
       (document.head || document.documentElement).appendChild(anchorLockStyle);
     }
 
-    const correct = (why) => {
+    const correct = (_why) => {
       scrollLockRaf = null;
       if (scrollLockTargetY == null) return;
       const before = window.scrollY;
@@ -5935,9 +5919,8 @@
     let userGestureAt = 0;
     const USER_GESTURE_WINDOW_MS = 250;
 
-    const reanchor = (why) => {
+    const reanchor = (_why) => {
       if (scrollLockRaf != null) { cancelAnimationFrame(scrollLockRaf); scrollLockRaf = null; }
-      const prevTarget = scrollLockTargetY;
       scrollLockTargetY = window.scrollY;
       writeScrollY(scrollLockTargetY);
     };
@@ -7707,28 +7690,6 @@ void main() {
     setLiveState('PICKING');
   }
 
-  function commitAcceptedVariantToDom(sessionId, variantId) {
-    const wrapper = document.querySelector('[data-monodesign-variants="' + sessionId + '"]');
-    if (!wrapper) return false;
-    const accepted = wrapper.querySelector('[data-monodesign-variant="' + variantId + '"]');
-    if (!accepted || !accepted.firstElementChild) return false;
-    const parent = wrapper.parentElement;
-    if (!parent) return false;
-
-    const style = wrapper.querySelector('style[data-monodesign-css]');
-    if (style && !document.querySelector('style[data-monodesign-accepted-css="' + sessionId + '"]')) {
-      const promotedStyle = style.cloneNode(true);
-      promotedStyle.setAttribute('data-monodesign-accepted-css', sessionId);
-      parent.insertBefore(promotedStyle, wrapper);
-    }
-
-    const committed = accepted.cloneNode(true);
-    committed.removeAttribute('hidden');
-    committed.style.display = 'contents';
-    parent.replaceChild(committed, wrapper);
-    return true;
-  }
-
   function handleDiscard() {
     if (pendingApplyInFlight) { showManualApplyBusyToast(); return; }
     if (!currentSessionId) return;
@@ -8214,14 +8175,6 @@ void main() {
     } catch { /* ignore */ }
   }
 
-  function loadPickPref() {
-    return loadInteractionPrefs().pickActive;
-  }
-
-  function savePickPref() {
-    saveInteractionPrefs();
-  }
-
   let pickActive = loadInteractionPrefs().pickActive;
   let insertActive = loadInteractionPrefs().insertActive;
   let configureKind = 'replace';
@@ -8268,7 +8221,6 @@ void main() {
   /** @type {{ mode: 'steer'|'configure', input: HTMLInputElement, submit: () => void, beforeStart?: () => void } | null} */
   let voiceCtx = null;
   const PAGE_CHAT_COLLAPSED_W = '104px';
-  const PAGE_CHAT_PROCESSING_W = '76px';
   const PAGE_CHAT_PLACEHOLDER_COLLAPSED = 'Steer…';
   const PAGE_CHAT_PLACEHOLDER_EXPANDED = 'Steer the page…';
   const STEER_AWAIT_TIMEOUT_MS = 120000;
@@ -8734,7 +8686,7 @@ void main() {
     return true;
   }
 
-  function focusPageChatInput(reason) {
+  function focusPageChatInput(_reason) {
     if (!preparePageChatInputForTyping() || steerLocked) return false;
     try { pageChatInput.focus({ preventScroll: true }); } catch { pageChatInput.focus(); }
     const focused = activeElementDeep() === pageChatInput;
@@ -10039,7 +9991,7 @@ void main() {
     if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
     if (barEl) { barEl.remove(); barEl = null; }
     if (pickerEl) { pickerEl.remove(); pickerEl = null; }
-    if (paramsPanelEl) { paramsPanelEl.remove(); paramsPanelEl = null; paramsPanelInner = null; paramsPanelBody = null; }
+    if (paramsPanelEl) { paramsPanelEl.remove(); paramsPanelEl = null; paramsPanelBody = null; }
     if (editBadgeProxyRoot) { editBadgeProxyRoot.remove(); editBadgeProxyRoot = null; editBadgeProxyByTarget = new Map(); }
     if (evtSource) { evtSource.close(); evtSource = null; }
     document.removeEventListener('mousemove', handleMouseMove, true);
@@ -10064,7 +10016,7 @@ void main() {
 
   let designHost = null;
   let designShadow = null;
-  let designState = {
+  const designState = {
     open: false,
     tab: 'visual',          // 'visual' | 'raw'
     parsed: null,           // parseDesignMd output (frontmatter + body sections)
@@ -10933,7 +10885,7 @@ void main() {
     return groups;
   }
 
-  function titleForKind(kind, count) {
+  function titleForKind(kind, _count) {
     const labels = {
       button: 'Buttons',
       input: 'Inputs',
@@ -11163,10 +11115,6 @@ void main() {
     // Italic (only single *…*, skip if inside bold already handled)
     s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
     return s;
-  }
-
-  function highlightBold(text) {
-    return inlineMd(text);
   }
 
   function escapeHtml(s) {
