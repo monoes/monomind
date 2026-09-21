@@ -279,7 +279,16 @@ describe('runtimeView — org running', () => {
                 goal: 'ship it',
                 schedule: null,
                 // parsed like the daemon parses it, so schema defaults match
-                run_config: OrgDefSchema.parse(def({ run_config: { budget_tokens: 1000, idle_minutes: 10, completion_evidence: true, legacy_key: 'kept' } })).run_config,
+                run_config: OrgDefSchema.parse(
+                  def({
+                    run_config: {
+                      budget_tokens: 1000,
+                      idle_minutes: 10,
+                      completion_evidence: true,
+                      legacy_key: 'kept',
+                    },
+                  }),
+                ).run_config,
                 cost_tiers_default: 'economy',
               },
             },
@@ -306,7 +315,10 @@ describe('runtimeView — org running', () => {
       expect(v.idle).toMatchObject({ idle_hold: 'unknown' });
       // the enforced numbers, not the (smaller) run-log sum
       expect(v.budget).toEqual({ tokens: 1000, basis: 'uncached', used: 700, source: 'daemon' });
-      expect(v.roles.find((r: any) => r.id === 'dev').enforced).toMatchObject({ budgeted: 450, maxTokens: 500 });
+      expect(v.roles.find((r: any) => r.id === 'dev').enforced).toMatchObject({
+        budgeted: 450,
+        maxTokens: 500,
+      });
       // settings in force are the loaded ones; the saved edit is pending
       expect(v.settings.idle_minutes).toBe(10);
       expect(v.pending).toEqual([{ field: 'run_config.idle_minutes', running: 10, saved: 30 }]);

@@ -269,21 +269,22 @@ export async function runtimeView(root, org) {
       max_concurrent_agents: inForce.max_concurrent_agents ?? 4,
     },
     pending: loaded && parsed.success ? pendingChanges(def, loaded) : [],
-    budget: live?.budget && isLive
-      ? { ...live.budget, source: 'daemon' }
-      : {
-      tokens: rc.budget_tokens ?? null,
-      basis,
-      // Enforcement counts cache tokens only on 'billable'. Pre-split usage
-      // (legacy_tokens) is uncached, so it leaves a billable total unknown.
-      used:
-        basis === 'billable'
-          ? totals.legacy_tokens > 0
-            ? null
-            : totals.tokens
-          : totals.tokens_in + totals.tokens_out + totals.legacy_tokens,
-        source: 'run log',
-      },
+    budget:
+      live?.budget && isLive
+        ? { ...live.budget, source: 'daemon' }
+        : {
+            tokens: rc.budget_tokens ?? null,
+            basis,
+            // Enforcement counts cache tokens only on 'billable'. Pre-split usage
+            // (legacy_tokens) is uncached, so it leaves a billable total unknown.
+            used:
+              basis === 'billable'
+                ? totals.legacy_tokens > 0
+                  ? null
+                  : totals.tokens
+                : totals.tokens_in + totals.tokens_out + totals.legacy_tokens,
+            source: 'run log',
+          },
     totals,
     roles,
     tasks: (isLive ? live.tasks : runtime?.checkpoint?.tasks) ?? [],
@@ -297,7 +298,8 @@ export async function runtimeView(root, org) {
 function pendingChanges(def, loaded) {
   const out = [];
   const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-  if (!same(def.goal, loaded.goal)) out.push({ field: 'goal', running: loaded.goal, saved: def.goal });
+  if (!same(def.goal, loaded.goal))
+    out.push({ field: 'goal', running: loaded.goal, saved: def.goal });
   if (!same(def.schedule, loaded.schedule))
     out.push({ field: 'schedule', running: loaded.schedule, saved: def.schedule });
   const tier = def.cost_tiers?.default ?? null;
