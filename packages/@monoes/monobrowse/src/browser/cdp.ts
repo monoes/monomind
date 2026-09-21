@@ -1,4 +1,5 @@
-import { WebSocket } from 'ws';
+import type { CdpTransport } from './transport.js';
+import { WebSocketTransport } from './transport.js';
 import type { CdpCommand, CdpResponse, CdpTarget } from './types.js';
 
 // send() had no timeout of its own — a command whose response never arrives
@@ -11,8 +12,12 @@ import type { CdpCommand, CdpResponse, CdpTarget } from './types.js';
 // passes 0 (no timeout) or a different value.
 export const DEFAULT_CDP_SEND_TIMEOUT_MS = 30_000;
 
+// The message every path uses to say the connection went away. Shared so a
+// caller matching on it does not have to care which transport was under it.
+const CDP_CLOSED_MESSAGE = 'CDP connection closed';
+
 export class CdpClient {
-  private ws: WebSocket | null = null;
+  private transport: CdpTransport | null = null;
   private pendingCommands = new Map<
     number,
     {
@@ -46,56 +51,58 @@ export class CdpClient {
     this.pendingCommands.clear();
   }
 
+  /** Connect to a Chrome DevTools WebSocket endpoint (the original path). */
   async connect(wsUrl: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(wsUrl);
+    return this.connectTransport(new WebSocketTransport(wsUrl));
+  }
 
-      this.ws.on('open', () => {
+  /**
+   * Connect over any transport — a local DevTools socket, or the extension
+   * bridge to the user's own logged-in Chrome (see bridge.ts). Everything
+   * downstream of here (sessions, events, timeouts) is identical either way,
+   * which is the point: the instruments never learn which one they are on.
+   */
+  connectTransport(transport: CdpTransport): Promise<void> {
+    this.transport = transport;
+    return transport
+      .open({
+        message: (data) => this.handleMessage(data),
+        // Post-connect failure of either kind strands every in-flight
+        // command, so both flush: 'close' may not fire on all platforms.
+        close: (err) => this.flushPending(err ?? new Error(CDP_CLOSED_MESSAGE)),
+        error: (err) => this.flushPending(err),
+      })
+      .then(() => {
         this.connected = true;
-        resolve();
       });
+  }
 
-      this.ws.on('error', (err) => {
-        if (!this.connected) {
-          reject(err);
+  private handleMessage(data: string): void {
+    try {
+      const msg: CdpResponse = JSON.parse(data);
+      if (msg.id !== undefined && this.pendingCommands.has(msg.id)) {
+        const handler = this.pendingCommands.get(msg.id)!;
+        this.pendingCommands.delete(msg.id);
+        if (msg.error) {
+          handler.reject(new Error(`CDP error ${msg.error.code}: ${msg.error.message}`));
         } else {
-          // Post-connect: flush all pending commands — 'close' may not fire on all platforms
-          this.flushPending(err instanceof Error ? err : new Error(String(err)));
+          handler.resolve(msg);
         }
-      });
-
-      this.ws.on('close', () => {
-        this.flushPending(new Error('CDP connection closed'));
-      });
-
-      this.ws.on('message', (data) => {
-        try {
-          const msg: CdpResponse = JSON.parse(data.toString());
-          if (msg.id !== undefined && this.pendingCommands.has(msg.id)) {
-            const handler = this.pendingCommands.get(msg.id)!;
-            this.pendingCommands.delete(msg.id);
-            if (msg.error) {
-              handler.reject(new Error(`CDP error ${msg.error.code}: ${msg.error.message}`));
-            } else {
-              handler.resolve(msg);
-            }
-          } else if (msg.method) {
-            const listeners = this.eventListeners.get(msg.method);
-            if (listeners) {
-              for (const fn of listeners) {
-                try {
-                  fn(msg.params ?? {}, msg.sessionId);
-                } catch {
-                  /* isolate per-listener errors */
-                }
-              }
+      } else if (msg.method) {
+        const listeners = this.eventListeners.get(msg.method);
+        if (listeners) {
+          for (const fn of listeners) {
+            try {
+              fn(msg.params ?? {}, msg.sessionId);
+            } catch {
+              /* isolate per-listener errors */
             }
           }
-        } catch {
-          // ignore malformed messages
         }
-      });
-    });
+      }
+    } catch {
+      // ignore malformed messages
+    }
   }
 
   send<T = Record<string, unknown>>(
@@ -105,7 +112,7 @@ export class CdpClient {
     timeoutMs: number = DEFAULT_CDP_SEND_TIMEOUT_MS,
   ): Promise<T> {
     return new Promise((resolve, reject) => {
-      if (!this.ws || !this.connected) {
+      if (!this.transport || !this.connected) {
         reject(new Error('CDP not connected'));
         return;
       }
@@ -138,12 +145,10 @@ export class CdpClient {
         },
         timer,
       });
-      this.ws.send(JSON.stringify(cmd), (err) => {
-        if (err) {
-          if (timer) clearTimeout(timer);
-          this.pendingCommands.delete(id);
-          reject(err);
-        }
+      this.transport.send(JSON.stringify(cmd)).catch((err) => {
+        if (timer) clearTimeout(timer);
+        this.pendingCommands.delete(id);
+        reject(err);
       });
     });
   }
@@ -179,9 +184,9 @@ export class CdpClient {
   }
 
   close(): void {
-    this.flushPending(new Error('CDP connection closed'));
-    this.ws?.close();
-    this.ws = null;
+    this.flushPending(new Error(CDP_CLOSED_MESSAGE));
+    this.transport?.close();
+    this.transport = null;
     this.eventListeners.clear();
   }
 
