@@ -43,12 +43,31 @@ const GENERIC_VALUE_PATTERNS = [
 // that misfired. Each entry is a shape that is code or documentation by
 // construction, never a pasted credential.
 function notASecretValue(value) {
+  const quoted = /^['"]/.test(value);
   const v = value.replace(/^['"]|['"]$/g, '');
   return (
     v.includes('${') ||                      // `?token=${apiToken}` — interpolation
     /^(?:process\.env|import\.meta\.env)\./.test(v) || // read from the environment
-    /^<[^>]+>$/.test(v)                      // <your-token-here> — a docs placeholder
+    /^<[^>]+>$/.test(v) ||                   // <your-token-here> — a docs placeholder
+    (!quoted && /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\(/.test(v)) // `apiKey: z.string()` — an unquoted call
   );
+}
+
+// JSON puts the key's closing quote between the name and the colon
+// (`"authToken": "..."`), so the generic rules above never match it — which
+// left tracked org definitions (.monomind/orgs/*.json, whose provider block
+// accepts a literal apiKey/authToken) guarded only by vendor-prefix rules.
+// This rule reads JSON string pairs instead of widening the generic ones: a
+// wider generic regex would fire on TypeScript such as `authToken: string`.
+// The key must END in a secret word, so reference fields the org schema uses
+// instead of literals (`apiKeyEnv`, `authTokenEnv`) and counters
+// (`budget_tokens`) are not secret-shaped keys at all.
+const JSON_FILE = /\.json$/i;
+const JSON_STRING_PAIR = /"([^"\\\n]{1,64})"\s*:\s*"((?:[^"\\\n]|\\.)*)"/g;
+const JSON_SECRET_KEY = /(?:apikey|token|secret|password|passwd|pwd|privatekey|bearer)$/;
+function jsonSecretHit(key, value) {
+  if (!JSON_SECRET_KEY.test(key.replace(/[\s_.-]/g, '').toLowerCase())) return false;
+  return value.length >= 8 && !notASecretValue(value);
 }
 
 const patterns = [
@@ -109,6 +128,13 @@ for (const relPath of files) {
       if (notASecretValue(m[1])) continue;
       const preview = m[0].length > 50 ? `${m[0].slice(0, 50)}…` : m[0];
       console.error(`  ❌ ${relPath}: ${preview}`);
+      hits++;
+    }
+  }
+  if (JSON_FILE.test(relPath)) {
+    for (const m of content.matchAll(JSON_STRING_PAIR)) {
+      if (!jsonSecretHit(m[1], m[2])) continue;
+      console.error(`  ❌ ${relPath}: "${m[1]}": literal value under a secret-shaped key (use an *Env reference field)`);
       hits++;
     }
   }
