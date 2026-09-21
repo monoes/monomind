@@ -94,6 +94,9 @@ describe('knowledge_remove', () => {
   it('is registered alongside ingest and search', async () => {
     const { knowledgeTools } = await import('../mcp-tools/knowledge-tools.js');
     expect(knowledgeTools.map((t) => t.name).sort()).toEqual([
+      // GLU-07 added the two capture-resource tools to this same category.
+      'knowledge_capture_read',
+      'knowledge_captures',
       'knowledge_ingest',
       'knowledge_remove',
       'knowledge_search',

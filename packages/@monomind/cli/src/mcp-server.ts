@@ -482,7 +482,10 @@ export class MCPServerManager extends EventEmitter {
             version: VERSION,
             capabilities: {
               tools: { listChanged: true },
-              resources: { subscribe: true, listChanged: true },
+              // No server-initiated notifications on this stdio loop — see
+              // mcp-tools/resource-router.ts. Advertising subscribe here made
+              // clients open subscriptions that could never fire.
+              resources: { subscribe: false, listChanged: false },
             },
           },
         },
@@ -623,7 +626,7 @@ export class MCPServerManager extends EventEmitter {
               serverInfo: { name: 'monomind', version: '3.0.0' },
               capabilities: {
                 tools: { listChanged: true },
-                resources: { subscribe: true, listChanged: true },
+                resources: { subscribe: false, listChanged: false },
               },
             },
           };
@@ -728,101 +731,21 @@ export class MCPServerManager extends EventEmitter {
         }
 
         case 'resources/list':
-          return {
-            jsonrpc: '2.0',
-            id: message.id,
-            result: {
-              resources: [
-                {
-                  uri: 'monograph://repo/processes',
-                  name: 'Processes',
-                  description: 'All detected Process nodes with their steps',
-                  mimeType: 'application/json',
-                },
-                {
-                  uri: 'monograph://repo/communities',
-                  name: 'Communities',
-                  description: 'All community clusters with member symbols',
-                  mimeType: 'application/json',
-                },
-                {
-                  uri: 'monograph://repo/schema',
-                  name: 'Schema',
-                  description: 'Graph schema: node labels, edge relations, counts',
-                  mimeType: 'application/json',
-                },
-                {
-                  uri: 'monograph://repo/graph',
-                  name: 'Graph',
-                  description: 'Full graph export (nodes + edges, up to 2000 nodes)',
-                  mimeType: 'application/json',
-                },
-              ],
-            },
-          };
-
+        case 'resources/templates/list':
         case 'resources/read': {
-          const uri = (params.uri as string) ?? '';
-          try {
-            const { join } = await import('node:path');
-            const { openDb, closeDb } = await import('@monoes/monograph');
-            const {
-              getProcessesResource,
-              getCommunitiesResource,
-              getSchemaResource,
-              getGraphResource,
-            } = await import('@monoes/monograph');
-            const projectCwd = process.env.MONOMIND_CWD || process.cwd();
-            const dbPath = join(projectCwd, '.monomind', 'monograph.db');
-            const resDb = openDb(dbPath);
-            let data: unknown;
-            try {
-              switch (uri) {
-                case 'monograph://repo/processes':
-                  data = getProcessesResource(resDb);
-                  break;
-                case 'monograph://repo/communities':
-                  data = getCommunitiesResource(resDb);
-                  break;
-                case 'monograph://repo/schema':
-                  data = getSchemaResource(resDb);
-                  break;
-                case 'monograph://repo/graph':
-                  data = getGraphResource(resDb);
-                  break;
-                default:
-                  return {
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    error: { code: -32602, message: `Unknown resource URI: ${uri}` },
-                  };
-              }
-            } finally {
-              closeDb(resDb);
-            }
+          // GLU-07: one implementation, shared with bin/cli.js's fast path and
+          // bin/mcp-server.js, so every stdio entry point serves the same
+          // resources — the code graph AND the capture library.
+          const { handleResourceMethod } = await import('./mcp-tools/resource-router.js');
+          const handled = await handleResourceMethod(message.method, params);
+          if (!handled) {
             return {
               jsonrpc: '2.0',
               id: message.id,
-              result: {
-                contents: [
-                  {
-                    uri,
-                    text: JSON.stringify(data),
-                    mimeType: 'application/json',
-                  },
-                ],
-              },
-            };
-          } catch (err) {
-            return {
-              jsonrpc: '2.0',
-              id: message.id,
-              error: {
-                code: -32603,
-                message: err instanceof Error ? err.message : 'Failed to read resource',
-              },
+              error: { code: -32601, message: `Method not found: ${message.method}` },
             };
           }
+          return { jsonrpc: '2.0', id: message.id, ...handled };
         }
 
         case 'notifications/initialized':
@@ -948,6 +871,50 @@ export class MCPServerManager extends EventEmitter {
       console.error(
         `[monomind-mcp] Warning: could not register CLI tools with HTTP/WS server: ${e}`,
       );
+    }
+
+    // GLU-07: the HTTP/WS transport has its own resource registry, so the
+    // capture library has to be registered there too — otherwise `capture://`
+    // uris resolve over stdio and 404 over HTTP. A template covers every
+    // document (the registry matches `{placeholder}` as `[^/]+`, which is why
+    // the identity is percent-encoded), plus one concrete index resource per
+    // scope so `resources/list` shows something to start from.
+    try {
+      const registry = mcpServer.getResourceRegistry();
+      const {
+        CAPTURE_JSON_MIME_TYPE,
+        CAPTURE_MIME_TYPE,
+        CAPTURE_URI_TEMPLATE,
+        captureIndexDescriptor,
+        captureScopes,
+        loadCaptureDocuments,
+      } = await import('./mcp-tools/capture-resources.js');
+      const readCapture = async (uri: string) => {
+        const { captureResourceContents } = await import('./mcp-tools/capture-resource-read.js');
+        return (await captureResourceContents(uri)).contents;
+      };
+      registry.registerTemplate(
+        {
+          uriTemplate: CAPTURE_URI_TEMPLATE,
+          name: 'Captured page',
+          description:
+            'A captured page from the second brain: readable Markdown plus provenance. ' +
+            'Add ?v=, ?chunk= or ?anchor= for a version or a citable passage.',
+          mimeType: CAPTURE_MIME_TYPE,
+        },
+        readCapture,
+      );
+      const docs = await loadCaptureDocuments();
+      for (const scope of captureScopes(docs)) {
+        const descriptor = captureIndexDescriptor(
+          scope,
+          docs.filter((d) => d.scope === scope).length,
+        );
+        registry.registerResource({ ...descriptor, mimeType: CAPTURE_JSON_MIME_TYPE }, readCapture);
+      }
+    } catch (e) {
+      // A brain that cannot be read is not a reason to refuse to serve tools.
+      console.error(`[monomind-mcp] Warning: capture resources not registered: ${e}`);
     }
 
     // Store reference for stopping
