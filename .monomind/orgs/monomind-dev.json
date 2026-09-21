@@ -4,14 +4,16 @@
   "status": "stopped",
   "schedule": null,
   "run_config": {
-    "budget_tokens": 160000000,
+    "budget_tokens": 4000000000,
     "circuit_breaker": {
       "failure_threshold": 5
     },
     "idle_minutes": 60,
     "max_concurrent_agents": 8,
     "memory_namespace": "org:monomind-dev",
-    "workspace": "repo"
+    "workspace": "repo",
+    "completion_evidence": true,
+    "budget_tokens_basis": "billable"
   },
   "roles": [
     {
