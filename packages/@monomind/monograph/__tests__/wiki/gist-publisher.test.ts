@@ -46,7 +46,7 @@ describe('publishToGist', () => {
     }));
     await publishToGist({}, { token: 'ghp_mytoken' });
     const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect((opts.headers as Record<string, string>)['Authorization']).toBe('Bearer ghp_mytoken');
+    expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer ghp_mytoken');
   });
 
   it('throws on non-2xx response', async () => {

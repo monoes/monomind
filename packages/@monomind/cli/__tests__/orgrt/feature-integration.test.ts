@@ -337,8 +337,8 @@ describe('Feature #13 — Terminal checkpoint with full scrollback', () => {
       status: 'running',
     } as any;
     const cp = captureCheckpoint(org);
-    expect(cp.roleState['boss'].scrollback).toEqual(['Thinking...', 'Sending to analyst', 'Done']);
-    expect(cp.roleState['analyst'].scrollback).toEqual(['Analyzing...', 'Found 3 issues']);
+    expect(cp.roleState.boss.scrollback).toEqual(['Thinking...', 'Sending to analyst', 'Done']);
+    expect(cp.roleState.analyst.scrollback).toEqual(['Analyzing...', 'Found 3 issues']);
   });
 
   it('checkpoint validates with scrollback included', () => {

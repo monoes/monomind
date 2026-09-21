@@ -76,7 +76,7 @@ describe('augmentContext', () => {
     expect(() => { parsed = JSON.parse(result); }).not.toThrow();
     const obj = parsed as Record<string, unknown>;
     expect(obj).toHaveProperty('query', 'parse file');
-    expect(Array.isArray(obj['results'])).toBe(true);
+    expect(Array.isArray(obj.results)).toBe(true);
   });
 
   it('format: json includes result fields', async () => {

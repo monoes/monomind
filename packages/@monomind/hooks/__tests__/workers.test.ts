@@ -126,7 +126,7 @@ describe('WorkerManager', () => {
       expect(result.error).toContain('not found');
 
       // The shared module-level registry must also stay clean.
-      expect((WORKER_CONFIGS as any)['isolated']).toBeUndefined();
+      expect((WORKER_CONFIGS as any).isolated).toBeUndefined();
 
       await other.stop().catch(() => {});
     });

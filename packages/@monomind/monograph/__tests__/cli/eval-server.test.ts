@@ -56,9 +56,9 @@ describe('createEvalServer', () => {
     const res = await fetch(`${baseUrl}/health`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body['status']).toBe('ok');
-    expect(typeof body['nodeCount']).toBe('number');
-    expect(typeof body['edgeCount']).toBe('number');
+    expect(body.status).toBe('ok');
+    expect(typeof body.nodeCount).toBe('number');
+    expect(typeof body.edgeCount).toBe('number');
   });
 
   it('POST /query with { q: "test" } returns { results: [] } on empty DB', async () => {
@@ -70,8 +70,8 @@ describe('createEvalServer', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body).toHaveProperty('results');
-    expect(Array.isArray(body['results'])).toBe(true);
-    expect((body['results'] as unknown[]).length).toBe(0);
+    expect(Array.isArray(body.results)).toBe(true);
+    expect((body.results as unknown[]).length).toBe(0);
   });
 
   it('POST /search with { query: "test" } returns { results: [] } on empty DB', async () => {
@@ -83,7 +83,7 @@ describe('createEvalServer', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body).toHaveProperty('results');
-    expect(Array.isArray(body['results'])).toBe(true);
-    expect((body['results'] as unknown[]).length).toBe(0);
+    expect(Array.isArray(body.results)).toBe(true);
+    expect((body.results as unknown[]).length).toBe(0);
   });
 });

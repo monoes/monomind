@@ -200,7 +200,7 @@ describe('executeCypherQuery', () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]['n_name']).toBe('buildAsync');
+    expect(result.rows[0].n_name).toBe('buildAsync');
     expect(result.queryTime).toBeGreaterThanOrEqual(0);
   });
 
@@ -220,8 +220,8 @@ describe('executeCypherQuery', () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]['a_name']).toBe('buildAsync');
-    expect(result.rows[0]['a_filePath']).toBe('src/pipeline/runner.ts');
+    expect(result.rows[0].a_name).toBe('buildAsync');
+    expect(result.rows[0].a_filePath).toBe('src/pipeline/runner.ts');
   });
 
   it('returns error (not throw) for write operation', () => {
@@ -247,7 +247,7 @@ describe('getMonographCypher', () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]['n_name']).toBe('UserService');
+    expect(result.rows[0].n_name).toBe('UserService');
   });
 
   it('returns error gracefully for forbidden operation', () => {

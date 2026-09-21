@@ -903,11 +903,11 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
 
         // Wait for agent to be ready
         await waitUntil(() => {
-          const org = d['orgs'].get('alpha');
+          const org = d.orgs.get('alpha');
           return org?.agents.has('coder') ?? false;
         });
 
-        const org = d['orgs'].get('alpha');
+        const org = d.orgs.get('alpha');
         const agent = org?.agents.get('coder');
 
         // Verify lastMessageId was tracked
@@ -931,7 +931,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
         // Wait for lazy spawn to complete
         await d.deliver('alpha', 'boss', 'coder', 'task', 'first');
         await waitUntil(() => {
-          const org = d['orgs'].get('alpha');
+          const org = d.orgs.get('alpha');
           return org?.agents.has('coder') ?? false;
         });
 
@@ -978,11 +978,11 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
         // Wait for lazy spawn to complete
         await d.deliver('alpha', 'boss', 'coder', 'task', 'first');
         await waitUntil(() => {
-          const org = d['orgs'].get('alpha');
+          const org = d.orgs.get('alpha');
           return org?.agents.has('coder') ?? false;
         });
 
-        const org = d['orgs'].get('alpha');
+        const org = d.orgs.get('alpha');
         const agent = org?.agents.get('coder');
 
         const firstId = agent?.lastMessageId;
@@ -1015,7 +1015,7 @@ describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
         // Wait for lazy spawn to complete
         await d.deliver('alpha', 'boss', 'coder', 'task', 'spawn');
         await waitUntil(() => {
-          const org = d['orgs'].get('alpha');
+          const org = d.orgs.get('alpha');
           return org?.agents.has('coder') ?? false;
         });
 

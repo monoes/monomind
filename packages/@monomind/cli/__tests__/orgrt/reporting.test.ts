@@ -41,8 +41,8 @@ describe('summarizeRun', () => {
     expect(s.xorgMessages).toBe(1);
     expect(s.assets).toEqual(['out/report.md']);
     expect(s.crashes).toEqual(['tester']);
-    expect(s.roles['tester'].crashed).toBe(true);
-    expect(s.roles['coder']).toMatchObject({ messagesSent: 1, toolsAllowed: 1, toolsDenied: 1, tokens: 500 });
+    expect(s.roles.tester.crashed).toBe(true);
+    expect(s.roles.coder).toMatchObject({ messagesSent: 1, toolsAllowed: 1, toolsDenied: 1, tokens: 500 });
     expect(s.totalTokens).toBe(800);
     expect(s.totalCostUsd).toBeCloseTo(0.01);
     expect(s.outcome).toEqual({ status: 'achieved', summary: 'shipped it', by: 'boss' });

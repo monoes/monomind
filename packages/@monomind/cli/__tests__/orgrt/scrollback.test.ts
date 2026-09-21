@@ -77,7 +77,7 @@ describe('scrollback in checkpoint', () => {
       status: 'running',
     } as any;
     const cp = captureCheckpoint(org);
-    expect(cp.roleState['analyst'].scrollback).toEqual(['thinking...', 'result: 42']);
+    expect(cp.roleState.analyst.scrollback).toEqual(['thinking...', 'result: 42']);
   });
 
   it('captureCheckpoint handles empty scrollback', () => {
@@ -90,6 +90,6 @@ describe('scrollback in checkpoint', () => {
       status: 'running',
     } as any;
     const cp = captureCheckpoint(org);
-    expect(cp.roleState['coder'].scrollback).toEqual([]);
+    expect(cp.roleState.coder.scrollback).toEqual([]);
   });
 });
