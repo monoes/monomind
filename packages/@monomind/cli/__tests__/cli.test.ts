@@ -197,7 +197,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testparse', '--verbose']);
       expect(flagsPassed).toBe(true);
     });
@@ -218,7 +218,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testshort', '-d']);
       expect(flagsPassed).toBe(true);
     });
@@ -235,7 +235,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testvalue', '--format', 'json']);
       expect(flagsPassed).toBe(true);
     });
@@ -252,7 +252,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testequals', '--output=file.txt']);
       expect(flagsPassed).toBe(true);
     });
@@ -271,7 +271,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       // Global quiet flag's short form is -Q (uppercase) per parser.ts, not -q
       await cli.run(['testmulti', '--verbose', '--format', 'json', '-Q']);
       expect(flagsPassed).toBe(true);
@@ -289,7 +289,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testpos', 'arg1', 'arg2', 'arg3']);
       expect(flagsPassed).toBe(true);
     });
@@ -309,7 +309,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testbool', '--force']);
       expect(flagsPassed).toBe(true);
     });
@@ -326,7 +326,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testnegate', '--no-color']);
       expect(flagsPassed).toBe(true);
     });
@@ -346,7 +346,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testquiet', '--quiet']);
       expect(flagsPassed).toBe(true);
     });
@@ -363,7 +363,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
       await cli.run(['testformat', '--format', 'json']);
       expect(flagsPassed).toBe(true);
     });
@@ -391,7 +391,7 @@ describe('CLI', () => {
       };
 
       try {
-        cli['parser'].registerCommand(mockCommand);
+        cli.parser.registerCommand(mockCommand);
         await cli.run(['testconfig', '--config', configPath]);
         expect(flagsPassed).toBe(true);
         expect(configLoaded).toBe(true);
@@ -406,7 +406,7 @@ describe('CLI', () => {
         description: 'Test command',
         action: async () => ({ success: true })
       };
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
 
       await expect(
         cli.run(['testconfig2', '--config', '/nonexistent/path/to/config.json'])
@@ -417,7 +417,7 @@ describe('CLI', () => {
     it('should disable color with --no-color', async () => {
       await cli.run(['--no-color', '--help']);
       // Color should be disabled - check output formatter state
-      expect(cli['output']['colorEnabled']).toBe(false);
+      expect(cli.output.colorEnabled).toBe(false);
     });
   });
 
@@ -431,7 +431,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
 
       try {
         await cli.run(['testerror']);
@@ -454,7 +454,7 @@ describe('CLI', () => {
         action: async () => ({ success: true })
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
 
       try {
         await cli.run(['testreq']);
@@ -480,7 +480,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
 
       try {
         await cli.run(['testdebug']);
@@ -514,7 +514,7 @@ describe('CLI', () => {
         subcommands: [subcommand]
       };
 
-      cli['parser'].registerCommand(mainCommand);
+      cli.parser.registerCommand(mainCommand);
       await cli.run(['maincmd', 'sub']);
 
       expect(subcommandExecuted).toBe(true);
@@ -539,7 +539,7 @@ describe('CLI', () => {
         subcommands: [subcommand]
       };
 
-      cli['parser'].registerCommand(mainCommand);
+      cli.parser.registerCommand(mainCommand);
       await cli.run(['mainalias', 'ls']);
 
       expect(executed).toBe(true);
@@ -573,7 +573,7 @@ describe('CLI', () => {
         }
       };
 
-      cli['parser'].registerCommand(mockCommand);
+      cli.parser.registerCommand(mockCommand);
 
       let errorMessage = '';
       try {
