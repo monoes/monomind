@@ -4,6 +4,21 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Approving a tool call for an org that is not running looked like it worked, but did nothing.** 2.14.0 recorded the decision in the org's `approvals.json`, but nothing reads that file back: an approval request lives in the run that asked for it, and a new run asks again. The dashboard now refuses the decision (409) and says why. While no daemon hosts the org, its pending approvals show as `expired` instead of counting as waiting on you. Gates and answers are unchanged, because the next run does read those.
+- **Human-in-the-loop decisions and the Runtime tab could reach a same-named org in another project.** The daemon registry is machine-wide and keyed by org name, so an approval, answer or chat message for project B's `dev` went to project A's running `dev`, and B's Runtime tab showed A's run. A daemon now counts only when it is registered for the same project root.
+- **A malformed approval or gate id, or a client that disconnected mid-request, could crash the dashboard process.** Those requests now get 400; a body over 64 KB gets 413 instead of a reset connection. A multi-byte character split across network chunks is no longer corrupted.
+- **The Runtime tab left out budget exhaustion, agent-fatal, loadout mismatches and session crashes.** The runtime emits the first three as status events, not audit events, and crashes were not on the list.
+- **`/health` counted a stopped-then-resumed run twice.** It now counts each run once, by how it last ended.
+- A chat message the daemon refused now shows the daemon's reason. A network failure when sending chat now says so, and an org event no longer wipes an answer you are halfway through typing in Human Input. One unreadable `questions.json` no longer hides the same org's approvals and gates. The Config tab refuses a non-string goal instead of saving `"null"`.
+
+### Security
+
+- **An org role could redirect the dashboard's file writes to any file the user owns.** When the dashboard recorded a decision for an org that was not running, or saved its config, it wrote through a predictable temp file (`<file>.<pid>.tmp`) in a directory roles can write to. A link planted there redirected the write, with agent-chosen content, to a file such as `~/.bashrc`. Temp files are now created exclusively (`O_EXCL`) with a random name.
+- **Values from runtime files an agent can write reached the Runtime tab's HTML unescaped.** They came from the run checkpoint, the run history and the settings panel. They are now escaped.
+- **A relative `MONOMIND_ORGRT_OPERATOR_DIR` was not masked from roles.** The broker uses a relative value as-is, but the role deny rules only accepted absolute paths. They now resolve it the same way.
+
 ## [2.14.1] — 2026-09-21
 
 > **On the version number.** By content this is a minor release — it adds browser

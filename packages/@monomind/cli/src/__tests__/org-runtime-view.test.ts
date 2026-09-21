@@ -4,7 +4,15 @@
  * the live daemon's /api/status, cost tiers — and write the org definition
  * only when it passes the schema `org run` enforces.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -211,6 +219,24 @@ describe('runtimeView — org not running', () => {
     expect((await rt.runtimeView(root, ORG)).budget.used).toBeNull();
   });
 
+  it('lists the runtime failures it emits as status events, and session crashes', async () => {
+    bus([
+      { ts: 1, type: 'status', from: 'dev', reason: 'budget-exhausted', msg: 'role budget' },
+      { ts: 2, type: 'status', from: 'lead', reason: 'org-budget-exhausted', msg: 'org budget' },
+      { ts: 3, type: 'status', from: 'dev', reason: 'agent-fatal', msg: 'fatal' },
+      { ts: 4, type: 'audit', from: 'dev', reason: 'agent-session-crash', msg: 'crashed' },
+      { ts: 5, type: 'audit', from: 'dev', reason: 'agent-context-limit', msg: 'context full' },
+      { ts: 6, type: 'status', from: 'lead', msg: 'session starting' },
+    ]);
+    expect((await rt.runtimeView(root, ORG)).audit.map((a: any) => a.reason)).toEqual([
+      'agent-context-limit',
+      'agent-session-crash',
+      'agent-fatal',
+      'org-budget-exhausted',
+      'budget-exhausted',
+    ]);
+  });
+
   it('still renders an invalid definition, listing why org run would refuse it', async () => {
     writeDef(def({ run_config: { budget_tokens: 0 } }));
     const v = await rt.runtimeView(root, ORG);
@@ -262,8 +288,50 @@ describe('runtimeView — org running', () => {
   });
 });
 
+describe('runtimeView — a same-named org running in another project', () => {
+  it("is not taken for this project's org", async () => {
+    const seen: string[] = [];
+    const server = http.createServer((req, res) => {
+      seen.push(req.url ?? '');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ orgs: [{ name: ORG, run: 'run-other', roles: [], tasks: [] }] }));
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const other = mkdtempSync(join(tmpdir(), 'org-runtime-other-'));
+    registerOrg(
+      ORG,
+      `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+      process.env.MONOMIND_ORGRT_BROKER_DIR,
+      'agent-cred',
+      other,
+    );
+    try {
+      const v = await rt.runtimeView(root, ORG);
+      expect(v).toMatchObject({ live: false, run: RUN });
+      expect(seen).toEqual([]);
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('patchOrgConfig', () => {
   const onDisk = () => JSON.parse(readFileSync(join(orgsDir(), `${ORG}.json`), 'utf8'));
+
+  it('never writes through a link planted where its temp file goes', () => {
+    const victim = join(root, 'victim.txt');
+    writeFileSync(victim, 'untouched');
+    symlinkSync(victim, join(orgsDir(), `${ORG}.json.${process.pid}.tmp`));
+    rt.patchOrgConfig(root, ORG, { goal: 'g3' });
+    expect(readFileSync(victim, 'utf8')).toBe('untouched');
+    expect(onDisk().goal).toBe('g3');
+  });
+
+  it('refuses a goal that is not a string instead of writing "null"', () => {
+    expect(() => rt.patchOrgConfig(root, ORG, { goal: null })).toThrow(rt.ConfigRejected);
+    expect(onDisk().goal).toBe('ship it');
+  });
 
   it('merges only the edited fields and keeps everything else in the file', () => {
     rt.patchOrgConfig(root, ORG, {
@@ -338,6 +406,23 @@ describe('routes', () => {
       errors: [],
     });
     expect((await call('GET', '/api/org/nope/runtime')).status).toBe(404);
+  });
+
+  it('/health counts a resumed run once, by how it finally ended', async () => {
+    // run-a stopped idle, was resumed under the same run id, then achieved
+    appendFileSync(
+      join(orgDir(), 'history.jsonl'),
+      `\n${JSON.stringify({
+        run: 'run-a',
+        endedAt: Date.now() + 1000,
+        closedBy: 'org-complete',
+        outcome: { status: 'achieved', summary: 'done', by: 'lead' },
+      })}`,
+    );
+    expect((await call('GET', `/api/org/${ORG}/health`)).body).toMatchObject({
+      total_runs_7d: 2,
+      run_success_rate_7d: 100,
+    });
   });
 
   it('GET /agents reports the runtime and resolved model, not the role kind', async () => {

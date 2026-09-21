@@ -8,10 +8,11 @@
 // decision is recorded in the org's own files, where the next run finds it.
 // Unlike the CLI, a live daemon that REJECTS the call is reported as an error
 // instead of falling back to a file write the daemon would overwrite.
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 // Compiled from orgrt/*.ts, like forwarder.js in routes-org.mjs.
-import { lookupOrg, readOperatorCredential } from '../orgrt/broker.js';
+import { lookupOrg, normalizeRoot, readOperatorCredential } from '../orgrt/broker.js';
 import { queueMessage } from '../orgrt/inbox.js';
 
 /** Recorded as resolvedBy on everything decided here (normalizeResolver-valid). */
@@ -49,19 +50,47 @@ function readList(root, org, file, key) {
   return list;
 }
 
+/** Write `text` to `dest` via a fresh temp file and a rename. Roles can write
+ *  into the org directory, so the temp name is unpredictable and created
+ *  exclusively (O_EXCL): a link planted there fails the open instead of
+ *  redirecting the dashboard's write to a file of the link's choosing. */
+export function writeFileAtomic(dest, text) {
+  const tmp = `${dest}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+  const fd = fs.openSync(tmp, 'wx', 0o600);
+  try {
+    fs.writeFileSync(fd, text);
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    fs.renameSync(tmp, dest);
+  } catch (err) {
+    fs.rmSync(tmp, { force: true });
+    throw err;
+  }
+}
+
 function writeList(root, org, file, key, list) {
   const dir = orgDir(root, org);
   fs.mkdirSync(dir, { recursive: true });
-  const dest = path.join(dir, file);
-  const tmp = `${dest}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ [key]: list }, null, 2));
-  fs.renameSync(tmp, dest);
+  writeFileAtomic(path.join(dir, file), JSON.stringify({ [key]: list }, null, 2));
+}
+
+/** The broker entry of the daemon hosting `org` for THIS project, or null.
+ *  The registry is machine-wide and keyed by name, so a same-named org in
+ *  another project must not receive this project's decisions. An entry that
+ *  predates the root field (M4) is taken as this project's. */
+export function hostingDaemon(root, org) {
+  const remote = lookupOrg(org);
+  if (!remote) return null;
+  if (remote.root && remote.root !== normalizeRoot(root)) return null;
+  return remote;
 }
 
 /** POST to the hosting daemon's operator-only `route`. Returns null when no
- *  live daemon hosts `org`; otherwise the daemon's verdict. */
-async function callDaemon(org, route, body) {
-  const remote = lookupOrg(org);
+ *  live daemon hosts `org` for `root`; otherwise the daemon's verdict. */
+async function callDaemon(root, org, route, body) {
+  const remote = hostingDaemon(root, org);
   if (!remote) return null;
   const cred = readOperatorCredential(org);
   if (!cred)
@@ -84,7 +113,7 @@ async function callDaemon(org, route, body) {
   if (!res.ok || !data.ok)
     throw new HilError(
       res.status >= 400 ? res.status : 502,
-      data.error || `daemon returned ${res.status}`,
+      data.error || data.receipt || `daemon returned ${res.status}`,
     );
   return data;
 }
@@ -95,15 +124,19 @@ function approvalStatus(a) {
   return 'pending';
 }
 
-/** The org's tool/action approvals (`<org>/approvals.json`), newest first. */
+/** The org's tool/action approvals (`<org>/approvals.json`), newest first.
+ *  An approval request lives in the daemon's memory and ends with its run —
+ *  no daemon reads approvals.json back — so while no daemon hosts the org a
+ *  pending one is 'expired': nothing is waiting for the answer. */
 export function listApprovals(root, org) {
+  const live = !!hostingDaemon(root, org);
   return readList(root, org, 'approvals.json', 'approvals')
     .map((a) => ({
       id: a.requestId || null,
       roleId: a.roleId,
       action: a.action,
       input: a.input || null,
-      status: approvalStatus(a),
+      status: approvalStatus(a) === 'pending' && !live ? 'expired' : approvalStatus(a),
       ts: a.ts || null,
       resolvedBy: a.resolvedBy || null,
       resolvedAt: a.resolvedAt || null,
@@ -150,12 +183,17 @@ export function pendingForProject(root) {
   for (const e of entries) {
     if (!e.isDirectory() || !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(e.name)) continue;
     const org = e.name;
-    try {
-      for (const q of listQuestions(root, org)) out.questions.push({ org, ...q });
-      for (const a of listApprovals(root, org)) out.approvals.push({ org, ...a });
-      for (const g of listGates(root, org)) out.gates.push({ org, ...g });
-    } catch (err) {
-      out.errors.push({ org, error: err.message });
+    // One unreadable file must not hide the org's other two.
+    for (const [list, key] of [
+      [listQuestions, 'questions'],
+      [listApprovals, 'approvals'],
+      [listGates, 'gates'],
+    ]) {
+      try {
+        for (const item of list(root, org)) out[key].push({ org, ...item });
+      } catch (err) {
+        out.errors.push({ org, error: err.message });
+      }
     }
   }
   return out;
@@ -168,7 +206,7 @@ export async function resolveApproval(root, org, requestId, approved) {
   if (!entry) throw new HilError(404, `approval "${requestId}" not found for org "${org}"`);
   if (entry.approved !== null)
     throw new HilError(409, `approval "${requestId}" already ${approvalStatus(entry)}`);
-  const live = await callDaemon(org, '/api/set-approval', {
+  const live = await callDaemon(root, org, '/api/set-approval', {
     org,
     role: entry.roleId,
     action: entry.action,
@@ -177,15 +215,12 @@ export async function resolveApproval(root, org, requestId, approved) {
     requestId,
   });
   if (live) return { delivery: 'live' };
-  // Offline: re-read so a write since the lookup above isn't reverted.
-  const fresh = readList(root, org, 'approvals.json', 'approvals');
-  const item = fresh.find((a) => a.requestId === requestId);
-  if (!item || item.approved !== null)
-    throw new HilError(409, `approval "${requestId}" was resolved meanwhile`);
-  const now = Date.now();
-  Object.assign(item, { approved, ts: now, resolvedBy: DASHBOARD_RESOLVER, resolvedAt: now });
-  writeList(root, org, 'approvals.json', 'approvals', fresh);
-  return { delivery: 'recorded' };
+  // Unlike gates and answers, nothing reads a recorded approval back: the
+  // request lived in the run that asked, and a new run asks again.
+  throw new HilError(
+    409,
+    `org "${org}" is not running — approval "${requestId}" ended with the run that asked for it; the role asks again when the org next runs`,
+  );
 }
 
 export async function resolveGate(root, org, gateId, approved, resolution) {
@@ -193,7 +228,7 @@ export async function resolveGate(root, org, gateId, approved, resolution) {
   if (!gate) throw new HilError(404, `gate "${gateId}" not found for org "${org}"`);
   if (gate.status !== 'pending')
     throw new HilError(409, `gate "${gateId}" already resolved (${gate.status})`);
-  const live = await callDaemon(org, '/api/resolve-gate', {
+  const live = await callDaemon(root, org, '/api/resolve-gate', {
     org,
     gateId,
     approved,
@@ -223,7 +258,7 @@ export async function answerQuestion(root, org, questionId, answer) {
   if (!q) throw new HilError(404, `question "${questionId}" not found for org "${org}"`);
   if (q.answer !== null && q.answer !== undefined)
     throw new HilError(409, `question "${questionId}" was already answered`);
-  const live = await callDaemon(org, '/api/answer-question', {
+  const live = await callDaemon(root, org, '/api/answer-question', {
     org,
     role: q.role,
     questionId,
@@ -257,7 +292,7 @@ export async function answerQuestion(root, org, questionId, answer) {
 /** Deliver `text` to `role`: live into its mailbox, else into the org's
  *  inbox, which the daemon drains when the org next starts. */
 export async function sendHumanMessage(root, org, role, text) {
-  const live = await callDaemon(org, '/api/human-message', { org, role, text });
+  const live = await callDaemon(root, org, '/api/human-message', { org, role, text });
   if (live) return { delivery: 'live' };
   const queued = queueMessage(root, org, {
     fromQualified: 'human',

@@ -11,16 +11,17 @@
 //   - the org definition, resolved through cost_tiers like session.ts does.
 import fs from 'node:fs';
 import path from 'node:path';
-// Compiled from orgrt/*.ts, like forwarder.js in routes-org.mjs.
-import { lookupOrg } from '../orgrt/broker.js';
 import { resolveRoleCostTier, validateCostTiers } from '../orgrt/cost-tier.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { OrgDefSchema } from '../orgrt/types.js';
+import { hostingDaemon, writeFileAtomic } from './org-hil.mjs';
 
 const orgDir = (root, org) => path.join(root, '.monomind', 'orgs', org);
 
-/** Audit reasons the Runtime pane lists: the completion-evidence gate, the
- *  idle watchdog, org_complete refusals and role failures. */
+/** Reasons the Runtime pane lists: the completion-evidence gate, the idle
+ *  watchdog, org_complete refusals and role failures. The runtime emits some
+ *  as 'audit' events and some (budget exhaustion, agent-fatal, loadout
+ *  mismatch) as 'status' events, so both types are read. */
 export const RUNTIME_AUDIT_REASONS = new Set([
   'task-evidence-refused',
   'task-evidence-escalated',
@@ -37,6 +38,8 @@ export const RUNTIME_AUDIT_REASONS = new Set([
   'session-result-error',
   'loadout-unresolvable',
   'loadout-mismatch',
+  'agent-session-crash',
+  'agent-context-limit',
 ]);
 const MAX_AUDIT = 60;
 
@@ -106,7 +109,7 @@ export function readRunDigest(root, org, run) {
       u.cache_creation += Number(d.cache_creation) || 0;
       u.cost_usd += Number(d.cost_usd) || 0;
       u.turns += 1;
-    } else if (e.type === 'audit' && RUNTIME_AUDIT_REASONS.has(e.reason)) {
+    } else if ((e.type === 'audit' || e.type === 'status') && RUNTIME_AUDIT_REASONS.has(e.reason)) {
       audit.push({
         ts: e.ts,
         reason: e.reason,
@@ -122,9 +125,10 @@ export function readRunDigest(root, org, run) {
   return digest;
 }
 
-/** The live daemon's status for `org`, or null when no daemon hosts it. */
-async function liveStatus(org) {
-  const entry = lookupOrg(org);
+/** The live daemon's status for `org`, or null when no daemon hosts it for
+ *  `root` (a same-named org in another project is not this one). */
+async function liveStatus(root, org) {
+  const entry = hostingDaemon(root, org);
   if (!entry) return null;
   try {
     const res = await fetch(`${entry.url}/api/status`, {
@@ -208,7 +212,7 @@ export async function runtimeView(root, org) {
   const def = parsed.success ? parsed.data : { ...raw, run_config: raw.run_config ?? {} };
   const rc = def.run_config ?? {};
   const runtime = readJson(path.join(orgDir(root, org), 'runtime.json'));
-  const live = await liveStatus(org);
+  const live = await liveStatus(root, org);
   const isLive = !!(live && !live.unreachable);
   const run = (isLive ? live.run : null) ?? runtime?.run ?? null;
   const digest = run ? readRunDigest(root, org, run) : null;
@@ -314,7 +318,10 @@ export function patchOrgConfig(root, org, patch) {
   }
   const problems = [];
   const next = { ...raw };
-  if (patch.goal !== undefined) next.goal = String(patch.goal);
+  if (patch.goal !== undefined) {
+    if (typeof patch.goal === 'string') next.goal = patch.goal;
+    else problems.push('goal must be a string');
+  }
   if (patch.schedule !== undefined) next.schedule = patch.schedule === '' ? null : patch.schedule;
   if (patch.run_config !== undefined) {
     const rc = { ...(raw.run_config ?? {}) };
@@ -343,8 +350,6 @@ export function patchOrgConfig(root, org, patch) {
     );
   const tierProblems = validateCostTiers(parsed.data);
   if (tierProblems.length) throw new ConfigRejected(tierProblems);
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
-  fs.renameSync(tmp, file);
+  writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`);
   return next;
 }

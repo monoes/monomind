@@ -5,13 +5,21 @@
  * recorded in its own v2 files — approvals.json, gates.json, questions.json,
  * inbox.jsonl — never the v1 `<org>-approvals.json` sidecar nothing reads.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { registerOrg, writeOperatorCredential } from '../orgrt/broker.js';
+import { registerOrg, unregisterOrg, writeOperatorCredential } from '../orgrt/broker.js';
 import * as hil from '../ui/org-hil.mjs';
 import { handleOrgRoutes } from '../ui/routes-org.mjs';
 
@@ -63,6 +71,7 @@ const pendingQuestion = {
  *  with `reply` (default ok). */
 async function fakeDaemon(
   reply: { status: number; body: unknown } = { status: 200, body: { ok: true } },
+  daemonRoot?: string,
 ) {
   const calls: Array<{ url: string; cred: string | undefined; body: any }> = [];
   const server = http.createServer((req, res) => {
@@ -82,7 +91,7 @@ async function fakeDaemon(
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  registerOrg(ORG, url, brokerDir, 'agent-cred');
+  registerOrg(ORG, url, brokerDir, 'agent-cred', daemonRoot);
   return { calls, close: () => new Promise<void>((r) => server.close(() => r())) };
 }
 
@@ -123,7 +132,8 @@ describe('org-hil listing (v2 files)', () => {
         id: 'apr-1',
         roleId: 'coder',
         action: 'Bash',
-        status: 'pending',
+        // no daemon hosts the org: the role that asked ended with its run
+        status: 'expired',
         input: { command: 'rm -rf dist' },
       }),
       expect.objectContaining({ id: 'apr-0', status: 'denied' }),
@@ -137,6 +147,16 @@ describe('org-hil listing (v2 files)', () => {
       ['q-0', true],
     ]);
     expect(all.errors).toEqual([]);
+  });
+
+  it("a corrupt questions.json does not hide the same org's gates", () => {
+    writeOrgFile('gates.json', { gates: [pendingGate] });
+    writeFileSync(join(orgDir(), 'questions.json'), '{not json');
+    const all = hil.pendingForProject(root);
+    expect(all.gates).toEqual([expect.objectContaining({ org: ORG, id: 'gate-1' })]);
+    expect(all.errors).toEqual([
+      expect.objectContaining({ org: ORG, error: expect.stringContaining('questions.json') }),
+    ]);
   });
 
   it('reports a corrupt file instead of showing the org as having nothing pending', () => {
@@ -219,6 +239,53 @@ describe('org-hil with a running org (daemon registered in the broker)', () => {
     }
   });
 
+  it('ignores a same-named org hosted by a daemon in another project', async () => {
+    writeOrgFile('gates.json', { gates: [pendingGate] });
+    writeOperatorCredential(ORG, 'op-cred', operatorDir);
+    const other = mkdtempSync(join(tmpdir(), 'org-hil-other-'));
+    const d = await fakeDaemon(undefined, other);
+    try {
+      await expect(hil.sendHumanMessage(root, ORG, 'boss', 'hi')).resolves.toEqual({
+        delivery: 'queued',
+      });
+      await expect(hil.resolveGate(root, ORG, 'gate-1', true)).resolves.toEqual({
+        delivery: 'recorded',
+      });
+      expect(d.calls).toEqual([]);
+    } finally {
+      await d.close();
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  it('uses the daemon registered for this project root', async () => {
+    writeOrgFile('gates.json', { gates: [pendingGate] });
+    writeOperatorCredential(ORG, 'op-cred', operatorDir);
+    const d = await fakeDaemon(undefined, root);
+    try {
+      await expect(hil.resolveGate(root, ORG, 'gate-1', true)).resolves.toEqual({
+        delivery: 'live',
+      });
+      expect(d.calls).toHaveLength(1);
+    } finally {
+      await d.close();
+    }
+  });
+
+  it("reports the daemon's receipt when it refuses a chat message", async () => {
+    writeOperatorCredential(ORG, 'op-cred', operatorDir);
+    const d = await fakeDaemon({
+      status: 404,
+      body: { ok: false, receipt: 'ERROR: unknown recipient "ghost"' },
+    });
+    try {
+      const err = await hil.sendHumanMessage(root, ORG, 'ghost', 'hi').catch((e: Error) => e);
+      expect(hil.hilErrorStatus(err).error).toContain('unknown recipient');
+    } finally {
+      await d.close();
+    }
+  });
+
   it("surfaces the daemon's rejection instead of writing a file the daemon would overwrite", async () => {
     writeOrgFile('gates.json', { gates: [pendingGate] });
     writeOperatorCredential(ORG, 'stale-cred', operatorDir);
@@ -240,18 +307,25 @@ describe('org-hil with a running org (daemon registered in the broker)', () => {
 });
 
 describe('org-hil with no running org', () => {
-  it('records an approval in approvals.json with who decided', async () => {
+  it('refuses an approval (409): nothing reads approvals.json back, the request ended with its run', async () => {
     writeOrgFile('approvals.json', { approvals: [pendingApproval] });
-    await expect(hil.resolveApproval(root, ORG, 'apr-1', false)).resolves.toEqual({
-      delivery: 'recorded',
+    const err = await hil.resolveApproval(root, ORG, 'apr-1', false).catch((e: Error) => e);
+    expect(hil.hilErrorStatus(err)).toMatchObject({
+      status: 409,
+      error: expect.stringContaining('not running'),
     });
-    expect(readOrgFile('approvals.json').approvals[0]).toMatchObject({
-      approved: false,
-      resolvedBy: hil.DASHBOARD_RESOLVER,
-      resolvedAt: expect.any(Number),
-    });
-    const again = await hil.resolveApproval(root, ORG, 'apr-1', true).catch((e: Error) => e);
-    expect(hil.hilErrorStatus(again).status).toBe(409);
+    expect(readOrgFile('approvals.json').approvals[0].approved).toBeNull();
+  });
+
+  it('never writes through a link planted where its temp file goes', async () => {
+    writeOrgFile('gates.json', { gates: [pendingGate] });
+    const victim = join(root, 'victim.txt');
+    writeFileSync(victim, 'untouched');
+    symlinkSync(victim, join(orgDir(), `gates.json.${process.pid}.tmp`));
+    await hil.resolveGate(root, ORG, 'gate-1', true);
+    expect(readFileSync(victim, 'utf8')).toBe('untouched');
+    expect(readOrgFile('gates.json').gates[0].status).toBe('approved');
+    expect(existsSync(join(orgDir(), 'gates.json'))).toBe(true);
   });
 
   it('records a gate resolution in gates.json', async () => {
@@ -352,20 +426,28 @@ describe('HIL routes', () => {
       null,
       ctx(),
     );
+    // no daemon hosts the org, so nothing is waiting on it any more
     expect(JSON.parse(res.body)).toMatchObject({
-      pending: 1,
-      approvals: [{ id: 'apr-1', status: 'pending' }],
+      pending: 0,
+      approvals: [{ id: 'apr-1', status: 'expired' }],
     });
   });
 
   it('POST approvals/:id and gates/:id resolve and announce the decision', async () => {
     writeOrgFile('approvals.json', { approvals: [pendingApproval] });
     writeOrgFile('gates.json', { gates: [pendingGate] });
+    writeOperatorCredential(ORG, 'op-cred', operatorDir);
+    const d = await fakeDaemon(undefined, root);
     events.length = 0;
-    expect(await post(`/api/org/${ORG}/approvals/apr-1`, { action: 'approve' })).toEqual({
-      status: 200,
-      body: { ok: true, status: 'approved', delivery: 'recorded' },
-    });
+    try {
+      expect(await post(`/api/org/${ORG}/approvals/apr-1`, { action: 'approve' })).toEqual({
+        status: 200,
+        body: { ok: true, status: 'approved', delivery: 'live' },
+      });
+    } finally {
+      await d.close();
+      unregisterOrg(ORG, brokerDir);
+    }
     expect(
       await post(`/api/org/${ORG}/gates/gate-1`, { approved: false, resolution: 'no' }),
     ).toMatchObject({
@@ -379,5 +461,44 @@ describe('HIL routes', () => {
     expect(await post(`/api/org/${ORG}/approvals/nope`, { action: 'approve' })).toMatchObject({
       status: 404,
     });
+  });
+
+  async function rawPost(url: string, chunks: Array<string | Buffer>, abort = false) {
+    const req: any = {
+      method: 'POST',
+      url,
+      destroy() {},
+      async *[Symbol.asyncIterator]() {
+        for (const c of chunks) yield c;
+        if (abort) throw Object.assign(new Error('aborted'), { code: 'ECONNRESET' });
+      },
+    };
+    const res = makeRes();
+    expect(await handleOrgRoutes(req, res, url.split('?')[0], null, ctx())).toBe(true);
+    return { status: res.statusCode, body: res.body ? JSON.parse(res.body) : null };
+  }
+
+  it('answers 400 for a malformed id instead of throwing out of the handler', async () => {
+    for (const u of [`/api/org/${ORG}/gates/%E0%A4%A`, `/api/org/${ORG}/approvals/%ZZ`])
+      expect(await post(u, { approved: true, action: 'approve' })).toMatchObject({ status: 400 });
+  });
+
+  it('answers 400 when the client aborts mid-body, and 413 for an oversized body', async () => {
+    expect(await rawPost(`/api/org/${ORG}/gates/gate-1`, ['{"appr'], true)).toMatchObject({
+      status: 400,
+    });
+    expect(
+      await rawPost(`/api/org/${ORG}/gates/gate-1`, ['{"resolution":"', 'x'.repeat(70000), '"}']),
+    ).toMatchObject({ status: 413 });
+  });
+
+  it('keeps a multi-byte character split across chunks intact', async () => {
+    writeOrgFile('gates.json', { gates: [pendingGate] });
+    const buf = Buffer.from(JSON.stringify({ approved: true, resolution: 'ok \u2713 ship' }));
+    const cut = buf.indexOf(Buffer.from('\u2713')) + 1;
+    expect(
+      await rawPost(`/api/org/${ORG}/gates/gate-1`, [buf.subarray(0, cut), buf.subarray(cut)]),
+    ).toMatchObject({ status: 200 });
+    expect(readOrgFile('gates.json').gates[0].resolution).toBe('ok \u2713 ship');
   });
 });

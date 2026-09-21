@@ -4498,7 +4498,13 @@ async function renderHumanInputView() {
 let _hiReloadTimer = null;
 function _hiScheduleReload() {
   clearTimeout(_hiReloadTimer);
-  _hiReloadTimer = setTimeout(renderHumanInputView, 400);
+  _hiReloadTimer = setTimeout(() => {
+    // The reload rebuilds the list; wait while an answer or note is being typed.
+    const typing = [...document.querySelectorAll('#hi-content .hi-answer-input')]
+      .some(i => i === document.activeElement || i.value.trim());
+    if (typing) _hiScheduleReload();
+    else renderHumanInputView();
+  }, 400);
 }
 
 function _hiSwitchTab(tab) {
@@ -8041,6 +8047,7 @@ window.odtSendChatMessage = async () => {
     }
   } catch(e) {
     inp.value = text;
+    showToast('Not delivered', e.message, 'err');
   } finally {
     btn.disabled = false;
     inp.focus();
@@ -8788,7 +8795,7 @@ async function v2RenderOrgRuntime() {
   const statusSub = v.live
     ? `${esc(v.run || '')}${v.startedAt ? ` · up ${fmtDur(Date.now() - v.startedAt)}` : ''}`
     : `${esc(v.run || 'no run yet')}${v.closedBy ? ` · ${esc(_RT_CLOSED_BY[v.closedBy] || v.closedBy)}` : ''}`;
-  let idle = '—', idleSub = s.idle_minutes === 0 ? 'watchdog disabled' : `window ${s.idle_minutes}m`;
+  let idle = '—', idleSub = s.idle_minutes === 0 ? 'watchdog disabled' : `window ${esc(s.idle_minutes)}m`;
   if (v.idle) {
     if (v.idle.idle_hold && v.idle.idle_hold !== 'unknown') {
       idle = `held: ${esc(v.idle.idle_hold)}`;
@@ -8805,7 +8812,7 @@ async function v2RenderOrgRuntime() {
   const budgetSub = `${esc(b.basis)} basis${pct !== null ? ` · ${pct.toFixed(1)}%` : ''}${budgetWhy} · ${fmtCost(v.totals?.cost_usd)}`;
   const gate = s.completion_evidence ? 'evidence required' : 'off';
   const gateSub = s.completion_evidence
-    ? `escalate after ${s.max_evidence_attempts} refusals · org_complete: ${esc(s.completion)}`
+    ? `escalate after ${esc(s.max_evidence_attempts)} refusals · org_complete: ${esc(s.completion)}`
     : `org_complete gate: ${esc(s.completion)}`;
 
   let html = '<div style="padding:16px">';
@@ -8816,7 +8823,7 @@ async function v2RenderOrgRuntime() {
     ${_rtCard('IDLE WATCHDOG', idle, idleSub)}
     ${_rtCard('BUDGET (THIS RUN)', budget, budgetSub)}
     ${_rtCard('COMPLETION GATE', gate, gateSub)}
-    ${_rtCard('SESSIONS', `per ${esc(s.session_scope)}`, `workspace: ${esc(s.workspace)} · max ${s.max_concurrent_agents} agents`)}
+    ${_rtCard('SESSIONS', `per ${esc(s.session_scope)}`, `workspace: ${esc(s.workspace)} · max ${esc(s.max_concurrent_agents)} agents`)}
   </div>`;
 
   // Roles
@@ -8848,7 +8855,7 @@ async function v2RenderOrgRuntime() {
       `<span style="color:var(--text-hi)">${esc(t.title || t.id)}</span><div style="font-size:10px;color:var(--text-xs)">${esc(t.id)}</div>`,
       esc(t.assignee || '—'),
       `<span class="ss-pill ${t.status === 'done' ? 'on' : t.status === 'failed' || t.status === 'blocked' ? 'warn' : ''}">${esc(t.status)}</span>`,
-      t.evidenceFailures ? `<span style="color:${t.evidenceFailures >= s.max_evidence_attempts ? 'var(--red)' : 'var(--amber, #d29922)'}">${t.evidenceFailures} / ${s.max_evidence_attempts}</span>` : '—',
+      t.evidenceFailures ? `<span style="color:${t.evidenceFailures >= s.max_evidence_attempts ? 'var(--red)' : 'var(--amber, #d29922)'}">${esc(t.evidenceFailures)} / ${esc(s.max_evidence_attempts)}</span>` : '—',
       esc(t.loadout || '—'),
       t.blockedUntil ? `until ${_rtClock(t.blockedUntil)}${t.blockedReason ? ` — ${esc(t.blockedReason)}` : ''}` : '—',
     ]), 'No task graph for this run (the boss has not used org_task)');
@@ -8872,7 +8879,7 @@ async function v2RenderOrgRuntime() {
       h.outcome
         ? `<span class="ss-pill ${h.outcome.status === 'achieved' ? 'on' : 'warn'}">${esc(h.outcome.status)}</span>${h.blocker ? ` blocker: ${esc(h.blocker)}` : ''}<div style="font-size:11px;color:var(--text-lo);max-width:320px;white-space:pre-wrap;max-height:80px;overflow:auto">${esc(h.blockerDetail || h.outcome.summary || '')}</div>`
         : '<span style="color:var(--text-xs)">none claimed</span>',
-      h.runnableTasksAtStop ? `<span style="color:var(--amber, #d29922)">${h.runnableTasksAtStop}</span>` : '0',
+      h.runnableTasksAtStop ? `<span style="color:var(--amber, #d29922)">${esc(h.runnableTasksAtStop)}</span>` : '0',
       mono(_rtTok(h.totalTokens)),
       mono(fmtCost(h.totalCostUsd)),
     ]), 'No finished runs yet');

@@ -29,20 +29,40 @@ function hilRoot(req, ctx) {
   return path.resolve(dir || ctx.projectDir || process.cwd());
 }
 
-/** JSON body (≤64KB); null when absent or malformed. */
+const HIL_BODY_MAX = 65536;
+
+/** JSON body (≤64KB); null when malformed. Call inside hilRespond: an
+ *  oversized body throws 413 and an aborted upload 400, instead of an
+ *  unhandled rejection that would take the dashboard process down. Bytes are
+ *  decoded once at the end, so a character split across chunks survives. */
 async function readHilBody(req) {
-  let body = '';
-  for await (const chunk of req) {
-    body += chunk;
-    if (body.length > 65536) {
-      req.destroy();
-      return null;
-    }
-  }
+  const chunks = [];
+  let size = 0;
   try {
-    return JSON.parse(body || '{}');
+    // Past the cap, keep draining (without keeping) so the 413 still reaches
+    // the client — leaving the iterator early destroys the socket.
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size <= HIL_BODY_MAX) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+  } catch (err) {
+    throw Object.assign(new Error(`request body not received: ${err.message}`), { status: 400 });
+  }
+  if (size > HIL_BODY_MAX)
+    throw Object.assign(new Error('request body is over 64KB'), { status: 413 });
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
   } catch (_) {
     return null;
+  }
+}
+
+/** decodeURIComponent for a path segment; a malformed escape is a 400. */
+function decodeHilSegment(seg) {
+  try {
+    return decodeURIComponent(seg);
+  } catch (_) {
+    throw Object.assign(new Error(`malformed path segment: ${seg}`), { status: 400 });
   }
 }
 
@@ -1094,7 +1114,12 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       ).length;
       const activeTasks = v.tasks.filter((t) => t.status === 'running').length;
       const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const week = v.history.filter((h) => (h.endedAt || 0) >= weekAgo);
+      // A resumed run keeps its run id and appends a history line per stop:
+      // count each run once, by its latest line (history is newest first).
+      const seenRuns = new Set();
+      const week = v.history.filter(
+        (h) => (h.endedAt || 0) >= weekAgo && !seenRuns.has(h.run) && seenRuns.add(h.run),
+      );
       // Only a boss's gate-checked org_complete with 'achieved' counts as success.
       const achieved = week.filter(
         (h) => h.closedBy === 'org-complete' && h.outcome?.status === 'achieved',
@@ -1385,9 +1410,9 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   // same OrgDefSchema parse `org run` does.
   if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/config$/i)) {
     const orgName = decodeURIComponent(url.split('/')[3]);
-    const body = await readHilBody(req);
     const root = hilRoot(req, ctx);
-    return hilRespond(res, corsOrigin, () => {
+    return hilRespond(res, corsOrigin, async () => {
+      const body = await readHilBody(req);
       if (!body || typeof body !== 'object')
         throw Object.assign(new Error('JSON body required'), { status: 400 });
       try {
@@ -1500,16 +1525,14 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   // POST /api/questions/answer { dir, org, questionId, answer } — live to the
   // hosting daemon (operator credential), else queued for the org's next run.
   if (req.method === 'POST' && url === '/api/questions/answer') {
-    const body = await readHilBody(req);
-    const { org, questionId, answer } = body || {};
-    if (!validOrgName(org) || !questionId || typeof answer !== 'string' || !answer.trim())
-      return hilRespond(res, corsOrigin, () => {
+    return hilRespond(res, corsOrigin, async () => {
+      const body = await readHilBody(req);
+      const { org, questionId, answer } = body || {};
+      if (!validOrgName(org) || !questionId || typeof answer !== 'string' || !answer.trim())
         throw Object.assign(new Error('org, questionId and a non-empty answer are required'), {
           status: 400,
         });
-      });
-    const root = path.resolve(body.dir || ctx.projectDir || process.cwd());
-    return hilRespond(res, corsOrigin, async () => {
+      const root = path.resolve(body.dir || ctx.projectDir || process.cwd());
       const r = await hil.answerQuestion(root, org, String(questionId), answer.trim());
       hilEvent(ctx, root, {
         type: 'org:question-answered',
@@ -1530,14 +1553,14 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   ) {
     const parts = url.split('?')[0].split('/');
     const orgName = decodeURIComponent(parts[3]);
-    const gateId = decodeURIComponent(parts[5]);
-    const body = await readHilBody(req);
-    const resolution =
-      typeof body?.resolution === 'string' && body.resolution.trim()
-        ? body.resolution.trim().slice(0, 4000)
-        : undefined;
     const root = hilRoot(req, ctx);
     return hilRespond(res, corsOrigin, async () => {
+      const gateId = decodeHilSegment(parts[5]);
+      const body = await readHilBody(req);
+      const resolution =
+        typeof body?.resolution === 'string' && body.resolution.trim()
+          ? body.resolution.trim().slice(0, 4000)
+          : undefined;
       if (typeof body?.approved !== 'boolean')
         throw Object.assign(new Error('approved (boolean) is required'), { status: 400 });
       const r = await hil.resolveGate(root, orgName, gateId, body.approved, resolution);
@@ -1561,10 +1584,10 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   ) {
     const parts = url.split('?')[0].split('/');
     const orgName = decodeURIComponent(parts[3]);
-    const requestId = decodeURIComponent(parts[5]);
-    const body = await readHilBody(req);
     const root = hilRoot(req, ctx);
     return hilRespond(res, corsOrigin, async () => {
+      const requestId = decodeHilSegment(parts[5]);
+      const body = await readHilBody(req);
       if (body?.action !== 'approve' && body?.action !== 'reject')
         throw Object.assign(new Error('action must be approve or reject'), { status: 400 });
       const approved = body.action === 'approve';
