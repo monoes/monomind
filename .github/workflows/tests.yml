@@ -293,6 +293,17 @@ jobs:
         shell: bash
         run: pnpm install --no-frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."
 
+      # The install above pulls the workspace siblings in, but a sibling's
+      # "types"/"main" point at dist/, which only exists once it is built. hooks
+      # resolves monofence-ai and monodesign resolves monobrowse this way since
+      # those edges moved to workspace:*; without this the monofence security
+      # hooks register zero guards and executor-security-wiring fails with
+      # "expected 0 to be greater than 0". A package with no workspace
+      # dependencies matches nothing here and exits 0.
+      - name: Build ${{ matrix.name }}'s workspace dependencies
+        shell: bash
+        run: pnpm --filter "${{ matrix.pkg }}^..." run build
+
       # Deliberately shell: cmd. This is the step that proves the build scripts
       # are portable, so it must run through the shell that used to break them
       # rather than through git-bash, where POSIX commands would have worked and
@@ -418,14 +429,27 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
 
-      # cli imports @monoes/hooks, @monoes/memory and @monoes/monograph as
-      # workspace:* deps whose "types"/"main" point at dist/ — the symlink pnpm
-      # creates is not enough, tsc needs those dist/ declarations to exist.
-      # Only cli needs this: it's the only matrix package importing siblings
-      # that aren't already built by their own matrix job before this one runs.
-      - name: Build cli's workspace dependencies
-        if: matrix.name == 'cli'
-        run: pnpm --filter "@monoes/monomindcli^..." run build
+      # A workspace:* dep's "types"/"main" point at dist/, and the symlink pnpm
+      # creates is not enough — tsc needs those dist/ declarations to exist.
+      #
+      # Build each package's workspace dependencies before its own build/test.
+      #
+      # This was `if: matrix.name == 'cli'`, on the reasoning that cli was the
+      # only matrix package importing siblings not already built by their own
+      # job. That stopped being true when the five registry-range sibling
+      # edges were converted to workspace:* — hooks now resolves monofence-ai
+      # and monodesign resolves monobrowse from the workspace rather than from
+      # a prebuilt tarball on npm, so both need their dependencies built here.
+      # hooks failed exactly this way: its monofence security hooks registered
+      # zero guards, and executor-security-wiring asserted "expected 0 to be
+      # greater than 0".
+      #
+      # Filtering by directory rather than package name reuses matrix.dir, so a
+      # package added to the matrix is covered without a second edit. A package
+      # with no workspace dependencies prints "No projects matched the filters"
+      # and exits 0, which is why this is unconditional.
+      - name: Build ${{ matrix.name }}'s workspace dependencies
+        run: pnpm --filter "{${{ matrix.dir }}}^..." run build
 
       # Build before testing: some suites exercise build OUTPUT rather than
       # source — the CLI's knowledge-endpoint test loads dist/src/ui/server.mjs
