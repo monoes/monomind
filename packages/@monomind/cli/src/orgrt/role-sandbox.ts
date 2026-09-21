@@ -35,7 +35,14 @@ import { homedir, tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join } from 'node:path';
 import type { OrgBus } from './bus.js';
 import { CLI_SANDBOX_MODES } from './cli-sandbox.js';
-import { DAEMON_SOCKETS, HOME_DENY_READ, HOME_DENY_WRITE, runtimeDir } from './file-roots.js';
+import {
+  DAEMON_SOCKETS,
+  dashboardCredentialPaths,
+  HOME_DENY_READ,
+  HOME_DENY_WRITE,
+  operatorDirOverride,
+  runtimeDir,
+} from './file-roots.js';
 import {
   type GitGuard,
   type GitLevel,
@@ -162,6 +169,7 @@ export function buildClaudeRestrictions(
 ): ClaudeRestrictions {
   const home = ctx.home ?? homedir();
   const tmp = ctx.tmp ?? tmpdir();
+  const env = ctx.env ?? process.env;
   const unixSockets = cfg?.allowUnixSockets ?? true;
   const gitDirs = guard.protectedGitDirs;
   const lockedRepo = guard.level === 'read' || guard.level === 'none';
@@ -174,6 +182,16 @@ export function buildClaudeRestrictions(
         : [rule('Edit', join(d, 'config')), rule('Edit', `${join(d, 'hooks')}/**`)],
     ),
     ...(guard.level === 'none' ? gitDirs.map((d) => rule('Read', `${d}/**`)) : []),
+    // Human-authority credentials: the dashboard token in the project's
+    // .monomind/ and the operator credentials (file-roots.ts).
+    ...uniq([ctx.cwd, ctx.orgRoot]).flatMap((r) => [
+      rule('Read', join(r, '.monomind', 'dashboard-token*')),
+      rule('Edit', join(r, '.monomind', 'dashboard-token*')),
+    ]),
+    ...uniq([join(home, '.monomind', 'orgrt-operator'), operatorDirOverride(env)]).flatMap((d) => [
+      rule('Read', `${d}/**`),
+      rule('Edit', `${d}/**`),
+    ]),
   ];
   if (!sandboxEnabled) return { disallowedTools };
 
@@ -199,8 +217,10 @@ export function buildClaudeRestrictions(
       ]),
       denyRead: existing([
         ...(guard.level === 'none' ? gitDirs : []),
-        runtimeDir(ctx.env ?? process.env),
-        ...(unixSockets ? agentSocketPaths(home, ctx.env ?? process.env, tmp) : []),
+        runtimeDir(env),
+        ...(unixSockets ? agentSocketPaths(home, env, tmp) : []),
+        ...dashboardCredentialPaths([ctx.cwd, ctx.orgRoot]),
+        operatorDirOverride(env),
       ]),
     },
     credentials: {

@@ -109,6 +109,40 @@ describe('buildClaudeRestrictions', () => {
     expect(r.disallowedTools).toEqual(expect.arrayContaining([`Edit(/${gitDir}/**)`, `Edit(/${guard.dir}/**)`]));
   });
 
+  it('keeps human-authority credentials (dashboard token, operator credentials) from Bash and the file tools', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const c = ctx(repo, base);
+    mkdirSync(join(base, '.monomind'));
+    writeFileSync(join(base, '.monomind', 'dashboard-token'), 'tok');
+    writeFileSync(join(base, '.monomind', 'dashboard-token-4261'), 'tok');
+    writeFileSync(join(base, '.monomind', 'control.json'), '{}');
+    mkdirSync(join(home, '.monomind', 'orgrt-operator'), { recursive: true });
+    const r = buildClaudeRestrictions(guard, undefined, c, true);
+    const sb = r.sandbox as any;
+    expect(sb.filesystem.denyRead).toEqual(
+      expect.arrayContaining([
+        join(base, '.monomind', 'dashboard-token'),
+        join(base, '.monomind', 'dashboard-token-4261'),
+      ]),
+    );
+    expect(sb.filesystem.denyRead).not.toContain(join(base, '.monomind', 'control.json'));
+    expect(sb.credentials.files).toContainEqual({
+      path: join(home, '.monomind', 'orgrt-operator'),
+      mode: 'deny',
+    });
+    expect(r.disallowedTools).toEqual(
+      expect.arrayContaining([
+        `Read(/${join(base, '.monomind', 'dashboard-token*')})`,
+        `Read(/${join(repo, '.monomind', 'dashboard-token*')})`,
+        `Read(/${join(home, '.monomind', 'orgrt-operator')}/**)`,
+      ]),
+    );
+    // The file-tool rules hold without the OS sandbox too.
+    const noSandbox = buildClaudeRestrictions(guard, undefined, c, false);
+    expect(noSandbox.disallowedTools).toContain(`Read(/${join(base, '.monomind', 'dashboard-token*')})`);
+  });
+
   it('never denies a path that does not exist (the sandbox would make a missing ~/.gitconfig fatal to git)', () => {
     const { base, repo, gitDir } = scratchRepo();
     const guard = prepareGitGuard({ level: 'read', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
