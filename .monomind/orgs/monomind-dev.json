@@ -51,6 +51,12 @@
         "SOURCE FILE. When an item reaches 'done', tick its checkbox in the source file (`- [ ]` → `- [x]`); when it is skipped or blocked, append ` — skipped: <one-line reason>` or ` — blocked: <reason>` to that line. Touch nothing else in the file. If the source file is tracked by git inside REPO, do not commit that edit — leave it for the owner, and say so in REPORT.md.",
         "FINISH only when every item is done, skipped or blocked (or a real external blocker stops ALL remaining work: name it). Running low on ideas, a long queue, a good stopping point, or a finished report are NOT reasons to stop — dispatch the next item. org_complete needs the owner's approval (it is deliberately not auto-approved): call it only at the true end; if the owner denies it, read their reason and continue. Then ask verifier for the FINAL GATE on local main (full suite, see its duties) and dispatch fixes for any regression as new items. Write $RUN/REPORT.md, at most ~150 lines: a 5-line summary; one table row per item (id, state, value, merge SHA, one-line reason); the final gate result; remaining risks as bullets; the owner's uncommitted files you left alone; the reminder that the owner must run `git worktree prune` afterwards (sandboxed roles cannot, issue #301). Org-runtime problems hit this run (crash, lost context, policy misfire, misleading log) are drafted as GitHub issues in $RUN/issues/<n>.md — first check the open issues with `curl -s 'https://api.github.com/repos/monoes/monomind/issues?state=open&per_page=100'` and do not duplicate #297–#304. Ask integrator to remove every leftover worktree under work/ and prune; empty {{home}}/mdev-tmp of this run's dirs. Then org_complete with outcome achieved (all done or reasoned skip) or partial (anything blocked), the REPORT.md path, and the item table."
       ],
+      "skills": [
+        "task-orchestrator"
+      ],
+      "skill_pool": [
+        "writing-plans"
+      ],
       "title": "Development Lead",
       "type": "boss",
       "ui": {
@@ -90,6 +96,9 @@
         "Be decisive and honest: skipping a weak feature is a good outcome. Never SKIP an item only because it is hard. Record each verdict with a 2-4 sentence reason the owner can read in the report.",
         "ACCEPTANCE (after verifier and reviewer pass): use the feature exactly as a user would, with the CLI built in WT (`node packages/@monomind/cli/bin/cli.js ...`) in a scratch project under {{home}}/mdev-tmp/<item-id>-accept with HOME={{home}}/mdev-tmp/<item-id>-home. Run every acceptance criterion; judge output clarity, defaults, error messages for wrong input, help text, and whether docs match. Verdict ACCEPT, REVISE (numbered, concrete user-facing fixes) or DROP (built, but not worth shipping — explain). Save the transcript to $RUN/evidence/<item-id>-acceptance.md; its first line is `VERDICT: ACCEPT|REVISE|DROP <full SHA>`."
       ],
+      "skills": [
+        "product-manager"
+      ],
       "title": "Product Evaluator (end-user value)",
       "type": "specialist",
       "ui": {
@@ -128,6 +137,16 @@
         "TRIAGE (per item): check first whether it already exists or is already fixed (monograph + read the code + run the current CLI); whether it duplicates another item; who benefits, how often, and what breaks or stays painful without it; effort and risk (blast radius via monograph_impact, new dependencies, maintenance burden, extra surface to document). Verdict: BUILD, RESHAPE (give the smaller or different version that delivers the value), SKIP (low value, speculative, cosmetic churn, adds configuration nobody asked for, or cost clearly outweighs benefit), DUPLICATE or ALREADY-DONE (with proof). Bugs that users can hit are BUILD unless you cannot reproduce them — then SKIP with the failed reproduction. Give value 1-5, confidence 0-1, effort S/M/L, and ACCEPTANCE CRITERIA written as observable user behavior (commands to run and what the user should see).",
         "Be decisive and honest: skipping a weak feature is a good outcome. Never SKIP an item only because it is hard. Record each verdict with a 2-4 sentence reason the owner can read in the report.",
         "ACCEPTANCE (after verifier and reviewer pass): use the feature exactly as a user would, with the CLI built in WT (`node packages/@monomind/cli/bin/cli.js ...`) in a scratch project under {{home}}/mdev-tmp/<item-id>-accept with HOME={{home}}/mdev-tmp/<item-id>-home. Run every acceptance criterion; judge output clarity, defaults, error messages for wrong input, help text, and whether docs match. Verdict ACCEPT, REVISE (numbered, concrete user-facing fixes) or DROP (built, but not worth shipping — explain). Save the transcript to $RUN/evidence/<item-id>-acceptance.md; its first line is `VERDICT: ACCEPT|REVISE|DROP <full SHA>`."
+      ],
+      "skills": [
+        "system-architect",
+        "monograph-code-navigation"
+      ],
+      "skill_pool": [
+        "architecture-patterns",
+        "architecture-decision-records",
+        "writing-plans",
+        "monolean-minimal-change"
       ],
       "title": "Technical Architect / Planner",
       "type": "specialist",
@@ -171,6 +190,17 @@
         "REPORT to dev-lead: item id, WT path, branch, HEAD SHA, commits, the failing-then-passing test evidence, the checks run with log paths, docs changed, and anything in the plan you had to deviate from and why. If the plan is wrong or the item is blocked by a real product decision, stop and report with evidence instead of guessing.",
         "REVISIONS: fix each numbered issue from verifier / reviewer / product-evaluator in new commits (never amend or rebase commits already reviewed), re-run the checks, and report the new SHA with a per-issue resolution."
       ],
+      "skills": [
+        "coder",
+        "monograph-code-navigation",
+        "monolean-minimal-change"
+      ],
+      "skill_pool": [
+        "test-driven-development",
+        "systematic-debugging",
+        "verification-before-completion",
+        "typescript-pro"
+      ],
       "title": "Developer 1",
       "type": "specialist",
       "ui": {
@@ -212,6 +242,17 @@
         "BEFORE REPORTING: in WT run the affected packages' tests (`pnpm --filter <pkg> test`), `pnpm run lint`, `pnpm run typecheck`, and `pnpm -r run build` if you touched build inputs; all logged. Commit in small logical commits with `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com git -C WT commit` (conventional type(scope): subject; body says what changed and why; NO trailers).",
         "REPORT to dev-lead: item id, WT path, branch, HEAD SHA, commits, the failing-then-passing test evidence, the checks run with log paths, docs changed, and anything in the plan you had to deviate from and why. If the plan is wrong or the item is blocked by a real product decision, stop and report with evidence instead of guessing.",
         "REVISIONS: fix each numbered issue from verifier / reviewer / product-evaluator in new commits (never amend or rebase commits already reviewed), re-run the checks, and report the new SHA with a per-issue resolution."
+      ],
+      "skills": [
+        "coder",
+        "monograph-code-navigation",
+        "monolean-minimal-change"
+      ],
+      "skill_pool": [
+        "test-driven-development",
+        "systematic-debugging",
+        "verification-before-completion",
+        "typescript-pro"
       ],
       "title": "Developer 2",
       "type": "specialist",
@@ -255,6 +296,15 @@
         "FINAL GATE when dev-lead asks: in a fresh detached worktree of main at $REPO/.monomind/orgs/monomind-dev/work/_final (create it with `git -C REPO worktree add --detach`, remove it after): `pnpm install --frozen-lockfile`, `pnpm -r run build`, lint, typecheck, `pnpm run test:all:run`, `pnpm run test:security`, plus the static gates above. Compare against the baseline you record at the start of the run on the same commands, so regressions introduced by this run are separated from pre-existing failures.",
         "Write the item verdict to $RUN/evidence/<item-id>-verify.md: first line `VERDICT: PASS|FAIL <full SHA>`, then the check table. Report per check with the COMMON RULES format, a verdict PASS/FAIL, and for every FAIL a numbered issue with minimal repro, expected vs actual and log path. Remove every scratch worktree you create."
       ],
+      "skills": [
+        "tester",
+        "verification-before-completion"
+      ],
+      "skill_pool": [
+        "monograph-code-navigation",
+        "systematic-debugging",
+        "test-driven-development"
+      ],
       "title": "Test & Verification Engineer",
       "type": "specialist",
       "ui": {
@@ -293,6 +343,14 @@
         "Scope and quality: every changed line traces to the item; no speculative features, flags or abstractions; no unrelated refactors or formatting churn; no dead code or debug logs; files stay under 500 lines; style matches surrounding code; public APIs are typed. Tests: a test that fails without the fix, meaningful assertions (not just exit codes), no weakened/skipped/deleted tests, no suppressions. Docs: every user-visible change documented and accurate; skill trees in sync.",
         "PROVENANCE: every commit in main..HEAD authored and committed as nokhodian <nokhodian@gmail.com>, conventional subject, no Co-Authored-By / Claude-Session / 'Generated with' trailers; `git -C REPO config --local --get user.name` prints nothing.",
         "Write the verdict to $RUN/evidence/<item-id>-review.md: first line `VERDICT: APPROVE|REJECT <full SHA>`. Verdict APPROVE or REJECT with numbered findings, each with file:line, severity (blocker/major/minor), and the concrete fix. Only blockers and majors block; minors are listed for the developer to take in the same round when cheap. Never approve on trust — read the code."
+      ],
+      "skills": [
+        "reviewer",
+        "monograph-code-navigation"
+      ],
+      "skill_pool": [
+        "code-reviewer",
+        "security-review"
       ],
       "title": "Code Reviewer",
       "type": "specialist",
@@ -335,6 +393,14 @@
         "CLEANUP after a successful merge: `git -C REPO worktree remove .monomind/orgs/monomind-dev/work/<item-id>`, `git -C REPO branch -d dev/<item-id>`, `git -C REPO worktree prune`. For a DROPPED item: remove the worktree and `git -C REPO branch -D dev/<item-id>` only when dev-lead says so. For a BLOCKED item: remove the worktree, keep the branch.",
         "PROVENANCE before every fast-forward: `git -C REPO log --format='%h %an <%ae> / %cn <%ce> %s' main..dev/<item-id>` must be all nokhodian with no forbidden trailers; otherwise refuse and report.",
         "Keep $RUN/logs/integrator/merges.log: item, reviewed SHA, merged SHA, new main SHA, UTC time."
+      ],
+      "skills": [
+        "release-manager"
+      ],
+      "skill_pool": [
+        "finishing-a-development-branch",
+        "using-git-worktrees",
+        "verification-before-completion"
       ],
       "title": "Integrator (local main)",
       "type": "specialist",

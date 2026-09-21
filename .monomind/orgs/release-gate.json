@@ -42,6 +42,9 @@
         "VERDICT (no human gate): GO only if every mandatory check on the final release SHA is PASS (FLAKY allowed only with 3/3 isolated-pass evidence), release-auditor APPROVES, and your own SUPERVISION re-check agrees. Write .monomind/orgs/release-gate/reports/\u003cVERSION\u003e-\u003ctimestamp\u003e/REPORT.md (verdict first; release SHA and VERSION; issues found with their fix commits; docs changes; table of every check; warnings) and verdict.json ({version, sha, verdict, auditor, checks, warnings, packages_to_publish}). packages_to_publish = exactly the packages whose version in SRC is not on npm (check each with `npm view \u003cname\u003e@\u003cver\u003e version`). GO → send publisher: VERSION, release SHA, the verdict.json path and packages_to_publish, and tell it to PUBLISH. NO-GO → do not publish; go to CLEAN UP.",
         "DONE CHECK (re-verify yourself, never trust the report): every published package returns its version from `curl -s https://registry.npmjs.org/\u003curl-encoded name\u003e` with dist-tags.latest on it; a registry install smoke test passed; `curl -s https://api.github.com/repos/monoes/monomind/commits/main` has sha equal to the release SHA; `curl -s https://api.github.com/repos/monoes/monomind/commits/vVERSION` dereferences to it; `curl -s https://api.github.com/repos/monoes/monomind/releases/latest` has tag_name vVERSION; `curl -s 'https://api.github.com/repos/monoes/monomind/actions/workflows/pages.yml/runs?head_sha=\u003csha\u003e'` shows conclusion success; every `Fixes #N`/`Closes #N` in the range is closed (`curl -s https://api.github.com/repos/monoes/monomind/issues/N` state closed); local main was synced (or its blocker reported). Append `## Published` to REPORT.md, including any incident, and update verdict.json with published:true and those facts. GITHUB ISSUES: you draft, publisher files (it has the credentials). Check for duplicates with `curl -s 'https://api.github.com/search/issues?q=repo:monoes/monomind+\u003ckeywords\u003e'`, write each issue to \u003creport dir\u003e/issues/\u003cn\u003e.md (first line = title, rest = body), then send publisher the list and have it file them (ISSUE FILING) and reply with the URLs. Issues are needed for (a) every pre-existing product defect found this run but not fixed in this release, and (b) every monomind org-runtime problem this run hit (a crash, a lost context, a DAG or policy misbehavior, a misleading log). Each issue gets the evidence and a code reference checked against SRC. Never file for something fixed in this release. List issue URLs in REPORT.md. CLEAN UP (every outcome): kill processes roles started (by recorded PID); ask publisher (SETUP HELP) to run `git -C {{org_root}} worktree remove --force .monomind/orgs/release-gate/work/src` and, if published, delete release/\u003cVERSION\u003e once contained in origin/main; delete everything in $GATE except logs/; empty {{home}}/mrg-tmp; confirm `df -h /tmp` is healthy. Then org_complete with: outcome, npm versions, release URL, local main state, filed issue URLs, REPORT.md path."
       ],
+      "skills": [
+        "studio-producer"
+      ],
       "title": "Release Captain",
       "type": "boss",
       "ui": {
@@ -79,6 +82,9 @@
         "PACK every non-private package and root `monomind` into $GATE/tarballs/\u003cshort-sha\u003e: bins and dist present, no `workspace:` specifiers. CLEAN INSTALL into $GATE/install-\u003cshort-sha\u003e (`npm init -y`, then `npm install` the tarballs): `--version` and `init --help` exit 0 with no missing-module errors. Report the bin path and tarball list.",
         "Never edit SRC. Classify each failure as a real break or an environment problem, with the exact error and a reproduction."
       ],
+      "skills": [
+        "devops-automator"
+      ],
       "title": "Build \u0026 Packaging Engineer",
       "type": "specialist",
       "ui": {
@@ -114,6 +120,12 @@
         "In SRC (built at your SHA): `pnpm run test:all:run`, `pnpm --filter @monoes/monobrowse test`, `pnpm --filter @monoes/monodesign test`, `pnpm --filter monofence-ai test`, `pnpm run test:security`, `node bin/cli.js doc eval --provision-model`, then `pnpm run test:semantic-eval`, plus any test job in .github/workflows/tests.yml not covered. Log each to $GATE/logs/test-runner/\u003cround\u003e-\u003csuite\u003e.log.",
         "Per suite, record passed/failed/skipped counts and duration. Exit 0 with zero tests, or a jump in skipped tests, is a FAIL.",
         "Rerun each failing file 3 times in isolation, when nothing else is running. Fails any time → FAIL (with the assertion and file:line). Passes 3/3 → FLAKY, with all outputs. Never edit tests or source, never use .skip/.only."
+      ],
+      "skills": [
+        "tester"
+      ],
+      "skill_pool": [
+        "systematic-debugging"
       ],
       "title": "Test Suite Runner",
       "type": "specialist",
@@ -153,6 +165,9 @@
         "OPERATIONS: doctor, status, config get/set, route, analyze on a diff, security scan, tokens, providers, completions, design, every top-level `--help`. `cleanup` (plain) removes only monomind artifacts. `cleanup --force` ONLY against a dummy process you start whose command line contains `claude-agent-sdk --output-format`: a live-parented dummy must SURVIVE. Never run it any other way.",
         "Assert on output, not just exit codes. For every FAIL, give the minimal repro, expected vs actual, and the log path."
       ],
+      "skills": [
+        "evidence-collector"
+      ],
       "title": "CLI Feature QA (clean install)",
       "type": "specialist",
       "ui": {
@@ -190,6 +205,9 @@
         "AGENTS, MANDATORY with the real HOME: `agent scan --json` is valid with streams_incrementally on every entry. `agent exec --runtime claude --model claude-haiku-4-5-20251001 --prompt 'Reply with exactly: GATE-OK' --tools none`: event order start → assistant* → usage → result → done; result.text contains GATE-OK and equals the joined assistant texts; exit 0. Plus one `--tools stdio` round-trip and a `--timeout 1s` run (exit 124).",
         "ORGS \u0026 BROWSER: `org create` a starter, `org validate`, `org run --dry-run`, `org list/status`; `browse` smoke test on a local file:// page if Chrome is present (else SKIP with the error).",
         "Kill only PIDs you started. For every FAIL, give the minimal repro, expected vs actual, and the log path."
+      ],
+      "skills": [
+        "api-tester"
       ],
       "title": "Integration QA (MCP, hooks, agents, orgs)",
       "type": "specialist",
@@ -229,6 +247,16 @@
         "After each fix, run that package's tests plus `pnpm run lint` and `pnpm run typecheck`, then commit it alone with `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com git commit` as `fix(\u003cscope\u003e): \u003cwhat\u003e`, with the symptom and root cause in the body and NO trailers.",
         "An environment problem, a wrong test, or a real product decision → report it back with evidence instead of guessing.",
         "Report per issue: fixed / not a bug / blocked; commit SHA; root cause; the proving test; which checks must re-run."
+      ],
+      "skills": [
+        "senior-developer",
+        "monograph-code-navigation",
+        "monolean-minimal-change"
+      ],
+      "skill_pool": [
+        "systematic-debugging",
+        "verification-before-completion",
+        "test-driven-development"
       ],
       "title": "Release Fix Engineer",
       "type": "specialist",
@@ -270,6 +298,12 @@
         "Update README.md, doc/*.md (including the agent-exec-protocol revision history), docs/, changed package READMEs, and the site (doc/index.html, doc/orgs.html, doc/llms.txt — monoes.github.io/monomind deploys from doc/). Keep structure, styles and ids. For removed features, grep SRC and delete or replace every remaining mention.",
         "VERIFY: `node scripts/generate-doc-counts.mjs` then `--check`; `platforms docs --check`; links/anchors resolve; every documented command exists (`--help`).",
         "Commit once with `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com` (no trailers) as `docs: update docs and site for \u003cVERSION\u003e`. If nothing needs changing, you MUST attach grep evidence per user-visible change showing its docs are already accurate or not applicable."
+      ],
+      "skills": [
+        "technical-writer"
+      ],
+      "skill_pool": [
+        "avoid-ai-writing"
       ],
       "title": "Docs Writer (repo + monoes.github.io/monomind)",
       "type": "specialist",
@@ -313,6 +347,9 @@
         "PUBLISH (only when release-captain sends GO; first confirm yourself that verdict.json says GO for the same SHA as SRC HEAD, and that the auditor approved). PRE-FLIGHT: `npm whoami`; `git -C SRC fetch origin`; origin/main is an ancestor of HEAD (else STOP → NO-GO); none of packages_to_publish exist on npm. Publish from SRC, `pnpm publish --tag latest --no-git-checks --access public`, ONE AT A TIME in the FOREGROUND, full output to $GATE/logs/publisher/\u003cpkg\u003e-publish.log, checking the exit code (the CLI's prepublishOnly is a multi-minute build; 'success' after a few seconds means it did not run). Order: changed sub-packages → @monoes/monomindcli → monomind. Before each dependent, confirm the dependency is live on the registry itself: `curl -s https://registry.npmjs.org/\u003curl-encoded name\u003e` has versions['\u003cver\u003e']. Poll every 30s for up to 15 minutes; E409 'previously staged version' means STILL PROCESSING (wait, never re-publish). NEVER publish monomind before its exactly-pinned CLI version is confirmed. If an umbrella ever becomes latest while its CLI is missing: immediately `npm dist-tag add monomind@\u003cprevious version\u003e latest`, wait for the CLI, then `npm dist-tag add monomind@\u003cVERSION\u003e latest`, and report the incident. If npm demands an OTP or 2FA, STOP and report (unattended run): publish nothing further, never unpublish.",
         "AFTER npm: install smoke test from the registry in $GATE/smoke (`npm install monomind@VERSION --prefer-online`; `--version` reports VERSION; `init --help` works). `git -C SRC push origin \u003csha\u003e:refs/heads/main` (fast-forward only, never force). `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com git -C SRC tag -a vVERSION -m 'monomind VERSION' \u003csha\u003e` and push the tag. Write the CHANGELOG entry plus an `**npm**:` line to $GATE/release-notes.md (never inside the repo) and run `gh release create vVERSION --latest --title vVERSION --notes-file $GATE/release-notes.md`. Wait for the pages.yml run for \u003csha\u003e to conclude success. Close any still-open issue referenced by Fixes/Closes in the range, with a comment linking the release. LOCAL MAIN SYNC in {{org_root}} (only if it is on main with no tracked changes): if main is an ancestor of \u003csha\u003e → `git -C {{org_root}} merge --ff-only \u003csha\u003e`; otherwise merge origin/main in a temporary worktree (`git -C {{org_root}} worktree add -b sync/main-VERSION {{org_root}}-sync-VERSION main`, then `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com git merge --no-ff origin/main`), and if conflict-free `git -C {{org_root}} merge --ff-only sync/main-VERSION`, remove the worktree and branch. Never push it. If dirty, not on main, or conflicting: change nothing and report. Report every step to release-captain."
       ],
+      "skills": [
+        "release-manager"
+      ],
       "title": "Release Publisher",
       "type": "specialist",
       "ui": {
@@ -350,6 +387,12 @@
         "DOCS \u0026 CHANGELOG: every changed statement matches the code; removed features have no remaining doc mentions (grep); the CHANGELOG covers every commit in the range with SHAs that exist on the branch; versions agree (`npm run check:versions`); bumped sub-packages match changed source; packages_to_publish is exactly the set of versions not on npm.",
         "PROVENANCE: every commit from the target to HEAD is authored and committed as nokhodian \u003cnokhodian@gmail.com\u003e with no Co-Authored-By/Claude-Session/'Generated with'; `git -C {{org_root}} config --local --get user.name` is empty; local main in the main checkout gained no org commits.",
         "Re-run at least 3 PASS checks yourself. Send release-captain: confirmed checks, rejections with reasons, gaps, and APPROVE or REJECT. For a follow-up commit touching only non-shipped, non-test files (e.g. CHANGELOG.md), re-audit just that diff."
+      ],
+      "skills": [
+        "reviewer"
+      ],
+      "skill_pool": [
+        "verification-before-completion"
       ],
       "title": "Release Evidence Auditor",
       "type": "reviewer",
