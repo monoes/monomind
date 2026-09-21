@@ -1646,7 +1646,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
         <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
           <span class="ico">$</span><span class="lbl">Global Tokens</span>
         </div>
-        <div class="nav-item" data-view="humaninput" title="Pending questions from agents across all orgs">
+        <div class="nav-item" data-view="humaninput" title="Questions, approvals and decision gates waiting on you, across all orgs">
           <span class="ico">❓</span><span class="lbl">Human Input</span>
           <span class="bdg" id="bdg-humaninput">—</span>
         </div>
@@ -2303,11 +2303,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       <div class="vscroll">
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
           <div class="pg-title" style="margin-bottom:0">Human Input</div>
-          <span class="pg-sub" id="hi-sub" style="margin-bottom:0">Pending questions across all projects</span>
+          <span class="pg-sub" id="hi-sub" style="margin-bottom:0">Questions, approvals and decision gates waiting on you</span>
         </div>
         <div class="hi-tab-bar" style="display:flex;gap:4px;margin-top:12px;border-bottom:1px solid var(--border);padding-bottom:6px">
           <button class="odt-btn active" data-hitab="pending" onclick="hiSwitchTab('pending')">Pending <span style="font-size:10px;background:var(--surface-hi);color:var(--text-lo);border-radius:8px;padding:1px 6px;min-width:18px;display:inline-block;text-align:center" id="hi-tab-count-pending">—</span></button>
-          <button class="odt-btn" data-hitab="answered" onclick="hiSwitchTab('answered')">Answered <span style="font-size:10px;background:var(--surface-hi);color:var(--text-lo);border-radius:8px;padding:1px 6px;min-width:18px;display:inline-block;text-align:center" id="hi-tab-count-answered">—</span></button>
+          <button class="odt-btn" data-hitab="answered" onclick="hiSwitchTab('answered')">Resolved <span style="font-size:10px;background:var(--surface-hi);color:var(--text-lo);border-radius:8px;padding:1px 6px;min-width:18px;display:inline-block;text-align:center" id="hi-tab-count-answered">—</span></button>
         </div>
         <div id="hi-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
       </div>
@@ -2627,6 +2627,8 @@ async function init() {
     sbProjEl.title = DIR;
     _showNavProjectCtx(DIR);
   } catch (_) {}
+  // Count what is waiting on a human now, not only once the view is opened.
+  _hiScheduleReload();
   // deep-link: ?sess=<id>&proj=<path>
   const params = new URLSearchParams(window.location.search);
   let projParam = params.get('proj');
@@ -4446,36 +4448,55 @@ async function _gdCopyPath(p) {
 // renderDocMarkdown() and gdCopyCode() moved to markdown.js (#124) — loaded via
 // <script src="markdown.js"> above; both remain plain globals.
 
+// Human Input: everything an org is waiting on a human for — ask_human
+// questions, tool/action approvals and decision gates — across projects.
+// Each entry: { kind: 'question'|'approval'|'gate', project, item }.
 let _hiEntries = [];
 let _hiTab = 'pending';
 
+function _hiIsPending(e) {
+  if (e.kind === 'question') return e.item.answer === null || e.item.answer === undefined;
+  return (e.item.status || 'pending') === 'pending';
+}
+function _hiWhen(e) {
+  const i = e.item;
+  return i.answeredAt || i.resolvedAt || i.ts || i.createdAt || 0;
+}
+
 async function renderHumanInputView() {
   const el = document.getElementById('hi-content');
-  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  if (!_hiEntries.length) el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
   try {
     const data = await apiFetch('/api/projects');
     const projects = (data?.projects || []).slice(0, 8);
-    if (!projects.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No projects found</div></div>';
-      _hiEntries = [];
-      updateHumanInputBadge(0);
-      renderHiCurrentTab(projects.length);
-      return;
-    }
+    // The project this dashboard serves always counts, even when it is not
+    // among the most recently active Claude projects.
+    if (DIR && !projects.some(p => p.path === DIR)) projects.unshift({ path: DIR, name: baseName(DIR) });
     const results = await Promise.allSettled(
-      projects.map(p => apiFetch(`/api/questions?dir=${enc(p.path)}`).then(d => ({ project: p, questions: d.questions || [] })))
+      projects.map(p => apiFetch(`/api/hil?dir=${enc(p.path)}`).then(d => ({ project: p, d: d || {} })))
     );
     const entries = [];
+    const errors = [];
     for (const r of results) {
       if (r.status !== 'fulfilled') continue;
-      const { project, questions } = r.value;
-      for (const q of questions) entries.push({ project, q });
+      const { project, d } = r.value;
+      for (const item of d.questions || []) entries.push({ kind: 'question', project, item });
+      for (const item of d.approvals || []) if (item.id) entries.push({ kind: 'approval', project, item });
+      for (const item of d.gates || []) entries.push({ kind: 'gate', project, item });
+      for (const e of d.errors || []) errors.push(`${project.name || project.path}/${e.org}: ${e.error}`);
     }
-    entries.sort((a, b) => (b.q.answeredAt || b.q.ts || 0) - (a.q.answeredAt || a.q.ts || 0));
+    entries.sort((a, b) => _hiWhen(b) - _hiWhen(a));
     _hiEntries = entries;
-    updateHumanInputBadge(entries.filter(({ q }) => q.answer === null || q.answer === undefined).length);
-    renderHiCurrentTab(projects.length);
+    updateHumanInputBadge(entries.filter(_hiIsPending).length);
+    renderHiCurrentTab(projects.length, errors);
   } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
+}
+
+// Coalesce bursts of org:question / org:gate / resolution events into one reload.
+let _hiReloadTimer = null;
+function _hiScheduleReload() {
+  clearTimeout(_hiReloadTimer);
+  _hiReloadTimer = setTimeout(renderHumanInputView, 400);
 }
 
 function _hiSwitchTab(tab) {
@@ -4485,39 +4506,80 @@ function _hiSwitchTab(tab) {
   renderHiCurrentTab();
 }
 
-function renderHiCurrentTab(projectCount) {
+const _HI_KIND_LABEL = { question: 'Question', approval: 'Approval', gate: 'Decision gate' };
+
+function _hiPill(text, color) {
+  return `<span class="ss-pill" style="color:${color};border-color:${color}">${esc(text)}</span>`;
+}
+
+function _hiEntryHtml(e) {
+  const i = e.item;
+  const pending = _hiIsPending(e);
+  const data = `data-kind="${e.kind}" data-dir="${esc(e.project.path)}" data-org="${esc(i.org)}" data-id="${esc(e.kind === 'question' ? i.questionId : i.id)}"`;
+  let badge = '';
+  let body = '';
+  let resolved = '';
+  let actions = '';
+  if (e.kind === 'question') {
+    // Only a pending question can hold a run; once answered the flag is history.
+    if (pending) badge = i.blocking === false
+      ? _hiPill('non-blocking', 'var(--text-lo)')
+      : _hiPill('blocking — run waits', 'var(--amber, #d29922)');
+    body = `<div style="color:var(--text-hi);white-space:pre-wrap;max-height:240px;overflow:auto">${esc(i.question)}</div>`;
+    resolved = `<span style="color:var(--text-xs)">Answer:</span> ${esc(i.answer ?? '')}`;
+    actions = `<input type="text" class="hi-answer-input" placeholder="Your answer…" aria-label="Answer" style="flex:1;padding:4px 8px;font-size:12px" />
+      <button class="btn" style="font-size:11px" ${data} onclick="hiAct(this,'answer')">Answer</button>`;
+  } else if (e.kind === 'approval') {
+    badge = _hiPill(i.action || 'tool', 'var(--accent, #58a6ff)');
+    body = `<div style="color:var(--text-hi)">Wants to run <b>${esc(i.action)}</b></div>` +
+      (i.input ? `<pre style="font-size:11px;white-space:pre-wrap;max-height:160px;overflow:auto;margin:0;color:var(--text-lo)">${esc(JSON.stringify(i.input, null, 2))}</pre>` : '');
+    resolved = `${_hiPill(i.status, i.status === 'approved' ? 'var(--green)' : 'var(--red)')}`;
+    actions = `<button class="btn" style="font-size:11px;color:var(--green);border-color:var(--green)" ${data} onclick="hiAct(this,'approve')">Approve</button>
+      <button class="btn" style="font-size:11px;color:var(--red);border-color:var(--red)" ${data} onclick="hiAct(this,'reject')">Deny</button>`;
+  } else {
+    body = `<div style="color:var(--text-hi);font-weight:600">${esc(i.name || '')}</div>
+      <div style="color:var(--text-lo);white-space:pre-wrap;max-height:240px;overflow:auto">${esc(i.description || '')}</div>`;
+    resolved = `${_hiPill(i.status, i.status === 'approved' ? 'var(--green)' : 'var(--red)')}${i.resolution ? ` ${esc(i.resolution)}` : ''}`;
+    actions = `<input type="text" class="hi-answer-input" placeholder="Resolution note (optional)…" aria-label="Resolution note" style="flex:1;padding:4px 8px;font-size:12px" />
+      <button class="btn" style="font-size:11px;color:var(--green);border-color:var(--green)" ${data} onclick="hiAct(this,'approve')">Approve</button>
+      <button class="btn" style="font-size:11px;color:var(--red);border-color:var(--red)" ${data} onclick="hiAct(this,'reject')">Reject</button>`;
+  }
+  const who = i.resolvedBy ? ` · by ${esc(i.resolvedBy)}` : '';
+  return `<div class="sess-row" style="flex-direction:column;align-items:stretch;gap:6px">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+      <div><span style="color:var(--text-xs)">${_HI_KIND_LABEL[e.kind]}</span> · <b>${esc(i.org)}</b> · ${esc(i.role || i.roleId || '')} ${badge}
+        <span style="color:var(--text-xs)">(${esc(e.project.name || e.project.path)})</span></div>
+      <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(i.ts || i.createdAt)}</div>
+    </div>
+    ${body}
+    ${pending
+      ? `<div style="display:flex;gap:6px;align-items:center">${actions}</div>`
+      : `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 8px;background:var(--surface-hi);border-radius:4px">
+          <div style="white-space:pre-wrap;max-height:160px;overflow:auto;min-width:0">${resolved}</div>
+          <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono);flex-shrink:0">${relTime(i.answeredAt || i.resolvedAt)}${who}</div>
+        </div>`}
+  </div>`;
+}
+
+function renderHiCurrentTab(projectCount, errors) {
   const el = document.getElementById('hi-content');
-  const pending = _hiEntries.filter(({ q }) => q.answer === null || q.answer === undefined);
-  const answered = _hiEntries.filter(({ q }) => q.answer !== null && q.answer !== undefined);
+  const pending = _hiEntries.filter(_hiIsPending);
+  const done = _hiEntries.filter(e => !_hiIsPending(e));
   document.getElementById('hi-tab-count-pending').textContent = pending.length || '—';
-  document.getElementById('hi-tab-count-answered').textContent = answered.length || '—';
-  const entries = _hiTab === 'answered' ? answered : pending;
+  document.getElementById('hi-tab-count-answered').textContent = done.length || '—';
+  const entries = _hiTab === 'answered' ? done : pending;
   const projTxt = projectCount != null ? ` across ${projectCount} project${projectCount !== 1 ? 's' : ''}` : '';
+  const blocking = pending.filter(e => e.kind !== 'question' || e.item.blocking !== false).length;
   document.getElementById('hi-sub').textContent = _hiTab === 'answered'
-    ? (answered.length ? `${answered.length} answered question(s)${projTxt}` : `No answered questions${projTxt}`)
-    : (pending.length ? `${pending.length} pending question(s)${projTxt}` : `No pending questions${projTxt}`);
+    ? (done.length ? `${done.length} resolved${projTxt}` : `Nothing resolved yet${projTxt}`)
+    : (pending.length ? `${pending.length} waiting on you (${blocking} holding a run)${projTxt}` : `Nothing waiting on you${projTxt}`);
+  const errHtml = (errors || []).length
+    ? `<div class="empty" style="color:var(--red)">Unreadable: ${errors.map(esc).join('; ')}</div>` : '';
   if (!entries.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-ico">❓</div><div>No ${_hiTab} questions</div></div>`;
+    el.innerHTML = `${errHtml}<div class="empty"><div class="empty-ico">❓</div><div>${_hiTab === 'answered' ? 'Nothing resolved yet' : 'Nothing waiting on you'}</div></div>`;
     return;
   }
-  el.innerHTML = `<div class="sess-list">${entries.map(({ project, q }) => `
-    <div class="sess-row" data-question-id="${esc(q.questionId)}" style="flex-direction:column;align-items:stretch;gap:6px">
-      <div style="display:flex;justify-content:space-between;gap:8px">
-        <div><b>${esc(q.org)}</b> · ${esc(q.role)} <span style="color:var(--text-xs)">(${esc(project.name || project.path)})</span></div>
-        <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(q.ts)}</div>
-      </div>
-      <div style="color:var(--text-hi)">${esc(q.question)}</div>
-      ${_hiTab === 'answered' ? `
-      <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 8px;background:var(--surface-hi);border-radius:4px">
-        <div><span style="color:var(--text-xs)">Answer:</span> ${esc(q.answer)}</div>
-        <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono);flex-shrink:0">${relTime(q.answeredAt)}</div>
-      </div>` : `
-      <div style="display:flex;gap:6px">
-        <input type="text" class="hi-answer-input" placeholder="Your answer…" style="flex:1;padding:4px 8px;font-size:12px" />
-        <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(String(project.path).replace(/['\\]/g,'\\$&'))}','${esc(String(q.org).replace(/['\\]/g,'\\$&'))}','${esc(String(q.role).replace(/['\\]/g,'\\$&'))}','${esc(String(q.questionId).replace(/['\\]/g,'\\$&'))}',this)">Answer</button>
-      </div>`}
-    </div>
-  `).join('')}</div>`;
+  el.innerHTML = `${errHtml}<div class="sess-list">${entries.map(_hiEntryHtml).join('')}</div>`;
 }
 
 function updateHumanInputBadge(count) {
@@ -4525,26 +4587,38 @@ function updateHumanInputBadge(count) {
   if (b) b.textContent = String(count);
 }
 
-async function _submitHumanAnswer(dir, org, role, questionId, btnEl) {
-  const row = btnEl.closest('[data-question-id]');
-  const input = row.querySelector('.hi-answer-input');
-  const answer = input.value.trim();
-  if (!answer) return;
-  btnEl.disabled = true;
+/** POST a human decision; toasts the outcome. Resolves to the response data, or null on failure. */
+async function _hilPost(url, body) {
   try {
-    const res = await fetch('/api/questions/answer', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dir, org, role, questionId, answer }),
+    const res = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (data.ok) {
-      showToast('Answered', `${org}:${role}`, 'ok');
-      const entry = _hiEntries.find(({ q }) => q.questionId === questionId);
-      if (entry) { entry.q.answer = answer; entry.q.answeredAt = Date.now(); }
-      updateHumanInputBadge(_hiEntries.filter(({ q }) => q.answer === null || q.answer === undefined).length);
-      renderHiCurrentTab();
-    } else { showToast('Error', data.error || 'failed', 'err'); btnEl.disabled = false; }
-  } catch (e) { showToast('Error', e.message, 'err'); btnEl.disabled = false; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) { showToast('Not delivered', data.error || `HTTP ${res.status}`, 'err'); return null; }
+    showToast('Done', data.delivery === 'live'
+      ? 'Delivered to the running org'
+      : 'Recorded — the org picks it up when it next runs', 'ok');
+    return data;
+  } catch (e) { showToast('Error', e.message, 'err'); return null; }
+}
+
+async function _hiAct(btnEl, verb) {
+  const { kind, dir, org, id } = btnEl.dataset;
+  const row = btnEl.closest('.sess-row');
+  const text = row?.querySelector('.hi-answer-input')?.value.trim() || '';
+  const q = `?dir=${enc(dir)}`;
+  let ok = null;
+  row?.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  if (kind === 'question') {
+    if (!text) { row?.querySelectorAll('button').forEach(b => { b.disabled = false; }); return; }
+    ok = await _hilPost('/api/questions/answer', { dir, org, questionId: id, answer: text });
+  } else if (kind === 'approval') {
+    ok = await _hilPost(`/api/org/${enc(org)}/approvals/${enc(id)}${q}`, { action: verb });
+  } else if (kind === 'gate') {
+    ok = await _hilPost(`/api/org/${enc(org)}/gates/${enc(id)}${q}`, { approved: verb === 'approve', resolution: text || undefined });
+  }
+  if (!ok) { row?.querySelectorAll('button').forEach(b => { b.disabled = false; }); return; }
+  renderHumanInputView();
 }
 
 function _cvExcerptText(ev) {
@@ -7121,34 +7195,38 @@ function v2RenderOrgLive() {
 }
 
 // ── APPROVALS ──────────────────────────────────────────────
+// Tool/action approvals (<org>/approvals.json): a role asked to run a
+// sensitive tool (Bash, WebFetch, org_complete, policy.approvalTools…).
 async function v2RenderOrgApprovals() {
   const el = document.getElementById('odt-approvals');
   if (!el || !_v2SelOrg) return;
   const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  if (!el.querySelector('table')) el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/approvals${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    const res = await fetch(`/api/org/${_enc}/approvals${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`);
+    const data = await res.json().catch(() => ({}));
     if (_v2SelOrg !== _rendOrg) return;
-    const approvals = Array.isArray(data) ? data : (data.approvals || []);
-    if (!approvals.length) { el.innerHTML = '<div class="empty">No pending approvals</div>'; return; }
+    if (!res.ok) { el.innerHTML = `<div class="empty">Failed: ${esc(data.error || `HTTP ${res.status}`)}</div>`; return; }
+    const approvals = data.approvals || [];
+    if (!approvals.length) { el.innerHTML = '<div class="empty">No approval requests</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:6px 8px">Requester</th><th>Action</th><th>Status</th><th>Date</th><th></th>
+        <th style="padding:6px 8px">Role</th><th>Action</th><th>Input</th><th>Status</th><th>When</th><th></th>
       </tr></thead><tbody>` +
-      approvals.slice(0, 50).map(a => {
-        const cls = a.status === 'approved' ? 'on' : a.status === 'rejected' ? 'warn' : '';
-        const pending = !a.status || a.status === 'pending';
-        const aid = a.id || '';
+      approvals.slice(0, 100).map(a => {
+        const cls = a.status === 'approved' ? 'on' : a.status === 'denied' ? 'warn' : '';
+        const input = a.input ? JSON.stringify(a.input) : '';
         return `<tr style="border-top:1px solid var(--border)">
-          <td style="padding:6px 8px;color:var(--text-hi)">${esc(a.requester || a.agent || '—')}</td>
-          <td style="padding:6px 8px;color:var(--text-lo);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((a.action || a.description || '').slice(0, 80))}</td>
-          <td style="padding:6px 8px"><span class="ss-pill ${cls}">${esc(a.status || 'pending')}</span></td>
-          <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(a.created_at || a.ts)}</td>
+          <td style="padding:6px 8px;color:var(--text-hi)">${esc(a.roleId || '—')}</td>
+          <td style="padding:6px 8px;color:var(--text-hi);font-family:var(--mono)">${esc(a.action || '—')}</td>
+          <td style="padding:6px 8px;color:var(--text-lo);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11px" title="${esc(input)}">${esc(input.slice(0, 120) || '—')}</td>
+          <td style="padding:6px 8px"><span class="ss-pill ${cls}">${esc(a.status)}</span>${a.resolvedBy ? `<div style="color:var(--text-xs);font-size:10px">by ${esc(a.resolvedBy)}</div>` : ''}</td>
+          <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(a.resolvedAt || a.ts)}</td>
           <td style="padding:6px 8px;white-space:nowrap">
-            ${pending
-              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" data-aid="${esc(aid)}" onclick="orgApprovalAction(this.dataset.aid,'approve')">✓</button>
-                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject" data-aid="${esc(aid)}" onclick="orgApprovalAction(this.dataset.aid,'reject')">✕</button>`
+            ${a.status === 'pending' && a.id
+              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" data-aid="${esc(a.id)}" onclick="orgApprovalAction(this.dataset.aid,'approve')">✓</button>
+                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Deny" aria-label="Deny" data-aid="${esc(a.id)}" onclick="orgApprovalAction(this.dataset.aid,'reject')">✕</button>`
               : ''}
           </td>
         </tr>`;
@@ -7157,15 +7235,10 @@ async function v2RenderOrgApprovals() {
 }
 
 async function _orgApprovalAction(id, action) {
-  if (!confirm(`${action} this request?`)) return;
-  try {
-    const _enc = encodeURIComponent(_v2SelOrg);
-    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
-    });
-    showToast('Done', `${action}d`, 'ok');
-    v2RenderOrgApprovals();
-  } catch (e) { showToast('Error', e.message, 'err'); }
+  if (!confirm(`${action === 'approve' ? 'Approve' : 'Deny'} this request?`)) return;
+  const _enc = encodeURIComponent(_v2SelOrg);
+  const ok = await _hilPost(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, { action });
+  if (ok) v2RenderOrgApprovals();
 }
 
 // ── DECISIONS ──────────────────────────────────────────────
@@ -7210,18 +7283,33 @@ function v2RenderDecisionsTable() {
   if (!filtered.length) { el.innerHTML = `${filterBar}<div class="empty">No decision gates match</div>`; return; }
   el.innerHTML = filterBar + `<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="color:var(--text-xs);text-align:left">
-      <th style="padding:6px 8px">Role</th><th>Gate</th><th>Status</th><th>Resolution</th><th>Date</th>
+      <th style="padding:6px 8px">Role</th><th>Gate</th><th>Status</th><th>Resolution</th><th>Date</th><th></th>
     </tr></thead><tbody>` +
     filtered.slice(0, 100).map(g => {
       const cls = g.status === 'approved' ? 'on' : g.status === 'rejected' ? 'warn' : '';
       return `<tr style="border-top:1px solid var(--border)">
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(g.roleId || '—')}</td>
         <td style="padding:6px 8px;color:var(--text-lo);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(g.description || '')}">${esc(g.name || '—')}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${cls}">${esc(g.status || 'pending')}</span></td>
-        <td style="padding:6px 8px;color:var(--text-lo);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.resolution || '—')}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${cls}">${esc(g.status || 'pending')}</span>${g.resolvedBy ? `<div style="color:var(--text-xs);font-size:10px">by ${esc(g.resolvedBy)}</div>` : ''}</td>
+        <td style="padding:6px 8px;color:var(--text-lo);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(g.resolution || '')}">${esc(g.resolution || '—')}</td>
         <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(g.resolvedAt || g.createdAt)}</td>
+        <td style="padding:6px 8px;white-space:nowrap">
+          ${(g.status || 'pending') === 'pending'
+            ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve gate" data-gid="${esc(g.id)}" onclick="orgGateAction(this.dataset.gid,true)">✓</button>
+               <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject gate" data-gid="${esc(g.id)}" onclick="orgGateAction(this.dataset.gid,false)">✕</button>`
+            : ''}
+        </td>
       </tr>`;
     }).join('') + '</tbody></table>';
+}
+
+async function _orgGateAction(id, approved) {
+  const gate = _v2DecisionsCache.find(g => g.id === id);
+  const resolution = prompt(`${approved ? 'Approve' : 'Reject'} "${gate?.name || id}"?\nOptional note for the role:`, '');
+  if (resolution === null) return;
+  const _enc = encodeURIComponent(_v2SelOrg);
+  const ok = await _hilPost(`/api/org/${_enc}/gates/${encodeURIComponent(id)}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, { approved, resolution: resolution.trim() || undefined });
+  if (ok) v2RenderOrgDecisions();
 }
 
 // ── SECRETS ────────────────────────────────────────────────
@@ -7941,7 +8029,10 @@ window.odtSendChatMessage = async () => {
     const _sendQ = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
     const res = await fetch(`/api/orgs/${encodeURIComponent(_v2SelOrg)}/chat${_sendQ}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, role: role || undefined, runId: _odtChatCurrentId || null }) });
     const data = await res.json().catch(() => ({}));
-    if (!data.delivered) {
+    if (!res.ok || !data.ok) {
+      inp.value = text;
+      showToast('Not delivered', data.error || `HTTP ${res.status}`, 'err');
+    } else if (data.delivery !== 'live') {
       const lbl = document.getElementById('odt-chat-live-lbl');
       if (lbl) { const prev = lbl.textContent; lbl.textContent = 'QUEUED (org offline)'; setTimeout(() => { lbl.textContent = prev; }, 4000); }
     }
@@ -8491,8 +8582,15 @@ function _odtHandleLiveEvent(ev) {
   }
   if (ev?.type === 'org:question' && ev.from) {
     if (ev.org === _v2SelOrg) v2ShowQuestionBubble(ev.from, ev.question || '');
-    if (viewRendered.humaninput) renderHumanInputView();
-    else updateHumanInputBadge((parseInt(document.getElementById('bdg-humaninput')?.textContent, 10) || 0) + 1);
+  }
+  // Anything a human must act on, or just did: refresh the Human Input list,
+  // its badge, and the selected org's approvals/decisions panes.
+  if (['org:question', 'org:gate', 'org:question-answered', 'org:approval:resolved', 'org:gate:resolved'].includes(ev?.type)) {
+    _hiScheduleReload();
+    if (ev.org === _v2SelOrg) {
+      if (document.getElementById('odt-approvals')?.offsetParent) v2RenderOrgApprovals();
+      if (document.getElementById('odt-decisions')?.offsetParent) v2RenderOrgDecisions();
+    }
   }
   if (ev?.type === 'org:question-answered' && ev.role) {
     if (ev.org === _v2SelOrg) v2ClearQuestionBubble(ev.role);
@@ -14218,7 +14316,7 @@ Object.assign(window, {
   gdOpen: _gdOpen,
   gdRevealPath: _gdRevealPath,
   gdCopyPath: _gdCopyPath,
-  submitHumanAnswer: _submitHumanAnswer,
+  hiAct: _hiAct,
   v2ViewOrgFile: _v2ViewOrgFile,
   minimapJump: _minimapJump,
   stopLoop: _stopLoop,
@@ -14227,6 +14325,7 @@ Object.assign(window, {
   v2TriggerAvatarUpload: _v2TriggerAvatarUpload,
   v2HandleAvatarFile: _v2HandleAvatarFile,
   orgApprovalAction: _orgApprovalAction,
+  orgGateAction: _orgGateAction,
   generateOrgSettingsCmd: _generateOrgSettingsCmd,
   setOdtChatMode: _setOdtChatMode,
   v2SaveOrgConfig: _v2SaveOrgConfig,

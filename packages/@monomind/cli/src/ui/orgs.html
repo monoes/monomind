@@ -2111,13 +2111,21 @@ async function sendChatMessage() {
   btn.disabled = true;
   input.value = '';
   input.style.height = '';
+  let error = null;
   try {
-    await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/chat`, {
+    const res = await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
-  } catch(_) {}
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) error = data.error || `HTTP ${res.status}`;
+  } catch (e) { error = e.message; }
+  if (error) {
+    // Keep what was typed; say why it did not go out.
+    input.value = text;
+    alert(`Not delivered: ${error}`);
+  }
   btn.disabled = false;
   input.focus();
 }

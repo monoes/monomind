@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,7 +8,68 @@ import path from 'node:path';
 // companionEvents() are pure — no filesystem or process side effects — so
 // importing them here doesn't pull in attachForwarder's spawn/heal logic.
 import { companionEvents, translate } from '../orgrt/forwarder.js';
+import * as hil from './org-hil.mjs';
 import { getMmClientCount } from './sse-manager.mjs';
+
+/** listApprovals for read-only views, where an unreadable file shows as none. */
+function approvalsOrEmpty(orgsDir, orgName) {
+  try {
+    return hil.listApprovals(path.dirname(path.dirname(orgsDir)), orgName);
+  } catch (_) {
+    return [];
+  }
+}
+
+const validOrgName = (n) => typeof n === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(n);
+
+/** Project root for a HIL route: ?dir= or the server's project. */
+function hilRoot(req, ctx) {
+  const dir = new URL(req.url, 'http://localhost').searchParams.get('dir');
+  return path.resolve(dir || ctx.projectDir || process.cwd());
+}
+
+/** JSON body (≤64KB); null when absent or malformed. */
+async function readHilBody(req) {
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 65536) {
+      req.destroy();
+      return null;
+    }
+  }
+  try {
+    return JSON.parse(body || '{}');
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Run `fn` and answer with its JSON result, or the HIL error's status. */
+async function hilRespond(res, corsOrigin, fn) {
+  const cors = corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {};
+  try {
+    const data = await fn();
+    res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify(data));
+  } catch (err) {
+    const { status, error } = err.status
+      ? { status: err.status, error: err.message }
+      : hil.hilErrorStatus(err);
+    res.writeHead(status, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ ok: false, error }));
+  }
+  return true;
+}
+
+/** Record a human decision in the dashboard's event log and push it to live views. */
+function hilEvent(ctx, root, ev) {
+  const event = { ...ev, resolvedBy: hil.DASHBOARD_RESOLVER, ts: Date.now() };
+  ctx
+    .appendToFile(path.join(root, 'data', 'mastermind-events.jsonl'), `${JSON.stringify(event)}\n`)
+    .catch(() => {});
+  ctx.broadcastMm(event);
+}
 
 export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
   // ------------------------------------------------- Org management
@@ -229,9 +289,7 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       const routinesData = readJsonSafe(path.join(orgsDir, `${orgName}-routines.json`)) || {
         routines: [],
       };
-      const approvalsData = readJsonSafe(path.join(orgsDir, `${orgName}-approvals.json`)) || {
-        approvals: [],
-      };
+      const approvalsData = { approvals: approvalsOrEmpty(orgsDir, orgName) };
 
       // Check running status: stop file absence AND (in-memory ctx.activeOrgRuns OR state-file agents OR active loop file)
       // Path must match what `org run`'s poll loop and `org serve`'s pollStopfiles()
@@ -432,14 +490,12 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           msg: String(g.text || g.title || g.goal || '').slice(0, 80),
         }),
       );
-      const appr = readJ(path.join(orgsDir, `${orgName}-approvals.json`));
-      (appr?.approvals || []).forEach((a) => {
-        const ts = typeof a.ts === 'number' ? a.ts : Date.parse(a.created_at || a.ts || '') || null;
+      approvalsOrEmpty(orgsDir, orgName).forEach((a) => {
         events.push({
           type: 'approval',
-          ts,
-          role: a.agent_id || a.requester || '',
-          msg: String(a.title || a.action || '').slice(0, 80),
+          ts: a.ts,
+          role: a.roleId || '',
+          msg: `${a.action} — ${a.status}`.slice(0, 80),
         });
       });
       const state = readJ(path.join(orgsDir, `${orgName}-state.json`));
@@ -913,10 +969,14 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       }
 
       // Approvals
-      const approvals = readJ(path.join(orgsDir, `${orgName}-approvals.json`));
-      for (const a of approvals?.approvals || []) {
-        if (match(a.title) || match(a.action) || match(a.agent_id)) {
-          hits.push({ type: 'approval', id: a.id, title: a.title, meta: a.status });
+      for (const a of approvalsOrEmpty(orgsDir, orgName)) {
+        if (match(a.action) || match(a.roleId)) {
+          hits.push({
+            type: 'approval',
+            id: a.id,
+            title: `${a.roleId}: ${a.action}`,
+            meta: a.status,
+          });
         }
       }
 
@@ -1415,409 +1475,124 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // GET /api/org/:name/approvals — full approvals list with status filter support
+  // GET /api/org/:name/approvals — the org's tool/action approvals
+  // (<org>/approvals.json, written by orgrt/approvals.ts), newest first.
   if (
     req.method === 'GET' &&
     url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals(\?.*)?$/i)
   ) {
-    try {
-      const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('Invalid org name');
-        return true;
-      }
-      const _approvalsQs = new URL(req.url, 'http://localhost').searchParams;
-      const base = path.join(
-        path.resolve(_approvalsQs.get('dir') || ctx.projectDir || process.cwd()),
-        '.monomind',
-        'orgs',
-      );
-      const readJsonSafe = (f) => {
-        try {
-          return JSON.parse(fs.readFileSync(f, 'utf8'));
-        } catch (_) {
-          return null;
-        }
-      };
-      const data = readJsonSafe(path.join(base, `${orgName}-approvals.json`)) || { approvals: [] };
-      const approvals = (data.approvals || [])
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt || b.created_at || b.requested_at || 0) -
-            new Date(a.createdAt || a.created_at || a.requested_at || 0),
-        )
-        .map((a) => ({
-          id: a.id,
-          title: a.title || a.action || null,
-          action: a.action || a.title || null,
-          description: a.description || a.action || a.title || null,
-          status: a.status || 'pending',
-          agentId: a.agentId || a.agent_id || null,
-          agentTitle: a.agentTitle || null,
-          requester: a.requester || a.agentTitle || a.agent_id || a.agentId || null,
-          agent: a.agent || a.agent_id || a.agentId || null,
-          payload: a.payload || null,
-          risk_level: a.risk_level || 'medium',
-          created_at: a.created_at || a.createdAt || a.requested_at || null,
-          createdAt: a.createdAt || a.created_at || a.requested_at || null,
-          updatedAt: a.updatedAt || null,
-          resolvedAt: a.resolvedAt || null,
-          resolvedBy: a.resolvedBy || null,
-          ts: a.ts || null,
-        }));
-      const pending = approvals.filter(
-        (a) => a.status === 'pending' || a.status === 'revision_requested',
-      ).length;
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-      res.end(JSON.stringify({ approvals, pending }));
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{"approvals":[],"pending":0}');
-    }
-    return true;
+    const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
+    return hilRespond(res, corsOrigin, () => {
+      const approvals = hil.listApprovals(hilRoot(req, ctx), orgName);
+      return { approvals, pending: approvals.filter((a) => a.status === 'pending').length };
+    });
   }
 
-  // GET /api/org/:name/gates — decision gate log (read-only explorer; resolving stays
-  // CLI-only via `org gate-approve`/`gate-reject`, which needs the daemon's
-  // x-monomind-cred auth header for live delivery — out of scope for a read-only view)
+  // GET /api/org/:name/gates — the org's decision gates (<org>/gates.json).
   if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/gates(\?.*)?$/i)) {
-    try {
-      const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('Invalid org name');
-        return true;
-      }
-      const _gatesQs = new URL(req.url, 'http://localhost').searchParams;
-      const base = path.join(
-        path.resolve(_gatesQs.get('dir') || ctx.projectDir || process.cwd()),
-        '.monomind',
-        'orgs',
-      );
-      const readJsonSafe = (f) => {
-        try {
-          return JSON.parse(fs.readFileSync(f, 'utf8'));
-        } catch (_) {
-          return null;
-        }
-      };
-      const data = readJsonSafe(path.join(base, orgName, 'gates.json')) || { gates: [] };
-      const gates = (data.gates || [])
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-        .map((g) => ({
-          id: g.id,
-          name: g.name,
-          description: g.description,
-          roleId: g.roleId,
-          status: g.status || 'pending',
-          createdAt: g.createdAt || null,
-          resolvedBy: g.resolvedBy || null,
-          resolvedAt: g.resolvedAt || null,
-          resolution: g.resolution || null,
-        }));
-      const pending = gates.filter((g) => g.status === 'pending').length;
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-      res.end(JSON.stringify({ gates, pending }));
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{"gates":[],"pending":0}');
-    }
-    return true;
+    const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
+    return hilRespond(res, corsOrigin, () => {
+      const gates = hil.listGates(hilRoot(req, ctx), orgName);
+      return { gates, pending: gates.filter((g) => g.status === 'pending').length };
+    });
   }
 
-  // GET /api/questions?dir=<ctx.projectDir> — list ask_human questions (pending and
-  // answered) for every org in one project. Mirrors the existing -approvals.json
-  // sidecar convention, but reads this feature's .monomind/orgs/<org>/questions.json
-  // files (one per org dir). Each entry's `answer`/`answeredAt` fields (present once
-  // answered, absent while pending) let the dashboard split them into tabs.
-  if (req.method === 'GET' && url === '/api/questions') {
-    try {
-      const _qDir =
-        new URL(req.url, 'http://localhost').searchParams.get('dir') ||
-        ctx.projectDir ||
-        process.cwd();
-      const base = path.join(path.resolve(_qDir), '.monomind', 'orgs');
-      const out = [];
-      if (fs.existsSync(base)) {
-        for (const orgName of fs.readdirSync(base)) {
-          const qFile = path.join(base, orgName, 'questions.json');
-          if (!fs.existsSync(qFile)) continue;
-          let data = { questions: [] };
-          try {
-            data = JSON.parse(fs.readFileSync(qFile, 'utf8'));
-          } catch (_) {}
-          for (const q of data.questions || []) {
-            out.push({ org: orgName, ...q });
-          }
-        }
-      }
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-      res.end(JSON.stringify({ questions: out }));
-    } catch (_e) {
-      res.writeHead(500);
-      res.end('{"questions":[]}');
-    }
-    return true;
+  // GET /api/questions?dir= — ask_human questions (pending and answered) for
+  // every org in one project, each with its `blocking` flag.
+  if (req.method === 'GET' && (url === '/api/questions' || url.startsWith('/api/questions?'))) {
+    return hilRespond(res, corsOrigin, () => ({
+      questions: hil.pendingForProject(hilRoot(req, ctx)).questions,
+    }));
   }
 
-  // POST /api/questions/answer — forward a human's answer to the org's live process
-  // (looked up via the same file-based broker registry orgrt's cross-process delivery
-  // already uses), or fail with a clear error if no process anywhere hosts it.
+  // GET /api/hil?dir= — everything in one project that waits on a human:
+  // questions, approvals and decision gates across all its orgs.
+  if (req.method === 'GET' && (url === '/api/hil' || url.startsWith('/api/hil?'))) {
+    return hilRespond(res, corsOrigin, () => hil.pendingForProject(hilRoot(req, ctx)));
+  }
+
+  // POST /api/questions/answer { dir, org, questionId, answer } — live to the
+  // hosting daemon (operator credential), else queued for the org's next run.
   if (req.method === 'POST' && url === '/api/questions/answer') {
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 2097152) {
-        req.destroy();
-        break;
-      }
-    }
-    try {
-      const parsed = JSON.parse(body);
-      const { dir, org, role, questionId, answer } = parsed;
-      if (!org || !role || !questionId || answer === undefined) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: 'org, role, questionId, answer are required' }));
-        return true;
-      }
-      if (String(org).length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(String(org))) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: 'Invalid org name' }));
-        return true;
-      }
-      const brokerDir = path.join(os.homedir(), '.monomind', 'orgrt-broker');
-      const entryPath = path.join(brokerDir, `${org}.json`);
-      let hostUrl = null;
-      try {
-        const entry = JSON.parse(fs.readFileSync(entryPath, 'utf8'));
-        if (Date.now() - entry.updatedAt < 90000) hostUrl = entry.url;
-      } catch (_) {}
-      if (!hostUrl) {
-        // No live process to forward to — the control server has no daemon instance of
-        // its own to call autoWake() on. If the org's definition still exists on disk,
-        // queue the answer the same way inbox.ts's queueMessage()/drainInbox() already
-        // do for offline cross-org messages, so it's delivered whenever the org next
-        // starts (manually or via its own schedule) — matching the offline-delivery goal
-        // for the dashboard path, not just the direct-daemon path Task 4 already covers.
-        const projDir = path.resolve(dir || ctx.projectDir || process.cwd());
-        const orgDefFile = path.join(projDir, '.monomind', 'orgs', `${org}.json`);
-        if (!fs.existsSync(orgDefFile)) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(
-            JSON.stringify({
-              ok: false,
-              error: `org "${org}" not found — no running process and no saved definition`,
-            }),
-          );
-          return true;
-        }
-        const qFile = path.join(projDir, '.monomind', 'orgs', org, 'questions.json');
-        let qData = { questions: [] };
-        try {
-          qData = JSON.parse(fs.readFileSync(qFile, 'utf8'));
-        } catch (_) {}
-        const qIdx = (qData.questions || []).findIndex((q) => q.questionId === questionId);
-        if (qIdx === -1) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(
-            JSON.stringify({
-              ok: false,
-              error: `question "${questionId}" not found for org "${org}"`,
-            }),
-          );
-          return true;
-        }
-        if (qData.questions[qIdx].answer !== null && qData.questions[qIdx].answer !== undefined) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, alreadyAnswered: true }));
-          return true;
-        }
-        const answeredQuestion = qData.questions[qIdx];
-        qData.questions[qIdx] = { ...answeredQuestion, answer, answeredAt: Date.now() };
-        const qTmp = `${qFile}.tmp`;
-        fs.writeFileSync(qTmp, JSON.stringify(qData, null, 2));
-        fs.renameSync(qTmp, qFile);
-        const inboxDir = path.join(projDir, '.monomind', 'orgs', org);
-        fs.mkdirSync(inboxDir, { recursive: true });
-        fs.appendFileSync(
-          path.join(inboxDir, 'inbox.jsonl'),
-          `${JSON.stringify({
-            fromQualified: 'human',
-            toRole: role,
-            subject: `answer:${questionId}`,
-            body: `question: ${answeredQuestion.question}\n\nanswer: ${answer}`,
-            ts: Date.now(),
-          })}\n`,
-        );
-        const queuedEvent = {
-          type: 'org:question-answered',
-          org,
-          role,
-          questionId,
-          ts: Date.now(),
-          queued: true,
-        };
-        ctx
-          .appendToFile(
-            path.join(projDir, 'data', 'mastermind-events.jsonl'),
-            `${JSON.stringify(queuedEvent)}\n`,
-          )
-          .catch(() => {});
-        ctx.broadcastMm(queuedEvent);
-        // Auto-wake: a queued answer is worthless if nothing ever restarts the org to
-        // drain it (unlike the direct-daemon path, this control server holds no OrgDaemon
-        // instance to call autoWake() on). `org run` itself no-ops if the org's runtime.json
-        // already shows a live pid, so this is safe to fire even if another process is
-        // racing to start it.
-        try {
-          const child = spawn('npx', ['-y', 'monomind@latest', 'org', 'run', org], {
-            cwd: projDir,
-            detached: true,
-            stdio: 'ignore',
-          });
-          child.unref();
-        } catch (_) {
-          /* best-effort — the answer is still queued on disk either way */
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, queued: true, waking: true }));
-        return true;
-      }
-      const fwd = await fetch(`${hostUrl}/api/answer-question`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org, role, questionId, answer }),
-        signal: AbortSignal.timeout(5000),
+    const body = await readHilBody(req);
+    const { org, questionId, answer } = body || {};
+    if (!validOrgName(org) || !questionId || typeof answer !== 'string' || !answer.trim())
+      return hilRespond(res, corsOrigin, () => {
+        throw Object.assign(new Error('org, questionId and a non-empty answer are required'), {
+          status: 400,
+        });
       });
-      const fwdData = await fwd.json().catch(() => ({}));
-      if (fwd.ok && fwdData.ok) {
-        const event = { type: 'org:question-answered', org, role, questionId, ts: Date.now() };
-        ctx
-          .appendToFile(
-            path.join(
-              path.resolve(dir || ctx.projectDir || process.cwd()),
-              'data',
-              'mastermind-events.jsonl',
-            ),
-            `${JSON.stringify(event)}\n`,
-          )
-          .catch(() => {});
-        ctx.broadcastMm(event);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
-      } else {
-        res.writeHead(fwd.status || 500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: fwdData.error || 'answer delivery failed' }));
-      }
-    } catch (_e) {
-      res.writeHead(500);
-      res.end('{"ok":false}');
-    }
-    return true;
+    const root = path.resolve(body.dir || ctx.projectDir || process.cwd());
+    return hilRespond(res, corsOrigin, async () => {
+      const r = await hil.answerQuestion(root, org, String(questionId), answer.trim());
+      hilEvent(ctx, root, {
+        type: 'org:question-answered',
+        org,
+        role: r.role,
+        questionId,
+        delivery: r.delivery,
+      });
+      return { ok: true, ...r };
+    });
   }
 
-  // POST /api/org/:name/approvals/:id — approve or reject a pending approval request
-  // Body: { action: "approve" | "reject" | "revision_requested" }
+  // POST /api/org/:name/gates/:id { approved: boolean, resolution? } — resolve
+  // a decision gate, live or (org not running) in gates.json.
   if (
     req.method === 'POST' &&
-    url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals\/[^/]+$/i)
+    url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/gates\/[^/?]+(\?.*)?$/i)
   ) {
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 2097152) {
-        req.destroy();
-        break;
-      }
-    }
-    try {
-      const parts = url.split('/');
-      const orgName = decodeURIComponent(parts[3]);
-      const approvalId = decodeURIComponent(parts[5]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('Invalid org name');
-        return true;
-      }
-      if (!approvalId) {
-        res.writeHead(400);
-        res.end('{"error":"approval id required"}');
-        return true;
-      }
-      const parsed = JSON.parse(body);
-      const action = parsed.action;
-      if (!['approve', 'reject', 'revision_requested'].includes(action)) {
-        res.writeHead(400);
-        res.end('{"error":"action must be approve, reject, or revision_requested"}');
-        return true;
-      }
-      const _postApprovalsQs = new URL(req.url, 'http://localhost').searchParams;
-      const base = path.join(
-        path.resolve(_postApprovalsQs.get('dir') || ctx.projectDir || process.cwd()),
-        '.monomind',
-        'orgs',
-      );
-      const approvalsFile = path.join(base, `${orgName}-approvals.json`);
-      let data = { approvals: [] };
-      try {
-        data = JSON.parse(fs.readFileSync(approvalsFile, 'utf8'));
-      } catch (_) {}
-      const idx = (data.approvals || []).findIndex((a) => a.id === approvalId);
-      if (idx === -1) {
-        res.writeHead(404);
-        res.end('{"error":"approval not found"}');
-        return true;
-      }
-      const status =
-        action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'revision_requested';
-      data.approvals[idx] = {
-        ...data.approvals[idx],
+    const parts = url.split('?')[0].split('/');
+    const orgName = decodeURIComponent(parts[3]);
+    const gateId = decodeURIComponent(parts[5]);
+    const body = await readHilBody(req);
+    const resolution =
+      typeof body?.resolution === 'string' && body.resolution.trim()
+        ? body.resolution.trim().slice(0, 4000)
+        : undefined;
+    const root = hilRoot(req, ctx);
+    return hilRespond(res, corsOrigin, async () => {
+      if (typeof body?.approved !== 'boolean')
+        throw Object.assign(new Error('approved (boolean) is required'), { status: 400 });
+      const r = await hil.resolveGate(root, orgName, gateId, body.approved, resolution);
+      const status = body.approved ? 'approved' : 'rejected';
+      hilEvent(ctx, root, {
+        type: 'org:gate:resolved',
+        org: orgName,
+        gateId,
         status,
-        resolvedAt: new Date().toISOString(),
-        resolvedBy: 'operator',
-      };
-      const tmp = `${approvalsFile}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-      fs.renameSync(tmp, approvalsFile);
-      // Emit org:approval:resolved event so boss agent unblocks
-      const event = {
+        delivery: r.delivery,
+      });
+      return { ok: true, status, ...r };
+    });
+  }
+
+  // POST /api/org/:name/approvals/:requestId { action: "approve" | "reject" } —
+  // resolve one tool/action approval, live or (org not running) in approvals.json.
+  if (
+    req.method === 'POST' &&
+    url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals\/[^/?]+(\?.*)?$/i)
+  ) {
+    const parts = url.split('?')[0].split('/');
+    const orgName = decodeURIComponent(parts[3]);
+    const requestId = decodeURIComponent(parts[5]);
+    const body = await readHilBody(req);
+    const root = hilRoot(req, ctx);
+    return hilRespond(res, corsOrigin, async () => {
+      if (body?.action !== 'approve' && body?.action !== 'reject')
+        throw Object.assign(new Error('action must be approve or reject'), { status: 400 });
+      const approved = body.action === 'approve';
+      const r = await hil.resolveApproval(root, orgName, requestId, approved);
+      const status = approved ? 'approved' : 'denied';
+      hilEvent(ctx, root, {
         type: 'org:approval:resolved',
         org: orgName,
-        approval_id: approvalId,
+        requestId,
         status,
-        ts: Date.now(),
-      };
-      ctx
-        .appendToFile(
-          path.join(
-            path.resolve(_postApprovalsQs.get('dir') || ctx.projectDir || process.cwd()),
-            'data',
-            'mastermind-events.jsonl',
-          ),
-          `${JSON.stringify(event)}\n`,
-        )
-        .catch(() => {});
-      ctx.broadcastMm(event);
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        delivery: r.delivery,
       });
-      res.end(JSON.stringify({ ok: true, status }));
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{}');
-    }
-    return true;
+      return { ok: true, status, ...r };
+    });
   }
 
   // GET /api/org/:name/secrets — masked secrets list (NEVER exposes values)
@@ -4403,6 +4178,41 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
       const _chMonoDir = ctx._getGitMonomindDir(_chRoot) || path.join(_chRoot, '.monomind');
       const _chRunId =
         ctx.activeOrgRuns.get(_chOrgName) || ctx._getActiveRunId(_chOrgName, _chRoot);
+      // Deliver to the target role (default: the root role) — live into its
+      // mailbox, or queued in the org's inbox for its next run.
+      let _chRoles = [];
+      try {
+        const _chCfg = JSON.parse(
+          fs.readFileSync(path.join(_chRoot, '.monomind', 'orgs', `${_chOrgName}.json`), 'utf8'),
+        );
+        if (Array.isArray(_chCfg.roles)) _chRoles = _chCfg.roles;
+      } catch (_) {}
+      const _chTargetRole =
+        typeof _chPayload.role === 'string' && _chPayload.role
+          ? _chRoles.find((r) => r.id === _chPayload.role)?.id
+          : (_chRoles.find((r) => !r.reports_to) || _chRoles[0])?.id;
+      if (!_chTargetRole) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            ok: false,
+            error: _chPayload.role
+              ? `org "${_chOrgName}" has no role "${_chPayload.role}"`
+              : `org "${_chOrgName}" has no role to receive it`,
+          }),
+        );
+        return true;
+      }
+      let _chDelivery;
+      try {
+        _chDelivery = (await hil.sendHumanMessage(_chRoot, _chOrgName, _chTargetRole, _chText))
+          .delivery;
+      } catch (err) {
+        const { status, error } = hil.hilErrorStatus(err);
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error }));
+        return true;
+      }
       const _chEvent = {
         type: 'user:message',
         org: _chOrgName,
@@ -4416,20 +4226,6 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
         if (fs.existsSync(_chRunFile))
           await ctx.appendToFile(_chRunFile, `${JSON.stringify(_chEvent)}\n`);
       }
-      // Write to mailbox file so boss agent can pick up on next cycle (durable
-      // record + offline fallback — the live-delivery attempt below is best-effort)
-      const _chMailbox = path.join(_chRoot, '.monomind', 'orgs', `${_chOrgName}-threads.json`);
-      try {
-        let _chThreads = { messages: [] };
-        if (fs.existsSync(_chMailbox)) {
-          try {
-            _chThreads = JSON.parse(fs.readFileSync(_chMailbox, 'utf8'));
-          } catch (_) {}
-        }
-        if (!Array.isArray(_chThreads.messages)) _chThreads.messages = [];
-        _chThreads.messages.push({ text: _chText, ts: _chEvent.ts, status: 'pending' });
-        fs.writeFileSync(_chMailbox, JSON.stringify(_chThreads, null, 2));
-      } catch (_) {}
       // Broadcast to SSE stream clients
       ctx.broadcastMm(_chEvent);
       const _chFwdClients = ctx.runStreamClients.get(_chOrgName);
@@ -4443,51 +4239,18 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           }
         }
       }
-      // Forward to the org's live process (if any) so the message actually lands in a
-      // running role's mailbox — looked up via the same file-based broker registry
-      // orgrt's cross-process delivery already uses (mirrors POST /api/questions/answer).
-      let _chDelivered = false;
-      try {
-        const _chBrokerEntryPath = path.join(
-          os.homedir(),
-          '.monomind',
-          'orgrt-broker',
-          `${_chOrgName}.json`,
-        );
-        const _chBrokerEntry = JSON.parse(fs.readFileSync(_chBrokerEntryPath, 'utf8'));
-        if (Date.now() - _chBrokerEntry.updatedAt < 90000 && _chBrokerEntry.url) {
-          let _chTargetRole = _chPayload.role;
-          if (!_chTargetRole) {
-            try {
-              const _chCfg = JSON.parse(
-                fs.readFileSync(
-                  path.join(_chRoot, '.monomind', 'orgs', `${_chOrgName}.json`),
-                  'utf8',
-                ),
-              );
-              const _chRoles = Array.isArray(_chCfg.roles) ? _chCfg.roles : [];
-              const _chBoss =
-                _chRoles.find((r) => r.type === 'boss' || r.reports_to === null) || _chRoles[0];
-              _chTargetRole = _chBoss?.id;
-            } catch (_) {}
-          }
-          if (_chTargetRole) {
-            const _chFwd = await fetch(`${_chBrokerEntry.url}/api/human-message`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ org: _chOrgName, role: _chTargetRole, text: _chText }),
-              signal: AbortSignal.timeout(5000),
-            });
-            const _chFwdData = await _chFwd.json().catch(() => ({}));
-            _chDelivered = !!(_chFwd.ok && _chFwdData.ok);
-          }
-        }
-      } catch (_) {}
       res.writeHead(200, {
         'Content-Type': 'application/json',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
-      res.end(JSON.stringify({ ok: true, delivered: _chDelivered }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          delivered: _chDelivery === 'live',
+          delivery: _chDelivery,
+          role: _chTargetRole,
+        }),
+      );
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
