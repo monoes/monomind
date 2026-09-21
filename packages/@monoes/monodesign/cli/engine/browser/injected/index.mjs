@@ -258,7 +258,7 @@ if (IS_BROWSER) {
     }
   });
 
-  const highlight = function(el, findings) {
+  const highlight = (el, findings) => {
     if (el._monodesignOverlay) detachOverlay(el._monodesignOverlay);
     const fixed = isInFixedContext(el);
     const rect = el.getBoundingClientRect();
@@ -403,7 +403,7 @@ if (IS_BROWSER) {
     overlays.push(outline);
   };
 
-  const showPageBanner = function(findings) {
+  const showPageBanner = (findings) => {
     if (!findings.length) return;
     const banner = document.createElement('div');
     banner.className = 'monodesign-overlay monodesign-banner';
@@ -1230,7 +1230,7 @@ if (IS_BROWSER) {
     }));
   }
 
-  const printSummary = function(allFindings) {
+  const printSummary = (allFindings) => {
     if (allFindings.length === 0) {
       console.log('%c[monodesign] No anti-patterns found.', 'color: #22c55e; font-weight: bold');
       return;
@@ -1830,7 +1830,7 @@ if (IS_BROWSER) {
   }
 
   let firstScanDone = false;
-  const scan = function(options = {}) {
+  const scan = (options = {}) => {
     clearOverlays();
     const generation = scanGeneration;
     const collected = collectBrowserFindings();
@@ -1847,7 +1847,7 @@ if (IS_BROWSER) {
     return allFindings;
   };
 
-  const scanAsync = async function(options = {}) {
+  const scanAsync = async (options = {}) => {
     clearOverlays();
     const generation = scanGeneration;
     if (shouldRunVisualContrast(options)) {
@@ -1859,13 +1859,13 @@ if (IS_BROWSER) {
     return renderBrowserFindings(collectBrowserFindings(), options);
   };
 
-  const detect = function(options = {}) {
+  const detect = (options = {}) => {
     lastVisualContrastAnalyses = [];
     const { allFindings } = collectBrowserFindings();
     return options.serialize === false ? allFindings : serializeFindings(allFindings);
   };
 
-  const detectAsync = async function(options = {}) {
+  const detectAsync = async (options = {}) => {
     if (shouldRunVisualContrast(options)) {
       const { allFindings } = await collectBrowserFindingsAsync(options);
       return options.serialize === false ? allFindings : serializeFindings(allFindings);

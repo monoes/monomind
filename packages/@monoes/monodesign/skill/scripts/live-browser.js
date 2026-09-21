@@ -9,7 +9,7 @@
  * configure (pick action + go), generating (progressive dots), and cycling
  * (prev/next + accept/discard). Feels like Spotlight, not a modal.
  */
-(function () {
+(() => {
   // biome-ignore lint/suspicious/noRedundantUseStrict: served to the page as a classic <script> (not an ES module despite package type=module), so this directive is what enables strict mode
   'use strict';
   if (typeof window === 'undefined') return;
@@ -7569,8 +7569,9 @@ void main() {
   }
 
   function scheduleAcceptCleanup(accepted) {
-    setTimeout(function() {
+    setTimeout(() => {
       if (!accepted?.isSvelteComponent && !acceptedDomAlreadyClean(accepted)) {
+        // biome-ignore lint/complexity/useArrowFunction: tests/live-browser-source.test.mjs pins this fallback as `setTimeout(function() {`
         setTimeout(function() {
           if (pendingAcceptedSession?.id !== accepted?.id) return;
           if (!accepted?.isSvelteComponent) ensureAcceptedDomClean(accepted);
@@ -7897,7 +7898,7 @@ void main() {
       // replaced the wrapper by then (keeps static-server / no-HMR flows alive).
       const wrapper = document.querySelector('[data-monodesign-variants="' + cleanupSessionId + '"]');
       if (wrapper) wrapper.style.display = 'none';
-      setTimeout(function() {
+      setTimeout(() => {
         if (!cleanupSessionId) return;
         const lateWrapper = document.querySelector('[data-monodesign-variants="' + cleanupSessionId + '"]');
         if (!lateWrapper) return;
