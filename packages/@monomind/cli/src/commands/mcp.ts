@@ -10,6 +10,7 @@ import { runMonoesProxy } from '../mcp/monoes-proxy.js';
 import { callMCPTool, hasTool, listMCPTools } from '../mcp-client.js';
 import { getMCPServerStatus, getServerManager, type MCPServerOptions } from '../mcp-server.js';
 import { output } from '../output.js';
+import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
 import { confirm } from '../prompt.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -918,7 +919,7 @@ const restartCommand: Command = {
 };
 
 // Verify subcommand — bridges the new-user "did the install actually work?" gap (P0-16).
-// Runs after `claude mcp add monomind -- npx -y monomind@latest mcp start` to give the
+// Runs after the `claude mcp add monomind -- ...` hint (mcpAddHint()) to give the
 // user confidence the wiring is live: lists tools through the in-process registry and
 // confirms the MCP server can be reached from a stdio client.
 const verifyCommand: Command = {
@@ -987,8 +988,7 @@ const verifyCommand: Command = {
         checks.push({
           label: 'claude mcp registration',
           ok: false,
-          detail:
-            'claude CLI unavailable or returned non-zero — run `claude mcp add monomind -- npx -y monomind@latest mcp start` to register',
+          detail: `claude CLI unavailable or returned non-zero — run \`${mcpAddHint()}\` to register`,
         });
       } else {
         const listed = (result.stdout || '').toLowerCase();
@@ -998,7 +998,7 @@ const verifyCommand: Command = {
           ok: registered,
           detail: registered
             ? 'monomind appears in `claude mcp list`'
-            : 'monomind NOT in `claude mcp list` — run `claude mcp add monomind -- npx -y monomind@latest mcp start`',
+            : `monomind NOT in \`claude mcp list\` — run \`${mcpAddHint()}\``,
         });
       }
     } catch {
