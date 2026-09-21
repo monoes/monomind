@@ -6,6 +6,9 @@ import * as path from 'node:path';
 import { getGlobalBrainDir, getProjectRoot } from '../memory/memory-bridge.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { FILTER_OPTIONS, hasFilter, libraryFilterFromFlags } from './doc-filters.js';
+import { libraryCommands } from './doc-library.js';
+import { listDocCommand } from './doc-list.js';
 
 const ingestCommand: Command = {
   name: 'ingest',
@@ -168,6 +171,9 @@ const searchDocCommand: Command = {
         'Override routing: comma list of chunks,kg,rules,memory (default: rule-based router picks)',
       type: 'string',
     },
+    // RCL-09: the same library facets as `doc list`, applied to chunk hits.
+    ...FILTER_OPTIONS,
+    { name: 'json', description: 'Emit JSON for programmatic use', type: 'boolean' },
   ],
   examples: [
     {
@@ -259,6 +265,29 @@ const searchDocCommand: Command = {
       });
     }
 
+    // RCL-09: a library filter narrows the CHUNK surface only — the graph,
+    // rule and memory surfaces have no capture provenance to filter on, and
+    // silently dropping them would change what `--site` appears to mean.
+    const filter = libraryFilterFromFlags(ctx);
+    if (hasFilter(filter)) {
+      const { matchesLibraryFilter } = await import('../knowledge/library.js');
+      chunkExcerpts = chunkExcerpts.filter((e) =>
+        matchesLibraryFilter(
+          {
+            filePath: e.filePath,
+            scope: e.scope,
+            contentHash: '',
+            chunkCount: 0,
+            size: 0,
+            indexedAt: '',
+            ...(e.provenance?.canonicalUrl ? { canonicalUrl: e.provenance.canonicalUrl } : {}),
+            ...(e.provenance ? { provenance: e.provenance } : {}),
+          },
+          filter,
+        ),
+      );
+    }
+
     const fused = rrfFuse(
       [
         chunkExcerpts.map((e) => ({
@@ -290,6 +319,11 @@ const searchDocCommand: Command = {
       limit,
     );
 
+    if (ctx.flags.json === true) {
+      output.writeln(JSON.stringify(fused, null, 2));
+      return { success: true, data: fused };
+    }
+
     if (!fused.length) {
       output.writeln(output.dim('No results found.'));
       return { success: true, data: [] };
@@ -320,56 +354,20 @@ const searchDocCommand: Command = {
       } else {
         const origin = r.scope === 'global' ? ` ${output.dim('[global]')}` : '';
         const sim = typeof r.similarity === 'number' ? `(${r.similarity.toFixed(3)}) ` : '';
-        output.writeln(`${n} ${output.dim(sim)}${r.filePath || 'unknown'}${origin}`);
+        const prov = r.provenance as { title?: string; capturedAt?: string } | undefined;
+        output.writeln(`${n} ${output.dim(sim)}${prov?.title ?? r.filePath ?? 'unknown'}${origin}`);
         const text = String(r.text || '');
         output.writeln(`   ${output.dim(text.length > 200 ? `${text.slice(0, 200)}...` : text)}`);
+        // RCL-10: the anchor is what turns this hit into a citation —
+        // `monomind doc cite <doc> --anchor <anchor>` prints the passage.
+        if (r.anchor) {
+          output.writeln(output.dim(`   cite: ${r.anchor} · chars ${r.startChar}-${r.endChar}`));
+        }
       }
       output.writeln();
     }
 
     return { success: true, data: fused };
-  },
-};
-
-const listDocCommand: Command = {
-  name: 'list',
-  description: 'List indexed documents',
-  options: [
-    { name: 'scope', short: 's', description: 'Knowledge scope', type: 'string' },
-    {
-      name: 'global',
-      short: 'g',
-      description: 'List the personal cross-project global brain',
-      type: 'boolean',
-    },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { listDocuments } = await import('../knowledge/document-pipeline.js');
-    const isGlobal = ctx.flags.global === true;
-    const scope = isGlobal ? 'global' : ctx.flags.scope ? String(ctx.flags.scope) : undefined;
-    const docs = listDocuments(isGlobal ? getGlobalBrainDir() : getProjectRoot(), scope);
-
-    if (!docs.length) {
-      output.writeln(output.dim('No documents indexed. Run: monomind doc ingest <path>'));
-      return { success: true, data: [] };
-    }
-
-    output.writeln(output.bold(`${docs.length} documents indexed:`));
-    output.writeln();
-
-    for (const doc of docs) {
-      const name = path.basename(doc.filePath);
-      const size =
-        doc.size > 1024 * 1024
-          ? `${(doc.size / 1024 / 1024).toFixed(1)}MB`
-          : `${(doc.size / 1024).toFixed(0)}KB`;
-      const date = doc.indexedAt.slice(0, 10);
-      output.writeln(
-        `  ${output.highlight(name)} ${output.dim(`${doc.chunkCount} chunks · ${size} · ${date} · ${doc.scope}`)}`,
-      );
-    }
-
-    return { success: true, data: docs };
   },
 };
 
@@ -793,6 +791,7 @@ export const docCommand: Command = {
     ingestCommand,
     searchDocCommand,
     listDocCommand,
+    ...libraryCommands,
     exportDocCommand,
     importDocCommand,
     removeDocCommand,
@@ -803,7 +802,16 @@ export const docCommand: Command = {
   examples: [
     { command: 'monomind doc ingest ./docs', description: 'Index documents' },
     { command: 'monomind doc search -q "auth flow"', description: 'Semantic search' },
-    { command: 'monomind doc list', description: 'List indexed docs' },
+    {
+      command: 'monomind doc list --site example.com --since 7d',
+      description: 'Browse the library',
+    },
+    {
+      command: 'monomind doc cite <url> --chunk 2',
+      description: 'Quote a passage with its source',
+    },
+    { command: 'monomind doc related <url> --limit 3', description: 'What relates to this page' },
+    { command: 'monomind doc watch check', description: 'What changed since the last check' },
     { command: 'monomind doc export', description: 'Export as OKF bundle' },
     { command: 'monomind doc import ./bundle', description: 'Import an OKF bundle' },
     { command: 'monomind doc remove ./docs/old.md', description: 'Forget an indexed document' },
@@ -819,7 +827,10 @@ export const docCommand: Command = {
     output.printList([
       `${output.highlight('ingest')}  - Ingest documents into the knowledge base`,
       `${output.highlight('search')}  - Semantic search over indexed documents`,
-      `${output.highlight('list')}    - List indexed documents`,
+      `${output.highlight('list')}    - Browse the library: filter by site, tag, date, source (alias: library)`,
+      `${output.highlight('cite')}    - Quote a passage with its URL and capture time`,
+      `${output.highlight('related')} - What else in the brain relates to a page`,
+      `${output.highlight('watch')}   - Watch captured pages for change (add/list/remove/check)`,
       `${output.highlight('export')}  - Export as OKF bundle (markdown + frontmatter)`,
       `${output.highlight('import')}  - Import an OKF bundle produced by export`,
       `${output.highlight('remove')}  - Forget an indexed document (aliases: rm, forget)`,

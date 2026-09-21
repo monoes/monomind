@@ -16,6 +16,15 @@ import type { FileEntry } from '../capabilities/types.js';
 // be duplicated — two copies of "which directory is this project" is exactly the
 // bug this default exists to fix.
 import { getProjectRoot } from '../memory/memory-bridge.js';
+import {
+  type CaptureProvenance,
+  captureIdentityUrl,
+  ENVELOPE_DOCUMENTS,
+  ENVELOPE_READABLE_FILE,
+  envelopePrimaryDocument,
+  readCaptureProvenance,
+} from './capture-envelope.js';
+import { type ChunkSpan, citationAnchor, parseSpanTag, spanTag } from './citation.js';
 
 interface TextChunk {
   chunkId: string;
@@ -307,6 +316,16 @@ export interface IngestResult {
    *  none), and re-ingesting repairs it. Absent means the ingest was complete —
    *  a caller must not read `chunksIndexed > 0` alone as success. */
   partial?: boolean;
+  /** RCL-06: the document was already indexed at this exact extracted-text
+   *  hash, so nothing was written. Reported as "unchanged" rather than as a
+   *  skip with an error, because nothing went wrong. */
+  unchanged?: boolean;
+  /** RCL-06: 1 for a first ingest, incremented for each stored revision. */
+  version?: number;
+  /** RCL-06: contentHash of the version this one replaced, when there was one. */
+  supersedes?: string;
+  /** RCL-07: provenance read from the capture envelope's `meta.json`. */
+  provenance?: CaptureProvenance;
 }
 
 export interface BatchIngestResult {
@@ -329,6 +348,16 @@ export interface KnowledgeExcerpt {
    *  re-ingested (its contentHash is no longer the file's current one). Only
    *  ever set when the caller opted into `includeSuperseded`. */
   superseded?: boolean;
+  /** RCL-07: capture provenance, when the document came from a capture
+   *  envelope — this is what lets a result cite the page it came from
+   *  instead of a path under `~/.monomind/inbox`. */
+  provenance?: CaptureProvenance;
+  /** RCL-10: the chunk's character span against the extracted text. Absent
+   *  for chunks stored before span tags existed — re-ingest to get them. */
+  startChar?: number;
+  endChar?: number;
+  /** RCL-10: `<hash12>#<start>-<end>`, resolvable with `monomind doc cite`. */
+  anchor?: string;
 }
 
 export interface DocumentMeta {
@@ -338,6 +367,16 @@ export interface DocumentMeta {
   indexedAt: string;
   scope: string;
   size: number;
+  /** RCL-06: identity URL for a captured page (`canonicalUrl`, else `url`,
+   *  fragment stripped). Absent for ordinary files on disk. */
+  canonicalUrl?: string;
+  /** RCL-06: 1 for a first ingest, +1 per stored revision. */
+  version?: number;
+  /** RCL-06: contentHash of the version this record replaced. Walk it back
+   *  through `listDocumentVersions` to reach the older ones. */
+  supersedes?: string;
+  /** RCL-07: the capture envelope's `meta.json`, normalized. */
+  provenance?: CaptureProvenance;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -383,6 +422,24 @@ function metadataPath(rootDir: string): string {
   const dir = path.join(rootDir, '.monomind', 'knowledge');
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, METADATA_FILE);
+}
+
+/** Every record ever appended, in order, including superseded versions and
+ *  removal tombstones. Reads the path directly instead of via `metadataPath`,
+ *  which mkdir's. */
+function readMetadataLog(rootDir: string): DocumentMeta[] {
+  const file = path.join(rootDir, '.monomind', 'knowledge', METADATA_FILE);
+  if (!fs.existsSync(file)) return [];
+  const out: DocumentMeta[] = [];
+  for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line) as DocumentMeta);
+    } catch {
+      /* torn line */
+    }
+  }
+  return out;
 }
 
 function readMetadata(rootDir: string): DocumentMeta[] {
@@ -530,9 +587,46 @@ export async function ingestDocument(
     };
   }
 
+  // RCL-01/RCL-06: one capture envelope is ONE document, whichever of its
+  // members the caller points at. `page.html`/`page.mhtml` need no guard —
+  // extraction already redirects them to `readable.md`, so they hash
+  // identically and fall out as "unchanged" below. `page.pdf` does not: its
+  // text differs from the readable pass, so ingesting it alongside would
+  // version-flip the same page back and forth on every sweep.
+  const envelopePrimary = envelopePrimaryDocument(path.dirname(resolved));
+  if (envelopePrimary && envelopePrimary !== resolved) {
+    const isMember = (ENVELOPE_DOCUMENTS as readonly string[]).includes(path.basename(resolved));
+    const redirectsToPrimary =
+      path.basename(envelopePrimary) === ENVELOPE_READABLE_FILE &&
+      (ext === '.html' || ext === '.htm' || ext === '.xhtml' || ext === '.mhtml' || ext === '.mht');
+    if (isMember && !redirectsToPrimary) {
+      return {
+        filePath: resolved,
+        chunksIndexed: 0,
+        scope,
+        skipped: true,
+        error: `capture envelope: ${path.basename(envelopePrimary)} is this capture's document`,
+      };
+    }
+  }
+
   rootDir = effectiveRoot(scope, rootDir);
   const meta = _metadataCache ?? readMetadata(rootDir);
-  const existing = meta.find((m) => m.filePath === resolved && m.scope === scope);
+
+  // RCL-07: provenance is read before extraction so it is recorded even when a
+  // later step degrades. Absent, truncated or wrong-typed `meta.json` yields
+  // null and never throws — see capture-envelope.
+  const provenance = readCaptureProvenance(resolved);
+  const canonicalUrl = captureIdentityUrl(provenance);
+
+  // RCL-06: identity is the PAGE, not the path. A re-capture lands in a new
+  // timestamped directory, so matching on filePath alone would file every
+  // capture of one article as a separate document.
+  const existing =
+    meta.find((m) => m.filePath === resolved && m.scope === scope) ??
+    (canonicalUrl
+      ? meta.find((m) => m.scope === scope && m.canonicalUrl === canonicalUrl)
+      : undefined);
   let fullContent: string;
 
   try {
@@ -554,9 +648,22 @@ export async function ingestDocument(
 
   const hash = contentHash(fullContent);
 
+  // RCL-06: same page, same extracted text — a no-op, not a duplicate row and
+  // not an error. `unchanged` is what a caller reports to the user.
   if (existing && existing.contentHash === hash) {
-    return { filePath: resolved, chunksIndexed: existing.chunkCount, scope, skipped: true };
+    return {
+      filePath: resolved,
+      chunksIndexed: existing.chunkCount,
+      scope,
+      skipped: true,
+      unchanged: true,
+      ...(existing.version ? { version: existing.version } : {}),
+      ...(provenance ? { provenance } : {}),
+    };
   }
+
+  const version = (existing?.version ?? (existing ? 1 : 0)) + 1;
+  const supersedes = existing?.contentHash || undefined;
 
   // NOTE: the previous version's metadata record is deliberately NOT tombstoned
   // here. `readMetadata` is last-wins per (filePath, scope), so appending the
@@ -581,7 +688,15 @@ export async function ingestDocument(
           value: chunk.text,
           namespace: namespace(scope),
           generateEmbeddingFlag: true,
-          tags: ['document', ext, `src:${resolved}`],
+          tags: [
+            'document',
+            ext,
+            `src:${resolved}`,
+            // RCL-10: the chunk's span against the extracted text, so a search
+            // hit can cite a passage without re-reading the document.
+            spanTag(chunk.startChar, chunk.endChar),
+            ...(canonicalUrl ? [`url:${canonicalUrl}`] : []),
+          ],
           upsert: true,
           dbPath: storeDbPath(scope),
         });
@@ -617,7 +732,24 @@ export async function ingestDocument(
       indexedAt: new Date().toISOString(),
       scope,
       size: stat.size,
+      version,
+      ...(supersedes ? { supersedes } : {}),
+      ...(canonicalUrl ? { canonicalUrl } : {}),
+      ...(provenance ? { provenance } : {}),
     });
+
+    // A re-capture of the same page arrives at a NEW path, so the previous
+    // version's record is a different (filePath, scope) key and survives
+    // last-wins — leaving its contentHash live and its chunks answering
+    // searches forever. Tombstone it so it leaves the live-hash set, which is
+    // exactly how a same-path re-ingest already retires its predecessor.
+    //
+    // AFTER the append, never before: retiring the old version before the
+    // replacement is known to have landed is the failure mode the partial-store
+    // fix above exists to prevent.
+    if (existing && existing.filePath !== resolved) {
+      removeMetadataEntry(rootDir, existing.filePath, scope);
+    }
   }
 
   return {
@@ -625,6 +757,8 @@ export async function ingestDocument(
     chunksIndexed: indexed,
     scope,
     skipped: false,
+    ...(complete ? { version, ...(supersedes ? { supersedes } : {}) } : {}),
+    ...(provenance ? { provenance } : {}),
     ...(complete
       ? {}
       : indexed > 0
@@ -848,7 +982,11 @@ export async function searchKnowledge(
         .catch(() => null);
       if (!result?.success || !result.results.length) return [];
       const hashToFile = new Map<string, string>();
-      for (const m of meta) hashToFile.set(m.contentHash, m.filePath);
+      const hashToProvenance = new Map<string, CaptureProvenance>();
+      for (const m of meta) {
+        hashToFile.set(m.contentHash, m.filePath);
+        if (m.provenance) hashToProvenance.set(m.contentHash, m.provenance);
+      }
       const kept = includeSuperseded
         ? result.results
         : result.results.filter((r: any) => !isSupersededKey(String(r.key ?? ''), live, hasMeta));
@@ -861,6 +999,10 @@ export async function searchKnowledge(
         // content, and goes empty when a re-ingested file's hash changed.
         const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
         const superseded = includeSuperseded && isSupersededKey(String(r.key ?? ''), live, hasMeta);
+        // RCL-10: offsets ride on the chunk's own `span:` tag, so citing a hit
+        // costs nothing here. Chunks stored before span tags simply have none,
+        // and `doc cite --chunk` recomputes them from the document.
+        const span = parseSpanTag(r.tags as string[] | undefined);
         return {
           id: r.id,
           filePath: srcTag ? srcTag.slice(4) : (hashToFile.get(hash) ?? ''),
@@ -875,6 +1017,17 @@ export async function searchKnowledge(
           chunkIndex: Number.isNaN(idx) ? 0 : idx,
           scope: t.label,
           ...(superseded ? { superseded: true } : {}),
+          // RCL-07: only LIVE versions carry provenance here — a superseded
+          // chunk's record is no longer in the live metadata. Its `url:` tag
+          // still identifies the page it came from.
+          ...(hashToProvenance.has(hash) ? { provenance: hashToProvenance.get(hash) } : {}),
+          ...(span
+            ? {
+                startChar: span.startChar,
+                endChar: span.endChar,
+                anchor: citationAnchor(hash, span.startChar, span.endChar),
+              }
+            : {}),
         };
       });
     }),
@@ -891,6 +1044,93 @@ export async function searchKnowledge(
 export function listDocuments(rootDir = getProjectRoot(), scope?: string): DocumentMeta[] {
   const all = readMetadata(rootDir);
   return scope ? all.filter((m) => m.scope === scope) : all;
+}
+
+/**
+ * Every recorded version of one document, oldest first (RCL-06).
+ *
+ * `target` is either an indexed file path or a capture's `canonicalUrl`. Read
+ * from the append-only log rather than the last-wins view, which is how a
+ * superseded version stays addressable after its record has been replaced or
+ * tombstoned.
+ *
+ * Best-effort by design: `readMetadata` compacts the log once it passes 1MB
+ * and keeps only live records, so history older than a compaction is gone.
+ * The `supersedes` pointer on each record is the durable part.
+ */
+export function listDocumentVersions(
+  rootDir = getProjectRoot(),
+  target?: string,
+  scope?: string,
+): DocumentMeta[] {
+  const resolved = target ? path.resolve(target) : undefined;
+  return readMetadataLog(rootDir)
+    .filter((m) => m.chunkCount >= 0)
+    .filter((m) => !scope || m.scope === scope)
+    .filter(
+      (m) =>
+        !target || m.filePath === resolved || m.filePath === target || m.canonicalUrl === target,
+    )
+    .sort((a, b) => (a.version ?? 0) - (b.version ?? 0) || a.indexedAt.localeCompare(b.indexedAt));
+}
+
+// ── Citation / lookup helpers (RCL-10) ─────────────────────────────
+
+/** The store root for a scope: the global brain for `global`, else the project. */
+export function getKnowledgeRoot(scope = 'shared', rootDir = getProjectRoot()): string {
+  return effectiveRoot(scope, rootDir);
+}
+
+/** Chunk spans for a text, using the SAME chunker the ingest used — this is
+ *  what makes a chunk index resolvable back to a character range without
+ *  storing the text twice. */
+export async function chunkSpans(text: string): Promise<ChunkSpan[]> {
+  const chunks = await chunkDocument('cite', text);
+  return chunks.map((c) => ({
+    chunkIndex: c.chunkIndex,
+    startChar: c.startChar,
+    endChar: c.endChar,
+  }));
+}
+
+/**
+ * The indexed record for whatever a caller wrote down: a file path, a
+ * capture's `canonicalUrl` (fragment ignored), or the `<scope>:<path>` docId.
+ *
+ * Live records win. A superseded version is only reached through the
+ * append-only log, and only when nothing live matches — otherwise citing a
+ * re-captured page would resolve against the version it replaced.
+ */
+export function findDocumentRecord(
+  rootDir = getProjectRoot(),
+  target = '',
+  scope?: string,
+): DocumentMeta | undefined {
+  const raw = target.trim();
+  if (!raw) return undefined;
+  // `<scope>:<path>` — but not `https://…`, whose colon is a URL scheme.
+  const scoped = /^([a-z][a-z0-9_-]*):(?!\/\/)(.+)$/i.exec(raw);
+  const candidates = scoped ? [raw, scoped[2]] : [raw];
+  const hash = raw.indexOf('#');
+  if (hash > 0) candidates.push(raw.slice(0, hash));
+  const resolvedPaths = new Set(candidates.map((c) => path.resolve(c)));
+  const wanted = new Set(candidates);
+  const scopeFilter = scope ?? (scoped ? scoped[1] : undefined);
+
+  const matches = (m: DocumentMeta): boolean => {
+    if (scopeFilter && m.scope !== scopeFilter && !wanted.has(m.filePath)) return false;
+    if (wanted.has(m.filePath) || resolvedPaths.has(path.resolve(m.filePath))) return true;
+    return !!m.canonicalUrl && wanted.has(m.canonicalUrl);
+  };
+
+  const live = readMetadata(rootDir).filter(matches);
+  if (live.length) {
+    return live.sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0];
+  }
+  const historical = readMetadataLog(rootDir)
+    .filter((m) => m.chunkCount >= 0)
+    .filter(matches);
+  return historical.sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0];
 }
 
 export async function removeDocument(
