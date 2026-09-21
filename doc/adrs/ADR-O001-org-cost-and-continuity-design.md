@@ -190,6 +190,10 @@ The invariant, already described by the `mastermind-liveness` skill:
   queue-driven it survives any agent dying, being killed, or hitting a session limit.
 - Bound retries (3) and escalate — to stop infinite retry on the structurally impossible, not to
   stop retrying.
+- *Follow-up (2026-09-21):* `run_config.notify_task_creator` is opt-in. When set, a task's
+  creator (recorded as `createdBy`) receives a `[task:<id>] DONE` message with the result and
+  evidence. Without it, a completion is only a bus event. The live trial showed a boss idling on a
+  task its worker had already closed.
 
 ### D5 — Oracles before judges
 
