@@ -421,12 +421,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .oad-doc strong { color: var(--text-hi); font-weight: 600; }
 .oad-doc pre { background: var(--surface-hi); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 0 0 10px; }
 .oad-doc pre code { background: none; padding: 0; font-size: 11.5px; color: var(--text-mid); }
-/* clickable org chart nodes + role cards */
+/* clickable org chart nodes */
 .v2oc-node { cursor: pointer; }
 .v2oc-node.selected > circle { stroke-width: 3.4; }
-.role-v2 { cursor: pointer; transition: border-color 0.12s, transform 0.12s; }
-.role-v2:hover { transform: translateY(-1px); }
-.rv2-more { margin-top: 9px; font-size: 10.5px; color: var(--accent); opacity: 0.85; }
 
 /* org meta strip (cells reused inside #org-meta-modal) */
 .oms-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; }
@@ -513,20 +510,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .org-chart-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px; }
 .ocl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-lo); }
 
-/* roles in v2 */
-.roles-v2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.role-v2 { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
-.rv2-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
-.rv2-avatar { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
-.rv2-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
-.rv2-title { font-size: 13px; font-weight: 500; color: var(--text-hi); line-height: 1.3; }
-.rv2-agent { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--accent-dim); color: var(--accent); white-space: nowrap; align-self: flex-start; }
-.rv2-id { font-size: 10px; color: var(--text-lo); font-family: var(--mono); margin-bottom: 4px; }
-.rv2-reports { font-size: 11px; color: var(--text-lo); margin-bottom: 6px; }
-.rv2-reports span { color: var(--text-mid); }
-.rv2-resps { }
-.rv2-resp { font-size: 11px; color: var(--text-lo); line-height: 1.6; display: flex; gap: 6px; }
-.rv2-resp::before { content: '–'; opacity: 0.4; flex-shrink: 0; }
 /* role avatars in org list */
 .oi-avatars { display: flex; margin-top: 5px; }
 .oi-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; margin-right: -5px; border: 1.5px solid var(--bg); }
@@ -541,15 +524,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .av2-time { color: var(--text-xs); font-family: var(--mono); font-size: 10px; }
 .av2-type { color: var(--accent); font-weight: 500; }
 .av2-msg  { color: var(--text-lo); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* health in v2 */
-.health-v2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
-.hv2-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; }
-.hv2-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-lo); margin-bottom: 4px; }
-.hv2-val { font-size: 20px; font-weight: 700; color: var(--text-hi); font-family: var(--mono); }
-.hv2-val.green { color: var(--green); }
-.hv2-val.amber { color: var(--accent); }
-.hv2-val.red   { color: var(--red); }
 
 /* ── alerts rail ─────────────────────────────────────────── */
 #alerts-rail { display: none; }
@@ -2804,7 +2778,6 @@ function switchProject(path) {
   _v2SelOrg = null;
   _v2OrgData = null;
   _v2Orgs = [];
-  Object.keys(_v2OrgEventLog).forEach(k => delete _v2OrgEventLog[k]);
   document.getElementById('org-detail-pane')?.classList.add('empty-state');
   document.getElementById('org-detail-inner') && (document.getElementById('org-detail-inner').style.display = 'none');
   const _noSel = document.querySelector('#org-detail-pane .orgs-no-sel');
@@ -5818,7 +5791,6 @@ let _v2Orgs = [];
 let _v2SelOrg = null;
 let _v2OrgData = null;
 let _v2OrgTab = 'chart';
-const _v2OrgEventLog = {};
 let _v2ChartLayout = { pos: {}, edgeIdByPair: new Map() };
 
 function _orgActivityMs(o) {
@@ -5893,7 +5865,6 @@ async function v2SelectOrg(name) {
   _v2SelOrg = name;
   _pushHash();
   if (typeof v2CloseAgent === 'function') v2CloseAgent();
-  if (_orgLiveInterval) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; }
   const requested = name;
   const requestedDir = DIR;
   document.querySelectorAll('.org-item').forEach(el => {
@@ -5918,30 +5889,17 @@ async function v2SelectOrg(name) {
   _v2OrgData = null;
   const _enc = encodeURIComponent(name);
   try {
-    const [mainR, actR, healthR] = await Promise.all([
-      apiFetch(`/api/org/${_enc}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`),
-      fetch(`/api/org/${_enc}/activity${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`/api/org/${_enc}/health${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():null).catch(()=>null),
-    ]);
+    const mainR = await apiFetch(`/api/org/${_enc}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`);
     if (_v2SelOrg !== requested || DIR !== requestedDir) return;
     // API returns {config, state, goals, ...} — flatten config; config wins for schema fields
     _v2OrgData = mainR.config ? { ...mainR, ...mainR.config, running: mainR.running } : mainR;
-    _v2OrgData._activity = Array.isArray(actR) ? actR : [];
-    _v2OrgData._health   = healthR;
-    // Fetch supplemental data for new tabs in parallel
-    const [agentsR, membersR, issuesR] = await Promise.all([
-      fetch(`/api/org/${_enc}/agents${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`/api/org/${_enc}/members${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`/api/org/${_enc}/issues${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-    ]);
+    // The chart's running dots read the agent roster
+    const agentsR = await fetch(`/api/org/${_enc}/agents${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
     if (_v2SelOrg !== requested || DIR !== requestedDir) return;
     _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
-    _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
-    _v2OrgData._joinRequests = (membersR?.join_requests) || [];
-    _v2OrgData._issues  = Array.isArray(issuesR)  ? issuesR  : (issuesR?.issues   || []);
   } catch (_) {
     if (_v2SelOrg !== requested || DIR !== requestedDir) return;
-    _v2OrgData = { ...listOrg, communication: [], _activity: [], _health: null, _agents: [], _members: [], _issues: [] };
+    _v2OrgData = { ...listOrg, communication: [], _agents: [] };
   }
 
   v2UpdateOrgHeader(listOrg, _v2OrgData);
@@ -5976,11 +5934,6 @@ window.v2MarkOrgComplete = async () => {
 };
 
 window.v2SwitchOrgTab = (tab) => {
-  // Clear live interval when switching away from live tab
-  if (tab !== 'live' && _orgLiveInterval) {
-    clearInterval(_orgLiveInterval);
-    _orgLiveInterval = null;
-  }
   _v2OrgTab = tab;
   document.querySelectorAll('#org-detail-tabs .odt-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
@@ -5999,30 +5952,8 @@ function v2RenderOrgTab(tab) {
   }
   if (tab === 'chart')          v2RenderOrgChart();
   else if (tab === 'runtime')    v2RenderOrgRuntime();
-  else if (tab === 'roles')      v2RenderOrgRoles();
-  else if (tab === 'health')     v2RenderOrgHealth();
-  else if (tab === 'heartbeats') v2RenderOrgHeartbeats();
-  else if (tab === 'tasks')      v2RenderOrgTasks();
-  else if (tab === 'members')    v2RenderOrgMembers();
-  else if (tab === 'goals')     v2RenderOrgGoals();
-  else if (tab === 'board')     v2RenderOrgBoard();
-  else if (tab === 'live')      v2RenderOrgLive();
   else if (tab === 'approvals') v2RenderOrgApprovals();
-  else if (tab === 'secrets')   v2RenderOrgSecrets();
-  else if (tab === 'settings')  v2RenderOrgSettings();
-  else if (tab === 'routines')  v2RenderOrgRoutines();
-  else if (tab === 'myissues')  v2RenderOrgMyIssues();
   else if (tab === 'decisions') v2RenderOrgDecisions();
-  else if (tab === 'plugins')   v2RenderOrgPlugins();
-  else if (tab === 'charts')       v2RenderOrgCharts();
-  else if (tab === 'projects')     v2RenderOrgProjects();
-  else if (tab === 'workspaces')   v2RenderOrgWorkspaces();
-  else if (tab === 'invites')      v2RenderOrgInvites();
-  else if (tab === 'environments') v2RenderOrgEnvironments();
-  else if (tab === 'access')       v2RenderOrgAccess();
-  else if (tab === 'issues-full')  v2RenderOrgIssuesFull();
-  else if (tab === 'join-requests') v2RenderOrgJoinRequests();
-  else if (tab === 'threads')      v2RenderOrgThreads();
   else if (tab === 'chat')         v2RenderOrgChat();
   else if (tab === 'config')       v2RenderOrgConfig();
   else if (tab === 'files')        v2RenderOrgFiles();
@@ -6771,47 +6702,6 @@ function v2RoleAvatar(role, avatarMap) {
   return `data/avatars/${_v2AvatarCandidates(role)[0]}.svg`;
 }
 
-// ── org roles ───────────────────────────────
-function v2RenderOrgRoles() {
-  if (!_v2SelOrg) return;
-  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
-  const V2_ROLE_COLORS = ['oklch(72% 0.18 75)','oklch(65% 0.12 240)','oklch(65% 0.15 150)','oklch(65% 0.13 290)','oklch(65% 0.14 35)','oklch(62% 0.12 195)'];
-  const pane = document.getElementById('odt-roles');
-  if (!pane) return;
-  if (!roles.length) {
-    pane.innerHTML = '<div class="empty">No roles defined</div>';
-    return;
-  }
-  // Determine leader: explicit reports_to=undefined + type=planner/coordinator, or first role, or id=boss
-  const leaderIds = new Set(roles.filter(r => r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner').map(r => r.id));
-  if (!leaderIds.size) leaderIds.add(roles[0]?.id);
-  // Overlay live running status from in-memory agent SSE state
-  const _rolesRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
-  const _rolesAvMap = v2AvatarMapFor(roles);
-  pane.innerHTML = `<div class="roles-v2-grid">${roles.map((r, i) => {
-    const color = V2_ROLE_COLORS[i % V2_ROLE_COLORS.length];
-    const isLeader = leaderIds.has(r.id);
-    const isRunning = _rolesRunning.has(r.id);
-    const resps = Array.isArray(r.responsibilities) ? r.responsibilities : [];
-    const displayName = r.name || r.title || r.id;
-    const roleType = r.type || r.agent_type || '';
-    const avatarSrc = v2RoleAvatar(r, _rolesAvMap);
-    return `<div class="role-v2" style="border-top:2px solid ${color}" onclick="v2OpenAgent('${String(r.id).replace(/['\\]/g,'\\$&')}')" title="View agent characteristics, skills & instructions">
-      <div class="rv2-head">
-        <img class="rv2-avatar" src="${esc(avatarSrc)}" alt="${esc(displayName)}" loading="lazy" width="48" height="48" onerror="this.src='data/avatars/coder.svg'"/>
-        <div class="rv2-info">
-          <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}${isRunning ? ' <span class="live-dot" style="display:inline-block;vertical-align:middle;margin-left:4px"></span>' : ''}</div>
-          ${roleType ? `<span class="rv2-agent">${esc(roleType)}</span>` : ''}
-        </div>
-      </div>
-      <div class="rv2-id">${esc(r.id)}</div>
-      ${r.reports_to ? `<div class="rv2-reports">reports to <span>${esc(r.reports_to)}</span></div>` : ''}
-      ${resps.length ? `<div class="rv2-resps">${resps.map(s=>`<div class="rv2-resp">${esc(s)}</div>`).join('')}</div>` : ''}
-      <div class="rv2-more">View characteristics, skills &amp; instructions →</div>
-    </div>`;
-  }).join('')}</div>`;
-}
-
 // ── agent detail drawer ──────────────────────
 function v2HighlightAgentNode(roleId) {
   document.querySelectorAll('#v2oc-nodes .v2oc-node').forEach(n =>
@@ -6928,7 +6818,6 @@ async function _v2HandleAvatarFile(inputEl) {
     const imgEl = document.getElementById('oad-avatar-img');
     if (imgEl) imgEl.src = dataUrl;
     showToast('Avatar updated', roleId, 'ok');
-    if (document.getElementById('odt-roles')) v2RenderOrgRoles();
     if (_v2SelOrg) v2RenderOrgChart();
   } catch (e) { showToast('Error', e.message, 'err'); }
 }
@@ -6988,226 +6877,6 @@ function v2RenderMarkdown(md) {
   closeLists();
   html = html.replace(/<p>( B\d+ )<\/p>/g, '$1').replace(/ B(\d+) /g, (_m, i) => blocks[+i] || '');
   return html;
-}
-
-// ── org activity ────────────────────────────
-function fmtOrgEvDetail(ev) {
-  if (ev.type === 'org:comms' && (ev.from || ev.role || ev.to || ev.msg)) {
-    const sender = ev.from || ev.role || '';
-    const route = [sender, ev.to].filter(Boolean).join(' → ');
-    return route ? route + (ev.msg ? `: ${ev.msg}` : '') : ev.msg || '';
-  }
-  if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
-  if (ev.type === 'agent:result') return (ev.agent || ev.from || '') + (ev.result || ev.msg || ev.message || ev.summary ? `: ${ev.result || ev.msg || ev.message || ev.summary}` : '');
-  if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline') return ev.title || ev.role || ev.agent || ev.id || ev.from || '';
-  if (ev.type === 'org:error') return ev.error || ev.msg || ev.message || '';
-  if (ev.type === 'file:write') return ev.path || ev.file || ev.msg || '';
-  return ev.role||ev.result||ev.msg||ev.message||ev.progress||ev.agent||ev.status||'';
-}
-
-// ── org health ──────────────────────────────
-function v2RenderOrgHealth() {
-  if (!_v2SelOrg) return;
-  const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
-  const health  = _v2OrgData?._health;
-  const roles   = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles.length : 0;
-  const pane    = document.getElementById('odt-health');
-  if (!pane) return;
-  pane.innerHTML = `
-    <div class="health-v2-grid">
-      <div class="hv2-cell"><div class="hv2-lbl">Status</div><div class="hv2-val ${(()=>{const r=_v2OrgData?.running??listOrg.running;if(!r)return '';const a=_v2OrgData?.lastEventAt??listOrg.lastEventAt;return a&&(Date.now()-a)<1800000?'green':'amber';})()} ">${(()=>{const r=_v2OrgData?.running??listOrg.running;if(!r)return 'IDLE';const a=_v2OrgData?.lastEventAt??listOrg.lastEventAt;if(!a)return '🟡 QUIET';const d=Date.now()-a;return d<1800000?'🟢 LIVE':d<7200000?'🟡 QUIET':'🔴 STALE';})()}</div></div>
-      <div class="hv2-cell"><div class="hv2-lbl">Roles</div><div class="hv2-val">${roles}</div></div>
-      <div class="hv2-cell"><div class="hv2-lbl">Topology</div><div class="hv2-val" style="font-size:14px">${esc((_v2OrgData?.topology||'—').toUpperCase())}</div></div>
-      ${health?.agents_active!=null?`<div class="hv2-cell"><div class="hv2-lbl">Agents</div><div class="hv2-val ${health.agents_active>0?'green':''}">${health.agents_active}</div></div>`:''}
-      ${health?.tasks_pending!=null?`<div class="hv2-cell"><div class="hv2-lbl">Tasks</div><div class="hv2-val ${health.tasks_pending>5?'amber':''}">${health.tasks_pending}</div></div>`:''}
-      ${health?.run_success_rate_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Success</div><div class="hv2-val ${health.run_success_rate_7d>=80?'green':health.run_success_rate_7d<50?'amber':''}">${health.run_success_rate_7d}%</div></div>`:''}
-      ${health?.total_runs_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Runs</div><div class="hv2-val">${health.total_runs_7d}</div></div>`:''}
-      ${health?.budget_used_pct!=null?`<div class="hv2-cell"><div class="hv2-lbl">Budget Used</div><div class="hv2-val ${health.budget_used_pct>=90?'amber':''}">${health.budget_used_pct}%</div></div>`:''}
-    </div>
-    ${health?.budget_used_pct!=null&&health?.budget_max_tokens>0?`<div style="margin:10px 0 12px"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.min(100,health.budget_used_pct)}%;height:100%;background:${health.budget_used_pct>=90?'var(--red)':health.budget_used_pct>=70?'oklch(70% 0.18 60)':'var(--accent)'};border-radius:2px"></div></div><div style="font-size:10px;color:var(--text-lo);margin-top:4px">${(health.budget_used_tokens??0).toLocaleString()} / ${health.budget_max_tokens.toLocaleString()} tokens</div></div>`:''}
-    ${health?.errors?.length?`<div style="margin-top:12px"><div class="m-group-title">Errors</div>${health.errors.slice(0,5).map(e=>`<div style="font-size:11px;color:var(--red);padding:4px 0;border-bottom:1px solid var(--border)">${esc(e)}</div>`).join('')}</div>`:`<div style="margin-top:10px;font-size:12px;color:var(--text-lo)">${listOrg.running?'Running — no errors detected':'Org is idle'}</div>`}
-  `;
-}
-
-// ── org heartbeats tab ─────────────────────────────────────
-function v2RenderOrgHeartbeats() {
-  if (!_v2SelOrg) return;
-  const pane = document.getElementById('odt-heartbeats');
-  if (!pane) return;
-  // Derive from the agent roster — each agent carries status + lastHeartbeat
-  let hb = Array.isArray(_v2OrgData?.heartbeats) ? _v2OrgData.heartbeats : [];
-  if (!hb.length && Array.isArray(_v2OrgData?._agents)) {
-    hb = _v2OrgData._agents.map(a => ({
-      agent: a.title || a.id || '—',
-      ts: a.lastHeartbeat ?? a.last_heartbeat ?? a.ts ?? null,
-      status: a.status || 'idle',
-    }));
-  }
-  if (!hb.length) { pane.innerHTML = '<div class="empty">No agents to report</div>'; return; }
-  const cls = (st) => (st === 'active' || st === 'running') ? 'on' : ((st === 'error' || st === 'failed') ? 'warn' : '');
-  pane.innerHTML = `<div class="m-group-title">Agent Heartbeats</div>` +
-    hb.slice(0, 50).map(h => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <span style="color:var(--text-hi);font-family:var(--mono);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.agent || '—')}</span>
-      <span style="color:var(--text-lo);white-space:nowrap">${h.ts ? relTime(h.ts) : 'never'}</span>
-      <span class="ss-pill ${cls(h.status)}">${esc(String(h.status || 'idle').toUpperCase())}</span>
-    </div>`).join('');
-}
-
-// ── org tasks tab ──────────────────────────────────────────
-function v2RenderOrgTasks() {
-  if (!_v2SelOrg) return;
-  const pane = document.getElementById('odt-tasks');
-  if (!pane) return;
-  // Normalize: API returns {todo:[],doing:[],done:[]} (columns) or a flat array
-  const raw = _v2OrgData?.tasks;
-  // Server puts completed/failed/cancelled in the 'done' column but keeps original status string
-  const _normTaskStatus = (st, col) => {
-    if (st === 'completed' || st === 'failed' || st === 'cancelled') return 'done';
-    if (st === 'in_progress') return 'doing';
-    return st || col;
-  };
-  let tasks = [];
-  if (Array.isArray(raw)) tasks = raw.map(t => ({ ...t, status: _normTaskStatus(t.status, 'todo') }));
-  else if (raw && typeof raw === 'object') {
-    for (const [col, items] of Object.entries(raw)) {
-      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: _normTaskStatus(t.status, col) }));
-    }
-  }
-  if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
-  const rank = { running: 0, doing: 0, todo: 1, pending: 1, done: 2 };
-  tasks.sort((a, b) => (rank[a.status] ?? 1) - (rank[b.status] ?? 1));
-  const pill = (st) => st === 'done' ? 'on' : (st === 'running' || st === 'doing' ? 'warn' : '');
-  pane.innerHTML = `<div class="m-group-title">Tasks (${tasks.length})</div>` +
-    tasks.slice(0, 80).map(t => `<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <span class="ss-pill ${pill(t.status)}">${esc(t.status || '?')}</span>
-      <span style="flex:1;color:var(--text-hi);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.description || t.title || t.id || '—')}</span>
-      <span style="color:var(--text-lo);white-space:nowrap">${relTime(t.ts || t.created_at || t.updated_at)}</span>
-    </div>`).join('');
-}
-
-// ── org members tab ────────────────────────────────────────
-function v2RenderOrgMembers() {
-  if (!_v2SelOrg) return;
-  const pane = document.getElementById('odt-members');
-  if (!pane) return;
-  // Prefer actual joined members from the members endpoint; fall back to defined roles
-  const members = Array.isArray(_v2OrgData?._members) ? _v2OrgData._members : [];
-  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
-  const list = members.length ? members : roles;
-  const joinReqs = Array.isArray(_v2OrgData?._joinRequests) ? _v2OrgData._joinRequests : [];
-  if (!list.length) { pane.innerHTML = '<div class="empty">No members</div>'; return; }
-  const src = members.length ? 'joined members' : 'defined roles';
-  // Overlay live running status from in-memory agent SSE state (updated by org:agent:online/offline events)
-  const _liveRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
-  const active = (r) => r.running || r.active || r.status === 'active' || _liveRunning.has(r.id || r.name || r.user);
-  pane.innerHTML = `<div class="m-group-title">Members (${list.length}) · ${src}</div>` +
-    list.map(r => `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <span style="width:28px;height:28px;border-radius:50%;background:var(--surface-hi);display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">◈</span>
-      <div style="flex:1;min-width:0">
-        <div style="color:var(--text-hi);font-family:var(--mono);font-size:12px">${esc(r.name || r.id || r.user || '—')}</div>
-        <div style="color:var(--text-lo);font-size:10px">${esc(r.title || r.type || r.role || '')}</div>
-      </div>
-      <span class="ss-pill ${active(r) ? 'on' : ''}">${active(r) ? 'ACTIVE' : 'IDLE'}</span>
-    </div>`).join('') +
-    (joinReqs.length ? `<div class="m-group-title" style="margin-top:14px">Join Requests (${joinReqs.length})</div>` +
-      joinReqs.map(j => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text-hi)">${esc(j.user || j.name || j.id || '—')}</span><span style="color:var(--text-lo)">${esc(j.status || 'pending')}</span></div>`).join('') : '');
-}
-
-// ── GOALS ──────────────────────────────────────────────────
-function v2RenderOrgGoals() {
-  const el = document.getElementById('odt-goals');
-  if (!el || !_v2OrgData) return;
-  const goals = _v2OrgData.goals || _v2OrgData.config?.goals || [];
-  if (!goals.length) { el.innerHTML = '<div class="empty">No goals defined</div>'; return; }
-  function renderGoal(g, depth) {
-    if (depth > 20) return '';   // Depth guard to prevent stack overflow
-    const indent = depth * 20;
-    const pct = g.total > 0 ? Math.min(100, Math.round(g.filled / g.total * 100)) : 0;
-    const status = g.status || 'pending';
-    const statusCls = status === 'done' ? 'on' : (status === 'blocked' || status === 'in_progress') ? 'warn' : '';
-    return `<div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:${indent}px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="flex:1;font-size:13px;color:var(--text-hi)">${esc(g.text || g.goal || g.title || '—')}</span>
-        <span class="ss-pill ${statusCls}">${esc(status)}</span>
-      </div>
-      ${g.total > 0 ? `<div style="margin-top:5px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pct >= 100 ? 'var(--green)' : 'var(--accent)'};border-radius:2px"></div></div>` : ''}
-      ${(g.children || []).map(c => renderGoal(c, depth + 1)).join('')}
-    </div>`;
-  }
-  el.innerHTML = goals.map(g => renderGoal(g, 0)).join('');
-}
-
-// ── BOARD ──────────────────────────────────────────────────
-function v2RenderOrgBoard() {
-  const el = document.getElementById('odt-board');
-  if (!el || !_v2OrgData) return;
-  const issues = _v2OrgData._issues || [];
-  if (!issues.length) { el.innerHTML = '<div class="empty">No issues</div>'; return; }
-  const cols = ['open', 'in_progress', 'blocked', 'done', 'cancelled'];
-  const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
-  const _normIssueStatus = s => (s === 'closed' || s === 'resolved') ? 'done' : (s || 'open');
-  el.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">` +
-    cols.map(col => {
-      const cards = issues.filter(i => _normIssueStatus(i.status || i.state) === col);
-      return `<div style="min-width:160px;flex:1">
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-lo);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px">${esc(col.replace('_', ' '))} <span style="background:var(--surface-hi);padding:1px 6px;border-radius:8px">${cards.length}</span></div>
-        ${cards.slice(0, 15).map(i => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:5px;font-size:12px">
-          <div style="color:var(--text-hi)">${PRIORITY[i.priority] || ''} ${esc((i.title || i.description || '—').slice(0, 60))}</div>
-          ${i.assignee ? `<div style="font-size:10px;color:var(--text-lo);margin-top:3px">${esc(i.assignee)}</div>` : ''}
-        </div>`).join('')}
-      </div>`;
-    }).join('') + `</div>`;
-}
-
-// ── LIVE ───────────────────────────────────────────────────
-let _orgLiveInterval = null;
-function v2RenderOrgLive() {
-  const el = document.getElementById('odt-live');
-  if (!el || !_v2OrgData) return;
-  const agents = _v2OrgData._agents || [];
-  const running = agents.filter(a => a.status === 'running' || a.running);
-  el.innerHTML = `<div style="margin-bottom:14px">
-    ${running.length
-      ? running.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-          <span class="live-dot" style="flex-shrink:0"></span>
-          <span style="font-size:13px;color:var(--text-hi)">${esc(a.title || a.id || '—')}</span>${a.adapterType?`<span style="font-size:10px;color:var(--text-lo);margin-left:4px">[${esc(a.adapterType)}]</span>`:''}
-          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapterModel || a.adapter || '')}</span>
-        </div>`).join('')
-      : '<div style="color:var(--text-lo);font-size:13px;padding:10px 0">No agents currently running</div>'}
-  </div>
-  <div class="m-group-title" style="margin-bottom:6px">Activity Feed</div>
-  <div style="max-height:240px;overflow-y:auto;font-size:11px;font-family:var(--mono)">
-    ${(()=>{const _la=_v2OrgData._activity||[];const _ls=_v2OrgEventLog[_v2SelOrg]||[];const _lseen=new Set();const _lmerged=[..._la,..._ls].filter(e=>{const k=`${e.ts||''}|${e.type||''}|${e.runId||e.session||''}|${e.from||e.role||e.agent||''}|${(e.result||e.msg||e.message||e.summary||'').slice(0,20)}`;return _lseen.has(k)?false:(_lseen.add(k),true);}).sort((a,b)=>(a.ts||0)-(b.ts||0));return _lmerged.slice(-30).reverse().map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">${esc(relTime(e.ts||e.timestamp||e.created_at))}<span style="color:var(--text-mid);margin-left:6px">${esc(e.type||e.kind||e.event||'—')}</span>${fmtOrgEvDetail(e)?`<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0,80))}</span>`:''}</div>`).join('');})()}
-  </div>`;
-  // auto-refresh every 5s while tab is active
-  if (!_orgLiveInterval) {
-    _orgLiveInterval = setInterval(async () => {
-      if (_v2OrgTab !== 'live' || !_v2SelOrg || currentView !== 'orgs') { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
-      const _liveOrg = _v2SelOrg;
-      const _enc = encodeURIComponent(_liveOrg);
-      try {
-        const [actData, agentsData] = await Promise.all([
-          fetch(`/api/org/${_enc}/activity${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
-          fetch(`/api/org/${_enc}/agents${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : {}).catch(() => {}),
-        ]);
-        if (_v2SelOrg !== _liveOrg || !_v2OrgData) return;
-        // Merge fresh API data with SSE-pushed events to avoid clobbering live events
-        // that haven't flushed to the JSONL file yet when this poll ran.
-        const _freshAct = Array.isArray(actData) ? actData : [];
-        const _sseAct = (_v2OrgData._activity || []).filter(e => e._sseOnly);
-        const _mergeSeen = new Set(_freshAct.map(e => `${e.ts||''}|${e.type||''}|${e.runId||e.session||''}`));
-        _sseAct.forEach(e => { const k=`${e.ts||''}|${e.type||''}|${e.runId||e.session||''}`; if (!_mergeSeen.has(k)) _freshAct.push(e); });
-        _v2OrgData._activity = _freshAct.sort((a,b)=>(a.ts||0)-(b.ts||0));
-        const freshAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
-        if (freshAgents.length) {
-          // Preserve SSE-driven running status: state file lags behind real-time SSE updates
-          const sseRunning = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
-          _v2OrgData._agents = freshAgents.map(a => sseRunning.has(a.id) ? { ...a, status: 'running' } : a);
-        }
-        v2RenderOrgLive();
-      } catch (_) {}
-    }, 5000);
-  }
 }
 
 // ── APPROVALS ──────────────────────────────────────────────
@@ -7326,243 +6995,6 @@ async function _orgGateAction(id, approved) {
   const _enc = encodeURIComponent(_v2SelOrg);
   const ok = await _hilPost(`/api/org/${_enc}/gates/${encodeURIComponent(id)}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`, { approved, resolution: resolution.trim() || undefined });
   if (ok) v2RenderOrgDecisions();
-}
-
-// ── SECRETS ────────────────────────────────────────────────
-async function v2RenderOrgSecrets() {
-  const el = document.getElementById('odt-secrets');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/secrets${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
-    if (_v2SelOrg !== _rendOrg) return;
-    const secrets = Array.isArray(data) ? data : (data.secrets || []);
-    el.innerHTML = '<div style="font-size:11px;color:var(--text-lo);margin-bottom:10px">Secret values are never transmitted or displayed.</div>' +
-      (secrets.length
-        ? secrets.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
-            <span style="font-family:var(--mono);color:var(--text-hi)">${esc(s.name || s.key || '—')}</span>
-            ${s.purpose ? `<span style="color:var(--text-lo)">${esc(s.purpose)}</span>` : ''}
-            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">••••••••</span>
-          </div>`).join('')
-        : '<div class="empty">No secrets configured</div>');
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── SETTINGS ───────────────────────────────────────────────
-function v2RenderOrgSettings() {
-  const el = document.getElementById('odt-settings');
-  if (!el || !_v2OrgData) return;
-  const d = _v2OrgData;
-  const topos = ['hierarchical', 'mesh', 'hierarchical-mesh', 'adaptive', 'centralized', 'hybrid'];
-  const govs  = ['auto', 'board', 'strict'];
-  // governance may be a string or an object {policy,...}; budget lives under run_config
-  const govVal = (d.governance && typeof d.governance === 'object') ? (d.governance.policy || '') : (d.governance || '');
-  const budgetVal = d.run_config?.budget_tokens ?? d.budget_tokens ?? d.budgetTokens ?? '';
-  el.innerHTML = `
-    <div style="font-size:11px;color:var(--text-lo);margin-bottom:14px">Changes generate a CLI command — no direct writes from UI.</div>
-    <div style="display:flex;flex-direction:column;gap:12px;max-width:380px">
-      <div><div class="le-lbl">Goal</div><input id="os-goal" class="filter-input" value="${esc(d.goal || '')}"></div>
-      <div><div class="le-lbl">Topology</div>
-        <select id="os-topo" class="filter-input" style="cursor:pointer">
-          ${topos.map(t => `<option ${d.topology === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
-        </select>
-      </div>
-      <div><div class="le-lbl">Governance</div>
-        <select id="os-gov" class="filter-input" style="cursor:pointer">
-          ${govs.map(g => `<option ${govVal === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
-        </select>
-      </div>
-      <div><div class="le-lbl">Budget (tokens)</div><input id="os-budget" class="filter-input" type="number" value="${esc(String(budgetVal || ''))}"></div>
-      <button class="btn" style="width:fit-content;color:var(--accent);border-color:var(--accent)" onclick="generateOrgSettingsCmd()">Generate CLI Command</button>
-      <div id="os-cmd-out" style="display:none;font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;word-break:break-all;cursor:pointer;color:var(--text-hi)" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent).then(()=>showToast('Copied','','ok'))"></div>
-    </div>`;
-}
-
-function _generateOrgSettingsCmd() {
-  const org    = _v2SelOrg || '';
-  const goal   = document.getElementById('os-goal')?.value.trim() || '';
-  const topo   = document.getElementById('os-topo')?.value || '';
-  const gov    = document.getElementById('os-gov')?.value  || '';
-  const budget = document.getElementById('os-budget')?.value.trim() || '';
-  const _shellEsc = s => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, ' ');
-  const parts = [`/mastermind:org-settings --org "${_shellEsc(org)}"`];
-  if (goal)   parts.push(`--goal "${_shellEsc(goal)}"`);
-  if (topo)   parts.push(`--topology ${topo}`);
-  if (gov)    parts.push(`--governance ${gov}`);
-  if (budget) parts.push(`--budget-tokens ${budget}`);
-  const out = document.getElementById('os-cmd-out');
-  if (out) { out.textContent = parts.join(' '); out.style.display = 'block'; }
-}
-
-// ── ROUTINES ───────────────────────────────────────────────
-async function v2RenderOrgRoutines() {
-  const el = document.getElementById('odt-routines');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/routines${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
-    if (_v2SelOrg !== _rendOrg) return;
-    const routines = Array.isArray(data) ? data : (data.routines || _v2OrgData?.config?.routines || []);
-    if (!routines.length) { el.innerHTML = '<div class="empty">No routines configured</div>'; return; }
-    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:5px 8px">Name</th><th>Cron</th><th>Last Run</th><th>Status</th>
-      </tr></thead><tbody>` +
-      routines.map(r => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
-        <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
-        <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${r.enabled || r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || (r.enabled != null ? (r.enabled ? 'active' : 'inactive') : '—'))}</span></td>
-      </tr>`).join('') + '</tbody></table>';
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── MY ISSUES ──────────────────────────────────────────────
-async function v2RenderOrgMyIssues() {
-  const el = document.getElementById('odt-myissues');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/my-issues${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
-    if (_v2SelOrg !== _rendOrg) return;
-    const issues = Array.isArray(data) ? data : (data.issues || []);
-    if (!issues.length) { el.innerHTML = '<div class="empty">No issues assigned to you</div>'; return; }
-    const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
-    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:5px 4px">P</th><th style="padding:5px 8px">Title</th><th>Status</th><th>Updated</th>
-      </tr></thead><tbody>` +
-      issues.slice(0, 50).map(i => {
-        const cls = i.status === 'done' || i.status === 'closed' || i.status === 'resolved' ? 'on' : (i.status === 'blocked' || i.status === 'in_progress') ? 'warn' : '';
-        return `<tr style="border-top:1px solid var(--border)">
-          <td style="padding:5px 4px">${PRIORITY[i.priority] || '·'}</td>
-          <td style="padding:5px 8px;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title || i.description || '—').slice(0, 80))}</td>
-          <td style="padding:5px 8px"><span class="ss-pill ${cls}">${esc(i.status || 'open')}</span></td>
-          <td style="padding:5px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(i.updated_at || i.ts)}</td>
-        </tr>`;
-      }).join('') + '</tbody></table>';
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── PLUGINS ────────────────────────────────────────────────
-async function v2RenderOrgPlugins() {
-  const el = document.getElementById('odt-plugins');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/plugins${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
-    if (_v2SelOrg !== _rendOrg) return;
-    const plugins = Array.isArray(data) ? data : (data.plugins || []);
-    if (!plugins.length) { el.innerHTML = '<div class="empty">No plugins installed</div>'; return; }
-    el.innerHTML = `<div class="proj-grid">` +
-      plugins.map(p => {
-        const status = p.status || 'installed';
-        const col = status === 'error' ? 'var(--red)' : status === 'installed' ? 'var(--accent)' : 'var(--text-lo)';
-        return `<div class="proj-card">
-          <div class="proj-card-name">${esc(p.name || '—')}</div>
-          <div class="proj-card-path">${esc((p.description || '').slice(0, 80))}</div>
-          <div style="margin-top:8px"><span class="ss-pill" style="color:${esc(col)};border-color:${esc(col)}44;background:${esc(col)}18">${esc(status)}</span></div>
-        </div>`;
-      }).join('') + `</div>`;
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── CHARTS ─────────────────────────────────────────────────
-function v2RenderOrgCharts() {
-  const el = document.getElementById('odt-charts');
-  if (!el || !_v2OrgData) return;
-  const activity = _v2OrgData._activity || [];
-  const agents   = _v2OrgData._agents   || [];
-
-  // Build 14-day buckets from activity
-  const now = Date.now();
-  const DAY = 86400000;
-  const buckets = Array.from({length: 14}, (_, i) => ({
-    day: new Date(now - (13 - i) * DAY).toLocaleDateString('en', {month:'short', day:'numeric'}),
-    ts:  now - (14 - i) * DAY,
-    events: 0, errors: 0,
-  }));
-  activity.forEach(e => {
-    const ts = new Date(e.ts || e.timestamp || e.created_at || 0).getTime();
-    const idx = buckets.findIndex((b, i) =>
-      ts >= b.ts && (i === 13 || ts < buckets[i + 1].ts));
-    if (idx >= 0) {
-      buckets[idx].events++;
-      if (e.type === 'error' || e.status === 'error') buckets[idx].errors++;
-    }
-  });
-  const maxEvents = Math.max(...buckets.map(b => b.events), 1);
-
-  // Heatmap bar chart
-  const heatmap = buckets.map(b => {
-    const h = Math.max(4, Math.round((b.events / maxEvents) * 80));
-    const col = b.errors > 0 ? 'var(--red)' : b.events > 0 ? 'var(--accent)' : 'var(--border)';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0">
-      <div style="height:80px;display:flex;align-items:flex-end">
-        <div style="width:100%;height:${h}px;background:${col};border-radius:2px 2px 0 0;min-width:8px" title="${b.events} events${b.errors ? `, ${b.errors} errors` : ''}"></div>
-      </div>
-      <div style="font-size:9px;color:var(--text-xs);transform:rotate(-45deg);transform-origin:top left;white-space:nowrap;margin-top:6px;margin-left:4px">${b.day}</div>
-    </div>`;
-  }).join('');
-
-  // Per-agent run bars
-  const agentRuns = agents.slice(0, 10).map(a => {
-    const runs = activity.filter(e => e.agentId === a.id || e.agent === a.id).length;
-    return { name: (a.type || a.title || a.id || '—').toString().slice(0, 20), runs };
-  }).filter(a => a.runs > 0).sort((x, y) => y.runs - x.runs);
-  const maxRuns = Math.max(...agentRuns.map(a => a.runs), 1);
-
-  const totalEvents = activity.length;
-  const errorCount  = activity.filter(e => e.type === 'error' || e.status === 'error').length;
-  const successRate = totalEvents > 0 ? Math.round((1 - errorCount / totalEvents) * 100) : 100;
-  const activeCount = agents.filter(a => a.status === 'running' || a.running).length;
-
-  el.innerHTML = `
-    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-      <div class="chunk-stat"><div class="chunk-stat-val">${totalEvents}</div><div class="chunk-stat-lbl">Events</div></div>
-      <div class="chunk-stat"><div class="chunk-stat-val" style="color:${errorCount>0?'var(--red)':'var(--green)'}">${errorCount}</div><div class="chunk-stat-lbl">Errors</div></div>
-      <div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--green)">${successRate}%</div><div class="chunk-stat-lbl">Success</div></div>
-      <div class="chunk-stat"><div class="chunk-stat-val" style="color:${activeCount>0?'var(--green)':'var(--text-lo)'}">${activeCount}</div><div class="chunk-stat-lbl">Active</div></div>
-    </div>
-    <div class="m-group-title" style="margin-bottom:8px">14-Day Activity</div>
-    <div style="display:flex;gap:2px;align-items:flex-end;padding-bottom:28px;margin-bottom:16px;overflow-x:auto">${heatmap}</div>
-    ${agentRuns.length ? `<div class="m-group-title" style="margin-bottom:6px">Per-Agent Runs</div>
-    ${agentRuns.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">
-      <div style="width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc(a.name)}</div>
-      <div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.round(a.runs/maxRuns*100)}%;height:100%;background:var(--accent);border-radius:2px"></div></div>
-      <div style="width:30px;text-align:right;color:var(--text-lo);font-family:var(--mono);font-size:11px">${a.runs}</div>
-    </div>`).join('')}` : ''}
-  `;
-}
-
-// ── PROJECTS ───────────────────────────────────────────────
-async function v2RenderOrgProjects() {
-  const el = document.getElementById('odt-projects');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/projects${DIR?`?dir=${encodeURIComponent(DIR)}`:''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if (_v2SelOrg !== _rendOrg) return;
-    const projects = Array.isArray(data) ? data : (data.projects || []);
-    if (!projects.length) { el.innerHTML = '<div class="empty">No projects configured</div>'; return; }
-    el.innerHTML = `<div class="proj-grid">${projects.map(p => `<div class="proj-card">
-      <div class="proj-card-name">${esc(p.name || p.title || '—')}</div>
-      <div class="proj-card-path">${esc((p.description || p.path || '').slice(0,80))}</div>
-      <div class="proj-card-stats" style="margin-top:8px">
-        ${p.status ? `<span class="ss-pill ${p.status==='active'?'on':''}">${esc(p.status)}</span>` : ''}
-      </div>
-    </div>`).join('')}</div>`;
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
 }
 
 // ── ORG CHAT ───────────────────────────────────────────────
@@ -9191,177 +8623,6 @@ function _ofSaveImage(defaultName) {
   a.click();
 }
 
-// ── WORKSPACES ─────────────────────────────────────────────
-async function v2RenderOrgWorkspaces() {
-  const el = document.getElementById('odt-workspaces');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/workspaces${DIR?`?dir=${encodeURIComponent(DIR)}`:''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if (_v2SelOrg !== _rendOrg) return;
-    const ws = Array.isArray(data) ? data : (data.workspaces || []);
-    if (!ws.length) { el.innerHTML = '<div class="empty">No workspaces configured</div>'; return; }
-    el.innerHTML = ws.map(w => `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="font-size:13px;color:var(--text-hi);font-weight:500">${esc(w.name || w.id || '—')}</span>
-        ${w.branch ? `<span class="ss-pill">${esc(w.branch)}</span>` : ''}
-      </div>
-      ${w.path ? `<div style="font-size:11px;color:var(--text-lo);font-family:var(--mono)">${esc(w.path)}</div>` : ''}
-      ${w.services?.length ? `<div style="font-size:11px;color:var(--text-lo);margin-top:3px">${w.services.map(s=>esc(s)).join(', ')}</div>` : ''}
-    </div>`).join('');
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── INVITES ────────────────────────────────────────────────
-async function v2RenderOrgInvites() {
-  const el = document.getElementById('odt-invites');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/invites${DIR?`?dir=${encodeURIComponent(DIR)}`:''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if (_v2SelOrg !== _rendOrg) return;
-    const invites = Array.isArray(data) ? data : (data.invites || []);
-    if (!invites.length) { el.innerHTML = '<div class="empty">No active invite tokens</div>'; return; }
-    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:5px 8px">Token</th><th>Role</th><th>Expires</th><th>Created</th>
-      </tr></thead>
-      <tbody>${invites.map(i => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,16))}…</td>
-        <td style="padding:5px 8px"><span class="ss-pill">${esc(i.role||'viewer')}</span></td>
-        <td style="padding:5px 8px;color:var(--text-lo)">${i.expiresAt ? relTime(i.expiresAt) : '—'}</td>
-        <td style="padding:5px 8px;color:var(--text-lo)">${i.createdAt ? relTime(i.createdAt) : '—'}</td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── ENVIRONMENTS ───────────────────────────────────────────
-async function v2RenderOrgEnvironments() {
-  const el = document.getElementById('odt-environments');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/environments${DIR?`?dir=${encodeURIComponent(DIR)}`:''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if (_v2SelOrg !== _rendOrg) return;
-    const envs = Array.isArray(data) ? data : (data.environments || []);
-    if (!envs.length) { el.innerHTML = '<div class="empty">No environments configured</div>'; return; }
-    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:5px 8px">Name</th><th>Driver</th><th>Host</th><th>Status</th>
-      </tr></thead>
-      <tbody>${envs.map(e => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi);font-weight:500">${esc(e.name||e.id||'—')}</td>
-        <td style="padding:5px 8px;color:var(--text-lo);font-family:var(--mono)">${esc(e.driver||e.type||'—')}</td>
-        <td style="padding:5px 8px;color:var(--text-lo);font-family:var(--mono)">${esc(e.host||'—')}</td>
-        <td style="padding:5px 8px"><span class="ss-pill ${e.status==='active'||e.active?'on':''}">${esc(e.status||'—')}</span></td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── ACCESS ─────────────────────────────────────────────────
-function v2RenderOrgAccess() {
-  const el = document.getElementById('odt-access');
-  if (!el || !_v2OrgData) return;
-  const members = _v2OrgData._members || [];
-  if (!members.length) { el.innerHTML = '<div class="empty">No members found</div>'; return; }
-  const TIER = { owner: 0, admin: 1, operator: 2, viewer: 3 };
-  const byRole = {};
-  members.forEach(m => { const r = m.role || 'viewer'; (byRole[r] || (byRole[r] = [])).push(m); });
-  const sorted = Object.entries(byRole).sort((a,b) => (TIER[a[0]]??9) - (TIER[b[0]]??9));
-  el.innerHTML = sorted.map(([role, mems]) => `
-    <div style="margin-bottom:14px">
-      <div class="m-group-title" style="margin-bottom:6px;text-transform:capitalize">${esc(role)}</div>
-      ${mems.map(m => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${esc((m.name||m.username||m.id||'?')[0].toUpperCase())}</div>
-        <span style="color:var(--text-hi);flex:1">${esc(m.name || m.username || m.id || '—')}</span>
-        ${m.grants?.length ? m.grants.map(g => `<span class="ss-pill" style="font-size:10px">${esc(g)}</span>`).join('') : ''}
-        ${m.suspended ? '<span class="ss-pill warn">suspended</span>' : ''}
-      </div>`).join('')}
-    </div>`).join('');
-}
-
-// ── ISSUES (FULL) ──────────────────────────────────────────
-function v2RenderOrgIssuesFull() {
-  const el = document.getElementById('odt-issues-full');
-  if (!el || !_v2OrgData) return;
-  const issues = _v2OrgData._issues || [];
-  if (!issues.length) { el.innerHTML = '<div class="empty">No issues found</div>'; return; }
-  const PRIORITY = { urgent:'🔴', high:'🟠', medium:'🟡', low:'🟢' };
-  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead><tr style="color:var(--text-xs);text-align:left">
-      <th style="padding:5px 4px">P</th><th style="padding:5px 8px">Title</th><th>Assignee</th><th>Status</th><th>Updated</th>
-    </tr></thead>
-    <tbody>${issues.slice(0,100).map(i => `<tr style="border-top:1px solid var(--border)">
-      <td style="padding:5px 4px">${PRIORITY[i.priority]||'·'}</td>
-      <td style="padding:5px 8px;color:var(--text-hi);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title||i.description||'—').slice(0,80))}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${esc(i.assignee||'—')}</td>
-      <td style="padding:5px 8px"><span class="ss-pill ${i.status==='done'||i.status==='closed'||i.status==='resolved'?'on':(i.status==='blocked'||i.status==='in_progress')?'warn':''}">${esc(i.status||'open')}</span></td>
-      <td style="padding:5px 8px;color:var(--text-xs);font-family:var(--mono);font-size:11px">${relTime(i.updated_at||i.ts)}</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
-}
-
-// ── JOIN REQUESTS ──────────────────────────────────────────
-async function v2RenderOrgJoinRequests() {
-  const el = document.getElementById('odt-join-requests');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/join-requests${DIR?`?dir=${encodeURIComponent(DIR)}`:''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if (_v2SelOrg !== _rendOrg) return;
-    const reqs = Array.isArray(data) ? data : (data.joinRequests || data.join_requests || []);
-    if (!reqs.length) { el.innerHTML = '<div class="empty">No pending join requests</div>'; return; }
-    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:5px 8px">Requester</th><th>Type</th><th>Status</th><th>Created</th>
-      </tr></thead>
-      <tbody>${reqs.map(r => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi)">${esc(r.name||r.username||r.id||'—')}</td>
-        <td style="padding:5px 8px;color:var(--text-lo)">${r.type==='agent'?'🤖 agent':'👤 human'}</td>
-        <td style="padding:5px 8px"><span class="ss-pill ${r.status==='approved'?'on':r.status==='rejected'?'warn':''}">${esc(r.status||'pending')}</span></td>
-        <td style="padding:5px 8px;color:var(--text-lo)">${r.createdAt ? relTime(r.createdAt) : '—'}</td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── THREADS ────────────────────────────────────────────────
-async function v2RenderOrgThreads() {
-  const el = document.getElementById('odt-threads');
-  if (!el || !_v2SelOrg) return;
-  const _rendOrg = _v2SelOrg;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_rendOrg);
-    const data = await fetch(`/api/org/${_enc}/threads${DIR?`?dir=${encodeURIComponent(DIR)}`:''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    if (_v2SelOrg !== _rendOrg) return;
-    const threads = Array.isArray(data) ? data : (data.threads || []);
-    if (!threads.length) { el.innerHTML = '<div class="empty">No threads found</div>'; return; }
-    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-xs);text-align:left">
-        <th style="padding:5px 8px">Subject</th><th>Author</th><th>Messages</th><th>Issue</th><th>Created</th>
-      </tr></thead>
-      <tbody>${threads.map(t => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((t.subject||t.title||'—').slice(0,50))}</td>
-        <td style="padding:5px 8px;color:var(--text-lo)">${esc(t.author||t.createdBy||'—')}</td>
-        <td style="padding:5px 8px;color:var(--text-lo);text-align:center">${t.messageCount ?? t.messages ?? '—'}</td>
-        <td style="padding:5px 8px;color:var(--text-lo);font-family:var(--mono);font-size:11px">${t.issueId ? `#${esc(t.issueId.toString().slice(0,8))}` : '—'}</td>
-        <td style="padding:5px 8px;color:var(--text-lo)">${t.createdAt ? relTime(t.createdAt) : '—'}</td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-  } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
 // stop org
 window.v2StopOrg = async () => {
   if (!_v2SelOrg) return;
@@ -9511,7 +8772,7 @@ function _filterOrgList(q) {
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     if (src) src.close();
     // Do NOT reset seenKeys here — the server replays ~50 events on every reconnect and
-    // clearing the set lets all replays through, duplicating _v2OrgEventLog and _activity entries.
+    // clearing the set lets all replays through a second time.
     src = window.mmEventSource(`/api/mastermind-stream${DIR ? `?project=${encodeURIComponent(DIR)}` : ''}`);
     src.onmessage = e => {
       try {
@@ -9527,10 +8788,7 @@ function _filterOrgList(q) {
         // Events without a project field are treated as belonging to the current project.
         const evProject = ev.project || '';
         if (DIR && evProject && !evProject.startsWith(DIR) && !DIR.startsWith(evProject)) return;
-        if (!_v2OrgEventLog[n]) _v2OrgEventLog[n] = [];
-        _v2OrgEventLog[n].push(ev);
-        if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
-        // Update in-memory agent status so Live tab running-agents section reflects reality.
+        // Update in-memory agent status so the org chart's running dots reflect reality.
         // org:agent:online → mark that agent running; org:complete/run:complete → reset all to idle.
         if (n === _v2SelOrg && _v2OrgData && Array.isArray(_v2OrgData._agents)) {
           if (ev.type === 'org:agent:online' && ev.role) {
@@ -9543,34 +8801,7 @@ function _filterOrgList(q) {
           } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
             _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
           }
-          if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
-          else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
-          else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
-          else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
-          else if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2UpdateChartRunningDots();
-          // Health tab: update KPI counters live from SSE events so agents_active and
-          // tasks_pending reflect current state without waiting for a run-event re-fetch.
-          if (_v2OrgTab === 'health' && _v2OrgData._health) {
-            if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete') {
-              _v2OrgData._health.agents_active = _v2OrgData._agents.filter(a => a.status === 'running').length;
-              v2RenderOrgHealth();
-            }
-            if (ev.type === 'org:checkpoint' && ev.pending_tasks != null) {
-              _v2OrgData._health.tasks_pending = ev.pending_tasks;
-              v2RenderOrgHealth();
-            }
-            if (ev.type === 'run:cycle:complete' && ev.pending != null) {
-              _v2OrgData._health.tasks_pending = ev.pending;
-              v2RenderOrgHealth();
-            }
-          }
-        }
-        // Also push live org:comms / org:checkpoint events directly into the Live tab
-        // activity feed so they appear in real-time without waiting for the 5s poll.
-        if (n === _v2SelOrg && _v2OrgTab === 'live' && _v2OrgData) {
-          if (!Array.isArray(_v2OrgData._activity)) _v2OrgData._activity = [];
-          _v2OrgData._activity.push({ ...ev, _sseOnly: true });
-          v2RenderOrgLive();
+          if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2UpdateChartRunningDots();
         }
         // Pulse the org list dot on comms/checkpoint events so the user can see the org is active
         // without switching to the activity tab
@@ -9600,77 +8831,13 @@ function _filterOrgList(q) {
                 const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
                 if (_v2OrgData) _v2OrgData.running = listOrg.running;
                 v2UpdateOrgHeader(listOrg, _v2OrgData);
-                if (_v2OrgTab === 'health') {
-                  // Re-fetch health after run events so stats (agents_active, success_rate, total_runs) are current
-                  const _hEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_hEnc}/health${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(h => { if (h && _v2OrgData && _v2SelOrg === n) { _v2OrgData._health = h; v2RenderOrgHealth(); } })
-                    .catch(() => { v2RenderOrgHealth(); });
-                }
-                if (_v2OrgTab === 'tasks') {
-                  // Re-fetch org data after run events so tasks (todo/doing/done) reflect current store state
-                  const _tEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_tEnc}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
-                    .catch(() => { v2RenderOrgTasks(); });
-                }
-                if (_v2OrgTab === 'board' || _v2OrgTab === 'issues-full') {
-                  // Re-fetch issues after run events so board/issues-full reflect current state
-                  const _iEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_iEnc}/issues${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._issues = Array.isArray(d) ? d : (d?.issues || []); _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); } })
-                    .catch(() => { _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); });
-                }
-                if (_v2OrgTab === 'goals') {
-                  // Re-fetch org data after run events so goal progress (filled/total/status) reflects current state
-                  const _glEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_glEnc}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.goals !== undefined) { _v2OrgData.goals = d.goals; v2RenderOrgGoals(); } })
-                    .catch(() => { v2RenderOrgGoals(); });
-                }
                 if (_v2OrgTab === 'chat') {
                   // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
                   _odtLoadChatSessions().catch(() => {});
                 }
-                if (_v2OrgTab === 'heartbeats') {
-                  // Re-fetch agents after run events to get fresh tokensIn/tokensOut/lastHeartbeat
-                  // Heartbeats tab derives from _v2OrgData._agents.
-                  const _agEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_agEnc}/agents${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); v2RenderOrgHeartbeats(); } })
-                    .catch(() => { v2RenderOrgHeartbeats(); });
-                }
-                if (_v2OrgTab === 'myissues') {
-                  // Re-render myissues after run events — it fetches its own data on every render
-                  v2RenderOrgMyIssues();
-                }
-                if (_v2OrgTab === 'charts') {
-                  // Re-fetch activity after run events so the 14-day heatmap reflects the completed run
-                  const _chEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_chEnc}/activity${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : [])
-                    .then(d => { if (_v2OrgData && _v2SelOrg === n) { _v2OrgData._activity = Array.isArray(d) ? d : []; v2RenderOrgCharts(); } })
-                    .catch(() => { v2RenderOrgCharts(); });
-                }
               }
             }
           }, 400);
-        }
-        // run:cycle:complete: lightweight re-fetch for tasks without renderOrgs()
-        // — cycles fire frequently and only affect task state, not org-list status.
-        if (ev.type === 'run:cycle:complete' && _v2SelOrg === n && _v2OrgData) {
-          if (_v2OrgTab === 'tasks') {
-            const _tcEnc = encodeURIComponent(_v2SelOrg);
-            fetch(`/api/org/${_tcEnc}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
-              .catch(() => { v2RenderOrgTasks(); });
-          }
         }
       } catch(_) {}
     };
@@ -14527,7 +13694,6 @@ Object.assign(window, {
   v2HandleAvatarFile: _v2HandleAvatarFile,
   orgApprovalAction: _orgApprovalAction,
   orgGateAction: _orgGateAction,
-  generateOrgSettingsCmd: _generateOrgSettingsCmd,
   setOdtChatMode: _setOdtChatMode,
   v2SaveOrgConfig: _v2SaveOrgConfig,
   setHeatmapFilter: _setHeatmapFilter,
