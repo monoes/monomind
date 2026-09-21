@@ -28,6 +28,7 @@ import {
   type InitResult,
 } from '../init/types.js';
 import { writeCapabilitiesDoc } from '../init/write-capabilities.js';
+import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');
@@ -375,7 +376,17 @@ describe('claudemd-truth (i-041/i-117)', () => {
         { ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() },
         tmpl,
       );
-      expect(generated).not.toMatch(/monomind@latest/);
+      // The one `claude mcp add monomind -- …` line is exempt (#312): it has
+      // to register the exact command `init` writes into .mcp.json, or the
+      // doc and the config disagree. That command runs once per MCP server
+      // start, not on every CLI invocation, which is what §5 is about — and
+      // it now comes from mcpAddHint(), the single builder every hint site
+      // shares, so it cannot drift from .mcp.json again.
+      const prose = generated
+        .split('\n')
+        .filter((line) => line.trim() !== mcpAddHint())
+        .join('\n');
+      expect(prose).not.toMatch(/monomind@latest/);
     });
 
     it('no `npx monomind@latest` in generated CAPABILITIES.md', async () => {

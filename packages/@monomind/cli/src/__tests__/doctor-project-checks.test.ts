@@ -381,6 +381,71 @@ describe('doctor-project-checks', () => {
       const result = await checkMcpServers();
       expect(result.status).toBe('pass');
     });
+
+    // i-312: the registry-only check passed while the configured command was
+    // `npx -y @monoes/monomindcli@2.11.1 mcp start`, which cannot start at
+    // all. `doctor -c mcp` now runs the command and speaks `initialize`.
+    it('fails in probe mode when the configured command cannot start, quoting its stderr', async () => {
+      const server = join(dir, 'broken-server.cjs');
+      writeFileSync(
+        server,
+        "process.stderr.write('npm error could not determine executable to run\\n');process.exit(1);",
+      );
+      writeFileSync(
+        join(dir, '.mcp.json'),
+        JSON.stringify({
+          mcpServers: { monomind: { command: process.execPath, args: [server] } },
+        }),
+      );
+      const result = await checkMcpServers({ probe: true });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('could not determine executable to run');
+      expect(result.fix).toBeTruthy();
+    });
+
+    it('still passes in probe mode when the configured server answers initialize', async () => {
+      const server = join(dir, 'good-server.cjs');
+      writeFileSync(
+        server,
+        [
+          "let buf='';",
+          "process.stdin.on('data',(chunk)=>{",
+          '  buf+=chunk;',
+          "  const lines=buf.split('\\n');",
+          "  buf=lines.pop()??'';",
+          '  for (const line of lines) {',
+          '    if (!line.trim()) continue;',
+          '    const msg=JSON.parse(line);',
+          "    if (msg.method==='initialize')",
+          "      process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:msg.id,result:{}})+'\\n');",
+          '  }',
+          '});',
+        ].join('\n'),
+      );
+      writeFileSync(
+        join(dir, '.mcp.json'),
+        JSON.stringify({
+          mcpServers: { monomind: { command: process.execPath, args: [server] } },
+        }),
+      );
+      const result = await checkMcpServers({ probe: true });
+      expect(result.status).toBe('pass');
+      expect(result.message).toContain('answers initialize');
+    });
+
+    it('does not spawn anything in the default (non-probe) run', async () => {
+      // The always-on `monomind doctor` must stay cheap: a command that would
+      // fail loudly if executed still yields the registry-only pass.
+      writeFileSync(
+        join(dir, '.mcp.json'),
+        JSON.stringify({
+          mcpServers: { monomind: { command: 'definitely-not-a-real-binary-i312' } },
+        }),
+      );
+      const result = await checkMcpServers();
+      expect(result.status).toBe('pass');
+      expect(result.message).toBe('1 servers (monomind configured)');
+    });
   });
 
   // ---------------------------------------------------------------------
