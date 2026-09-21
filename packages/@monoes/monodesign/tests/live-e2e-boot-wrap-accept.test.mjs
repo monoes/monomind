@@ -243,7 +243,12 @@ describe('live mode e2e: boot → wrap → accept', { skip: !gitAvailable && 'gi
     runScript('live-server.mjs', ['stop'], dir);
     const html = readFileSync(join(dir, 'public', 'index.html'), 'utf-8');
     assert.doesNotMatch(html, /live\.js/);
-    await assert.rejects(fetch(`${base}/health`));
+    // Not "nothing answers on this port": ports are auto-picked from 8400 and
+    // test files run in parallel, so another file's server can take the port
+    // the moment ours frees it. What must be gone is OUR server — the only
+    // one that accepts this token.
+    const stillOurs = await fetch(authedUrl('/status')).then((r) => r.ok, () => false);
+    assert.equal(stillOurs, false);
     base = null;
   });
 });
