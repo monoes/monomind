@@ -66,8 +66,10 @@ function stripImportsExports(src) {
 function extractAntipatternsArray(src) {
   const start = src.indexOf('const ANTIPATTERNS = [');
   if (start === -1) throw new Error('ANTIPATTERNS array not found in registry');
-  // First line that is exactly `];` closes the array.
-  const closeRe = /\n\];\n/g;
+  // First line that is exactly `];` closes the array. Tolerate CRLF: a Windows
+  // checkout with core.autocrlf=true hands this script \r\n, and an LF-only
+  // pattern then finds no close and reports the array as malformed.
+  const closeRe = /\r?\n\];\r?\n/g;
   closeRe.lastIndex = start;
   const m = closeRe.exec(src);
   if (!m) throw new Error('ANTIPATTERNS array close not found');

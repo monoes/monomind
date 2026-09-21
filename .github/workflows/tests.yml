@@ -260,12 +260,15 @@ jobs:
     # here by design — its permission tests skip loudly where chmod 000 does not
     # deny reads, rather than passing vacuously.
     steps:
-      - uses: actions/checkout@v4
-
-      # Without this, checkout rewrites LF to CRLF, changing file bytes and
-      # breaking byte-comparison guards for reasons unrelated to Windows.
+      # BEFORE checkout, not after: this exists to stop checkout rewriting LF
+      # to CRLF, and a step that runs afterwards cannot do that — the bytes are
+      # already converted by then. It sat after `uses: actions/checkout@v4` and
+      # so never had its intended effect, which is how a CRLF-only failure
+      # (monodesign's browser-detector freshness guard) reached main.
       - name: Disable git autocrlf
         run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
