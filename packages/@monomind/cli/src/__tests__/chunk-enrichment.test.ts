@@ -27,9 +27,19 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ORIGINAL_CWD = process.cwd();
-const PIPELINE_SOURCE = fileURLToPath(
-  new URL('../knowledge/document-pipeline.ts', import.meta.url),
-);
+// Every module the pipeline is made of — the no-network invariant below is
+// about the pipeline, not about one file, so it must follow the code when the
+// code moves between these modules.
+const PIPELINE_SOURCES = [
+  'document-pipeline.ts',
+  'document-chunking.ts',
+  'document-index.ts',
+  'document-ingest.ts',
+  'document-search.ts',
+  'document-store.ts',
+  'document-types.ts',
+  'okf-bundle.ts',
+].map((f) => fileURLToPath(new URL(`../knowledge/${f}`, import.meta.url)));
 const ORIGINAL_GLOBAL = process.env.MONOMIND_GLOBAL_BRAIN_DIR;
 let ROOT = '';
 
@@ -267,13 +277,15 @@ describe('chunk enrichment (item 6a)', () => {
 
   it('no network imports in document-pipeline.ts', async () => {
     // Invariant 7: the module should not import any network libraries
-    const src = fs.readFileSync(PIPELINE_SOURCE, 'utf8');
-    // No fetch, no http/https imports, no axios, no got
-    expect(src).not.toMatch(/import.*['"]node:https?['"]/);
-    expect(src).not.toMatch(/import.*['"]https?['"]/);
-    expect(src).not.toMatch(/import.*['"]axios['"]/);
-    expect(src).not.toMatch(/import.*['"]got['"]/);
-    expect(src).not.toMatch(/import.*['"]node-fetch['"]/);
-    expect(src).not.toMatch(/\bfetch\s*\(/);
+    for (const file of PIPELINE_SOURCES) {
+      const src = fs.readFileSync(file, 'utf8');
+      // No fetch, no http/https imports, no axios, no got
+      expect(src).not.toMatch(/import.*['"]node:https?['"]/);
+      expect(src).not.toMatch(/import.*['"]https?['"]/);
+      expect(src).not.toMatch(/import.*['"]axios['"]/);
+      expect(src).not.toMatch(/import.*['"]got['"]/);
+      expect(src).not.toMatch(/import.*['"]node-fetch['"]/);
+      expect(src).not.toMatch(/\bfetch\s*\(/);
+    }
   });
 });

@@ -21,6 +21,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isValidProfileId } from './profile-store.js';
 
 export const ENVELOPE_META_FILE = 'meta.json';
 export const ENVELOPE_READABLE_FILE = 'readable.md';
@@ -56,6 +57,11 @@ export interface CaptureProvenance {
   collection?: string;
   /** `extension` | `monobrowse` | `crawl`, per the capture contract. */
   source?: string;
+  /** The mono-agent profile this capture was filed into, when it named one.
+   *  It decides which store ingests the capture (knowledge/profile-store),
+   *  so an id that could not be a directory name is dropped here rather
+   *  than carried into the index. */
+  profile?: string;
 }
 
 const MAX_META_BYTES = 1024 * 1024;
@@ -97,6 +103,7 @@ export function normalizeProvenance(raw: unknown): CaptureProvenance | null {
     tags: strArray(o.tags),
     collection: str(o.collection),
     source: str(o.source),
+    profile: isValidProfileId(o.profile) ? o.profile.trim() : undefined,
   };
   for (const key of Object.keys(meta) as Array<keyof CaptureProvenance>) {
     if (meta[key] === undefined) delete meta[key];

@@ -1,6 +1,7 @@
 export * from '../report/index.js';
 export * from './actions.js';
 export * from './batch.js';
+export * from './bridge.js';
 export * from './browser.js';
 export * from './cdp.js';
 export * from './console-log.js';
@@ -19,6 +20,7 @@ export * from './snapshot.js';
 export * from './storage.js';
 export * from './tabs.js';
 export * from './trace.js';
+export * from './transport.js';
 export * from './types.js';
 export * from './vitals.js';
 export * from './wait.js';
