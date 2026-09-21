@@ -880,7 +880,7 @@ async function computeUpdateDirective(now = Date.now()) {
   // there is no separate registry endpoint to poll. Kept as a stub so the boot
   // path (and MONODESIGN_NO_UPDATE_CHECK-aware tests) stays unchanged.
   return null;
-  // eslint-disable-next-line no-unreachable
+  // biome-ignore lint/correctness/noUnreachable: disabled on purpose (see above); kept to re-enable
   try {
     if (process.env.MONODESIGN_NO_UPDATE_CHECK) return null;
     if (updateCheckDisabledByConfig()) return null;

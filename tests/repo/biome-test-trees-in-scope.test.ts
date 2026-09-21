@@ -106,3 +106,20 @@ describe('biome.json covers package test trees (lint gap S2)', () => {
     expect(out).toMatch(/Checked 1 file/);
   });
 });
+
+// monodesign ships no `src/`; its code lives in cli/, skill/ and scripts/,
+// which the src/** globs never reached. One probe each.
+const MONODESIGN_CODE = [
+  'packages/@monoes/monodesign/cli/engine/rules/checks.mjs',
+  'packages/@monoes/monodesign/skill/scripts/context.mjs',
+  'packages/@monoes/monodesign/scripts/sync-skill.mjs',
+];
+
+describe('biome.json covers monodesign code outside src/', () => {
+  it.each(MONODESIGN_CODE)('biome processes %s', (file) => {
+    expect(existsSync(join(REPO_ROOT, file))).toBe(true);
+    const out = biomeCheck(file);
+    expect(out).not.toMatch(/These paths were provided but ignored/);
+    expect(out).toMatch(/Checked 1 file/);
+  });
+});

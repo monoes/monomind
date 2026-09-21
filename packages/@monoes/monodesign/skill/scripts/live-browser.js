@@ -1031,7 +1031,6 @@
       position: 'fixed', zIndex: Z.bar,
       display: 'none', opacity: '0',
       transform: 'translateY(6px)',
-      transition: 'opacity 0.25s ' + EASE + ', transform 0.3s ' + EASE,
       background: BP.surface,
       border: '1px solid ' + BP.border,
       borderRadius: '8px',
@@ -3998,6 +3997,7 @@
       console.error('[monodesign] commit failed:', err);
       showToast('Apply failed - see console', 4000);
     } finally {
+      // biome-ignore lint/correctness/noUnsafeFinally: try/catch neither return a value nor rethrow, so this only skips the dock reset (source-pinned by live-browser-source.test.mjs)
       if (waitForSseCompletion) return;
       const remainingCount = parseInt(pendingPillEl?.dataset.count || '0', 10) || 0;
       if (remainingCount > 0) setPendingApplyLoading(false);

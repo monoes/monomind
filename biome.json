@@ -16,6 +16,10 @@
       "packages/@monoes/*/tests/**",
       "!packages/@monomind/monograph/__tests__/fixtures",
       "!packages/@monoes/monodesign/tests/fixtures",
+      "packages/@monoes/monodesign/cli/**",
+      "packages/@monoes/monodesign/skill/**",
+      "packages/@monoes/monodesign/scripts/**",
+      "!packages/@monoes/monodesign/skill/scripts/modern-screenshot.umd.js",
       "tests/**",
       "scripts/**",
       "!**/dist",
@@ -64,6 +68,19 @@
             "noAdjacentSpacesInRegex": "off"
           }
         }
+      }
+    },
+    {
+      "includes": [
+        "packages/@monoes/monodesign/cli/**",
+        "packages/@monoes/monodesign/skill/**",
+        "packages/@monoes/monodesign/scripts/**"
+      ],
+      "formatter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
       }
     }
   ],
