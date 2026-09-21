@@ -332,6 +332,12 @@ export const RoleSchema = z
  *  max_turns_per_message) to cap turns when you want a hard limit. */
 export const DEFAULT_MAX_TURNS_PER_MESSAGE = 100_000;
 
+/** ADR-O001 D4's number: three failed evidence checks on one task, then
+ *  escalate instead of handing it back again. Exported so the call site can
+ *  fall back to it for an org definition that never went through the schema
+ *  (a hand-built RunningOrg, a config written before this field existed). */
+export const DEFAULT_MAX_EVIDENCE_ATTEMPTS = 3;
+
 export const OrgDefSchema = z
   .object({
     name: z.string().min(1),
@@ -374,6 +380,13 @@ export const OrgDefSchema = z
          *  succeeded, which is the point, but must not happen on upgrade.
          *  See completion-gate.ts's `checkTaskEvidence`. */
         completion_evidence: z.boolean().optional(),
+        /** ADR-O001 D4 ("bound retries (3) and escalate"): how many times one
+         *  task may fail the `completion_evidence` gate before the runtime
+         *  stops handing it back to its assignee and escalates it to the boss
+         *  instead. Counted per task and carried by the checkpoint (see
+         *  `OrgTask.evidenceFailures`). Only meaningful with
+         *  `completion_evidence` on — without the gate nothing fails. */
+        max_evidence_attempts: z.number().int().positive().default(3),
         /** Where role sessions run.
          *  'repo' (default) — the project root, so roles can Read/Edit real files.
          *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
@@ -435,6 +448,7 @@ export const OrgDefSchema = z
         max_role_respawns: 0,
         completion: 'boss' as const,
         completion_evidence: false,
+        max_evidence_attempts: DEFAULT_MAX_EVIDENCE_ATTEMPTS,
         respawn_drain_timeout_ms: 30_000,
         respawn_force_stop_timeout_ms: 5_000,
         respawn_start_timeout_ms: 60_000,
