@@ -25,6 +25,7 @@ const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.c
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveRoleCostTier } from './cost-tier.js';
+import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
@@ -735,7 +736,7 @@ async function runOneSession(
       tools,
       prompt: mailbox.stream(),
       systemPrompt: buildRolePrompt(
-        role,
+        expandRolePromptVars(role, promptVarsFor(opts.orgRoot ?? cwd)),
         (opts.def ?? { name: org, goal: '' }) as OrgDef,
         opts.def?.roles.map((r) => r.id) ?? [role.id],
         opts.glossary,
