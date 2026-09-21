@@ -4,6 +4,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.3] — 2026-09-21
+
+### Fixed
+
+- **`monobrowse report` exited 0 on a page that failed its budget.** (#316) It printed nothing and exited 0 while writing a report whose own JSON said `"verdict": "fail"` — so CI, an agent, or a shell `&&` gating on exit status saw green on a failing page, which defeats the point of having budgets at all.
+  Teardown ran in a `finally` sitting between "we have the result" and "we print it", so anything that wedged during teardown took the verdict and the exit code with it. Teardown now runs **after** the verdict is printed, and `process.exitCode = 1` is set before either — a natural event-loop drain honours it, so a failing page cannot exit 0 no matter what happens afterwards. Set only on failure, so it never clears a code set elsewhere.
+  Worth noting what this is *not*: the underlying teardown hang was a separate defect, fixed in 2.15.2 (#314, the `unref()`'d poll timer — not the `Browser.close` race it resembled). This fix is about the verdict being swallowed, which would still have been possible whenever teardown was slow for any reason.
+- **The websocket-teardown timeout in monodesign's driver is kept**, rather than being dropped as redundant — it still guards a dying websocket.
+
+
 ## [2.15.2] — 2026-09-21
 
 ### Fixed
