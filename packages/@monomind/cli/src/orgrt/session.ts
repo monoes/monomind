@@ -24,6 +24,7 @@ const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.c
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveRoleCostTier } from './cost-tier.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { resolveRoleGitEnforcement } from './role-sandbox.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
@@ -665,8 +666,25 @@ async function runOneSession(
   // The named provider's default model fills in adapter_config.model when the
   // role didn't pin one.
   const prov = resolveRoleProvider(role, opts.orgRoot ?? opts.cwd);
+  // ADR-O001 D8: the role's cost tier, when the org declares one. Resolved
+  // here — the single choke point where a role's model is decided — so the
+  // documented precedence holds in exactly one place:
+  //   explicit adapter_config.model > tier > named-provider default > runtime
+  // The tier's EFFORT is applied even when the model came from an explicit
+  // pin: which model to run and how hard to think are separate axes, and
+  // silently dropping the effort because a model was pinned would be the
+  // "silent downgrade" this decision exists to prevent.
+  // Throws (fails the session) rather than guessing when the tier has no
+  // entry for this role's provider — daemon.ts validates the whole roster
+  // up front so that is normally caught before any token is spent.
+  const tier = resolveRoleCostTier({
+    role,
+    def: opts.def,
+    vendor: role.provider?.vendor ?? prov.cfg?.vendor,
+  });
   const model =
     role.adapter_config?.model ??
+    tier?.model ??
     prov.defaultModel ??
     resolveModel(role, role.runtime, role.provider?.vendor ?? prov.cfg?.vendor);
 
@@ -726,8 +744,13 @@ async function runOneSession(
       ),
       model,
       cwd,
+      effort: tier?.effort,
       env: {
         ...resolveProviderEnv(prov.cfg),
+        // D8: how a NON-Claude provider expresses the tier's effort level.
+        // Empty for Claude (handled natively by ClaudeAgentRunner) and for a
+        // provider that declares no mechanism — which simply ignores effort.
+        ...(tier?.env ?? {}),
         // Custom-endpoint providers (named-provider path): pin the engine's
         // model env so background/haiku tasks also route to the endpoint's
         // model instead of erroring on an Anthropic-only default.

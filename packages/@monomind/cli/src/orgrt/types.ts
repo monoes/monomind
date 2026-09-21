@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/types.ts
 import { z } from 'zod';
+import { ORG_EFFORT_LEVELS } from './cost-tier.js';
 
 export const ContextSliceSchema = z.object({ source: z.string(), summary: z.string() });
 export type ContextSlice = z.infer<typeof ContextSliceSchema>;
@@ -332,6 +333,65 @@ export const RoleSchema = z
  *  max_turns_per_message) to cap turns when you want a hard limit. */
 export const DEFAULT_MAX_TURNS_PER_MESSAGE = 100_000;
 
+/** ADR-O001 D8 cost tiers. Keys are provider keys — a Vercel vendor slug
+ *  (`glm`, `openai`, …) when the role has one, else the role's runtime id
+ *  (`claude`, `codex`, `kimicode`, …) — so a tier is expressible for a
+ *  provider this code has never heard of without touching code. Resolution,
+ *  the built-in Claude catalog and the deliberative-role warning live in
+ *  orgrt/cost-tier.ts. */
+const EffortLevelSchema = z.enum(ORG_EFFORT_LEVELS);
+export const CostTiersSchema = z
+  .object({
+    /** Tier applied to every role with no `roles` entry of its own. */
+    default: z.string().optional(),
+    /** Per-role tier. A bare string is a tier name or `"exempt"`; the object
+     *  form also overrides the tier's effort — how "patrol roles drop effort
+     *  since they do simpler, more repetitive work" is expressed. */
+    roles: z
+      .record(
+        z.string(),
+        z.union([
+          z.string(),
+          z.object({ tier: z.string(), effort: EffortLevelSchema.optional() }).passthrough(),
+        ]),
+      )
+      .optional(),
+    /** tier name → provider key → { model, effort }. Merged over the built-in
+     *  catalog per provider, so adding one provider to a built-in tier keeps
+     *  the rest of that tier. */
+    tiers: z
+      .record(
+        z.string(),
+        z.record(
+          z.string(),
+          z
+            .object({ model: z.string().min(1), effort: EffortLevelSchema.optional() })
+            .passthrough(),
+        ),
+      )
+      .optional(),
+    /** provider key → how that provider expresses an effort level. Claude is
+     *  handled natively (the SDK's own `effort`/`thinking` options); anything
+     *  else declares env vars here, or encodes effort in the per-tier model id
+     *  (e.g. `gemini-3.6-flash-high`). A provider with neither ignores it. */
+    providers: z
+      .record(
+        z.string(),
+        z
+          .object({
+            // partialRecord, not record: z.record() over an enum key demands
+            // EVERY level be present, so an org declaring only `low` would be
+            // rejected for not also declaring medium/high/xhigh/max.
+            effort_env: z
+              .partialRecord(EffortLevelSchema, z.record(z.string(), z.string()))
+              .optional(),
+          })
+          .passthrough(),
+      )
+      .optional(),
+  })
+  .passthrough();
+
 export const OrgDefSchema = z
   .object({
     name: z.string().min(1),
@@ -451,6 +511,22 @@ export const OrgDefSchema = z
       })
       .passthrough()
       .optional(),
+    /** ADR-O001 D8: named cost tiers, each setting BOTH the model AND the
+     *  reasoning/thinking effort for a role, per provider. Absent (the
+     *  default) = no tiering at all and today's model resolution, unchanged.
+     *
+     *  Precedence at session start: an explicit `adapter_config.model` wins
+     *  over the tier's model; the tier wins over a named provider's default
+     *  and the runtime default. A tier's EFFORT applies either way, since it
+     *  is a separate axis from which model to run.
+     *
+     *  DO NOT TIER A DELIBERATIVE ROLE INTO A WEAK VOICE. The ADR is explicit:
+     *  tier by *difficulty of the judgement*, not by role label — "a cheap
+     *  model in a debate produces cheap arguments and the synthesiser cannot
+     *  tell". Assign `"exempt"` to any role whose value is the quality of its
+     *  disagreement (design reviewer, red-teamer, debate synthesiser) and
+     *  control its cost with a budget instead. See orgrt/cost-tier.ts. */
+    cost_tiers: CostTiersSchema.optional(),
     roles: z.array(RoleSchema).min(1),
     /** Which agent runtime hosts this org's role sessions. When absent, the
      *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude

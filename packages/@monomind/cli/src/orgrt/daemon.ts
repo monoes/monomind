@@ -922,6 +922,16 @@ export class OrgDaemon {
       configureResourceLimits({ maxSdkProcesses: sessionRoleCount });
     }
 
+    // ADR-O001 D8: a cost tier that can't resolve a model for a role's
+    // provider must stop the run here. The alternative — resolving it at
+    // session start — would either crash one role ten minutes in or, worse,
+    // quietly leave that role on a different model than the tier claimed.
+    const { validateCostTiers } = await import('./cost-tier.js');
+    const tierErrors = validateCostTiers(def);
+    if (tierErrors.length) {
+      throw new Error(`org ${name}: ${tierErrors.join('; ')}`);
+    }
+
     // Validate per-role providers before spawning anything (fail-fast: a
     // missing env var discovered 10 minutes into a run wastes the entire run).
     const { resolveProviderEnv: validateProvider, resolveRoleProvider } = await import(
