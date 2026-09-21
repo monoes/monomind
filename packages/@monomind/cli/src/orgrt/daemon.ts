@@ -66,6 +66,7 @@ import {
 } from './idle-deadline.js';
 import { drainInbox, newMessageId, queueMessage } from './inbox.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
+import { loadoutCatalog, resolveLoadout, sessionLoadoutFor, taskTag } from './loadouts.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
 import * as orgMemory from './org-memory.js';
@@ -344,6 +345,11 @@ export interface AgentRuntime {
   worktreePath?: string;
   /** Terminal scrollback — capped ring buffer of agent output lines. */
   scrollback: ScrollbackBuffer;
+  /** ADR-O001 D7: the loadout this incarnation's session was built with,
+   *  frozen at spawn and persisted in the checkpoint. Never changed while the
+   *  incarnation lives — a task asking for another one is recorded as a
+   *  `loadout-mismatch` instead (decisions.ts). Absent = no loadout. */
+  loadout?: string;
 }
 
 export interface RunningOrg {
@@ -931,6 +937,13 @@ export class OrgDaemon {
     if (tierErrors.length) {
       throw new Error(`org ${name}: ${tierErrors.join('; ')}`);
     }
+    // ADR-O001 D7: an oversized or unresolvable loadout catalog stops the run
+    // here, for the same reason — not ten minutes in, at some role's spawn.
+    const { validateLoadouts } = await import('./loadouts.js');
+    const loadoutErrors = validateLoadouts(def, this.root).errors;
+    if (loadoutErrors.length) {
+      throw new Error(`org ${name}: ${loadoutErrors.join('; ')}`);
+    }
 
     // Validate per-role providers before spawning anything (fail-fast: a
     // missing env var discovered 10 minutes into a run wastes the entire run).
@@ -1517,7 +1530,7 @@ export class OrgDaemon {
         for (const task of unblocked) {
           const agent = running.agents.get(task.assignee);
           if (agent && !agent.mailbox.isClosed) {
-            agent.mailbox.push(`[task:${task.id}] Block expired — resuming: ${task.title}`);
+            agent.mailbox.push(`${taskTag(task)} Block expired — resuming: ${task.title}`);
           }
           bus.emit({
             type: 'status',
@@ -1827,6 +1840,30 @@ export class OrgDaemon {
     if (roleCheckpoint?.costUsd) {
       policy.setUsageUsd(roleCheckpoint.costUsd);
     }
+    // ADR-O001 D7: the loadout this incarnation's session is built with, fixed
+    // for its life. A checkpointed role keeps what it had (its SDK session was
+    // built with it); a replacement keeps its predecessor's; a new role takes
+    // the loadout of the first ready task it is being spawned for.
+    const loadoutName = roleCheckpoint
+      ? roleCheckpoint.loadout
+      : (existingSlot?.runtime?.loadout ?? sessionLoadoutFor(running.taskDag, role.id));
+    let loadout: ReturnType<typeof resolveLoadout> | undefined;
+    if (loadoutName) {
+      try {
+        loadout = resolveLoadout(def, loadoutName, this.root);
+      } catch (err) {
+        // Validated at start, so only a config hot-reload or a deleted
+        // instructions_file lands here. Spawn without it, loudly: a role that
+        // fails to spawn would strand its task, which is worse.
+        bus.emit({
+          type: 'audit',
+          from: role.id,
+          reason: 'loadout-unresolvable',
+          msg: `role "${role.id}" spawned without loadout "${loadoutName}": ${err instanceof Error ? err.message : err}`,
+          data: { loadout: loadoutName },
+        });
+      }
+    }
     const runtime: AgentRuntime = {
       mailbox,
       policy,
@@ -1838,6 +1875,7 @@ export class OrgDaemon {
       sessionId: roleCheckpoint?.sessionId,
       worktreePath: roleCwd !== cwd ? roleCwd : undefined,
       scrollback: new ScrollbackBuffer(),
+      ...(loadout ? { loadout: loadout.name } : {}),
     };
     if (roleCheckpoint?.scrollback?.length) {
       for (const line of roleCheckpoint.scrollback) runtime.scrollback.push(line);
@@ -2013,9 +2051,19 @@ export class OrgDaemon {
         });
         return text;
       },
-      createTask: (r: string, title: string, assignee: string, deps: string[]) => {
-        return this.dagCreateTask(name, r, title, assignee, deps);
+      createTask: (
+        r: string,
+        title: string,
+        assignee: string,
+        deps: string[],
+        loadout?: string,
+      ) => {
+        return this.dagCreateTask(name, r, title, assignee, deps, loadout);
       },
+      // ADR-O001 D7: only an org with a catalog gets the `loadout` argument;
+      // the session itself is built with the loadout frozen above.
+      loadoutCatalog: loadoutCatalog(def),
+      loadout,
       completeTask: (r: string, taskId: string, result?: string, evidence?: TaskEvidence) => {
         return this.dagCompleteTask(name, r, taskId, result, evidence);
       },
@@ -3126,8 +3174,9 @@ export class OrgDaemon {
     title: string,
     assignee: string,
     deps: string[],
+    loadout?: string,
   ): string {
-    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps);
+    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps, loadout);
   }
   private dagCompleteTask(
     org: string,

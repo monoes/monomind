@@ -155,6 +155,24 @@ because each distinct system prompt is its own cache namespace.
 Test: two sessions doing the same *kind* of work should produce a **byte-identical system
 prompt**.
 
+**As implemented** (`packages/@monomind/cli/src/orgrt/loadouts.ts`). An org grows an optional
+`loadouts` catalog; each entry is `{ description?, prompt?, skills?, instructions_file? }`
+(`skills` are built-in `orgrt/role-skills/<name>.md` archetypes, `instructions_file` resolves
+against the project root). `org_task` and each `org_plan_graph` spec take an optional
+`loadout` — an enum of the catalog's names — which is recorded on the task row and read back by
+every dispatch and re-dispatch (evidence refusal, escalation, checkpoint requeue, block expiry).
+
+- **Size:** more than 15 fails `org validate` and `org run`; fewer than 5 is allowed with a
+  warning; an empty `{}` is an error (omit the field). Unknown skills and missing files fail too.
+- **Defaulted off:** no catalog = no `loadout` argument, and a byte-identical system prompt and
+  tool list (asserted against fingerprints captured on the pre-D7 code).
+- **Where the loadout applies.** A role still holds one long session, so the loadout is fixed
+  when a role's session is *built*: from its checkpoint, its predecessor (respawn), or the first
+  ready task it is spawned for. A later task that asks for a different loadout is delivered to
+  the live session anyway and recorded as a `loadout-mismatch` status event; the prompt is never
+  edited. D3's task-keyed sessions remove that case by building one session per task through the
+  same `SessionOpts.loadout` field.
+
 ### D8 — Tier models, and tier reasoning effort with them
 
 Modelled on the measured volume: all-Haiku **$349** vs as-run blended **$1,050** vs all-Opus

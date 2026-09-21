@@ -392,6 +392,23 @@ export const CostTiersSchema = z
   })
   .passthrough();
 
+/** ADR-O001 D7: one named loadout — a stable bundle of role-prompt text and
+ *  skills that becomes part of the SYSTEM PROMPT of the session serving a
+ *  task. Validation (catalog size, names, skills, file) and resolution live in
+ *  orgrt/loadouts.ts. */
+export const LoadoutSchema = z
+  .object({
+    /** One line shown to the boss in org_task's description, to select by. */
+    description: z.string().optional(),
+    /** Role-prompt text for this kind of work. */
+    prompt: z.string().optional(),
+    /** Built-in role skills (orgrt/role-skills/<name>.md) to include. */
+    skills: z.array(z.string()).optional(),
+    /** Extra guidance file, resolved against the project root. */
+    instructions_file: z.string().optional(),
+  })
+  .passthrough();
+
 /** ADR-O001 D4's number: three failed evidence checks on one task, then
  *  escalate instead of handing it back again. Exported so the call site can
  *  fall back to it for an org definition that never went through the schema
@@ -541,6 +558,14 @@ export const OrgDefSchema = z
      *  disagreement (design reviewer, red-teamer, debate synthesiser) and
      *  control its cost with a budget instead. See orgrt/cost-tier.ts. */
     cost_tiers: CostTiersSchema.optional(),
+    /** ADR-O001 D7: the org's catalog of named loadouts (target 5–15; more
+     *  than 15 fails `org validate` and `org run`). When present, org_task and
+     *  org_plan_graph take an optional `loadout` the boss SELECTS by name; it
+     *  is recorded on the task row and every re-dispatch reuses it. Absent
+     *  (the default) = no loadout argument and byte-identical prompts/tools.
+     *  Deliberative work that wants many one-off perspectives belongs in its
+     *  own org (ADR-O001, "What this does NOT apply to"). See orgrt/loadouts.ts. */
+    loadouts: z.record(z.string(), LoadoutSchema).optional(),
     roles: z.array(RoleSchema).min(1),
     /** Which agent runtime hosts this org's role sessions. When absent, the
      *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude

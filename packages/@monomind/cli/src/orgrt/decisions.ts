@@ -5,6 +5,8 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
+import { checkLoadoutSelection, taskTag } from './loadouts.js';
+import type { OrgTask } from './task-dag.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
   type DecisionGate,
@@ -146,17 +148,28 @@ export function dagCreateTask(
   title: string,
   assignee: string,
   deps: string[],
+  loadout?: string,
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  // ADR-O001 D7: the boss SELECTS from the catalog; anything else is refused
+  // before a task row exists, so no task can carry an unresolvable loadout.
+  const refusal = checkLoadoutSelection(running.def, loadout);
+  if (refusal) return JSON.stringify({ error: refusal });
   try {
-    const task = running.taskDag.add(title, assignee, deps);
+    const task = running.taskDag.add(title, assignee, deps, loadout);
     running.bus.emit({
       type: 'status',
       from: role,
       reason: 'task-created',
       msg: `task ${task.id} created: "${title}" → ${assignee}`,
-      data: { taskId: task.id, assignee, deps, status: task.status },
+      data: {
+        taskId: task.id,
+        assignee,
+        deps,
+        status: task.status,
+        ...(loadout ? { loadout } : {}),
+      },
     });
     if (task.status === 'ready') dispatchReadyTasks(daemon, org, running);
     return JSON.stringify(task);
@@ -170,6 +183,8 @@ export interface PlanTaskSpec {
   title: string;
   assignee: string;
   after?: string[];
+  /** ADR-O001 D7: selected catalog loadout, recorded on the created task. */
+  loadout?: string;
 }
 
 export function dagPlanGraph(
@@ -180,6 +195,12 @@ export function dagPlanGraph(
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  // D7: check every selection before creating anything — a half-created plan
+  // would be worse than a refused one.
+  for (const s of specs) {
+    const refusal = checkLoadoutSelection(running.def, s.loadout);
+    if (refusal) return JSON.stringify({ error: `spec "${s.name}": ${refusal}` });
+  }
   try {
     const nameToId = new Map<string, string>();
     const created: { name: string; id: string; title: string; assignee: string; status: string }[] =
@@ -193,7 +214,7 @@ export function dagPlanGraph(
         const afters = s.after ?? [];
         if (!afters.every((a) => nameToId.has(a) || running.taskDag?.get(a))) continue;
         const depIds = afters.map((a) => nameToId.get(a) ?? a);
-        const task = running.taskDag.add(s.title, s.assignee, depIds);
+        const task = running.taskDag.add(s.title, s.assignee, depIds, s.loadout);
         nameToId.set(s.name, task.id);
         created.push({
           name: s.name,
@@ -416,7 +437,7 @@ export function dagCompleteTask(
         queueDispatch(
           running,
           running.bossRoleId,
-          `[task:${taskId}] ESCALATED — "${task.assignee}" failed the completion evidence gate ${attempts} times on "${task.title}", so it is marked failed and is NOT being re-dispatched. Last refusal: ${refusal}\nDecide what happens next: re-scope it into a new task, reassign it, or end the run honestly. Do not simply re-file the identical task for the same role.`,
+          `${taskTag(task)} ESCALATED — "${task.assignee}" failed the completion evidence gate ${attempts} times on "${task.title}", so it is marked failed and is NOT being re-dispatched. Last refusal: ${refusal}\nDecide what happens next: re-scope it into a new task, reassign it, or end the run honestly. Do not simply re-file the identical task for the same role.`,
         );
         return JSON.stringify({
           error: `${refusal}\n\nThat is ${attempts} failed evidence check(s) on this task (cap ${cap}). It is not coming back to you: it is recorded as failed and "${running.bossRoleId}" has been asked to decide what happens next. Stop retrying it.`,
@@ -439,7 +460,7 @@ export function dagCompleteTask(
       queueDispatch(
         running,
         task.assignee,
-        `[task:${taskId}] NOT CLOSED — ${refusal}${attempts ? ` (attempt ${attempts} of ${cap}; after ${cap} this task is escalated instead of returned)` : ''}`,
+        `${taskTag(task)} NOT CLOSED — ${refusal}${attempts ? ` (attempt ${attempts} of ${cap}; after ${cap} this task is escalated instead of returned)` : ''}`,
       );
       dispatchReadyTasks(daemon, org, running);
       return JSON.stringify({ error: refusal, requeued: taskId });
@@ -502,6 +523,31 @@ function queueDispatch(running: RunningOrg, assignee: string, line: string): voi
   running.pendingDispatch.set(assignee, entry);
 }
 
+/** ADR-O001 D7: a task asked for a loadout its assignee's LIVE session was not
+ *  built with. The session's system prompt is never edited mid-session, so the
+ *  task is still delivered (liveness first) and the gap is recorded instead —
+ *  an operator can see which work ran under which loadout. D3 (task-keyed
+ *  sessions) removes this case by building a session per (role, task). */
+function noteLoadoutMismatch(
+  running: RunningOrg,
+  task: OrgTask,
+  sessionLoadout: string | undefined,
+): void {
+  if (!task.loadout || task.loadout === sessionLoadout) return;
+  running.bus.emit({
+    type: 'status',
+    from: 'dag',
+    reason: 'loadout-mismatch',
+    msg: `task ${task.id} selected loadout "${task.loadout}" but "${task.assignee}"'s live session was built with ${sessionLoadout ? `"${sessionLoadout}"` : 'no loadout'} — delivered without changing its system prompt`,
+    data: {
+      taskId: task.id,
+      assignee: task.assignee,
+      taskLoadout: task.loadout,
+      sessionLoadout: sessionLoadout ?? null,
+    },
+  });
+}
+
 export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: RunningOrg): void {
   if (!running.taskDag) return;
   for (const task of running.taskDag.ready()) {
@@ -515,7 +561,8 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
     const pending = running.pendingRoles?.get(task.assignee);
     if (agent && !agent.mailbox.isClosed) {
       running.taskDag.markRunning(task.id);
-      queueDispatch(running, task.assignee, `[task:${task.id}] ${task.title}`);
+      noteLoadoutMismatch(running, task, agent.loadout);
+      queueDispatch(running, task.assignee, `${taskTag(task)} ${task.title}`);
       running.bus.emit({
         type: 'status',
         from: 'dag',
@@ -562,7 +609,8 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
       const spawned = running.agents.get(task.assignee);
       if (spawned && !spawned.mailbox.isClosed) {
         running.taskDag.markRunning(task.id);
-        queueDispatch(running, task.assignee, `[task:${task.id}] ${task.title}`);
+        noteLoadoutMismatch(running, task, spawned.loadout);
+        queueDispatch(running, task.assignee, `${taskTag(task)} ${task.title}`);
         running.bus.emit({
           type: 'status',
           from: 'dag',

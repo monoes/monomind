@@ -9,6 +9,7 @@ import type { TaskEvidence } from './completion-gate.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
 import type { RoleFence } from './fence.js';
 import { scanInput } from './fence.js';
+import type { LoadoutSummary, ResolvedLoadout } from './loadouts.js';
 import { Mailbox } from './mailbox.js';
 import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
@@ -311,8 +312,29 @@ export interface SessionOpts {
   fence?: RoleFence;
   /** Decision gate: creates a hard-blocking human-approval checkpoint. */
   onGate?: (role: string, name: string, description: string) => Promise<string>;
-  /** Task DAG: create a task with dependencies. */
-  createTask?: (role: string, title: string, assignee: string, deps: string[]) => string;
+  /** Task DAG: create a task with dependencies. `loadout` (ADR-O001 D7) is
+   *  the catalog entry the caller selected; only offered when the org has a
+   *  catalog (`loadoutCatalog`). */
+  createTask?: (
+    role: string,
+    title: string,
+    assignee: string,
+    deps: string[],
+    loadout?: string,
+  ) => string;
+  /** ADR-O001 D7: the org's loadout catalog. Set only when the org declares
+   *  one; it adds the optional `loadout` argument to org_task/org_plan_graph.
+   *  Unset, those tools are byte-identical to before (same gating idea as
+   *  `requireTaskEvidence`). Identical for every role and every loadout, so
+   *  the tool list — prefix position 0 — never varies with the loadout. */
+  loadoutCatalog?: LoadoutSummary[];
+  /** ADR-O001 D7: the loadout THIS session's system prompt is built with.
+   *  Plain data resolved by the caller before the session starts, so it is
+   *  fixed for the session's whole life — every maxTurns/crash restart
+   *  rebuilds the identical prompt, and nothing can edit it mid-session.
+   *  D3 hook: a task-keyed session for (role, taskKey) passes
+   *  `resolveLoadout(def, task.loadout, root)` here. */
+  loadout?: ResolvedLoadout;
   /** Task DAG: mark a task as completed. `evidence` is ADR-O001 D5's
    *  machine-checkable proof — acceptance commands with their real exit
    *  codes, pinned to a commit sha. Only demanded when the org sets
@@ -340,7 +362,7 @@ export interface SessionOpts {
   blockTask?: (role: string, taskId: string, untilIso: string, reason?: string) => string;
   planGraph?: (
     role: string,
-    specs: { name: string; title: string; assignee: string; after?: string[] }[],
+    specs: { name: string; title: string; assignee: string; after?: string[]; loadout?: string }[],
   ) => string;
 }
 
@@ -740,7 +762,10 @@ async function runOneSession(
         (opts.def ?? { name: org, goal: '' }) as OrgDef,
         opts.def?.roles.map((r) => r.id) ?? [role.id],
         opts.glossary,
-        resolveRoleExtraGuidance(role),
+        // D7: the loadout's text follows the role's own guidance. With no
+        // loadout this is exactly resolveRoleExtraGuidance(role), as before.
+        [resolveRoleExtraGuidance(role), opts.loadout?.guidance].filter(Boolean).join('\n\n') ||
+          undefined,
         opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
       ),
       model,
@@ -1161,6 +1186,14 @@ async function runOneSession(
   }
 }
 
+/** ADR-O001 D7: org_task's description suffix for an org with a catalog. */
+function loadoutHelp(catalog: LoadoutSummary[]): string {
+  const list = catalog
+    .map((l) => (l.description ? `${l.name} (${l.description})` : l.name))
+    .join(', ');
+  return ` Optionally select a "loadout" — the named, stable specialisation the assignee's session is built with: ${list}. Select by kind of work; put everything specific to this task (which diff, criteria, what failed last time) in the title or a message, not in the choice of loadout. The selection is recorded on the task and reused on every retry.`;
+}
+
 /** Build the org tool surface as platform-agnostic OrgToolDef[]. The handlers
  *  close over sessionOpts callbacks (deliver, recall, remember, …) — same
  *  wiring as the previous inline createSdkMcpServer block, just decoupled from
@@ -1308,13 +1341,25 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         text(await onGate(role.id, args.name as string, args.description as string)),
     });
   }
+  // ADR-O001 D7: the `loadout` argument exists only for an org with a
+  // catalog, so every other org's tool list stays byte-identical.
+  const catalog = opts.loadoutCatalog?.length ? opts.loadoutCatalog : undefined;
+  const loadoutArg: Record<string, z.ZodType> = catalog
+    ? { loadout: z.enum(catalog.map((l) => l.name) as [string, ...string[]]).optional() }
+    : {};
   const createTask = opts.createTask;
   if (createTask) {
     tools.push({
       name: 'org_task',
       description:
-        'Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee.',
-      schema: { title: z.string(), assignee: z.string(), deps: z.array(z.string()).default([]) },
+        'Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee.' +
+        (catalog ? loadoutHelp(catalog) : ''),
+      schema: {
+        title: z.string(),
+        assignee: z.string(),
+        deps: z.array(z.string()).default([]),
+        ...loadoutArg,
+      },
       handler: async (args) =>
         text(
           createTask(
@@ -1322,6 +1367,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             args.title as string,
             args.assignee as string,
             (args.deps as string[]) ?? [],
+            args.loadout as string | undefined,
           ),
         ),
     });
@@ -1436,7 +1482,8 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_plan_graph',
       description:
-        'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after".',
+        'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after".' +
+        (catalog ? ' Each spec may select a "loadout" exactly as org_task does.' : ''),
       schema: {
         tasks: z
           .array(
@@ -1445,6 +1492,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
               title: z.string(),
               assignee: z.string(),
               after: z.array(z.string()).default([]),
+              ...loadoutArg,
             }),
           )
           .min(1),
@@ -1453,8 +1501,13 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         text(
           planGraph(
             role.id,
-            (args.tasks as { name: string; title: string; assignee: string; after?: string[] }[]) ??
-              [],
+            (args.tasks as {
+              name: string;
+              title: string;
+              assignee: string;
+              after?: string[];
+              loadout?: string;
+            }[]) ?? [],
           ),
         ),
     });

@@ -1,0 +1,148 @@
+/**
+ * ADR-O001 D7 — "everything defaults OFF".
+ *
+ * An org that declares no `loadouts` catalog must see a BYTE-IDENTICAL system
+ * prompt and tool list to the runtime before D7 existed. Both render into the
+ * cached prefix (tools at position 0, then the system prompt), so a single
+ * changed byte for every org would invalidate every cached prompt on upgrade.
+ *
+ * The fingerprints below were captured by running this exact file against the
+ * pre-D7 code (commit 8546057f7). Do not "update the snapshot" to make a
+ * failure go away: a mismatch here means an org that did not opt in now pays
+ * a cache miss.
+ */
+import { createHash } from 'node:crypto';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { OrgBus } from '../orgrt/bus.js';
+import { Mailbox } from '../orgrt/mailbox.js';
+import { PolicyEngine } from '../orgrt/policy.js';
+import {
+  buildOrgTools,
+  buildRolePrompt,
+  runAgentSession,
+  type SessionOpts,
+} from '../orgrt/session.js';
+import type { OrgDef, OrgRole } from '../orgrt/types.js';
+
+const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
+
+const def = {
+  name: 'acme',
+  goal: 'ship the widget',
+  roles: [
+    { id: 'boss', title: 'Boss', type: 'coordinator', responsibilities: ['plan'] },
+    {
+      id: 'dev',
+      title: 'Developer',
+      type: 'specialist',
+      reports_to: 'boss',
+      responsibilities: ['write code', 'write tests'],
+      ui: { icon: 'coder' },
+    },
+  ],
+  run_config: {},
+} as unknown as OrgDef;
+const boss = def.roles[0] as OrgRole;
+const dev = def.roles[1] as OrgRole;
+
+/** Every task/DAG callback wired, so every gated tool is present. */
+function allToolOpts(role: OrgRole): SessionOpts {
+  return {
+    org: 'acme',
+    role,
+    bus: {} as OrgBus,
+    policy: {} as PolicyEngine,
+    mailbox: {} as Mailbox,
+    cwd: '/work',
+    def,
+    deliver: async () => 'ok',
+    askHuman: async () => 'ok',
+    onComplete: () => null,
+    onGate: async () => 'ok',
+    recall: async () => 'ok',
+    remember: async () => 'ok',
+    searchKnowledge: async () => 'ok',
+    createTask: () => 'ok',
+    completeTask: () => 'ok',
+    listTasks: () => 'ok',
+    splitTask: () => 'ok',
+    mergeTask: () => 'ok',
+    cancelTask: () => 'ok',
+    blockTask: () => 'ok',
+    planGraph: () => 'ok',
+  } as unknown as SessionOpts;
+}
+
+/** What the model actually sees of a tool: name, description, input schema. */
+function renderTools(opts: SessionOpts): string {
+  return JSON.stringify(
+    buildOrgTools(opts).map((t) => ({
+      name: t.name,
+      description: t.description,
+      schema: z.toJSONSchema(z.object(t.schema as z.ZodRawShape)),
+    })),
+  );
+}
+
+async function capturedSystemPrompt(role: OrgRole, message: string): Promise<string> {
+  const bus = new OrgBus('acme', 'r', mkdtempSync(join(tmpdir(), 'loadout-off-')));
+  const mailbox = new Mailbox();
+  mailbox.push(message);
+  mailbox.close();
+  let systemPrompt = '';
+  const fakeQuery = ({ prompt, options }: any) =>
+    (async function* () {
+      systemPrompt = options.systemPrompt;
+      for await (const _ of prompt) break;
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+    })();
+  await runAgentSession({
+    org: 'acme',
+    role,
+    bus,
+    policy: new PolicyEngine(role.id, {}, bus, '/work'),
+    mailbox,
+    cwd: '/work',
+    def,
+    deliver: async () => 'ok',
+    queryFn: fakeQuery as any,
+  });
+  return systemPrompt;
+}
+
+describe('ADR-O001 D7: an org with no loadout catalog is unchanged', () => {
+  it('buildRolePrompt output is byte-identical to pre-D7', () => {
+    const coordinator = buildRolePrompt(
+      boss,
+      def,
+      ['boss', 'dev'],
+      ['Widget', 'Gizmo'],
+      undefined,
+      ['- "hook" (endpoint)'],
+    );
+    const worker = buildRolePrompt(dev, def, ['boss', 'dev'], undefined, 'GUIDE');
+    expect(sha(coordinator)).toBe(COORDINATOR_PROMPT_SHA);
+    expect(sha(worker)).toBe(WORKER_PROMPT_SHA);
+  });
+
+  it('the session system prompt (as sent to the runner) is byte-identical to pre-D7', async () => {
+    expect(sha(await capturedSystemPrompt(dev, 'task one'))).toBe(SESSION_PROMPT_SHA);
+  });
+
+  it('the org tool list — names, order, descriptions, schemas — is byte-identical to pre-D7', () => {
+    // Tool gating keys off which callbacks are wired, not the role, so the
+    // boss and a worker render the same list here.
+    expect(sha(renderTools(allToolOpts(boss)))).toBe(TOOLS_SHA);
+    expect(sha(renderTools(allToolOpts(dev)))).toBe(TOOLS_SHA);
+  });
+});
+
+// Captured against 8546057f7 (pre-D7).
+const COORDINATOR_PROMPT_SHA = 'aac1470d23beab53bc0e30aa5a8af493bd06bc9e78254cdc52e6ca4157fc4ed0';
+const WORKER_PROMPT_SHA = 'dff3a95ffbbb6d7238d544976ed42b593ff2738653456a4ce3f5058643a4e0dc';
+const SESSION_PROMPT_SHA = '6648688bada64531dcef77f4092ad54649fa8697322508e84c6a1d4d90c40dec';
+const TOOLS_SHA = '767532cd68b16dd9a553a0e874b0e12ca1f58e07b3c23b44a56181caddac2613';
