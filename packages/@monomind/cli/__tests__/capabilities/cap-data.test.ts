@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { dataCapability } from '../../src/capabilities/cap-data.js';
 import type { FileEntry } from '../../src/capabilities/types.js';
-import path from 'path';
+import path from 'node:path';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures', 'data');
 

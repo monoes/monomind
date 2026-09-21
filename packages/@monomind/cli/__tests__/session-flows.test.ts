@@ -44,7 +44,7 @@ vi.mock('node:fs', () => {
     }),
     mkdirSync: vi.fn(),
     readdirSync: vi.fn((dir: string) => {
-      const prefix = dir.endsWith('/') ? dir : dir + '/';
+      const prefix = dir.endsWith('/') ? dir : `${dir}/`;
       return [...memStore.keys()]
         .filter(k => k.startsWith(prefix) && !k.slice(prefix.length).includes('/'))
         .map(k => k.slice(prefix.length));

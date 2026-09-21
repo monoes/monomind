@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { scanDirectory, saveFingerprint, loadFingerprint, CapabilityManager, codeCapability } from '../../src/capabilities/index.js';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures');
 

@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync, readFileSync, mkdirSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
@@ -84,7 +84,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm', outputPath]) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`, outputPath]) {
     if (existsSync(p)) {
       try { unlinkSync(p); } catch { /* ignore */ }
     }

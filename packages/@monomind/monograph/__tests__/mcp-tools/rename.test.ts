@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, unlinkSync, rmdirSync, rmSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, unlinkSync, rmdirSync, rmSync, existsSync } from 'node:fs';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
 import { insertEdge } from '../../src/storage/edge-store.js';
@@ -63,7 +63,7 @@ beforeAll(() => {
 
 afterAll(() => {
   closeDb(db);
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (existsSync(p)) unlinkSync(p);
   }
   // Cleanup temp files

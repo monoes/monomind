@@ -277,7 +277,7 @@ diff --git a/file2.ts b/file2.ts
 --- a/src/security/auth.ts
 +++ b/src/security/auth.ts
 @@ -1,100 +1,100 @@
-` + Array(100).fill('+new line').join('\n');
+${Array(100).fill('+new line').join('\n')}`;
       
       const files = classifier.parseDiff(diff);
       expect(files[0].classification.impactLevel).toBe('critical');

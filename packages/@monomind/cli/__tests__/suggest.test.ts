@@ -242,14 +242,14 @@ describe('COMMON_TYPOS', () => {
   });
 
   it('should include monoswarm typos', () => {
-    expect(COMMON_TYPOS['swarrm']).toBe('monoswarm');
-    expect(COMMON_TYPOS['swarn']).toBe('monoswarm');
+    expect(COMMON_TYPOS.swarrm).toBe('monoswarm');
+    expect(COMMON_TYPOS.swarn).toBe('monoswarm');
   });
 
   it('does not suggest a "hive-mind" command — it was never real and no longer exists as a concept', () => {
-    expect(COMMON_TYPOS['hive']).toBeUndefined();
-    expect(COMMON_TYPOS['hivemind']).toBeUndefined();
-    expect(COMMON_TYPOS['hive_mind']).toBeUndefined();
+    expect(COMMON_TYPOS.hive).toBeUndefined();
+    expect(COMMON_TYPOS.hivemind).toBeUndefined();
+    expect(COMMON_TYPOS.hive_mind).toBeUndefined();
   });
 });
 

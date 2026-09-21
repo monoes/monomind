@@ -4,7 +4,7 @@ import { createMcpHttpServer } from '../../src/web/mcp-http.js';
 const echoTool = {
   name: 'echo',
   description: 'Echo the input',
-  handler: async (args: Record<string, unknown>) => ({ echoed: args['text'] }),
+  handler: async (args: Record<string, unknown>) => ({ echoed: args.text }),
 };
 
 let server: ReturnType<typeof createMcpHttpServer>;

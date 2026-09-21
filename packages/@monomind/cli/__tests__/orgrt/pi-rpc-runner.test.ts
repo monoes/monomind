@@ -132,13 +132,13 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     proc.emitStdout('{"type":"turn_start"}\n');
     proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"ignored — not agent_end"}]}}\n');
     proc.emitStdout('{"type":"turn_end"}\n');
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'hello' }] },
         { role: 'assistant', content: [{ type: 'text', text: 'Hi there' }], usage: { input: 10, output: 5 } },
       ],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -160,7 +160,7 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     // each with its OWN per-turn usage — confirmed live against pi v0.73.1
     // (see file header). The runner must sum across all of them, not just
     // read the last one.
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'hello' }] },
@@ -168,7 +168,7 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
         { role: 'toolResult', content: [{ type: 'text', text: 'tool output' }] },
         { role: 'assistant', content: [{ type: 'text', text: 'done now' }], usage: { input: 15, output: 8 } },
       ],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -192,21 +192,21 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     // v0.73.1 — same version this file's header was already resolved
     // against for agent_end).
     proc.emitStdout('{"type":"message_start","message":{}}\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_start', contentIndex: 0 } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello' } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' world' } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_end', contentIndex: 0, content: 'Hello world' } }) + '\n');
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_start', contentIndex: 0 } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' world' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_end', contentIndex: 0, content: 'Hello world' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({
       type: 'message_end',
       message: { content: [{ type: 'text', text: 'Hello world' }] },
-    }) + '\n');
-    proc.emitStdout(JSON.stringify({
+    })}\n`);
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'hello' }] },
         { role: 'assistant', content: [{ type: 'text', text: 'Hello world' }], usage: { input: 10, output: 5 } },
       ],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -225,16 +225,16 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     proc.emitStdout('{"type":"message_start","message":{}}\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello' } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' world' } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'Hello world' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' world' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'Hello world' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'hello' }] },
         { role: 'assistant', content: [{ type: 'text', text: 'Hello world' }], usage: { input: 10, output: 5 } },
       ],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -250,19 +250,19 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     proc.emitStdout('{"type":"message_start","message":{}}\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: 'thinking about it' } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: 'Final answer.' } }) + '\n');
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: 'thinking about it' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: 'Final answer.' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({
       type: 'message_end',
       message: { content: [{ type: 'thinking', thinking: 'thinking about it' }, { type: 'text', text: 'Final answer.' }] },
-    }) + '\n');
-    proc.emitStdout(JSON.stringify({
+    })}\n`);
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'hello' }] },
         { role: 'assistant', content: [{ type: 'thinking', thinking: 'thinking about it' }, { type: 'text', text: 'Final answer.' }], usage: { input: 1, output: 1 } },
       ],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -280,15 +280,15 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
 
     // First internal turn: thinking + a native tool call, no visible text.
     proc.emitStdout('{"type":"message_start","message":{}}\n');
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({
       type: 'message_end',
       message: { content: [{ type: 'thinking', thinking: '...' }, { type: 'toolCall', id: 'c1', name: 'bash', arguments: {} }] },
-    }) + '\n');
+    })}\n`);
     // Second internal turn: streamed text.
     proc.emitStdout('{"type":"message_start","message":{}}\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'done now' } }) + '\n');
-    proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'done now' }] } }) + '\n');
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({ type: 'message_update', message: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'done now' } })}\n`);
+    proc.emitStdout(`${JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'done now' }] } })}\n`);
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'hello' }] },
@@ -296,7 +296,7 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
         { role: 'toolResult', content: [{ type: 'text', text: 'tool output' }] },
         { role: 'assistant', content: [{ type: 'text', text: 'done now' }], usage: { input: 15, output: 8 } },
       ],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -324,10 +324,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     const fence = '```tool_call\n{"name":"org_send","arguments":{"to":"boss","subject":"s","message":"m"}}\n```';
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [{ role: 'assistant', content: [{ type: 'text', text: `Sending now.\n${fence}` }], usage: { input: 1, output: 1 } }],
-    }) + '\n');
+    })}\n`);
     await new Promise((r) => setTimeout(r, 10));
 
     // The runner should have sent a follow-up prompt with the tool result —
@@ -336,10 +336,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     expect(secondPrompt).toBeDefined();
     expect(secondPrompt).not.toContain('You are a test agent'); // no system prompt re-sent
 
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Done.' }], usage: { input: 1, output: 1 } }],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -356,10 +356,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
 
     expect(proc.written[0]).toContain('You are a test agent');
 
-    proc.emitStdout(JSON.stringify({
+    proc.emitStdout(`${JSON.stringify({
       type: 'agent_end',
       messages: [{ role: 'assistant', content: [{ type: 'text', text: 'ok' }], usage: { input: 1, output: 1 } }],
-    }) + '\n');
+    })}\n`);
     proc.emitClose(0);
     await resultsPromise;
   });
@@ -407,10 +407,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
       await vi.advanceTimersByTimeAsync(10);
 
       const fence = '```tool_call\n{"name":"ask_human","arguments":{}}\n```';
-      proc.emitStdout(JSON.stringify({
+      proc.emitStdout(`${JSON.stringify({
         type: 'agent_end',
         messages: [{ role: 'assistant', content: [{ type: 'text', text: `Asking.\n${fence}` }], usage: { input: 1, output: 1 } }],
-      }) + '\n');
+      })}\n`);
       await vi.advanceTimersByTimeAsync(10);
 
       // The tool call is now blocked ("waiting on a human"). Advance well
@@ -421,10 +421,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
       // Let the human "answer" and finish the turn normally.
       releaseTool();
       await vi.advanceTimersByTimeAsync(10);
-      proc.emitStdout(JSON.stringify({
+      proc.emitStdout(`${JSON.stringify({
         type: 'agent_end',
         messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Done.' }], usage: { input: 1, output: 1 } }],
-      }) + '\n');
+      })}\n`);
       proc.emitClose(0);
       await vi.advanceTimersByTimeAsync(10);
 

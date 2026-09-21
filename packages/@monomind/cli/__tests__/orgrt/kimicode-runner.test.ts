@@ -154,7 +154,7 @@ function makeFakeKimi(body: string): { bin: string; logFile: string; tmpDir: str
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-kimi-'));
   const logFile = path.join(tmpDir, 'argv.log');
   const bin = path.join(tmpDir, 'fake-kimi.cjs');
-  fs.writeFileSync(bin, '#!/usr/bin/env node\n' + FAKE_KIMI_PRELUDE + body);
+  fs.writeFileSync(bin, `#!/usr/bin/env node\n${FAKE_KIMI_PRELUDE}${body}`);
   fs.chmodSync(bin, 0o755);
   return { bin, logFile, tmpDir };
 }

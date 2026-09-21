@@ -14,9 +14,9 @@
  * Calls at module top level are genuinely file-scoped and must keep a File
  * source, so this pins both directions.
  */
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { buildAsync } from '../../src/pipeline/orchestrator.js';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { detectDeadCodeNodes } from '../../src/graph/dead-code.js';

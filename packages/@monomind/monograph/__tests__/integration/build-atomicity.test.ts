@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { vi } from 'vitest';
 
 // Regression (issue #40 follow-up): a phase crashing mid-build used to leave

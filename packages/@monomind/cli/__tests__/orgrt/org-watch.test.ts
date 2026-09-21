@@ -15,7 +15,7 @@ function setupOrgRun(cwd: string, orgName: string, events: BusEvent[]): void {
   mkdirSync(join(cwd, ORG_DIR, orgName, RUN), { recursive: true });
   writeFileSync(
     join(cwd, ORG_DIR, orgName, RUN, 'bus.jsonl'),
-    events.map(e => JSON.stringify(e)).join('\n') + '\n',
+    `${events.map(e => JSON.stringify(e)).join('\n')}\n`,
   );
 }
 
@@ -69,7 +69,7 @@ describe('org watch', () => {
     mkdirSync(join(cwd, ORG_DIR, 'test', olderRun), { recursive: true });
     writeFileSync(
       join(cwd, ORG_DIR, 'test', olderRun, 'bus.jsonl'),
-      JSON.stringify({ id: '1', ts: 1, org: 'test', run: olderRun, type: 'chat', from: 'researcher', msg: 'from the older run' } as BusEvent) + '\n',
+      `${JSON.stringify({ id: '1', ts: 1, org: 'test', run: olderRun, type: 'chat', from: 'researcher', msg: 'from the older run' } as BusEvent)}\n`,
     );
     setupOrgRun(cwd, 'test', [
       { id: '2', ts: 2, org: 'test', run: RUN, type: 'chat', from: 'researcher', msg: 'from the latest run' },

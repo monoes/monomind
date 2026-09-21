@@ -27,7 +27,7 @@ function makeFakeHermes(body: string): { bin: string; logFile: string; tmpDir: s
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-hermes-'));
   const logFile = path.join(tmpDir, 'argv.log');
   const bin = path.join(tmpDir, 'fake-hermes.cjs');
-  fs.writeFileSync(bin, '#!/usr/bin/env node\n' + FAKE_HERMES_PRELUDE + body);
+  fs.writeFileSync(bin, `#!/usr/bin/env node\n${FAKE_HERMES_PRELUDE}${body}`);
   fs.chmodSync(bin, 0o755);
   return { bin, logFile, tmpDir };
 }

@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdtempSync, writeFileSync, unlinkSync, existsSync, rmSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdtempSync, writeFileSync, unlinkSync, existsSync, rmSync } from 'node:fs';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
@@ -75,7 +75,7 @@ beforeAll(() => {
   repoPath = mkdtempSync(join(tmpdir(), 'shape-check-repo-'));
 
   // Ensure api/ and client/ directories exist within the temp repo
-  const { mkdirSync } = require('fs');
+  const { mkdirSync } = require('node:fs');
   mkdirSync(join(repoPath, 'api'), { recursive: true });
   mkdirSync(join(repoPath, 'client'), { recursive: true });
 
@@ -111,7 +111,7 @@ export async function fetchUsers() {
 
 afterAll(() => {
   closeDb(db);
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (existsSync(p)) unlinkSync(p);
   }
   rmSync(repoPath, { recursive: true, force: true });

@@ -143,7 +143,7 @@ describe('#110: HTTP transport\'s embedded /ws upgrade path routes through valid
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
-      ws.once('close', (code) => reject(new Error('closed before open: ' + code)));
+      ws.once('close', (code) => reject(new Error(`closed before open: ${code}`)));
     });
 
     ws.close();
@@ -190,7 +190,7 @@ describe('#110: HTTP transport\'s embedded /ws upgrade path routes through valid
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
-      ws.once('close', (code) => reject(new Error('closed before open: ' + code)));
+      ws.once('close', (code) => reject(new Error(`closed before open: ${code}`)));
     });
 
     ws.close();

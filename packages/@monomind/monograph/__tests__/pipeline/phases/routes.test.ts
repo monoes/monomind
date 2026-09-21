@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { buildAsync } from '../../../src/pipeline/orchestrator.js';
 import { openDb, closeDb } from '../../../src/storage/db.js';
 import { pagesPathToRoute, appPathToRoute, extractExpressRoutes, extractNestRoutes, extractDefaultExportName } from '../../../src/pipeline/phases/routes.js';
@@ -165,14 +165,14 @@ describe('routes phase — Express-style routes', () => {
 
     writeFileSync(
       join(base, 'src', 'server.ts'),
-      [
+      `${[
         `import express from 'express';`,
         `const app = express();`,
         `function getUsers(req: any, res: any) { res.json([]); }`,
         `app.get('/api/items', getUsers);`,
         `app.post('/api/items', getUsers);`,
         `app.listen(3000);`,
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
 
     await buildAsync(base);

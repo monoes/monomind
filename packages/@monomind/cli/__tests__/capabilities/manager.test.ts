@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CapabilityManager } from '../../src/capabilities/manager.js';
 import type { CapabilityModule, DirectoryScan } from '../../src/capabilities/types.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 
 function makeScan(overrides: Partial<DirectoryScan> = {}): DirectoryScan {
   return {

@@ -1,6 +1,6 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync, existsSync } from 'node:fs';
 import { vi, describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
@@ -8,12 +8,12 @@ import { detectMonographChanges } from '../../src/mcp-tools/detect-changes.js';
 import type { MonographNode } from '../../src/types.js';
 
 // vi.mock must be at the top level for Vitest to hoist it correctly
-vi.mock('child_process', () => ({
+vi.mock('node:child_process', () => ({
   spawnSync: vi.fn(),
 }));
 
 // After the mock, import the mocked module to control it
-import { spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
 
 function mockGitOutput(stdout: string) {
   vi.mocked(spawnSync).mockReturnValue({ stdout, stderr: '', status: 0, error: undefined } as any);
@@ -50,7 +50,7 @@ beforeAll(() => {
 
 afterAll(() => {
   closeDb(db);
-  for (const p of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
+  for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (existsSync(p)) unlinkSync(p);
   }
 });
