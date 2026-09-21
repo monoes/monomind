@@ -1158,7 +1158,9 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
       } else if (idle.idle_hold === 'disabled') {
         log(`  idle watchdog: disabled`);
       } else if (idle.idle_hold && idle.idle_hold !== 'unknown') {
-        const until = idle.idle_hold_until ? ` until ${utcTime(Date.parse(idle.idle_hold_until))}` : '';
+        const until = idle.idle_hold_until
+          ? ` until ${utcTime(Date.parse(idle.idle_hold_until))}`
+          : '';
         log(`  idle stop: held — ${idle.idle_hold}${until}`);
       }
 

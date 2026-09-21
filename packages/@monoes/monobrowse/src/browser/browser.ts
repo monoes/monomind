@@ -218,6 +218,18 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     defaultArgs.push('--headless=new');
   }
 
+  // Chrome's setuid sandbox cannot initialise on most CI runners and
+  // containers, so the process dies during startup and the CDP endpoint never
+  // opens. The launch below then burns its whole timeout before reporting a
+  // generic failure, which reads as a hang rather than "Chrome could not
+  // start". Disabling the sandbox is the standard remedy and is scoped to CI
+  // so a real user's browser keeps it. --disable-dev-shm-usage goes with it:
+  // a container's default /dev/shm is 64MB, which Chrome exhausts and then
+  // crashes the same way.
+  if (process.env.CI) {
+    defaultArgs.push('--no-sandbox', '--disable-dev-shm-usage');
+  }
+
   // Cap caller-supplied args to prevent memory exhaustion via huge argument arrays
   const callerArgs = (config.args ?? []).slice(0, 50);
   const args = [...defaultArgs, ...callerArgs];
