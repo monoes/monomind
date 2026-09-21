@@ -287,6 +287,13 @@ export const RoleSchema = z
      *  (org_review); other agents' org_send to it is refused, so the doer's
      *  framing cannot reach it. Absent = an ordinary role. */
     review_input: z.enum(['artifact-only']).optional(),
+    /** ADR-O001 "What this does NOT apply to": a role whose value is the
+     *  disagreement itself (a debater, a critic, a synthesiser). The runtime
+     *  does not apply the execution-work gates to it: org_task_done needs no
+     *  evidence (there is no oracle, and none should be faked), so the
+     *  evidence retry cap never fires either. It cannot be an artifact-only
+     *  reviewer — a synthesiser must see every position. */
+    deliberative: z.boolean().optional(),
     /** Per-role runtime override: when set, this role's sessions run on the given
      *  agent runtime regardless of the org-level `runtime` field or the
      *  MONOMIND_RUNTIME env var ('claude' explicitly forces the Claude default).
@@ -330,7 +337,16 @@ export const RoleSchema = z
     /** M2: where an endpoint role's messages are POSTed. */
     endpoint: EndpointSchema.optional(),
   })
-  .passthrough();
+  .passthrough()
+  .superRefine((r, ctx) => {
+    if (r.deliberative && r.review_input === 'artifact-only') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['review_input'],
+        message: `role "${r.id}" is deliberative, so it cannot be an artifact-only reviewer: deliberation needs every position in full`,
+      });
+    }
+  });
 
 /** Default per-message turn budget for a role session. Deliberately huge so
  *  the ceiling never bricks a legitimately long-running task (#140: a role

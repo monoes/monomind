@@ -1,6 +1,6 @@
 # ADR-O001 — Org cost, continuity and specialisation design
 
-**Status:** proposed · **Date:** 2026-09-20
+**Status:** accepted — all eight decisions implemented (D1–D8, 2026-09-21), each defaulted off except the D1 meter · **Date:** 2026-09-20
 **Evidence:** `doc/reports/org-cost-deep-dive-2026-09-20.md` (measured), `org-runtime-review-2026-09-20.md` (process)
 **Applies to:** the Org Runtime v2 (`packages/@monomind/cli/src/orgrt/`) and org configs under `.monomind/orgs/`
 
@@ -359,8 +359,16 @@ disagreement itself, protect the disagreement and control cost with the budget i
 
 A practical consequence: an org config should be able to declare a role or a phase as
 `deliberative`, and the runtime should not apply the retry cap or the artifact-only reviewer
-restriction to it. That flag does not exist yet; until it does, keep deliberative work in a
-separate org with its own budget rather than bolting it onto an execution org.
+restriction to it.
+
+> **Implemented (per role, 2026-09-21):** `deliberative: true`.
+> - The completion-evidence gate is skipped for its tasks, so the evidence retry cap never fires,
+>   and its `org_task_done` tool no longer asks for evidence.
+> - It cannot also be `review_input: 'artifact-only'`: the schema rejects the combination.
+> - The flag is per role, not per phase. D7 and D8 are guidance, not runtime rules, so the flag
+>   does not change loadouts or cost tiering: don't give a deliberative role a weak tier.
+> - Its budget is still the stopping rule. A separate org remains a fine choice when deliberation
+>   needs its own budget.
 
 ---
 

@@ -2093,7 +2093,8 @@ export class OrgDaemon {
       },
       // ADR-O001 D5: only an org that opted in advertises the evidence
       // argument, so every other org's tool list stays byte-identical.
-      requireTaskEvidence: def.run_config.completion_evidence === true,
+      requireTaskEvidence:
+        def.run_config.completion_evidence === true && role.deliberative !== true,
       // ADR-O001 D6: only an org with an artifact-only reviewer gets org_review,
       // so every other org's tool list stays byte-identical.
       requestReview: def.roles.some((r) => r.review_input === 'artifact-only')

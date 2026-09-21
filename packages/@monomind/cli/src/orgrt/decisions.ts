@@ -409,7 +409,11 @@ export function dagCompleteTask(
   // evidence is not recorded: it would let a non-assignee plant the reviewer's
   // input.
   if (task && evidence && role === task.assignee) running.taskDag.recordEvidence(taskId, evidence);
-  if (task && running.def.run_config.completion_evidence) {
+  // Deliberative work has no oracle; demanding evidence would only invite a
+  // fabricated exit code (ADR-O001, "What this does NOT apply to").
+  const deliberative =
+    running.def.roles.find((r) => r.id === task?.assignee)?.deliberative === true;
+  if (task && running.def.run_config.completion_evidence && !deliberative) {
     const refusal = checkTaskEvidence({
       required: true,
       evidence,
