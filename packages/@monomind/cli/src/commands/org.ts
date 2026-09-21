@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { resolveRoleCostTier } from '../orgrt/cost-tier.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
@@ -577,8 +578,14 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // instead of a hardcoded 'claude-sonnet-5' fallback — otherwise every
       // role without an explicit adapter_config.model (kimicode, antigravity,
       // vercel roles relying on their runtime default) is mislabeled here.
+      // ADR-O001 D8: fold the role's cost tier in, at the same precedence the
+      // runtime uses (explicit model > tier > runtime/vendor default) — an
+      // estimate that ignored the tier would quote the untiered price of a run
+      // that is about to cost ~3x less.
       const model = String(
-        r.adapter_config?.model ?? resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor),
+        r.adapter_config?.model ??
+          resolveRoleCostTier({ role: r, def })?.model ??
+          resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor),
       );
       const rate = userRates[model] ?? MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
       const roleTurns = Math.min(r.max_turns_per_message ?? defaultMaxTurns, ESTIMATE_TURNS_CAP);

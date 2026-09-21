@@ -18,6 +18,7 @@
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 import type { z } from 'zod';
+import type { OrgEffortLevel } from './cost-tier.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { toolResultSpillHook } from './tool-spill.js';
 
@@ -39,6 +40,16 @@ export interface AgentRunArgs {
   prompt: AsyncIterable<any>;
   systemPrompt: string;
   model?: string;
+  /** ADR-O001 D8: abstract reasoning/thinking effort for this session, set by
+   *  the role's cost tier (see orgrt/cost-tier.ts). Provider-agnostic on
+   *  purpose — each runner maps it to its own mechanism, and a runner with no
+   *  such mechanism ignores it. ClaudeAgentRunner maps it to the SDK's own
+   *  `effort` option ('off' → `thinking: { type: 'disabled' }`); the vendor
+   *  CLI runners take only `--model`, so a tier expresses their effort
+   *  through `cost_tiers.providers.<key>.effort_env` (which arrives in `env`)
+   *  or by naming an effort-encoding model id per tier. Unset = today's
+   *  behavior: the provider's own default. */
+  effort?: OrgEffortLevel;
   cwd: string;
   env: Record<string, string>;
   /**
@@ -243,6 +254,14 @@ export class ClaudeAgentRunner implements AgentRunner {
       options: {
         systemPrompt: args.systemPrompt,
         model: args.model,
+        // ADR-O001 D8: the Claude half of the cost tier's effort axis. The
+        // SDK's own EffortLevel is 'low'|'medium'|'high'|'xhigh'|'max', which
+        // the abstract level maps onto 1:1; 'off' has no SDK effort value and
+        // means "no extended thinking", i.e. thinking: { type: 'disabled' }.
+        // Both spread conditionally so an untiered session sends neither key
+        // and is byte-identical to before.
+        ...(args.effort && args.effort !== 'off' ? { effort: args.effort } : {}),
+        ...(args.effort === 'off' ? { thinking: { type: 'disabled' as const } } : {}),
         cwd: args.cwd,
         // The SDK's own default (`env = {...process.env}`) only applies when
         // this option is omitted entirely — passing `args.env` directly, even

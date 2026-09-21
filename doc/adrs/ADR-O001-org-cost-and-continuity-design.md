@@ -163,6 +163,53 @@ Modelled on the measured volume: all-Haiku **$349** vs as-run blended **$1,050**
 Gas Town tiers both together (`internal/config/cost_tier.go`), noting *"patrol roles drop effort
 since they do simpler, more repetitive work."*
 
+**As implemented** (`packages/@monomind/cli/src/orgrt/cost-tier.ts`, wired at the single model
+choke point `session.ts`'s `resolveModel` call site). An org grows an optional `cost_tiers` block:
+
+```jsonc
+{
+  "cost_tiers": {
+    "default": "economy",                              // tier for every role
+    "roles": {
+      "patrol":    { "tier": "economy", "effort": "low" },  // Gas Town's "patrol drops effort"
+      "reviewer":  "standard",
+      "architect": "exempt"                            // never tiered — see below
+    },
+    "tiers": {                                          // extends the built-in catalog
+      "economy": { "codex": { "model": "gpt-5.6-mini", "effort": "medium" } }
+    },
+    "providers": {                                      // how a provider expresses effort
+      "codex": { "effort_env": { "medium": { "SOME_VAR": "medium" } } }
+    }
+  }
+}
+```
+
+Four properties this design commits to:
+
+- **Provider-agnostic.** A tier is a table keyed by *provider key* — a Vercel vendor slug when
+  the role has one, else the role's runtime id. A provider nobody has heard of is declared in
+  config, not in code. The built-in catalog ships **Claude only** (`standard` → opus/high,
+  `economy` → sonnet/medium, `budget` → haiku/low): those are the model ids and the effort
+  mechanism this repo can actually verify, and inventing the rest would be the silent downgrade
+  this decision exists to prevent.
+- **Effort is part of the tier**, as an abstract level (`off | low | medium | high | xhigh |
+  max`). Claude maps it natively to the Agent SDK's `effort` option (`off` →
+  `thinking: {type:'disabled'}`). Any other provider maps it through config-declared env vars,
+  or by naming an effort-encoding model id per tier (`gemini-3.6-flash-high`). A provider with
+  no mechanism ignores it. *Known gap:* the vendor CLI runners take only `--model`, so codex's
+  `-c model_reasoning_effort=…` and its peers are reachable today only via the model id.
+- **Precedence:** explicit `adapter_config.model` > tier > named-provider default > runtime
+  default. The tier's *effort* applies even when the model was pinned — which model to run and
+  how hard to think are separate axes.
+- **Defaulted off, and loud when wrong.** No `cost_tiers` = today's behaviour exactly (asserted
+  by a test, not a comment). A tier with no entry for a role's provider fails `org validate` and
+  `org run` at start rather than picking a cheaper model at runtime.
+
+**`"exempt"` is the deliberative escape hatch** required by the table below: a role whose value
+is the quality of its disagreement opts out of tiering entirely and is controlled by budget (D1)
+instead.
+
 **Decompose selectively, not by default.** Splitting a task out only pays when its context is
 genuinely small and separate. If a subtask needs the parent's large warm context, splitting
 re-pays for it at 12.5× (cache write vs cache read). Break-even requires cutting 28–83% of volume

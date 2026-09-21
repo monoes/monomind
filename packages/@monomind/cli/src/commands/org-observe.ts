@@ -86,6 +86,11 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     try {
       const def = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
       errors.push(...checkOrgStructure(def));
+      // ADR-O001 D8: a cost tier that can't resolve a model for a role's
+      // provider is a config error, not a runtime fallback — surface it here
+      // as well as at daemon start, so it's caught before a run is attempted.
+      const { validateCostTiers } = await import('../orgrt/cost-tier.js');
+      errors.push(...validateCostTiers(def));
       // #258: roles whose policy.git won't have the OS sandbox behind it here
       const gitFindings = gitEnforcementFindings(def);
       errors.push(...gitFindings.errors);
