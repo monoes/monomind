@@ -98,35 +98,12 @@ const all = manifests();
 /** Only publishable siblings: a private package has no tarball to go stale. */
 const siblings = new Map(all.filter((p) => !p.private && p.version).map((p) => [p.name, p]));
 
-/** Deliberate exceptions, each with the reason it is not a bug.
- *
- * `@monoes/monodesign -> @monoes/monobrowse` is an OPTIONAL RUNTIME DRIVER,
- * loaded through `await import('@monoes/monobrowse')` inside
- * cli/engine/engines/browser/drivers.mjs. Whether that import resolves decides
- * whether monodesign's browser-driver tests execute at all, so the dependency
- * is part of the suite's environment rather than only its dependency graph.
- *
- * Pinning it workspace:* broke monodesign on both CI platforms and in opposite
- * directions: without monobrowse's dist the import fails and the package's own
- * job went red, and with the dist built the browser tests stop being inert,
- * launch Chrome and hang (cancelledByParent on Linux, three failures on
- * Windows). monodesign's matrix entry carries `build: 'skip'` for the same
- * underlying reason — its suite runs from source and is not meant to need a
- * built sibling.
- *
- * The staleness this guard exists to prevent does not really apply here: the
- * driver is optional, and a consumer resolving the published monobrowse is the
- * intended behaviour rather than an accident.
- */
-const ALLOWED_REGISTRY_EDGES = new Set(['@monoes/monodesign -> @monoes/monobrowse']);
-
 const violations = [];
 for (const pkg of all) {
   for (const field of DEP_FIELDS) {
     for (const [dep, range] of Object.entries(pkg[field] ?? {})) {
       if (!siblings.has(dep)) continue;
       if (typeof range === 'string' && range.startsWith('workspace:')) continue;
-      if (ALLOWED_REGISTRY_EDGES.has(`${pkg.name} -> ${dep}`)) continue;
       violations.push({
         from: pkg.name,
         dir: pkg.dir,
