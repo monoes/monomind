@@ -602,3 +602,45 @@ describe('human session: the page and the decision routes need a logged-in brows
     expect(r.body).not.toContain(cred);
   });
 });
+
+// (g) — second cause behind #307's dead-callback-port symptom. bindServer()
+// resolves via `server.listen(p, host, () => resolve(p))`, but a failed
+// attempt's `once('listening', ...)` callback is never removed (only the
+// 'error' listener is), so it stays armed. When the NEXT attempt's listen()
+// succeeds, Node's single 'listening' emit fires every still-armed listener
+// in registration order — the failed attempt's callback runs first and wins
+// the resolve() race with the port that was actually busy, not the one the
+// server ended up bound to. Downstream (server.mjs's `currentPort`/`boundPort`,
+// and routes-monoes.mjs's redirect_uri) all trust this wrong value, so
+// monoes.me's OAuth callback is sent to a dead port. Reported by the owner as
+// a second reproduction on issue #307: `--port 4252` fell back to 4253, but
+// the post-Allow redirect still targeted 4252.
+describe('(g) bindServer resolves the port it actually bound, not a busy fallback source (#307)', () => {
+  let blocker: http.Server | null = null;
+  let srv: any = null;
+  const FIXED_PORT = 14918;
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => (srv ? srv.server.close(() => resolve()) : resolve()));
+    await new Promise<void>((resolve) => (blocker ? blocker.close(() => resolve()) : resolve()));
+  });
+
+  it('reports the real bound port after falling back from a busy one', async () => {
+    blocker = http.createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker!.once('error', reject);
+      blocker!.listen(FIXED_PORT, '127.0.0.1', () => resolve());
+    });
+
+    const dir = mkdtempSync(join(tmpdir(), 'mm-bindserver-fallback-'));
+    mkdirSync(join(dir, '.monomind'), { recursive: true });
+
+    srv = await startServer({ port: FIXED_PORT, projectDir: dir, openBrowser: false });
+
+    // The socket startServer() actually bound is the ground truth; the port
+    // it hands back must match it, not the busy port the first attempt asked
+    // for and never got.
+    expect(srv.port).toBe(srv.server.address().port);
+    expect(srv.port).not.toBe(FIXED_PORT);
+  });
+});

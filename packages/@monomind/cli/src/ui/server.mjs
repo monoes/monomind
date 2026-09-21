@@ -884,16 +884,27 @@ function bindServer(server, port) {
     let attempt = 0;
 
     function tryPort(p) {
-      server.listen(p, '127.0.0.1', () => resolve(p));
+      // A failed attempt's 'listening' callback is never invoked (listen()
+      // failure emits 'error', not 'listening'), so it stays armed on the
+      // server. Without removeAllListeners('listening') here, the NEXT
+      // attempt's successful bind fires every still-armed 'listening'
+      // listener in registration order — the failed attempt's callback runs
+      // first and resolves with the busy port it never got, not the port
+      // actually bound. Resolving from server.address().port (rather than
+      // the closed-over `p`) is the same fix for the port:0 (OS-assigned)
+      // case, where `p` is 0 but the real port is whatever the OS picked.
+      server.removeAllListeners('listening');
+      server.removeAllListeners('error');
+      server.once('listening', () => resolve(server.address().port));
       server.once('error', (err) => {
         if (err.code === 'EADDRINUSE' && attempt < maxTries) {
           attempt += 1;
-          server.removeAllListeners('error');
           tryPort(p + 1);
         } else {
           reject(err);
         }
       });
+      server.listen(p, '127.0.0.1');
     }
 
     tryPort(port);
