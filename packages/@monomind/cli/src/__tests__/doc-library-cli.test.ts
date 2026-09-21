@@ -30,6 +30,7 @@ const SCRATCH = process.env.MONOMIND_TEST_SCRATCH || join(os.homedir(), 'scratch
 
 const PRICING_URL = 'https://www.example.com/pricing';
 const VITALS_URL = 'https://web.dev/vitals';
+const SPROCKET_URL = 'https://docs.example.com/sprockets';
 
 const PRICING_MD = ['# Pricing', '', '## Starter', '', 'Nine dollars a month.', ''].join('\n');
 
@@ -96,6 +97,32 @@ beforeAll(() => {
     tags: ['pricing', 'competitor'],
     collection: 'research',
   });
+  const article = capture(
+    'sprockets',
+    SPROCKET_URL,
+    'Sprocket Calibration',
+    '# Sprocket Calibration\n\nTorque the sprocket to 9 Nm.\n',
+    { note: 'torque figures worth keeping' },
+  );
+  fs.writeFileSync(
+    join(ROOT, 'inbox', 'sprockets', 'highlights.json'),
+    JSON.stringify({
+      version: 1,
+      highlights: [
+        { id: 'h1', text: 'Torque the sprocket to 9 Nm', anchor: { quote: 'Torque the sprocket' } },
+      ],
+    }),
+  );
+  index(article, {
+    url: SPROCKET_URL,
+    canonicalUrl: SPROCKET_URL,
+    title: 'Sprocket Calibration',
+    capturedAt: '2026-09-19T09:00:00.000Z',
+    source: 'extension',
+    note: 'torque figures worth keeping',
+    tags: ['mechanics'],
+  });
+
   index(
     capture('vitals', VITALS_URL, 'Web Vitals', '# Web Vitals\n\nLCP, INP, CLS.\n', {
       source: 'monobrowse',
@@ -153,15 +180,38 @@ describe('doc list — library filters (RCL-09)', () => {
     expect(sub('list').aliases).toContain('library');
     expect(sub('cite').name).toBe('cite');
     expect(sub('related').name).toBe('related');
+    expect(sub('lookup').name).toBe('lookup');
     expect(sub('watch', 'check').name).toBe('check');
     expect(sub('watch', 'add').name).toBe('add');
     expect(sub('watch', 'rm').name).toBe('remove');
   });
 
+  it('filters by substring over title, url, path and note', async () => {
+    const byTitle = await run(['list'], [], { text: 'sprocket' });
+    expect((byTitle.data as Array<{ title: string }>).map((r) => r.title)).toEqual([
+      'Sprocket Calibration',
+    ]);
+    // The note is part of the haystack — that is what makes it worth saving.
+    const byNote = await run(['list'], [], { text: 'worth keeping' });
+    expect(byNote.data).toHaveLength(1);
+    expect(await run(['list'], [], { text: 'nothing matches this' }).then((r) => r.data)).toEqual(
+      [],
+    );
+  });
+
   it('gives `doc search` the same facets and a --json mode', () => {
     const names = (sub('search').options ?? []).map((o) => o.name);
     expect(names).toEqual(
-      expect.arrayContaining(['site', 'tag', 'collection', 'source', 'since', 'until', 'json']),
+      expect.arrayContaining([
+        'site',
+        'tag',
+        'collection',
+        'source',
+        'since',
+        'until',
+        'text',
+        'json',
+      ]),
     );
   });
 
@@ -170,10 +220,19 @@ describe('doc list — library filters (RCL-09)', () => {
     expect((all.data as Array<{ title: string }>).map((r) => r.title)).toEqual([
       'Web Vitals',
       'Pricing',
+      'Sprocket Calibration',
     ]);
 
+    // A bare domain covers its subdomains: docs.example.com is example.com.
     const bySite = await run(['list'], [], { site: 'example.com' });
-    expect((bySite.data as Array<{ title: string }>).map((r) => r.title)).toEqual(['Pricing']);
+    expect((bySite.data as Array<{ title: string }>).map((r) => r.title)).toEqual([
+      'Pricing',
+      'Sprocket Calibration',
+    ]);
+    const bySubdomain = await run(['list'], [], { site: 'docs.example.com' });
+    expect((bySubdomain.data as Array<{ title: string }>).map((r) => r.title)).toEqual([
+      'Sprocket Calibration',
+    ]);
 
     // Comma form and repeated form mean the same thing.
     const byTag = await run(['list'], [], { tag: 'performance,pricing' });
@@ -198,7 +257,10 @@ describe('doc list — library filters (RCL-09)', () => {
       captured: true,
     });
     const until = await run(['list'], [], { until: '2026-09-20T23:59:00.000Z' });
-    expect((until.data as Array<{ title: string }>).map((r) => r.title)).toEqual(['Pricing']);
+    expect((until.data as Array<{ title: string }>).map((r) => r.title)).toEqual([
+      'Pricing',
+      'Sprocket Calibration',
+    ]);
   });
 });
 
@@ -223,6 +285,43 @@ describe('doc cite (RCL-10)', () => {
     expect(missing.exitCode).toBe(1);
     const noArgs = await run(['cite']);
     expect(noArgs.success).toBe(false);
+  });
+});
+
+describe('doc lookup (RCL-02)', () => {
+  it('answers with the note written at save time', async () => {
+    const result = await run(['lookup'], [SPROCKET_URL], { json: true });
+    expect(result.data).toMatchObject({
+      saved: true,
+      url: SPROCKET_URL,
+      title: 'Sprocket Calibration',
+      site: 'docs.example.com',
+      capturedAt: '2026-09-19T09:00:00.000Z',
+      // The whole point of the badge over a bookmark: `doc list --json` rows
+      // carry no note, and this does.
+      note: 'torque figures worth keeping',
+      versions: 1,
+      tags: ['mechanics'],
+      source: 'extension',
+    });
+    // A fragment is a scroll position, not a different page.
+    const fragment = await run(['lookup'], [`${SPROCKET_URL}#section-3`], { json: true });
+    expect((fragment.data as { saved: boolean }).saved).toBe(true);
+  });
+
+  it('counts highlights only when asked, and says plainly when nothing is saved', async () => {
+    const plain = await run(['lookup'], [SPROCKET_URL], { json: true });
+    expect((plain.data as { highlights?: number }).highlights).toBeUndefined();
+    const withHl = await run(['lookup'], [SPROCKET_URL], { json: true, highlights: true });
+    expect((withHl.data as { highlights?: number }).highlights).toBe(1);
+
+    const unsaved = await run(['lookup'], ['https://example.com/never-seen'], { json: true });
+    expect(unsaved.data).toMatchObject({ saved: false, versions: 0, tags: [] });
+    expect(unsaved.success).toBe(true);
+
+    const noArgs = await run(['lookup']);
+    expect(noArgs.success).toBe(false);
+    expect(noArgs.exitCode).toBe(1);
   });
 });
 
