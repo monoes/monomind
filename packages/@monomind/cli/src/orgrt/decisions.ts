@@ -5,7 +5,12 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
-import { type DecisionGate, type DecisionKind, ORG_DIR } from './types.js';
+import {
+  DEFAULT_MAX_EVIDENCE_ATTEMPTS,
+  type DecisionGate,
+  type DecisionKind,
+  ORG_DIR,
+} from './types.js';
 
 // ── Decision gates ──────────────────────────────────────────────────────
 
@@ -385,6 +390,40 @@ export function dagCompleteTask(
       assignee: task.assignee,
     });
     if (refusal) {
+      // ADR-O001 D4: the correction loop is bounded. Only the assignee's own
+      // failures count — a refusal aimed at a role that is not the assignee
+      // says nothing about whether the assignee can produce evidence, and
+      // must not spend its attempts.
+      const attempts = role === task.assignee ? running.taskDag.recordEvidenceFailure(taskId) : 0;
+      const cap = running.def.run_config.max_evidence_attempts ?? DEFAULT_MAX_EVIDENCE_ATTEMPTS;
+      if (attempts >= cap) {
+        // Escalate rather than hand it back a fourth time. "Escalate" is the
+        // path this runtime already has for work a role cannot finish (the
+        // crashed-worker handoff in daemon.ts): record the reason on the task,
+        // raise a loud audit event next to D4's `no-progress` one, and put it
+        // in the boss's mailbox to re-plan, split or drop. Failing the task
+        // keeps the D4 liveness invariant — a non-terminal task with nothing
+        // dispatched for it is exactly the silent stall D4 exists to remove.
+        const why = `evidence gate failed ${attempts}x (cap ${cap}) — escalated to "${running.bossRoleId}": ${refusal}`;
+        running.taskDag.fail(taskId, why);
+        running.bus.emit({
+          type: 'audit',
+          from: role,
+          reason: 'task-evidence-escalated',
+          msg: `task ${taskId} failed the evidence gate ${attempts} times — escalated to "${running.bossRoleId}" instead of re-dispatching`,
+          data: { taskId, assignee: task.assignee, attempts, cap, refusal },
+        });
+        queueDispatch(
+          running,
+          running.bossRoleId,
+          `[task:${taskId}] ESCALATED — "${task.assignee}" failed the completion evidence gate ${attempts} times on "${task.title}", so it is marked failed and is NOT being re-dispatched. Last refusal: ${refusal}\nDecide what happens next: re-scope it into a new task, reassign it, or end the run honestly. Do not simply re-file the identical task for the same role.`,
+        );
+        return JSON.stringify({
+          error: `${refusal}\n\nThat is ${attempts} failed evidence check(s) on this task (cap ${cap}). It is not coming back to you: it is recorded as failed and "${running.bossRoleId}" has been asked to decide what happens next. Stop retrying it.`,
+          escalated: taskId,
+          attempts,
+        });
+      }
       // Not a crash and not a dead end: the item goes back on the queue with
       // the reason attached, so the correction loop (D4) picks it up even if
       // this session dies before it can react to the tool result.
@@ -395,9 +434,13 @@ export function dagCompleteTask(
         from: role,
         reason: 'task-evidence-refused',
         msg: `task ${taskId} not closed — evidence refused`,
-        data: { taskId, assignee: task.assignee, refusal },
+        data: { taskId, assignee: task.assignee, attempts, cap, refusal },
       });
-      queueDispatch(running, task.assignee, `[task:${taskId}] NOT CLOSED — ${refusal}`);
+      queueDispatch(
+        running,
+        task.assignee,
+        `[task:${taskId}] NOT CLOSED — ${refusal}${attempts ? ` (attempt ${attempts} of ${cap}; after ${cap} this task is escalated instead of returned)` : ''}`,
+      );
       dispatchReadyTasks(daemon, org, running);
       return JSON.stringify({ error: refusal, requeued: taskId });
     }

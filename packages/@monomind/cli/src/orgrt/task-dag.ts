@@ -32,6 +32,13 @@ export interface OrgTask {
    *  waiting, not silence to nudge about. */
   blockedUntil?: number;
   blockedReason?: string;
+  /** ADR-O001 D4: how many times the assignee has failed the completion
+   *  evidence gate on THIS task since it was last accepted. It lives on the
+   *  task row, so it rides the checkpoint (`toJSON`/`fromJSON`) like every
+   *  other piece of task state — a counter held only in daemon memory would
+   *  reset on every crash or resume and the cap would bound nothing.
+   *  Cleared by `complete()`; see `recordEvidenceFailure`. */
+  evidenceFailures?: number;
 }
 
 export interface SplitChild {
@@ -85,7 +92,21 @@ export class TaskDag {
     t.status = 'done';
     t.result = result;
     t.completedAt = Date.now();
+    // The count means "consecutive failures since the last accepted close",
+    // so a task that failed the gate twice and then passed is not left one
+    // failure away from escalation forever.
+    t.evidenceFailures = undefined;
     return this.promoteReady();
+  }
+
+  /** ADR-O001 D4: record one failed completion-evidence check against a task
+   *  and return its running total. Per task on purpose — a cap counted
+   *  org-wide would escalate a healthy task because unrelated ones failed. */
+  recordEvidenceFailure(id: string): number {
+    const t = this.tasks.get(id);
+    if (!t) return 0;
+    t.evidenceFailures = (t.evidenceFailures ?? 0) + 1;
+    return t.evidenceFailures;
   }
 
   fail(id: string, reason?: string): void {

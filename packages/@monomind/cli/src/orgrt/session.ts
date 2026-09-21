@@ -1330,7 +1330,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_task_done',
       description: opts.requireTaskEvidence
-        ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. Evidence pinned to an older commit is stale and will be refused, and a refused completion puts the task back in your queue with the reason. Any downstream tasks whose deps are now all done become ready and are dispatched.'
+        ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. Evidence pinned to an older commit is stale and will be refused, and a refused completion puts the task back in your queue with the reason — but only up to run_config.max_evidence_attempts times (default 3), after which the task is recorded as failed and escalated to the boss instead of returned to you. Any downstream tasks whose deps are now all done become ready and are dispatched.'
         : 'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
       schema: {
         taskId: z.string(),

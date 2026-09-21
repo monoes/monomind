@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../orgrt/bus.js';
+import { captureCheckpoint } from '../orgrt/checkpoint.js';
 import { pushMessage } from '../orgrt/cross-org.js';
 import { type AgentRuntime, OrgDaemon, type RunningOrg } from '../orgrt/daemon.js';
 import { DISPATCH_COALESCE_MS, dagCompleteTask, dispatchReadyTasks } from '../orgrt/decisions.js';
@@ -47,7 +48,7 @@ function makeAgent(): AgentRuntime {
     done: Promise.resolve(),
     status: 'running',
     metrics: { tokens: 0, costUsd: 0 },
-    scrollback: { push: () => {}, all: () => [] } as any,
+    scrollback: { push: () => {}, all: () => [], snapshot: () => [] } as any,
   };
 }
 
@@ -378,7 +379,7 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
   }
 
-  function setup(completionEvidence: boolean) {
+  function setup(completionEvidence: boolean, maxEvidenceAttempts?: number) {
     tmp = mkdtempSync(join(tmpdir(), 'org-evidence-'));
     const repo = join(tmp, 'repo');
     mkdirSync(repo);
@@ -392,19 +393,28 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
     const dev = makeAgent();
+    const boss = makeAgent();
     const taskDag = new TaskDag();
     const task = taskDag.add('ship the thing', 'dev', []);
     const running: RunningOrg = {
       def: {
         ...minimalDef('alpha'),
-        run_config: { completion_evidence: completionEvidence },
+        run_config: {
+          completion_evidence: completionEvidence,
+          ...(maxEvidenceAttempts === undefined
+            ? {}
+            : { max_evidence_attempts: maxEvidenceAttempts }),
+        },
       } as unknown as OrgDef,
       run: 'run-1',
       bus,
-      agents: new Map([['dev', dev]]),
+      agents: new Map([
+        ['dev', dev],
+        ['boss', boss],
+      ]),
       busEvents: () => [],
       roleSlots: new Map(),
-      bossRoleId: '',
+      bossRoleId: 'boss',
       glossary: [],
       respawning: new Set(),
       taskDag,
@@ -412,7 +422,7 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     };
     daemon.orgs.set('alpha', running);
     taskDag.markRunning(task.id);
-    return { daemon, repo, sha, taskDag, task, dev, events, running };
+    return { daemon, repo, sha, taskDag, task, dev, boss, events, running };
   }
 
   it('refuses a close with no evidence, requeues the task, and re-dispatches with the reason', async () => {
@@ -476,5 +486,128 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     expect(out.done).toBe(task.id);
     expect(taskDag.get(task.id)?.status).toBe('done');
     daemon.orgs.delete('alpha');
+  });
+
+  /**
+   * ADR-O001 D4 — "bound retries (3) and escalate". D5's re-dispatch loop had
+   * no cap: a role that kept failing the evidence gate kept getting the task
+   * back forever. Each round costs a full LLM turn, so it is not a tight
+   * loop, but nothing except the budget ceiling ever ended it.
+   *
+   * Escalation reuses what D4 already built rather than inventing a channel:
+   * the task is failed with the reason recorded on it, a loud `audit` event
+   * is emitted (same convention as `no-progress`), and the boss — the role
+   * daemon.ts already notifies when a worker crashes — gets the task in its
+   * mailbox to re-plan. The counter lives on the task row, so the checkpoint
+   * carries it like every other piece of task state.
+   */
+  describe('retry cap (run_config.max_evidence_attempts)', () => {
+    const noEvidence = (daemon: OrgDaemon, id: string, role = 'dev') =>
+      JSON.parse(dagCompleteTask(daemon, 'alpha', role, id, 'trust me'));
+
+    it('escalates to the boss on the third failure instead of re-dispatching again', async () => {
+      const { daemon, taskDag, task, dev, boss, events } = setup(true);
+
+      expect(noEvidence(daemon, task.id).requeued).toBe(task.id);
+      expect(noEvidence(daemon, task.id).requeued).toBe(task.id);
+      expect(taskDag.get(task.id)?.status).toBe('running');
+
+      const third = noEvidence(daemon, task.id);
+      expect(third.requeued).toBeUndefined();
+      expect(third.escalated).toBe(task.id);
+      expect(third.attempts).toBe(3);
+      // Terminal and explicitly recorded, not left non-terminal with nothing
+      // scheduled to pick it up (the D4 liveness invariant).
+      expect(taskDag.get(task.id)?.status).toBe('failed');
+      expect(taskDag.get(task.id)?.result).toMatch(/evidence/i);
+
+      const escalation = events.find((e) => e.reason === 'task-evidence-escalated');
+      expect(escalation).toBeTruthy();
+      expect(escalation?.data).toMatchObject({ taskId: task.id, assignee: 'dev', attempts: 3 });
+
+      await settleDispatch();
+      // The boss is told; the assignee is not handed the task a third time.
+      // (The two returns land in one coalesced mailbox entry — #275.)
+      expect(boss.mailbox.serialize().queue.join('\n')).toMatch(/ESCALATED/);
+      const returned =
+        dev.mailbox
+          .serialize()
+          .queue.join('\n')
+          .match(/NOT CLOSED/g) ?? [];
+      expect(returned).toHaveLength(2);
+      daemon.orgs.delete('alpha');
+    });
+
+    // A crash that reset the count would make the cap meaningless: the role
+    // would get three fresh attempts after every resume.
+    it('carries the failure count through a checkpoint round-trip', () => {
+      const { daemon, taskDag, task, running } = setup(true);
+      noEvidence(daemon, task.id);
+      noEvidence(daemon, task.id);
+      expect(taskDag.get(task.id)?.evidenceFailures).toBe(2);
+
+      const checkpoint = captureCheckpoint(running);
+      running.taskDag = TaskDag.fromJSON(checkpoint.tasks ?? []);
+      expect(running.taskDag.get(task.id)?.evidenceFailures).toBe(2);
+
+      // Third failure of the SAME task, counted across the restart.
+      expect(noEvidence(daemon, task.id).escalated).toBe(task.id);
+      daemon.orgs.delete('alpha');
+    });
+
+    it('counts per task, not globally', () => {
+      const { daemon, taskDag, task } = setup(true);
+      const other = taskDag.add('another thing', 'dev', []);
+      taskDag.markRunning(other.id);
+
+      noEvidence(daemon, task.id);
+      noEvidence(daemon, task.id);
+      // A different task is on attempt 1, not inheriting the other's two.
+      expect(noEvidence(daemon, other.id).requeued).toBe(other.id);
+      expect(taskDag.get(other.id)?.evidenceFailures).toBe(1);
+      expect(taskDag.get(other.id)?.status).not.toBe('failed');
+      daemon.orgs.delete('alpha');
+    });
+
+    // Two failures then a pass must not leave the task one failure from
+    // escalation for the rest of its life.
+    it('clears the count when the task is closed with accepted evidence', () => {
+      const { daemon, sha, taskDag, task } = setup(true);
+      noEvidence(daemon, task.id);
+      noEvidence(daemon, task.id);
+      expect(taskDag.get(task.id)?.evidenceFailures).toBe(2);
+
+      const out = JSON.parse(
+        dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'green', {
+          headSha: sha,
+          checks: [{ command: 'pnpm test', exitCode: 0 }],
+        }),
+      );
+      expect(out.done).toBe(task.id);
+      expect(taskDag.get(task.id)?.evidenceFailures).toBeFalsy();
+      daemon.orgs.delete('alpha');
+    });
+
+    // A boss poking org_task_done on someone else's task is refused, but it
+    // is not the assignee failing to produce evidence — it must not burn the
+    // assignee's budget of attempts.
+    it('does not count a refusal aimed at a role that is not the assignee', () => {
+      const { daemon, taskDag, task } = setup(true);
+      expect(noEvidence(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
+      expect(noEvidence(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
+      expect(noEvidence(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
+      expect(taskDag.get(task.id)?.evidenceFailures).toBeFalsy();
+      expect(taskDag.get(task.id)?.status).not.toBe('failed');
+      daemon.orgs.delete('alpha');
+    });
+
+    it('honours a configured cap', () => {
+      const { daemon, taskDag, task } = setup(true, 1);
+      const out = noEvidence(daemon, task.id);
+      expect(out.escalated).toBe(task.id);
+      expect(out.attempts).toBe(1);
+      expect(taskDag.get(task.id)?.status).toBe('failed');
+      daemon.orgs.delete('alpha');
+    });
   });
 });
