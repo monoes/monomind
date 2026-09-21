@@ -4,6 +4,47 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-09-21
+
+> **If you run a monomind org, read the metering note under *Fixed (billing visibility)*.**
+> Org token counts before this release were low by orders of magnitude. Nothing was
+> overcharged — the meter simply under-reported what had already been billed — but any
+> budget or cost figure you read from an org run before 2.14.0 was wrong.
+
+### Fixed
+
+- **A pinned MCP server entry could not start, and nothing said so.** (#312) The published package declared three bins and none matched its own short name, so `npx -y @monoes/monomindcli@<version> mcp start` — the obvious way to pin the MCP server to a fixed version — exited with `npm error could not determine executable to run`. Claude Code showed `CONNECTION_CLOSED`, no graph or memory tools loaded, and agents silently fell back to `grep`. Three parts, each independently verified against the already-published 2.13.0:
+  - The package now declares a `monomindcli` bin, so npx can resolve it by package name. A repo-wide test holds every publishable CLI package to the rule npx actually applies (resolvable only when exactly one bin exists, or one matches the package's short name), so this cannot regress in another package.
+  - `monomind doctor -c mcp` now **starts** the configured server and reports when it dies, instead of only checking that a config entry exists — which is why the original breakage was invisible to `doctor`. A server that starts and stays quiet is reported as a warning, not a failure, because a cold `npx` fetch legitimately takes far longer than the probe waits; only a process that *exits* is a failure. The probe runs under `-c mcp` only, so a plain `doctor` run still spawns nothing.
+  - `monomind init --pin` writes `npx -y --package=<pkg>@<version> monomind mcp start`, the form that resolves even against versions published before the bin existed — which is the whole point of pinning to an already-released version. Bare `--pin` uses the running CLI's version, `--pin <version>` uses that one. **Unpinned output is byte-identical to before**; pinning stays opt-in, because a default pin would freeze every newly-initialised project on whichever version happened to run `init` and silently stop upgrades from taking effect.
+
+- **The dashboard's human-in-the-loop controls did nothing against an Org Runtime v2 org.** Approvals and replies were written against the v1 shape and never reached a v2 runtime.
+
+### Fixed (billing visibility)
+
+- **An org's token meter missed almost everything it was meant to count.** `cache_read_input_tokens` and `cache_creation_input_tokens` are *siblings* of `input_tokens` in the Anthropic API, not subsets of it — `input_tokens` is only the uncached remainder — and both are billable (roughly 0.1x and 1.25x the input rate). The meter summed `input_tokens + output_tokens` alone. On the measured reference run, **2,765M tokens were billed and 8.1M recorded: the meter missed 99.7%**, and `input_tokens` read 0.0M *precisely because* caching was working almost perfectly. The better the cache performed, the less the meter saw.
+  The meter now counts billable tokens across the whole pipeline. Because `run_config.budget_tokens` defaults to 1,000,000 for every org whether or not it asked for one, driving that existing ceiling from the corrected meter would close every mailbox within a couple of turns — including orgs resuming from a checkpoint. So metering and enforcement are deliberately split: **the meter is always billable, `budget_tokens` keeps its original basis, and the new `budget_tokens_basis: 'billable'` opts in.** Set it when you have re-sized your budgets for real numbers.
+
+### Added
+
+- **Org Runtime v2 cost and continuity controls** (ADR-O001). An org can now be configured to spend far less for the same work, without changing how its roles deliberate:
+  - **Per-role model tier and reasoning effort.** A role declares the tier it needs rather than inheriting one model for the whole org, so a coordinator and a bulk implementer need not cost the same.
+  - **Loadouts** — a small, stable catalogue of tool/skill sets selected per task and recorded on it, instead of every role carrying every tool.
+  - **Task-keyed model sessions** with an auditable session ledger, so a task's context is reused across turns rather than rebuilt.
+  - **Cold, artifact-only reviewer sessions** — a reviewer sees the artifact, not the author's reasoning trace, which both cuts context and removes the self-review bias a warm reviewer carries.
+  - **Bounded tool results** entering a role's context, and a **bounded evidence-gate re-dispatch loop** that escalates instead of retrying indefinitely.
+  - These apply to task execution. Deliberation and debate are explicitly out of scope and unchanged — see the "what this does not apply to" section of ADR-O001.
+- **The dashboard shows what an org's runtime is actually doing**, and can edit a v2 org's config.
+- **Org definitions under `.monomind/orgs` are version-controlled**, so an org is reproducible from the repository.
+
+### Security
+
+- **The dashboard token and operator credentials are no longer handed to every role in an org.** A role that never needed them could read them.
+- **Org config secrets were not covered by the generated deny-by-default `.gitignore`.** The generator's own allow-list entry for `orgs/*.json` re-exposed exactly the files most likely to hold credentials.
+- **The pre-commit gate now catches literal secrets in JSON config**, not only in source.
+- **Tracked org configs no longer publish absolute home paths**, which leaked the operator's username and directory layout into the repository.
+
+
 ## [2.13.0] — 2026-09-20
 
 > **Upgrading from 2.12.x — read this if you use `monomind memory`.**
