@@ -51,7 +51,7 @@
     "marked": "^18.0.0"
   },
   "optionalDependencies": {
-    "@monoes/monobrowse": "workspace:*",
+    "@monoes/monobrowse": "^1.0.14",
     "puppeteer": "^25.1.0"
   }
 }
