@@ -39,6 +39,12 @@ export interface OrgTask {
    *  reset on every crash or resume and the cap would bound nothing.
    *  Cleared by `complete()`; see `recordEvidenceFailure`. */
   evidenceFailures?: number;
+  /** ADR-O001 D7: the loadout the boss selected for this task. Set once at
+   *  creation and never re-selected: every dispatch and re-dispatch (evidence
+   *  refusal, checkpoint requeue, block expiry) reads it from here, so a retry
+   *  is the same attempt again rather than a re-roll. Rides the checkpoint
+   *  with the rest of the row. Absent when none was selected. */
+  loadout?: string;
 }
 
 export interface SplitChild {
@@ -53,12 +59,20 @@ export class TaskDag {
   private tasks = new Map<string, OrgTask>();
   private counter = 0;
 
-  add(title: string, assignee: string, deps: string[] = []): OrgTask {
+  add(title: string, assignee: string, deps: string[] = [], loadout?: string): OrgTask {
     const id = `task-${++this.counter}`;
     for (const d of deps) {
       if (!this.tasks.has(d)) throw new Error(`dependency "${d}" does not exist`);
     }
-    const task: OrgTask = { id, title, assignee, deps, status: 'pending', createdAt: Date.now() };
+    const task: OrgTask = {
+      id,
+      title,
+      assignee,
+      deps,
+      status: 'pending',
+      createdAt: Date.now(),
+      ...(loadout ? { loadout } : {}),
+    };
     this.tasks.set(id, task);
     if (this.hasCycle()) {
       this.tasks.delete(id);
@@ -227,6 +241,8 @@ export class TaskDag {
         status: parentSatisfied ? 'ready' : 'pending',
         createdAt: Date.now(),
         splitFrom: parentId,
+        // D7: a split is the same work in smaller pieces — same loadout.
+        ...(parent.loadout ? { loadout: parent.loadout } : {}),
       };
       this.tasks.set(id, child);
       created.push(child);

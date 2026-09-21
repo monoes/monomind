@@ -51,6 +51,10 @@ export interface RoleCheckpoint {
    *  kept separate from the live PolicyEngine's usage so org-wide budget
    *  enforcement can sum both without double-counting or resetting spend. */
   retiredUsage: { tokens: number; costUsd: number };
+  /** ADR-O001 D7: the loadout this role's session was built with, so a
+   *  resumed session is rebuilt with the same system prompt. Absent when the
+   *  role had none (and in checkpoints written before D7). */
+  loadout?: string;
 }
 
 /** Full checkpoint state for an org */
@@ -144,6 +148,7 @@ export function captureCheckpoint(
         : {},
       queuedDuringSwap: slot?.queuedDuringSwap ?? [],
       retiredUsage: slot?.retiredUsage ?? { tokens: 0, costUsd: 0 },
+      ...(runtime.loadout ? { loadout: runtime.loadout } : {}),
     };
   }
 

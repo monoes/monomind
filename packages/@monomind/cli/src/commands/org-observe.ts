@@ -91,6 +91,12 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
       // as well as at daemon start, so it's caught before a run is attempted.
       const { validateCostTiers } = await import('../orgrt/cost-tier.js');
       errors.push(...validateCostTiers(def));
+      // ADR-O001 D7: catalog size (>15 is an error, <5 a warning) and every
+      // loadout's skills/file must resolve — same checks as daemon start.
+      const { validateLoadouts } = await import('../orgrt/loadouts.js');
+      const loadoutFindings = validateLoadouts(def, ctx.cwd || process.cwd());
+      errors.push(...loadoutFindings.errors);
+      warnings.push(...loadoutFindings.warnings);
       // #258: roles whose policy.git won't have the OS sandbox behind it here
       const gitFindings = gitEnforcementFindings(def);
       errors.push(...gitFindings.errors);
