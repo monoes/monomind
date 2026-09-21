@@ -1,8 +1,8 @@
 /**
  * #273: the release-gate org's SETUP and CLEAN UP steps told the coordinator to
- * "empty /home/monoes/mrg-tmp" — the shared TMPDIR every role (and the agent
+ * "empty {{home}}/mrg-tmp" — the shared TMPDIR every role (and the agent
  * harness's own per-session sandbox bridge) writes into. During the 2.11.1 run,
- * `find /home/monoes/mrg-tmp -mindepth 1 -delete` deleted the live socket of the
+ * `find {{home}}/mrg-tmp -mindepth 1 -delete` deleted the live socket of the
  * session running it and permanently broke that role's Bash tool for the rest of
  * the ~4 hour run.
  *
@@ -26,8 +26,10 @@ const configPath = join(
 
 const raw = readFileSync(configPath, 'utf8');
 
-/** The shared scratch root the org mandates as TMPDIR for every command. */
-const SHARED_TMPDIR = '/home/monoes/mrg-tmp';
+/** The shared scratch root the org mandates as TMPDIR for every command
+ *  ({{home}} is expanded by the runtime; see orgrt/prompt-vars.ts). Escaped
+ *  for use inside the RegExps below. */
+const SHARED_TMPDIR = '\\{\\{home\\}\\}/mrg-tmp';
 
 describe('release-gate org config', () => {
   const def = JSON.parse(raw) as {
@@ -71,7 +73,7 @@ describe('release-gate org config', () => {
     expect(all).toMatch(/issue #273/);
     // The rule has to say both halves: never the root, only this org's own
     // run-scoped subdirectories.
-    expect(all).toMatch(/never .{0,120}\/home\/monoes\/mrg-tmp/i);
+    expect(all).toMatch(new RegExp(`never .{0,120}${SHARED_TMPDIR}`, 'i'));
     expect(all).toMatch(/short-sha/i);
   });
 });
