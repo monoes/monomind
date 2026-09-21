@@ -4,6 +4,44 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-09-21
+
+> **Upgrading — the dashboard now requires a login.** Its pages and human-decision
+> routes no longer serve an unauthenticated request, so opening
+> `http://localhost:4242` directly is no longer enough. Run
+> **`monomind dashboard open`**, which issues a one-time login link (add `--print`
+> to emit the link instead of opening a browser, e.g. over SSH). Anything that
+> scripted the dashboard's HTTP routes needs that login.
+>
+> **Org roles lost write access to decision state.** A role can no longer write
+> gate, approval, question or inbox files. A queued inbox line not written by the
+> daemon, CLI or dashboard now arrives marked `unverified(<sender>)` rather than
+> being trusted.
+
+### Added
+
+- **A brain per browser profile.** Captures are scoped to the profile they came from, so a work profile and a personal one no longer share one undifferentiated library.
+- **CDP over the mono-agent extension bridge.** `CdpClient` owned its WebSocket outright, which made "CDP" and "a socket to a Chrome we launched" the same thing. The transport is now pluggable: the local path is the original code moved wholesale and `connect(wsUrl)` is unchanged for every caller, while a second transport drives **the user's real, logged-in Chrome** through the extension bridge. Console capture, network, HAR, vitals, traces, CPU profiles and the AX tree all work against it without porting a single instrument. Documented limits rather than worked around: MV3's `chrome.debugger` exposes no `HeapProfiler` domain (heap snapshots do not work over the bridge) and no `Browser` domain; attaching shows Chrome's debugging banner; DevTools and the debugger are mutually exclusive on a tab.
+- **`monomind doc lookup <url>`** — answers "is this already saved, and what was noted about it" on capture identity (canonical URL with the fragment stripped, the same rule ingest dedupes by), returning the note written at save time, the version count and the envelope path. The older substring filter is now reachable as `--text` on `doc list` and `doc search`; it matches any longer URL merely containing the string and carries no note, which is the whole difference between a lookup and a bookmark.
+- **`monomind dashboard open`** — see the upgrade note above.
+- **Org: an opt-in notice to a task's creator when it completes.**
+
+### Changed
+
+- **Two files that had outgrown themselves were split**, as a standalone commit so it can be reviewed or reverted without touching the features. `document-pipeline.ts` 1399 → 48 lines (a barrel over 7 focused modules), exported surface verified identical at 22 names before and after, so all 40+ import sites are untouched. `monobrowse`'s `cli/commands.ts` 4228 → 380 lines over 12 command-group modules. The second could not be split until a hidden coupling was fixed: six module-level `let` bindings written from 82 call sites. ESM import bindings are read-only for importers, so nothing could move out while that state lived in the module; it now sits behind one object, and that rename alone was verified behaviour-neutral before anything moved.
+
+### Fixed
+
+- **A publish with npm instead of pnpm could ship an uninstallable package, and did.** `@monoes/monodesign@1.2.12` went out with a literal `"@monoes/monobrowse": "workspace:*"` in its manifest, because npm copies `package.json` verbatim where pnpm rewrites the protocol. Every consumer install then failed with `EUNSUPPORTEDPROTOCOL`, and because the releases current at the time resolved monodesign by `^1.2.x` range, **2.13.0 and 2.14.0 both became uninstallable** — releases that had been fine for days, broken by a sibling publish that touched none of their code. Fixed at the source: `scripts/check-workspace-publish.mjs` blocks `prepublishOnly` for any package with `workspace:` dependencies unless the publish is via pnpm, now wired into monodesign and hooks (the CLI has had this guard since #130 and was never affected). `@monoes/monodesign@1.2.13` is published correctly and 1.2.12 is deprecated; 2.13.0 and 2.14.0 install again with no action needed.
+- **Dashboard:** Human Input drafts survive a list rebuild; a concurrently resolved approval is distinguished from an ended one; a stale approval reports as ended rather than 404.
+- **Org:** a relative `MONOMIND_ORGRT_OPERATOR_DIR` is masked from roles.
+
+### Security
+
+- **An authority mask for every role outside the SDK sandbox.** Push-capable roles and non-Claude CLIs now run under a bubblewrap mask rather than inheriting the operator's authority.
+- **Signed inbox entries**, and decision gates held in memory for the duration of a run.
+
+
 > **Action needed if you use the dashboard.** It now requires a logged-in browser. Run
 > `monomind dashboard open` (or `--print` over SSH) to get a one-time login link; the
 > session then lasts 30 days in that browser. Opening `http://localhost:4242` directly

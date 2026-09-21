@@ -1,10 +1,10 @@
 # CLI Command Reference
 
-> All 32 top-level `monomind` commands, verified against `packages/@monomind/cli/src/commands/index.ts:15-49` (the `COMMAND_LOADERS` map) plus a live `node bin/cli.js --help` run on the built dist (reported `v2.9.3`). The category grouping is defined statically in `CATEGORY_NAMES` (`src/commands/index.ts:68-74`); real `Command` objects are attached on demand by `getCommandsByCategory()` (`src/commands/index.ts:141-150`) and `loadAllCommands()` (`src/commands/index.ts:126-130`), with `getCommand`/`getCommandAsync` as the single-command entry points (`src/commands/index.ts:106-112`). Subcommand counts for `doc`, `analyze`, and `org` are read directly from each command's own `subcommands:` array, not estimated.
+> All 36 top-level `monomind` commands, verified against `packages/@monomind/cli/src/commands/index.ts:15-49` (the `COMMAND_LOADERS` map) plus a live `node bin/cli.js --help` run on the built dist (reported `v2.9.3`). The category grouping is defined statically in `CATEGORY_NAMES` (`src/commands/index.ts:68-74`); real `Command` objects are attached on demand by `getCommandsByCategory()` (`src/commands/index.ts:141-150`) and `loadAllCommands()` (`src/commands/index.ts:126-130`), with `getCommand`/`getCommandAsync` as the single-command entry points (`src/commands/index.ts:106-112`). Subcommand counts for `doc`, `analyze`, and `org` are read directly from each command's own `subcommands:` array, not estimated.
 
-**Note on `--help` coverage:** a live run of `monomind --help` (v2.9.3) shows all 32 commands except `report-crash` — including `org`, `design`, and `crash-reporting`, which a prior version of this note incorrectly claimed were missing (re-checked directly against `getCommandsByCategory()`, `index.ts:141-150`, and the actual CLI output — all three are present). `report-crash` alone is absent, and that's intentional: it's the only command with `hidden: true` (`report-crash.ts:16`), an internal command shelled out to by monotask/mono-clip crash handlers, not meant for interactive use. This doc lists all 32 regardless of what `--help` shows.
+**Note on `--help` coverage:** a live run of `monomind --help` (v2.15.0) shows all 36 commands except `report-crash` — including `org`, `design`, and `crash-reporting`, which a prior version of this note incorrectly claimed were missing (re-checked directly against `getCommandsByCategory()`, `index.ts:141-150`, and the actual CLI output — all three are present). `report-crash` alone is absent, and that's intentional: it's the only command with `hidden: true` (`report-crash.ts:16`), an internal command shelled out to by monotask/mono-clip crash handlers, not meant for interactive use. This doc lists all 36 regardless of what `--help` shows.
 
-## Full command list (32)
+## Full command list (36)
 
 | Command | Purpose | Subcommands |
 |---|---|---|
@@ -14,7 +14,7 @@
 | `agent` | Agent lifecycle (in-process, no separate MCP server needed) | 7 — spawn, list, status, stop, metrics, pool, health |
 | `monoswarm` | Multi-agent coordination — topology, roster, and vote state. See [Monoswarm](../concepts/monoswarm.md). | 6 — init, start, status, stop, scale, coordinate |
 | `memory` | Memory management — local SQLite + local embeddings. See [Memory Command Reference](./memory.md). | 12 — init, store, edit, retrieve, search, list, delete, templates, stats, configure, export, import (export/import: `--format okf` only — any other value is rejected at runtime, `memory-transfer.ts:91`) |
-| `doc` | Second Brain — document ingestion & retrieval | 8 — ingest, search, list, export, remove, reconcile, import, eval |
+| `doc` | Second Brain — document ingestion & retrieval | 11 — ingest, search, list (alias: `library`), cite, lookup, related, watch, export, import, remove (aliases: `rm`, `forget`), eval. `lookup <url>` answers "is this already saved, and what was noted about it" on capture identity (canonical URL, fragment stripped — the rule ingest dedupes by); `--text` on `list`/`search` is the older substring filter, which matches any longer URL containing the string and carries no note. |
 | `task` | Task creation and lifecycle | 5 — create, list, status, cancel, assign |
 | `session` | Session state management | 6 — list, save, restore, delete, current, replay |
 | `mcp` | MCP server management (Core Engine: `@monoes/mcp` `v1.0.1`, CLI: `@monoes/monomindcli` `v2.9.3`). See [MCP Command Reference](./mcp.md) & [MCP Server Concept](../concepts/mcp-server.md). | 9 — start, stop, status, health, restart, tools, toggle, exec, logs |
@@ -38,6 +38,10 @@
 | `browse` | Browser automation via CDP (`@monoes/monobrowse`) | action/platform/workflow builders |
 | `design` | Design tooling — anti-pattern detection, OKLCH palette seeding | 4 — detect, fix, ignores, palette |
 | `org` | SDK org runtime v2 — daemon-controlled agent orgs | 33 — run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, watch, report, **memory** (stats\|search\|rules\|rollback), costs, inbox, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from (resumes live execution from a checkpoint — distinct from replay's debug-only event replay), branch, decisions, create, validate, migrate, list, delete, mark-complete |
+| `mastermind` | List or print portable Mastermind workflows for platforms without native skills | 2 — list, print |
+| `ui` | Start the Monomind Neural Control Room (web UI dashboard). Alias: `dashboard`. | 1 — open. `monomind dashboard open` logs a browser in to the running dashboard with a **one-time login link**; since 2.15.0 the dashboard's pages and human-decision routes require that login, so a bare `http://localhost:4242` visit is no longer enough. `--print` emits the link instead of opening a browser, for use over SSH. |
+| `events` | Stream events from the running dashboard to stdout as JSONL (pipe into `jq` to filter) | 0 — flat command, flags only |
+| `download-embeddings` | Download the semantic-routing embedding model (opt-in, ~88 MB) | 0 — flat command, flags only |
 | `report-crash` | File a GitHub issue for a crash (internal; used by panic handlers) | – |
 | `crash-reporting` | Configure crash reporting | 3 — enable, disable, status |
 
@@ -47,7 +51,7 @@
 
 ## Entry points
 
-- Umbrella bin: `monomind` → `./bin/cli.js` (root `package.json` "bin"). CLI package bins: `cli`, `monomind` → `./bin/cli.js`, plus `monomind-mcp` → `./bin/mcp-server.js`.
+- Umbrella bin: `monomind` → `./bin/cli.js` (root `package.json` "bin"). CLI package bins: `monomindcli`, `cli`, `monomind` → `./bin/cli.js`, plus `monomind-mcp` → `./bin/mcp-server.js`. The `monomindcli` bin matches the package's own short name, which is what lets `npx -y @monoes/monomindcli@<version> mcp start` resolve an executable at all (#312, fixed in 2.14.0 — npx picks a bin only when exactly one exists or one matches the package short name).
 - Run via `npx monomind@latest <cmd>`. Register as an MCP server with `claude mcp add monomind -- npx -y monomind@latest mcp start`.
 - **MCP mode gate**: MCP server mode requires piped stdin AND either `mcp`/`mcp start` as argv, or the env var `MONOMIND_MCP_AUTODETECT=1` with zero args. Older versions treated any non-TTY invocation as an MCP server; that was removed as a privilege-escalation fix — plain non-interactive shell usage no longer risks silently starting an MCP server.
 - `bin/cli.js` always reads its version from `package.json` at runtime — never hardcoded, so it can't drift from what's installed (confirmed live: `node bin/cli.js --help` reports the installed `v2.9.3`). **Exception:** the separate `monomind-mcp` binary (`bin/mcp-server.js`) hardcodes `const VERSION = '3.0.0'` (`bin/mcp-server.js:13`) and reports it in its MCP `initialize` response (`:124`) regardless of the real installed version — a real version-drift bug specific to that one entry point.
