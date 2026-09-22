@@ -50,13 +50,6 @@ const semver = {
     const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
     return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
   },
-  lte: (a: string, b: string): boolean => {
-    const [aMaj, aMin, aPat] = (a || '0').split('.').map((n) => parseInt(n, 10) || 0);
-    const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
-    if (aMaj !== bMaj) return aMaj < bMaj;
-    if (aMin !== bMin) return aMin < bMin;
-    return aPat <= bPat;
-  },
 };
 
 /**
@@ -73,8 +66,12 @@ export function getUpdateTagline(currentVersion: string): string {
     // has a different version number and must not be used for this comparison.
     const latest = cached['@monoes/monomindcli'];
     if (!latest || !semver.valid(latest) || !semver.valid(currentVersion)) return '';
-    if (semver.lte(latest, currentVersion)) return '  ✓ up to date';
-    return `  ↑ v${latest} available`;
+    if (semver.gt(latest, currentVersion)) return `  ↑ v${latest} available`;
+    // A cached "latest" strictly older than the currently running version means
+    // the cache predates this install and proves nothing about the registry —
+    // "up to date" is only honest when the cached latest equals the current version.
+    if (semver.gt(currentVersion, latest)) return '';
+    return '  ✓ up to date';
   } catch {
     return '';
   }
