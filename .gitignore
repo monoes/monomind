@@ -83,7 +83,10 @@ eval-row6-*.json
 # recoverable, whereas tracking a secrets file is neither.
 !.monomind/orgs/sample-team.json
 !.monomind/orgs/monomind-dev.json
-!.monomind/orgs/release-gate.json
+!.monomind/orgs/release.json
+!.monomind/org-skills/
+!.monomind/org-skills/*/
+!.monomind/org-skills/*/*.md
 **/.monomind/parse-cache/
 .monomind/*.db-shm
 .monomind/*.db-wal

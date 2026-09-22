@@ -13,7 +13,11 @@
 !orgs/
 !orgs/sample-team.json
 !orgs/monomind-dev.json
-!orgs/release-gate.json
+!orgs/release.json
+# Project org skills (text only) — see orgrt/skill-library.ts.
+!org-skills/
+!org-skills/*/
+!org-skills/*/*.md
 
 # Org DEFINITIONS are meant to be committed (ADR-O001 D6) — but by NAME, one
 # line per org, never `!orgs/*.json`. `orgs/` is the org runtime's working

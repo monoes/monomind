@@ -1,5 +1,5 @@
 /**
- * #273: the release-gate org's SETUP and CLEAN UP steps told the coordinator to
+ * #273: the release org's (then release-gate's) SETUP and CLEAN UP steps told the coordinator to
  * "empty {{home}}/mrg-tmp" — the shared TMPDIR every role (and the agent
  * harness's own per-session sandbox bridge) writes into. During the 2.11.1 run,
  * `find {{home}}/mrg-tmp -mindepth 1 -delete` deleted the live socket of the
@@ -21,7 +21,7 @@ const configPath = join(
   '..',
   'config',
   'orgs',
-  'release-gate.json',
+  'release.json',
 );
 
 const raw = readFileSync(configPath, 'utf8');
@@ -31,14 +31,14 @@ const raw = readFileSync(configPath, 'utf8');
  *  for use inside the RegExps below. */
 const SHARED_TMPDIR = '\\{\\{home\\}\\}/mrg-tmp';
 
-describe('release-gate org config', () => {
+describe('release org config', () => {
   const def = JSON.parse(raw) as {
     name: string;
     roles: { id: string; responsibilities?: string[] }[];
   };
 
   it('is valid JSON with the expected roles', () => {
-    expect(def.name).toBe('release-gate');
+    expect(def.name).toBe('release');
     expect(def.roles.map((r) => r.id)).toContain('release-captain');
   });
 

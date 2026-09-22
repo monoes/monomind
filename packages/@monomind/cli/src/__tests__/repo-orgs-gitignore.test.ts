@@ -56,7 +56,7 @@ function isIgnored(relPath: string): boolean {
 }
 
 /** Every org definition this repo tracks. */
-const ORG_DEFINITIONS = ['sample-team.json', 'monomind-dev.json', 'release-gate.json'];
+const ORG_DEFINITIONS = ['sample-team.json', 'monomind-dev.json', 'release.json'];
 
 describe('.monomind/orgs org definitions are version-controlled (ADR-O001 D6)', () => {
   it.each(ORG_DEFINITIONS)('.monomind/orgs/%s is committable', (file) => {
