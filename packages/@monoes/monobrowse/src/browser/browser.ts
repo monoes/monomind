@@ -168,19 +168,7 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   for (let i = 0; i < LAUNCH_PORT_SCAN_TRIES && rawPort + i <= 65535; i++)
     candidates.push(rawPort + i);
 
-  // Attach-if-already-Chrome only applies to the EXACT requested port — the
-  // original, deliberate, single-port risk ("don't silently take over an
-  // unrelated real browser that happens to be on this port"). Scanning past
-  // an occupied default must not let that same shortcut attach to a
-  // DIFFERENT Chrome instance the caller never named; forward candidates are
-  // launch-only (skip if anything is there, Chrome or not).
-  if (await isTcpPortOpen(rawPort)) {
-    if (await isChromeIdentity(rawPort)) return rawPort;
-  } else {
-    return launchOnFreePort(config, rawPort);
-  }
-
-  for (const candidate of candidates.slice(1)) {
+  for (const candidate of candidates) {
     // TCP-level check for "is anything at all listening" — isPortOpen()
     // does a full CDP /json fetch, which returns false BOTH for a genuinely
     // free port and for one occupied by a non-CDP process (that ambiguity is
@@ -189,10 +177,39 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
     // socket first tells free and occupied apart up front, so the scan can
     // skip an occupied candidate instead of trying to spawn Chrome on top of
     // it and only discovering the conflict after a timeout.
-    if (!(await isTcpPortOpen(candidate))) return launchOnFreePort(config, candidate);
-    // Occupied (by anything — not just non-Chrome, per the note above) —
-    // try the next candidate instead of failing outright, same as a normal
-    // EADDRINUSE retry would.
+    if (await isTcpPortOpen(candidate)) {
+      // Attach-if-already-Chrome only applies to the EXACT requested port —
+      // the original, deliberate, single-port risk ("don't silently take
+      // over an unrelated real browser that happens to be on this port").
+      // Scanning past an occupied default must not let that same shortcut
+      // attach to a DIFFERENT Chrome instance the caller never named;
+      // forward candidates are launch-only (skip if anything is there,
+      // Chrome or not).
+      if (candidate === rawPort && (await isChromeIdentity(candidate))) return candidate;
+      // Occupied (by anything — not just non-Chrome, per the note above) —
+      // try the next candidate instead of failing outright, same as a
+      // normal EADDRINUSE retry would.
+      continue;
+    }
+    try {
+      return await launchOnFreePort(config, candidate);
+    } catch (err) {
+      const isLastCandidate = candidate === candidates[candidates.length - 1];
+      // isTcpPortOpen() above is a connect() probe, not an atomic claim: two
+      // concurrent launchBrowser() calls with no explicit --port can both
+      // observe the same candidate as free and both spawn Chrome on it
+      // before either binds. One wins; the other's Chrome exits before its
+      // CDP endpoint opens ("Chrome exited before the CDP endpoint opened
+      // ... code=21"). Something is listening on the candidate NOW that
+      // was not a moment ago — a losing race, not a broken Chrome install —
+      // so try the next candidate exactly like an already-occupied one,
+      // instead of failing the whole launch outright. A candidate that
+      // fails with nothing now listening (a real launch failure — bad
+      // executable, sandbox refusal, etc.) is not a race: retrying the
+      // next candidate would only fail the same way, so surface it as-is.
+      if (!isLastCandidate && (await isTcpPortOpen(candidate))) continue;
+      throw err;
+    }
   }
   throw new Error(
     `Ports ${candidates[0]}-${candidates[candidates.length - 1]} are all occupied and port ${candidates[0]} ` +
@@ -230,7 +247,16 @@ function readDevToolsActivePort(file: string): number | null {
  */
 async function launchOnFreePort(config: BrowserConfig, port: number): Promise<number> {
   const chromePath = findChrome(config.executablePath);
-  const userDataDir = config.userDataDir ?? join(tmpdir(), `monomind-browser-${port}`);
+  // Suffixed with our own pid: two concurrent launches that both probe the
+  // same candidate port as free (the race this function exists to survive —
+  // see the retry-on-collision caller above) briefly run Chrome with
+  // *identical* --user-data-dir values if it were derived from the port
+  // alone, sharing a profile directory (lock files, preferences, the
+  // DevToolsActivePort file itself) between two unrelated Chrome processes
+  // for as long as the loser stays alive. Different processes always have
+  // different pids, so this can never collide even when the port does.
+  const userDataDir =
+    config.userDataDir ?? join(tmpdir(), `monomind-browser-${port}-${process.pid}`);
   const activePortFile = join(userDataDir, 'DevToolsActivePort');
   // A reused profile dir may hold a previous run's file naming a port some
   // other process now owns.
@@ -311,7 +337,16 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     launchedPids.set(boundPort, child.pid);
     launchedUserDataDirs.set(boundPort, userDataDir);
   };
-  if (port !== 0) track(port);
+  // Tracked only once Chrome is CONFIRMED up on `boundPort`, not right after
+  // spawn(). For port !== 0 this used to track(port) unconditionally the
+  // moment the child was spawned, before knowing whether it would actually
+  // win the port — when a racing launchBrowser() call retries a candidate
+  // that a concurrent process also spawned Chrome on (see the retry loop in
+  // launchBrowser), BOTH child processes called track() for the SAME
+  // candidate, and whichever call's spawn happened to run last clobbered the
+  // map entry with its own pid — including the LOSING, about-to-exit
+  // process's pid overwriting the real winner's, corrupting the very map
+  // closeBrowser()'s kill fallback depends on.
 
   const launchTimeout = config.launchTimeoutMs ?? LAUNCH_TIMEOUT;
   const deadline = Date.now() + launchTimeout;
@@ -322,7 +357,7 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     const boundPort = port === 0 ? readDevToolsActivePort(activePortFile) : port;
     if (boundPort !== null && (await isPortOpen(boundPort))) {
       if (await isChromeIdentity(boundPort)) {
-        if (port === 0) track(boundPort);
+        track(boundPort);
         return boundPort;
       }
       throw new Error(

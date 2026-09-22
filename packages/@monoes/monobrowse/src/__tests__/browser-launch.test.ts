@@ -15,7 +15,7 @@ import { createServer as createTcpServer, type Socket, type Server as TcpServer 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { getLaunchedPid, launchBrowser } from '../browser/browser.js';
+import { getLaunchedPid, getLaunchedUserDataDir, launchBrowser } from '../browser/browser.js';
 
 const BASE = 23470;
 
@@ -171,5 +171,84 @@ describe.skipIf(process.platform === 'win32')(
     it('refuses port 0 without a dedicated userDataDir', async () => {
       await expect(launchBrowser({ port: 0 })).rejects.toThrow(/requires a dedicated userDataDir/);
     });
+  },
+);
+
+// A stand-in for the Chrome binary that, unlike FAKE_CHROME above, actually
+// binds the FIXED port it is given via --remote-debugging-port (real Chrome,
+// launched with no --port flag, always resolves to the same literal default
+// port too — see cli/commands.ts's `port` option default). If the bind
+// fails (another process already has it), it exits the way real Chrome does
+// when a concurrent launch wins the same "free-looking" port: before its
+// CDP endpoint ever opens.
+const FAKE_CHROME_FIXED_PORT = `#!/usr/bin/env node
+const { createServer } = require('node:http');
+const { writeFileSync, mkdirSync } = require('node:fs');
+const { join } = require('node:path');
+const port = Number(
+  process.argv.find((a) => a.startsWith('--remote-debugging-port=')).slice('--remote-debugging-port='.length),
+);
+const dir = process.argv.find((a) => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+const server = createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(req.url === '/json/version' ? JSON.stringify({ Browser: 'Chrome/999.0.0.0' }) : '[]');
+});
+server.on('error', () => {
+  process.exit(21);
+});
+server.listen(port, '127.0.0.1', () => {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'DevToolsActivePort'), port + '\\n/devtools/browser/fake');
+});
+`;
+
+describe.skipIf(process.platform === 'win32')(
+  'launchBrowser — concurrent launches with no explicit --port (TOCTOU race)',
+  () => {
+    it('two concurrent launches racing for the same default port both succeed, on different ports and profiles', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'monobrowse-concurrent-'));
+      const exe = join(dir, 'fake-chrome.cjs');
+      writeFileSync(exe, FAKE_CHROME_FIXED_PORT);
+      chmodSync(exe, 0o755);
+      // Both calls target the SAME literal port on purpose: that is exactly
+      // what two real `monomind browse open` invocations with no --port flag
+      // do, since the CLI's `port` option always defaults to the same value
+      // whether or not the user passed it (cli/commands.ts:288).
+      const port = BASE + 10;
+
+      let ports: number[] = [];
+      try {
+        ports = await Promise.all([
+          launchBrowser({ port, executablePath: exe, launchTimeoutMs: 5000 }),
+          launchBrowser({ port, executablePath: exe, launchTimeoutMs: 5000 }),
+        ]);
+      } finally {
+        for (const p of ports) {
+          const pid = getLaunchedPid(p);
+          if (pid) {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch {
+              /* already gone */
+            }
+          }
+        }
+        rmSync(dir, { recursive: true, force: true });
+      }
+
+      expect(ports).toHaveLength(2);
+      // The old probe-then-launch race let both calls observe the same
+      // candidate as free and spawn Chrome on it — one bind wins, the
+      // other's Chrome exits before its CDP endpoint opens and the whole
+      // launchBrowser() call rejects. Both resolving at all is the
+      // regression check; landing on different ports (rather than one
+      // silently adopting the other's browser) proves the scan actually
+      // moved on instead of colliding.
+      expect(ports[0]).not.toBe(ports[1]);
+      const dirs = ports.map((p) => getLaunchedUserDataDir(p));
+      expect(dirs[0]).not.toBe(dirs[1]);
+      expect(dirs[0]).toBeTruthy();
+      expect(dirs[1]).toBeTruthy();
+    }, 15000);
   },
 );
