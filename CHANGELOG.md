@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Changed
+
+- **Completion evidence is checked against every local worktree and branch, not just the org workspace.** With `run_config.completion_evidence` on, `org_task_done` used to refuse any evidence whose `headSha` was not the org workspace's `HEAD` — so an org that builds in a release or per-task worktree (the usual shape) could never close a task honestly. Evidence may now be pinned to the current `HEAD` of any worktree of the repository or the tip of any local branch, and may name its `worktree` to pin the check to that worktree's `HEAD` exactly. A commit that is no longer the head of any local work is still refused as stale, and the refusal now lists the current heads.
+
 ## [2.15.5] — 2026-09-22
 
 ### Fixed

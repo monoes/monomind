@@ -291,6 +291,52 @@ describe('checkTaskEvidence — ADR-O001 D5 (opt-in via run_config.completion_ev
     ).toBeNull();
   });
 
+  // Work rarely lives only in the org workspace: a release branch, a per-task
+  // dev worktree. Evidence pinned to the CURRENT head of any of that local
+  // work is fresh; a commit that is the head of nothing is still stale.
+  describe('evidence from other worktrees and local branches', () => {
+    const WT = '/repo/.monomind/orgs/release/work/src';
+    const WT_SHA = 'b2c3d4e5f60718293a4b5c6d7e8f9012345678a1';
+    const BRANCH_SHA = 'c3d4e5f60718293a4b5c6d7e8f9012345678a1b2';
+    const heads = [
+      { sha: HEAD, worktree: '/repo', branch: 'main' },
+      { sha: WT_SHA, worktree: WT, branch: 'release/2.15.5' },
+      { sha: BRANCH_SHA, branch: 'dev/item-7' },
+    ];
+    const ev = (headSha: string, worktree?: string) => ({
+      headSha,
+      ...(worktree ? { worktree } : {}),
+      checks: [{ command: 'pnpm test', exitCode: 0, output: 'ok' }],
+    });
+
+    it("accepts evidence pinned to another worktree's current HEAD", () => {
+      expect(checkTaskEvidence({ ...PASSING, heads, evidence: ev(WT_SHA) })).toBeNull();
+    });
+
+    it("accepts evidence pinned to a local branch tip that no worktree has checked out", () => {
+      expect(checkTaskEvidence({ ...PASSING, heads, evidence: ev(BRANCH_SHA.slice(0, 10)) })).toBeNull();
+    });
+
+    it('still refuses a commit that is the head of no local work, listing the current heads', () => {
+      const msg = checkTaskEvidence({ ...PASSING, heads, evidence: ev(STALE) });
+      expect(msg).toMatch(/stale/i);
+      expect(msg).toContain(WT);
+      expect(msg).toContain('dev/item-7');
+    });
+
+    it('with `worktree` named, pins the check to THAT worktree — another head does not count', () => {
+      expect(checkTaskEvidence({ ...PASSING, heads, evidence: ev(WT_SHA, `${WT}/`) })).toBeNull();
+      const msg = checkTaskEvidence({ ...PASSING, heads, evidence: ev(HEAD, WT) });
+      expect(msg).toMatch(/stale/i);
+      expect(msg).toContain(WT_SHA);
+    });
+
+    it('refuses a `worktree` that is not a worktree of this repository', () => {
+      const msg = checkTaskEvidence({ ...PASSING, heads, evidence: ev(WT_SHA, '/elsewhere') });
+      expect(msg).toMatch(/not a worktree of this repository/);
+    });
+  });
+
   it('refuses a sha prefix too short to identify a commit', () => {
     expect(
       checkTaskEvidence({

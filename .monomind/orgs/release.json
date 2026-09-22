@@ -11,7 +11,9 @@
     "workspace": "repo",
     "session_scope": "task",
     "session_idle_exit_ms": 600000,
-    "notify_task_creator": true
+    "notify_task_creator": true,
+    "completion_evidence": true,
+    "max_evidence_attempts": 3
   },
   "cost_tiers": {
     "roles": {

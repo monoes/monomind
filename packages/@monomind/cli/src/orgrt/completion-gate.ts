@@ -175,7 +175,20 @@ export interface EvidenceCheck {
 export interface TaskEvidence {
   /** The commit sha the checks were run against. */
   headSha: string;
+  /** The worktree the checks ran in, when the work is not in the org
+   *  workspace itself. Pins the staleness check to that worktree's HEAD. */
+  worktree?: string;
   checks: EvidenceCheck[];
+}
+
+/** A commit that is the current state of some local work: a worktree's HEAD
+ *  or a local branch's tip. */
+export interface LocalHead {
+  sha: string;
+  /** Absolute worktree path, for a worktree HEAD. */
+  worktree?: string;
+  /** Short branch name, when the head is (or is checked out on) a branch. */
+  branch?: string;
 }
 
 export interface TaskEvidenceFacts {
@@ -185,6 +198,10 @@ export interface TaskEvidenceFacts {
   /** The workspace's real current commit sha, resolved by the caller.
    *  Undefined when the workspace is not a git repository. */
   headSha?: string;
+  /** Every local head of the workspace's repository — each worktree's HEAD
+   *  and each local branch tip. Evidence pinned to any of them is current.
+   *  When absent, only `headSha` counts. */
+  heads?: LocalHead[];
   /** Role id the runtime saw calling org_task_done. */
   caller: string;
   /** The task's recorded assignee. */
@@ -196,7 +213,16 @@ export interface TaskEvidenceFacts {
 const MIN_SHA_LEN = 7;
 
 const EVIDENCE_SHAPE =
-  'Attach evidence: { headSha: "<the current commit sha>", checks: [{ command, exitCode, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output.';
+  'Attach evidence: { headSha: "<the current commit sha>", worktree: "<the worktree you ran in, if not the org workspace>", checks: [{ command, exitCode, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output.';
+
+const normalizePath = (p: string): string => p.trim().replace(/\/+$/, '');
+
+function describeHeads(heads: LocalHead[]): string {
+  const shown = heads
+    .slice(0, 8)
+    .map((h) => `${h.sha}${h.worktree ? ` (${h.worktree})` : h.branch ? ` (${h.branch})` : ''}`);
+  return `${shown.join(', ')}${heads.length > 8 ? `, and ${heads.length - 8} more` : ''}`;
+}
 
 /** Decide whether a role may close a task, given already-gathered facts.
  *  Returns a refusal message, or `null` to allow. Pure: the caller resolves
@@ -225,16 +251,29 @@ export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
       .join('\n');
     return `org_task_done refused: ${failed.length} acceptance command(s) did not exit 0 — the task is not done.\n${detail}\nFix the failure, re-run the checks, and close it again; the task goes back in your queue.`;
   }
-  if (!f.headSha) {
+  const heads: LocalHead[] = f.heads?.length ? f.heads : f.headSha ? [{ sha: f.headSha }] : [];
+  if (heads.length === 0) {
     return 'org_task_done refused: evidence must be pinned to a commit, but this workspace has no resolvable git HEAD. Either run this org in a git workspace, or turn run_config.completion_evidence off.';
   }
   const claimed = ev.headSha.trim().toLowerCase();
-  const actual = f.headSha.trim().toLowerCase();
   if (claimed.length < MIN_SHA_LEN) {
-    return `org_task_done refused: headSha "${ev.headSha}" is too short to identify a commit (at least ${MIN_SHA_LEN} characters). The current head is ${actual}.`;
+    return `org_task_done refused: headSha "${ev.headSha}" is too short to identify a commit (at least ${MIN_SHA_LEN} characters). Current heads: ${describeHeads(heads)}.`;
   }
-  if (!actual.startsWith(claimed)) {
-    return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, but the current head is ${actual} — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output.`;
+  const matches = (h: LocalHead): boolean => h.sha.trim().toLowerCase().startsWith(claimed);
+  if (ev.worktree) {
+    const want = normalizePath(ev.worktree);
+    const wt = heads.find((h) => h.worktree && normalizePath(h.worktree) === want);
+    if (!wt) {
+      const known = heads.filter((h) => h.worktree).map((h) => h.worktree);
+      return `org_task_done refused: "${ev.worktree}" is not a worktree of this repository, so its HEAD cannot be checked. Worktrees: ${known.join(', ') || 'none'}.`;
+    }
+    if (!matches(wt)) {
+      return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, but the current head of ${wt.worktree} is ${wt.sha} — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output.`;
+    }
+    return null;
+  }
+  if (!heads.some(matches)) {
+    return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, which is not the current head of any worktree or local branch (current heads: ${describeHeads(heads)}) — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output, with \`worktree\` naming where you ran them.`;
   }
   return null;
 }

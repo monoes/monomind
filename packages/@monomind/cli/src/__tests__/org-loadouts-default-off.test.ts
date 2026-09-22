@@ -146,4 +146,6 @@ const WORKER_PROMPT_SHA = 'dff3a95ffbbb6d7238d544976ed42b593ff2738653456a4ce3f50
 // Recaptured when role guidance stopped being keyed off ui.icon: the fixture's
 // dev role no longer carries archetype text, so its prompt has none.
 const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e9c63ac6d9fc1';
-const TOOLS_SHA = '767532cd68b16dd9a553a0e874b0e12ca1f58e07b3c23b44a56181caddac2613';
+// Recaptured when org_task_done's evidence gained an optional `worktree`
+// (evidence may be pinned to any local worktree or branch head).
+const TOOLS_SHA = '970c3314379d3d40b03ce5238387dd806285cc9f44df0da0ec4b6f5c66498101';

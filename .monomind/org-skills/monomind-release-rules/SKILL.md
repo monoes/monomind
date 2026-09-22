@@ -38,6 +38,14 @@ never values remembered from an earlier run.
   on this machine. Never call a failure "environmental" without a reproduction
   that proves the cause.
 - Finish every task with `org_task_done`, putting that table in the result.
+  This org requires EVIDENCE: pass `evidence` = { `headSha`: the commit your
+  checks ran on (`git -C <dir> rev-parse HEAD`), `worktree`: the directory you ran
+  them in (SRC for release work; omit only for ORG_ROOT), `checks`: one
+  { command, exitCode, output } per acceptance criterion — the real command, its
+  real exit code, the tail of its output }. A non-zero exit or a sha that is no
+  longer that worktree's HEAD is refused; after 3 refusals the task is failed
+  and escalated to release-captain. A task with nothing to run (a report, a
+  plan) still names the command that proves it — e.g. `test -s <report path>`.
 
 ## Git
 - Never run `git config` in ANY checkout of this repo (worktrees share

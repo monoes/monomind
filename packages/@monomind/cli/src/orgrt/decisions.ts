@@ -1,9 +1,16 @@
 // packages/@monomind/cli/src/orgrt/decisions.ts
 // Extracted from daemon.ts — decision gates, decision trace, and task DAG operations.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { checkTaskEvidence, type TaskEvidence } from './completion-gate.js';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
+import { join, resolve } from 'node:path';
+import { checkTaskEvidence, type LocalHead, type TaskEvidence } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
@@ -397,6 +404,58 @@ export function currentHeadSha(cwd: string): string | undefined {
   }
 }
 
+/** Every local head of the repository `cwd` belongs to: each worktree's HEAD
+ *  (the workspace's own first) and each local branch tip. Work often happens
+ *  in a worktree other than the org workspace — a release branch, a per-task
+ *  dev worktree — and evidence pinned to that work's current commit is as
+ *  fresh as evidence pinned to the workspace's. Empty outside a git repo. */
+export function localHeads(cwd: string): LocalHead[] {
+  const git = (args: string[]): string =>
+    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const heads: LocalHead[] = [];
+  try {
+    let cur: LocalHead | undefined;
+    for (const line of git(['worktree', 'list', '--porcelain']).split('\n')) {
+      if (line.startsWith('worktree ')) {
+        cur = { sha: '', worktree: line.slice(9) };
+        heads.push(cur);
+      } else if (cur && line.startsWith('HEAD ')) cur.sha = line.slice(5);
+      else if (cur && line.startsWith('branch '))
+        cur.branch = line.slice(7).replace(/^refs\/heads\//, '');
+    }
+  } catch {
+    return [];
+  }
+  try {
+    for (const line of git([
+      'for-each-ref',
+      'refs/heads',
+      '--format=%(objectname) %(refname:short)',
+    ]).split('\n')) {
+      const [sha, branch] = line.split(' ');
+      if (sha && branch) heads.push({ sha, branch });
+    }
+  } catch {
+    // worktree heads alone still answer the question
+  }
+  const own = currentHeadSha(cwd);
+  const live = heads.filter((h) => h.sha);
+  const ownIdx = live.findIndex((h) => h.sha === own && h.worktree);
+  if (ownIdx > 0) live.unshift(...live.splice(ownIdx, 1));
+  return live;
+}
+
+/** Evidence's `worktree`, made comparable with `git worktree list` output:
+ *  resolved against the workspace, symlinks followed when it exists. */
+function resolveEvidenceWorktree(
+  ev: TaskEvidence | undefined,
+  base: string,
+): TaskEvidence | undefined {
+  if (!ev?.worktree) return ev;
+  const abs = resolve(base, ev.worktree);
+  return { ...ev, worktree: existsSync(abs) ? realpathSync(abs) : abs };
+}
+
 /** One line per acceptance command, appended to the task's stored result so
  *  `org_tasks` and the run history carry the commands and their exit codes —
  *  not just a prose claim that the work is done. */
@@ -429,10 +488,12 @@ export function dagCompleteTask(
   const deliberative =
     running.def.roles.find((r) => r.id === task?.assignee)?.deliberative === true;
   if (task && running.def.run_config.completion_evidence && !deliberative) {
+    const workspace = running.workdir ?? daemon.root;
     const refusal = checkTaskEvidence({
       required: true,
-      evidence,
-      headSha: currentHeadSha(running.workdir ?? daemon.root),
+      evidence: resolveEvidenceWorktree(evidence, workspace),
+      headSha: currentHeadSha(workspace),
+      heads: localHeads(workspace),
       caller: role,
       assignee: task.assignee,
     });

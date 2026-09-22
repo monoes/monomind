@@ -205,6 +205,13 @@ the item carries a fresh evidence comment that is authored by the assignee, post
 started, machine-parseable, and **pinned to the current `HEAD` sha**. Against 223 verdicts that
 nothing could check, this is the highest-value single import.
 
+**As implemented** (`orgrt/completion-gate.ts`, `orgrt/decisions.ts`), "the current `HEAD`" means the
+current head of *the work*, not only of the org workspace: evidence may be pinned to the `HEAD` of
+any worktree of the repository or the tip of any local branch (`localHeads`), because work often
+happens in a release or per-task worktree. When the evidence names its `worktree`, the check is
+pinned to that worktree's `HEAD` alone. A commit that is no longer the head of any local work is
+still stale and refused.
+
 ### D6 — Reviewer sessions are cold and artifact-only
 
 A reviewer that watched the work absorbs the doer's framing. Our run produced 223 verdicts and
