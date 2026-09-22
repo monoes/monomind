@@ -31,6 +31,7 @@ const COMMAND_LOADERS: Record<string, CommandLoader> = {
   completions: async () => (await import('./completions.js')).completionsCommand,
   analyze: async () => (await import('./analyze.js')).analyzeCommand,
   route: async () => (await import('./route.js')).routeCommand,
+  pick: async () => (await import('./pick.js')).pickCommand,
   providers: async () => (await import('./providers.js')).providersCommand,
   update: async () => (await import('./update.js')).default,
   guidance: async () => (await import('./guidance.js')).guidanceCommand,
@@ -88,7 +89,7 @@ const CATEGORY_NAMES = {
   ],
   advanced: ['security', 'performance', 'guidance', 'autopilot', 'design'],
   utility: ['config', 'doctor', 'completions', 'report-crash', 'crash-reporting', 'events'],
-  analysis: ['analyze', 'route', 'monograph', 'tokens', 'search'],
+  analysis: ['analyze', 'route', 'pick', 'monograph', 'tokens', 'search'],
   management: [
     'providers',
     'update',
