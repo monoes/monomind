@@ -37,7 +37,7 @@ export const TRANSITIONS: Record<CatalogStatus, readonly CatalogStatus[]> = {
   revoked: [],
 };
 
-const HISTORY_CAP = 20;
+export const HISTORY_CAP = 20;
 
 /** The state on disk, or the empty state when absent. Never creates directories. */
 export function loadCatalogState(root: string): CatalogState {

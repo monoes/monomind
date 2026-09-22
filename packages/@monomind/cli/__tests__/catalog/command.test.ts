@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { catalogAction } from '../../src/commands/catalog.js';
 import { newRoot, writeEntry } from './fixtures.js';
@@ -55,5 +58,60 @@ describe('monomind catalog (read-only verbs)', () => {
   it('rejects an unknown target', async () => {
     const { res } = await run(newRoot(), ['list'], { target: 'platform:codex' });
     expect(res).toMatchObject({ success: false, exitCode: 1 });
+  });
+});
+
+describe('monomind catalog (lifecycle verbs)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function localSkill(): string {
+    const src = mkdtempSync(join(tmpdir(), 'cat-cmd-src-'));
+    writeFileSync(
+      join(src, 'LICENSE'),
+      'MIT License\n\nPermission is hereby granted, free of charge, to any person.\nTHE SOFTWARE IS PROVIDED "AS IS".\n',
+    );
+    mkdirSync(join(src, 'lint-guide'));
+    writeFileSync(
+      join(src, 'lint-guide', 'SKILL.md'),
+      '---\nname: lint-guide\ndescription: How we lint\ntools: [monograph_query]\n---\n\nRun the linter.\n',
+    );
+    return src;
+  }
+
+  it('refuses mutations without --actor', async () => {
+    const { res } = await run(newRoot(), ['stage', localSkill()]);
+    expect(res).toMatchObject({ success: false, exitCode: 1 });
+    expect(res.message).toMatch(/--actor/);
+  });
+
+  it('stages, approves with exposure, activates and revokes', async () => {
+    const root = newRoot();
+    const staged = await run(root, ['stage', localSkill()], { actor: 'alice', format: 'json' });
+    expect(JSON.parse(staged.out)).toMatchObject({ id: 'skill:lint-guide', before: null, after: 'staged' });
+    vi.restoreAllMocks();
+    const approved = await run(root, ['approve', 'skill:lint-guide'], {
+      actor: 'alice',
+      target: ['org', 'platform:agents'],
+      grantTool: ['monograph_query'],
+    });
+    expect(approved.res.success).toBe(true);
+    expect(approved.out).toMatch(/staged → approved/);
+    expect(approved.out).toMatch(/platform:agents → \.agents\/skills, read by Codex/);
+    vi.restoreAllMocks();
+    const active = await run(root, ['activate', 'skill:lint-guide'], { actor: 'alice', format: 'json' });
+    expect(JSON.parse(active.out)).toMatchObject({
+      before: 'approved',
+      after: 'active',
+      grantedTools: ['monograph_query'],
+    });
+    vi.restoreAllMocks();
+    const noReason = await run(root, ['revoke', 'skill:lint-guide'], { actor: 'alice' });
+    expect(noReason.res.success).toBe(false);
+    vi.restoreAllMocks();
+    const revoked = await run(root, ['revoke', 'skill:lint-guide'], { actor: 'alice', reason: 'gone' });
+    expect(revoked.out).toMatch(/active → revoked/);
+    vi.restoreAllMocks();
+    const inspected = await run(root, ['inspect', 'skill:lint-guide'], { format: 'json' });
+    expect(JSON.parse(inspected.out)).toMatchObject({ status: 'revoked', inspection: { verdict: 'clean' } });
   });
 });

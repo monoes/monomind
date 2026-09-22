@@ -3,9 +3,20 @@
  * `.monomind/catalog/` (see doc/concepts/catalog.md). Verbs are dispatched
  * through `VERBS`; read-only verbs never create files.
  */
+import {
+  activate,
+  approve,
+  disable,
+  type LifecycleOptions,
+  type LifecycleResult,
+  quarantine,
+  release,
+  revoke,
+} from '../catalog/lifecycle.js';
 import { buildSnapshot, type CatalogAsset, catalogAudit, eligible } from '../catalog/snapshot.js';
+import { stage } from '../catalog/stage.js';
 import { loadCatalogState } from '../catalog/state.js';
-import { type CatalogTarget, CatalogTargetSchema } from '../catalog/types.js';
+import { CatalogKindSchema, type CatalogTarget, CatalogTargetSchema } from '../catalog/types.js';
 import { rankSkillMeta } from '../orgrt/skill-library.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult, ParsedFlags } from '../types.js';
@@ -35,8 +46,10 @@ export function fail(message: string): CommandResult {
 
 /** `--target` validated: `target: null` when absent, `error` when unknown. */
 function targetFlag(flags: ParsedFlags): { target: CatalogTarget | null; error?: string } {
-  const raw = flags.target;
-  if (raw === undefined) return { target: null };
+  const all = strings(flags, 'target');
+  if (all.length === 0) return { target: null };
+  if (all.length > 1) return { target: null, error: 'give at most one --target here' };
+  const raw = all[0];
   const parsed = CatalogTargetSchema.safeParse(raw);
   return parsed.success
     ? { target: parsed.data }
@@ -45,6 +58,16 @@ function targetFlag(flags: ParsedFlags): { target: CatalogTarget | null; error?:
         error: `unknown target "${String(raw)}" — use ${CatalogTargetSchema.options.join(', ')}`,
       };
 }
+
+/** Every value of a flag that may repeat (declared `array`), as strings. */
+function strings(flags: ParsedFlags, key: string): string[] {
+  const v = flags[key];
+  if (v === undefined || v === false) return [];
+  return (Array.isArray(v) ? v : [v]).map(String).filter(Boolean);
+}
+
+const str = (flags: ParsedFlags, key: string): string | undefined =>
+  typeof flags[key] === 'string' && flags[key] !== '' ? (flags[key] as string) : undefined;
 
 const line = (a: CatalogAsset): string =>
   `${output.highlight(a.id)} ${a.status}${a.eligible ? '' : ' (unverified)'} ` +
@@ -127,7 +150,145 @@ const audit: Verb = ({ root, json }) => {
   return { success: report.ok, data: report, ...(report.ok ? {} : { exitCode: 1 }) };
 };
 
-const VERBS: Record<string, Verb> = { list, show, search, audit };
+/** Who reads a target's content once an entry is active for it. */
+const EXPOSURE: Record<CatalogTarget, string> = {
+  org: 'Org skill library — roles that name it, org skills search, per-task suggestions',
+  jev: 'the configured decision model may receive its name and ≤200-char description',
+  'platform:claude':
+    '.claude/skills, read by Claude Code; also enters .claude/helpers/skill-registry.json ' +
+    '(per-prompt keyword router; Jev only with the jev target)',
+  'platform:agents':
+    '.agents/skills, read by Codex, Gemini, Kimi, OpenCode, Cursor, Copilot, VS Code, ' +
+    'OpenClaw, Droid, Hermes, Antigravity, Zed',
+};
+
+function actorOf(flags: ParsedFlags): string | undefined {
+  return str(flags, 'actor');
+}
+
+function report(r: LifecycleResult, json: boolean, extra: string[] = []): CommandResult {
+  const payload = {
+    id: r.id,
+    before: r.before,
+    after: r.after,
+    sha256: r.entry.sha256,
+    targets: r.entry.targets,
+    grantedTools: r.entry.grantedTools,
+  };
+  if (json) return print(payload);
+  log(`${output.highlight(r.id)} ${r.before} → ${r.after}`);
+  log(`sha256: ${r.entry.sha256}`);
+  log(
+    `targets: ${r.entry.targets.join(', ') || 'none'}  grants: ${r.entry.grantedTools.join(', ') || 'none'}`,
+  );
+  for (const e of extra) log(e);
+  return { success: true, data: payload };
+}
+
+const stageVerb: Verb = async ({ root, rest, flags, json }) => {
+  const src = rest[0];
+  const actor = actorOf(flags);
+  if (!src || !actor)
+    return fail(
+      'usage: monomind catalog stage <owner/repo|git-url|path> --actor <name> [--only <name>] [--kind skill|archetype|blueprint]',
+    );
+  const kind = flags.kind === undefined ? undefined : CatalogKindSchema.safeParse(flags.kind);
+  if (kind && !kind.success) return fail('--kind must be skill, archetype or blueprint');
+  const r = await stage(root, src, { actor, only: str(flags, 'only'), kind: kind?.data });
+  const before = r.entry.history.length > 1 ? r.entry.history.at(-1)?.from : null;
+  const payload = {
+    id: r.entry.id,
+    before: r.unchanged ? r.entry.status : (before ?? null),
+    after: r.entry.status,
+    sha256: r.entry.sha256,
+    unchanged: r.unchanged,
+    dir: r.dir,
+    inspection: r.entry.inspection,
+  };
+  if (json) return print(payload);
+  log(
+    `${output.highlight(r.entry.id)} ${payload.before ?? '—'} → ${r.entry.status}${r.unchanged ? ' (unchanged)' : ''}`,
+  );
+  log(`sha256: ${r.entry.sha256}  → ${r.dir}`);
+  for (const x of r.entry.inspection.rejected)
+    log(output.warning(`rejected ${x.path}: ${x.reason}`));
+  log(
+    `requested tools: ${r.entry.inspection.requestedTools.join(', ') || 'none'} (granted only at approve)`,
+  );
+  log(`scanner: ${r.entry.inspection.scanner.summary}`);
+  return { success: true, data: payload };
+};
+
+const inspect: Verb = ({ root, rest, json }) => {
+  const e = loadCatalogState(root).entries.find((x) => x.id === rest[0]);
+  if (!e) return fail(`unknown catalog entry: ${rest[0] ?? '(none given)'}`);
+  const payload = { id: e.id, status: e.status, sha256: e.sha256, inspection: e.inspection };
+  if (json) return print(payload);
+  const i = e.inspection;
+  log(`${output.highlight(e.id)} ${e.status} — verdict ${i.verdict} (${i.at})`);
+  log(`accepted: ${i.accepted.join(', ') || 'none'}`);
+  for (const x of i.rejected) log(output.warning(`rejected ${x.path}: ${x.reason}`));
+  log(`requested tools: ${i.requestedTools.join(', ') || 'none'}`);
+  log(
+    `scanner: ${i.scanner.ok ? 'ran' : 'did not run'}${i.scanner.blocked ? ', blocked' : ''} — ${i.scanner.summary}`,
+  );
+  if (i.override)
+    log(output.info(`released by ${i.override.actor} at ${i.override.at}: ${i.override.reason}`));
+  return { success: true, data: payload };
+};
+
+const approveVerb: Verb = ({ root, rest, flags, json }) => {
+  const id = rest[0];
+  const actor = actorOf(flags);
+  if (!id || !actor)
+    return fail(
+      'usage: monomind catalog approve <id> --target <t> [--target <t>] [--grant-tool <tool>]... [--replaces-legacy] --actor <name>',
+    );
+  const r = approve(root, id, {
+    actor,
+    targets: strings(flags, 'target'),
+    grant: strings(flags, 'grantTool'),
+    replacesLegacy: flags.replacesLegacy === true,
+  });
+  const extra = r.entry.targets.map((t) => `  ${t} → ${EXPOSURE[t]}`);
+  extra.unshift('exposure once active:');
+  if (r.entry.targets.some((t) => t.startsWith('platform:')))
+    extra.push('  other readers of a projected tree see it as ordinary platform content');
+  const o = r.entry.inspection.override;
+  if (o) extra.push(output.warning(`quarantine verdict overridden by ${o.actor}: ${o.reason}`));
+  if (r.entry.replacesLegacy) extra.push('replaces a same-name legacy skill in the Org library');
+  return report(r, json, extra);
+};
+
+type Move = (root: string, id: string, opts: LifecycleOptions) => LifecycleResult;
+
+function lifecycleVerb(name: string, fn: Move, needsReason: boolean): Verb {
+  return ({ root, rest, flags, json }) => {
+    const id = rest[0];
+    const actor = actorOf(flags);
+    const reason = str(flags, 'reason');
+    if (!id || !actor || (needsReason && !reason))
+      return fail(
+        `usage: monomind catalog ${name} <id> --actor <name> ${needsReason ? '--reason <text>' : '[--reason <text>]'}`,
+      );
+    return report(fn(root, id, { actor, reason }), json);
+  };
+}
+
+const VERBS: Record<string, Verb> = {
+  list,
+  show,
+  search,
+  audit,
+  stage: stageVerb,
+  inspect,
+  approve: approveVerb,
+  activate: lifecycleVerb('activate', activate, false),
+  disable: lifecycleVerb('disable', disable, false),
+  quarantine: lifecycleVerb('quarantine', quarantine, true),
+  release: lifecycleVerb('release', release, true),
+  revoke: lifecycleVerb('revoke', revoke, true),
+};
 
 export async function catalogAction(ctx: CommandContext): Promise<CommandResult> {
   const [verb = 'list', ...rest] = ctx.args;
@@ -147,14 +308,53 @@ export async function catalogAction(ctx: CommandContext): Promise<CommandResult>
 
 export const catalogCommand: Command = {
   name: 'catalog',
-  description: 'Policy-governed skill catalog: list, show, search and audit catalog entries',
+  description:
+    'Policy-governed skill catalog: stage, inspect, approve, activate, disable, quarantine, release, revoke, list, show, search, audit',
   options: [
-    { name: 'target', description: 'org, jev, platform:claude or platform:agents', type: 'string' },
+    {
+      name: 'target',
+      description: 'org, jev, platform:claude or platform:agents (repeat for approve)',
+      type: 'array',
+    },
     { name: 'limit', description: 'Maximum search results', type: 'number' },
+    {
+      name: 'actor',
+      description: 'Who is acting (self-asserted, recorded in history)',
+      type: 'string',
+    },
+    {
+      name: 'reason',
+      description: 'Why (quarantine, release and revoke require it)',
+      type: 'string',
+    },
+    {
+      name: 'only',
+      description: 'stage: the candidate name when a source has several',
+      type: 'string',
+    },
+    { name: 'kind', description: 'stage: skill, archetype or blueprint', type: 'string' },
+    {
+      name: 'grant-tool',
+      description: 'approve: grant one requested, grantable tool (repeatable)',
+      type: 'array',
+    },
+    {
+      name: 'replaces-legacy',
+      description: 'approve: win over a same-name legacy skill',
+      type: 'boolean',
+    },
   ],
   examples: [
     { command: 'monomind catalog list --target org', description: 'Entries the org library sees' },
     { command: 'monomind catalog audit --format json', description: 'Verify every entry' },
+    {
+      command: 'monomind catalog stage ./skills-repo --only code-review --actor alice',
+      description: 'Stage one skill through the quarantine gate',
+    },
+    {
+      command: 'monomind catalog approve skill:code-review --target org --actor alice',
+      description: 'Approve it for the Org library',
+    },
   ],
   action: catalogAction,
 };
