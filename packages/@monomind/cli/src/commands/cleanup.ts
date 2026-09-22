@@ -12,54 +12,22 @@ import { execSync } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
   unlinkSync,
-  writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
-
-/**
- * Artifact directories and files that monomind/monomind may create
- */
-const ARTIFACT_DIRS = [
-  { path: '.claude', description: 'Claude settings, helpers, agents' },
-  { path: '.monomind', description: 'Capabilities and configuration' },
-  { path: 'data', description: 'Memory databases' },
-  { path: '.swarm', description: 'Legacy swarm state (pre-monoswarm-rename)' },
-  { path: '.hive-mind', description: 'Legacy hive-mind state (pre-monoswarm-rename)' },
-  { path: '.monomind/swarm', description: 'Legacy swarm state (pre-monoswarm-rename)' },
-  { path: '.monomind/hive-mind', description: 'Legacy hive-mind state (pre-monoswarm-rename)' },
-  { path: 'coordination', description: 'Coordination data' },
-  { path: 'memory', description: 'Memory storage' },
-  // `init` also writes these for other agent providers (see write-antigravity.ts,
-  // write-opencode.ts, write-codex.ts, write-kimicode.ts, shared-instructions-generator.ts) —
-  // cleanup must remove what init creates, or they're orphaned after --force.
-  { path: '.gemini', description: 'Gemini/Antigravity settings' },
-  { path: '.opencode', description: 'OpenCode settings' },
-  { path: '.codex', description: 'Codex settings' },
-  { path: '.kimi-code', description: 'Kimi Code settings' },
-  { path: '.agents', description: 'Shared cross-provider instructions' },
-];
-
-const ARTIFACT_FILES = [
-  { path: 'monomind.config.json', description: 'Monomind configuration' },
-  { path: '.mcp.json', description: 'MCP server registration' },
-  { path: 'GEMINI.md', description: 'Gemini/Antigravity instructions' },
-  { path: 'opencode.json', description: 'OpenCode configuration' },
-  { path: 'AGENTS.md', description: 'Codex/Kimi Code instructions' },
-];
-
-/**
- * Paths to preserve when --keep-config is set
- */
-const KEEP_CONFIG_PATHS = ['monomind.config.json', join('.claude', 'settings.json')];
+import {
+  applyCleanupEntry,
+  buildCleanupPlan,
+  type CleanupPlanEntry,
+  isMonomindSourceRepo,
+} from './cleanup-plan.js';
 
 /** Scratch pruning (--scratch): taskdev handoff files and loop state. */
 // monolean: manual flag only — upgrade path: invoke from the `cache` background worker so crashed-run scratch is pruned without anyone remembering the flag
@@ -294,49 +262,6 @@ function removeOrReport(
 }
 
 /**
- * Maximum directory recursion depth for size calculation.
- * Prevents stack overflow on deeply-nested or circular-symlink trees.
- */
-const MAX_SIZE_DEPTH = 20;
-
-/**
- * Calculate the total size of a path (file or directory) in bytes.
- *
- * Uses lstatSync (not statSync) so that symlinks are never followed:
- * a symlink counts only the size of the link itself, not its target.
- * This prevents a crafted symlink (e.g. .claude -> /) from causing
- * the cleanup command to recursively traverse the entire filesystem.
- */
-function getSize(fullPath: string, depth = 0): number {
-  if (depth > MAX_SIZE_DEPTH) return 0;
-  try {
-    const stat = lstatSync(fullPath);
-    if (stat.isSymbolicLink()) {
-      // Count only the symlink entry itself; never traverse the target.
-      return stat.size;
-    }
-    if (stat.isFile()) {
-      return stat.size;
-    }
-    if (stat.isDirectory()) {
-      let total = 0;
-      const entries = readdirSync(fullPath, { withFileTypes: true });
-      for (const entry of entries) {
-        // Skip symlinks at the entry level too — lstatSync below will still
-        // catch them, but checking here avoids unnecessary path joins.
-        if (!entry.isSymbolicLink()) {
-          total += getSize(join(fullPath, entry.name), depth + 1);
-        }
-      }
-      return total;
-    }
-  } catch {
-    // Permission errors, broken symlinks, etc.
-  }
-  return 0;
-}
-
-/**
  * Format bytes into a human-readable string
  */
 function formatSize(bytes: number): string {
@@ -365,14 +290,22 @@ export const cleanupCommand: Command = {
     {
       name: 'force',
       short: 'f',
-      description: 'Actually delete the artifacts',
+      description:
+        'Apply the preview: delete only provably monomind-owned, untracked paths (never git-tracked files or user data)',
       type: 'boolean',
       default: false,
     },
     {
       name: 'keep-config',
       short: 'k',
-      description: 'Preserve monomind.config.json and .claude/settings.json',
+      description: 'Preserve monomind.config.json (.claude/settings.json is always kept)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'purge-data',
+      description:
+        'With --force: also delete user data (memory stores, .monomind/org-memory, knowledge index, monograph and other *.db, org configs)',
       type: 'boolean',
       default: false,
     },
@@ -407,7 +340,11 @@ export const cleanupCommand: Command = {
     },
     {
       command: 'cleanup --force',
-      description: 'Remove all monomind artifacts',
+      description: 'Remove monomind-owned artifacts; keep tracked files and user data',
+    },
+    {
+      command: 'cleanup --force --purge-data',
+      description: 'Also delete memory stores, org memory, knowledge index and databases',
     },
     {
       command: 'cleanup --force --keep-config',
@@ -421,6 +358,7 @@ export const cleanupCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force === true;
     const keepConfig = ctx.flags['keep-config'] === true;
+    const purgeData = ctx.flags['purge-data'] === true;
     const cwd = ctx.cwd;
 
     const dryRun = !force;
@@ -507,6 +445,32 @@ export const cleanupCommand: Command = {
         data: { found: stale, removedCount: removed, removedSize, dryRun },
       };
     }
+
+    // Refuse to --force inside monomind's own source checkout: its tracked
+    // AGENTS.md/.agents/.gemini are the product's sources and its untracked
+    // .monomind/ holds the developer's live memory (incident 2026-09-22).
+    if (force && isMonomindSourceRepo(cwd)) {
+      output.writeln(
+        output.error(
+          'Refusing to run cleanup --force in the monomind source repository itself. ' +
+            'Run it in a project that monomind was initialised into.',
+        ),
+      );
+      return { success: false, exitCode: 1, message: 'refused: monomind source repository' };
+    }
+
+    // One plan drives both the preview and --force, so the preview is exactly
+    // what --force deletes. Built before any process is stopped below.
+    const planned = buildCleanupPlan(cwd, {
+      keepConfig,
+      purgeData,
+      memoryPath: process.env.MONOMIND_MEMORY_PATH,
+    });
+    if (!planned.ok) {
+      output.writeln(output.error(`  ${planned.error}`));
+      return { success: false, exitCode: 1, message: planned.error };
+    }
+    const plan = planned.entries;
 
     // Kill background processes before removing their state files
     if (force) {
@@ -600,157 +564,90 @@ export const cleanupCommand: Command = {
     output.writeln(output.bold(dryRun ? 'Monomind Cleanup (dry run)' : 'Monomind Cleanup'));
     output.writeln();
 
-    const found: {
-      path: string;
-      description: string;
-      size: number;
-      type: 'dir' | 'file';
-      skipped?: boolean;
-    }[] = [];
-    let totalSize = 0;
-
-    // Scan directories
-    for (const artifact of ARTIFACT_DIRS) {
-      const fullPath = join(cwd, artifact.path);
-      if (existsSync(fullPath)) {
-        const size = getSize(fullPath);
-        found.push({ path: artifact.path, description: artifact.description, size, type: 'dir' });
-        totalSize += size;
-      }
-    }
-
-    // Scan files
-    for (const artifact of ARTIFACT_FILES) {
-      const fullPath = join(cwd, artifact.path);
-      if (existsSync(fullPath)) {
-        const size = getSize(fullPath);
-        found.push({ path: artifact.path, description: artifact.description, size, type: 'file' });
-        totalSize += size;
-      }
-    }
-
-    if (found.length === 0) {
+    if (plan.length === 0) {
       output.writeln(output.info('No monomind artifacts found in the current directory.'));
-      return { success: true, message: 'Nothing to clean' };
+      return { success: true, message: 'Nothing to clean', data: { plan, dryRun } };
     }
-
-    // Mark items that would be skipped due to --keep-config
-    if (keepConfig) {
-      for (const item of found) {
-        if (KEEP_CONFIG_PATHS.includes(item.path)) {
-          item.skipped = true;
-        }
-      }
-    }
-
-    // Display what was found
-    output.writeln(output.bold('Artifacts found:'));
-    output.writeln();
 
     let removedCount = 0;
     let removedSize = 0;
-    let skippedCount = 0;
-
-    for (const item of found) {
-      const sizeStr = formatSize(item.size);
-      const typeLabel = item.type === 'dir' ? 'dir ' : 'file';
-
-      if (item.skipped) {
-        output.writeln(
-          output.dim(`  [skip] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`),
-        );
-        skippedCount++;
+    let failed = 0;
+    for (const e of plan.filter((x) => x.action !== 'skip')) {
+      const typeLabel = e.kind === 'dir' ? 'dir ' : 'file';
+      const verb = e.action === 'remove' ? 'remove' : 'edit';
+      const line = `${typeLabel}  ${e.path}  (${formatSize(e.size)}) - ${e.reason}`;
+      if (dryRun) {
+        output.writeln(output.warning(`  [would ${verb}] ${line}`));
         continue;
       }
-
-      if (dryRun) {
-        output.writeln(
-          output.warning(
-            `  [would remove] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
-          ),
-        );
-      } else {
-        // Actually delete
-        try {
-          const fullPath = join(cwd, item.path);
-          // Special-case: `.claude/` is scanned and removed as a single unit,
-          // but KEEP_CONFIG_PATHS promises `.claude/settings.json` survives
-          // --keep-config. Back the file up, wipe the directory, then
-          // restore just that one file — the rest of `.claude/` is still
-          // removed as normal.
-          const settingsPath = join(cwd, '.claude', 'settings.json');
-          const isClaudeDirWithPreservedSettings =
-            item.type === 'dir' &&
-            item.path === '.claude' &&
-            keepConfig &&
-            existsSync(settingsPath);
-
-          if (isClaudeDirWithPreservedSettings) {
-            const settingsBackup = readFileSync(settingsPath);
-            rmSync(fullPath, { recursive: true, force: true });
-            mkdirSync(dirname(settingsPath), { recursive: true });
-            writeFileSync(settingsPath, settingsBackup);
-            output.writeln(
-              output.success(
-                `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
-              ),
-            );
-            output.writeln(
-              output.dim(`  [kept]    file  .claude/settings.json - preserved (--keep-config)`),
-            );
-          } else if (item.type === 'dir') {
-            rmSync(fullPath, { recursive: true, force: true });
-            output.writeln(
-              output.success(
-                `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
-              ),
-            );
-          } else {
-            rmSync(fullPath, { force: true });
-            output.writeln(
-              output.success(
-                `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
-              ),
-            );
-          }
-          removedCount++;
-          removedSize += item.size;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          output.writeln(output.error(`  [failed] ${typeLabel}  ${item.path}  - ${msg}`));
-        }
+      try {
+        applyCleanupEntry(cwd, e);
+        output.writeln(output.success(`  [${verb === 'remove' ? 'removed' : 'edited'}] ${line}`));
+        removedCount++;
+        if (e.action === 'remove') removedSize += e.size;
+      } catch (err) {
+        failed++;
+        const msg = err instanceof Error ? err.message : String(err);
+        output.writeln(output.error(`  [failed] ${typeLabel}  ${e.path}  - ${msg}`));
       }
     }
+    printKept(
+      plan.filter((x) => x.action === 'skip'),
+      ctx.flags.verbose === true,
+    );
 
-    // Summary
     output.writeln();
     output.writeln(output.bold('Summary:'));
-
+    const acting = plan.filter((x) => x.action !== 'skip');
+    const kept = plan.length - acting.length;
     if (dryRun) {
-      const actionable = found.filter((f) => !f.skipped);
-      output.writeln(`  Found ${actionable.length} artifact(s) totaling ${formatSize(totalSize)}`);
-      if (skippedCount > 0) {
-        output.writeln(`  ${skippedCount} item(s) would be preserved (--keep-config)`);
-      }
+      output.writeln(`  Would remove or edit ${acting.length} item(s); keep ${kept}`);
       output.writeln();
-      output.writeln(output.dim('  This was a dry run. Use --force to actually remove artifacts.'));
-    } else {
-      output.writeln(`  Removed ${removedCount} artifact(s) totaling ${formatSize(removedSize)}`);
-      if (skippedCount > 0) {
-        output.writeln(`  Preserved ${skippedCount} item(s) (--keep-config)`);
+      output.writeln(
+        output.dim('  This was a dry run. Use --force to apply exactly the lines above.'),
+      );
+      if (plan.some((x) => x.data && x.action === 'skip' && x.reason.includes('--purge-data'))) {
+        output.writeln(output.dim('  User data is kept; add --purge-data to remove it as well.'));
       }
+    } else {
+      output.writeln(
+        `  Removed or edited ${removedCount} item(s) totaling ${formatSize(removedSize)}; kept ${kept}`,
+      );
     }
-
     output.writeln();
 
     return {
-      success: true,
+      success: failed === 0,
       message: dryRun
-        ? `Dry run: ${found.length} artifact(s) found`
-        : `Removed ${removedCount} artifact(s)`,
-      data: { found, removedCount, removedSize, dryRun },
+        ? `Dry run: ${acting.length} item(s) would be removed or edited`
+        : `Removed or edited ${removedCount} item(s)`,
+      data: { plan, removedCount, removedSize, dryRun },
     };
   },
 };
+
+/** Kept paths: data is always listed in full; other reasons are summarized unless --verbose. */
+function printKept(kept: CleanupPlanEntry[], verbose: boolean): void {
+  if (kept.length === 0) return;
+  output.writeln();
+  output.writeln(output.bold('Kept (not provably monomind-owned, tracked, or user data):'));
+  const byReason = new Map<string, CleanupPlanEntry[]>();
+  for (const e of kept) byReason.set(e.reason, [...(byReason.get(e.reason) ?? []), e]);
+  for (const [reason, items] of byReason) {
+    const limit = verbose || items.some((i) => i.data) ? items.length : 5;
+    for (const i of items.slice(0, limit)) {
+      output.writeln(
+        output.dim(`  [keep] ${i.kind === 'dir' ? 'dir ' : 'file'}  ${i.path} - ${reason}`),
+      );
+    }
+    if (items.length > limit) {
+      output.writeln(
+        output.dim(
+          `  [keep] ... and ${items.length - limit} more - ${reason} (--verbose lists all)`,
+        ),
+      );
+    }
+  }
+}
 
 export default cleanupCommand;

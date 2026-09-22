@@ -32,13 +32,21 @@ describe('cleanup --force removes other-provider artifacts', () => {
   it('removes .gemini, .opencode, .codex, .kimi-code, .agents dirs and their root files', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'cleanup-provider-artifacts-'));
 
+    // What init actually writes — provably monomind's: files named monomind*,
+    // content that is only monomind marker blocks, the generator's GEMINI.md
+    // title line, and JSON files holding only the `monomind` server entry.
+    // (Hand-written or git-tracked files are kept: cleanup-ownership-safety.test.ts.)
     for (const dir of ['.gemini', '.opencode', '.codex', '.kimi-code', '.agents']) {
       mkdirSync(join(cwd, dir), { recursive: true });
-      writeFileSync(join(cwd, dir, 'marker.txt'), 'x');
+      writeFileSync(join(cwd, dir, 'monomind.md'), 'x');
     }
-    for (const file of ['GEMINI.md', 'opencode.json', 'AGENTS.md', '.mcp.json']) {
-      writeFileSync(join(cwd, file), 'x');
-    }
+    writeFileSync(
+      join(cwd, 'AGENTS.md'),
+      '# monomind:start instructions:codex\nx\n# monomind:end instructions:codex\n',
+    );
+    writeFileSync(join(cwd, 'GEMINI.md'), '# Monomind for Antigravity (agy) — v2.15.6\n\nbody\n');
+    writeFileSync(join(cwd, 'opencode.json'), JSON.stringify({ mcp: { monomind: {} } }));
+    writeFileSync(join(cwd, '.mcp.json'), JSON.stringify({ mcpServers: { monomind: {} } }));
 
     const result = await cleanupCommand.action?.(makeCtx(cwd, { force: true }));
 

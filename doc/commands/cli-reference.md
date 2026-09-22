@@ -33,7 +33,7 @@
 | `search` | Universal search (`search scan` refreshes fingerprint) | 1 — scan |
 | `providers` | AI provider management | 4 — list, configure, remove, test |
 | `update` | Self-update check for `@monomind` packages | 5 — check, all, history, rollback, clear-cache |
-| `cleanup` | Remove monomind project artifacts | 0 — flat command, flags only |
+| `cleanup` | Remove monomind project artifacts. Without `--force` it only previews; `--force` applies exactly that preview. It deletes only what is provably monomind's (untracked `.monomind/` runtime state, `monomind.config.json`, init-manifest entries, files that are nothing but monomind marker blocks), never deletes or edits a git-tracked file, strips only the monomind block/entry from mixed files (AGENTS.md, CLAUDE.md, `.mcp.json`, ...), keeps everything else with the reason, and refuses `--force` inside the monomind source repo. User data (memory stores incl. `MONOMIND_MEMORY_PATH`, `.monomind/org-memory`, `.monomind/knowledge`, `.monomind/orgs`, monograph and other `*.db`) is removed only with `--purge-data`. | 0 — flat command, flags only: `--force`, `--purge-data`, `--keep-config`, `--scratch`, `--data [--aggressive]` |
 | `platforms` | Install/uninstall Monograph context for AI platforms | 3 — install, uninstall, setup |
 | `browse` | Browser automation via CDP (`@monoes/monobrowse`) | action/platform/workflow builders |
 | `design` | Design tooling — anti-pattern detection, OKLCH palette seeding | 4 — detect, fix, ignores, palette |

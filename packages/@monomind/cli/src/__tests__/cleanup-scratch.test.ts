@@ -146,8 +146,8 @@ describe('cleanup --scratch', () => {
       expect(res?.success).toBe(true);
       // dry run by default: nothing deleted, and .monomind reported as one artifact dir
       expect(existsSync(join(cwd, '.monomind', 'taskdev', 'task-1-brief.md'))).toBe(true);
-      const found = (res?.data as { found?: { path: string }[] })?.found ?? [];
-      expect(found.some((f) => f.path === '.monomind')).toBe(true);
+      const plan = (res?.data as { plan?: { path: string }[] })?.plan ?? [];
+      expect(plan.some((f) => f.path === '.monomind')).toBe(true);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
