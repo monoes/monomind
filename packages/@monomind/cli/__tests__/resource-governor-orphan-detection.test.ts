@@ -141,6 +141,66 @@ describe('resource-governor — orphan detection', () => {
     expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
   });
 
+  it('reapOrphanedSdkProcesses without ownerPid preserves a live process whose ppid is 1 because pid 1 is a zsh/sh login shell too (shell deny-list, not just bash)', async () => {
+    platformMock = vi.fn(() => 'linux');
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+    1     0 -zsh
+ 5678     1 node /path/to/claude-agent-sdk --output-format json
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(0);
+    expect(killMock).not.toHaveBeenCalled();
+  });
+
+  // Round 2 regression: cli-qa found that after the round-1 fix above, a
+  // GENUINE orphan (double-fork+setsid, reparented to a real pid-1 subreaper,
+  // ppid === 1 confirmed live via `ps`) was no longer reaped at all when
+  // pid 1's own command didn't match the systemd/init allow-list — e.g. a
+  // sandbox wrapper like `bwrap` acting as the namespace's subreaper, or
+  // `tini`/`dumb-init` in a container with no systemd. That's a broad class
+  // of real deployment environments, not just this test sandbox. The fix is
+  // a deny-list (isShellLikeCmd) instead of an allow-list (isInitSubreaperCmd)
+  // for the pid1 === ppid check: trust ppid === 1 for ANY pid 1 that doesn't
+  // look like the live invoking shell, not only for systemd/init by name.
+  it('reapOrphanedSdkProcesses without ownerPid kills a genuine orphan whose pid-1 subreaper is a sandbox wrapper (bwrap), not systemd/init', async () => {
+    platformMock = vi.fn(() => 'linux');
+    // Mock ps output as seen from inside a `bwrap --unshare-pid` sandbox
+    // where bwrap itself (not a live shell) is acting as pid 1's subreaper,
+    // and the SDK process is a genuine orphan reparented to it.
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+    1     0 bwrap --unshare-pid --dev-bind / /
+ 5678     1 node /path/to/claude-agent-sdk --output-format json
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(1);
+    expect(killMock).toHaveBeenCalledTimes(1);
+    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
+  });
+
+  it('reapOrphanedSdkProcesses without ownerPid kills a genuine orphan whose pid-1 subreaper is tini, not systemd/init', async () => {
+    platformMock = vi.fn(() => 'linux');
+    // Mock ps output as seen from inside a container that uses tini as its
+    // pid-1 init/subreaper instead of systemd — a common case for CI
+    // runners and minimal container images with no real init process.
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+    1     0 /usr/bin/tini -- node app.js
+ 5678     1 node /path/to/claude-agent-sdk --output-format json
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(1);
+    expect(killMock).toHaveBeenCalledTimes(1);
+    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
+  });
+
   it('reapOrphanedSdkProcesses with ownerPid kills only children of that owner', async () => {
     platformMock = vi.fn(() => 'linux');
     // Mock ps output with multiple processes

@@ -144,6 +144,18 @@ function isInitSubreaperCmd(cmd: string | undefined): boolean {
   return !!cmd && INIT_SUBREAPER_RE.test(cmd);
 }
 
+// Interactive shells that could plausibly be the LIVE INVOKING SESSION
+// itself when it shows up as pid 1 (see the ppid === 1 branch below).
+// Matched against pid 1's own argv0 only — a leading '-' (login shell,
+// e.g. "-bash") is allowed.
+const SHELL_LIKE_ARGV0_RE = /(^|\/)-?(bash|zsh|sh|dash|ksh|fish|tcsh|csh)$/;
+
+function isShellLikeCmd(cmd: string | undefined): boolean {
+  if (!cmd) return false;
+  const argv0 = cmd.trim().split(/\s+/)[0] ?? '';
+  return SHELL_LIKE_ARGV0_RE.test(argv0);
+}
+
 /** Kill orphaned claude-agent-sdk processes.
  *  @param protectedPids PIDs to never kill (e.g. sibling org agents).
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
@@ -189,9 +201,21 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
         // with no init process, the invoking shell itself can BE pid 1 in
         // that namespace — so its own live, still-running children also
         // report ppid === 1, even though their real parent never died and
-        // is not an init/subreaper at all. If pid 1 is visible in this `ps`
-        // snapshot and its own command doesn't look like an init/subreaper,
-        // don't trust the numeric ppid; leave the process alone. If pid 1
+        // is not an init/subreaper at all.
+        //
+        // Distinguishing a real subreaper from that failure mode is a
+        // deny-list, not an allow-list: a legitimate orphan reaper at pid 1
+        // can be systemd, /sbin/init, tini, dumb-init, docker-init, a
+        // sandbox wrapper like bwrap, or anything else that isn't the live
+        // invoking session — far more real deployment environments
+        // (containers, CI runners without systemd) than a systemd/init
+        // allow-list alone would ever cover. What pid 1 can never
+        // legitimately be, and still have its ppid === 1 children be
+        // genuine orphans, is an interactive shell — that's the one shape
+        // the live invoking session actually takes. So: if pid 1 is visible
+        // in this `ps` snapshot and looks like a shell, don't trust the
+        // numeric ppid; leave the process alone. If pid 1 is visible and
+        // does NOT look like a shell, trust it as a subreaper. If pid 1
         // isn't in the snapshot (the common case on a real host, where the
         // true init is outside what a restricted `ps` can show), fall back
         // to treating ppid === 1 as adoption by init, as before.
@@ -200,7 +224,7 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
           if (!isInitSubreaperCmd(parentCmd)) continue;
         } else {
           const pid1Cmd = procMap.get(1);
-          if (pid1Cmd && !isInitSubreaperCmd(pid1Cmd)) continue;
+          if (pid1Cmd && isShellLikeCmd(pid1Cmd)) continue;
         }
       }
 
