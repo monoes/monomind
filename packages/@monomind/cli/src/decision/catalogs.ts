@@ -2,6 +2,8 @@
  * Candidate catalogs for the Jev picker. Registry agents and skills come from
  * the shared helper so the hook and the CLI read them identically.
  */
+import { verifyEntry } from '../catalog/digest.js';
+import { buildSnapshot, eligible } from '../catalog/snapshot.js';
 import { listSkills } from '../orgrt/skill-library.js';
 import type { OrgRole } from '../orgrt/types.js';
 import { type CatalogItem, jevModule } from './jev.js';
@@ -21,10 +23,32 @@ export function skillCatalog(root: string): CatalogItem[] {
   return jevModule()?.loadSkillCatalog(root) ?? [];
 }
 
-/** Org-library skills (project, user, bundled), optionally limited to `names`. */
+type MaybeCatalog = { origin?: string; catalogId?: string };
+
+/** Catalog skills leave the machine only with the `jev` target; legacy skills
+ *  are unchanged. Without a root no catalog skill is sent. */
+export function jevVisible<T>(root: string | undefined, items: readonly T[]): T[] {
+  // `T` is deliberately unconstrained: rankOrgSkills's own `T extends {name,
+  // description, tags}` has neither field, and constraining here fails to compile.
+  const cat = (s: T): MaybeCatalog => s as MaybeCatalog;
+  if (!items.some((s) => cat(s).origin === 'catalog')) return [...items];
+  // Re-verify at the egress boundary: the snapshot cache is keyed on state.json,
+  // so a package tampered after a warm cache must not leave the machine.
+  const allowed = new Set(
+    root
+      ? eligible(buildSnapshot(root), 'jev')
+          .filter((a) => verifyEntry(root, a).ok)
+          .map((a) => a.id)
+      : [],
+  );
+  return items.filter((s) => cat(s).origin !== 'catalog' || allowed.has(cat(s).catalogId ?? ''));
+}
+
+/** Org-library skills (project, user, bundled, and catalog skills approved for
+ *  `jev`), optionally limited to `names`. */
 export function orgSkillCatalog(root: string, names?: string[]): CatalogItem[] {
   const allow = names ? new Set(names) : null;
-  return listSkills(root)
+  return jevVisible(root, listSkills(root))
     .filter((s) => !allow || allow.has(s.name))
     .map((s) => ({ id: s.name, description: s.description, text: s.tags.join(' ') }));
 }

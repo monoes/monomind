@@ -13,11 +13,18 @@
  * source, source_path, source_commit. `tools` names the monomind MCP tools the
  * skill's work benefits from (monograph_*, monodesign_*); a role holding the
  * skill gets exactly those attached — see `skillToolProvider`.
+ *
+ * Active catalog skills and archetypes that target `org` (`monomind catalog`)
+ * come after the three roots — or before them when approved with
+ * `replacesLegacy`. Their `tools` are the granted tools, never the requested
+ * ones, and their package digest is re-verified before a body is read.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, normalize, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyEntry } from '../catalog/digest.js';
+import { buildSnapshot, type CatalogAsset, eligible } from '../catalog/snapshot.js';
 import type { OrgRole, ToolProviderConfig } from './types.js';
 
 export const SKILL_NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -32,7 +39,9 @@ export interface SkillMeta {
   source_path?: string;
   source_commit?: string;
   /** Which root it was found in. */
-  origin: 'project' | 'user' | 'bundled';
+  origin: 'project' | 'user' | 'bundled' | 'catalog';
+  /** Catalog entry id, for `origin: 'catalog'`. */
+  catalogId?: string;
   /** Absolute skill directory. */
   dir: string;
 }
@@ -154,14 +163,38 @@ function listMdFiles(dir: string, prefix = ''): string[] {
   return out.sort();
 }
 
+/** Active org-target catalog skills by name, verified; empty without state. */
+function catalogSkills(projectRoot?: string): Map<string, CatalogAsset> {
+  if (!projectRoot) return new Map();
+  const snap = buildSnapshot(projectRoot);
+  return new Map(
+    eligible(snap, 'org')
+      .filter((a) => a.kind !== 'blueprint')
+      .map((a) => [a.name, a]),
+  );
+}
+
+/** A catalog skill with its digest re-verified now, or null. */
+function readCatalogSkill(projectRoot: string, asset: CatalogAsset): Skill | null {
+  const check = verifyEntry(projectRoot, asset);
+  if (!check.ok) return null;
+  const s = readSkillDir(check.dir, asset.name, 'catalog');
+  return s && { ...s, catalogId: asset.id, tools: [...asset.grantedTools] };
+}
+
 /** One skill by name, or null. Names are validated before touching the disk. */
 export function getSkill(name: string, projectRoot?: string): Skill | null {
   if (!SKILL_NAME_RE.test(name)) return null;
+  const asset = catalogSkills(projectRoot).get(name);
+  if (asset?.replacesLegacy && projectRoot) {
+    const s = readCatalogSkill(projectRoot, asset);
+    if (s) return s;
+  }
   for (const { dir, origin } of skillRoots(projectRoot)) {
     const s = readSkillDir(join(dir, name), name, origin);
     if (s) return s;
   }
-  return null;
+  return asset && projectRoot ? readCatalogSkill(projectRoot, asset) : null;
 }
 
 const listCache = new Map<string, { at: number; skills: SkillMeta[] }>();
@@ -183,6 +216,19 @@ export function listSkills(projectRoot?: string): SkillMeta[] {
         seen.set(name, meta);
       }
     }
+  }
+  for (const asset of catalogSkills(projectRoot).values()) {
+    if (seen.has(asset.name) && !asset.replacesLegacy) continue;
+    seen.set(asset.name, {
+      name: asset.name,
+      description: asset.description,
+      tags: asset.tags,
+      tools: [...asset.grantedTools],
+      license: asset.source.license,
+      origin: 'catalog',
+      catalogId: asset.id,
+      dir: asset.dir as string,
+    });
   }
   const skills = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   listCache.set(key, { at: Date.now(), skills });

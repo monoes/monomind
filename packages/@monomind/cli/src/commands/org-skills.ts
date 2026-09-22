@@ -49,6 +49,7 @@ export async function orgSkillsAction(ctx: CommandContext): Promise<CommandResul
       typeof ctx.flags.limit === 'number' ? ctx.flags.limit : Number(ctx.flags.limit) || 10;
     const found = searchSkills(query, root, { tag, limit: Math.max(limit, JEV_SKILL_SHORTLIST) });
     const { method, hits } = await rankOrgSkills(query, found, limit, {
+      root,
       onError: (err) =>
         process.stderr.write(
           `[org skills] decision model "${err.provider}" unavailable (${err.message})\n`,

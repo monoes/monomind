@@ -5,7 +5,7 @@
  * skills.
  */
 import type { OrgRole } from '../orgrt/types.js';
-import { orgSkillCatalog, roleCatalog } from './catalogs.js';
+import { jevVisible, orgSkillCatalog, roleCatalog } from './catalogs.js';
 import {
   acceptAgent,
   acceptSkills,
@@ -133,27 +133,35 @@ export async function pickRoleForTask(
 }
 
 /** Re-rank `org skills search` keyword hits by Jev; unranked hits keep their
- *  keyword order after the ranked ones. */
+ *  keyword order after the ranked ones. Only hits `jevVisible` under `root`
+ *  are sent; the others stay in keyword order among the unranked. */
 export async function rankOrgSkills<
   T extends { name: string; description: string; tags: string[] },
 >(
   query: string,
   found: T[],
   limit: number,
-  opts: PickOptions = {},
+  opts: PickOptions & { root?: string } = {},
 ): Promise<{ method: 'jev' | 'keyword'; hits: (T & { probability?: number })[] }> {
   const keyword = { method: 'keyword' as const, hits: found.slice(0, limit) };
   if (found.length < 2) return keyword;
+  const { root, ...pickOpts } = opts;
+  const sendable = jevVisible(root, found);
+  if (sendable.length === 0) return keyword;
   const picked = await pickWithJev(
     query,
     {
-      skills: found.map((s) => ({
+      skills: sendable.map((s) => ({
         id: s.name,
         description: s.description,
         text: s.tags.join(' '),
       })),
     },
-    { ...opts, maxCandidates: found.length, skillInstructions: 'Which skill best fits this need?' },
+    {
+      ...pickOpts,
+      maxCandidates: sendable.length,
+      skillInstructions: 'Which skill best fits this need?',
+    },
   );
   if (!picked?.skill || acceptSkills(picked.skill, opts.env, found.length).length === 0)
     return keyword;

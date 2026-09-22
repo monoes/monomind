@@ -1,7 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 import { migrateOrgConfig } from '../../src/orgrt/migrate.js';
 import {
@@ -13,6 +13,7 @@ import {
   parseFrontmatter,
   roleSkillGuidance,
   searchSkills,
+  skillToolProvider,
   validateRoleSkills,
 } from '../../src/orgrt/skill-library.js';
 import { buildOrgTools } from '../../src/orgrt/session.js';
@@ -142,5 +143,34 @@ describe('migration off ui.icon', () => {
     expect(roles[0].skills).toEqual(['coder']);
     expect(roles[1].skills).toBeUndefined();
     expect(notes.some((n) => n.includes('ui.icon "coder"'))).toBe(true);
+  });
+});
+
+describe('without catalog state', () => {
+  it('returns exactly what the library returned with the catalog stubbed out', async () => {
+    const root = project({
+      'zz-api': { fm: 'description: "Backend API reviewer"\ntags: [backend]\ntools: [monograph_query]' },
+    });
+    const role = { skills: ['zz-api'], skill_pool: ['tag:backend', 'coder'] };
+    const capture = (lib: typeof import('../../src/orgrt/skill-library.js')) => ({
+      list: lib.listSkills(root),
+      search: lib.searchSkills('backend api reviewer', root),
+      guidance: lib.roleSkillGuidance(role, root),
+      provider: lib.skillToolProvider(role, root),
+    });
+    const actual = capture({ listSkills, searchSkills, roleSkillGuidance, skillToolProvider } as never);
+    vi.resetModules();
+    vi.doMock('../../src/catalog/snapshot.js', () => ({
+      buildSnapshot: () => ({ assets: [], diagnostics: [], stateVersion: null }),
+      eligible: () => [],
+    }));
+    try {
+      const stubbed = capture(await import('../../src/orgrt/skill-library.js'));
+      expect(actual).toEqual(stubbed);
+      expect(existsSync(join(root, '.monomind', 'catalog'))).toBe(false);
+    } finally {
+      vi.doUnmock('../../src/catalog/snapshot.js');
+      vi.resetModules();
+    }
   });
 });
