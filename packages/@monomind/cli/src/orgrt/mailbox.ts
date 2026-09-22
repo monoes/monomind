@@ -65,6 +65,16 @@ export class Mailbox {
    *  instance — a draining mailbox is being retired, not reused. */
   private draining = false;
   private lastStreamEndValue?: 'boundary' | 'idle';
+  /** True while stream() or waitForMessage() is parked on an empty queue. */
+  private parked = false;
+
+  /** The role has nothing to process: it is parked waiting for mail, either
+   *  inside stream() between turns or in waitForMessage() with its process
+   *  down (run_config.session_idle_exit_ms). Read by the no-progress alarm —
+   *  a role waiting for work is not stalled on it. */
+  get awaitingMail(): boolean {
+    return this.parked && this.queue.length === 0;
+  }
 
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
   get consumedRealCount(): number {
@@ -162,6 +172,7 @@ export class Mailbox {
     // belonged to a now-dead generator and reclaimInFlight() (called from the
     // crash-retry path, if at all) already had its chance to act on it.
     this.inFlight = null;
+    this.parked = false;
     while (true) {
       while (this.queue.length > 0) {
         if (gen !== this.generation) return; // superseded — leave the queue for the live generator
@@ -192,6 +203,7 @@ export class Mailbox {
         if (this.draining) return;
       }
       if (this.closed || gen !== this.generation || this.draining) return;
+      this.parked = true;
       const woke = await new Promise<boolean>((r) => {
         this.wake = () => r(true);
         if (opts.idleExitMs !== undefined) {
@@ -200,6 +212,7 @@ export class Mailbox {
         }
       });
       if (gen !== this.generation) return;
+      this.parked = false;
       if (!woke) {
         // D3: idle long enough — end the stream so the role's process can
         // exit; the next push waits in the queue for a resumed session.
@@ -228,9 +241,11 @@ export class Mailbox {
       if (this.draining) return false;
       if (this.queue.length > 0) return true;
       if (this.closed) return false;
+      this.parked = true;
       await new Promise<void>((r) => {
         this.wake = r;
       });
+      this.parked = false;
     }
   }
 

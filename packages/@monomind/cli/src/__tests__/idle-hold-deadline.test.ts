@@ -41,6 +41,7 @@ import type { OrgDaemon } from '../orgrt/daemon.js';
 import {
   advanceHold,
   HOLD_TTL_MS,
+  hookedOnWork,
   NO_PROGRESS_MS,
   noProgressRoles,
   readIdleStatus,
@@ -220,6 +221,29 @@ describe('no-progress detector', () => {
         t,
       ),
     ).toEqual([]);
+  });
+
+  // The release org's first run: `publisher` had no task, its process had
+  // exited on session_idle_exit_ms and was parked waiting for mail — and the
+  // runtime called it "hooked but producing nothing".
+  describe('hookedOnWork — only a role with work can be stalled on it', () => {
+    const idle = { runningTask: false, queuedMail: false, awaitingMail: true };
+
+    it('a role with no task, no mail, parked waiting for mail is NOT hooked', () => {
+      expect(hookedOnWork(idle)).toBe(false);
+    });
+
+    it('a role with a running task is hooked, even while parked', () => {
+      expect(hookedOnWork({ ...idle, runningTask: true })).toBe(true);
+    });
+
+    it('a role with undelivered mail is hooked', () => {
+      expect(hookedOnWork({ ...idle, queuedMail: true })).toBe(true);
+    });
+
+    it('a role mid-turn (not parked on its mailbox) is hooked', () => {
+      expect(hookedOnWork({ ...idle, awaitingMail: false })).toBe(true);
+    });
   });
 
   it('alarms once per spell, not on every watchdog tick', () => {

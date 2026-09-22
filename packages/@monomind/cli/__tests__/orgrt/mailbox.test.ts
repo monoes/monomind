@@ -13,6 +13,35 @@ describe('Mailbox', () => {
     expect((await it.next()).value.message.content).toBe('second');
   });
 
+  // The no-progress alarm must tell a role parked on an empty mailbox (idle
+  // by design) from one that is mid-turn and silent.
+  it('reports awaitingMail only while parked on an empty mailbox', async () => {
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    const mb = new Mailbox();
+    expect(mb.awaitingMail).toBe(false);
+
+    // Parked in waitForMessage (the session_idle_exit_ms path: process down).
+    const waiting = mb.waitForMessage();
+    await tick();
+    expect(mb.awaitingMail).toBe(true);
+    mb.push('work');
+    expect(await waiting).toBe(true);
+    expect(mb.awaitingMail).toBe(false);
+
+    // Mid-turn: a message was yielded and the consumer has not pulled again.
+    const it = mb.stream()[Symbol.asyncIterator]();
+    await it.next();
+    expect(mb.awaitingMail).toBe(false);
+
+    // Pulled again with nothing queued: parked inside stream().
+    const next = it.next();
+    await tick();
+    expect(mb.awaitingMail).toBe(true);
+    mb.push('more');
+    await next;
+    expect(mb.awaitingMail).toBe(false);
+  });
+
   it('waits for future messages and ends on close', async () => {
     const mb = new Mailbox();
     const collected: string[] = [];

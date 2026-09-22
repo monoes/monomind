@@ -95,6 +95,19 @@ export function advanceHold(
  *  ended or crashed is silent for a good reason and is not reported. */
 export const NO_PROGRESS_MS = 30 * 60_000;
 
+/** Whether a live role has work it could be stalled on: a running task, mail
+ *  it has not taken yet, or a turn in progress (it is not parked on its
+ *  mailbox). A role with none of these — no task, nothing queued, parked
+ *  waiting for mail, or its process down after session_idle_exit_ms — is
+ *  idle by design, and its silence is not a stall. */
+export function hookedOnWork(r: {
+  runningTask: boolean;
+  queuedMail: boolean;
+  awaitingMail: boolean;
+}): boolean {
+  return r.runningTask || r.queuedMail || !r.awaitingMail;
+}
+
 export function noProgressRoles(
   roles: ReadonlyArray<{ id: string; working: boolean; lastActivity: number; alarmed: boolean }>,
   now: number,

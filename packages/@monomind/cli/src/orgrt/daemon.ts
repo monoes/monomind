@@ -58,6 +58,7 @@ import {
   advanceHold,
   clearIdleRecord,
   type HoldTrack,
+  hookedOnWork,
   type IdleHoldState,
   noProgressRoles,
   projectIdleStop,
@@ -1475,10 +1476,25 @@ export class OrgDaemon {
       // audit event. Once per spell: the bus subscriber clears the flag as
       // soon as the role emits anything.
       const alarmNoProgress = (now: number): void => {
+        // Only a role with work can be stalled on it: one with no task and no
+        // mail, parked on its mailbox (or with its process down after
+        // session_idle_exit_ms), is waiting, not hooked.
+        const withTask = new Set(
+          (running.taskDag?.all() ?? [])
+            .filter((t) => t.status === 'running')
+            .map((t) => t.assignee),
+        );
         const stalled = noProgressRoles(
           [...running.agents].map(([id, rt]) => ({
             id,
-            working: rt.status === 'running' && !rt.mailbox.isClosed,
+            working:
+              rt.status === 'running' &&
+              !rt.mailbox.isClosed &&
+              hookedOnWork({
+                runningTask: withTask.has(id),
+                queuedMail: rt.mailbox.peek() !== undefined,
+                awaitingMail: rt.mailbox.awaitingMail,
+              }),
             lastActivity: roleActivity.get(id) ?? lastActivity,
             alarmed: noProgressAlarmed.has(id),
           })),
