@@ -2,7 +2,7 @@
  * Tests for group-sync.ts and contract-registry.ts
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -15,6 +15,25 @@ import {
   loadContractRegistry,
   type HttpContract,
 } from '../../src/groups/contract-registry.js';
+
+// syncGroup writes the registry through the product's saveContractRegistry,
+// which is durable on purpose: one transaction, but still 8 fsyncs for a new
+// registry file (WAL switch + commit + checkpoint) — 32 across the syncGroup
+// tests. On a CI disk that is still flushing the dependency install each
+// fsync can stall for seconds, which timed these tests out (see 6811e7811).
+// The tests check what gets written, not that it survives power loss, so
+// every connection opened here skips fsync. Journal and WAL files are still
+// written and the registry file is still read back from disk.
+vi.mock('better-sqlite3', async (importOriginal) => {
+  const { default: RealDatabase } = await importOriginal<typeof import('better-sqlite3')>();
+  class NoFsyncDatabase extends RealDatabase {
+    constructor(...args: ConstructorParameters<typeof RealDatabase>) {
+      super(...args);
+      this.pragma('synchronous = OFF');
+    }
+  }
+  return { default: NoFsyncDatabase };
+});
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
