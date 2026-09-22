@@ -366,29 +366,57 @@ describe('checkTaskEvidence — ADR-O001 D5 (opt-in via run_config.completion_ev
  * where its refusals pushed roles into the wrong move.
  */
 describe('checkTaskEvidence — lessons from the first release-org run', () => {
-  const check = (c: { command: string; exitCode: number; expectExit?: number }) =>
-    checkTaskEvidence({ ...PASSING, evidence: { headSha: HEAD, checks: [c] } });
+  const check = (c: {
+    command: string;
+    exitCode: number;
+    expectExit?: number;
+    expectReason?: string;
+  }) => checkTaskEvidence({ ...PASSING, evidence: { headSha: HEAD, checks: [c] } });
 
   // A branch-protection GET that 404s, `git config --get` of an unset key,
   // `agent exec --timeout 1s` → 124: the correct outcome is non-zero. Refusing
   // them taught roles to append `|| true`, which destroys the evidence.
+  // (Each declaration also carries its `expectReason` — see the guardrail
+  // block at the end of this file.)
   describe('expectExit — checks whose correct outcome is non-zero', () => {
     it('accepts a check whose exit code equals its declared expectExit', () => {
-      expect(check({ command: 'git config --get x.unset', exitCode: 1, expectExit: 1 })).toBeNull();
       expect(
-        check({ command: 'agent exec --timeout 1s', exitCode: 124, expectExit: 124 }),
+        check({
+          command: 'git config --get x.unset',
+          exitCode: 1,
+          expectExit: 1,
+          expectReason: 'the key must stay unset',
+        }),
+      ).toBeNull();
+      expect(
+        check({
+          command: 'agent exec --timeout 1s',
+          exitCode: 124,
+          expectExit: 124,
+          expectReason: 'the 1s timeout must fire',
+        }),
       ).toBeNull();
     });
 
     it('refuses exit 0 when a non-zero exit was expected, naming expected and actual', () => {
-      const msg = check({ command: 'gh api branches/main/protection', exitCode: 0, expectExit: 1 });
+      const msg = check({
+        command: 'gh api branches/main/protection',
+        exitCode: 0,
+        expectExit: 1,
+        expectReason: '404 = branch not protected',
+      });
       expect(msg).not.toBeNull();
       expect(msg).toMatch(/expected exit 1/);
       expect(msg).toMatch(/got exit 0/);
     });
 
     it('refuses a different non-zero code than the one expected', () => {
-      const msg = check({ command: 'agent exec --timeout 1s', exitCode: 1, expectExit: 124 });
+      const msg = check({
+        command: 'agent exec --timeout 1s',
+        exitCode: 1,
+        expectExit: 124,
+        expectReason: 'the 1s timeout must fire',
+      });
       expect(msg).toMatch(/expected exit 124/);
       expect(msg).toMatch(/got exit 1/);
     });
@@ -433,5 +461,116 @@ describe('checkTaskEvidence — lessons from the first release-org run', () => {
     expect(msg).toMatch(/built from/i);
     expect(msg).toMatch(/headSha/);
     expect(msg).toContain('/repo/wt/release');
+  });
+});
+
+/**
+ * The 2.15.6 release run showed the other edge of `expectExit`: a role put
+ * `expectExit: 1` on `pnpm run test:all:run` — a ~7,800-test suite — and the
+ * gate accepted it. A suite's exit code is not one outcome: exit 1 means "at
+ * least one of 7,800 things failed", so declaring it expected accepts every
+ * OTHER failure in that suite too. A human had to read the log by hand to
+ * confirm only the known-failing test had failed.
+ *
+ * Two rules, both enforced here, neither of which touches a legitimate use
+ * (a 404 GET, an unset `git config --get`, a timeout that must fire):
+ *   1. `expectExit` on a suite/aggregate command is refused outright.
+ *   2. Any other `expectExit` needs a one-line `expectReason`.
+ */
+describe('checkTaskEvidence — expectExit may not hide failures in an aggregate command', () => {
+  const check = (c: {
+    command: string;
+    exitCode: number;
+    expectExit?: number;
+    expectReason?: string;
+  }) => checkTaskEvidence({ ...PASSING, evidence: { headSha: HEAD, checks: [c] } });
+
+  // Detection is on the command string, conservatively: these are the shapes
+  // roles actually write. Each is refused with the WHY, not just a "no".
+  const SUITES = [
+    'pnpm run test:all:run',
+    'pnpm test',
+    'npm test',
+    'yarn test',
+    'npm run test:unit',
+    'pnpm --filter @monomind/cli run test',
+    'pnpm -r build && pnpm -r test',
+    'npx vitest run',
+    'npx jest --ci',
+    'node --test',
+    'pnpm run verify',
+    'cd packages/@monomind/cli && npx vitest run',
+  ];
+  it.each(SUITES)('refuses expectExit on a suite/aggregate command: %s', (command) => {
+    const msg = check({ command, exitCode: 1, expectExit: 1, expectReason: 'one known failure' });
+    expect(msg).not.toBeNull();
+    expect(msg).toContain(command);
+    // The refusal must say what it hides, and what to do instead.
+    expect(msg).toMatch(/hides|any other failure|not a single outcome/i);
+    expect(msg).toMatch(/expectExit/);
+    expect(msg).toMatch(/exclu/i);
+  });
+
+  // The way out named by the refusal has to actually work, or the guardrail
+  // just traps the role: one test FILE on its own is a narrowed command.
+  it('accepts expectExit on a single test file run with a reason', () => {
+    expect(
+      check({
+        command: 'npx vitest run src/__tests__/known-red.test.ts',
+        exitCode: 1,
+        expectExit: 1,
+        expectReason: 'the one known-failing case, tracked in #320',
+      }),
+    ).toBeNull();
+  });
+
+  it('refuses expectExit with no expectReason, naming the check', () => {
+    const command = 'gh api repos/x/branches/main/protection';
+    const msg = check({ command, exitCode: 1, expectExit: 1 });
+    expect(msg).not.toBeNull();
+    expect(msg).toMatch(/expectReason/);
+    expect(msg).toContain(command);
+  });
+
+  it('refuses an expectReason that is blank or a placeholder', () => {
+    for (const expectReason of ['', '   ', 'x']) {
+      expect(
+        check({ command: 'git config --get x.unset', exitCode: 1, expectExit: 1, expectReason }),
+      ).toMatch(/expectReason/);
+    }
+  });
+
+  // The legitimate uses this guardrail must not break.
+  it.each([
+    ['gh api repos/o/r/branches/main/protection', 1, '404 = branch not protected'],
+    ['git config --get user.signingkey', 1, 'the key must stay unset on this box'],
+    ['timeout 1s monomind agent exec --prompt hi', 124, 'the 1s timeout must fire'],
+    ['grep -q FIXME src/index.ts', 1, 'no FIXME may remain'],
+  ] as const)(
+    'accepts a single-purpose check with a reason: %s',
+    (command, exitCode, expectReason) => {
+      expect(check({ command, exitCode, expectExit: exitCode, expectReason })).toBeNull();
+    },
+  );
+
+  // `expectExit: 0` declares nothing — it is the default, so it needs no
+  // reason and is not an aggregate declaration even on a suite command.
+  it('treats expectExit 0 as the default: no reason needed, suites unaffected', () => {
+    expect(check({ command: 'pnpm run test:all:run', exitCode: 0, expectExit: 0 })).toBeNull();
+    expect(check({ command: 'pnpm test', exitCode: 0 })).toBeNull();
+    expect(check({ command: 'pnpm test', exitCode: 1, expectExit: 0 })).toMatch(/expected exit 0/);
+  });
+
+  // A declared reason is part of the record, not just the argument that got
+  // the check past the gate: it shows up wherever the exit code shows up.
+  it('carries the reason into the mismatch refusal', () => {
+    const msg = check({
+      command: 'gh api repos/o/r/branches/main/protection',
+      exitCode: 0,
+      expectExit: 1,
+      expectReason: '404 = branch not protected',
+    });
+    expect(msg).toMatch(/expected exit 1/);
+    expect(msg).toContain('404 = branch not protected');
   });
 });

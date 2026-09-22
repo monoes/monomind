@@ -48,9 +48,19 @@ never values remembered from an earlier run.
   - `checks`: one { command, exitCode, output } per acceptance criterion — the
     real command, its real exit code, the tail of its output. When the correct
     outcome is a non-zero exit (a 404 GET, an unset `git config --get`, a
-    `--timeout 1s` run exiting 124), add `expectExit: <code>`. Never append
-    `|| true` or otherwise rewrite a command to force exit 0: that destroys the
-    evidence.
+    `--timeout 1s` run exiting 124), add `expectExit: <code>` AND a one-line
+    `expectReason` saying why ("404 = branch not protected"); `expectExit`
+    without a reason is refused. Never append `|| true` or otherwise rewrite a
+    command to force exit 0: that destroys the evidence.
+  - `expectExit` is for SINGLE-PURPOSE commands only. It is refused on a test
+    suite or any aggregate runner (`vitest`, `jest`, a `pnpm`/`npm`/`yarn` test
+    script, `node --test`, `pnpm -r`, `pnpm --filter … test`, `run verify`,
+    `test:all`): a suite's exit code means "at least one of thousands of things
+    failed", so declaring it expected accepts every OTHER failure too. When a
+    suite has one known-failing test, run that test file on its own
+    (`npx vitest run path/to/one.test.ts`) and put `expectExit` on THAT check,
+    or exclude it from the suite command so the suite exits 0 and record the
+    exclusion and why in the `result` table.
   - A REPORT task (QA, audit) is done when its checks RAN, not when they passed.
     Its acceptance checks prove the report exists and is complete (e.g.
     `test -s $GATE/logs/<round>/report.md`); every FAIL you found goes in the

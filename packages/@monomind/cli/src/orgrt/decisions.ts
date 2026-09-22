@@ -10,7 +10,13 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { checkTaskEvidence, type LocalHead, type TaskEvidence } from './completion-gate.js';
+import {
+  checkTaskEvidence,
+  declaresExpectExit,
+  expectSuffix,
+  type LocalHead,
+  type TaskEvidence,
+} from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
@@ -461,10 +467,7 @@ function resolveEvidenceWorktree(
  *  not just a prose claim that the work is done. */
 function evidenceSummary(ev: TaskEvidence): string {
   const lines = ev.checks
-    .map(
-      (c) =>
-        `  $ ${c.command} → exit ${c.exitCode}${c.expectExit !== undefined ? ` (expected ${c.expectExit})` : ''}`,
-    )
+    .map((c) => `  $ ${c.command} → exit ${c.exitCode}${expectSuffix(c)}`)
     .join('\n');
   return `evidence @ ${ev.headSha}:\n${lines}`;
 }
@@ -599,6 +602,26 @@ export function dagCompleteTask(
       msg: `task ${taskId} completed${promoted.length ? ` — ${promoted.map((t) => t.id).join(', ')} now ready` : ''}`,
       data: { taskId, promoted: promoted.map((t) => t.id), evidence },
     });
+    // A check accepted at a non-zero exit is the one place the gate takes the
+    // role's word for what an exit code MEANS. Each one gets its own audit
+    // event so they can be swept after the run without re-reading every task
+    // — the 2.15.6 misuse was only found because a human read the log.
+    for (const c of evidence?.checks ?? []) {
+      if (!declaresExpectExit(c)) continue;
+      running.bus.emit({
+        type: 'audit',
+        from: role,
+        reason: 'evidence-expect-exit',
+        msg: `task ${taskId} closed with \`${c.command}\` accepted at exit ${c.exitCode}${expectSuffix(c)}`,
+        data: {
+          taskId,
+          role,
+          command: c.command,
+          expectExit: c.expectExit,
+          expectReason: c.expectReason,
+        },
+      });
+    }
     if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
     // run_config.notify_task_creator: a completion otherwise lives only on
     // the bus, and a creator waiting on it stays idle until the watchdog.

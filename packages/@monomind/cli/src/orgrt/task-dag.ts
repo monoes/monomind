@@ -142,6 +142,7 @@ export class TaskDag {
         command: c.command,
         exitCode: c.exitCode,
         ...(c.expectExit !== undefined ? { expectExit: c.expectExit } : {}),
+        ...(c.expectReason !== undefined ? { expectReason: c.expectReason } : {}),
         ...(c.output !== undefined ? { output: capText(c.output, EVIDENCE_OUTPUT_CAP) } : {}),
       })),
     };

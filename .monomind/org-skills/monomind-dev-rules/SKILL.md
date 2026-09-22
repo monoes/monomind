@@ -67,7 +67,16 @@ remembered from an earlier task or run.
   or the final report), `checks`: one { command, exitCode, output } per
   acceptance criterion — the real command, its real exit code, the tail of its
   output }. When the correct outcome is a non-zero exit, add `expectExit: <code>`
-  to that check — never append `|| true`. A check that misses its expected exit
+  to that check plus a one-line `expectReason` saying why ("404 = branch not
+  protected") — never append `|| true`, and `expectExit` without a reason is
+  refused. `expectExit` is for SINGLE-PURPOSE commands only: it is refused on a
+  test suite or any aggregate runner (`vitest`, `jest`, a `pnpm`/`npm`/`yarn`
+  test script, `node --test`, `pnpm -r`, `pnpm --filter … test`, `run verify`,
+  `test:all`), because a suite's exit code means "at least one of many things
+  failed" and accepting it accepts every OTHER failure too. With one
+  known-failing test, run that file alone (`npx vitest run path/to/one.test.ts`)
+  and declare `expectExit` on THAT check, or exclude it so the suite exits 0 and
+  record the exclusion in the result. A check that misses its expected exit
   or a sha that is no longer that worktree's HEAD is refused; after 3 refusals the task is failed and escalated to dev-lead. A task
   with nothing to run (a verdict, a plan) still names the command that proves
   it — e.g. `test -s <plan or verdict path>`, or `head -1 <verdict file>`.

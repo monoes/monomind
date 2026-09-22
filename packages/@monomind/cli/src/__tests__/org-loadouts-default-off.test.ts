@@ -151,4 +151,7 @@ const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e
 // Recaptured when each evidence check gained an optional `expectExit` (a
 // check whose correct outcome is a non-zero exit). The schema is shared by
 // every org; the description for orgs without completion_evidence is unchanged.
-const TOOLS_SHA = '6f9cb661afd50c05189946a7d0af5e790c18ea8a44a2164878040f0b7c030916';
+// Recaptured again when `expectExit` gained its guardrail: checks take an
+// `expectReason` (required alongside a non-zero `expectExit`) and the
+// evidence description says `expectExit` is refused on an aggregate command.
+const TOOLS_SHA = 'f332a9004f2639d19c47109404e17b98e9d4425006e3faf3503cc701e76c74ea';

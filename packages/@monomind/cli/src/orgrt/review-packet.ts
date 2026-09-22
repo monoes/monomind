@@ -9,7 +9,7 @@
  * shas the verifier then failed, three times out of three.
  */
 import { execFileSync } from 'node:child_process';
-import type { TaskEvidence } from './completion-gate.js';
+import { expectSuffix, type TaskEvidence } from './completion-gate.js';
 
 /** Per-check output kept on the task row (and so in the packet). */
 export const EVIDENCE_OUTPUT_CAP = 4_000;
@@ -65,8 +65,7 @@ export function buildReviewPacket(p: ReviewPacketInput): string {
           const out = c.output
             ? `\n${capText(c.output, EVIDENCE_OUTPUT_CAP)}`
             : '\n(no output recorded)';
-          const expected = c.expectExit !== undefined ? ` (expected ${c.expectExit})` : '';
-          return `$ ${c.command}\n→ exit ${c.exitCode}${expected}${out}`;
+          return `$ ${c.command}\n→ exit ${c.exitCode}${expectSuffix(c)}${out}`;
         })
         .join('\n\n')
     : '(no acceptance commands were submitted)';

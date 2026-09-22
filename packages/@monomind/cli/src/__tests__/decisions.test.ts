@@ -485,15 +485,66 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
   });
 
   it('accepts a check whose declared expectExit matched, and records the expectation on the task', () => {
-    const { daemon, sha, taskDag, task } = setup(true);
+    const { daemon, sha, taskDag, task, events } = setup(true);
     const out = JSON.parse(
       dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'unset key stays unset', {
         headSha: sha,
-        checks: [{ command: 'git config --get x.unset', exitCode: 1, expectExit: 1 }],
+        checks: [
+          {
+            command: 'git config --get x.unset',
+            exitCode: 1,
+            expectExit: 1,
+            expectReason: 'the key must stay unset',
+          },
+        ],
       }),
     );
     expect(out.done).toBe(task.id);
-    expect(taskDag.get(task.id)?.result).toContain('exit 1 (expected 1)');
+    // The reason travels with the exit code — a reader of the task row sees
+    // WHY exit 1 was accepted, not just that it was.
+    expect(taskDag.get(task.id)?.result).toContain('exit 1 (expected 1: the key must stay unset)');
+    // Every accepted expectExit is auditable after the fact, without
+    // re-reading the task: it is a bus event of its own.
+    const audit = events.find((e) => e.reason === 'evidence-expect-exit');
+    expect(audit?.data).toMatchObject({
+      taskId: task.id,
+      role: 'dev',
+      command: 'git config --get x.unset',
+      expectExit: 1,
+      expectReason: 'the key must stay unset',
+    });
+    daemon.orgs.delete('alpha');
+  });
+
+  it('refuses expectExit on a whole test suite — the misuse that shipped in 2.15.6', () => {
+    const { daemon, sha, taskDag, task, events } = setup(true);
+    const out = JSON.parse(
+      dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'suite is green but for one', {
+        headSha: sha,
+        checks: [
+          {
+            command: 'pnpm run test:all:run',
+            exitCode: 1,
+            expectExit: 1,
+            expectReason: 'one known-failing test',
+          },
+        ],
+      }),
+    );
+    expect(out.error).toMatch(/expectExit/);
+    expect(out.requeued).toBe(task.id);
+    expect(taskDag.get(task.id)?.status).not.toBe('done');
+    expect(events.find((e) => e.reason === 'evidence-expect-exit')).toBeUndefined();
+    daemon.orgs.delete('alpha');
+  });
+
+  it('emits no expect-exit audit for an ordinary exit-0 close', () => {
+    const { daemon, sha, task, events } = setup(true);
+    dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'green', {
+      headSha: sha,
+      checks: [{ command: 'pnpm vitest run thing.test.ts', exitCode: 0 }],
+    });
+    expect(events.find((e) => e.reason === 'evidence-expect-exit')).toBeUndefined();
     daemon.orgs.delete('alpha');
   });
 

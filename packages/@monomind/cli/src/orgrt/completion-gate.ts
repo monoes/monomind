@@ -176,11 +176,66 @@ export interface EvidenceCheck {
    *  code in the record; the alternative roles reached for, `|| true`,
    *  throws it away. */
   expectExit?: number;
+  /** One line saying why that non-zero exit is the CORRECT outcome ("404 =
+   *  branch not protected"). Required whenever `expectExit` is non-zero:
+   *  without it, declaring an expectation and muting a real failure look
+   *  identical to everyone downstream. */
+  expectReason?: string;
   output?: string;
 }
 
 /** The exit code a check must return to pass. */
 export const expectedExit = (c: EvidenceCheck): number => c.expectExit ?? 0;
+
+/** True when the check declares a non-zero expected exit. `expectExit: 0` is
+ *  the default and declares nothing, so it needs no reason and is not
+ *  audited. */
+export const declaresExpectExit = (c: EvidenceCheck): boolean => expectedExit(c) !== 0;
+
+/** How a declared expectation renders wherever a check is shown — the review
+ *  packet, the task's stored result, a refusal. The reason rides along with
+ *  the code so a reader never has to go looking for it. */
+export const expectSuffix = (c: EvidenceCheck): string =>
+  c.expectExit === undefined
+    ? ''
+    : ` (expected ${c.expectExit}${c.expectReason ? `: ${c.expectReason}` : ''})`;
+
+/**
+ * 2.15.6: a role put `expectExit: 1` on `pnpm run test:all:run` — ~7,800
+ * tests. Exit 1 there means "at least one of 7,800 things failed", so the
+ * gate accepted every other failure in the suite along with the one the role
+ * meant. A human had to read the log to find out which had actually failed.
+ *
+ * Detection is on the command string and deliberately conservative — it
+ * matches the shapes roles write, not an attempt to understand shell. A
+ * false positive costs a role one narrowed command; a false negative costs a
+ * silent pass, which is the failure being fixed.
+ */
+const AGGREGATE_PATTERNS: Array<[RegExp, string]> = [
+  [/\bvitest\b/, 'a vitest suite'],
+  [/\bjest\b/, 'a jest suite'],
+  [/\b(?:npm|pnpm|yarn|bun)\b[^&|;]*?\b(?:run\s+)?test[:\w-]*(?:\s|$)/, 'a test script'],
+  [/\bnode\b[^&|;]*--test\b/, "node's test runner"],
+  [/\bpnpm\b[^&|;]*\s-r(?:\s|$)/, 'every package in the workspace (pnpm -r)'],
+  [/\bpnpm\b[^&|;]*--filter\b[^&|;]*\btest/, 'a filtered workspace test run'],
+  [/\brun\s+verify\b/, 'an aggregate verify script'],
+  [/\btest:all\b/, 'the whole test suite'],
+];
+
+/** A command that names a concrete test file is already narrowed to it —
+ *  that is the way out the aggregate refusal points at, so it must pass. */
+const NAMES_A_TEST_FILE = /[\w./@-]+[._-](?:test|spec)\.[cm]?[jt]sx?\b/;
+
+/** What `command` aggregates, or null when its exit code is one outcome. */
+export function aggregateCommand(command: string): string | null {
+  if (NAMES_A_TEST_FILE.test(command)) return null;
+  for (const [re, what] of AGGREGATE_PATTERNS) if (re.test(command)) return what;
+  return null;
+}
+
+/** An `expectReason` shorter than this is not a reason — "x" must not pass,
+ *  while "404 = no protection" must. */
+const MIN_REASON_LEN = 8;
 
 export interface TaskEvidence {
   /** The commit sha the checks were run against. */
@@ -223,7 +278,7 @@ export interface TaskEvidenceFacts {
 const MIN_SHA_LEN = 7;
 
 const EVIDENCE_SHAPE =
-  'Attach evidence: { headSha: "<the current commit sha>", worktree: "<the worktree you ran in, if not the org workspace>", checks: [{ command, exitCode, expectExit?, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output. Set expectExit only when the criterion is met by a non-zero exit (e.g. 1 for a lookup that must find nothing, 124 for a timeout that must fire).';
+  'Attach evidence: { headSha: "<the current commit sha>", worktree: "<the worktree you ran in, if not the org workspace>", checks: [{ command, exitCode, expectExit?, expectReason?, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output. Set expectExit only when a SINGLE-PURPOSE command is met by a non-zero exit (e.g. 1 for a lookup that must find nothing, 124 for a timeout that must fire), and always say why in expectReason; never on a test suite or any other aggregate command.';
 
 /** How a task whose job is to REPORT closes. Its failures are findings, not
  *  acceptance checks; its acceptance commands prove the report exists. */
@@ -258,16 +313,25 @@ export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
     if (!c.command.trim()) {
       return `org_task_done refused: an evidence entry has an empty command. Every check must name the command that was actually run. ${EVIDENCE_SHAPE}`;
     }
+    if (!declaresExpectExit(c)) continue;
+    const aggregate = aggregateCommand(c.command);
+    if (aggregate) {
+      return `org_task_done refused: expectExit ${c.expectExit} on \`${c.command}\` — that command runs ${aggregate}, and its exit code is not a single outcome. Exit ${c.exitCode} there means "at least one thing failed", so accepting it accepts ANY other failure in the same run: the failure you know about and a brand-new regression are the same exit code, and the gate cannot tell them apart. Run the one failing test file on its own (e.g. \`npx vitest run path/to/one.test.ts\`) and declare expectExit on THAT check, or exclude the known failure from this command (\`--exclude\`, \`-t\`, a skip) so it exits 0, and record the exclusion and why in \`result\`.`;
+    }
+    const reason = (c.expectReason ?? '').trim();
+    if (reason.length < MIN_REASON_LEN) {
+      return `org_task_done refused: expectExit ${c.expectExit} on \`${c.command}\` needs an expectReason — one line saying why that non-zero exit is the CORRECT outcome (e.g. "404 = branch not protected", "the key must stay unset", "the 1s timeout must fire"), at least ${MIN_REASON_LEN} characters. Without it, a declared expectation and a muted failure are indistinguishable to the coordinator and the reviewer, who see only the exit code.`;
+    }
   }
   const failed = ev.checks.filter((c) => c.exitCode !== expectedExit(c));
   if (failed.length > 0) {
     const detail = failed
       .map(
         (c) =>
-          `  $ ${c.command}\n  expected exit ${expectedExit(c)}, got exit ${c.exitCode}${c.output ? `\n  ${c.output}` : ''}`,
+          `  $ ${c.command}\n  expected exit ${expectedExit(c)}${c.expectReason ? ` (${c.expectReason})` : ''}, got exit ${c.exitCode}${c.output ? `\n  ${c.output}` : ''}`,
       )
       .join('\n');
-    return `org_task_done refused: ${failed.length} acceptance command(s) did not exit as expected — the task is not done.\n${detail}\nFix the failure, re-run the checks, and close it again; the task goes back in your queue. If a non-zero exit IS the correct outcome, declare it with expectExit on that check — never append \`|| true\`, which erases the exit code the gate is checking. ${REPORT_TASK_HINT}`;
+    return `org_task_done refused: ${failed.length} acceptance command(s) did not exit as expected — the task is not done.\n${detail}\nFix the failure, re-run the checks, and close it again; the task goes back in your queue. If a non-zero exit IS the correct outcome, declare it with expectExit plus a one-line expectReason on that check — never append \`|| true\`, which erases the exit code the gate is checking, and never on a test suite or other aggregate command, whose exit code is not one outcome. ${REPORT_TASK_HINT}`;
   }
   const heads: LocalHead[] = f.heads?.length ? f.heads : f.headSha ? [{ sha: f.headSha }] : [];
   if (heads.length === 0) {
