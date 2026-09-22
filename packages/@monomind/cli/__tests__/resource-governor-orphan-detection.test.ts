@@ -108,6 +108,39 @@ describe('resource-governor — orphan detection', () => {
     expect(killMock).not.toHaveBeenCalled();
   });
 
+  it('reapOrphanedSdkProcesses without ownerPid preserves a live process whose ppid is 1 only because the invoking shell IS pid 1 (PID-namespace sandbox)', async () => {
+    platformMock = vi.fn(() => 'linux');
+    // Mock ps output as seen from inside a `bwrap --unshare-pid`-style
+    // sandbox: the invoking shell is pid 1 of its own namespace (not an
+    // init/subreaper), and it has a live, non-orphaned SDK-pattern child
+    // whose ppid therefore reads as 1 too.
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+    1     0 -bash
+ 5678     1 node /path/to/claude-agent-sdk --output-format json
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(0);
+    expect(killMock).not.toHaveBeenCalled();
+  });
+
+  it('reapOrphanedSdkProcesses without ownerPid still kills a process whose visible pid-1 parent really is an init/subreaper', async () => {
+    platformMock = vi.fn(() => 'linux');
+    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
+    1     0 /sbin/init
+ 5678     1 node /path/to/claude-agent-sdk --output-format json
+`);
+
+    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
+    const reaped = reapOrphanedSdkProcesses(new Set());
+
+    expect(reaped).toBe(1);
+    expect(killMock).toHaveBeenCalledTimes(1);
+    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
+  });
+
   it('reapOrphanedSdkProcesses with ownerPid kills only children of that owner', async () => {
     platformMock = vi.fn(() => 'linux');
     // Mock ps output with multiple processes

@@ -135,6 +135,15 @@ export async function waitForCapacity(timeoutMs = 60_000): Promise<ResourceCheck
   return checkResources();
 }
 
+// Matches an init/subreaper process's OWN command line — used to confirm a
+// parent is actually acting as a reaper before trusting it as proof of
+// orphan-hood (see isInitSubreaperCmd below).
+const INIT_SUBREAPER_RE = /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/;
+
+function isInitSubreaperCmd(cmd: string | undefined): boolean {
+  return !!cmd && INIT_SUBREAPER_RE.test(cmd);
+}
+
 /** Kill orphaned claude-agent-sdk processes.
  *  @param protectedPids PIDs to never kill (e.g. sibling org agents).
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
@@ -174,12 +183,24 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
         // When ownerPid is undefined, only kill genuinely orphaned processes:
         // - ppid === 1 (adopted by init), OR
         // - parent is an init/subreaper (systemd, systemd --user, /sbin/init, etc.)
+        //
+        // ppid === 1 alone is NOT sufficient proof of orphan-hood. Inside a
+        // PID-namespace sandbox (e.g. `bwrap --unshare-pid`) or a container
+        // with no init process, the invoking shell itself can BE pid 1 in
+        // that namespace — so its own live, still-running children also
+        // report ppid === 1, even though their real parent never died and
+        // is not an init/subreaper at all. If pid 1 is visible in this `ps`
+        // snapshot and its own command doesn't look like an init/subreaper,
+        // don't trust the numeric ppid; leave the process alone. If pid 1
+        // isn't in the snapshot (the common case on a real host, where the
+        // true init is outside what a restricted `ps` can show), fall back
+        // to treating ppid === 1 as adoption by init, as before.
         if (ppid !== 1) {
           const parentCmd = procMap.get(ppid);
-          const isInitSubreaper =
-            parentCmd &&
-            /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/.test(parentCmd);
-          if (!isInitSubreaper) continue;
+          if (!isInitSubreaperCmd(parentCmd)) continue;
+        } else {
+          const pid1Cmd = procMap.get(1);
+          if (pid1Cmd && !isInitSubreaperCmd(pid1Cmd)) continue;
         }
       }
 
