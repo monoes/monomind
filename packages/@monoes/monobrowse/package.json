@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monobrowse",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Native browser automation via Chrome DevTools Protocol — the engine powering monomind browse",
   "type": "module",
   "bin": {
