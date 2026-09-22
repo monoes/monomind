@@ -202,7 +202,20 @@ export function searchSkills(
   projectRoot?: string,
   opts: { tag?: string; limit?: number } = {},
 ): (SkillMeta & { score: number })[] {
-  const all = listSkills(projectRoot).filter((s) => !opts.tag || s.tags.includes(opts.tag));
+  return rankSkillMeta(
+    query,
+    listSkills(projectRoot).filter((s) => !opts.tag || s.tags.includes(opts.tag)),
+    opts,
+  );
+}
+
+/** `searchSkills`' scorer over any name/tags/description records (the
+ *  catalog ranks its assets with it). */
+export function rankSkillMeta<T extends Pick<SkillMeta, 'name' | 'description' | 'tags'>>(
+  query: string,
+  all: T[],
+  opts: { limit?: number } = {},
+): (T & { score: number })[] {
   const q = [...new Set(tokens(query))];
   if (q.length === 0) return [];
   const docs = all.map((s) => ({
