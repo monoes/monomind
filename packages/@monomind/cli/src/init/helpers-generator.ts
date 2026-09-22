@@ -1330,6 +1330,10 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   // if it can't be copied there is nothing to regenerate the registry with, and
   // router.cjs degrades to its built-in FALLBACK_SKILLS rather than breaking.
   'build-skill-registry.cjs': { forceSync: true, doctorTracked: true },
+  // The Jev decision-model picker, required by handlers/route-handler.cjs and
+  // by the CLI's src/decision/jev.ts. No fallback generator: without it the
+  // hook keeps keyword routing.
+  'jev-picker.cjs': { forceSync: true, doctorTracked: true },
   'memory.cjs': { generate: generateMemoryHelper },
   'session.cjs': { generate: generateSessionManager },
   'pre-commit': { generate: generatePreCommitHook },

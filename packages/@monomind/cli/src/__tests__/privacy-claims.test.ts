@@ -295,7 +295,10 @@ describe('privacy-claims (i-078)', () => {
     ];
 
     // Executes or is served/rendered — see the SCOPE paragraph above.
-    const SCAN_EXTENSIONS = ['.ts', '.mjs', '.js', '.html', '.svg'];
+    // `.cjs` included since 2026-09: the CLI ships `.claude/helpers/*.cjs`
+    // (jev-picker.cjs talks to a decision-model host), and a shipped helper that
+    // names a new host has to go through the same review as shipped src/.
+    const SCAN_EXTENSIONS = ['.ts', '.mjs', '.js', '.cjs', '.html', '.svg'];
 
     /** Every source root a package actually SHIPS — see §3b's sibling
      * function of the same name (removed from this file in this revision,
@@ -318,7 +321,10 @@ describe('privacy-claims (i-078)', () => {
           (r) => existsSync(join(REPO_ROOT, r)) && statSync(join(REPO_ROOT, r)).isDirectory(),
         );
     }
-    const SCAN_ROOTS = PACKAGE_DIRS.flatMap(shippedSourceRoots);
+    /** `.claude` is skipped by shippedSourceRoots() (it is in `files` but is not a
+     * source root); its helpers ship and execute, so scan them explicitly. */
+    const SHIPPED_HELPER_ROOTS = ['packages/@monomind/cli/.claude/helpers'];
+    const SCAN_ROOTS = [...PACKAGE_DIRS.flatMap(shippedSourceRoots), ...SHIPPED_HELPER_ROOTS];
 
     const HOST = /https?:\/\/([a-zA-Z0-9.-]+)/g;
     const LOOPBACK_LIKE = (h: string): boolean =>
@@ -389,6 +395,7 @@ describe('privacy-claims (i-078)', () => {
       'unpkg.com', // dashboard / Monograph HTML CDN row
       'cdnjs.cloudflare.com', // dashboard / Monograph HTML CDN row
       'cdn.jsdelivr.net', // dashboard / Monograph HTML CDN row (this revision's finding 1)
+      'api.typesafe.ai', // Jev decision model (hosted) — opt-in via TYPESAFE_API_KEY + MONOMIND_JEV_HOSTED=1
       // doc/privacy.md dead-code verdicts.
       'api.fallow.cloud',
       'monograph.dev', // JSON Schema $id/$schema convention, not fetched
