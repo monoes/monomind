@@ -5,6 +5,7 @@
  * renders merged, score-ranked results grouped by content type.
  */
 
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { codeCapability } from '../capabilities/cap-code.js';
 import { dataCapability } from '../capabilities/cap-data.js';
@@ -49,6 +50,24 @@ export function groupByType(
     grouped[r.type]?.push(r);
   }
   return grouped;
+}
+
+/**
+ * The `code` capability searches the monograph knowledge graph, which is
+ * built separately (`monomind monograph build`) — the directory scan only
+ * records that code files are present, it doesn't index their content.
+ * Zero results with that DB missing almost always means "never indexed
+ * yet", not "no matches" — this decides when to say so.
+ */
+export function needsCodeIndexHint(
+  resultCount: number,
+  typeFilter: CapabilityName | undefined,
+  codeActive: boolean,
+  monographDbExists: boolean,
+): boolean {
+  return (
+    resultCount === 0 && (!typeFilter || typeFilter === 'code') && codeActive && !monographDbExists
+  );
 }
 
 export function formatSearchResults(results: SearchResult[]): string {
@@ -192,6 +211,19 @@ export const searchUniversalCommand: Command = {
 
     const output = formatSearchResults(filteredResults);
     console.log(output);
+
+    if (
+      needsCodeIndexHint(
+        filteredResults.length,
+        typeFilter,
+        mgr.isActive('code'),
+        existsSync(path.join(monomindDir, 'monograph.db')),
+      )
+    ) {
+      console.log(
+        '\nHint: the code index has not been built yet. Run `monomind monograph build` and search again.',
+      );
+    }
 
     return { success: true };
   },

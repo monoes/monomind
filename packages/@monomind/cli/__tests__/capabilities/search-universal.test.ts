@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { formatSearchResults, groupByType } from '../../src/commands/search-universal.js';
+import {
+  formatSearchResults,
+  groupByType,
+  needsCodeIndexHint,
+} from '../../src/commands/search-universal.js';
 import type { SearchResult } from '../../src/capabilities/types.js';
 
 describe('search formatting', () => {
@@ -29,5 +33,31 @@ describe('search formatting', () => {
   it('returns empty message when no results', () => {
     const output = formatSearchResults([]);
     expect(output).toContain('No results');
+  });
+});
+
+describe('needsCodeIndexHint', () => {
+  it('hints when code is active, unindexed, and search found nothing', () => {
+    expect(needsCodeIndexHint(0, undefined, true, false)).toBe(true);
+  });
+
+  it('hints when the user explicitly filtered to --type code', () => {
+    expect(needsCodeIndexHint(0, 'code', true, false)).toBe(true);
+  });
+
+  it('does not hint once the monograph DB exists (zero results is a real miss)', () => {
+    expect(needsCodeIndexHint(0, undefined, true, true)).toBe(false);
+  });
+
+  it('does not hint when results were found', () => {
+    expect(needsCodeIndexHint(3, undefined, true, false)).toBe(false);
+  });
+
+  it('does not hint when the code capability was never activated', () => {
+    expect(needsCodeIndexHint(0, undefined, false, false)).toBe(false);
+  });
+
+  it('does not hint when the user filtered to a different type', () => {
+    expect(needsCodeIndexHint(0, 'documents', true, false)).toBe(false);
   });
 });
