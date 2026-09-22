@@ -61,6 +61,80 @@ function _loadIntelligenceModule(CWD) {
   return _intelligenceModPromise;
 }
 
+// ── Jev decision-model bridge ───────────────────────────────────────────────
+// jev-picker.cjs (a sibling helper) asks the configured decision model to pick
+// the agent AND the skill in one request, within MONOMIND_JEV_TIMEOUT_MS.
+// Not configured / failed / not confident → null, and keyword routing stands.
+var _jevPicker;
+function _loadJevPicker() {
+  if (_jevPicker === undefined) {
+    try {
+      _jevPicker = require(path.join(__dirname, '..', 'jev-picker.cjs'));
+    } catch (e) {
+      _jevPicker = null;
+    }
+  }
+  return _jevPicker;
+}
+
+var JEV_BREAKER_MS = 5 * 60 * 1000;
+function _jevBreakerPath(CWD) { return path.join(CWD, '.monomind', 'jev-breaker.json'); }
+function _jevBreakerOpen(CWD) {
+  try { return JSON.parse(fs.readFileSync(_jevBreakerPath(CWD), 'utf-8')).until > Date.now(); } catch (e) { return false; }
+}
+function _tripJevBreaker(CWD) {
+  try { fs.writeFileSync(_jevBreakerPath(CWD), JSON.stringify({ until: Date.now() + JEV_BREAKER_MS })); } catch (e) { /* best effort */ }
+}
+
+async function _pickWithJev(CWD, prompt, keywordResult) {
+  var jp = _loadJevPicker();
+  if (!jp || jp.resolveProviders(process.env).length === 0) return null;
+  // A dead endpoint must not tax every prompt: after a failed pick, skip Jev for 5 min.
+  if (_jevBreakerOpen(CWD)) return null;
+  var agents = jp.loadAgentCatalog(CWD);
+  var skills = jp.loadSkillCatalog(CWD);
+  if (agents.length < 2 && skills.length === 0) return null;
+  var failures = [];
+  var picked = await jp.pick(prompt, { agents: agents, skills: skills }, {
+    include: { agents: keywordResult && keywordResult.agentSlug ? [keywordResult.agentSlug] : [] },
+    timeoutMs: jp.resolveHookTimeoutMs(process.env),
+    onError: function (err) { failures.push(err.provider + ': ' + err.message); },
+  });
+  if (failures.length) advisoryLog('[JEV] ' + failures.join('; ') + (picked ? '' : ' — using keyword routing'));
+  if (!picked) {
+    if (failures.length) _tripJevBreaker(CWD);
+    return null;
+  }
+  var skillById = {};
+  skills.forEach(function (s) { skillById[s.id] = s; });
+  return {
+    provider: picked.provider,
+    agent: jp.acceptAgent(picked.agent),
+    agentConfidence: picked.agent ? picked.agent.confidence : 0,
+    // Only a confident skill answer (including a confident "none fits") replaces keyword matches.
+    skillAnswered: !!picked.skill && picked.skill.confidence >= jp.resolveMinConfidence(process.env),
+    skills: jp.acceptSkills(picked.skill).map(function (id) { return skillById[id]; }).filter(Boolean),
+  };
+}
+
+function _applyJevPick(result, jev) {
+  if (jev.agent) {
+    result.keywordAgent = result.agentSlug || result.agent;
+    result.agent = jev.agent;
+    result.agentSlug = jev.agent;
+    result.confidence = jev.agentConfidence;
+    result.reason = 'Jev decision model (' + jev.provider + ')';
+    result.routingMethod = 'jev';
+  }
+  // Jev's skill answer replaces keyword skill matches, including "none fits".
+  if (jev.skillAnswered) {
+    result.skillMatches = jev.skills.map(function (s, i) {
+      return { skill: s.id, invoke: s.invoke, description: s.description || '', score: i === 0 ? 2 : 1, source: 'jev' };
+    });
+  }
+}
+
+
 module.exports = {
   handle: async function(hCtx) {
     var prompt = hCtx.prompt;
@@ -120,6 +194,14 @@ module.exports = {
     if (router && (router.routeTaskSemantic || router.routeTask)) {
       const routeFn = router.routeTaskSemantic || router.routeTask;
       var result = await Promise.resolve(routeFn(prompt));
+      // ── Decision model first, in BOTH modes: this is the route decision,
+      //    not advisory enrichment. The quiet block below persists whatever
+      //    it chooses (statusline, compact/session context, outcomes).
+      //    Bounded by MONOMIND_JEV_HOOK_TIMEOUT_MS and the failure breaker.
+      var jevOutcome = await _pickWithJev(CWD, prompt, result);
+      if (jevOutcome) _applyJevPick(result, jevOutcome);
+
+
 
       // When QUIET: the advisory output is suppressed anyway, so skip ALL the
       // expensive enrichment below (embedding search, second-brain HTTP, monograph
@@ -161,7 +243,7 @@ module.exports = {
       //    rules for Solidity, game engines, DevOps, embedded, etc.) for a
       //    more specific agent match. This bridges the hooks layer (router.cjs)
       //    with the CLI routing package without requiring ESM imports. ─────────
-      if (result && result.agentSlug === 'coder' && result.confidence <= 0.8) {
+      if (result && result.routingMethod !== 'jev' && result.agentSlug === 'coder' && result.confidence <= 0.8) {
         try {
           var routingPkgPath = path.resolve(
             CWD, 'packages', '@monomind', 'routing', 'dist', 'keyword-pre-filter.js'
@@ -200,7 +282,7 @@ module.exports = {
       // This ENHANCES the keyword route — it only overrides when the
       // embedding match is meaningfully more confident, and never blocks or
       // delays routing beyond a 2s budget (fails silently otherwise).
-      try {
+      if (result.routingMethod !== 'jev') try {
         var intelResult = await Promise.race([
           (async function() {
             var mod = await _loadIntelligenceModule(CWD);
