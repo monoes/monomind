@@ -322,7 +322,7 @@ export const navigateCommand: Command = {
 
     // Refs captured before this navigation may now point at different content.
     session.refs = new Map();
-    await browser.clearRefCache();
+    await browser.clearRefCache(session.port);
 
     output.printSuccess(`Navigated: ${direction}`);
     return { success: true };
@@ -435,7 +435,7 @@ export const pushstateCommand: Command = {
     // SPA navigation changes what's on the page without a full page load —
     // refs captured before this pushState call may now resolve to different content.
     session.refs = new Map();
-    await browser.clearRefCache();
+    await browser.clearRefCache(session.port);
     output.printSuccess(`pushState: ${url}`);
     return { success: true };
   },

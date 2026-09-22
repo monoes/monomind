@@ -108,20 +108,22 @@ function fakeChrome(port: number, targets: Partial<CdpTarget>[]): Promise<void> 
   });
 }
 
-const PORT_FILE = () => join(tempDir, '.monomind', 'monobrowse', 'active-port.json');
+// Sessions are recorded one file per port (#318).
+const PORT_FILE = (port: number) =>
+  join(tempDir, '.monomind', 'monobrowse', 'sessions', `${port}.json`);
 
 async function writePersistedPort(record: {
   port: number;
   pid?: number;
   launched: boolean;
-  savedAt: number;
+  savedAt?: number;
 }): Promise<void> {
-  await mkdir(join(tempDir, '.monomind', 'monobrowse'), { recursive: true });
-  await writeFile(PORT_FILE(), JSON.stringify(record), 'utf-8');
+  await mkdir(join(tempDir, '.monomind', 'monobrowse', 'sessions'), { recursive: true });
+  await writeFile(PORT_FILE(record.port), JSON.stringify(record), 'utf-8');
 }
 
-async function portFileExists(): Promise<boolean> {
-  return readFile(PORT_FILE(), 'utf-8').then(
+async function portFileExists(port: number): Promise<boolean> {
+  return readFile(PORT_FILE(port), 'utf-8').then(
     () => true,
     () => false,
   );
@@ -161,7 +163,7 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     expect(lastSocket?.methods()).toContain('Browser.close');
     // The port file is the session handle — a reaped session must not leave
     // one behind for the next command to chase.
-    expect(await portFileExists()).toBe(false);
+    expect(await portFileExists(port)).toBe(false);
   });
 
   it('does NOT reap a launched instance that still has open page targets', async () => {
@@ -179,7 +181,7 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
 
     expect(lastSocket).toBeNull();
     expect(killSpy).not.toHaveBeenCalled();
-    expect(await portFileExists()).toBe(true);
+    expect(await portFileExists(port)).toBe(true);
   });
 
   it('does NOT reap a browser this tool never launched, however idle or old it is', async () => {
@@ -198,7 +200,7 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
 
     expect(lastSocket).toBeNull();
     expect(killSpy).not.toHaveBeenCalled();
-    expect(await portFileExists()).toBe(true);
+    expect(await portFileExists(port)).toBe(true);
   });
 
   it('does NOT reap while a client is still attached to a target', async () => {
@@ -219,7 +221,7 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     await expect(reapIdleLaunchedBrowser()).resolves.toBeNull();
 
     expect(lastSocket).toBeNull();
-    expect(await portFileExists()).toBe(true);
+    expect(await portFileExists(port)).toBe(true);
   });
 
   it('does NOT reap an instance that is still inside the idle threshold', async () => {
@@ -233,14 +235,13 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     await expect(reapIdleLaunchedBrowser()).resolves.toBeNull();
 
     expect(lastSocket).toBeNull();
-    expect(await portFileExists()).toBe(true);
+    expect(await portFileExists(port)).toBe(true);
   });
 
   it('does NOT reap when the persisted record has no savedAt (age unknowable)', async () => {
     const port = BASE + 5;
     await fakeChrome(port, []);
-    await mkdir(join(tempDir, '.monomind', 'monobrowse'), { recursive: true });
-    await writeFile(PORT_FILE(), JSON.stringify({ port, pid: 54326, launched: true }), 'utf-8');
+    await writePersistedPort({ port, pid: 54326, launched: true });
 
     const { reapIdleLaunchedBrowser } = await loadBrowser();
     await expect(reapIdleLaunchedBrowser()).resolves.toBeNull();
@@ -271,6 +272,6 @@ describe('#310 reapIdleLaunchedBrowser — give back a CDP port nothing is using
     await expect(launchBrowser({ port })).resolves.toBe(port);
 
     expect(lastSocket?.methods()).toContain('Browser.close');
-    expect(await portFileExists()).toBe(false);
+    expect(await portFileExists(port)).toBe(false);
   });
 });

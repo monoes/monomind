@@ -6,7 +6,12 @@ import { join } from 'node:path';
 import { CdpClient, fetchNewTarget, fetchTargets } from './cdp.js';
 import { enableConsoleCapture, setupConsoleCapture } from './console-log.js';
 import { setupDialogAutoHandling } from './dialog.js';
-import { clearActivePort, loadActivePortInfo } from './ref-cache.js';
+import {
+  listSessionRecords,
+  loadSessionRecord,
+  removeSessionRecord,
+  type SessionRecord,
+} from './ref-cache.js';
 import type { BrowserConfig, CdpTarget } from './types.js';
 import { CHROME_EXECUTABLES } from './types.js';
 
@@ -490,13 +495,13 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
     // Fresh process (each CLI invocation is its own node process — see
     // module header) — launchedPids is per-process and empty here even
     // though a prior `open` in a DIFFERENT process launched this Chrome.
-    // Fall back to the PID that process persisted via saveActivePort().
+    // Fall back to the PID that process persisted via saveSessionRecord().
     try {
-      const persisted = await loadActivePortInfo();
-      if (persisted && persisted.port === port && persisted.launched && persisted.pid) {
+      const persisted = await loadSessionRecord(port);
+      if (persisted?.launched && persisted.pid) {
         // Bound how far we trust a cross-process PID: if the Chrome we
         // launched died outside this flow (OOM-killed, host slept, etc.)
-        // without active-port.json ever being cleared, the OS can recycle
+        // without its session record ever being cleared, the OS can recycle
         // that PID for an unrelated process. There is no cmdline/start-time
         // check available portably, so a coarse age bound is the practical
         // guard — a PID persisted more than a day ago is far more likely to
@@ -594,12 +599,21 @@ async function waitForProcessExit(pid: number): Promise<boolean> {
  * ever used for closeBrowser's own age-bounded force-kill.
  *
  * Never throws: a failed reap must not stop a launch. Returns the reaped
- * port, or null when there was nothing to reap.
+ * port, or null when there was nothing to reap. Sessions are per-port
+ * (#318), so every recorded one is considered, not just the newest.
  */
 export async function reapIdleLaunchedBrowser(): Promise<number | null> {
+  let reaped: number | null = null;
+  for (const session of await listSessionRecords().catch(() => [])) {
+    const port = await reapSession(session);
+    reaped ??= port;
+  }
+  return reaped;
+}
+
+async function reapSession(session: SessionRecord): Promise<number | null> {
   try {
-    const session = await loadActivePortInfo();
-    if (!session?.launched || session.savedAt === undefined) return null;
+    if (!session.launched || session.savedAt === undefined) return null;
     if (Date.now() - session.savedAt < IDLE_REAP_AFTER_MS) return null;
 
     const wsUrl = await fetchBrowserWebSocketUrl(session.port);
@@ -636,7 +650,7 @@ export async function reapIdleLaunchedBrowser(): Promise<number | null> {
     }
     launchedPids.delete(session.port);
     launchedUserDataDirs.delete(session.port);
-    await clearActivePort();
+    await removeSessionRecord(session.port);
     return session.port;
   } catch {
     return null;

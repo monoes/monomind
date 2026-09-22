@@ -12,8 +12,10 @@ import { output } from './output.js';
 import {
   detectAttentionNeeded,
   ensureConnected,
-  ensureSignalCleanupHandlers,
   getBrowser,
+  launchSessionBrowser,
+  pinnedPort,
+  resolveLiveSession,
   session,
   switchToHeaded,
 } from './session.js';
@@ -23,7 +25,13 @@ export const openCommand: Command = {
   name: 'open',
   description: 'Open a URL in the browser. Usage: monomind browse open <url>',
   options: [
-    { name: 'port', short: 'p', type: 'number', description: 'CDP port', default: 9222 },
+    {
+      name: 'port',
+      short: 'p',
+      type: 'number',
+      description:
+        'Attach to (or launch on) this CDP port. Default: a free port of this session’s own',
+    },
     {
       name: 'headed',
       type: 'boolean',
@@ -37,7 +45,10 @@ export const openCommand: Command = {
     const url = ctx.args[0] as string;
     if (!url) throw new Error('URL required. Usage: monomind browse open <url>');
 
-    const port = (ctx.flags.port as number) ?? 9222;
+    // No --port means "start a session of my own on a free port" (#318) —
+    // never "join whatever is on 9222", which is what made two uncoordinated
+    // `open` calls race for one browser and one profile directory.
+    const port = pinnedPort(ctx.flags);
     const forceHeaded = ctx.flags.headed as boolean;
     const browser = await getBrowser();
 
@@ -77,38 +88,9 @@ export const openCommand: Command = {
       session.refs = new Map();
     }
 
-    session.port = await browser.launchBrowser({ port, headless: !forceHeaded });
-    // Persist the active port so subsequent CLI invocations (each a fresh
-    // process) default to attaching here instead of hardcoded 9222. Also
-    // persist the launched PID/userDataDir so a later process's closeBrowser
-    // can still kill this Chrome even though launchedPids (browser.ts) is
-    // per-process and empty there.
-    //
-    // launchBrowser() can either LAUNCH a fresh Chrome or ATTACH to one
-    // already listening on the requested port (see its own "attach if
-    // already Chrome" comment) — it returns only a port number, with no
-    // signal telling this caller which happened. getLaunchedPid(session.port) is
-    // undefined on the attach path (this process never spawned anything).
-    // Bug fixed here: unconditionally saving {pid: undefined, ...} on
-    // attach used to CLOBBER a real PID a previous `open` had already
-    // persisted for this exact port, destroying the only way a later
-    // process's closeBrowser() PID-kill fallback could ever find it.
-    const freshPid = browser.getLaunchedPid(session.port);
-    const freshUserDataDir = browser.getLaunchedUserDataDir(session.port);
-    if (freshPid !== undefined) {
-      await browser.saveActivePort(session.port, { pid: freshPid, userDataDir: freshUserDataDir });
-    } else {
-      // Attach path: preserve whatever PID/userDataDir was already on file
-      // for this port (most likely from the process that originally
-      // launched it) instead of overwriting with undefined.
-      const existing = await browser.loadActivePortInfo();
-      const preserved = existing && existing.port === session.port ? existing : undefined;
-      await browser.saveActivePort(session.port, {
-        pid: preserved?.pid,
-        userDataDir: preserved?.userDataDir,
-      });
-    }
-    ensureSignalCleanupHandlers();
+    // Starts this session's own browser (and records it) unless --port named
+    // one to attach to — see the session rule in session.ts.
+    session.port = await launchSessionBrowser(browser, { port, headless: !forceHeaded });
     const conn = await browser.connectToTarget(session.port);
     session.client = conn.client;
     session.sessionId = conn.sessionId;
@@ -117,7 +99,7 @@ export const openCommand: Command = {
     // A snapshot taken before this navigation is no longer valid for the new
     // page — drop the persisted ref cache so a stale process's weak
     // time-based check can't resurrect it before the next explicit snapshot.
-    await browser.clearRefCache();
+    await browser.clearRefCache(session.port);
 
     if (ctx.flags.state && ctx.flags.session) {
       output.printWarning('Both --state and --session provided; --state takes precedence');
@@ -142,7 +124,7 @@ export const openCommand: Command = {
         output.printWarning(
           `${attentionType === 'captcha' ? 'CAPTCHA' : 'Login'} detected — switching to headed mode`,
         );
-        await switchToHeaded(currentUrl, port);
+        await switchToHeaded(currentUrl, session.port);
         await browser.openUrl(session.client!, session.sessionId, currentUrl);
         output.printSuccess(
           `Resumed headless after ${attentionType === 'captcha' ? 'CAPTCHA' : 'login'}`,
@@ -153,15 +135,27 @@ export const openCommand: Command = {
     const finalUrl = await browser.getCurrentUrl(session.client!, session.sessionId);
     const title = await browser.getCurrentTitle(session.client!, session.sessionId);
 
-    output.printSuccess(`Opened: ${title} (${finalUrl})`);
-    return { success: true, data: { url: finalUrl, title } };
+    // The port is part of the result, not decoration: it is this session's
+    // handle, and the only way a concurrent caller can pin it from another
+    // process (`--port N`) instead of resolving "the newest live session".
+    output.printSuccess(`Opened: ${title} (${finalUrl}) [port ${session.port}]`);
+    return { success: true, data: { url: finalUrl, title, port: session.port } };
   },
 };
 
 export const closeCommand: Command = {
   name: 'close',
-  description: 'Close the active browser session',
-  action: async (_ctx: CommandContext): Promise<CommandResult> => {
+  description:
+    'Close a browser session. Usage: monomind browse close [--port <port>] (default: the newest live session here)',
+  options: [
+    {
+      name: 'port',
+      short: 'p',
+      type: 'number',
+      description: 'Close the session on this CDP port instead of the newest live one',
+    },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
     if (session.client) {
       const browser = await getBrowser();
       const sid = session.sessionId;
@@ -192,26 +186,44 @@ export const closeCommand: Command = {
       browser.stopRequestCapture(sid);
       browser.teardownDialogHandling(sid);
       browser.teardownConsoleCapture(sid);
+      // Terminate the browser this process launched, not just our socket to
+      // it: with a session of its own on a free port (#318), a Chrome left
+      // behind here is one nothing else knows how to find. A browser we
+      // merely attached to (`connect`) is the user's — never killed.
+      const record = await browser.loadSessionRecord(session.port);
+      if (record?.launched !== false) {
+        try {
+          await browser.closeBrowser(client, session.port);
+        } catch {
+          /* best-effort — the record cleanup below still runs */
+        }
+      }
       client.close();
       session.client = null;
       session.sessionId = '';
       session.parentSessionId = '';
       session.targetId = '';
       session.refs = new Map();
-      // Session is gone — forget the persisted port and stale refs so later
+      // This session is gone — forget its record and stale refs so later
       // invocations don't chase a dead endpoint (or the wrong elements).
-      await browser.clearActivePort();
-      await browser.clearRefCache();
-      output.printSuccess('Browser session closed');
+      // Other sessions' records are left alone.
+      await browser.removeSessionRecord(session.port);
+      await browser.clearRefCache(session.port);
+      output.printSuccess(`Browser session closed (port ${session.port})`);
     } else {
       // Each CLI invocation is a fresh process, so `close` almost always
-      // lands here. The persisted port file is the real session handle:
-      // if monobrowse LAUNCHED that browser (open), gracefully Browser.close
+      // lands here. The session record is the real handle: `--port` names
+      // one, otherwise it is the newest session whose browser still answers
+      // (strict:false — a dead one is cleaned up, not raised as an error).
+      // If monobrowse LAUNCHED that browser (open), gracefully Browser.close
       // it — otherwise every open→close cycle leaks a headless Chrome. If we
       // merely ATTACHED to it (connect, launched:false), never kill it: it's
-      // the user's own browser. Either way, forget the port and refs.
+      // the user's own browser. Either way, forget that one session.
       const browser = await getBrowser();
-      const persisted = await browser.loadActivePortInfo();
+      const pinned = pinnedPort(ctx.flags);
+      const persisted = pinned
+        ? ((await browser.loadSessionRecord(pinned)) ?? { port: pinned, launched: true })
+        : await resolveLiveSession(browser, { strict: false });
       if (persisted?.launched) {
         try {
           const conn = await browser.connectToTarget(persisted.port);
@@ -257,8 +269,10 @@ export const closeCommand: Command = {
             : 'No active browser session',
         );
       }
-      await browser.clearActivePort();
-      await browser.clearRefCache();
+      if (persisted) {
+        await browser.removeSessionRecord(persisted.port);
+        await browser.clearRefCache(persisted.port);
+      }
     }
     return { success: true };
   },
@@ -346,12 +360,12 @@ export const connectCommand: Command = {
     session.targetId = conn.target.id;
     session.port = port;
     session.refs = new Map();
-    // Persist the port like `open` does — without this, the NEXT CLI process
-    // (each command is a fresh process) resolves the hardcoded default and
-    // tries to launch its own Chrome on 9222 instead of reusing this session.
+    // Record the session like `open` does — without this, the NEXT CLI
+    // process (each command is a fresh process) has nothing to resolve and
+    // launches a browser of its own instead of reusing this session.
     // launched:false marks this browser as someone else's — close must never
     // kill it, and a dead endpoint must not be silently relaunched.
-    await browser.saveActivePort(port, { launched: false });
+    await browser.saveSessionRecord(port, { launched: false });
     const url = await browser.getCurrentUrl(session.client, session.sessionId);
     const title = await browser.getCurrentTitle(session.client, session.sessionId);
     output.printSuccess(`Connected: ${title} (${url})`);

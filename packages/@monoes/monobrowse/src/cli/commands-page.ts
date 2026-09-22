@@ -71,7 +71,7 @@ export const snapshotCommand: Command = {
     });
 
     session.refs = result.refs;
-    await browser.saveRefCache(session.targetId, result.url, session.refs);
+    await browser.saveRefCache(session.port, session.targetId, result.url, session.refs);
 
     const applyOutputLimits = (text: string): string => {
       const maxOutput = ctx.flags['max-output'] as number | undefined;
@@ -375,7 +375,7 @@ export const diffCommand: Command = {
       });
 
       session.refs = snap2.refs;
-      await browser.saveRefCache(session.targetId, snap2.url, session.refs);
+      await browser.saveRefCache(session.port, session.targetId, snap2.url, session.refs);
 
       // Text diff
       const lines1 = snap1.text.split('\n');

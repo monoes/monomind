@@ -72,10 +72,10 @@ afterEach(async () => {
 });
 
 async function writePersistedPort(port: number, pid: number, savedAt: number): Promise<void> {
-  const dir = join(tempDir, '.monomind', 'monobrowse');
+  const dir = join(tempDir, '.monomind', 'monobrowse', 'sessions');
   await mkdir(dir, { recursive: true });
   await writeFile(
-    join(dir, 'active-port.json'),
+    join(dir, `${port}.json`),
     JSON.stringify({ port, pid, launched: true, savedAt }),
     'utf-8',
   );

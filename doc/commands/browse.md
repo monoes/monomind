@@ -24,6 +24,39 @@
 
 ---
 
+## Sessions
+
+A browse session is one browser plus the CDP port it listens on. `browse` is a
+multi-command CLI — `open`, `snapshot` and `close` are separate processes — so
+each session is recorded in the working directory it was started from, under
+`.monomind/monobrowse/sessions/<port>.json`.
+
+The rules a command follows:
+
+- **`open` with no `--port` starts its own session.** Chrome binds a free port
+  chosen by the kernel, in a profile directory of its own, and `open` reports
+  it: `✓ Opened: Example (https://example.com) [port 41337]`. It never joins an
+  existing session, so two uncoordinated `open` calls always get a browser each.
+- **`open --port N` / `connect --port N` attach to the browser on port N**, or
+  launch one there — the behaviour to use when you want a known, fixed port.
+- **Any later command with no `--port` acts on the newest session started in
+  this directory whose browser still answers.** Dead sessions are dropped as it
+  looks (so a browser you killed, or one that crashed, never wedges the next
+  command), and with none left the command starts a session of its own, exactly
+  as `open` would.
+- **Any later command with `--port N` acts on the session on port N.** This is
+  how a second concurrent caller targets the session its own `open` reported,
+  rather than "the newest one".
+- **`close` ends exactly the session it resolved** — that one browser and that
+  one record. Another invocation's browser is never touched, and a browser you
+  only `connect`ed to is left running.
+
+Running concurrent sessions from separate working directories keeps them
+separate without any flags, since the session records (and the snapshot ref
+caches beside them) are per directory.
+
+---
+
 ## `open`
 
 Open a URL. Automatically checks for login walls and CAPTCHAs, switching to headed mode if detected.
@@ -32,7 +65,8 @@ Open a URL. Automatically checks for login walls and CAPTCHAs, switching to head
 monomind browse open <url> [--port <port>] [--headed] [--session <name>] [--state <file>]
 ```
 
-- `--port`: CDP debugging port (default: 9222).
+- `--port`: attach to (or launch on) this CDP port. Default: a free port of this
+  session's own — see [Sessions](#sessions).
 - `--headed`: Force a visible browser window.
 - `--session`: Restore previously saved cookies/session state.
 - `--state`: Load state from a JSON file.
@@ -167,8 +201,11 @@ monomind browse navigate <back|forward|reload>
 
 ## `close`
 
-Close browser session and release all spawned processes.
+Close one browser session and release the processes it spawned. Without
+`--port` it closes the newest live session started in this directory; with
+`--port` it closes that session and leaves every other one running. See
+[Sessions](#sessions).
 
 ```bash
-monomind browse close
+monomind browse close [--port <port>]
 ```

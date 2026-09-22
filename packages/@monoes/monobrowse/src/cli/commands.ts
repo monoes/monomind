@@ -90,6 +90,7 @@ import {
 } from './commands-trace.js';
 import { output } from './output.js';
 import { createPlatformCommand } from './platform.js';
+import { applySessionPortFlag } from './session.js';
 import type { Command, CommandContext, CommandResult } from './types.js';
 
 // Re-exported for direct unit testing — these were exported from this file
@@ -213,79 +214,118 @@ const actionSubcommand: Command = wrapCommanderCommand(createActionCommand);
 const platformSubcommand: Command = wrapCommanderCommand(createPlatformCommand);
 
 // ---------------------------------------------------------------------------
+// Session selector
+//
+// Sessions are per-port (#318), so `--port N` is how any command says which
+// one it means; without it a command resolves the newest live session in this
+// directory. Wiring it here, once, gives every subcommand the selector
+// without each action having to read the flag: session.port is set before the
+// action runs, and that is what every ensureConnected(session.port) resolves.
+// ---------------------------------------------------------------------------
+
+const PORT_OPTION = {
+  name: 'port',
+  short: 'p',
+  type: 'number',
+  description: 'Act on the browse session on this CDP port (default: the newest live session)',
+} as const;
+
+function withSessionSelector(cmd: Command): Command {
+  const action = cmd.action;
+  return {
+    ...cmd,
+    options: cmd.options?.some((o) => o.name === 'port')
+      ? cmd.options
+      : [...(cmd.options ?? []), { ...PORT_OPTION }],
+    action: action
+      ? async (ctx: CommandContext) => {
+          applySessionPortFlag(ctx.flags);
+          return action(ctx);
+        }
+      : undefined,
+    subcommands: cmd.subcommands?.map(withSessionSelector),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Root browse command
 // ---------------------------------------------------------------------------
+
+// Every subcommand gets the `--port` session selector (see
+// withSessionSelector). batchCommand dispatches over this same array, so a
+// batched command honours the selector too.
+const subcommands: Command[] = [
+  openCommand,
+  snapshotCommand,
+  clickCommand,
+  dblclickCommand,
+  fillCommand,
+  typeCommand,
+  pressCommand,
+  keyboardCommand,
+  keydownCommand,
+  keyupCommand,
+  hoverCommand,
+  focusCommand,
+  selectCommand,
+  checkCommand,
+  uncheckCommand,
+  isvisibleCommand,
+  isenabledCommand,
+  ischeckedCommand,
+  tapCommand,
+  swipeCommand,
+  scrollIntoViewCommand,
+  dragCommand,
+  uploadCommand,
+  downloadCommand,
+  mouseCommand,
+  clipboardCommand,
+  waitCommand,
+  screenshotCommand,
+  getCommand,
+  scrollCommand,
+  navigateCommand,
+  setCommand,
+  stateCommand,
+  networkCommand,
+  evalCommand,
+  dialogCommand,
+  frameCommand,
+  tabCommand,
+  windowCommand,
+  consoleLogCommand,
+  errorsCommand,
+  storageCommand,
+  cookiesCommand,
+  pdfCommand,
+  isCommand,
+  findCommand,
+  highlightCommand,
+  diffCommand,
+  pushstateCommand,
+  batchCommand,
+  addinitscriptCommand,
+  removeinitscriptCommand,
+  connectCommand,
+  recordCommand,
+  traceCommand,
+  profilerCommand,
+  vitalsCommand,
+  reportCommand,
+  harCommand,
+  resizeCommand,
+  closeCommand,
+  actionSubcommand,
+  platformSubcommand,
+].map(withSessionSelector);
 
 const browseCommand: Command = {
   name: 'browse',
   description: 'Native browser automation via Chrome DevTools Protocol',
-  subcommands: [
-    openCommand,
-    snapshotCommand,
-    clickCommand,
-    dblclickCommand,
-    fillCommand,
-    typeCommand,
-    pressCommand,
-    keyboardCommand,
-    keydownCommand,
-    keyupCommand,
-    hoverCommand,
-    focusCommand,
-    selectCommand,
-    checkCommand,
-    uncheckCommand,
-    isvisibleCommand,
-    isenabledCommand,
-    ischeckedCommand,
-    tapCommand,
-    swipeCommand,
-    scrollIntoViewCommand,
-    dragCommand,
-    uploadCommand,
-    downloadCommand,
-    mouseCommand,
-    clipboardCommand,
-    waitCommand,
-    screenshotCommand,
-    getCommand,
-    scrollCommand,
-    navigateCommand,
-    setCommand,
-    stateCommand,
-    networkCommand,
-    evalCommand,
-    dialogCommand,
-    frameCommand,
-    tabCommand,
-    windowCommand,
-    consoleLogCommand,
-    errorsCommand,
-    storageCommand,
-    cookiesCommand,
-    pdfCommand,
-    isCommand,
-    findCommand,
-    highlightCommand,
-    diffCommand,
-    pushstateCommand,
-    batchCommand,
-    addinitscriptCommand,
-    removeinitscriptCommand,
-    connectCommand,
-    recordCommand,
-    traceCommand,
-    profilerCommand,
-    vitalsCommand,
-    reportCommand,
-    harCommand,
-    resizeCommand,
-    closeCommand,
-    actionSubcommand,
-    platformSubcommand,
-  ],
+  subcommands,
   options: [
-    { name: 'port', short: 'p', type: 'number', description: 'CDP debug port', default: 9222 },
+    { ...PORT_OPTION },
     { name: 'session', short: 's', type: 'string', description: 'Named session to use' },
   ],
   examples: [

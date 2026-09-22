@@ -91,7 +91,7 @@ export async function getBrowser() {
     stopRequestCapture: () => {},
     teardownConsoleCapture: () => {},
     ${close}
-    clearActivePort: async () => {},
+    removeSessionRecord: async () => {},
     clearRefCache: async () => {},
   };
 }

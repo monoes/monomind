@@ -210,8 +210,8 @@ export const reportCommand: Command = {
       session.sessionId = '';
       session.targetId = '';
       session.refs = new Map();
-      await browser.clearActivePort();
-      await browser.clearRefCache();
+      await browser.removeSessionRecord(session.port);
+      await browser.clearRefCache(session.port);
     };
 
     let result:

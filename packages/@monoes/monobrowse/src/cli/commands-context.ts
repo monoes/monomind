@@ -94,7 +94,7 @@ export const stateCommand: Command = {
         await browser.clearLocalStorage(c, sid);
         await browser.clearSessionStorage(c, sid);
         session.refs = new Map();
-        await browser.clearRefCache();
+        await browser.clearRefCache(session.port);
         output.printSuccess('Browser state cleared (cookies, localStorage, sessionStorage, refs)');
         return { success: true };
       }

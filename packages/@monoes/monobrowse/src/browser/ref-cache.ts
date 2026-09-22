@@ -1,5 +1,12 @@
 /**
- * AX-tree ref cache persistence.
+ * Per-session CLI state: the browse session index, and the AX-tree ref cache
+ * each session owns.
+ *
+ * Both are keyed by CDP port and scoped to the working directory: one file
+ * per browse session under `sessions/`, one ref cache per session beside it.
+ * A single shared `active-port.json` / `ax-snapshot.json` pair used to stand
+ * for "the" session, which is why two concurrent `open` invocations in one
+ * directory overwrote each other's handle (#318).
  *
  * `snapshot` and `find` are separate CLI invocations — each starts a fresh
  * node process, so the in-memory ElementRef Map built by captureSnapshot()
@@ -10,13 +17,14 @@
  * The full AX-tree text/dump is intentionally NOT persisted — only the
  * per-ref index, to keep the file small.
  */
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ElementRef } from './types.js';
 
 const CACHE_DIR = join(process.cwd(), '.monomind', 'monobrowse');
-const CACHE_FILE = join(CACHE_DIR, 'ax-snapshot.json');
-const PORT_FILE = join(CACHE_DIR, 'active-port.json');
+const SESSIONS_DIR = join(CACHE_DIR, 'sessions');
+const refCacheFile = (port: number) => join(CACHE_DIR, `ax-snapshot-${port}.json`);
+const sessionFile = (port: number) => join(SESSIONS_DIR, `${port}.json`);
 
 /** Snapshot older than this is flagged as possibly stale (page may have changed). */
 export const REF_CACHE_STALE_MS = 30_000;
@@ -36,8 +44,11 @@ export interface RefCacheEntry {
   stale: boolean;
 }
 
-/** Persist the current ref index for a target so a later CLI process can read it back. */
+/** Persist the current ref index for a target so a later CLI process can read
+ *  it back. Scoped to the session's port so two sessions open in the same
+ *  directory keep their own refs instead of clobbering one file. */
 export async function saveRefCache(
+  port: number,
   targetId: string,
   url: string,
   refs: Map<string, ElementRef>,
@@ -50,7 +61,7 @@ export async function saveRefCache(
       savedAt: Date.now(),
       refs: [...refs.values()],
     };
-    await writeFile(CACHE_FILE, JSON.stringify(data));
+    await writeFile(refCacheFile(port), JSON.stringify(data));
   } catch {
     // Best-effort — persistence failure just means cross-process rehydration
     // won't work; in-process (same run) behavior is unaffected.
@@ -62,9 +73,9 @@ export async function saveRefCache(
  * different tab/target is ignored). Returns null if no usable cache exists —
  * callers fall back to an empty in-memory Map, matching prior behavior.
  */
-export async function loadRefCache(targetId: string): Promise<RefCacheEntry | null> {
+export async function loadRefCache(port: number, targetId: string): Promise<RefCacheEntry | null> {
   try {
-    const raw = await readFile(CACHE_FILE, 'utf8');
+    const raw = await readFile(refCacheFile(port), 'utf8');
     const data: RefCacheFile = JSON.parse(raw);
     if (!data || !Array.isArray(data.refs) || data.targetId !== targetId) return null;
 
@@ -82,39 +93,48 @@ export async function loadRefCache(targetId: string): Promise<RefCacheEntry | nu
 }
 
 /** Drop the persisted ref index — call whenever refs are invalidated (navigation, tab switch, close). */
-export async function clearRefCache(): Promise<void> {
+export async function clearRefCache(port: number): Promise<void> {
   try {
-    await rm(CACHE_FILE, { force: true });
+    await rm(refCacheFile(port), { force: true });
   } catch {
     // Nothing to clear, or not writable — non-fatal.
   }
 }
 
 /**
- * Persist the "active" CDP port so a later CLI invocation (each command is a
- * fresh process — see module header) can find the browser a prior `open
- * --port N` attached to, instead of every subsequent command silently
- * falling back to the hardcoded default port and launching/attaching to a
- * second, unrelated Chrome instance.
+ * A browse session: one Chrome instance, identified by the CDP port it
+ * listens on, recorded so a LATER CLI invocation (each command is its own
+ * node process — see module header) can find it again.
  */
-export async function saveActivePort(
+export interface SessionRecord {
+  port: number;
+  /** true = monobrowse launched this Chrome (safe to Browser.close later);
+   *  false = we attached to a browser someone else owns (never kill it). */
+  launched: boolean;
+  pid?: number;
+  userDataDir?: string;
+  savedAt?: number;
+}
+
+/**
+ * Record a browse session under its own port, so concurrent sessions in the
+ * same working directory coexist instead of overwriting one shared handle.
+ *
+ * `pid`/`userDataDir` are persisted so a later, fresh CLI process can still
+ * find and kill the Chrome this one launched. Without them, closeBrowser()'s
+ * PID-kill fallback can never fire outside the launching process, since the
+ * in-memory launchedPids Map (browser.ts) is empty there.
+ */
+export async function saveSessionRecord(
   port: number,
   opts?: { launched?: boolean; pid?: number; userDataDir?: string },
 ): Promise<void> {
   try {
-    await mkdir(CACHE_DIR, { recursive: true });
-    // `launched` records provenance: true = monobrowse spawned this Chrome
-    // (safe to Browser.close later); false = attached to a browser someone
-    // else owns (must never be killed). Absent (old files) reads as launched
-    // — matches pre-flag behavior where every persisted port came from open.
-    //
-    // `pid`/`userDataDir` are persisted so a LATER, fresh CLI process (each
-    // command is its own node process — see module header) can still find
-    // and kill the Chrome this one launched. Without this, closeBrowser()'s
-    // PID-kill fallback can never fire outside the launching process, since
-    // the in-memory launchedPids Map (browser.ts) is empty there.
+    await mkdir(SESSIONS_DIR, { recursive: true });
+    // `launched` absent (older files) reads as launched — matches the
+    // pre-flag behavior where every persisted port came from `open`.
     await writeFile(
-      PORT_FILE,
+      sessionFile(port),
       JSON.stringify({
         port,
         launched: opts?.launched !== false,
@@ -124,62 +144,75 @@ export async function saveActivePort(
       }),
     );
   } catch {
-    // Best-effort — persistence failure just means the next process falls
-    // back to the hardcoded default port, matching prior behavior.
+    // Best-effort — persistence failure costs the next process the ability to
+    // find this session, not this command's own correctness.
   }
 }
 
-/** Forget the persisted active port (session closed) so later invocations
- *  fall back to the default instead of chasing a dead endpoint. */
-export async function clearActivePort(): Promise<void> {
+/** Forget one session (it was closed, or its browser is gone) so later
+ *  invocations don't chase a dead endpoint. */
+export async function removeSessionRecord(port: number): Promise<void> {
   try {
-    await rm(PORT_FILE, { force: true });
+    await rm(sessionFile(port), { force: true });
   } catch {
-    // Best-effort — a stale port file only costs one failed probe later.
+    // Best-effort — a stale record only costs one failed probe later.
   }
 }
 
-/** Load the persisted active port, or null if none was ever saved / it's unreadable. */
-export async function loadActivePort(): Promise<number | null> {
-  return (await loadActivePortInfo())?.port ?? null;
+/** The session recorded for `port`, or null if there is none / it's unreadable. */
+export async function loadSessionRecord(port: number): Promise<SessionRecord | null> {
+  try {
+    return parseSessionRecord(await readFile(sessionFile(port), 'utf8'));
+  } catch {
+    return null;
+  }
 }
 
-/** Load the persisted active port with its provenance flag, PID, user-data-dir, and save timestamp. */
-export async function loadActivePortInfo(): Promise<{
-  port: number;
-  launched: boolean;
-  pid?: number;
-  userDataDir?: string;
-  savedAt?: number;
-} | null> {
+/** Every recorded session in this working directory, newest first. */
+export async function listSessionRecords(): Promise<SessionRecord[]> {
+  let entries: string[];
   try {
-    const raw = await readFile(PORT_FILE, 'utf8');
-    const data = JSON.parse(raw) as {
-      port?: unknown;
-      launched?: unknown;
-      pid?: unknown;
-      userDataDir?: unknown;
-      savedAt?: unknown;
-    };
-    if (
-      typeof data.port === 'number' &&
-      Number.isInteger(data.port) &&
-      data.port >= 1024 &&
-      data.port <= 65535
-    ) {
-      return {
-        port: data.port,
-        launched: data.launched !== false,
-        pid:
-          typeof data.pid === 'number' && Number.isInteger(data.pid) && data.pid > 0
-            ? data.pid
-            : undefined,
-        userDataDir: typeof data.userDataDir === 'string' ? data.userDataDir : undefined,
-        savedAt: typeof data.savedAt === 'number' ? data.savedAt : undefined,
-      };
+    entries = await readdir(SESSIONS_DIR);
+  } catch {
+    return [];
+  }
+  const records: SessionRecord[] = [];
+  for (const entry of entries) {
+    if (!entry.endsWith('.json')) continue;
+    try {
+      const record = parseSessionRecord(await readFile(join(SESSIONS_DIR, entry), 'utf8'));
+      if (record) records.push(record);
+    } catch {
+      // Unreadable file — skip it rather than failing the whole listing.
     }
-    return null;
-  } catch {
+  }
+  return records.sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0));
+}
+
+function parseSessionRecord(raw: string): SessionRecord | null {
+  const data = JSON.parse(raw) as {
+    port?: unknown;
+    launched?: unknown;
+    pid?: unknown;
+    userDataDir?: unknown;
+    savedAt?: unknown;
+  };
+  if (
+    typeof data.port !== 'number' ||
+    !Number.isInteger(data.port) ||
+    data.port < 1024 ||
+    data.port > 65535
+  ) {
     return null;
   }
+  return {
+    port: data.port,
+    launched: data.launched !== false,
+    pid:
+      typeof data.pid === 'number' && Number.isInteger(data.pid) && data.pid > 0
+        ? data.pid
+        : undefined,
+    userDataDir: typeof data.userDataDir === 'string' ? data.userDataDir : undefined,
+    savedAt: typeof data.savedAt === 'number' ? data.savedAt : undefined,
+  };
 }

@@ -20,7 +20,13 @@ const mocks = vi.hoisted(() => {
         sessionId: 'S-PAGE',
         target: { id: 'T-PAGE', url: 'https://x.test' },
       })),
-      loadActivePortInfo: vi.fn(async () => null),
+      listSessionRecords: vi.fn(async () => []),
+      loadSessionRecord: vi.fn(async () => null),
+      saveSessionRecord: vi.fn(async () => {}),
+      removeSessionRecord: vi.fn(async () => {}),
+      clearRefCache: vi.fn(async () => {}),
+      getLaunchedPid: vi.fn(() => undefined),
+      getLaunchedUserDataDir: vi.fn(() => undefined),
       loadRefCache: vi.fn(async () => null),
       switchToFrame: vi.fn(
         async (): Promise<{ url: string | null; sessionId: string | null }> => ({
@@ -55,7 +61,8 @@ const ctx = (args: string[]): CommandContext => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.browser.loadActivePortInfo.mockResolvedValue(null);
+  mocks.browser.listSessionRecords.mockResolvedValue([]);
+  mocks.browser.loadSessionRecord.mockResolvedValue(null);
   mocks.browser.loadRefCache.mockResolvedValue(null);
   mocks.browser.switchToFrame.mockResolvedValue({
     url: 'https://f.test/frame',
