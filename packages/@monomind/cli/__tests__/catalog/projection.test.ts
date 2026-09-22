@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { disable } from '../../src/catalog/lifecycle.js';
+import { disable, revoke } from '../../src/catalog/lifecycle.js';
 import { applyProjection, planProjection } from '../../src/catalog/projection.js';
 import { catalogAction } from '../../src/commands/catalog.js';
 import { NOW, newRoot, tamper, writeEntry } from './fixtures.js';
@@ -154,6 +154,19 @@ describe('catalog projection', () => {
     expect(hashTree(join(root, '.claude/skills/cat-keep'))).toBe(keepBefore);
     expect(hashTree(join(root, '.claude/skills/foreign'))).toBe(foreignBefore);
     expect((await applyProjection(root, 'platform:claude', { dryRun: false })).changed).toEqual([]);
+  });
+
+  it('after revoke the next apply removes the projected copy and keeps the package bytes', async () => {
+    const root = newRoot();
+    const e = writeEntry(root, { name: 'cat-gone', targets: ['platform:agents'] });
+    await applyProjection(root, 'platform:agents', { dryRun: false });
+    expect(existsSync(join(root, '.agents/skills/cat-gone/SKILL.md'))).toBe(true);
+    const bytes = hashTree(e.dir);
+    revoke(root, 'skill:cat-gone', { ...actor, reason: 'withdrawn' });
+    const real = await applyProjection(root, 'platform:agents', { dryRun: false });
+    expect(real.removals.map((r) => r.id)).toEqual(['skill:cat-gone']);
+    expect(existsSync(join(root, '.agents/skills/cat-gone'))).toBe(false);
+    expect(hashTree(e.dir)).toBe(bytes);
   });
 
   it('unproject removes one id, and a user file inside the package keeps its directory', async () => {

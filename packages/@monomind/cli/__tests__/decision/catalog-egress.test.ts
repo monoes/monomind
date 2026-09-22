@@ -60,6 +60,22 @@ describe('Jev egress of catalog skills', () => {
     expect(sent(bodies[0], 'org-only')).toBe(false);
   });
 
+  it('never sends a jev-target entry that is not active', async () => {
+    const root = newRoot('egress-');
+    legacySkill(root);
+    const idle = ['staged', 'quarantined', 'approved', 'disabled', 'revoked'] as const;
+    for (const status of idle)
+      writeEntry(root, { name: `jev-${status}`, status, targets: ['org', 'jev'] });
+    const { bodies, fetchImpl } = recorder();
+    await suggestTaskSkills('review the notes', [...idle.map((s) => `jev-${s}`), 'legacy'], root, {
+      env,
+      fetchImpl,
+    });
+    expect(bodies).toHaveLength(1);
+    expect(sent(bodies[0], 'legacy')).toBe(true);
+    for (const s of idle) expect(sent(bodies[0], `jev-${s}`)).toBe(false);
+  });
+
   it('ranks org skills over the jev-visible set but keeps the rest by keyword', async () => {
     const { root } = project(true);
     const found = listSkills(root).filter((s) => POOL.includes(s.name));
