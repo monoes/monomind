@@ -275,6 +275,9 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
 | `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
 | `budget_usd` | _(unset)_ | Per-role USD spend cap. Unlike `budget_tokens` there is **no** org-wide even split: unset means no USD enforcement for this role, only token budgets |
+| `skills` | _(unset)_ | Org skill library entries pinned into the role's system prompt for the whole run — see §6.6 |
+| `skill_pool` | _(unset)_ | Skills the role may load mid-run with `org_skill_load` — names or `tag:<tag>`; only their one-line descriptions sit in the prompt. See §6.6 |
+| `ui` | _(unset)_ | Canvas metadata (position, icon, color), round-tripped untouched. The runtime never reads it — `ui.icon` does not select prompt text |
 | `provider.kind` | `'subscription'` | See §3 above |
 | `provider.vendor` | _(unset)_ | Which Vercel AI SDK provider to use (only when `kind='vercel-api-key'`): `'openai'` \| `'anthropic'` \| `'google'` \| `'xai'` \| `'deepseek'` \| `'glm'` \| `'mistral'` \| `'groq'` \| `'together'` \| `'fireworks'` \| `'cohere'` \| `'perplexity'` \| `'alibaba'` \| `'openrouter'` \| `'ollama'` \| `'openai-compatible'` |
 | `policy` | see below | Per-role tool/file/web policy |
@@ -561,6 +564,27 @@ Every daemon-side resolution emits an audit event with reason `decision-resolved
 
 ---
 
+### 6.6 Org Skill Library
+
+**Source:** [`orgrt/skill-library.ts`](packages/@monomind/cli/src/orgrt/skill-library.ts), [`orgrt/skill-import.ts`](packages/@monomind/cli/src/orgrt/skill-import.ts)
+
+A skill is a directory `<name>/SKILL.md` (frontmatter + markdown) with optional `.md` reference files. Three roots are searched, first match wins: `<project>/.monomind/org-skills/`, `~/.monomind/org-skills/`, then the ~380 curated skills shipped in `@monoes/monomindcli` (`org-skills/`, provenance in `org-skills/SOURCES.md`).
+
+- **`skills`** are pinned into the role's system prompt and never change mid-run, so the prompt stays a stable cache prefix.
+- **`skill_pool`** skills appear only as one-line descriptions; the role loads the full text (or one of its reference files) with `org_skill_load`, which serves only that role's own skills.
+- **Tools follow skills.** A skill's frontmatter `tools:` names the monomind MCP tools its work needs (`monograph_*`, `monodesign_*`). The daemon attaches the monomind MCP server to the role as a tool provider allow-listed to exactly the tools its skills declare — a code role gets the code graph, a copywriter gets nothing extra. A role-configured provider named `monomind` wins over the derived one.
+- `org validate` and `org run` fail on an unknown skill name or a `tag:` selector that matches nothing. `org migrate` turns an old archetype `ui.icon` into an explicit `skills` entry.
+
+```bash
+monomind org skills search "backend engineer REST APIs postgres"   # rank skills for a role
+monomind org skills show systematic-debugging                        # read one
+monomind org skills import obra/superpowers --global                 # MIT/Apache-2.0 only
+```
+
+`import` accepts `owner/repo`, a git URL or a local path; it copies only `.md` files, refuses any skill whose governing license (its own frontmatter or LICENSE file, else the repository's) is not MIT or Apache-2.0, records `source`/`source_path`/`source_commit`/`license` in the frontmatter, and keeps the license text beside the skill.
+
+---
+
 ## 7. Supporting Modules
 
 ### OrgBus (`bus.ts`)
@@ -664,6 +688,7 @@ Constructs system prompt containing:
 - Agent id, title, org goal
 - Coordinator vs worker role differentiation
 - Responsibilities list from org config
+- Pinned skills and the on-demand skill catalog (§6.6)
 - Communication protocol (org_send usage)
 - org_complete instructions (boss only)
 - Entity glossary
@@ -678,6 +703,7 @@ Constructs system prompt containing:
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
 | `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools)) |
 | `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools), backed by the `TaskDag` class, [`task-dag.ts → TaskDag`](packages/@monomind/cli/src/orgrt/task-dag.ts#TaskDag)). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246). |
+| `org_skill_load` | Roles with `skills`/`skill_pool` | Load the full text of one of the role's own skills, or one of its reference files (§6.6) |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
 
 `org_gate` and the `org_task*` trio are literally the tools this org's own agents use for

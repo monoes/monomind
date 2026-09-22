@@ -4,6 +4,20 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.4] — 2026-09-22
+
+### Added
+
+- **An org skill library, fed to roles by name.** `@monoes/monomindcli` now ships ~380 curated skills in `org-skills/`: monomind's 111 role archetypes, three monomind skills (`monograph-code-navigation`, `monodesign-ui-quality`, `monolean-minimal-change`) and 266 skills curated from nine MIT/Apache-2.0 repositories (ECC, superpowers, anthropics/skills, wshobson/agents, alirezarezvani/claude-skills, Jeffallan/claude-skills, marketingskills, K-Dense scientific skills, context-engineering skills). Each imported skill records its source repository, path, commit and license, and keeps the license text beside it; `org-skills/SOURCES.md` lists every source with its copyright notice.
+- **Two role fields: `skills` and `skill_pool`.** `skills` pins library skills into a role's system prompt for the whole run. `skill_pool` (names or `tag:<tag>`) lists skills the role may load mid-run with the new `org_skill_load` tool — only their one-line descriptions sit in the prompt, so the prompt stays a stable cache prefix while a role can still pick up expertise per task.
+- **Tools follow skills.** A skill declares the monomind MCP tools its work needs; the daemon attaches the monomind MCP server to the role allow-listed to exactly those. Code roles get `monograph_*`, UI roles get `monodesign_*`, and a role whose skills need neither gets neither.
+- **`monomind org skills list|search|show|import`.** Browse and rank the library, and import skills from another repository into the project (`.monomind/org-skills`) or `~/.monomind/org-skills` — both override the shipped library. Only MIT and Apache-2.0 skills are accepted; a skill's own license wins over its repository's.
+- `/mastermind:createorg` now searches the library for each role and writes `skills`/`skill_pool` explicitly.
+
+### Changed
+
+- **`ui.icon` no longer selects prompt text.** The icon is only the role's picture on the canvas; archetype guidance is now a library skill named in `skills`. `monomind org migrate` converts an archetype icon into an explicit `skills` entry, and loadout `skills` resolve from the same library. `org validate` and `org run` reject unknown skill names.
+
 ## [2.15.3] — 2026-09-21
 
 ### Fixed
