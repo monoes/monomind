@@ -47,8 +47,9 @@ remembered from an earlier task or run.
   `git log main..HEAD` instead.
 - Commit only with
   `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com git commit`
-  using conventional commits, and NO trailers (no Co-Authored-By, Claude-Session
-  or 'Generated with').
+  using conventional commits (when it resolves an issue, put `Fixes #N` in the
+  body; a bare `(#N)` leaves the issue open), and NO trailers (no
+  Co-Authored-By, Claude-Session or 'Generated with').
 - Stage explicit paths, never `git add -A` / `git add .`.
 - Never push, never touch origin, npm or GitHub.
 

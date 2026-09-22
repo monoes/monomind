@@ -70,7 +70,7 @@ Never weaken, skip (`.skip`/`.only`) or delete a test to make a change pass.
 ## Commits and pull requests
 
 - Use [conventional commits](https://www.conventionalcommits.org): `fix(scope): …`, `feat(scope): …`, `docs: …`, `test: …`, `refactor: …`, `chore: …`. Add `!` for a breaking change and describe it in the body.
-- Reference the issue in the commit body: `Fixes #123`.
+- Reference the issue in the commit body: `Fixes #123`. A bare `(#123)` leaves the issue open after the fix lands; the commit-msg hook prints a suggestion when it sees one.
 - Fill in the [pull request template](PULL_REQUEST_TEMPLATE.md). Changes to server routes, auth, input handling, SSE/WebSocket, or file-system access also need the [security checklist](SECURITY_CHECKLIST.md).
 - A maintainer reviews every pull request. CI (`.github/workflows/`) must pass.
 

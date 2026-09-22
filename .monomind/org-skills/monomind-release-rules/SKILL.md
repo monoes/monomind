@@ -53,7 +53,8 @@ never values remembered from an earlier run.
   scratch repos use `git -c user.name=qa -c user.email=qa@example.invalid ...`.
 - Every commit on the release branch is made with
   `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com`
-  and has NO Co-Authored-By, Claude-Session or "Generated with" lines.
+  and has NO Co-Authored-By, Claude-Session or "Generated with" lines. When it
+  resolves an issue the body says `Fixes #N`; a bare `(#N)` leaves it open.
 - Nobody edits, commits or checks out anything in ORG_ROOT (sole exception:
   publisher's LOCAL MAIN SYNC).
 - Git policy is enforced by the runtime (issue #258): every role below

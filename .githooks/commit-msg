@@ -1,4 +1,10 @@
 #!/bin/bash
+# Suggest a closing keyword for issues referenced as "(#N)" only (advisory,
+# dependency-free, never blocks) — runs before the deps check on purpose.
+if command -v node >/dev/null 2>&1 && [ -f scripts/commit-msg-issue-refs.mjs ]; then
+  node scripts/commit-msg-issue-refs.mjs "$1" || true
+fi
+
 # Skip hook if deps not installed (fresh clone)
 if [ ! -d "packages/@monomind/cli/node_modules" ]; then
   echo "[commit-msg] Skipping: deps not installed. Run npm install first."
