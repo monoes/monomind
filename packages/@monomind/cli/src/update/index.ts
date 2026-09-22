@@ -36,10 +36,12 @@ export {
 export type { ValidationResult } from './validator.js';
 export { validateBulkUpdate, validateUpdate } from './validator.js';
 
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { UpdateCheckResult } from './checker.js';
 // Re-export a convenience function for startup
 import { checkForUpdates, DEFAULT_CONFIG } from './checker.js';
-import { getCachedVersions } from './rate-limiter.js';
+import { getCachedVersions, reserveCheck } from './rate-limiter.js';
 
 // Inline semver shim — avoids external dependency (semver is not listed in package.json)
 const semver = {
@@ -74,6 +76,39 @@ export function getUpdateTagline(currentVersion: string): string {
     return '  ✓ up to date';
   } catch {
     return '';
+  }
+}
+
+/**
+ * `--version` returns before the startup update check runs, so on its own it
+ * would never refresh the cache its tagline reads. When the cache is missing
+ * or stale, reserve a check slot and hand the fetch to a detached, unref'd,
+ * output-less child so the NEXT `--version` is accurate. Never blocks, never
+ * prints, never throws.
+ *
+ * The gate is the startup check's own reserveCheck(): CI /
+ * CONTINUOUS_INTEGRATION, MONOMIND_AUTO_UPDATE=false, the check interval and
+ * the daily cap. Reserving stamps `lastCheck` before spawning, so a refresh
+ * that is running (or just ran) blocks the next one.
+ *
+ * Returns true when a refresh was started.
+ */
+export function refreshUpdateCacheInBackground(spawnFn: typeof spawn = spawn): boolean {
+  try {
+    if (!reserveCheck(DEFAULT_CONFIG.checkIntervalHours).allowed) return false;
+    const worker = fileURLToPath(new URL('./refresh-worker.js', import.meta.url));
+    const child = spawnFn(process.execPath, [worker], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.on('error', () => {
+      /* silent — a failed spawn must not crash --version */
+    });
+    child.unref();
+    return true;
+  } catch {
+    return false;
   }
 }
 

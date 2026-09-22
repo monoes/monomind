@@ -22,6 +22,11 @@ if (!process.env.MONOMIND_ORGRT_OPERATOR_DIR) {
   process.env.MONOMIND_ORGRT_OPERATOR_DIR = mkdtempSync(join(tmpdir(), 'mm-operator-'));
 }
 
+// CLI runs in tests (e.g. `cli.run(['--version'])`) must not stamp the real
+// ~/.monomind/update-state.json or spawn a detached registry refresh. Tests
+// of the update gate clear this themselves.
+process.env.MONOMIND_AUTO_UPDATE ??= 'false';
+
 // Warn (not fail) when a live org daemon is running — contention causes phantom
 // timeouts that look like real test failures (#56).
 try {

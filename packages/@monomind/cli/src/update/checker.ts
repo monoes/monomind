@@ -244,9 +244,14 @@ export function getInstalledVersion(packageName: string): string | null {
 
 export async function checkForUpdates(
   config: UpdateConfig = DEFAULT_CONFIG,
+  options: { slotReserved?: boolean } = {},
 ): Promise<{ results: UpdateCheckResult[]; skipped: boolean; reason?: string }> {
-  // Check rate limit and atomically reserve this check slot
-  const rateCheck = reserveCheck(config.checkIntervalHours);
+  // Check rate limit and atomically reserve this check slot — unless the
+  // caller already reserved it (the `--version` background refresh reserves
+  // in the parent so concurrent invocations don't each spawn a refresh).
+  const rateCheck = options.slotReserved
+    ? { allowed: true as const, reason: undefined }
+    : reserveCheck(config.checkIntervalHours);
   if (!rateCheck.allowed) {
     // Return cached results if available
     const cached = getCachedVersions();

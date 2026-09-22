@@ -20,7 +20,11 @@ import { type CommandParser, commandParser } from './parser.js';
 import { versionJsonPayload } from './protocol-capabilities.js';
 import { suggestCommand } from './suggest.js';
 import type { CLIError, Command, CommandContext, MonomindConfig } from './types.js';
-import { getUpdateTagline, runStartupUpdateCheck } from './update/index.js';
+import {
+  getUpdateTagline,
+  refreshUpdateCacheInBackground,
+  runStartupUpdateCheck,
+} from './update/index.js';
 
 // Read version from package.json at runtime
 function getPackageVersion(): string {
@@ -97,7 +101,15 @@ export class CLI {
 
       // Handle global flags
       if (flags.version || flags.V) {
-        this.showVersion(Boolean(flags.json) || flags.format === 'json');
+        const json = Boolean(flags.json) || flags.format === 'json';
+        this.showVersion(json);
+        // The startup update check below is never reached from here, so a
+        // stale cache would keep the tagline silent forever. Refresh it in a
+        // detached child — after the line is written, so output is unchanged.
+        // Same opt-outs as the startup check (--no-update, and the env gates
+        // inside reserveCheck); skipped for the JSON handshake, which has no
+        // tagline.
+        if (!json && flags.update !== false) refreshUpdateCacheInBackground();
         return;
       }
 
