@@ -35,6 +35,11 @@ function createRepoDb(
 ): void {
   mkdirSync(join(dbPath, '..'), { recursive: true });
   const db = new Database(dbPath);
+  // Fixture data needs no durability. With SQLite's defaults every autocommit
+  // INSERT cost ~4 fsyncs, which stalled for 5-24s on CI runners whose disk
+  // was still flushing the dependency install, timing these tests out.
+  db.pragma('journal_mode = MEMORY');
+  db.pragma('synchronous = OFF');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS nodes (

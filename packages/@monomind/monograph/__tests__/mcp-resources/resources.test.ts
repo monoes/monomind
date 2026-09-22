@@ -1,7 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { unlinkSync, existsSync } from 'node:fs';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
 import { insertEdge } from '../../src/storage/edge-store.js';
@@ -13,17 +10,13 @@ import type { MonographNode, MonographEdge } from '../../src/types.js';
 
 type Db = ReturnType<typeof openDb>;
 
-// Each test gets a fresh DB with a unique path to avoid cross-test contamination
+// Each test gets a fresh in-memory DB (every ':memory:' connection is its own
+// database). An on-disk DB made each test pay ~8 fsyncs to create and close it,
+// which stalled for 5-24s on CI runners whose disk was still flushing the
+// dependency install, timing these pure-query tests out.
 function freshDb(): { db: Db; cleanup: () => void } {
-  const dbPath = join(tmpdir(), `monograph-res-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
-  const db = openDb(dbPath);
-  return {
-    db,
-    cleanup: () => {
-      closeDb(db);
-      if (existsSync(dbPath)) unlinkSync(dbPath);
-    },
-  };
+  const db = openDb(':memory:');
+  return { db, cleanup: () => closeDb(db) };
 }
 
 function makeNode(overrides: Partial<MonographNode> & Pick<MonographNode, 'id' | 'name' | 'label'>): MonographNode {
