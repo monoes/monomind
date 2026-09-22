@@ -339,6 +339,10 @@ export interface SessionOpts {
     deps: string[],
     loadout?: string,
   ) => string;
+  /** Resolves `assignee: "auto"` on org_task: the decision model (or, without
+   *  one, a keyword match over role titles/responsibilities) picks the role.
+   *  null = no role fits; the caller must name one. */
+  pickAssignee?: (title: string) => Promise<string | null>;
   /** ADR-O001 D7: the org's loadout catalog. Set only when the org declares
    *  one; it adds the optional `loadout` argument to org_task/org_plan_graph.
    *  Unset, those tools are byte-identical to before (same gating idea as
@@ -1411,6 +1415,9 @@ function loadoutHelp(catalog: LoadoutSummary[]): string {
  *
  *  Behaviour is identical to the old inline definitions: conditional tools are
  *  gated on their callback being present, org_send/ask_human are always added. */
+/** org_task's assignee value that asks for automatic role selection. */
+export const AUTO_ASSIGNEE = 'auto';
+
 export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   const { role, deliver } = opts;
   const tools: OrgToolDef[] = [];
@@ -1581,6 +1588,9 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       name: 'org_task',
       description:
         'Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee.' +
+        (opts.pickAssignee
+          ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title.`
+          : '') +
         (catalog ? loadoutHelp(catalog) : ''),
       schema: {
         title: z.string(),
@@ -1588,16 +1598,29 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         deps: z.array(z.string()).default([]),
         ...loadoutArg,
       },
-      handler: async (args) =>
-        text(
+      handler: async (args) => {
+        let assignee = args.assignee as string;
+        if (assignee === AUTO_ASSIGNEE && opts.pickAssignee) {
+          const picked = await opts.pickAssignee(args.title as string);
+          if (!picked) {
+            return text(
+              JSON.stringify({
+                error: `assignee "${AUTO_ASSIGNEE}": no role fits this task title — name the assignee explicitly`,
+              }),
+            );
+          }
+          assignee = picked;
+        }
+        return text(
           createTask(
             role.id,
             args.title as string,
-            args.assignee as string,
+            assignee,
             (args.deps as string[]) ?? [],
             args.loadout as string | undefined,
           ),
-        ),
+        );
+      },
     });
   }
   const completeTask = opts.completeTask;

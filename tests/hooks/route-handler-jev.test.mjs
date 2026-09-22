@@ -73,7 +73,8 @@ function makeHCtx(prompt) {
   };
 }
 
-const lastRoute = () => JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'));
+const lastRoute = () =>
+  JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'));
 
 beforeEach(() => {
   delete process.env.MONOMIND_HOOK_QUIET;
@@ -88,7 +89,12 @@ beforeEach(() => {
     JSON.stringify({
       agents: [
         { slug: 'coder', name: 'coder', category: 'core', description: 'Writes code' },
-        { slug: 'security-engineer', name: 'security-engineer', category: 'security', description: 'Security audits' },
+        {
+          slug: 'security-engineer',
+          name: 'security-engineer',
+          category: 'security',
+          description: 'Security audits',
+        },
       ],
     }),
   );
@@ -96,8 +102,18 @@ beforeEach(() => {
     path.join(tmpDir, '.claude', 'helpers', 'skill-registry.json'),
     JSON.stringify({
       skills: [
-        { skill: 'security-review', invoke: 'Skill("security-review")', description: 'Security review', nameTerms: ['security'] },
-        { skill: 'monodesign', invoke: '/monodesign', description: 'Frontend design', nameTerms: ['monodesign'] },
+        {
+          skill: 'security-review',
+          invoke: 'Skill("security-review")',
+          description: 'Security review',
+          nameTerms: ['security'],
+        },
+        {
+          skill: 'monodesign',
+          invoke: '/monodesign',
+          description: 'Frontend design',
+          nameTerms: ['monodesign'],
+        },
       ],
     }),
   );
@@ -117,21 +133,35 @@ describe('route-handler with Jev', () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            answers: {
-              agent: { type: 'choice', choice: 'security-engineer', confidence: 0.9, probabilities: { 'security-engineer': 0.9, coder: 0.1 } },
-              skill: { type: 'choice', choice: 'security-review', confidence: 0.85, probabilities: { 'security-review': 0.85, __none__: 0.15 } },
-            },
-          }),
-          { status: 200 },
-        ),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              answers: {
+                agent: {
+                  type: 'choice',
+                  choice: 'security-engineer',
+                  confidence: 0.9,
+                  probabilities: { 'security-engineer': 0.9, coder: 0.1 },
+                },
+                skill: {
+                  type: 'choice',
+                  choice: 'security-review',
+                  confidence: 0.85,
+                  probabilities: { 'security-review': 0.85, __none__: 0.15 },
+                },
+              },
+            }),
+            { status: 200 },
+          ),
       ),
     );
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
     expect(lastRoute()).toMatchObject({ agentSlug: 'security-engineer' });
-    const outcomes = fs.readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim().split('\n');
+    const outcomes = fs
+      .readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8')
+      .trim()
+      .split('\n');
     expect(JSON.parse(outcomes[outcomes.length - 1]).routingMethod).toBe('jev');
     const out = logs.join('\n');
     expect(out).toContain('SKILL AUTO-ACTIVATED');
@@ -140,7 +170,12 @@ describe('route-handler with Jev', () => {
 
   it('keeps the keyword route when Jev fails', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('ECONNREFUSED'); }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('ECONNREFUSED');
+      }),
+    );
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
     expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
     expect(logs.join('\n')).toContain('[JEV] custom: request failed');
@@ -149,15 +184,21 @@ describe('route-handler with Jev', () => {
   it('still decides (and records) the route in quiet mode, printing nothing', async () => {
     process.env.MONOMIND_HOOK_QUIET = '1';
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
-    const fetchSpy = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          answers: {
-            agent: { type: 'choice', choice: 'security-engineer', confidence: 0.9, probabilities: { 'security-engineer': 0.9 } },
-          },
-        }),
-        { status: 200 },
-      ),
+    const fetchSpy = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            answers: {
+              agent: {
+                type: 'choice',
+                choice: 'security-engineer',
+                confidence: 0.9,
+                probabilities: { 'security-engineer': 0.9 },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
     );
     vi.stubGlobal('fetch', fetchSpy);
     try {
@@ -165,19 +206,27 @@ describe('route-handler with Jev', () => {
     } finally {
       delete process.env.MONOMIND_HOOK_QUIET;
     }
-    expect(fetchSpy.mock.calls.filter((c) => String(c[0]).includes('/v1/systemone'))).toHaveLength(1);
+    expect(fetchSpy.mock.calls.filter((c) => String(c[0]).includes('/v1/systemone'))).toHaveLength(
+      1,
+    );
     expect(lastRoute()).toMatchObject({ agentSlug: 'security-engineer' });
-    const outcomes = fs.readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim().split('\n');
+    const outcomes = fs
+      .readFileSync(path.join(tmpDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8')
+      .trim()
+      .split('\n');
     expect(JSON.parse(outcomes[outcomes.length - 1]).routingMethod).toBe('jev');
-    expect(logs.join('\n')).toBe('');   // quiet still prints nothing
+    expect(logs.join('\n')).toBe(''); // quiet still prints nothing
   });
 
   it('skips Jev for five minutes after a failed pick', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
-    const fetchSpy = vi.fn(async () => { throw new TypeError('ECONNREFUSED'); });
+    const fetchSpy = vi.fn(async () => {
+      throw new TypeError('ECONNREFUSED');
+    });
     vi.stubGlobal('fetch', fetchSpy);
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
-    const jevCalls = () => fetchSpy.mock.calls.filter((c) => String(c[0]).includes('/v1/systemone')).length;
+    const jevCalls = () =>
+      fetchSpy.mock.calls.filter((c) => String(c[0]).includes('/v1/systemone')).length;
     const first = jevCalls();
     expect(fs.existsSync(path.join(tmpDir, '.monomind', 'jev-breaker.json'))).toBe(true);
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));

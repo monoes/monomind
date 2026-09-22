@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+import { decisionModelConfigured } from '../decision/jev.js';
+import { pickRoleForTask } from '../decision/picks.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import {
   configureResourceLimits,
@@ -408,7 +410,10 @@ export interface RunningOrg {
    *  together with the task instead of a turn behind it. Owned by
    *  decisions.ts's queueDispatch; cross-org.ts's pushMessage folds a
    *  same-turn message into an open entry. */
-  pendingDispatch?: Map<string, { lines: string[]; timer: ReturnType<typeof setTimeout> }>;
+  pendingDispatch?: Map<
+    string,
+    { lines: (string | Promise<string>)[]; timer: ReturnType<typeof setTimeout> }
+  >;
   /** Task ids their assignee has already been nudged about at a turn end — the
    *  bound on decisions.ts's nudgeOpenTasksAtTurnEnd. Cleared for a task when
    *  it is dispatched again, so each dispatch is worth one nudge at most. */
@@ -2115,6 +2120,20 @@ export class OrgDaemon {
       ) => {
         return this.dagCreateTask(name, r, title, assignee, deps, loadout);
       },
+      // Only with a decision model configured: otherwise org_task's description
+      // stays byte-identical (it is prefix position 0 of every cached prompt,
+      // see SessionOpts.requireTaskEvidence), so `assignee: "auto"` is opt-in.
+      ...(decisionModelConfigured()
+        ? {
+            pickAssignee: (title: string) =>
+              pickRoleForTask(title, def.roles, {
+                onError: (err) =>
+                  process.stderr.write(
+                    `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
+                  ),
+              }),
+          }
+        : {}),
       // ADR-O001 D7: only an org with a catalog gets the `loadout` argument;
       // the session itself is built with the loadout frozen above.
       loadoutCatalog: loadoutCatalog(def),

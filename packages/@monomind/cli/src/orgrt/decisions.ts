@@ -10,6 +10,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { decisionModelConfigured } from '../decision/jev.js';
+import { suggestTaskSkills } from '../decision/picks.js';
 import {
   checkTaskEvidence,
   declaresExpectExit,
@@ -21,6 +23,7 @@ import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
+import { roleSkillNames } from './skill-library.js';
 import { isTerminalStatus, type OrgTask } from './task-dag.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
@@ -723,6 +726,32 @@ export function dagRequestReview(
  *  a resend. Holding the dispatch for a beat lets the same-turn message join
  *  it, and both arrive as one message. Long enough for the rest of a tool-call
  *  batch to land, short enough to be invisible next to an LLM turn. */
+/** The dispatch message for a task. With a decision model configured and an
+ *  assignee that has on-demand skills, it also names the ones that fit THIS
+ *  task. That goes in the message, never the system prompt (ADR-O001 D7:
+ *  per-task guidance is not cached). Otherwise it is the plain line, returned
+ *  synchronously. The promise never rejects. */
+export function dispatchLine(
+  daemon: OrgDaemon,
+  running: RunningOrg,
+  task: OrgTask,
+): string | Promise<string> {
+  const base = `${taskTag(task)} ${task.title}`;
+  if (!decisionModelConfigured()) return base;
+  const role = running.def?.roles.find((r) => r.id === task.assignee);
+  if (!role) return base;
+  const pinned = new Set(role.skills ?? []);
+  const pool = roleSkillNames(role, daemon.root).filter((n) => !pinned.has(n));
+  if (pool.length === 0) return base;
+  return suggestTaskSkills(task.title, pool, daemon.root).then(
+    (names) =>
+      names.length
+        ? `${base}\nSkills that fit this task (load with org_skill_load): ${names.join(', ')}`
+        : base,
+    () => base,
+  );
+}
+
 export const DISPATCH_COALESCE_MS = 500;
 
 /** Hold `line` for the assignee, merging it with anything else queued for the
@@ -730,29 +759,57 @@ export const DISPATCH_COALESCE_MS = 500;
  *  by cross-org.ts's pushMessage). The recipient is resolved again at flush
  *  time so a role replaced during the window gets the message in its new
  *  mailbox rather than the retired one. */
-function queueDispatch(running: RunningOrg, assignee: string, line: string): void {
+function queueDispatch(
+  running: RunningOrg,
+  assignee: string,
+  line: string | Promise<string>,
+): void {
   if (!running.pendingDispatch) running.pendingDispatch = new Map();
   const open = running.pendingDispatch.get(assignee);
   if (open) {
     open.lines.push(line);
     return;
   }
-  const entry = { lines: [line], timer: undefined as unknown as ReturnType<typeof setTimeout> };
+  const entry = {
+    lines: [line] as (string | Promise<string>)[],
+    timer: undefined as unknown as ReturnType<typeof setTimeout>,
+  };
   entry.timer = setTimeout(() => {
-    running.pendingDispatch?.delete(assignee);
-    const mailbox = running.agents.get(assignee)?.mailbox;
-    if (!mailbox || mailbox.isClosed) return;
-    // ADR-O001 D3: in task scope a message is routed to the model session of
-    // the task it names, so a batch naming several tasks has to stay apart.
-    const role = running.def?.roles.find((r) => r.id === assignee);
-    if (role && resolveSessionScope(role, running.def) === 'task') {
-      for (const line of entry.lines) mailbox.push(line);
+    if (entry.lines.every((l) => typeof l === 'string')) {
+      running.pendingDispatch?.delete(assignee);
+      deliverDispatch(running, assignee, entry.lines as string[]);
       return;
     }
-    mailbox.push(entry.lines.join('\n\n'));
+    // A line is still resolving (per-task skill suggestion). Keep the entry
+    // open so same-turn messages keep joining it (#275), and deliver once no
+    // new line arrived while waiting.
+    void (async () => {
+      let lines: string[] = [];
+      for (let seen = -1; seen !== entry.lines.length; ) {
+        seen = entry.lines.length;
+        lines = await Promise.all(entry.lines);
+      }
+      running.pendingDispatch?.delete(assignee);
+      deliverDispatch(running, assignee, lines);
+    })();
   }, DISPATCH_COALESCE_MS);
   entry.timer.unref?.();
   running.pendingDispatch.set(assignee, entry);
+}
+
+/** The recipient is resolved at delivery time so a role replaced during the
+ *  window gets the message in its new mailbox rather than the retired one. */
+function deliverDispatch(running: RunningOrg, assignee: string, lines: string[]): void {
+  const mailbox = running.agents.get(assignee)?.mailbox;
+  if (!mailbox || mailbox.isClosed) return;
+  // ADR-O001 D3: in task scope a message is routed to the model session of
+  // the task it names, so a batch naming several tasks has to stay apart.
+  const role = running.def?.roles.find((r) => r.id === assignee);
+  if (role && resolveSessionScope(role, running.def) === 'task') {
+    for (const line of lines) mailbox.push(line);
+    return;
+  }
+  mailbox.push(lines.join('\n\n'));
 }
 
 /** A role can end its turn with its own task still open and nothing notices.
@@ -849,7 +906,7 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
     if (agent && !agent.mailbox.isClosed) {
       running.taskDag.markRunning(task.id);
       noteLoadoutMismatch(running, task, agent.loadout);
-      queueDispatch(running, task.assignee, `${taskTag(task)} ${task.title}`);
+      queueDispatch(running, task.assignee, dispatchLine(daemon, running, task));
       running.bus.emit({
         type: 'status',
         from: 'dag',
@@ -897,7 +954,7 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
       if (spawned && !spawned.mailbox.isClosed) {
         running.taskDag.markRunning(task.id);
         noteLoadoutMismatch(running, task, spawned.loadout);
-        queueDispatch(running, task.assignee, `${taskTag(task)} ${task.title}`);
+        queueDispatch(running, task.assignee, dispatchLine(daemon, running, task));
         running.bus.emit({
           type: 'status',
           from: 'dag',
