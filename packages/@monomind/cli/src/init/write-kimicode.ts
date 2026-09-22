@@ -13,6 +13,7 @@ import {
   generateKimiGateScript,
   generateKimiMcpJson,
   generateKimiPluginManifest,
+  isCatalogStyleRouterCommand,
   kimiCommandFilename,
   mergeKimiMcpJson,
 } from './kimi-generator.js';
@@ -175,11 +176,20 @@ export async function writeKimiFiles(
 
       // (a) flow skill — skipped when a real skill already owns this directory
       // name (real skills win; the plugin command below still provides the
-      // command under /monomind:<name>).
+      // command under /monomind:<name>), and skipped for a command written
+      // in the catalog-style router shape (e.g. .claude/commands/mastermind.md,
+      // the universal intent router) — that shape is reserved for the
+      // canonical mastermind/SKILL.md router and must never be duplicated
+      // into skills/ as a second, contradicting router. The plugin command
+      // below still provides it under /monomind:<name>.
       if (skillsDestSafe) {
         const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
         const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
-        if (writtenSkillDirs.has(flowName)) {
+        if (isCatalogStyleRouterCommand(src)) {
+          result.skipped.push(
+            `.kimi-code/skills/${flowName}/ (catalog-style router command — plugin command only, never a flow skill)`,
+          );
+        } else if (writtenSkillDirs.has(flowName)) {
           result.skipped.push(
             `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
           );
