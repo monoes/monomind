@@ -1,238 +1,207 @@
 /**
- * Test that reapOrphanedSdkProcesses only kills truly orphaned processes,
- * not live children of running daemons.
+ * Orphan reaping for `cleanup --force` is decided by OWNERSHIP, not by the
+ * name of pid 1.
  *
- * Issue: cleanup --force was calling reapOrphanedSdkProcesses(new Set()) with
- * no ownerPid, causing it to kill ALL SDK processes machine-wide, including
- * live org agents.
+ * History: 0d8a93165 trusted ppid === 1 only when pid 1 was systemd/init by
+ * name (broke tini/bwrap containers); 02eb480d5 flipped that to "pid 1 is a
+ * shell => don't trust" — still wrong when Claude Code itself is a
+ * container's pid 1 (`node .../claude`), whose live SDK children have ppid 1.
+ * Reproduced with real processes in a PID namespace: 3/3 live children of a
+ * `node /usr/local/bin/claude` pid 1 were SIGTERMed by the 2.15.6 build.
  *
- * Fix: When ownerPid is undefined, only kill processes that are genuinely
- * orphaned (ppid === 1 OR parent is an init/subreaper like systemd --user).
+ * Rules now (selectOrphanedSdkPids): never self/ancestor/descendant; never a
+ * process in the invoking session or process group; never one with a live
+ * claude/monomind process up its parent chain; and only when it is not in
+ * its live parent's session (an orphan adopted by any subreaper is not).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProcEntry } from '../src/utils/resource-governor.js';
 
 const execSyncMock = vi.fn();
-const killMock = vi.fn();
-
 vi.mock('node:child_process', () => ({
   execSync: (...args: unknown[]) => execSyncMock(...args),
 }));
-
-let platformMock = vi.fn(() => 'linux');
+let platformMock = vi.fn(() => 'darwin');
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return { ...actual, platform: () => platformMock() };
 });
 
-// Mock process.kill
-const originalKill = process.kill;
+const { parseProcStat, selectOrphanedSdkPids } = await import('../src/utils/resource-governor.js');
 
-describe('resource-governor — orphan detection', () => {
+const SDK = 'node /path/to/claude-agent-sdk/cli.js --output-format json';
+const SELF = 9000;
+
+/** The invoking `monomind cleanup` process, in session/group 8000 under a shell. */
+const invoker: ProcEntry[] = [
+  { pid: 8000, ppid: 1500, pgrp: 8000, sid: 8000, cmd: '-bash' },
+  { pid: SELF, ppid: 8000, pgrp: SELF, sid: 8000, cmd: 'node /usr/bin/monomindcli cleanup --force' },
+];
+const init: ProcEntry = { pid: 1, ppid: 0, pgrp: 1, sid: 1, cmd: '/sbin/init' };
+const userSystemd: ProcEntry = {
+  pid: 1500,
+  ppid: 1,
+  pgrp: 1500,
+  sid: 1500,
+  cmd: '/usr/lib/systemd/systemd --user',
+};
+
+function select(table: ProcEntry[], protectedPids = new Set<number>(), ownerPid?: number) {
+  return selectOrphanedSdkPids(table, SELF, protectedPids, ownerPid);
+}
+
+describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
+  it('reaps a genuine double-fork + setsid orphan adopted by systemd --user', () => {
+    const orphan = { pid: 7000, ppid: 1500, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(select([init, userSystemd, ...invoker, orphan])).toEqual([7000]);
+  });
+
+  it.each([
+    ['/sbin/init'],
+    ['bwrap --unshare-pid --dev-bind / /'],
+    ['/usr/bin/tini -- node app.js'],
+    ['-bash'],
+  ])('reaps an orphan adopted by pid 1 = %s when it is in its own session', (pid1Cmd) => {
+    const orphan = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    const pid1 = { ...init, cmd: pid1Cmd };
+    expect(select([pid1, userSystemd, ...invoker, orphan])).toEqual([7000]);
+  });
+
+  it('keeps a live-parented child: same session as its live parent', () => {
+    const parent = { pid: 6000, ppid: 1500, pgrp: 6000, sid: 6000, cmd: 'node /srv/app.js' };
+    const child = { pid: 7000, ppid: 6000, pgrp: 6000, sid: 6000, cmd: SDK };
+    expect(select([init, userSystemd, ...invoker, parent, child])).toEqual([]);
+  });
+
+  it('keeps a child of the invoking shell (shares the invoking session)', () => {
+    const child = { pid: 7000, ppid: 8000, pgrp: 7000, sid: 8000, cmd: SDK };
+    expect(select([init, userSystemd, ...invoker, child])).toEqual([]);
+  });
+
+  it('keeps a dummy whose parent is pid 1 but which shares the invoking session', () => {
+    // PID namespace: the invoking shell IS pid 1, its child reads ppid 1.
+    const shell1: ProcEntry = { pid: 1, ppid: 0, pgrp: 1, sid: 1, cmd: 'bwrap --unshare-pid' };
+    const self: ProcEntry = { pid: SELF, ppid: 1, pgrp: SELF, sid: 1, cmd: 'node monomindcli' };
+    const child = { pid: 7000, ppid: 1, pgrp: 7000, sid: 1, cmd: SDK };
+    expect(select([shell1, self, child])).toEqual([]);
+  });
+
+  it('keeps live SDK children of Claude Code running as a container pid 1, even in their own session', () => {
+    const claude1: ProcEntry = { pid: 1, ppid: 0, pgrp: 1, sid: 1, cmd: 'node /usr/local/bin/claude' };
+    const self: ProcEntry = { pid: SELF, ppid: 50, pgrp: SELF, sid: 50, cmd: 'node monomindcli' };
+    const execShell: ProcEntry = { pid: 50, ppid: 0, pgrp: 50, sid: 50, cmd: 'sh' };
+    const child = { pid: 7000, ppid: 1, pgrp: 7000, sid: 7000, cmd: SDK };
+    expect(select([claude1, execShell, self, child])).toEqual([]);
+  });
+
+  it('keeps a process with a live claude/monomind ancestor further up the chain', () => {
+    const daemon = { pid: 5000, ppid: 1500, pgrp: 5000, sid: 5000, cmd: 'node monomind org daemon' };
+    const wrapper = { pid: 5100, ppid: 5000, pgrp: 5100, sid: 5100, cmd: 'sh -c run' };
+    const child = { pid: 7000, ppid: 5100, pgrp: 7000, sid: 7000, cmd: SDK };
+    expect(select([init, userSystemd, ...invoker, daemon, wrapper, child])).toEqual([]);
+  });
+
+  it('never selects the invoking process, its ancestors, or its descendants', () => {
+    const sdkAncestor = { pid: 8000, ppid: 1, pgrp: 7777, sid: 7777, cmd: SDK };
+    const self = { pid: SELF, ppid: 8000, pgrp: SELF, sid: 7777, cmd: SDK };
+    const descendant = { pid: 9100, ppid: SELF, pgrp: 9100, sid: 9100, cmd: SDK };
+    expect(select([init, sdkAncestor, self, descendant])).toEqual([]);
+  });
+
+  it('fails safe when the invoking process is not in the table', () => {
+    const orphan = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(selectOrphanedSdkPids([init, orphan], 424242, new Set())).toEqual([]);
+  });
+
+  it('keeps a process whose non-1 parent is not visible (raced away or outside the view)', () => {
+    const child = { pid: 7000, ppid: 6000, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(select([init, ...invoker, child])).toEqual([]);
+  });
+
+  it('respects protectedPids', () => {
+    const a = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    const b = { pid: 7001, ppid: 1, pgrp: 6998, sid: 6998, cmd: SDK };
+    expect(select([init, ...invoker, a, b], new Set([7000]))).toEqual([7001]);
+  });
+
+  it('with ownerPid selects only that owner’s direct SDK children', () => {
+    const rows = [
+      { pid: 1234, ppid: 5000, cmd: SDK },
+      { pid: 5678, ppid: 6000, cmd: SDK },
+      { pid: 9999, ppid: 5000, cmd: SDK },
+    ];
+    expect(select(rows, new Set(), 5000)).toEqual([1234, 9999]);
+  });
+
+  it('ignores processes that do not look like SDK agents', () => {
+    const other = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: 'node claude-agent-sdk' };
+    expect(select([init, ...invoker, other])).toEqual([]);
+  });
+});
+
+describe('parseProcStat', () => {
+  it('reads ppid, pgrp, session and start time even when comm has spaces and parens', () => {
+    const stat =
+      '4242 (we ird) (name) S 1500 4241 4241 0 -1 4194560 100 0 0 0 1 2 0 0 20 0 1 0 987654 1000 10';
+    expect(parseProcStat(stat)).toEqual({
+      pid: 4242,
+      ppid: 1500,
+      pgrp: 4241,
+      sid: 4241,
+      start: 987654,
+    });
+  });
+
+  it('returns null for garbage', () => {
+    expect(parseProcStat('nonsense')).toBeNull();
+  });
+});
+
+// ── ps fallback (macOS / no /proc): pid, ppid, pgid — no sessions ──────────
+
+describe('reapOrphanedSdkProcesses — ps fallback', () => {
+  const killMock = vi.fn();
+  const originalKill = process.kill;
+  const me = process.pid;
+
   beforeEach(() => {
     execSyncMock.mockReset();
     killMock.mockReset();
     process.kill = killMock as unknown as typeof process.kill;
+    platformMock = vi.fn(() => 'darwin');
     vi.resetModules();
   });
-
   afterEach(() => {
     process.kill = originalKill;
   });
 
-  it('reapOrphanedSdkProcesses without ownerPid kills only orphaned processes (ppid=1)', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output with:
-    // - PID 1234, PPID 5000 (live parent) - should survive
-    // - PID 5678, PPID 1 (orphaned - init adopted it) - should be killed
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
- 1234  5000 node /path/to/claude-agent-sdk --output-format json
- 5678     1 node /path/to/claude-agent-sdk --output-format json
- 9999  2000 some-other-process
-`);
+  const ps = (rows: string) => `  PID  PPID  PGID COMMAND\n    1     0     1 /sbin/launchd\n ${me}   800   800 node monomindcli cleanup\n${rows}`;
 
+  it('reaps a launchd-adopted orphan in another process group', async () => {
+    execSyncMock.mockReturnValue(ps(` 5678     1  5678 ${SDK}\n`));
     const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
+    expect(reapOrphanedSdkProcesses(new Set())).toBe(1);
     expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
-    expect(killMock).not.toHaveBeenCalledWith(1234, 'SIGTERM');
+    expect(execSyncMock.mock.calls[0]?.[0]).toBe('ps -eo pid,ppid,pgid,command');
   });
 
-  it('reapOrphanedSdkProcesses without ownerPid kills processes parented by systemd --user', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output with process parented by systemd --user (typical subreaper)
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
- 1486     1 /usr/lib/systemd/systemd --user
- 1234  1486 node /path/to/claude-agent-sdk --output-format json
- 5000  2000 node /path/to/monomind-daemon
-`);
-
+  it('keeps a live-parented process and one in the invoking process group', async () => {
+    execSyncMock.mockReturnValue(
+      ps(` 5000  4000  5000 node /srv/app.js\n 1234  5000  5000 ${SDK}\n 5679     1   800 ${SDK}\n`),
+    );
     const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
-    expect(killMock).toHaveBeenCalledWith(1234, 'SIGTERM');
-  });
-
-  it('reapOrphanedSdkProcesses without ownerPid preserves processes with live monomind daemon parent', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output with SDK process parented by live monomind org daemon
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
- 5000  1486 node /path/to/monomind org daemon start
- 1234  5000 node /path/to/claude-agent-sdk --output-format json
- 1486     1 /usr/lib/systemd/systemd --user
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(0);
+    expect(reapOrphanedSdkProcesses(new Set())).toBe(0);
     expect(killMock).not.toHaveBeenCalled();
   });
 
-  it('reapOrphanedSdkProcesses without ownerPid preserves processes with any other live parent', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output with SDK process parented by some other live node app
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
- 5000  1486 node /path/to/some-other-app
- 1234  5000 node /path/to/claude-agent-sdk --output-format json
- 1486     1 /usr/lib/systemd/systemd --user
-`);
-
+  it('with ownerPid kills only children of that owner', async () => {
+    execSyncMock.mockReturnValue(
+      ps(` 1234  5000  5000 ${SDK}\n 5678  6000  6000 ${SDK}\n 9999  5000  5000 ${SDK}\n`),
+    );
     const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(0);
-    expect(killMock).not.toHaveBeenCalled();
-  });
-
-  it('reapOrphanedSdkProcesses without ownerPid preserves a live process whose ppid is 1 only because the invoking shell IS pid 1 (PID-namespace sandbox)', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output as seen from inside a `bwrap --unshare-pid`-style
-    // sandbox: the invoking shell is pid 1 of its own namespace (not an
-    // init/subreaper), and it has a live, non-orphaned SDK-pattern child
-    // whose ppid therefore reads as 1 too.
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
-    1     0 -bash
- 5678     1 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(0);
-    expect(killMock).not.toHaveBeenCalled();
-  });
-
-  it('reapOrphanedSdkProcesses without ownerPid still kills a process whose visible pid-1 parent really is an init/subreaper', async () => {
-    platformMock = vi.fn(() => 'linux');
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
-    1     0 /sbin/init
- 5678     1 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
-    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
-  });
-
-  it('reapOrphanedSdkProcesses without ownerPid preserves a live process whose ppid is 1 because pid 1 is a zsh/sh login shell too (shell deny-list, not just bash)', async () => {
-    platformMock = vi.fn(() => 'linux');
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
-    1     0 -zsh
- 5678     1 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(0);
-    expect(killMock).not.toHaveBeenCalled();
-  });
-
-  // Round 2 regression: cli-qa found that after the round-1 fix above, a
-  // GENUINE orphan (double-fork+setsid, reparented to a real pid-1 subreaper,
-  // ppid === 1 confirmed live via `ps`) was no longer reaped at all when
-  // pid 1's own command didn't match the systemd/init allow-list — e.g. a
-  // sandbox wrapper like `bwrap` acting as the namespace's subreaper, or
-  // `tini`/`dumb-init` in a container with no systemd. That's a broad class
-  // of real deployment environments, not just this test sandbox. The fix is
-  // a deny-list (isShellLikeCmd) instead of an allow-list (isInitSubreaperCmd)
-  // for the pid1 === ppid check: trust ppid === 1 for ANY pid 1 that doesn't
-  // look like the live invoking shell, not only for systemd/init by name.
-  it('reapOrphanedSdkProcesses without ownerPid kills a genuine orphan whose pid-1 subreaper is a sandbox wrapper (bwrap), not systemd/init', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output as seen from inside a `bwrap --unshare-pid` sandbox
-    // where bwrap itself (not a live shell) is acting as pid 1's subreaper,
-    // and the SDK process is a genuine orphan reparented to it.
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
-    1     0 bwrap --unshare-pid --dev-bind / /
- 5678     1 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
-    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
-  });
-
-  it('reapOrphanedSdkProcesses without ownerPid kills a genuine orphan whose pid-1 subreaper is tini, not systemd/init', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output as seen from inside a container that uses tini as its
-    // pid-1 init/subreaper instead of systemd — a common case for CI
-    // runners and minimal container images with no real init process.
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
-    1     0 /usr/bin/tini -- node app.js
- 5678     1 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set());
-
-    expect(reaped).toBe(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
-    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
-  });
-
-  it('reapOrphanedSdkProcesses with ownerPid kills only children of that owner', async () => {
-    platformMock = vi.fn(() => 'linux');
-    // Mock ps output with multiple processes
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
- 1234  5000 node /path/to/claude-agent-sdk --output-format json
- 5678  6000 node /path/to/claude-agent-sdk --output-format json
- 9999  5000 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set(), 5000);
-
-    expect(reaped).toBe(2);
-    expect(killMock).toHaveBeenCalledTimes(2);
+    expect(reapOrphanedSdkProcesses(new Set(), 5000)).toBe(2);
     expect(killMock).toHaveBeenCalledWith(1234, 'SIGTERM');
     expect(killMock).toHaveBeenCalledWith(9999, 'SIGTERM');
     expect(killMock).not.toHaveBeenCalledWith(5678, 'SIGTERM');
-  });
-
-  it('reapOrphanedSdkProcesses respects protectedPids', async () => {
-    platformMock = vi.fn(() => 'linux');
-    execSyncMock.mockReturnValue(`  PID  PPID COMMAND
- 1234     1 node /path/to/claude-agent-sdk --output-format json
- 5678     1 node /path/to/claude-agent-sdk --output-format json
-`);
-
-    const { reapOrphanedSdkProcesses } = await import('../src/utils/resource-governor.js');
-    const reaped = reapOrphanedSdkProcesses(new Set([1234]));
-
-    expect(reaped).toBe(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
-    expect(killMock).toHaveBeenCalledWith(5678, 'SIGTERM');
-    expect(killMock).not.toHaveBeenCalledWith(1234, 'SIGTERM');
   });
 });

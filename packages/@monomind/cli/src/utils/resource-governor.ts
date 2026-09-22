@@ -2,6 +2,7 @@
 // monolean: single-module resource gate — upgrade path = cgroup integration
 
 import { execSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
 import { cpus, freemem, platform, totalmem } from 'node:os';
 
 export interface ResourceLimits {
@@ -135,99 +136,179 @@ export async function waitForCapacity(timeoutMs = 60_000): Promise<ResourceCheck
   return checkResources();
 }
 
-// Matches an init/subreaper process's OWN command line — used to confirm a
-// parent is actually acting as a reaper before trusting it as proof of
-// orphan-hood (see isInitSubreaperCmd below).
-const INIT_SUBREAPER_RE = /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/;
-
-function isInitSubreaperCmd(cmd: string | undefined): boolean {
-  return !!cmd && INIT_SUBREAPER_RE.test(cmd);
+/** One row of the process table: identity plus the ownership fields reaping needs. */
+export interface ProcEntry {
+  pid: number;
+  ppid: number;
+  /** Process group id. */
+  pgrp?: number;
+  /** Session id. Only known from /proc (Linux). */
+  sid?: number;
+  /** Start time in clock ticks since boot (/proc stat field 22) — guards PID reuse. */
+  start?: number;
+  cmd: string;
 }
 
-// Interactive shells that could plausibly be the LIVE INVOKING SESSION
-// itself when it shows up as pid 1 (see the ppid === 1 branch below).
-// Matched against pid 1's own argv0 only — a leading '-' (login shell,
-// e.g. "-bash") is allowed.
-const SHELL_LIKE_ARGV0_RE = /(^|\/)-?(bash|zsh|sh|dash|ksh|fish|tcsh|csh)$/;
+const SDK_CMD_RE = /claude-agent-sdk[\s\S]*--output-format|--output-format[\s\S]*claude-agent-sdk/;
+// A still-running claude/monomind session anywhere up a process's parent
+// chain owns it: Claude Code itself, an SDK process, or a monomind daemon.
+const LIVE_SESSION_RE = /\bclaude\b|monomind/i;
+// Fallback-only (no session ids, e.g. macOS `ps`): a parent other than pid 1
+// counts as a subreaper only if it is an init/systemd by name.
+const INIT_SUBREAPER_RE = /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/;
+const MAX_CHAIN = 64;
 
-function isShellLikeCmd(cmd: string | undefined): boolean {
-  if (!cmd) return false;
-  const argv0 = cmd.trim().split(/\s+/)[0] ?? '';
-  return SHELL_LIKE_ARGV0_RE.test(argv0);
+/**
+ * Parse /proc/<pid>/stat. `comm` (field 2) may contain spaces and parens, so
+ * fields are counted from the LAST ')'.
+ */
+export function parseProcStat(
+  stat: string,
+): Pick<ProcEntry, 'pid' | 'ppid' | 'pgrp' | 'sid' | 'start'> | null {
+  const close = stat.lastIndexOf(')');
+  if (close < 0) return null;
+  const pid = parseInt(stat, 10);
+  // After ')': state(3) ppid(4) pgrp(5) session(6) ... starttime(22)
+  const f = stat.slice(close + 2).split(' ');
+  const [ppid, pgrp, sid, start] = [f[1], f[2], f[3], f[19]].map((v) => parseInt(v ?? '', 10));
+  if ([pid, ppid, pgrp, sid].some((n) => Number.isNaN(n))) return null;
+  return { pid, ppid, pgrp, sid, start: Number.isNaN(start) ? undefined : start };
+}
+
+function readProcStat(pid: number): ReturnType<typeof parseProcStat> {
+  try {
+    return parseProcStat(readFileSync(`/proc/${pid}/stat`, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Linux: the whole process table from /proc, with session ids. Null without /proc. */
+function readProcTable(): ProcEntry[] | null {
+  let names: string[];
+  try {
+    names = readdirSync('/proc');
+  } catch {
+    return null;
+  }
+  const out: ProcEntry[] = [];
+  for (const name of names) {
+    if (!/^\d+$/.test(name)) continue;
+    const st = readProcStat(Number(name));
+    if (!st) continue; // exited while we looked
+    let cmd = '';
+    try {
+      cmd = readFileSync(`/proc/${name}/cmdline`, 'utf8').replace(/\0+$/, '').replace(/\0/g, ' ');
+    } catch {
+      /* exited */
+    }
+    out.push({ ...st, cmd });
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** macOS / no-/proc fallback: `ps` gives pid, ppid and process group, not sessions. */
+function readPsTable(): ProcEntry[] {
+  const out = execSync('ps -eo pid,ppid,pgid,command', {
+    encoding: 'utf8',
+    timeout: 5000,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const rows: ProcEntry[] = [];
+  for (const line of out.split('\n')) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+    if (m)
+      rows.push({ pid: Number(m[1]), ppid: Number(m[2]), pgrp: Number(m[3]), cmd: m[4] ?? '' });
+  }
+  return rows;
+}
+
+/**
+ * Decide which claude-agent-sdk processes are reapable. Pure — the process
+ * table and the invoking pid are inputs — so every ownership rule is testable.
+ *
+ * With `ownerPid`, only that owner's direct SDK children are selected (the
+ * org daemon reaping its own agents).
+ *
+ * Without it (`cleanup --force`), a process is an orphan only when ownership
+ * says so, never by the name of pid 1:
+ *  - it is not the invoking process, one of its ancestors, or a descendant;
+ *  - it shares neither the invoking process's session nor its process group
+ *    (a dummy whose parent reads as pid 1 but which belongs to the invoking
+ *    session is still the invoker's);
+ *  - no process up its parent chain is a still-running claude/monomind
+ *    session (Claude Code running as a container's pid 1 keeps its SDK
+ *    children, whose ppid is 1);
+ *  - it is not in its live parent's session: a spawned child stays in its
+ *    parent's session, while an orphan adopted by init, systemd --user,
+ *    tini, bwrap or any other subreaper does not. A parent that is not
+ *    visible counts as adoption only for ppid 1 (the true init outside a
+ *    PID namespace's view).
+ * Without session ids (macOS `ps`), the last rule falls back to "ppid is 1 or
+ * the parent is an init/systemd", as before.
+ */
+export function selectOrphanedSdkPids(
+  table: ProcEntry[],
+  selfPid: number,
+  protectedPids: Set<number>,
+  ownerPid?: number,
+): number[] {
+  const byPid = new Map(table.map((p) => [p.pid, p]));
+  const chainOf = (p: ProcEntry): ProcEntry[] => {
+    const chain: ProcEntry[] = [];
+    const seen = new Set([p.pid]);
+    for (let cur = byPid.get(p.ppid); cur && !seen.has(cur.pid) && chain.length < MAX_CHAIN; ) {
+      chain.push(cur);
+      seen.add(cur.pid);
+      cur = byPid.get(cur.ppid);
+    }
+    return chain;
+  };
+  const self = byPid.get(selfPid);
+  const selfAncestors = new Set(self ? chainOf(self).map((a) => a.pid) : []);
+  const picked: number[] = [];
+
+  for (const c of table) {
+    if (!SDK_CMD_RE.test(c.cmd) || protectedPids.has(c.pid) || c.pid === selfPid) continue;
+    if (ownerPid != null) {
+      if (c.ppid === ownerPid) picked.push(c.pid);
+      continue;
+    }
+    if (!self || selfAncestors.has(c.pid)) continue; // cannot place ourselves: fail safe
+    const chain = chainOf(c);
+    if (chain.some((a) => a.pid === selfPid)) continue; // our own descendant
+    if (self.sid !== undefined && c.sid === self.sid) continue;
+    if (self.pgrp !== undefined && c.pgrp === self.pgrp) continue;
+    if (chain.some((a) => LIVE_SESSION_RE.test(a.cmd))) continue;
+    const parent = byPid.get(c.ppid);
+    if (!parent) {
+      if (c.ppid !== 1) continue;
+    } else if (c.sid !== undefined && parent.sid !== undefined) {
+      if (parent.sid === c.sid) continue;
+    } else if (c.ppid !== 1 && !INIT_SUBREAPER_RE.test(parent.cmd)) {
+      continue;
+    }
+    picked.push(c.pid);
+  }
+  return picked;
 }
 
 /** Kill orphaned claude-agent-sdk processes.
  *  @param protectedPids PIDs to never kill (e.g. sibling org agents).
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
- *    When undefined, only kills genuinely orphaned processes (ppid === 1 or
- *    parent is an init/subreaper like systemd --user). */
+ *    When undefined, only kills processes `selectOrphanedSdkPids` proves
+ *    orphaned by ownership (see there). */
 export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: number): number {
   // ps doesn't exist on native Windows — same rationale as countSdkProcesses above.
   if (platform() === 'win32') return 0;
   try {
-    const out = execSync('ps -eo pid,ppid,command', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    // Build pid→command map for parent lookup when detecting orphans
-    const procMap = new Map<number, string>();
-    for (const line of out.split('\n')) {
-      const parts = line.trim().split(/\s+/);
-      const pid = parseInt(parts[0], 10);
-      if (!Number.isNaN(pid) && parts.length >= 3) {
-        procMap.set(pid, parts.slice(2).join(' '));
-      }
-    }
-
+    const table = (platform() === 'linux' ? readProcTable() : null) ?? readPsTable();
+    const starts = new Map(table.map((p) => [p.pid, p.start]));
     let reaped = 0;
-    for (const line of out.split('\n')) {
-      if (!line.includes('claude-agent-sdk') || !line.includes('--output-format')) continue;
-      const parts = line.trim().split(/\s+/);
-      const pid = parseInt(parts[0], 10);
-      const ppid = parseInt(parts[1], 10);
-      if (Number.isNaN(pid) || protectedPids.has(pid)) continue;
-
-      // When ownerPid is specified, only kill children of that owner.
-      if (ownerPid != null) {
-        if (ppid !== ownerPid) continue;
-      } else {
-        // When ownerPid is undefined, only kill genuinely orphaned processes:
-        // - ppid === 1 (adopted by init), OR
-        // - parent is an init/subreaper (systemd, systemd --user, /sbin/init, etc.)
-        //
-        // ppid === 1 alone is NOT sufficient proof of orphan-hood. Inside a
-        // PID-namespace sandbox (e.g. `bwrap --unshare-pid`) or a container
-        // with no init process, the invoking shell itself can BE pid 1 in
-        // that namespace — so its own live, still-running children also
-        // report ppid === 1, even though their real parent never died and
-        // is not an init/subreaper at all.
-        //
-        // Distinguishing a real subreaper from that failure mode is a
-        // deny-list, not an allow-list: a legitimate orphan reaper at pid 1
-        // can be systemd, /sbin/init, tini, dumb-init, docker-init, a
-        // sandbox wrapper like bwrap, or anything else that isn't the live
-        // invoking session — far more real deployment environments
-        // (containers, CI runners without systemd) than a systemd/init
-        // allow-list alone would ever cover. What pid 1 can never
-        // legitimately be, and still have its ppid === 1 children be
-        // genuine orphans, is an interactive shell — that's the one shape
-        // the live invoking session actually takes. So: if pid 1 is visible
-        // in this `ps` snapshot and looks like a shell, don't trust the
-        // numeric ppid; leave the process alone. If pid 1 is visible and
-        // does NOT look like a shell, trust it as a subreaper. If pid 1
-        // isn't in the snapshot (the common case on a real host, where the
-        // true init is outside what a restricted `ps` can show), fall back
-        // to treating ppid === 1 as adoption by init, as before.
-        if (ppid !== 1) {
-          const parentCmd = procMap.get(ppid);
-          if (!isInitSubreaperCmd(parentCmd)) continue;
-        } else {
-          const pid1Cmd = procMap.get(1);
-          if (pid1Cmd && isShellLikeCmd(pid1Cmd)) continue;
-        }
-      }
-
+    for (const pid of selectOrphanedSdkPids(table, process.pid, protectedPids, ownerPid)) {
+      // PID-reuse guard: the pid must still be the process that was judged.
+      const start = starts.get(pid);
+      if (start !== undefined && readProcStat(pid)?.start !== start) continue;
       try {
         process.kill(pid, 'SIGTERM');
         reaped++;
