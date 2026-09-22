@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { resolveRoleCostTier } from '../orgrt/cost-tier.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
@@ -382,9 +383,13 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   if (ctx.flags.dryRun === true) {
     // Validate + preview each role's actual briefing without spawning sessions.
     try {
-      const def = OrgDefSchema.parse(
+      const parsedDef = OrgDefSchema.parse(
         JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')),
       );
+      const bp = resolveOrgDefBlueprints(parsedDef, ctx.cwd);
+      for (const n of bp.notes) log(output.info(n));
+      if (bp.errors.length) throw new Error(bp.errors.join('; '));
+      const def = bp.def;
       const { buildRolePrompt, resolveRoleExtraGuidance } = await import('../orgrt/session.js');
       const { agentRoles, endpointBriefingLines } = await import('../orgrt/endpoint-roles.js');
       const { expandRolePromptVars, promptVarsFor } = await import('../orgrt/prompt-vars.js');

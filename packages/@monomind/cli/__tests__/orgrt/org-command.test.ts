@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { orgCommand, clearStopfile } from '../../src/commands/org.js';
 import { ORG_DIR } from '../../src/orgrt/types.js';
+import { writeEntry } from '../catalog/fixtures.js';
 
 describe('org command', () => {
   it('registers run/stop/status/serve/test-loop subcommands', () => {
@@ -531,6 +532,67 @@ describe('org command', () => {
         expect(() => clearStopfile(cwd, 'myorg')).not.toThrow();
         // does not touch other orgs' stopfiles
         expect(existsSync(join(cwd, ORG_DIR, 'other', 'stop'))).toBe(true);
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('catalog blueprints', () => {
+    const seed = (cwd: string, blueprint: string): void => {
+      mkdirSync(join(cwd, '.monomind', 'org-skills', 'blue-skill'), { recursive: true });
+      writeFileSync(
+        join(cwd, '.monomind', 'org-skills', 'blue-skill', 'SKILL.md'),
+        '---\nname: blue-skill\ndescription: from the blueprint\n---\n\nBLUE-SKILL-BODY\n',
+      );
+      writeEntry(cwd, {
+        name: 'blue',
+        kind: 'blueprint',
+        files: {
+          'blueprint.json': JSON.stringify({ name: 'blue', description: 'x', skills: ['blue-skill'] }),
+          'LICENSE.txt': 'MIT License',
+        },
+      });
+      mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, 'alpha.json'), JSON.stringify({
+        name: 'alpha', goal: 'ship', roles: [{ id: 'boss', reports_to: null, blueprint }],
+      }));
+    };
+    const capture = async (cwd: string, sub: string, flags: Record<string, unknown>) => {
+      const lines: string[] = [];
+      const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
+      try {
+        const res = await orgCommand.subcommands!.find(c => c.name === sub)!
+          .action!({ args: ['alpha'], flags, cwd, interactive: false } as any);
+        return { res, log: lines.join('\n') };
+      } finally {
+        spy.mockRestore();
+      }
+    };
+
+    it('run --dryRun previews the briefing with the blueprint\'s skills', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-bp-dry-'));
+      try {
+        seed(cwd, 'blue');
+        const { res, log } = await capture(cwd, 'run', { dryRun: true });
+        expect(res?.success).toBe(true);
+        expect(log).toContain('## Skill: blue-skill');
+        expect(log).toContain('BLUE-SKILL-BODY');
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+
+    it('run --dryRun and validate fail on a blueprint that is not active for org', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-bp-missing-'));
+      try {
+        seed(cwd, 'nope');
+        const dry = await capture(cwd, 'run', { dryRun: true });
+        expect(dry.res?.success).toBe(false);
+        expect(dry.log).toMatch(/blueprint "nope" is not active for org/);
+        const val = await capture(cwd, 'validate', {});
+        expect(val.res?.success).toBe(false);
+        expect(val.log).toMatch(/blueprint "nope" is not active for org/);
       } finally {
         rmSync(cwd, { recursive: true, force: true });
       }

@@ -2,6 +2,7 @@
 // Extracted from daemon.ts — replay, resume, branch checkpoint operations.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { OrgBus } from './bus.js';
 import {
@@ -50,7 +51,10 @@ export async function replayFrom(
   const defPath = join(daemon.root, ORG_DIR, `${name}.json`);
   if (!existsSync(defPath)) return null;
 
-  const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+  const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+  const bp = resolveOrgDefBlueprints(parsedDef, daemon.root);
+  if (bp.errors.length) throw new Error(`org ${name}: ${bp.errors.join('; ')}`);
+  const def = bp.def;
 
   // Create replay bus
   const bus = new OrgBus(name, replayRun, replayDir);

@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { decisionModelConfigured } from '../decision/jev.js';
 import { pickRoleForTask } from '../decision/picks.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
@@ -625,7 +626,10 @@ export class OrgDaemon {
     const running = this.orgs.get(name);
     if (!running) throw new Error(`org ${name} is not running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
-    const newDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+    const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+    const bp = resolveOrgDefBlueprints(parsedDef, this.root);
+    if (bp.errors.length) throw new Error(`org ${name}: ${bp.errors.join('; ')}`);
+    const newDef = bp.def;
     const changed: string[] = [];
     const newRoles: string[] = [];
     const removedRoles: string[] = [];
@@ -844,7 +848,9 @@ export class OrgDaemon {
       /* best-effort: not a git repo, git missing, or a wedged hook */
     }
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
-    const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+    const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+    const bp = resolveOrgDefBlueprints(parsedDef, this.root);
+    const def = bp.def;
 
     let run: string;
     let checkpoint: OrgCheckpoint | undefined;
@@ -962,7 +968,10 @@ export class OrgDaemon {
       throw new Error(`org ${name}: ${loadoutErrors.join('; ')}`);
     }
     const { validateRoleSkills } = await import('./skill-library.js');
-    const skillErrors = def.roles.flatMap((r) => validateRoleSkills(r, this.root));
+    const skillErrors = [
+      ...bp.errors,
+      ...def.roles.flatMap((r) => validateRoleSkills(r, this.root)),
+    ];
     if (skillErrors.length) {
       throw new Error(`org ${name}: ${skillErrors.join('; ')}`);
     }

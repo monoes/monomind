@@ -41,6 +41,7 @@ vi.mock('../../src/utils/resource-governor.js', () => ({
 
 import { OrgDaemon, resolveOrgComplete } from '../../src/orgrt/daemon.js';
 import type { BusEvent } from '../../src/orgrt/types.js';
+import { writeEntry } from '../catalog/fixtures.js';
 
 function fixture(root: string, name: string) {
   mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
@@ -1871,5 +1872,60 @@ describe('OrgDaemon — start/stop lifecycle hygiene', () => {
       setSpy.mockRestore();
       clearSpy.mockRestore();
     }
+  });
+});
+
+describe('OrgDaemon — catalog blueprints', () => {
+  const seed = (root: string, blueprint: string): void => {
+    mkdirSync(join(root, '.monomind/org-skills/blue-skill'), { recursive: true });
+    writeFileSync(
+      join(root, '.monomind/org-skills/blue-skill/SKILL.md'),
+      '---\nname: blue-skill\ndescription: from the blueprint\n---\n\nBLUE-SKILL-BODY\n',
+    );
+    writeEntry(root, {
+      name: 'blue',
+      kind: 'blueprint',
+      files: {
+        'blueprint.json': JSON.stringify({ name: 'blue', description: 'x', skills: ['blue-skill'] }),
+        'LICENSE.txt': 'MIT License',
+      },
+    });
+    writeOrg(root, blueprint);
+  };
+  const writeOrg = (root: string, blueprint: string, goal = 'g'): void => {
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal, roles: [{ id: 'boss', type: 'boss', reports_to: null, blueprint }],
+    }));
+  };
+
+  it('start builds the briefing from the resolved blueprint skills', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-bp-'));
+    seed(root, 'blue');
+    const prompts: string[] = [];
+    const capturing = ({ prompt, options }: any) => {
+      prompts.push(options.systemPrompt);
+      return echoQuery({ prompt, options });
+    };
+    const d = new OrgDaemon(root, { queryFn: capturing as any, forward: false });
+    const running = await d.startOrg('alpha');
+    expect(running.def.roles[0].skills).toEqual(['blue-skill']);
+    await waitUntil(() => prompts.length > 0);
+    await d.stopAll();
+    expect(prompts[0]).toContain('BLUE-SKILL-BODY');
+  });
+
+  it('start fails and hot reload is rejected when the blueprint is not active for org', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-bp-missing-'));
+    seed(root, 'nope');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    await expect(d.startOrg('alpha')).rejects.toThrow(/blueprint "nope" is not active for org/);
+
+    writeOrg(root, 'blue');
+    const running = await d.startOrg('alpha');
+    writeOrg(root, 'nope', 'changed');
+    expect(() => d.reloadOrgDef('alpha')).toThrow(/blueprint "nope" is not active for org/);
+    expect(running.def.goal).toBe('g');
+    await d.stopAll();
   });
 });

@@ -3,6 +3,7 @@
 // Kept out of org.ts to respect the 500-line file ceiling.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { branchCheckpoint } from '../orgrt/checkpoint-ops.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
 import {
@@ -84,7 +85,11 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
       continue;
     }
     try {
-      const def = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
+      const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
+      const bp = resolveOrgDefBlueprints(parsedDef, ctx.cwd || process.cwd());
+      const def = bp.def;
+      errors.push(...bp.errors);
+      for (const n of bp.notes) log(output.info(`${stem}: ${n}`));
       errors.push(...checkOrgStructure(def));
       // ADR-O001 D8: a cost tier that can't resolve a model for a role's
       // provider is a config error, not a runtime fallback — surface it here

@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/types.ts
 import { z } from 'zod';
+import { CATALOG_NAME_RE } from '../catalog/types.js';
 import { ORG_EFFORT_LEVELS } from './cost-tier.js';
 
 export const ContextSliceSchema = z.object({ source: z.string(), summary: z.string() });
@@ -262,6 +263,9 @@ export const RoleSchema = z
      *  `tag:<tag>` selectors. Only their one-line descriptions sit in the
      *  prompt, so it stays a stable cache prefix. */
     skill_pool: z.array(z.string()).optional(),
+    /** Catalog blueprint whose skills/skill_pool fill the fields above when
+     *  unset (catalog/blueprints.ts `resolveOrgDefBlueprints`). */
+    blueprint: z.string().regex(CATALOG_NAME_RE).optional(),
     /** Canvas/UI-owned metadata (position, icon, color) — round-tripped
      *  unchanged by the runtime, which never reads it. Still `.passthrough()`
      *  so unknown UI-client fields keep round-tripping. */
