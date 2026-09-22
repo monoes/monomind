@@ -37,6 +37,24 @@ function minimalDef(name: string): OrgDef {
   return { name, goal: 'test', roles: [{ id: 'dev' }], run_config: {} } as unknown as OrgDef;
 }
 
+/** OrgBus writes every event to <run dir>/bus.jsonl in the background
+ *  (mkdir -p, then appends); emit() never waits for it. A test that ends right
+ *  after emitting still has that write in flight when afterEach deletes tmp,
+ *  and a directory or bus.jsonl created mid-rmSync makes the rmdir fail with
+ *  ENOTEMPTY — the test fails in its afterEach (seen under parallel load), or
+ *  the tree is silently recreated and leaked. Every afterEach here seals the
+ *  buses its test opened (wait for the queued writes, then no more disk
+ *  writes) before removing tmp. */
+const openBuses: OrgBus[] = [];
+function openBus(tmp: string): OrgBus {
+  const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+  openBuses.push(bus);
+  return bus;
+}
+async function sealBuses(): Promise<void> {
+  await Promise.all(openBuses.splice(0).map((bus) => bus.seal()));
+}
+
 /** Wait out the task-dispatch coalescing window (#275). */
 const settleDispatch = (): Promise<void> =>
   new Promise((r) => setTimeout(r, DISPATCH_COALESCE_MS + 50));
@@ -54,14 +72,15 @@ function makeAgent(): AgentRuntime {
 
 describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
   let tmp = '';
-  afterEach(() => {
+  afterEach(async () => {
+    await sealBuses();
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   });
 
   it('does not mark a task running when its assignee is unresolvable, and flags it', () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-unresolved-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
 
@@ -102,7 +121,7 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
   it('does not mark a task running or emit a false dispatch when the assignee mailbox is closed', () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-closed-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
 
@@ -148,7 +167,7 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
   it('still dispatches normally to a live agent (regression guard)', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-happy-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
 
@@ -192,7 +211,8 @@ describe('dispatchReadyTasks: assignee resolution before markRunning', () => {
  */
 describe('org_task auto-dispatch + same-turn org_send (#275)', () => {
   let tmp = '';
-  afterEach(() => {
+  afterEach(async () => {
+    await sealBuses();
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   });
 
@@ -212,7 +232,7 @@ describe('org_task auto-dispatch + same-turn org_send (#275)', () => {
   it('delivers the task and the message the same turn sent as one mailbox message', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-coalesce-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const agent = makeAgent();
     const taskDag = new TaskDag();
     const task = taskDag.add('ROUND 1 FIXES: fixer resolves 10 numbered issues', 'fixer', []);
@@ -246,7 +266,7 @@ describe('org_task auto-dispatch + same-turn org_send (#275)', () => {
   it('leaves a message with no task dispatch in flight as its own delivery', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-plain-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const agent = makeAgent();
     const running = makeRunning(bus, new TaskDag(), agent);
     daemon.orgs.set('alpha', running);
@@ -263,15 +283,16 @@ describe('org_task auto-dispatch + same-turn org_send (#275)', () => {
 
 describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
   let tmp = '';
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    await sealBuses();
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   });
 
   it('leaves the task ready when the spawn does not produce a live agent', () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-lazy-fail-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
 
@@ -305,7 +326,7 @@ describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
     vi.useFakeTimers();
     tmp = mkdtempSync(join(tmpdir(), 'org-dispatch-lazy-gate-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
 
@@ -368,7 +389,8 @@ describe('dispatchReadyTasks: lazy (pending-role) assignee', () => {
  */
 describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () => {
   let tmp = '';
-  afterEach(() => {
+  afterEach(async () => {
+    await sealBuses();
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   });
 
@@ -389,7 +411,7 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     const sha = commit(repo, 'first.txt');
 
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    const bus = openBus(tmp);
     const events: BusEvent[] = [];
     bus.subscribe((e) => events.push(e));
     const dev = makeAgent();
