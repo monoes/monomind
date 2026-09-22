@@ -247,18 +247,26 @@ export async function applyPlan(plan: PlatformPlan, request: InstallRequest): Pr
   if (!plan.authorizedUserMutation)
     throw new Error('Plan is not authorized for user-scope mutation');
   const adapter = PLATFORM_REGISTRY[request.platform];
+  const result = withMutationLock(request, () => applyIntents(adapter, plan.intents, request));
+  return { ...result, diagnostics: [...plan.diagnostics, ...result.diagnostics], plan };
+}
+
+/** Applies intents without taking the lock; callers hold it (or dry-run). */
+export function applyIntents(
+  adapter: PlatformAdapter,
+  intents: readonly ArtifactIntent[],
+  request: InstallRequest,
+): { changed: string[]; skipped: string[]; diagnostics: string[] } {
   const changed: string[] = [];
   const skipped: string[] = [];
-  const diagnostics = [...plan.diagnostics];
-  withMutationLock(request, () => {
-    for (const intent of plan.intents) {
-      const result = applyIntent(adapter, intent, request);
-      if (result.changed) changed.push(result.changed);
-      if (result.skipped) skipped.push(result.skipped);
-      diagnostics.push(...result.diagnostics);
-    }
-  });
-  return { changed, skipped, diagnostics, plan };
+  const diagnostics: string[] = [];
+  for (const intent of intents) {
+    const result = applyIntent(adapter, intent, request);
+    if (result.changed) changed.push(result.changed);
+    if (result.skipped) skipped.push(result.skipped);
+    diagnostics.push(...result.diagnostics);
+  }
+  return { changed, skipped, diagnostics };
 }
 
 export async function installPlatform(request: InstallRequest): Promise<ApplyResult> {

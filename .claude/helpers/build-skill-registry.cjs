@@ -202,6 +202,15 @@ function scanCommands(root) {
   return out;
 }
 
+/** A catalog projection's marker line (monomind catalog project), on a line of
+ *  its own: `<!-- catalog skill:<name> sha256:<hex> jev:yes|no -->`. Returns
+ *  { id, jev } or null. jev-picker.cjs sends a catalog skill to the decision
+ *  model only when jev is true. */
+function readCatalogMarker(text) {
+  var m = /^<!-- catalog (skill:[a-z0-9][a-z0-9-]*) sha256:[0-9a-f]{64} jev:(yes|no) -->\r?$/m.exec(text);
+  return m ? { id: m[1], jev: m[2] === 'yes' } : null;
+}
+
 /** Scan .claude/skills/<name>/SKILL.md -> Skill() entries. */
 function scanSkills(root) {
   var base = path.join(root, '.claude', 'skills');
@@ -227,7 +236,7 @@ function scanSkills(root) {
     var name = fm.name || d.name;
     var description = fm.description || readLeadingComment(text) || readFirstHeading(text);
     var nameTerms = deriveNameTerms(name, d.name);
-    out.push({
+    var entry = {
       skill: d.name,
       invoke: 'Skill("' + d.name + '")',
       kind: 'skill',
@@ -236,7 +245,10 @@ function scanSkills(root) {
       keywords: deriveKeywords(description, nameTerms),
       category: 'skill',
       source: '.claude/skills/' + d.name + '/SKILL.md',
-    });
+    };
+    var catalog = readCatalogMarker(text);
+    if (catalog) entry.catalog = catalog;
+    out.push(entry);
   }
   return out;
 }
@@ -320,4 +332,5 @@ module.exports = {
   readFrontmatter: readFrontmatter,
   deriveNameTerms: deriveNameTerms,
   deriveKeywords: deriveKeywords,
+  readCatalogMarker: readCatalogMarker,
 };

@@ -449,6 +449,9 @@ function loadSkillCatalog(root) {
   var byKey = new Map();
   list.forEach(function (s) {
     if (!s || typeof s.skill !== 'string' || typeof s.invoke !== 'string') return;
+    // A catalog projection reaches the decision model only when approved with
+    // the jev target; ordinary skills carry no catalog field and are unaffected.
+    if (s.catalog && s.catalog.jev !== true) return;
     var key = s.skill.toLowerCase().replace(/[:_]/g, '-');
     var prev = byKey.get(key);
     if (prev && !(s.invoke.charAt(0) === '/' && prev.invoke.charAt(0) !== '/')) return;

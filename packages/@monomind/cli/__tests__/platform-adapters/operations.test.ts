@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -10,6 +10,7 @@ import {
   uninstallPlatform,
   upgradePlatforms,
 } from '../../src/platform-adapters/operations.js';
+import { removeManagedSkillPackage, symlinkedComponent } from '../../src/platform-adapters/mutation.js';
 import { PLATFORM_REGISTRY } from '../../src/platform-adapters/registry.js';
 import type { PlatformAdapter } from '../../src/platform-adapters/types.js';
 
@@ -132,6 +133,77 @@ describe('platform adapter operations', () => {
       expect(existsSync(join(directory, '.agents', 'skills', 'mastermind', 'references', 'codex-tools.md'))).toBe(false);
     } finally {
       rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('removeManagedSkillPackage', () => {
+  const marker = 'catalog:skill:demo';
+  const block = (body: string) => `# monomind:start ${marker}\n${body}\n# monomind:end ${marker}\n`;
+  const claude = PLATFORM_REGISTRY.claude;
+
+  function seed(): string {
+    const root = mkdtempSync(join(tmpdir(), 'platform-remove-'));
+    const dir = join(root, '.claude', 'skills', 'demo');
+    mkdirSync(join(dir, 'ref'), { recursive: true });
+    writeFileSync(join(dir, 'SKILL.md'), `---\nname: demo\ndescription: d\n---\n${block('body')}`);
+    writeFileSync(join(dir, 'ref', 'notes.md'), block('notes'));
+    return root;
+  }
+
+  it('strips the marker blocks, deletes emptied files and removes the emptied directory', () => {
+    const root = seed();
+    try {
+      const request = { platform: 'claude' as const, scope: 'project' as const, path: root };
+      const dry = removeManagedSkillPackage(claude, { ...request, dryRun: true }, 'demo', marker);
+      expect(existsSync(join(root, '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true);
+      const real = removeManagedSkillPackage(claude, request, 'demo', marker);
+      expect(dry.changed).toEqual(real.changed);
+      expect([...real.changed].sort()).toEqual(['.claude/skills/demo/SKILL.md', '.claude/skills/demo/ref/notes.md']);
+      expect(existsSync(join(root, '.claude', 'skills', 'demo'))).toBe(false);
+      expect(existsSync(join(root, '.claude', 'skills'))).toBe(true);
+      expect(existsSync(join(root, '.monomind', 'backups'))).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('never touches a file without the marker, keeping the directory that holds it', () => {
+    const root = seed();
+    try {
+      const mine = join(root, '.claude', 'skills', 'demo', 'mine.md');
+      writeFileSync(mine, 'user notes\n');
+      const result = removeManagedSkillPackage(claude, { platform: 'claude', scope: 'project', path: root }, 'demo', marker);
+      expect(result.skipped).toContain('.claude/skills/demo/mine.md');
+      expect(readFileSync(mine, 'utf8')).toBe('user notes\n');
+      expect(existsSync(join(root, '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a symlinked destination and an escaping relative directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'platform-remove-'));
+    const outside = mkdtempSync(join(tmpdir(), 'platform-outside-'));
+    try {
+      writeFileSync(join(outside, 'SKILL.md'), `---\nname: demo\n---\n${block('x')}`);
+      mkdirSync(join(root, '.claude', 'skills'), { recursive: true });
+      symlinkSync(outside, join(root, '.claude', 'skills', 'demo'));
+      const request = { platform: 'claude' as const, scope: 'project' as const, path: root };
+      const linked = removeManagedSkillPackage(claude, request, 'demo', marker);
+      expect(linked.changed).toEqual([]);
+      expect(linked.diagnostics.join('\n')).toMatch(/symlinked-destination/);
+      expect(readFileSync(join(outside, 'SKILL.md'), 'utf8')).toContain('monomind:start');
+      const escaping = removeManagedSkillPackage(claude, request, '../../x', marker);
+      expect(escaping.changed).toEqual([]);
+      expect(escaping.diagnostics.join('\n')).toMatch(/escap/);
+      expect(symlinkedComponent(root, join(root, '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(
+        join(root, '.claude', 'skills', 'demo'),
+      );
+      expect(symlinkedComponent(root, join(root, '.claude', 'skills', 'none', 'SKILL.md'))).toBeUndefined();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 });

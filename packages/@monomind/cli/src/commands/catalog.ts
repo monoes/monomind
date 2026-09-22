@@ -13,6 +13,12 @@ import {
   release,
   revoke,
 } from '../catalog/lifecycle.js';
+import {
+  applyProjection,
+  PROJECTION_SURFACES,
+  type ProjectionResult,
+  type ProjectionSurface,
+} from '../catalog/projection.js';
 import { buildSnapshot, type CatalogAsset, catalogAudit, eligible } from '../catalog/snapshot.js';
 import { stage } from '../catalog/stage.js';
 import { loadCatalogState } from '../catalog/state.js';
@@ -275,6 +281,59 @@ function lifecycleVerb(name: string, fn: Move, needsReason: boolean): Verb {
   };
 }
 
+function surfaceOf(flags: ParsedFlags): ProjectionSurface | undefined {
+  const raw = str(flags, 'surface');
+  return PROJECTION_SURFACES.find((s) => s === raw);
+}
+
+function printProjection(r: ProjectionResult, json: boolean): CommandResult {
+  const payload = {
+    surface: r.surface,
+    dryRun: r.dryRun,
+    packages: r.packages,
+    intents: r.intents.map((i) => ({ path: i.relativePath, marker: i.marker })),
+    removals: r.removals,
+    changed: r.changed,
+    diagnostics: r.diagnostics,
+    backupDir: r.backupDir,
+    ...(r.registry ? { registry: r.registry } : {}),
+  };
+  if (json) return print(payload);
+  for (const p of r.packages) {
+    log(`${output.highlight(p.id)} sha256:${p.sha256.slice(0, 12)}`);
+    for (const path of p.paths) log(`  ${path}`);
+  }
+  for (const x of r.removals) log(`remove ${output.highlight(x.id)} (${x.dir})`);
+  for (const d of r.diagnostics) log(output.warning(d));
+  const verb = r.dryRun ? 'would change' : 'changed';
+  log(output.info(`${verb} ${r.changed.length} file(s)${r.dryRun ? ' — rerun with --apply' : ''}`));
+  for (const c of r.changed) log(`  ${c}`);
+  if (!r.dryRun && r.changed.length) log(`backups: ${r.backupDir}`);
+  if (r.registry) log(`rebuilt ${r.registry}`);
+  return { success: true, data: payload };
+}
+
+const SURFACE_USAGE = `--surface ${PROJECTION_SURFACES.join('|')} [--apply]`;
+
+const project: Verb = async ({ root, flags, json }) => {
+  const surface = surfaceOf(flags);
+  if (!surface) return fail(`usage: monomind catalog project ${SURFACE_USAGE}`);
+  return printProjection(
+    await applyProjection(root, surface, { dryRun: flags.apply !== true }),
+    json,
+  );
+};
+
+const unproject: Verb = async ({ root, rest, flags, json }) => {
+  const surface = surfaceOf(flags);
+  if (!rest[0] || !surface) return fail(`usage: monomind catalog unproject <id> ${SURFACE_USAGE}`);
+  const r = await applyProjection(root, surface, {
+    dryRun: flags.apply !== true,
+    unproject: rest[0],
+  });
+  return printProjection(r, json);
+};
+
 const VERBS: Record<string, Verb> = {
   list,
   show,
@@ -288,6 +347,8 @@ const VERBS: Record<string, Verb> = {
   quarantine: lifecycleVerb('quarantine', quarantine, true),
   release: lifecycleVerb('release', release, true),
   revoke: lifecycleVerb('revoke', revoke, true),
+  project,
+  unproject,
 };
 
 export async function catalogAction(ctx: CommandContext): Promise<CommandResult> {
@@ -309,7 +370,7 @@ export async function catalogAction(ctx: CommandContext): Promise<CommandResult>
 export const catalogCommand: Command = {
   name: 'catalog',
   description:
-    'Policy-governed skill catalog: stage, inspect, approve, activate, disable, quarantine, release, revoke, list, show, search, audit',
+    'Policy-governed skill catalog: stage, inspect, approve, activate, disable, quarantine, release, revoke, list, show, search, audit, project, unproject',
   options: [
     {
       name: 'target',
@@ -343,6 +404,16 @@ export const catalogCommand: Command = {
       description: 'approve: win over a same-name legacy skill',
       type: 'boolean',
     },
+    {
+      name: 'surface',
+      description: 'project/unproject: platform:claude or platform:agents',
+      type: 'string',
+    },
+    {
+      name: 'apply',
+      description: 'project/unproject: write (the default is a dry run)',
+      type: 'boolean',
+    },
   ],
   examples: [
     { command: 'monomind catalog list --target org', description: 'Entries the org library sees' },
@@ -354,6 +425,10 @@ export const catalogCommand: Command = {
     {
       command: 'monomind catalog approve skill:code-review --target org --actor alice',
       description: 'Approve it for the Org library',
+    },
+    {
+      command: 'monomind catalog project --surface platform:claude --apply',
+      description: 'Write active platform:claude skills into .claude/skills',
     },
   ],
   action: catalogAction,
