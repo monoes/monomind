@@ -55,6 +55,17 @@ Running concurrent sessions from separate working directories keeps them
 separate without any flags, since the session records (and the snapshot ref
 caches beside them) are per directory.
 
+**Upgrading with a session open.** Before this layout, a directory held one
+session in `.monomind/monobrowse/active-port.json`. If that file is still
+there, the first command that looks for a session treats it as one more
+candidate — the oldest one, so live per-port sessions win. If its browser
+still answers, the session is adopted: the record is rewritten as
+`sessions/<port>.json` (keeping its port, PID and `connect`/`open`
+provenance) and the old file is deleted, after which `snapshot`, `--port` and
+`close` treat it like any other session. If it does not answer, the old file
+is simply removed. Nothing writes that file any more, and adoption never
+makes a bare `open` join an existing session.
+
 ---
 
 ## `open`

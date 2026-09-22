@@ -159,7 +159,50 @@ export async function resolveLiveSession(
       );
     }
   }
-  return null;
+  // Nothing native is live. A session opened by a pre-#318 CLI in this
+  // directory may still be — it is the oldest possible candidate, so it is
+  // considered last.
+  return adoptLegacySession(browser);
+}
+
+/**
+ * Take over the single session a pre-#318 CLI recorded in this directory, so
+ * upgrading monobrowse mid-session does not strand its Chrome with no handle
+ * anyone can use. Returns the session — now an ordinary per-port record that
+ * `snapshot`, `--port` and `close` treat like any other — or null.
+ *
+ * `port` restricts adoption to a session the caller already named, so a
+ * legacy record for some other port is left for its own resolution.
+ *
+ * A record that a per-port record already supersedes, or whose browser no
+ * longer answers, is simply dropped: the same self-heal as for a dead native
+ * record, and nothing is ever written back to the old layout. This is the
+ * only place the legacy file is read, and `open` never consults it — a bare
+ * `open` still always starts a session of its own.
+ */
+export async function adoptLegacySession(
+  browser: Awaited<ReturnType<typeof getBrowser>>,
+  opts: { port?: number } = {},
+): Promise<SessionRecord | null> {
+  const legacy = await browser.loadLegacySessionRecord();
+  if (!legacy) return null;
+  if (opts.port !== undefined && opts.port !== legacy.port) return null;
+  if (await browser.loadSessionRecord(legacy.port)) {
+    await browser.removeLegacySessionRecord();
+    return null;
+  }
+  if (!(await cdpAnswers(legacy.port))) {
+    await browser.removeLegacySessionRecord();
+    return null;
+  }
+  await browser.saveSessionRecord(legacy.port, {
+    launched: legacy.launched,
+    pid: legacy.pid,
+    userDataDir: legacy.userDataDir,
+    savedAt: legacy.savedAt,
+  });
+  await browser.removeLegacySessionRecord();
+  return legacy;
 }
 
 async function cdpAnswers(port: number): Promise<boolean> {
@@ -225,7 +268,11 @@ async function recordSession(
     });
     return;
   }
-  const existing = await browser.loadSessionRecord(port);
+  // A pre-#318 record for this exact port counts as the existing one, so
+  // attaching to a session an older CLI opened keeps its provenance (a
+  // `connect`ed browser stays launched:false and is never killed).
+  const existing =
+    (await browser.loadSessionRecord(port)) ?? (await adoptLegacySession(browser, { port }));
   await browser.saveSessionRecord(port, {
     launched: existing?.launched,
     pid: existing?.pid,

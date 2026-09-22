@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => {
       })),
       listSessionRecords: vi.fn(async () => []),
       loadSessionRecord: vi.fn(async () => null),
+      loadLegacySessionRecord: vi.fn(async () => null),
+      removeLegacySessionRecord: vi.fn(async () => {}),
       saveSessionRecord: vi.fn(async () => {}),
       removeSessionRecord: vi.fn(async () => {}),
       clearRefCache: vi.fn(async () => {}),
@@ -63,6 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.browser.listSessionRecords.mockResolvedValue([]);
   mocks.browser.loadSessionRecord.mockResolvedValue(null);
+  mocks.browser.loadLegacySessionRecord.mockResolvedValue(null);
   mocks.browser.loadRefCache.mockResolvedValue(null);
   mocks.browser.switchToFrame.mockResolvedValue({
     url: 'https://f.test/frame',

@@ -25,6 +25,11 @@ const CACHE_DIR = join(process.cwd(), '.monomind', 'monobrowse');
 const SESSIONS_DIR = join(CACHE_DIR, 'sessions');
 const refCacheFile = (port: number) => join(CACHE_DIR, `ax-snapshot-${port}.json`);
 const sessionFile = (port: number) => join(SESSIONS_DIR, `${port}.json`);
+// The pre-#318 layout: one session per directory, plus its one ref cache.
+// Still read (see loadLegacySessionRecord) so a session opened by an older
+// CLI is adopted rather than orphaned when monobrowse is upgraded under it.
+const LEGACY_SESSION_FILE = join(CACHE_DIR, 'active-port.json');
+const LEGACY_REF_CACHE_FILE = join(CACHE_DIR, 'ax-snapshot.json');
 
 /** Snapshot older than this is flagged as possibly stale (page may have changed). */
 export const REF_CACHE_STALE_MS = 30_000;
@@ -127,12 +132,16 @@ export interface SessionRecord {
  */
 export async function saveSessionRecord(
   port: number,
-  opts?: { launched?: boolean; pid?: number; userDataDir?: string },
+  opts?: { launched?: boolean; pid?: number; userDataDir?: string; savedAt?: number },
 ): Promise<void> {
   try {
     await mkdir(SESSIONS_DIR, { recursive: true });
     // `launched` absent (older files) reads as launched — matches the
     // pre-flag behavior where every persisted port came from `open`.
+    //
+    // `savedAt` is passed only when re-recording a session that already
+    // existed (adopting a legacy record), so its real age — which is what
+    // the idle reaper and the newest-first ordering read — is preserved.
     await writeFile(
       sessionFile(port),
       JSON.stringify({
@@ -140,7 +149,7 @@ export async function saveSessionRecord(
         launched: opts?.launched !== false,
         pid: opts?.pid,
         userDataDir: opts?.userDataDir,
-        savedAt: Date.now(),
+        savedAt: opts?.savedAt ?? Date.now(),
       }),
     );
   } catch {
@@ -165,6 +174,36 @@ export async function loadSessionRecord(port: number): Promise<SessionRecord | n
     return parseSessionRecord(await readFile(sessionFile(port), 'utf8'));
   } catch {
     return null;
+  }
+}
+
+/**
+ * The session a pre-#318 CLI left behind in this directory, if any.
+ *
+ * That layout held exactly one session in `active-port.json`. Upgrading
+ * monobrowse while such a session was open would otherwise strand its
+ * Chrome: nothing reads that file any more, so the new CLI could neither
+ * find nor close it. It is read here as one more candidate session and then
+ * either adopted (rewritten as `sessions/<port>.json`) or dropped — see
+ * adoptLegacySession() in cli/session.ts. Nothing ever writes it again.
+ */
+export async function loadLegacySessionRecord(): Promise<SessionRecord | null> {
+  try {
+    return parseSessionRecord(await readFile(LEGACY_SESSION_FILE, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Drop the pre-#318 files, once their session has been adopted or found
+ *  dead. The single ref cache goes with them: it belonged to that one
+ *  session, and nothing reads it any more either. */
+export async function removeLegacySessionRecord(): Promise<void> {
+  try {
+    await rm(LEGACY_SESSION_FILE, { force: true });
+    await rm(LEGACY_REF_CACHE_FILE, { force: true });
+  } catch {
+    // Best-effort — a leftover file is inert; it is only ever read again.
   }
 }
 

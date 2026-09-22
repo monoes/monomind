@@ -10,6 +10,7 @@
 
 import { output } from './output.js';
 import {
+  adoptLegacySession,
   detectAttentionNeeded,
   ensureConnected,
   getBrowser,
@@ -222,7 +223,11 @@ export const closeCommand: Command = {
       const browser = await getBrowser();
       const pinned = pinnedPort(ctx.flags);
       const persisted = pinned
-        ? ((await browser.loadSessionRecord(pinned)) ?? { port: pinned, launched: true })
+        ? ((await browser.loadSessionRecord(pinned)) ??
+          (await adoptLegacySession(browser, { port: pinned })) ?? {
+            port: pinned,
+            launched: true,
+          })
         : await resolveLiveSession(browser, { strict: false });
       if (persisted?.launched) {
         try {

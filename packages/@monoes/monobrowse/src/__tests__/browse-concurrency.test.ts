@@ -14,7 +14,7 @@
 
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -138,4 +138,96 @@ describe.skipIf(!runnable)('#318 concurrent browse sessions (real processes)', (
       expect(await cdpAlive(portB!)).toBe(false);
     }, 90_000);
   }
+});
+
+/**
+ * Upgrading monobrowse while a session was open used to strand its Chrome:
+ * the handle lived in `active-port.json`, which the per-port store replaced.
+ * The new CLI adopts that record instead — the same real-process shape as
+ * above, since the whole point is what a *later* process can still do.
+ */
+describe.skipIf(!runnable)('#318 adoption of a pre-#318 session (real processes)', () => {
+  /** Open a session, then rewrite its state as a pre-#318 install left it. */
+  async function openThenDowngradeState(root: string, url: string): Promise<number> {
+    const opened = await runCli(['open', url], root, root);
+    expect(opened.code, `open failed: ${opened.stdout}${opened.stderr}`).toBe(0);
+    const port = reportedPort(opened);
+    expect(port).not.toBeNull();
+
+    const stateDir = join(root, '.monomind', 'monobrowse');
+    const record = await readFile(join(stateDir, 'sessions', `${port}.json`), 'utf8');
+    await writeFile(join(stateDir, 'active-port.json'), record);
+    await rm(join(stateDir, 'sessions'), { recursive: true, force: true });
+    return port!;
+  }
+
+  it('a later command adopts the legacy session, and close then kills that browser', async () => {
+    const root = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'monobrowse-318-legacy-'));
+    dirs.push(root);
+    const page = join(root, 'fixture.html');
+    await writeFile(page, '<!doctype html><title>Fixture</title><h1>hello</h1>');
+    const port = await openThenDowngradeState(root, `file://${page}`);
+
+    // A later, separate process with no --port finds it.
+    const title = await runCli(['get', 'title'], root, root);
+    expect(title.code, `get title failed: ${title.stdout}${title.stderr}`).toBe(0);
+    expect(title.stdout).toContain('Fixture');
+
+    // Adopted: it is an ordinary per-port record now, and the old file is gone.
+    const stateDir = join(root, '.monomind', 'monobrowse');
+    expect(existsSync(join(stateDir, 'sessions', `${port}.json`))).toBe(true);
+    expect(existsSync(join(stateDir, 'active-port.json'))).toBe(false);
+
+    // And `--port` works on it exactly like a native session.
+    const closed = await runCli(['close', '--port', String(port)], root, root);
+    expect(closed.code, `close failed: ${closed.stdout}${closed.stderr}`).toBe(0);
+    expect(await cdpAlive(port)).toBe(false);
+  }, 90_000);
+
+  it('a legacy record whose browser is gone is cleaned up, and the command still works', async () => {
+    const root = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'monobrowse-318-legacy-'));
+    dirs.push(root);
+    const stateDir = join(root, '.monomind', 'monobrowse');
+    await mkdir(stateDir, { recursive: true });
+    // A port nothing is listening on — the state an upgrade finds after the
+    // old browser died (or was killed) with its record left behind.
+    await writeFile(
+      join(stateDir, 'active-port.json'),
+      JSON.stringify({ port: 23499, launched: true, pid: 999999, savedAt: Date.now() }),
+    );
+
+    const closed = await runCli(['close'], root, root);
+    expect(closed.code, `close failed: ${closed.stdout}${closed.stderr}`).toBe(0);
+    expect(closed.stdout).toContain('No active browser session');
+    expect(existsSync(join(stateDir, 'active-port.json'))).toBe(false);
+  }, 60_000);
+
+  it('adoption does not change bare `open`: it still starts a browser of its own', async () => {
+    const root = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'monobrowse-318-legacy-'));
+    dirs.push(root);
+    const page = join(root, 'fixture.html');
+    await writeFile(page, '<!doctype html><title>Fixture</title><h1>hello</h1>');
+    const url = `file://${page}`;
+    const legacyPort = await openThenDowngradeState(root, url);
+
+    const fresh = await runCli(['open', url], root, root);
+    expect(fresh.code, `open failed: ${fresh.stdout}${fresh.stderr}`).toBe(0);
+    const freshPort = reportedPort(fresh);
+    expect(freshPort).not.toBe(legacyPort);
+    // Neither joined nor disturbed: both browsers are up, and the legacy
+    // record is still waiting to be adopted by whoever needs it.
+    expect(await cdpAlive(legacyPort)).toBe(true);
+    expect(await cdpAlive(freshPort!)).toBe(true);
+    expect(existsSync(join(root, '.monomind', 'monobrowse', 'active-port.json'))).toBe(true);
+
+    // Closing the new session leaves the legacy browser alone; a second
+    // close then adopts and ends it.
+    const closeFresh = await runCli(['close', '--port', String(freshPort)], root, root);
+    expect(closeFresh.code).toBe(0);
+    expect(await cdpAlive(legacyPort)).toBe(true);
+
+    const closeLegacy = await runCli(['close'], root, root);
+    expect(closeLegacy.code, `close failed: ${closeLegacy.stdout}${closeLegacy.stderr}`).toBe(0);
+    expect(await cdpAlive(legacyPort)).toBe(false);
+  }, 90_000);
 });

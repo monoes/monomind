@@ -30,16 +30,43 @@ afterEach(async () => {
 async function load() {
   vi.resetModules();
   const store = await import('../browser/ref-cache.js');
-  const { resolveLiveSession, pinnedPort, applySessionPortFlag, session } = await import(
-    '../cli/session.js'
-  );
+  const { resolveLiveSession, adoptLegacySession, pinnedPort, applySessionPortFlag, session } =
+    await import('../cli/session.js');
   // The slice of the browser namespace resolveLiveSession uses.
   const browser = {
     listSessionRecords: store.listSessionRecords,
     removeSessionRecord: store.removeSessionRecord,
     clearRefCache: store.clearRefCache,
+    loadSessionRecord: store.loadSessionRecord,
+    saveSessionRecord: store.saveSessionRecord,
+    loadLegacySessionRecord: store.loadLegacySessionRecord,
+    removeLegacySessionRecord: store.removeLegacySessionRecord,
   } as unknown as Parameters<typeof resolveLiveSession>[0];
-  return { store, browser, resolveLiveSession, pinnedPort, applySessionPortFlag, session };
+  return {
+    store,
+    browser,
+    resolveLiveSession,
+    adoptLegacySession,
+    pinnedPort,
+    applySessionPortFlag,
+    session,
+  };
+}
+
+/** Write the session file a pre-#318 CLI left behind in this directory. */
+async function writeLegacyRecord(record: Record<string, unknown>) {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const dir = join(process.cwd(), '.monomind', 'monobrowse');
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, 'active-port.json'), JSON.stringify(record));
+}
+
+async function legacyFileExists(): Promise<boolean> {
+  const { readFile } = await import('node:fs/promises');
+  return readFile(join(process.cwd(), '.monomind', 'monobrowse', 'active-port.json')).then(
+    () => true,
+    () => false,
+  );
 }
 
 /** Fake the CDP `/json/version` probe: only `live` ports answer. */
@@ -109,6 +136,94 @@ describe('#318 session discovery', () => {
 
     expect(await resolveLiveSession(browser, { strict: false })).toBeNull();
     expect(await store.loadSessionRecord(9229)).toBeNull();
+  });
+});
+
+describe('#318 adoption of a pre-#318 session record', () => {
+  it('adopts a live legacy session: the record is rewritten per port and the old file is gone', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    const savedAt = Date.now() - 60_000;
+    await writeLegacyRecord({ port: 41111, launched: true, pid: 4242, savedAt });
+    onlyLive(41111);
+
+    expect((await resolveLiveSession(browser))?.port).toBe(41111);
+
+    expect(await store.loadSessionRecord(41111)).toEqual({
+      port: 41111,
+      launched: true,
+      pid: 4242,
+      // Preserved, not reset — the session's real age is what the idle
+      // reaper and the newest-first ordering read.
+      savedAt,
+    });
+    expect(await legacyFileExists()).toBe(false);
+  });
+
+  it('adoption keeps connect provenance, so close still never kills the user’s browser', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await writeLegacyRecord({ port: 9229, launched: false });
+    onlyLive(9229);
+
+    expect((await resolveLiveSession(browser))?.launched).toBe(false);
+    expect((await store.loadSessionRecord(9229))!.launched).toBe(false);
+  });
+
+  it('a legacy session whose browser is gone is removed, without throwing', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await writeLegacyRecord({ port: 41111, launched: true, pid: 4242 });
+    onlyLive();
+
+    expect(await resolveLiveSession(browser)).toBeNull();
+    expect(await legacyFileExists()).toBe(false);
+    expect(await store.loadSessionRecord(41111)).toBeNull();
+  });
+
+  it('a dead legacy connect-origin session is cleaned up too, not raised as an error', async () => {
+    const { browser, resolveLiveSession } = await load();
+    await writeLegacyRecord({ port: 9229, launched: false });
+    onlyLive();
+
+    expect(await resolveLiveSession(browser)).toBeNull();
+    expect(await legacyFileExists()).toBe(false);
+  });
+
+  it('a live native session wins; the superseded legacy file is dropped', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await store.saveSessionRecord(42222, { pid: 22 });
+    await writeLegacyRecord({ port: 41111, launched: true });
+    onlyLive(41111, 42222);
+
+    expect((await resolveLiveSession(browser))?.port).toBe(42222);
+    // Not adopted while a native session is live — it is the older candidate.
+    expect(await legacyFileExists()).toBe(true);
+  });
+
+  it('a legacy record for a port that already has a native record is dropped, not adopted twice', async () => {
+    const { store, browser, adoptLegacySession } = await load();
+    await store.saveSessionRecord(41111, { launched: false });
+    await writeLegacyRecord({ port: 41111, launched: true, pid: 4242 });
+    onlyLive(41111);
+
+    expect(await adoptLegacySession(browser)).toBeNull();
+    expect(await legacyFileExists()).toBe(false);
+    expect((await store.loadSessionRecord(41111))!.launched).toBe(false);
+  });
+
+  it('adoption restricted to a named port leaves another port’s legacy record alone', async () => {
+    const { browser, adoptLegacySession } = await load();
+    await writeLegacyRecord({ port: 41111, launched: true });
+    onlyLive(41111);
+
+    expect(await adoptLegacySession(browser, { port: 42222 })).toBeNull();
+    expect(await legacyFileExists()).toBe(true);
+    expect((await adoptLegacySession(browser, { port: 41111 }))?.port).toBe(41111);
+    expect(await legacyFileExists()).toBe(false);
+  });
+
+  it('with no legacy file at all, adoption is a no-op', async () => {
+    const { browser, adoptLegacySession } = await load();
+    onlyLive();
+    expect(await adoptLegacySession(browser)).toBeNull();
   });
 });
 
