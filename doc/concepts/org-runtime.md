@@ -726,6 +726,16 @@ status is refused (`task-already-closed` audit event) and the refusal names the 
 tasks — re-closing used to succeed and send the creator a second notice for work reported long ago
 while the real task sat `running` (#319).
 
+When a role's turn ends (the runner's `result` message, i.e. its session is about to park),
+[`decisions.ts → nudgeOpenTasksAtTurnEnd`](packages/@monomind/cli/src/orgrt/decisions.ts#nudgeOpenTasksAtTurnEnd)
+checks what it left open: for each of its own `running` tasks it delivers one short
+`[task:<id>] STILL OPEN — …` message naming the task and what closing it takes (`evidence` too when
+`run_config.completion_evidence` is on) and emits a `task-open-at-turn-end` audit event. It is
+bounded — nothing is sent while the role still has mail queued or coalescing (it is about to work
+again), a task blocked on a real-world time (`org_task_block`) is never nudged, and each task earns
+at most one nudge per dispatch. It does not change the idle watchdog, which remains the org-wide
+backstop.
+
 ### Silent Session Alarm
 
 `SILENT_SESSION_MS = 4 minutes` — if the stream opens but emits zero messages within this window, an alarm is raised.

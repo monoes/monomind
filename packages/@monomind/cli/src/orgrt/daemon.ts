@@ -409,6 +409,10 @@ export interface RunningOrg {
    *  decisions.ts's queueDispatch; cross-org.ts's pushMessage folds a
    *  same-turn message into an open entry. */
   pendingDispatch?: Map<string, { lines: string[]; timer: ReturnType<typeof setTimeout> }>;
+  /** Task ids their assignee has already been nudged about at a turn end — the
+   *  bound on decisions.ts's nudgeOpenTasksAtTurnEnd. Cleared for a task when
+   *  it is dispatched again, so each dispatch is worth one nudge at most. */
+  nudgedOpenTasks?: Set<string>;
   /** #304: why this run is stopping, set by stopOrg before the org is removed from
    *  `this.orgs`. Read by the role loop so a planned stop is logged with one stable
    *  wording instead of whichever abort string the SDK produced. */
@@ -1966,6 +1970,7 @@ export class OrgDaemon {
       onSessionId: (id: string) => {
         runtime.sessionId = id;
       },
+      onTurnEnd: () => decisionOps.nudgeOpenTasksAtTurnEnd(running, role.id),
       deliver: (from: string, to: string, subject: string, body: string) =>
         this.deliver(name, from, to, subject, body),
       askHuman: (r: string, question: string, blocking?: boolean) =>

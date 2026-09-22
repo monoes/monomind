@@ -310,6 +310,9 @@ export interface SessionOpts {
   onOutput?: (line: string) => void;
   /** Callback when the SDK assigns a session ID — enables checkpoint resume (P2-13). */
   onSessionId?: (id: string) => void;
+  /** Called once per finished turn (the runner's `result` message), so the
+   *  daemon can check what the role left open before its session parks. */
+  onTurnEnd?: () => void;
   /** SDK session ID persisted in a checkpoint from a prior run — when set, the
    *  first query() call resumes it instead of starting a fresh conversation
    *  (P2-13: this is what actually makes checkpoint resume resume). */
@@ -1356,6 +1359,10 @@ async function runOneSession(
           });
           mailbox.close('usd-budget');
         }
+        // The turn is over: whatever tool calls it was going to make, it has
+        // made. What the role left open is knowable here (decisions.ts's
+        // nudgeOpenTasksAtTurnEnd) instead of only to the idle watchdog.
+        opts.onTurnEnd?.();
       }
     }
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });

@@ -732,6 +732,54 @@ function queueDispatch(running: RunningOrg, assignee: string, line: string): voi
   running.pendingDispatch.set(assignee, entry);
 }
 
+/** A role can end its turn with its own task still open and nothing notices.
+ *  On the 2.15.6 release run the publisher reported its results with org_send
+ *  and ended its turn without calling org_task_done: the coordinator waited on
+ *  a completion that never came and the run sat still for ~10 minutes until a
+ *  human nudged it, because the only backstop is the org-wide idle watchdog
+ *  (run_config.idle_minutes — 45 in that org).
+ *
+ *  Called when the role's turn ends (its session goes idle / its process
+ *  parks). Deliberately narrow, so it stays a nudge and not a second watchdog:
+ *  only a 'running' task — which means dispatched, and excludes a task blocked
+ *  on a real-world time (org_task_block) and one whose close was refused and
+ *  requeued — only when nothing else is queued or coalescing for the assignee
+ *  (it would be mid-turn again, possibly on a task it has not received yet),
+ *  and at most once per task per dispatch (dispatchReadyTasks re-arms it).
+ *  A task the role DID close this turn is terminal by now, so it is skipped by
+ *  the same status check. The idle watchdog is untouched. */
+export function nudgeOpenTasksAtTurnEnd(running: RunningOrg, role: string): void {
+  if (!running.taskDag) return;
+  const agent = running.agents.get(role);
+  if (!agent || agent.mailbox.isClosed) return;
+  if (agent.mailbox.peek() !== undefined || running.pendingDispatch?.has(role)) return;
+  const roleDef = running.def?.roles.find((r) => r.id === role);
+  const needsEvidence =
+    running.def?.run_config.completion_evidence === true && roleDef?.deliberative !== true;
+  for (const task of running.taskDag.all()) {
+    if (task.assignee !== role || task.status !== 'running') continue;
+    if (!running.nudgedOpenTasks) running.nudgedOpenTasks = new Set();
+    if (running.nudgedOpenTasks.has(task.id)) continue;
+    running.nudgedOpenTasks.add(task.id);
+    running.bus.emit({
+      type: 'audit',
+      from: role,
+      reason: 'task-open-at-turn-end',
+      msg: `"${role}" ended its turn with task ${task.id} still open — nudging it to close or block it`,
+      data: { taskId: task.id, assignee: role, title: task.title },
+    });
+    queueDispatch(
+      running,
+      role,
+      `${taskTag(task)} STILL OPEN — your turn ended and "${task.title}" is still assigned to you and not closed. Reporting the work in a message does not close it: call org_task_done with taskId "${task.id}"${
+        needsEvidence
+          ? ' and `evidence` — the commit the work sits on plus every acceptance command you ran with its real exit code'
+          : ''
+      }. If it genuinely cannot finish yet, call org_task_block with the time it can resume instead of leaving it open.`,
+    );
+  }
+}
+
 /** ADR-O001 D7: a task asked for a loadout its assignee's LIVE session was not
  *  built with. The session's system prompt is never edited mid-session, so the
  *  task is still delivered (liveness first) and the gap is recorded instead —
@@ -764,6 +812,9 @@ function noteLoadoutMismatch(
 export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: RunningOrg): void {
   if (!running.taskDag) return;
   for (const task of running.taskDag.ready()) {
+    // A task going out again (first dispatch, or back after a refused close)
+    // is worth one more turn-end nudge — see nudgeOpenTasksAtTurnEnd.
+    running.nudgedOpenTasks?.delete(task.id);
     // Resolve the assignee BEFORE marking the task running: a task's status
     // must not flip to 'running' unless we are actually about to hand it to
     // a live recipient — otherwise it's stuck there forever with no way for
