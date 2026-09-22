@@ -43,12 +43,6 @@ const CDP_PORT_RELEASE_TIMEOUT_MS = process.env.CI ? 15_000 : 5_000;
 const CDP_PORT_RELEASE_POLL_MS = 25;
 const PROFILE_CLEANUP_RETRY_MS = 2_000;
 
-// Ports we launch headless Chrome on for detection runs. Deliberately away
-// from 9222 (the default `monomind browse` port): we must never attach to a
-// browser we did not launch, because browser.close() issues Browser.close.
-const MONOBROWSE_PORT_MIN = 9520;
-const MONOBROWSE_PORT_RANGE = 380;
-
 function serializeEvalArg(arg) {
   const json = JSON.stringify(arg);
   return json === undefined ? 'undefined' : json;
@@ -186,20 +180,16 @@ async function launchMonobrowseBrowser(options = {}) {
   const headless = options.headless ?? true;
   const launchArgs = options.launchArgs || (process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : []);
 
+  // We must never attach to a browser we did not launch: browser.close()
+  // issues Browser.close. Picking a "free" port ourselves cannot guarantee
+  // that — the port is only probed, and a concurrent launch (node --test runs
+  // files in parallel) can pick the same one before either Chrome binds it.
+  // The losing Chrome then listens on [::1] instead and its launcher attaches
+  // to the winner's browser, which dies under it ("CDP connection closed")
+  // when the winner closes. Port 0 has Chrome take a kernel-assigned port and
+  // report it in its own profile dir, so the endpoint is always ours.
   const forcedPort = Number(process.env.MONODESIGN_MONOBROWSE_PORT);
-  let port = null;
-  if (Number.isInteger(forcedPort) && forcedPort > 0) {
-    port = forcedPort;
-  } else {
-    // Pick a free-looking port; skip ports where a CDP endpoint already
-    // listens so we never take over (and later Browser.close) someone
-    // else's browser session.
-    for (let attempt = 0; attempt < 5 && port === null; attempt++) {
-      const candidate = MONOBROWSE_PORT_MIN + Math.floor(Math.random() * MONOBROWSE_PORT_RANGE);
-      if (!(await mb.isPortOpen(candidate))) port = candidate;
-    }
-    if (port === null) throw new Error('Could not find a free CDP port for monobrowse');
-  }
+  const port = Number.isInteger(forcedPort) && forcedPort > 0 ? forcedPort : 0;
 
   // CI runners (observed on the Windows GH Actions runner) are slower to get
   // Chrome's CDP port open than the 10s default — a batch of sequential

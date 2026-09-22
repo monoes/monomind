@@ -8,6 +8,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 - **Completion evidence is checked against every local worktree and branch, not just the org workspace.** With `run_config.completion_evidence` on, `org_task_done` used to refuse any evidence whose `headSha` was not the org workspace's `HEAD` — so an org that builds in a release or per-task worktree (the usual shape) could never close a task honestly. Evidence may now be pinned to the current `HEAD` of any worktree of the repository or the tip of any local branch, and may name its `worktree` to pin the check to that worktree's `HEAD` exactly. A commit that is no longer the head of any local work is still refused as stale, and the refusal now lists the current heads.
 
+### Fixed
+
+- **monodesign URL detection intermittently failed with "monobrowse: CDP connection closed" when browsers launched concurrently.** Each detection launch picked its own CDP port (random in 9520-9899, "free" per a probe made before Chrome bound it), so two concurrent launches — e.g. test files run in parallel by `node --test` — could pick the same port. The second Chrome then did not fail: it logged `bind() failed: Address already in use`, silently listened on `[::1]:<port>` instead, and monobrowse (polling `127.0.0.1:<port>`) accepted the *other* launcher's Chrome as its own. When that owner closed its browser, this launch died mid-connect, and its own Chrome was left running. `launchBrowser({ port: 0, userDataDir })` (monobrowse 1.0.18) now has Chrome take a kernel-assigned port and reads it from `DevToolsActivePort` in its own profile directory, so the endpoint is always the process it spawned; monodesign 1.2.18 uses it for every launch without a forced `MONODESIGN_MONOBROWSE_PORT`.
+
 ## [2.15.5] — 2026-09-22
 
 ### Fixed

@@ -1,5 +1,5 @@
 import { execSync, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -128,9 +128,17 @@ const LAUNCH_PORT_SCAN_TRIES = 10;
 
 export async function launchBrowser(config: BrowserConfig = {}): Promise<number> {
   const rawPort = config.port ?? DEFAULT_PORT;
-  // Validate port is in a safe range for localhost CDP debugging
-  if (!Number.isInteger(rawPort) || rawPort < 1024 || rawPort > 65535) {
-    throw new Error(`Invalid port: ${rawPort}. Must be an integer between 1024 and 65535.`);
+  // Port 0 means "let Chrome bind a free port and tell us which" — see
+  // launchOnFreePort. Otherwise validate port is in a safe range for
+  // localhost CDP debugging.
+  if (rawPort === 0) {
+    if (!config.userDataDir) {
+      throw new Error(
+        'port 0 requires a dedicated userDataDir (Chrome reports the port it bound inside it).',
+      );
+    }
+  } else if (!Number.isInteger(rawPort) || rawPort < 1024 || rawPort > 65535) {
+    throw new Error(`Invalid port: ${rawPort}. Must be 0 or an integer between 1024 and 65535.`);
   }
 
   // Every launch/attach is this tool's only chance to notice that a previous
@@ -138,6 +146,8 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   // is no daemon to do it on a timer. Bounded and non-throwing; a stale
   // instance on the port we are about to use is freed before we probe it.
   await reapIdleLaunchedBrowser();
+
+  if (rawPort === 0) return launchOnFreePort(config, 0);
 
   // strictPort: fail fast on the exact requested port, matching the old
   // behavior (Vite has the same escape hatch for the same reason) — for
@@ -190,9 +200,41 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   );
 }
 
+/** The port Chrome wrote to `<userDataDir>/DevToolsActivePort` once its
+ *  DevTools server was listening, or null if it has not (yet). */
+function readDevToolsActivePort(file: string): number | null {
+  try {
+    const port = Number.parseInt(readFileSync(file, 'utf8').split('\n')[0], 10);
+    return Number.isInteger(port) && port > 0 && port <= 65535 ? port : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Spawn Chrome and wait for its CDP endpoint.
+ *
+ * With a fixed `port`, "our Chrome is up" is inferred from *some* Chrome
+ * answering on 127.0.0.1:<port> — which is not necessarily ours. When the port
+ * is already bound on 127.0.0.1 (a concurrent launch picked the same "free"
+ * port between its probe and Chrome's bind), Chrome does not fail: it logs
+ * `bind() failed: Address already in use` and listens on [::1]:<port>
+ * instead. The poll then accepts the OTHER launcher's browser, both callers
+ * drive one Chrome, and whichever closes first kills the other's connections
+ * ("CDP connection closed") while this launch's own Chrome is orphaned.
+ *
+ * `port: 0` removes the race instead of narrowing it: Chrome asks the kernel
+ * for a free port at bind time — atomic, nothing to collide on — and writes
+ * the port it got to DevToolsActivePort in its own (caller-dedicated) profile
+ * directory, which is proof the endpoint is the process we spawned.
+ */
 async function launchOnFreePort(config: BrowserConfig, port: number): Promise<number> {
   const chromePath = findChrome(config.executablePath);
   const userDataDir = config.userDataDir ?? join(tmpdir(), `monomind-browser-${port}`);
+  const activePortFile = join(userDataDir, 'DevToolsActivePort');
+  // A reused profile dir may hold a previous run's file naming a port some
+  // other process now owns.
+  if (port === 0) rmSync(activePortFile, { force: true });
 
   const defaultArgs = [
     `--remote-debugging-port=${port}`,
@@ -264,10 +306,12 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
   });
 
   child.unref();
-  if (child.pid) {
-    launchedPids.set(port, child.pid);
-    launchedUserDataDirs.set(port, userDataDir);
-  }
+  const track = (boundPort: number) => {
+    if (!child.pid) return;
+    launchedPids.set(boundPort, child.pid);
+    launchedUserDataDirs.set(boundPort, userDataDir);
+  };
+  if (port !== 0) track(port);
 
   const launchTimeout = config.launchTimeoutMs ?? LAUNCH_TIMEOUT;
   const deadline = Date.now() + launchTimeout;
@@ -275,16 +319,33 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     if (earlyFailure) throw earlyFailure;
     await sleep(POLL_INTERVAL);
     if (earlyFailure) throw earlyFailure;
-    if (await isPortOpen(port)) {
-      if (await isChromeIdentity(port)) return port;
+    const boundPort = port === 0 ? readDevToolsActivePort(activePortFile) : port;
+    if (boundPort !== null && (await isPortOpen(boundPort))) {
+      if (await isChromeIdentity(boundPort)) {
+        if (port === 0) track(boundPort);
+        return boundPort;
+      }
       throw new Error(
-        `Port ${port} is occupied by a CDP-speaking process that does not identify as Chrome/Chromium. ` +
-          `Refusing to attach — pass a different port or free port ${port}.`,
+        `Port ${boundPort} is occupied by a CDP-speaking process that does not identify as Chrome/Chromium. ` +
+          `Refusing to attach — pass a different port or free port ${boundPort}.`,
       );
     }
   }
 
   if (earlyFailure) throw earlyFailure;
+
+  if (port === 0) {
+    // Not tracked under any port yet, so no closeBrowser() could ever reach
+    // it — stop it here rather than leave it running.
+    try {
+      if (child.pid) process.kill(child.pid, 'SIGKILL');
+    } catch {
+      /* already gone */
+    }
+    throw new Error(
+      `Chrome did not report a CDP port in ${activePortFile} within ${launchTimeout}ms`,
+    );
+  }
 
   // Timed out waiting for our Chrome to come up on the port. Distinguish
   // "nothing is listening" (real launch failure) from "something non-CDP is

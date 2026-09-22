@@ -1,4 +1,6 @@
 export interface BrowserConfig {
+  /** CDP port. 0 lets Chrome bind a free one (requires `userDataDir`); the
+   *  port it bound is launchBrowser's return value. */
   port?: number;
   /** Fail fast if `port` is occupied by anything other than an attachable
    *  Chrome, instead of scanning forward to the next free port. Default false

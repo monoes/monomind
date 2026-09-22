@@ -9,10 +9,13 @@
  * services; each test binds/tears down its own listeners.
  */
 
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { createServer as createTcpServer, type Socket, type Server as TcpServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { launchBrowser } from '../browser/browser.js';
+import { getLaunchedPid, launchBrowser } from '../browser/browser.js';
 
 const BASE = 23470;
 
@@ -111,3 +114,62 @@ describe('launchBrowser — port scan/attach decisions', () => {
     );
   }, 15000); // generous margin — 10 candidates, each a fast isTcpPortOpen check
 });
+
+// A stand-in for the Chrome binary: like real Chrome given
+// --remote-debugging-port=0, it binds a kernel-assigned port and only then
+// writes that port to <user-data-dir>/DevToolsActivePort.
+const FAKE_CHROME = `#!/usr/bin/env node
+const { createServer } = require('node:http');
+const { writeFileSync } = require('node:fs');
+const { join } = require('node:path');
+const dir = process.argv.find((a) => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+const server = createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(req.url === '/json/version' ? JSON.stringify({ Browser: 'Chrome/999.0.0.0' }) : '[]');
+});
+// Start slower than launchBrowser's first poll, so a stale file is read first.
+setTimeout(() => server.listen(0, '127.0.0.1', () => {
+  writeFileSync(join(dir, 'DevToolsActivePort'), server.address().port + '\\n/devtools/browser/fake');
+}), 600);
+`;
+
+describe.skipIf(process.platform === 'win32')(
+  'launchBrowser — port 0 (Chrome picks the port)',
+  () => {
+    it('returns the port its own Chrome reported, never another CDP endpoint', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'monobrowse-port0-'));
+      const exe = join(dir, 'fake-chrome.cjs');
+      writeFileSync(exe, FAKE_CHROME);
+      chmodSync(exe, 0o755);
+      const profile = join(dir, 'profile');
+      // A Chrome-looking endpoint that is NOT ours, named by a stale
+      // DevToolsActivePort left in the profile dir by an earlier run.
+      const foreign = BASE + 5;
+      const s = createHttpServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(req.url === '/json/version' ? JSON.stringify({ Browser: 'Chrome/1.0' }) : '[]');
+      });
+      s.on('connection', (sock) => sockets.push(sock));
+      await new Promise<void>((resolve) => s.listen(foreign, '127.0.0.1', () => resolve()));
+      servers.push(s);
+      mkdirSync(profile);
+      writeFileSync(join(profile, 'DevToolsActivePort'), `${foreign}\n/devtools/browser/stale`);
+
+      let port: number | undefined;
+      try {
+        port = await launchBrowser({ port: 0, userDataDir: profile, executablePath: exe });
+        expect(port).not.toBe(foreign);
+        expect(port).toBeGreaterThan(0);
+        expect(getLaunchedPid(port)).toBeTypeOf('number');
+      } finally {
+        const pid = port === undefined ? undefined : getLaunchedPid(port);
+        if (pid) process.kill(pid, 'SIGKILL');
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('refuses port 0 without a dedicated userDataDir', async () => {
+      await expect(launchBrowser({ port: 0 })).rejects.toThrow(/requires a dedicated userDataDir/);
+    });
+  },
+);
