@@ -32,7 +32,7 @@
 
 import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { delimiter, dirname, isAbsolute, join } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import {
   authorityDirs,
   authorityMaskArgs,
@@ -63,6 +63,7 @@ export interface RoleSandboxPolicy {
   allowedDomains?: string[];
   deniedDomains?: string[];
   allowWrite?: string[];
+  denyWrite?: string[];
   allowUnixSockets?: boolean;
 }
 
@@ -179,6 +180,9 @@ export function buildClaudeRestrictions(
   const unixSockets = cfg?.allowUnixSockets ?? true;
   const gitDirs = guard.protectedGitDirs;
   const lockedRepo = guard.level === 'read' || guard.level === 'none';
+  // Operator-declared read-only paths (e.g. a QA role must never write into
+  // the checkout it tests from). Relative paths resolve against the org root.
+  const roleDenyWrite = (cfg?.denyWrite ?? []).map((p) => resolve(ctx.orgRoot ?? ctx.cwd, p));
 
   const disallowedTools = [
     rule('Edit', `${guard.dir}/**`),
@@ -195,6 +199,7 @@ export function buildClaudeRestrictions(
       rule('Edit', join(r, '.monomind', 'dashboard-token*')),
     ]),
     ...authorityDirs(home, env).flatMap((d) => [rule('Read', `${d}/**`), rule('Edit', `${d}/**`)]),
+    ...roleDenyWrite.flatMap((d) => [rule('Edit', d), rule('Edit', `${d}/**`)]),
     // Decision files: only the daemon writes them (authority-mask.ts).
     ...(ctx.orgRoot
       ? DECISION_FILES.map((f) =>
@@ -224,6 +229,7 @@ export function buildClaudeRestrictions(
         ...gitDirs.flatMap(gitLocalRemotePaths),
         ...HOME_DENY_WRITE.map((p) => join(home, p)),
         ...decisionFilePaths(ctx.orgRoot),
+        ...roleDenyWrite,
       ]),
       denyRead: existing([
         ...(guard.level === 'none' ? gitDirs : []),

@@ -66,14 +66,23 @@ remembered from an earlier task or run.
   the work is on an item (omit it only for work on REPO itself, such as triage
   or the final report), `checks`: one { command, exitCode, output } per
   acceptance criterion — the real command, its real exit code, the tail of its
-  output }. A non-zero exit or a sha that is no longer that worktree's HEAD is
-  refused; after 3 refusals the task is failed and escalated to dev-lead. A task
+  output }. When the correct outcome is a non-zero exit, add `expectExit: <code>`
+  to that check — never append `|| true`. A check that misses its expected exit
+  or a sha that is no longer that worktree's HEAD is refused; after 3 refusals the task is failed and escalated to dev-lead. A task
   with nothing to run (a verdict, a plan) still names the command that proves
   it — e.g. `test -s <plan or verdict path>`, or `head -1 <verdict file>`.
 - The evidence proves the task was done, not that the item is good: a FAIL,
   REJECT, REVISE or DROP verdict is a completed task. Its evidence checks are
   the commands that prove the verdict file exists and names the SHA; the failing
   commands and their exit codes go in the result's check table.
+
+## Destructive commands
+- `cleanup` (any variant), `init --force`, recursive deletes, `git clean`,
+  `git reset --hard` and anything else that deletes or overwrites files run ONLY
+  inside the item's WT or a scratch dir you created, with `cd` into it in the
+  SAME command and a `pwd` check first. Never in REPO: on 2026-09-22
+  `cleanup --force` run from the main checkout deleted 1003 tracked files and
+  the project's memory store.
 
 ## Build, lint and test traps
 - LINT: `pnpm run lint` from a worktree under .monomind/ silently checks 0 files

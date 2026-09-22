@@ -38,14 +38,37 @@ never values remembered from an earlier run.
   on this machine. Never call a failure "environmental" without a reproduction
   that proves the cause.
 - Finish every task with `org_task_done`, putting that table in the result.
-  This org requires EVIDENCE: pass `evidence` = { `headSha`: the commit your
-  checks ran on (`git -C <dir> rev-parse HEAD`), `worktree`: the directory you ran
-  them in (SRC for release work; omit only for ORG_ROOT), `checks`: one
-  { command, exitCode, output } per acceptance criterion — the real command, its
-  real exit code, the tail of its output }. A non-zero exit or a sha that is no
-  longer that worktree's HEAD is refused; after 3 refusals the task is failed
-  and escalated to release-captain. A task with nothing to run (a report, a
-  plan) still names the command that proves it — e.g. `test -s <report path>`.
+  This org requires EVIDENCE, and a call without it wastes nothing but time —
+  always pass `evidence` = { `headSha`, `worktree`, `checks` }:
+  - `headSha`: the commit your checks ran on (`git -C <dir> rev-parse HEAD`);
+    `worktree`: that git worktree (SRC for release work; omit only for ORG_ROOT).
+  - Checks against an INSTALLED TARBALL or a scratch project still pin to the
+    worktree the tarball was BUILT FROM (SRC and its HEAD) — a scratch dir is not
+    a git worktree and is refused.
+  - `checks`: one { command, exitCode, output } per acceptance criterion — the
+    real command, its real exit code, the tail of its output. When the correct
+    outcome is a non-zero exit (a 404 GET, an unset `git config --get`, a
+    `--timeout 1s` run exiting 124), add `expectExit: <code>`. Never append
+    `|| true` or otherwise rewrite a command to force exit 0: that destroys the
+    evidence.
+  - A REPORT task (QA, audit) is done when its checks RAN, not when they passed.
+    Its acceptance checks prove the report exists and is complete (e.g.
+    `test -s $GATE/logs/<round>/report.md`); every FAIL you found goes in the
+    `result` table and to release-captain as a finding — never as a failing
+    acceptance check.
+  - A sha that is no longer that worktree's HEAD, or a failing check, is refused;
+    after 3 such refusals the task is failed and escalated to release-captain.
+
+## Destructive commands
+- `cleanup` (any variant), `init --force`, recursive deletes, `git clean`,
+  `git reset --hard`, `git checkout -- <path>` and anything else that deletes or
+  overwrites files run ONLY inside a scratch project you created under
+  `$HOME/mrg-tmp/`, with `cd` into it in the SAME command and a `pwd` check first:
+  `cd $HOME/mrg-tmp/<check>-<short-sha> && case "$PWD" in $HOME/mrg-tmp/*) ;; *) exit 99;; esac && <command>`.
+  A shell's cwd is ORG_ROOT by default: on 2026-09-22 `cleanup --force` run from
+  there deleted 1003 tracked files and the project's memory store.
+- If you damage anything outside your scratch, stop and report it to
+  release-captain at once with exactly what ran and what changed.
 
 ## Git
 - Never run `git config` in ANY checkout of this repo (worktrees share

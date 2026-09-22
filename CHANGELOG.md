@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **`policy.sandbox.denyWrite` for org roles.** Paths listed there are read-only for the role's shell (OS sandbox) and its file tools; relative paths resolve against the org root, so `["."]` keeps a role from writing anywhere in the checkout. The release org now uses it — with `mode: "required"` — for its QA and audit roles, after a QA role ran `cleanup --force` from the main checkout during a release run.
+
 ### Changed
 
 - **`monomind cleanup --force` keeps user data unless you also pass `--purge-data`.** Memory stores (`data/memory`, `MONOMIND_MEMORY_PATH`, `memory/`), `.monomind/org-memory`, `.monomind/knowledge`, `.monomind/orgs`, `.monomind/org-skills`, backups, the monograph database and any other `*.db` file are listed as kept by `--force` alone; `--force --purge-data` removes them too, provided they are not git-tracked. The preview (`cleanup` without `--force`) runs the same plan, so it lists exactly what `--force` will remove or edit, followed by everything it keeps and why.

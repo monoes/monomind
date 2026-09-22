@@ -298,7 +298,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `approvalTools` | _(unset)_ | Extra tool/action names that pause for approval exactly like the built-in sensitive list. Bare names (`org_send`), never the `mcp__org__` form. `autoApproveTools` wins on conflict |
 | `fence` | _(unset)_ | Per-role MonoFence tool-fence config (`FenceConfigSchema`) — see [Fence Protocol](#fence-protocol-tool-fencets) |
 | `git` | `'read'` | `'none'` \| `'read'` \| `'commit'` \| `'push'` — see [Git policy enforcement](#git-policy-enforcement) |
-| `sandbox` | `{ mode: 'auto' }` | OS sandbox for claude-runtime roles below `git: 'push'`: `mode` `'auto'` \| `'required'` \| `'off'`; `allowedDomains` (default `['*']`); `deniedDomains` (opt-in host deny list); `allowWrite` (extra writable paths); `allowUnixSockets` (default `true` — Chrome needs one) |
+| `sandbox` | `{ mode: 'auto' }` | OS sandbox for claude-runtime roles below `git: 'push'`: `mode` `'auto'` \| `'required'` \| `'off'`; `allowedDomains` (default `['*']`); `deniedDomains` (opt-in host deny list); `allowWrite` (extra writable paths); `denyWrite` (paths made read-only for the role's shell and file tools, relative paths resolved against the org root — `["."]` keeps a QA role from writing anywhere in the checkout it tests from); `allowUnixSockets` (default `true` — Chrome needs one) |
 
 ### Git policy enforcement
 

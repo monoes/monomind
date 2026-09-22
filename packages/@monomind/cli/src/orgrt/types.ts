@@ -175,14 +175,18 @@ export const RolePolicySchema = z
      *  or seatbelt are available and audits when not; 'required' refuses to
      *  run unsandboxed; 'off' opts out. allowedDomains defaults to ['*'];
      *  deniedDomains is an opt-in host deny list; allowWrite adds
-     *  writable paths; allowUnixSockets (default true — Chrome needs one)
-     *  can be turned off to block every AF_UNIX socket. */
+     *  writable paths; denyWrite makes paths read-only for the role's shell
+     *  and file tools (relative paths resolve against the org root, so
+     *  `["."]` keeps a QA role from writing anywhere in the checkout);
+     *  allowUnixSockets (default true — Chrome needs one) can be turned off
+     *  to block every AF_UNIX socket. */
     sandbox: z
       .object({
         mode: z.enum(['auto', 'required', 'off']).optional(),
         allowedDomains: z.array(z.string()).optional(),
         deniedDomains: z.array(z.string()).optional(),
         allowWrite: z.array(z.string()).optional(),
+        denyWrite: z.array(z.string()).optional(),
         allowUnixSockets: z.boolean().optional(),
       })
       .strict()

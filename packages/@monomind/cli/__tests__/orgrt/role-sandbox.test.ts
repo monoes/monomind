@@ -231,6 +231,20 @@ describe('buildClaudeRestrictions', () => {
     expect(r.disallowedTools).not.toContain(`Edit(/${gitDir}/**)`);
   });
 
+  // A QA role once ran a destructive command from the org root and deleted a
+  // thousand tracked files. denyWrite lets the org make the checkout read-only
+  // for such a role's shell and file tools, while its scratch stays writable.
+  it('denyWrite makes the listed paths (relative to the org root) read-only for Bash and the file tools', () => {
+    const { base, repo, gitDir } = scratchRepo();
+    const guard = prepareGitGuard({ level: 'commit', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
+    const r = buildClaudeRestrictions(guard, { denyWrite: ['.', '/definitely/not/there'] }, ctx(repo, base), true);
+    const fs = (r.sandbox as any).filesystem;
+    expect(fs.denyWrite).toContain(base);
+    expect(fs.denyWrite).not.toContain('/definitely/not/there');
+    expect(fs.allowWrite).toContain('/tmp');
+    expect(r.disallowedTools).toEqual(expect.arrayContaining([`Edit(/${base})`, `Edit(/${base}/**)`]));
+  });
+
   it('none: the repository is unreadable to sandboxed commands too', () => {
     const { base, repo, gitDir } = scratchRepo();
     const guard = prepareGitGuard({ level: 'none', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
