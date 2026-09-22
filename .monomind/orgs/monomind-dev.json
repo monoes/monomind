@@ -37,7 +37,7 @@
   "roles": [
     {
       "adapter_config": {
-        "model": "claude-sonnet-5"
+        "model": "claude-opus-5"
       },
       "id": "dev-lead",
       "policy": {
@@ -89,7 +89,7 @@
     },
     {
       "adapter_config": {
-        "model": "claude-sonnet-5"
+        "model": "claude-opus-5"
       },
       "id": "product-evaluator",
       "policy": {
@@ -132,7 +132,7 @@
     },
     {
       "adapter_config": {
-        "model": "claude-sonnet-5"
+        "model": "claude-opus-5"
       },
       "id": "architect",
       "policy": {
@@ -343,7 +343,7 @@
     },
     {
       "adapter_config": {
-        "model": "claude-sonnet-5"
+        "model": "claude-opus-5"
       },
       "id": "reviewer",
       "policy": {
