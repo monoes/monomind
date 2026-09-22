@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.7] — 2026-09-22
+
 ### Fixed
 
 - **A role could end its turn with its own task still open and nothing noticed.** On the 2.15.6 release run the publisher reported its results with `org_send` and ended its turn without calling `org_task_done`; the coordinator waited on a completion that never came and the run sat still for ~10 minutes until a human intervened, because the only backstop was the org-wide idle watchdog (`run_config.idle_minutes`, 45 in that org). When a role's turn ends the runtime now checks what it left open and delivers one short `[task:<id>] STILL OPEN — …` message naming the task and what closing it takes (including `evidence` when `run_config.completion_evidence` is on), plus a `task-open-at-turn-end` audit event. It is bounded: nothing is sent while the role still has mail queued or coalescing, a task blocked on a real-world time (`org_task_block`) is never nudged, and each task earns at most one nudge per dispatch. The idle watchdog's own behaviour is unchanged.
@@ -15,7 +17,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
   `open` with no `--port` now **starts its own session**: Chrome binds a kernel-assigned free port in a profile directory of its own, and `open` reports it — `✓ Opened: … [port 41337]`. Sessions are recorded one file per port, per working directory, in `.monomind/monobrowse/sessions/<port>.json` (they shared a single `active-port.json` before), and every later command follows one rule: `--port N` acts on that session, no `--port` acts on the newest session in this directory whose browser still answers. Dead records are dropped as they are passed, so a crashed or manually-killed browser self-heals instead of wedging later commands, and `close` ends exactly the session it resolved — never another invocation's browser. `open --port N` and `connect --port N` keep today's attach-to-that-port behaviour exactly, and each session keeps its own snapshot ref cache so concurrent `snapshot`/`click` work does not cross over.
 
-  Upgrading with a session already open does not strand its browser: a directory that still has the old single-session file (`.monomind/monobrowse/active-port.json`) has it treated as one more candidate — the oldest, so live per-port sessions win. If its browser still answers it is **adopted** (rewritten as `sessions/<port>.json`, keeping port, PID and `open`/`connect` provenance, old file deleted) and behaves like any other session for `snapshot`, `--port` and `close`; if it does not answer, the old file is just removed. Nothing writes that file again, and adoption never makes a bare `open` join an existing session. `@monoes/monobrowse` 1.0.20.
+  Upgrading with a session already open does not strand its browser: a directory that still has the old single-session file (`.monomind/monobrowse/active-port.json`) has it treated as one more candidate — the oldest, so live per-port sessions win. If its browser still answers it is **adopted** (rewritten as `sessions/<port>.json`, keeping port, PID and `open`/`connect` provenance, old file deleted) and behaves like any other session for `snapshot`, `--port` and `close`; if it does not answer, the old file is just removed. Nothing writes that file again, and adoption never makes a bare `open` join an existing session. `@monoes/monobrowse` 1.0.21.
 
 ## [2.15.6] — 2026-09-22
 
