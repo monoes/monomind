@@ -4,6 +4,7 @@
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { rankOrgSkills } from '../decision/picks.js';
 import { importRepo } from '../orgrt/skill-import.js';
 import { getSkill, listSkills, searchSkills } from '../orgrt/skill-library.js';
 import { output } from '../output.js';
@@ -20,6 +21,9 @@ const csv = (v: unknown): string[] | undefined =>
         .map((s) => s.trim())
         .filter(Boolean)
     : undefined;
+
+/** How many keyword hits the decision model re-ranks. */
+const JEV_SKILL_SHORTLIST = 30;
 
 const line = (s: { name: string; tags: string[]; description: string }): string =>
   `${output.highlight(s.name)} ${s.tags.length ? `[${s.tags.join(', ')}] ` : ''}— ${s.description.slice(0, 140)}`;
@@ -43,9 +47,21 @@ export async function orgSkillsAction(ctx: CommandContext): Promise<CommandResul
     if (!query) return fail('usage: monomind org skills search <text> [--tag <tag>]');
     const limit =
       typeof ctx.flags.limit === 'number' ? ctx.flags.limit : Number(ctx.flags.limit) || 10;
-    const hits = searchSkills(query, root, { tag, limit });
-    if (json) return print({ skills: hits });
-    for (const s of hits) log(line(s));
+    const found = searchSkills(query, root, { tag, limit: Math.max(limit, JEV_SKILL_SHORTLIST) });
+    const { method, hits } = await rankOrgSkills(query, found, limit, {
+      onError: (err) =>
+        process.stderr.write(
+          `[org skills] decision model "${err.provider}" unavailable (${err.message})\n`,
+        ),
+    });
+    // Keyword results keep the legacy `{skills}` JSON shape byte-for-byte.
+    if (json) return print(method === 'jev' ? { skills: hits, method } : { skills: hits });
+    for (const s of hits) {
+      log(
+        line(s) +
+          (s.probability !== undefined ? output.info(` (jev ${s.probability.toFixed(2)})`) : ''),
+      );
+    }
     if (hits.length === 0) log(output.info('no matching skills'));
     return { success: true, data: hits };
   }

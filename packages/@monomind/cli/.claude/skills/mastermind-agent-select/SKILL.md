@@ -22,6 +22,22 @@ Use this pattern whenever a mastermind skill needs to select specialist agents. 
 
 REGISTRY="${REGISTRY:-.monomind/registry.json}"
 
+# 0. Decision model first. `monomind pick` asks Jev/OpenJev when configured
+#    (MONOMIND_JEV_URL, or TYPESAFE_API_KEY + MONOMIND_JEV_HOSTED=1) and
+#    otherwise ranks by keywords.
+# Local only — never npx (no registry egress). A globally installed monomind may
+# predate `pick`, so each candidate must prove it supports the command.
+mm() { for c in monomind ./node_modules/.bin/monomind; do
+         command -v "$c" >/dev/null 2>&1 || [ -x "$c" ] || continue
+         "$c" pick --help >/dev/null 2>&1 && { "$c" "$@"; return $?; }
+       done; return 127; }
+selected_agents=$(mm pick -t "$PROMPT" --agents --categories "$CATEGORIES" \
+  --top "$TOP_N" --json 2>/dev/null \
+  | jq -c '[.agents.ranked[] | {name: (.name // .id), slug: .id, category}]' 2>/dev/null)
+
+# Fallback when the CLI is unavailable: the registry keyword scorer below.
+if [ -z "$selected_agents" ] || [ "$selected_agents" = "[]" ]; then
+
 # 1. Extract candidates from the registry filtered by category
 candidates=$(jq -r \
   --arg cats "$CATEGORIES" \
@@ -58,6 +74,7 @@ selected_agents=$(echo "$candidates" | jq -Rs \
   .[0:$n] |
   map(.agent)
   ')
+fi
 
 echo "$selected_agents"
 ```
@@ -92,6 +109,16 @@ The output is a JSON array of `{name, slug, category}` objects. Use `.name` as t
 TASK_DESC="<one-line description of what this agent must do>"
 CATS="engineering development"
 
+# Local only — never npx (no registry egress). A globally installed monomind may
+# predate `pick`, so each candidate must prove it supports the command.
+mm() { for c in monomind ./node_modules/.bin/monomind; do
+         command -v "$c" >/dev/null 2>&1 || [ -x "$c" ] || continue
+         "$c" pick --help >/dev/null 2>&1 && { "$c" "$@"; return $?; }
+       done; return 127; }
+best_agent=$(mm pick -t "$TASK_DESC" --agents --categories "$CATS" --top 1 --json 2>/dev/null \
+  | jq -r '.agents.ranked[0].name // .agents.ranked[0].id // empty' 2>/dev/null)
+
+if [ -z "$best_agent" ]; then
 best_agent=$(jq -r \
   --arg cats "$CATS" \
   --arg task "$(echo "$TASK_DESC" | tr '[:upper:]' '[:lower:]')" \
@@ -104,6 +131,7 @@ best_agent=$(jq -r \
    | sort_by(-.score)
    | .[0].name // "coder"' \
   "$REGISTRY")
+fi
 ```
 
 ---
