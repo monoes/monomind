@@ -65,7 +65,8 @@ export function buildReviewPacket(p: ReviewPacketInput): string {
           const out = c.output
             ? `\n${capText(c.output, EVIDENCE_OUTPUT_CAP)}`
             : '\n(no output recorded)';
-          return `$ ${c.command}\n→ exit ${c.exitCode}${out}`;
+          const expected = c.expectExit !== undefined ? ` (expected ${c.expectExit})` : '';
+          return `$ ${c.command}\n→ exit ${c.exitCode}${expected}${out}`;
         })
         .join('\n\n')
     : '(no acceptance commands were submitted)';

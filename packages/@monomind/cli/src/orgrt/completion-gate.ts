@@ -169,8 +169,18 @@ export function checkCompletion(f: CompletionFacts): string | null {
 export interface EvidenceCheck {
   command: string;
   exitCode: number;
+  /** The exit code that means this criterion is met, when that is not 0 — a
+   *  404 from a GET that must not find anything, `git config --get` of a key
+   *  that must stay unset, a timeout that must fire (124). The check passes
+   *  iff `exitCode === (expectExit ?? 0)`. Declaring it keeps the real exit
+   *  code in the record; the alternative roles reached for, `|| true`,
+   *  throws it away. */
+  expectExit?: number;
   output?: string;
 }
+
+/** The exit code a check must return to pass. */
+export const expectedExit = (c: EvidenceCheck): number => c.expectExit ?? 0;
 
 export interface TaskEvidence {
   /** The commit sha the checks were run against. */
@@ -213,7 +223,12 @@ export interface TaskEvidenceFacts {
 const MIN_SHA_LEN = 7;
 
 const EVIDENCE_SHAPE =
-  'Attach evidence: { headSha: "<the current commit sha>", worktree: "<the worktree you ran in, if not the org workspace>", checks: [{ command, exitCode, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output.';
+  'Attach evidence: { headSha: "<the current commit sha>", worktree: "<the worktree you ran in, if not the org workspace>", checks: [{ command, exitCode, expectExit?, output }] } — one entry per acceptance criterion, each a command you actually ran, with its real exit code and its output. Set expectExit only when the criterion is met by a non-zero exit (e.g. 1 for a lookup that must find nothing, 124 for a timeout that must fire).';
+
+/** How a task whose job is to REPORT closes. Its failures are findings, not
+ *  acceptance checks; its acceptance commands prove the report exists. */
+const REPORT_TASK_HINT =
+  "If this task's job is to REPORT (QA, an audit) and these failures are what you found, they are findings, not acceptance checks: put them in `result` and send them to the coordinator, and make the acceptance commands prove the report exists and is complete (e.g. `test -s <report file>`, a grep for each required section).";
 
 const normalizePath = (p: string): string => p.trim().replace(/\/+$/, '');
 
@@ -244,12 +259,15 @@ export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
       return `org_task_done refused: an evidence entry has an empty command. Every check must name the command that was actually run. ${EVIDENCE_SHAPE}`;
     }
   }
-  const failed = ev.checks.filter((c) => c.exitCode !== 0);
+  const failed = ev.checks.filter((c) => c.exitCode !== expectedExit(c));
   if (failed.length > 0) {
     const detail = failed
-      .map((c) => `  $ ${c.command}\n  exit ${c.exitCode}${c.output ? `\n  ${c.output}` : ''}`)
+      .map(
+        (c) =>
+          `  $ ${c.command}\n  expected exit ${expectedExit(c)}, got exit ${c.exitCode}${c.output ? `\n  ${c.output}` : ''}`,
+      )
       .join('\n');
-    return `org_task_done refused: ${failed.length} acceptance command(s) did not exit 0 — the task is not done.\n${detail}\nFix the failure, re-run the checks, and close it again; the task goes back in your queue.`;
+    return `org_task_done refused: ${failed.length} acceptance command(s) did not exit as expected — the task is not done.\n${detail}\nFix the failure, re-run the checks, and close it again; the task goes back in your queue. If a non-zero exit IS the correct outcome, declare it with expectExit on that check — never append \`|| true\`, which erases the exit code the gate is checking. ${REPORT_TASK_HINT}`;
   }
   const heads: LocalHead[] = f.heads?.length ? f.heads : f.headSha ? [{ sha: f.headSha }] : [];
   if (heads.length === 0) {
@@ -265,7 +283,7 @@ export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
     const wt = heads.find((h) => h.worktree && normalizePath(h.worktree) === want);
     if (!wt) {
       const known = heads.filter((h) => h.worktree).map((h) => h.worktree);
-      return `org_task_done refused: "${ev.worktree}" is not a worktree of this repository, so its HEAD cannot be checked. Worktrees: ${known.join(', ') || 'none'}.`;
+      return `org_task_done refused: "${ev.worktree}" is not a worktree of this repository, so its HEAD cannot be checked. If you ran the checks somewhere else — a scratch dir, an installed tarball — pin \`worktree\` and \`headSha\` to the git worktree the tested artifact was BUILT FROM (and keep the scratch path in the command or output). Worktrees: ${known.join(', ') || 'none'}.`;
     }
     if (!matches(wt)) {
       return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, but the current head of ${wt.worktree} is ${wt.sha} — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output.`;

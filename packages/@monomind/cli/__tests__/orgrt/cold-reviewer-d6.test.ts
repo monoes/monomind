@@ -126,6 +126,30 @@ describe('D6 review packet', () => {
     expect(packet).toMatch(/diff unavailable/i);
   });
 
+  // A check whose correct outcome is non-zero must not read as a failure to
+  // the reviewer — and the task row must keep what was expected.
+  it('shows a declared expectExit next to the exit code, and the task row keeps it', () => {
+    const packet = buildReviewPacket({
+      taskId: 't',
+      issue: 'x',
+      evidence: {
+        headSha: 'abc1234',
+        checks: [{ command: 'git config --get x.unset', exitCode: 1, expectExit: 1 }],
+      },
+      diff: { ok: true, text: '' },
+      replyTo: 'b',
+    });
+    expect(packet).toContain('→ exit 1 (expected 1)');
+
+    const dag = new TaskDag();
+    const t = dag.add('t', 'dev');
+    dag.recordEvidence(t.id, {
+      headSha: 'abc1234',
+      checks: [{ command: 'git config --get x.unset', exitCode: 1, expectExit: 1 }],
+    });
+    expect(dag.get(t.id)?.lastEvidence?.checks[0]?.expectExit).toBe(1);
+  });
+
   it('caps a huge command output and a huge diff', () => {
     const big = 'x'.repeat(200_000);
     const packet = buildReviewPacket({

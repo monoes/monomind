@@ -135,6 +135,7 @@ export class TaskDag {
       checks: ev.checks.map((c) => ({
         command: c.command,
         exitCode: c.exitCode,
+        ...(c.expectExit !== undefined ? { expectExit: c.expectExit } : {}),
         ...(c.output !== undefined ? { output: capText(c.output, EVIDENCE_OUTPUT_CAP) } : {}),
       })),
     };

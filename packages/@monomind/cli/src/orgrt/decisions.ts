@@ -460,7 +460,12 @@ function resolveEvidenceWorktree(
  *  `org_tasks` and the run history carry the commands and their exit codes —
  *  not just a prose claim that the work is done. */
 function evidenceSummary(ev: TaskEvidence): string {
-  const lines = ev.checks.map((c) => `  $ ${c.command} → exit ${c.exitCode}`).join('\n');
+  const lines = ev.checks
+    .map(
+      (c) =>
+        `  $ ${c.command} → exit ${c.exitCode}${c.expectExit !== undefined ? ` (expected ${c.expectExit})` : ''}`,
+    )
+    .join('\n');
   return `evidence @ ${ev.headSha}:\n${lines}`;
 }
 
@@ -501,8 +506,11 @@ export function dagCompleteTask(
       // ADR-O001 D4: the correction loop is bounded. Only the assignee's own
       // failures count — a refusal aimed at a role that is not the assignee
       // says nothing about whether the assignee can produce evidence, and
-      // must not spend its attempts.
-      const attempts = role === task.assignee ? running.taskDag.recordEvidenceFailure(taskId) : 0;
+      // must not spend its attempts. Neither does a call with no evidence
+      // object at all: that is a formatting slip, not a failed proof — on the
+      // release org's first run it cost 4 of 6 tasks an attempt.
+      const counts = role === task.assignee && evidence !== undefined;
+      const attempts = counts ? running.taskDag.recordEvidenceFailure(taskId) : 0;
       const cap = running.def.run_config.max_evidence_attempts ?? DEFAULT_MAX_EVIDENCE_ATTEMPTS;
       if (attempts >= cap) {
         // Escalate rather than hand it back a fourth time. "Escalate" is the
@@ -547,7 +555,7 @@ export function dagCompleteTask(
       queueDispatch(
         running,
         task.assignee,
-        `${taskTag(task)} NOT CLOSED — ${refusal}${attempts ? ` (attempt ${attempts} of ${cap}; after ${cap} this task is escalated instead of returned)` : ''}`,
+        `${taskTag(task)} NOT CLOSED — ${refusal}${attempts ? ` (attempt ${attempts} of ${cap}; after ${cap} this task is escalated instead of returned)` : evidence === undefined ? ' (no evidence was attached, so this did not count against your attempts)' : ''}`,
       );
       dispatchReadyTasks(daemon, org, running);
       return JSON.stringify({ error: refusal, requeued: taskId });

@@ -1598,7 +1598,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_task_done',
       description: opts.requireTaskEvidence
-        ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha of the work (the HEAD of any worktree of this repository, or any local branch tip), `worktree` naming the worktree you ran in when it is not the org workspace, and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. Evidence pinned to a commit that is no longer the head of that work is stale and will be refused, and a refused completion puts the task back in your queue with the reason — but only up to run_config.max_evidence_attempts times (default 3), after which the task is recorded as failed and escalated to the boss instead of returned to you. Any downstream tasks whose deps are now all done become ready and are dispatched.'
+        ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha of the work (the HEAD of any worktree of this repository, or any local branch tip), `worktree` naming the worktree you ran in when it is not the org workspace, and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. A check passes when its exit code equals `expectExit` (default 0): when the criterion is met by a non-zero exit (a lookup that must find nothing → 1, a timeout that must fire → 124), set `expectExit` instead of appending `|| true`, which erases the exit code. A task whose job is to REPORT (QA, an audit) closes on commands that prove the report exists and is complete (e.g. `test -s <report file>`); the failures it found are findings — put them in `result` and send them to the coordinator, not in `checks`. If you tested something outside a git worktree (a scratch dir, an installed tarball), pin `headSha`/`worktree` to the worktree the artifact was built from. Evidence pinned to a commit that is no longer the head of that work is stale and will be refused, and a refused completion puts the task back in your queue with the reason — but only up to run_config.max_evidence_attempts refused proofs (default 3; a call with no `evidence` at all is refused without counting), after which the task is recorded as failed and escalated to the boss instead of returned to you. Any downstream tasks whose deps are now all done become ready and are dispatched.'
         : 'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
       schema: {
         taskId: z.string(),
@@ -1612,6 +1612,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
                 z.object({
                   command: z.string(),
                   exitCode: z.number().int(),
+                  expectExit: z.number().int().optional(),
                   output: z.string().optional(),
                 }),
               )

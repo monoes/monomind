@@ -360,3 +360,78 @@ describe('checkTaskEvidence — ADR-O001 D5 (opt-in via run_config.completion_ev
     expect(checkTaskEvidence({ ...PASSING, ...facts, required: false })).toBeNull();
   });
 });
+
+/**
+ * The first real run of the `release` org exercised this gate and showed
+ * where its refusals pushed roles into the wrong move.
+ */
+describe('checkTaskEvidence — lessons from the first release-org run', () => {
+  const check = (c: { command: string; exitCode: number; expectExit?: number }) =>
+    checkTaskEvidence({ ...PASSING, evidence: { headSha: HEAD, checks: [c] } });
+
+  // A branch-protection GET that 404s, `git config --get` of an unset key,
+  // `agent exec --timeout 1s` → 124: the correct outcome is non-zero. Refusing
+  // them taught roles to append `|| true`, which destroys the evidence.
+  describe('expectExit — checks whose correct outcome is non-zero', () => {
+    it('accepts a check whose exit code equals its declared expectExit', () => {
+      expect(check({ command: 'git config --get x.unset', exitCode: 1, expectExit: 1 })).toBeNull();
+      expect(
+        check({ command: 'agent exec --timeout 1s', exitCode: 124, expectExit: 124 }),
+      ).toBeNull();
+    });
+
+    it('refuses exit 0 when a non-zero exit was expected, naming expected and actual', () => {
+      const msg = check({ command: 'gh api branches/main/protection', exitCode: 0, expectExit: 1 });
+      expect(msg).not.toBeNull();
+      expect(msg).toMatch(/expected exit 1/);
+      expect(msg).toMatch(/got exit 0/);
+    });
+
+    it('refuses a different non-zero code than the one expected', () => {
+      const msg = check({ command: 'agent exec --timeout 1s', exitCode: 1, expectExit: 124 });
+      expect(msg).toMatch(/expected exit 124/);
+      expect(msg).toMatch(/got exit 1/);
+    });
+
+    it('without expectExit a non-zero exit is refused, and the refusal points at expectExit rather than `|| true`', () => {
+      const msg = check({ command: 'git config --get x.unset', exitCode: 1 });
+      expect(msg).toMatch(/expected exit 0/);
+      expect(msg).toMatch(/got exit 1/);
+      expect(msg).toMatch(/expectExit/);
+      expect(msg).toMatch(/\|\| true/);
+    });
+  });
+
+  // QA tasks finish by REPORTING failures. The gate keeps its meaning — a
+  // check in evidence must pass — but the refusal must say how such a task
+  // closes instead of leaving the role stuck on a failing "check".
+  it('a failed-check refusal explains how to close a report task', () => {
+    const msg = check({ command: 'monomind cleanup --force', exitCode: 1 });
+    expect(msg).toMatch(/report/i);
+    expect(msg).toMatch(/test -s/);
+    expect(msg).toMatch(/`result`/);
+    expect(msg).toMatch(/findings/i);
+  });
+
+  // Checks run against an installed tarball in a scratch dir: the rule stays
+  // (evidence is pinned to a worktree of this repo); the refusal says which.
+  it('a non-worktree refusal says to pin to the worktree the tested artifact was built from, listing the worktrees', () => {
+    const heads = [
+      { sha: HEAD, worktree: '/repo', branch: 'main' },
+      { sha: STALE, worktree: '/repo/wt/release', branch: 'release/2.15.6' },
+    ];
+    const msg = checkTaskEvidence({
+      ...PASSING,
+      heads,
+      evidence: {
+        headSha: HEAD,
+        worktree: '/var/tmp/qa-scratch',
+        checks: [{ command: 'npm i ./monomind.tgz', exitCode: 0 }],
+      },
+    });
+    expect(msg).toMatch(/not a worktree of this repository/);
+    expect(msg).toMatch(/built from/i);
+    expect(msg).toMatch(/headSha/);
+    expect(msg).toContain('/repo/wt/release');
+  });
+});

@@ -445,8 +445,14 @@ describe('dispatch uses the recorded loadout; re-dispatch never re-selects', () 
     dispatchReadyTasks(daemon, 'acme', running);
     await settleDispatch();
 
+    // A real failed proof — a call with no evidence at all does not count
+    // toward escalation.
+    const failing = {
+      headSha: 'deadbeefdeadbeef',
+      checks: [{ command: 'pnpm test', exitCode: 1 }],
+    };
     for (let i = 0; i < 2; i++) {
-      const r = JSON.parse(dagCompleteTask(daemon, 'acme', 'dev', task.id, 'trust me'));
+      const r = JSON.parse(dagCompleteTask(daemon, 'acme', 'dev', task.id, 'trust me', failing));
       expect(r.requeued).toBe(task.id);
       expect(running.taskDag?.get(task.id)?.loadout).toBe('implement');
     }
@@ -458,9 +464,9 @@ describe('dispatch uses the recorded loadout; re-dispatch never re-selects', () 
     expect(q).not.toMatch(/\[loadout:(?!implement)/);
 
     // Third failure escalates — still recorded against the same loadout.
-    expect(JSON.parse(dagCompleteTask(daemon, 'acme', 'dev', task.id, 'x')).escalated).toBe(
-      task.id,
-    );
+    expect(
+      JSON.parse(dagCompleteTask(daemon, 'acme', 'dev', task.id, 'x', failing)).escalated,
+    ).toBe(task.id);
     expect(running.taskDag?.get(task.id)?.loadout).toBe('implement');
     await settleDispatch();
     expect(boss.mailbox.serialize().queue.join('\n')).toContain(

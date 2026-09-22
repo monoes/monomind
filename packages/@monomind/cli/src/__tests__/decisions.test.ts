@@ -484,6 +484,19 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     daemon.orgs.delete('alpha');
   });
 
+  it('accepts a check whose declared expectExit matched, and records the expectation on the task', () => {
+    const { daemon, sha, taskDag, task } = setup(true);
+    const out = JSON.parse(
+      dagCompleteTask(daemon, 'alpha', 'dev', task.id, 'unset key stays unset', {
+        headSha: sha,
+        checks: [{ command: 'git config --get x.unset', exitCode: 1, expectExit: 1 }],
+      }),
+    );
+    expect(out.done).toBe(task.id);
+    expect(taskDag.get(task.id)?.result).toContain('exit 1 (expected 1)');
+    daemon.orgs.delete('alpha');
+  });
+
   // THE case: evidence that passed at the sha it was gathered at, then the
   // tree moved. Nothing about the prose changes — only the commit does.
   it('refuses evidence pinned to a STALE sha after a new commit lands', () => {
@@ -524,17 +537,46 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
    * carries it like every other piece of task state.
    */
   describe('retry cap (run_config.max_evidence_attempts)', () => {
-    const noEvidence = (daemon: OrgDaemon, id: string, role = 'dev') =>
-      JSON.parse(dagCompleteTask(daemon, 'alpha', role, id, 'trust me'));
+    // A real failed proof: a check that did not exit as expected. (A call with
+    // no evidence at all is a formatting slip and does not count — see below.)
+    const failedCheck = (daemon: OrgDaemon, id: string, role = 'dev') =>
+      JSON.parse(
+        dagCompleteTask(daemon, 'alpha', role, id, 'trust me', {
+          headSha: 'deadbeefdeadbeef',
+          checks: [{ command: 'pnpm test', exitCode: 1, output: '1 failed' }],
+        }),
+      );
+    const bare = (daemon: OrgDaemon, id: string) =>
+      JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', id, 'done'));
+
+    // The release org's first run: 4 of 6 tasks lost an attempt because the
+    // role's first org_task_done carried no `evidence` object at all.
+    it('a call with NO evidence object is refused and requeued but does not spend an attempt', async () => {
+      const { daemon, taskDag, task, dev } = setup(true, 2);
+      for (let i = 0; i < 3; i++) {
+        const out = bare(daemon, task.id);
+        expect(out.error).toMatch(/evidence/i);
+        expect(out.requeued).toBe(task.id);
+      }
+      expect(taskDag.get(task.id)?.evidenceFailures).toBeFalsy();
+      expect(taskDag.get(task.id)?.status).toBe('running');
+      await settleDispatch();
+      expect(dev.mailbox.serialize().queue.join('\n')).toMatch(/did not count/);
+
+      // A real failed check still counts.
+      expect(failedCheck(daemon, task.id).requeued).toBe(task.id);
+      expect(taskDag.get(task.id)?.evidenceFailures).toBe(1);
+      daemon.orgs.delete('alpha');
+    });
 
     it('escalates to the boss on the third failure instead of re-dispatching again', async () => {
       const { daemon, taskDag, task, dev, boss, events } = setup(true);
 
-      expect(noEvidence(daemon, task.id).requeued).toBe(task.id);
-      expect(noEvidence(daemon, task.id).requeued).toBe(task.id);
+      expect(failedCheck(daemon, task.id).requeued).toBe(task.id);
+      expect(failedCheck(daemon, task.id).requeued).toBe(task.id);
       expect(taskDag.get(task.id)?.status).toBe('running');
 
-      const third = noEvidence(daemon, task.id);
+      const third = failedCheck(daemon, task.id);
       expect(third.requeued).toBeUndefined();
       expect(third.escalated).toBe(task.id);
       expect(third.attempts).toBe(3);
@@ -564,8 +606,8 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     // would get three fresh attempts after every resume.
     it('carries the failure count through a checkpoint round-trip', () => {
       const { daemon, taskDag, task, running } = setup(true);
-      noEvidence(daemon, task.id);
-      noEvidence(daemon, task.id);
+      failedCheck(daemon, task.id);
+      failedCheck(daemon, task.id);
       expect(taskDag.get(task.id)?.evidenceFailures).toBe(2);
 
       const checkpoint = captureCheckpoint(running);
@@ -573,7 +615,7 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
       expect(running.taskDag.get(task.id)?.evidenceFailures).toBe(2);
 
       // Third failure of the SAME task, counted across the restart.
-      expect(noEvidence(daemon, task.id).escalated).toBe(task.id);
+      expect(failedCheck(daemon, task.id).escalated).toBe(task.id);
       daemon.orgs.delete('alpha');
     });
 
@@ -582,10 +624,10 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
       const other = taskDag.add('another thing', 'dev', []);
       taskDag.markRunning(other.id);
 
-      noEvidence(daemon, task.id);
-      noEvidence(daemon, task.id);
+      failedCheck(daemon, task.id);
+      failedCheck(daemon, task.id);
       // A different task is on attempt 1, not inheriting the other's two.
-      expect(noEvidence(daemon, other.id).requeued).toBe(other.id);
+      expect(failedCheck(daemon, other.id).requeued).toBe(other.id);
       expect(taskDag.get(other.id)?.evidenceFailures).toBe(1);
       expect(taskDag.get(other.id)?.status).not.toBe('failed');
       daemon.orgs.delete('alpha');
@@ -595,8 +637,8 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     // escalation for the rest of its life.
     it('clears the count when the task is closed with accepted evidence', () => {
       const { daemon, sha, taskDag, task } = setup(true);
-      noEvidence(daemon, task.id);
-      noEvidence(daemon, task.id);
+      failedCheck(daemon, task.id);
+      failedCheck(daemon, task.id);
       expect(taskDag.get(task.id)?.evidenceFailures).toBe(2);
 
       const out = JSON.parse(
@@ -615,9 +657,9 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     // assignee's budget of attempts.
     it('does not count a refusal aimed at a role that is not the assignee', () => {
       const { daemon, taskDag, task } = setup(true);
-      expect(noEvidence(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
-      expect(noEvidence(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
-      expect(noEvidence(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
+      expect(failedCheck(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
+      expect(failedCheck(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
+      expect(failedCheck(daemon, task.id, 'boss').error).toMatch(/assigned to "dev"/);
       expect(taskDag.get(task.id)?.evidenceFailures).toBeFalsy();
       expect(taskDag.get(task.id)?.status).not.toBe('failed');
       daemon.orgs.delete('alpha');
@@ -625,7 +667,7 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
 
     it('honours a configured cap', () => {
       const { daemon, taskDag, task } = setup(true, 1);
-      const out = noEvidence(daemon, task.id);
+      const out = failedCheck(daemon, task.id);
       expect(out.escalated).toBe(task.id);
       expect(out.attempts).toBe(1);
       expect(taskDag.get(task.id)?.status).toBe('failed');
