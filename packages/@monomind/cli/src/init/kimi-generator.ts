@@ -247,6 +247,35 @@ export function convertKimiSkillMd(src: string, fallbackName: string): string {
 }
 
 /**
+ * True when a Claude command's body carries the catalog-style router shape
+ * tests/repo/mastermind-router-consistency.test.ts forbids under any
+ * `skills/` tree: a markdown table whose header row has both an "Intent"
+ * cell and a "primary route" cell (same detection that test's
+ * `hasCatalogRouterTable` uses). `.claude/commands/mastermind.md` — the
+ * universal intent router — is written in exactly this shape and is shipped
+ * ONLY as a plugin command (`.kimi-code/plugin/commands/monomind-mastermind.md`),
+ * never as a skill; the canonical skill-tool router lives at
+ * `.claude/skills/mastermind/SKILL.md` and is mirrored separately. kimi is
+ * the only target that converts commands into skills at all (no other
+ * platform mirrors `.claude/commands/` into a `skills/` tree), so it's the
+ * only place a command with this shape can leak a second, contradicting
+ * router into `skills/` — see write-kimicode.ts's flow-skill branch, which
+ * checks this before ever writing to `.kimi-code/skills/`.
+ */
+export function isCatalogStyleRouterCommand(src: string): boolean {
+  const { body } = splitFrontmatter(src);
+  const stripped = body.replace(/```[\s\S]*?```/g, '');
+  for (const line of stripped.split('\n')) {
+    if (!line.trim().startsWith('|')) continue;
+    const cells = line.split('|').map((c) => c.trim().toLowerCase());
+    if (cells.some((c) => c === 'intent') && cells.some((c) => /^primary\s+route$/.test(c))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Convert a Claude slash-command into a kimi flow skill — the only way to get
  * an invocable command at PROJECT level (kimi has no project-level command
  * directory; real slash commands require the plugin, see Tier 3).
