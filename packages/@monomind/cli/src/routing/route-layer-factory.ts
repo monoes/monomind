@@ -3,6 +3,9 @@
  * `monomind agent --task`), isolating the embedding model in a child process.
  *
  * Flow per task:
+ *   0. Jev decision model (MONOMIND_JEV_URL, then TYPESAFE_API_KEY +
+ *      MONOMIND_JEV_HOSTED=1) when configured. Not configured, failing, or
+ *      below MONOMIND_JEV_MIN_CONFIDENCE → steps 1–4 run exactly as before.
  *   1. Keyword pre-filter (in-process, no model) — fast exact matches.
  *   2. Real-embedding semantic scoring in an isolated worker (embed-worker.js).
  *      The model can't run in the main process (native onnxruntime SIGSEGV), so
@@ -22,6 +25,8 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { JevError } from '../decision/jev.js';
+import { routeWithJev } from './jev-step.js';
 
 const WORKER_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +83,13 @@ const MAX_ALL_SCORES = 100;
 
 /** Marker the worker prefixes its result line with (see embed-worker.ts). */
 const RESULT_MARKER = '__ROUTE_RESULT__';
+
+/** Decision-model failures change nothing but are visible in logs. */
+function warnDecisionUnavailable(err: JevError): void {
+  process.stderr.write(
+    `[route] decision model "${err.provider}" unavailable (${err.message}); falling back\n`,
+  );
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RouteResult = any;
@@ -210,8 +222,15 @@ export async function createConfiguredRouteLayer(
 
   return {
     async route(taskDescription: string): Promise<RouteResult> {
-      // 1. Keyword pre-filter — fast, no model, avoids spawning the worker.
+      // 0. Decision model first (self-hosted OpenJev, then hosted Jev) when
+      //    configured; the keyword hit, if any, is always a candidate.
       const kw = keyword.match(taskDescription);
+      const decided = await routeWithJev(taskDescription, ALL_ROUTES, kw?.agentSlug, {
+        onError: warnDecisionUnavailable,
+      });
+      if (decided) return decided;
+
+      // 1. Keyword pre-filter — fast, no model, avoids spawning the worker.
       if (kw) return kw;
 
       // 2. Real-embedding semantic scoring in the isolated worker.

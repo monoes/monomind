@@ -984,7 +984,7 @@ const semanticRouteCommand: Command = {
         output.writeln();
         const confidencePct = (result.confidence * 100).toFixed(1);
         const methodColor =
-          result.method === 'semantic'
+          result.method === 'semantic' || result.method === 'jev'
             ? (s: string) => output.success(s)
             : (s: string) => output.warning(s);
 
