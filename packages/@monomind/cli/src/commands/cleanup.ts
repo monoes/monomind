@@ -38,9 +38,23 @@ const ARTIFACT_DIRS = [
   { path: '.monomind/hive-mind', description: 'Legacy hive-mind state (pre-monoswarm-rename)' },
   { path: 'coordination', description: 'Coordination data' },
   { path: 'memory', description: 'Memory storage' },
+  // `init` also writes these for other agent providers (see write-antigravity.ts,
+  // write-opencode.ts, write-codex.ts, write-kimicode.ts, shared-instructions-generator.ts) —
+  // cleanup must remove what init creates, or they're orphaned after --force.
+  { path: '.gemini', description: 'Gemini/Antigravity settings' },
+  { path: '.opencode', description: 'OpenCode settings' },
+  { path: '.codex', description: 'Codex settings' },
+  { path: '.kimi-code', description: 'Kimi Code settings' },
+  { path: '.agents', description: 'Shared cross-provider instructions' },
 ];
 
-const ARTIFACT_FILES = [{ path: 'monomind.config.json', description: 'Monomind configuration' }];
+const ARTIFACT_FILES = [
+  { path: 'monomind.config.json', description: 'Monomind configuration' },
+  { path: '.mcp.json', description: 'MCP server registration' },
+  { path: 'GEMINI.md', description: 'Gemini/Antigravity instructions' },
+  { path: 'opencode.json', description: 'OpenCode configuration' },
+  { path: 'AGENTS.md', description: 'Codex/Kimi Code instructions' },
+];
 
 /**
  * Paths to preserve when --keep-config is set
