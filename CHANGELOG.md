@@ -4,6 +4,15 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.15.5] — 2026-09-22
+
+### Fixed
+
+- **`monomind --version` claimed "✓ up to date" when it was not.** The tagline compared the installed version against the cached "latest", and treated a cached latest *older than the install* as proof of currency. After upgrading past whatever the cache last recorded, every run printed a confident checkmark and never mentioned that a newer release existed — observed with 2.15.3 installed, 2.15.4 on npm, and a cache still holding 2.13.0. A cache older than the running version predates the install and says nothing about the registry, so the tagline now claims "up to date" only on an exact match and otherwise stays silent. The "↑ vX available" case is unchanged.
+  One thing this does **not** change: `--version` returns before the startup update check runs, so it never refreshes the cache on its own. That early return is a deliberate fast, side-effect-free path shared with `--help`, and is left as is. The practical effect is that on a stale cache `--version` now shows no tagline rather than a wrong one; any other command refreshes the cache normally.
+- **`monomind init --force` recreated a second, contradicting mastermind router for Kimi Code.** ([#317](https://github.com/monoes/monomind/issues/317)) Kimi is the only target that converts each `.claude/commands/*.md` into *two* outputs — a plugin command and a "flow skill" under `skills/`. The top-level `mastermind` command is written as a catalog-style router, so it was also emitted as `.kimi-code/skills/monomind-mastermind/SKILL.md`: a 141-line intent router that contradicts the canonical one, and exactly the file the repo's router-consistency guard was written to catch. The plugin command is still generated; the flow-skill copy is skipped for any command with the catalog-router shape, detected by the same table structure the guard checks for. No other target converts commands into skills, which is why only Kimi was affected.
+
+
 ## [2.15.4] — 2026-09-22
 
 ### Added
