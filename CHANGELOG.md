@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **A completion notification could name an already-closed task.** ([Fixes #319](https://github.com/monoes/monomind/issues/319)) With `run_config.session_scope: "task"` a role's model session is keyed per task and resumed per task, so a session resumed for a follow-up task still carries the previous, already-closed task in its context. Closing that remembered id used to succeed — nothing in the runtime refused a second close — so with `notify_task_creator` the creator received a second `[task:<already-closed id>] DONE` while the task actually in flight stayed `running` until a human cross-checked `org_tasks` against the notifications (observed twice on the 2.15.6 release run). `org_task_done` now refuses a task that has already reached a terminal status, names the caller's open task(s) in the refusal, records a `task-already-closed` audit event, and leaves the DAG and the closed task's evidence untouched; the notification's tag and title come from the task that just closed.
+
 ## [2.15.6] — 2026-09-22
 
 ### Added

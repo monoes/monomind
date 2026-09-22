@@ -703,12 +703,28 @@ Constructs system prompt containing:
 | `org_recall` / `org_remember` / `org_learn` | All roles | Cross-run knowledge-graph memory |
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
 | `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools)) |
-| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools), backed by the `TaskDag` class, [`task-dag.ts → TaskDag`](packages/@monomind/cli/src/orgrt/task-dag.ts#TaskDag)). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246). |
+| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools), backed by the `TaskDag` class, [`task-dag.ts → TaskDag`](packages/@monomind/cli/src/orgrt/task-dag.ts#TaskDag)). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246) — and when the task has already reached a terminal status, naming the caller's own open tasks instead (#319, see below). |
 | `org_skill_load` | Roles with `skills`/`skill_pool` | Load the full text of one of the role's own skills, or one of its reference files (§6.6) |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
 
 `org_gate` and the `org_task*` trio are literally the tools this org's own agents use for
 gated approvals and dependency-tracked work.
+
+### Task Dispatch and Completion Notices
+
+A ready task is handed to its assignee by [`decisions.ts → dispatchReadyTasks`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchReadyTasks)
+as one mailbox line, `[task:<id>] <title>` (plus `[loadout:<name>]` when one was selected).
+The `[task:<id>]` tag is also the routing key: with `run_config.session_scope: "task"` the role's
+model session is keyed per task, so a dispatch resumes that task's session
+([`session-ledger.ts → mailRouteKey`](packages/@monomind/cli/src/orgrt/session-ledger.ts#mailRouteKey)).
+
+`org_task_done` closes the task the caller names, and with `run_config.notify_task_creator` the
+creator is sent `[task:<id>] DONE — …`. Both the tag and the title come from the task that just
+closed, never from the caller's session state. Because a session resumed for a follow-up task still
+carries the earlier task in its context, a close aimed at a task that already reached a terminal
+status is refused (`task-already-closed` audit event) and the refusal names the caller's own open
+tasks — re-closing used to succeed and send the creator a second notice for work reported long ago
+while the real task sat `running` (#319).
 
 ### Silent Session Alarm
 

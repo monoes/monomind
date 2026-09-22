@@ -15,7 +15,7 @@ import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
-import type { OrgTask } from './task-dag.js';
+import { isTerminalStatus, type OrgTask } from './task-dag.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
   type DecisionGate,
@@ -483,6 +483,33 @@ export function dagCompleteTask(
   // the org opted in (run_config.completion_evidence), and only for a task
   // that exists — an unknown id falls through to complete()'s own error.
   const task = running.taskDag.get(taskId);
+  // #319: a task-scoped session (run_config.session_scope) is resumed PER TASK,
+  // so a session resumed for a follow-up task still has the previous, already
+  // closed task in its context and can close that id instead of the one it is
+  // working. Nothing used to stop it: markRunning() is a no-op on a terminal
+  // task and complete() has no terminal guard, so the close succeeded, the
+  // creator got a second "[task:<closed id>] DONE", and the task actually in
+  // flight stayed 'running' until a human noticed. Refuse it here — before any
+  // evidence is recorded against the closed task — and name what is open.
+  if (task && isTerminalStatus(task.status)) {
+    const open = running.taskDag
+      .all()
+      .filter((t) => t.assignee === role && !isTerminalStatus(t.status));
+    running.bus.emit({
+      type: 'audit',
+      from: role,
+      reason: 'task-already-closed',
+      msg: `task ${taskId} is already ${task.status} — close refused`,
+      data: { taskId, status: task.status, open: open.map((t) => t.id) },
+    });
+    return JSON.stringify({
+      error:
+        `org_task_done refused: task ${taskId} is already ${task.status} ("${task.title}") — closing it again would notify its creator about work that was reported long ago. ` +
+        (open.length
+          ? `Your open task(s): ${open.map((t) => `${t.id} ("${t.title}")`).join(', ')}. Close the one this work is for, by its id.`
+          : 'You have no open task — if this work belongs to a new one, ask for it to be created rather than re-closing a finished task.'),
+    });
+  }
   // ADR-O001 D6: keep the latest evidence the ASSIGNEE submitted, accepted or
   // not — it is what an artifact-only reviewer is shown. Another role's
   // evidence is not recorded: it would let a non-assignee plant the reviewer's
@@ -575,15 +602,18 @@ export function dagCompleteTask(
     if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
     // run_config.notify_task_creator: a completion otherwise lives only on
     // the bus, and a creator waiting on it stays idle until the watchdog.
+    // #319: the tag and the title come from the completed task itself, never
+    // from the caller's session state — the guard above is what guarantees
+    // that task is the one that just closed.
     const creator = task?.createdBy;
-    if (running.def.run_config.notify_task_creator && creator && creator !== role) {
+    if (task && running.def.run_config.notify_task_creator && creator && creator !== role) {
       const summary = result ? ` Result: ${capText(result, 1_500)}` : '';
       const ev = evidence ? `\n${evidenceSummary(evidence)}` : '';
       const next = promoted.length ? `\nNow ready: ${promoted.map((t) => t.id).join(', ')}.` : '';
       queueDispatch(
         running,
         creator,
-        `[task:${taskId}] DONE — "${task.title}" was completed by "${role}".${summary}${ev}${next}`,
+        `[task:${task.id}] DONE — "${task.title}" was completed by "${role}".${summary}${ev}${next}`,
       );
     }
     return JSON.stringify({

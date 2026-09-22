@@ -675,3 +675,108 @@ describe('dagCompleteTask: evidence gate (run_config.completion_evidence)', () =
     });
   });
 });
+
+/**
+ * #319: with `run_config.session_scope: 'task'` a role's model session is keyed
+ * per task and resumed per task, so a session resumed for a FOLLOW-UP task
+ * still carries the previous, already-closed task in its context. Closing that
+ * remembered id used to SUCCEED — `markRunning()` is a no-op on a terminal task
+ * and `complete()` had no terminal guard — so `notify_task_creator` sent the
+ * creator a second "[task:<already-closed id>] DONE" while the task the role
+ * was actually working stayed 'running'. Observed twice on the 2.15.6 release
+ * run (cli-qa's task-5 → task-7 follow-up).
+ */
+describe('dagCompleteTask: a resumed session cannot re-close an already-closed task (#319)', () => {
+  let tmp = '';
+  afterEach(async () => {
+    await sealBuses();
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function setup() {
+    tmp = mkdtempSync(join(tmpdir(), 'org-stale-close-'));
+    const daemon = new OrgDaemon(tmp);
+    const bus = openBus(tmp);
+    const events: BusEvent[] = [];
+    bus.subscribe((e) => events.push(e));
+    const dev = makeAgent();
+    const boss = makeAgent();
+    const taskDag = new TaskDag();
+    const running: RunningOrg = {
+      def: {
+        ...minimalDef('alpha'),
+        roles: [{ id: 'boss' }, { id: 'dev', reports_to: 'boss' }],
+        run_config: { notify_task_creator: true, session_scope: 'task' },
+      } as unknown as OrgDef,
+      run: 'run-1',
+      bus,
+      agents: new Map([
+        ['dev', dev],
+        ['boss', boss],
+      ]),
+      busEvents: () => [],
+      roleSlots: new Map(),
+      bossRoleId: 'boss',
+      glossary: [],
+      respawning: new Set(),
+      taskDag,
+    };
+    daemon.orgs.set('alpha', running);
+    return { daemon, taskDag, dev, boss, events, running };
+  }
+
+  it('refuses the stale id, sends no second DONE, and names the task actually open', async () => {
+    const { daemon, taskDag, boss, events, running } = setup();
+    const first = taskDag.add('ROUND1 CLI QA', 'dev', []);
+    first.createdBy = 'boss';
+    dispatchReadyTasks(daemon, 'alpha', running);
+    expect(JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', first.id, 'round 1 done')).done).toBe(
+      first.id,
+    );
+
+    // The evidence gap is filed as a follow-up and dispatched: the role's
+    // session is resumed FOR THAT TASK, with the closed one still in context.
+    const followUp = taskDag.add('fill the ROUND1 evidence gap', 'dev', []);
+    followUp.createdBy = 'boss';
+    dispatchReadyTasks(daemon, 'alpha', running);
+    expect(taskDag.get(followUp.id)?.status).toBe('running');
+    await settleDispatch();
+    const beforeBoss = boss.mailbox.serialize().queue.length;
+
+    const out = JSON.parse(
+      dagCompleteTask(daemon, 'alpha', 'dev', first.id, 'orphan-reaping logs attached'),
+    );
+
+    expect(out.done).toBeUndefined();
+    expect(out.error).toMatch(/already done/i);
+    expect(out.error).toContain(followUp.id);
+    // The follow-up is untouched — it must not look closed by a stale notice.
+    expect(taskDag.get(followUp.id)?.status).toBe('running');
+    expect(events.filter((e) => e.reason === 'task-done')).toHaveLength(1);
+    expect(events.find((e) => e.reason === 'task-already-closed')).toBeTruthy();
+
+    await settleDispatch();
+    const delivered = boss.mailbox.serialize().queue.slice(beforeBoss).join('\n');
+    expect(delivered).not.toContain(`[task:${first.id}] DONE`);
+    daemon.orgs.delete('alpha');
+  });
+
+  it('tags the DONE notice with the completed task, not the other open one', async () => {
+    const { daemon, taskDag, boss, running } = setup();
+    const first = taskDag.add('ROUND1 CLI QA', 'dev', []);
+    first.createdBy = 'boss';
+    const followUp = taskDag.add('fill the ROUND1 evidence gap', 'dev', []);
+    followUp.createdBy = 'boss';
+    dispatchReadyTasks(daemon, 'alpha', running);
+
+    expect(
+      JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', followUp.id, 'gap filled')).done,
+    ).toBe(followUp.id);
+
+    await settleDispatch();
+    const delivered = boss.mailbox.serialize().queue.join('\n');
+    expect(delivered).toContain(`[task:${followUp.id}] DONE`);
+    expect(delivered).not.toContain(`[task:${first.id}] DONE`);
+    daemon.orgs.delete('alpha');
+  });
+});

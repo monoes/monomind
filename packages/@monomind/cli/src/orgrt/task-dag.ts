@@ -66,6 +66,12 @@ export interface SplitChild {
 const TERMINAL = new Set<OrgTaskStatus>(['done', 'failed', 'split', 'merged', 'cancelled']);
 const SATISFIED = new Set<OrgTaskStatus>(['done', 'cancelled']);
 
+/** #319: the same "this task is finished" predicate the DAG's own guards use,
+ *  for callers outside this module (decisions.ts refuses a second close). */
+export function isTerminalStatus(status: OrgTaskStatus): boolean {
+  return TERMINAL.has(status);
+}
+
 export class TaskDag {
   private tasks = new Map<string, OrgTask>();
   private counter = 0;
