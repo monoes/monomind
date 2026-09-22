@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import { output } from '../output.js';
 import { runPlatformsDoctor } from '../platform-adapters/operations.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { checkCatalog } from './doctor-catalog-checks.js';
 import { checkDecisionModel, checkDecisionModelIfConfigured } from './doctor-decision-checks.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
@@ -90,7 +91,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev)',
+        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -247,6 +248,7 @@ export const doctorCommand: Command = {
       decision: () => checkDecisionModel({ probe: true }),
       platforms: checkPlatforms,
       'crash-reporting': checkCrashReporting,
+      catalog: () => checkCatalog(ctx.cwd || process.cwd()),
     };
 
     if (component && !componentMap[component]) {
