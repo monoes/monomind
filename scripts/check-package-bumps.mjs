@@ -149,38 +149,64 @@ function shippedChangesSince(dir, since) {
   });
 }
 
-if (process.env.MONOMIND_ALLOW_STALE_PACKAGES === '1') {
-  console.log('✓ package bump check skipped (MONOMIND_ALLOW_STALE_PACKAGES=1)');
-  process.exit(0);
-}
-
-const stale = [];
-for (const pkg of publishablePackages()) {
-  const since = commitThatSetVersion(pkg.dir, pkg.version);
-  if (!since) continue; // version never committed (new package, or a shallow clone)
-  const changes = shippedChangesSince(pkg.dir, since);
-  if (changes.length) stale.push({ pkg, changes });
-}
-
-if (stale.length) {
-  console.error('\n✗ publish blocked: shipped code changed without a version bump\n');
-  for (const { pkg, changes } of stale) {
-    console.error(`    ${pkg.name} is still ${pkg.version}, which is already on npm, but has`);
-    console.error(`    ${changes.length} commit(s) to shipped files since that version was set:`);
-    for (const line of changes.slice(0, 5)) console.error(`        ${line}`);
-    if (changes.length > 5) console.error(`        … and ${changes.length - 5} more`);
-    console.error('');
-  }
-  console.error(
-    '  Every sibling is pinned as workspace:*, which pnpm resolves at pack time to the\n' +
-      '  version the package declares. Leaving it unchanged publishes a CLI that depends on\n' +
-      '  the tarball already on npm, so the change reaches nobody and nothing looks wrong.\n\n' +
-      '  Fix: bump the version of each package listed above, then publish it before the CLI.\n' +
-      '  If a change genuinely ships nothing, set MONOMIND_ALLOW_STALE_PACKAGES=1.\n',
+/** One flagged package, worded as what this guard actually knows: the declared
+ *  version, the commit that set it, and the shipped-file commits that landed
+ *  after. It does NOT know whether that version is on npm — nothing here
+ *  contacts the registry, and a check that blocks a build should not start —
+ *  so it says the status is unknown instead of asserting it. The old wording
+ *  ("… is still 1.0.20, which is already on npm …") asserted it anyway, and
+ *  was wrong the first time it mattered: @monoes/monobrowse 1.0.20 had never
+ *  been published, npm was on 1.0.19. */
+export function formatStaleEntry({ pkg, since, changes }) {
+  const lines = [
+    `    ${pkg.name} declares ${pkg.version} (set in ${since.slice(0, 9)}), and ${changes.length} commit(s)`,
+    '    have touched its shipped files since:',
+  ];
+  for (const line of changes.slice(0, 5)) lines.push(`        ${line}`);
+  if (changes.length > 5) lines.push(`        … and ${changes.length - 5} more`);
+  lines.push(
+    `    Whether ${pkg.version} is on npm is not checked here — this guard makes no network`,
+    '    call — so it may be published already or not at all. Either way the declared',
+    '    version no longer describes the shipped code.',
   );
-  process.exit(1);
+  return lines.join('\n');
 }
 
-console.log(
-  '✓ package bump check ok — every publishable package is newer than its shipped changes',
-);
+function main() {
+  if (process.env.MONOMIND_ALLOW_STALE_PACKAGES === '1') {
+    console.log('✓ package bump check skipped (MONOMIND_ALLOW_STALE_PACKAGES=1)');
+    process.exit(0);
+  }
+
+  const stale = [];
+  for (const pkg of publishablePackages()) {
+    const since = commitThatSetVersion(pkg.dir, pkg.version);
+    if (!since) continue; // version never committed (new package, or a shallow clone)
+    const changes = shippedChangesSince(pkg.dir, since);
+    if (changes.length) stale.push({ pkg, since, changes });
+  }
+
+  if (stale.length) {
+    console.error('\n✗ publish blocked: shipped code changed without a version bump\n');
+    for (const entry of stale) {
+      console.error(formatStaleEntry(entry));
+      console.error('');
+    }
+    console.error(
+      '  Every sibling is pinned as workspace:*, which pnpm resolves at pack time to the\n' +
+        '  version the package declares. Leaving it unchanged publishes a CLI that depends on\n' +
+        '  whatever that version resolves to on npm — the older tarball published under it, or\n' +
+        '  nothing at all — so the change reaches nobody and nothing looks wrong.\n\n' +
+        '  Fix: bump the version of each package listed above, then publish it before the CLI.\n' +
+        '  If a change genuinely ships nothing, set MONOMIND_ALLOW_STALE_PACKAGES=1.\n',
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    '✓ package bump check ok — every publishable package is newer than its shipped changes',
+  );
+}
+
+const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+if (isMain) main();
