@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`monobrowse --version` crashed instead of printing a version.** ([Fixes #320](https://github.com/monoes/monomind/issues/320)) The standalone binary read its manifest with `_require('../package.json')` — correct for `src/cli.ts`, which sits one level under the package root, and wrong for the only file that ever runs it. The package compiles with `rootDir: "."`, so the entry point emits to `dist/src/cli.js` and `createRequire(import.meta.url)` resolved `../` to `dist/`, which holds no manifest: every `monobrowse --version` / `-V` died with `✗ Cannot find module '../package.json'` and exit 1, in the repo and from a clean `npm install` alike. The path now resolves from the compiled location, and a subprocess test spawns the built `dist/src/cli.js` — the exact file `bin.monobrowse` points at — because an in-process test re-resolves from `src/`, where the broken path already worked. Present since the binary was added (2026-06-22, `89b25c2ca1`); `monomind browse` never used this code path and was unaffected. `@monoes/monobrowse` 1.0.22.
+
 ## [2.15.7] — 2026-09-22
 
 ### Fixed

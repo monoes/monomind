@@ -206,7 +206,9 @@ async function main(): Promise<void> {
   }
 
   if (userArgs[0] === '--version' || userArgs[0] === '-V') {
-    const pkg = _require('../package.json') as { version: string };
+    // Resolved from the COMPILED location, `dist/src/cli.js` — `rootDir: "."`
+    // keeps the `src/` segment, so the manifest is two levels up, not one.
+    const pkg = _require('../../package.json') as { version: string };
     console.log(pkg.version);
     return;
   }
