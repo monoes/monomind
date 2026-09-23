@@ -11,7 +11,7 @@
  * never from config alone.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -92,12 +92,14 @@ describe('PolicyEngine.setOsSandboxed', () => {
 });
 
 describe('session wiring: the flag follows the runtime sandbox decision', () => {
-  const run = async (policy: Record<string, unknown>, claude = true) => {
+  const run = async (policy: Record<string, unknown>, claude = true, wasSandboxed = false) => {
     const base = tmp('pgs-');
     const repo = join(base, 'repo');
     spawnSync('git', ['init', '-q', repo]);
     const bus = new OrgBus('o', 'r', tmp('pgs-bus-'));
     const engine = new PolicyEngine('qa', policy as any, bus, repo);
+    // A previous session of the same role (the daemon keeps one engine per role) was sandboxed.
+    engine.setOsSandboxed(wasSandboxed);
     const mailbox = new Mailbox();
     mailbox.push('go');
     mailbox.close();
@@ -137,6 +139,28 @@ describe('session wiring: the flag follows the runtime sandbox decision', () => 
       expect(r.opaqueDecision).toBe('allow');
     },
   );
+
+  it('each session resets the flag: a restart without the sandbox denies `node $X` again', async () => {
+    const r = await run({ git: 'read', sandbox: { mode: 'off' } }, true, true);
+    expect(r.sdkSandbox).toBeUndefined();
+    expect(r.opaqueDecision).toBe('deny');
+  });
+
+  it("'auto' with the sandbox unavailable at runtime (falls open): `node $X` still denied", async () => {
+    // A PATH with git but without bwrap/socat: sandboxAvailability() reports unavailable.
+    const bin = tmp('pgs-bin-');
+    const git = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    symlinkSync(git, join(bin, 'git'));
+    const PATH = process.env.PATH;
+    process.env.PATH = bin;
+    try {
+      const r = await run({ git: 'read' }, true, true);
+      expect(r.sdkSandbox).toBeUndefined();
+      expect(r.opaqueDecision).toBe('deny');
+    } finally {
+      process.env.PATH = PATH;
+    }
+  });
 
   it("policy.sandbox.mode 'off': no sandbox, `node $X` still denied", async () => {
     const r = await run({ git: 'read', sandbox: { mode: 'off' } });
