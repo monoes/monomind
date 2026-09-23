@@ -862,6 +862,32 @@ function resultBreakdown(
   return tokenTotals ? tokenTotals.delta(sid, now) : now;
 }
 
+/** ADR-O001 D1: the four quantities travel separately so every downstream
+ *  consumer (forwarder → dashboard state.json, reporting, `org costs`) can
+ *  record real values instead of the 0s they used to persist. `tokens` stays
+ *  the single billable total. */
+function emitUsage(
+  bus: OrgBus,
+  from: string,
+  t: TokenUsage,
+  costUsd: number | undefined,
+  subtype: string | undefined,
+): void {
+  bus.emit({
+    type: 'usage',
+    from,
+    data: {
+      tokens: totalTokens(t),
+      cost_usd: costUsd,
+      subtype,
+      tokens_in: t.input,
+      tokens_out: t.output,
+      cache_read: t.cacheRead,
+      cache_creation: t.cacheCreation,
+    },
+  });
+}
+
 /** One bounded SDK session for a role; resolves with the SDK's session_id (for
  *  resuming on restart) and whether it ended by hitting the turn limit (so the
  *  caller can push a continuation) when the stream ends (mailbox closed or
@@ -1295,23 +1321,7 @@ async function runOneSession(
         // ORG-7: accumulate real USD cost so policy.overBudgetUsd (role.budget_usd) is enforceable.
         if (typeof costDelta === 'number' && Number.isFinite(costDelta))
           policy.addUsageUsd(costDelta);
-        bus.emit({
-          type: 'usage',
-          from: role.id,
-          // ADR-O001 D1: the four quantities travel separately so every
-          // downstream consumer (forwarder → dashboard state.json, reporting,
-          // `org costs`) can record real values instead of the 0s they used
-          // to persist. `tokens` stays the single billable total.
-          data: {
-            tokens: totalTokens(messageTokens),
-            cost_usd: costDelta,
-            subtype: m.subtype,
-            tokens_in: messageTokens.input,
-            tokens_out: messageTokens.output,
-            cache_read: messageTokens.cacheRead,
-            cache_creation: messageTokens.cacheCreation,
-          },
-        });
+        emitUsage(bus, role.id, messageTokens, costDelta, m.subtype);
         if (m.subtype && m.subtype !== 'success') {
           if (m.subtype === 'error_max_turns') hitTurnLimit = true;
           bus.emit({
@@ -1369,6 +1379,25 @@ async function runOneSession(
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
     return { sessionId, hitTurnLimit };
   } catch (err) {
+    // The turn in flight never got its 'result', so its metered turns (already
+    // in policy) have no usage event yet. Cost is only on 'result': unknown.
+    if (totalTokens(messageTurnTokens) > 0)
+      emitUsage(bus, role.id, messageTurnTokens, undefined, 'aborted');
+    // org_complete / org stop close the mailbox and abort every session: a
+    // normal stop, not a failure. The daemon still classifies it.
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      (mailbox.isClosed || (external?.aborted ?? false)) &&
+      ((err as { name?: string } | null)?.name === 'AbortError' || /\baborted\b/i.test(message))
+    ) {
+      bus.emit({
+        type: 'status',
+        from: role.id,
+        reason: 'session-stopped',
+        msg: 'session stopped',
+      });
+      throw err;
+    }
     // #304: the daemon's role loop catches this same error one step later and
     // emits the authoritative CLASSIFIED status — crashed / stopped with the
     // org / terminated by stop — carrying the real error text when it is a

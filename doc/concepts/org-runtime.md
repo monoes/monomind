@@ -784,6 +784,11 @@ means the total was carried over and only the increase counts; lower means it re
 it counts. Within one process a total that dips floors at 0. Before this, a resumed session's first
 turn was billed as `max(0, small − previous) = 0`.
 
+A turn cut off before its `result` — by `org_complete`, an org stop, or a crash — still gets a
+`usage` event for the turns already metered (`subtype: "aborted"`, `cost_usd` unset, since the SDK
+reports cost only on `result`). A session aborted by the org's own stop reports a `session-stopped`
+status rather than `session-error`.
+
 ### Silent Session Alarm
 
 `SILENT_SESSION_MS = 4 minutes` — if the stream opens but emits zero messages within this window, an alarm is raised.
