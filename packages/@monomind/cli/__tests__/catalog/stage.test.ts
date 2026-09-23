@@ -15,6 +15,7 @@ import { packagesDir, verifyEntry } from '../../src/catalog/digest.js';
 import { activate, approve, disable, release } from '../../src/catalog/lifecycle.js';
 import { type FenceLoader, stage } from '../../src/catalog/stage.js';
 import { loadCatalogState } from '../../src/catalog/state.js';
+import { writeEntry } from './fixtures.js';
 
 const MIT =
   'MIT License\n\nPermission is hereby granted, free of charge, to any person obtaining a copy.\n' +
@@ -226,5 +227,16 @@ describe('quarantine release and restaging', () => {
       grantedTools: ['monograph_query'],
       replacesLegacy: true,
     });
+  });
+
+  it('approve refuses platform targets for archetypes and blueprints', async () => {
+    const root = newRoot();
+    writeEntry(root, { name: 'arch', kind: 'archetype', status: 'staged' });
+    writeEntry(root, { name: 'bp', kind: 'blueprint', status: 'staged' });
+    expect(() => approve(root, 'archetype:arch', { actor: 't', targets: ['org', 'platform:claude'] })).toThrow(
+      /only skills/,
+    );
+    expect(() => approve(root, 'blueprint:bp', { actor: 't', targets: ['platform:agents'] })).toThrow(/only skills/);
+    expect(approve(root, 'blueprint:bp', { actor: 't', targets: ['org'] }).after).toBe('approved');
   });
 });

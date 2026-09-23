@@ -73,7 +73,7 @@ enforces that.
 |---|---|---|---|
 | — | staged | `stage` | scan verdict clean |
 | — | quarantined | `stage` | scan verdict quarantine, or the scanner failed or is unavailable |
-| staged | approved | `approve` | at least one target; `jev` requires `org`; grants ⊆ requested ∩ grantable |
+| staged | approved | `approve` | at least one target; `jev` requires `org`; `platform:*` only for skills; grants ⊆ requested ∩ grantable |
 | staged | quarantined | `quarantine` | `--reason` |
 | quarantined | staged | `release` | `--reason`; records `inspection.override` {actor, reason, at} for this revision |
 | approved | active | `activate` | the package exists and its digest verifies |

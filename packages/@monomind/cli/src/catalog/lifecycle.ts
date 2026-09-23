@@ -58,7 +58,7 @@ function move(
   return { id, before: before as CatalogStatus, after: to, entry: entry as CatalogEntry };
 }
 
-function checkTargets(raw: string[]): CatalogTarget[] {
+function checkTargets(raw: string[], kind: CatalogEntry['kind']): CatalogTarget[] {
   if (raw.length === 0) throw new CatalogStateError('approve needs at least one --target');
   const targets = raw.map((t) => {
     const p = CatalogTargetSchema.safeParse(t);
@@ -71,6 +71,9 @@ function checkTargets(raw: string[]): CatalogTarget[] {
   if (new Set(targets).size !== targets.length) throw new CatalogStateError('duplicate --target');
   if (targets.includes('jev') && !targets.includes('org'))
     throw new CatalogStateError('the jev target requires the org target');
+  const platform = targets.find((t) => t.startsWith('platform:'));
+  if (platform && kind !== 'skill')
+    throw new CatalogStateError(`only skills can be projected; ${kind} cannot target ${platform}`);
   return targets;
 }
 
@@ -90,8 +93,8 @@ function checkGrants(e: CatalogEntry, grant: string[]): CatalogEntry['grantedToo
 
 /** staged → approved, recording targets, grants and legacy replacement. */
 export function approve(root: string, id: string, opts: ApproveOptions): LifecycleResult {
-  const targets = checkTargets(opts.targets);
   return move(root, id, 'approved', opts, (e) => {
+    const targets = checkTargets(opts.targets, e.kind);
     if (e.inspection.verdict === 'quarantine' && !e.inspection.override)
       throw new CatalogStateError(
         `${id} has a quarantine inspection verdict; release it first (catalog release)`,
