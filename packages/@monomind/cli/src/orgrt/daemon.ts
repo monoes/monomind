@@ -7,7 +7,6 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
-import { decisionModelConfigured } from '../decision/jev.js';
 import { pickRoleForTask } from '../decision/picks.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import {
@@ -271,6 +270,30 @@ export function resolveRoleRunner(
   const explicit = roleRuntime ?? orgRuntime;
   if (explicit) return resolveRunner(explicit, undefined, roleProvider);
   return resolveRunner(undefined, roleProviderKind ?? orgProviderKind, roleProvider);
+}
+
+/** Resolves `assignee: "auto"` on org_task (SessionOpts.pickAssignee).
+ *  pickRoleForTask itself falls back to deterministic keyword ranking over
+ *  role titles/responsibilities whenever no decision model is configured
+ *  (decision/picks.ts), so this must be wired unconditionally. It used to be
+ *  gated behind `decisionModelConfigured()` — meant only to keep org_task's
+ *  description byte-identical for caching when no decision model was set —
+ *  but that also left `pickAssignee` completely undefined whenever Jev was
+ *  off (the default). A literal "auto" assignee then never resolved to a
+ *  role: dispatchReadyTasks (decisions.ts) never matches "auto" against a
+ *  live agent or pending role, so the task stayed 'ready' forever with only
+ *  a repeating 'dispatch-assignee-unresolved' audit line to show for it
+ *  (round1-issue1). */
+export function resolveAutoAssignee(
+  def: Pick<OrgDef, 'roles'>,
+): (title: string) => Promise<string | null> {
+  return (title: string) =>
+    pickRoleForTask(title, def.roles, {
+      onError: (err) =>
+        process.stderr.write(
+          `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
+        ),
+    });
 }
 
 /** Per-role token budget: a role's own `budget_tokens` wins; otherwise the
@@ -2129,20 +2152,7 @@ export class OrgDaemon {
       ) => {
         return this.dagCreateTask(name, r, title, assignee, deps, loadout);
       },
-      // Only with a decision model configured: otherwise org_task's description
-      // stays byte-identical (it is prefix position 0 of every cached prompt,
-      // see SessionOpts.requireTaskEvidence), so `assignee: "auto"` is opt-in.
-      ...(decisionModelConfigured()
-        ? {
-            pickAssignee: (title: string) =>
-              pickRoleForTask(title, def.roles, {
-                onError: (err) =>
-                  process.stderr.write(
-                    `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
-                  ),
-              }),
-          }
-        : {}),
+      pickAssignee: resolveAutoAssignee(def),
       // ADR-O001 D7: only an org with a catalog gets the `loadout` argument;
       // the session itself is built with the loadout frozen above.
       loadoutCatalog: loadoutCatalog(def),
