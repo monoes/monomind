@@ -168,9 +168,44 @@ export function mergeSkillFileManagedBlock(
     : `${existing}${lineEnding(existing)}${block}`;
 }
 
+/**
+ * Folds blocks written under superseded markers into `marker`. Before shared
+ * skill roots were co-owned, each platform targeting `.agents/skills` wrapped
+ * the same body in its own `skills:<platform>:<name>` block. The first such
+ * block is renamed in place (so the refresh keeps its position) unless
+ * `marker` already exists; every other one is dropped. Text outside the
+ * blocks is untouched.
+ */
+export function adoptSupersededBlocks(
+  existing: string,
+  marker: string,
+  superseded: readonly string[],
+): string {
+  const stale = new Set(superseded.filter((candidate) => candidate !== marker));
+  const segments = splitManagedBlocks(existing);
+  let adopted = segments.some((segment) => segment.marker === marker);
+  return segments
+    .map(({ text, marker: owner }) => {
+      if (owner === undefined || !stale.has(owner)) return text;
+      if (adopted) return '';
+      adopted = true;
+      const edge = new RegExp(
+        `(monomind:(?:start|end)\\s+)${escapeRegExp(owner)}(?=\\s|-->|$)`,
+        'gm',
+      );
+      return text.replace(edge, `$1${marker}`);
+    })
+    .join('');
+}
+
 /** Removes exactly one artifact/platform block, leaving all other content unchanged. */
 export function removeManagedBlock(content: string, artifact: string, platform: string): string {
   return removeManagedMarker(content, `${artifact}:${platform}`);
+}
+
+/** Whether `content` holds a complete block for exactly `marker`. */
+export function hasManagedMarker(content: string, marker: string): boolean {
+  return markerBlockPattern(marker)?.test(content) ?? false;
 }
 
 /** Removes a block by its full marker for artifacts with qualified names. */

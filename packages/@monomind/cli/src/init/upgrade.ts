@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
 import { generateSettings } from './settings-generator.js';
 import {
@@ -377,6 +378,16 @@ export async function executeUpgrade(
       result.created.push('.monomind/CAPABILITIES.md');
     } else if (fs.readFileSync(capabilitiesPath, 'utf-8') !== capabilitiesBefore) {
       result.updated.push('.monomind/CAPABILITIES.md');
+    }
+
+    // 1.6. Collapse the one-block-per-platform copies an older install left in
+    // `.agents/skills` (every platform sharing it wrote its own full copy).
+    try {
+      result.updated.push(...(await foldLegacySharedSkills(targetDir)));
+    } catch (foldError) {
+      result.errors.push(
+        `Shared skill fold failed: ${foldError instanceof Error ? foldError.message : String(foldError)}`,
+      );
     }
 
     // 2. Create MISSING metrics files only (preserve existing data)

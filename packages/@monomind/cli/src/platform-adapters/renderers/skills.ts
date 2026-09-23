@@ -7,6 +7,7 @@ import {
   MASTERMIND_SKILLS,
   renderSkillPackage,
 } from '../../mastermind/manifest.js';
+import { sharedSkillSurface } from '../shared-surface.js';
 import type { ArtifactIntent, InstallScope, PlatformAdapter } from '../types.js';
 
 function hasConcreteSkillLocation(adapter: PlatformAdapter, scope: InstallScope): boolean {
@@ -31,11 +32,19 @@ export function renderSkillRouter(adapter: PlatformAdapter, scope: InstallScope)
   // was never a fallback for a missing source dir either — this .map() would
   // already throw on the first non-mastermind renderSkillPackage() call
   // before any such guard could run.
+  const surface = sharedSkillSurface(adapter, scope);
+  const owner = surface?.id ?? adapter.id;
+  const sharing = (name: string) =>
+    surface && {
+      surface: surface.id,
+      supersedes: surface.platforms.map((id) => `skills:${id}:${name}`),
+    };
   const packages = MASTERMIND_SKILLS.map((skill) => ({
     kind: 'skill' as const,
     locationKey: 'skill' as const,
     content: renderSkillPackage(skill),
-    marker: `skills:${adapter.id}:${skill.name}`,
+    marker: `skills:${owner}:${skill.name}`,
+    ...sharing(skill.name),
     relativePath: `${skill.source}/SKILL.md`,
     scope,
     replace: 'managed_block' as const,
@@ -48,7 +57,8 @@ export function renderSkillRouter(adapter: PlatformAdapter, scope: InstallScope)
       kind: 'skill' as const,
       locationKey: 'skill' as const,
       content: readFileSync(join(sourceDir, skill.source, reference), 'utf8'),
-      marker: `skills:${adapter.id}:${skill.name}:${reference}`,
+      marker: `skills:${owner}:${skill.name}:${reference}`,
+      ...sharing(`${skill.name}:${reference}`),
       relativePath: `${skill.source}/${reference}`,
       scope,
       replace: 'managed_block' as const,

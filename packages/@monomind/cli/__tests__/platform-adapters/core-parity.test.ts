@@ -59,7 +59,9 @@ describe('core platform artifacts', () => {
       expect.objectContaining({
         kind: 'skill',
         locationKey: 'skill',
-        marker: 'skills:codex:mastermind',
+        marker: 'skills:agents:mastermind',
+        surface: 'agents',
+        supersedes: expect.arrayContaining(['skills:codex:mastermind', 'skills:kimi:mastermind']),
         content: expect.stringMatching(/^---\nname: mastermind\ndescription: .+\n---\n/m),
       }),
     ]));

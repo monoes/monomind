@@ -106,6 +106,65 @@ export function withMutationLock<T>(
   return request.dryRun ? action() : withScopeLock(request, action);
 }
 
+function surfaceLedgerPath(request: Pick<InstallRequest, 'scope' | 'path'>): string {
+  return join(scopeStateRoot(request), 'platforms', 'shared-skills.json');
+}
+
+function readSurfaceLedger(
+  request: Pick<InstallRequest, 'scope' | 'path'>,
+): Record<string, string[]> {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(surfaceLedgerPath(request), 'utf8'));
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, string[]>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSurfaceOwners(
+  request: Pick<InstallRequest, 'scope' | 'path' | 'dryRun'>,
+  surface: string,
+  owners: readonly string[],
+): void {
+  const ledger = readSurfaceLedger(request);
+  const next = [...new Set(owners)].sort();
+  if (request.dryRun || JSON.stringify(ledger[surface] ?? []) === JSON.stringify(next)) return;
+  if (next.length) ledger[surface] = next;
+  else delete ledger[surface];
+  atomicWrite(surfaceLedgerPath(request), `${JSON.stringify(ledger, null, 2)}\n`);
+}
+
+/**
+ * Platforms that installed into a shared skill surface. The co-owned block no
+ * longer names them, so uninstalling one needs this to know whether another
+ * still depends on the block. Unlocked: callers hold the mutation lock.
+ */
+function surfaceOwners(request: Pick<InstallRequest, 'scope' | 'path'>, surface: string): string[] {
+  const owners = readSurfaceLedger(request)[surface];
+  return Array.isArray(owners) ? owners.filter((owner) => typeof owner === 'string') : [];
+}
+
+export function addSurfaceOwners(
+  request: Pick<InstallRequest, 'scope' | 'path' | 'dryRun'>,
+  surface: string,
+  owners: readonly string[],
+): void {
+  writeSurfaceOwners(request, surface, [...surfaceOwners(request, surface), ...owners]);
+}
+
+/** Forgets `platform` as an owner and returns the platforms still installed there. */
+export function dropSurfaceOwner(
+  request: Pick<InstallRequest, 'scope' | 'path' | 'dryRun'>,
+  surface: string,
+  platform: string,
+): string[] {
+  const rest = surfaceOwners(request, surface).filter((owner) => owner !== platform);
+  writeSurfaceOwners(request, surface, rest);
+  return rest;
+}
+
 /**
  * The first symbolic link on the way from `base` down to `target` (exclusive of
  * `base`), or `target` itself when it lies outside `base`. Resolved locations

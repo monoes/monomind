@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **`monomind init` wrote one full copy of every shared skill per platform.** `.agents/skills` is a single directory that codex, kimi, opencode, gemini, cursor and several other platforms all declare as their skill root, and each adapter wrapped the same body in its own `skills:<platform>:<name>` block — a default init left `.agents/skills/mastermind-org/SKILL.md` with three stacked copies (49 lines instead of ~16), and `mastermind-idea/SKILL.md` grew by 2,281 lines. A shared root now carries one co-owned `skills:agents:<name>` block. The next `init`, `init upgrade` or `platforms install/upgrade` folds existing per-platform blocks into that one block where the first sat, leaving text outside the blocks byte-for-byte and backing the file up to `.monomind/backups/` first. Which platforms installed into the shared root is recorded in `.monomind/platforms/shared-skills.json`, so `platforms uninstall` of one platform keeps the block while another platform still uses it. Platform-specific roots such as `.claude/skills` keep their per-platform markers.
+
 ## [2.16.0] — 2026-09-23
 
 ### Added

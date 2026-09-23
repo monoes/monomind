@@ -4,6 +4,7 @@ import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import {
+  adoptSupersededBlocks,
   mergeManagedBlock,
   mergeSkillFileManagedBlock,
   mergeSkillManagedBlock,
@@ -12,9 +13,16 @@ import {
   safeJsonRemove,
 } from './merge.js';
 import { findLegacySurfaces, migrateLegacyArtifacts } from './migration.js';
-import { atomicWrite, backup, withMutationLock } from './mutation.js';
+import {
+  addSurfaceOwners,
+  atomicWrite,
+  backup,
+  dropSurfaceOwner,
+  withMutationLock,
+} from './mutation.js';
 import { PLATFORM_IDS, PLATFORM_REGISTRY } from './registry.js';
 import { getRenderer } from './renderers/index.js';
+import { legacySurfaceOwners, releaseSharedBlock, sharedSkillSurface } from './shared-surface.js';
 import type {
   ApplyResult,
   ArtifactIntent,
@@ -93,7 +101,7 @@ export async function planInstall(request: InstallRequest): Promise<PlatformPlan
   return getRenderer(request.platform).render(adapter, request);
 }
 
-function intentLocation(
+export function intentLocation(
   adapter: PlatformAdapter,
   intent: ArtifactIntent,
   request: InstallRequest,
@@ -122,11 +130,7 @@ function intentLocation(
  * package carries this platform's own marker; an arbitrary existing directory
  * remains foreign.
  */
-function artifactState(
-  path: string,
-  kind: ArtifactKind,
-  platform: PlatformAdapter['id'],
-): 'managed' | 'foreign' {
+function artifactState(path: string, kind: ArtifactKind, platform: string): 'managed' | 'foreign' {
   // Intent markers use plural artifact namespaces for the two shared roots.
   // Keep this mapping here rather than guessing from a filesystem path.
   const marker =
@@ -184,8 +188,9 @@ function applyIntent(
   let diagnostics: string[] = [];
   if (intent.replace === 'managed_block') {
     const marker = intent.marker ?? `${intent.kind}:${adapter.id}`;
+    const base = adoptSupersededBlocks(oldContent, marker, intent.supersedes ?? []);
     if (isSkillPackage(intent)) {
-      const merged = mergeSkillManagedBlock(oldContent, marker, intent.content);
+      const merged = mergeSkillManagedBlock(base, marker, intent.content);
       content = merged.content;
       diagnostics = [...merged.diagnostics];
     } else if (intent.kind === 'skill') {
@@ -193,18 +198,13 @@ function applyIntent(
       // unwrapped before markers existed, so they need the migrating merge or a
       // second copy is appended below the first (GH #286).
       content = mergeSkillFileManagedBlock(
-        oldContent,
+        base,
         marker,
         intent.content,
         markerComment(location.format),
       );
     } else {
-      content = mergeManagedBlock(
-        oldContent,
-        marker,
-        intent.content,
-        markerComment(location.format),
-      );
+      content = mergeManagedBlock(base, marker, intent.content, markerComment(location.format));
     }
   } else if (intent.replace === 'named_entry') {
     if (location.format !== 'json') {
@@ -247,7 +247,14 @@ export async function applyPlan(plan: PlatformPlan, request: InstallRequest): Pr
   if (!plan.authorizedUserMutation)
     throw new Error('Plan is not authorized for user-scope mutation');
   const adapter = PLATFORM_REGISTRY[request.platform];
-  const result = withMutationLock(request, () => applyIntents(adapter, plan.intents, request));
+  const surface = plan.intents.find((intent) => intent.surface)?.surface;
+  const result = withMutationLock(request, () => {
+    const pathOf = (intent: ArtifactIntent) => intentLocation(adapter, intent, request)?.path;
+    const legacy = legacySurfaceOwners(plan.intents, pathOf);
+    const applied = applyIntents(adapter, plan.intents, request);
+    if (surface) addSurfaceOwners(request, surface, [...legacy, adapter.id]);
+    return applied;
+  });
   return { ...result, diagnostics: [...plan.diagnostics, ...result.diagnostics], plan };
 }
 
@@ -331,7 +338,10 @@ export async function uninstallPlatform(request: MutationRequest): Promise<Apply
     const changed: string[] = [];
     const skipped: string[] = [];
     const diagnostics = [...plan.diagnostics];
+    const surface = plan.intents.find((intent) => intent.surface)?.surface;
     withMutationLock(request, () => {
+      // A co-owned block stays while any other platform still installs into it.
+      const coOwners = surface ? dropSurfaceOwner(request, surface, platform) : [];
       for (const intent of plan.intents) {
         const location = intentLocation(adapter, intent, { ...request, platform });
         if (!location || !existsSync(location.path)) {
@@ -342,7 +352,9 @@ export async function uninstallPlatform(request: MutationRequest): Promise<Apply
         let content = oldContent;
         let resultDiagnostics: readonly string[] = [];
         if (intent.replace === 'managed_block') {
-          content = removeManagedMarker(oldContent, intent.marker ?? `${intent.kind}:${platform}`);
+          content = intent.surface
+            ? releaseSharedBlock(oldContent, intent, platform, coOwners)
+            : removeManagedMarker(oldContent, intent.marker ?? `${intent.kind}:${platform}`);
         } else if (intent.replace === 'named_entry') {
           if (location.format !== 'json') {
             diagnostics.push(
@@ -451,9 +463,10 @@ export async function runPlatformsDoctor(request: {
         }
         continue;
       }
+      const owner = kind === 'skill' ? sharedSkillSurface(adapter, request.scope)?.id : undefined;
       artifacts.push({
         path: location.displayPath,
-        state: artifactState(location.path, kind, platform),
+        state: artifactState(location.path, kind, owner ?? platform),
       });
     }
     const base =

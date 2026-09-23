@@ -118,6 +118,24 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
   }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
 
+  it('writes one managed block per shared .agents/skills file, not one per platform', async () => {
+    ctx.flags = { ...ctx.flags, yes: true, 'no-install': true };
+    const result = await initCommand.action!(ctx);
+
+    expect(result.success).toBe(true);
+    const root = path.join(tmpDir, '.agents', 'skills');
+    const files = fs
+      .readdirSync(root, { withFileTypes: true, recursive: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+      .map((entry) => path.join(entry.parentPath, entry.name));
+    // Non-Mastermind skills are copied unwrapped; no file may carry two blocks.
+    const counts = files.map(
+      (file) => (fs.readFileSync(file, 'utf8').match(/monomind:start \S+/g) ?? []).length,
+    );
+    expect(counts.filter((count) => count === 1).length).toBeGreaterThan(10);
+    expect(files.filter((_, index) => counts[index]! > 1)).toEqual([]);
+  }, 30000);
+
   it('suggests optional SheetJS installation without downloading it', async () => {
     const printInfo = vi.spyOn(output, 'printInfo');
 

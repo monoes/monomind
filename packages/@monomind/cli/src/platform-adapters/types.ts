@@ -117,6 +117,13 @@ export interface ArtifactIntent {
   marker?: string;
   /** Path below a declared directory root (currently used by skill packages). */
   relativePath?: string;
+  /**
+   * Set when several platforms declare this same directory (`.agents/skills`):
+   * the block is co-owned, so its marker names the surface, not the platform.
+   */
+  surface?: string;
+  /** Earlier per-platform markers of this same artifact, folded into `marker` on apply. */
+  supersedes?: readonly string[];
   entryPath?: readonly string[];
   format?: ArtifactFormat;
 }
