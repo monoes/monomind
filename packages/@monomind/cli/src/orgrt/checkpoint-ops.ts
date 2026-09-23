@@ -12,6 +12,7 @@ import {
   validateCheckpoint,
 } from './checkpoint.js';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
+import { expandOrgPolicyPathVars, promptVarsFor } from './prompt-vars.js';
 import { type BusEvent, ORG_DIR, OrgDefSchema } from './types.js';
 
 /** Time-travel debugging: replay from a specific checkpoint by run ID.
@@ -54,7 +55,7 @@ export async function replayFrom(
   const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
   const bp = resolveOrgDefBlueprints(parsedDef, daemon.root);
   if (bp.errors.length) throw new Error(`org ${name}: ${bp.errors.join('; ')}`);
-  const def = bp.def;
+  const def = expandOrgPolicyPathVars(bp.def, promptVarsFor(daemon.root));
 
   // Create replay bus
   const bus = new OrgBus(name, replayRun, replayDir);

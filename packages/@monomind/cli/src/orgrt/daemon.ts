@@ -77,6 +77,7 @@ import * as orgMemory from './org-memory.js';
 import { PiRpcAgentRunner } from './pi-rpc-runner.js';
 import { PiAgentRunner } from './pi-runner.js';
 import { PolicyEngine } from './policy.js';
+import { expandOrgPolicyPathVars, promptVarsFor } from './prompt-vars.js';
 import { resolveRoleProvider } from './provider.js';
 import * as questionOps from './questions.js';
 import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
@@ -653,7 +654,7 @@ export class OrgDaemon {
     const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
     const bp = resolveOrgDefBlueprints(parsedDef, this.root);
     if (bp.errors.length) throw new Error(`org ${name}: ${bp.errors.join('; ')}`);
-    const newDef = bp.def;
+    const newDef = expandOrgPolicyPathVars(bp.def, promptVarsFor(this.root));
     const changed: string[] = [];
     const newRoles: string[] = [];
     const removedRoles: string[] = [];
@@ -874,7 +875,8 @@ export class OrgDaemon {
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const parsedDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
     const bp = resolveOrgDefBlueprints(parsedDef, this.root);
-    const def = bp.def;
+    // {{home}} / {{org_root}} in policy paths, before any root or sandbox sees them.
+    const def = expandOrgPolicyPathVars(bp.def, promptVarsFor(this.root));
 
     let run: string;
     let checkpoint: OrgCheckpoint | undefined;
