@@ -79,7 +79,13 @@
           "org_gate",
           "WebFetch",
           "WebSearch"
-        ]
+        ],
+        "sandbox": {
+          "allowWrite": [
+            "{{home}}/monomind-release",
+            "{{home}}/mrg-tmp"
+          ]
+        }
       }
     },
     {
