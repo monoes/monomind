@@ -152,6 +152,7 @@ export class PolicyEngine {
   /** ORG-7: accumulated USD cost for this role, mirrors `used` (tokens). */
   private usedUsd = 0;
   private toolContext: PolicyToolContext = {};
+  private osSandboxed = false;
   constructor(
     readonly role: string,
     public policy: RolePolicy,
@@ -164,6 +165,15 @@ export class PolicyEngine {
      *  root, cwd included — see the deny pass below. */
     private roots: string[] = [],
   ) {}
+
+  /** Whether this role's current session runs Bash inside the SDK's OS
+   *  sandbox — set by session.ts from the runtime result of
+   *  resolveRoleGitEnforcement, so it is false for mode 'off', an unavailable
+   *  sandbox, push roles and non-Claude runtimes. Relaxes only checkGitPolicy's
+   *  fail-closed rule for commands it can't read (policy-git.ts). */
+  setOsSandboxed(on: boolean): void {
+    this.osSandboxed = on;
+  }
 
   /** Wire provider prefixes and trace source (daemon, M1). */
   setToolContext(ctx: PolicyToolContext): void {
@@ -447,7 +457,7 @@ export class PolicyEngine {
     if (tool === 'Bash') {
       const cmd = String(input.command ?? '');
       const gitLevel = this.policy.git ?? 'read';
-      const gitDenied = checkGitPolicy(cmd, gitLevel);
+      const gitDenied = checkGitPolicy(cmd, gitLevel, { osSandboxed: this.osSandboxed });
       if (gitDenied) return deny(gitDenied);
     }
 

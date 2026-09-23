@@ -1017,6 +1017,8 @@ async function runOneSession(
       claudeRuntime: runner instanceof ClaudeAgentRunner,
       runtime: role.runtime ?? opts.def?.runtime,
     });
+    // What this session really got, not what the config asked for (policy-git.ts).
+    policy.setOsSandboxed(!!gitEnforcement.claudeRestrictions?.sandbox);
     const authorityMask = roleAuthorityMask({
       bus,
       roleId: role.id,

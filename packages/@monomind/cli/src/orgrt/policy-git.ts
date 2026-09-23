@@ -202,32 +202,66 @@ const INTERPRETERS =
  *   git -c alias.p=push p           → `p` is an unknown (allowed) subcommand
  *   echo "$(git push)" / x=`git push` → git lives inside a quoted substitution (#257)
  */
-function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
+function gitSubcommands(
+  cmd: string,
+  keepScanning = false,
+): { subs: string[]; opaque?: string; hard?: boolean } {
   const subs: string[] = [];
+  // Strict (default): stop at the first construct the tokenizer can't see
+  // through. keepScanning (OS-sandboxed role): note it and keep collecting the
+  // git calls that ARE written out, so those are still checked — except for a
+  // `hard` construct, where git itself is visibly invoked but its subcommand
+  // is hidden (`sh -c "git …"`, `git $SUB`, an alias, a guard override): that
+  // still stops, or wrapping a literal call would get around its check.
+  let first: string | undefined;
+  let hard = false;
+  const stop = (reason: string, isHard = false): boolean => {
+    if (isHard) {
+      first = reason;
+      hard = true;
+      return true;
+    }
+    first ??= reason;
+    return !keepScanning;
+  };
   const { segments, opaque } = shellSegments(cmd);
-  if (opaque) return { subs, opaque };
+  if (opaque && stop(opaque)) return { subs, opaque, hard };
   for (const tokens of segments) {
     // leading VAR=value assignments aren't the command word
     let k = 0;
     while (k < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[k])) k++;
-    if (tokens.slice(0, k).some(guardEnvName))
-      return { subs, opaque: "the command reassigns the role's git guard environment" };
+    if (
+      tokens.slice(0, k).some(guardEnvName) &&
+      stop("the command reassigns the role's git guard environment")
+    )
+      return { subs, opaque: first, hard };
     const word = tokens[k];
     if (word === undefined) continue;
-    if (/^[$`]/.test(word)) return { subs, opaque: `command word is a shell expansion (${word})` };
+    if (/^[$`]/.test(word) && stop(`command word is a shell expansion (${word})`))
+      return { subs, opaque: first, hard };
     if (ENV_SETTERS.test(basename(word))) {
       const args = tokens.slice(k + 1);
-      if (args.some(guardEnvName))
-        return { subs, opaque: `${word} changes the role's git guard environment` };
-      if (basename(word) === 'env' && args.some((t) => CLEARS_ENV.test(t)))
-        return { subs, opaque: "env clears the environment the role's git guard lives in" };
+      if (args.some(guardEnvName) && stop(`${word} changes the role's git guard environment`))
+        return { subs, opaque: first, hard };
+      if (
+        basename(word) === 'env' &&
+        args.some((t) => CLEARS_ENV.test(t)) &&
+        stop("env clears the environment the role's git guard lives in")
+      )
+        return { subs, opaque: first, hard };
     }
     if (INTERPRETERS.test(basename(word))) {
       const args = tokens.slice(k + 1);
-      if (args.some((t) => /\bgit\b/.test(t)))
-        return { subs, opaque: `${word} invokes git through an argument string` };
-      if (args.some((t) => /[$`]/.test(t)))
-        return { subs, opaque: `${word} runs an expanded argument the policy cannot inspect` };
+      if (
+        args.some((t) => /\bgit\b/.test(t)) &&
+        stop(`${word} invokes git through an argument string`, true)
+      )
+        return { subs, opaque: first, hard };
+      if (
+        args.some((t) => /[$`]/.test(t)) &&
+        stop(`${word} runs an expanded argument the policy cannot inspect`)
+      )
+        return { subs, opaque: first, hard };
     }
     for (let i = k; i < tokens.length; i++) {
       if (!GIT_BIN.test(tokens[i])) continue;
@@ -241,11 +275,12 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
             : t.startsWith('--config-env=')
               ? t.slice('--config-env='.length)
               : undefined;
-        if (override !== undefined && GIT_GUARD_CONFIG_KEY.test(override.split('=')[0]))
-          return {
-            subs,
-            opaque: `git ${t} ${override.split('=')[0]} overrides the role's git guard`,
-          };
+        if (
+          override !== undefined &&
+          GIT_GUARD_CONFIG_KEY.test(override.split('=')[0]) &&
+          stop(`git ${t} ${override.split('=')[0]} overrides the role's git guard`, true)
+        )
+          return { subs, opaque: first, hard };
         if (GIT_OPTS_WITH_VALUE.has(t)) {
           j += 2;
           continue;
@@ -254,13 +289,16 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
       }
       // An alias definition anywhere in the call (`-c alias.p=push`, `config
       // alias.p push`) makes some later subcommand unclassifiable.
-      if (tokens.slice(i + 1).some((t) => /(^|=)alias\./.test(t)))
-        return { subs, opaque: 'git alias definition' };
+      if (
+        tokens.slice(i + 1).some((t) => /(^|=)alias\./.test(t)) &&
+        stop('git alias definition', true)
+      )
+        return { subs, opaque: first, hard };
       // A `git` with no subcommand at all (`git`, `git --version`) mutates nothing.
       if (j >= tokens.length) continue;
       const sub = tokens[j];
-      if (!GIT_SUBCOMMAND_SHAPE.test(sub))
-        return { subs, opaque: `unparseable git subcommand (${sub})` };
+      if (!GIT_SUBCOMMAND_SHAPE.test(sub) && stop(`unparseable git subcommand (${sub})`, true))
+        return { subs, opaque: first, hard };
       if (sub === 'config') {
         // `config:read` cannot collide with a real subcommand token (see GIT_SUBCOMMAND_SHAPE)
         subs.push(gitConfigIsWrite(tokens.slice(j + 1)) ? 'config' : 'config:read');
@@ -269,19 +307,29 @@ function gitSubcommands(cmd: string): { subs: string[]; opaque?: string } {
       subs.push(refineSub(sub, tokens.slice(j + 1)));
     }
   }
-  return { subs };
+  return { subs, opaque: first, hard };
 }
 
 export function checkGitPolicy(
   cmd: string,
   level: 'none' | 'read' | 'commit' | 'push',
+  opts: {
+    /** The role's Bash runs inside the SDK's OS sandbox for THIS session —
+     *  the runtime result from resolveRoleGitEnforcement, never the config. */
+    osSandboxed?: boolean;
+  } = {},
 ): string | null {
   if (level === 'push') return null; // every git form is permitted — nothing to classify
-  const { subs: gitCalls, opaque } = gitSubcommands(cmd);
+  const { subs: gitCalls, opaque, hard } = gitSubcommands(cmd, opts.osSandboxed === true);
   // SEC: fail closed. If the command reaches git in a way the tokenizer can't
   // classify, the policy can't vouch for it — deny rather than let it through
-  // as "no git subcommand found".
-  if (opaque)
+  // as "no git subcommand found". Not under the OS sandbox: there the level is
+  // enforced where git runs (read-only .git at read/none, read-only config and
+  // hooks at commit, withheld credentials below push — role-sandbox.ts), so an
+  // unreadable `node $SCRIPT` is not a hole, and denying it only blocked work.
+  // The git calls written out literally are still classified below, and a
+  // visible git call with a hidden subcommand (`hard`) still fails closed.
+  if (opaque && (!opts.osSandboxed || hard))
     return `command denied: ${opaque} — policy.git: ${level} cannot verify git usage; write the git call out literally`;
   if (gitCalls.length === 0) return null; // no git subcommand in this command
 
