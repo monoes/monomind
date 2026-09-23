@@ -50,7 +50,19 @@ var REDACT_WINDOW_CHARS = 16000;
 
 /** redactSecrets over the first REDACT_WINDOW_CHARS of `text` only. */
 function redactHead(text) {
-  return redactSecrets(String(text || '').slice(0, REDACT_WINDOW_CHARS));
+  var s = String(text || '');
+  var head = s.slice(0, REDACT_WINDOW_CHARS);
+  if (s.length > REDACT_WINDOW_CHARS) {
+    // A secret cut at the window edge no longer matches its pattern, and earlier
+    // secrets shrinking to "[redacted]" pull it into the sent text: drop the cut
+    // token (a scan, not /\S+$/, which is quadratic) and an unterminated key block.
+    var end = head.length;
+    while (end > 0 && !/\s/.test(head.charAt(end - 1))) end--;
+    head = head.slice(0, end);
+    var begin = head.lastIndexOf('-----BEGIN ');
+    if (begin !== -1 && head.indexOf('-----END ', begin) === -1) head = head.slice(0, begin);
+  }
+  return redactSecrets(head);
 }
 
 module.exports = { SECRET_PATTERNS: SECRET_PATTERNS, redactSecrets: redactSecrets, redactHead: redactHead };

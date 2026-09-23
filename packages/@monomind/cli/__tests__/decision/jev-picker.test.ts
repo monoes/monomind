@@ -309,7 +309,8 @@ describe('redaction', () => {
   });
 
   it('caps the prompt and descriptions before redacting them', async () => {
-    const blob = `Please decode this: ${Buffer.alloc(150_000, 7).toString('base64')}`;
+    const b64 = Buffer.alloc(150_000, 7).toString('base64');
+    const blob = `Please decode this:\n${b64.replace(/.{76}/g, '$&\n')}`; // MIME-wrapped, as pasted
     const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
     const started = performance.now();
     await jp.pick(blob, { agents: [agents[0], { ...agents[1], description: blob }] }, { env: localEnv, fetchImpl: f.impl });
@@ -317,6 +318,53 @@ describe('redaction', () => {
     const sent = JSON.parse(String(f.calls[0].init.body));
     expect(sent.state).toBe(blob.slice(0, 8000));
     expect(sent.questions.agent.criteria.tester).toHaveLength(160);
+  });
+
+  // Redacting earlier secrets shrinks them to "[redacted]", which pulls a secret
+  // cut at the window edge (too short to match now) into the 8000 chars sent.
+  describe('a secret straddling the redaction window edge', () => {
+    const jwt = `${'ey'}J${'h'.repeat(1200)}.${'p'.repeat(1200)}.${'s'.repeat(1200)}`;
+    const bearers = (len: number) => {
+      let pad = 'Why does this request fail?\n';
+      while (pad.length < len) pad += `Authorization: ${'Bearer'} ${jwt}\n`;
+      return pad.slice(0, len);
+    };
+    const pem = (body: string) =>
+      `-----BEGIN RSA ${'PRIVATE'} KEY-----\n${body.replace(/.{64}/g, '$&\n')}\n-----END RSA ${'PRIVATE'} KEY-----\n`;
+    const sentState = async (task: string) => {
+      const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
+      await jp.pick(task, { agents }, { env: localEnv, fetchImpl: f.impl });
+      return f.calls.length ? String(JSON.parse(String(f.calls[0].init.body)).state) : '';
+    };
+
+    it('does not send the cut-off head of a fixed-length secret', async () => {
+      const secret = ['wJalrXUtnFEMI7K9', 'MDENGbPxRfiCY3kQzT8vLp2A'].join(''); // 40 chars
+      const task = `${bearers(16_001 - 63)}\n${'aws'}_secret_access_key=${secret}`;
+      expect(task.indexOf(secret)).toBeLessThan(16_000);
+      expect(task.indexOf(secret) + secret.length).toBeGreaterThan(16_000);
+      expect(await sentState(task)).not.toContain(secret.slice(0, 20));
+    });
+
+    it('does not send the body of a private key cut at the window edge', async () => {
+      const body = (tag: string, n: number) => `MII${tag}${'Qx7'.repeat(n)}`.slice(0, n);
+      let task = '';
+      for (const tag of ['AAA', 'BBB', 'CCC']) task += `key ${tag}:\n${pem(body(tag, 3300))}`;
+      task += 'filler text '.repeat(Math.ceil((13_500 - task.length) / 12));
+      task = `${task.slice(0, 13_500)}\n${pem(body('DDD', 4000))}`;
+      const state = await sentState(task);
+      expect(state).toContain('[redacted]');
+      expect(state).not.toContain('MIIDDD');
+      expect(state).not.toMatch(/Qx7Qx7Qx7/);
+    });
+
+    it('trims the window tail in linear time', () => {
+      const { redactHead } = require('../../.claude/helpers/redact-secrets.cjs');
+      for (const text of [`${'a'.repeat(15_990)} b${'c'.repeat(20_000)}`, `${'x'.repeat(200_000)}`]) {
+        const started = performance.now();
+        redactHead(text);
+        expect(performance.now() - started).toBeLessThan(50);
+      }
+    });
   });
 });
 
