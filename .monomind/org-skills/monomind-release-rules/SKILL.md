@@ -10,10 +10,14 @@ source: https://github.com/monoes/monomind
 
 **Names used below.** ORG_ROOT is the main checkout — the directory your session
 starts in (`pwd` before you `cd` anywhere). SRC is the release worktree
-`ORG_ROOT/.monomind/orgs/release/work/src`. GATE is this run's scratch directory
+`ORG_ROOT/.monomind/orgs/release/work/src`. DOCS (`.../work/docs`, branch
+`release/<VERSION>-docs`) and FIX2 (`.../work/fix-2`, branch
+`release/<VERSION>-fix-2`) are extra worktrees publisher creates when docs or a
+second fix run in parallel with work on SRC. GATE is this run's scratch directory
 `$HOME/monomind-release/<VERSION>-<UTC timestamp>`; TMPDIR is `$HOME/mrg-tmp`.
-Every task message gives you the run's VERSION, target SHA and GATE — use those,
-never values remembered from an earlier run.
+Every task's brief, delivered with its dispatch message, gives you the run's
+VERSION, target SHA, GATE and the worktree to use — use those, never values
+remembered from an earlier run.
 
 ## Environment
 - Prefix EVERY command that runs node, pnpm, npm, vitest or monomind with
@@ -41,7 +45,13 @@ never values remembered from an earlier run.
   This org requires EVIDENCE, and a call without it wastes nothing but time —
   always pass `evidence` = { `headSha`, `worktree`, `checks` }:
   - `headSha`: the commit your checks ran on (`git -C <dir> rev-parse HEAD`);
-    `worktree`: that git worktree (SRC for release work; omit only for ORG_ROOT).
+    `worktree`: that git worktree (SRC, DOCS or FIX2 — wherever the checks ran;
+    omit only for ORG_ROOT).
+  - With `worktree` set, `headSha` must be that worktree's CURRENT HEAD; without
+    it, any worktree HEAD or local branch tip is accepted. So a commit in DOCS or
+    FIX2 never stales evidence pinned to SRC, and SRC only moves once no open
+    task is pinned to it. If SRC evidence is refused as stale, the tree really
+    moved: re-run against the new HEAD instead of pinning to another worktree.
   - Checks against an INSTALLED TARBALL or a scratch project still pin to the
     worktree the tarball was BUILT FROM (SRC and its HEAD) — a scratch dir is not
     a git worktree and is refused.
@@ -88,6 +98,10 @@ never values remembered from an earlier run.
   `GIT_AUTHOR_NAME=nokhodian GIT_AUTHOR_EMAIL=nokhodian@gmail.com GIT_COMMITTER_NAME=nokhodian GIT_COMMITTER_EMAIL=nokhodian@gmail.com`
   and has NO Co-Authored-By, Claude-Session or "Generated with" lines. When it
   resolves an issue the body says `Fixes #N`; a bare `(#N)` leaves it open.
+- To list the issues a range resolves, scan the commit bodies:
+  `git -C SRC log --format=%B <prev>..<sha> | grep -oiE '\b(fixes|closes|resolves) #[0-9]+' | sort -u`.
+  Never combine `\|` alternation with `-E` (`git log --grep="Fixes #\|Closes #" -E`):
+  under -E, `\|` is a literal pipe, and that scan missed `Fixes #320` in 2.16.0.
 - Nobody edits, commits or checks out anything in ORG_ROOT (sole exception:
   publisher's LOCAL MAIN SYNC).
 - Git policy is enforced by the runtime (issue #258): every role below
@@ -103,14 +117,46 @@ never values remembered from an earlier run.
   and check `git status --porcelain` before every commit.
 
 ## Processes
-- A background process does not outlive the Bash call that started it: drive a
-  browser in ONE command (`monomind browse open … && … && monomind browse close`)
-  and never leave a server running for a later call.
+- A background process started with `&`, nohup or setsid does not outlive the
+  Bash call that started it: drive a browser in ONE command
+  (`monomind browse open … && … && monomind browse close`) and never leave a
+  server running for a later call. The Bash tool's own `run_in_background` is
+  the one supported way to run past a call (see Long-running commands).
 - Never signal processes by name or pattern machine-wide (pkill, killall,
   `monomind cleanup --force`, reapers) except dummy processes you created; this
   org's own agents are claude-agent-sdk processes. Kill only PIDs you started.
+
+## Long-running commands
+- The Bash tool times out after 2 minutes unless you pass a longer `timeout`
+  (10 minutes at most), and chains like `sleep 90; tail …` are blocked. Run
+  anything that can take longer — a test suite, `pnpm -r run build`, an install,
+  a live org drill — with the Bash tool's `run_in_background: true`, output
+  redirected to a `$GATE/logs/…` file and the exit code appended to it
+  (`…; echo "exit=$?" >> <log>`). Independent suites can go in separate
+  background calls at once.
+- Then call `org_task_block(taskId, untilIso, reason)` ONCE with an untilIso
+  comfortably later (e.g. now + 2 hours) so the idle watchdog leaves you alone,
+  and end your turn. The background command's completion notification resumes
+  your session; read the log and carry on — `org_task_done` closes a blocked
+  task normally. A second `org_task_block` on the same task is refused; just end
+  the turn. If your session has the `Monitor` tool you may instead wait on a
+  condition with it (`until grep -q '^exit=' <log>; do sleep 5; done`).
+- Never foreground-poll a suite in a loop. Round-1 TESTS in 2.16.0 ran in the
+  foreground, hit the 2-minute timeout 5 times and took 16.6 min; round 2, with
+  `run_in_background` + `org_task_block`, took 5.0 min.
+
+## Reading source
+- Gather what you need in as few calls as possible: one Bash command that prints
+  every range (`sed -n '10,40p;120,160p' a.ts; sed -n '5,30p' b.ts`), or Read
+  with offset/limit. Never a string of one-range `awk 'NR>=a && NR<=b'` or
+  `sed -n` peeks: every call re-sends your whole context (the 2.16.0 DOCS task
+  made 240 calls and cost 18% of the run).
 
 ## Unattended
 - No web access. Never ask the human anything: org_gate is denied for every role,
   and ask_human for every role except release-captain, which may use it only
   during PREFLIGHT.
+- Claude Code's own harness tools — AskUserQuestion, ScheduleWakeup, TaskCreate /
+  TaskUpdate, CronCreate / CronDelete / CronList, EnterPlanMode — are not
+  available to org roles. Use the org equivalents: ask_human (release-captain,
+  PREFLIGHT only) to ask, org_task_block to wait, org_task to create work.
