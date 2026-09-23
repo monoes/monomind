@@ -45,6 +45,8 @@ export interface ProjectionRemoval {
   /** Package directory relative to the surface's skill root. */
   dir: string;
   marker: string;
+  /** Files of a re-projected package to leave alone; only the rest are removed. */
+  keep?: string[];
 }
 
 export interface ProjectionPlan {
@@ -105,12 +107,13 @@ function packageIntents(
   root: string,
   skillRoot: string,
   asset: CatalogAsset,
-): { intents: ArtifactIntent[]; paths: string[] } | { refused: string } {
+): { intents: ArtifactIntent[]; paths: string[]; files: string[] } | { refused: string } {
   const check = verifyEntry(root, asset);
   if (!check.ok) return { refused: check.reason };
   const intents: ArtifactIntent[] = [];
   const paths: string[] = [];
-  for (const file of listFiles(check.dir)) {
+  const files = listFiles(check.dir);
+  for (const file of files) {
     const dest = join(skillRoot, asset.name, file);
     const display = relative(root, dest);
     const link = symlinkedComponent(root, dest);
@@ -138,15 +141,15 @@ function packageIntents(
       content,
     });
   }
-  return { intents, paths };
+  return { intents, paths, files };
 }
 
-/** True when any file below `dir` (not following links) carries `name`'s marker. */
-function carriesMarker(dir: string, name: string): boolean {
+/** Files below `dir` (not following links) that carry `name`'s marker. */
+function markedFiles(dir: string, name: string): string[] {
   try {
-    return listFiles(dir).some((f) => isOurs(readFileSync(join(dir, f), 'utf8'), name));
+    return listFiles(dir).filter((f) => isOurs(readFileSync(join(dir, f), 'utf8'), name));
   } catch {
-    return false;
+    return [];
   }
 }
 
@@ -191,6 +194,16 @@ function buildPlan(
     else {
       plan.intents.push(...r.intents);
       plan.packages.push({ id: asset.id, sha256: asset.sha256, paths: r.paths });
+      const stale = markedFiles(join(skillRoot, asset.name), asset.name).filter(
+        (f) => !r.files.includes(f),
+      );
+      if (stale.length)
+        plan.removals.push({
+          id: asset.id,
+          dir: asset.name,
+          marker: catalogMarker(asset.name),
+          keep: r.files,
+        });
     }
   }
   const keep = new Set(wanted.map((a) => a.name));
@@ -202,7 +215,7 @@ function buildPlan(
         plan.diagnostics.push(`symlinked-destination: ${relative(root, join(skillRoot, e.name))}`);
       continue;
     }
-    if (e.isDirectory() && carriesMarker(join(skillRoot, e.name), e.name))
+    if (e.isDirectory() && markedFiles(join(skillRoot, e.name), e.name).length)
       plan.removals.push({ id: `skill:${e.name}`, dir: e.name, marker: catalogMarker(e.name) });
   }
   return plan;
@@ -271,7 +284,7 @@ export async function applyProjection(
       backupDir: '.monomind/backups/',
     };
     for (const r of plan.removals) {
-      const removed = removeManagedSkillPackage(adapter, request, r.dir, r.marker);
+      const removed = removeManagedSkillPackage(adapter, request, r.dir, r.marker, r.keep);
       result.changed.push(...removed.changed);
       result.skipped.push(...removed.skipped);
       result.diagnostics.push(...removed.diagnostics.map((d) => `${r.id}: ${d}`));

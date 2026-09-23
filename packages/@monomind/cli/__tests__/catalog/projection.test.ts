@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +16,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { disable, revoke } from '../../src/catalog/lifecycle.js';
 import { applyProjection, planProjection } from '../../src/catalog/projection.js';
 import { catalogAction } from '../../src/commands/catalog.js';
-import { NOW, newRoot, tamper, writeEntry } from './fixtures.js';
+import { statePath } from '../../src/catalog/state.js';
+import { type EntrySpec, NOW, newRoot, tamper, writeEntry } from './fixtures.js';
 
 /** Hash of every path and byte below `dir`, never following symlinks. */
 function hashTree(dir: string): string {
@@ -50,6 +52,18 @@ function seedForeign(root: string, base = '.claude/skills'): void {
 }
 
 const actor = { actor: 'tester', now: NOW };
+
+/** Stores a new revision of `spec.name` and makes it the only state entry for that id. */
+function replaceRevision(root: string, spec: EntrySpec) {
+  const file = statePath(root);
+  const state = JSON.parse(readFileSync(file, 'utf8'));
+  state.entries = state.entries.filter((e: { id: string }) => e.id !== `skill:${spec.name}`);
+  writeFileSync(file, JSON.stringify(state, null, 2));
+  const next = writeEntry(root, spec);
+  const later = new Date(Date.now() + 10_000);
+  utimesSync(file, later, later);
+  return next;
+}
 
 describe('catalog projection', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -183,6 +197,35 @@ describe('catalog projection', () => {
     await expect(planProjection(root, 'platform:claude', { unproject: 'skill:../../x' })).rejects.toThrow(
       /catalog id/,
     );
+  });
+
+  it('a new revision removes the files only the old revision projected', async () => {
+    const root = newRoot();
+    writeEntry(root, { name: 'cat-lint', targets: ['platform:claude'], files: pkg('cat-lint') });
+    await applyProjection(root, 'platform:claude', { dryRun: false });
+    const dir = join(root, '.claude/skills/cat-lint');
+    writeFileSync(join(dir, 'mine.md'), 'user\n');
+    const next = replaceRevision(root, {
+      name: 'cat-lint',
+      targets: ['platform:claude'],
+      files: { 'SKILL.md': skillMd('cat-lint'), 'LICENSE.txt': 'Apache License' },
+    });
+
+    const dry = await applyProjection(root, 'platform:claude', { dryRun: true });
+    expect(existsSync(join(dir, 'ref/notes.md'))).toBe(true);
+    const real = await applyProjection(root, 'platform:claude', { dryRun: false });
+    expect(dry.changed).toEqual(real.changed);
+    expect(real.removals.map((r) => r.id)).toEqual(['skill:cat-lint']);
+    expect(existsSync(join(dir, 'ref'))).toBe(false);
+    expect(readFileSync(join(dir, 'mine.md'), 'utf8')).toBe('user\n');
+    expect(readFileSync(join(dir, 'LICENSE.txt'), 'utf8')).toContain('Apache License');
+    expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toContain(`sha256:${next.sha256}`);
+    const backups = join(root, '.monomind/backups');
+    const saved = readdirSync(backups).map((b) => join(backups, b, '.claude/skills/cat-lint'));
+    expect(saved.some((b) => existsSync(join(b, 'ref/notes.md')))).toBe(true);
+    expect(saved.some((b) => existsSync(join(b, 'SKILL.md')))).toBe(true);
+    const again = await applyProjection(root, 'platform:claude', { dryRun: false });
+    expect(again).toMatchObject({ changed: [], removals: [] });
   });
 
   it('reports frontmatter drift instead of silently keeping the old header', async () => {

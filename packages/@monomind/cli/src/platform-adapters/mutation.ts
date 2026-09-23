@@ -38,15 +38,15 @@ export function backup(path: string, root: string, privateBackup = false): void 
   // leaf directory must be private regardless of the caller's umask.
   if (privateBackup) chmodSync(backupRoot, 0o700);
   // Mirror the path below `root` so several files of one apply cannot collide;
-  // the first copy in a backup directory is the pre-apply content, so keep it.
+  // the first copy in a backup directory is the pre-apply content, so a later
+  // backup (of the same file, or of a directory holding it) never overwrites it.
   const rel = relative(root, path);
   const inside = rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
   const external = join('_external', resolve(path).replace(/[:\\/]+/g, '_'));
   const destination = join(backupRoot, inside ? rel : external);
-  if (existsSync(destination)) return;
   mkdirSync(dirname(destination), { recursive: true });
-  if (statSync(path).isDirectory()) cpSync(path, destination, { recursive: true });
-  else writeFileSync(destination, readFileSync(path));
+  if (statSync(path).isDirectory()) cpSync(path, destination, { recursive: true, force: false });
+  else if (!existsSync(destination)) writeFileSync(destination, readFileSync(path));
 }
 
 export function scopeStateRoot(request: Pick<InstallRequest, 'scope' | 'path'>): string {
@@ -152,12 +152,15 @@ function removeEmptyDirs(dir: string): void {
  * Unlocked: callers hold the mutation lock. Only `marker` blocks are stripped;
  * a file left with nothing but frontmatter or whitespace is deleted, a file
  * without the marker is never touched, and directories go only when empty.
+ * Files listed in `keep` (relative to the package) are left alone, so a new
+ * revision can shed only the files its predecessor projected.
  */
 export function removeManagedSkillPackage(
   adapter: PlatformAdapter,
   request: InstallRequest,
   relativeDir: string,
   marker: string,
+  keep: readonly string[] = [],
 ): RemovalResult {
   const result: RemovalResult = { changed: [], skipped: [], diagnostics: [] };
   const location = resolveArtifactLocation(adapter, 'skill', request.scope, {
@@ -189,6 +192,7 @@ export function removeManagedSkillPackage(
   }
   const edits: { path: string; content: string; display: string }[] = [];
   for (const file of files.sort()) {
+    if (keep.includes(file)) continue;
     const path = join(dir, file);
     const oldContent = readFileSync(path, 'utf8');
     const content = removeManagedMarker(oldContent, marker);
