@@ -249,16 +249,36 @@ describe('redaction', () => {
       `{"${'api'}Key": "${r(16)}"}`,
       `${'xox'}b-${r(20)}`,
       `postgres://u${'ser'}:${r(12)}@db.internal/x`,
+      `${'AWS'}_SECRET_ACCESS_KEY=${r(40)}`,
+      `${'aws'}_secret_access_key = ${r(40)}`,
+      `${'AI'}za${r(35)}`,
+      `Authorization: ${'Basic'} ${r(20)}==`,
+      `DB_${'PASS'}=hunter2`,
+      `${'PASSWORD'}=short`,
     ];
     for (const f of fixtures) {
       expect(jp.redactSecrets(f)).toBe(redactSecretsTs(f));
       expect(jp.redactSecrets(f)).toContain('[redacted]');
+    }
+    for (const s of ['basic setup for the login page', 'PASS_RATE=0.9', 'the password field']) {
+      expect(jp.redactSecrets(s)).toBe(s);
+      expect(redactSecretsTs(s)).toBe(s);
     }
     const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
     await jp.pick(`fix login, key ${fixtures[0]}`, { agents }, { env: localEnv, fetchImpl: f.impl });
     const sent = JSON.parse(String(f.calls[0].init.body)).state;
     expect(sent).not.toContain(fixtures[0]);
     expect(sent).toContain('[redacted]');
+  });
+
+  it('masks candidate descriptions before sending', async () => {
+    const key = `${'sk'}-ant-${'a1B2'.repeat(6)}`;
+    const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
+    const leaky = [agents[0], { ...agents[1], description: `Runs tests with key ${key}` }];
+    await jp.pick('write tests', { agents: leaky }, { env: localEnv, fetchImpl: f.impl });
+    const criteria = JSON.parse(String(f.calls[0].init.body)).questions.agent.criteria;
+    expect(JSON.stringify(criteria)).not.toContain(key);
+    expect(criteria.tester).toContain('[redacted]');
   });
 });
 

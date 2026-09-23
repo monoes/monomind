@@ -112,6 +112,10 @@ const SECRET_PATTERNS: RegExp[] = [
   /AKIA[0-9A-Z]{16}/g,
   /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
   /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g, // user:pass@host connection strings
+  /aws_?secret_?access_?key['"]?\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi, // AWS secret access key
+  /AIza[0-9A-Za-z_-]{35}/g, // Google API key
+  /\bauthorization['"]?\s*[:=]\s*['"]?basic\s+[A-Za-z0-9+/]+={0,2}/gi, // HTTP Basic credentials
+  /\b(?:[A-Z0-9]+_)*(?:PASS|PASSWORD|PASSWD|PWD)\s*=\s*['"]?[^\s'"]+['"]?/g, // env-style DB_PASS= / PASSWORD=
 ];
 
 function stripSecretPatterns(text: string): string {

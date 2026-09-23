@@ -35,8 +35,9 @@ var DEFAULT_HOOK_TIMEOUT_MS = 1500;
 var MAX_HOOK_TIMEOUT_MS = 4000;
 // Ported VERBATIM from packages/@monomind/cli/src/utils/redaction.ts SECRET_PATTERNS
 // (the maintained redactor: JSON keys, header bearer tokens, fine-grained GitHub,
-// GitLab, Slack, Stripe, JWT, credentialed URLs). A test compares the two lists
-// source-for-source, so an edit to one without the other fails CI.
+// GitLab, Slack, Stripe, JWT, credentialed URLs, AWS/Google keys, Basic auth,
+// env passwords). A test compares the two lists source-for-source, so an edit to
+// one without the other fails CI.
 var SECRET_PATTERNS = [
   /(?:api[_-]?key|apikey)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
   /(?:secret|password|passwd|pwd)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
@@ -54,6 +55,10 @@ var SECRET_PATTERNS = [
   /AKIA[0-9A-Z]{16}/g,
   /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g,
   /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g,
+  /aws_?secret_?access_?key['"]?\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
+  /AIza[0-9A-Za-z_-]{35}/g,
+  /\bauthorization['"]?\s*[:=]\s*['"]?basic\s+[A-Za-z0-9+/]+={0,2}/gi,
+  /\b(?:[A-Z0-9]+_)*(?:PASS|PASSWORD|PASSWD|PWD)\s*=\s*['"]?[^\s'"]+['"]?/g,
 ];
 
 class JevError extends Error {
@@ -308,7 +313,7 @@ function shortlist(query, items, limit, include) {
 // ── Picking ────────────────────────────────────────────────────────────────
 
 function describeItem(item) {
-  var text = String(item.description || item.name || item.id).replace(/\s+/g, ' ').trim();
+  var text = redactSecrets(String(item.description || item.name || item.id)).replace(/\s+/g, ' ').trim();
   return text.length > MAX_DESCRIPTION_CHARS ? text.slice(0, MAX_DESCRIPTION_CHARS - 1) + '…' : text;
 }
 
