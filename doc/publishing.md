@@ -120,7 +120,9 @@ those copies (`packages/@monomind/cli/.claude`) to every npm user:
 
 `monomind init --force` is safe to run inside this repo, but it rewrites assets in place.
 It only writes the trees a platform adapter points at — `.claude/` and `.agents/skills` —
-wrapping each file it owns in `# monomind:start skills:<platform>:<name>` markers. The
+wrapping each file it owns in `# monomind:start skills:<owner>:<name>` markers (`claude`
+in `.claude/skills`; `agents` in `.agents/skills`, one block co-owned by every platform
+sharing it). The
 other three copies are left behind, which fails `tests/repo/claude-tree-parity.test.ts`
 and `scripts/lint-skills.mjs`.
 
