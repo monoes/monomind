@@ -128,6 +128,39 @@ describe('transition', () => {
     for (const to of ['staged', 'approved', 'active', 'disabled', 'quarantined'] as const)
       expect(() => transition(s, 'skill:example', to, ctx(root, 'r'))).toThrow();
   });
+  it('quarantine is reachable from active and disabled, not just staged', () => {
+    const root = newRoot();
+    for (const from of ['staged', 'active', 'disabled'] as const) {
+      const s = stateOf(entry({ status: from }));
+      expect(
+        transition(s, 'skill:example', 'quarantined', ctx(root, 'suspicious')).entries[0].status,
+      ).toBe('quarantined');
+    }
+  });
+  it('release returns a quarantined active/disabled skill to staged for re-approval', () => {
+    const root = newRoot();
+    for (const from of ['active', 'disabled'] as const) {
+      const quarantined = transition(
+        stateOf(entry({ status: from })),
+        'skill:example',
+        'quarantined',
+        ctx(root, 'suspicious'),
+      );
+      expect(
+        transition(quarantined, 'skill:example', 'staged', ctx(root, 'reviewed')).entries[0].status,
+      ).toBe('staged');
+    }
+  });
+  it('the "allowed" list in the error always matches what the guard actually permits', () => {
+    const root = newRoot();
+    const s = stateOf(entry({ status: 'active' }));
+    expect(() => transition(s, 'skill:example', 'staged', ctx(root, 'x'))).toThrow(
+      /allowed: disabled, quarantined, revoked/,
+    );
+    expect(
+      transition(s, 'skill:example', 'quarantined', ctx(root, 'x')).entries[0].status,
+    ).toBe('quarantined');
+  });
   it('requires a reason for release', () => {
     const root = newRoot();
     const s = stateOf(entry({ status: 'quarantined' }));

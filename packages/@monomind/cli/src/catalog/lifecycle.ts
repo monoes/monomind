@@ -115,7 +115,7 @@ export const activate = (root: string, id: string, opts: LifecycleOptions): Life
 export const disable = (root: string, id: string, opts: LifecycleOptions): LifecycleResult =>
   move(root, id, 'disabled', opts);
 
-/** staged → quarantined; needs a reason. */
+/** staged, active or disabled → quarantined; needs a reason. */
 export const quarantine = (root: string, id: string, opts: LifecycleOptions): LifecycleResult =>
   move(root, id, 'quarantined', opts);
 

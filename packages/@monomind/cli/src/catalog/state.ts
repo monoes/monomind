@@ -32,8 +32,8 @@ export const TRANSITIONS: Record<CatalogStatus, readonly CatalogStatus[]> = {
   staged: ['approved', 'quarantined', 'revoked'],
   quarantined: ['staged', 'revoked'],
   approved: ['active', 'disabled', 'revoked'],
-  active: ['disabled', 'revoked'],
-  disabled: ['active', 'revoked'],
+  active: ['disabled', 'quarantined', 'revoked'],
+  disabled: ['active', 'quarantined', 'revoked'],
   revoked: [],
 };
 
