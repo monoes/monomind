@@ -13,6 +13,7 @@ import type { LoadoutSummary, ResolvedLoadout } from './loadouts.js';
 import { Mailbox } from './mailbox.js';
 import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
+import { SandboxFaultError, SandboxRestarts } from './sandbox-fault.js';
 import { StateDetector } from './state-detector.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
 import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types.js';
@@ -528,6 +529,14 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   // ADR-O001 D1: modelUsage is cumulative per session exactly like
   // total_cost_usd, so it needs the same meter to become a delta.
   const sessionTokenTotals = new CumulativeMeter<TokenUsage>();
+  // Bash results that are bwrap's own error end the process (a new one builds
+  // a new sandbox), a bounded number of times per task (sandbox-fault.ts).
+  const sandboxRestarts = new SandboxRestarts({
+    bus: opts.bus,
+    roleId: opts.role.id,
+    coordinator: opts.role.reports_to ?? undefined,
+    deliver: (from, to, subject, body) => sessionOpts.deliver(from, to, subject, body),
+  });
   // ADR-O001 D3. 'role' scope (the default) keeps the pre-D3 loop exactly: one
   // model session for the role's life, resumed across maxTurns restarts via
   // resumeSessionId. 'task' scope keys model sessions by the task a message
@@ -654,6 +663,7 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
         attempt,
         sessionTokenTotals,
         streamOpts,
+        sandboxRestarts.watch(sessionKey),
       );
       sessionId = res.sessionId;
       hitTurnLimit = res.hitTurnLimit;
@@ -687,7 +697,21 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       // very next check below (`mailbox.isClosed || mailbox.isDraining`)
       // returns immediately — so rethrowing here costs nothing.
       const stopping = mailbox.isClosed || (opts.externalAbort?.signal.aborted ?? false);
-      if (!stopping && /Reached maximum number of turns|error_max_turns/i.test(errMsg)) {
+      if (!stopping && err instanceof SandboxFaultError) {
+        // Same session, new process: resume it and tell the role why.
+        resumeSessionId = err.sessionId ?? resumeSessionId;
+        if (scope === 'task' && err.sessionId) {
+          ledger.set({
+            role: opts.role.id,
+            runtime: runtimeKey,
+            taskKey: sessionKey,
+            cwd: opts.cwd,
+            promptHash,
+            sessionId: err.sessionId,
+          });
+        }
+        mailbox.push(sandboxRestarts.restarted(sessionKey));
+      } else if (!stopping && /Reached maximum number of turns|error_max_turns/i.test(errMsg)) {
         // Runner/SDK threw an error on max turns or exhausted turns on resume.
         // Drop the dead resumeSessionId and grant continuation turn with fresh session.
         sessionId = undefined;
@@ -899,6 +923,7 @@ async function runOneSession(
   progress?: { replied: boolean },
   tokenTotals?: CumulativeMeter<TokenUsage>,
   streamOpts?: StreamOptions,
+  sandboxWatch?: ReturnType<SandboxRestarts['watch']>,
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
   // Each call starts a new runner process, whose cumulative totals may or may
@@ -1265,6 +1290,7 @@ async function runOneSession(
           ...(m.tool ? { tool: m.tool } : {}),
           data: data as unknown as Record<string, unknown>,
         });
+        sandboxWatch?.observe(m, sessionId);
       } else if (m.type === 'result') {
         // ADR-O001 D1: prefer the SDK's `modelUsage` over `usage`. The SDK
         // documents `usage` as "MAIN AGENT LOOP ONLY — excludes Task
@@ -1383,6 +1409,8 @@ async function runOneSession(
     // in policy) have no usage event yet. Cost is only on 'result': unknown.
     if (totalTokens(messageTurnTokens) > 0)
       emitUsage(bus, role.id, messageTurnTokens, undefined, 'aborted');
+    // Ending the process was the point; sandbox-fault.ts already audited it.
+    if (err instanceof SandboxFaultError) throw err;
     // org_complete / org stop close the mailbox and abort every session: a
     // normal stop, not a failure. The daemon still classifies it.
     const message = err instanceof Error ? err.message : String(err);

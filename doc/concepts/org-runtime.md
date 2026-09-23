@@ -789,6 +789,16 @@ A turn cut off before its `result` — by `org_complete`, an org stop, or a cras
 reports cost only on `result`). A session aborted by the org's own stop reports a `session-stopped`
 status rather than `session-error`.
 
+### Sandbox Faults
+
+A Bash result that starts with `bwrap: ` is the OS sandbox failing to start, not the command
+failing ([`sandbox-fault.ts → isSandboxFault`](packages/@monomind/cli/src/orgrt/sandbox-fault.ts#isSandboxFault)).
+Each one raises a `sandbox-fault` audit event. Two in a row end the role's runner process — a new
+process builds a new sandbox — and the same session is resumed (in task scope, that task's session)
+with a continuation message saying why (`sandbox-restart` status). This happens at most twice per
+task session; after that the role's `reports_to` coordinator is sent one message saying the role's
+shell is not running (`sandbox-fault-exhausted` audit event), and later faults are only audited.
+
 ### Silent Session Alarm
 
 `SILENT_SESSION_MS = 4 minutes` — if the stream opens but emits zero messages within this window, an alarm is raised.
