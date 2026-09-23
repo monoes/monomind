@@ -357,6 +357,33 @@ describe('redaction', () => {
       expect(state).not.toMatch(/Qx7Qx7Qx7/);
     });
 
+    // The window cuts the END line itself: `-----END RSA ` alone does not close the block.
+    const endCut = (crlf: boolean, into: number) => {
+      const key = pem(`MIIEEE${'Rz4'.repeat(1300)}`);
+      const block = crlf ? key.replace(/\n/g, '\r\n') : key;
+      const at = block.indexOf('-----END ') + into;
+      const line = `Authorization: ${'Bearer'} ${jwt}\n`;
+      let pad = 'Why does this request fail?\n';
+      while (pad.length + line.length < 16_000 - at) pad += line;
+      return `${pad}${' '.repeat(16_000 - at - pad.length)}${block}more text after`;
+    };
+    it.each([
+      ['inside "RSA"', false, 11],
+      ['inside "KEY-----"', false, 27],
+      ['inside "RSA", CRLF line ends', true, 11],
+    ])('does not send a private key whose END line is cut %s', async (_label, crlf, into) => {
+      const task = endCut(crlf, into);
+      expect(task.slice(0, 16_000)).toMatch(/-----END [^\r\n]*$/);
+      const state = await sentState(task);
+      expect(state).toContain('[redacted]');
+      expect(state).not.toContain('MIIEEE');
+      expect(state).not.toMatch(/Rz4Rz4Rz4/);
+      const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
+      await jp.pick('route this', { agents: [agents[0], { ...agents[1], description: task }] }, { env: localEnv, fetchImpl: f.impl });
+      const criteria = JSON.parse(String(f.calls[0].init.body)).questions.agent.criteria;
+      expect(criteria[agents[1].id]).not.toMatch(/MIIEEE|Rz4Rz4/);
+    });
+
     it('trims the window tail in linear time', () => {
       const { redactHead } = require('../../.claude/helpers/redact-secrets.cjs');
       for (const text of [`${'a'.repeat(15_990)} b${'c'.repeat(20_000)}`, `${'x'.repeat(200_000)}`]) {

@@ -55,12 +55,13 @@ function redactHead(text) {
   if (s.length > REDACT_WINDOW_CHARS) {
     // A secret cut at the window edge no longer matches its pattern, and earlier
     // secrets shrinking to "[redacted]" pull it into the sent text: drop the cut
-    // token (a scan, not /\S+$/, which is quadratic) and an unterminated key block.
+    // token (a scan, not /\S+$/, which is quadratic) and a key block without a whole
+    // END line (a cut `-----END RSA ` does not close it).
     var end = head.length;
     while (end > 0 && !/\s/.test(head.charAt(end - 1))) end--;
     head = head.slice(0, end);
     var begin = head.lastIndexOf('-----BEGIN ');
-    if (begin !== -1 && head.indexOf('-----END ', begin) === -1) head = head.slice(0, begin);
+    if (begin !== -1 && !/-----END [^-\r\n]*-----/.test(head.slice(begin))) head = head.slice(0, begin);
   }
   return redactSecrets(head);
 }
