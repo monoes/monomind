@@ -596,6 +596,18 @@ monomind org skills import obra/superpowers --global                 # MIT/Apach
 - 10 event types: `message | xorg | tool | asset | chat | status | audit | usage | question | gate`
 - `OrgBus.readHistory()` (static) — reads bus.jsonl from disk for replay.
 
+### Dashboard forwarder (`forwarder.ts`, `dashboard-health.ts`)
+
+- Forwards every bus event to the dashboard `.monomind/control.json` names.
+- That dashboard is used only while its pid is alive, the server script it runs still exists on
+  disk (recorded as `server` in control.json, or read from the process's command line), and —
+  when control.json records a `version` — that version is this CLI's.
+- Otherwise the forwarder heals once per process: it stops the stale dashboard if it can prove it
+  is this project's own (it runs a monomind dashboard script from this project directory; proven
+  from `/proc`, so it never stops one on platforms without it), reuses a live dashboard already
+  serving this project on ports 4242–4251, and only then starts a new `server.mjs`, recording
+  its `server` path and `version`.
+
 ### State Detector (`state-detector.ts`)
 
 Infers a role's current activity from the raw SDK message stream — wired into the session

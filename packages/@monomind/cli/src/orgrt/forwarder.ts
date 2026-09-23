@@ -5,6 +5,14 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OrgBus } from './bus.js';
+import {
+  assessDashboard,
+  type ControlRecord,
+  type DashboardProbe,
+  fetchIdentity,
+  findProjectDashboard,
+  realDashboardProbe,
+} from './dashboard-health.js';
 import type { BusEvent } from './types.js';
 
 /**
@@ -50,27 +58,60 @@ function classifyStatus(msg: string): StatusKind {
 // Module-level single-flight so multiple orgs in one daemon don't double-spawn.
 const healAttempted = new Set<string>();
 
-export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/control.json') {
+export function attachForwarder(
+  bus: OrgBus,
+  controlJsonPath = '.monomind/control.json',
+  probe: DashboardProbe = realDashboardProbe(),
+) {
   let chain: Promise<void> = Promise.resolve();
   let warnedNoDashboard = false;
-  const isPidAlive = (pid: unknown): boolean => {
-    if (!Number.isInteger(pid) || (pid as number) <= 0) return true; // 0/absent = unknown, assume alive
-    try {
-      process.kill(pid as number, 0);
-      return true;
-    } catch (err) {
-      return (err as NodeJS.ErrnoException).code === 'EPERM'; // EPERM = exists, no permission
-    }
-  };
+  const projectDir = dirname(dirname(controlJsonPath));
+  // The recorded dashboard is accepted only if its pid is alive, its server
+  // script still exists and, when recorded, its version is this CLI's
+  // (dashboard-health.ts). Re-assessed when control.json changes or every
+  // 10s, not per event — off Linux the check shells out to `ps`.
+  let assessed: { raw: string; at: number; url: string | null; stopPid?: number } | null = null;
   const baseUrl = (): string | null => {
     try {
       if (!existsSync(controlJsonPath)) return null;
-      const c = JSON.parse(readFileSync(controlJsonPath, 'utf8'));
-      if (!isPidAlive(c.pid)) return null; // recorded server is dead — same as no dashboard
-      return typeof c.url === 'string' ? c.url : `http://localhost:${c.port ?? 4242}`;
+      const raw = readFileSync(controlJsonPath, 'utf8');
+      if (assessed && assessed.raw === raw && Date.now() - assessed.at < 10_000)
+        return assessed.url;
+      const c = JSON.parse(raw) as ControlRecord;
+      const v = assessDashboard(c, projectDir, probe);
+      const url = !v.live
+        ? null
+        : typeof c.url === 'string'
+          ? c.url
+          : `http://localhost:${c.port ?? 4242}`;
+      assessed = {
+        raw,
+        at: Date.now(),
+        url,
+        ...(!v.live && v.stopPid ? { stopPid: v.stopPid } : {}),
+      };
+      return url;
     } catch {
       return null;
     }
+  };
+  const writeControl = (c: ControlRecord): void => {
+    mkdirSync(dirname(controlJsonPath), { recursive: true });
+    writeFileSync(controlJsonPath, JSON.stringify(c));
+    assessed = null;
+  };
+  /** Stop a stale dashboard proven to be this project's own, and wait for it
+   *  to exit — its shutdown removes the dashboard-token it wrote, which must
+   *  not race the replacement writing its own. */
+  const stopStale = async (pid: number): Promise<void> => {
+    if (pid === process.pid) return;
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      return;
+    }
+    for (let i = 0; i < 25 && probe.isPidAlive(pid); i++)
+      await new Promise((r) => setTimeout(r, 200));
   };
 
   // ── Self-heal (#136): if control.json is missing (or its server dead), the
@@ -85,9 +126,30 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
     if (!healAttempted.has(controlJsonPath)) {
       healAttempted.add(controlJsonPath);
       try {
+        // Replace, don't pile up: stop the stale dashboard control.json named
+        // if it is ours, then reuse one already serving this project (4242-
+        // 4251) before starting another — repeated heals used to leave a new
+        // server on each port while the old ones kept running.
+        const stale = assessed?.stopPid;
+        if (stale) {
+          await stopStale(stale);
+          // it named a dead server: the replacement then claims the primary
+          // dashboard-token at once instead of probing the old port first
+          unlinkSync(controlJsonPath);
+        }
+        const found = await findProjectDashboard(projectDir, probe, fetchIdentity, stopStale);
+        if (found) {
+          writeControl({
+            pid: found.pid,
+            port: found.port,
+            url: `http://localhost:${found.port}`,
+            ...(found.server ? { server: found.server } : {}),
+            startedAt: new Date().toISOString(),
+          });
+          return;
+        }
         const serverPath = fileURLToPath(new URL('../ui/server.mjs', import.meta.url));
         if (!existsSync(serverPath)) return;
-        const projectDir = dirname(dirname(controlJsonPath));
         const reportPath = join(
           dirname(controlJsonPath),
           `.bound-report-orgrt-${process.pid}.json`,
@@ -116,16 +178,14 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
         if (!existsSync(reportPath)) return;
         const { pid, port } = JSON.parse(readFileSync(reportPath, 'utf8'));
         unlinkSync(reportPath);
-        mkdirSync(dirname(controlJsonPath), { recursive: true });
-        writeFileSync(
-          controlJsonPath,
-          JSON.stringify({
-            pid,
-            port,
-            url: `http://localhost:${port}`,
-            startedAt: new Date().toISOString(),
-          }),
-        );
+        writeControl({
+          pid,
+          port,
+          url: `http://localhost:${port}`,
+          server: serverPath,
+          version: probe.version,
+          startedAt: new Date().toISOString(),
+        });
       } catch {
         /* best-effort */
       }
@@ -136,16 +196,24 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
   // to 'dashboard-token' next to control.json (same .monomind dir) and requires
   // it via a header on every non-GET request. Read fresh each POST since the
   // credential rotates whenever the server restarts.
-  const readAuthCredential = (): string | null => {
-    try {
-      return readFileSync(join(dirname(controlJsonPath), 'dashboard-token'), 'utf8').trim();
-    } catch {
-      return null;
+  // A server that found another live dashboard named in control.json when it
+  // started writes its credential to 'dashboard-token-<port>' instead; that
+  // per-port file wins when present.
+  const readAuthCredential = (url: string): string | null => {
+    const port = url.match(/:(\d+)\/?$/)?.[1];
+    for (const file of [port ? `dashboard-token-${port}` : null, 'dashboard-token']) {
+      if (!file) continue;
+      try {
+        return readFileSync(join(dirname(controlJsonPath), file), 'utf8').trim();
+      } catch {
+        /* try the next */
+      }
     }
+    return null;
   };
 
   const post = async (url: string, payload: Record<string, unknown>): Promise<void> => {
-    const credential = readAuthCredential();
+    const credential = readAuthCredential(url);
     await fetch(`${url}/api/mastermind/event`, {
       method: 'POST',
       headers: {

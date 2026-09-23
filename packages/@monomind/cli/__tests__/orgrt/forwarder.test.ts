@@ -193,6 +193,75 @@ describe('attachForwarder', () => {
     expect(received[0].authHeader).toBe(fixtureAuthValue);
   });
 
+  // Improvement 11: a live pid is not enough — the recorded server entry must
+  // still exist on disk and a recorded version must be this CLI's.
+  const recordingServer = async (received: unknown[]) => {
+    server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => (body += c));
+      req.on('end', () => { received.push({ auth: req.headers['x-monomind-token'], body }); res.end('{}'); });
+    });
+    await new Promise<void>(r => server.listen(0, r));
+    return (server.address() as any).port as number;
+  };
+  const probe = (over: Partial<import('../../src/orgrt/dashboard-health.js').DashboardProbe> = {}) => ({
+    isPidAlive: () => true,
+    procInfo: () => null,
+    exists: () => true,
+    version: '9.9.9',
+    ...over,
+  });
+
+  it('does not forward to a live dashboard whose server entry no longer exists', async () => {
+    const received: unknown[] = [];
+    const port = await recordingServer(received);
+    const root = mkdtempSync(join(tmpdir(), 'fwd-stale-'));
+    writeFileSync(join(root, 'control.json'), JSON.stringify({
+      pid: process.pid, port, url: `http://127.0.0.1:${port}`, server: '/deleted-worktree/dist/src/ui/server.mjs',
+    }));
+    const bus = new OrgBus('o', 'r', root);
+    const done = attachForwarder(bus, join(root, 'control.json'), probe({ exists: () => false }));
+    bus.emit({ type: 'chat', from: 'boss', msg: 'hi' });
+    await done.settle();
+    await new Promise(r => setTimeout(r, 100));
+    expect(received).toHaveLength(0);
+  });
+
+  it('does not forward to a dashboard recorded for another CLI version', async () => {
+    const received: unknown[] = [];
+    const port = await recordingServer(received);
+    const root = mkdtempSync(join(tmpdir(), 'fwd-ver-'));
+    const ctl = { pid: process.pid, port, url: `http://127.0.0.1:${port}`, server: '/x/ui/server.mjs' };
+    writeFileSync(join(root, 'control.json'), JSON.stringify({ ...ctl, version: '1.0.0' }));
+    const bus = new OrgBus('o', 'r', root);
+    const done = attachForwarder(bus, join(root, 'control.json'), probe());
+    bus.emit({ type: 'chat', from: 'boss', msg: 'old' });
+    await done.settle();
+    await new Promise(r => setTimeout(r, 100));
+    expect(received).toHaveLength(0);
+    // the same record at this CLI's version is accepted
+    writeFileSync(join(root, 'control.json'), JSON.stringify({ ...ctl, version: '9.9.9' }));
+    bus.emit({ type: 'chat', from: 'boss', msg: 'new' });
+    await done.settle();
+    await waitForReceived(received, 1);
+    expect(received).toHaveLength(1);
+  });
+
+  it('prefers the per-port dashboard-token a secondary server writes', async () => {
+    const received: any[] = [];
+    const port = await recordingServer(received);
+    const root = mkdtempSync(join(tmpdir(), 'fwd-tok-'));
+    writeFileSync(join(root, 'control.json'), JSON.stringify({ pid: 1, port, url: `http://127.0.0.1:${port}` }));
+    writeFileSync(join(root, 'dashboard-token'), 'primary-value');
+    writeFileSync(join(root, `dashboard-token-${port}`), 'per-port-value');
+    const bus = new OrgBus('o', 'r', root);
+    const done = attachForwarder(bus, join(root, 'control.json'));
+    bus.emit({ type: 'chat', from: 'boss', msg: 'hi' });
+    await done.settle();
+    await waitForReceived(received, 1);
+    expect(received[0].auth).toBe('per-port-value');
+  });
+
   it('is silent (no throw) when control server is down', async () => {
     const root = mkdtempSync(join(tmpdir(), 'fwd2-'));
     writeFileSync(join(root, 'control.json'),
