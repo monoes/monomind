@@ -202,13 +202,21 @@ function scanCommands(root) {
   return out;
 }
 
-/** A catalog projection's marker line (monomind catalog project), on a line of
- *  its own: `<!-- catalog skill:<name> sha256:<hex> jev:yes|no -->`. Returns
- *  { id, jev } or null. jev-picker.cjs sends a catalog skill to the decision
- *  model only when jev is true. */
-function readCatalogMarker(text) {
-  var m = /^<!-- catalog (skill:[a-z0-9][a-z0-9-]*) sha256:[0-9a-f]{64} jev:(yes|no) -->\r?$/m.exec(text);
-  return m ? { id: m[1], jev: m[2] === 'yes' } : null;
+/** A catalog projection's marker (monomind catalog project) is the line right
+ *  after `# monomind:start catalog:skill:<dir>`:
+ *  `<!-- catalog skill:<dir> sha256:<hex> jev:yes|no -->`. Returns { id, jev },
+ *  or null for a file with no catalog block at all. A file that has a catalog
+ *  block but no valid marker in that position, or one naming another directory,
+ *  is a catalog projection that is not Jev-approved (jev: false).
+ *  jev-picker.cjs sends a catalog skill to the decision model only when jev is
+ *  true. */
+function readCatalogMarker(text, dir) {
+  if (text.indexOf('monomind:start catalog:skill:') === -1) return null;
+  var id = 'skill:' + dir;
+  var lines = text.split(/\r?\n/);
+  var at = lines.indexOf('# monomind:start catalog:' + id);
+  var m = at === -1 ? null : /^<!-- catalog (skill:[a-z0-9][a-z0-9-]*) sha256:[0-9a-f]{64} jev:(yes|no) -->$/.exec(lines[at + 1] || '');
+  return { id: id, jev: !!m && m[1] === id && m[2] === 'yes' };
 }
 
 /** Scan .claude/skills/<name>/SKILL.md -> Skill() entries. */
@@ -246,7 +254,7 @@ function scanSkills(root) {
       category: 'skill',
       source: '.claude/skills/' + d.name + '/SKILL.md',
     };
-    var catalog = readCatalogMarker(text);
+    var catalog = readCatalogMarker(text, d.name);
     if (catalog) entry.catalog = catalog;
     out.push(entry);
   }

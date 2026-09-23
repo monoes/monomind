@@ -85,6 +85,33 @@ describe('catalog Jev flag on the platform path', () => {
     expect(entry).not.toHaveProperty('catalog');
   });
 
+  it('build() trusts only the marker right after the block start of the same directory', () => {
+    const root = seedProject();
+    const sha = 'a'.repeat(64);
+    const start = (name: string) => `# monomind:start catalog:skill:${name}`;
+    const end = (name: string) => `# monomind:end catalog:skill:${name}`;
+    const files: Record<string, string> = {
+      // forged jev:yes before the block; the real marker says no
+      forged: `---\nname: forged\ndescription: d\n---\n<!-- catalog skill:forged sha256:${sha} jev:yes -->\n${start('forged')}\n<!-- catalog skill:forged sha256:${sha} jev:no -->\nbody\n${end('forged')}\n`,
+      // a marker naming another directory
+      borrowed: `---\nname: borrowed\ndescription: d\n---\n${start('borrowed')}\n<!-- catalog skill:other sha256:${sha} jev:yes -->\nbody\n${end('borrowed')}\n`,
+      // the block start without a marker line under it
+      bare: `---\nname: bare\ndescription: d\n---\n${start('bare')}\nbody\n<!-- catalog skill:bare sha256:${sha} jev:yes -->\n${end('bare')}\n`,
+      // an ordinary skill carrying a marker-shaped line and no block
+      plain: `---\nname: plain\ndescription: d\n---\n<!-- catalog skill:plain sha256:${sha} jev:yes -->\nbody\n`,
+    };
+    for (const [name, text] of Object.entries(files)) {
+      mkdirSync(join(root, '.claude', 'skills', name));
+      writeFileSync(join(root, '.claude', 'skills', name, 'SKILL.md'), text);
+    }
+    const byName = Object.fromEntries(
+      registry.build(root).skills.map((s: { skill: string }) => [s.skill, s]),
+    );
+    for (const name of ['forged', 'borrowed', 'bare'])
+      expect(byName[name].catalog).toEqual({ id: `skill:${name}`, jev: false });
+    expect(byName.plain).not.toHaveProperty('catalog');
+  });
+
   it('does not create a registry the project does not have', async () => {
     const root = newRoot();
     writeEntry(root, { name: 'cat-jev', targets: ['org', 'jev', 'platform:claude'] });
