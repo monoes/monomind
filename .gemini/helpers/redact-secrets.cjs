@@ -43,4 +43,14 @@ function redactSecrets(text) {
   return out;
 }
 
-module.exports = { SECRET_PATTERNS: SECRET_PATTERNS, redactSecrets: redactSecrets };
+// Text is cut to this before redaction, so the synchronous regex pass stays short;
+// the margin over the 8000-char Jev state keeps a secret straddling that final
+// cut (a PEM block is a few KB) whole.
+var REDACT_WINDOW_CHARS = 16000;
+
+/** redactSecrets over the first REDACT_WINDOW_CHARS of `text` only. */
+function redactHead(text) {
+  return redactSecrets(String(text || '').slice(0, REDACT_WINDOW_CHARS));
+}
+
+module.exports = { SECRET_PATTERNS: SECRET_PATTERNS, redactSecrets: redactSecrets, redactHead: redactHead };

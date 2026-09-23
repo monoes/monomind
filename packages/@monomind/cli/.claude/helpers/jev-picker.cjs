@@ -14,8 +14,6 @@ var fs = require('fs');
 var path = require('path');
 var redaction = require('./redact-secrets.cjs');
 
-var redactSecrets = redaction.redactSecrets;
-
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
 var DEFAULT_MODEL = 'jev-latest';
 var DEFAULT_TIMEOUT_MS = 3000;
@@ -29,9 +27,6 @@ var DEFAULT_MAX_SKILLS = 3;
 var DEFAULT_MAX_CANDIDATES = 30;
 var MAX_DESCRIPTION_CHARS = 160;
 var MAX_STATE_CHARS = 8000;
-// Text is cut to this before redaction, so the synchronous regex pass stays short;
-// the margin keeps a secret straddling the final cut (a PEM block is a few KB) whole.
-var REDACT_WINDOW_CHARS = 2 * MAX_STATE_CHARS;
 var MAX_RESPONSE_CHARS = 1024 * 1024;
 var MAX_CATALOG_BYTES = 5 * 1024 * 1024;
 var NONE_ID = '__none__';
@@ -283,8 +278,7 @@ function shortlist(query, items, limit, include) {
 // ── Picking ────────────────────────────────────────────────────────────────
 
 function describeItem(item) {
-  var raw = String(item.description || item.name || item.id).slice(0, REDACT_WINDOW_CHARS);
-  var text = redactSecrets(raw).replace(/\s+/g, ' ').trim();
+  var text = redaction.redactHead(item.description || item.name || item.id).replace(/\s+/g, ' ').trim();
   return text.length > MAX_DESCRIPTION_CHARS ? text.slice(0, MAX_DESCRIPTION_CHARS - 1) + '…' : text;
 }
 
@@ -324,7 +318,7 @@ async function pick(task, catalogs, opts) {
   var env = opts.env || process.env;
   var providers = resolveProviders(env);
   if (providers.length === 0) return null;
-  var text = redactSecrets(String(task || '').slice(0, REDACT_WINDOW_CHARS)).slice(0, MAX_STATE_CHARS);
+  var text = redaction.redactHead(task).slice(0, MAX_STATE_CHARS);
   if (!text.trim()) return null;
   var max = opts.maxCandidates || DEFAULT_MAX_CANDIDATES;
   var include = opts.include || {};
@@ -392,11 +386,9 @@ function readJsonFile(file) {
 }
 
 function strings(list) {
-  return Array.isArray(list)
-    ? list.filter(function (s) {
-        return typeof s === 'string';
-      })
-    : [];
+  return (Array.isArray(list) ? list : []).filter(function (s) {
+    return typeof s === 'string';
+  });
 }
 
 /** Agents from .monomind/registry.json (built by registry-builder.ts). */
@@ -437,12 +429,24 @@ function catalogJevGate(root) {
   return gate;
 }
 
+function isProjectedCopy(root, source) {
+  var file = typeof source === 'string' ? path.resolve(root, source) : '';
+  if (file.indexOf(path.resolve(root) + path.sep) !== 0) return false;
+  try {
+    if (fs.statSync(file).size > MAX_CATALOG_BYTES) return false;
+    return fs.readFileSync(file, 'utf-8').indexOf('monomind:start catalog:skill:') !== -1;
+  } catch (e) {
+    return false;
+  }
+}
+
 /** The catalog state decides, not the (possibly stale) projection marker: a
  *  disabled, revoked or no-jev entry drops out before re-projection, and an
- *  unreadable state drops every marked skill (fail closed). */
-function jevAllowed(gate, s) {
+ *  unreadable state drops every marked skill (fail closed). A hand-written
+ *  namesake passes; an unmarked projected copy (old builder) does not. */
+function jevAllowed(gate, s, root) {
   if (s.catalog && (!gate.ok || !gate.allowed.has(String(s.catalog.id).replace(/^skill:/, '')))) return false;
-  return !gate.known.has(s.skill) || gate.allowed.has(s.skill);
+  return !gate.known.has(s.skill) || gate.allowed.has(s.skill) || (!s.catalog && !isProjectedCopy(root, s.source));
 }
 
 /** Skills/commands from .claude/helpers/skill-registry.json (build-skill-registry.cjs).
@@ -457,7 +461,7 @@ function loadSkillCatalog(root) {
     // A catalog projection reaches the decision model only when approved with
     // the jev target; ordinary skills carry no catalog field and are unaffected.
     if (s.catalog && s.catalog.jev !== true) return;
-    if (gate && !jevAllowed(gate, s)) return;
+    if (gate && !jevAllowed(gate, s, root)) return;
     var key = s.skill.toLowerCase().replace(/[:_]/g, '-');
     var prev = byKey.get(key);
     if (prev && !(s.invoke.charAt(0) === '/' && prev.invoke.charAt(0) !== '/')) return;
@@ -480,7 +484,7 @@ module.exports = {
   resolveTimeoutMs: resolveTimeoutMs,
   resolveMinConfidence: resolveMinConfidence,
   resolveHookTimeoutMs: resolveHookTimeoutMs,
-  redactSecrets: redactSecrets,
+  redactSecrets: redaction.redactSecrets,
   SECRET_PATTERNS: redaction.SECRET_PATTERNS,
   resolveProviders: resolveProviders,
   postSystemOne: postSystemOne,

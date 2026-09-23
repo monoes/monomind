@@ -389,7 +389,22 @@ describe('catalog loaders', () => {
       description: name,
       catalog: { id: `skill:${name}`, jev: true },
     });
-    const bare = (name: string) => ({ skill: name, invoke: `Skill("${name}")`, description: name });
+    const bare = (name: string, source?: string) => ({
+      skill: name,
+      invoke: `Skill("${name}")`,
+      description: name,
+      source: source ?? `.claude/skills/${name}/SKILL.md`,
+    });
+    const skillMd = (name: string, body: string) => {
+      mkdirSync(join(root, '.claude', 'skills', name), { recursive: true });
+      writeFileSync(join(root, '.claude', 'skills', name, 'SKILL.md'), `---\nname: ${name}\n---\n${body}\n`);
+    };
+    // An old builder dropped the catalog field, but the projected copy still carries its marker.
+    skillMd('old-revoked', `<!-- monomind:start catalog:skill:old-revoked -->\nbody`);
+    // Hand-written skills that merely share a name with a catalog entry.
+    skillMd('hand-staged', 'my own skill');
+    mkdirSync(join(root, 'outside'));
+    writeFileSync(join(root, 'outside', 'SKILL.md'), '<!-- monomind:start catalog:skill:hand-escape -->');
     writeFileSync(
       join(root, '.claude', 'helpers', 'skill-registry.json'),
       JSON.stringify({
@@ -399,14 +414,28 @@ describe('catalog loaders', () => {
           marked('cat-disabled'),
           marked('cat-no-jev'),
           marked('cat-unknown'),
-          bare('old-revoked'), // an old builder dropped the catalog field
+          bare('old-revoked'),
           bare('old-active'),
+          bare('hand-staged'),
+          bare('hand-missing'),
+          bare('hand-escape', '../outside/SKILL.md'),
         ],
       }),
     );
     const ids = () => jp.loadSkillCatalog(root).map((s: { id: string }) => s.id);
     // No state file: the registry's marker is all there is (unchanged behaviour).
-    expect(ids()).toEqual(['plain', 'cat-active', 'cat-disabled', 'cat-no-jev', 'cat-unknown', 'old-revoked', 'old-active']);
+    expect(ids()).toEqual([
+      'plain',
+      'cat-active',
+      'cat-disabled',
+      'cat-no-jev',
+      'cat-unknown',
+      'old-revoked',
+      'old-active',
+      'hand-staged',
+      'hand-missing',
+      'hand-escape',
+    ]);
 
     const entry = (name: string, status: string, targets: string[]) => ({ id: `skill:${name}`, status, targets });
     mkdirSync(join(root, '.monomind', 'catalog'), { recursive: true });
@@ -421,14 +450,19 @@ describe('catalog loaders', () => {
           entry('cat-no-jev', 'active', ['org']),
           entry('old-revoked', 'revoked', ['org', 'jev']),
           entry('old-active', 'active', ['org', 'jev']),
+          entry('hand-staged', 'staged', ['org', 'jev']),
+          entry('hand-missing', 'revoked', ['org', 'jev']),
+          entry('hand-escape', 'revoked', ['org', 'jev']),
         ],
       }),
     );
-    expect(ids()).toEqual(['plain', 'cat-active', 'old-active']);
+    // Only a projected copy (marked registry entry or marked SKILL.md) is gated;
+    // a hand-written skill of the same name keeps its legacy-root precedence.
+    expect(ids()).toEqual(['plain', 'cat-active', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
 
     // Unreadable state: every catalog-marked skill is dropped, the rest stay.
     writeFileSync(state, '{ not json');
-    expect(ids()).toEqual(['plain', 'old-revoked', 'old-active']);
+    expect(ids()).toEqual(['plain', 'old-revoked', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
   });
 
   it('returns empty catalogs when the files are missing', () => {
