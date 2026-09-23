@@ -240,3 +240,16 @@ describe('quarantine release and restaging', () => {
     expect(approve(root, 'blueprint:bp', { actor: 't', targets: ['org'] }).after).toBe('approved');
   });
 });
+
+describe('credentials in source URLs', () => {
+  it('refuses a git URL with userinfo without echoing the credential', async () => {
+    const root = newRoot();
+    const err = await stage(root, 'https://user:s3cr3t-token@github.com/o/r.git', { actor: 't', fence: clean }).then(
+      () => undefined,
+      (e: Error) => e,
+    );
+    expect(err?.message).toMatch(/credentials/);
+    expect(err?.message).not.toContain('s3cr3t-token');
+    expect(existsSync(packagesDir(root))).toBe(false);
+  });
+});

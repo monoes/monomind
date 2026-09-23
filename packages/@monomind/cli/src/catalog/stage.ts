@@ -212,6 +212,11 @@ function sanitizeSkillMd(dir: string): { path: string; reason: string }[] {
 /** Stage one candidate from `src` (owner/repo, git URL or local path). */
 export async function stage(root: string, src: string, opts: StageOptions): Promise<StageResult> {
   const now = opts.now ?? new Date().toISOString();
+  // Never echo the URL: it would print the credential it carries.
+  if (!existsSync(src) && /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*@/i.test(src))
+    throw new CatalogStateError(
+      'refusing a source URL with embedded credentials (user[:token]@); use a git credential helper',
+    );
   const co = checkout(src);
   const store = packagesDir(root);
   const storeExisted = existsSync(store);

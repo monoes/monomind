@@ -33,7 +33,8 @@ export const CatalogSourceSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('git'),
-      url: z.string().regex(/^(?:https:\/\/[^\s]+|git@[\w.-]+:[^\s]+)$/),
+      // No userinfo on https: a `user:token@` URL would persist the credential.
+      url: z.string().regex(/^(?:https:\/\/[^\s/@]+(?:\/\S*)?|git@[\w.-]+:[^\s]+)$/),
       commit: z.string().regex(/^[0-9a-f]{40}$/),
       path: z.string(),
       license: z.enum(['MIT', 'Apache-2.0']),

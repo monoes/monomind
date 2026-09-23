@@ -119,7 +119,9 @@ never create files; only a mutating verb creates `.monomind/catalog/`.
 `monomind org skills import` and records the fetched `HEAD` commit; a local
 path is recorded with its commit when it is a Git work tree. The candidate is
 copied first and the copy is what gets inspected, hashed and stored, so a
-source edited mid-stage cannot reach the store.
+source edited mid-stage cannot reach the store. A URL carrying credentials
+(`https://user:token@host/…`) is refused rather than recorded; use a Git
+credential helper.
 
 `monomind org skills import` remains the **immediate legacy importer**: it
 writes straight into `.monomind/org-skills/` (`~/.monomind/org-skills/` with

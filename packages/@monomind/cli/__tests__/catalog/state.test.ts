@@ -82,6 +82,14 @@ describe('CatalogEntrySchema', () => {
   it('rejects unknown keys', () => {
     expect(CatalogEntrySchema.safeParse({ ...entry(), extra: 1 }).success).toBe(false);
   });
+  it('rejects a git source URL carrying userinfo, accepts the plain and ssh forms', () => {
+    const git = (url: string) =>
+      entry({ source: { kind: 'git', url, commit: 'b'.repeat(40), path: '.', license: 'MIT' } });
+    expect(() => CatalogEntrySchema.parse(git('https://user:tok@github.com/o/r.git'))).toThrow();
+    expect(() => CatalogEntrySchema.parse(git('https://tok@github.com/o/r.git'))).toThrow();
+    expect(CatalogEntrySchema.parse(git('https://github.com/o/r.git')).source).toMatchObject({ kind: 'git' });
+    expect(CatalogEntrySchema.parse(git('git@github.com:o/r.git')).source).toMatchObject({ kind: 'git' });
+  });
   it('rejects the unknown target platform:codex', () => {
     const bad = { ...entry(), targets: ['platform:codex'] };
     expect(CatalogEntrySchema.safeParse(bad).success).toBe(false);
