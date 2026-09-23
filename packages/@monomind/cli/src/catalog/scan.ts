@@ -39,9 +39,30 @@ const RESERVED_MARKERS = ['<!-- catalog ', 'monomind:start', 'monomind:end'];
  * and ~~~! fenced blocks when the skill loads.
  */
 const SHELL_EXEC = [/(?:^|\s)!(?=[`$])/m, /```!/, /^[ \t]*~{3,}[ \t]*!/m];
+/**
+ * What Claude Code substitutes before it extracts runs: `$ARGUMENTS`,
+ * `$ARGUMENTS[n]`, `$n`, `${CLAUDE_…}` (and a `\` escape that drops to the
+ * literal). A preload substitutes "" and an argument can be any text except a
+ * `!` (it escapes those), so a placeholder next to a `!` — directly after it,
+ * or anywhere in the run of spaces, backticks and tildes before it — can
+ * splice a run that the text as written does not contain.
+ */
+const PLACEHOLDER = /\\?\$(?:ARGUMENTS(?:\[\d+\])?|\d+(?!\w)|\{[^}\s]*\})/g;
+const BEFORE_BANG = ' \t`~\0';
+
+function placeholderSplice(text: string): boolean {
+  const t = text.replace(PLACEHOLDER, '\0');
+  // Runs end at a `!`, so each character is scanned at most once.
+  for (let i = t.indexOf('!'); i !== -1; i = t.indexOf('!', i + 1)) {
+    if (t[i + 1] === '\0') return true;
+    for (let j = i - 1; j >= 0 && BEFORE_BANG.includes(t[j]); j--) if (t[j] === '\0') return true;
+  }
+  return false;
+}
 
 /** True when `text` carries Markdown that a platform executes as a shell command. */
-export const shellExecSyntax = (text: string): boolean => SHELL_EXEC.some((re) => re.test(text));
+export const shellExecSyntax = (text: string): boolean =>
+  SHELL_EXEC.some((re) => re.test(text)) || placeholderSplice(text);
 
 /** Every path under `dir`, relative, with its lstat kind. Skipped dirs are reported, not walked. */
 function walk(
@@ -173,7 +194,9 @@ export async function inspectPackage(
     const marker = RESERVED_MARKERS.find((m) => content.includes(m));
     if (marker) return refuse(`${f} contains reserved marker text "${marker.trim()}"`);
     if (f.endsWith('.md') && shellExecSyntax(content))
-      return refuse(`body-exec: ${f} contains shell execution syntax (!\`…\` or a \`\`\`! block)`);
+      return refuse(
+        `body-exec: ${f} contains shell execution syntax (!\`…\`, a \`\`\`! block or a placeholder beside a !)`,
+      );
   }
   const scanned = accepted.filter((f) => f !== 'LICENSE.txt');
   const full = scanned.map((f) => readFileSync(join(dir, f), 'utf8')).join('\n\n');

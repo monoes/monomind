@@ -56,6 +56,10 @@ containing projection-marker text (`<!-- catalog `, `monomind:start`,
 Markdown carries shell execution syntax — an inline `` !`cmd` `` or a
 ` ```! ` run anywhere in the text (a blockquote, a list item or inline) or a
 `~~~!` fenced block, which Claude Code runs when the skill loads — is refused with `body-exec`.
+Claude Code substitutes `$ARGUMENTS`, `$ARGUMENTS[n]`, `$n` and `${CLAUDE_…}`
+before it looks for runs (a skill preload substitutes an empty string), so a
+placeholder directly after a `!`, or among the spaces, backticks and tildes
+before one, is refused the same way: ```` ``$ARGUMENTS`! ```` becomes ` ```! `.
 Every consumer re-verifies the digest of the package it reads, and a package
 path that escapes `packages/` (via `..`, an absolute segment or a symlink,
 checked on `realpath`) is never read.
