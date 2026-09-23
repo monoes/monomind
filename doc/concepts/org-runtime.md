@@ -763,6 +763,19 @@ again), a task blocked on a real-world time (`org_task_block`) is never nudged, 
 at most one nudge per dispatch. It does not change the idle watchdog, which remains the org-wide
 backstop.
 
+### Cost and Token Accounting
+
+The Claude SDK reports `total_cost_usd` and `modelUsage` as running totals for the CLI process, so
+each `result` is turned into a per-turn delta before it reaches the `usage` event and the role's
+`maxUsd`/`maxTokens` meters ([`cumulative-meter.ts → CumulativeMeter`](packages/@monomind/cli/src/orgrt/cumulative-meter.ts#CumulativeMeter)).
+A resumed session runs in a new process, and Claude Code only carries the old total into it when
+that session was the last to exit in the project directory — in an org, with several roles sharing
+a cwd, the total usually starts again from zero. The first result of a new process is therefore
+compared with the last value the previous process reported for the same session: at least as high
+means the total was carried over and only the increase counts; lower means it restarted and all of
+it counts. Within one process a total that dips floors at 0. Before this, a resumed session's first
+turn was billed as `max(0, small − previous) = 0`.
+
 ### Silent Session Alarm
 
 `SILENT_SESSION_MS = 4 minutes` — if the stream opens but emits zero messages within this window, an alarm is raised.

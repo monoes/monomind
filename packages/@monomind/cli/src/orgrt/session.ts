@@ -29,6 +29,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { ensureAuthorityDirs } from './authority-mask.js';
 import { resolveRoleCostTier } from './cost-tier.js';
+import { CumulativeMeter } from './cumulative-meter.js';
 import type { StreamOptions } from './mailbox.js';
 import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
@@ -508,16 +509,16 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   // The SDK's result message reports total_cost_usd CUMULATIVELY for the whole
   // SDK session: one query() call stays open across every mailbox message
   // (streaming-input mode) and emits one result per message, and the running
-  // total even survives a resume after a maxTurns restart. daemon.ts and
+  // total can survive a resume after a restart. daemon.ts and
   // reporting.ts both SUM the cost_usd of usage events, so forwarding the raw
   // value charged every previous turn again on each new message - observed as
-  // ~10-20x cost inflation on long org runs. Track the last-seen total per
-  // SDK session id here (it must outlive individual runOneSession calls,
-  // since resume continues the same billing session) and emit only deltas.
-  const sessionCostTotals = new Map<string, number>();
+  // ~10-20x cost inflation on long org runs. The meter outlives individual
+  // runOneSession calls and emits only deltas; see cumulative-meter.ts for why
+  // it is also told when a new process starts.
+  const sessionCostTotals = new CumulativeMeter<{ usd: number }>();
   // ADR-O001 D1: modelUsage is cumulative per session exactly like
-  // total_cost_usd, so it needs the same prev-value map to become a delta.
-  const sessionTokenTotals = new Map<string, TokenUsage>();
+  // total_cost_usd, so it needs the same meter to become a delta.
+  const sessionTokenTotals = new CumulativeMeter<TokenUsage>();
   // ADR-O001 D3. 'role' scope (the default) keeps the pre-D3 loop exactly: one
   // model session for the role's life, resumed across maxTurns restarts via
   // resumeSessionId. 'task' scope keys model sessions by the task a message
@@ -833,14 +834,12 @@ function turnBreakdown(m: AgentMessage): TokenUsage {
  *  When the runner reports `cumulative_tokens` (the Claude SDK's whole-pipeline
  *  `modelUsage`, which unlike `usage` includes Task subagents and sidechains),
  *  that value is CUMULATIVE per session — the same lifecycle as
- *  `total_cost_usd` — so it is converted to a delta against the previous value
- *  for the same session_id. A fresh/restarted session has no prior entry and
- *  correctly yields its full value; a value that ticks down (a provider-side
- *  correction) floors at 0 rather than re-adding the whole cumulative total.
- *  Without `cumulative_tokens` the per-turn fields are used as before. */
+ *  `total_cost_usd` — so it is converted to a delta by the meter (see
+ *  cumulative-meter.ts). Without `cumulative_tokens` the per-turn fields are
+ *  used as before. */
 function resultBreakdown(
   m: AgentMessage,
-  tokenTotals: Map<string, TokenUsage> | undefined,
+  tokenTotals: CumulativeMeter<TokenUsage> | undefined,
   sid: string,
 ): TokenUsage {
   const cum = m.cumulative_tokens;
@@ -851,16 +850,7 @@ function resultBreakdown(
     cacheRead: cum.cache_read,
     cacheCreation: cum.cache_creation,
   };
-  if (!tokenTotals) return now;
-  const prev = tokenTotals.get(sid);
-  tokenTotals.set(sid, now);
-  if (!prev) return now;
-  return {
-    input: Math.max(0, now.input - prev.input),
-    output: Math.max(0, now.output - prev.output),
-    cacheRead: Math.max(0, now.cacheRead - prev.cacheRead),
-    cacheCreation: Math.max(0, now.cacheCreation - prev.cacheCreation),
-  };
+  return tokenTotals ? tokenTotals.delta(sid, now) : now;
 }
 
 /** One bounded SDK session for a role; resolves with the SDK's session_id (for
@@ -870,12 +860,16 @@ function resultBreakdown(
 async function runOneSession(
   opts: SessionOpts,
   resume?: string,
-  costTotals?: Map<string, number>,
+  costTotals?: CumulativeMeter<{ usd: number }>,
   progress?: { replied: boolean },
-  tokenTotals?: Map<string, TokenUsage>,
+  tokenTotals?: CumulativeMeter<TokenUsage>,
   streamOpts?: StreamOptions,
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
+  // Each call starts a new runner process, whose cumulative totals may or may
+  // not continue the previous one's (cumulative-meter.ts).
+  costTotals?.newProcess();
+  tokenTotals?.newProcess();
   // Read lastMessageId live from opts instead of capturing at session start
   // This ensures chat responses link to the most recent message delivered
   const getLastMessageId = () => (opts.lastMessageId ? opts.lastMessageId() : undefined);
@@ -1278,22 +1272,16 @@ async function runOneSession(
           cacheCreation: messageTurnTokens.cacheCreation + shortfall.cacheCreation,
         };
         messageTurnTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-        // Convert the SDK's cumulative-per-session total_cost_usd into a
-        // per-result delta before emitting - downstream sums usage events.
-        // costTotals is keyed by session_id, so a genuinely new/restarted
-        // session (fresh sid, no prior entry) correctly gets its full
-        // cumulative value as the delta. A same-sid value that ticks down
-        // (rounding, a provider-side cost correction) is NOT a restart —
-        // treating it as one would re-add the full cumulative cost and,
-        // now that this feeds real USD budget enforcement (ORG-7), could
-        // incorrectly close a well-behaved session's mailbox. Floor at 0
-        // instead of re-adding the cumulative value in that case.
+        // Convert the SDK's cumulative total_cost_usd into a per-result
+        // delta before emitting - downstream sums usage events. A new session
+        // id counts in full; a same-process dip (rounding, a provider-side
+        // correction) floors at 0 rather than re-adding the cumulative cost,
+        // which feeds USD budget enforcement (ORG-7). A resume in a new
+        // process is judged by the meter (cumulative-meter.ts).
         let costDelta = m.cost_usd;
         if (costTotals && typeof m.cost_usd === 'number' && Number.isFinite(m.cost_usd)) {
           const sid = m.session_id ?? sessionId ?? '';
-          const prev = costTotals.get(sid);
-          costDelta = prev === undefined ? m.cost_usd : Math.max(0, m.cost_usd - prev);
-          costTotals.set(sid, m.cost_usd);
+          costDelta = costTotals.delta(sid, { usd: m.cost_usd }).usd;
         }
         // ORG-7: accumulate real USD cost so policy.overBudgetUsd (role.budget_usd) is enforceable.
         if (typeof costDelta === 'number' && Number.isFinite(costDelta))
