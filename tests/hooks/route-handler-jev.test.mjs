@@ -234,6 +234,34 @@ describe('route-handler with Jev', () => {
     expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
   });
 
+  it('persists the route inside the 5 s hook exit after a timed-out Jev pick and a slow intelligence lookup', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
+    vi.stubEnv('MONOMIND_JEV_HOOK_TIMEOUT_MS', '4000');
+    // Jev never answers; the request only ends when its signal aborts.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      ),
+    );
+    // An intelligence bridge that answers well after the 2 s race it used to get.
+    const bridge = path.join(tmpDir, 'packages', '@monomind', 'cli', 'dist', 'src', 'mcp-tools');
+    fs.mkdirSync(bridge, { recursive: true });
+    fs.writeFileSync(path.join(bridge, 'package.json'), '{"type":"module"}');
+    fs.writeFileSync(
+      path.join(bridge, 'hooks-embedding.js'),
+      'export const suggestAgentsFromIntelligence = () => new Promise((r) => setTimeout(() => r({ agents: ["tester"], confidence: 0.99 }), 1900));\n',
+    );
+    const started = Date.now();
+    await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
+    const elapsed = Date.now() - started;
+    expect(elapsed).toBeLessThan(4800);
+    expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
+  }, 15000);
+
   it('makes no request when Jev is not configured', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', '');
     const fetchSpy = vi.fn(async () => new Response('{}', { status: 404 }));

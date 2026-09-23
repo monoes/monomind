@@ -137,6 +137,7 @@ function _applyJevPick(result, jev) {
 
 module.exports = {
   handle: async function(hCtx) {
+    var hookStart = Date.now();
     var prompt = hCtx.prompt;
     var hookInput = hCtx.hookInput;
     var router = hCtx.router;
@@ -282,14 +283,17 @@ module.exports = {
       // This ENHANCES the keyword route — it only overrides when the
       // embedding match is meaningfully more confident, and never blocks or
       // delays routing beyond a 2s budget (fails silently otherwise).
-      if (result.routingMethod !== 'jev') try {
+      // A slow or failed Jev attempt may already have spent most of the 5 s
+      // hook exit, so the budget shrinks to keep the route persist below in time.
+      var intelBudgetMs = Math.min(2000, Math.max(0, 4500 - (Date.now() - hookStart)));
+      if (result.routingMethod !== 'jev' && intelBudgetMs > 0) try {
         var intelResult = await Promise.race([
           (async function() {
             var mod = await _loadIntelligenceModule(CWD);
             if (!mod || !mod.suggestAgentsFromIntelligence) return null;
             return await mod.suggestAgentsFromIntelligence(prompt);
           })(),
-          new Promise(function(resolve) { setTimeout(function() { resolve(null); }, 2000); })
+          new Promise(function(resolve) { setTimeout(function() { resolve(null); }, intelBudgetMs); })
         ]);
         if (intelResult && intelResult.agents && intelResult.agents.length > 0) {
           var topIntelAgent = intelResult.agents[0];
