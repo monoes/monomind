@@ -42,7 +42,12 @@ export function backup(path: string, root: string, privateBackup = false): void 
   // backup (of the same file, or of a directory holding it) never overwrites it.
   const rel = relative(root, path);
   const inside = rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
-  const external = join('_external', resolve(path).replace(/[:\\/]+/g, '_'));
+  // Outside `root`: mirror the absolute path, each segment percent-encoded
+  // (a drive `C:` included), so two different paths never share a name.
+  const external = join(
+    '_external',
+    ...resolve(path).split(sep).filter(Boolean).map(encodeURIComponent),
+  );
   const destination = join(backupRoot, inside ? rel : external);
   mkdirSync(dirname(destination), { recursive: true });
   if (statSync(path).isDirectory()) cpSync(path, destination, { recursive: true, force: false });

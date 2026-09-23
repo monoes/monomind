@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -227,6 +227,49 @@ describe('backup', () => {
     } finally {
       vi.restoreAllMocks();
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps a file and then its directory apart within one millisecond', () => {
+    const root = mkdtempSync(join(tmpdir(), 'platform-backup-'));
+    try {
+      vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      const dir = join(root, '.claude', 'skills', 'demo');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'SKILL.md'), 'first\n');
+      backup(join(dir, 'SKILL.md'), root);
+      writeFileSync(join(dir, 'SKILL.md'), 'second\n');
+      writeFileSync(join(dir, 'notes.md'), 'notes\n');
+      backup(dir, root);
+      const saved = join(root, '.monomind', 'backups', `1700000000000-${process.pid}`, '.claude', 'skills', 'demo');
+      expect(readFileSync(join(saved, 'SKILL.md'), 'utf8')).toBe('first\n');
+      expect(readFileSync(join(saved, 'notes.md'), 'utf8')).toBe('notes\n');
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('never folds two external paths into one backup name', () => {
+    const root = mkdtempSync(join(tmpdir(), 'platform-backup-'));
+    const outside = mkdtempSync(join(tmpdir(), 'platform-backup-ext-'));
+    try {
+      vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      mkdirSync(join(outside, 'a'), { recursive: true });
+      mkdirSync(join(outside, 'a_b'), { recursive: true });
+      writeFileSync(join(outside, 'a', 'b_c'), 'one\n');
+      writeFileSync(join(outside, 'a_b', 'c'), 'two\n');
+      backup(join(outside, 'a', 'b_c'), root);
+      backup(join(outside, 'a_b', 'c'), root);
+      const external = join(root, '.monomind', 'backups', `1700000000000-${process.pid}`, '_external');
+      const copies = (readdirSync(external, { recursive: true }) as string[])
+        .filter((f) => statSync(join(external, f)).isFile())
+        .map((f) => readFileSync(join(external, f), 'utf8'));
+      expect(copies.sort()).toEqual(['one\n', 'two\n']);
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 });
