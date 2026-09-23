@@ -12,6 +12,9 @@
  */
 var fs = require('fs');
 var path = require('path');
+var redaction = require('./redact-secrets.cjs');
+
+var redactSecrets = redaction.redactSecrets;
 
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
 var DEFAULT_MODEL = 'jev-latest';
@@ -33,33 +36,6 @@ var OFF_VALUES = ['0', 'off', 'false', 'no'];
 var ON_VALUES = ['1', 'on', 'true', 'yes'];
 var DEFAULT_HOOK_TIMEOUT_MS = 1500;
 var MAX_HOOK_TIMEOUT_MS = 4000;
-// Ported VERBATIM from packages/@monomind/cli/src/utils/redaction.ts SECRET_PATTERNS
-// (the maintained redactor: JSON keys, header bearer tokens, fine-grained GitHub,
-// GitLab, Slack, Stripe, JWT, credentialed URLs, AWS/Google keys, Basic auth,
-// env passwords). A test compares the two lists source-for-source, so an edit to
-// one without the other fails CI.
-var SECRET_PATTERNS = [
-  /(?:api[_-]?key|apikey)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:secret|password|passwd|pwd)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:token|bearer)['"]?\s*[:=]\s*['"]?[^\s'"]{10,}['"]?/gi,
-  /\bbearer\s+['"]?[^\s'"]{10,}['"]?/gi,
-  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
-  /sk-ant-[a-zA-Z0-9_-]{20,}/g,
-  /sk-[a-zA-Z0-9_-]{20,}/g,
-  /gh[pousr]_[A-Za-z0-9]{20,}/g,
-  /github_pat_[A-Za-z0-9_]{20,}/g,
-  /glpat-[A-Za-z0-9_-]{16,}/g,
-  /xox[abprs]-[A-Za-z0-9-]{10,}/g,
-  /sk_(?:live|test)_[A-Za-z0-9]{16,}/g,
-  /npm_[A-Za-z0-9]{20,}/g,
-  /AKIA[0-9A-Z]{16}/g,
-  /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g,
-  /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g,
-  /aws_?secret_?access_?key['"]?\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  /AIza[0-9A-Za-z_-]{35}/g,
-  /\bauthorization['"]?\s*[:=]\s*['"]?basic\s+[A-Za-z0-9+/]+={0,2}/gi,
-  /\b(?:[A-Z0-9]+_)*(?:PASS|PASSWORD|PASSWD|PWD)\s*=\s*['"]?[^\s'"]+['"]?/g,
-];
 
 class JevError extends Error {
   constructor(message, provider, status) {
@@ -108,15 +84,6 @@ function resolveTimeoutMs(env) {
 function resolveHookTimeoutMs(env) {
   var n = Number((env || process.env).MONOMIND_JEV_HOOK_TIMEOUT_MS);
   return Number.isInteger(n) && n >= MIN_TIMEOUT_MS && n <= MAX_HOOK_TIMEOUT_MS ? n : DEFAULT_HOOK_TIMEOUT_MS;
-}
-
-/** Mask credential-shaped text before it leaves the machine — same output as redaction.ts redactSecrets. */
-function redactSecrets(text) {
-  var out = String(text || '');
-  SECRET_PATTERNS.forEach(function (re) {
-    out = out.replace(re, '[redacted]');
-  });
-  return out;
 }
 
 function resolveMinConfidence(env) {
@@ -449,17 +416,44 @@ function loadAgentCatalog(root) {
   return out;
 }
 
+/** .monomind/catalog/state.json as { ok, known, allowed } skill-name sets, where
+ *  allowed = active with the jev target; null when there is no state file. */
+function catalogJevGate(root) {
+  var file = path.join(root, '.monomind', 'catalog', 'state.json');
+  if (!fs.existsSync(file)) return null;
+  var state = readJsonFile(file);
+  var gate = { ok: !!state && Array.isArray(state.entries), known: new Set(), allowed: new Set() };
+  (gate.ok ? state.entries : []).forEach(function (e) {
+    if (!e || typeof e.id !== 'string' || e.id.indexOf('skill:') !== 0) return;
+    gate.known.add(e.id.slice(6));
+    if (e.status === 'active' && Array.isArray(e.targets) && e.targets.indexOf('jev') !== -1) {
+      gate.allowed.add(e.id.slice(6));
+    }
+  });
+  return gate;
+}
+
+/** The catalog state decides, not the (possibly stale) projection marker: a
+ *  disabled, revoked or no-jev entry drops out before re-projection, and an
+ *  unreadable state drops every marked skill (fail closed). */
+function jevAllowed(gate, s) {
+  if (s.catalog && (!gate.ok || !gate.allowed.has(String(s.catalog.id).replace(/^skill:/, '')))) return false;
+  return !gate.known.has(s.skill) || gate.allowed.has(s.skill);
+}
+
 /** Skills/commands from .claude/helpers/skill-registry.json (build-skill-registry.cjs).
  *  Command/skill mirrors of one capability collapse, preferring the slash form. */
 function loadSkillCatalog(root) {
   var reg = readJsonFile(path.join(root, '.claude', 'helpers', 'skill-registry.json'));
   var list = reg && Array.isArray(reg.skills) ? reg.skills : [];
+  var gate = catalogJevGate(root);
   var byKey = new Map();
   list.forEach(function (s) {
     if (!s || typeof s.skill !== 'string' || typeof s.invoke !== 'string') return;
     // A catalog projection reaches the decision model only when approved with
     // the jev target; ordinary skills carry no catalog field and are unaffected.
     if (s.catalog && s.catalog.jev !== true) return;
+    if (gate && !jevAllowed(gate, s)) return;
     var key = s.skill.toLowerCase().replace(/[:_]/g, '-');
     var prev = byKey.get(key);
     if (prev && !(s.invoke.charAt(0) === '/' && prev.invoke.charAt(0) !== '/')) return;
@@ -483,7 +477,7 @@ module.exports = {
   resolveMinConfidence: resolveMinConfidence,
   resolveHookTimeoutMs: resolveHookTimeoutMs,
   redactSecrets: redactSecrets,
-  SECRET_PATTERNS: SECRET_PATTERNS,
+  SECRET_PATTERNS: redaction.SECRET_PATTERNS,
   resolveProviders: resolveProviders,
   postSystemOne: postSystemOne,
   ask: ask,

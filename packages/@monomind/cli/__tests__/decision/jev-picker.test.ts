@@ -342,6 +342,57 @@ describe('catalog loaders', () => {
     ]);
   });
 
+  it('lets a catalog skill through only while its state entry is active with the jev target', () => {
+    root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
+    mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
+    const marked = (name: string) => ({
+      skill: name,
+      invoke: `Skill("${name}")`,
+      description: name,
+      catalog: { id: `skill:${name}`, jev: true },
+    });
+    const bare = (name: string) => ({ skill: name, invoke: `Skill("${name}")`, description: name });
+    writeFileSync(
+      join(root, '.claude', 'helpers', 'skill-registry.json'),
+      JSON.stringify({
+        skills: [
+          bare('plain'),
+          marked('cat-active'),
+          marked('cat-disabled'),
+          marked('cat-no-jev'),
+          marked('cat-unknown'),
+          bare('old-revoked'), // an old builder dropped the catalog field
+          bare('old-active'),
+        ],
+      }),
+    );
+    const ids = () => jp.loadSkillCatalog(root).map((s: { id: string }) => s.id);
+    // No state file: the registry's marker is all there is (unchanged behaviour).
+    expect(ids()).toEqual(['plain', 'cat-active', 'cat-disabled', 'cat-no-jev', 'cat-unknown', 'old-revoked', 'old-active']);
+
+    const entry = (name: string, status: string, targets: string[]) => ({ id: `skill:${name}`, status, targets });
+    mkdirSync(join(root, '.monomind', 'catalog'), { recursive: true });
+    const state = join(root, '.monomind', 'catalog', 'state.json');
+    writeFileSync(
+      state,
+      JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          entry('cat-active', 'active', ['org', 'jev']),
+          entry('cat-disabled', 'disabled', ['org', 'jev']),
+          entry('cat-no-jev', 'active', ['org']),
+          entry('old-revoked', 'revoked', ['org', 'jev']),
+          entry('old-active', 'active', ['org', 'jev']),
+        ],
+      }),
+    );
+    expect(ids()).toEqual(['plain', 'cat-active', 'old-active']);
+
+    // Unreadable state: every catalog-marked skill is dropped, the rest stay.
+    writeFileSync(state, '{ not json');
+    expect(ids()).toEqual(['plain', 'old-revoked', 'old-active']);
+  });
+
   it('returns empty catalogs when the files are missing', () => {
     root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
     expect(jp.loadAgentCatalog(root)).toEqual([]);

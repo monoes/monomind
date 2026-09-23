@@ -1,0 +1,43 @@
+'use strict';
+/**
+ * Secret redaction for text that leaves the machine (jev-picker.cjs masks the
+ * task and candidate descriptions with it before a decision-model request).
+ */
+// Ported VERBATIM from packages/@monomind/cli/src/utils/redaction.ts SECRET_PATTERNS
+// (the maintained redactor: JSON keys, header bearer tokens, fine-grained GitHub,
+// GitLab, Slack, Stripe, JWT, credentialed URLs, AWS/Google keys, Basic auth,
+// env passwords). A test compares the two lists source-for-source, so an edit to
+// one without the other fails CI.
+var SECRET_PATTERNS = [
+  /(?:api[_-]?key|apikey)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
+  /(?:secret|password|passwd|pwd)['"]?\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
+  /(?:token|bearer)['"]?\s*[:=]\s*['"]?[^\s'"]{10,}['"]?/gi,
+  /\bbearer\s+['"]?[^\s'"]{10,}['"]?/gi,
+  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
+  /sk-ant-[a-zA-Z0-9_-]{20,}/g,
+  /sk-[a-zA-Z0-9_-]{20,}/g,
+  /gh[pousr]_[A-Za-z0-9]{20,}/g,
+  /github_pat_[A-Za-z0-9_]{20,}/g,
+  /glpat-[A-Za-z0-9_-]{16,}/g,
+  /xox[abprs]-[A-Za-z0-9-]{10,}/g,
+  /sk_(?:live|test)_[A-Za-z0-9]{16,}/g,
+  /npm_[A-Za-z0-9]{20,}/g,
+  /AKIA[0-9A-Z]{16}/g,
+  /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g,
+  /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g,
+  /aws_?secret_?access_?key['"]?\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
+  /AIza[0-9A-Za-z_-]{35}/g,
+  /\bauthorization['"]?\s*[:=]\s*['"]?basic\s+[A-Za-z0-9+/]+={0,2}/gi,
+  /\b(?:[A-Z0-9]+_)*(?:PASS|PASSWORD|PASSWD|PWD)\s*=\s*['"]?[^\s'"]+['"]?/g,
+];
+
+/** Mask credential-shaped text before it leaves the machine — same output as redaction.ts redactSecrets. */
+function redactSecrets(text) {
+  var out = String(text || '');
+  SECRET_PATTERNS.forEach(function (re) {
+    out = out.replace(re, '[redacted]');
+  });
+  return out;
+}
+
+module.exports = { SECRET_PATTERNS: SECRET_PATTERNS, redactSecrets: redactSecrets };
