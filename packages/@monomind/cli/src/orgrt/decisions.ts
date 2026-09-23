@@ -211,6 +211,17 @@ export function dagCreateTask(
   }
 }
 
+/** org_tasks: every task, or just `taskId` (its row carries the result and
+ *  latest evidence) — the full listing of a long run gets spilled to a file. */
+export function dagListTasks(daemon: OrgDaemon, org: string, taskId?: string): string {
+  const dag = daemon.orgs.get(org)?.taskDag;
+  if (!taskId) return JSON.stringify(dag?.all() ?? [], null, 2);
+  const task = dag?.get(taskId);
+  return task
+    ? JSON.stringify(task, null, 2)
+    : JSON.stringify({ error: `task "${taskId}" not found` });
+}
+
 export interface PlanTaskSpec {
   name: string;
   title: string;

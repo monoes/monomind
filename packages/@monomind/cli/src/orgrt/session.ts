@@ -378,8 +378,8 @@ export interface SessionOpts {
    *  a role with review_input: 'artifact-only'; otherwise org_review is not
    *  registered and the tool list is unchanged. */
   requestReview?: (role: string, taskId: string, reviewer: string, base?: string) => string;
-  /** Task DAG: list all tasks. */
-  listTasks?: () => string;
+  /** Task DAG: list all tasks, or just `taskId`. */
+  listTasks?: (taskId?: string) => string;
   splitTask?: (
     role: string,
     parentId: string,
@@ -1690,9 +1690,10 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   if (listTasks) {
     tools.push({
       name: 'org_tasks',
-      description: 'List all tasks in the DAG with their current status and dependencies.',
-      schema: {},
-      handler: async () => text(listTasks()),
+      description:
+        'List all tasks in the DAG with their current status and dependencies. Pass `taskId` to get just that task, including its result and latest evidence.',
+      schema: { taskId: z.string().optional() },
+      handler: async (args) => text(listTasks(args.taskId as string | undefined)),
     });
   }
   const splitTask = opts.splitTask;

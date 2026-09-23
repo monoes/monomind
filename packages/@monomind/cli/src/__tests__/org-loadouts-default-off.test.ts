@@ -157,4 +157,5 @@ const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e
 // Recaptured when org_task and org_plan_graph nodes gained an optional `brief`
 // (the task's instructions, sent with its dispatch) — a shared schema, so one
 // cache miss per org on upgrade in exchange for briefs that arrive in time.
-const TOOLS_SHA = '597bbc8759a6e65445b7d32df22216f047c0bf16fdc02d2fc3ad21e3c1c7d790';
+// Recaptured when org_tasks gained an optional `taskId` filter.
+const TOOLS_SHA = 'fa7aa5c81b4d59951b463e5abe90344dd6dc6bafaeb0517d1018961269977353';

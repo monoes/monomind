@@ -2172,10 +2172,7 @@ export class OrgDaemon {
         ? (r: string, taskId: string, reviewer: string, base?: string) =>
             this.dagRequestReview(name, r, taskId, reviewer, base)
         : undefined,
-      listTasks: () => {
-        const running = this.orgs.get(name);
-        return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
-      },
+      listTasks: (taskId?: string) => decisionOps.dagListTasks(this, name, taskId),
       splitTask: (r: string, parentId: string, children: { title: string; assignee: string }[]) => {
         return this.dagSplitTask(name, r, parentId, children);
       },

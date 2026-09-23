@@ -7,6 +7,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 ### Added
 
 - **`org_task` and `org_plan_graph` nodes take a `brief`.** The creator's instructions for a task — scope, acceptance criteria, paths, what failed last time, up to 4000 characters — are stored on the task and delivered in the same mailbox message as its title, every time it is dispatched: at creation, later when its dependencies complete, and again after a refused close or a checkpoint resume. Split children inherit it, and per-task skill suggestions still follow it. Until now `org_task` took only a title, so a coordinator sent the details in a follow-up `org_send`, which joined the dispatch only if it landed inside the 500 ms coalescing window; on the 2.16.0 release run it often did not — the publisher asked for the details twice, and the maintainer finished tasks before their briefs arrived and was then woken four more times (about 3M tokens).
+- **`org_tasks` takes an optional `taskId`.** It then returns just that task — status, result and latest evidence — instead of the whole DAG. On a long run the full listing is large enough to be spilled to a file, and on the 2.16.0 release run the coordinator read single tasks back out of those files with `dd` and `python`.
 
 ### Fixed
 
