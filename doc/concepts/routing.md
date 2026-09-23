@@ -50,6 +50,11 @@ flowchart TD
 
 When a task description is processed, Monomind routes it through a multi-tier waterfall:
 
+### Tier 0: Jev Decision Model (optional pre-step)
+- **File**: [`packages/@monomind/cli/src/routing/jev-step.ts`](packages/@monomind/cli/src/routing/jev-step.ts#routeWithJev), wired in ahead of Tier 1 by [`route-layer-factory.ts → createConfiguredRouteLayer`](packages/@monomind/cli/src/routing/route-layer-factory.ts#createConfiguredRouteLayer).
+- **Mechanism**: When `MONOMIND_JEV_URL` (self-hosted OpenJev) or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1` (hosted TypeSafe) is set, the decision model is asked to pick among `ALL_ROUTES` before any other tier runs — Tier 1's keyword hit, if any, is always offered as a candidate so Jev can confirm or override it. A confident pick returns immediately with `method: 'jev'`; with nothing configured, a low-confidence answer, or a provider error, `routeWithJev` returns `null` and Tiers 1–4 run exactly as before. Off by default.
+- **Also used by**: `monomind pick`, `monomind org skills search`, `org_task`'s `assignee: "auto"`, per-task org skill suggestions, and the `UserPromptSubmit` hook (agent + skill choice) — all through the same provider chain and the same null-on-unconfigured-or-failed contract. See [Skill Catalog](./catalog.md) for the skill-catalog side and `doctor -c jev` to probe configured providers.
+
 ### Tier 1: Deterministic Keyword Pre-Filter
 - **File**: [`packages/@monomind/routing/src/keyword-pre-filter.ts`](packages/@monomind/routing/src/keyword-pre-filter.ts#DEFAULT_KEYWORD_ROUTES)
 - **Mechanism**: Fast first-match regex evaluation against `DEFAULT_KEYWORD_ROUTES` (30+ rules covering security, test files, DevOps/Docker/Kubernetes, Solidity, ZK proofs, MCP, React Native, Swift, Kotlin, embedded, Salesforce, game engines, SEO, supply chain, GraphQL, and Databases).

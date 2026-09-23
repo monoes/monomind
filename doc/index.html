@@ -443,7 +443,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <rect class="arch-box" x="270" y="270" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
         <rect class="arch-box" x="530" y="270" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
         <text class="arch-label" x="120" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/cli</text>
-        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">32 commands</text>
+        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">38 commands</text>
         <text class="arch-sub" x="120" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Entry point</text>
         <text class="arch-label" x="380" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/hooks</text>
         <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">20 hook events · <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers</text>
@@ -482,7 +482,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <table class="doc-table">
       <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 32 commands, including <code>org</code> (org runtime v2, see <code>src/orgrt/</code>) and <code>monoswarm</code> (multi-agent coordination state)</td></tr>
+        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 38 commands, including <code>org</code> (org runtime v2, see <code>src/orgrt/</code>), <code>catalog</code> (skill catalog lifecycle) and <code>monoswarm</code> (multi-agent coordination state)</td></tr>
         <tr><td class="mono">@monoes/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>20 typed hook events (registry/executor) + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers; exposed via 29 <code>hooks</code> CLI subcommands</td></tr>
         <tr><td class="mono">@monoes/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — local SQLite with embedded vectors (default engine, local HF embeddings); a dormant pure-JS HNSW index is the scale-up path. LanceDB was removed 2026-07</td></tr>
         <tr><td class="mono">@monoes/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework for explicit HTTP/WebSocket transports (<code>mcp start -t http|websocket</code>). The default stdio path (<code>claude mcp add ... mcp start</code>) uses a separate hand-rolled JSON-RPC loop in the CLI itself, not this package.</td></tr>
@@ -761,7 +761,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">CLI Commands</h1>
-      <p class="page-desc">32 top-level commands. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
+      <p class="page-desc">38 top-level commands. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
     </div>
     <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="cli-search" placeholder="Search commands..." aria-label="Search CLI commands"></div>
     <div class="cmd-grid" id="cli-grid">
@@ -2274,7 +2274,7 @@ function setupReveals(container) {
 
 // ── HERO COUNTERS (RAF-based, no GSAP dependency) ────────────────────
 function animateHero() {
-  const DATA = [['stat-agents',60,'+'  ],['stat-commands',32,''],['stat-hooks',20,''],['stat-packages',9,'']];
+  const DATA = [['stat-agents',60,'+'  ],['stat-commands',38,''],['stat-hooks',20,''],['stat-packages',9,'']];
   if (!motionOK) {
     DATA.forEach(([id,t,s]) => { const el=document.getElementById(id); if(el) el.textContent=t+s; });
     return;

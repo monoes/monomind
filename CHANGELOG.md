@@ -4,9 +4,18 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **A Jev decision model can pick agents and skills instead of keyword ranking.** Point `MONOMIND_JEV_URL` at a self-hosted OpenJev server, or set `TYPESAFE_API_KEY` plus `MONOMIND_JEV_HOSTED=1` for hosted TypeSafe (`api.typesafe.ai`) — either way it's off by default, and keyword ranking stays as the fallback whenever nothing is configured or a call fails. It now backs the prompt hook's agent/skill choice, the route layer, the new `monomind pick -t "<task>"` command, `org skills search`, per-task org skill suggestions, and `org_task`'s `assignee: "auto"`. Prompt text is scanned for credential-shaped strings and masked before any of it leaves the machine; the prompt hook budgets **1.5s** for a decision, and a failed call trips a 5-minute circuit breaker (`.monomind/jev-breaker.json`) so a flaky provider can't slow down every keystroke. `monomind doctor -c jev` probes each configured provider.
+- **`monomind catalog` — a policy-governed catalog for imported and locally authored skills.** `stage`, `inspect`, `approve`, `activate`, `disable`, `quarantine`, `release`, `revoke`, `list`, `show`, `search`, `audit`, `project`, and `unproject` move an entry through an explicit lifecycle, with archetypes and blueprints for org roles and projection to `.claude/skills` and `.agents/skills` happening only once an operator asks for it. With no `.monomind/catalog`, every consumer behaves exactly as before — the catalog is entirely inert until a mutating command runs. `monomind doctor -c catalog` checks its health. See [Skill Catalog](doc/concepts/catalog.md).
+
 ### Fixed
 
 - **`monobrowse --version` crashed instead of printing a version.** ([Fixes #320](https://github.com/monoes/monomind/issues/320)) The standalone binary read its manifest with `_require('../package.json')` — correct for `src/cli.ts`, which sits one level under the package root, and wrong for the only file that ever runs it. The package compiles with `rootDir: "."`, so the entry point emits to `dist/src/cli.js` and `createRequire(import.meta.url)` resolved `../` to `dist/`, which holds no manifest: every `monobrowse --version` / `-V` died with `✗ Cannot find module '../package.json'` and exit 1, in the repo and from a clean `npm install` alike. The path now resolves from the compiled location, and a subprocess test spawns the built `dist/src/cli.js` — the exact file `bin.monobrowse` points at — because an in-process test re-resolves from `src/`, where the broken path already worked. Present since the binary was added (2026-06-22, `89b25c2ca1`); `monomind browse` never used this code path and was unaffected. `@monoes/monobrowse` 1.0.22.
+
+### Security
+
+- **Six rounds of review hardening on the catalog and Jev integration.** A frontmatter allow-list rejects unknown keys instead of passing them through; shell-execution syntax is refused wherever it can hide — including Claude Code's own argument substitution and a fence cut at the frontmatter boundary; the catalog scanner now fails closed on an unreadable or ambiguous package instead of admitting it; secret redaction runs in linear time so a large pasted blob can't stall the prompt hook; and Jev only ever sees catalog skills that are both active and explicitly granted to the `jev` target — approving a skill for any other surface no longer leaks it into Jev's picks.
 
 ## [2.15.7] — 2026-09-22
 

@@ -703,7 +703,7 @@ Constructs system prompt containing:
 | `org_recall` / `org_remember` / `org_learn` | All roles | Cross-run knowledge-graph memory |
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
 | `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools)) |
-| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools), backed by the `TaskDag` class, [`task-dag.ts → TaskDag`](packages/@monomind/cli/src/orgrt/task-dag.ts#TaskDag)). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246) — and when the task has already reached a terminal status, naming the caller's own open tasks instead (#319, see below). |
+| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts → buildOrgTools`](packages/@monomind/cli/src/orgrt/session.ts#buildOrgTools), backed by the `TaskDag` class, [`task-dag.ts → TaskDag`](packages/@monomind/cli/src/orgrt/task-dag.ts#TaskDag)). `assignee: "auto"` resolves to a live role instead of a fixed id (Jev-or-keyword, see below). `org_task_done` refuses (tool error, task left as-is) when any of the task's own deps are not yet `done`/`cancelled` — completing early used to promote dependents before their prerequisite work existed (#246) — and when the task has already reached a terminal status, naming the caller's own open tasks instead (#319, see below). |
 | `org_skill_load` | Roles with `skills`/`skill_pool` | Load the full text of one of the role's own skills, or one of its reference files (§6.6) |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
 
@@ -717,6 +717,19 @@ as one mailbox line, `[task:<id>] <title>` (plus `[loadout:<name>]` when one was
 The `[task:<id>]` tag is also the routing key: with `run_config.session_scope: "task"` the role's
 model session is keyed per task, so a dispatch resumes that task's session
 ([`session-ledger.ts → mailRouteKey`](packages/@monomind/cli/src/orgrt/session-ledger.ts#mailRouteKey)).
+
+`org_task`'s `assignee` accepts the literal string `"auto"`: [`daemon.ts → resolveAutoAssignee`](packages/@monomind/cli/src/orgrt/daemon.ts#resolveAutoAssignee)
+picks a live role for the task — the Jev decision model when configured (`MONOMIND_JEV_URL` /
+`TYPESAFE_API_KEY`, see [Routing](./routing.md)), falling back to a deterministic keyword match
+over each role's title and skills ([`picks.ts → pickRoleForTask`](packages/@monomind/cli/src/decision/picks.ts#pickRoleForTask))
+whenever Jev is unset, a call fails, or its confidence is too low — fixing an earlier bug (commit
+`7b767f8a4`) where a literal `"auto"` assignee only ever resolved via Jev and stayed `ready`
+forever with nothing dispatched when Jev was off, the default.
+Separately, when Jev is configured, each dispatch also asks it which of the assignee's own
+unloaded on-demand skills fit the task's title and appends the match to the mailbox line —
+`Skills that fit this task (load with org_skill_load): <names>` ([`decisions.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchLine),
+[`picks.ts → suggestTaskSkills`](packages/@monomind/cli/src/decision/picks.ts#suggestTaskSkills)) —
+this half has no keyword fallback and is silent when Jev is off.
 
 `org_task_done` closes the task the caller names, and with `run_config.notify_task_creator` the
 creator is sent `[task:<id>] DONE — …`. Both the tag and the title come from the task that just

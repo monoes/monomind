@@ -32,7 +32,13 @@
 
 ### Routing Subsystem
 - Maps prompts to specialist agents via a 4-tier cascade: Regex Pre-Filter, Vector Cosine Similarity, Neural Augmentation, and LLM Fallback.
+- Optional Tier 0: a Jev-compatible decision model (self-hosted OpenJev via `MONOMIND_JEV_URL`, or hosted TypeSafe with `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`) picks first when configured; off by default, and every tier below still runs unchanged when it is not. Also backs `monomind pick`, `org skills search`, `org_task`'s `assignee: "auto"`, per-task org skill suggestions, and the `UserPromptSubmit` hook.
 - Concept Doc: [`doc/concepts/routing.md`](doc/concepts/routing.md)
+
+### Skill Catalog
+- Policy-governed catalog for imported and locally authored skills, archetypes and blueprints (`monomind catalog`): `stage` -> `approve` -> `activate`/`quarantine`/`release`/`revoke`, with explicit `project`/`unproject` to `.claude/skills` and `.agents/skills`.
+- Inert with no `.monomind/catalog` — every consumer behaves exactly as before until an operator runs a mutating catalog command.
+- Concept Doc: [`doc/concepts/catalog.md`](doc/concepts/catalog.md)
 
 ### Hooks Subsystem
 - Lifecycle event interception including pre-edit, post-edit, pre-command, post-command, pre-task, and post-task hooks.
