@@ -19,6 +19,7 @@ import { applyIntents, resolveArtifactLocation } from '../platform-adapters/oper
 import { PLATFORM_REGISTRY } from '../platform-adapters/registry.js';
 import type { ArtifactIntent, InstallRequest, PlatformId } from '../platform-adapters/types.js';
 import { verifyEntry } from './digest.js';
+import { frontmatterViolations } from './frontmatter.js';
 import { buildSnapshot, type CatalogAsset, eligible } from './snapshot.js';
 import { CatalogIdSchema } from './types.js';
 
@@ -96,28 +97,6 @@ function listFiles(dir: string, prefix = ''): string[] {
   return out.sort();
 }
 
-/** The only top-level SKILL.md keys a platform copy may carry (no hooks, tool or model grants). */
-const FRONTMATTER_KEYS = new Set(['name', 'description', 'tags', 'tools', 'license']);
-
-/**
- * Top-level frontmatter lines that are not an allow-listed `key:` — a foreign
- * key, or anything else at column 0 (a flow mapping, a quoted or complex key)
- * that could smuggle one in. Indented lines, `- ` entries, comments and blank
- * lines belong to the value of the key above them.
- */
-function disallowedFrontmatter(skillMd: string): string[] {
-  const header = FRONTMATTER.exec(skillMd)?.[0];
-  if (!header) return [];
-  const bad: string[] = [];
-  for (const line of header.split(/\r?\n/).slice(1, -2)) {
-    if (/^(\s|- |#|$)/.test(line)) continue;
-    const key = /^([A-Za-z_][\w-]*)\s*:/.exec(line)?.[1];
-    const found = key ?? line.slice(0, 40);
-    if (!(key && FRONTMATTER_KEYS.has(key)) && !bad.includes(found)) bad.push(found);
-  }
-  return bad;
-}
-
 function withMarkerLine(skillMd: string, line: string): string {
   const header = FRONTMATTER.exec(skillMd)?.[0];
   if (!header) return skillMd;
@@ -136,7 +115,7 @@ function packageIntents(
   const paths: string[] = [];
   const files = listFiles(check.dir);
   if (files.includes('SKILL.md')) {
-    const bad = disallowedFrontmatter(readFileSync(join(check.dir, 'SKILL.md'), 'utf8'));
+    const bad = frontmatterViolations(readFileSync(join(check.dir, 'SKILL.md'), 'utf8'));
     if (bad.length) return { refused: `frontmatter-not-allowed: ${bad.join(', ')}` };
   }
   for (const file of files) {
