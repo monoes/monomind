@@ -83,7 +83,10 @@ const SECRET_PATTERNS: RegExp[] = [
   // has no `:`/`=` between "bearer" and the value at all — a space only —
   // so none of the three keyword patterns above ever fired on it.
   /\bbearer\s+['"]?[^\s'"]{10,}['"]?/gi,
-  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
+  // R2 (ReDoS): the body stops at the next `-----` (a PEM body never holds one
+  // before its END line; `Proc-Type:`/`DEK-Info:` headers still pass), so
+  // repeated BEGIN lines with no END are not each rescanned to the end.
+  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----(?:[^-]|-(?!----))*-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
   /sk-ant-[a-zA-Z0-9_-]{20,}/g,
   /sk-[a-zA-Z0-9_-]{20,}/g,
   // i-116-redact: self-identifying credential prefixes — the prefix itself
@@ -110,8 +113,13 @@ const SECRET_PATTERNS: RegExp[] = [
   /sk_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe
   /npm_[A-Za-z0-9]{20,}/g, // npm, widened from {36}
   /AKIA[0-9A-Z]{16}/g,
-  /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
-  /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g, // user:pass@host connection strings
+  // R2 (ReDoS): every pattern here must stay linear, since the prompt hook runs
+  // this synchronously on pasted text. The lookbehind stops a long `eyJeyJ…`
+  // run from rescanning to its end at every `eyJ` (14 s on 200 KB); the
+  // scheme/user/password bounds do the same for the connection-string pattern
+  // (19 s on 200 KB of letters).
+  /(?<![a-zA-Z0-9_-])eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
+  /[a-zA-Z][a-zA-Z0-9+.-]{0,31}:\/\/[^:\s]{1,256}:[^@\s]{1,256}@[^\s'"]+/g, // user:pass@host connection strings
   /aws_?secret_?access_?key['"]?\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi, // AWS secret access key
   /AIza[0-9A-Za-z_-]{35}/g, // Google API key
   /\bauthorization['"]?\s*[:=]\s*['"]?basic\s+[A-Za-z0-9+/]+={0,2}/gi, // HTTP Basic credentials

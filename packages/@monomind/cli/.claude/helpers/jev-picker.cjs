@@ -29,6 +29,9 @@ var DEFAULT_MAX_SKILLS = 3;
 var DEFAULT_MAX_CANDIDATES = 30;
 var MAX_DESCRIPTION_CHARS = 160;
 var MAX_STATE_CHARS = 8000;
+// Text is cut to this before redaction, so the synchronous regex pass stays short;
+// the margin keeps a secret straddling the final cut (a PEM block is a few KB) whole.
+var REDACT_WINDOW_CHARS = 2 * MAX_STATE_CHARS;
 var MAX_RESPONSE_CHARS = 1024 * 1024;
 var MAX_CATALOG_BYTES = 5 * 1024 * 1024;
 var NONE_ID = '__none__';
@@ -280,7 +283,8 @@ function shortlist(query, items, limit, include) {
 // ── Picking ────────────────────────────────────────────────────────────────
 
 function describeItem(item) {
-  var text = redactSecrets(String(item.description || item.name || item.id)).replace(/\s+/g, ' ').trim();
+  var raw = String(item.description || item.name || item.id).slice(0, REDACT_WINDOW_CHARS);
+  var text = redactSecrets(raw).replace(/\s+/g, ' ').trim();
   return text.length > MAX_DESCRIPTION_CHARS ? text.slice(0, MAX_DESCRIPTION_CHARS - 1) + '…' : text;
 }
 
@@ -320,7 +324,7 @@ async function pick(task, catalogs, opts) {
   var env = opts.env || process.env;
   var providers = resolveProviders(env);
   if (providers.length === 0) return null;
-  var text = redactSecrets(task).slice(0, MAX_STATE_CHARS);
+  var text = redactSecrets(String(task || '').slice(0, REDACT_WINDOW_CHARS)).slice(0, MAX_STATE_CHARS);
   if (!text.trim()) return null;
   var max = opts.maxCandidates || DEFAULT_MAX_CANDIDATES;
   var include = opts.include || {};

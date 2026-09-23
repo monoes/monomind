@@ -280,6 +280,38 @@ describe('redaction', () => {
     expect(JSON.stringify(criteria)).not.toContain(key);
     expect(criteria.tester).toContain('[redacted]');
   });
+
+  it('redacts 200 KB of adversarial text in linear time (TS and CJS)', () => {
+    const rep = (s: string) => s.repeat(Math.ceil(200_000 / s.length)).slice(0, 200_000);
+    const inputs = [
+      rep('A'),
+      rep('a://'),
+      rep('a://b:'),
+      `a://${rep('b:')}`,
+      rep('eyJ'),
+      rep(`-----BEGIN RSA ${'PRIVATE'} KEY-----`),
+      Buffer.alloc(150_000, 7).toString('base64'),
+    ];
+    for (const redact of [jp.redactSecrets, redactSecretsTs]) {
+      for (const text of inputs) {
+        const started = performance.now();
+        redact(text);
+        expect(performance.now() - started).toBeLessThan(200);
+      }
+      expect(redact('x postgres://u:p@h y')).toBe('x [redacted] y');
+    }
+  });
+
+  it('caps the prompt and descriptions before redacting them', async () => {
+    const blob = `Please decode this: ${Buffer.alloc(150_000, 7).toString('base64')}`;
+    const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
+    const started = performance.now();
+    await jp.pick(blob, { agents: [agents[0], { ...agents[1], description: blob }] }, { env: localEnv, fetchImpl: f.impl });
+    expect(performance.now() - started).toBeLessThan(200);
+    const sent = JSON.parse(String(f.calls[0].init.body));
+    expect(sent.state).toBe(blob.slice(0, 8000));
+    expect(sent.questions.agent.criteria.tester).toHaveLength(160);
+  });
 });
 
 describe('accept rules', () => {
