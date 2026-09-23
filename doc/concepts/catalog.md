@@ -43,6 +43,14 @@ lists them only as collision context.
 
 A package is Markdown plus a license text. Scripts, binaries, MCP servers,
 hooks, symlinks and agent-execution configuration are rejected at staging.
+Platforms read execution config from `SKILL.md` frontmatter (`hooks`,
+`allowed-tools`, `model`, `context`, `agent`, …), so staging rewrites that
+frontmatter, before hashing, to the allow-list
+[`ALLOWED_FRONTMATTER_KEYS`](packages/@monomind/cli/src/catalog/frontmatter.ts#ALLOWED_FRONTMATTER_KEYS)
+— `name`, `description`, `tags`, `tools`, `license`, one line each — and keeps
+the body byte-for-byte. Each dropped key is listed under `rejected`. A package
+containing projection-marker text (`<!-- catalog `, `monomind:start`,
+`monomind:end`) is refused, so it cannot forge a marker.
 Every consumer re-verifies the digest of the package it reads, and a package
 path that escapes `packages/` (via `..`, an absolute segment or a symlink,
 checked on `realpath`) is never read.
@@ -125,9 +133,9 @@ writes straight into `.monomind/org-skills/` (`~/.monomind/org-skills/` with
 
 | Field | Meaning |
 |---|---|
-| `verdict` | `clean` or `quarantine`. A blocked scan, a scanner error or an unavailable scanner all yield `quarantine` |
+| `verdict` | `clean` or `quarantine`. A blocked scan, a scanner error, an unavailable scanner, or Markdown too large to scan in full (over 200,000 characters; summary `not fully scanned`) all yield `quarantine` |
 | `accepted` | Files kept in the package |
-| `rejected` | Files dropped, with the reason (`symlink`, `excluded directory`, `not a regular file`, `not Markdown or LICENSE.txt`, …) |
+| `rejected` | Files dropped, with the reason (`symlink`, `excluded directory`, `not a regular file`, `not Markdown or LICENSE.txt`, …), and `SKILL.md (frontmatter <key>)` for each frontmatter key removed |
 | `requestedTools` | The `tools:` the package's frontmatter asks for — requested, **not** granted |
 | `scanner` | Whether the monofence scanner ran, whether it blocked, and a short summary |
 | `override` | Present only after `release`: who accepted this revision despite the verdict, and why |

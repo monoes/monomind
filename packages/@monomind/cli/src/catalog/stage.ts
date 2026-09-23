@@ -28,6 +28,7 @@ import { checkout, findSkillDirs, skillLicense, toSkillName } from '../orgrt/ski
 import { parseFrontmatter } from '../orgrt/skill-library.js';
 import { BlueprintSchema } from './blueprints.js';
 import { packageDigest, packagesDir } from './digest.js';
+import { sanitizeFrontmatter } from './frontmatter.js';
 import { type FenceLoader, inspectPackage, MAX_FILE_BYTES, SKIP_DIRS } from './scan.js';
 import { CatalogStateError, HISTORY_CAP, loadCatalogState, mutateCatalogState } from './state.js';
 import type { CatalogEntry, CatalogStatus } from './types.js';
@@ -195,6 +196,19 @@ function sourceOf(
   };
 }
 
+/** Rewrites SKILL.md frontmatter to the allow-list in place; one reject record per dropped key. */
+function sanitizeSkillMd(dir: string): { path: string; reason: string }[] {
+  const file = join(dir, 'SKILL.md');
+  if (!existsSync(file)) return [];
+  const before = readFileSync(file, 'utf8');
+  const { text, removed } = sanitizeFrontmatter(before);
+  if (text !== before) writeFileSync(file, text);
+  return removed.map((key) => ({
+    path: `SKILL.md (frontmatter ${key})`,
+    reason: 'frontmatter key not allowed; removed',
+  }));
+}
+
 /** Stage one candidate from `src` (owner/repo, git URL or local path). */
 export async function stage(root: string, src: string, opts: StageOptions): Promise<StageResult> {
   const now = opts.now ?? new Date().toISOString();
@@ -217,6 +231,8 @@ export async function stage(root: string, src: string, opts: StageOptions): Prom
     temp = mkdtempSync(join(store, '.incoming', `${c.name}-`));
     const copyRejects = copyCandidate(c.dir, temp, verdict.file);
     if (verdict.file) copyNoFollow(verdict.file, join(temp, 'LICENSE.txt'));
+    // Before inspection and hashing: platforms execute frontmatter config.
+    if (kind !== 'blueprint') copyRejects.push(...sanitizeSkillMd(temp));
     const insp = await inspectPackage(temp, kind, { root, fence: opts.fence });
     if (insp.fatal) throw new CatalogStateError(`refused ${id}: ${insp.fatal}`);
     for (const r of insp.rejected) rmSync(join(temp, r.path), { recursive: true, force: true });
