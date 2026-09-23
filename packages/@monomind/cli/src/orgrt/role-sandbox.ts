@@ -58,6 +58,7 @@ import {
   gitLocalRemotePaths,
   prepareGitGuard,
 } from './git-guard.js';
+import { ORG_DISALLOWED_HARNESS_TOOLS } from './org-harness-tools.js';
 import { expandDenyWrite, underAnyRoot } from './sandbox-deny-write.js';
 import type { OrgDef, OrgRole } from './types.js';
 
@@ -195,6 +196,7 @@ export function buildClaudeRestrictions(
   const roleDenyWrite = (cfg?.denyWrite ?? []).map((p) => resolve(ctx.orgRoot ?? ctx.cwd, p));
 
   const disallowedTools = [
+    ...ORG_DISALLOWED_HARNESS_TOOLS,
     rule('Edit', `${guard.dir}/**`),
     ...gitDirs.flatMap((d) =>
       lockedRepo
@@ -359,7 +361,10 @@ export function resolveRoleGitEnforcement(args: {
       ]),
     });
   let guard = build(false);
-  if (!guard) return { env: {} };
+  if (!guard)
+    return args.claudeRuntime
+      ? { env: {}, claudeRestrictions: { disallowedTools: [...ORG_DISALLOWED_HARNESS_TOOLS] } }
+      : { env: {} };
   const data = { level, protectedGitDirs: guard.protectedGitDirs };
 
   if (!args.claudeRuntime) {

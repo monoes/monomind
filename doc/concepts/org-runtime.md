@@ -725,6 +725,8 @@ Constructs system prompt containing:
 `org_gate` and the `org_task*` trio are literally the tools this org's own agents use for
 gated approvals and dependency-tracked work.
 
+**Claude Code harness tools a role does not get.** Every claude-runtime role, at every `policy.git` level, runs with `AskUserQuestion`, `ScheduleWakeup`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `CronCreate`, `CronDelete`, `CronList`, `EnterPlanMode` and `ExitPlanMode` in the SDK's `disallowedTools` ([`org-harness-tools.ts`](packages/@monomind/cli/src/orgrt/org-harness-tools.ts)), so the model never sees them. They either wait on a human who isn't attached to a headless session or schedule and track work outside the org's task DAG, where no other role and no daemon watchdog can see it. The org equivalents are `ask_human`, `org_task`/`org_tasks` and `org_task_block`. `SendMessage` stays denied by the policy engine as before.
+
 ### Task Dispatch and Completion Notices
 
 A ready task is handed to its assignee by [`decisions.ts → dispatchReadyTasks`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchReadyTasks)

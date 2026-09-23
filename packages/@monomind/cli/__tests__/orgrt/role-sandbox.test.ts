@@ -17,6 +17,7 @@ import { ClaudeAgentRunner } from '../../src/orgrt/agent-runner.js';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { gitCommonDir, prepareGitGuard } from '../../src/orgrt/git-guard.js';
 import { Mailbox } from '../../src/orgrt/mailbox.js';
+import { ORG_DISALLOWED_HARNESS_TOOLS } from '../../src/orgrt/org-harness-tools.js';
 import { PolicyEngine } from '../../src/orgrt/policy.js';
 import {
   buildClaudeRestrictions,
@@ -374,10 +375,10 @@ describe('resolveRoleGitEnforcement', () => {
   const available = { available: true };
   const missing = { available: false, reason: 'bubblewrap (bwrap) not found on PATH' };
 
-  it("push: no guard env, no restrictions, no audit", () => {
+  it("push: no guard env, no sandbox or file-tool rules, no audit", () => {
     const { opts, events } = setup({ git: 'push' });
     const r = resolveRoleGitEnforcement({ ...opts, claudeRuntime: true, availability: available });
-    expect(r).toEqual({ env: {} });
+    expect(r).toEqual({ env: {}, claudeRestrictions: { disallowedTools: ORG_DISALLOWED_HARNESS_TOOLS } });
     expect(events).toHaveLength(0);
   });
 
