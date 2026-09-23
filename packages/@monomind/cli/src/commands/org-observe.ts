@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { branchCheckpoint } from '../orgrt/checkpoint-ops.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
+import { roleTokensNote, type TokenBasis } from '../orgrt/report-budget.js';
 import {
   formatEvent,
   listRunDirs,
@@ -521,6 +522,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   // Per-role budget ceiling: same split the daemon applies (budget ÷ role count),
   // with any explicit policy.maxTokens override. Missing/unreadable config → no ceilings.
   let perRoleBudget: number | null = null;
+  let basis: TokenBasis = 'uncached';
   const roleCeiling = new Map<string, number>();
   try {
     const def = OrgDefSchema.parse(
@@ -530,6 +532,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     perRoleBudget = Math.floor(
       (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, sessionRoles.length),
     );
+    basis = def.run_config.budget_tokens_basis ?? 'uncached';
     for (const r of sessionRoles) {
       const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
       roleCeiling.set(r.id, max ?? r.budget_tokens ?? perRoleBudget);
@@ -537,12 +540,6 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   } catch {
     /* config gone or invalid — report without budget context */
   }
-  const budgetNote = (id: string, tokens: number): string => {
-    const cap = roleCeiling.get(id);
-    if (!cap) return '';
-    const pct = Math.round((tokens / cap) * 100);
-    return ` (${pct}% of ${cap}${pct >= 100 ? ' — EXHAUSTED' : pct >= 80 ? ' — near limit' : ''})`;
-  };
   log(output.info(`ORG REPORT — ${name} / ${run}`));
   log(
     output.info(
@@ -551,7 +548,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   );
   log(
     output.info(
-      `  Tokens: ${s.totalTokens}${perRoleBudget ? ` (budget: ${perRoleBudget}/role)` : ''}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`,
+      `  Tokens: ${s.totalTokens}${perRoleBudget ? ` (budget: ${perRoleBudget}/role ${basis === 'billable' ? 'billable' : 'in+out'})` : ''}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`,
     ),
   );
   if (s.outcome) {
@@ -583,7 +580,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     const suffix = r.crashed ? ' — CRASHED' : wasCutShort ? ' — cut short by stop' : '';
     log(
       output.info(
-        `    ${icon} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${budgetNote(id, r.tokens)}${suffix}`,
+        `    ${icon} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${roleTokensNote(r, roleCeiling.get(id), basis)}${suffix}`,
       ),
     );
   }

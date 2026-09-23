@@ -230,6 +230,8 @@ monomind org report <name> [options]
 | `--tool` | Include tool summary |
 | `--format json\|table` | Output format |
 
+Each role's line shows its total tokens, split into input+output and cache tokens, and — when the org config is readable — how much of its token budget it has used. That percentage is computed on the basis `budget_tokens` is enforced on: input+output by default, or the full billable total (cache included) when `run_config.budget_tokens_basis` is `"billable"`. A role is marked `near limit` at 80% and `EXHAUSTED` at 100% of that basis.
+
 ---
 
 ## `memory`

@@ -11,6 +11,10 @@ export interface RoleStats {
   toolsAllowed: number;
   toolsDenied: number;
   tokens: number;
+  /** Input + output only — the basis `budget_tokens` is enforced on by
+   *  default (policy.ts budgetedUsage). A usage event without the ADR-O001
+   *  breakdown counts entirely here. `tokens - uncachedTokens` is cache. */
+  uncachedTokens: number;
   costUsd: number;
   crashed: boolean;
 }
@@ -84,6 +88,7 @@ const roleStats = (): RoleStats => ({
   toolsAllowed: 0,
   toolsDenied: 0,
   tokens: 0,
+  uncachedTokens: 0,
   costUsd: 0,
   crashed: false,
 });
@@ -131,10 +136,17 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
         if (e.path && !s.assets.includes(e.path)) s.assets.push(e.path);
         break;
       case 'usage': {
-        const tokens = Number((e.data as { tokens?: number } | undefined)?.tokens ?? 0);
-        const cost = Number((e.data as { cost_usd?: number } | undefined)?.cost_usd ?? 0);
+        const d = e.data as
+          | { tokens?: number; cost_usd?: number; tokens_in?: number; tokens_out?: number }
+          | undefined;
+        const tokens = Number(d?.tokens ?? 0);
+        const cost = Number(d?.cost_usd ?? 0);
+        const hasSplit = d?.tokens_in !== undefined || d?.tokens_out !== undefined;
         const r = role(e.from);
         r.tokens += tokens;
+        r.uncachedTokens += hasSplit
+          ? Number(d?.tokens_in ?? 0) + Number(d?.tokens_out ?? 0)
+          : tokens;
         s.totalTokens += tokens;
         if (Number.isFinite(cost)) {
           r.costUsd += cost;

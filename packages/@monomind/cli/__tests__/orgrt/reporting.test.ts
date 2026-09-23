@@ -49,6 +49,15 @@ describe('summarizeRun', () => {
     expect(s.durationMs).toBe(60_000);
   });
 
+  it('splits a role\'s tokens into the uncached (input+output) basis and cache tokens', () => {
+    const s = summarizeRun([
+      ev({ type: 'usage', from: 'boss', data: { tokens: 1_100, tokens_in: 60, tokens_out: 40, cache_read: 900, cache_creation: 100 } }),
+      // a pre-breakdown event: no split recorded, so it all counts as uncached
+      ev({ type: 'usage', from: 'boss', data: { tokens: 50 } }),
+    ]);
+    expect(s.roles.boss).toMatchObject({ tokens: 1_150, uncachedTokens: 150 });
+  });
+
   it('handles an empty event list', () => {
     const s = summarizeRun([]);
     expect(s.events).toBe(0);
@@ -263,6 +272,42 @@ describe('org command — observe surface', () => {
       const res = await run('report', cwd, ['alpha']);
       expect(res?.success).toBe(true);
     } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  // Improvement 11: the per-role budget % must be computed on the basis the
+  // policy enforces (input+output by default), not the billable total that
+  // includes cache reads — otherwise every well-cached role reads EXHAUSTED.
+  it('report compares the budget on the enforced (uncached) basis and labels cache tokens', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-report-'));
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
+    try {
+      seedRun(cwd, 'alpha', 'run-20260101000000-bbbb', [
+        ev({ type: 'usage', from: 'boss', data: { tokens: 41_955_000, tokens_in: 5_000, tokens_out: 60_000, cache_read: 41_000_000, cache_creation: 890_000 } }),
+      ]);
+      writeFileSync(join(cwd, ORG_DIR, 'alpha.json'), JSON.stringify({ name: 'alpha', run_config: { budget_tokens: 500_000 }, roles: [{ id: 'boss' }] }));
+      expect((await run('report', cwd, ['alpha']))?.success).toBe(true);
+      const bossLine = lines.find(l => l.includes('boss:'))!;
+      expect(bossLine).toContain('13% of 500000 in+out');
+      expect(bossLine).toContain('41890000 cache');
+      expect(bossLine).not.toContain('EXHAUSTED');
+    } finally { spy.mockRestore(); rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('report compares on the billable total when the org opts into budget_tokens_basis billable', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-report-'));
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
+    try {
+      seedRun(cwd, 'alpha', 'run-20260101000000-cccc', [
+        ev({ type: 'usage', from: 'boss', data: { tokens: 600_000, tokens_in: 50_000, tokens_out: 50_000, cache_read: 500_000, cache_creation: 0 } }),
+      ]);
+      writeFileSync(join(cwd, ORG_DIR, 'alpha.json'), JSON.stringify({ name: 'alpha', run_config: { budget_tokens: 500_000, budget_tokens_basis: 'billable' }, roles: [{ id: 'boss' }] }));
+      expect((await run('report', cwd, ['alpha']))?.success).toBe(true);
+      const bossLine = lines.find(l => l.includes('boss:'))!;
+      expect(bossLine).toContain('120% of 500000 billable');
+      expect(bossLine).toContain('EXHAUSTED');
+    } finally { spy.mockRestore(); rmSync(cwd, { recursive: true, force: true }); }
   });
 
   it('report --all reads history.jsonl', async () => {
