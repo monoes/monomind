@@ -144,8 +144,8 @@ Two things it does, and one it refuses to:
   one is never created and never deleted. That is what keeps the shipped superset safe —
   its predecessor `sync-claude-assets.sh` had `rsync --delete` semantics, had to be
   hard-disabled in 2026-07, and is now gone.
-- It never touches the nine `.agents/skills` files that carry committed opencode/kimi/codex
-  ownership blocks; they are that tree's own install output, not a stale mirror.
+- It never touches the nine `.agents/skills` files that carry a committed co-owned
+  `skills:agents:<name>` block; they are that tree's own install output, not a stale mirror.
 
 The check mode runs in `pnpm run verify` and in CI. Full rationale, including the
 reproduction of the nested-marker bug, is at the top of `scripts/sync-claude-trees.mjs`.

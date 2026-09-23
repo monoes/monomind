@@ -68,9 +68,10 @@
  * THE `.agents/skills` EXCEPTION
  * ------------------------------
  * `.agents/skills` is not a passive mirror — it is a live install target that
- * opencode, kimi and codex share, and each wraps the body in its own ownership
- * block. Nine files there are committed in exactly that marked form and have
- * never matched the `.claude` copy (AGENTS_OWNED below). Rewriting them would
+ * opencode, kimi, codex and the other portable platforms share, and the body
+ * sits in one co-owned `skills:agents:<name>` block. Nine files there are
+ * committed in exactly that marked form and have never matched the `.claude`
+ * copy (AGENTS_OWNED below). Rewriting them would
  * clobber committed content and would make `--check` fail on a clean checkout,
  * which would make it useless as a guard. They are excluded by path, and
  * `--check` errors if one ever becomes identical again so the list cannot rot.
@@ -118,8 +119,8 @@ const SKILL_MARKER_LINE =
 const FRONTMATTER_WITHOUT_GAP = /^(---\r?\n[\s\S]*?\r?\n---\r?\n)(?!\r?\n)/;
 
 /**
- * `.agents/skills` paths carrying committed opencode/kimi/codex ownership
- * blocks the `.claude` copy does not have. That tree's own install output, not
+ * `.agents/skills` paths carrying a committed co-owned `skills:agents:<name>`
+ * block the `.claude` copy does not have. That tree's own install output, not
  * a stale mirror, so the sync leaves them alone.
  */
 const AGENTS_OWNED = [
