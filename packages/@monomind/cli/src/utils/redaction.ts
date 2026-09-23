@@ -86,7 +86,7 @@ const SECRET_PATTERNS: RegExp[] = [
   // R2 (ReDoS): the body stops at the next `-----` (a PEM body never holds one
   // before its END line; `Proc-Type:`/`DEK-Info:` headers still pass), so
   // repeated BEGIN lines with no END are not each rescanned to the end.
-  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----(?:[^-]|-(?!----))*-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
+  /-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY(?: BLOCK)?-----(?:[^-]|-(?!----))*-----END (?:RSA |EC |DSA |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY(?: BLOCK)?-----/g,
   /sk-ant-[a-zA-Z0-9_-]{20,}/g,
   /sk-[a-zA-Z0-9_-]{20,}/g,
   // i-116-redact: self-identifying credential prefixes — the prefix itself
@@ -110,7 +110,10 @@ const SECRET_PATTERNS: RegExp[] = [
   /github_pat_[A-Za-z0-9_]{20,}/g, // GitHub fine-grained (current format)
   /glpat-[A-Za-z0-9_-]{16,}/g, // GitLab
   /xox[abprs]-[A-Za-z0-9-]{10,}/g, // Slack (bot/app/admin/refresh/other)
-  /sk_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe
+  /xapp-[A-Za-z0-9-]{10,}/g, // Slack app-level
+  /hf_[A-Za-z0-9]{30,}/g, // Hugging Face
+  /ya29\.[A-Za-z0-9_-]{20,}/g, // Google OAuth access token
+  /[rs]k_(?:live|test)_[A-Za-z0-9]{16,}/g, // Stripe secret/restricted
   /npm_[A-Za-z0-9]{20,}/g, // npm, widened from {36}
   /AKIA[0-9A-Z]{16}/g,
   // R2 (ReDoS): every pattern here must stay linear, since the prompt hook runs

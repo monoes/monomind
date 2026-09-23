@@ -255,6 +255,12 @@ describe('redaction', () => {
       `Authorization: ${'Basic'} ${r(20)}==`,
       `DB_${'PASS'}=hunter2`,
       `${'PASSWORD'}=short`,
+      `${'hf'}_${r(34)}`,
+      `${'xapp'}-1-A${r(10)}-${r(24)}`,
+      `${'rk'}_live_${r(24)}`,
+      `${'ya29'}.${r(40)}`,
+      `-----BEGIN ENCRYPTED ${'PRIVATE'} KEY-----\n${r(64)}\n-----END ENCRYPTED ${'PRIVATE'} KEY-----`,
+      `-----BEGIN PGP ${'PRIVATE'} KEY BLOCK-----\nComment: gpg-agent\n\n${r(64)}\n-----END PGP ${'PRIVATE'} KEY BLOCK-----`,
     ];
     for (const f of fixtures) {
       expect(jp.redactSecrets(f)).toBe(redactSecretsTs(f));
