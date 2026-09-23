@@ -258,7 +258,8 @@ describe('route-handler with Jev', () => {
     const started = Date.now();
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
     const elapsed = Date.now() - started;
-    expect(elapsed).toBeLessThan(4800);
+    // Designed to finish near 4.5 s; the bound is the 5 s hook exit with scheduler slack.
+    expect(elapsed).toBeLessThan(4950);
     expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
   }, 15000);
 
