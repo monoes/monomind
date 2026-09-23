@@ -9,7 +9,9 @@
  *   - writes: the role's cwd, the org root, $HOME and the temp dir stay
  *     writable (installs, caches, test fixtures), minus the protected git dir
  *     ('read'/'none') or its config + hooks ('commit'), the guard's hooks,
- *     local-path remotes, and git/shell/Claude config that would undo the guard;
+ *     local-path remotes, and git/shell/Claude config that would undo the guard
+ *     (a denied directory holding the cwd or ~/.claude goes in as its existing
+ *     children, #323 — sandbox-deny-write.ts);
  *   - network: every host allowed (`policy.sandbox.allowedDomains`, default
  *     ['*']) minus the opt-in `policy.sandbox.deniedDomains`, deterministically,
  *     with local binding kept for dev servers and tests. Git remote hosts are
@@ -56,6 +58,7 @@ import {
   gitLocalRemotePaths,
   prepareGitGuard,
 } from './git-guard.js';
+import { expandDenyWrite, underAnyRoot } from './sandbox-deny-write.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 export interface RoleSandboxPolicy {
@@ -171,7 +174,14 @@ const rule = (tool: string, abs: string) => `${tool}(/${abs})`;
 export function buildClaudeRestrictions(
   guard: GitGuard,
   cfg: RoleSandboxPolicy | undefined,
-  ctx: { cwd: string; orgRoot?: string; home?: string; tmp?: string; env?: NodeJS.ProcessEnv },
+  ctx: {
+    cwd: string;
+    orgRoot?: string;
+    home?: string;
+    tmp?: string;
+    env?: NodeJS.ProcessEnv;
+    platform?: NodeJS.Platform;
+  },
   sandboxEnabled: boolean,
 ): ClaudeRestrictions {
   const home = ctx.home ?? homedir();
@@ -209,6 +219,21 @@ export function buildClaudeRestrictions(
   ];
   if (!sandboxEnabled) return { disallowedTools };
 
+  const allowWrite = uniq([ctx.cwd, ctx.orgRoot, home, tmp, ...(cfg?.allowWrite ?? [])]);
+  // #323: a read-only directory holding the cwd or ~/.claude breaks the SDK's
+  // own stub mounts — pass its children instead (sandbox-deny-write.ts).
+  const expanded = expandDenyWrite(
+    uniq([
+      guard.dir,
+      ...(lockedRepo ? gitDirs : gitDirs.flatMap((d) => [join(d, 'config'), join(d, 'hooks')])),
+      ...gitDirs.flatMap(gitLocalRemotePaths),
+      ...HOME_DENY_WRITE.map((p) => join(home, p)),
+      ...decisionFilePaths(ctx.orgRoot),
+      ...roleDenyWrite,
+    ]),
+    [ctx.cwd, join(home, '.claude')],
+    ctx.platform,
+  );
   const sandbox = {
     enabled: true,
     failIfUnavailable: true,
@@ -222,15 +247,11 @@ export function buildClaudeRestrictions(
       allowAllUnixSockets: unixSockets,
     },
     filesystem: {
-      allowWrite: uniq([ctx.cwd, ctx.orgRoot, home, tmp, ...(cfg?.allowWrite ?? [])]),
-      denyWrite: existing([
-        guard.dir,
-        ...(lockedRepo ? gitDirs : gitDirs.flatMap((d) => [join(d, 'config'), join(d, 'hooks')])),
-        ...gitDirs.flatMap(gitLocalRemotePaths),
-        ...HOME_DENY_WRITE.map((p) => join(home, p)),
-        ...decisionFilePaths(ctx.orgRoot),
-        ...roleDenyWrite,
+      allowWrite: uniq([
+        ...allowWrite,
+        ...expanded.mountPoints.filter((d) => underAnyRoot(d, allowWrite)),
       ]),
+      denyWrite: existing(expanded.denyWrite),
       denyRead: existing([
         ...(guard.level === 'none' ? gitDirs : []),
         runtimeDir(env),

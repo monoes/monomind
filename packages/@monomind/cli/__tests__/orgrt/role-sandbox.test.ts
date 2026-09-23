@@ -239,7 +239,9 @@ describe('buildClaudeRestrictions', () => {
     const guard = prepareGitGuard({ level: 'commit', stateDir: join(base, 'guard'), protectedGitDirs: [gitDir] })!;
     const r = buildClaudeRestrictions(guard, { denyWrite: ['.', '/definitely/not/there'] }, ctx(repo, base), true);
     const fs = (r.sandbox as any).filesystem;
-    expect(fs.denyWrite).toContain(base);
+    // #323: the org root holds the cwd, so it goes in as its existing entries
+    expect(fs.denyWrite).not.toContain(base);
+    expect(fs.denyWrite).toEqual(expect.arrayContaining([join(base, 'backup.git'), join(repo, '.git')]));
     expect(fs.denyWrite).not.toContain('/definitely/not/there');
     expect(fs.allowWrite).toContain('/tmp');
     expect(r.disallowedTools).toEqual(expect.arrayContaining([`Edit(/${base})`, `Edit(/${base}/**)`]));
