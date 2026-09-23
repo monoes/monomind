@@ -30,6 +30,8 @@ export const MAX_MARKDOWN_FILES = 100;
 const SCAN_CHAR_CAP = 200_000;
 const SUMMARY_CAP = 500;
 export const SKIP_DIRS = new Set(['.git', 'node_modules']);
+/** Text reserved for projection markers; a package carrying it could forge one. */
+const RESERVED_MARKERS = ['<!-- catalog ', 'monomind:start', 'monomind:end'];
 
 /** Every path under `dir`, relative, with its lstat kind. Skipped dirs are reported, not walked. */
 function walk(
@@ -154,16 +156,29 @@ export async function inspectPackage(
     return refuse(`more than ${MAX_MARKDOWN_FILES} Markdown files`);
   const meta = metadata(dir, kind);
   if (meta.fatal) return refuse(meta.fatal);
+  for (const f of accepted) {
+    const content = readFileSync(join(dir, f), 'utf8');
+    const marker = RESERVED_MARKERS.find((m) => content.includes(m));
+    if (marker) return refuse(`${f} contains reserved marker text "${marker.trim()}"`);
+  }
   const scanned = accepted.filter((f) => f !== 'LICENSE.txt');
-  const text = scanned
-    .map((f) => readFileSync(join(dir, f), 'utf8'))
-    .join('\n\n')
-    .slice(0, SCAN_CHAR_CAP);
-  const scanner = await runScanner(text, opts.fence ?? defaultFence(opts.root));
+  const full = scanned.map((f) => readFileSync(join(dir, f), 'utf8')).join('\n\n');
+  const scanner = await runScanner(
+    full.slice(0, SCAN_CHAR_CAP),
+    opts.fence ?? defaultFence(opts.root),
+  );
+  // Content past the cap was never scanned: it must not pass as clean.
+  const truncated = full.length > SCAN_CHAR_CAP;
+  if (truncated)
+    scanner.summary =
+      `not fully scanned (${full.length} chars > ${SCAN_CHAR_CAP}); ${scanner.summary}`.slice(
+        0,
+        SUMMARY_CAP,
+      );
   return {
     ...base,
     requestedTools: meta.tools,
-    verdict: scanner.ok && !scanner.blocked ? 'clean' : 'quarantine',
+    verdict: scanner.ok && !scanner.blocked && !truncated ? 'clean' : 'quarantine',
     scanner,
   };
 }

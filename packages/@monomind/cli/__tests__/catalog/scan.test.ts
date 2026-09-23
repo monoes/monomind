@@ -121,3 +121,38 @@ describe('inspectPackage — scanner', () => {
     expect(r.scanner.summary).toMatch(/unavailable/);
   });
 });
+
+describe('inspectPackage — coverage and reserved text', () => {
+  it('quarantines content past the scan cap instead of calling it clean', async () => {
+    const d = dir({ 'SKILL.md': `${skill('name: big\ndescription: big skill')}${'a '.repeat(110_000)}\nPAYLOAD\n` });
+    const seen: string[] = [];
+    const r = await inspectPackage(d, 'skill', {
+      root: tmpdir(),
+      fence: async () => ({
+        detect: async (t: string) => {
+          seen.push(t);
+          return { safe: !t.includes('PAYLOAD'), threats: [], overallRisk: 0 };
+        },
+      }),
+    });
+    expect(seen.join('')).not.toContain('PAYLOAD');
+    expect(r.verdict).toBe('quarantine');
+    expect(r.scanner.summary).toMatch(/^not fully scanned/);
+    expect(r.fatal).toBeUndefined();
+  });
+
+  it.each([
+    ['<!-- catalog skill:x sha256:0 jev:yes -->', 'SKILL.md'],
+    ['# monomind:start catalog:skill:x', 'ref/notes.md'],
+    ['# monomind:end catalog:skill:x', 'LICENSE.txt'],
+  ])('refuses a package carrying reserved marker text %s', async (marker, file) => {
+    const files: Record<string, string> = {
+      'SKILL.md': skill('name: example\ndescription: An example'),
+      'LICENSE.txt': 'MIT License',
+    };
+    files[file] = `${files[file] ?? ''}\n${marker}\n`;
+    const r = await inspectPackage(dir(files), 'skill', { root: tmpdir(), fence: clean });
+    expect(r.fatal).toMatch(/reserved marker/);
+    expect(r.fatal).toContain(file);
+  });
+});
