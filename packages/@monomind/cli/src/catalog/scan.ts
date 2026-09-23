@@ -34,9 +34,11 @@ export const SKIP_DIRS = new Set(['.git', 'node_modules']);
 const RESERVED_MARKERS = ['<!-- catalog ', 'monomind:start', 'monomind:end'];
 /**
  * Claude Code runs a skill's inline !`cmd` / !$cmd (its detector:
- * `(?<=^|\s)!(?=`|\$)`) and ```! / ~~~! fenced blocks when the skill loads.
+ * `(?<=^|\s)!(?=`|\$)`), every ```! run anywhere in the text (its extractor
+ * has no line anchor, so `> ```!`, `- ```!` and inline ```!cmd``` all execute)
+ * and ~~~! fenced blocks when the skill loads.
  */
-const SHELL_EXEC = [/(?:^|\s)!(?=[`$])/m, /^[ \t]*(?:`{3,}|~{3,})[ \t]*!/m];
+const SHELL_EXEC = [/(?:^|\s)!(?=[`$])/m, /```!/, /^[ \t]*~{3,}[ \t]*!/m];
 
 /** True when `text` carries Markdown that a platform executes as a shell command. */
 export const shellExecSyntax = (text: string): boolean => SHELL_EXEC.some((re) => re.test(text));

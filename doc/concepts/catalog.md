@@ -54,8 +54,8 @@ the body byte-for-byte. Each dropped key is listed under `rejected`. A package
 containing projection-marker text (`<!-- catalog `, `monomind:start`,
 `monomind:end`) is refused, so it cannot forge a marker. A package whose
 Markdown carries shell execution syntax — an inline `` !`cmd` `` or a
-` ```! ` / `~~~!` fenced block, which Claude Code runs when the skill loads —
-is refused with `body-exec`.
+` ```! ` run anywhere in the text (a blockquote, a list item or inline) or a
+`~~~!` fenced block, which Claude Code runs when the skill loads — is refused with `body-exec`.
 Every consumer re-verifies the digest of the package it reads, and a package
 path that escapes `packages/` (via `..`, an absolute segment or a symlink,
 checked on `realpath`) is never read.
