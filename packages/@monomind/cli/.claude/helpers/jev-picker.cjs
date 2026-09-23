@@ -320,12 +320,15 @@ function criteriaFor(items) {
   return criteria;
 }
 
-function rankedFrom(answer) {
+/** Only options that were sent, with probabilities in [0, 1]: an id the model
+ *  invents (or an injection payload) must never reach a caller. */
+function rankedFrom(answer, criteria) {
   var probs = answer.probabilities;
   if (!probs || typeof probs !== 'object') return [{ id: answer.choice, probability: answer.confidence }];
   return Object.keys(probs)
     .filter(function (id) {
-      return Number.isFinite(probs[id]);
+      var p = probs[id];
+      return Object.prototype.hasOwnProperty.call(criteria, id) && Number.isFinite(p) && p >= 0 && p <= 1;
     })
     .map(function (id) {
       return { id: id, probability: probs[id] };
@@ -335,8 +338,8 @@ function rankedFrom(answer) {
     });
 }
 
-function toAnswer(answer) {
-  return { choice: answer.choice, confidence: answer.confidence, ranked: rankedFrom(answer) };
+function toAnswer(answer, criteria) {
+  return { choice: answer.choice, confidence: answer.confidence, ranked: rankedFrom(answer, criteria) };
 }
 
 /** Pick an agent and/or a skill for `task` in ONE request. null = no decision. */
@@ -378,8 +381,8 @@ async function pick(task, catalogs, opts) {
   });
   if (!res) return null;
   var out = { provider: res.provider };
-  if (res.answers.agent) out.agent = toAnswer(res.answers.agent);
-  if (res.answers.skill) out.skill = toAnswer(res.answers.skill);
+  if (res.answers.agent) out.agent = toAnswer(res.answers.agent, questions.agent.criteria);
+  if (res.answers.skill) out.skill = toAnswer(res.answers.skill, questions.skill.criteria);
   return out;
 }
 

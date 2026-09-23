@@ -110,7 +110,9 @@ export async function suggestTaskSkills(
     { skills },
     { ...opts, skillInstructions: 'Which of these skills would help most with this task?' },
   );
-  return acceptSkills(picked?.skill, opts.env, 2);
+  // Only names from the pool that was sent reach the assignee's mailbox.
+  const sent = new Set(skills.map((s) => s.id));
+  return acceptSkills(picked?.skill, opts.env, 2).filter((id) => sent.has(id));
 }
 
 /** The role that should own a task: Jev first, then a keyword match. */
