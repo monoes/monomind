@@ -255,6 +255,23 @@ function parseId(id: string): string {
   return parsed.data.slice('skill:'.length);
 }
 
+/**
+ * Surfaces that still hold a projected copy of catalog skill `id` (a marked
+ * package dir reached without following a link). Read-only; disable/revoke use
+ * it to point at the `project --apply` that removes the copy.
+ */
+export function projectedSurfaces(root: string, id: string): ProjectionSurface[] {
+  if (!id.startsWith('skill:')) return [];
+  const name = id.slice('skill:'.length);
+  return PROJECTION_SURFACES.filter((surface) => {
+    const adapter = PLATFORM_REGISTRY[ADAPTER[surface]];
+    const location = resolveArtifactLocation(adapter, 'skill', 'project', { root });
+    if (!location) return false;
+    const dir = join(location.path, name);
+    return !symlinkedComponent(root, dir) && markedFiles(dir, name).length > 0;
+  });
+}
+
 /** Read-only plan: what `applyProjection` would write and remove. */
 export async function planProjection(
   root: string,

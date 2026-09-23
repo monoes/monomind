@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   symlinkSync,
   utimesSync,
   writeFileSync,
@@ -375,6 +376,29 @@ describe('monomind catalog project / unproject', () => {
     vi.restoreAllMocks();
     await run(root, ['unproject', 'skill:cat-lint'], { surface: 'platform:claude', apply: true });
     expect(existsSync(join(root, '.claude/skills/cat-lint'))).toBe(false);
+  });
+
+  it('disable and revoke point at a projected copy that is still on disk', async () => {
+    const root = newRoot();
+    writeEntry(root, { name: 'cat-lint', targets: ['platform:claude', 'platform:agents'] });
+    writeEntry(root, { name: 'cat-gone', targets: ['platform:agents'] });
+    writeEntry(root, { name: 'cat-never', targets: ['platform:claude'] });
+    await applyProjection(root, 'platform:claude', { dryRun: false });
+    await applyProjection(root, 'platform:agents', { dryRun: false });
+    rmSync(join(root, '.claude/skills/cat-never'), { recursive: true });
+    const flags = { actor: 'tester', reason: 'test' };
+
+    const off = await run(root, ['disable', 'skill:cat-lint'], flags);
+    expect(off.res.success).toBe(true);
+    for (const s of ['platform:claude', 'platform:agents'])
+      expect(off.out).toContain(`still projected to ${s}; run catalog project --surface ${s} --apply`);
+    vi.restoreAllMocks();
+    const gone = await run(root, ['revoke', 'skill:cat-gone'], { ...flags, format: 'json' });
+    expect(JSON.parse(gone.out).stillProjected).toEqual(['platform:agents']);
+    vi.restoreAllMocks();
+    const never = await run(root, ['disable', 'skill:cat-never'], flags);
+    expect(never.out).not.toContain('still projected');
+    expect(existsSync(join(root, '.claude/skills/cat-lint/SKILL.md'))).toBe(true);
   });
 
   it('prints an empty plan for an unconfigured project and rejects a bad surface', async () => {

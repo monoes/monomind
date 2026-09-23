@@ -152,7 +152,7 @@ a reason) or `revoke`. Restaging changed content clears the override.
 | Target | Exposes the entry to |
 |---|---|
 | `org` | The Org skill library: roles that name it in `skills` or `skill_pool`, `org skills list/search`, per-task skill suggestions, and blueprint resolution |
-| `jev` | The configured decision model may receive its name and a description of at most 200 characters. Requires `org`. Without `jev`, catalog content is never sent to a model — on the Org path (`jevVisible`) or through a projected tree |
+| `jev` | The configured decision model may receive its name and a description of at most 200 characters. Requires `org`. Without `jev`, catalog content is never sent to a model — on the Org path (`jevVisible`) or through a projected tree: the per-prompt Jev pick checks `.monomind/catalog/state.json` and skips a projected skill whose entry is not active with `jev`, so disabling, revoking or re-approving without `jev` takes effect at once, before the copy is removed |
 | `platform:claude` | `.claude/skills/<name>/`, read by Claude Code. The projected skill also enters `.claude/helpers/skill-registry.json`, so Claude-tree consumers such as the per-prompt router see it (as an ordinary skill for keyword routing; for Jev only when the entry also has `jev`) |
 | `platform:agents` | `.agents/skills/<name>/`, read by every adapter that uses the shared skill root: Codex, Gemini, Kimi, OpenCode, Cursor, Copilot, VS Code, OpenClaw, Droid, Hermes, Antigravity and Zed |
 
@@ -213,10 +213,16 @@ id, digest and `jev:` flag. Projection is explicit and reversible:
 - a second apply with unchanged state changes zero files;
 - foreign files, and same-name directories the catalog did not create, are
   never touched — the plan reports `not catalog-managed: <path>` instead;
+- a package whose `SKILL.md` frontmatter has a top-level key other than
+  `name`, `description`, `tags`, `tools` and `license` (for example `hooks`,
+  `allowed-tools` or `model`), or a flow-mapping header, is refused with
+  `frontmatter-not-allowed`;
 - a projected `SKILL.md` whose frontmatter was edited by hand is skipped with
   `frontmatter-drift`; run `catalog unproject <id>` and then `catalog project`;
+- projecting a new revision also removes the marked files that only the
+  previous revision had;
 - every changed or removed file is backed up under
-  `.monomind/backups/<timestamp>-<pid>/`;
+  `.monomind/backups/<timestamp>-<pid>/`, at its path relative to the project;
 - an apply that changes `.claude/skills` rebuilds
   `.claude/helpers/skill-registry.json` when the project already has one.
 
@@ -273,7 +279,11 @@ monomind catalog revoke skill:code-review --actor alice --reason "withdrawn"    
 ```
 
 Disabling or revoking removes eligibility immediately for the Org library and
-Jev. Package bytes stay in the store.
+Jev, including Jev picks over a projected Claude skill. The platform itself —
+Claude Code or the `.agents` readers, and the keyword router through the skill
+registry — keeps seeing a projected copy until the next `catalog project --apply`
+removes it; `disable` and `revoke` print that command for every surface that
+still holds a copy. Package bytes stay in the store.
 
 **Remove a projected copy**
 

@@ -18,6 +18,7 @@ import {
   PROJECTION_SURFACES,
   type ProjectionResult,
   type ProjectionSurface,
+  projectedSurfaces,
 } from '../catalog/projection.js';
 import { buildSnapshot, type CatalogAsset, catalogAudit, eligible } from '../catalog/snapshot.js';
 import { stage } from '../catalog/stage.js';
@@ -172,7 +173,12 @@ function actorOf(flags: ParsedFlags): string | undefined {
   return str(flags, 'actor');
 }
 
-function report(r: LifecycleResult, json: boolean, extra: string[] = []): CommandResult {
+function report(
+  r: LifecycleResult,
+  json: boolean,
+  extra: string[] = [],
+  more: Record<string, unknown> = {},
+): CommandResult {
   const payload = {
     id: r.id,
     before: r.before,
@@ -180,6 +186,7 @@ function report(r: LifecycleResult, json: boolean, extra: string[] = []): Comman
     sha256: r.entry.sha256,
     targets: r.entry.targets,
     grantedTools: r.entry.grantedTools,
+    ...more,
   };
   if (json) return print(payload);
   log(`${output.highlight(r.id)} ${r.before} → ${r.after}`);
@@ -277,7 +284,14 @@ function lifecycleVerb(name: string, fn: Move, needsReason: boolean): Verb {
       return fail(
         `usage: monomind catalog ${name} <id> --actor <name> ${needsReason ? '--reason <text>' : '[--reason <text>]'}`,
       );
-    return report(fn(root, id, { actor, reason }), json);
+    const r = fn(root, id, { actor, reason });
+    if (name !== 'disable' && name !== 'revoke') return report(r, json);
+    // The Org library and Jev stop at once; a platform copy stays until the next apply.
+    const surfaces = projectedSurfaces(root, r.id);
+    const hints = surfaces.map((s) =>
+      output.warning(`still projected to ${s}; run catalog project --surface ${s} --apply`),
+    );
+    return report(r, json, hints, surfaces.length ? { stillProjected: surfaces } : {});
   };
 }
 
