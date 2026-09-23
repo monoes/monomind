@@ -32,6 +32,14 @@ const SUMMARY_CAP = 500;
 export const SKIP_DIRS = new Set(['.git', 'node_modules']);
 /** Text reserved for projection markers; a package carrying it could forge one. */
 const RESERVED_MARKERS = ['<!-- catalog ', 'monomind:start', 'monomind:end'];
+/**
+ * Claude Code runs a skill's inline !`cmd` / !$cmd (its detector:
+ * `(?<=^|\s)!(?=`|\$)`) and ```! / ~~~! fenced blocks when the skill loads.
+ */
+const SHELL_EXEC = [/(?:^|\s)!(?=[`$])/m, /^[ \t]*(?:`{3,}|~{3,})[ \t]*!/m];
+
+/** True when `text` carries Markdown that a platform executes as a shell command. */
+export const shellExecSyntax = (text: string): boolean => SHELL_EXEC.some((re) => re.test(text));
 
 /** Every path under `dir`, relative, with its lstat kind. Skipped dirs are reported, not walked. */
 function walk(
@@ -53,6 +61,8 @@ function walk(
 
 function fileVerdict(rel: string, kind: CatalogEntry['kind'], size: number): string | undefined {
   if (rel.split('/').includes('..')) return 'path contains ..';
+  // A nested `.claude/skills/…` (or any dot dir) is platform config, not package content.
+  if (rel.split('/').some((seg) => seg.startsWith('.'))) return 'path segment starts with "."';
   const base = rel.slice(rel.lastIndexOf('/') + 1);
   const allowed =
     base === 'LICENSE.txt' ||
@@ -160,6 +170,8 @@ export async function inspectPackage(
     const content = readFileSync(join(dir, f), 'utf8');
     const marker = RESERVED_MARKERS.find((m) => content.includes(m));
     if (marker) return refuse(`${f} contains reserved marker text "${marker.trim()}"`);
+    if (f.endsWith('.md') && shellExecSyntax(content))
+      return refuse(`body-exec: ${f} contains shell execution syntax (!\`…\` or a \`\`\`! block)`);
   }
   const scanned = accepted.filter((f) => f !== 'LICENSE.txt');
   const full = scanned.map((f) => readFileSync(join(dir, f), 'utf8')).join('\n\n');

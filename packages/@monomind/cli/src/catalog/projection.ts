@@ -20,6 +20,7 @@ import { PLATFORM_REGISTRY } from '../platform-adapters/registry.js';
 import type { ArtifactIntent, InstallRequest, PlatformId } from '../platform-adapters/types.js';
 import { verifyEntry } from './digest.js';
 import { frontmatterViolations } from './frontmatter.js';
+import { shellExecSyntax } from './scan.js';
 import { buildSnapshot, type CatalogAsset, eligible } from './snapshot.js';
 import { CatalogIdSchema } from './types.js';
 
@@ -114,9 +115,16 @@ function packageIntents(
   const intents: ArtifactIntent[] = [];
   const paths: string[] = [];
   const files = listFiles(check.dir);
-  if (files.includes('SKILL.md')) {
-    const bad = frontmatterViolations(readFileSync(join(check.dir, 'SKILL.md'), 'utf8'));
-    if (bad.length) return { refused: `frontmatter-not-allowed: ${bad.join(', ')}` };
+  // The same checks staging applies: stored bytes may predate them.
+  for (const file of files.filter((f) => f.endsWith('.md'))) {
+    const text = readFileSync(join(check.dir, file), 'utf8');
+    const nested = file !== 'SKILL.md' && file.endsWith('/SKILL.md');
+    if (file === 'SKILL.md' || (nested && FRONTMATTER.test(text))) {
+      const bad = frontmatterViolations(text);
+      if (bad.length) return { refused: `frontmatter-not-allowed: ${file}: ${bad.join(', ')}` };
+    }
+    if (shellExecSyntax(text))
+      return { refused: `body-exec: ${file} carries shell execution syntax` };
   }
   for (const file of files) {
     const dest = join(skillRoot, asset.name, file);

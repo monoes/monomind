@@ -196,17 +196,30 @@ function sourceOf(
   };
 }
 
-/** Rewrites SKILL.md frontmatter to the allow-list in place; one reject record per dropped key. */
+/** Every SKILL.md below `dir` (root and nested), relative; the copy holds no links. */
+function skillMdFiles(dir: string, prefix = ''): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(join(dir, prefix), { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    if (e.name.startsWith('.')) continue; // dropped by inspection
+    if (e.isDirectory()) out.push(...skillMdFiles(dir, rel));
+    else if (e.isFile() && e.name === 'SKILL.md') out.push(rel);
+  }
+  return out;
+}
+
+/** Rewrites every SKILL.md's frontmatter to the allow-list in place; one reject record per dropped key. */
 function sanitizeSkillMd(dir: string): { path: string; reason: string }[] {
-  const file = join(dir, 'SKILL.md');
-  if (!existsSync(file)) return [];
-  const before = readFileSync(file, 'utf8');
-  const { text, removed } = sanitizeFrontmatter(before);
-  if (text !== before) writeFileSync(file, text);
-  return removed.map((key) => ({
-    path: `SKILL.md (frontmatter ${key})`,
-    reason: 'frontmatter key not allowed; removed',
-  }));
+  return skillMdFiles(dir).flatMap((rel) => {
+    const file = join(dir, rel);
+    const before = readFileSync(file, 'utf8');
+    const { text, removed } = sanitizeFrontmatter(before);
+    if (text !== before) writeFileSync(file, text);
+    return removed.map((key) => ({
+      path: `${rel} (frontmatter ${key})`,
+      reason: 'frontmatter key not allowed; removed',
+    }));
+  });
 }
 
 /** Stage one candidate from `src` (owner/repo, git URL or local path). */

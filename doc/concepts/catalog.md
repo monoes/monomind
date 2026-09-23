@@ -43,14 +43,19 @@ lists them only as collision context.
 
 A package is Markdown plus a license text. Scripts, binaries, MCP servers,
 hooks, symlinks and agent-execution configuration are rejected at staging.
-Platforms read execution config from `SKILL.md` frontmatter (`hooks`,
-`allowed-tools`, `model`, `context`, `agent`, …), so staging rewrites that
-frontmatter, before hashing, to the allow-list
+Files and directories whose name starts with `.` (a nested `.claude/`, for
+example) are dropped. Platforms read execution config from `SKILL.md`
+frontmatter (`hooks`, `allowed-tools`, `model`, `context`, `agent`, …), so
+staging rewrites the frontmatter of every `SKILL.md` in the package (the root
+one and any nested one), before hashing, to the allow-list
 [`ALLOWED_FRONTMATTER_KEYS`](packages/@monomind/cli/src/catalog/frontmatter.ts#ALLOWED_FRONTMATTER_KEYS)
 — `name`, `description`, `tags`, `tools`, `license`, one line each — and keeps
 the body byte-for-byte. Each dropped key is listed under `rejected`. A package
 containing projection-marker text (`<!-- catalog `, `monomind:start`,
-`monomind:end`) is refused, so it cannot forge a marker.
+`monomind:end`) is refused, so it cannot forge a marker. A package whose
+Markdown carries shell execution syntax — an inline `` !`cmd` `` or a
+` ```! ` / `~~~!` fenced block, which Claude Code runs when the skill loads —
+is refused with `body-exec`.
 Every consumer re-verifies the digest of the package it reads, and a package
 path that escapes `packages/` (via `..`, an absolute segment or a symlink,
 checked on `realpath`) is never read.
@@ -213,10 +218,11 @@ id, digest and `jev:` flag. Projection is explicit and reversible:
 - a second apply with unchanged state changes zero files;
 - foreign files, and same-name directories the catalog did not create, are
   never touched — the plan reports `not catalog-managed: <path>` instead;
-- a package whose `SKILL.md` frontmatter has a top-level key other than
-  `name`, `description`, `tags`, `tools` and `license` (for example `hooks`,
-  `allowed-tools` or `model`), or a flow-mapping header, is refused with
-  `frontmatter-not-allowed`;
+- a package whose root or nested `SKILL.md` frontmatter has a top-level key
+  other than `name`, `description`, `tags`, `tools` and `license` (for example
+  `hooks`, `allowed-tools` or `model`), or a flow-mapping header, is refused
+  with `frontmatter-not-allowed`; one whose Markdown carries shell execution
+  syntax is refused with `body-exec`;
 - a projected `SKILL.md` whose frontmatter was edited by hand is skipped with
   `frontmatter-drift`; run `catalog unproject <id>` and then `catalog project`;
 - projecting a new revision also removes the marked files that only the
