@@ -125,7 +125,7 @@ describe('org run applies org reload', () => {
       expect(process.listenerCount('SIGTERM')).toBe(1);
 
       process.emit('SIGINT');
-      await expect(wait).resolves.toEqual({ stoppedManually: false });
+      await expect(wait).resolves.toEqual({ stoppedManually: false, signal: true });
       expect(process.listenerCount('SIGINT')).toBe(0);
       expect(process.listenerCount('SIGTERM')).toBe(0);
       expect(state.reloads).toBe(0);
@@ -219,5 +219,50 @@ describe('org run start', () => {
     await result;
     expect(fakeDaemon.reloads).toBe(0);
     expect(existsSync(join(cwd, ORG_DIR, 'growth', 'reload'))).toBe(false);
+  });
+
+  // Improvement 11: a detached run's log ends with outcome, wall time, cost.
+  it('prints a final outcome / wall time / cost line when the run ends', async () => {
+    mkdirSync(join(cwd, ORG_DIR, 'growth', 'run-1'), { recursive: true });
+    writeFileSync(
+      join(cwd, ORG_DIR, 'growth.json'),
+      JSON.stringify({ name: 'growth', roles: [{ id: 'boss', reports_to: null }] }),
+    );
+    const usage = {
+      id: 'u',
+      ts: 1,
+      org: 'growth',
+      run: 'run-1',
+      type: 'usage',
+      from: 'boss',
+      data: { tokens: 5, cost_usd: 1.25 },
+    };
+    writeFileSync(join(cwd, ORG_DIR, 'growth', 'run-1', 'bus.jsonl'), `${JSON.stringify(usage)}\n`);
+    writeFileSync(
+      join(cwd, ORG_DIR, 'growth', 'runtime.json'),
+      JSON.stringify({ status: 'stopped', run: 'run-1', closedBy: 'org-complete' }),
+    );
+    fakeDaemon.ticksRunning = 1;
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const lines: string[] = [];
+    vi.mocked(console.log).mockImplementation((...a: unknown[]) => {
+      lines.push(a.join(' '));
+    });
+    const run = orgCommand.subcommands?.find((c) => c.name === 'run');
+    let settled = false;
+    const result = run
+      ?.action?.({ args: ['growth'], flags: { crossProcess: false, yes: true }, cwd } as never)
+      .finally(() => {
+        settled = true;
+      });
+    for (let i = 0; i < 200 && !settled; i++) {
+      await vi.advanceTimersByTimeAsync(2000);
+      await sleep(5);
+    }
+    expect((await result)?.success).toBe(true);
+    const last = lines.filter((l) => l.includes('ended — outcome')).at(-1) ?? '';
+    expect(last).toMatch(
+      /org growth run run-1 ended — outcome: complete \(org_complete\), wall time \d+s, cost \$1\.25/,
+    );
   });
 });

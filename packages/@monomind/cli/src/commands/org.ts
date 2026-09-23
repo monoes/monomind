@@ -31,6 +31,7 @@ import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { output } from '../output.js';
 import { MODEL_PRICING } from '../pricing/model-pricing.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { type RunEndInput, runEndLine } from './org-run-end.js';
 
 const log = (text: string): void => {
   console.log(text);
@@ -695,6 +696,18 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       `org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`,
     ),
   );
+  // The run log's last line: outcome, wall time, total cost (every exit path
+  // below, crash handlers included), so a detached run's log has an ending.
+  const startedAt = Date.now();
+  const printRunEnd = (final: RunTerminalState, how: Omit<RunEndInput, 'final' | 'events'>) => {
+    try {
+      const events = readRunEvents(ctx.cwd, name, running.run);
+      const wallMs = Date.now() - startedAt;
+      log(output.info(runEndLine({ name, run: running.run, wallMs, final, events, ...how })));
+    } catch {
+      /* best-effort — never mask the run's real exit */
+    }
+  };
 
   // #206 follow-up: without this, an uncaught error in this process left
   // runtime.json's status stuck at 'running' (finishStop never runs), and
@@ -710,9 +723,9 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     } catch {
       /* stderr gone */
     }
-    daemon.persistCrashStateAll(
-      `uncaughtException: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    const error = `uncaughtException: ${err instanceof Error ? err.message : String(err)}`;
+    daemon.persistCrashStateAll(error);
+    printRunEnd({ status: 'crashed', error }, {});
     process.exit(1);
   });
   process.on('unhandledRejection', (err) => {
@@ -721,9 +734,9 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     } catch {
       /* stderr gone */
     }
-    daemon.persistCrashStateAll(
-      `unhandledRejection: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    const error = `unhandledRejection: ${err instanceof Error ? err.message : String(err)}`;
+    daemon.persistCrashStateAll(error);
+    printRunEnd({ status: 'crashed', error }, {});
     process.exit(1);
   });
 
@@ -793,10 +806,11 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // #206: a human explicitly running `monomind org stop` is a deliberate,
   // successful action regardless of how the run itself ended — capture that
   // BEFORE clearStopfile() below wipes the file, so it isn't lost.
-  const { stoppedManually } = await waitForRunEnd(ctx.cwd, name, daemon);
+  const { stoppedManually, signal } = await waitForRunEnd(ctx.cwd, name, daemon);
   clearStopfile(ctx.cwd, name);
   await daemon.stopAll();
   srv?.close();
+  printRunEnd(runtimeState(ctx.cwd, name), { stoppedManually, signal });
 
   if (stoppedManually) return { success: true, message: `org ${name} stopped` };
 
@@ -806,14 +820,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // the daemon's final record (same runtime.json pattern isOrgRunning/
   // statusAction already use below) and only report success for a run that
   // actually finished its goal via org_complete.
-  let final: RunTerminalState = {};
-  try {
-    final = JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, name, 'runtime.json'), 'utf8'));
-  } catch {
-    /* best-effort — falls through to the non-clean-stop case below */
-  }
-
-  return runOutcomeResult(name, final);
+  return runOutcomeResult(name, runtimeState(ctx.cwd, name));
 };
 
 /** The foreground `org run` wait loop. Every `intervalMs` it ends the wait
@@ -823,22 +830,22 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
  *  `org serve` read the reload file, so `org reload` against an `org run`
  *  process printed "picks it up within ~2s", exited 0, and changed nothing —
  *  a rotated endpoint URL kept receiving deliveries until it went dead.
- *  SIGINT/SIGTERM also end the wait. */
+ *  SIGINT/SIGTERM also end the wait (reported as `signal: true`). */
 export async function waitForRunEnd(
   cwd: string,
   name: string,
   daemon: Pick<OrgDaemon, 'getOrg' | 'listRunning' | 'reloadOrgDef'>,
   intervalMs = 2000,
-): Promise<{ stoppedManually: boolean }> {
+): Promise<{ stoppedManually: boolean; signal?: true }> {
   const stopfile = join(cwd, ORG_DIR, name, 'stop');
   return new Promise((resolvePromise) => {
-    const finish = (stoppedManually: boolean) => {
+    const finish = (stoppedManually: boolean, signal = false) => {
       clearInterval(iv);
       process.removeListener('SIGINT', onSignal);
       process.removeListener('SIGTERM', onSignal);
-      resolvePromise({ stoppedManually });
+      resolvePromise(signal ? { stoppedManually, signal } : { stoppedManually });
     };
-    const onSignal = () => finish(false);
+    const onSignal = () => finish(false, true);
     const iv = setInterval(() => {
       if (existsSync(stopfile)) {
         finish(true);
@@ -857,6 +864,15 @@ export async function waitForRunEnd(
 
 /** Just the fields determineRunOutcome needs from runtime.json. */
 type RunTerminalState = { status?: string; closedBy?: string; error?: string };
+
+/** runtime.json's final record; {} when unreadable (the non-clean-stop case). */
+const runtimeState = (cwd: string, name: string): RunTerminalState => {
+  try {
+    return JSON.parse(readFileSync(join(cwd, ORG_DIR, name, 'runtime.json'), 'utf8'));
+  } catch {
+    return {};
+  }
+};
 
 /** Decides `org run`'s exit-code-bearing CommandResult from the run's final
  *  recorded state. Extracted (matching resolvedIdleNudgeCount's precedent for

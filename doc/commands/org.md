@@ -60,6 +60,8 @@ monomind org run <name> [--task "..."] [--cross-process] [--dry-run]
 | `--cross-process` | Register with broker for cross-daemon `org_send` delivery |
 | `--dry-run` | Validate config and print plan without starting |
 
+When the run ends — `org_complete`, `org stop`, Ctrl-C/SIGTERM, the idle watchdog, a budget, or a crash — the last line it prints names the outcome (`complete`, `stopped`, `budget` or `error`, with the cause in parentheses), the wall time and the total cost, e.g. `org release run run-… ended — outcome: complete (achieved), wall time 1h57m12s, cost $63.63`, so a detached run's log always has an ending. `org serve` keeps its own `[org serve] shutting down: …` line; each run it hosts is summarized in `history.jsonl`.
+
 **Source:** [`commands/org.ts → runAction`](packages/@monomind/cli/src/commands/org.ts#runAction)
 
 ---
