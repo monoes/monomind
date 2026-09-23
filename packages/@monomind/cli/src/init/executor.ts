@@ -24,6 +24,7 @@ import {
 } from '../mcp/monoes-mcp-entry.mjs';
 import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
+import { initProjectMemory } from './init-memory.js';
 // Split modules
 import { DIRECTORIES, MAX_EXEC_FILE_BYTES } from './shared.js';
 import { writeSharedInstructions } from './shared-instructions-generator.js';
@@ -313,6 +314,13 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await initKnowledgeGraph(targetDir, result, options.installClaudeCode !== false);
     } else if (options.components.monograph) {
       result.skipped.push('Monograph code graph: not a code project (skipping indexing)');
+    }
+
+    // Memory is on by default — set up before the doctor pass so it sees it.
+    if (options.components.runtime && options.initMemory !== false) {
+      result.memory = await initProjectMemory(targetDir, {
+        syncToClaude: options.components.settings,
+      });
     }
 
     // Run doctor auto-fix (non-blocking, best-effort)

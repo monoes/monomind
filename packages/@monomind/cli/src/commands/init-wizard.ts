@@ -9,6 +9,7 @@ import {
   type InitOptions,
   MINIMAL_INIT_OPTIONS,
 } from '../init/index.js';
+import { reportProjectMemory } from '../init/init-memory.js';
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
 import { output } from '../output.js';
 import { confirm, input, multiSelect, select } from '../prompt.js';
@@ -288,6 +289,8 @@ export const wizardCommand: Command = {
       }
 
       spinner.succeed('Setup complete!');
+
+      reportProjectMemory(result.memory);
 
       let embeddingsInitialized = false;
       if (enableEmbeddings) {

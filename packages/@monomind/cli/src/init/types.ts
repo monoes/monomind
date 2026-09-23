@@ -359,6 +359,12 @@ export interface InitOptions {
    * it entirely.
    */
   installClaudeCode?: boolean;
+  /**
+   * Initialize the memory database (`.swarm/memory.db`) the way `monomind
+   * memory init` does, keeping an existing one. Runs only with
+   * `components.runtime`; undefined is treated as true (`--no-memory` sets false).
+   */
+  initMemory?: boolean;
 }
 
 /**
@@ -585,6 +591,12 @@ export const FULL_INIT_OPTIONS: InitOptions = {
 /**
  * Init result
  */
+export interface InitMemoryResult {
+  status: 'created' | 'existing' | 'failed';
+  dbPath: string;
+  error?: string;
+}
+
 export interface InitResult {
   success: boolean;
   platform: PlatformInfo;
@@ -600,6 +612,8 @@ export interface InitResult {
    *  unnoticed. */
   removed: string[];
   errors: string[];
+  /** Memory database setup outcome; absent when it was not attempted. */
+  memory?: InitMemoryResult;
   summary: {
     skillsCount: number;
     commandsCount: number;

@@ -183,7 +183,7 @@ describe('doctor-project-checks', () => {
         name: 'Memory Database',
         status: 'warn',
         message: 'Not initialized',
-        fix: 'monomind memory configure --backend hybrid',
+        fix: 'monomind memory init',
       });
     });
 

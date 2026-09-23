@@ -13,8 +13,8 @@ import {
   type InitOptions,
   MINIMAL_INIT_OPTIONS,
 } from '../init/index.js';
+import { reportProjectMemory } from '../init/init-memory.js';
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
-import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
 import { output } from '../output.js';
 import { resolvePlatformId } from '../platform-adapters/registry.js';
 import type { PlatformId } from '../platform-adapters/types.js';
@@ -203,6 +203,16 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     options.installClaudeCode = false;
   }
 
+  // Memory is on by default and not tied to --start-all: every init except
+  // --only-claude (runtime is off) and --no-memory creates the database.
+  if (
+    ctx.flags.memory === false ||
+    ctx.flags['no-memory'] === true ||
+    ctx.flags.noMemory === true
+  ) {
+    options.initMemory = false;
+  }
+
   const spinner = output.createSpinner({ text: 'Initializing...' });
   spinner.start();
 
@@ -229,6 +239,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
         console.error('[init] sample org emit failed:', e);
     }
+
+    reportProjectMemory(result.memory);
 
     // Start monograph watch for ongoing file-change rebuilds, unless --no-watch was passed.
     // Guard: skip if a watcher PID file already exists and the process is still alive,
@@ -408,34 +420,6 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.printInfo('Starting services...');
 
       const { execSync } = await import('node:child_process');
-
-      if (startAll) {
-        // In-process, not a subprocess: `npx @monomind/cli@latest memory init`
-        // (the previous approach) shelled out to a package name that has
-        // never been published — every fresh init silently 404'd here and
-        // fell into the catch block's "already exists" message even when no
-        // database existed at all. initializeMemoryDatabase() is the same
-        // function `monomind memory init` itself calls, run directly.
-        try {
-          output.writeln(output.dim('  Initializing memory database...'));
-          const memResult = await initializeMemoryDatabase({
-            dbPath: path.join(ctx.cwd, '.swarm', 'memory.db'),
-          });
-          if (memResult.success) {
-            output.writeln(output.success('  ✓ Memory initialized'));
-          } else {
-            output.writeln(
-              output.dim(`  Memory database init skipped (${memResult.error || 'unknown reason'})`),
-            );
-          }
-        } catch (e) {
-          output.writeln(
-            output.dim(
-              `  Memory database init skipped (${e instanceof Error ? e.message : String(e)})`,
-            ),
-          );
-        }
-      }
 
       if (startAll) {
         try {
@@ -625,7 +609,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.writeln(output.bold('Next steps:'));
       output.printList(
         [
-          `Run ${output.highlight('monomind memory init')} to initialize memory database`,
+          result.memory && result.memory.status !== 'failed'
+            ? ''
+            : `Run ${output.highlight('monomind memory init')} to initialize memory database`,
           `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
           `Services auto-start by default; use ${output.highlight('--no-start-all')} to skip`,
           options.components.settings
@@ -889,7 +875,16 @@ export const initCommand: Command = {
     },
     {
       name: 'start-all',
-      description: 'Auto-start memory and swarm after init (default: true)',
+      description: 'Auto-start swarm and seed worker metrics after init (default: true)',
+      type: 'boolean',
+      default: true,
+    },
+    {
+      // Declared as the positive `memory` so `--no-memory` reaches it (see
+      // `watch` below). Initializes the same database `memory init` does.
+      name: 'memory',
+      description:
+        'Initialize the memory database (.swarm/memory.db) during init (default: true; --no-memory skips)',
       type: 'boolean',
       default: true,
     },
@@ -940,6 +935,10 @@ export const initCommand: Command = {
     },
     { command: 'monomind init --target codex', description: 'Initialize only Codex' },
     { command: 'monomind init wizard', description: 'Interactive setup wizard' },
+    {
+      command: 'monomind init --no-memory',
+      description: 'Initialize without creating the memory database',
+    },
     {
       command: 'monomind init --no-watch',
       description: 'Initialize without starting the background graph watcher',

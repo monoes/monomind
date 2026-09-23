@@ -68,8 +68,8 @@ describe('init preserves user-authored .claude content', () => {
     process.env.HOME = fakeHome;
     ctx = {
       args: [],
-      // --no-start-all skips the service auto-start block (real memory
-      // backend init, npx swarm init, metrics seeding) — none of the
+      // --no-start-all skips the service auto-start block (npx swarm
+      // init, metrics seeding) — none of the
       // assertions below cover it, and it is the dominant source of
       // full-suite parallel-load timeouts. Watch behavior is gated by
       // --watch, not startAll, so the pid-file tests are unaffected.

@@ -135,7 +135,7 @@ export async function checkMemoryDatabase(): Promise<HealthCheck> {
     name: 'Memory Database',
     status: 'warn',
     message: 'Not initialized',
-    fix: 'monomind memory configure --backend hybrid',
+    fix: 'monomind memory init',
   };
 }
 

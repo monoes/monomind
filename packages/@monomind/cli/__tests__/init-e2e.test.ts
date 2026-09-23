@@ -11,8 +11,7 @@
  * all wrapped in try/catch in production code and don't affect
  * result.success either way.
  *
- * All runs pass --no-start-all: the startAll block (in-process memory DB
- * init with the real @monoes/memory backend registry, npx swarm init, worker
+ * All runs pass --no-start-all: the startAll block (npx swarm init, worker
  * metrics seeding) is by far the slowest part of init and none of the
  * assertions below cover it — under full-suite parallel load it alone pushed
  * these tests past even a 90s timeout. The watcher is gated by --watch, not
