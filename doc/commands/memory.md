@@ -17,7 +17,7 @@ Defined in `packages/@monomind/cli/src/commands/memory.ts` and `memory-transfer.
 
 | Subcommand | Usage | Description |
 |---|---|---|
-| `init` | `monomind memory init` | Initialize local SQLite memory database (`.monomind/memory/memory.db`) and schema v3.0.0. |
+| `init` | `monomind memory init` | Initialize local SQLite memory database (`.swarm/memory.db`, copied to `.claude/memory.db`) and schema v3.0.0. `monomind init` runs this automatically unless given `--no-memory`. |
 | `store` | `monomind memory store -k <key> -v <val> [-n <ns>] [-t <tags>]` | Store a key-value entry in the specified namespace (default: `default`) with temporal decay tracking. |
 | `edit` | `monomind memory edit -k <key> -v <val> [-n <ns>]` | Update an existing memory entry content and metadata. |
 | `retrieve` | `monomind memory retrieve -k <key> [-n <ns>]` | Retrieve a specific entry by key and namespace. |

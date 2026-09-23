@@ -8,7 +8,7 @@
 
 | Command | Purpose | Subcommands |
 |---|---|---|
-| `init` | Initialize all supported coding systems by default: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. Use `--target <system>` for one system (`claude`, `antigravity`, `opencode`, `kimicode`, or `codex`); `--codex`, `--opencode`, and `--kimicode` remain aliases. Skills are written to `.claude/skills/` and mirrored to `.gemini/skills/` and `.agents/skills/` for multi-runtime support. | 5 — wizard (`init-wizard.ts:18`), check, skills, hooks (`init-subcommands.ts:20`), upgrade (`init-upgrade.ts:19`) |
+| `init` | Initialize all supported coding systems by default: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. Use `--target <system>` for one system (`claude`, `antigravity`, `opencode`, `kimicode`, or `codex`); `--codex`, `--opencode`, and `--kimicode` remain aliases. Skills are written to `.claude/skills/` and mirrored to `.gemini/skills/` and `.agents/skills/` for multi-runtime support. Also initializes the memory database (`.swarm/memory.db`) exactly as `memory init` does, keeping an existing one intact; `--no-memory` skips it, and a failure only warns. | 5 — wizard (`init-wizard.ts:18`), check, skills, hooks (`init-subcommands.ts:20`), upgrade (`init-upgrade.ts:19`) |
 | `start` | Start the MonoMind orchestration system | 3 — stop, restart, quick |
 | `status` | Show system status (watch mode supported) | 3 — agents, tasks, memory |
 | `agent` | Agent lifecycle (in-process, no separate MCP server needed) | 7 — spawn, list, status, stop, metrics, pool, health |
