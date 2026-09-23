@@ -2,7 +2,7 @@
  * Doctor — Jev decision-model check. The full doctor run only inspects
  * configuration (no network); `doctor -c jev` probes each provider.
  */
-import { jevModule } from '../decision/jev.js';
+import { jevLoadError, jevModule } from '../decision/jev.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 
 const NAME = 'Decision Model (Jev)';
@@ -23,6 +23,15 @@ export async function checkDecisionModel(
 ): Promise<HealthCheck> {
   const env = opts.env ?? process.env;
   const jp = jevModule();
+  const loadError = jp ? undefined : jevLoadError();
+  if (loadError) {
+    return {
+      name: NAME,
+      status: 'warn',
+      message: `jev-picker.cjs failed to load (${loadError.message}), so the decision model is never used`,
+      fix: 'Reinstall monomind (npm i -g monomind@latest)',
+    };
+  }
   if (!jp) {
     return {
       name: NAME,

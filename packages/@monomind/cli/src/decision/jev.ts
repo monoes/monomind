@@ -97,16 +97,24 @@ const HELPER_CANDIDATES = [
 ];
 
 let loaded: JevPickerModule | null | undefined;
+let loadError: Error | undefined;
 
 export function jevModule(): JevPickerModule | null {
   if (loaded !== undefined) return loaded;
   const file = HELPER_CANDIDATES.find((p) => existsSync(p));
   try {
     loaded = file ? (createRequire(import.meta.url)(file) as JevPickerModule) : null;
-  } catch {
+  } catch (err) {
     loaded = null;
+    loadError = err instanceof Error ? err : new Error(String(err));
   }
   return loaded;
+}
+
+/** Why the helper exists but failed to load; undefined when it is just missing. */
+export function jevLoadError(): Error | undefined {
+  jevModule();
+  return loadError;
 }
 
 export function decisionModelConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -122,7 +130,15 @@ export async function pickWithJev(
   if (!mod) return null;
   try {
     return await mod.pick(task, catalogs, opts);
-  } catch {
+  } catch (err) {
+    // A picker bug must not break routing, but it must not vanish either.
+    const e = (err instanceof Error ? err : new Error(String(err))) as JevError;
+    e.provider ??= 'jev-picker';
+    try {
+      opts.onError?.(e);
+    } catch {
+      /* a logger must never break routing */
+    }
     return null;
   }
 }
