@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { removeManagedMarker } from './merge.js';
 import { resolveArtifactLocation } from './operations.js';
 import type { InstallRequest, PlatformAdapter } from './types.js';
@@ -37,7 +37,14 @@ export function backup(path: string, root: string, privateBackup = false): void 
   // user-scope backup can contain credentials from a platform config, so its
   // leaf directory must be private regardless of the caller's umask.
   if (privateBackup) chmodSync(backupRoot, 0o700);
-  const destination = join(backupRoot, basename(path));
+  // Mirror the path below `root` so several files of one apply cannot collide;
+  // the first copy in a backup directory is the pre-apply content, so keep it.
+  const rel = relative(root, path);
+  const inside = rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  const external = join('_external', resolve(path).replace(/[:\\/]+/g, '_'));
+  const destination = join(backupRoot, inside ? rel : external);
+  if (existsSync(destination)) return;
+  mkdirSync(dirname(destination), { recursive: true });
   if (statSync(path).isDirectory()) cpSync(path, destination, { recursive: true });
   else writeFileSync(destination, readFileSync(path));
 }

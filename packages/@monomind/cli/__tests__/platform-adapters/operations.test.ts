@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +10,7 @@ import {
   uninstallPlatform,
   upgradePlatforms,
 } from '../../src/platform-adapters/operations.js';
-import { removeManagedSkillPackage, symlinkedComponent } from '../../src/platform-adapters/mutation.js';
+import { backup, removeManagedSkillPackage, symlinkedComponent } from '../../src/platform-adapters/mutation.js';
 import { PLATFORM_REGISTRY } from '../../src/platform-adapters/registry.js';
 import type { PlatformAdapter } from '../../src/platform-adapters/types.js';
 
@@ -204,6 +204,29 @@ describe('removeManagedSkillPackage', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('backup', () => {
+  it('keeps every file of one apply apart and never overwrites an earlier copy', () => {
+    const root = mkdtempSync(join(tmpdir(), 'platform-backup-'));
+    try {
+      vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      for (const name of ['one', 'two']) {
+        mkdirSync(join(root, '.claude', 'skills', name), { recursive: true });
+        writeFileSync(join(root, '.claude', 'skills', name, 'SKILL.md'), `${name}\n`);
+        backup(join(root, '.claude', 'skills', name, 'SKILL.md'), root);
+      }
+      const file = join(root, '.claude', 'skills', 'one', 'SKILL.md');
+      writeFileSync(file, 'rewritten\n');
+      backup(file, root);
+      const stamp = join(root, '.monomind', 'backups', `1700000000000-${process.pid}`);
+      expect(readFileSync(join(stamp, '.claude', 'skills', 'one', 'SKILL.md'), 'utf8')).toBe('one\n');
+      expect(readFileSync(join(stamp, '.claude', 'skills', 'two', 'SKILL.md'), 'utf8')).toBe('two\n');
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
