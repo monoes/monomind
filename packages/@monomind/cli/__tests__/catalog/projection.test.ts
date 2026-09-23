@@ -228,6 +228,21 @@ describe('catalog projection', () => {
     expect(again).toMatchObject({ changed: [], removals: [] });
   });
 
+  it('a same-name non-skill entry does not keep a stale skill projection alive', async () => {
+    const root = newRoot();
+    const dir = join(root, '.claude/skills/cat-arch');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'SKILL.md'),
+      '---\nname: cat-arch\n---\n# monomind:start catalog:skill:cat-arch\nold\n# monomind:end catalog:skill:cat-arch\n',
+    );
+    writeEntry(root, { name: 'cat-arch', kind: 'archetype', targets: ['platform:claude'] });
+    const res = await applyProjection(root, 'platform:claude', { dryRun: false });
+    expect(res.diagnostics).toContainEqual(expect.stringMatching(/archetype:cat-arch: only skills/));
+    expect(res.removals.map((r) => r.id)).toEqual(['skill:cat-arch']);
+    expect(existsSync(dir)).toBe(false);
+  });
+
   it('reports frontmatter drift instead of silently keeping the old header', async () => {
     const root = newRoot();
     writeEntry(root, { name: 'cat-lint', targets: ['platform:claude'] });

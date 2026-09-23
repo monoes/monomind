@@ -206,7 +206,8 @@ function buildPlan(
         });
     }
   }
-  const keep = new Set(wanted.map((a) => a.name));
+  // Only skills own a projection; a refused skill keeps its earlier verified copy.
+  const keep = new Set(wanted.filter((a) => a.kind === 'skill').map((a) => a.name));
   const entries = existsSync(skillRoot) ? readdirSync(skillRoot, { withFileTypes: true }) : [];
   for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
     if (unprojectName ? e.name !== unprojectName : keep.has(e.name)) continue;
