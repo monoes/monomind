@@ -80,6 +80,8 @@ export const catalogMarker = (name: string): string => `catalog:skill:${name}`;
 export const catalogMarkerLine = (a: Pick<CatalogAsset, 'id' | 'sha256' | 'targets'>): string =>
   `<!-- catalog ${a.id} sha256:${a.sha256} jev:${a.targets.includes('jev') ? 'yes' : 'no'} -->`;
 
+/** Refusals of the package content itself (not drift or digest problems). */
+const SECURITY_REFUSAL = /^(?:frontmatter-not-allowed|body-exec):/;
 const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
 const isOurs = (content: string, name: string): boolean =>
   content.includes(`monomind:start ${catalogMarker(name)}`);
@@ -197,14 +199,17 @@ function buildPlan(
       plan.diagnostics.push(`symlinked-destination: ${relative(root, rootLink)}`);
     return plan;
   }
+  const unsafe = new Set<string>();
   for (const asset of wanted) {
     if (asset.kind !== 'skill') {
       plan.diagnostics.push(`${asset.id}: only skills are projected`);
       continue;
     }
     const r = packageIntents(root, skillRoot, asset);
-    if ('refused' in r) plan.diagnostics.push(`${asset.id}: ${r.refused}`);
-    else {
+    if ('refused' in r) {
+      plan.diagnostics.push(`${asset.id}: ${r.refused}`);
+      if (SECURITY_REFUSAL.test(r.refused)) unsafe.add(asset.name);
+    } else {
       plan.intents.push(...r.intents);
       plan.packages.push({ id: asset.id, sha256: asset.sha256, paths: r.paths });
       const stale = markedFiles(join(skillRoot, asset.name), asset.name).filter(
@@ -219,8 +224,11 @@ function buildPlan(
         });
     }
   }
-  // Only skills own a projection; a refused skill keeps its earlier verified copy.
-  const keep = new Set(wanted.filter((a) => a.kind === 'skill').map((a) => a.name));
+  // Only skills own a projection. A refused skill keeps its earlier copy, unless
+  // the refusal is a security one: that copy may carry what is now refused.
+  const keep = new Set(
+    wanted.filter((a) => a.kind === 'skill' && !unsafe.has(a.name)).map((a) => a.name),
+  );
   const entries = existsSync(skillRoot) ? readdirSync(skillRoot, { withFileTypes: true }) : [];
   for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
     if (unprojectName ? e.name !== unprojectName : keep.has(e.name)) continue;

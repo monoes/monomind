@@ -222,7 +222,9 @@ id, digest and `jev:` flag. Projection is explicit and reversible:
   other than `name`, `description`, `tags`, `tools` and `license` (for example
   `hooks`, `allowed-tools` or `model`), or a flow-mapping header, is refused
   with `frontmatter-not-allowed`; one whose Markdown carries shell execution
-  syntax is refused with `body-exec`;
+  syntax is refused with `body-exec`. Either refusal also removes (and backs
+  up) a copy an earlier projection left on disk; other refusals, such as
+  `frontmatter-drift` or a digest mismatch, leave that copy in place;
 - a projected `SKILL.md` whose frontmatter was edited by hand is skipped with
   `frontmatter-drift`; run `catalog unproject <id>` and then `catalog project`;
 - projecting a new revision also removes the marked files that only the
