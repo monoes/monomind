@@ -154,4 +154,7 @@ const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e
 // Recaptured again when `expectExit` gained its guardrail: checks take an
 // `expectReason` (required alongside a non-zero `expectExit`) and the
 // evidence description says `expectExit` is refused on an aggregate command.
-const TOOLS_SHA = 'f332a9004f2639d19c47109404e17b98e9d4425006e3faf3503cc701e76c74ea';
+// Recaptured when org_task and org_plan_graph nodes gained an optional `brief`
+// (the task's instructions, sent with its dispatch) — a shared schema, so one
+// cache miss per org on upgrade in exchange for briefs that arrive in time.
+const TOOLS_SHA = '597bbc8759a6e65445b7d32df22216f047c0bf16fdc02d2fc3ad21e3c1c7d790';

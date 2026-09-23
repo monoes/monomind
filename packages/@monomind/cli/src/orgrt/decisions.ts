@@ -180,6 +180,7 @@ export function dagCreateTask(
   assignee: string,
   deps: string[],
   loadout?: string,
+  brief?: string,
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
@@ -188,7 +189,7 @@ export function dagCreateTask(
   const refusal = checkLoadoutSelection(running.def, loadout);
   if (refusal) return JSON.stringify({ error: refusal });
   try {
-    const task = running.taskDag.add(title, assignee, deps, loadout);
+    const task = running.taskDag.add(title, assignee, deps, loadout, brief);
     task.createdBy = role;
     running.bus.emit({
       type: 'status',
@@ -217,6 +218,8 @@ export interface PlanTaskSpec {
   after?: string[];
   /** ADR-O001 D7: selected catalog loadout, recorded on the created task. */
   loadout?: string;
+  /** Instructions sent with the task's dispatch (OrgTask.brief). */
+  brief?: string;
 }
 
 export function dagPlanGraph(
@@ -246,7 +249,7 @@ export function dagPlanGraph(
         const afters = s.after ?? [];
         if (!afters.every((a) => nameToId.has(a) || running.taskDag?.get(a))) continue;
         const depIds = afters.map((a) => nameToId.get(a) ?? a);
-        const task = running.taskDag.add(s.title, s.assignee, depIds, s.loadout);
+        const task = running.taskDag.add(s.title, s.assignee, depIds, s.loadout, s.brief);
         task.createdBy = role;
         nameToId.set(s.name, task.id);
         created.push({
@@ -736,7 +739,9 @@ export function dispatchLine(
   running: RunningOrg,
   task: OrgTask,
 ): string | Promise<string> {
-  const base = `${taskTag(task)} ${task.title}`;
+  // The brief rides the dispatch itself so it arrives with the task however
+  // late that is — a separate org_send can miss the coalescing window below.
+  const base = `${taskTag(task)} ${task.title}${task.brief ? `\n\n${task.brief}` : ''}`;
   if (!decisionModelConfigured()) return base;
   const role = running.def?.roles.find((r) => r.id === task.assignee);
   if (!role) return base;

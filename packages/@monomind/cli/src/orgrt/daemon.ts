@@ -2150,8 +2150,9 @@ export class OrgDaemon {
         assignee: string,
         deps: string[],
         loadout?: string,
+        brief?: string,
       ) => {
-        return this.dagCreateTask(name, r, title, assignee, deps, loadout);
+        return this.dagCreateTask(name, r, title, assignee, deps, loadout, brief);
       },
       pickAssignee: resolveAutoAssignee(def),
       // ADR-O001 D7: only an org with a catalog gets the `loadout` argument;
@@ -3285,8 +3286,9 @@ export class OrgDaemon {
     assignee: string,
     deps: string[],
     loadout?: string,
+    brief?: string,
   ): string {
-    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps, loadout);
+    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps, loadout, brief);
   }
   private dagCompleteTask(
     org: string,

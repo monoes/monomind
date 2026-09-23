@@ -14,6 +14,7 @@ import { Mailbox } from './mailbox.js';
 import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
 import { StateDetector } from './state-detector.js';
+import { MAX_TASK_BRIEF } from './task-dag.js';
 import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
@@ -339,6 +340,7 @@ export interface SessionOpts {
     assignee: string,
     deps: string[],
     loadout?: string,
+    brief?: string,
   ) => string;
   /** Resolves `assignee: "auto"` on org_task: the decision model (or, without
    *  one, a keyword match over role titles/responsibilities) picks the role.
@@ -392,7 +394,14 @@ export interface SessionOpts {
   blockTask?: (role: string, taskId: string, untilIso: string, reason?: string) => string;
   planGraph?: (
     role: string,
-    specs: { name: string; title: string; assignee: string; after?: string[]; loadout?: string }[],
+    specs: {
+      name: string;
+      title: string;
+      assignee: string;
+      after?: string[];
+      loadout?: string;
+      brief?: string;
+    }[],
   ) => string;
 }
 
@@ -1393,7 +1402,7 @@ function loadoutHelp(catalog: LoadoutSummary[]): string {
   const list = catalog
     .map((l) => (l.description ? `${l.name} (${l.description})` : l.name))
     .join(', ');
-  return ` Optionally select a "loadout" — the named, stable specialisation the assignee's session is built with: ${list}. Select by kind of work; put everything specific to this task (which diff, criteria, what failed last time) in the title or a message, not in the choice of loadout. The selection is recorded on the task and reused on every retry.`;
+  return ` Optionally select a "loadout" — the named, stable specialisation the assignee's session is built with: ${list}. Select by kind of work; put everything specific to this task (which diff, criteria, what failed last time) in its "brief", not in the choice of loadout. The selection is recorded on the task and reused on every retry.`;
 }
 
 /** Build the org tool surface as platform-agnostic OrgToolDef[]. The handlers
@@ -1570,12 +1579,15 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   const loadoutArg: Record<string, z.ZodType> = catalog
     ? { loadout: z.enum(catalog.map((l) => l.name) as [string, ...string[]]).optional() }
     : {};
+  // Sent with the dispatch itself (decisions.ts dispatchLine), so the
+  // instructions arrive with the task instead of in a follow-up message.
+  const briefArg = z.string().max(MAX_TASK_BRIEF).optional();
   const createTask = opts.createTask;
   if (createTask) {
     tools.push({
       name: 'org_task',
       description:
-        'Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee.' +
+        `Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee. Put the assignee's instructions — scope, acceptance criteria, paths, what failed last time — in \`brief\` (up to ${MAX_TASK_BRIEF} characters): it is delivered in the same message as the title whenever the task is dispatched, while a separate org_send can arrive after the assignee has already started.` +
         (opts.pickAssignee
           ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title.`
           : '') +
@@ -1584,6 +1596,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         title: z.string(),
         assignee: z.string(),
         deps: z.array(z.string()).default([]),
+        brief: briefArg,
         ...loadoutArg,
       },
       handler: async (args) => {
@@ -1606,6 +1619,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             assignee,
             (args.deps as string[]) ?? [],
             args.loadout as string | undefined,
+            args.brief as string | undefined,
           ),
         );
       },
@@ -1746,7 +1760,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_plan_graph',
       description:
-        'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after".' +
+        'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after", and may carry a "brief" with its instructions exactly as org_task does.' +
         (catalog ? ' Each spec may select a "loadout" exactly as org_task does.' : ''),
       schema: {
         tasks: z
@@ -1756,6 +1770,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
               title: z.string(),
               assignee: z.string(),
               after: z.array(z.string()).default([]),
+              brief: briefArg,
               ...loadoutArg,
             }),
           )
@@ -1771,6 +1786,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
               assignee: string;
               after?: string[];
               loadout?: string;
+              brief?: string;
             }[]) ?? [],
           ),
         ),

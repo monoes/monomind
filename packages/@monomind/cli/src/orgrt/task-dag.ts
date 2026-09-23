@@ -51,12 +51,21 @@ export interface OrgTask {
    *  is the same attempt again rather than a re-roll. Rides the checkpoint
    *  with the rest of the row. Absent when none was selected. */
   loadout?: string;
+  /** The creator's instructions for the task — scope, acceptance criteria,
+   *  what failed last time. Sent with the title in every dispatch (decisions.ts
+   *  dispatchLine), so it arrives with the task however late that is, and it
+   *  rides the checkpoint with the rest of the row. At most MAX_TASK_BRIEF. */
+  brief?: string;
   /** ADR-O001 D6: the most recent evidence the assignee submitted with
    *  org_task_done, accepted or refused — what an artifact-only reviewer is
    *  shown. Only the latest: earlier rounds are exactly what D6 withholds.
    *  Outputs are capped so the row stays small on the checkpoint. */
   lastEvidence?: TaskEvidence;
 }
+
+/** Upper bound on OrgTask.brief — enforced by the org_task/org_plan_graph
+ *  schemas; long material belongs in a file the brief points at. */
+export const MAX_TASK_BRIEF = 4000;
 
 export interface SplitChild {
   title: string;
@@ -76,7 +85,13 @@ export class TaskDag {
   private tasks = new Map<string, OrgTask>();
   private counter = 0;
 
-  add(title: string, assignee: string, deps: string[] = [], loadout?: string): OrgTask {
+  add(
+    title: string,
+    assignee: string,
+    deps: string[] = [],
+    loadout?: string,
+    brief?: string,
+  ): OrgTask {
     const id = `task-${++this.counter}`;
     for (const d of deps) {
       if (!this.tasks.has(d)) throw new Error(`dependency "${d}" does not exist`);
@@ -89,6 +104,7 @@ export class TaskDag {
       status: 'pending',
       createdAt: Date.now(),
       ...(loadout ? { loadout } : {}),
+      ...(brief ? { brief } : {}),
     };
     this.tasks.set(id, task);
     if (this.hasCycle()) {
@@ -275,6 +291,7 @@ export class TaskDag {
         splitFrom: parentId,
         // D7: a split is the same work in smaller pieces — same loadout.
         ...(parent.loadout ? { loadout: parent.loadout } : {}),
+        ...(parent.brief ? { brief: parent.brief } : {}),
         ...(parent.createdBy ? { createdBy: parent.createdBy } : {}),
       };
       this.tasks.set(id, child);

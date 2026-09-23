@@ -728,6 +728,14 @@ gated approvals and dependency-tracked work.
 
 A ready task is handed to its assignee by [`decisions.ts → dispatchReadyTasks`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchReadyTasks)
 as one mailbox line, `[task:<id>] <title>` (plus `[loadout:<name>]` when one was selected).
+`org_task` and each `org_plan_graph` node take an optional `brief` (at most 4000 characters) — the
+creator's instructions: scope, acceptance criteria, paths, what failed last time. It is stored on
+the task ([`task-dag.ts → OrgTask`](packages/@monomind/cli/src/orgrt/task-dag.ts#OrgTask)), so it
+rides the checkpoint and split children inherit it, and [`decisions.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchLine)
+appends it below the title in every dispatch of the task — the first one, one made later when its
+deps complete, and a re-dispatch after a refused close or a resume. A briefing sent as a separate
+`org_send` only joins the dispatch if it lands inside the 500 ms coalescing window; on the 2.16.0
+release run it often did not, and assignees started, or finished, tasks before their briefs arrived.
 The `[task:<id>]` tag is also the routing key: with `run_config.session_scope: "task"` the role's
 model session is keyed per task, so a dispatch resumes that task's session
 ([`session-ledger.ts → mailRouteKey`](packages/@monomind/cli/src/orgrt/session-ledger.ts#mailRouteKey)).

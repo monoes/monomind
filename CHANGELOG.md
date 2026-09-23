@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **`org_task` and `org_plan_graph` nodes take a `brief`.** The creator's instructions for a task — scope, acceptance criteria, paths, what failed last time, up to 4000 characters — are stored on the task and delivered in the same mailbox message as its title, every time it is dispatched: at creation, later when its dependencies complete, and again after a refused close or a checkpoint resume. Split children inherit it, and per-task skill suggestions still follow it. Until now `org_task` took only a title, so a coordinator sent the details in a follow-up `org_send`, which joined the dispatch only if it landed inside the 500 ms coalescing window; on the 2.16.0 release run it often did not — the publisher asked for the details twice, and the maintainer finished tasks before their briefs arrived and was then woken four more times (about 3M tokens).
+
 ### Fixed
 
 - **`monomind init` wrote one full copy of every shared skill per platform.** `.agents/skills` is a single directory that codex, kimi, opencode, gemini, cursor and several other platforms all declare as their skill root, and each adapter wrapped the same body in its own `skills:<platform>:<name>` block — a default init left `.agents/skills/mastermind-org/SKILL.md` with three stacked copies (49 lines instead of ~16), and `mastermind-idea/SKILL.md` grew by 2,281 lines. A shared root now carries one co-owned `skills:agents:<name>` block. The next `init`, `init upgrade` or `platforms install/upgrade` folds existing per-platform blocks into that one block where the first sat, leaving text outside the blocks byte-for-byte and backing the file up to `.monomind/backups/` first. Which platforms installed into the shared root is recorded in `.monomind/platforms/shared-skills.json`, so `platforms uninstall` of one platform keeps the block while another platform still uses it. Platform-specific roots such as `.claude/skills` keep their per-platform markers.
