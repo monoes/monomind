@@ -335,6 +335,35 @@ describe('checkTaskEvidence — ADR-O001 D5 (opt-in via run_config.completion_ev
       const msg = checkTaskEvidence({ ...PASSING, heads, evidence: ev(WT_SHA, '/elsewhere') });
       expect(msg).toMatch(/not a worktree of this repository/);
     });
+
+    // 2.16.0 release run: a typo'd full sha was reported as "the tree moved",
+    // and a literal placeholder worktree ".../monomind/SRC" as an unknown one.
+    it('calls a sha git does not know an unknown commit, not a moved tree', () => {
+      const typo = `${WT_SHA.slice(0, 39)}0`;
+      const isKnownCommit = (sha: string) => sha !== typo;
+      for (const worktree of [undefined, WT]) {
+        const msg = checkTaskEvidence({ ...PASSING, heads, isKnownCommit, evidence: ev(typo, worktree) });
+        expect(msg).toMatch(/unknown commit \(typo\?\)/);
+        expect(msg).not.toMatch(/tree moved/);
+      }
+      const moved = checkTaskEvidence({ ...PASSING, heads, isKnownCommit, evidence: ev(STALE, WT) });
+      expect(moved).toMatch(/tree moved/);
+    });
+
+    it.each(['/home/u/monomind/SRC', '<worktree>', '{{src}}/wt', '/repo/<SRC>'])(
+      'refuses the placeholder worktree %j with a hint to pin the real path',
+      (worktree) => {
+        const msg = checkTaskEvidence({ ...PASSING, heads, worktreeExists: false, evidence: ev(WT_SHA, worktree) });
+        expect(msg).toMatch(/placeholder/);
+        expect(msg).toContain(WT);
+      },
+    );
+
+    it('does not call an existing all-caps directory a placeholder', () => {
+      const msg = checkTaskEvidence({ ...PASSING, heads, worktreeExists: true, evidence: ev(WT_SHA, '/data/SRC') });
+      expect(msg).toMatch(/not a worktree of this repository/);
+      expect(msg).not.toMatch(/placeholder/);
+    });
   });
 
   it('refuses a sha prefix too short to identify a commit', () => {

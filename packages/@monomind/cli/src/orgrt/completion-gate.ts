@@ -267,6 +267,12 @@ export interface TaskEvidenceFacts {
    *  and each local branch tip. Evidence pinned to any of them is current.
    *  When absent, only `headSha` counts. */
   heads?: LocalHead[];
+  /** Whether git knows `sha` as a commit. Tells a typo'd sha apart from
+   *  one the tree moved past; when absent every sha is assumed known. */
+  isKnownCommit?: (sha: string) => boolean;
+  /** Whether the evidence's `worktree` exists on disk; an absent all-caps
+   *  path (".../SRC") is then taken for an unfilled placeholder. */
+  worktreeExists?: boolean;
   /** Role id the runtime saw calling org_task_done. */
   caller: string;
   /** The task's recorded assignee. */
@@ -286,6 +292,18 @@ const REPORT_TASK_HINT =
   "If this task's job is to REPORT (QA, an audit) and these failures are what you found, they are findings, not acceptance checks: put them in `result` and send them to the coordinator, and make the acceptance commands prove the report exists and is complete (e.g. `test -s <report file>`, a grep for each required section).";
 
 const normalizePath = (p: string): string => p.trim().replace(/\/+$/, '');
+
+/** A worktree path that is a template the role never filled in: a literal
+ *  `<…>`/`{{…}}`, or (when it does not exist) an all-caps last segment like
+ *  the rules' `SRC`. */
+function isPlaceholderPath(path: string, exists: boolean | undefined): boolean {
+  if (/[<>]|\{\{|\}\}/.test(path)) return true;
+  return exists === false && /(?:^|\/)[A-Z][A-Z0-9_]*$/.test(normalizePath(path));
+}
+
+function unknownCommit(claimed: string, heads: LocalHead[]): string {
+  return `org_task_done refused: headSha ${claimed} is an unknown commit (typo?) — git has no commit by that name in this repository. Copy it from \`git -C <worktree> rev-parse HEAD\` rather than retyping it. Current heads: ${describeHeads(heads)}.`;
+}
 
 function describeHeads(heads: LocalHead[]): string {
   const shown = heads
@@ -347,14 +365,19 @@ export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
     const wt = heads.find((h) => h.worktree && normalizePath(h.worktree) === want);
     if (!wt) {
       const known = heads.filter((h) => h.worktree).map((h) => h.worktree);
+      if (isPlaceholderPath(ev.worktree, f.worktreeExists)) {
+        return `org_task_done refused: worktree "${ev.worktree}" is a placeholder, not a path — pin the real worktree path you ran the checks in (see \`git worktree list\`). Worktrees: ${known.join(', ') || 'none'}.`;
+      }
       return `org_task_done refused: "${ev.worktree}" is not a worktree of this repository, so its HEAD cannot be checked. If you ran the checks somewhere else — a scratch dir, an installed tarball — pin \`worktree\` and \`headSha\` to the git worktree the tested artifact was BUILT FROM (and keep the scratch path in the command or output). Worktrees: ${known.join(', ') || 'none'}.`;
     }
     if (!matches(wt)) {
+      if (f.isKnownCommit && !f.isKnownCommit(claimed)) return unknownCommit(claimed, heads);
       return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, but the current head of ${wt.worktree} is ${wt.sha} — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output.`;
     }
     return null;
   }
   if (!heads.some(matches)) {
+    if (f.isKnownCommit && !f.isKnownCommit(claimed)) return unknownCommit(claimed, heads);
     return `org_task_done refused: the evidence is STALE. It is pinned to ${claimed}, which is not the current head of any worktree or local branch (current heads: ${describeHeads(heads)}) — the tree moved after those checks ran, so they say nothing about the code being closed. Re-run the acceptance commands against the current head and attach the new output, with \`worktree\` naming where you ran them.`;
   }
   return null;

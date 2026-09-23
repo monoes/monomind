@@ -468,6 +468,17 @@ export function localHeads(cwd: string): LocalHead[] {
   return live;
 }
 
+/** Whether `sha` names a commit in the workspace's repository. */
+function isKnownCommit(cwd: string, sha: string): boolean {
+  if (!/^[0-9a-f]+$/i.test(sha)) return false;
+  try {
+    execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Evidence's `worktree`, made comparable with `git worktree list` output:
  *  resolved against the workspace, symlinks followed when it exists. */
 function resolveEvidenceWorktree(
@@ -541,11 +552,14 @@ export function dagCompleteTask(
     running.def.roles.find((r) => r.id === task?.assignee)?.deliberative === true;
   if (task && running.def.run_config.completion_evidence && !deliberative) {
     const workspace = running.workdir ?? daemon.root;
+    const pinned = resolveEvidenceWorktree(evidence, workspace);
     const refusal = checkTaskEvidence({
       required: true,
-      evidence: resolveEvidenceWorktree(evidence, workspace),
+      evidence: pinned,
       headSha: currentHeadSha(workspace),
       heads: localHeads(workspace),
+      isKnownCommit: (sha) => isKnownCommit(workspace, sha),
+      ...(pinned?.worktree ? { worktreeExists: existsSync(pinned.worktree) } : {}),
       caller: role,
       assignee: task.assignee,
     });

@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checkTaskEvidence } from '../../src/orgrt/completion-gate.js';
-import { localHeads } from '../../src/orgrt/decisions.js';
+import { OrgBus } from '../../src/orgrt/bus.js';
+import { dagCompleteTask, localHeads } from '../../src/orgrt/decisions.js';
+import { Mailbox } from '../../src/orgrt/mailbox.js';
+import { TaskDag } from '../../src/orgrt/task-dag.js';
+import { OrgDefSchema } from '../../src/orgrt/types.js';
 
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], {
@@ -60,5 +64,46 @@ describe('localHeads', () => {
 
   it('is empty outside a git repository', () => {
     expect(localHeads(realpathSync(mkdtempSync(join(tmpdir(), 'nogit-'))))).toEqual([]);
+  });
+});
+
+describe('dagCompleteTask refusal wording', () => {
+  function close(workdir: string, headSha: string, worktree?: string) {
+    const def = OrgDefSchema.parse({
+      name: 'o',
+      goal: 'g',
+      run_config: { completion_evidence: true },
+      roles: [
+        { id: 'boss', title: 'B', type: 'b' },
+        { id: 'dev', title: 'D', type: 'd', reports_to: 'boss' },
+      ],
+    });
+    const taskDag = new TaskDag();
+    const task = taskDag.add('t', 'dev');
+    taskDag.markRunning(task.id);
+    const running = {
+      def,
+      taskDag,
+      workdir,
+      bus: new OrgBus('o', 'r', mkdtempSync(join(tmpdir(), 'gate-bus-'))),
+      agents: new Map([['dev', { mailbox: new Mailbox() }]]),
+    } as any;
+    const daemon = { orgs: new Map([['o', running]]), root: workdir } as any;
+    const ev = { headSha, ...(worktree ? { worktree } : {}), checks: [{ command: 'true', exitCode: 0 }] };
+    return JSON.parse(dagCompleteTask(daemon, 'o', 'dev', task.id, 'r', ev)).error as string;
+  }
+
+  it('says "unknown commit (typo?)" for a sha git does not have, and "tree moved" for a real old one', () => {
+    const r = repo();
+    const old = git(r.wt, 'rev-parse', 'HEAD~1');
+    const typo = `${r.wtSha.slice(0, 39)}${r.wtSha[39] === '0' ? '1' : '0'}`;
+    expect(close(r.main, typo, r.wt)).toMatch(/unknown commit \(typo\?\)/);
+    expect(close(r.main, typo)).toMatch(/unknown commit \(typo\?\)/);
+    expect(close(r.main, old, r.wt)).toMatch(/tree moved/);
+  });
+
+  it('names a literal placeholder worktree path', () => {
+    const r = repo();
+    expect(close(r.main, r.wtSha, join(r.main, '..', 'SRC'))).toMatch(/placeholder/);
   });
 });
