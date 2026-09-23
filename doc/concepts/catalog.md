@@ -60,6 +60,12 @@ Claude Code substitutes `$ARGUMENTS`, `$ARGUMENTS[n]`, `$n` and `${CLAUDE_…}`
 before it looks for runs (a skill preload substitutes an empty string), so a
 placeholder directly after a `!`, or among the spaces, backticks and tildes
 before one, is refused the same way: ```` ``$ARGUMENTS`! ```` becomes ` ```! `.
+Claude Code ends a skill's frontmatter at the first `---` anywhere, even in
+the middle of a value, and reads the rest as body, so these checks also run on
+the body Claude Code would cut from the file. A frontmatter line that contains
+`---` is refused with `frontmatter-not-allowed` at staging and at projection —
+a harmless `description: "a --- b"` included (write `--` or `—` instead) — as
+is a value holding a U+2028 or U+2029 line separator.
 Every consumer re-verifies the digest of the package it reads, and a package
 path that escapes `packages/` (via `..`, an absolute segment or a symlink,
 checked on `realpath`) is never read.
@@ -224,7 +230,8 @@ id, digest and `jev:` flag. Projection is explicit and reversible:
   never touched — the plan reports `not catalog-managed: <path>` instead;
 - a package whose root or nested `SKILL.md` frontmatter has a top-level key
   other than `name`, `description`, `tags`, `tools` and `license` (for example
-  `hooks`, `allowed-tools` or `model`), or a flow-mapping header, is refused
+  `hooks`, `allowed-tools` or `model`), a flow-mapping header or a line
+  containing `---`, is refused
   with `frontmatter-not-allowed`; one whose Markdown carries shell execution
   syntax is refused with `body-exec`. Either refusal also removes (and backs
   up) a copy an earlier projection left on disk; other refusals, such as

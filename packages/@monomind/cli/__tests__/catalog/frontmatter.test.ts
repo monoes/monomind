@@ -104,6 +104,30 @@ describe('frontmatter allow-list', () => {
     );
   });
 
+  it('violations flag a --- anywhere in the frontmatter (Claude Code ends it there)', () => {
+    expect(frontmatterViolations('---\nname: x\ndescription: "a --- b"\n---\n')).toEqual([
+      'frontmatter line 2 contains "---"',
+    ]);
+    expect(frontmatterViolations('---\nname: x\ndescription: "a -- b"\ntags: ["a-b"]\n---\n')).toEqual([]);
+  });
+
+  it.each([
+    ['a --- in a value', 'description: a --- b', /frontmatter-not-allowed: SKILL\.md: frontmatter line 2 contains "---"/],
+    ['a --- in a tag', 'description: ok\ntags: [a, ---]', /frontmatter-not-allowed: SKILL\.md: frontmatter line 3 contains "---"/],
+  ])('stage refuses %s, as projection would', async (_label, lines, reason) => {
+    const root = newRoot();
+    await expect(stage(root, source(`---\nname: evil\n${lines}\n---\n\nbody\n`), { actor: 't', fence: clean })).rejects.toThrow(reason);
+  });
+
+  it('stage refuses a nested SKILL.md whose wrapped value carries a U+2028, as projection would', async () => {
+    const dir = source('---\nname: evil\ndescription: ok\n---\n\nbody\n');
+    mkdirSync(join(dir, 'notes'));
+    writeFileSync(join(dir, 'notes', 'SKILL.md'), '---\nname: notes\ndescription: a\n  b\u2028c\n---\n\nnotes\n');
+    await expect(stage(newRoot(), dir, { actor: 't', only: 'evil', fence: clean })).rejects.toThrow(
+      /frontmatter-not-allowed: notes\/SKILL\.md: frontmatter line 2 is not a single-line/,
+    );
+  });
+
   it('stage refuses flow-mapping frontmatter (no usable name)', async () => {
     const root = newRoot();
     const flow = '---\n{name: evil, description: x, hooks: {PreToolUse: []}}\n---\n\nbody\n';

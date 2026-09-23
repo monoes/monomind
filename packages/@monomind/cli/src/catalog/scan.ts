@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { createFenceForRole, type FenceInstance, loadGlobalFenceConfig } from '../orgrt/fence.js';
 import { parseFrontmatter } from '../orgrt/skill-library.js';
 import { BlueprintSchema } from './blueprints.js';
+import { frontmatterViolations } from './frontmatter.js';
 import { CATALOG_NAME_RE, type CatalogEntry } from './types.js';
 
 export type CatalogFence = Pick<FenceInstance, 'detect'>;
@@ -60,9 +61,22 @@ function placeholderSplice(text: string): boolean {
   return false;
 }
 
-/** True when `text` carries Markdown that a platform executes as a shell command. */
-export const shellExecSyntax = (text: string): boolean =>
+/**
+ * Claude Code's frontmatter split: it ends at the first `---` anywhere, even
+ * mid-line, and the body it hands on follows a "Base directory …\n\n" prefix.
+ */
+const CLAUDE_FRONTMATTER = /^\uFEFF?---\s*\n[\s\S]*?---\s*\n?/;
+const execIn = (text: string): boolean =>
   SHELL_EXEC.some((re) => re.test(text)) || placeholderSplice(text);
+
+/**
+ * True when `text` carries Markdown that a platform executes as a shell
+ * command — as written, or in the body Claude Code cuts from it (the leading
+ * `\n` stands in for its prefix, so a `!` at body start counts as preceded by
+ * whitespace).
+ */
+export const shellExecSyntax = (text: string): boolean =>
+  execIn(text) || execIn(`\n${text.replace(CLAUDE_FRONTMATTER, '')}`);
 
 /** Every path under `dir`, relative, with its lstat kind. Skipped dirs are reported, not walked. */
 function walk(
@@ -193,6 +207,10 @@ export async function inspectPackage(
     const content = readFileSync(join(dir, f), 'utf8');
     const marker = RESERVED_MARKERS.find((m) => content.includes(m));
     if (marker) return refuse(`${f} contains reserved marker text "${marker.trim()}"`);
+    // What projection re-checks: a nested SKILL.md only when it has frontmatter.
+    const bad = f === 'SKILL.md' || f.endsWith('/SKILL.md') ? frontmatterViolations(content) : [];
+    if (bad.length && !(f !== 'SKILL.md' && bad[0] === 'SKILL.md has no frontmatter'))
+      return refuse(`frontmatter-not-allowed: ${f}: ${bad.join(', ')}`);
     if (f.endsWith('.md') && shellExecSyntax(content))
       return refuse(
         `body-exec: ${f} contains shell execution syntax (!\`…\`, a \`\`\`! block or a placeholder beside a !)`,

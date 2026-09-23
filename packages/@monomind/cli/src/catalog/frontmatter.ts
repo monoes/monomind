@@ -22,9 +22,12 @@ const ALLOWED: readonly string[] = ALLOWED_FRONTMATTER_KEYS;
 
 /**
  * Problems that keep `text` from being a canonical catalog SKILL.md: no
- * frontmatter, a key outside the allow-list, or any line that is not a
+ * frontmatter, a key outside the allow-list, any line that is not a
  * single-line `key: value` (indented, flow-mapping, anchor, alias, tag or
- * block-scalar forms). Empty for everything `sanitizeFrontmatter` produces.
+ * block-scalar forms, or a value holding a U+2028/U+2029), or a `---`
+ * anywhere in a line — Claude Code ends the frontmatter at the first `---`,
+ * even mid-value, and would read the rest as body. Staging refuses what
+ * `sanitizeFrontmatter` produces unless this is empty.
  */
 export function frontmatterViolations(text: string): string[] {
   const m = FRONTMATTER_RE.exec(text);
@@ -32,6 +35,7 @@ export function frontmatterViolations(text: string): string[] {
   const out: string[] = [];
   m[1].split(/\r?\n/).forEach((line, i) => {
     if (line.trim() === '') return;
+    if (line.includes('---')) return void out.push(`frontmatter line ${i + 1} contains "---"`);
     const kv = /^([A-Za-z_][\w-]*):(?: (.*))?$/.exec(line);
     if (!kv) out.push(`frontmatter line ${i + 1} is not a single-line key: value`);
     else if (!ALLOWED.includes(kv[1])) out.push(`frontmatter key "${kv[1]}" is not allowed`);
