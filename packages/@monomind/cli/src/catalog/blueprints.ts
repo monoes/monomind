@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { OrgDef } from '../orgrt/types.js';
+import { verifyEntry } from './digest.js';
 import { buildSnapshot, eligible } from './snapshot.js';
 import { CATALOG_NAME_RE } from './types.js';
 
@@ -40,7 +41,10 @@ function loadBlueprint(root: string, name: string): Blueprint | undefined {
     (a) => a.kind === 'blueprint' && a.name === name,
   );
   if (!asset?.dir) return undefined;
-  return BlueprintSchema.parse(JSON.parse(readFileSync(join(asset.dir, 'blueprint.json'), 'utf8')));
+  // The snapshot may be cached; the bytes read below must still match the digest.
+  const check = verifyEntry(root, asset);
+  if (!check.ok) throw new Error(`package ${check.reason}`);
+  return BlueprintSchema.parse(JSON.parse(readFileSync(join(check.dir, 'blueprint.json'), 'utf8')));
 }
 
 /**

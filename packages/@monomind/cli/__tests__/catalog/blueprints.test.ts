@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { resolveOrgDefBlueprints } from '../../src/catalog/blueprints.js';
@@ -104,5 +104,20 @@ describe('resolveOrgDefBlueprints', () => {
 
   it('rejects a blueprint field that is not a catalog name at parse time', () => {
     expect(() => defWith({ blueprint: '../evil' })).toThrow();
+  });
+
+  it('re-verifies the blueprint package instead of trusting a warm snapshot', () => {
+    const root = newRoot();
+    writeEntry(root, { name: 'sec', kind: 'blueprint', files: blueprintFiles({ name: 'sec', description: 'x', skills: ['a'] }) });
+    const def = defWith({ blueprint: 'sec' });
+    expect(resolveOrgDefBlueprints(def, root).def.roles[0].skills).toEqual(['a']);
+    const file = readdirSync(join(root, '.monomind', 'catalog', 'packages', 'sec'))[0];
+    writeFileSync(
+      join(root, '.monomind', 'catalog', 'packages', 'sec', file, 'blueprint.json'),
+      JSON.stringify({ name: 'sec', description: 'x', skills: ['evil'] }),
+    );
+    const res = resolveOrgDefBlueprints(def, root);
+    expect(res.def.roles[0].skills).toBeUndefined();
+    expect(res.errors.join()).toMatch(/digest-mismatch/);
   });
 });

@@ -1,16 +1,23 @@
 /**
  * The derived, disposable view of the catalog: state entries joined with the
  * frontmatter of their verified packages. Pure — no writes, no registry, no
- * network — and body-free. Cached per root on the state file's mtime + size;
+ * network — and body-free. Cached per root on a hash of the state file;
  * packages are content-addressed, so they need no re-hash until state changes.
  * `catalogAudit` (and doctor) bypass the cache and re-hash.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseFrontmatter, skillRoots } from '../orgrt/skill-library.js';
 import { verifyEntry } from './digest.js';
 import { loadCatalogState, statePath } from './state.js';
-import type { CatalogEntry, CatalogState, CatalogStatus, CatalogTarget } from './types.js';
+import {
+  type CatalogEntry,
+  type CatalogState,
+  CatalogStateSchema,
+  type CatalogStatus,
+  type CatalogTarget,
+} from './types.js';
 
 export interface CatalogAsset {
   id: string;
@@ -123,14 +130,23 @@ const cache = new Map<string, { key: string; snap: CatalogSnapshot }>();
  *  An unreadable state yields no assets and one `(state)` diagnostic, so
  *  consumers keep their legacy behaviour instead of failing. */
 export function buildSnapshot(root: string): CatalogSnapshot {
-  const st = statSync(statePath(root), { throwIfNoEntry: false });
-  if (!st) return EMPTY();
-  const key = `${st.mtimeMs}:${st.size}`;
+  let raw: Buffer;
+  try {
+    raw = readFileSync(statePath(root));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return EMPTY();
+    return { ...EMPTY(), diagnostics: [{ id: '(state)', reason: (e as Error).message }] };
+  }
+  // Keyed on content: mtime + size can repeat across two different writes.
+  const key = createHash('sha256').update(raw).digest('hex');
   const hit = cache.get(root);
   if (hit?.key === key) return hit.snap;
   let snap: CatalogSnapshot;
   try {
-    snap = snapshotOf(root, loadCatalogState(root));
+    // Parse the very bytes that were hashed, so the key always matches the view.
+    const parsed = CatalogStateSchema.safeParse(JSON.parse(raw.toString('utf8')));
+    if (!parsed.success) throw new Error(`catalog state is invalid: ${parsed.error.message}`);
+    snap = snapshotOf(root, parsed.data);
   } catch (e) {
     snap = { ...EMPTY(), diagnostics: [{ id: '(state)', reason: (e as Error).message }] };
   }

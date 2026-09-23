@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot, catalogAudit, eligible } from '../../src/catalog/snapshot.js';
@@ -95,5 +95,19 @@ describe('catalogAudit', () => {
     expect(eligible(buildSnapshot(root), 'org')).toHaveLength(1);
     tamper(e);
     expect(catalogAudit(root).ok).toBe(false);
+  });
+
+  it('does not serve a cached view after a same-size, same-mtime state rewrite', () => {
+    const root = newRoot();
+    writeEntry(root, { name: 'flip', targets: ['org'] });
+    const file = join(root, '.monomind', 'catalog', 'state.json');
+    utimesSync(file, 1_000_000, 1_000_000);
+    expect(eligible(buildSnapshot(root), 'org')).toHaveLength(1);
+    const { size } = statSync(file);
+    writeFileSync(file, readFileSync(file, 'utf8').replace('"status": "active"', '"status": "staged"'));
+    utimesSync(file, 1_000_000, 1_000_000);
+    expect(statSync(file)).toMatchObject({ size, mtimeMs: 1_000_000_000 });
+    expect(buildSnapshot(root).assets[0].status).toBe('staged');
+    expect(eligible(buildSnapshot(root), 'org')).toEqual([]);
   });
 });
