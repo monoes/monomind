@@ -31,8 +31,10 @@ export interface RoleCheckpoint {
   lastMessageId?: string;
   /** Session ID for SDK resume */
   sessionId?: string;
-  /** Agent status */
-  status: 'running' | 'ended' | 'crashed';
+  /** Agent status. 'stopped' marks a role whose session was still live when
+   *  the org stopped (the stop checkpoint is captured before sessions drain);
+   *  resume brings it back as 'running' — see restoredRoleStatus. */
+  status: 'running' | 'ended' | 'crashed' | 'stopped';
   /** Error message if crashed */
   error?: string;
   /** Terminal scrollback — last N lines of agent output. */
@@ -76,6 +78,14 @@ export interface OrgCheckpoint {
   tasks?: OrgTask[];
   /** Checksum for state validation */
   checksum: string;
+}
+
+/** The live status a resumed role starts with: a role recorded as 'stopped'
+ *  was running when the org stopped, so resume makes it running again. */
+export function restoredRoleStatus(
+  rc: Pick<RoleCheckpoint, 'status'> | undefined,
+): 'running' | 'ended' | 'crashed' {
+  return !rc || rc.status === 'stopped' ? 'running' : rc.status;
 }
 
 /** Current checkpoint format version. Bump on breaking shape changes.
@@ -135,7 +145,7 @@ export function captureCheckpoint(
       costUsd: runtime.metrics.costUsd,
       lastMessageId: runtime.lastMessageId,
       sessionId: runtime.sessionId, // P2-13: populated by session layer via onSessionId callback
-      status: runtime.status,
+      status: status === 'stopped' && runtime.status === 'running' ? 'stopped' : runtime.status,
       error: runtime.error,
       scrollback: runtime.scrollback?.snapshot(),
       generation: slot?.generation ?? 0,
@@ -360,7 +370,7 @@ export function mergeCheckpoint(
     // Restore metadata
     runtime.metrics.costUsd = roleState.costUsd;
     runtime.lastMessageId = roleState.lastMessageId;
-    runtime.status = roleState.status;
+    runtime.status = restoredRoleStatus(roleState);
     if (roleState.error) runtime.error = roleState.error;
   }
 }

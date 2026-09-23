@@ -27,6 +27,7 @@ import {
   migrateCheckpoint,
   type OrgCheckpoint,
   type RoleCheckpoint,
+  restoredRoleStatus,
   restoreMailboxQueue,
   validateCheckpoint,
 } from './checkpoint.js';
@@ -1939,7 +1940,7 @@ export class OrgDaemon {
     const runtime: AgentRuntime = {
       mailbox,
       policy,
-      status: roleCheckpoint?.status ?? 'running',
+      status: restoredRoleStatus(roleCheckpoint),
       done: Promise.resolve(),
       metrics: { tokens: roleCheckpoint?.tokensUsed ?? 0, costUsd: roleCheckpoint?.costUsd ?? 0 },
       lastMessageId: roleCheckpoint?.lastMessageId,

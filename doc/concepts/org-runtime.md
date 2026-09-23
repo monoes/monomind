@@ -674,7 +674,9 @@ Resume state persistence:
   class, [`daemon.ts → ScrollbackBuffer`](packages/@monomind/cli/src/orgrt/daemon.ts#ScrollbackBuffer), 500-line default cap; restored on resume at
   [`checkpoint-ops.ts → resumeOrg`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#resumeOrg)).
 - TTL: 24 hours (`CHECKPOINT_TTL_MS`).
-- `captureCheckpoint()` — called **before** mailboxes close in `finishStop()`.
+- `captureCheckpoint()` — called **before** mailboxes close in `finishStop()`. In that stop
+  checkpoint a role whose session was still live is recorded with `status: "stopped"`, never
+  `"running"`; resume brings it back as running.
 - `validateCheckpoint()` — recomputes checksum before applying.
 
 ---

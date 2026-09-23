@@ -39,6 +39,28 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     });
   }
 
+  // Improvement 11: after a stop, runtime.json must not claim every role is
+  // still running — the stop checkpoint is captured before sessions drain, so
+  // a role that was live at that moment is recorded as 'stopped'.
+  it('records no role as running in the runtime.json checkpoint after stopOrg', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(createTestDef()));
+    const running = await daemon.startOrg(orgName);
+    for (const a of running.agents.values()) a.status = 'running';
+    await daemon.stopOrg(orgName);
+    const rt = JSON.parse(readFileSync(join(testRoot, '.monomind', 'orgs', orgName, 'runtime.json'), 'utf8'));
+    expect(rt.status).toBe('stopped');
+    const statuses = Object.values(rt.checkpoint.roleState).map((r: any) => r.status);
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses).not.toContain('running');
+    expect(statuses.every((st: string) => st === 'stopped' || st === 'ended' || st === 'crashed')).toBe(true);
+    // a role recorded as 'stopped' comes back live on resume
+    const { restoredRoleStatus } = await import('../../src/orgrt/checkpoint.js');
+    expect(restoredRoleStatus({ status: 'stopped' })).toBe('running');
+    expect(restoredRoleStatus({ status: 'crashed' })).toBe('crashed');
+    expect(restoredRoleStatus(undefined)).toBe('running');
+  });
+
   it('should persist mailbox queues in runtime.json', async () => {
     const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
     const def = createTestDef('Mailbox queue persistence test');
