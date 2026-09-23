@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { inspectPackage } from '../../src/catalog/scan.js';
+import { frontmatterViolations, sanitizeFrontmatter } from '../../src/catalog/frontmatter.js';
+import { inspectPackage, MAX_FILE_BYTES, shellExecSyntax } from '../../src/catalog/scan.js';
 
 // Force the scanner import to fail: createFenceForRole then returns null
 // (it does not throw), and the default loader must still fail closed.
@@ -154,5 +155,38 @@ describe('inspectPackage — coverage and reserved text', () => {
     const r = await inspectPackage(dir(files), 'skill', { root: tmpdir(), fence: clean });
     expect(r.fatal).toMatch(/reserved marker/);
     expect(r.fatal).toContain(file);
+  });
+});
+
+describe('the checks run in linear time on a 512 KiB file', () => {
+  const fill = (s: string, n = MAX_FILE_BYTES) => s.repeat(Math.floor(n / s.length));
+  const ms = (f: () => unknown) => {
+    const t = performance.now();
+    f();
+    return performance.now() - t;
+  };
+  it.each([
+    ['${ with no }', fill('${')],
+    ['${ and spaces', fill('${ ')],
+    ['$ARGUMENTS[ with no ]', fill('$ARGUMENTS[')],
+    ['$ then digits then a letter', `$${fill('1', MAX_FILE_BYTES - 2)}a`],
+    ['a --- opener over blank lines', `---\n${fill('\n')}`],
+    ['a BOM --- opener over blank lines', `\uFEFF---${fill('\n')}`],
+    ['a --- opener over space-newline pairs', `---${fill(' \n')}`],
+    ['--- lines', fill('---\n')],
+    ['tildes then spaces', `${fill('~', MAX_FILE_BYTES / 2)}${fill(' ', MAX_FILE_BYTES / 2)}x`],
+    ['backtick-bang pairs', fill('`!')],
+    ['spaces before a !', `${fill(' ', MAX_FILE_BYTES - 1)}!`],
+    ['placeholder runs', `${fill(' \t`~$1')}x`],
+  ])('%s', (_label, text) => {
+    expect(ms(() => shellExecSyntax(text))).toBeLessThan(500);
+    expect(ms(() => sanitizeFrontmatter(text))).toBeLessThan(500);
+    expect(ms(() => frontmatterViolations(text))).toBeLessThan(500);
+  });
+
+  it('a frontmatter value of spaces before a line separator', () => {
+    const text = `---\nname: x\ndescription:${fill(' ', MAX_FILE_BYTES / 2)}x\u2028y\n---\nbody\n`;
+    expect(ms(() => sanitizeFrontmatter(text))).toBeLessThan(500);
+    expect(ms(() => frontmatterViolations(text))).toBeLessThan(500);
   });
 });

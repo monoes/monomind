@@ -86,9 +86,10 @@ export function parseFrontmatter(text: string): {
   const data: Record<string, string | string[]> = {};
   const lines = m[1].split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
-    const kv = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(lines[i]);
+    // `(?=(\s*))\2` takes the spaces atomically: no quadratic backtracking.
+    const kv = /^([A-Za-z_][\w-]*):(?=(\s*))\2(.*)$/.exec(lines[i]);
     if (!kv) continue;
-    const [, key, raw] = kv;
+    const [, key, , raw] = kv;
     const val = raw.trim();
     const cont: string[] = [];
     while (i + 1 < lines.length && (/^\s+\S/.test(lines[i + 1]) || lines[i + 1].trim() === '')) {

@@ -48,7 +48,8 @@ const SHELL_EXEC = [/(?:^|\s)!(?=[`$])/m, /```!/, /^[ \t]*~{3,}[ \t]*!/m];
  * or anywhere in the run of spaces, backticks and tildes before it — can
  * splice a run that the text as written does not contain.
  */
-const PLACEHOLDER = /\\?\$(?:ARGUMENTS(?:\[\d+\])?|\d+(?!\w)|\{[^}\s]*\})/g;
+// `${…}` is bounded (and stops at a `$`) so a run of `${` scans in linear time.
+const PLACEHOLDER = /\\?\$(?:ARGUMENTS(?:\[\d+\])?|\d+(?!\w)|\{[^}\s$]{0,128}\})/g;
 const BEFORE_BANG = ' \t`~\0';
 
 function placeholderSplice(text: string): boolean {
@@ -62,10 +63,12 @@ function placeholderSplice(text: string): boolean {
 }
 
 /**
- * Claude Code's frontmatter split: it ends at the first `---` anywhere, even
- * mid-line, and the body it hands on follows a "Base directory …\n\n" prefix.
+ * Claude Code's frontmatter split (/^---\s*\n([\s\S]*?)---\s*\n?/ after a BOM
+ * strip): it ends at the first `---` anywhere, even mid-line, and the body it
+ * hands on follows a "Base directory …\n\n" prefix. Same match, but the opener
+ * stops at its first newline so a run of blank lines cannot backtrack.
  */
-const CLAUDE_FRONTMATTER = /^\uFEFF?---\s*\n[\s\S]*?---\s*\n?/;
+const CLAUDE_FRONTMATTER = /^\uFEFF?---[^\S\n]*\n[\s\S]*?---\s*/;
 const execIn = (text: string): boolean =>
   SHELL_EXEC.some((re) => re.test(text)) || placeholderSplice(text);
 
