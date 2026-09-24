@@ -1007,6 +1007,7 @@ describe('doctor-project-checks', () => {
           'name: Coder',
           'slug: coder',
           'description: Implementation specialist',
+          'when_to_use: Use when implementing a feature',
           '---',
           '# Coder',
         ].join('\n'),
@@ -1014,6 +1015,27 @@ describe('doctor-project-checks', () => {
       const result = await checkAgentRegistry();
       expect(result.status).toBe('pass');
       expect(result.message).toContain('all metadata complete');
+    });
+
+    // Older installs keep agents without when_to_use, which the pick index
+    // ranks on; `init upgrade` refreshes the unedited bundled ones.
+    it('warns on agents missing when_to_use and names the upgrade command', async () => {
+      mkdirSync(join(dir, '.claude', 'agents'), { recursive: true });
+      writeFileSync(
+        join(dir, '.claude', 'agents', 'coder.md'),
+        [
+          '---',
+          'name: Coder',
+          'slug: coder',
+          'description: Implementation specialist',
+          '---',
+          '# Coder',
+        ].join('\n'),
+      );
+      const result = await checkAgentRegistry();
+      expect(result.status).toBe('warn');
+      expect(result.message).toContain('1 missing when_to_use');
+      expect(result.fix).toContain('monomind init upgrade');
     });
   });
 

@@ -36,6 +36,10 @@ module.exports = {
       }
     } catch (e) { log('[WARN] Session restore failed: ' + e.message); }
 
+    // Keep skill-registry.json (the skill catalog routing and Jev read) in
+    // step with .claude/skills: rebuilt when missing or older than any skill.
+    try { require('./pick-core.cjs').ensureSkillRegistryFresh(CWD); } catch (e) { /* non-fatal */ }
+
     // ── Non-blocking security scan via @monoes/hooks worker ─────────────
     // The hooks package ships a security worker (worker-security.ts) that scans
     // for hardcoded secrets and vulnerability patterns. We run it at session

@@ -418,27 +418,31 @@ async function handleSubagentStop(hookInput) {
   // actual routing decision (this subagent spawn), not one per session —
   // keeps the "Routing Learning" signal live regardless of session length,
   // instead of it going silently stale for anyone running persistent orgs.
+  // suggestedAgent is the RECOMMENDATION (this Claude session's latest
+  // [PICK]); actualAgent is the subagent that really ran. They used to be the
+  // same field, so every spawn read as its own recommendation.
   try {
-    var _agentSlug = String(agentType || '').trim().toLowerCase().replace(/\s+/g, '-');
+    var _actualAgent = String(hookInput.agent_type || hookInput.subagent_type || agentType || '').slice(0, 128);
+    var _agentSlug = _actualAgent.trim().toLowerCase().replace(/\s+/g, '-');
     if (_agentSlug && _agentSlug !== 'ai-selecting' && _agentSlug !== 'unknown') {
+      var _pickCore = require('./pick-core.cjs');
+      var _route = _pickCore.readSessionRoute(CWD, hookInput.session_id || hookInput.sessionId);
       var _rfEntry = {
         timestamp: new Date().toISOString(),
-        suggestedAgent: _agentSlug,
+        actualAgent: _actualAgent,
         sessionId: String(session || snap.session || hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
         intelligenceFeedback: _subagentSuccess,
       };
-      // Best-effort confidence from the routing decision that led to this
-      // spawn — may not correspond exactly to THIS subagent if another
-      // routing decision overwrote last-route.json in between (same
-      // imprecision session-handler.cjs's session-level entries already had).
-      try {
-        var _lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
-        var _MAX_ROUTE = 64 * 1024;
-        if (fs.existsSync(_lastRoutePath) && fs.statSync(_lastRoutePath).size <= _MAX_ROUTE) {
-          var _lastRoute = JSON.parse(fs.readFileSync(_lastRoutePath, 'utf-8'));
-          if (typeof _lastRoute.confidence === 'number') _rfEntry.confidence = _lastRoute.confidence;
-        }
-      } catch (_) {}
+      if (_route && _route.agent) {
+        _rfEntry.suggestedAgent = String(_route.agent).trim().toLowerCase().replace(/\s+/g, '-');
+        _rfEntry.followed = _actualAgent === _route.agent || _actualAgent === _route.agentSlug;
+      }
+      if (_route && typeof _route.confidence === 'number') _rfEntry.confidence = _route.confidence;
+      if (_route && _route.routeId) {
+        _rfEntry.routeId = _route.routeId;
+        // Join this subagent's outcome onto the route that preceded it.
+        _pickCore.joinOutcome(CWD, _route.routeId, { agentActuallyUsed: _actualAgent, subagentSuccess: _subagentSuccess });
+      }
       appendJsonlWithRotation(
         path.join(CWD, '.monomind', 'routing-feedback.jsonl'),
         JSON.stringify(_rfEntry),

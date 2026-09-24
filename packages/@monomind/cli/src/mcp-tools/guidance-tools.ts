@@ -281,8 +281,6 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
       'workflow-automation',
       'monoswarm-multi-repo',
       'project-board-sync',
-      'monoswarm-pr',
-      'monoswarm-issue',
       'sync-coordinator',
       'github-modes',
     ],
@@ -1027,7 +1025,7 @@ const guidanceQuickRef: MCPTool = {
               desc: 'Spawn pr-manager for automated PR management',
             },
             {
-              cmd: 'Use code-review-swarm agent for reviews',
+              cmd: 'Use monoswarm-code-review agent for reviews',
               desc: 'Deploy multi-agent code review',
             },
             {

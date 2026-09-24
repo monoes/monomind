@@ -1233,14 +1233,17 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
     }
     let missingSlug = 0,
       missingName = 0,
-      missingDescription = 0;
+      missingDescription = 0,
+      missingWhenToUse = 0;
     for (const agent of entries) {
       if (!agent.slug) missingSlug++;
       if (!agent.name) missingName++;
       if (!agent.description) missingDescription++;
+      // The pick index leads with when_to_use; older installs lack it.
+      if (!agent.whenToUse) missingWhenToUse++;
     }
     const dupes = registry.duplicates;
-    const total = missingSlug + missingName + missingDescription + dupes.length;
+    const total = missingSlug + missingName + missingDescription + missingWhenToUse + dupes.length;
     if (total === 0) {
       return {
         name: 'Agent Registry',
@@ -1252,6 +1255,7 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
       missingSlug > 0 ? `${missingSlug} missing slug` : null,
       missingName > 0 ? `${missingName} missing name` : null,
       missingDescription > 0 ? `${missingDescription} missing description` : null,
+      missingWhenToUse > 0 ? `${missingWhenToUse} missing when_to_use` : null,
       dupes.length > 0
         ? `duplicate slug ${dupes.map((d) => `"${d.slug}" (kept ${d.kept}, dropped ${d.dropped.join(', ')})`).join('; ')}`
         : null,
@@ -1264,7 +1268,9 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
       message: `${total} metadata issue(s) across ${entries.length} agent(s): ${parts}${extraNote}`,
       fix: dupes.length
         ? 'Give each duplicated agent a unique `slug:` in its frontmatter'
-        : 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
+        : missingWhenToUse > 0
+          ? 'monomind init upgrade  (refreshes unedited bundled agents; add `when_to_use:` to your own agents in .claude/agents/*.md)'
+          : 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
     };
   } catch {
     return {

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  agentCapabilities,
   formatStatus,
   getAgentCapabilities,
   listCommand,
@@ -135,6 +136,50 @@ describe('spawnCommand', () => {
       stderr.mockRestore();
       expect(r.success).toBe(true);
       expect(spawnedType()).toBe('Software Architect');
+    });
+
+    it('matches type names case-insensitively', async () => {
+      const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const r = (await spawnCommand.action?.(
+        makeCtx({ flags: { type: 'Architect', _: [] } }),
+      )) as CommandResult;
+      const r2 = (await spawnCommand.action?.(
+        makeCtx({ flags: { type: 'security engineer', name: 'sec-1', _: [] } }),
+      )) as CommandResult;
+      stderr.mockRestore();
+      expect(r.success).toBe(true);
+      expect(r2.success).toBe(true);
+      const types = Object.values(readStore().agents).map(
+        (a) => (a as { agentType: string }).agentType,
+      );
+      expect(types.sort()).toEqual(['Security Engineer', 'Software Architect']);
+    });
+
+    // `-t architect` resolves to Software Architect; its capabilities come
+    // from that agent, not the ['general'] fallback for an unknown key.
+    it('takes capabilities from the resolved agent', () => {
+      expect(agentCapabilities(dir, 'Software Architect', 'architect')).toEqual([
+        'system-design',
+        'pattern-analysis',
+        'scalability',
+        'documentation',
+      ]);
+      writeFileSync(
+        join(dir, '.monomind', 'registry.json'),
+        JSON.stringify({
+          agents: [
+            {
+              slug: 'engineering-software-architect',
+              name: 'Software Architect',
+              capabilities: ['domain-driven design', 'trade-off analysis'],
+            },
+          ],
+        }),
+      );
+      expect(agentCapabilities(dir, 'Software Architect', 'architect')).toEqual([
+        'domain-driven design',
+        'trade-off analysis',
+      ]);
     });
 
     it('refuses a name no agent carries', async () => {

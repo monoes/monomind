@@ -113,6 +113,22 @@ describe('generated docs route agent choice through the pick index', () => {
     },
   );
 
+  // Older MCP servers (and the npm release before pick shipped) have no
+  // mcp__monomind__pick tool, so the guidance must name a CLI fallback.
+  it.each(TEMPLATES)('%s: degrades to the pick CLI when the MCP tool is missing', (tmpl) => {
+    const doc = generateClaudeMd({ ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() }, tmpl);
+    expect(doc).toContain('`mcp__monomind__pick` if that tool is available');
+    expect(doc).toContain('`monomind pick -t "<task>" --json`');
+    expect(doc).toContain('`npx -y monomind pick -t "<task>" --json`');
+  });
+
+  it.each(TEMPLATES)('%s: names no retired agents in prose either', (tmpl) => {
+    const doc = generateClaudeMd({ ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() }, tmpl);
+    for (const retired of ['perf-analyzer', 'code-review-swarm', 'security-architect']) {
+      expect(doc).not.toContain(`\`${retired}\``);
+    }
+  });
+
   it.each(TEMPLATES)('%s: every agent it offers is installed', (tmpl) => {
     const doc = generateClaudeMd({ ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() }, tmpl);
     const unknown = offeredAgents(doc).filter((n) => !AGENTS.has(n));
@@ -126,7 +142,8 @@ describe('generated docs route agent choice through the pick index', () => {
 
   it('CAPABILITIES.md points at the pick index and offers only installed agents', async () => {
     const doc = await capabilitiesDoc();
-    expect(doc).toContain('mcp__monomind__pick');
+    expect(doc).toContain('`mcp__monomind__pick` if that tool is available');
+    expect(doc).toContain('`monomind pick -t "<task>" --json`');
     expect(doc).toContain('[PICK]');
     const offered = offeredAgents(doc);
     expect(offered.length).toBeGreaterThan(3);

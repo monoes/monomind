@@ -59,7 +59,9 @@
  *      never ship (`settings.local.json`, `mcp.json`, `worktrees/`). Its
  *      predecessor `sync-claude-assets.sh` had `rsync --delete` semantics,
  *      had to be hard-disabled in 2026-07 for exactly that reason, and is now
- *      deleted.
+ *      deleted. The one exception is a mirror marked `copyMissing`
+ *      (`.gemini/helpers`, a full install copy of `.claude/helpers`): a file
+ *      missing from it is created. Nothing is ever deleted from any mirror.
  *
  * So a genuine hand-edit of `.claude/skills/x/SKILL.md` still propagates
  * outward to the other four trees, and init's marker noise is normalised away
@@ -89,7 +91,7 @@
  * is idempotent: running it twice in a row writes nothing.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -145,6 +147,16 @@ const MIRRORS = [
   { source: '.claude/skills', mirror: '.agents/skills', exceptions: AGENTS_OWNED },
   { source: '.claude/skills', mirror: '.gemini/skills' },
   { source: '.claude/skills', mirror: '.kimi-code/skills' },
+  // init copies the whole helper tree into `.gemini/helpers` too (writeHelpers
+  // in src/init/write-claude.ts), so this copy is a full mirror: files missing
+  // from it are created as well. Its own extras (statusline.sh) are kept.
+  // pre-commit/post-commit are this repo's git hooks, not shipped helpers.
+  {
+    source: '.claude/helpers',
+    mirror: '.gemini/helpers',
+    copyMissing: true,
+    exceptions: ['pre-commit', 'post-commit'],
+  },
 ];
 
 function isIgnored(name) {
@@ -199,13 +211,19 @@ export function canonicalContent(text) {
  * `unmarked` lists source paths whose root copy still carries init's markers;
  * `diverged` lists mirror paths that do not hold the canonical content.
  */
-export function comparePair({ root, source, mirror, exceptions = [] }) {
+export function comparePair({ root, source, mirror, exceptions = [], copyMissing = false }) {
   const sourceDir = join(root, source);
   const mirrorDir = join(root, mirror);
   const excluded = new Set(exceptions);
 
   const sourceFiles = new Set(collectFiles(sourceDir));
-  const shared = collectFiles(mirrorDir).filter((rel) => sourceFiles.has(rel));
+  const mirrorFiles = collectFiles(mirrorDir);
+  const shared = mirrorFiles.filter((rel) => sourceFiles.has(rel));
+  // Only a copyMissing mirror is expected to hold every source file.
+  const inMirror = new Set(mirrorFiles);
+  const missing = copyMissing
+    ? [...sourceFiles].filter((rel) => !inMirror.has(rel) && !excluded.has(rel)).sort()
+    : [];
 
   const diverged = [];
   const unmarked = [];
@@ -231,6 +249,7 @@ export function comparePair({ root, source, mirror, exceptions = [] }) {
     mirror,
     shared: shared.length,
     diverged: diverged.sort(),
+    missing,
     unmarked: unmarked.sort(),
     staleExceptions,
   };
@@ -257,9 +276,11 @@ export function syncTrees({ root = REPO_ROOT, mirrors = MIRRORS, check = false }
       const label = `${spec.source}/${rel}`;
       if (!written.includes(label)) written.push(label);
     }
-    for (const rel of result.diverged) {
+    for (const rel of [...result.diverged, ...result.missing]) {
       const canonical = canonicalContent(readFileSync(join(root, spec.source, rel), 'utf8'));
-      writeFileSync(join(root, spec.mirror, rel), canonical);
+      const target = join(root, spec.mirror, rel);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, canonical);
       written.push(`${spec.mirror}/${rel}`);
     }
   }
@@ -291,12 +312,14 @@ function main(argv) {
   let divergedTotal = 0;
   const markedRootFiles = new Set();
   for (const pair of pairs) {
-    divergedTotal += pair.diverged.length;
+    divergedTotal += pair.diverged.length + pair.missing.length;
     for (const rel of pair.unmarked) markedRootFiles.add(`${pair.source}/${rel}`);
+    const missingNote = pair.missing.length ? `, ${pair.missing.length} missing` : '';
     console.log(
-      `${pair.source} -> ${pair.mirror}: ${pair.shared} shared, ${pair.diverged.length} diverged`,
+      `${pair.source} -> ${pair.mirror}: ${pair.shared} shared, ${pair.diverged.length} diverged${missingNote}`,
     );
     for (const rel of pair.diverged) console.log(`    ${rel}`);
+    for (const rel of pair.missing) console.log(`    ${rel} (missing)`);
   }
 
   if (markedRootFiles.size > 0) {

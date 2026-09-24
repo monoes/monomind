@@ -5,7 +5,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
+import { refreshBundledAgents } from './agent-refresh.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
+import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
 import { generateSettings } from './settings-generator.js';
 import {
   AGENTS_MAP,
@@ -40,6 +42,10 @@ export interface UpgradeResult {
   addedCommands?: string[];
   /** Added by --settings flag */
   settingsUpdated?: string[];
+  /** Installed agents replaced with the bundled file (only metadata differed). */
+  refreshedAgents?: string[];
+  /** Installed agents left alone because their body differs from the bundle. */
+  keptAgents?: string[];
 }
 
 /**
@@ -47,7 +53,10 @@ export interface UpgradeResult {
  * Preserves user customizations while adding new features like Agent Teams
  * Uses platform-specific commands for Mac, Linux, and Windows
  */
-function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<string, unknown> {
+function mergeSettingsForUpgrade(
+  existing: Record<string, unknown>,
+  report: string[] = [],
+): Record<string, unknown> {
   const merged = { ...existing };
 
   // Hook commands now use portable `node` (from PATH) instead of
@@ -62,64 +71,19 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
     MONOMIND_HOOKS_ENABLED: existingEnv.MONOMIND_HOOKS_ENABLED || 'true',
   };
 
-  // 2. Merge hooks (preserve existing, add new Agent Teams + auto-memory hooks)
-  const existingHooks = (existing.hooks as Record<string, unknown[]>) || {};
-  merged.hooks = { ...existingHooks };
-
-  // Cross-platform auto-memory hook commands that resolve paths via git root.
-  // Uses node -e with git rev-parse so hooks work regardless of CWD (#1259, #1284).
-  const gitRootResolver =
-    "var c=require('child_process'),p=require('path'),u=require('url'),r;" +
-    "try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}" +
-    'catch(e){r=process.cwd()}';
-  const autoMemoryScript = '.claude/helpers/auto-memory-hook.mjs';
-  const autoMemoryImportCmd = `node -e "${gitRootResolver}var f=p.join(r,'${autoMemoryScript}');import(u.pathToFileURL(f).href)" import`;
-  const autoMemorySyncCmd = `node -e "${gitRootResolver}var f=p.join(r,'${autoMemoryScript}');import(u.pathToFileURL(f).href)" sync`;
-
-  // Add auto-memory import to SessionStart (if not already present)
-  const sessionStartHooks = existingHooks.SessionStart as
-    | Array<{ hooks?: Array<{ command?: string }> }>
-    | undefined;
-  const hasAutoMemoryImport = sessionStartHooks?.some((group) =>
-    group.hooks?.some((h) => h.command?.includes('auto-memory-hook')),
-  );
-  if (!hasAutoMemoryImport) {
-    const startHooks = merged.hooks as Record<string, unknown[]>;
-    if (!startHooks.SessionStart) {
-      startHooks.SessionStart = [{ hooks: [] }];
-    }
-    const startGroup = startHooks.SessionStart[0] as { hooks: unknown[] };
-    if (!startGroup.hooks) startGroup.hooks = [];
-    startGroup.hooks.push({
-      type: 'command',
-      command: autoMemoryImportCmd,
-      timeout: 6000,
-      continueOnError: true,
-    });
-  }
-
-  // Add auto-memory sync to SessionEnd (if not already present)
-  const sessionEndHooks = existingHooks.SessionEnd as
-    | Array<{ hooks?: Array<{ command?: string }> }>
-    | undefined;
-  const hasAutoMemorySync = sessionEndHooks?.some((group) =>
-    group.hooks?.some((h) => h.command?.includes('auto-memory-hook')),
-  );
-  if (!hasAutoMemorySync) {
-    const endHooks = merged.hooks as Record<string, unknown[]>;
-    if (!endHooks.SessionEnd) {
-      endHooks.SessionEnd = [{ hooks: [] }];
-    }
-    const endGroup = endHooks.SessionEnd[0] as { hooks: unknown[] };
-    if (!endGroup.hooks) endGroup.hooks = [];
-    // Insert at beginning so sync runs before other cleanup
-    endGroup.hooks.unshift({
-      type: 'command',
-      command: autoMemorySyncCmd,
-      timeout: 8000,
-      continueOnError: true,
-    });
-  }
+  // 2. Merge hooks: add every monomind hook the current generator writes that
+  // this install lacks (pre-agent, SubagentStart/Stop capture, auto-memory, ...)
+  // and convert monomind-owned millisecond timeouts to seconds. User hooks are
+  // never changed or removed (see hook-settings.ts).
+  const reference =
+    (generateSettings(DEFAULT_INIT_OPTIONS) as { hooks?: HooksByEvent }).hooks ?? {};
+  const hookMerge = mergeMonomindHooks((existing.hooks as HooksByEvent) || {}, reference);
+  merged.hooks = hookMerge.hooks;
+  report.push(...hookMerge.added.map((h) => `hooks.${h}`));
+  if (hookMerge.timeoutsFixed > 0)
+    report.push(
+      `hooks: ${hookMerge.timeoutsFixed} monomind hook timeout(s) converted from milliseconds to seconds`,
+    );
 
   // NOTE: TeammateIdle and TaskCompleted are NOT valid Claude Code hook events.
   // They cause warnings when present in settings.json hooks.
@@ -343,6 +307,20 @@ export async function executeUpgrade(
       atomicWriteFile(statuslinePath, statuslineContent);
     }
 
+    // 1.4. Refresh installed agents whose body matches the bundle, so older
+    // installs get the when_to_use/tags/category the pick index ranks on.
+    // Agents with a locally edited body are kept and reported.
+    const sourceAgentsForUpgrade = findSourceDir('agents');
+    if (sourceAgentsForUpgrade) {
+      const agentRefresh = refreshBundledAgents(
+        path.join(targetDir, '.claude', 'agents'),
+        sourceAgentsForUpgrade,
+      );
+      result.refreshedAgents = agentRefresh.refreshed;
+      result.keptAgents = agentRefresh.kept;
+      result.updated.push(...agentRefresh.refreshed.map((rel) => `.claude/agents/${rel}`));
+    }
+
     // 1.5. Refresh CLAUDE.md and .monomind/CAPABILITIES.md through their
     // managed blocks (i-035). Before this, `init upgrade` never called
     // writeClaudeMd or writeCapabilitiesDoc at all, so any fix to what the
@@ -474,13 +452,13 @@ export async function executeUpgrade(
       if (fs.existsSync(settingsPath) && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
         try {
           const existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          const mergedSettings = mergeSettingsForUpgrade(existingSettings);
+          const hookReport: string[] = [];
+          const mergedSettings = mergeSettingsForUpgrade(existingSettings, hookReport);
           atomicWriteFile(settingsPath, JSON.stringify(mergedSettings, null, 2));
           result.updated.push('.claude/settings.json');
           result.settingsUpdated = [
             'env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS',
-            'hooks.SessionStart (auto-memory import)',
-            'hooks.SessionEnd (auto-memory sync)',
+            ...hookReport,
             'hooks.TeammateIdle (removed — not a valid Claude Code hook)',
             'hooks.TaskCompleted (removed — not a valid Claude Code hook)',
             'monomind.agentTeams',

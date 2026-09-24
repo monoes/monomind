@@ -433,6 +433,12 @@ const handlers = {
     await h.handle(hCtx);
   },
 
+  // PreToolUse Task|Agent: log whether the spawn followed this session's
+  // [PICK]. Observation only — writes nothing to stdout and never blocks.
+  'pre-agent': () => {
+    try { require('./handlers/pick-core.cjs').recordAdherence(CWD, hCtx.hookInput); } catch (e) { /* non-fatal */ }
+  },
+
   'adr-draft': () => {
     const h = require('./handlers/adr-draft-handler.cjs');
     h.handle(hCtx);
@@ -949,7 +955,7 @@ if (command && handlers[command]) {
   } else if (command) {
     console.log('[OK] Hook: ' + command);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-agent|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
   }
 }
 

@@ -25,6 +25,7 @@ import {
   installClaudeCode,
 } from './doctor-env-checks.js';
 import { checkHookMonograph } from './doctor-hook-monograph-checks.js';
+import { checkHookSettings } from './doctor-hook-settings-checks.js';
 import { type DoctorResult, doctorJsonPayload } from './doctor-json.js';
 import {
   checkMonoesTokenExposure,
@@ -94,7 +95,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, hook-monograph, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog, pick)',
+        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, hook-monograph, memory-pkg, helpers, monoes, gates, hook-settings, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog, pick)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -201,6 +202,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['helpers', checkHelpersFresh],
     ['monoes', checkMonoesIntegration],
     ['gates', checkGuidanceGates],
+    ['hook-settings', () => checkHookSettings(ctx.cwd || process.cwd())],
     ['registry', checkAgentRegistry],
     ['git', checkGit],
     ['api', checkApiKeys],
@@ -268,6 +270,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     helpers: checkHelpersFresh,
     monoes: checkMonoesIntegration,
     gates: checkGuidanceGates,
+    'hook-settings': () => checkHookSettings(ctx.cwd || process.cwd()),
     gitignore: checkGitignoreCoverage,
     registry: checkAgentRegistry,
     'memory-proficiency': checkMemoryProficiency,

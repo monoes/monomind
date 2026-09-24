@@ -231,6 +231,13 @@ export const upgradeCommand: Command = {
         output.writeln();
       }
 
+      if (result.keptAgents && result.keptAgents.length > 0) {
+        output.printWarning(
+          `Kept ${result.keptAgents.length} agent file(s) whose body differs from the bundled version (edited locally or from an older release); their metadata was not refreshed: ${result.keptAgents.join(', ')}`,
+        );
+        output.writeln();
+      }
+
       if (result.settingsUpdated && result.settingsUpdated.length > 0) {
         output.printBox(result.settingsUpdated.map((s) => `+ ${s}`).join('\n'), 'Settings Updated');
         output.writeln();

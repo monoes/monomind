@@ -130,7 +130,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // React Native / Mobile
   {
     pattern: /\breact[-\s]?native\b/i,
-    agentSlug: 'mobile-dev',
+    agentSlug: 'Mobile App Builder',
     routeName: 'react-native',
     description: 'React Native development',
   },

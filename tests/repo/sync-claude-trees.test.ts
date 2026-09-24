@@ -198,6 +198,24 @@ describe('sync-claude-trees', () => {
     expect(report.staleExceptions).toEqual(['mirror/skills/identical/SKILL.md']);
   });
 
+  // `.gemini/helpers` is a full install copy of `.claude/helpers` (init copies
+  // the whole helper tree into both), so that mirror also gains missing files.
+  it('a copyMissing mirror gains source-only files, and --check counts them', () => {
+    const { root } = makeFixture();
+    const mirrors = [{ source: 'src', mirror: 'mirror', copyMissing: true }];
+
+    const check = syncTrees({ root, mirrors, check: true });
+    expect(check.pairs[0].missing).toEqual(['skills/root-only/SKILL.md']);
+    expect(() => read(root, 'mirror/skills/root-only/SKILL.md')).toThrow();
+
+    const report = syncTrees({ root, mirrors });
+    expect(report.written).toContain('mirror/skills/root-only/SKILL.md');
+    expect(read(root, 'mirror/skills/root-only/SKILL.md')).toBe('never shipped\n');
+    // Still never deletes the mirror's own files.
+    expect(read(root, 'mirror/skills/shipped-only/SKILL.md')).toBe('ships to npm users only\n');
+    expect(syncTrees({ root, mirrors, check: true }).pairs[0].missing).toEqual([]);
+  });
+
   it('the live repo is in its canonical form — this is what makes --check a usable guard', () => {
     expect(() =>
       execFileSync('node', [SCRIPT, '--check'], { encoding: 'utf8', cwd: REPO_ROOT }),

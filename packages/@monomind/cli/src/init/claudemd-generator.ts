@@ -257,7 +257,7 @@ Task({prompt: "Review code quality...", subagent_type: "reviewer", run_in_backgr
 
 ### Agent Routing
 
-Pick agents per task with the \`[PICK]\` line or \`mcp__monomind__pick\`. When
+Pick agents per task with the \`[PICK]\` line or \`mcp__monomind__pick\` (CLI: \`monomind pick\`). When
 neither answers, these real agents are safe defaults:
 
 | Code | Task | Agents |
@@ -314,7 +314,7 @@ function agentPicking(): string {
   return `## Agent & Skill Picking
 
 - When a prompt carries a \`[PICK]\` line (\`[PICK] agent: <name> · skill: <invoke>\`), use that agent/skill unless it is clearly wrong for the task.
-- Before choosing a subagent yourself, call \`mcp__monomind__pick\` (\`{ task, kind: "agents" }\`) and use a returned \`name\` as \`subagent_type\`; without MCP, run \`monomind pick -t "<task>"\`.
+- Before choosing a subagent yourself, call \`mcp__monomind__pick\` if that tool is available (\`{ task, kind: "agents" }\`) and use a returned \`name\` as \`subagent_type\`. Otherwise (no MCP, or an older server without it) run \`monomind pick -t "<task>" --json\`, or \`npx -y monomind pick -t "<task>" --json\` when \`monomind\` is not installed.
 - Never invent agent names — a \`subagent_type\` that is not installed fails at spawn time.`;
 }
 
@@ -468,7 +468,7 @@ npx monomind performance metrics --format table
 \`\`\`
 
 ### Performance Agents
-- \`perf-analyzer\` — bottleneck detection, analysis
+- \`Performance Benchmarker\` — bottleneck detection, benchmarking, analysis
 - Use agent routing code 7 (hierarchical/specialized) for performance tasks`;
 }
 

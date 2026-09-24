@@ -163,12 +163,13 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (23, including i-055 doctor follow-up's crash-reporting
-    // check and o-16's Project Root disclosure check) + codeOnlyChecks (9,
+    // alwaysOnChecks (24, including i-055 doctor follow-up's crash-reporting
+    // check, o-16's Project Root disclosure check and the hook-settings
+    // check) + codeOnlyChecks (9,
     // including platform adapters, the native-binding probe, i-066's
     // monoes token-exposure check and #328's hook graph rebuild check) — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(32 + JEV_ROW);
+    expect(data.results.length).toBe(33 + JEV_ROW);
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for
@@ -229,7 +230,7 @@ describe('doctorCommand', () => {
     expect(names).toContain('Config File');
     expect(names).toContain('Crash Reporting');
     expect(names).toContain('Memory Project Root');
-    expect(data.results.length).toBe(23 + JEV_ROW);
+    expect(data.results.length).toBe(24 + JEV_ROW);
   }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {

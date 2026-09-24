@@ -9,16 +9,16 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { guidanceTools } from '../mcp-tools/guidance-tools.js';
 
+const DEPRECATED = new Set<string>();
 function agentNames(dir: string, out = new Set<string>()): Set<string> {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const f = join(dir, e.name);
     if (e.isDirectory()) agentNames(f, out);
     else if (e.name.endsWith('.md')) {
-      const n = readFileSync(f, 'utf8')
-        .match(/^---\n([\s\S]*?)\n---/)?.[1]
-        .match(/^name:\s*(.+)$/m)?.[1]
-        .trim();
+      const fm = readFileSync(f, 'utf8').match(/^---\n([\s\S]*?)\n---/)?.[1];
+      const n = fm?.match(/^name:\s*(.+)$/m)?.[1].trim();
       if (n) out.add(n);
+      if (n && /^deprecated:\s*true\s*$/m.test(fm ?? '')) DEPRECATED.add(n);
     }
   }
   return out;
@@ -46,6 +46,17 @@ describe('guidance recommends real agents only', () => {
     const agents = Object.values(catalog).flatMap((a) => a.agents);
     expect(agents.length).toBeGreaterThan(10);
     expect(agents.filter((a) => !NAMES.has(a))).toEqual([]);
+    expect(agents.filter((a) => DEPRECATED.has(a))).toEqual([]);
+  });
+
+  it('every quickref "Use <agent> agent" line', async () => {
+    const schema = tool('guidance_quickref').inputSchema.properties.domain as { enum: string[] };
+    let text = '';
+    for (const domain of schema.enum)
+      text += JSON.stringify(await json('guidance_quickref', { domain }));
+    const named = [...text.matchAll(/Use (\S+) agent/g)].map((m) => m[1]);
+    expect(named.length).toBeGreaterThan(0);
+    expect(named.filter((a) => !NAMES.has(a) || DEPRECATED.has(a))).toEqual([]);
   });
 
   it('every workflow template', async () => {

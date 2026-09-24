@@ -86,6 +86,9 @@ module.exports = {
           agentType: agentType,
           description: agentDesc.substring(0, 120),
           dispatchedAt: new Date().toISOString(),
+          // Concurrent sessions share this file; the route handler only
+          // de-duplicates against its own session's dispatch.
+          sessionId: String(hookInput.session_id || hookInput.sessionId || '').slice(0, 128) || null,
         }),
         'utf-8'
       );
