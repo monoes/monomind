@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 import { pickForTask, pickSummary } from '../routing/agent-pick.js';
-import type { MCPTool, MCPToolResult } from './types.js';
+import type { MCPTool } from './types.js';
 
 const MAX_TASK_LEN = 16 * 1024;
 
@@ -14,13 +14,6 @@ const PickInput = z.object({
   categories: z.array(z.string().min(1).max(64)).max(50).optional(),
   top: z.number().int().min(1).max(20).default(5),
 });
-
-function text(body: unknown, isError = false): MCPToolResult {
-  return {
-    content: [{ type: 'text', text: JSON.stringify(body, null, 2) }],
-    ...(isError ? { isError: true } : {}),
-  };
-}
 
 export const pickTool: MCPTool = {
   name: 'pick',
@@ -51,11 +44,13 @@ export const pickTool: MCPTool = {
     const parsed = PickInput.safeParse(input);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`);
-      return text({ error: `invalid input — ${issues.join('; ')}` }, true);
+      return { error: `invalid input — ${issues.join('; ')}` };
     }
     const { task, kind, categories, top } = parsed.data;
     const ranking = await pickForTask({ task, kind, categories, top });
-    return text({ ...ranking, summary: pickSummary(ranking, kind) });
+    // Plain data: the MCP server serialises the return value into the text
+    // content itself, so this is exactly what the client reads.
+    return { ...ranking, summary: pickSummary(ranking, kind) };
   },
 };
 

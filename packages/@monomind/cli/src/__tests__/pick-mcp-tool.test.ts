@@ -40,11 +40,7 @@ function ranking(over: Record<string, unknown> = {}) {
 }
 
 async function call(input: Record<string, unknown>) {
-  const res = (await pickTool.handler(input)) as {
-    content: { text: string }[];
-    isError?: boolean;
-  };
-  return { res, body: JSON.parse(res.content[0].text) };
+  return (await pickTool.handler(input)) as Record<string, any>;
 }
 
 beforeEach(() => {
@@ -63,8 +59,8 @@ describe('pick MCP tool — contract', () => {
   });
 
   it('returns the TaskRanking JSON with a spawnable name on every agent and a summary', async () => {
-    const { res, body } = await call({ task: 'audit the API for injection risks' });
-    expect(res.isError).toBeFalsy();
+    const body = await call({ task: 'audit the API for injection risks' });
+    expect(body.error).toBeUndefined();
     expect(body.agents.method).toBe('keyword');
     expect(body.agents.ranked.map((a: { name: string }) => a.name)).toEqual([
       'Security Engineer',
@@ -109,8 +105,7 @@ describe('pick MCP tool — contract', () => {
     [{ task: 'x', categories: 'marketing' }],
     [{ task: 'x'.repeat(17 * 1024) }],
   ])('rejects invalid input %j without ranking', async (input) => {
-    const { res, body } = await call(input);
-    expect(res.isError).toBe(true);
+    const body = await call(input);
     expect(body.error).toMatch(/invalid input/i);
     expect(rankForTask).not.toHaveBeenCalled();
   });
@@ -120,8 +115,18 @@ describe('pick MCP tool — contract', () => {
       agents: { method: 'keyword', ranked: [] },
       skills: { method: 'keyword', ranked: [] },
     });
-    const { body } = await call({ task: 'x' });
+    const body = await call({ task: 'x' });
     expect(body.summary).toBe('no match');
+  });
+});
+
+describe('pick MCP tool — registration', () => {
+  it('is reachable by name through the MCP tool registry', async () => {
+    const { callMCPTool } = await import('../mcp-client.js');
+    const body = (await callMCPTool('pick', { task: 'x', kind: 'agents' })) as {
+      agents: { ranked: { name: string }[] };
+    };
+    expect(body.agents.ranked[0].name).toBe('Security Engineer');
   });
 });
 
