@@ -47,6 +47,10 @@ module.exports = {
     var CWD = hCtx.CWD;
 
     var taskSuccess = hookInput.success !== false && hookInput.status !== 'failed';
+    // SubagentStop carries the subagent as agent_type; the other names are
+    // older/other payload shapes.
+    var completedAgent = String(hookInput.agent_type || hookInput.subagent_type || hookInput.agentType
+      || hookInput.agentSlug || hookInput.agent_slug || '').slice(0, 128) || 'unknown';
     if (intelligence && intelligence.feedback) {
       try {
         intelligence.feedback(taskSuccess);
@@ -124,7 +128,7 @@ module.exports = {
           task: {
             id: hookInput.taskId || hookInput.task_id || '',
             status: taskSuccess ? 'completed' : 'failed',
-            agentSlug: hookInput.agentSlug || hookInput.agent_slug || 'unknown',
+            agentSlug: completedAgent,
             type: hookInput.taskType || hookInput.task_type || 'general',
           },
           success: taskSuccess,
@@ -166,9 +170,9 @@ module.exports = {
           var dlqWriter = new dlqMod.DLQWriter(dlqDir);
           dlqWriter.enqueue({
             toolName: 'post-task',
-            originalPayload: { taskId: hookInput.taskId || '', agentSlug: hookInput.agentSlug || 'unknown' },
+            originalPayload: { taskId: hookInput.taskId || '', agentSlug: completedAgent },
             deliveryAttempts: [{ attempt: 1, timestamp: new Date().toISOString(), error: hookInput.error || 'task failed' }],
-            agentId: hookInput.agentSlug || hookInput.agent_slug,
+            agentId: completedAgent,
             swarmId: hookInput.swarmId || hookInput.swarm_id,
           });
           console.log('[DLQ_ENQUEUED] Failed task ' + (hookInput.taskId || 'unknown') + ' sent to dead-letter queue');
@@ -181,7 +185,7 @@ module.exports = {
     try {
       var intelligence = hCtx.intelligence;
       if (intelligence && intelligence.recordMemoryDecision) {
-        var agentSlug = hookInput.agentSlug || hookInput.agent_slug || 'unknown';
+        var agentSlug = completedAgent;
         var taskDesc = typeof prompt === 'string' ? prompt : hookInput.description || '';
         await Promise.resolve(intelligence.recordMemoryDecision({
           taskDescription: taskDesc.substring(0, 200),
@@ -206,7 +210,7 @@ module.exports = {
         }
       }
       if (adrCfg.autoGenerate) {
-        var taskAgent = hookInput.agentSlug || hookInput.agent_slug || '';
+        var taskAgent = completedAgent === 'unknown' ? '' : completedAgent;
         var taskDescAdr = (typeof prompt === 'string' ? prompt : hookInput.description || '').toLowerCase();
         var isArchitectLevel = ['architect', 'system-architect', 'software-architect'].includes(taskAgent)
           || /\b(architecture|design decision|adr|trade-?off|migration strategy)\b/.test(taskDescAdr);
