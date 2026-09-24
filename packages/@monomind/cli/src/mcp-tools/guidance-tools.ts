@@ -10,6 +10,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pickAgents } from '../routing/agent-pick.js';
 import { getProjectCwd, type MCPTool } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -691,7 +692,8 @@ const guidanceCapabilities: MCPTool = {
 const guidanceRecommend: MCPTool = {
   name: 'guidance_recommend',
   description:
-    'Given a task description, recommend which capability areas, tools, agents, and workflow to use.',
+    'Given a task description, recommend which capability areas, tools, and workflow to use, ' +
+    'plus the agents the central picker ranks for it (`agents[].name` is a spawnable Task subagent_type).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -741,6 +743,15 @@ const guidanceRecommend: MCPTool = {
 
     const recommendations = [...seen.values()];
 
+    // Agents come from the central picker, the ranking `pick` and the routing
+    // hooks use; capability areas keep only their tool/workflow guidance.
+    const picked = await pickAgents(typeof task === 'string' ? task : '', 3);
+    const agents = picked.agents.map((a) => ({
+      name: a.type,
+      confidence: a.confidence,
+      reason: a.reason,
+    }));
+
     if (recommendations.length === 0) {
       return {
         content: [
@@ -755,6 +766,7 @@ const guidanceRecommend: MCPTool = {
                   { area: 'monoswarm', reason: 'Use swarms for multi-file or complex tasks' },
                   { area: 'hooks-automation', reason: 'Use hooks for task routing and learning' },
                 ],
+                agents,
                 tip: 'Use guidance_capabilities for a full list of all capability areas.',
               },
               null,
@@ -780,9 +792,9 @@ const guidanceRecommend: MCPTool = {
                 name: r.capability.name,
                 description: r.capability.description,
                 tools: r.capability.tools,
-                agents: r.capability.agents,
                 skills: r.capability.skills,
               })),
+              agents,
               workflow: template
                 ? {
                     name: primaryWorkflow,
