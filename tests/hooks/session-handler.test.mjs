@@ -133,8 +133,11 @@ describe('session-handler routing feedback', () => {
   it('writes routing-feedback.jsonl when last-route.json exists', async () => {
     const sh = loadSH();
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'coder', confidence: 0.9 }), 'utf-8');
+    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'coder', confidence: 0.9, sessionId: 'sess-1' }),
+      'utf-8',
+    );
     const hCtx = makeHCtx({
+      hookInput: { sessionId: 'sess-1' },
       intelligence: { feedback: vi.fn() },
     });
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -148,7 +151,7 @@ describe('session-handler routing feedback', () => {
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
     fs.writeFileSync(
       routeFile,
-      JSON.stringify({ agent: 'backend-dev', confidence: 0.85 }),
+      JSON.stringify({ agent: 'backend-dev', confidence: 0.85, sessionId: 'test-session-123' }),
       'utf-8',
     );
     const hCtx = makeHCtx({
@@ -169,8 +172,12 @@ describe('session-handler routing feedback', () => {
   it('normalizes agent labels to lowercase slugs', async () => {
     const sh = loadSH();
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'Backend Dev', confidence: 0.8 }), 'utf-8');
-    const hCtx = makeHCtx({ intelligence: { feedback: vi.fn() } });
+    fs.writeFileSync(
+      routeFile,
+      JSON.stringify({ agent: 'Backend Dev', confidence: 0.8, sessionId: 'sess-1' }),
+      'utf-8',
+    );
+    const hCtx = makeHCtx({ hookInput: { sessionId: 'sess-1' }, intelligence: { feedback: vi.fn() } });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
     const feedbackFile = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
@@ -205,7 +212,11 @@ describe('session-handler routing feedback', () => {
   it('sessionSuccess=false when majority of outcomes are failures', async () => {
     const sh = loadSH();
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'coder', confidence: 0.7 }), 'utf-8');
+    fs.writeFileSync(
+      routeFile,
+      JSON.stringify({ agent: 'coder', confidence: 0.7, sessionId: 'sess-1' }),
+      'utf-8',
+    );
 
     // Write mostly-failure outcomes within 30-minute window
     fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
@@ -219,7 +230,10 @@ describe('session-handler routing feedback', () => {
     fs.writeFileSync(outcomesFile, lines, 'utf-8');
 
     const mockFeedback = vi.fn();
-    const hCtx = makeHCtx({ intelligence: { feedback: mockFeedback } });
+    const hCtx = makeHCtx({
+      hookInput: { sessionId: 'sess-1' },
+      intelligence: { feedback: mockFeedback },
+    });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
     // sessionSuccess should be false — majority (2/3) are failures

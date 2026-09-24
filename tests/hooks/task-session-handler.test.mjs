@@ -219,8 +219,8 @@ describe('session-handler — handleEnd', () => {
 
   it('appends an entry to routing-feedback.jsonl when last-route.json exists', async () => {
     const routePath = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routePath, JSON.stringify({ agent: 'coder', confidence: 0.9 }));
-    const hCtx = makeHCtx({ CWD: tmpDir });
+    fs.writeFileSync(routePath, JSON.stringify({ agent: 'coder', confidence: 0.9, sessionId: 's1' }));
+    const hCtx = makeHCtx({ CWD: tmpDir, hookInput: { sessionId: 's1' } });
     await capture(() => loadSession().handleEnd(hCtx));
     const feedbackPath = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
     expect(fs.existsSync(feedbackPath)).toBe(true);

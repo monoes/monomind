@@ -174,26 +174,18 @@ module.exports = {
     var intelligence = hCtx.intelligence;
     var CWD = hCtx.CWD;
 
-    // For slash commands and single-action invocations: skip routing panel output
-    // but still write last-route.json so the statusline reflects the current action.
+    // For slash commands and single-action invocations: no pick. The command
+    // becomes the session's route (agent null, skill = the command) so later
+    // spawns are not scored against an earlier prompt's pick.
     if (hCtx.isSimpleCommand(prompt)) {
       try {
         var cmdLabel = (typeof prompt === 'string' && prompt.trim().startsWith('/'))
           ? prompt.trim().split(/\s+/)[0]          // e.g. "/ts"
           : (hookInput.commandName || hookInput.command_name || 'command');
-        var routeDir = path.join(CWD, '.monomind');
-        fs.mkdirSync(routeDir, { recursive: true });
-        fs.writeFileSync(
-          path.join(routeDir, 'last-route.json'),
-          JSON.stringify({
-            agent: cmdLabel,
-            confidence: 1.0,
-            reason: 'predefined command — no routing needed',
-            semanticRouting: false,
-            updatedAt: new Date().toISOString(),
-          }),
-          'utf-8'
-        );
+        pickCore.persistCommandRoute(CWD, {
+          command: cmdLabel,
+          sessionId: hookInput.session_id || hookInput.sessionId,
+        });
       } catch (e) { /* non-fatal */ }
       return;
     }

@@ -104,7 +104,7 @@ describe('route-handler', () => {
     const routePath = path.join(tmpDir, '.monomind', 'last-route.json');
     expect(fs.existsSync(routePath)).toBe(true);
     const data = JSON.parse(fs.readFileSync(routePath, 'utf-8'));
-    expect(data.semanticRouting).toBe(false);
+    expect(data).toMatchObject({ agent: null, skill: '/ts' });
     expect(lines.find((l) => l.includes('monomind | Primary Recommendation'))).toBeUndefined();
   });
 

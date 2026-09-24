@@ -122,7 +122,8 @@ describe('route-handler simple command path', () => {
     await rh.handle(hCtx);
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-    expect(data.agent).toBe('help');
+    // A command is the route's skill, never an agent recommendation.
+    expect(data).toMatchObject({ agent: null, skill: 'help' });
   });
 });
 

@@ -11,6 +11,7 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const fsHelpers = require('../utils/fs-helpers.cjs');
 
 var redaction = null;
 try { redaction = require('../redact-secrets.cjs'); } catch (e) { /* preview falls back to no redaction of the cut text */ }
@@ -33,7 +34,12 @@ var KEEP_OUTCOMES = 500;
 var MAX_JOIN_BYTES = 2 * 1024 * 1024;
 var MAX_ROUTE_FILE_BYTES = 64 * 1024;
 var ROUTE_FILE_TTL_MS = 7 * 24 * 3600 * 1000;
-var MAX_SKILL_DIRS = 1000;
+// route-outcomes.jsonl is shared by every session of the project: appends,
+// joins and rotation all run under one lock file so a rewrite never drops a
+// line another session appended meanwhile. Held for milliseconds; a lock
+// older than LOCK_STALE_MS belongs to a dead process and is broken.
+var LOCK_WAIT_MS = 1000;
+var LOCK_STALE_MS = 10000;
 
 /** Prompts Claude Code (not the user) submits: notifications, reminder-only
  *  turns, slash-command expansions and local-command output. */
@@ -192,15 +198,45 @@ function pruneRouteFiles(dir) {
   } catch (e) { /* best effort */ }
 }
 
-function appendOutcome(CWD, rec) {
-  var file = path.join(monoDir(CWD), 'route-outcomes.jsonl');
-  fs.appendFileSync(file, JSON.stringify(rec) + '\n', 'utf-8');
+function outcomesFile(CWD) { return path.join(monoDir(CWD), 'route-outcomes.jsonl'); }
+
+/** Run `fn(locked)` holding route-outcomes.jsonl.lock, waiting up to
+ *  LOCK_WAIT_MS. `locked` is false when the wait ran out: the caller decides
+ *  whether its work is safe without the lock. */
+function withOutcomesLock(CWD, fn) {
+  var lock = outcomesFile(CWD) + '.lock';
+  var deadline = Date.now() + LOCK_WAIT_MS;
+  var locked = fsHelpers.claimLock(lock, LOCK_STALE_MS, 3);
+  while (!locked && Date.now() < deadline) {
+    fsHelpers.sleepSync(2 + Math.floor(Math.random() * 4));
+    locked = fsHelpers.claimLock(lock, LOCK_STALE_MS, 3);
+  }
   try {
-    if (fs.statSync(file).size > MAX_OUTCOMES_BYTES) {
-      var lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean);
-      atomicWrite(file, lines.slice(-KEEP_OUTCOMES).join('\n') + '\n');
-    }
-  } catch (e) { /* rotation is best effort */ }
+    return fn(locked);
+  } finally {
+    if (locked) fsHelpers.releaseLock(lock);
+  }
+}
+
+/** Append one record; past MAX_OUTCOMES_BYTES keep the newest KEEP_OUTCOMES
+ *  lines, at most half the byte cap. Both under the lock; an append that could
+ *  not get it still lands (O_APPEND), rotation then waits for the next one. */
+function appendOutcome(CWD, rec) {
+  var file = outcomesFile(CWD);
+  withOutcomesLock(CWD, function (locked) {
+    fs.appendFileSync(file, JSON.stringify(rec) + '\n', 'utf-8');
+    if (!locked) return;
+    try {
+      if (fs.statSync(file).size <= MAX_OUTCOMES_BYTES) return;
+      var lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean).slice(-KEEP_OUTCOMES);
+      var bytes = 0;
+      var from = lines.length;
+      while (from > 0 && bytes + Buffer.byteLength(lines[from - 1]) + 1 <= MAX_OUTCOMES_BYTES / 2) {
+        bytes += Buffer.byteLength(lines[--from]) + 1;
+      }
+      atomicWrite(file, lines.slice(from).join('\n') + '\n');
+    } catch (e) { /* rotation is best effort */ }
+  });
 }
 
 /** Record the pick: route-outcomes.jsonl line, per-session route file and the
@@ -254,42 +290,64 @@ function persistRoute(CWD, opts) {
   return routeId;
 }
 
-/** The session's latest route. The shared last-route.json answers only for its
- *  own session, or when it names none (written before routes carried one). */
+/** A slash command's route: no agent recommendation (the command is the
+ *  skill) and no routeId, so it never counts as a pick to follow. It replaces
+ *  the session's route so spawns the command makes are not scored against an
+ *  earlier prompt's pick. */
+function persistCommandRoute(CWD, opts) {
+  var sid = safeSessionId(opts.sessionId);
+  var route = JSON.stringify({
+    sessionId: sid,
+    agent: null,
+    name: null,
+    skill: String(opts.command || '').slice(0, 200) || null,
+    confidence: 1.0,
+    reason: 'predefined command — no routing needed',
+    updatedAt: new Date().toISOString(),
+  });
+  if (sid) atomicWrite(routeFile(CWD, sid), route);
+  atomicWrite(path.join(monoDir(CWD), 'last-route.json'), route);
+}
+
+/** The session's latest route: its own route file, else the shared
+ *  last-route.json when that names this session. Never another session's
+ *  route, nor one that names no session. */
 function readSessionRoute(CWD, sessionId) {
   var sid = safeSessionId(sessionId);
-  if (sid) {
-    var own = readJson(routeFile(CWD, sid), MAX_ROUTE_FILE_BYTES);
-    if (own) return own;
-  }
+  if (!sid) return null;
+  var own = readJson(routeFile(CWD, sid), MAX_ROUTE_FILE_BYTES);
+  if (own) return own;
   var last = readJson(path.join(monoDir(CWD), 'last-route.json'), MAX_ROUTE_FILE_BYTES);
-  if (!last) return null;
-  return !last.sessionId || last.sessionId === sid ? last : null;
+  return last && last.sessionId === sid ? last : null;
 }
 
 /** Merge `patch` into the last route-outcomes record with `routeId`, never
  *  overwriting a field that is already set. Returns true when a record changed. */
 function joinOutcome(CWD, routeId, patch) {
   if (!routeId) return false;
-  var file = path.join(monoDir(CWD), 'route-outcomes.jsonl');
-  try {
-    if (fs.statSync(file).size > MAX_JOIN_BYTES) return false;
-    var lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean);
-    for (var i = lines.length - 1; i >= 0; i--) {
-      var rec;
-      try { rec = JSON.parse(lines[i]); } catch (e) { continue; }
-      if (rec.routeId !== routeId) continue;
-      var changed = false;
-      Object.keys(patch).forEach(function (k) {
-        if (patch[k] !== undefined && patch[k] !== null && rec[k] === undefined) { rec[k] = patch[k]; changed = true; }
-      });
-      if (!changed) return false;
-      lines[i] = JSON.stringify(rec);
-      atomicWrite(file, lines.join('\n') + '\n');
-      return true;
-    }
-  } catch (e) { /* no outcomes yet */ }
-  return false;
+  var file = outcomesFile(CWD);
+  // Without the lock a rewrite could drop a concurrent append: skip the join.
+  return withOutcomesLock(CWD, function (locked) {
+    if (!locked) return false;
+    try {
+      if (fs.statSync(file).size > MAX_JOIN_BYTES) return false;
+      var lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean);
+      for (var i = lines.length - 1; i >= 0; i--) {
+        var rec;
+        try { rec = JSON.parse(lines[i]); } catch (e) { continue; }
+        if (rec.routeId !== routeId) continue;
+        var changed = false;
+        Object.keys(patch).forEach(function (k) {
+          if (patch[k] !== undefined && patch[k] !== null && rec[k] === undefined) { rec[k] = patch[k]; changed = true; }
+        });
+        if (!changed) return false;
+        lines[i] = JSON.stringify(rec);
+        atomicWrite(file, lines.join('\n') + '\n');
+        return true;
+      }
+    } catch (e) { /* no outcomes yet */ }
+    return false;
+  });
 }
 
 /** PreToolUse Task|Agent: did the spawn follow this session's latest pick? */
@@ -298,8 +356,10 @@ function recordAdherence(CWD, hookInput) {
   var sid = safeSessionId(hookInput && (hookInput.session_id || hookInput.sessionId));
   var actual = typeof toolInput.subagent_type === 'string' && toolInput.subagent_type ? toolInput.subagent_type.slice(0, 128) : null;
   var route = readSessionRoute(CWD, sid);
+  // Only a recorded pick (routeId) that named an agent is a recommendation.
+  if (route && !route.routeId) route = null;
   var recommended = route && route.agent ? route.agent : null;
-  var recommendedId = route && route.agentSlug ? route.agentSlug : null;
+  var recommendedId = recommended && route.agentSlug ? route.agentSlug : null;
   var rec = {
     ts: Date.now(),
     routeId: route && route.routeId ? route.routeId : null,
@@ -317,34 +377,18 @@ function recordAdherence(CWD, hookInput) {
   return rec;
 }
 
-// ── SessionStart: keep skill-registry.json in step with .claude/skills ──────
+// ── SessionStart: keep skill-registry.json in step with its sources ────────
 
-function mtimeOrNull(p) {
-  try { return fs.statSync(p).mtimeMs; } catch (e) { return null; }
-}
-
-/** Rebuild .claude/helpers/skill-registry.json when it is missing or older than
- *  the skills tree (directory or any SKILL.md). Returns what it did. */
+/** Rebuild .claude/helpers/skill-registry.json when build-skill-registry.cjs
+ *  says it is stale (missing, or older than any of its sources: skills,
+ *  commands, org skills, the catalog state). Returns what it did. */
 function ensureSkillRegistryFresh(root, builder) {
-  var skillsDir = path.join(root, '.claude', 'skills');
-  var newest = mtimeOrNull(skillsDir);
-  if (newest === null) return 'no-skills';
-  var regPath = path.join(root, '.claude', 'helpers', 'skill-registry.json');
-  var regMtime = mtimeOrNull(regPath);
-  if (regMtime !== null) {
-    var names = [];
-    try { names = fs.readdirSync(skillsDir).slice(0, MAX_SKILL_DIRS); } catch (e) { /* unreadable */ }
-    for (var i = 0; i < names.length; i++) {
-      var d = path.join(skillsDir, names[i]);
-      newest = Math.max(newest, mtimeOrNull(d) || 0, mtimeOrNull(path.join(d, 'SKILL.md')) || 0);
-    }
-    if (regMtime >= newest) return 'fresh';
-  }
   if (builder === undefined) {
     try { builder = require('../build-skill-registry.cjs'); } catch (e) { builder = null; }
   }
-  if (!builder || typeof builder.build !== 'function') return 'no-builder';
-  atomicWrite(regPath, JSON.stringify(builder.build(root), null, 2) + '\n');
+  if (!builder || typeof builder.isStale !== 'function' || typeof builder.ensure !== 'function') return 'no-builder';
+  if (!builder.isStale(root)) return 'fresh';
+  builder.ensure(root);
   return 'rebuilt';
 }
 
@@ -360,6 +404,7 @@ module.exports = {
   formatPickLine: formatPickLine,
   safeSessionId: safeSessionId,
   persistRoute: persistRoute,
+  persistCommandRoute: persistCommandRoute,
   readSessionRoute: readSessionRoute,
   joinOutcome: joinOutcome,
   recordAdherence: recordAdherence,
