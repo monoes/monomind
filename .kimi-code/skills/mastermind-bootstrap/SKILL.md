@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Bootstrap
 
-This skill is invoked by `mastermind:bootstrap` or directly via `/mastermind:bootstrap`.
+This skill is invoked by `mastermind:bootstrap` or directly via `/mastermind-bootstrap`.
 
 ---
 
@@ -54,7 +54,7 @@ if [ -f "$bootstrapFile" ]; then
     "  Token used:  \(.token_used // false)"
   ' "$bootstrapFile"
 else
-  echo "Not bootstrapped. Run /mastermind:bootstrap --org ${org_name} --action init"
+  echo "Not bootstrapped. Run /mastermind-bootstrap --org ${org_name} --action init"
 fi
 ```
 

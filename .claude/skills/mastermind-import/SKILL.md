@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Import
 
-This skill is invoked by `mastermind:import` or directly via `/mastermind:import`.
+This skill is invoked by `mastermind:import` or directly via `/mastermind-import`.
 
 ---
 

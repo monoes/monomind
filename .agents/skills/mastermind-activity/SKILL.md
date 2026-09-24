@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Activity
 
-This skill is invoked by `mastermind:activity` or directly via `/mastermind:activity`.
+This skill is invoked by `mastermind:activity` or directly via `/mastermind-activity`.
 
 ---
 
@@ -116,7 +116,7 @@ tail -200 "$activityFile" | jq -r '.entityType // .type // "unknown"' 2>/dev/nul
 done
 
 echo ""
-echo "  Filter: /mastermind:activity --org $org_name --action list --entity-type <type>"
+echo "  Filter: /mastermind-activity --org $org_name --action list --entity-type <type>"
 ```
 
 ### stats

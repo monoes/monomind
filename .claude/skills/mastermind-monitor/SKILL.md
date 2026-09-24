@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Monitor
 
-Invoked via `mastermind:monitor` or `/mastermind:monitor`.
+Invoked via `mastermind:monitor` or `/mastermind-monitor`.
 
 A monitor is a named, forever-running task executor. It polls one or more task sources on a configurable interval, claims matching tasks, hands them off to a Claude agent for execution, posts back results as comments/status updates, and self-reschedules via `ScheduleWakeup`.
 
@@ -99,7 +99,7 @@ cat > "$cfg" <<EOF
 EOF
 
 echo "Monitor '$name' created."
-echo "Add sources with: /mastermind:monitor --action add-source --name $name --source linear ..."
+echo "Add sources with: /mastermind-monitor --action add-source --name $name --source linear ..."
 echo "Then start the tick loop."
 ```
 
@@ -107,7 +107,7 @@ After creating the config, if at least one source was provided (via `--source` +
 
 Then **immediately call `ScheduleWakeup`** with:
 - `delaySeconds`: 10 (first tick almost immediately)
-- `prompt`: `/mastermind:monitor --action tick --name <name>`
+- `prompt`: `/mastermind-monitor --action tick --name <name>`
 - `reason`: `First tick for monitor: <name>`
 
 ---
@@ -138,7 +138,7 @@ echo "Monitor '$name' is now: $new_status"
 
 If `action=resume`, call `ScheduleWakeup`:
 - `delaySeconds`: 10
-- `prompt`: `/mastermind:monitor --action tick --name <name>`
+- `prompt`: `/mastermind-monitor --action tick --name <name>`
 - `reason`: `Resuming monitor: <name>`
 
 ---
@@ -339,7 +339,7 @@ in_flight_count=${in_flight_count:-0}
 if [ "$in_flight_count" -ge "$max_concurrent" ]; then
   echo "[$name] In-flight ($in_flight_count) >= max_concurrent ($max_concurrent) — skipping claim this tick."
   # Reschedule next tick — do this BEFORE exit so the loop survives
-  # ScheduleWakeup: delaySeconds=poll_interval, prompt="/mastermind:monitor --action tick --name <name>",
+  # ScheduleWakeup: delaySeconds=poll_interval, prompt="/mastermind-monitor --action tick --name <name>",
   #   reason="Monitor <name> in-flight throttle — will retry next tick"
   exit 0
 fi
@@ -1068,7 +1068,7 @@ Always the last step, regardless of whether a task was found/executed.
 
 Call `ScheduleWakeup` with:
 - `delaySeconds`: value of `poll_interval` from config (default 120)
-- `prompt`: `/mastermind:monitor --action tick --name <name>`
+- `prompt`: `/mastermind-monitor --action tick --name <name>`
 - `reason`: `Monitor <name> polling every <poll_interval>s (<N sources>)`
 
 This is what makes the monitor run forever. The only way to stop it is to set `status=stopped` or `status=paused` — the tick checks this at the top of Step 2.
@@ -1198,38 +1198,38 @@ If `caller` is not "command", follow `mastermind-protocol/SKILL.md` Brain Write 
 
 ```bash
 # Create a monitor watching GitHub issues assigned to you
-/mastermind:monitor --action start --name dev-watcher \
+/mastermind-monitor --action start --name dev-watcher \
   --source github --project monoes/monomind --user nokhodian \
   --label ai-agent --agent coder --interval 120
 
 # Add a Linear source to an existing monitor
-/mastermind:monitor --action add-source --name dev-watcher \
+/mastermind-monitor --action add-source --name dev-watcher \
   --source linear --team ENG --user your@email.com \
   --state Todo --label ai-agent
 
 # Add a monotask board source
-/mastermind:monitor --action add-source --name dev-watcher \
+/mastermind-monitor --action add-source --name dev-watcher \
   --source monotask --project monomind-tasks-dev \
   --state Todo --label role:ai-agent
 
 # Add a filesystem folder source
-/mastermind:monitor --action add-source --name dev-watcher \
+/mastermind-monitor --action add-source --name dev-watcher \
   --source filesystem --folder ./tasks
 
 # Check status
-/mastermind:monitor --action status --name dev-watcher
+/mastermind-monitor --action status --name dev-watcher
 
 # List all monitors
-/mastermind:monitor
+/mastermind-monitor
 
 # Pause (stops auto-rescheduling after current tick)
-/mastermind:monitor --action pause --name dev-watcher
+/mastermind-monitor --action pause --name dev-watcher
 
 # Resume (re-enters the tick loop)
-/mastermind:monitor --action resume --name dev-watcher
+/mastermind-monitor --action resume --name dev-watcher
 
 # Stop permanently
-/mastermind:monitor --action stop --name dev-watcher
+/mastermind-monitor --action stop --name dev-watcher
 ```
 
 ---

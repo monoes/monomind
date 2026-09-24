@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Instance
 
-This skill is invoked by `mastermind:instance` or directly via `/mastermind:instance`.
+This skill is invoked by `mastermind:instance` or directly via `/mastermind-instance`.
 
 ---
 
@@ -213,7 +213,7 @@ echo "  Running agents:   $total_running"
 echo "  Pending approvals:$total_pending"
 echo ""
 [ "$total_running" -gt 0 ] && echo "  ✓ System is active." || echo "  ◌ No agents running."
-[ "$total_pending" -gt 0 ] && echo "  ⚠ $total_pending approval(s) need attention. Run /mastermind:inbox."
+[ "$total_pending" -gt 0 ] && echo "  ⚠ $total_pending approval(s) need attention. Run /mastermind-inbox."
 ```
 
 ---

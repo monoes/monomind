@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Plugin Settings
 
-This skill is invoked by `mastermind:plugin-settings` or directly via `/mastermind:plugin-settings`.
+This skill is invoked by `mastermind:plugin-settings` or directly via `/mastermind-plugin-settings`.
 
 ---
 
@@ -63,10 +63,10 @@ If `caller` is not "command", load brain context following mastermind-protocol/S
 
 ```bash
 registryFile=".monomind/plugins/registry.json"
-[ ! -f "$registryFile" ] && { echo "ERROR: No plugin registry found. Install plugins via /mastermind:plugins."; exit 1; }
+[ ! -f "$registryFile" ] && { echo "ERROR: No plugin registry found. Install plugins via /mastermind-plugins."; exit 1; }
 
 pluginDef=$(jq -r --arg id "$plugin_id" '(.plugins // [])[] | select(.id == $id)' "$registryFile")
-[ -z "$pluginDef" ] && { echo "ERROR: Plugin '$plugin_id' not found. List plugins via /mastermind:plugins --action list."; exit 1; }
+[ -z "$pluginDef" ] && { echo "ERROR: Plugin '$plugin_id' not found. List plugins via /mastermind-plugins --action list."; exit 1; }
 
 # Load org-level overrides if org_name specified
 orgPluginsFile=""
@@ -172,7 +172,7 @@ if [ -n "$lastErr" ]; then
 fi
 
 # Suggest reload
-[ "$healthStatus" = "error" ] && echo "" && echo "  Run: /mastermind:plugins --action reload --plugin-id $plugin_id"
+[ "$healthStatus" = "error" ] && echo "" && echo "  Run: /mastermind-plugins --action reload --plugin-id $plugin_id"
 ```
 
 ### grants

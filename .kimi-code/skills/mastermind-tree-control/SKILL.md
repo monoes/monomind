@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Tree Control
 
-This skill is invoked by `mastermind:tree-control` or directly via `/mastermind:tree-control`.
+This skill is invoked by `mastermind:tree-control` or directly via `/mastermind-tree-control`.
 
 ---
 
@@ -94,8 +94,8 @@ print()
 print(f"  Active issues in subtree: {len(active)}")
 print(f"  Holding root would affect all {len(active)} active issue(s).")
 print()
-print("  To hold: /mastermind:tree-control --org <org> --action hold --issue-id <id> --reason 'Review needed'")
-print("  To cancel: /mastermind:tree-control --org <org> --action cancel --issue-id <id> --reason 'No longer needed'")
+print("  To hold: /mastermind-tree-control --org <org> --action hold --issue-id <id> --reason 'Review needed'")
+print("  To cancel: /mastermind-tree-control --org <org> --action cancel --issue-id <id> --reason 'No longer needed'")
 PYEOF
 ```
 
@@ -140,7 +140,7 @@ print(f"  Reason: {reason}")
 print(f"  Applied: {ts}")
 print()
 print("  Active agents should detect the hold and pause execution.")
-print(f"  To release: /mastermind:tree-control --org <org> --action release --issue-id {rootId}")
+print(f"  To release: /mastermind-tree-control --org <org> --action release --issue-id {rootId}")
 PYEOF
 ```
 

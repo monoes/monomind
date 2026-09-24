@@ -322,7 +322,7 @@ next_actions:
   - "After hand-editing the config, re-check it with `monomind org validate <org_name>`"
   - "While running: `monomind org logs <org_name> --follow`; afterwards: `monomind org report <org_name>` for outcome, per-role activity, and token usage"
   - "Or `monomind org serve` to host it (and any other scheduled orgs) as a background daemon"
-  - "Edit .monomind/orgs/<org_name>.json directly, or use /mastermind:org-settings, to change goal/budget/roles"
+  - "Edit .monomind/orgs/<org_name>.json directly, or use /mastermind-org-settings, to change goal/budget/roles"
   - "`monomind org status <org_name>` to check runtime state; `monomind org stop <org_name>` to stop a running org"
 ```
 
@@ -343,7 +343,7 @@ In **auto** mode (where Step 4's plan/model confirmation was skipped), always al
     boss                claude-sonnet-5
     content-writer      claude-sonnet-5
     content-reviewer    claude-sonnet-5
-  Adjust with: /mastermind:org-settings, or edit .monomind/orgs/<org_name>.json directly
+  Adjust with: /mastermind-org-settings, or edit .monomind/orgs/<org_name>.json directly
 ```
 In **confirm** mode this table was already shown and accepted in Step 4 — do not repeat it here.
 

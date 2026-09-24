@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Plugin Manager
 
-This skill is invoked by `mastermind:plugin-manager` or directly via `/mastermind:plugin-manager`.
+This skill is invoked by `mastermind:plugin-manager` or directly via `/mastermind-plugin-manager`.
 
 ---
 
@@ -86,7 +86,7 @@ fi
 echo ""
 echo "  Install:    --action install --package-name <npm-package>"
 echo "  Uninstall:  --action uninstall --plugin-id <id>"
-echo "  Settings:   /mastermind:plugin-settings --plugin-id <id>"
+echo "  Settings:   /mastermind-plugin-settings --plugin-id <id>"
 ```
 
 ### install
@@ -125,7 +125,7 @@ if npm install "$package_name" 2>&1 | tail -5; then
 
   echo ""
   echo "Plugin installed: $pluginId @ $pkgVer"
-  echo "  Configure: /mastermind:plugin-settings --plugin-id $pluginId"
+  echo "  Configure: /mastermind-plugin-settings --plugin-id $pluginId"
 else
   echo "  ERROR: npm install failed. Check the package name and network connectivity."
   exit 1

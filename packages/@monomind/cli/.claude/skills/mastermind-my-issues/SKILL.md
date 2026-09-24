@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind My Issues
 
-This skill is invoked by `mastermind:my-issues` or directly via `/mastermind:my-issues`.
+This skill is invoked by `mastermind:my-issues` or directly via `/mastermind-my-issues`.
 
 ---
 

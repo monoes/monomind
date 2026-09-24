@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Agents
 
-This skill is invoked by `mastermind:agents` or directly via `/mastermind:agents`.
+This skill is invoked by `mastermind:agents` or directly via `/mastermind-agents`.
 
 ---
 

@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Issues
 
-This skill is invoked by `mastermind:issues` or directly via `/mastermind:issues`.
+This skill is invoked by `mastermind:issues` or directly via `/mastermind-issues`.
 
 ---
 
@@ -132,8 +132,8 @@ print(f"\n  Showing {len(issues)} issue(s).")
 PYEOF
 
 echo ""
-echo "  Create: /mastermind:issues --org $org_name --action create --title 'My Issue'"
-echo "  Detail: /mastermind:issue-detail --org $org_name --issue-id <id>"
+echo "  Create: /mastermind-issues --org $org_name --action create --title 'My Issue'"
+echo "  Detail: /mastermind-issue-detail --org $org_name --issue-id <id>"
 ```
 
 ### search

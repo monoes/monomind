@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Goals
 
-This skill is invoked by `mastermind:goals` or directly via `/mastermind:goals`.
+This skill is invoked by `mastermind:goals` or directly via `/mastermind-goals`.
 
 ---
 
@@ -140,7 +140,7 @@ goal_id: <goal_id if applicable>
 goals_file: .monomind/orgs/<org_name>-goals.json
 ```
 
-Suggest next: "Link tasks to this goal with /mastermind:tasks link or /mastermind:goals link --goal-id <id> --task-id <card_id>"
+Suggest next: "Link tasks to this goal with /mastermind-tasks link or /mastermind-goals link --goal-id <id> --task-id <card_id>"
 
 ---
 

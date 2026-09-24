@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Adapters
 
-This skill is invoked by `mastermind:adapters` or directly via `/mastermind:adapters`.
+This skill is invoked by `mastermind:adapters` or directly via `/mastermind-adapters`.
 
 ---
 

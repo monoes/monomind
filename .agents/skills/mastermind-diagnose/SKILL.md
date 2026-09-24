@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Diagnose
 
-This skill is invoked by `mastermind:diagnose` or directly via `/mastermind:diagnose`.
+This skill is invoked by `mastermind:diagnose` or directly via `/mastermind-diagnose`.
 
 ---
 
@@ -148,7 +148,7 @@ else
 fi
 
 echo ""
-echo "  For deep diagnosis: /mastermind:diagnose --org $org_name --action diagnose --issue-id <id>"
+echo "  For deep diagnosis: /mastermind-diagnose --org $org_name --action diagnose --issue-id <id>"
 ```
 
 ### diagnose
@@ -224,7 +224,7 @@ echo "  1. Productive work continues:  [check heartbeats + open issues]"
 echo "  2. Only real blockers stop:    [check stall candidates above]"
 echo "  3. No infinite loops:          [check activity log for repeat patterns]"
 echo ""
-echo "  Run scan first: /mastermind:diagnose --org $org_name --action scan"
+echo "  Run scan first: /mastermind-diagnose --org $org_name --action scan"
 ```
 
 ---

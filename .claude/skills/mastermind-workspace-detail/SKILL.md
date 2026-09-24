@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Workspace Detail
 
-This skill is invoked by `mastermind:workspace-detail` or directly via `/mastermind:workspace-detail`.
+This skill is invoked by `mastermind:workspace-detail` or directly via `/mastermind-workspace-detail`.
 
 ---
 
@@ -54,7 +54,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 [ ! -f "$orgFile" ] && { echo "ERROR: Org '${org_name}' not found."; exit 1; }
 
 wsFile=".monomind/orgs/${org_name}-workspaces.json"
-[ ! -f "$wsFile" ] && { echo "ERROR: No workspaces file for org '$org_name'. Create workspaces via /mastermind:workspaces."; exit 1; }
+[ ! -f "$wsFile" ] && { echo "ERROR: No workspaces file for org '$org_name'. Create workspaces via /mastermind-workspaces."; exit 1; }
 
 wsDef=$(jq -r --arg id "$workspace_id" '(.workspaces // [])[] | select(.id == $id)' "$wsFile")
 [ -z "$wsDef" ] && { echo "ERROR: Workspace '$workspace_id' not found in org '$org_name'."; exit 1; }
@@ -256,7 +256,7 @@ else
 fi
 
 echo ""
-echo "To run a routine with workspace vars: /mastermind:routine-detail --org $org_name --routine-id <id> --action variables"
+echo "To run a routine with workspace vars: /mastermind-routine-detail --org $org_name --routine-id <id> --action variables"
 ```
 
 ### config

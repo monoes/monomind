@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Join Queue
 
-This skill is invoked by `mastermind:join-queue` or directly via `/mastermind:join-queue`.
+This skill is invoked by `mastermind:join-queue` or directly via `/mastermind-join-queue`.
 
 ---
 
@@ -54,7 +54,7 @@ echo "────────────────────────�
 if [ ! -f "$joinFile" ]; then
   echo "  No join requests found."
   echo ""
-  echo "  Approve: /mastermind:join-queue --org $org_name --action approve --request-id <id>"
+  echo "  Approve: /mastermind-join-queue --org $org_name --action approve --request-id <id>"
   exit 0
 fi
 
@@ -86,8 +86,8 @@ print(f"\n  Total: {len(filtered)} request(s) (status={status_f}, type={type_f})
 PYEOF
 
 echo ""
-echo "  Approve: /mastermind:join-queue --org $org_name --action approve --request-id <id>"
-echo "  Reject:  /mastermind:join-queue --org $org_name --action reject  --request-id <id>"
+echo "  Approve: /mastermind-join-queue --org $org_name --action approve --request-id <id>"
+echo "  Reject:  /mastermind-join-queue --org $org_name --action reject  --request-id <id>"
 ```
 
 ### approve

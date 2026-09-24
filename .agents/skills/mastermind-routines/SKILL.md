@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Routines
 
-This skill is invoked by `mastermind:routines` or directly via `/mastermind:routines`.
+This skill is invoked by `mastermind:routines` or directly via `/mastermind-routines`.
 
 ---
 
@@ -103,7 +103,7 @@ echo "Routine added: $routine_id"
 echo "Schedule: $schedule"
 echo ""
 echo "NOTE: To activate this routine, use ScheduleWakeup with:"
-echo "  prompt: '/mastermind:routines --action trigger --org $org_name --routine-id $routine_id'"
+echo "  prompt: '/mastermind-routines --action trigger --org $org_name --routine-id $routine_id'"
 echo "  delaySeconds: <seconds until next scheduled run>"
 ```
 

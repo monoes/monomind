@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Search
 
-This skill is invoked by `mastermind:search` or directly via `/mastermind:search`.
+This skill is invoked by `mastermind:search` or directly via `/mastermind-search`.
 
 ---
 

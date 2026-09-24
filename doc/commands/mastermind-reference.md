@@ -176,7 +176,7 @@ Switches from improvement mode to a full end-to-end feature delivery pipeline. I
 
 ---
 
-### `/mastermind:goals` / `/mastermind:ops`
+### `/mastermind-goals` / `/mastermind:ops`
 
 **Purpose:** Operations planning and tracking.
 

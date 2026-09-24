@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Budgets
 
-This skill is invoked by `mastermind:budgets` or directly via `/mastermind:budgets`.
+This skill is invoked by `mastermind:budgets` or directly via `/mastermind-budgets`.
 
 ---
 
@@ -131,8 +131,8 @@ if not roles:
 PYEOF
 
 echo ""
-echo "  Set limit: /mastermind:budgets --org $org_name --action set --agent-id <id> --limit-usd 5.00"
-echo "  Reset:     /mastermind:budgets --org $org_name --action reset"
+echo "  Set limit: /mastermind-budgets --org $org_name --action set --agent-id <id> --limit-usd 5.00"
+echo "  Reset:     /mastermind-budgets --org $org_name --action reset"
 ```
 
 ### set

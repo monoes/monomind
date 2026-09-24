@@ -7,12 +7,12 @@ default_mode: confirm
 
 # Mastermind Org Settings
 
-This skill is invoked by `mastermind:org-settings` or directly via `/mastermind:org-settings`.
+This skill is invoked by `mastermind:org-settings` or directly via `/mastermind-org-settings`.
 
 It edits `.monomind/orgs/<org_name>.json` in place, and only ever touches fields that `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`) actually defines — every field listed below is read by the daemon (`org.ts`/`daemon.ts`/`session.ts`) at `monomind org run`/`serve` time. Its primary edit flow targets v2 fields only: `name`, `goal`, `schedule`, and `run_config` (`budget_tokens`, `memory_namespace`, `max_turns_per_message`). Role edits are not yet supported by this skill's `edit` action — `roles` is shown read-only via `show`.
 
 <!-- LEGACY-ORG-V1: remove this note when v1 orgs are gone -->
-There is no `topology`, `governance`, `alert_threshold`, or `ceo_adapter` in Org Runtime v2 — those were v1 board/prompt-orchestration fields with no runtime effect and have been removed from this skill's edit surface. Use `/mastermind:org-settings` only for v2-shaped orgs; v1 orgs must go through `monomind org migrate` first.
+There is no `topology`, `governance`, `alert_threshold`, or `ceo_adapter` in Org Runtime v2 — those were v1 board/prompt-orchestration fields with no runtime effect and have been removed from this skill's edit surface. Use `/mastermind-org-settings` only for v2-shaped orgs; v1 orgs must go through `monomind org migrate` first.
 
 ---
 
@@ -64,7 +64,7 @@ jq -r '
   "  Roles:             \(.roles | length) agents"
 ' "$orgFile"
 echo ""
-echo "  Run /mastermind:org-settings --org ${org_name} --action edit --field <field> --value <value>"
+echo "  Run /mastermind-org-settings --org ${org_name} --action edit --field <field> --value <value>"
 echo "  Fields: name | goal | schedule | budget_tokens | memory_namespace | max_turns_per_message"
 ```
 
@@ -190,7 +190,7 @@ jq -n \
 
 echo "Exported: $outPath"
 echo "$(wc -c < "$outPath") bytes — share this file to recreate the org on another machine."
-echo "Import with: /mastermind:org-settings --action import --import-path $outPath"
+echo "Import with: /mastermind-org-settings --action import --import-path $outPath"
 ```
 
 ### import
@@ -241,7 +241,7 @@ echo "Agents: $(jq '.config.roles | length' "$import_path")"
 npx -y monomind@latest org validate "$targetOrg" \
   || { echo "ERROR: imported org failed validation — fix .monomind/orgs/${targetOrg}.json before running it."; exit 1; }
 
-echo "Run /mastermind:env --org ${targetOrg} --action validate to check provider keys."
+echo "Run /mastermind-env --org ${targetOrg} --action validate to check provider keys."
 ```
 
 ---

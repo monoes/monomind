@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Invite Landing
 
-This skill is invoked by `mastermind:invite-landing` or directly via `/mastermind:invite-landing`.
+This skill is invoked by `mastermind:invite-landing` or directly via `/mastermind-invite-landing`.
 
 ---
 
@@ -196,7 +196,7 @@ echo "  Adapter:     $adapterType / $modelId"
 echo "  Org:         $org_name"
 echo "  Joined at:   $ts"
 echo ""
-echo "  View agent: /mastermind:agent-detail --org $org_name --agent-id $agentId"
+echo "  View agent: /mastermind-agent-detail --org $org_name --agent-id $agentId"
 ```
 
 ### status

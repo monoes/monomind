@@ -66,24 +66,22 @@ single process:
 
 ## Agent Types
 
-```typescript
-type AgentType =
-  | 'coordinator' | 'researcher' | 'coder' | 'analyst' | 'architect'
-  | 'tester' | 'reviewer' | 'optimizer' | 'documenter' | 'monitor'
-  | 'specialist' | 'queen' | 'worker'
-```
+A roster entry's `agentType` (`monoswarm_agent_add`, `monoswarm_scale`, `agent_spawn`) is a
+free-form bookkeeping label; `worker` is the default. An entry that stands for a Task agent
+should carry that agent's registry `name` — the value the Task tool takes as `subagent_type`
+(`coder`, `Security Engineer`, ...); `mcp__monomind__pick` ranks them for a task.
 
 ### Agent Routing Table
 
 | Code | Task | Recommended agents |
 |---|---|---|
 | 1 | Bug Fix | coordinator, researcher, coder, tester |
-| 3 | Feature | coordinator, architect, coder, tester, reviewer |
-| 5 | Refactor | coordinator, architect, coder, reviewer |
-| 7 | Performance | coordinator, perf-engineer, coder |
-| 9 | Security | coordinator, security-architect, auditor |
-| 11 | Memory | coordinator, memory-specialist, perf-engineer |
-| 13 | Docs | researcher, api-docs |
+| 3 | Feature | coordinator, system-architect, coder, tester, reviewer |
+| 5 | Refactor | coordinator, system-architect, coder, reviewer |
+| 7 | Performance | coordinator, Performance Benchmarker, coder |
+| 9 | Security | coordinator, Security Engineer, reviewer |
+| 11 | Memory | coordinator, monoswarm-memory-manager, Performance Benchmarker |
+| 13 | Docs | researcher, Technical Writer |
 
 ---
 

@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Inbox
 
-This skill is invoked by `mastermind:inbox` or directly via `/mastermind:inbox`.
+This skill is invoked by `mastermind:inbox` or directly via `/mastermind-inbox`.
 
 ---
 
@@ -196,7 +196,7 @@ From the inbox, the user can directly:
 /mastermind:approvev1 --org <org> --action approve --approval-id <id>
 
 # Stop a running agent:
-/mastermind:agents --org <org> --action pause --agent-id <id>
+/mastermind-agents --org <org> --action pause --agent-id <id>
 
 # Check costs:
 /mastermind:costs --org <org> --action report

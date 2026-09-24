@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Backup
 
-This skill is invoked by `mastermind:backup` or directly via `/mastermind:backup`.
+This skill is invoked by `mastermind:backup` or directly via `/mastermind-backup`.
 
 ---
 

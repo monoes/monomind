@@ -7,7 +7,7 @@ default_mode: auto
 
 # Mastermind Skills
 
-This skill is invoked by `mastermind:skills` or directly via `/mastermind:skills`.
+This skill is invoked by `mastermind:skills` or directly via `/mastermind-skills`.
 
 ---
 

@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Workspaces
 
-This skill is invoked by `mastermind:workspaces` or directly via `/mastermind:workspaces`.
+This skill is invoked by `mastermind:workspaces` or directly via `/mastermind-workspaces`.
 
 ---
 

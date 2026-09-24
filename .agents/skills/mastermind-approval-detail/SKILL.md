@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Approval Detail
 
-This skill is invoked by `mastermind:approval-detail` or directly via `/mastermind:approval-detail`.
+This skill is invoked by `mastermind:approval-detail` or directly via `/mastermind-approval-detail`.
 
 ---
 

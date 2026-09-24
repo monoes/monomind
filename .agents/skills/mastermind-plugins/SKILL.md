@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Plugins
 
-This skill is invoked by `mastermind:plugins` or directly via `/mastermind:plugins`.
+This skill is invoked by `mastermind:plugins` or directly via `/mastermind-plugins`.
 
 ---
 
@@ -94,7 +94,7 @@ cat <<'EXAMPLES'
   @monomind/plugin-webhook     — Generic inbound/outbound webhooks
   @monomind/plugin-memory-ext  — Extended memory backend
 
-Install: /mastermind:plugins --action install --package-name @monomind/plugin-<name>
+Install: /mastermind-plugins --action install --package-name @monomind/plugin-<name>
 EXAMPLES
 ```
 
