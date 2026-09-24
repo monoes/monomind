@@ -1,0 +1,127 @@
+[
+  {
+    "id": 101,
+    "task": "Set up SLOs and error budgets for the checkout service and add alerting",
+    "agents": ["engineering-sre"],
+    "skills": ["sre", "sre-engineer", "monitoring-expert"]
+  },
+  {
+    "id": 102,
+    "task": "Flash new firmware to the ESP32 board and fix the FreeRTOS task watchdog",
+    "agents": ["engineering-embedded-firmware-engineer"],
+    "skills": ["embedded-firmware", "embedded-systems"]
+  },
+  {
+    "id": 103,
+    "task": "Prepare our SOC 2 audit evidence and map controls to policies",
+    "agents": ["compliance-auditor"],
+    "skills": ["soc2-compliance"]
+  },
+  {
+    "id": 104,
+    "task": "Write the README and API docs for the CLI",
+    "agents": ["engineering-technical-writer"],
+    "skills": ["code-documenter", "monodoc"]
+  },
+  {
+    "id": 105,
+    "task": "Generate a quarterly report as a PowerPoint deck and an Excel sheet",
+    "agents": ["specialized-document-generator"],
+    "skills": ["board-deck-builder", "markitdown-document-conversion"]
+  },
+  {
+    "id": 106,
+    "task": "Plan the Product Hunt launch and the announcement sequence",
+    "agents": ["marketing-launch-strategist"],
+    "skills": ["launch-strategy"]
+  },
+  {
+    "id": 107,
+    "task": "Rebase my feature branch and clean up the commit history",
+    "agents": ["engineering-git-workflow-master"],
+    "skills": ["git-advanced-workflows", "git-workflow"]
+  },
+  {
+    "id": 108,
+    "task": "Build a quick MVP prototype of the booking flow this week",
+    "agents": ["engineering-rapid-prototyper"],
+    "skills": ["before-you-build"]
+  },
+  {
+    "id": 109,
+    "task": "Detect lateral movement with new SIEM rules mapped to MITRE ATT&CK",
+    "agents": ["engineering-threat-detection-engineer"],
+    "skills": ["threat-detection"]
+  },
+  {
+    "id": 110,
+    "task": "Train a classification model and deploy it behind an inference API",
+    "agents": ["engineering-ai-engineer"],
+    "skills": ["ml-pipeline", "ml-developer", "mle-workflow"]
+  },
+  {
+    "id": 111,
+    "task": "Design the database schema and indexes for multi-tenant billing",
+    "agents": ["engineering-database-optimizer", "engineering-backend-architect"],
+    "skills": ["postgresql-table-design", "postgres-patterns"]
+  },
+  {
+    "id": 112,
+    "task": "Improve the signup form conversion rate on the homepage",
+    "agents": ["marketing-cro-specialist"],
+    "skills": ["signup-flow-cro", "page-cro"]
+  },
+  {
+    "id": 113,
+    "task": "Write unit tests for the date parser",
+    "agents": ["tester"],
+    "skills": ["test-driven-development", "test-master", "python-testing"]
+  },
+  {
+    "id": 114,
+    "task": "Review my code changes before I merge",
+    "agents": ["reviewer", "monoswarm-code-review"],
+    "skills": ["mastermind:code-review", "code-reviewer", "mastermind:review", "code-review-swarm"]
+  },
+  {
+    "id": 115,
+    "task": "Pick the best CI tool among GitHub Actions, CircleCI and Buildkite",
+    "agents": ["testing-tool-evaluator"],
+    "skills": ["cicd-engineer", "devops-engineer"]
+  },
+  {
+    "id": 116,
+    "task": "Build a Lark bot that posts approval cards",
+    "agents": ["engineering-feishu-integration-developer"],
+    "skills": []
+  },
+  {
+    "id": 117,
+    "task": "Measure p99 latency under load and find regressions",
+    "agents": ["testing-performance-benchmarker", "benchmark-suite"],
+    "skills": ["benchmarker", "benchmark-methodology", "perf-analyzer"]
+  },
+  {
+    "id": 118,
+    "task": "Manage the release of version 4.0 across all packages",
+    "agents": ["release-manager"],
+    "skills": ["mastermind:release", "github:release-manager"]
+  },
+  {
+    "id": 119,
+    "task": "Migrate the Postgres database schema without downtime",
+    "agents": ["engineering-database-optimizer"],
+    "skills": ["database-migrations"]
+  },
+  {
+    "id": 120,
+    "task": "Write a Kubernetes Helm chart and deployment manifests",
+    "agents": ["engineering-devops-automator", "engineering-sre"],
+    "skills": [
+      "kubernetes-specialist",
+      "kubernetes-patterns",
+      "deployment-patterns",
+      "devops-engineer"
+    ]
+  }
+]
