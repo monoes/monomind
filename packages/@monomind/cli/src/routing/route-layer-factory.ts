@@ -2,11 +2,16 @@
  * Orchestrates semantic routing for the CLI consumers (`monomind route` and
  * `monomind agent --task`), isolating the embedding model in a child process.
  *
- * Flow per task:
- *   0. Jev decision model (MONOMIND_JEV_URL, then TYPESAFE_API_KEY +
- *      MONOMIND_JEV_HOSTED=1) when configured. Not configured, failing, or
- *      below MONOMIND_JEV_MIN_CONFIDENCE → steps 1–4 run exactly as before.
- *   1. Keyword pre-filter (in-process, no model) — fast exact matches.
+ * Flow per task — the central picker (pickForTask → rankForTask, the ranking
+ * `monomind pick` and the routing hooks use) decides first; embeddings and
+ * Haiku only run when it has no confident answer:
+ *   0. The central picker's decision model (MONOMIND_JEV_URL, then
+ *      TYPESAFE_API_KEY + MONOMIND_JEV_HOSTED=1) over the registry's agents,
+ *      with the @monoes/routing keyword hit always a candidate. Kept only at
+ *      or above MONOMIND_JEV_MIN_CONFIDENCE (the route layer acts on it).
+ *   1. @monoes/routing keyword pre-filter (curated patterns, no model).
+ *   1b. The central picker's keyword ranking, when its top agent clears the
+ *      prompt hook's [PICK] bar (score >= 2 and a 1.5x lead).
  *   2. Real-embedding semantic scoring in an isolated worker (embed-worker.js).
  *      The model can't run in the main process (native onnxruntime SIGSEGV), so
  *      it runs in a child; a worker crash is a non-zero exit, not a process kill.
@@ -25,8 +30,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { JevError } from '../decision/jev.js';
-import { routeWithJev } from './jev-step.js';
+import { pickRoute } from './pick-step.js';
 
 const WORKER_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -83,13 +87,6 @@ const MAX_ALL_SCORES = 100;
 
 /** Marker the worker prefixes its result line with (see embed-worker.ts). */
 const RESULT_MARKER = '__ROUTE_RESULT__';
-
-/** Decision-model failures change nothing but are visible in logs. */
-function warnDecisionUnavailable(err: JevError): void {
-  process.stderr.write(
-    `[route] decision model "${err.provider}" unavailable (${err.message}); falling back\n`,
-  );
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RouteResult = any;
@@ -222,16 +219,17 @@ export async function createConfiguredRouteLayer(
 
   return {
     async route(taskDescription: string): Promise<RouteResult> {
-      // 0. Decision model first (self-hosted OpenJev, then hosted Jev) when
-      //    configured; the keyword hit, if any, is always a candidate.
+      // 0. The central picker's decision model; the keyword hit, if any, is
+      //    always a candidate.
       const kw = keyword.match(taskDescription);
-      const decided = await routeWithJev(taskDescription, ALL_ROUTES, kw?.agentSlug, {
-        onError: warnDecisionUnavailable,
-      });
-      if (decided) return decided;
+      const picked = await pickRoute(taskDescription, ALL_ROUTES, kw?.agentSlug);
+      if (picked.jev) return picked.jev;
 
       // 1. Keyword pre-filter — fast, no model, avoids spawning the worker.
       if (kw) return kw;
+
+      // 1b. The central picker's keyword ranking, when it clearly leads.
+      if (picked.keyword) return picked.keyword;
 
       // 2. Real-embedding semantic scoring in the isolated worker.
       let semantic: RouteResult | null = null;

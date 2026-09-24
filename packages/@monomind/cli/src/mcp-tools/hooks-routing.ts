@@ -382,9 +382,10 @@ export const hooksRoute: MCPTool = {
 export const hooksRouteSemantic: MCPTool = {
   name: 'hooks_route_semantic',
   description:
-    'Route a task using the @monoes/routing package: keyword pre-filter, then real-embedding ' +
-    'cosine-similarity matching (isolated worker), with a headless Claude (Haiku) fallback below ' +
-    'the confidence threshold. Slower and more precise than hooks_route — use for ambiguous or ' +
+    'Route a task through the central picker first (the decision model, then the @monoes/routing ' +
+    'keyword patterns, then a clearly leading keyword pick), and only when none decides through ' +
+    'real-embedding cosine-similarity matching (isolated worker) with a headless Claude (Haiku) ' +
+    'fallback below the confidence threshold. Slower than hooks_route — use for ambiguous or ' +
     'highly specialized tasks (e.g. Solidity, embedded, DevOps) where keyword matching is likely ' +
     'to under-specify the agent. agentSlug is a spawnable Task subagent_type.',
   inputSchema: {

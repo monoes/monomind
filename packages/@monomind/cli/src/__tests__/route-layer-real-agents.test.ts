@@ -60,6 +60,18 @@ describe('route layer answers with spawnable agents', () => {
   });
 });
 
+describe('route layer asks the central picker before embeddings', () => {
+  it.each([
+    ['set up a zettelkasten for my notes', 'ZK Steward'],
+    ['plan the pricing tiers for our SaaS', 'Pricing Strategist'],
+  ])('%s → %s (no routing pattern covers it)', async (task, expected) => {
+    const layer = await createConfiguredRouteLayer();
+    const result = await layer.route(task);
+    expect(result).toMatchObject({ agentSlug: expected, method: 'keyword' });
+    expect(result.routeName).toBe(expected);
+  });
+});
+
 describe('agent spawn --task', () => {
   it('spawns the routed, real agent type', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);

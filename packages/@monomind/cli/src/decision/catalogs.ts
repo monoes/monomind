@@ -114,20 +114,3 @@ export function roleCatalog(
     description: [r.title, ...(r.responsibilities ?? [])].filter(Boolean).join('; '),
   }));
 }
-
-/** @monoes/routing routes, one entry per agent slug. */
-export function routeCatalog(routes: RouteLike[]): CatalogItem[] {
-  const seen = new Set<string>();
-  const out: CatalogItem[] = [];
-  for (const r of routes) {
-    if (seen.has(r.agentSlug)) continue;
-    seen.add(r.agentSlug);
-    out.push({
-      id: r.agentSlug,
-      name: r.name,
-      description: r.description ?? r.name,
-      text: (r.utterances ?? []).join(' '),
-    });
-  }
-  return out;
-}
