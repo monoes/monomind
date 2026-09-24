@@ -50,11 +50,11 @@ describe('resolveAutoAssignee (round1-issue1)', () => {
     // fix this task-9 exists to close, the equivalent call in daemon.ts's
     // sessionOpts was simply absent, so org_task's handler (session.ts) left
     // the literal "auto" string as the assignee instead of resolving it here.
-    await expect(resolve('write a tagline')).resolves.toBe('writer');
+    await expect(resolve('write a tagline')).resolves.toMatchObject({ role: 'writer', method: 'keyword' });
   });
 
   it('returns null (not a crash) when nothing fits, so the caller must name the assignee explicitly', async () => {
     const resolve = resolveAutoAssignee({ roles });
-    await expect(resolve('zzz')).resolves.toBeNull();
+    await expect(resolve('zzz')).resolves.toMatchObject({ role: null, reason: 'no-match' });
   });
 });

@@ -188,8 +188,9 @@ describe('suggestTaskSkills', () => {
     }
   });
 
-  it('suggests nothing without a decision model', async () => {
-    expect(await suggestTaskSkills('design the REST endpoints', pool, tmpdir(), { env: {} })).toEqual([]);
+  it('falls back to a keyword match over the pool without a decision model', async () => {
+    expect(await suggestTaskSkills('design the REST endpoints', pool, tmpdir(), { env: {} })).toContain('api-design');
+    expect(await suggestTaskSkills('book a flight', pool, tmpdir(), { env: {} })).toEqual([]);
   });
 });
 

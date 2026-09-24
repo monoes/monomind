@@ -2,6 +2,7 @@
 
 import type { TaskEvidence } from './completion-gate.js';
 import { capText, EVIDENCE_OUTPUT_CAP } from './review-packet.js';
+import type { TaskPick } from './task-match.js';
 
 export type OrgTaskStatus =
   | 'pending'
@@ -66,6 +67,14 @@ export interface OrgTask {
    *  shown. Only the latest: earlier rounds are exactly what D6 withholds.
    *  Outputs are capped so the row stays small on the checkpoint. */
   lastEvidence?: TaskEvidence;
+  /** org_task: 'auto' when `assignee: "auto"` was resolved (provenance in
+   *  `pick`), 'explicit' when named. Absent on older rows and other paths. */
+  assignedBy?: 'auto' | 'explicit';
+  pick?: TaskPick;
+  /** Skills named in the dispatch and the ones the assignee then loaded with
+   *  org_skill_load — together they measure whether suggestions are used. */
+  suggestedSkills?: string[];
+  loadedSkills?: string[];
 }
 
 /** Upper bound on OrgTask.brief — enforced by the org_task/org_plan_graph

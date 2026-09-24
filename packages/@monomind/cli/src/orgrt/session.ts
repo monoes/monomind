@@ -17,6 +17,7 @@ import { summarizeToolOutput } from './policy.js';
 import { FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
 import { StateDetector } from './state-detector.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
+import type { RolePick, TaskPick } from './task-match.js';
 import {
   type DecisionKind,
   MAX_BLOCK_RECHECK_MINUTES,
@@ -50,7 +51,12 @@ import {
   resolveSessionScope,
   SessionLedger,
 } from './session-ledger.js';
-import { loadSkillText, roleSkillGuidance, roleSkillNames } from './skill-library.js';
+import {
+  loadSkillText,
+  roleSkillGuidance,
+  roleSkillNames,
+  skillSearchText,
+} from './skill-library.js';
 import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
@@ -349,11 +355,17 @@ export interface SessionOpts {
     deps: string[],
     loadout?: string,
     brief?: string,
+    pick?: TaskPick,
   ) => string;
-  /** Resolves `assignee: "auto"` on org_task: the decision model (or, without
-   *  one, a keyword match over role titles/responsibilities) picks the role.
-   *  null = no role fits; the caller must name one. */
-  pickAssignee?: (title: string) => Promise<string | null>;
+  /** Resolves `assignee: "auto"` on org_task from the title and brief: the
+   *  decision model (or, without one, a keyword match over role titles and
+   *  responsibilities) picks among the agent roles other than `caller`.
+   *  `role: null` = no role fits (or the best ones tie); the caller must name
+   *  one. The pick is recorded on the task (OrgTask.pick). */
+  pickAssignee?: (title: string, brief: string | undefined, caller: string) => Promise<RolePick>;
+  /** Called after org_skill_load served one of the role's skills, so the
+   *  daemon can record it against a task that suggested it. */
+  onSkillLoad?: (role: string, name: string) => void;
   /** ADR-O001 D7: the org's loadout catalog. Set only when the org declares
    *  one; it adds the optional `loadout` argument to org_task/org_plan_graph.
    *  Unset, those tools are byte-identical to before (same gating idea as
@@ -1522,8 +1534,18 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             `ERROR: "${name}" is not one of your skills. Yours: ${allowedSkills.join(', ')}`,
           );
         }
-        return text(loadSkillText(name, args.file as string | undefined, skillRoot));
+        const loaded = loadSkillText(name, args.file as string | undefined, skillRoot);
+        if (!loaded.startsWith('ERROR')) opts.onSkillLoad?.(role.id, name);
+        return text(loaded);
       },
+    });
+    tools.push({
+      name: 'org_skill_search',
+      description:
+        "Search the org's whole skill library (names and descriptions only) when none of your skills covers the work in front of you. Only your own skills can be loaded; for a match outside your pool, ask your coordinator to add it.",
+      schema: { query: z.string() },
+      handler: async (args) =>
+        text(skillSearchText(args.query as string, allowedSkills, skillRoot)),
     });
   }
   const recall = opts.recall;
@@ -1667,7 +1689,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       description:
         `Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee. Put the assignee's instructions — scope, acceptance criteria, paths, what failed last time — in \`brief\` (up to ${MAX_TASK_BRIEF} characters): it is delivered in the same message as the title whenever the task is dispatched, while a separate org_send can arrive after the assignee has already started.` +
         (opts.pickAssignee
-          ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title.`
+          ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title and brief.`
           : '') +
         (catalog ? loadoutHelp(catalog) : ''),
       schema: {
@@ -1679,16 +1701,31 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       },
       handler: async (args) => {
         let assignee = args.assignee as string;
+        let pick: TaskPick | undefined;
         if (assignee === AUTO_ASSIGNEE && opts.pickAssignee) {
-          const picked = await opts.pickAssignee(args.title as string);
-          if (!picked) {
+          const picked = await opts.pickAssignee(
+            args.title as string,
+            args.brief as string | undefined,
+            role.id,
+          );
+          if (!picked.role) {
+            const close = picked.candidates.map((c) => c.id).join(', ');
             return text(
               JSON.stringify({
-                error: `assignee "${AUTO_ASSIGNEE}": no role fits this task title — name the assignee explicitly`,
+                error:
+                  picked.reason === 'ambiguous'
+                    ? `assignee "${AUTO_ASSIGNEE}": no role fits this task title better than the others (${close}) — name the assignee explicitly`
+                    : `assignee "${AUTO_ASSIGNEE}": no role fits this task title — name the assignee explicitly`,
               }),
             );
           }
-          assignee = picked;
+          assignee = picked.role;
+          pick = {
+            method: picked.method as TaskPick['method'],
+            ...(picked.confidence !== undefined ? { confidence: picked.confidence } : {}),
+            ...(picked.score !== undefined ? { score: picked.score } : {}),
+            candidates: picked.candidates,
+          };
         }
         return text(
           createTask(
@@ -1698,6 +1735,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             (args.deps as string[]) ?? [],
             args.loadout as string | undefined,
             args.brief as string | undefined,
+            ...(pick ? [pick] : []),
           ),
         );
       },

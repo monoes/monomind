@@ -7,7 +7,6 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
-import { pickRoleForTask } from '../decision/picks.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import {
   configureResourceLimits,
@@ -39,6 +38,7 @@ import { CopilotAgentRunner } from './copilot-runner.js';
 import * as crossOrg from './cross-org.js';
 import { CrushAgentRunner } from './crush-runner.js';
 import * as decisionOps from './decisions.js';
+import { openTaskCount } from './decisions.js';
 import {
   agentRoles,
   type EndpointWait,
@@ -107,6 +107,7 @@ import { runAgentSession } from './session.js';
 import { SessionLedger } from './session-ledger.js';
 import { effectiveToolProviders } from './skill-library.js';
 import { TaskDag } from './task-dag.js';
+import { pickTaskRole, type RolePick, type TaskPick } from './task-match.js';
 import { type ChainTrace, roleProviderPrefixes, ToolProviderHub } from './tool-providers.js';
 import {
   type BusEvent,
@@ -272,22 +273,21 @@ export function resolveRoleRunner(
 }
 
 /** Resolves `assignee: "auto"` on org_task (SessionOpts.pickAssignee).
- *  pickRoleForTask itself falls back to deterministic keyword ranking over
- *  role titles/responsibilities whenever no decision model is configured
- *  (decision/picks.ts), so this must be wired unconditionally. It used to be
- *  gated behind `decisionModelConfigured()` — meant only to keep org_task's
- *  description byte-identical for caching when no decision model was set —
- *  but that also left `pickAssignee` completely undefined whenever Jev was
- *  off (the default). A literal "auto" assignee then never resolved to a
- *  role: dispatchReadyTasks (decisions.ts) never matches "auto" against a
- *  live agent or pending role, so the task stayed 'ready' forever with only
- *  a repeating 'dispatch-assignee-unresolved' audit line to show for it
- *  (round1-issue1). */
+ *  pickTaskRole (task-match.ts) falls back to a deterministic keyword match
+ *  over role titles/responsibilities whenever no decision model answers, so
+ *  this is wired unconditionally: gating it behind decisionModelConfigured()
+ *  once left a literal "auto" assignee stranded as 'ready' forever
+ *  (round1-issue1). Candidates are the agent roles other than the caller;
+ *  `load` (open tasks per role) only breaks ties between interchangeable
+ *  roles. */
 export function resolveAutoAssignee(
   def: Pick<OrgDef, 'roles'>,
-): (title: string) => Promise<string | null> {
-  return (title: string) =>
-    pickRoleForTask(title, def.roles, {
+  load?: (roleId: string) => number,
+): (title: string, brief?: string, caller?: string) => Promise<RolePick> {
+  return (title: string, brief?: string, caller?: string) =>
+    pickTaskRole({ title, brief }, def.roles, {
+      caller,
+      load,
       onError: (err) =>
         process.stderr.write(
           `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
@@ -2153,10 +2153,13 @@ export class OrgDaemon {
         deps: string[],
         loadout?: string,
         brief?: string,
+        pick?: TaskPick,
       ) => {
-        return this.dagCreateTask(name, r, title, assignee, deps, loadout, brief);
+        return this.dagCreateTask(name, r, title, assignee, deps, loadout, brief, pick);
       },
-      pickAssignee: resolveAutoAssignee(def),
+      pickAssignee: resolveAutoAssignee(def, (id) => openTaskCount(this.orgs.get(name), id)),
+      onSkillLoad: (r: string, skill: string) =>
+        decisionOps.recordSkillLoad(this.orgs.get(name), r, skill),
       // ADR-O001 D7: only an org with a catalog gets the `loadout` argument;
       // the session itself is built with the loadout frozen above.
       loadoutCatalog: loadoutCatalog(def),
@@ -3286,8 +3289,9 @@ export class OrgDaemon {
     deps: string[],
     loadout?: string,
     brief?: string,
+    pick?: TaskPick,
   ): string {
-    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps, loadout, brief);
+    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps, loadout, brief, pick);
   }
   private dagCompleteTask(
     org: string,
