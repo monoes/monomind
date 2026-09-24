@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { writeEntry } from '../catalog/fixtures.js';
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -338,29 +339,20 @@ describe('catalog loaders', () => {
       }),
     );
     const ids = () => jp.loadSkillCatalog(root).map((s: { id: string }) => s.id);
-    // No state file: the registry's marker is all there is (unchanged behaviour).
-    expect(ids()).toEqual([
-      'plain',
-      'cat-active',
-      'cat-disabled',
-      'cat-no-jev',
-      'cat-unknown',
-      'old-revoked',
-      'old-active',
-      'hand-staged',
-      'hand-missing',
-      'hand-escape',
-    ]);
+    // No state file: the forgeable marker is never trusted, so every catalog
+    // projection (marked entry or marked SKILL.md) is dropped (fail closed).
+    expect(ids()).toEqual(['plain', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
 
     const entry = (name: string, status: string, targets: string[]) => ({ id: `skill:${name}`, status, targets });
-    mkdirSync(join(root, '.monomind', 'catalog'), { recursive: true });
+    // cat-active has a real stored package, so it verifies.
+    writeEntry(root, { name: 'cat-active', targets: ['org', 'jev'] });
     const state = join(root, '.monomind', 'catalog', 'state.json');
     writeFileSync(
       state,
       JSON.stringify({
         schemaVersion: 1,
         entries: [
-          entry('cat-active', 'active', ['org', 'jev']),
+          ...JSON.parse(readFileSync(state, 'utf8')).entries,
           entry('cat-disabled', 'disabled', ['org', 'jev']),
           entry('cat-no-jev', 'active', ['org']),
           entry('old-revoked', 'revoked', ['org', 'jev']),
@@ -377,7 +369,7 @@ describe('catalog loaders', () => {
 
     // Unreadable state: every catalog-marked skill is dropped, the rest stay.
     writeFileSync(state, '{ not json');
-    expect(ids()).toEqual(['plain', 'old-revoked', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
+    expect(ids()).toEqual(['plain', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
   });
 
   it('returns empty catalogs when the files are missing', () => {

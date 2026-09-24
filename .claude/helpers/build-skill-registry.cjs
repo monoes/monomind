@@ -291,7 +291,7 @@ function scanSkillDir(base, label, origin) {
     };
     if (origin) entry.origin = origin;
     applyPick(entry, fm);
-    var catalog = origin ? null : readCatalogMarker(text, d.name);
+    var catalog = readCatalogMarker(text, d.name);
     if (catalog) entry.catalog = catalog;
     out.push(entry);
   }
