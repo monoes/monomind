@@ -99,18 +99,14 @@ import {
   redactRoleConfig,
   validateRespawnInput,
 } from './role-slot.js';
+import { currentRoleTrace, endTurn, type RoleTrace, withTrace } from './role-trace.js';
 import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { SessionLedger } from './session-ledger.js';
 import { effectiveToolProviders } from './skill-library.js';
 import { TaskDag } from './task-dag.js';
-import {
-  type ChainTrace,
-  freshChainId,
-  roleProviderPrefixes,
-  ToolProviderHub,
-} from './tool-providers.js';
+import { type ChainTrace, roleProviderPrefixes, ToolProviderHub } from './tool-providers.js';
 import {
   type BusEvent,
   type DecisionGate,
@@ -429,6 +425,8 @@ export interface RunningOrg {
   /** M1: per-role chain trace — set from the latest delivered message carrying
    *  a `[trace chn_… hop=N]` line, else a fresh chain minted on first use. */
   traces?: Map<string, ChainTrace>;
+  /** #327: turns each role has finished this run (role-trace.ts), checkpointed. */
+  turns?: Map<string, number>;
   /** M2: reply waits for endpoint deliveries — hold the idle watchdog. */
   endpointWaits?: EndpointWait[];
   /** #275: auto-dispatched tasks held for one coalescing window, keyed by
@@ -735,17 +733,10 @@ export class OrgDaemon {
 
   /** M1: the chain trace a role's tool calls carry — from the most recent
    *  message delivered to it with a `[trace chn_… hop=N]` line, otherwise a
-   *  fresh chain (hop 0) minted once and kept for the role. */
-  roleTrace(org: string, role: string): ChainTrace {
-    const running = this.orgs.get(org);
-    if (!running) return { chain_id: freshChainId(), hop: 0 };
-    if (!running.traces) running.traces = new Map();
-    let t = running.traces.get(role);
-    if (!t) {
-      t = { chain_id: freshChainId(), hop: 0 };
-      running.traces.set(role, t);
-    }
-    return t;
+   *  fresh chain (hop 0) minted once and kept for the role — plus the role's
+   *  turn (#327, role-trace.ts). */
+  roleTrace(org: string, role: string): RoleTrace {
+    return currentRoleTrace(this.orgs.get(org), role);
   }
 
   /** Hook for the SSE server — registers a listener for all bus events across all orgs. */
@@ -1955,6 +1946,9 @@ export class OrgDaemon {
     if (roleCheckpoint?.scrollback?.length) {
       for (const line of roleCheckpoint.scrollback) runtime.scrollback.push(line);
     }
+    if (roleCheckpoint?.turns && !running.turns?.has(role.id)) {
+      (running.turns ??= new Map()).set(role.id, roleCheckpoint.turns);
+    }
     const sessionOpts = {
       org: name,
       role,
@@ -2010,9 +2004,13 @@ export class OrgDaemon {
       onSessionId: (id: string) => {
         runtime.sessionId = id;
       },
-      onTurnEnd: () => decisionOps.nudgeOpenTasksAtTurnEnd(running, role.id),
+      onTurnEnd: () => {
+        endTurn(running, role.id);
+        decisionOps.nudgeOpenTasksAtTurnEnd(running, role.id);
+      },
+      // #327: the role's org_send mail carries its chain at the next hop.
       deliver: (from: string, to: string, subject: string, body: string) =>
-        this.deliver(name, from, to, subject, body),
+        this.deliver(name, from, to, subject, withTrace(body, this.roleTrace(name, role.id))),
       askHuman: (r: string, question: string, blocking?: boolean) =>
         this.askHuman(name, r, question, blocking),
       onGate: (r: string, gateName: string, gateDesc: string) =>

@@ -29,6 +29,9 @@ export interface RoleCheckpoint {
   costUsd: number;
   /** Last message ID for threading */
   lastMessageId?: string;
+  /** #327: turns the role has finished this run, so a resumed role's
+   *  `_meta.trace.turn` continues instead of starting over at 1. */
+  turns?: number;
   /** Session ID for SDK resume */
   sessionId?: string;
   /** Agent status. 'stopped' marks a role whose session was still live when
@@ -144,6 +147,7 @@ export function captureCheckpoint(
       tokenUsage: runtime.policy.tokenUsage,
       costUsd: runtime.metrics.costUsd,
       lastMessageId: runtime.lastMessageId,
+      ...(org.turns?.get(roleId) ? { turns: org.turns.get(roleId) } : {}),
       sessionId: runtime.sessionId, // P2-13: populated by session layer via onSessionId callback
       status: status === 'stopped' && runtime.status === 'running' ? 'stopped' : runtime.status,
       error: runtime.error,

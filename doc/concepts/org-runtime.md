@@ -439,7 +439,23 @@ Roles can declare `tool_providers[]` — stdio MCP servers whose tools are expos
 - Crash → restarted once per session; after that, calls return `ERROR: tool provider <name> unavailable`
 - All provider processes killed on session end and `stopOrg`
 
-**Trace metadata:** Every `tools/call` carries `_meta.trace` with `{org, run, role, chain_id, hop}` for cross-org call-chain tracking.
+**Trace metadata:** Every `tools/call` carries `_meta.trace` for cross-org call-chain tracking ([`role-trace.ts`](packages/@monomind/cli/src/orgrt/role-trace.ts)):
+
+```json
+{ "_meta": { "trace": {
+  "org": "growth", "run": "run-…", "role": "lead",
+  "chain_id": "chn_k3v…", "hop": 2, "turn": 7
+} } }
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `org`, `run`, `role` | string | The org, run id and role making the call |
+| `chain_id` | string, `chn_[A-Za-z0-9_-]+` | The chain the role is on: taken from the latest message delivered to it with a `[trace chn_… hop=N]` line; a role that never got one has its own chain, minted on first use |
+| `hop` | integer ≥ 0 | The hop from that same line; 0 on a role's own chain |
+| `turn` | integer ≥ 1 | The role's turn: 1 for its first, +1 each time a turn ends (the runner's `result`). Every call in one turn has the same value, so they are siblings; a new value is a new turn. Counted per role for the whole run, checkpointed and continued on resume, and kept across a role replacement. It is not reset when the chain changes, so compare it within a role, not across roles |
+
+**Trace on `org_send`:** a role's `org_send` mail — same org, cross-org, cross-process and to endpoint roles — gets the role's current chain at `hop + 1` as its first line, `[trace <chain_id> hop=<hop+1>]`, in the format mono-agent's `WithTrace` writes. A trace line the role put in the body itself is replaced, so a message carries exactly one. The receiving role adopts the line when the message is delivered, so A → `org_send` → B → `org_send` → A climbs one chain (hop 1, 2, 3, …). Mail from a human or operator and task dispatches are not stamped. The runtime does not cap hops or stop loops; it only provides the data a tool provider such as mono-agent needs to.
 
 ---
 

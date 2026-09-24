@@ -317,6 +317,7 @@ describe('tool providers — real stdio MCP provider in a running org', () => {
       role: 'lead',
       chain_id: 'chn_abcDEF_12',
       hop: 2,
+      turn: expect.any(Number),
     });
     expect(who1.env).toEqual({ name: 'growth', run: running.run, role: 'lead', root, foo: 'bar' });
     // the list process was a different, already-exited process
