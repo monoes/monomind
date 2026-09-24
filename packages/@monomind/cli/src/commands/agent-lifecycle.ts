@@ -117,8 +117,7 @@ export const spawnCommand: Command = {
     {
       name: 'type',
       short: 't',
-      description:
-        'Agent type to spawn: a registry agent name (see `monomind route list-agents`)',
+      description: 'Agent type to spawn: a registry agent name (see `monomind route list-agents`)',
       type: 'string',
     },
     { name: 'name', short: 'n', description: 'Agent name/identifier', type: 'string' },
@@ -166,7 +165,9 @@ export const spawnCommand: Command = {
         return { success: false, exitCode: 1 };
       }
       if (resolved !== agentType) {
-        process.stderr.write(`[agent] "${agentType}" is an old type name; spawning "${resolved}"\n`);
+        process.stderr.write(
+          `[agent] "${agentType}" is an old type name; spawning "${resolved}"\n`,
+        );
         agentType = resolved;
       }
     }

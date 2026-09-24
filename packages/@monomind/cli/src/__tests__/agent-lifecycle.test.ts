@@ -111,7 +111,8 @@ describe('spawnCommand', () => {
         }),
       );
     });
-    const spawnedType = () => (Object.values(readStore().agents)[0] as { agentType: string }).agentType;
+    const spawnedType = () =>
+      (Object.values(readStore().agents)[0] as { agentType: string }).agentType;
 
     it('offers no hardcoded choice list', () => {
       expect(spawnCommand.options?.find((o) => o.name === 'type')?.choices).toBeUndefined();
@@ -119,7 +120,9 @@ describe('spawnCommand', () => {
 
     it('spawns any registry agent name, deprecated ones included', async () => {
       for (const type of ['Security Engineer', 'mobile-dev']) {
-        const r = (await spawnCommand.action?.(makeCtx({ flags: { type, _: [] } }))) as CommandResult;
+        const r = (await spawnCommand.action?.(
+          makeCtx({ flags: { type, _: [] } }),
+        )) as CommandResult;
         expect(r.success).toBe(true);
       }
     });

@@ -71,9 +71,9 @@ describe('guidance_recommend picks agents with the central picker', () => {
     expect(res.recommendations.length).toBeGreaterThan(0);
     expect(res.recommendations.every((r: object) => !('agents' in r))).toBe(true);
     expect(res.agents.length).toBeGreaterThan(0);
-    expect(res.agents.map((a: { name: string }) => a.name).filter((n: string) => !NAMES.has(n))).toEqual(
-      [],
-    );
+    expect(
+      res.agents.map((a: { name: string }) => a.name).filter((n: string) => !NAMES.has(n)),
+    ).toEqual([]);
   });
 
   it('still names an agent when no capability pattern matches', async () => {

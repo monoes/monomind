@@ -4,8 +4,9 @@
  * agents. The @monoes/routing keyword hit, when there is one, is always a
  * decision-model candidate. Main-process safe: no transformers/onnxruntime.
  */
-import { automaticMinConfidence, type PickOptions } from '../decision/jev.js';
+
 import type { RouteLike } from '../decision/catalogs.js';
+import { automaticMinConfidence, type PickOptions } from '../decision/jev.js';
 import type { RankedEntry } from '../decision/picks.js';
 import { confidenceOf, keywordLeader, pickForTask, spawnableName } from './agent-pick.js';
 

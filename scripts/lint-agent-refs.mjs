@@ -225,11 +225,17 @@ function rosterRefs(text) {
       if (agentLevel && level <= agentLevel) agentLevel = 0;
       if (!agentLevel && /\bagents?\b/i.test(heading[2])) agentLevel = level;
     } else if (line.startsWith('|')) {
-      const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+      const cells = line
+        .split('|')
+        .slice(1, -1)
+        .map((c) => c.trim());
       const last = cells[cells.length - 1] ?? '';
       if (/^(recommended )?agents$/i.test(last)) tableAgents = true;
       else if (tableAgents && !/^-+$/.test(last)) {
-        for (const name of last.split(',').map((n) => n.trim()).filter(Boolean))
+        for (const name of last
+          .split(',')
+          .map((n) => n.trim())
+          .filter(Boolean))
           refs.push({ name, index: offset + line.lastIndexOf(name) });
       }
     } else {
