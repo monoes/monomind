@@ -10,6 +10,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 - **`agent scan --json` entries carry `install` and `login_hint`.** `install` is the install hint in a shape a caller can run without a shell — `npm` packages, an https install `script` for bash/sh, or `manual` for anything else — and `login_hint` is the runtime's sign-in command, as text to show a person — never something to run. An install script URL must be a plain https URL; a hint with shell syntax, credentials in the URL or an npm version range is `manual`. mono-agent's `agent install` and its Agents page use them.
 
 ### Fixed
+- **`agent scan` writes nothing.** It no longer runs the startup update check (which wrote `~/.monomind/update-state.json` after a network call) or the subsystem init (which wrote `.monomind/registry.json` in the current directory). Callers such as mono-agent run it on a timer to show installed runtimes. The agent CLIs' own `--version` probes may still write their own state.
 
 - **The "update available" notice goes to stderr.** It was written to stdout on the first run of any command after a release, ahead of the JSON of `agent scan --json`, `doctor --json` and the org `--json` commands, so callers such as mono-agent failed to parse it ("invalid character '↑'"). stdout now holds only the command's own output.
 - **`-v` debug lines go to stderr.** `[DEBUG]` and `[TRACE]` lines, and the "Completed in …ms" line, were written to stdout, so `-v` with a `--json` command put them ahead of the JSON. They now go to stderr, like `[INFO]`.
