@@ -32,6 +32,7 @@ import {
   fixMonoesTools,
 } from './doctor-monoes-checks.js';
 import { checkNativeBindings } from './doctor-native-checks.js';
+import { checkPick } from './doctor-pick-checks.js';
 import {
   checkAgentRegistry,
   checkApiKeys,
@@ -93,7 +94,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, hook-monograph, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog)',
+        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, hook-monograph, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog, pick)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -118,6 +119,11 @@ export const doctorCommand: Command = {
     {
       command: 'monomind doctor -c mcp',
       description: 'Start the configured MCP server and verify it answers initialize',
+    },
+    {
+      command: 'monomind doctor -c pick',
+      description:
+        'Agent/skill picking: registry, skill index, decision model, eval score, adherence (not in the default run)',
     },
     {
       command: 'monomind doctor -c monoes-tools --install',
@@ -283,6 +289,9 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     platforms: checkPlatforms,
     'crash-reporting': checkCrashReporting,
     catalog: () => checkCatalog(ctx.cwd || process.cwd()),
+    // Opt-in: rebuilds stale indexes and scores the eval set, so it stays out
+    // of the default run.
+    pick: () => checkPick(ctx.cwd || process.cwd()),
   };
 
   if (component && !componentMap[component]) {
