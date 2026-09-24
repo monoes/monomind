@@ -193,7 +193,7 @@ describe('KeywordPreFilter', () => {
     });
 
     it('matches react-native', () => {
-      expect(filter.match('Create a React Native screen')?.agentSlug).toBe('mobile-dev');
+      expect(filter.match('Create a React Native screen')?.agentSlug).toBe('Mobile App Builder');
     });
 
     it('matches embedded/firmware', () => {

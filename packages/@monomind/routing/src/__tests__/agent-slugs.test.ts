@@ -20,6 +20,9 @@ const AGENTS_DIR = join(
   'agents',
 );
 
+/** Frontmatter names marked `deprecated: true` (the picker hides them). */
+const DEPRECATED = new Set<string>();
+
 function agentNames(dir: string): Set<string> {
   const names = new Set<string>();
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -33,6 +36,7 @@ function agentNames(dir: string): Set<string> {
         .trim()
         .replace(/^["']|["']$/g, '');
       if (name) names.add(name);
+      if (name && /^deprecated:\s*true\s*$/m.test(fm?.[1] ?? '')) DEPRECATED.add(name);
     }
   }
   return names;
@@ -54,5 +58,11 @@ describe('route agents are real, spawnable agents', () => {
   it('every DEFAULT_KEYWORD_ROUTES agentSlug is an agent frontmatter name', () => {
     const unknown = DEFAULT_KEYWORD_ROUTES.map((r) => r.agentSlug).filter((s) => !names.has(s));
     expect(unknown).toEqual([]);
+  });
+
+  it('no route names a deprecated agent', () => {
+    expect(DEPRECATED.size).toBeGreaterThan(0);
+    const slugs = [...ALL_ROUTES, ...DEFAULT_KEYWORD_ROUTES].map((r) => r.agentSlug);
+    expect(slugs.filter((s) => DEPRECATED.has(s))).toEqual([]);
   });
 });
