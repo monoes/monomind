@@ -11,7 +11,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentRunArgs, AgentRunner } from '../orgrt/agent-runner.js';
 import { DEFAULT_CLAUDE_BASH_TIMEOUT_MS } from '../orgrt/bash-timeout.js';
 import { OrgBus } from '../orgrt/bus.js';
@@ -60,6 +60,18 @@ async function sessionEnv(opts: {
 }
 
 describe('Claude org roles get a sane Bash timeout', () => {
+  // The session env starts from the parent's env (resolveProviderEnv), so a
+  // runner that itself runs inside a Claude org role — which has both vars at
+  // 600000 — would see them in every session env (#334). Clear them so each
+  // case sees only what the session adds.
+  beforeEach(() => {
+    vi.stubEnv('BASH_DEFAULT_TIMEOUT_MS', undefined);
+    vi.stubEnv('BASH_MAX_TIMEOUT_MS', undefined);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('a Claude role session env carries both Bash timeout vars at 600000 ms', async () => {
     const env = await sessionEnv({ def: def() });
     expect(DEFAULT_CLAUDE_BASH_TIMEOUT_MS).toBe(600_000);
