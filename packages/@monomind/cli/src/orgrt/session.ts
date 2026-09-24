@@ -1071,7 +1071,7 @@ async function runOneSession(
         ...(opts.orgRoot ? { MONOMIND_ORG_ROOT: opts.orgRoot } : {}),
       },
       maxTurns: opts.maxTurns ?? 30,
-      maxToolRounds: role.max_tool_rounds ?? opts.def?.run_config.max_tool_rounds,
+      maxToolRounds: role.max_tool_rounds ?? opts.def?.run_config?.max_tool_rounds,
       resume,
       claudeRestrictions: gitEnforcement.claudeRestrictions,
       authorityMask,
