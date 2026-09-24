@@ -16,9 +16,9 @@ monomind route <subcommand> [options]
 
 | Subcommand | Alias | Description |
 |---|---|---|
-| `task` | *(default)* | Route a task to the optimal agent using keyword matching |
-| `semantic` | `sem` | Route a task via vector cosine similarity (`RouteLayer`) |
-| `list-agents` | `agents`, `ls` | List all available agent types ordered by priority |
+| `task` | *(default)* | Route a task to the best registry agent (same ranking as `monomind pick`) |
+| `semantic` | `sem` | Route a task through the central picker, falling back to cosine similarity (`RouteLayer`) and Haiku |
+| `list-agents` | `agents`, `ls` | List the registry agents `route task` can pick |
 | `stats` | — | Show keyword router outcome statistics (accuracy, adherence, trend) |
 | `feedback` | — | Record a reward signal (-1.0 to 1.0) for a routing decision, into the outcomes ledger |
 | `reset` | — | Clear the route-outcomes history file |
@@ -47,7 +47,7 @@ monomind route task "review security" --agent "Security Engineer"
 ---
 
 ### 2. `monomind route semantic`
-Routes a task description using 256-D embedding vector cosine similarity (`RouteLayer`).
+Routes a task through the route layer ([Routing § 6](../concepts/routing.md#6-the-route-layer-route-semantic-hooks_route_semantic-agent-spawn---task)): the central picker's decision model (kept only at or above `MONOMIND_JEV_MIN_CONFIDENCE`), the `@monoes/routing` keyword pre-filter, the picker's keyword ranking when its top agent clearly leads (score ≥ 2, 1.5× the runner-up), then real-embedding cosine similarity in an isolated worker, a headless Haiku fallback below the threshold, and the 256-D hash encoder when the worker is unavailable.
 
 ```bash
 monomind route semantic -t "audit API for SQL injection"
@@ -88,7 +88,7 @@ When invoking `monomind route task --json` or `monomind route semantic --json`, 
 
 - `agentSlug`: Spawnable agent name — a bundled agent's frontmatter `name`, such as `coder` or `Security Engineer`. Every `@monoes/routing` route and keyword rule names one (checked by `routing/src/__tests__/agent-slugs.test.ts`); `general-purpose` only when no route could be scored.
 - `confidence`: Normalized confidence score in $[0.0, 1.0]$.
-- `method`: Routing cascade tier (`keyword`, `semantic`, `llm_fallback`, `semantic_degraded`).
+- `method`: Routing cascade tier (`jev`, `keyword`, `semantic`, `llm_fallback`, `semantic_degraded`). `route task --json` returns `agentId`/`agentName`, `confidence` and `alternatives` instead.
 - `routeName`: Matching rule name or centroid name.
 
 ---
@@ -100,7 +100,7 @@ When invoking `monomind route task --json` or `monomind route semantic --json`, 
 ---
 
 ### 4. `monomind route feedback`
-Records a feedback outcome (task, agent used, reward) into the route-outcomes ledger (`route-outcomes.jsonl`) — read back by `route stats` to compute accuracy/adherence/trend. This does not update any live routing weights or model state: `route task`'s keyword matcher is fixed and unaffected by feedback.
+Records a feedback outcome (task, agent used, reward) into the route-outcomes ledger (`route-outcomes.jsonl`) — read back by `route stats` to compute accuracy/adherence/trend. It does not change any ranking directly: the outcome prior that re-ranks near-tied keyword picks is built from the hooks' adherence and subagent-outcome logs (`.monomind/pick-stats.json`, see [Routing § 7](../concepts/routing.md#7-outcome-tracking-and-the-learning-loop)).
 
 ```bash
 monomind route feedback -t "implement auth" -a coder -r 0.9
@@ -135,7 +135,7 @@ monomind route coverage --gaps
 
 ### 6. `monomind route stats`, `reset`, `export`, `import`
 
-All four operate on the same route-outcomes ledger (`route-outcomes.jsonl`) — there is no separate learned-model state to inspect, reset, export, or import.
+All four operate on the same route-outcomes ledger (`route-outcomes.jsonl`). The pick prior's aggregate, `.monomind/pick-stats.json`, is separate: these commands neither export nor clear it (inspect it with `monomind pick --explain` or `doctor -c pick`).
 
 - `monomind route stats`: Displays outcome count, accuracy, adherence, and trend (recent-half vs. prior-half accuracy), split by native/JS backend (`KeywordRouterStats`, `monovector/index.ts:66-72`).
 - `monomind route reset [-f]`: Clears the route-outcomes history file. In an interactive session this requires `--force` to skip a confirmation warning; non-interactive runs (e.g. CI) proceed without it.

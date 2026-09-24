@@ -10,7 +10,10 @@
 Claude Code event (JSON via stdin)
           ↓
 .claude/helpers/hook-handler.cjs  ← Central dispatcher
-  ├── router.cjs                  ← Routing decisions (4-tier waterfall)
+  ├── handlers/pick-core.cjs      ← [PICK] decision, route records, adherence
+  ├── jev-catalog.cjs, pick-rank.cjs ← Agent/skill index + keyword ranker
+  ├── pick-stats.cjs              ← Pick outcomes → bounded ranking prior
+  ├── router.cjs                  ← Skill keyword matches (no agent selection)
   ├── session.cjs                 ← Session state
   ├── memory.cjs                  ← KV store
   ├── intelligence.cjs            ← Pattern matching + context injection
@@ -47,16 +50,28 @@ Runs 8 sequential phases at the start of every session:
 
 ### `UserPromptSubmit` → `route`
 
-Runs for every user message. Four-phase routing:
+Runs for every user message:
 
-1. **Simple command detection** — trivial prompts skip full routing
-2. **Intelligence context** — top-5 memory entries via Jaccard scoring → `[INTELLIGENCE]`
-3. **Keyword/pattern routing** — `router.cjs`'s `routeTask()`, a 4-tier waterfall over regex `TASK_PATTERNS` + domain keyword arrays → primary recommendation panel. This is **not** semantic routing — `router.cjs` sets `semanticRouting: false` on every return path (including the default fallthrough) and never imports `@monoes/routing`/`RouteLayer` or any embedding library; it's a separate CJS keyword router, not the CLI's central picker (`monomind pick`, which `hooks route`, `hooks pre-task` and `route task` share). Real embedding-based semantic routing is opt-in only — it needs the `Snowflake/snowflake-arctic-embed-xs` weights (~88 MB), fetched explicitly via the `monomind init` prompt or `monomind download-embeddings`; without them routing stays in keyword mode. See Environment Variables/MCP Tools below.
-4. **MicroAgent trigger scan** — regex match against cached agent triggers
+1. **Simple command detection** — trivial prompts and slash commands skip routing (the statusline's `last-route.json` still names the command).
+2. **System prompts skipped** — task notifications, reminder-only turns, slash-command expansions and local-command output get no pick and no record.
+3. **Intelligence context** — top-5 memory entries via Jaccard scoring → `[INTELLIGENCE]` (advisory).
+4. **The pick** — the central picker over the agent registry and the skill index (see [Routing](./routing.md#4-delivery-the-pick-line)): a Jev decision-model answer at or above `MONOMIND_JEV_MIN_CONFIDENCE` (0.6), else a keyword agent with a relevance score of at least 2 and a 1.5× lead over the runner-up, and a skill the same way. When confident it prints one line, `[PICK] agent: <name> · skill: <invoke>`, where `<name>` is a spawnable Task `subagent_type`. The line is printed even under `MONOMIND_HOOK_QUIET=1`. `router.cjs` only supplies skill keyword matches now; its agent table no longer picks agents.
+5. **Route record** — `.monomind/route-outcomes.jsonl` (prompt hash, redacted preview, pick, candidates, method, provider, session id, `shown`), `.monomind/routes/<sessionId>.json` and `.monomind/last-route.json`.
+6. **Advisory enrichment** (skipped under `MONOMIND_HOOK_QUIET`) — embedding suggestion, monograph hints, MicroAgent trigger scan and the other banners.
 
-Output: routing panels injected as system context.
+When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`), the prompt waits up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` for it (default 1500, max 10000); a slow model therefore delays every prompt by up to that limit, and after a failed or timed-out pick the hook skips Jev for 5 minutes (`.monomind/jev-breaker.json`). Every hook process force-exits after 5 s — the `route` hook alone, while Jev is configured, gets the Jev limit plus 1.5 s instead, so the route is still recorded after a slow pick. The `pre-bash`/`pre-write` security gates always keep 5 s.
 
-When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`), it picks the agent and skill after step 3 and keyword routing stands if it fails. The prompt waits up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` for it (default 1500, max 10000); a slow model therefore delays every prompt by up to that limit, and after a failed or timed-out pick the hook skips Jev for 5 minutes (`.monomind/jev-breaker.json`). Every hook process force-exits after 5 s — the `route` hook alone, while Jev is configured, gets the Jev limit plus 1.5 s instead, so the route is still recorded after a slow pick. The `pre-bash`/`pre-write` security gates always keep 5 s.
+### `PreToolUse(Task|Agent)` → `pre-agent`
+
+Records whether a subagent spawn followed the session's latest `[PICK]`: one line in `.monomind/pick-adherence.jsonl` (recommended agent, the `subagent_type` actually spawned, `followed`), and `agentActuallyUsed` joined onto the route record. Observation only — it never blocks. SubagentStop logs the agent that ran (`actualAgent`, from the event's `agent_type`) and the pick (`suggestedAgent`) to `routing-feedback.jsonl`; SubagentStop and SessionEnd fold all three logs into `.monomind/pick-stats.json`, the bounded ranking prior described in [Routing](./routing.md#7-outcome-tracking-and-the-learning-loop).
+
+### `SessionStart` skill index
+
+SessionStart rebuilds `.claude/helpers/skill-registry.json` when it is missing or older than `.claude/skills`. The file is generated per machine (also by `monomind init`, `init upgrade` and `monomind pick`) and is no longer shipped.
+
+### Hook timeouts
+
+Claude Code reads a hook's `timeout` in seconds. Generated settings used to write milliseconds (`5000` meant about 83 minutes); they now write seconds — for example 12 for the `route` hook, which covers the longest Jev window plus 1.5 s.
 
 ### `PreToolUse(Bash)` → `pre-bash`
 

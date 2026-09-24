@@ -31,8 +31,11 @@
 - Concept Doc: [`doc/concepts/monograph.md`](doc/concepts/monograph.md)
 
 ### Routing Subsystem
-- Maps prompts to specialist agents via a 4-tier cascade: Regex Pre-Filter, Vector Cosine Similarity, Neural Augmentation, and LLM Fallback.
-- Optional Tier 0: a Jev-compatible decision model (self-hosted OpenJev via `MONOMIND_JEV_URL`, or hosted TypeSafe with `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`) picks first when configured; off by default, and every tier below still runs unchanged when it is not. Also backs `monomind pick`, `org skills search`, `org_task`'s `assignee: "auto"`, per-task org skill suggestions, and the `UserPromptSubmit` hook.
+- One central picker for agents and skills: registry agents (`.monomind/registry.json`) plus one generated skill index (platform, `~/.claude/skills` and Org-library skills). `monomind pick`, the `pick` MCP tool, the `UserPromptSubmit` hook's `[PICK] agent: <name> · skill: <invoke>` line, `hooks_route`, `hooks_pre-task`, `hooks_explain`, `route task` and `guidance_recommend` all rank through it; agents are returned as spawnable Task `subagent_type` names.
+- Ranking: a Jev-compatible decision model (self-hosted OpenJev via `MONOMIND_JEV_URL`, or hosted TypeSafe with `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`) when configured, acted on unattended at 0.6 and shown as low-confidence down to 0.25; otherwise a BM25-style keyword ranker (stopwords, stemming, IDF, length normalisation). Off by default. Also backs `org skills search`, `org_task`'s `assignee: "auto"` and per-task org skill suggestions.
+- Learning loop: the hooks log whether spawned subagents followed the pick and whether they succeeded; `.monomind/pick-stats.json` re-ranks near-tied keyword picks within ±15 %.
+- `route semantic`, `hooks_route_semantic` and `agent spawn --task` ask the picker first, then fall back to the `@monoes/routing` regex pre-filter, real-embedding cosine similarity and a Haiku classifier.
+- Evaluation: `pnpm run pick:eval` (60 tasks) and the opt-in `monomind doctor -c pick`.
 - Concept Doc: [`doc/concepts/routing.md`](doc/concepts/routing.md)
 
 ### Skill Catalog
