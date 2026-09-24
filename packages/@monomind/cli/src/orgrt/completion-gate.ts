@@ -273,6 +273,10 @@ export interface TaskEvidenceFacts {
   /** Whether the evidence's `worktree` exists on disk; an absent all-caps
    *  path (".../SRC") is then taken for an unfilled placeholder. */
   worktreeExists?: boolean;
+  /** `worktree` as the role wrote it, before the caller resolved it against
+   *  the workspace. A relative one ("src", "work/src") that resolves to no
+   *  worktree names the one worktree whose path ends with it. */
+  worktreeLabel?: string;
   /** Role id the runtime saw calling org_task_done. */
   caller: string;
   /** The task's recorded assignee. */
@@ -299,6 +303,25 @@ const normalizePath = (p: string): string => p.trim().replace(/\/+$/, '');
 function isPlaceholderPath(path: string, exists: boolean | undefined): boolean {
   if (/[<>]|\{\{|\}\}/.test(path)) return true;
   return exists === false && /(?:^|\/)[A-Z][A-Z0-9_]*$/.test(normalizePath(path));
+}
+
+/** The worktree head evidence is pinned to: the one at the resolved path,
+ *  else — for a relative label — the worktree(s) whose path ends with it.
+ *  2.16.1 release run: roles pinned `worktree: "src"` for the release
+ *  worktree at ORG_ROOT/.monomind/orgs/release/work/src, and 11 of 11 first
+ *  closes were refused because "src" resolved to ORG_ROOT/src. */
+function pinnedWorktrees(
+  resolved: string,
+  label: string | undefined,
+  heads: LocalHead[],
+): LocalHead[] {
+  const worktrees = heads.filter((h) => h.worktree);
+  const exact = worktrees.find((h) => normalizePath(h.worktree!) === normalizePath(resolved));
+  if (exact) return [exact];
+  if (!label || label.trim().startsWith('/')) return [];
+  const tail = normalizePath(label).replace(/^(?:\.\/)+/, '');
+  if (!tail || tail === '.' || tail.split('/').includes('..')) return [];
+  return worktrees.filter((h) => normalizePath(h.worktree!).endsWith(`/${tail}`));
 }
 
 function unknownCommit(claimed: string, heads: LocalHead[]): string {
@@ -361,8 +384,11 @@ export function checkTaskEvidence(f: TaskEvidenceFacts): string | null {
   }
   const matches = (h: LocalHead): boolean => h.sha.trim().toLowerCase().startsWith(claimed);
   if (ev.worktree) {
-    const want = normalizePath(ev.worktree);
-    const wt = heads.find((h) => h.worktree && normalizePath(h.worktree) === want);
+    const pinned = pinnedWorktrees(ev.worktree, f.worktreeLabel, heads);
+    if (pinned.length > 1) {
+      return `org_task_done refused: worktree "${f.worktreeLabel}" is ambiguous — it fits ${pinned.length} worktrees of this repository: ${pinned.map((h) => h.worktree).join(', ')}. Pin the full path of the one you ran the checks in.`;
+    }
+    const wt = pinned[0];
     if (!wt) {
       const known = heads.filter((h) => h.worktree).map((h) => h.worktree);
       if (isPlaceholderPath(ev.worktree, f.worktreeExists)) {

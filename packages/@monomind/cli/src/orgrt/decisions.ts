@@ -540,12 +540,15 @@ export function dagCompleteTask(
       msg: `task ${taskId} is already ${task.status} — close refused`,
       data: { taskId, status: task.status, open: open.map((t) => t.id) },
     });
+    // A retry of the role's own close that worked: say it worked, or it keeps retrying.
+    const retry = task.status === 'done' && task.assignee === role && !open.length;
     return JSON.stringify({
-      error:
-        `org_task_done refused: task ${taskId} is already ${task.status} ("${task.title}") — closing it again would notify its creator about work that was reported long ago. ` +
-        (open.length
-          ? `Your open task(s): ${open.map((t) => `${t.id} ("${t.title}")`).join(', ')}. Close the one this work is for, by its id.`
-          : 'You have no open task — if this work belongs to a new one, ask for it to be created rather than re-closing a finished task.'),
+      error: retry
+        ? `org_task_done refused: task ${taskId} is already done ("${task.title}") — your earlier org_task_done for it was accepted, so nothing else is needed. Do not call org_task_done for it again.`
+        : `org_task_done refused: task ${taskId} is already ${task.status} ("${task.title}") — closing it again would notify its creator about work that was reported long ago. ` +
+          (open.length
+            ? `Your open task(s): ${open.map((t) => `${t.id} ("${t.title}")`).join(', ')}. Close the one this work is for, by its id.`
+            : 'You have no open task — if this work belongs to a new one, ask for it to be created rather than re-closing a finished task.'),
     });
   }
   // ADR-O001 D6: keep the latest evidence the ASSIGNEE submitted, accepted or
@@ -567,6 +570,7 @@ export function dagCompleteTask(
       heads: localHeads(workspace),
       isKnownCommit: (sha) => isKnownCommit(workspace, sha),
       ...(pinned?.worktree ? { worktreeExists: existsSync(pinned.worktree) } : {}),
+      worktreeLabel: evidence?.worktree,
       caller: role,
       assignee: task.assignee,
     });

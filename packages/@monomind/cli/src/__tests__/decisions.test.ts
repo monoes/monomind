@@ -812,6 +812,25 @@ describe('dagCompleteTask: a resumed session cannot re-close an already-closed t
     daemon.orgs.delete('alpha');
   });
 
+  it('tells a role re-closing the task it just closed that nothing else is needed', async () => {
+    const { daemon, taskDag, events, running } = setup();
+    const only = taskDag.add('INTEGRATION QA', 'dev', []);
+    only.createdBy = 'boss';
+    dispatchReadyTasks(daemon, 'alpha', running);
+    expect(JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', only.id, 'all pass')).done).toBe(
+      only.id,
+    );
+
+    const out = JSON.parse(dagCompleteTask(daemon, 'alpha', 'dev', only.id, 'all pass'));
+
+    expect(out.done).toBeUndefined();
+    expect(out.error).toMatch(/already done/i);
+    expect(out.error).toMatch(/your earlier org_task_done for it was accepted/i);
+    expect(out.error).toMatch(/nothing else is needed/i);
+    expect(events.filter((e) => e.reason === 'task-done')).toHaveLength(1);
+    daemon.orgs.delete('alpha');
+  });
+
   it('tags the DONE notice with the completed task, not the other open one', async () => {
     const { daemon, taskDag, boss, running } = setup();
     const first = taskDag.add('ROUND1 CLI QA', 'dev', []);

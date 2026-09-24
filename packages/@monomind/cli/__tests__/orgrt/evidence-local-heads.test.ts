@@ -107,3 +107,80 @@ describe('dagCompleteTask refusal wording', () => {
     expect(close(r.main, r.wtSha, join(r.main, '..', 'SRC'))).toMatch(/placeholder/);
   });
 });
+
+/**
+ * 2.16.1 release run: 11 of 11 first org_task_done calls were refused because
+ * roles pinned `worktree: "src"` — the label the rules use for the release
+ * worktree at ORG_ROOT/.monomind/orgs/release/work/src — and the gate resolved
+ * it against ORG_ROOT, to a directory that is not a worktree at all.
+ */
+describe('a relative worktree names the repository worktree it means', () => {
+  function layout() {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'rel-wt-')));
+    const main = join(root, 'repo');
+    execFileSync('git', ['init', '-q', '-b', 'main', main]);
+    writeFileSync(join(main, 'a.txt'), 'a');
+    git(main, 'add', 'a.txt');
+    git(main, 'commit', '-qm', 'a');
+    const src = join(main, '.monomind', 'orgs', 'release', 'work', 'src');
+    git(main, 'worktree', 'add', '-q', '-b', 'release/x', src);
+    writeFileSync(join(src, 'b.txt'), 'b');
+    git(src, 'add', 'b.txt');
+    git(src, 'commit', '-qm', 'b');
+    return { root, main, src, mainSha: git(main, 'rev-parse', 'HEAD'), srcSha: git(src, 'rev-parse', 'HEAD') };
+  }
+
+  function close(orgRoot: string, headSha: string, worktree: string) {
+    const def = OrgDefSchema.parse({
+      name: 'o',
+      goal: 'g',
+      run_config: { completion_evidence: true },
+      roles: [
+        { id: 'boss', title: 'B', type: 'b' },
+        { id: 'dev', title: 'D', type: 'd', reports_to: 'boss' },
+      ],
+    });
+    const taskDag = new TaskDag();
+    const task = taskDag.add('t', 'dev');
+    taskDag.markRunning(task.id);
+    const running = {
+      def,
+      taskDag,
+      bus: new OrgBus('o', 'r', mkdtempSync(join(tmpdir(), 'gate-bus-'))),
+      agents: new Map([['dev', { mailbox: new Mailbox() }]]),
+    } as any;
+    const daemon = { orgs: new Map([['o', running]]), root: orgRoot } as any;
+    const ev = { headSha, worktree, checks: [{ command: 'true', exitCode: 0 }] };
+    return JSON.parse(dagCompleteTask(daemon, 'o', 'dev', task.id, 'r', ev));
+  }
+
+  it('accepts the bare label, a partial path, and the path relative to ORG_ROOT', () => {
+    const r = layout();
+    for (const label of ['src', 'work/src', './work/src/', '.monomind/orgs/release/work/src'])
+      expect(close(r.main, r.srcSha, label), label).toMatchObject({ done: 'task-1' });
+  });
+
+  it("pins the check to that worktree's HEAD, not to any head of the repository", () => {
+    const r = layout();
+    const out = close(r.main, r.mainSha, 'src');
+    expect(out.error).toMatch(/STALE/);
+    expect(out.error).toContain(`current head of ${r.src} is ${r.srcSha}`);
+  });
+
+  it('refuses a label that fits more than one worktree, naming each', () => {
+    const r = layout();
+    const other = join(r.root, 'elsewhere', 'src');
+    git(r.main, 'worktree', 'add', '-q', '-b', 'other', other);
+    const out = close(r.main, r.srcSha, 'src');
+    expect(out.error).toMatch(/ambiguous/i);
+    expect(out.error).toContain(r.src);
+    expect(out.error).toContain(other);
+    expect(close(r.main, r.srcSha, 'work/src')).toMatchObject({ done: 'task-1' });
+  });
+
+  it('still refuses a label that fits no worktree, and does not match a partial segment', () => {
+    const r = layout();
+    expect(close(r.main, r.srcSha, 'rc').error).toMatch(/is not a worktree of this repository/);
+    expect(close(r.main, r.srcSha, 'docs').error).toMatch(/is not a worktree of this repository/);
+  });
+});
