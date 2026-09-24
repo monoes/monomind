@@ -134,7 +134,9 @@ describe('redaction', () => {
       for (const text of inputs) {
         const started = performance.now();
         redact(text);
-        expect(performance.now() - started).toBeLessThan(200);
+        // The quadratic patterns took 4.7-19 s on 100-200 KB; 1 s leaves room
+        // for a slow CI runner and still catches any super-linear regression.
+        expect(performance.now() - started).toBeLessThan(1000);
       }
       expect(redact('x postgres://u:p@h y')).toBe('x [redacted] y');
     }
@@ -146,7 +148,7 @@ describe('redaction', () => {
     const f = fakeFetch(json({ answers: { agent: choice('coder', 0.9) } }));
     const started = performance.now();
     await jp.pick(blob, { agents: [agents[0], { ...agents[1], description: blob }] }, { env: localEnv, fetchImpl: f.impl });
-    expect(performance.now() - started).toBeLessThan(200);
+    expect(performance.now() - started).toBeLessThan(1000);
     const sent = JSON.parse(String(f.calls[0].init.body));
     expect(sent.state).toBe(blob.slice(0, 8000));
     expect(sent.questions.agent.criteria.tester).toHaveLength(160);
