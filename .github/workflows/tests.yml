@@ -123,6 +123,9 @@ jobs:
       - name: Lint skill packages
         run: node scripts/lint-skills.mjs
 
+      - name: Lint agent and skill references
+        run: node scripts/lint-agent-refs.mjs
+
       # `monomind init --force` rewrites the root .claude/ tree (and
       # .agents/skills) in place, wrapping each file it owns in ownership
       # markers, and never touches the other three copies. An init run in a
