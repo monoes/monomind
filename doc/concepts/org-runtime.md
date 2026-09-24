@@ -822,6 +822,21 @@ a resume, a re-check that fell due while the daemon was down fires on the first 
 restored from a checkpoint written before this existed is scheduled on the first tick. Roles should
 run waits in the foreground rather than block on a command they started.
 
+#### Cancelled tasks
+
+`org_task_cancel(taskId, reason?)` marks the task `cancelled` and stops its assignee's work on it
+([`task-cancel.ts → stopCancelledTaskWork`](packages/@monomind/cli/src/orgrt/task-cancel.ts#stopCancelledTaskWork)).
+The assignee gets `[task:<id>] CANCELLED by "<role>" (<reason>) — stop now, do not commit or report
+further work for it`, and a `task-cancel-notified` status event is emitted. Mail reaches a role only
+when its turn ends, so in task scope (`session_scope: 'task'`) the assignee's process for that task, if
+one is running, is also ended the way a sandbox fault ends it: the runner is aborted and its child
+killed (`task-cancel-stopped` status). Processes for the role's other tasks are not touched. The
+notice then starts a fresh session for the task instead of resuming the long one. In role scope one
+process serves every task, so only the notice is sent, and the role reads it when its turn ends. A
+role cancelling its own task is not sent anything. `org_task_done` on a cancelled task is refused
+with the cancel reason and the instruction to stop (2.16.2 release run: the fixer worked on and
+committed for 25 minutes after its task was cancelled).
+
 ### Cost and Token Accounting
 
 The Claude SDK reports `total_cost_usd` and `modelUsage` as running totals for the CLI process, so
