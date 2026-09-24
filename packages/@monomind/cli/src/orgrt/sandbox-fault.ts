@@ -4,12 +4,24 @@ import type { AgentMessage } from './agent-runner.js';
 import type { OrgBus } from './bus.js';
 import { Mailbox } from './mailbox.js';
 
+/** The message families bubblewrap itself dies with while it sets the sandbox
+ *  up, before it execs the command (bubblewrap 0.13 `die`/`die_with_error`). */
+const BWRAP_SETUP_FAILURE =
+  /^bwrap: (?:Can't |Creating |Failed to |No permissions to create |setting up |Unable to |Unexpected |execvp\b)/;
+
 /** A Bash result that is bubblewrap's own error, not the command's: the OS
  *  sandbox failed to start (2.16.0 release run: 31 of these, and a QA role
  *  that silently lost Bash for ~7 minutes). A new runner process builds a new
- *  sandbox, so ending the process is the recovery. */
+ *  sandbox, so ending the process is the recovery. Only a setup failure that
+ *  is the whole result counts — after the tool's own "Exit code N" line — so
+ *  a command that runs bwrap itself and prints its errors among other output
+ *  (2.16.2 release run: "bwrap: : No such file or directory" in a reaper
+ *  repro) is the command's output, not a fault. */
 export function isSandboxFault(m: Pick<AgentMessage, 'tool' | 'text'>): boolean {
-  return m.tool === 'Bash' && (m.text ?? '').startsWith('bwrap: ');
+  if (m.tool !== 'Bash') return false;
+  const lines = (m.text ?? '').trim().split('\n');
+  if (/^Exit code \d+$/.test(lines[0])) lines.shift();
+  return lines.length === 1 && BWRAP_SETUP_FAILURE.test(lines[0]);
 }
 
 /** #331: a tool result that is the runner's tool-permission channel failing,

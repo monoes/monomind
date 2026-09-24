@@ -7,7 +7,7 @@
  * real bwrap must accept the resulting mounts (skipped where bwrap can't run).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -54,6 +54,19 @@ describe('expandDenyWrite', () => {
       expect.arrayContaining([join(l.base, 'README.md'), join(l.base, 'docs'), join(l.repo, '.git')]),
     );
     expect(r.mountPoints).toEqual([l.base, l.repo]);
+  });
+
+  it("leaves out the SDK's empty stub files, which vanish when the sandbox that made them ends", () => {
+    const l = layout();
+    const claude = join(l.home, '.claude');
+    writeFileSync(join(claude, 'local'), ''); // a stub another sandbox holds
+    writeFileSync(join(l.base, '.mcp.json'), '');
+    const r = expandDenyWrite([l.base, claude], [l.repo, claude], 'linux');
+    expect(r.denyWrite).not.toContain(join(claude, 'local'));
+    expect(r.denyWrite).not.toContain(join(l.base, '.mcp.json'));
+    expect(r.denyWrite).toEqual(
+      expect.arrayContaining([join(claude, 'settings.json'), join(claude, 'ide'), join(l.base, 'README.md')]),
+    );
   });
 
   it('keeps unrelated and missing paths exactly as given', () => {
@@ -123,6 +136,23 @@ describe.skipIf(!bwrapWorks)('real bwrap (#323 repro)', () => {
     const r = bwrap(['--ro-bind', d, d, '--ro-bind', '/dev/null', join(d, '.gitconfig')], 'true');
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/Read-only file system/);
+  });
+
+  it('starts after a stub seen at session start is gone (2.16.2: "Can\'t find source path ~/.claude/local")', () => {
+    const l = layout();
+    const stub = join(l.home, '.claude', 'local');
+    writeFileSync(stub, '');
+    const fs = (restrictions(l, []).sandbox as any).filesystem;
+    rmSync(stub); // the sandbox that held it ended
+    const inScope = (p: string) => p.startsWith(`${l.home}/.claude`);
+    const args = [
+      ...fs.allowWrite.filter(inScope).flatMap((p: string) => ['--bind', p, p]),
+      ...fs.denyWrite.filter(inScope).flatMap((p: string) => ['--ro-bind', p, p]),
+    ];
+    expect(bwrap(args, 'true').status).toBe(0);
+    // What the stub in the deny list did:
+    const r = bwrap([...args, '--ro-bind', stub, stub], 'true');
+    expect(r.stderr).toMatch(/Can't find source path/);
   });
 
   it('accepts the expanded mounts: SDK stubs are created, existing entries stay read-only', () => {

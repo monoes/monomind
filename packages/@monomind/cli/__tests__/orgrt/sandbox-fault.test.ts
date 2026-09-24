@@ -1,5 +1,6 @@
 /**
- * A Bash result that starts "bwrap: " is the OS sandbox failing to start, not
+ * A Bash result that is wholly one of bwrap's setup failures ("bwrap: Can't
+ * …", optionally after "Exit code N") is the OS sandbox failing to start, not
  * the command failing. On the 2.16.0 release run a QA role lost its shell for
  * ~7 minutes that way (31 such results in the run). Two in a row end the
  * role's process — a new one builds a new sandbox — and the session resumes;
@@ -66,10 +67,36 @@ function setup(script: Script, endAfter: number, taskScope = false) {
 const reasons = (events: { reason?: string }[], r: string) => events.filter((e) => e.reason === r);
 
 describe('Bash sandbox faults', () => {
-  it('recognises only a Bash result that starts with bwrap', () => {
+  it('recognises only a Bash result that is wholly a bwrap setup failure', () => {
     expect(isSandboxFault({ tool: 'Bash', text: FAULT })).toBe(true);
     expect(isSandboxFault({ tool: 'Bash', text: `ok\n${FAULT}` })).toBe(false);
     expect(isSandboxFault({ tool: 'Read', text: FAULT })).toBe(false);
+  });
+
+  it('counts the setup failure families bwrap dies with before exec, also after "Exit code N"', () => {
+    for (const text of [
+      "bwrap: Can't find source path /home/u/.claude/local: No such file or directory",
+      "Exit code 1\nbwrap: Can't find source path /repo/.claude/settings.local.json: No such file or directory",
+      "Exit code 1\nbwrap: Can't open source /repo/.claude/launch.json: No such file or directory",
+      "bwrap: Can't mount tmpfs on /newroot/tmp: Permission denied",
+      'bwrap: execvp /usr/bin/bash: No such file or directory',
+      'bwrap: setting up uid map: Permission denied',
+      'bwrap: Creating new namespace failed: Operation not permitted',
+      'bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces.',
+    ])
+      expect(isSandboxFault({ tool: 'Bash', text }), text).toBe(true);
+  });
+
+  it('does not count bwrap output a command produced itself (2.16.2 release run: a QA reaper repro)', () => {
+    // Not a setup-failure family, and the command printed more after it.
+    const repro =
+      'bwrap: : No such file or directory\nbwrap pid: cat: /t/bwrap.pid: No such file or directory\nsdk pid: cat: /t/sdk.pid: No such file or directory';
+    expect(isSandboxFault({ tool: 'Bash', text: repro })).toBe(false);
+    expect(isSandboxFault({ tool: 'Bash', text: 'bwrap: : No such file or directory' })).toBe(false);
+    // A setup-failure line among the command's own output is the command's.
+    expect(isSandboxFault({ tool: 'Bash', text: `${FAULT}\nexit=1` })).toBe(false);
+    expect(isSandboxFault({ tool: 'Bash', text: `Exit code 1\nrunning repro\n${FAULT}` })).toBe(false);
+    expect(isSandboxFault({ tool: 'Bash', text: 'bwrap: unknown option --foo' })).toBe(false);
   });
 
   it('two in a row end the process and resume the same session with a continuation', async () => {

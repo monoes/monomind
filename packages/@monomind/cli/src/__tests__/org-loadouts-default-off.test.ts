@@ -160,4 +160,6 @@ const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e
 // Recaptured when org_tasks gained an optional `taskId` filter.
 // Recaptured when org_task_block gained an optional `recheckAfterMinutes` and
 // its description said plainly that nothing external wakes a blocked task (#329).
-const TOOLS_SHA = '8c47d22855dcb4912b9ac8fdc890c424bb7e362f03ba01bddcd9f6e2357c491f';
+// Recaptured when org_task_cancel's description said that the assignee is told
+// to stop and a task-scoped session's process is ended.
+const TOOLS_SHA = 'fc9cb43e7b28d7b5e388f8e43ca797cdfbc1bbedb68ce1b237976474689a5b32';

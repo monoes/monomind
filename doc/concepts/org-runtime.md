@@ -326,7 +326,7 @@ Layer 3's `read`-level subcommand surface (`GIT_READ_CMDS` plus the args-aware r
 
 The OS sandbox (layer 1) confines what the Bash tool's commands can do:
 - **Writes:** the protected `.git` is read-only at `read`/`none`. At `commit`, only its `config` and `hooks` are read-only. The guard's hooks, local-path remotes, and git, shell and Claude config under `$HOME` are always read-only.
-  - **A denied directory that is, or holds, the role's cwd or `~/.claude` goes to the SDK as its existing children (#323, [`sandbox-deny-write.ts`](packages/@monomind/cli/src/orgrt/sandbox-deny-write.ts), Linux only).** The SDK binds `/dev/null` over missing "dangerous files" in the cwd (`.gitconfig`, `.bashrc`, `.mcp.json`, …) and in `~/.claude` (`ide`, `local`, `settings.local.json`, …), and bubblewrap has to create a 0-byte mount-point file for each. Under a read-only `denyWrite: ["."]` (the org root) or `~/.claude`, that failed with `bwrap: Can't create file …: Read-only file system` and took the role's Bash call with it — it only worked while another sandboxed process held the stub. Now every entry that existed at session start is still read-only (a mount point, so it can't be rewritten, removed, renamed or replaced), and the directory itself is a writable bind mount, so it can't be renamed either. What the OS layer newly allows is creating **new** entries directly in that directory (and changing its mode bits). The names that matter to Claude Code or git there (settings, hooks, skills, commands, agents, `.mcp.json`, `.gitconfig`, …) are the SDK's own denies, which it can now enforce because their stubs can be created. The file tools are unaffected: their `Edit(//<dir>/**)` rules and `fileToolDenied()` keep the whole directory, so `Write`/`Edit` still refuse a new file in the org root of a `denyWrite: ["."]` role.
+  - **A denied directory that is, or holds, the role's cwd or `~/.claude` goes to the SDK as its existing children (#323, [`sandbox-deny-write.ts`](packages/@monomind/cli/src/orgrt/sandbox-deny-write.ts), Linux only).** The SDK binds `/dev/null` over missing "dangerous files" in the cwd (`.gitconfig`, `.bashrc`, `.mcp.json`, …) and in `~/.claude` (`ide`, `local`, `settings.local.json`, …), and bubblewrap has to create a 0-byte mount-point file for each. Under a read-only `denyWrite: ["."]` (the org root) or `~/.claude`, that failed with `bwrap: Can't create file …: Read-only file system` and took the role's Bash call with it — it only worked while another sandboxed process held the stub. Now every entry that existed at session start is still read-only (a mount point, so it can't be rewritten, removed, renamed or replaced), and the directory itself is a writable bind mount, so it can't be renamed either. What the OS layer newly allows is creating **new** entries directly in that directory (and changing its mode bits). The names that matter to Claude Code or git there (settings, hooks, skills, commands, agents, `.mcp.json`, `.gitconfig`, …) are the SDK's own denies, which it can now enforce because their stubs can be created. The file tools are unaffected: their `Edit(//<dir>/**)` rules and `fileToolDenied()` keep the whole directory, so `Write`/`Edit` still refuse a new file in the org root of a `denyWrite: ["."]` role. An empty regular file among those entries is left out: it is one of the SDK's stubs, which the SDK deletes when the sandbox that created it ends, and a read-only bind of a stub that is gone by the next Bash call fails with `bwrap: Can't find source path …` (2.16.2 release run, `~/.claude/local`). The SDK denies those names itself. The restrictions are rebuilt from what exists each time the role's process starts, so a path the SDK itself adds and then loses is recovered by the sandbox-fault restart below.
 - **Network:** every host is reachable by default (`policy.sandbox.allowedDomains`, default `['*']`), minus the opt-in `deniedDomains`. Git remote hosts are deliberately NOT denied: `read` roles legitimately `ls-remote`; `fetch`/`clone` need `policy.git: 'push'`, and the barrier against publishing is the withheld credentials, verified against the real sandbox (`git ls-remote https://github.com/…` succeeds; a push to an https remote fails with "could not read Username" even with the guard env stripped, because the gh credential helper cannot read `~/.config/gh`).
 - **Reads:** credential files (`~/.ssh`, `~/.git-credentials`, `~/.config/gh`, `~/.netrc`) can't be read, and neither can the XDG runtime dir. That dir matters more than the files: it carries the session D-Bus, and through it the login keyring, which is where `gh` actually keeps its token — while it was reachable, `gh auth token` returned the operator's GitHub token to a sandboxed role and a `--dry-run` push to the real repository succeeded. The SDK's own default deny of `/run/user` does not survive passing our own `filesystem` block, so this deny is set explicitly. At `none`, the `.git` dir can't be read either.
 - **Unix sockets:** allowed, because Chrome's process singleton needs one — without it `monomind browse` dies with `socket() failed: Operation not permitted`. The sockets that would hand out push credentials or the operator's desktop are masked instead (`$SSH_AUTH_SOCK`, `ssh-agent`'s default `/tmp/ssh-*` dirs, `~/.1password`, `/tmp/.X11-unix`, the docker/podman/containerd sockets, and the runtime dir above). `policy.sandbox.allowUnixSockets: false` blocks every AF_UNIX socket and gives up Chrome.
@@ -845,6 +845,21 @@ a resume, a re-check that fell due while the daemon was down fires on the first 
 restored from a checkpoint written before this existed is scheduled on the first tick. Roles should
 run waits in the foreground rather than block on a command they started.
 
+#### Cancelled tasks
+
+`org_task_cancel(taskId, reason?)` marks the task `cancelled` and stops its assignee's work on it
+([`task-cancel.ts → stopCancelledTaskWork`](packages/@monomind/cli/src/orgrt/task-cancel.ts#stopCancelledTaskWork)).
+The assignee gets `[task:<id>] CANCELLED by "<role>" (<reason>) — stop now, do not commit or report
+further work for it`, and a `task-cancel-notified` status event is emitted. Mail reaches a role only
+when its turn ends, so in task scope (`session_scope: 'task'`) the assignee's process for that task, if
+one is running, is also ended the way a sandbox fault ends it: the runner is aborted and its child
+killed (`task-cancel-stopped` status). Processes for the role's other tasks are not touched. The
+notice then starts a fresh session for the task instead of resuming the long one. In role scope one
+process serves every task, so only the notice is sent, and the role reads it when its turn ends. A
+role cancelling its own task is not sent anything. `org_task_done` on a cancelled task is refused
+with the cancel reason and the instruction to stop (2.16.2 release run: the fixer worked on and
+committed for 25 minutes after its task was cancelled).
+
 ### Cost and Token Accounting
 
 The Claude SDK reports `total_cost_usd` and `modelUsage` as running totals for the CLI process, so
@@ -865,8 +880,13 @@ status rather than `session-error`.
 
 ### Sandbox Faults
 
-A Bash result that starts with `bwrap: ` is the OS sandbox failing to start, not the command
-failing ([`sandbox-fault.ts → isSandboxFault`](packages/@monomind/cli/src/orgrt/sandbox-fault.ts#isSandboxFault)).
+A Bash result that is wholly one of bubblewrap's own setup failures — a single `bwrap: Can't …`,
+`bwrap: Creating …`, `bwrap: setting up …`, `bwrap: execvp …` (and the other messages bwrap dies
+with before it execs the command), optionally after the tool's `Exit code N` line — is the OS
+sandbox failing to start, not the command failing
+([`sandbox-fault.ts → isSandboxFault`](packages/@monomind/cli/src/orgrt/sandbox-fault.ts#isSandboxFault)).
+Output a command produced by running bwrap itself does not count: another `bwrap:` message, or a
+setup failure printed among other lines, is the command's own output.
 Each one raises a `sandbox-fault` audit event. Two in a row end the role's runner process — a new
 process builds a new sandbox — and the same session is resumed (in task scope, that task's session)
 with a continuation message saying why (`sandbox-restart` status). This happens at most twice per

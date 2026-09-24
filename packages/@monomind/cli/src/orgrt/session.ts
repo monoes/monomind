@@ -16,6 +16,7 @@ import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
 import { FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
 import { StateDetector } from './state-detector.js';
+import { TaskCancelledError, type TaskProcesses } from './task-cancel.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
 import type { RolePick, TaskPick } from './task-match.js';
 import {
@@ -317,6 +318,9 @@ export interface SessionOpts {
    *  without reaching into runAgentSession's internals. An attempt's own abort
    *  (the silent-stream kill) never propagates back to it (#256). */
   externalAbort?: AbortController;
+  /** Lets org_task_cancel end this role's task-scoped process for the
+   *  cancelled task (task-cancel.ts). */
+  taskProcesses?: TaskProcesses;
   /** Override how long a session's first stream pull may stay silent before
    *  the attempt is aborted and retried (tests only; default 4 minutes). */
   silentSessionMs?: number;
@@ -680,6 +684,11 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     let sessionId: string | undefined;
     let hitTurnLimit: boolean | undefined = false;
     const attempt = { replied: false };
+    // Task scope: this process works on one task, so cancelling it ends it.
+    const tracked =
+      scope === 'task' && sessionKey !== ROLE_SESSION_KEY
+        ? opts.taskProcesses?.track(sessionKey)
+        : undefined;
     try {
       const res = await runOneSession(
         sessionOpts,
@@ -689,7 +698,10 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
         sessionTokenTotals,
         streamOpts,
         faultRestarts.watch(sessionKey),
+        tracked?.signal,
       );
+      // Cancelled as the process was ending on its own: still owed the notice.
+      if (tracked?.signal.aborted) throw tracked.signal.reason;
       sessionId = res.sessionId;
       hitTurnLimit = res.hitTurnLimit;
       resumeSessionId = sessionId;
@@ -722,7 +734,23 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       // very next check below (`mailbox.isClosed || mailbox.isDraining`)
       // returns immediately — so rethrowing here costs nothing.
       const stopping = mailbox.isClosed || (opts.externalAbort?.signal.aborted ?? false);
-      if (!stopping && err instanceof ProcessFaultError) {
+      if (!stopping && err instanceof TaskCancelledError) {
+        // Queued only now: the dead process's stream must not take it. Its
+        // work is abandoned, so the notice starts a fresh, small session
+        // instead of resuming the long one.
+        mailbox.detach();
+        mailbox.push(err.notice);
+        sessionId = undefined;
+        resumeSessionId = undefined;
+        ledger.drop({ role: opts.role.id, runtime: runtimeKey, taskKey: sessionKey });
+        opts.bus.emit({
+          type: 'status',
+          from: opts.role.id,
+          reason: 'task-cancel-stopped',
+          msg: `process for ${sessionKey} ended — the task was cancelled`,
+          data: { taskKey: sessionKey },
+        });
+      } else if (!stopping && err instanceof ProcessFaultError) {
         // Same session, new process: resume it and tell the role why.
         resumeSessionId = err.sessionId ?? resumeSessionId;
         if (scope === 'task' && err.sessionId) {
@@ -804,6 +832,8 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       } else {
         throw err;
       }
+    } finally {
+      tracked?.release();
     }
     // The dead session's generator may still hold the waker - drop it so a
     // push() before the next stream() starts only queues instead of being
@@ -949,6 +979,7 @@ async function runOneSession(
   tokenTotals?: CumulativeMeter<TokenUsage>,
   streamOpts?: StreamOptions,
   faultWatch?: ReturnType<FaultRestarts['watch']>,
+  cancelled?: AbortSignal,
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
   // Each call starts a new runner process, whose cumulative totals may or may
@@ -1025,6 +1056,9 @@ async function runOneSession(
   const onExternalAbort = (): void => abort.abort(external?.reason);
   if (external?.aborted) onExternalAbort();
   else external?.addEventListener('abort', onExternalAbort, { once: true });
+  // org_task_cancel for this process's task: end it the same way (task-cancel.ts).
+  const onCancelled = (): void => abort.abort(cancelled?.reason);
+  cancelled?.addEventListener('abort', onCancelled, { once: true });
   try {
     // #258: policy.git enforced where git runs, not only by Bash text
     // classification — guard env for every runtime, OS sandbox + file-tool
@@ -1224,6 +1258,7 @@ async function runOneSession(
           `[orgrt:${org}/${role.id}] runner message type=${m.type} subtype=${String(m.subtype ?? '-')}`,
         );
       }
+      if (cancelled?.aborted) throw cancelled.reason;
       mailbox.observeTurn(m.type); // the prompt stream outlives a live turn (#331)
       if (m.session_id) {
         sessionId = m.session_id;
@@ -1435,6 +1470,7 @@ async function runOneSession(
         opts.onTurnEnd?.();
       }
     }
+    if (cancelled?.aborted) throw cancelled.reason;
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
     return { sessionId, hitTurnLimit };
   } catch (err) {
@@ -1444,6 +1480,7 @@ async function runOneSession(
       emitUsage(bus, role.id, messageTurnTokens, undefined, 'aborted');
     // Ending the process was the point; sandbox-fault.ts already audited it.
     if (err instanceof ProcessFaultError) throw err;
+    if (cancelled?.aborted) throw cancelled.reason;
     // org_complete / org stop close the mailbox and abort every session: a
     // normal stop, not a failure. The daemon still classifies it.
     const message = err instanceof Error ? err.message : String(err);
@@ -1482,6 +1519,7 @@ async function runOneSession(
     // mid-stream by a throw from outliving it now that an org stop can no
     // longer reach it.
     external?.removeEventListener('abort', onExternalAbort);
+    cancelled?.removeEventListener('abort', onCancelled);
     abort.abort();
     providerSet?.close();
   }
@@ -1848,7 +1886,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     tools.push({
       name: 'org_task_cancel',
       description:
-        'Cancel a task as moot. The task becomes "cancelled" and unblocks downstream work.',
+        'Cancel a task as moot. The task becomes "cancelled" and unblocks downstream work. Its assignee is told to stop and not to commit or report further work for it; a role that runs one session per task has that session\'s process ended at once.',
       schema: { taskId: z.string(), reason: z.string().optional() },
       handler: async (args) =>
         text(cancelTask(role.id, args.taskId as string, args.reason as string | undefined)),

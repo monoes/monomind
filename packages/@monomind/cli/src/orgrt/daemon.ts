@@ -106,6 +106,7 @@ import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { SessionLedger } from './session-ledger.js';
 import { effectiveToolProviders } from './skill-library.js';
+import { TaskProcesses } from './task-cancel.js';
 import { TaskDag } from './task-dag.js';
 import { pickTaskRole, type RolePick, type TaskPick } from './task-match.js';
 import { type ChainTrace, roleProviderPrefixes, ToolProviderHub } from './tool-providers.js';
@@ -378,6 +379,9 @@ export interface AgentRuntime {
    *  incarnation lives — a task asking for another one is recorded as a
    *  `loadout-mismatch` instead (decisions.ts). Absent = no loadout. */
   loadout?: string;
+  /** The task this incarnation's task-scoped process works on, so
+   *  org_task_cancel can end it (task-cancel.ts). */
+  taskProcesses?: TaskProcesses;
 }
 
 export interface RunningOrg {
@@ -1944,6 +1948,7 @@ export class OrgDaemon {
       worktreePath: roleCwd !== cwd ? roleCwd : undefined,
       scrollback: new ScrollbackBuffer(),
       ...(loadout ? { loadout: loadout.name } : {}),
+      taskProcesses: new TaskProcesses(),
     };
     if (roleCheckpoint?.scrollback?.length) {
       for (const line of roleCheckpoint.scrollback) runtime.scrollback.push(line);
@@ -1957,6 +1962,7 @@ export class OrgDaemon {
       bus,
       policy,
       mailbox,
+      taskProcesses: runtime.taskProcesses,
       cwd: roleCwd,
       def,
       // Pass the org state directory so runners that persist per-role state

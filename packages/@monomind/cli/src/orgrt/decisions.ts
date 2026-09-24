@@ -24,6 +24,7 @@ import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
 import { roleSkillNames } from './skill-library.js';
+import { stopCancelledTaskWork } from './task-cancel.js';
 import { isTerminalStatus, type OrgTask } from './task-dag.js';
 import type { TaskPick } from './task-match.js';
 import {
@@ -376,6 +377,7 @@ export function dagCancelTask(
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
   try {
+    const task = running.taskDag.get(taskId);
     const promoted = running.taskDag.cancel(taskId, reason);
     running.bus.emit({
       type: 'status',
@@ -384,6 +386,7 @@ export function dagCancelTask(
       msg: `task ${taskId} cancelled${reason ? `: ${reason}` : ''}${promoted.length ? ` — ${promoted.map((t) => t.id).join(', ')} now ready` : ''}`,
       data: { taskId, reason, promoted: promoted.map((t) => t.id) },
     });
+    if (task) stopCancelledTaskWork(running, task, role, reason);
     if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
     return JSON.stringify({
       cancelled: taskId,
@@ -556,12 +559,15 @@ export function dagCompleteTask(
     // A retry of the role's own close that worked: say it worked, or it keeps retrying.
     const retry = task.status === 'done' && task.assignee === role && !open.length;
     return JSON.stringify({
-      error: retry
-        ? `org_task_done refused: task ${taskId} is already done ("${task.title}") — your earlier org_task_done for it was accepted, so nothing else is needed. Do not call org_task_done for it again.`
-        : `org_task_done refused: task ${taskId} is already ${task.status} ("${task.title}") — closing it again would notify its creator about work that was reported long ago. ` +
-          (open.length
-            ? `Your open task(s): ${open.map((t) => `${t.id} ("${t.title}")`).join(', ')}. Close the one this work is for, by its id.`
-            : 'You have no open task — if this work belongs to a new one, ask for it to be created rather than re-closing a finished task.'),
+      error:
+        task.status === 'cancelled'
+          ? `org_task_done refused: task ${taskId} ("${task.title}") was cancelled${task.result ? ` (${task.result})` : ''} — its work is not wanted. Stop working on it: do not commit, integrate or report further work for it.${open.length ? ` Your open task(s): ${open.map((t) => `${t.id} ("${t.title}")`).join(', ')}.` : ''}`
+          : retry
+            ? `org_task_done refused: task ${taskId} is already done ("${task.title}") — your earlier org_task_done for it was accepted, so nothing else is needed. Do not call org_task_done for it again.`
+            : `org_task_done refused: task ${taskId} is already ${task.status} ("${task.title}") — closing it again would notify its creator about work that was reported long ago. ` +
+              (open.length
+                ? `Your open task(s): ${open.map((t) => `${t.id} ("${t.title}")`).join(', ')}. Close the one this work is for, by its id.`
+                : 'You have no open task — if this work belongs to a new one, ask for it to be created rather than re-closing a finished task.'),
     });
   }
   // ADR-O001 D6: keep the latest evidence the ASSIGNEE submitted, accepted or

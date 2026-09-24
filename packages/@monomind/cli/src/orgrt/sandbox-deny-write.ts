@@ -29,6 +29,15 @@
  * never relied on this layer: their permission rules (`Edit(//dir/**)`) and
  * the PolicyEngine deny lists keep the unexpanded directory.
  *
+ * An empty regular file among those children is left out: it is one of
+ * those stubs, which the SDK deletes when the sandbox that made it ends. The
+ * restrictions are built when the role's process starts, so a stub captured
+ * then could be gone by the next Bash call, and bwrap dies binding a missing
+ * source ("Can't find source path ~/.claude/local", 2.16.2 release run). The
+ * SDK denies that name itself. A path the SDK adds and loses the same way is
+ * the sandbox-fault restart's to recover (sandbox-fault.ts): a new process
+ * builds its restrictions again from what exists then.
+ *
  * Linux only: seatbelt (macOS) denies by path rule, needs no mount points,
  * and keeps the whole directory read-only.
  */
@@ -48,6 +57,16 @@ const real = (p: string): string => {
 const within = (container: string, target: string): boolean =>
   target === container || target.startsWith(container.endsWith(sep) ? container : container + sep);
 
+/** A 0-byte regular file: bwrap's mount-point stub for an SDK /dev/null bind. */
+const isStub = (p: string): boolean => {
+  try {
+    const st = lstatSync(p);
+    return st.isFile() && st.size === 0;
+  } catch {
+    return true; // already gone
+  }
+};
+
 export interface ExpandedDenyWrite {
   /** What to pass as `filesystem.denyWrite` (still unfiltered for existence). */
   denyWrite: string[];
@@ -58,7 +77,8 @@ export interface ExpandedDenyWrite {
 
 /**
  * Replaces every deny-write path that equals or contains one of `keepWritable`
- * (the role's cwd, ~/.claude) with its existing children, recursively. A path
+ * (the role's cwd, ~/.claude) with its existing children (less the SDK's
+ * empty stubs), recursively. A path
  * that cannot be listed (missing, unreadable, not a directory) is kept as-is,
  * so the old — stricter — behaviour is the fallback.
  */
@@ -85,7 +105,7 @@ export function expandDenyWrite(
       return;
     }
     mountPoints.push(p);
-    for (const e of entries) visit(join(p, e));
+    for (const e of entries) if (!isStub(join(p, e))) visit(join(p, e));
   };
   for (const p of paths) visit(p);
   return { denyWrite, mountPoints };
