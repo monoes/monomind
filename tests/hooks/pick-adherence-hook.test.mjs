@@ -76,3 +76,19 @@ describe('pre-agent hook', () => {
     expect(r.stderr).not.toContain('"decision":"block"');
   });
 });
+
+// SubagentStart runs `hook-handler.cjs status`, SubagentStop `post-task`:
+// under MONOMIND_HOOK_QUIET neither may print an [OK] banner.
+describe('SubagentStart/SubagentStop hooks under MONOMIND_HOOK_QUIET', () => {
+  it.each(['status', 'post-task'])('%s prints nothing', (cmd) => {
+    const r = spawnSync(process.execPath, [HANDLER, cmd], {
+      cwd: tmp,
+      input: JSON.stringify({ session_id: 's1', agent_type: 'coder' }),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: tmp, MONOMIND_HOOK_QUIET: '1' },
+      encoding: 'utf-8',
+      timeout: 10000,
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+});

@@ -132,10 +132,16 @@ describe('task-handler — handlePostTask', () => {
   });
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('always logs [OK] Task completed', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir });
-    const lines = await capture(() => loadTask().handlePostTask(hCtx));
-    expect(lines.join('\n')).toContain('[OK] Task completed');
+  it('logs [OK] Task completed unless MONOMIND_HOOK_QUIET=1', async () => {
+    const saved = process.env.MONOMIND_HOOK_QUIET;
+    try {
+      delete process.env.MONOMIND_HOOK_QUIET;
+      const lines = await capture(() => loadTask().handlePostTask(makeHCtx({ CWD: tmpDir })));
+      expect(lines.join('\n')).toContain('[OK] Task completed');
+    } finally {
+      if (saved === undefined) delete process.env.MONOMIND_HOOK_QUIET;
+      else process.env.MONOMIND_HOOK_QUIET = saved;
+    }
   });
 
   it('generates an ADR file when adr.autoGenerate=true and architect agent', async () => {
