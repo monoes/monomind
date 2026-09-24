@@ -40,13 +40,22 @@ describe('pre-agent hook', () => {
   it('appends an adherence record for the session route and stays silent', () => {
     fs.writeFileSync(
       path.join(tmp, '.monomind', 'routes', 's1.json'),
-      JSON.stringify({ routeId: 'r-1', sessionId: 's1', agent: 'Security Engineer', agentSlug: 'x' }),
+      JSON.stringify({
+        routeId: 'r-1',
+        sessionId: 's1',
+        agent: 'Security Engineer',
+        agentSlug: 'x',
+      }),
     );
     const r = run({
       session_id: 's1',
       hook_event_name: 'PreToolUse',
       tool_name: 'Task',
-      tool_input: { subagent_type: 'Security Engineer', description: 'audit', prompt: 'audit auth' },
+      tool_input: {
+        subagent_type: 'Security Engineer',
+        description: 'audit',
+        prompt: 'audit auth',
+      },
     });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');

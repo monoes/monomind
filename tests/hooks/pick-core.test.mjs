@@ -87,7 +87,8 @@ describe('rankAgents / decide', () => {
       return items
         .map((it, index) => ({
           ...it,
-          score: words.filter((w) => w && `${it.id} ${it.name}`.toLowerCase().includes(w)).length * 3,
+          score:
+            words.filter((w) => w && `${it.id} ${it.name}`.toLowerCase().includes(w)).length * 3,
           index,
         }))
         .sort((a, b) => b.score - a.score || a.index - b.index)
@@ -155,7 +156,11 @@ describe('rankAgents / decide', () => {
   });
 
   it('never returns an agent id that is not in the registry', () => {
-    const d = pc().decide({ agents, keywordCands: [], jev: { agent: 'made-up', agentConfidence: 1 } });
+    const d = pc().decide({
+      agents,
+      keywordCands: [],
+      jev: { agent: 'made-up', agentConfidence: 1 },
+    });
     expect(d.agent).toBeNull();
   });
 
@@ -172,8 +177,11 @@ describe('rankAgents / decide', () => {
   it('picks a keyword skill only on a strong, strictly leading score', () => {
     const { decide } = pc();
     expect(
-      decide({ agents, keywordCands: [], skillMatches: [{ skill: 'tokens', invoke: '/tokens', score: 5 }] })
-        .skill,
+      decide({
+        agents,
+        keywordCands: [],
+        skillMatches: [{ skill: 'tokens', invoke: '/tokens', score: 5 }],
+      }).skill,
     ).toEqual({ skill: 'tokens', invoke: '/tokens' });
     expect(
       decide({
@@ -186,7 +194,8 @@ describe('rankAgents / decide', () => {
       }).skill,
     ).toBeNull();
     expect(
-      decide({ agents, keywordCands: [], skillMatches: [{ skill: 'a', invoke: '/a', score: 3 }] }).skill,
+      decide({ agents, keywordCands: [], skillMatches: [{ skill: 'a', invoke: '/a', score: 3 }] })
+        .skill,
     ).toBeNull();
   });
 });
@@ -195,9 +204,14 @@ describe('formatPickLine', () => {
   const { formatPickLine } = pc();
   it('prints both parts, one part, or nothing', () => {
     expect(
-      formatPickLine({ agent: { name: 'Security Engineer' }, skill: { invoke: '/security-review' } }),
+      formatPickLine({
+        agent: { name: 'Security Engineer' },
+        skill: { invoke: '/security-review' },
+      }),
     ).toBe('[PICK] agent: Security Engineer · skill: /security-review');
-    expect(formatPickLine({ agent: null, skill: { invoke: '/tokens' } })).toBe('[PICK] skill: /tokens');
+    expect(formatPickLine({ agent: null, skill: { invoke: '/tokens' } })).toBe(
+      '[PICK] skill: /tokens',
+    );
     expect(formatPickLine({ agent: { name: 'coder' }, skill: null })).toBe('[PICK] agent: coder');
     expect(formatPickLine({ agent: null, skill: null })).toBe('');
   });
@@ -246,10 +260,15 @@ describe('persistRoute', () => {
       sessionId: 'sess-B',
       shown: false,
     });
-    expect(readSessionRoute(tmp, 'sess-A')).toMatchObject({ routeId: a, agent: 'Security Engineer' });
+    expect(readSessionRoute(tmp, 'sess-A')).toMatchObject({
+      routeId: a,
+      agent: 'Security Engineer',
+    });
     expect(readSessionRoute(tmp, 'sess-B')).toMatchObject({ routeId: b, agent: null });
     // last-route.json stays the latest route (statusline), now carrying its session.
-    const last = JSON.parse(fs.readFileSync(path.join(tmp, '.monomind', 'last-route.json'), 'utf-8'));
+    const last = JSON.parse(
+      fs.readFileSync(path.join(tmp, '.monomind', 'last-route.json'), 'utf-8'),
+    );
     expect(last).toMatchObject({ routeId: b, sessionId: 'sess-B' });
   });
 
@@ -275,7 +294,11 @@ describe('recordAdherence', () => {
       sessionId: 'sess-A',
       shown: true,
     });
-    recordAdherence(tmp, { session_id: 'sess-A', tool_name: 'Task', tool_input: { subagent_type: 'coder' } });
+    recordAdherence(tmp, {
+      session_id: 'sess-A',
+      tool_name: 'Task',
+      tool_input: { subagent_type: 'coder' },
+    });
     recordAdherence(tmp, {
       session_id: 'sess-A',
       tool_name: 'Agent',
@@ -307,10 +330,15 @@ describe('ensureSkillRegistryFresh', () => {
   function makeSkill(name) {
     const d = path.join(tmp, '.claude', 'skills', name);
     fs.mkdirSync(d, { recursive: true });
-    fs.writeFileSync(path.join(d, 'SKILL.md'), `---\nname: ${name}\ndescription: ${name} skill\n---\n`);
+    fs.writeFileSync(
+      path.join(d, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: ${name} skill\n---\n`,
+    );
   }
   const builder = {
-    build: (root) => ({ skills: fs.readdirSync(path.join(root, '.claude', 'skills')).map((s) => ({ skill: s })) }),
+    build: (root) => ({
+      skills: fs.readdirSync(path.join(root, '.claude', 'skills')).map((s) => ({ skill: s })),
+    }),
   };
   const reg = () => path.join(tmp, '.claude', 'helpers', 'skill-registry.json');
 

@@ -237,7 +237,9 @@ describe('route-handler routing path', () => {
       ];\n`,
     );
     await rh.handle(makeHCtx({ prompt: 'write a solidity smart contract for token vesting' }));
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'),
+    );
     expect(data.agentSlug).toBeNull();
   });
 
@@ -286,7 +288,10 @@ describe('route-handler routing path', () => {
     );
     const logSpy = vi.spyOn(console, 'log');
     await rh.handle(
-      makeHCtx({ prompt: 'ask the devops automator to fix the deploy', hookInput: { session_id: 'mine' } }),
+      makeHCtx({
+        prompt: 'ask the devops automator to fix the deploy',
+        hookInput: { session_id: 'mine' },
+      }),
     );
     const dedupMsg = logSpy.mock.calls.find(
       (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),

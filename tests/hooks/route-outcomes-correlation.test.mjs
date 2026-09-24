@@ -96,7 +96,12 @@ describe('route-outcomes end-to-end correlation', () => {
       path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl'),
       `${JSON.stringify({ ts: Date.now(), success: false })}\n`,
     );
-    await sessionHandler.handleEnd({ hookInput: { sessionId: 'sess-9' }, intelligence: {}, session: {}, CWD: tmpDir });
+    await sessionHandler.handleEnd({
+      hookInput: { sessionId: 'sess-9' },
+      intelligence: {},
+      session: {},
+      CWD: tmpDir,
+    });
     const [rec] = readOutcomes();
     expect(rec.measuredSuccess).toBe(false);
     expect(rec.agentActuallyUsed).toBeUndefined();
@@ -119,9 +124,9 @@ describe('route-outcomes end-to-end correlation', () => {
       path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl'),
       `${old}${JSON.stringify({ ts: Date.now(), success: false })}\n`,
     );
-    expect(fs.statSync(path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl')).size).toBeGreaterThan(
-      512 * 1024,
-    );
+    expect(
+      fs.statSync(path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl')).size,
+    ).toBeGreaterThan(512 * 1024);
     await sessionHandler.handleEnd({
       hookInput: { sessionId: 'sess-big' },
       intelligence: {},

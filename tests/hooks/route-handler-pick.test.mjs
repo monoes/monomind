@@ -159,7 +159,9 @@ describe('route-handler [PICK] delivery', () => {
     const rec = outcomes().at(-1);
     expect(rec).toMatchObject({ agentName: null, method: 'none', shown: false });
     expect(JSON.stringify(rec)).not.toMatch(/tester/i);
-    const last = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'));
+    const last = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'),
+    );
     expect(last.agent).toBeNull();
   });
 
@@ -174,7 +176,9 @@ describe('route-handler [PICK] delivery', () => {
     const fetchSpy = jevAnswer('engineering-security-engineer', 'security-review');
     vi.stubGlobal('fetch', fetchSpy);
     await loadRH().handle(
-      makeHCtx('<task-notification>\n<task-id>abc</task-id>\n<status>completed</status>\n</task-notification>'),
+      makeHCtx(
+        '<task-notification>\n<task-id>abc</task-id>\n<status>completed</status>\n</task-notification>',
+      ),
     );
     expect(logs).toEqual([]);
     expect(outcomes()).toEqual([]);
@@ -184,7 +188,9 @@ describe('route-handler [PICK] delivery', () => {
 
   it('keeps the route per session', async () => {
     await loadRH().handle(makeHCtx('set up the devops automator for our deploy'));
-    const own = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'routes', 'sess-1.json'), 'utf-8'));
+    const own = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'routes', 'sess-1.json'), 'utf-8'),
+    );
     expect(own).toMatchObject({ sessionId: 'sess-1', agent: 'DevOps Automator' });
     expect(own.routeId).toBe(outcomes().at(-1).routeId);
   });

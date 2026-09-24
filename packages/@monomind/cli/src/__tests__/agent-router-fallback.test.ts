@@ -24,7 +24,10 @@ describe('generateAgentRouter fallback', () => {
   function route(task: string): Record<string, unknown> {
     const out = execFileSync(
       process.execPath,
-      ['-e', `console.log(JSON.stringify(require(${JSON.stringify(routerPath)}).routeTask(${JSON.stringify(task)})))`],
+      [
+        '-e',
+        `console.log(JSON.stringify(require(${JSON.stringify(routerPath)}).routeTask(${JSON.stringify(task)})))`,
+      ],
       { env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf-8' },
     );
     return JSON.parse(out);
@@ -58,11 +61,16 @@ describe('generateAgentRouter fallback', () => {
   it('matches skills from skill-registry.json', () => {
     writeFileSync(
       join(dir, '.claude', 'helpers', 'skill-registry.json'),
-      JSON.stringify({ skills: [{ skill: 'tokens', invoke: '/tokens', nameTerms: ['tokens'], keywords: ['cost'] }] }),
+      JSON.stringify({
+        skills: [{ skill: 'tokens', invoke: '/tokens', nameTerms: ['tokens'], keywords: ['cost'] }],
+      }),
     );
     const out = execFileSync(
       process.execPath,
-      ['-e', `console.log(JSON.stringify(require(${JSON.stringify(routerPath)}).matchSkills('show tokens cost')))`],
+      [
+        '-e',
+        `console.log(JSON.stringify(require(${JSON.stringify(routerPath)}).matchSkills('show tokens cost')))`,
+      ],
       { env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf-8' },
     );
     expect(JSON.parse(out)).toEqual([expect.objectContaining({ invoke: '/tokens', score: 3 })]);

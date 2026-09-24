@@ -338,12 +338,20 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
       `${JSON.stringify({ routeId: 'route-7', recommendedAgent: 'Security Engineer' })}\n`,
     );
     const transcript = path.join(claudeDir, 'sec.jsonl');
-    runHook('subagent-start', { transcript_path: transcript, agent_type: 'coder', session_id: 'sess-7' });
+    runHook('subagent-start', {
+      transcript_path: transcript,
+      agent_type: 'coder',
+      session_id: 'sess-7',
+    });
     fs.writeFileSync(
       transcript,
       `${JSON.stringify({ message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } })}\n`,
     );
-    runHook('subagent-stop', { transcript_path: transcript, agent_type: 'coder', session_id: 'sess-7' });
+    runHook('subagent-stop', {
+      transcript_path: transcript,
+      agent_type: 'coder',
+      session_id: 'sess-7',
+    });
     const [entry] = readFeedback();
     expect(entry).toMatchObject({
       actualAgent: 'coder',
