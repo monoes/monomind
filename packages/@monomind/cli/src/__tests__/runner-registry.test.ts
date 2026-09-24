@@ -159,6 +159,15 @@ describe('scanInstalled (§6)', () => {
       kind: 'npm',
       packages: ['a', 'b@1.2'],
     });
+    expect(installRecipe('npm install -g @scope/pkg@^1.2.3-beta.1 c@latest c@~2')).toEqual({
+      kind: 'npm',
+      packages: ['@scope/pkg@^1.2.3-beta.1', 'c@latest', 'c@~2'],
+    });
+    // every real hint that looks installable stays installable
+    for (const spec of RUNNER_SPECS) {
+      if (/^(npm install -g|curl -fsSL)/.test(spec.installHint))
+        expect(installRecipe(spec.installHint).kind, spec.installHint).not.toBe('manual');
+    }
     for (const hint of [
       'npm install ai (plus the vendor model package)',
       'npm install -g foo; echo injected',
@@ -166,6 +175,24 @@ describe('scanInstalled (§6)', () => {
       'curl -fsSL http://example.com/install.sh | bash',
       'curl -fsSL https://example.com/i.sh | bash; echo injected',
       'install the Grok Build CLI per https://docs.x.ai/build/cli',
+      // shell syntax inside the URL or after it
+      'curl -fsSL https://x/$(id) | bash',
+      'curl -fsSL https://x/`id` | bash',
+      'curl -fsSL https://x/;id | bash',
+      'curl -fsSL https://x/&&id | bash',
+      'curl -fsSL https://x/a|b | bash',
+      'curl -fsSL "https://x/i.sh" | bash',
+      "curl -fsSL 'https://x/i.sh' | bash",
+      'curl -fsSL https://x/i.sh>/tmp/o | bash',
+      'curl -fsSL https://user:pw@x.com/i.sh | bash',
+      'curl -fsSL https://x.com/i.sh\n| bash',
+      'curl -fsSL https://x.com/i.sh |\nbash',
+      // npm version specs that are ranges, wildcards or flags
+      'npm install -g foo@>1',
+      'npm install -g foo@<1',
+      'npm install -g foo@*',
+      'npm install -g foo@-x',
+      'npm install -g foo@1.0\nbar',
     ]) {
       expect(installRecipe(hint), hint).toEqual({ kind: 'manual' });
     }
