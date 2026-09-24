@@ -33,7 +33,7 @@ var NONE_ID = '__none__';
 var OFF_VALUES = ['0', 'off', 'false', 'no'];
 var ON_VALUES = ['1', 'on', 'true', 'yes'];
 var DEFAULT_HOOK_TIMEOUT_MS = 1500;
-var MAX_HOOK_TIMEOUT_MS = 4000;
+var MAX_HOOK_TIMEOUT_MS = 10000;
 
 class JevError extends Error {
   constructor(message, provider, status) {

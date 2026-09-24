@@ -111,10 +111,12 @@ describe('provider resolution', () => {
     expect(jp.resolveTimeoutMs({ MONOMIND_JEV_TIMEOUT_MS: '50' })).toBe(3000);
   });
 
-  it('keeps the hook window short and below the 5 s hook exit', () => {
+  it('defaults the hook window to 1500 ms and caps it at 10 s', () => {
     expect(jp.resolveHookTimeoutMs({})).toBe(1500);
     expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '800' })).toBe(800);
-    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '9000' })).toBe(1500);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '9000' })).toBe(9000);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '10000' })).toBe(10000);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '10001' })).toBe(1500);
   });
 });
 

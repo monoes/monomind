@@ -234,7 +234,7 @@ describe('route-handler with Jev', () => {
     expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
   });
 
-  it('persists the route inside the 5 s hook exit after a timed-out Jev pick and a slow intelligence lookup', async () => {
+  it('persists the route inside the hook exit after a timed-out Jev pick and a slow intelligence lookup', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     vi.stubEnv('MONOMIND_JEV_HOOK_TIMEOUT_MS', '4000');
     // Jev never answers; the request only ends when its signal aborts.
@@ -255,11 +255,12 @@ describe('route-handler with Jev', () => {
       path.join(bridge, 'hooks-embedding.js'),
       'export const suggestAgentsFromIntelligence = () => new Promise((r) => setTimeout(() => r({ agents: ["tester"], confidence: 0.99 }), 1900));\n',
     );
+    const rh = loadRH();
     const started = Date.now();
-    await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
+    await rh.handle(makeHCtx('check the login handler for injection bugs'));
     const elapsed = Date.now() - started;
-    // Designed to finish near 4.5 s; the bound is the 5 s hook exit with scheduler slack.
-    expect(elapsed).toBeLessThan(4950);
+    // Designed to finish 500 ms before the hook exit; the bound keeps scheduler slack.
+    expect(elapsed).toBeLessThan(rh.routeDeadlineMs(process.env) - 50);
     expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
   }, 15000);
 

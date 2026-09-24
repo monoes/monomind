@@ -77,6 +77,17 @@ function _loadJevPicker() {
   return _jevPicker;
 }
 
+// hook-handler.cjs force-exits every hook at this deadline. A configured Jev
+// may hold the route hook for its whole window, so that hook gets the window
+// plus 1.5 s to persist its route; without Jev it keeps the 5 s exit.
+var HOOK_EXIT_MS = 5000;
+function routeDeadlineMs(env) {
+  env = env || process.env;
+  var jp = _loadJevPicker();
+  if (!jp || jp.resolveProviders(env).length === 0) return HOOK_EXIT_MS;
+  return Math.max(HOOK_EXIT_MS, jp.resolveHookTimeoutMs(env) + 1500);
+}
+
 var JEV_BREAKER_MS = 5 * 60 * 1000;
 function _jevBreakerPath(CWD) { return path.join(CWD, '.monomind', 'jev-breaker.json'); }
 function _jevBreakerOpen(CWD) {
@@ -136,6 +147,7 @@ function _applyJevPick(result, jev) {
 
 
 module.exports = {
+  routeDeadlineMs: routeDeadlineMs,
   handle: async function(hCtx) {
     var hookStart = Date.now();
     var prompt = hCtx.prompt;
@@ -283,9 +295,10 @@ module.exports = {
       // This ENHANCES the keyword route — it only overrides when the
       // embedding match is meaningfully more confident, and never blocks or
       // delays routing beyond a 2s budget (fails silently otherwise).
-      // A slow or failed Jev attempt may already have spent most of the 5 s
-      // hook exit, so the budget shrinks to keep the route persist below in time.
-      var intelBudgetMs = Math.min(2000, Math.max(0, 4500 - (Date.now() - hookStart)));
+      // A slow or failed Jev attempt may already have spent most of the time
+      // before the hook exit, so the budget shrinks to keep the route persist
+      // below in time (500 ms before routeDeadlineMs).
+      var intelBudgetMs = Math.min(2000, Math.max(0, routeDeadlineMs(process.env) - 500 - (Date.now() - hookStart)));
       if (result.routingMethod !== 'jev' && intelBudgetMs > 0) try {
         var intelResult = await Promise.race([
           (async function() {

@@ -56,6 +56,8 @@ Runs for every user message. Four-phase routing:
 
 Output: routing panels injected as system context.
 
+When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`), it picks the agent and skill after step 3 and keyword routing stands if it fails. The prompt waits up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` for it (default 1500, max 10000); a slow model therefore delays every prompt by up to that limit, and after a failed or timed-out pick the hook skips Jev for 5 minutes (`.monomind/jev-breaker.json`). Every hook process force-exits after 5 s — the `route` hook alone, while Jev is configured, gets the Jev limit plus 1.5 s instead, so the route is still recorded after a slow pick. The `pre-bash`/`pre-write` security gates always keep 5 s.
+
 ### `PreToolUse(Bash)` → `pre-bash`
 
 Safety validation — blocks dangerous patterns:
@@ -279,6 +281,7 @@ Confirmed read by hooks/helpers source:
 | `MONOMIND_CONTROL_NO_SPAWN` | Disables spawning the control-plane process |
 | `MONOMIND_CONTROL_PORT` | Overrides the control-plane port |
 | `MONOMIND_DEBUG` | Verbose hook/helper debug logging |
+| `MONOMIND_JEV_HOOK_TIMEOUT_MS` | How long the `route` hook waits for the Jev decision model, in ms (default 1500, 100–10000; out-of-range values fall back to the default) |
 | `MONOMIND_GRAPH_GATE` | Set to `off` to disable the monograph gate (`.claude/helpers/utils/monograph.cjs`) |
 | `MONOMIND_MONOFENCE_GATE` | Set to `off` to disable the monofence threat-scan gate (`.claude/helpers/handlers/gates-handler.cjs`) |
 

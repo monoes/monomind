@@ -239,10 +239,23 @@ async function readStdin() {
   });
 }
 
+// Every hook force-exits after 5 s, except the route hook while a Jev decision
+// model is configured: it may wait out the Jev window (route-handler.cjs
+// routeDeadlineMs). The security gates never load the route handler.
+function safetyTimeoutMs(cmd, env) {
+  if (cmd !== 'route') return 5000;
+  try {
+    return require('./handlers/route-handler.cjs').routeDeadlineMs(env || process.env);
+  } catch (e) {
+    return 5000;
+  }
+}
+
 async function main() {
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
+  var safetyMs = safetyTimeoutMs(command);
   var safetyTimer = setTimeout(function() {
-    process.stderr.write("[WARN] Hook handler global timeout (5s), forcing exit\n");
+    process.stderr.write("[WARN] Hook handler global timeout (" + (safetyMs / 1000) + "s), forcing exit\n");
     // If a security gate was still pending when the timer fired, the operation
     // was never evaluated — fail CLOSED rather than letting a hang act as an
     // allow. (`_securityGateCompleted` is `var`-hoisted, so it reads as
@@ -256,7 +269,7 @@ async function main() {
       process.exit(2);
     }
     process.exit(0);
-  }, 5000);
+  }, safetyMs);
   safetyTimer.unref();
 
   let stdinData = '';
@@ -939,6 +952,8 @@ if (command && handlers[command]) {
     console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
   }
 }
+
+module.exports = { safetyTimeoutMs: safetyTimeoutMs };
 
 // Only run when executed directly (every real hook event spawns this file as a
 // process). A require() — e.g. from tests verifying it loads — must not exit.
