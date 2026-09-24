@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { registryPath } from '../agents/registry-freshness.js';
 import { agentCatalog, agentNames } from '../decision/catalogs.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { output } from '../output.js';
@@ -65,7 +66,10 @@ export const AGENT_TYPE_ALIASES: Record<string, string> = {
  *  no registry to check against, the value passes through unchanged. */
 export function resolveAgentType(type: string, names: Set<string>): string | null {
   if (names.size === 0 || names.has(type)) return type;
-  const alias = AGENT_TYPE_ALIASES[type];
+  const lower = type.toLowerCase();
+  const byCase = [...names].find((n) => n.toLowerCase() === lower);
+  if (byCase) return byCase;
+  const alias = AGENT_TYPE_ALIASES[lower];
   return alias && names.has(alias) ? alias : null;
 }
 
@@ -89,6 +93,30 @@ export function getAgentCapabilities(type: string): string[] {
     'performance-engineer': ['benchmarking', 'profiling', 'optimization', 'monitoring'],
   };
   return capabilities[type] || ['general'];
+}
+
+/** The `capabilities` the registry lists for agent `name`, or []. */
+function registryCapabilities(root: string, name: string): string[] {
+  try {
+    const file = registryPath(root);
+    if (fs.statSync(file).size > 10 * 1024 * 1024) return [];
+    const reg = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+      agents?: { name?: unknown; capabilities?: unknown }[];
+    };
+    const caps = reg.agents?.find((a) => a.name === name)?.capabilities;
+    return Array.isArray(caps) ? caps.filter((c): c is string => typeof c === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Capabilities of the agent a spawn resolved to: the registry's list for it,
+ *  else the built-in set for the resolved or the requested (old) type name. */
+export function agentCapabilities(root: string, resolved: string, requested: string): string[] {
+  const fromRegistry = registryCapabilities(root, resolved);
+  if (fromRegistry.length > 0) return fromRegistry;
+  const own = getAgentCapabilities(resolved);
+  return own[0] === 'general' ? getAgentCapabilities(requested.toLowerCase()) : own;
 }
 
 export function formatStatus(status: unknown): string {
@@ -150,6 +178,7 @@ export const spawnCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let agentType = (ctx.flags.type as string | undefined)?.slice(0, 64) ?? '';
+    const requestedType = agentType;
     let agentName = (ctx.flags.name as string | undefined)?.slice(0, 128) ?? '';
 
     const root = getProjectCwd();
@@ -197,6 +226,7 @@ export const spawnCommand: Command = {
     if (!agentName) agentName = `${agentType}-${Date.now().toString(36)}`;
 
     output.printInfo(`Spawning ${agentType} agent: ${output.highlight(agentName)}`);
+    const capabilities = agentCapabilities(root, agentType, requestedType || agentType);
 
     try {
       const result = await callMCPTool<{
@@ -217,7 +247,7 @@ export const spawnCommand: Command = {
           autoTools: ctx.flags['auto-tools'],
         },
         priority: 'normal',
-        metadata: { name: agentName, capabilities: getAgentCapabilities(agentType) },
+        metadata: { name: agentName, capabilities },
       });
 
       // agent_spawn resolves (doesn't throw) on a tool-level failure like
@@ -243,7 +273,7 @@ export const spawnCommand: Command = {
           { property: 'Name', value: agentName },
           { property: 'Status', value: result.status },
           { property: 'Created', value: result.createdAt },
-          { property: 'Capabilities', value: getAgentCapabilities(agentType).join(', ') },
+          { property: 'Capabilities', value: capabilities.join(', ') },
         ],
       });
 
