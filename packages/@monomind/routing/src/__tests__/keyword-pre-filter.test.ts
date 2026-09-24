@@ -8,20 +8,20 @@ describe('KeywordPreFilter', () => {
     it('matches CVE identifiers', () => {
       const result = filter.match('Fix CVE-2024-12345 vulnerability');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-security-engineer');
+      expect(result?.agentSlug).toBe('Security Engineer');
       expect(result?.routeName).toBe('cve-remediation');
     });
 
     it('matches OWASP references', () => {
       const result = filter.match('Check OWASP top 10 compliance');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-security-engineer');
+      expect(result?.agentSlug).toBe('Security Engineer');
     });
 
     it('matches threat modeling tasks', () => {
       const result = filter.match('Perform threat model analysis');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-security-engineer');
+      expect(result?.agentSlug).toBe('Security Engineer');
     });
   });
 
@@ -29,25 +29,25 @@ describe('KeywordPreFilter', () => {
     it('matches .test.ts files', () => {
       const result = filter.match('Fix the user.test.ts file');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('tdd-london-swarm');
+      expect(result?.agentSlug).toBe('tdd-london-monoswarm');
     });
 
     it('matches .spec.js files', () => {
       const result = filter.match('Update auth.spec.js');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('tdd-london-swarm');
+      expect(result?.agentSlug).toBe('tdd-london-monoswarm');
     });
 
     it('matches "write unit tests" requests', () => {
       const result = filter.match('write unit tests for the auth module');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('tdd-london-swarm');
+      expect(result?.agentSlug).toBe('tdd-london-monoswarm');
     });
 
     it('matches "create integration tests"', () => {
       const result = filter.match('create integration tests');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('tdd-london-swarm');
+      expect(result?.agentSlug).toBe('tdd-london-monoswarm');
     });
   });
 
@@ -55,31 +55,31 @@ describe('KeywordPreFilter', () => {
     it('matches Dockerfile', () => {
       const result = filter.match('Update the Dockerfile');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-devops-automator');
+      expect(result?.agentSlug).toBe('DevOps Automator');
     });
 
     it('matches docker-compose', () => {
       const result = filter.match('Fix docker-compose.yml');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-devops-automator');
+      expect(result?.agentSlug).toBe('DevOps Automator');
     });
 
     it('matches terraform', () => {
       const result = filter.match('Write terraform for the VPC');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-devops-automator');
+      expect(result?.agentSlug).toBe('DevOps Automator');
     });
 
     it('matches kubernetes/k8s/helm', () => {
-      expect(filter.match('Deploy to kubernetes')?.agentSlug).toBe('engineering-devops-automator');
-      expect(filter.match('Update k8s manifests')?.agentSlug).toBe('engineering-devops-automator');
-      expect(filter.match('Create helm chart')?.agentSlug).toBe('engineering-devops-automator');
+      expect(filter.match('Deploy to kubernetes')?.agentSlug).toBe('DevOps Automator');
+      expect(filter.match('Update k8s manifests')?.agentSlug).toBe('DevOps Automator');
+      expect(filter.match('Create helm chart')?.agentSlug).toBe('DevOps Automator');
     });
 
     it('matches github actions', () => {
       const result = filter.match('Set up GitHub Actions workflow');
       expect(result).not.toBeNull();
-      expect(result?.agentSlug).toBe('engineering-devops-automator');
+      expect(result?.agentSlug).toBe('DevOps Automator');
     });
   });
 
@@ -168,43 +168,37 @@ describe('KeywordPreFilter', () => {
   describe('additional route patterns', () => {
     it('matches solidity / smart contract', () => {
       expect(filter.match('Deploy contract.sol')?.agentSlug).toBe(
-        'engineering-solidity-smart-contract-engineer',
+        'Solidity Smart Contract Engineer',
       );
       expect(filter.match('Write a smart contract')?.agentSlug).toBe(
-        'engineering-solidity-smart-contract-engineer',
+        'Solidity Smart Contract Engineer',
       );
     });
 
     it('matches graphql', () => {
-      expect(filter.match('Create graphql schema')?.agentSlug).toBe(
-        'engineering-graphql-developer',
-      );
+      expect(filter.match('Create graphql schema')?.agentSlug).toBe('Backend Architect');
     });
 
     it('matches database keywords', () => {
-      expect(filter.match('Optimize postgres query')?.agentSlug).toBe(
-        'engineering-database-engineer',
-      );
-      expect(filter.match('Set up redis caching')?.agentSlug).toBe('engineering-database-engineer');
+      expect(filter.match('Optimize postgres query')?.agentSlug).toBe('Database Optimizer');
+      expect(filter.match('Set up redis caching')?.agentSlug).toBe('Database Optimizer');
     });
 
     it('matches git operations', () => {
-      expect(filter.match('git rebase main')?.agentSlug).toBe('engineering-git-workflow-master');
+      expect(filter.match('git rebase main')?.agentSlug).toBe('Git Workflow Master');
     });
 
     it('matches MCP server/builder', () => {
-      expect(filter.match('Build an MCP server')?.agentSlug).toBe('specialized-mcp-builder');
+      expect(filter.match('Build an MCP server')?.agentSlug).toBe('MCP Builder');
     });
 
     it('matches react-native', () => {
-      expect(filter.match('Create a React Native screen')?.agentSlug).toBe(
-        'engineering-react-native-developer',
-      );
+      expect(filter.match('Create a React Native screen')?.agentSlug).toBe('mobile-dev');
     });
 
     it('matches embedded/firmware', () => {
       expect(filter.match('Write firmware for the sensor')?.agentSlug).toBe(
-        'engineering-embedded-firmware-engineer',
+        'Embedded Firmware Engineer',
       );
     });
   });

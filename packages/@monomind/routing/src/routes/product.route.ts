@@ -3,7 +3,7 @@ import type { Route } from '../types.js';
 export const productRoutes: Route[] = [
   {
     name: 'product-manager',
-    agentSlug: 'product-manager',
+    agentSlug: 'planner',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Product management, requirements, roadmap planning',
@@ -22,7 +22,7 @@ export const productRoutes: Route[] = [
   },
   {
     name: 'sprint-prioritizer',
-    agentSlug: 'product-sprint-prioritizer',
+    agentSlug: 'planner',
     threshold: 0.71,
     fallbackToLLM: true,
     description: 'Sprint planning, backlog prioritization, capacity planning',
@@ -39,7 +39,7 @@ export const productRoutes: Route[] = [
   },
   {
     name: 'project-shepherd',
-    agentSlug: 'project-management-project-shepherd',
+    agentSlug: 'planner',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Project management, delivery tracking, risk management',
@@ -58,7 +58,7 @@ export const productRoutes: Route[] = [
   },
   {
     name: 'feedback-synthesizer',
-    agentSlug: 'product-feedback-synthesizer',
+    agentSlug: 'researcher',
     threshold: 0.71,
     fallbackToLLM: true,
     description: 'User feedback analysis, NPS analysis, customer insights',

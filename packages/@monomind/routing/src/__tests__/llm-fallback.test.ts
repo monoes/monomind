@@ -136,6 +136,23 @@ describe('LLMFallbackRouter', () => {
     warnSpy.mockRestore();
   });
 
+  it('accepts spawnable agent names with spaces and punctuation', async () => {
+    const names = [
+      'SRE (Site Reliability Engineer)',
+      'Agentic Identity & Trust Architect',
+      'LSP/Index Engineer',
+    ];
+    for (const name of names) {
+      const routes: Route[] = [
+        { name: 'r', agentSlug: name, utterances: ['x'], threshold: 0.5, fallbackToLLM: true },
+      ];
+      const scores = [{ routeName: 'r', agentSlug: name, score: 0.3 }];
+      const result = await makeFallback(` ${name.toLowerCase()} `).classify('x', routes, scores);
+      expect(result.method).toBe('llm_fallback');
+      expect(result.agentSlug).toBe(name);
+    }
+  });
+
   it('returns canonical casing from route definition', async () => {
     const routes: Route[] = [
       {

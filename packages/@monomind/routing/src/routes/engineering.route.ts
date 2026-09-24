@@ -3,7 +3,7 @@ import type { Route } from '../types.js';
 export const engineeringRoutes: Route[] = [
   {
     name: 'backend-architect',
-    agentSlug: 'engineering-backend-architect',
+    agentSlug: 'Backend Architect',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Backend system architecture, API design, microservices',
@@ -22,7 +22,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'software-architect',
-    agentSlug: 'engineering-software-architect',
+    agentSlug: 'Software Architect',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'High-level software architecture, system design',
@@ -41,7 +41,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'frontend-developer',
-    agentSlug: 'engineering-frontend-developer',
+    agentSlug: 'Frontend Developer',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Frontend development, React, UI components',
@@ -60,7 +60,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'devops-automator',
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'CI/CD, infrastructure automation, DevOps pipelines',
@@ -79,7 +79,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'data-engineer',
-    agentSlug: 'engineering-data-engineer',
+    agentSlug: 'Data Engineer',
     threshold: 0.71,
     fallbackToLLM: true,
     description: 'Data pipelines, ETL, data warehousing, analytics',
@@ -98,7 +98,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'ai-engineer',
-    agentSlug: 'engineering-ai-engineer',
+    agentSlug: 'AI Engineer',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'AI/ML integration, LLM APIs, model deployment',
@@ -117,7 +117,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'sre',
-    agentSlug: 'engineering-sre',
+    agentSlug: 'SRE (Site Reliability Engineer)',
     threshold: 0.71,
     fallbackToLLM: true,
     description: 'Site reliability engineering, observability, incident response',
@@ -136,7 +136,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'mobile-app-builder',
-    agentSlug: 'engineering-mobile-app-builder',
+    agentSlug: 'Mobile App Builder',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'Mobile app development, React Native, iOS, Android',
@@ -155,7 +155,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'database-optimizer',
-    agentSlug: 'engineering-database-optimizer',
+    agentSlug: 'Database Optimizer',
     threshold: 0.71,
     fallbackToLLM: true,
     description: 'Database performance, query optimization, indexing',
@@ -174,7 +174,7 @@ export const engineeringRoutes: Route[] = [
   },
   {
     name: 'rapid-prototyper',
-    agentSlug: 'engineering-rapid-prototyper',
+    agentSlug: 'Rapid Prototyper',
     threshold: 0.68,
     fallbackToLLM: true,
     description: 'Rapid prototyping, proof of concept, MVP development',

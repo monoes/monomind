@@ -3,7 +3,7 @@ import type { Route } from '../types.js';
 export const specializedRoutes: Route[] = [
   {
     name: 'mcp-builder',
-    agentSlug: 'specialized-mcp-builder',
+    agentSlug: 'MCP Builder',
     threshold: 0.75,
     fallbackToLLM: true,
     description: 'MCP server development, tool integration, Claude extensions',
@@ -20,7 +20,7 @@ export const specializedRoutes: Route[] = [
   },
   {
     name: 'compliance-auditor',
-    agentSlug: 'compliance-auditor',
+    agentSlug: 'Compliance Auditor',
     threshold: 0.73,
     fallbackToLLM: true,
     description: 'Regulatory compliance, GDPR, SOC2, audit preparation',
@@ -39,7 +39,7 @@ export const specializedRoutes: Route[] = [
   },
   {
     name: 'lsp-index-engineer',
-    agentSlug: 'lsp-index-engineer',
+    agentSlug: 'LSP/Index Engineer',
     threshold: 0.76,
     fallbackToLLM: true,
     description: 'LSP server development, code intelligence, language tooling',
@@ -56,7 +56,7 @@ export const specializedRoutes: Route[] = [
   },
   {
     name: 'agents-orchestrator',
-    agentSlug: 'agents-orchestrator',
+    agentSlug: 'Agents Orchestrator',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Multi-agent orchestration, swarm coordination, agent workflows',
@@ -72,25 +72,8 @@ export const specializedRoutes: Route[] = [
     ],
   },
   {
-    name: 'salesforce-architect',
-    agentSlug: 'specialized-salesforce-architect',
-    threshold: 0.76,
-    fallbackToLLM: true,
-    description: 'Salesforce development, CRM customization, Apex development',
-    utterances: [
-      'design the Salesforce architecture for the CRM implementation',
-      'write the Apex trigger for the opportunity update workflow',
-      'create the Salesforce Flow for the lead routing process',
-      'implement the Salesforce integration with the ERP system',
-      'design the Salesforce custom objects for the data model',
-      'optimize the SOQL queries in the Apex classes',
-      'create the Lightning Web Components for the custom UI',
-      'configure the Salesforce reports and dashboards',
-    ],
-  },
-  {
     name: 'document-generator',
-    agentSlug: 'specialized-document-generator',
+    agentSlug: 'Technical Writer',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Technical documentation, API docs, architecture docs generation',

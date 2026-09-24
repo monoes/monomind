@@ -3,7 +3,7 @@ import type { Route } from '../types.js';
 export const testingRoutes: Route[] = [
   {
     name: 'accessibility-auditor',
-    agentSlug: 'testing-accessibility-auditor',
+    agentSlug: 'Accessibility Auditor',
     threshold: 0.73,
     fallbackToLLM: true,
     description: 'Accessibility testing, WCAG compliance, screen reader testing',
@@ -22,7 +22,7 @@ export const testingRoutes: Route[] = [
   },
   {
     name: 'api-tester',
-    agentSlug: 'testing-api-tester',
+    agentSlug: 'API Tester',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'API testing, contract testing, endpoint validation',
@@ -41,7 +41,7 @@ export const testingRoutes: Route[] = [
   },
   {
     name: 'performance-benchmarker',
-    agentSlug: 'testing-performance-benchmarker',
+    agentSlug: 'Performance Benchmarker',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'Performance benchmarking, load testing, profiling',
@@ -60,7 +60,7 @@ export const testingRoutes: Route[] = [
   },
   {
     name: 'reality-checker',
-    agentSlug: 'testing-reality-checker',
+    agentSlug: 'production-validator',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Production validation, smoke tests, health checks',
@@ -79,7 +79,7 @@ export const testingRoutes: Route[] = [
   },
   {
     name: 'test-results-analyzer',
-    agentSlug: 'testing-test-results-analyzer',
+    agentSlug: 'Test Results Analyzer',
     threshold: 0.71,
     fallbackToLLM: true,
     description: 'Test result analysis, flaky test detection, coverage reporting',
@@ -98,7 +98,7 @@ export const testingRoutes: Route[] = [
   },
   {
     name: 'workflow-optimizer',
-    agentSlug: 'testing-workflow-optimizer',
+    agentSlug: 'DevOps Automator',
     threshold: 0.68,
     fallbackToLLM: true,
     description: 'Test workflow optimization, CI optimization, test parallelization',
