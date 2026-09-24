@@ -92,6 +92,11 @@
     the last `assistant` message. Omitted only when the turn produced no assistant text. Callers
     that must also work with older monomind versions should still join `assistant` texts when
     `result.text` is absent.
+  - rev 8 (2026-09-17): **org capabilities in the handshake** — the §2 `--version --json` example
+    now shows 2.10.31's capability list, which adds `org-tool-providers` (role tool providers),
+    `org-endpoint-roles` (REST/webhook endpoint roles), `org-federation` (cross-root federation)
+    and `org-decision-attribution` (decision attribution and request-scoped approvals) to
+    `agent-exec`, `agent-scan` and `org-json-v1`. Additive only; no existing capability changed.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
 - **Purpose**: Expose monomind's `AgentRunner` engine (14 local agent CLI runners) and org
