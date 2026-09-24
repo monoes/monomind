@@ -5,6 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
+import { refreshBundledAgents } from './agent-refresh.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
 import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
 import { generateSettings } from './settings-generator.js';
@@ -41,6 +42,10 @@ export interface UpgradeResult {
   addedCommands?: string[];
   /** Added by --settings flag */
   settingsUpdated?: string[];
+  /** Installed agents replaced with the bundled file (only metadata differed). */
+  refreshedAgents?: string[];
+  /** Installed agents left alone because their body differs from the bundle. */
+  keptAgents?: string[];
 }
 
 /**
@@ -300,6 +305,20 @@ export async function executeUpgrade(
         result.created.push('.claude/helpers/statusline.cjs');
       }
       atomicWriteFile(statuslinePath, statuslineContent);
+    }
+
+    // 1.4. Refresh installed agents whose body matches the bundle, so older
+    // installs get the when_to_use/tags/category the pick index ranks on.
+    // Agents with a locally edited body are kept and reported.
+    const sourceAgentsForUpgrade = findSourceDir('agents');
+    if (sourceAgentsForUpgrade) {
+      const agentRefresh = refreshBundledAgents(
+        path.join(targetDir, '.claude', 'agents'),
+        sourceAgentsForUpgrade,
+      );
+      result.refreshedAgents = agentRefresh.refreshed;
+      result.keptAgents = agentRefresh.kept;
+      result.updated.push(...agentRefresh.refreshed.map((rel) => `.claude/agents/${rel}`));
     }
 
     // 1.5. Refresh CLAUDE.md and .monomind/CAPABILITIES.md through their
