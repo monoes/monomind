@@ -668,6 +668,28 @@ export function findSourceHelpersDir(sourceBaseDir?: string): string | null {
   return null;
 }
 
+/** Helper-dir files generated per project, never copied from the package:
+ *  a shipped skill index lists the package's skills, not the project's. */
+export const GENERATED_HELPERS = new Set(['skill-registry.json']);
+
+/**
+ * (Re)generates `<targetDir>/.claude/helpers/skill-registry.json` from the
+ * project's skill trees, ~/.claude/skills and the Org library, with the
+ * package's bundled builder. Returns false when the builder is unavailable.
+ */
+export function regenerateSkillIndex(targetDir: string, sourceHelpersDir?: string | null): boolean {
+  const dir = sourceHelpersDir ?? findSourceHelpersDir();
+  const builder = dir ? path.join(dir, 'build-skill-registry.cjs') : '';
+  if (!builder || !fs.existsSync(builder)) return false;
+  try {
+    const mod = createRequire(import.meta.url)(builder) as { write(root: string): unknown };
+    mod.write(targetDir);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Find source .claude directory for statusline files
  */
