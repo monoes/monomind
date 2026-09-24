@@ -69,7 +69,7 @@ export const coverageRouterTools: MCPTool[] = [
     name: 'coverage_gaps',
     description:
       'List files whose line coverage is below the threshold, each assigned to an ' +
-      'appropriate agent (tester, backend-dev, security-architect, frontend-developer, coder), ' +
+      'appropriate agent (tester, Backend Architect, Security Engineer, Frontend Developer, Database Optimizer, coder), ' +
       'grouped by agent. Useful for fanning out coverage work across a swarm.',
     category: 'coverage',
     tags: ['coverage', 'gaps', 'testing'],

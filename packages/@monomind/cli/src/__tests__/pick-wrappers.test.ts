@@ -31,6 +31,7 @@ const { suggestAgentsForFile: coverageAgentsForFile } = await import(
   '../commands/hooks-coverage-utils.js'
 );
 const { createKeywordRouter } = await import('../monovector/index.js');
+const { assignAgent } = await import('../monovector/coverage-router.js');
 const { routeCommand } = await import('../commands/route.js');
 
 const PICK = {
@@ -177,5 +178,17 @@ describe('file-type agent maps name only real agents', () => {
     const paths = ['a.test.ts', 'src/auth/login.ts', 'src/api/x.ts', 'src/model.ts', 'src/x.ts'];
     const all = paths.flatMap(coverageAgentsForFile);
     expect(all.filter((a) => !names.has(a))).toEqual([]);
+  });
+
+  it('coverage-route gap assignment', () => {
+    const paths = [
+      'src/auth/token.ts',
+      'src/api/x.ts',
+      'src/ui/Page.tsx',
+      'src/db/m.ts',
+      'lib/u.ts',
+      'x.ts',
+    ];
+    expect(paths.map(assignAgent).filter((a) => !names.has(a))).toEqual([]);
   });
 });

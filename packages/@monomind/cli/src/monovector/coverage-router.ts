@@ -282,14 +282,15 @@ function parseLcov(raw: string, source: string): CoverageData {
 // Agent assignment + heuristics
 // ============================================================================
 
-/** Assign a coverage gap to the most appropriate agent based on file path. */
+/** Assign a coverage gap to the most appropriate agent based on file path.
+ *  Every value is a spawnable agent name (a bundled agent's frontmatter `name`). */
 export function assignAgent(filePath: string): string {
   const p = filePath.toLowerCase();
   if (/(security|auth|crypto|password|token|permission|sanitiz)/.test(p))
-    return 'security-architect';
-  if (/(api|route|controller|endpoint|handler|server|http)/.test(p)) return 'backend-dev';
-  if (/(\.tsx|\.jsx|component|ui\/|view|page|render)/.test(p)) return 'frontend-developer';
-  if (/(db|database|migration|schema|model|repository|query)/.test(p)) return 'backend-dev';
+    return 'Security Engineer';
+  if (/(api|route|controller|endpoint|handler|server|http)/.test(p)) return 'Backend Architect';
+  if (/(\.tsx|\.jsx|component|ui\/|view|page|render)/.test(p)) return 'Frontend Developer';
+  if (/(db|database|migration|schema|model|repository|query)/.test(p)) return 'Database Optimizer';
   if (/(util|helper|lib\/|common)/.test(p)) return 'coder';
   return 'tester';
 }
