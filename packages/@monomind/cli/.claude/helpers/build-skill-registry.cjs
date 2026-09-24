@@ -15,16 +15,29 @@
  * /graphify, was itself a phantom). Generating from the live tree is the only
  * way this file stays true.
  *
- * Scope is deliberately project-local (.claude/commands, .claude/skills).
- * User-global plugin skills (~/.claude/plugins) are intentionally excluded —
- * this file is committed and shipped, so machine-specific entries would make
- * it wrong for everyone else.
+ * Scope: the PROJECT's own trees (.claude/commands, .claude/skills), the
+ * user's ~/.claude/skills (source 'user'; project wins a name clash), and the
+ * Org skill library (`orgSkills`, via org-skill-index.cjs). The file is
+ * generated per machine (init, upgrade, SessionStart, `monomind pick`) and is
+ * never committed — a shipped snapshot listed skills a project did not have.
+ * README/overview/reference docs, `_`-prefixed includes and helper-only
+ * skills (HELPER_ONLY, or frontmatter `type: helper`) are not entries.
  *
  * Usage:  node .claude/helpers/build-skill-registry.cjs [projectRoot]
  */
 
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
+var orgIndex = require('./org-skill-index.cjs');
+
+/** Protocol pieces other skills include; never invoked on their own. */
+var HELPER_ONLY = new Set([
+  'mastermind-agent-select', 'mastermind-delegation', 'mastermind-intake',
+  'mastermind-protocol', 'mastermind-repeat', '_repeat', '_taskfile',
+]);
+/** Documentation pages that live beside commands but are not commands. */
+var DOC_NAMES = new Set(['readme', 'overview', 'reference', 'references']);
 
 // Words that carry no routing signal — dropped from derived keywords.
 var STOPWORDS = new Set([
@@ -149,6 +162,16 @@ function isJunk(basename) {
   return basename.startsWith('._') || basename.startsWith('_');
 }
 
+/** Docs and helper-only pieces: README/overview/reference pages (or anything
+ *  under a references/ dir), HELPER_ONLY names, and `type: helper` frontmatter. */
+function isNotACandidate(parts, fm) {
+  for (var i = 0; i < parts.length; i++) {
+    if (DOC_NAMES.has(parts[i].toLowerCase())) return true;
+  }
+  if (HELPER_ONLY.has(parts[parts.length - 1])) return true;
+  return String(fm.type || '').toLowerCase() === 'helper';
+}
+
 function walkMarkdown(dir, out) {
   var entries;
   try {
@@ -184,6 +207,7 @@ function scanCommands(root) {
     try { text = fs.readFileSync(file, 'utf-8'); } catch (e) { continue; }
     var fm = readFrontmatter(text);
     if (String(fm['user-invocable']).toLowerCase() === 'false') continue;
+    if (isNotACandidate(parts, fm)) continue;
 
     var name = fm.name || parts[parts.length - 1];
     var description = fm.description || readLeadingComment(text) || readFirstHeading(text);
@@ -219,9 +243,9 @@ function readCatalogMarker(text, dir) {
   return { id: id, jev: !!m && m[1] === id && m[2] === 'yes' };
 }
 
-/** Scan .claude/skills/<name>/SKILL.md -> Skill() entries. */
-function scanSkills(root) {
-  var base = path.join(root, '.claude', 'skills');
+/** Scan <base>/<name>/SKILL.md -> Skill() entries. `label` is the source
+ *  path prefix written into each entry ('.claude/skills' or '~/.claude/skills'). */
+function scanSkillDir(base, label, origin) {
   if (!fs.existsSync(base)) return [];
   var dirs;
   try {
@@ -232,7 +256,7 @@ function scanSkills(root) {
   var out = [];
   for (var i = 0; i < dirs.length; i++) {
     var d = dirs[i];
-    if (!d.isDirectory() || isJunk(d.name)) continue;
+    if (!(d.isDirectory() || d.isSymbolicLink()) || isJunk(d.name)) continue;
     var skillFile = path.join(base, d.name, 'SKILL.md');
     if (!fs.existsSync(skillFile)) continue;
 
@@ -240,6 +264,7 @@ function scanSkills(root) {
     try { text = fs.readFileSync(skillFile, 'utf-8'); } catch (e) { continue; }
     var fm = readFrontmatter(text);
     if (String(fm['user-invocable']).toLowerCase() === 'false') continue;
+    if (isNotACandidate([d.name], fm)) continue;
 
     var name = fm.name || d.name;
     var description = fm.description || readLeadingComment(text) || readFirstHeading(text);
@@ -252,24 +277,59 @@ function scanSkills(root) {
       nameTerms: nameTerms,
       keywords: deriveKeywords(description, nameTerms),
       category: 'skill',
-      source: '.claude/skills/' + d.name + '/SKILL.md',
+      source: label + '/' + d.name + '/SKILL.md',
     };
-    var catalog = readCatalogMarker(text, d.name);
+    if (origin) entry.origin = origin;
+    var catalog = origin ? null : readCatalogMarker(text, d.name);
     if (catalog) entry.catalog = catalog;
     out.push(entry);
   }
   return out;
 }
 
-function build(root) {
-  var entries = scanCommands(root).concat(scanSkills(root));
+/** Project skills, then the user's ~/.claude/skills for names the project lacks. */
+function scanSkills(root, opts) {
+  var project = scanSkillDir(path.join(root, '.claude', 'skills'), '.claude/skills');
+  if (opts && opts.user === false) return project;
+  var taken = new Set(project.map(function (e) { return e.skill; }));
+  var user = scanSkillDir(path.join(homeDir(opts), '.claude', 'skills'), '~/.claude/skills', 'user')
+    .filter(function (e) { return !taken.has(e.skill); });
+  return project.concat(user);
+}
+
+function homeDir(opts) {
+  return (opts && opts.home) || os.homedir();
+}
+
+function indexPath(root) {
+  return path.join(root, '.claude', 'helpers', 'skill-registry.json');
+}
+
+function readIndex(root) {
+  try {
+    return JSON.parse(fs.readFileSync(indexPath(root), 'utf-8'));
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * The index for `root`. opts: { home, env, user (false = skip ~/.claude/skills),
+ * bundledDir (the CLI's org-skills dir; else the one the last build recorded) }.
+ */
+function build(root, opts) {
+  opts = Object.assign({}, opts);
+  var prev = readIndex(root);
+  var prevMeta = (prev && prev._meta) || {};
+  if (!opts.bundledDir && typeof prevMeta.bundledOrgSkillsDir === 'string') opts.bundledDir = prevMeta.bundledOrgSkillsDir;
+  var entries = scanCommands(root).concat(scanSkills(root, opts));
+  var orgSkills = orgIndex.scanOrgSkills(root, opts);
+  var bundled = orgIndex.bundledOrgSkillsDir(root, opts);
 
   // Preserve hand-tuned keywords for entries that still resolve by the same
   // key, so manual curation isn't blown away on every regeneration.
-  var registryPath = path.join(root, '.claude', 'helpers', 'skill-registry.json');
   var curated = {};
   try {
-    var prev = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
     var prevList = (prev && prev.skills) || [];
     for (var i = 0; i < prevList.length; i++) {
       var p = prevList[i];
@@ -296,9 +356,9 @@ function build(root) {
     _meta: {
       version: '2.0.0',
       description:
-        'Auto-generated index of project-local slash commands (.claude/commands) and ' +
-        'skills (.claude/skills). Read by router.cjs matchSkills() to suggest a skill ' +
-        'for a routed task.',
+        'Auto-generated index of the project\'s slash commands (.claude/commands) and ' +
+        'skills (.claude/skills), the user\'s ~/.claude/skills, and the Org skill library ' +
+        '(orgSkills). Read by router.cjs matchSkills() and jev-catalog.cjs.',
       generatedBy: '.claude/helpers/build-skill-registry.cjs',
       regenerate: 'node .claude/helpers/build-skill-registry.cjs',
       note:
@@ -306,30 +366,87 @@ function build(root) {
         'an entry, add a "curatedKeywords" array to it; those survive regeneration and ' +
         'take precedence over derived ones.',
       scope:
-        'Project-local only. User-global plugin skills (~/.claude/plugins) are excluded ' +
-        'on purpose — this file is committed, so machine-specific entries would be wrong ' +
-        'for other checkouts.',
+        'Generated per machine — never commit it. Regenerated by init, upgrade, ' +
+        'SessionStart and `monomind pick` when a source tree is newer than this file.',
+      bundledOrgSkillsDir: bundled,
       counts: {
         commands: entries.filter(function (e) { return e.kind === 'command'; }).length,
         skills: entries.filter(function (e) { return e.kind === 'skill'; }).length,
+        user: entries.filter(function (e) { return e.origin === 'user'; }).length,
+        orgSkills: orgSkills.length,
         total: entries.length,
       },
     },
     skills: entries,
+    orgSkills: orgSkills,
   };
+}
+
+/** Writes build(root, opts) to .claude/helpers/skill-registry.json atomically. */
+function write(root, opts) {
+  var registry = build(root, opts);
+  var outPath = indexPath(root);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  var tmp = outPath + '.' + process.pid + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
+  fs.renameSync(tmp, outPath);
+  return registry;
+}
+
+/** Newest mtime of a skills root: the dir, each skill dir and its SKILL.md. */
+function skillTreeMtime(base) {
+  var newest = mtime(base);
+  var names;
+  try { names = fs.readdirSync(base); } catch (e) { return newest; }
+  names.forEach(function (n) {
+    newest = Math.max(newest, mtime(path.join(base, n)), mtime(path.join(base, n, 'SKILL.md')));
+  });
+  return newest;
+}
+
+function mtime(p) {
+  try { return fs.statSync(p).mtimeMs; } catch (e) { return 0; }
+}
+
+/** Newest mtime across every source the index is built from (a cheap stat
+ *  scan; the shipped org library counts by its directory only). */
+function sourcesMtime(root, opts) {
+  var newest = Math.max(
+    skillTreeMtime(path.join(root, '.claude', 'skills')),
+    mtime(path.join(root, '.monomind', 'catalog', 'state.json')),
+    mtime(__filename),
+    mtime(require.resolve('./org-skill-index.cjs'))
+  );
+  walkMarkdown(path.join(root, '.claude', 'commands'), []).forEach(function (f) {
+    newest = Math.max(newest, mtime(f), mtime(path.dirname(f)));
+  });
+  if (!opts || opts.user !== false) newest = Math.max(newest, skillTreeMtime(path.join(homeDir(opts), '.claude', 'skills')));
+  orgIndex.orgSkillRoots(root, opts).forEach(function (r) {
+    newest = Math.max(newest, r.origin === 'bundled' ? mtime(r.dir) : skillTreeMtime(r.dir));
+  });
+  return newest;
+}
+
+/** True when the index is missing or older than one of its sources. */
+function isStale(root, opts) {
+  var at = mtime(indexPath(root));
+  return at === 0 || sourcesMtime(root, opts) >= at;
+}
+
+/** The index for `root`, rebuilt and written first when stale. */
+function ensure(root, opts) {
+  if (isStale(root, opts)) return write(root, opts);
+  return readIndex(root) || write(root, opts);
 }
 
 function main() {
   var root = process.argv[2] || process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  var registry = build(root);
-  var outPath = path.join(root, '.claude', 'helpers', 'skill-registry.json');
-  var tmp = outPath + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
-  fs.renameSync(tmp, outPath);
+  var registry = write(root);
   process.stdout.write(
     'skill-registry.json: ' + registry._meta.counts.total + ' entries (' +
     registry._meta.counts.commands + ' commands, ' +
-    registry._meta.counts.skills + ' skills)\n'
+    registry._meta.counts.skills + ' skills, ' +
+    registry._meta.counts.orgSkills + ' org skills)\n'
   );
 }
 
@@ -337,6 +454,11 @@ if (require.main === module) main();
 
 module.exports = {
   build: build,
+  write: write,
+  isStale: isStale,
+  ensure: ensure,
+  indexPath: indexPath,
+  HELPER_ONLY: HELPER_ONLY,
   readFrontmatter: readFrontmatter,
   deriveNameTerms: deriveNameTerms,
   deriveKeywords: deriveKeywords,

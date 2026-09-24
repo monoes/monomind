@@ -10,8 +10,6 @@
  * 3000). Nothing configured → no network, and pick() resolves null so every
  * caller keeps its existing routing.
  */
-var fs = require('fs');
-var path = require('path');
 var redaction = require('./redact-secrets.cjs');
 
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
@@ -28,7 +26,6 @@ var DEFAULT_MAX_CANDIDATES = 30;
 var MAX_DESCRIPTION_CHARS = 160;
 var MAX_STATE_CHARS = 8000;
 var MAX_RESPONSE_CHARS = 1024 * 1024;
-var MAX_CATALOG_BYTES = 5 * 1024 * 1024;
 var NONE_ID = '__none__';
 var OFF_VALUES = ['0', 'off', 'false', 'no'];
 var ON_VALUES = ['1', 'on', 'true', 'yes'];
@@ -375,104 +372,22 @@ function acceptSkills(answer, env, max) {
 }
 
 // ── Catalogs ───────────────────────────────────────────────────────────────
+// The loaders live in jev-catalog.cjs, shared with the CLI. Without it (a
+// half-installed helpers dir) the catalogs are empty and routing stays keyword.
 
-function readJsonFile(file) {
-  try {
-    if (!fs.existsSync(file) || fs.statSync(file).size > MAX_CATALOG_BYTES) return null;
-    return JSON.parse(fs.readFileSync(file, 'utf-8'));
-  } catch (e) {
-    return null;
-  }
+var catalog = null;
+try {
+  catalog = require('./jev-catalog.cjs');
+} catch (e) {
+  catalog = null;
 }
 
-function strings(list) {
-  return (Array.isArray(list) ? list : []).filter(function (s) {
-    return typeof s === 'string';
-  });
-}
-
-/** Agents from .monomind/registry.json (built by registry-builder.ts). */
 function loadAgentCatalog(root) {
-  var reg = readJsonFile(path.join(root, '.monomind', 'registry.json'));
-  var list = reg && Array.isArray(reg.agents) ? reg.agents : [];
-  var out = [];
-  var seen = new Set();
-  list.forEach(function (a) {
-    if (!a || typeof a.slug !== 'string' || a.deprecated === true || seen.has(a.slug)) return;
-    seen.add(a.slug);
-    var category = typeof a.category === 'string' ? a.category : '';
-    out.push({
-      id: a.slug,
-      name: typeof a.name === 'string' ? a.name : a.slug,
-      category: category,
-      description: typeof a.description === 'string' ? a.description : '',
-      text: [category].concat(strings(a.capabilities), strings(a.taskTypes)).filter(Boolean).join(' '),
-    });
-  });
-  return out;
+  return catalog ? catalog.loadAgentCatalog(root) : [];
 }
 
-/** .monomind/catalog/state.json as { ok, known, allowed } skill-name sets, where
- *  allowed = active with the jev target; null when there is no state file. */
-function catalogJevGate(root) {
-  var file = path.join(root, '.monomind', 'catalog', 'state.json');
-  if (!fs.existsSync(file)) return null;
-  var state = readJsonFile(file);
-  var gate = { ok: !!state && Array.isArray(state.entries), known: new Set(), allowed: new Set() };
-  (gate.ok ? state.entries : []).forEach(function (e) {
-    if (!e || typeof e.id !== 'string' || e.id.indexOf('skill:') !== 0) return;
-    gate.known.add(e.id.slice(6));
-    if (e.status === 'active' && Array.isArray(e.targets) && e.targets.indexOf('jev') !== -1) {
-      gate.allowed.add(e.id.slice(6));
-    }
-  });
-  return gate;
-}
-
-function isProjectedCopy(root, source) {
-  var file = typeof source === 'string' ? path.resolve(root, source) : '';
-  if (file.indexOf(path.resolve(root) + path.sep) !== 0) return false;
-  try {
-    if (fs.statSync(file).size > MAX_CATALOG_BYTES) return false;
-    return fs.readFileSync(file, 'utf-8').indexOf('monomind:start catalog:skill:') !== -1;
-  } catch (e) {
-    return false;
-  }
-}
-
-/** The catalog state decides, not the (possibly stale) projection marker: a
- *  disabled, revoked or no-jev entry drops out before re-projection, and an
- *  unreadable state drops every marked skill (fail closed). A hand-written
- *  namesake passes; an unmarked projected copy (old builder) does not. */
-function jevAllowed(gate, s, root) {
-  if (s.catalog && (!gate.ok || !gate.allowed.has(String(s.catalog.id).replace(/^skill:/, '')))) return false;
-  return !gate.known.has(s.skill) || gate.allowed.has(s.skill) || (!s.catalog && !isProjectedCopy(root, s.source));
-}
-
-/** Skills/commands from .claude/helpers/skill-registry.json (build-skill-registry.cjs).
- *  Command/skill mirrors of one capability collapse, preferring the slash form. */
-function loadSkillCatalog(root) {
-  var reg = readJsonFile(path.join(root, '.claude', 'helpers', 'skill-registry.json'));
-  var list = reg && Array.isArray(reg.skills) ? reg.skills : [];
-  var gate = catalogJevGate(root);
-  var byKey = new Map();
-  list.forEach(function (s) {
-    if (!s || typeof s.skill !== 'string' || typeof s.invoke !== 'string') return;
-    // A catalog projection reaches the decision model only when approved with
-    // the jev target; ordinary skills carry no catalog field and are unaffected.
-    if (s.catalog && s.catalog.jev !== true) return;
-    if (gate && !jevAllowed(gate, s, root)) return;
-    var key = s.skill.toLowerCase().replace(/[:_]/g, '-');
-    var prev = byKey.get(key);
-    if (prev && !(s.invoke.charAt(0) === '/' && prev.invoke.charAt(0) !== '/')) return;
-    byKey.set(key, {
-      id: s.skill,
-      invoke: s.invoke,
-      description: typeof s.description === 'string' ? s.description : '',
-      text: strings(s.nameTerms).concat(strings(s.keywords)).join(' '),
-    });
-  });
-  return Array.from(byKey.values());
+function loadSkillCatalog(root, opts) {
+  return catalog ? catalog.loadSkillCatalog(root, opts) : [];
 }
 
 module.exports = {

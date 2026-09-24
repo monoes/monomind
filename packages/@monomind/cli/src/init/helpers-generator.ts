@@ -1325,11 +1325,18 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   'monograph-freshen.cjs': { forceSync: true, doctorTracked: true },
   'control-start.cjs': { forceSync: true, doctorTracked: true },
   'router.cjs': { forceSync: true, doctorTracked: true, generate: generateAgentRouter },
-  // Regenerates skill-registry.json (which router.cjs's matchSkills reads) from
-  // the live .claude/commands + .claude/skills trees. No fallback generator:
-  // if it can't be copied there is nothing to regenerate the registry with, and
-  // router.cjs degrades to its built-in FALLBACK_SKILLS rather than breaking.
+  // Regenerates skill-registry.json (which router.cjs's matchSkills and
+  // jev-catalog.cjs read) from the live skill trees and the Org library. No
+  // fallback generator: if it can't be copied there is nothing to regenerate
+  // the registry with, and router.cjs degrades to its built-in FALLBACK_SKILLS
+  // rather than breaking. init/upgrade run it; the index is never copied.
   'build-skill-registry.cjs': { forceSync: true, doctorTracked: true },
+  // The Org skill library read from CommonJS; required by build-skill-registry.cjs
+  // and jev-catalog.cjs.
+  'org-skill-index.cjs': { forceSync: true, doctorTracked: true },
+  // The Jev candidate catalogs (agents + unified skills), required by
+  // jev-picker.cjs; without it the catalogs are empty and routing stays keyword.
+  'jev-catalog.cjs': { forceSync: true, doctorTracked: true },
   // The Jev decision-model picker, required by handlers/route-handler.cjs and
   // by the CLI's src/decision/jev.ts. No fallback generator: without it the
   // hook keeps keyword routing.
