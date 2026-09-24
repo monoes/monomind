@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   vi.restoreAllMocks();
 });
 
@@ -270,12 +270,37 @@ describe('edit-handler monograph rebuild', () => {
     process.env.npm_config_cache = path.join(tmpDir, 'no-npm-cache');
     delete require.cache[RESOLVE_PATH];
   });
-  afterEach(() => {
+  afterEach(async () => {
+    // The detached rebuild writes rebuild-status.json and removes the lock
+    // after buildAsync returns; wait for it to exit so removing tmpDir can't
+    // race those writes (ENOTEMPTY).
+    await waitForRebuildExit(path.join(tmpDir, '.monomind', 'graph', '.rebuild-lock'));
     process.env.PATH = savedEnv.PATH;
     if (savedEnv.npm_config_cache === undefined) delete process.env.npm_config_cache;
     else process.env.npm_config_cache = savedEnv.npm_config_cache;
     delete require.cache[RESOLVE_PATH];
   });
+
+  // The rebuild child's PID is in the lock until it removes the lock, its
+  // last act. Polls asynchronously so this process can reap its child.
+  async function waitForRebuildExit(lock, ms = 10000) {
+    let pid;
+    try {
+      pid = parseInt(fs.readFileSync(lock, 'utf-8'), 10);
+    } catch {
+      return;
+    }
+    if (!(pid > 0) || pid === process.pid) return;
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  }
 
   function waitFor(pred, ms = 8000) {
     const end = Date.now() + ms;

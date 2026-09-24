@@ -56,14 +56,40 @@ function createFakeMonograph(dir) {
   );
 }
 
+// Wait for the detached rebuild freshen started (its PID is in build.pid) to
+// exit, so removing tmpDir can't race its last writes (rebuild-status.json,
+// build.log).
+async function waitForRebuildExit(ms = 10000) {
+  let pid;
+  try {
+    pid = parseInt(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'graph', 'build.pid'), 'utf-8'),
+      10,
+    );
+  } catch {
+    return;
+  }
+  if (!(pid > 0)) return;
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
 let tmpDir;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gf-test-'));
 });
 
-afterEach(() => {
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+afterEach(async () => {
+  await waitForRebuildExit();
+  fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 // ── no monograph ─────────────────────────────────────────────────────────────

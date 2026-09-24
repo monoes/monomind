@@ -98,15 +98,35 @@ function staleGraphRepo(dir, extra) {
 
 const NOWHERE = { globalRoot: null, npxCacheDir: '/nonexistent-npx-cache', pathEnv: '' };
 
+// Wait for detached rebuilds to exit so removing `tmp` can't race their last
+// writes (rebuild-status.json, build.log). Polls asynchronously so this
+// process can reap them.
+async function waitForExit(pids, ms = 10000) {
+  const end = Date.now() + ms;
+  for (const pid of pids) {
+    while (Date.now() < end) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  }
+}
+
 let tmp;
 let project;
+let children;
 beforeEach(() => {
+  children = [];
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mg-resolve-'));
   project = path.join(tmp, 'project');
   fs.mkdirSync(project, { recursive: true });
 });
-afterEach(() => {
-  fs.rmSync(tmp, { recursive: true, force: true });
+afterEach(async () => {
+  await waitForExit(children);
+  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe('resolveMonographEntry', () => {
@@ -174,6 +194,7 @@ describe('startRebuild', () => {
     fs.mkdirSync(path.dirname(lockPath), { recursive: true });
     fs.writeFileSync(lockPath, String(process.pid));
     const r = mod.startRebuild(project, { resolved, lockPath });
+    children.push(r.pid);
     expect(r.mode).toBe('module');
     expect(waitFor(() => fs.existsSync(marker))).toBe(true);
     expect(fs.readFileSync(marker, 'utf-8')).toBe(project);
@@ -188,6 +209,7 @@ describe('startRebuild', () => {
     fs.writeFileSync(bin, `#!/bin/sh\necho "$@" > ${JSON.stringify(argsFile)}\n`);
     fs.chmodSync(bin, 0o755);
     const r = loadMod().startRebuild(project, { resolved: null });
+    children.push(r.pid);
     expect(r.mode).toBe('cli');
     expect(
       waitFor(() => fs.existsSync(argsFile) && fs.readFileSync(argsFile, 'utf-8')),
@@ -202,7 +224,7 @@ describe('startRebuild', () => {
     });
     const mod = loadMod();
     const resolved = mod.resolveMonographEntry(project, { ...NOWHERE, globalRoot });
-    mod.startRebuild(project, { resolved });
+    children.push(mod.startRebuild(project, { resolved }).pid);
     expect(waitFor(() => mod.readRebuildStatus(project)?.ok === false)).toBe(true);
     const status = mod.readRebuildStatus(project);
     expect(status.reason).toBe('native');
