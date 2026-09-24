@@ -672,9 +672,24 @@ const watchCommand: Command = {
       const watcher = new MonographWatcher(root);
       watcher.on('monograph:updated', () => {
         output.writeln(output.dim('  [watch] File change detected, rebuilding…'));
-        buildAsync(root, { codeOnly: false, llmMaxSections }).catch((err: Error) => {
-          output.writeln(output.dim(`  [watch] Rebuild error: ${formatErrorWithCause(err)}`));
-        });
+        buildAsync(root, {
+          codeOnly: false,
+          llmMaxSections,
+          // Without this, a lock-skip or fresh-skip from acquireBuildLock()
+          // (orchestrator.ts) is silently swallowed — watch mode gives zero
+          // feedback and looks permanently hung instead of reporting the skip.
+          onProgress: (p: { phase: string; message?: string }) => {
+            if (p.phase === 'skip') {
+              output.writeln(output.dim(`  [watch] ${p.message ?? 'Rebuild skipped'}`));
+            }
+          },
+        })
+          .then(() => {
+            output.writeln(output.dim('  [watch] Rebuild complete.'));
+          })
+          .catch((err: Error) => {
+            output.writeln(output.dim(`  [watch] Rebuild error: ${formatErrorWithCause(err)}`));
+          });
       });
       await watcher.start();
 
