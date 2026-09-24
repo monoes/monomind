@@ -144,6 +144,17 @@ those, never values remembered from an earlier run.
   finish well inside that limit — one suite or package per call
   (`pnpm --filter <pkg> test`), one drill per call — each logging to its own
   `$GATE/logs/…` file.
+- A live org drill (`monomind org run` of a throwaway org) is bounded by
+  `timeout`, because `org run` has no run-time limit of its own:
+  `timeout -k 30 480 monomind org run <org> --task '…' -y > <log> 2>&1; echo "exit=$?" >> <log>`.
+  Exit 124 means the drill did not finish in 8 minutes: report it as a
+  finding with the bus log, never re-run it in a loop. In 2.16.2 an unbounded
+  drill ran into the 10-minute Bash limit.
+- Never run `scripts/check-published-pins.mjs` or a package's `prepublishOnly`
+  outside PUBLISH: it asks npm whether each pinned version exists and waits
+  ~8.5 minutes when one does not, and before PUBLISH this release's own
+  versions never do. `pnpm publish` runs it by itself. In 2.16.2 it cost PREP
+  and the final gate 8.6 and 5 minutes of pure waiting.
 - Never use `run_in_background`, and never end your turn to "wait" for a
   command, a Monitor event or anything external (npm propagation, a Pages
   run): nothing wakes a task whose turn ended to wait except its blocked-task
