@@ -953,7 +953,8 @@ if (command && handlers[command]) {
       try { _recordHookLatency(command, Date.now() - _hookStart); } catch (_) {}
     }
   } else if (command) {
-    console.log('[OK] Hook: ' + command);
+    // SubagentStart runs `status`: an acknowledgement only, silent under QUIET.
+    if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[OK] Hook: ' + command);
   } else {
     console.log('Usage: hook-handler.cjs <route|pre-agent|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
   }
