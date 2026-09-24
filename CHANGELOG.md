@@ -2,6 +2,18 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Added
+
+- **`monomind doctor --json`, advertised as capability `doctor-json`.** stdout holds one JSON document with every check's result, the `component` id that re-runs it (`-c`), and how its fix is applied: `auto` (local and repeatable, by `--fix`), `confirm` (installs software or runs network or `sudo` commands, so the caller asks a person first, then passes the flag the result names) or `manual`. With `--fix` it also lists what was fixed. Everything a check or fix prints, and the subprocesses a fix runs, go to stderr. An unknown `-c` name comes back as the payload's `error`. mono-agent uses this to show and fix monomind's checks in its Settings › System health, per project. Contract: `doc/agent-exec-protocol.md` §10.
+- **`agent scan --json` entries carry `install` and `login_hint`.** `install` is the install hint in a shape a caller can run without a shell — `npm` packages, an https install `script` for bash/sh, or `manual` for anything else — and `login_hint` is the runtime's sign-in command, as text to show a person — never something to run. An install script URL must be a plain https URL; a hint with shell syntax, credentials in the URL or an npm version range is `manual`. mono-agent's `agent install` and its Agents page use them.
+
+### Fixed
+
+- **The "update available" notice goes to stderr.** It was written to stdout on the first run of any command after a release, ahead of the JSON of `agent scan --json`, `doctor --json` and the org `--json` commands, so callers such as mono-agent failed to parse it ("invalid character '↑'"). stdout now holds only the command's own output.
+- **`-v` debug lines go to stderr.** `[DEBUG]` and `[TRACE]` lines, and the "Completed in …ms" line, were written to stdout, so `-v` with a `--json` command put them ahead of the JSON. They now go to stderr, like `[INFO]`.
+
 ## [2.16.2] — 2026-09-24
 
 ### Changed

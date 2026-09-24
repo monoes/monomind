@@ -29,6 +29,9 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `org-idle-deadline` — `org status --json` reports `idle_stop_at`,
  *    `idle_stop_in_seconds`, `idle_hold` and `idle_hold_until` for a running
  *    org (every hold carries a deadline — ADR-O001 D4)
+ *  - `doctor-json` — `doctor --json` prints its results as JSON (each with its
+ *    component id and fix safety), and `doctor --fix --json` / `--install
+ *    --json` add the fix outcomes (doc/agent-exec-protocol.md §10)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -39,6 +42,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-endpoint-roles',
   'org-federation',
   'org-idle-deadline',
+  'doctor-json',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */

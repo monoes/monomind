@@ -502,7 +502,10 @@ export class CLI {
       // Notify-only: never auto-install (GitHub issue #83).
       const available = result.updatesAvailable.filter((u) => u.updateType !== 'none');
       if (available.length > 0) {
-        this.output.writeln(
+        // stderr, not stdout: `--json` commands (agent scan, doctor, org
+        // observe) promise stdout holds only their JSON (protocol §3.2), and
+        // this notice fires on the first run of any command after a release.
+        this.output.writeErrorln(
           this.output.dim(
             `  ↑ ${available.map((u) => `${u.package} v${u.latestVersion}`).join(', ')} available  →  run: npm install -g ${this.name}@latest`,
           ),
