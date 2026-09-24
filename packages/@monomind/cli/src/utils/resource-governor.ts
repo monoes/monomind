@@ -152,7 +152,38 @@ export interface ProcEntry {
 const SDK_CMD_RE = /claude-agent-sdk[\s\S]*--output-format|--output-format[\s\S]*claude-agent-sdk/;
 // A still-running claude/monomind session anywhere up a process's parent
 // chain owns it: Claude Code itself, an SDK process, or a monomind daemon.
-const LIVE_SESSION_RE = /\bclaude\b|monomind/i;
+// This is decided by the EXECUTABLE NAME (argv0, or the basename of any
+// argv token that names a program) — never a substring match against the
+// whole command text. A wrapped shell script can legitimately mention
+// ".claude"-prefixed paths (Claude Code's own shell-snapshot sourcing) or a
+// "claude-http-*.sock" name for reasons unrelated to being a live session;
+// a loose `/\bclaude\b|monomind/i` test against the full multi-line script
+// body matches those incidental mentions and wrongly shields every orphan
+// under that ancestor.
+const LIVE_SESSION_EXEC_RE = /^(claude|monomind)$/i;
+// bwrap (the sandbox every org role's actual runtime is confined by) keeps
+// the bind-mount arguments it was invoked with in ITS OWN cmdline, e.g.
+// `bwrap --ro-bind /home/user/.claude /home/user/.claude -- <command>`.
+// Those are sandbox plumbing, not evidence of a live session, and every
+// orphan's parent chain inside the sandbox terminates at this same wrapper.
+// bwrap always separates its own options from the wrapped command with a
+// literal ` -- `, so only the wrapped-command portion (if any) is real
+// evidence; the bind-mount flags before it are not.
+const BWRAP_RE = /(^|\/)bwrap\b/;
+const liveSessionCmd = (cmd: string): string => {
+  if (!BWRAP_RE.test(cmd)) return cmd;
+  const sep = cmd.indexOf(' -- ');
+  return sep < 0 ? '' : cmd.slice(sep + 4);
+};
+// True when `cmd` (after unwrapping bwrap's own args above) is ITSELF a
+// claude-agent-sdk, Claude Code or monomind process — judged by its own
+// executable name(s), not by whether some argument or path elsewhere on the
+// line happens to contain those words.
+const isLiveSessionCmd = (cmd: string): boolean => {
+  const target = liveSessionCmd(cmd);
+  if (SDK_CMD_RE.test(target)) return true;
+  return target.split(/\s+/).some((tok) => LIVE_SESSION_EXEC_RE.test(tok.split('/').pop() ?? tok));
+};
 // Fallback-only (no session ids, e.g. macOS `ps`): a parent other than pid 1
 // counts as a subreaper only if it is an init/systemd by name.
 const INIT_SUBREAPER_RE = /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/;
@@ -279,7 +310,7 @@ export function selectOrphanedSdkPids(
     if (chain.some((a) => a.pid === selfPid)) continue; // our own descendant
     if (self.sid !== undefined && c.sid === self.sid) continue;
     if (self.pgrp !== undefined && c.pgrp === self.pgrp) continue;
-    if (chain.some((a) => LIVE_SESSION_RE.test(a.cmd))) continue;
+    if (chain.some((a) => isLiveSessionCmd(a.cmd))) continue;
     const parent = byPid.get(c.ppid);
     if (!parent) {
       if (c.ppid !== 1) continue;
