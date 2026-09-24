@@ -101,7 +101,8 @@
     `monomind doctor --json` (§10) prints the health checks as one JSON document with a stable
     `component` id and fix safety per result, so a caller (mono-agent's Settings › System health)
     can show and apply monomind's own checks. `agent scan --json` entries gain `install` (the
-    `install_hint` as `npm` packages, an https `script`, or `manual`) and `login_hint` (§6).
+    `install_hint` as `npm` packages, an https `script`, or `manual`) and `login_hint`, display
+    text never to be executed (§6).
     Additive only.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
@@ -129,7 +130,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"v":1,"version":"2.16.1","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json"]}
+{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
@@ -318,9 +319,14 @@ hint in `message` (§3.4).
 ```
 
 `install` is derived from `install_hint` and only takes the two shapes a caller can run without a
-shell: `npm install -g <packages>` (each a plain package spec) and `curl -fsSL https://… | bash|sh`.
-Anything else — prose, a plain `npm install`, extra shell syntax — is `manual`, and the caller
-shows `install_hint` to a person instead.
+shell: `npm install -g <packages>` (each a plain package spec whose version, if any, is a tag or an
+exact, `^` or `~` version — no ranges or wildcards) and `curl -fsSL <url> | bash|sh`, where `<url>`
+is a plain https URL (host, then a path of letters, digits and `._~/-`; no credentials, query or
+shell syntax). Anything else — prose, a plain `npm install`, extra shell syntax — is `manual`, and
+the caller shows `install_hint` to a person instead.
+
+`login_hint` is display text for a person (`claude login`, `kimi (interactive first run)`); a
+caller shows it and never executes it.
 
 ## 7. Org observe contracts
 
@@ -458,7 +464,7 @@ protocol already supported better.
 ```
 $ monomind doctor --json            # all checks for the cwd's project
 $ monomind doctor -c helpers --fix --json
-{"v":1,"cwd":"/path/to/project","success":true,
+{"v":1,"cwd":"/path/to/project","success":true,"error":null,
  "summary":{"passed":20,"warnings":3,"failed":0,"info":4},
  "results":[
   {"component":"helpers","name":"Helper Files","status":"warn","message":"48 stale helper(s): …",
@@ -469,13 +475,18 @@ $ monomind doctor -c helpers --fix --json
  "fixes":[{"component":"helpers","outcome":"applied"}]}
 ```
 
-- stdout holds exactly this one document; everything a check or fix prints goes to stderr.
+- stdout holds exactly this one document; everything a check or fix prints (including the
+  subprocesses a fix runs, and `-v` debug lines) goes to stderr.
   Exit code as without `--json` (1 when a check failed).
 - `component` is the `-c` name that runs the check again on its own; one component can yield
   several results (same `component`, different `name`). `status` is `pass|warn|fail|info`.
 - `fix` is the hint text. `fix_safety` says how it is applied: `auto` — local and repeatable,
-  applied by `--fix`; `confirm` — installs software, applied by `--install` (`fix_flag` names the
-  flag); `manual` — a person follows the hint (`fix_flag` null).
+  applied by `--fix`; `confirm` — installs software or runs network or `sudo` commands (the Claude
+  Code CLI by `--install`, the monoes tools by `--fix`), so the caller asks a person first;
+  `manual` — a person follows the hint (`fix_flag` null). `fix_flag` names the flag that applies an
+  `auto` or `confirm` fix. Safety is per result: one component can have an `auto` warning and a
+  `manual` one (e.g. `helpers`: stale copies are `auto`, hooks left over from a rename `manual`).
+- `error` is null, or why no checks ran (`unknown component "<name>"` for a bad `-c`).
 - `fixes` lists what `--fix`/`--install` attempted in this run (`applied|failed`); results then
   show the re-checked state.
 - Checks run against the process cwd, so a caller runs it with cwd = the project to check.

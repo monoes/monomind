@@ -25,6 +25,11 @@ export interface HealthCheck {
   status: 'pass' | 'warn' | 'fail' | 'info';
   message: string;
   fix?: string;
+  /**
+   * How `fix` is applied, when it differs by result rather than by component
+   * (see FIX_APPLY in doctor-json.ts); `doctor --json`'s `fix_safety`.
+   */
+  fixSafety?: 'auto' | 'confirm' | 'manual';
 }
 
 export async function runCommand(command: string, timeoutMs = 5000): Promise<string> {

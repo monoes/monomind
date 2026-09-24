@@ -25,6 +25,7 @@ import {
   installClaudeCode,
 } from './doctor-env-checks.js';
 import { checkHookMonograph } from './doctor-hook-monograph-checks.js';
+import { type DoctorResult, doctorJsonPayload } from './doctor-json.js';
 import {
   checkMonoesTokenExposure,
   checkMonoesTools,
@@ -290,7 +291,13 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     return {
       success: false,
       exitCode: 1,
-      data: { passed: 0, warnings: 0, failed: 1, results: [] },
+      data: {
+        passed: 0,
+        warnings: 0,
+        failed: 1,
+        results: [],
+        error: `unknown component "${component}"`,
+      },
     };
   }
 
@@ -388,85 +395,46 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
   // Claude Code CLI, which is a real install (network fetch + binary setup)
   // — kept opt-in separately so `--fix` alone never triggers that.
   if (autoInstall || showFix) {
-    const claudeResult = results.find((r) => r.name === 'Claude Code CLI');
-    if (autoInstall && claudeResult && claudeResult.status !== 'pass') {
-      const fixed = await installClaudeCode();
-      fixOutcomes.push({ component: 'claude', outcome: fixed ? 'applied' : 'failed' });
-      if (fixed) {
-        const newCheck = await checkClaudeCode();
-        const idx = results.findIndex((r) => r.name === 'Claude Code CLI');
-        if (idx !== -1) {
-          results[idx] = { ...newCheck, component: results[idx].component };
-          const fixIdx = fixes.findIndex((f) => f.startsWith('Claude Code CLI:'));
-          if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
-        }
-        output.writeln(formatCheck(newCheck));
+    const needsFix = (name: string) => results.some((r) => r.name === name && r.status !== 'pass');
+    const applyFix = async (
+      name: string,
+      component: string,
+      fix: () => Promise<boolean>,
+      recheck: () => Promise<HealthCheck>,
+    ) => {
+      const fixed = await fix();
+      fixOutcomes.push({ component, outcome: fixed ? 'applied' : 'failed' });
+      if (!fixed) return;
+      const newCheck = await recheck();
+      const idx = results.findIndex((r) => r.name === name);
+      if (idx !== -1) {
+        results[idx] = { ...newCheck, component: results[idx].component };
+        const fixIdx = fixes.findIndex((f) => f.startsWith(`${name}:`));
+        if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
       }
-    }
+      output.writeln(formatCheck(newCheck));
+    };
 
-    const monoesToolsResult = results.find((r) => r.name === 'monoes Tools');
-    if (monoesToolsResult && monoesToolsResult.status !== 'pass') {
-      const fixed = await fixMonoesTools();
-      fixOutcomes.push({ component: 'monoes-tools', outcome: fixed ? 'applied' : 'failed' });
-      if (fixed) {
-        const newCheck = await checkMonoesTools();
-        const idx = results.findIndex((r) => r.name === 'monoes Tools');
-        if (idx !== -1) {
-          results[idx] = { ...newCheck, component: results[idx].component };
-          const fixIdx = fixes.findIndex((f) => f.startsWith('monoes Tools:'));
-          if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
-        }
-        output.writeln(formatCheck(newCheck));
-      }
-    }
-
-    const gitignoreResult = results.find((r) => r.name === 'Gitignore Coverage');
-    if (gitignoreResult && gitignoreResult.status !== 'pass') {
-      const fixed = await fixGitignoreCoverage();
-      fixOutcomes.push({ component: 'gitignore', outcome: fixed ? 'applied' : 'failed' });
-      if (fixed) {
-        const newCheck = await checkGitignoreCoverage();
-        const idx = results.findIndex((r) => r.name === 'Gitignore Coverage');
-        if (idx !== -1) {
-          results[idx] = { ...newCheck, component: results[idx].component };
-          const fixIdx = fixes.findIndex((f) => f.startsWith('Gitignore Coverage:'));
-          if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
-        }
-        output.writeln(formatCheck(newCheck));
-      }
-    }
-
-    const sidecarResult = results.find((r) => r.name === 'AppleDouble Sidecars');
-    if (sidecarResult && sidecarResult.status !== 'pass') {
-      const removed = fixAppleDoubleSidecars(process.cwd());
-      fixOutcomes.push({ component: 'appledouble', outcome: removed > 0 ? 'applied' : 'failed' });
-      if (removed > 0) {
-        const newCheck = await checkAppleDoubleSidecars();
-        const idx = results.findIndex((r) => r.name === 'AppleDouble Sidecars');
-        if (idx !== -1) {
-          results[idx] = { ...newCheck, component: results[idx].component };
-          const fixIdx = fixes.findIndex((f) => f.startsWith('AppleDouble Sidecars:'));
-          if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
-        }
-        output.writeln(formatCheck(newCheck));
-      }
-    }
-
-    const helpersResult = results.find((r) => r.name === 'Helper Files');
-    if (helpersResult && helpersResult.status !== 'pass') {
-      const fixed = await fixStaleHelpers();
-      fixOutcomes.push({ component: 'helpers', outcome: fixed ? 'applied' : 'failed' });
-      if (fixed) {
-        const newCheck = await checkHelpersFresh();
-        const idx = results.findIndex((r) => r.name === 'Helper Files');
-        if (idx !== -1) {
-          results[idx] = { ...newCheck, component: results[idx].component };
-          const fixIdx = fixes.findIndex((f) => f.startsWith('Helper Files:'));
-          if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
-        }
-        output.writeln(formatCheck(newCheck));
-      }
-    }
+    if (autoInstall && needsFix('Claude Code CLI'))
+      await applyFix('Claude Code CLI', 'claude', installClaudeCode, checkClaudeCode);
+    if (needsFix('monoes Tools'))
+      await applyFix('monoes Tools', 'monoes-tools', fixMonoesTools, checkMonoesTools);
+    if (needsFix('Gitignore Coverage'))
+      await applyFix(
+        'Gitignore Coverage',
+        'gitignore',
+        fixGitignoreCoverage,
+        checkGitignoreCoverage,
+      );
+    if (needsFix('AppleDouble Sidecars'))
+      await applyFix(
+        'AppleDouble Sidecars',
+        'appledouble',
+        async () => fixAppleDoubleSidecars(process.cwd()) > 0,
+        checkAppleDoubleSidecars,
+      );
+    if (needsFix('Helper Files'))
+      await applyFix('Helper Files', 'helpers', fixStaleHelpers, checkHelpersFresh);
   }
 
   const passed = results.filter((r) => r.status === 'pass').length;
@@ -515,58 +483,6 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
   output.writeln();
   output.writeln(output.success('All checks passed! System is healthy.'));
   return { success: true, data: { passed, warnings, failed, results, fixes: fixOutcomes } };
-}
-
-/** A check result tagged with the component (`-c` name) that produced it. */
-type DoctorResult = HealthCheck & { component?: string };
-
-/**
- * How each component's fix is applied. Components not listed only carry a
- * hint (`fix` text) for a person to follow.
- *  - auto: local, repeatable, applied by `--fix`
- *  - confirm: installs software, applied by `--install`
- */
-const FIX_APPLY: Record<string, { safety: 'auto' | 'confirm'; flag: '--fix' | '--install' }> = {
-  helpers: { safety: 'auto', flag: '--fix' },
-  gitignore: { safety: 'auto', flag: '--fix' },
-  appledouble: { safety: 'auto', flag: '--fix' },
-  sidecars: { safety: 'auto', flag: '--fix' },
-  'monoes-tools': { safety: 'auto', flag: '--fix' },
-  claude: { safety: 'confirm', flag: '--install' },
-};
-
-/** The `doctor --json` payload (v1). Advertised as capability `doctor-json`. */
-export function doctorJsonPayload(ctx: CommandContext, result: CommandResult) {
-  const data = (result.data ?? {}) as {
-    results?: DoctorResult[];
-    fixes?: { component: string; outcome: string }[];
-  };
-  const results = (data.results ?? []).map((r) => {
-    const apply = r.component ? FIX_APPLY[r.component] : undefined;
-    return {
-      component: r.component ?? null,
-      name: r.name,
-      status: r.status,
-      message: r.message,
-      fix: r.fix ?? null,
-      fix_safety: r.fix ? (apply?.safety ?? 'manual') : null,
-      fix_flag: r.fix ? (apply?.flag ?? null) : null,
-    };
-  });
-  const count = (st: string) => results.filter((r) => r.status === st).length;
-  return {
-    v: 1,
-    cwd: ctx.cwd || process.cwd(),
-    success: result.success,
-    summary: {
-      passed: count('pass'),
-      warnings: count('warn'),
-      failed: count('fail'),
-      info: count('info'),
-    },
-    results,
-    fixes: data.fixes ?? [],
-  };
 }
 
 export default doctorCommand;

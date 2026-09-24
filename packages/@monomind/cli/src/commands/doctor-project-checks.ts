@@ -919,6 +919,8 @@ export async function checkHelpersFresh(): Promise<HealthCheck> {
         status: 'warn',
         message: `Found ${orphaned.length} hook(s) from before a rename, still on disk: ${orphaned.join(', ')}. Run \`monomind init --force\` to update your hooks and rebuild the Monograph graph.`,
         fix: 'monomind init --force',
+        // `--fix` only copies stale helpers; it never removes these.
+        fixSafety: 'manual',
       };
     }
     if (stale.length === 0 && missing.length === 0) {
@@ -934,6 +936,7 @@ export async function checkHelpersFresh(): Promise<HealthCheck> {
         status: 'warn',
         message: `${stale.length} stale helper(s): ${stale.join(', ')}`,
         fix: 'monomind init upgrade',
+        fixSafety: 'auto',
       };
     }
     return {
@@ -941,6 +944,7 @@ export async function checkHelpersFresh(): Promise<HealthCheck> {
       status: 'warn',
       message: `Could not locate bundled copies of: ${missing.join(', ')}`,
       fix: 'Reinstall monomind or run `monomind init upgrade`',
+      fixSafety: 'manual',
     };
   } catch (e) {
     return {
