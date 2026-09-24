@@ -1,6 +1,11 @@
 ---
 name: mobile-dev
 description: Expert agent for React Native mobile application development across iOS and Android
+when_to_use: Use when writing React Native screens and components; deprecated for picks, prefer Mobile App Builder
+tags: [mobile, react-native, ios, android]
+category: engineering
+deprecated: true
+deprecatedBy: Mobile App Builder
 ---
 
 # React Native Mobile Developer

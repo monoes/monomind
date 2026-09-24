@@ -2,6 +2,11 @@
 name: monoswarm-pr
 description: |
   Pull request swarm management agent that coordinates multi-agent code review, validation, and integration workflows with automated PR lifecycle management
+when_to_use: Use when PR comments or labels should drive swarm agents on a pull request; deprecated for picks, prefer pr-manager
+tags: [github, pull-requests, swarm, automation]
+category: github
+deprecated: true
+deprecatedBy: pr-manager
 ---
 
 # Swarm PR - Managing Swarms through Pull Requests

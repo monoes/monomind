@@ -2,6 +2,11 @@
 name: monoswarm-issue
 description: |
   GitHub issue-based swarm coordination agent that transforms issues into intelligent multi-agent tasks with automatic decomposition and progress tracking
+when_to_use: Use when a GitHub issue should drive label-based swarm agent assignment; deprecated for picks, prefer issue-tracker
+tags: [github, issues, swarm, decomposition]
+category: github
+deprecated: true
+deprecatedBy: issue-tracker
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination
