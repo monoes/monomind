@@ -59,7 +59,7 @@ module.exports = {
       var securityPatterns = /\b(auth|security|crypto|secret|credential|token|password|\.env|permission|acl|rbac|jwt|oauth|session|cookie)\b/;
       if (securityPatterns.test(editFile) || editFile.includes('/security/') || editFile.includes('/auth/')) {
         console.log('[SECURITY_EDIT] Security-sensitive file modified: ' + path.basename(editFile));
-        console.log('[SECURITY_EDIT] INSTRUCTION: Consider running a security review. Invoke Skill("code-review:code-review") with security focus, or run: npx monomind security scan --path "' + editFile + '"');
+        console.log('[SECURITY_EDIT] INSTRUCTION: Consider running a security review. Invoke Skill("security-review"), or run: npx monomind security scan --path "' + editFile + '"');
       }
     } catch (e) { /* non-fatal */ }
 

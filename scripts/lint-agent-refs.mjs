@@ -17,6 +17,7 @@
  *
  *   subagent_type: "X"   subagent_type="X"   subagent_type 'X'   → agent
  *   agentSlug: 'X'                                               → agent
+ *   Use x-y agent  (hyphenated slug in prose, e.g. quickref)     → agent
  *   Skill("X")  Skill('X', args)                                 → skill
  *
  * An agent name is valid when it is the frontmatter `name:` of a definition
@@ -36,7 +37,13 @@
  * rosters. Under a heading that mentions agents, a line made only of
  * backticked names (`coder`, `Security Engineer` — optionally followed by a
  * dash or parenthesised note) names agents, and so does the last column of a
- * table whose last header cell is "Agents" or "Recommended agents".
+ * table whose last header cell is "Agents" or "Recommended agents". A
+ * `- \`name\` — note` bullet under such a heading names an agent too. The init
+ * generators' templates (packages/@monomind/cli/src/init/*.ts) are read the
+ * same way, with their escaped backticks unescaped.
+ *
+ * A reference to an agent whose frontmatter says `deprecated: true` resolves
+ * (it still spawns) but is printed as a warning naming its `deprecatedBy`.
  *
  * Placeholders are skipped: any name containing < > $ { } [ ] or |, and the
  * literal example names in PLACEHOLDERS ("Agent Name", "mastermind-X", ...).
@@ -47,7 +54,8 @@
  *     `packages/@monomind/cli/.claude/` tree and the platform skill trees;
  *   - string literals in TypeScript sources under packages/<pkg>/src and
  *     packages/@scope/<pkg>/src (the init generators that write CLAUDE.md
- *     and capability docs live there), test files excluded.
+ *     and capability docs live there), test files excluded;
+ *   - the hook helpers: every `.cjs` file under `.claude/helpers`.
  *
  * EXCLUDED PATHS (explicit, documented)
  * -------------------------------------
@@ -143,11 +151,16 @@ function walk(dir, pred, out = []) {
 
 // --- Known names ---
 const AGENTS = new Set(BUILTIN_AGENTS);
+/** Deprecated agent name → the agent that replaces it (frontmatter `deprecatedBy`). */
+const DEPRECATED = new Map();
 for (const f of walk(AGENT_TREE, (e) => e.endsWith('.md'))) {
-  const m = readFileSync(join(ROOT, f), 'utf8').match(
-    /^---\n[\s\S]*?^name:\s*["']?(.+?)["']?\s*$/m,
-  );
-  if (m) AGENTS.add(m[1]);
+  const text = readFileSync(join(ROOT, f), 'utf8');
+  const m = text.match(/^---\n[\s\S]*?^name:\s*["']?(.+?)["']?\s*$/m);
+  if (!m) continue;
+  AGENTS.add(m[1]);
+  const fm = text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
+  if (/^deprecated:\s*true\s*$/m.test(fm))
+    DEPRECATED.set(m[1], fm.match(/^deprecatedBy:\s*["']?(.+?)["']?\s*$/m)?.[1] ?? '?');
 }
 function skillDirs(tree) {
   const abs = join(ROOT, tree);
@@ -183,6 +196,9 @@ const PATTERNS = [
   { kind: 'agent', re: /subagent_type["']?(?:\s*[:=]\s*|[ \t]+)\\?["']([^"'\\\n]+)\\?["']/g },
   { kind: 'agent', re: /agentSlug\s*:\s*["']([^"'\n]+)["']/g },
   { kind: 'skill', re: /\bSkill\(\s*\\?["']([^"'\\\n]+)\\?["']/g },
+  // Prose like 'Use pr-manager agent for PR lifecycle' (quickref cards).
+  // Hyphenated slugs only, so "Use a registry agent" is not a name.
+  { kind: 'agent', re: /\bUse ([a-z0-9]+(?:-[a-z0-9]+)+) agent\b/g },
 ];
 
 function isPlaceholder(name) {
@@ -212,6 +228,17 @@ for (const scope of ['packages', 'packages/@monomind', 'packages/@monoes']) {
   }
 }
 
+// The shipped hook helpers (root tree; the package tree is its mirror).
+files.push(...walk('.claude/helpers', (e) => e.endsWith('.cjs')).filter((f) => !isExcluded(f)));
+
+/** Init generators: their CLAUDE.md / CAPABILITIES.md templates carry prose
+ *  rosters as template literals, checked like a CLAUDE.md once unescaped. */
+const TEMPLATE_DIR = 'packages/@monomind/cli/src/init';
+const templates = walk(
+  TEMPLATE_DIR,
+  (e) => e.endsWith('.ts') && !/\.(test|spec)\.ts$/.test(e) && !e.endsWith('.d.ts'),
+).filter((f) => !f.includes('/__tests__/'));
+
 /** Agent names in a CLAUDE.md's prose rosters, with their offsets. */
 function rosterRefs(text) {
   const refs = [];
@@ -240,10 +267,15 @@ function rosterRefs(text) {
       }
     } else {
       tableAgents = false;
-      const roster = line.match(/^(`[^`]+`(?:\s*,\s*`[^`]+`)*)\s*(?:(?:—|--).*|\(.*\))?$/);
+      // `- \`name\` — note` bullets count only with the dash note, so a bullet
+      // that merely starts with code (`- \`npx …\``) is not read as a name.
+      const roster =
+        line.match(/^(`[^`]+`(?:\s*,\s*`[^`]+`)*)\s*(?:(?:—|--).*|\(.*\))?$/) ??
+        line.match(/^[-*]\s+(`[^`]+`)\s+(?:—|--)\s.*$/);
       if (agentLevel && roster) {
+        const start = line.indexOf(roster[1]);
         for (const m of roster[1].matchAll(/`([^`]+)`/g))
-          refs.push({ name: m[1], index: offset + m.index });
+          refs.push({ name: m[1], index: offset + start + m.index });
       }
     }
     offset += line.length + 1;
@@ -261,9 +293,22 @@ for (const scope of ['packages', 'packages/@monomind', 'packages/@monoes']) {
 }
 
 const problems = [];
+const deprecatedRefs = [];
 let checked = 0;
-for (const file of claudeMds.filter((f) => existsSync(join(ROOT, f)))) {
-  const text = readFileSync(join(ROOT, file), 'utf8');
+function noteDeprecated(name, where) {
+  if (DEPRECATED.has(name))
+    deprecatedRefs.push(
+      `${where}: ${JSON.stringify(name)} is deprecated (use ${JSON.stringify(DEPRECATED.get(name))})`,
+    );
+}
+// A template's `\`` escapes become backticks and its line numbers are kept.
+const rosterSources = [
+  ...claudeMds.filter((f) => existsSync(join(ROOT, f))).map((f) => [f, false]),
+  ...templates.map((f) => [f, true]),
+];
+for (const [file, isTemplate] of rosterSources) {
+  const raw = readFileSync(join(ROOT, file), 'utf8');
+  const text = isTemplate ? raw.replace(/\\`/g, '`') : raw;
   for (const { name, index } of rosterRefs(text)) {
     if (isPlaceholder(name)) continue;
     checked++;
@@ -271,6 +316,7 @@ for (const file of claudeMds.filter((f) => existsSync(join(ROOT, f)))) {
     const line = text.slice(0, index).split('\n').length;
     if (LIST) console.log(`${ok ? 'ok ' : 'BAD'} agent ${JSON.stringify(name)} ${file}:${line}`);
     if (!ok) problems.push(`${file}:${line}: unknown agent ${JSON.stringify(name)}`);
+    else noteDeprecated(name, `${file}:${line}`);
   }
 }
 for (const file of files) {
@@ -285,8 +331,16 @@ for (const file of files) {
       if (LIST)
         console.log(`${ok ? 'ok ' : 'BAD'} ${kind} ${JSON.stringify(name)} ${file}:${line}`);
       if (!ok) problems.push(`${file}:${line}: unknown ${kind} ${JSON.stringify(name)}`);
+      else if (kind === 'agent') noteDeprecated(name, `${file}:${line}`);
     }
   }
+}
+
+// Deprecated agents still spawn (so they are not errors), but picks hide
+// them and shipped text should name the replacement.
+if (deprecatedRefs.length) {
+  console.warn(`⚠ ${deprecatedRefs.length} reference(s) to deprecated agents:`);
+  for (const d of deprecatedRefs) console.warn(`  ${d}`);
 }
 
 if (problems.length) {

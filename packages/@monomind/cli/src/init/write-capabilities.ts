@@ -281,8 +281,9 @@ Reach monoswarm coordination through MCP tools (\`monoswarm_*\`) or the
 \`npx monomind monoswarm\` CLI command. See \`doc/concepts/monoswarm.md\`
 for the full picture.
 
-### Agent Types (8)
-\`researcher\`, \`coder\`, \`analyst\`, \`tester\`, \`architect\`, \`reviewer\`, \`optimizer\`, \`documenter\`
+### Agent Types
+Monoswarm members are registry agents (any agent \`name\`); common ones:
+\`researcher\`, \`coder\`, \`tester\`, \`reviewer\`, \`planner\`, \`system-architect\`, \`Performance Benchmarker\`, \`Technical Writer\`
 
 ### Vote Strategies
 | Strategy | Threshold |

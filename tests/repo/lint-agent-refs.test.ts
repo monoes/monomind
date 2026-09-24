@@ -100,6 +100,36 @@ describe('lint-agent-refs', () => {
       ].join('\n'),
     );
 
+    // Init generator templates: escaped-backtick rosters and dash bullets
+    // under an agents heading, checked like a CLAUDE.md.
+    write(
+      root,
+      'packages/@monomind/cli/src/init/gen-md.ts',
+      [
+        'export const t = `',
+        '## Performance Agents',
+        '- \\`perf-analyzer\\` — bottleneck detection',
+        '- \\`coder\\` — writes code',
+        '- \\`npx monomind doctor\\` is a command, not a name',
+        '`;',
+      ].join('\n'),
+    );
+    // Quickref prose names agents too.
+    write(
+      root,
+      'packages/@monomind/cli/src/quickref.ts',
+      "const q = ['Use code-review-swarm agent for reviews', 'Use a registry agent'];\n",
+    );
+    // Hook helpers are scanned.
+    write(root, '.claude/helpers/handlers/h.cjs', 'console.log(\'Skill("no-such-skill")\');\n');
+    // A deprecated agent resolves, but is reported as a warning.
+    write(
+      root,
+      'packages/@monomind/cli/.claude/agents/github/old-pr.md',
+      '---\nname: old-pr\ndeprecated: true\ndeprecatedBy: coder\n---\nbody\n',
+    );
+    write(root, '.claude/commands/uses-old.md', 'Task({ subagent_type: "old-pr" })\n');
+
     const run = spawnSync('node', [SCRIPT, '--root', root], { encoding: 'utf8' });
 
     it('exits 1', () => {
@@ -114,10 +144,19 @@ describe('lint-agent-refs', () => {
       expect(bad).toEqual([
         'packages/@monomind/cli/CLAUDE.md:4: unknown agent "security-architect"',
         'packages/@monomind/cli/CLAUDE.md:10: unknown agent "perf-engineer"',
+        'packages/@monomind/cli/src/init/gen-md.ts:3: unknown agent "perf-analyzer"',
         '.claude/skills/bad/SKILL.md:1: unknown agent "backend-dev"',
         '.claude/skills/bad/SKILL.md:2: unknown skill "mastermind-do"',
         'packages/@monomind/cli/src/gen.ts:1: unknown agent "security-architect"',
+        'packages/@monomind/cli/src/quickref.ts:1: unknown agent "code-review-swarm"',
+        '.claude/helpers/handlers/h.cjs:1: unknown skill "no-such-skill"',
       ]);
+    });
+
+    it('warns (without failing on it) about deprecated agents', () => {
+      expect(run.stderr).toContain(
+        '.claude/commands/uses-old.md:1: "old-pr" is deprecated (use "coder")',
+      );
     });
   });
 });
