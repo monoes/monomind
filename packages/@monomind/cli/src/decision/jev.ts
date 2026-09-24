@@ -163,9 +163,9 @@ export function automaticMinConfidence(env?: NodeJS.ProcessEnv): number {
 }
 
 /** The floor for rankings a person reads (MONOMIND_JEV_PICK_MIN_CONFIDENCE,
- *  default 0.2); between it and the automatic floor an answer is low-confidence. */
+ *  default 0.25); between it and the automatic floor an answer is low-confidence. */
 export function pickMinConfidence(env?: NodeJS.ProcessEnv): number {
-  return jevModule()?.resolvePickMinConfidence(env) ?? 0.2;
+  return jevModule()?.resolvePickMinConfidence(env) ?? 0.25;
 }
 
 /** `minConfidence` overrides the automatic floor for this call. */

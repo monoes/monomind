@@ -87,7 +87,7 @@ export const pickCommand: Command = {
     {
       name: 'min-confidence',
       description:
-        'Discard a decision-model answer below this probability (default MONOMIND_JEV_PICK_MIN_CONFIDENCE or 0.2)',
+        'Discard a decision-model answer below this probability (default MONOMIND_JEV_PICK_MIN_CONFIDENCE or 0.25)',
       type: 'number',
     },
     { name: 'json', description: 'Output JSON', type: 'boolean' },

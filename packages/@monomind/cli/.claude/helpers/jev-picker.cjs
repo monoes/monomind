@@ -25,8 +25,9 @@ var MIN_PROVIDER_WINDOW_MS = 50;
 // Automatic decisions (hook injection, org auto-assign) act only above this.
 var DEFAULT_MIN_CONFIDENCE = 0.6;
 // A ranking shown to a person (`monomind pick`) keeps Jev's answer down to
-// this, flagged low-confidence below DEFAULT_MIN_CONFIDENCE.
-var DEFAULT_PICK_MIN_CONFIDENCE = 0.2;
+// this, flagged low-confidence below DEFAULT_MIN_CONFIDENCE. On the 60-task
+// pick benchmark every answer at >= 0.35 was right and the one under 0.2 wrong.
+var DEFAULT_PICK_MIN_CONFIDENCE = 0.25;
 var MIN_EXTRA_SKILL_PROBABILITY = 0.2;
 var DEFAULT_MAX_SKILLS = 3;
 // OpenJev scores up to 52 options per pass; 30 (+ "none") keeps one pass.

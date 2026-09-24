@@ -47,7 +47,7 @@ export interface RankedList {
 
 export interface RankOptions extends PickOptions {
   /** Jev answers below this are discarded for keyword ranking. Defaults to
-   *  MONOMIND_JEV_PICK_MIN_CONFIDENCE (0.2); pass automaticMinConfidence()
+   *  MONOMIND_JEV_PICK_MIN_CONFIDENCE (0.25); pass automaticMinConfidence()
    *  to rank only answers an unattended caller would act on. */
   minConfidence?: number;
 }

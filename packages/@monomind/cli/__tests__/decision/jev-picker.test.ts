@@ -241,9 +241,9 @@ describe('accept rules', () => {
     expect(jp.acceptAgent(a, {}, 0.3)).toBe('tester');
     expect(jp.acceptSkills(a, {}, 3, 0.3)).toEqual(['tester']);
     expect(jp.acceptSkills(a, {}, 3)).toEqual([]);
-    expect(jp.resolvePickMinConfidence({})).toBe(0.2);
+    expect(jp.resolvePickMinConfidence({})).toBe(0.25);
     expect(jp.resolvePickMinConfidence({ MONOMIND_JEV_PICK_MIN_CONFIDENCE: '0.35' })).toBe(0.35);
-    expect(jp.resolvePickMinConfidence({ MONOMIND_JEV_PICK_MIN_CONFIDENCE: '7' })).toBe(0.2);
+    expect(jp.resolvePickMinConfidence({ MONOMIND_JEV_PICK_MIN_CONFIDENCE: '7' })).toBe(0.25);
   });
 
   it('acceptSkills returns the choice plus strong runners-up, never "none"', () => {
