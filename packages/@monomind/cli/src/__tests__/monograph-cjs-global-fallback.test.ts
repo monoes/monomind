@@ -57,7 +57,14 @@ function requireMonographInSubprocess(projectDir: string, pathWithFakeNpm: strin
   const script = `const mod = require(${JSON.stringify(MONOGRAPH_CJS)}); console.log(JSON.stringify(mod._requireMonograph()));`;
   return execFileSync('node', ['-e', script], {
     encoding: 'utf-8',
-    env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, PATH: pathWithFakeNpm },
+    // npm_config_cache points at an empty dir so the resolver's npx-cache
+    // source (#328) can't pick up a real monomind install on the host.
+    env: {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: projectDir,
+      PATH: pathWithFakeNpm,
+      npm_config_cache: join(projectDir, '.empty-npm-cache'),
+    },
   }).trim();
 }
 
