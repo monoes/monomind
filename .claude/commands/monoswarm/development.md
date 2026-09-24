@@ -10,7 +10,7 @@ Coordinated development through specialized agent teams.
 ## How to Invoke
 
 ```
-Skill("swarm:development")
+Skill("monoswarm:development")
 ```
 
 Then describe the feature to build:

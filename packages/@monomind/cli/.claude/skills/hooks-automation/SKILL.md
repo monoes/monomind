@@ -602,7 +602,7 @@ npx monomind hook pre-task --description "Build REST API"
 
 // Internally calls MCP tools:
 mcp__monomind__agent_spawn {
-  type: "backend-dev",
+  type: "Backend Architect",
   capabilities: ["api", "database", "testing"]
 }
 
@@ -612,7 +612,7 @@ mcp__monomind__memory_pattern-store {
   namespace: "coordination",
   value: JSON.stringify({
     description: "Build REST API",
-    agents: ["backend-dev"],
+    agents: ["Backend Architect"],
     started: Date.now()
   })
 }
@@ -699,7 +699,7 @@ mcp__monomind__memory_pattern-store {
   value: JSON.stringify({
     status: "complete",
     result: "success",
-    agent_assigned: "backend-dev",
+    agent_assigned: "Backend Architect",
     syntax_valid: true,
     backup_created: true
   })
@@ -716,7 +716,7 @@ Hooks return JSON responses to control operation flow:
   "continue": true,
   "reason": "All validations passed",
   "metadata": {
-    "agent_assigned": "backend-dev",
+    "agent_assigned": "Backend Architect",
     "syntax_valid": true,
     "file": "src/auth.js"
   }

@@ -122,7 +122,7 @@ Spawn a `planner` agent. Provide analysis + `FULL_CONTEXT`.
 4. **Test Colocation**: Never create standalone "write tests" tasks — only exception is integration/e2e tests spanning multiple components.
 5. **Prerequisite Chains**: Use `prerequisites` to enforce ordering. Same agent picks up the chain in sequence.
 6. **Chain Size Limit**: Max 4 tasks per chain. Split larger chains into two sub-chains linked by prerequisite.
-7. **Agent Capability**: Agent type must match the domain (no frontend agent on DB migrations, no backend-dev on CSS).
+7. **Agent Capability**: Agent type must match the domain (no frontend agent on DB migrations, no Backend Architect on CSS). Choose each `agent_type` with `mcp__monomind__pick({ task: "<task title>", kind: "agents", top: 1 })` → `agents.ranked[0].name` (no MCP: `monomind pick` per `mastermind-agent-select/SKILL.md`; nothing returned: `coder`) — it must be an installed agent name, never an invented one.
 
 ### Task Card Format
 

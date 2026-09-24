@@ -14,11 +14,11 @@ This file is a reference loaded by mastermind domain skills and master. It is NE
 
 **Every Task/Agent spawn in mastermind and monomind MUST include the AGENT DELEGATION CAPABILITY block from `mastermind-delegation/SKILL.md`.**
 
-This makes delegation recursive: every spawned agent can itself spawn sub-agents, which can spawn their own sub-agents. The capability block tells each agent which agent categories exist and how to delegate.
+This makes delegation recursive: every spawned agent can itself spawn sub-agents, which can spawn their own sub-agents. The capability block tells each agent how to pick a real agent (the `[PICK]` line, `mcp__monomind__pick`, or local `monomind pick`) and how to delegate.
 
 **Placement:** In the Task/Agent `description` or `prompt` field, insert the full `== AGENT DELEGATION CAPABILITY == ... =================================` block immediately after `BRAIN CONTEXT:`.
 
-**Why this matters:** Agents read their prompts cold. Without the delegation block, a spawned Security Engineer won't know it can delegate codebase exploration to a Code Reviewer, or that it can spawn a backend-dev to fix the issues it finds. With the block, every agent in the chain can self-organize and pull in the right specialist.
+**Why this matters:** Agents read their prompts cold. Without the delegation block, a spawned Security Engineer won't know it can delegate codebase exploration to a Code Reviewer, or that it can spawn a Backend Architect to fix the issues it finds. With the block, every agent in the chain can self-organize and pull in the right specialist.
 
 **Reference:** Full block text is in `mastermind-delegation/SKILL.md`. Copy it verbatim — do not paraphrase.
 
@@ -289,7 +289,7 @@ SUCCESS CRITERIA:
 - [ ] [Concrete checkable item 1]
 - [ ] [Concrete checkable item 2]
 
-AGENT: [agent slug, e.g. backend-dev | frontend-dev]
+AGENT: [agent name from the [PICK] line or mcp__monomind__pick, e.g. Backend Architect | Frontend Developer]
 SWARM: [topology agent-count consensus, e.g. \"hierarchical 4 raft\"]
 
 DEPENDENCIES: [task IDs, or \"none\"]

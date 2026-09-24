@@ -203,7 +203,7 @@ If zero improvements were generated, report "No improvement opportunities found 
 
 ## Step 5: Evaluate and Prioritize
 
-Spawn a single `Product Manager` agent via the Agent tool. Provide it with:
+Spawn a single `general-purpose` agent as the Product Manager evaluator via the Agent tool. Provide it with:
 - All improvement ideas (titles, descriptions, and all comments)
 - The `COMPONENT_ANALYSIS`
 - The `PROJECT_CONTEXT`
@@ -329,12 +329,12 @@ If there are todo tasks:
 
 *File mode:*
 ```
-Skill("mastermind-do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
+Skill("mastermind:do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
 ```
 
 *Monotask mode:*
 ```
-Skill("mastermind-do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
+Skill("mastermind:do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
 
 To repeat this command on a schedule, wrap it with `/mastermind:repeat` or use `--repeat N` / `--tillend` directly.

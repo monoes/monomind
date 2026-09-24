@@ -16,7 +16,7 @@ Performance optimization through specialized analysis agents.
 ## How to Invoke
 
 ```
-Skill("swarm:optimization")
+Skill("monoswarm:optimization")
 ```
 
 Then describe the optimization target:

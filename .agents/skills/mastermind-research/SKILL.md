@@ -113,11 +113,11 @@ OUTPUT FORMAT: unified output schema"
 
 STEP 3 — EXECUTE
 Spawn one Task agent per research stream (mesh topology — findings cross-pollinate).
-Pick one specialist per research stream from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist:
+Pick one specialist per research stream from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist. In order: the prompt's `[PICK]` line when it fits this research stream; else `mcp__monomind__pick({ task: "<research stream>: <scope>", kind: "agents", top: 1 })` → `agents.ranked[0].name`; else the local CLI through the version-checked `mmpick` helper from `mastermind-agent-select/SKILL.md` (never npx):
 ```bash
-monomind pick -t "<research stream>: <scope>" --agents --top 1 --json | jq -r '.agents.ranked[0].name // empty'
+mmpick -t "<research stream>: <scope>" --top 1 | jq -r '.agents.ranked[0].name // empty'
 ```
-Use the printed name as that research stream's subagent_type. If `monomind` is not installed or prints nothing, use the default below.
+Use the returned name as that research stream's subagent_type. If nothing is returned, use the default below.
 - Any stream: "researcher"
 
 Also run /mastermind:do --board <board_id> to track execution.
@@ -165,7 +165,7 @@ For simple tasks (single researcher, single question):
 |---|---|---|
 | Full competitive analysis | researcher + trend + UX | mesh 4 gossip balanced |
 | Market sizing | researcher | hierarchical 3 raft specialized |
-| Trend scan | Trend Researcher | single agent |
-| User research synthesis | UX Researcher | hierarchical 3 raft specialized |
+| Trend scan | researcher | single agent |
+| User research synthesis | researcher + Monodesign | hierarchical 3 raft specialized |
 | Quick factual lookup | researcher | single agent |
 # monomind:end skills:agents:mastermind-research

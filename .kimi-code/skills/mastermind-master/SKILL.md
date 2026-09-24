@@ -803,11 +803,10 @@ Task({
     "1. Break this goal into discrete tasks using:\n" +
     "   monotask card create <board_build> <todo_col_build> '<title>' --json\n" +
     "   Each card description MUST include: context, goal, scope, constraints, success criteria, agent, dependencies.\n\n" +
-    "2. Spawn specialized agents for each task using the Task tool:\n" +
-    "   - Backend work: subagent_type 'backend-dev'\n" +
-    "   - Frontend work: subagent_type 'frontend-dev'\n" +
-    "   - Testing: subagent_type 'tester'\n" +
-    "   - Code review: subagent_type 'reviewer'\n" +
+    "2. Spawn specialized agents for each task using the Task tool. Pick each subagent_type with\n" +
+    "   mcp__monomind__pick({task: '<card title>', kind: 'agents', top: 1}) -> agents.ranked[0].name\n" +
+    "   (no MCP: monomind pick -t '<card title>' --top 1 --json, see mastermind-agent-select).\n" +
+    "   Fallbacks if picking returns nothing: implementation 'coder', testing 'tester', code review 'reviewer'\n" +
     "   Default swarm: hierarchical 6 agents raft\n\n" +
     "3. BEFORE spawning each agent, emit agent:spawn via curl (NOT WebFetch — use jq for correct ms timestamps):\n" +
     "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +

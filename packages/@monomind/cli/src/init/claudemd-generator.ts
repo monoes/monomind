@@ -257,13 +257,16 @@ Task({prompt: "Review code quality...", subagent_type: "reviewer", run_in_backgr
 
 ### Agent Routing
 
+Pick agents per task with the \`[PICK]\` line or \`mcp__monomind__pick\`. When
+neither answers, these real agents are safe defaults:
+
 | Code | Task | Agents |
 |------|------|--------|
 | 1 | Bug Fix | coordinator, researcher, coder, tester |
-| 3 | Feature | coordinator, architect, coder, tester, reviewer |
-| 5 | Refactor | coordinator, architect, coder, reviewer |
-| 7 | Performance | coordinator, perf-engineer, coder |
-| 9 | Security | coordinator, security-architect, auditor |`;
+| 3 | Feature | coordinator, system-architect, coder, tester, reviewer |
+| 5 | Refactor | coordinator, system-architect, coder, reviewer |
+| 7 | Performance | coordinator, Performance Benchmarker, coder |
+| 9 | Security | coordinator, Security Engineer, reviewer |`;
 }
 
 function executionRules(): string {
@@ -307,23 +310,32 @@ npx monomind doctor --fix
 \`\`\``;
 }
 
+function agentPicking(): string {
+  return `## Agent & Skill Picking
+
+- When a prompt carries a \`[PICK]\` line (\`[PICK] agent: <name> · skill: <invoke>\`), use that agent/skill unless it is clearly wrong for the task.
+- Before choosing a subagent yourself, call \`mcp__monomind__pick\` (\`{ task, kind: "agents" }\`) and use a returned \`name\` as \`subagent_type\`; without MCP, run \`monomind pick -t "<task>"\`.
+- Never invent agent names — a \`subagent_type\` that is not installed fails at spawn time.`;
+}
+
 function agentTypes(): string {
   return `## Available Agents (Curated Subset)
 
 The full roster ships as \`.claude/agents/**/*.md\` — this is a hand-picked
-subset worth routing to by name; it is not the complete set.
+fallback subset for when picking (see above) returns nothing; it is not the
+complete set.
 
 ### Core Development
 \`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`
 
 ### Specialized
-\`security-architect\`
+\`Security Engineer\`
 
 ### Monoswarm Coordination
 \`mesh-coordinator\`
 
 ### GitHub & Repository
-\`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\``;
+\`pr-manager\`, \`monoswarm-code-review\`, \`issue-tracker\`, \`release-manager\``;
 }
 
 function hooksSystem(): string {
@@ -435,7 +447,7 @@ npx monomind security cve --check
 \`\`\`
 
 ### Security Agents
-- \`security-architect\` — threat modeling, architecture review
+- \`Security Engineer\` — threat modeling, secure code and architecture review
 - Use agent routing code 9 (hierarchical/specialized) for security tasks`;
 }
 
@@ -567,6 +579,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
+    (_opts) => agentPicking(),
     (_opts) => secondBrainSection(),
     (_opts) => monographSection(),
     (_opts) => setupAndBoundary(),
@@ -579,6 +592,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
+    (_opts) => agentPicking(),
     (_opts) => swarmRules(),
     (_opts) => cliCommandsTable(),
     (_opts) => agentTypes(),
@@ -595,6 +609,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
+    (_opts) => agentPicking(),
     (_opts) => swarmOrchestration(),
     (_opts) => antiDriftConfig(),
     (_opts) => autoStartProtocol(),
@@ -617,6 +632,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     projectArchitecture,
     buildAndTest,
     concurrencyRules,
+    (_opts) => agentPicking(),
     (_opts) => swarmOrchestration(),
     (_opts) => antiDriftConfig(),
     executionRules,
@@ -636,6 +652,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
+    (_opts) => agentPicking(),
     (_opts) => swarmOrchestration(),
     (_opts) => antiDriftConfig(),
     executionRules,
@@ -656,6 +673,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     buildAndTest,
     (_opts) => securityRulesLight(),
     concurrencyRules,
+    (_opts) => agentPicking(),
     executionRules,
     (_opts) => cliCommandsTable(),
     (_opts) => memoryCommands(),

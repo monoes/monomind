@@ -99,11 +99,13 @@ Common assignments (see `doc/concepts/monoswarm.md` for the full routing table):
 | Task | Recommended agents |
 |---|---|
 | Bug fix | coordinator, researcher, coder, tester |
-| Feature | coordinator, architect, coder, tester, reviewer |
-| Refactor | coordinator, architect, coder, reviewer |
-| Performance | coordinator, performance-engineer, coder |
-| Security | coordinator, security-architect, security-auditor |
-| Docs | researcher, documenter |
+| Feature | coordinator, Software Architect, coder, tester, reviewer |
+| Refactor | coordinator, Software Architect, coder, reviewer |
+| Performance | coordinator, Performance Benchmarker, coder |
+| Security | coordinator, Security Engineer, reviewer |
+| Docs | researcher, Technical Writer |
+
+These are real agent names (Task `subagent_type`). For a task-specific pick use the prompt's `[PICK]` line or `mcp__monomind__pick`.
 
 ## Workflow Patterns
 

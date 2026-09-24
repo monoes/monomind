@@ -1,6 +1,6 @@
 ---
 name: mastermind-release
-description: Mastermind release domain — versioning, changelog, deployment coordination. Spawns a Release Manager who coordinates testing and devops agents for a safe, traceable release pipeline.
+description: Mastermind release domain — versioning, changelog, deployment coordination. Spawns a Release Manager who coordinates testing and deployment agents for a safe, traceable release pipeline.
 type: domain-skill
 default_mode: auto
 ---
@@ -113,11 +113,11 @@ OUTPUT FORMAT: unified output schema"
 
 STEP 3 — EXECUTE
 Spawn Task agents in release order (hierarchical raft — coordinator maintains authoritative release state).
-Pick one specialist per release stage from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist:
+Pick one specialist per release stage from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist. In order: the prompt's `[PICK]` line when it fits this release stage; else `mcp__monomind__pick({ task: "<release stage>: <scope>", kind: "agents", top: 1 })` → `agents.ranked[0].name`; else the local CLI through the version-checked `mmpick` helper from `mastermind-agent-select/SKILL.md` (never npx):
 ```bash
-monomind pick -t "<release stage>: <scope>" --agents --top 1 --json | jq -r '.agents.ranked[0].name // empty'
+mmpick -t "<release stage>: <scope>" --top 1 | jq -r '.agents.ranked[0].name // empty'
 ```
-Use the printed name as that release stage's subagent_type. If `monomind` is not installed or prints nothing, use the default below.
+Use the returned name as that release stage's subagent_type. If nothing is returned, use the default below.
 - Pre-release prep: "release-manager"
 - Testing gate: "tester"
 - Infrastructure and deploy: "DevOps Automator"
@@ -166,7 +166,7 @@ For simple tasks (single agent, single step):
 
 | Task Type | Agent | Swarm |
 |---|---|---|
-| Full end-to-end release | coordinator + tester + devops | hierarchical 5 raft specialized |
+| Full end-to-end release | coordinator + tester + DevOps Automator | hierarchical 5 raft specialized |
 | Multi-package release | coordinator + release-manager | hierarchical 5 raft specialized |
 | Deploy only | DevOps Automator | hierarchical 3 raft specialized |
 | Test gate | tester | star 4 raft parallel |

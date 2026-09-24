@@ -16,7 +16,7 @@ Comprehensive testing through distributed execution.
 ## How to Invoke
 
 ```
-Skill("swarm:testing")
+Skill("monoswarm:testing")
 ```
 
 Then describe the testing scope:

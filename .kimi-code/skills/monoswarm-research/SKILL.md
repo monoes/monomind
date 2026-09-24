@@ -11,7 +11,7 @@ Deep research through parallel information gathering.
 ## How to Invoke
 
 ```
-Skill("swarm:research")
+Skill("monoswarm:research")
 ```
 
 Then describe the research topic:

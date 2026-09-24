@@ -1,6 +1,6 @@
 ---
 name: specialagent
-description: Find the single best specialized agent from the verified ~98-agent roster using two-stage LLM domain→agent selection
+description: Find the single best specialized agent for a task — the [PICK] line or the shared pick index (mcp__monomind__pick / monomind pick), with a two-stage domain→agent fallback over the installed agents
 version: 2.0.0
 triggers:
   - /specialagent
@@ -20,85 +20,65 @@ tools:
   - Bash
 ---
 
-# /specialagent — Two-Stage LLM Agent Selection
+# /specialagent — Best Agent for a Task
 
-Finds the best agent using a lightweight two-stage LLM approach: first pick the domain, then pick the agent within that domain. Only names are passed at each stage — no descriptions, no keyword dumps.
+Finds the best installed agent for a task. Never recommend from memory or from a hardcoded roster: the agent set differs per install, and a `subagent_type` that is not installed fails at spawn time.
 
-## How It Works
+## Step 1: Use the pick index
+
+In this order, stop at the first that answers:
+
+1. **`[PICK]` line** — if the prompt carries `[PICK] agent: <name> · skill: <invoke>`, recommend that agent unless it is clearly wrong for the task.
+2. **`mcp__monomind__pick({ task: "<task>", kind: "agents", top: 5 })`** — choose the best fit among `agents.ranked[]` (prefer the top entry unless another is clearly more specific). Each `name` is a spawnable `subagent_type`.
+3. **Local CLI** — `monomind pick -t "<task>" --top 5 --json | jq -r '.agents.ranked[].name'` (local binary only, never npx; see `mastermind-agent-select/SKILL.md` for the version-checked `mmpick` helper).
+
+## Step 2 (fallback): Two-stage domain → agent selection
+
+Only when Step 1 returned nothing. Only names are passed at each stage — no descriptions, no keyword dumps.
 
 ```
-Stage 1: Give LLM domain names → LLM picks best domain
-Stage 2: Give LLM agent names in that domain → LLM picks best agent
+Stage 1: Give LLM the category names → LLM picks the best category
+Stage 2: Give LLM the agent names installed in that category → LLM picks the best agent
 ```
 
-## Stage 1: Domain Selection
+Categories are the `.claude/agents/` folder names: `architecture consensus core design engineering github goal marketing monoswarm optimization specialists specialized templates testing`.
 
-The verified roster is ~98 agent definitions (97 registered in `packages/@monomind/cli/.monomind/registry.json`). Domains and representative agents from each:
+List the installed agent names in a category from the registry (or the definitions on disk):
 
-| Domain | Representative agents (NOT exhaustive — `monomind pick -t "<task>" --agents` ranks the full set) |
-|---|---|
-| development | coder · Backend Architect · Frontend Developer · mobile-dev · Mobile App Builder · Rapid Prototyper · Software Architect · Senior Developer · AI Engineer · Data Engineer · Database Optimizer · AI Data Remediation Engineer · LSP/Index Engineer · Embedded Firmware Engineer · Solidity Smart Contract Engineer · WeChat Mini Program Developer · Feishu Integration Developer · Model QA Specialist |
-| testing | tester · tdd-london-swarm · production-validator · API Tester · Accessibility Auditor · Evidence Collector · Performance Benchmarker · Test Results Analyzer · Tool Evaluator · Workflow Optimizer · Code Reviewer |
-| security | Security Engineer · Compliance Auditor · Blockchain Security Auditor · Threat Detection Engineer · Agentic Identity & Trust Architect · Identity Graph Operator · ZK Steward |
-| devops | DevOps Automator · SRE (Site Reliability Engineer) · Git Workflow Master · Incident Response Commander |
-| architecture | system-architect · Software Architect · Backend Architect · Workflow Architect · Autonomous Optimization Architect · Automation Governance Architect · v1-integration-architect |
-| research | researcher · Technical Writer · Developer Advocate · goal-planner |
-| marketing | Competitive Content Strategist · CRO Specialist · Email Marketing Specialist · Launch Strategist · Pricing Strategist |
-| design | Monodesign · Cultural Intelligence Strategist |
-| github | pr-manager · issue-tracker · release-manager · repo-architect · code-review-swarm · multi-repo-swarm · sync-coordinator · workflow-automation · project-board-sync |
-| swarm / consensus | mesh-coordinator · collective-intelligence-coordinator · scout-explorer · swarm-memory-manager · worker-specialist · coordinator · planner · smart-agent · swarm-init · quorum-manager |
-| optimization | Benchmark Suite · Load Balancing Coordinator · Performance Monitor · Resource Allocator · Topology Optimizer |
-| specialized | MCP Builder · Document Generator · Agents Orchestrator · dashboard-verifier |
-
-**The filesystem is authoritative** — run `ls .claude/agents/` (and `ls packages/@monomind/cli/.claude/agents/`) for the current full list; agents are added over time. Only recommend agents that actually exist there.
+```bash
+CAT="engineering"
+jq -r --arg c "$CAT" '.agents[] | select(.category == $c and .deprecated != true) | .name' .monomind/registry.json 2>/dev/null \
+  || grep -h -m1 "^name:" packages/@monomind/cli/.claude/agents/$CAT/*.md .claude/agents/$CAT/*.md 2>/dev/null | sed 's/^name: *//'
+```
 
 **Stage 1 prompt to yourself:**
-> "Given the task: `<task>` — which single domain from this list best fits: development, testing, security, devops, architecture, research, marketing, design, github, swarm, optimization, specialized? Answer with just the domain name."
-
-## Stage 2: Agent Selection Per Domain
-
-From the chosen domain's agents (table above), pick the best fit. **Before recommending, verify the name exists** as a `.md` file under `.claude/agents/` (or `packages/@monomind/cli/.claude/agents/`). If the name you want is not on disk, fall back to another agent in the domain or to a core agent (`coder`, `reviewer`, `tester`, `researcher`, `planner`).
+> "Given the task: `<task>` — which single category from this list best fits: `<category names>`? Answer with just the category name."
 
 **Stage 2 prompt to yourself:**
-> "Given the task: `<task>` — which single agent from this domain's list is the best fit: `<comma-separated agent names for the selected domain>`? Answer with just the agent name."
+> "Given the task: `<task>` — which single agent from this category is the best fit: `<agent names listed above>`? Answer with just the agent name."
 
-## Execution Steps
-
-1. Read the user's task
-2. **Stage 1**: Internally reason through the domain list → select one domain
-3. **Stage 2**: Internally reason through agent names in that domain → select one agent
-4. Verify the agent exists: `ls .claude/agents/**/<slug>.md` (names double as slugs; confirm via the frontmatter `name:` field)
-5. Output the recommendation
+If both stages come up empty, fall back to a core agent: `coder`, `reviewer`, `tester`, `researcher`, `planner`.
 
 ## Slug Mapping
 
-Agent names double as their `subagent_type` slug — the slug is the agent's frontmatter `name` (or the filename without `.md`). Resolve a name to its slug from the definition on disk:
-
-```bash
-# list every available agent definition
-ls .claude/agents/ packages/@monomind/cli/.claude/agents/
-# read a specific agent's registered name
-grep -m1 "^name:" .claude/agents/**/<file>.md
-```
-
-If unsure, pass the agent name as the slug. The authoritative set is whatever currently exists in those directories (~98 definitions).
+The `subagent_type` is the agent's frontmatter `name:` — what the pick index returns as `name`, and what the registry lists as `.name`.
 
 ## Output Format
 
 ```
 TASK: <one-line task summary>
 
-DOMAIN: <selected domain>
+PICKED BY: <[PICK] line | mcp__monomind__pick | monomind pick | category fallback: <category>>
 
 RECOMMENDED AGENT: <Agent Name>
-Invoke: Task({ subagent_type: "<slug>", prompt: "..." })
+Invoke: Task({ subagent_type: "<agent name>", prompt: "..." })
 ```
 
 Then ask: "Should I spawn this agent now?"
 
 ## Rules
 
-1. Only pass names at each stage — no descriptions, no keyword dumps, no scoring tables
-2. Pick exactly one domain, then exactly one agent
+1. Prefer the pick index; in the fallback, only pass names at each stage — no descriptions, no keyword dumps, no scoring tables
+2. Recommend exactly one agent, and only a name that is installed
 3. For tasks that clearly need a specialized tool (e.g. accessibility audits → Accessibility Auditor, not tester), prefer the more specific agent
 4. Never recommend a generic role (coder, tester) when a specialized agent in the right domain exists
