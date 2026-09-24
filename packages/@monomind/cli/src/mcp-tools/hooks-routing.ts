@@ -30,7 +30,6 @@ import {
   MEMORY_DIR,
   saveRoutingOutcomes,
   suggestAgentsForFile,
-  TASK_PATTERNS,
 } from './hooks-embedding.js';
 import { getProjectCwd, type MCPTool } from './types.js';
 
@@ -1115,7 +1114,7 @@ export const hooksExplain: MCPTool = {
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
-    // Cap task: ranked by the central picker, .toLowerCase() (O(n)), and
+    // Cap task: ranked by the central picker and
     // reflected verbatim in the response.
     const MAX_EXPLAIN_TASK_LEN = 16 * 1024;
     const task = validateMcpString(params.task, 'task', MAX_EXPLAIN_TASK_LEN);
@@ -1131,19 +1130,12 @@ export const hooksExplain: MCPTool = {
         : pick.method === 'keyword'
           ? 'task words were matched against registry agent names and descriptions'
           : 'no registry agent matched, so the default agent was used';
-    const taskLower = task.toLowerCase();
-
-    // Determine matched patterns
-    const matchedPatterns: Array<{ pattern: string; matchScore: number; examples: string[] }> = [];
-    for (const [pattern, _result] of Object.entries(TASK_PATTERNS)) {
-      if (taskLower.includes(pattern)) {
-        matchedPatterns.push({
-          pattern,
-          matchScore: pattern.length / Math.max(taskLower.length, 1), // real ratio: pattern length vs task length
-          examples: [`Keyword "${pattern}" matched in task description`],
-        });
-      }
-    }
+    // The patterns that matched are the agents the picker ranked.
+    const matchedPatterns = pick.agents.map((a) => ({
+      pattern: a.type,
+      matchScore: a.confidence,
+      examples: [a.reason],
+    }));
 
     // Calculate real historical success rate from routing outcomes file
     let historicalSuccess: number | null = null;

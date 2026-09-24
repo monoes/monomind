@@ -299,114 +299,6 @@ export function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
   }
 }
 
-/**
- * Build learned routing patterns from successful task outcomes.
- * Returns patterns in the same shape as TASK_PATTERNS so they can be
- * merged into both the native HNSW and pure-JS semantic routers.
- */
-export function loadLearnedPatterns(): Record<string, { keywords: string[]; agents: string[] }> {
-  const outcomes = loadRoutingOutcomes();
-  const byAgent: Record<string, Set<string>> = {};
-  for (const o of outcomes) {
-    if (!o.success || !o.agent || !o.keywords?.length) continue;
-    if (!byAgent[o.agent]) byAgent[o.agent] = new Set();
-    for (const kw of o.keywords) byAgent[o.agent].add(kw);
-  }
-  const patterns: Record<string, { keywords: string[]; agents: string[] }> = {};
-  for (const [agent, kwSet] of Object.entries(byAgent)) {
-    patterns[`learned-${agent}`] = {
-      keywords: [...kwSet].slice(0, 50),
-      agents: [agent],
-    };
-  }
-  return patterns;
-}
-
-/**
- * Merge static TASK_PATTERNS with runtime-learned patterns.
- * Static patterns take precedence (learned patterns won't overwrite them).
- */
-export function getMergedTaskPatterns(): Record<string, { keywords: string[]; agents: string[] }> {
-  const merged = { ...TASK_PATTERNS };
-  const learned = loadLearnedPatterns();
-  for (const [key, pattern] of Object.entries(learned)) {
-    if (!merged[key]) {
-      merged[key] = pattern;
-    }
-  }
-  return merged;
-}
-
-// ── Static task patterns (used by both native and pure-JS routers) ───
-
-export const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[] }> = {
-  'security-task': {
-    keywords: [
-      'authentication',
-      'security',
-      'auth',
-      'password',
-      'encryption',
-      'vulnerability',
-      'cve',
-      'audit',
-    ],
-    agents: ['security-architect', 'security-auditor', 'reviewer'],
-  },
-  'testing-task': {
-    keywords: ['test', 'testing', 'spec', 'coverage', 'unit test', 'integration test', 'e2e'],
-    agents: ['tester', 'reviewer'],
-  },
-  'api-task': {
-    keywords: ['api', 'endpoint', 'rest', 'graphql', 'route', 'handler', 'controller'],
-    agents: ['architect', 'coder', 'tester'],
-  },
-  'performance-task': {
-    keywords: [
-      'performance',
-      'optimize',
-      'speed',
-      'memory',
-      'benchmark',
-      'profiling',
-      'bottleneck',
-    ],
-    agents: ['performance-engineer', 'coder', 'tester'],
-  },
-  'refactor-task': {
-    keywords: ['refactor', 'restructure', 'clean', 'organize', 'modular', 'decouple'],
-    agents: ['architect', 'coder', 'reviewer'],
-  },
-  'bugfix-task': {
-    keywords: ['bug', 'fix', 'error', 'issue', 'broken', 'crash', 'debug'],
-    agents: ['coder', 'tester', 'reviewer'],
-  },
-  'feature-task': {
-    keywords: ['feature', 'implement', 'add', 'new', 'create', 'build'],
-    agents: ['architect', 'coder', 'tester'],
-  },
-  'database-task': {
-    keywords: ['database', 'sql', 'query', 'schema', 'migration', 'orm'],
-    agents: ['architect', 'coder', 'tester'],
-  },
-  'frontend-task': {
-    keywords: ['frontend', 'ui', 'component', 'react', 'css', 'style', 'layout'],
-    agents: ['coder', 'reviewer', 'tester'],
-  },
-  'devops-task': {
-    keywords: ['deploy', 'ci', 'cd', 'pipeline', 'docker', 'kubernetes', 'infrastructure'],
-    agents: ['devops', 'coder', 'tester'],
-  },
-  'swarm-task': {
-    keywords: ['swarm', 'agent', 'coordinator', 'hive', 'mesh', 'topology'],
-    agents: ['swarm-specialist', 'coordinator', 'architect'],
-  },
-  'memory-task': {
-    keywords: ['memory', 'cache', 'store', 'vector', 'embedding', 'persistence'],
-    agents: ['memory-specialist', 'architect', 'coder'],
-  },
-};
-
 // Trajectory storage for SONA learning
 export interface TrajectoryStep {
   action: string;
@@ -596,38 +488,15 @@ export function suggestAgentsForFile(filePath: string): string[] {
  * Returns null when the intelligence system is unavailable or has no relevant patterns.
  * Used by the prompt hook (.claude/helpers/handlers/route-handler.cjs).
  */
-// Canonical set of valid monomind agent type strings.
-// Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')
-// are structural labels, not agent names, and must be excluded from routing.
+// Only pattern types that are registry agent names (the spawnable Task
+// subagent_type) count; structural labels ('action', 'observation',
+// 'routing') and names no agent carries any more are skipped.
 //
 // Lean teardown: the SONA neural LoRA routing adaptation (applyNeuralAdaptation +
 // the @monomind/neural NeuralLearningSystem singleton) has been removed. Routing now
 // uses the pure keyword path plus the deterministic generateSimpleEmbedding query
 // against the pattern index, with outcomes recorded via route-outcomes. No ONNX /
 // LoRA inference happens on the routing hot path anymore.
-
-export const VALID_AGENT_TYPES = new Set([
-  'coder',
-  'reviewer',
-  'tester',
-  'planner',
-  'researcher',
-  'architect',
-  'security-architect',
-  'security-auditor',
-  'performance-engineer',
-  'backend-dev',
-  'mobile-dev',
-  'ml-developer',
-  'cicd-engineer',
-  'api-docs',
-  'system-architect',
-  'code-analyzer',
-  'devops',
-  'debugger',
-  'documenter',
-  'optimizer',
-]);
 
 export async function suggestAgentsFromIntelligence(
   task: string,
@@ -638,12 +507,14 @@ export async function suggestAgentsFromIntelligence(
     const matches = await intel.findSimilarPatterns(task, { k: 5 });
     if (!matches || matches.length === 0) return null;
 
-    // Only count patterns whose type is a valid agent name.
+    // Only count patterns whose type is a registry agent name.
     // Trajectory-derived patterns use type='action'|'observation' etc. — skip those.
+    const { agentNames } = await import('../decision/catalogs.js');
+    const names = agentNames(getProjectCwd());
     const agentCounts: Record<string, number> = {};
     for (const m of matches) {
       const agent = m.type ?? '';
-      if (!VALID_AGENT_TYPES.has(agent)) continue;
+      if (!names.has(agent)) continue;
       agentCounts[agent] = (agentCounts[agent] ?? 0) + (m.similarity ?? m.confidence ?? 0.5);
     }
 
