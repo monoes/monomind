@@ -147,13 +147,13 @@ subset worth routing to by name; it is not the complete set.
 `coder`, `reviewer`, `tester`, `planner`, `researcher`
 
 ### Specialized
-`security-architect`
+`Security Engineer`
 
 ### Monoswarm Coordination
 `mesh-coordinator`
 
 ### GitHub & Repository
-`pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
+`pr-manager`, `monoswarm-code-review`, `issue-tracker`, `release-manager`
 
 ## Memory Commands
 
