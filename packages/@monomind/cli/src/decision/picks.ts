@@ -1,11 +1,12 @@
 /**
  * Task-level picks on top of the Jev picker, each keeping the fallback its
  * caller had before: keyword ranking for `monomind pick` and org skill search,
- * a keyword role match for auto-assignment, and no suggestion for per-task
- * skills.
+ * a keyword role match for auto-assignment, and a keyword pool match for
+ * per-task skills.
  */
+import { keywordSkills, PICK_BRIEF_CHARS, pickTaskRole } from '../orgrt/task-match.js';
 import type { OrgRole } from '../orgrt/types.js';
-import { jevVisible, orgSkillCatalog, roleCatalog } from './catalogs.js';
+import { jevVisible, orgSkillCatalog } from './catalogs.js';
 import {
   acceptAgent,
   acceptSkills,
@@ -98,42 +99,43 @@ export async function rankForTask(
   };
 }
 
-/** Up to two skills from a role's pool that fit this task; [] = no suggestion. */
+/** Up to two skills from a role's pool that fit this task; [] = no suggestion.
+ *  Jev decides when it answers (its "none" included); without a decision
+ *  model, or when it fails, a keyword match over the pool does. Either way
+ *  only names from the pool can come back. */
 export async function suggestTaskSkills(
   title: string,
   pool: string[],
   root: string,
-  opts: PickOptions = {},
+  opts: PickOptions & { brief?: string; onMethod?: (method: 'jev' | 'keyword') => void } = {},
 ): Promise<string[]> {
+  const { brief, onMethod, ...pickOpts } = opts;
   const skills = orgSkillCatalog(root, pool);
   if (skills.length === 0) return [];
+  const excerpt = brief?.slice(0, PICK_BRIEF_CHARS);
   const picked = await pickWithJev(
-    title,
+    excerpt ? `${title}\n\n${excerpt}` : title,
     { skills },
-    { ...opts, skillInstructions: 'Which of these skills would help most with this task?' },
+    { ...pickOpts, skillInstructions: 'Which of these skills would help most with this task?' },
   );
   // Only names from the pool that was sent reach the assignee's mailbox.
   const sent = new Set(skills.map((s) => s.id));
-  return acceptSkills(picked?.skill, opts.env, 2).filter((id) => sent.has(id));
+  if (picked?.skill) {
+    onMethod?.('jev');
+    return acceptSkills(picked.skill, pickOpts.env, 2).filter((id) => sent.has(id));
+  }
+  onMethod?.('keyword');
+  return keywordSkills({ title, brief }, skills, 2);
 }
 
-/** The role that should own a task: Jev first, then a keyword match. */
+/** The role that should own a task: Jev first, then a keyword match (see
+ *  orgrt/task-match.ts pickTaskRole for the rules and the provenance). */
 export async function pickRoleForTask(
   title: string,
   roles: Pick<OrgRole, 'id' | 'title' | 'responsibilities'>[],
   opts: PickOptions = {},
 ): Promise<string | null> {
-  const catalog = roleCatalog(roles);
-  if (catalog.length === 0) return null;
-  if (catalog.length === 1) return catalog[0].id;
-  const picked = await pickWithJev(
-    title,
-    { agents: catalog },
-    { ...opts, agentInstructions: 'Which role in this organisation should own this task?' },
-  );
-  const chosen = acceptAgent(picked?.agent, opts.env);
-  if (chosen) return chosen;
-  return keywordRank(title, catalog, 1)[0]?.id ?? null;
+  return (await pickTaskRole({ title }, roles, opts)).role;
 }
 
 /** Re-rank `org skills search` keyword hits by Jev; unranked hits keep their
