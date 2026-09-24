@@ -66,7 +66,7 @@ export async function pickForTask(req: PickRequest): Promise<TaskRanking> {
   };
 }
 
-/** One line for humans and prompts: `agent: X · skill: Skill("y")`. */
+/** One line for humans and prompts: `agent: <name> · skill: <invoke>`. */
 export function pickSummary(ranking: TaskRanking, kind: PickKind = 'both'): string {
   const parts: string[] = [];
   const agent = ranking.agents.ranked[0];
