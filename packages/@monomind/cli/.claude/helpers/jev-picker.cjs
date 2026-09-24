@@ -355,8 +355,8 @@ try {
   catalog = null;
 }
 
-function loadAgentCatalog(root) {
-  return catalog ? catalog.loadAgentCatalog(root) : [];
+function loadAgentCatalog(root, opts) {
+  return catalog ? catalog.loadAgentCatalog(root, opts) : [];
 }
 
 function loadSkillCatalog(root, opts) {

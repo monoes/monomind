@@ -1205,13 +1205,17 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
       '../agents/registry-builder.js'
     );
     const { findProjectRoot, registryPath } = await import('../agents/registry-freshness.js');
-    const cwd = findProjectRoot(process.cwd()) ?? process.cwd();
+    const project = findProjectRoot(process.cwd());
+    const cwd = project ?? process.cwd();
     const roots = computeAgentRoots(cwd);
-    mkdirSync(join(cwd, '.monomind'), { recursive: true });
-    // Rebuilds fresh in-memory (and refreshes .monomind/registry.json on disk,
-    // never replacing a non-empty registry with an empty one) rather than
-    // reading a file a separate startup task may also be writing.
-    const registry = buildUnifiedRegistry(roots, registryPath(cwd), { base: cwd });
+    if (project) mkdirSync(join(cwd, '.monomind'), { recursive: true });
+    // Rebuilds fresh in-memory (and, inside a project, refreshes
+    // .monomind/registry.json on disk, never replacing a non-empty registry
+    // with an empty one) rather than reading a file a separate startup task
+    // may also be writing. Outside a project nothing is written.
+    const registry = buildUnifiedRegistry(roots, project ? registryPath(cwd) : undefined, {
+      base: cwd,
+    });
     const entries = registry.agents;
     // An extra root (MONOMIND_EXTRA_AGENT_PATHS or a sibling agency-agents dir)
     // wins slug conflicts over .claude/agents — say so instead of hiding it.

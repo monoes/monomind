@@ -9,6 +9,7 @@
  *           `skills` = platform commands/skills, `orgSkills` = Org library
  */
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
 
 var MAX_CATALOG_BYTES = 5 * 1024 * 1024;
@@ -45,10 +46,11 @@ function norm(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-/** Agents from .monomind/registry.json (built by registry-builder.ts). The
- *  description leads with the one-line `when_to_use`; deprecated agents drop. */
-function loadAgentCatalog(root) {
-  var reg = readJsonFile(path.join(root, '.monomind', 'registry.json'));
+/** Agents from .monomind/registry.json (built by registry-builder.ts), or from
+ *  opts.registry (an in-memory build outside a project). The description leads
+ *  with the one-line `when_to_use`; deprecated agents drop. */
+function loadAgentCatalog(root, opts) {
+  var reg = (opts && opts.registry) || readJsonFile(path.join(root, '.monomind', 'registry.json'));
   var list = reg && Array.isArray(reg.agents) ? reg.agents : [];
   var out = [];
   var seen = new Set();
@@ -72,29 +74,35 @@ function loadAgentCatalog(root) {
   return out;
 }
 
-/** .monomind/catalog/state.json as { ok, known, allowed, entries } where
- *  known/allowed are skill-name sets (allowed = active with the jev target)
- *  and entries maps a catalog id to its state entry; null without a state file. */
+/** .monomind/catalog/state.json as { ok, entries } (entries maps a catalog id
+ *  to its state entry); null without a state file. */
 function catalogJevGate(root) {
   var file = path.join(root, '.monomind', 'catalog', 'state.json');
   if (!fs.existsSync(file)) return null;
   var state = readJsonFile(file);
-  var gate = { ok: !!state && Array.isArray(state.entries), known: new Set(), allowed: new Set(), entries: new Map() };
+  var gate = { ok: !!state && Array.isArray(state.entries), entries: new Map() };
   (gate.ok ? state.entries : []).forEach(function (e) {
-    if (!e || typeof e.id !== 'string') return;
-    gate.entries.set(e.id, e);
-    if (e.id.indexOf('skill:') !== 0) return;
-    gate.known.add(e.id.slice(6));
-    if (e.status === 'active' && Array.isArray(e.targets) && e.targets.indexOf('jev') !== -1) {
-      gate.allowed.add(e.id.slice(6));
-    }
+    if (e && typeof e.id === 'string') gate.entries.set(e.id, e);
   });
   return gate;
 }
 
+/** A registry `source` as a file path: `~/…` (user skills) under the home
+ *  directory, anything else under the project root. */
+function sourceFile(root, source) {
+  if (typeof source !== 'string') return '';
+  if (source === '~' || source.indexOf('~/') === 0) return path.join(os.homedir(), source.slice(1));
+  return path.resolve(root, source);
+}
+
+/** True when the indexed file carries a catalog projection block. Only files
+ *  inside the project or ~/.claude/skills are read. */
 function isProjectedCopy(root, source) {
-  var file = typeof source === 'string' ? path.resolve(root, source) : '';
-  if (file.indexOf(path.resolve(root) + path.sep) !== 0) return false;
+  var file = sourceFile(root, source);
+  var inside = [path.resolve(root), path.join(os.homedir(), '.claude', 'skills')].some(function (dir) {
+    return file.indexOf(dir + path.sep) === 0;
+  });
+  if (!inside) return false;
   try {
     if (fs.statSync(file).size > MAX_CATALOG_BYTES) return false;
     return fs.readFileSync(file, 'utf-8').indexOf('monomind:start catalog:skill:') !== -1;
@@ -103,13 +111,31 @@ function isProjectedCopy(root, source) {
   }
 }
 
-/** The catalog state decides, not the (possibly stale) projection marker: a
- *  disabled, revoked or no-jev entry drops out before re-projection, and an
- *  unreadable state drops every marked skill (fail closed). A hand-written
- *  namesake passes; an unmarked projected copy (old builder) does not. */
+function activeForJev(e) {
+  return !!e && e.status === 'active' && Array.isArray(e.targets) && e.targets.indexOf('jev') !== -1;
+}
+
+/** The package a state entry names still hashes to its recorded digest (the
+ *  same egress check as catalogs.ts jevVisible). */
+function packageVerifies(root, e) {
+  try {
+    return !!require('./org-skill-index.cjs').verifyCatalogPackage(root, e);
+  } catch (err) {
+    return false;
+  }
+}
+
+/** The catalog state decides, never the forgeable projection marker: a skill
+ *  that is a catalog projection (a `catalog` field, or a projection block in
+ *  its file for an index from an old builder) is sent only while this
+ *  project's state.json parses, lists it active with the `jev` target, and its
+ *  package verifies. Missing or unreadable state drops every such skill (fail
+ *  closed). Skills that are not projections are unaffected. */
 function jevAllowed(gate, s, root) {
-  if (s.catalog && (!gate.ok || !gate.allowed.has(String(s.catalog.id).replace(/^skill:/, '')))) return false;
-  return !gate.known.has(s.skill) || gate.allowed.has(s.skill) || (!s.catalog && !isProjectedCopy(root, s.source));
+  if (!s.catalog && !isProjectedCopy(root, s.source)) return true;
+  var id = s.catalog ? String(s.catalog.id) : 'skill:' + s.skill;
+  var e = gate && gate.ok ? gate.entries.get(id) : null;
+  return activeForJev(e) && packageVerifies(root, e);
 }
 
 /** Platform commands/skills. Command/skill mirrors of one capability collapse,
@@ -121,7 +147,7 @@ function platformSkills(root, list, gate) {
     // A catalog projection reaches the decision model only when approved with
     // the jev target; ordinary skills carry no catalog field and are unaffected.
     if (s.catalog && s.catalog.jev !== true) return;
-    if (gate && !jevAllowed(gate, s, root)) return;
+    if (!jevAllowed(gate, s, root)) return;
     var key = s.skill.toLowerCase().replace(/[:_]/g, '-');
     var prev = byKey.get(key);
     if (prev && !(s.invoke.charAt(0) === '/' && prev.invoke.charAt(0) !== '/')) return;
@@ -144,13 +170,7 @@ function platformSkills(root, list, gate) {
  *  now (the same egress check as catalogs.ts jevVisible). */
 function catalogOrgAllowed(root, gate, s) {
   var e = gate && gate.ok ? gate.entries.get(s.catalogId) : null;
-  if (!e || e.status !== 'active' || !Array.isArray(e.targets) || e.targets.indexOf('jev') === -1) return false;
-  if (e.sha256 !== s.sha256) return false;
-  try {
-    return !!require('./org-skill-index.cjs').verifyCatalogPackage(root, e);
-  } catch (err) {
-    return false;
-  }
+  return activeForJev(e) && e.sha256 === s.sha256 && packageVerifies(root, e);
 }
 
 /** Org-library skills that are not a platform skill by name or known alias,
@@ -179,7 +199,8 @@ function orgSkills(root, list, taken, gate) {
  * Every skill a task can use, as one list: platform skills (directly
  * invokable) first, then Org-library skills (read with `monomind org skills
  * show <name>`). opts.index: an already-built index object (the CLI passes the
- * one it just refreshed); otherwise the file is read.
+ * one it just refreshed); otherwise the file is read. opts.registry: the agent
+ * registry to dedupe against (see loadAgentCatalog).
  */
 function loadSkillCatalog(root, opts) {
   var reg = (opts && opts.index) || readJsonFile(path.join(root, '.claude', 'helpers', 'skill-registry.json'));
@@ -187,7 +208,7 @@ function loadSkillCatalog(root, opts) {
   var platform = platformSkills(root, reg && Array.isArray(reg.skills) ? reg.skills : [], gate);
   var taken = new Set();
   platform.forEach(function (s) { taken.add(norm(s.id)); });
-  loadAgentCatalog(root).forEach(function (a) {
+  loadAgentCatalog(root, opts).forEach(function (a) {
     taken.add(norm(a.id));
     taken.add(norm(a.name));
   });

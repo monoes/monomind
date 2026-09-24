@@ -1,9 +1,11 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyProjection } from '../../src/catalog/projection.js';
-import { newRoot, writeEntry } from './fixtures.js';
+import { statePath } from '../../src/catalog/state.js';
+import { taskSkillCatalog } from '../../src/decision/catalogs.js';
+import { newRoot, tamper, writeEntry } from './fixtures.js';
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -119,5 +121,77 @@ describe('catalog Jev flag on the platform path', () => {
     expect(res.changed).toContain('.claude/skills/cat-jev/SKILL.md');
     expect(res.registry).toBeUndefined();
     expect(() => readFileSync(registryPath(root))).toThrow();
+  });
+});
+
+describe('catalog projections fail closed without a readable catalog state', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const ids = (list: Array<{ id: string }>) => list.map((s) => s.id);
+
+  async function projected(): Promise<string> {
+    const root = seedProject();
+    mkdirSync(join(root, '.git'));
+    writeEntry(root, { name: 'cat-jev', targets: ['org', 'jev', 'platform:claude'], description: 'review jev' });
+    await applyProjection(root, 'platform:claude', { dryRun: false });
+    return root;
+  }
+
+  it('drops a jev:yes projection once state.json is gone (hook loader and monomind pick)', async () => {
+    const root = await projected();
+    vi.stubEnv('HOME', newRoot('jev-home-'));
+    expect(ids(jp.loadSkillCatalog(root))).toContain('cat-jev');
+    unlinkSync(statePath(root));
+    expect(ids(jp.loadSkillCatalog(root))).not.toContain('cat-jev');
+    expect(ids(jp.loadSkillCatalog(root))).toContain('ordinary');
+    expect(ids(taskSkillCatalog(root))).not.toContain('cat-jev');
+  });
+
+  it('drops a projected copy an old builder indexed without a catalog field when state is missing', async () => {
+    const root = await projected();
+    unlinkSync(statePath(root));
+    writeFileSync(
+      registryPath(root),
+      JSON.stringify({
+        skills: [
+          { skill: 'cat-jev', invoke: 'Skill("cat-jev")', description: 'x', source: '.claude/skills/cat-jev/SKILL.md' },
+        ],
+      }),
+    );
+    expect(ids(jp.loadSkillCatalog(root))).toEqual([]);
+  });
+
+  it('drops a jev-approved projection whose stored package no longer verifies', async () => {
+    const root = seedProject();
+    const entry = writeEntry(root, { name: 'cat-jev', targets: ['org', 'jev', 'platform:claude'] });
+    await applyProjection(root, 'platform:claude', { dryRun: false });
+    expect(ids(jp.loadSkillCatalog(root))).toContain('cat-jev');
+    tamper(entry);
+    expect(ids(jp.loadSkillCatalog(root))).not.toContain('cat-jev');
+  });
+
+  it('gates a catalog projection under ~/.claude/skills the same way', async () => {
+    const root = seedProject();
+    const home = newRoot('jev-home-');
+    vi.stubEnv('HOME', home);
+    const src = await projected();
+    const text = readFileSync(join(src, '.claude', 'skills', 'cat-jev', 'SKILL.md'), 'utf8');
+    mkdirSync(join(home, '.claude', 'skills', 'cat-jev'), { recursive: true });
+    writeFileSync(join(home, '.claude', 'skills', 'cat-jev', 'SKILL.md'), text);
+
+    const index = registry.build(root, { home });
+    const entry = index.skills.find((s: { skill: string }) => s.skill === 'cat-jev');
+    expect(entry).toMatchObject({ origin: 'user', catalog: { id: 'skill:cat-jev', jev: true } });
+    // No catalog state in this project: the user copy never reaches Jev.
+    expect(ids(jp.loadSkillCatalog(root, { index }))).not.toContain('cat-jev');
+    // An index written by an old builder (no catalog field) is caught by the file marker.
+    const legacy = { skills: [{ ...entry, catalog: undefined }] };
+    expect(ids(jp.loadSkillCatalog(root, { index: legacy }))).toEqual([]);
+
+    // Approved and verified in this project's catalog: it is sent.
+    writeEntry(root, { name: 'cat-jev', targets: ['org', 'jev'], description: 'review jev' });
+    expect(ids(jp.loadSkillCatalog(root, { index }))).toContain('cat-jev');
   });
 });

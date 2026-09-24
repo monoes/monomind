@@ -291,7 +291,7 @@ function scanSkillDir(base, label, origin) {
     };
     if (origin) entry.origin = origin;
     applyPick(entry, fm);
-    var catalog = origin ? null : readCatalogMarker(text, d.name);
+    var catalog = readCatalogMarker(text, d.name);
     if (catalog) entry.catalog = catalog;
     out.push(entry);
   }
@@ -393,9 +393,14 @@ function build(root, opts) {
   };
 }
 
-/** Writes build(root, opts) to .claude/helpers/skill-registry.json atomically. */
+/** Writes build(root, opts) to .claude/helpers/skill-registry.json atomically
+ *  — except an index with no commands or skills never replaces one that has
+ *  some (a build from the wrong directory must not wipe the project's index;
+ *  the agent registry has the same guard). */
 function write(root, opts) {
   var registry = build(root, opts);
+  var prev = readIndex(root);
+  if (registry.skills.length === 0 && prev && Array.isArray(prev.skills) && prev.skills.length > 0) return registry;
   var outPath = indexPath(root);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   var tmp = outPath + '.' + process.pid + '.tmp';
@@ -450,8 +455,29 @@ function ensure(root, opts) {
   return readIndex(root) || write(root, opts);
 }
 
+/** The nearest directory at or above `cwd` holding `.claude` or `.monomind`,
+ *  never the home directory itself (its ~/.claude is user config) and never
+ *  above the git root. Null when there is none — mirrors findProjectRoot in
+ *  src/agents/registry-freshness.ts. */
+function findProjectRoot(cwd, home) {
+  var stopAt = path.resolve(home || os.homedir());
+  var dir = path.resolve(cwd);
+  for (;;) {
+    if (dir === stopAt) return null;
+    if (fs.existsSync(path.join(dir, '.claude')) || fs.existsSync(path.join(dir, '.monomind'))) return dir;
+    if (fs.existsSync(path.join(dir, '.git'))) return null;
+    var parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
 function main() {
-  var root = process.argv[2] || process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  var root = process.argv[2] || process.env.CLAUDE_PROJECT_DIR || findProjectRoot(process.cwd());
+  if (!root) {
+    process.stderr.write('skill-registry.json: no project found at or above ' + process.cwd() + '; nothing written\n');
+    return;
+  }
   var registry = write(root);
   process.stdout.write(
     'skill-registry.json: ' + registry._meta.counts.total + ' entries (' +
@@ -469,6 +495,7 @@ module.exports = {
   isStale: isStale,
   ensure: ensure,
   indexPath: indexPath,
+  findProjectRoot: findProjectRoot,
   HELPER_ONLY: HELPER_ONLY,
   readFrontmatter: readFrontmatter,
   deriveNameTerms: deriveNameTerms,
