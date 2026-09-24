@@ -15,10 +15,13 @@ const crypto = require('crypto');
 var redaction = null;
 try { redaction = require('../redact-secrets.cjs'); } catch (e) { /* preview falls back to no redaction of the cut text */ }
 
-// A keyword pick needs this score (jev-picker shortlist: 3 per id/name word,
-// 1 per description word) AND a strict lead over the runner-up. Ties and weak
-// overlap print nothing: a wrong pick in Claude's context costs more than none.
-var KEYWORD_MIN_AGENT_SCORE = 4;
+// A keyword pick needs this score (pick-rank.cjs: idf-weighted BM25 times the
+// share of task words matched) AND a lead of KEYWORD_AGENT_LEAD over the
+// runner-up. Ties and weak overlap print nothing: a wrong pick in Claude's
+// context costs more than none. Tuned on the 40-task pick benchmark: 25/40
+// shown, 23 of them correct.
+var KEYWORD_MIN_AGENT_SCORE = 2;
+var KEYWORD_AGENT_LEAD = 1.5;
 // router.cjs matchSkills: 2 per name term, 1 per keyword.
 var KEYWORD_MIN_SKILL_SCORE = 4;
 var MAX_CANDIDATES = 5;
@@ -84,11 +87,12 @@ function rankAgents(jp, prompt, agents) {
   return out;
 }
 
-function leads(list, min) {
+function leads(list, min, ratio) {
   var top = list && list[0];
   if (!top || !(top.score >= min)) return null;
   var second = list[1];
-  return !second || top.score > second.score ? top : null;
+  if (!second || !(second.score > 0)) return top;
+  return top.score >= second.score * (ratio || 1) && top.score > second.score ? top : null;
 }
 
 /**
@@ -110,7 +114,7 @@ function decide(opts) {
     out.confidence = jev.agentConfidence;
     viaJev = true;
   } else {
-    var kw = leads(opts.keywordCands, KEYWORD_MIN_AGENT_SCORE);
+    var kw = leads(opts.keywordCands, KEYWORD_MIN_AGENT_SCORE, KEYWORD_AGENT_LEAD);
     if (kw) { out.agent = { id: kw.id, name: kw.name }; viaKeyword = true; }
   }
 
@@ -337,6 +341,7 @@ function ensureSkillRegistryFresh(root, builder) {
 
 module.exports = {
   KEYWORD_MIN_AGENT_SCORE: KEYWORD_MIN_AGENT_SCORE,
+  KEYWORD_AGENT_LEAD: KEYWORD_AGENT_LEAD,
   KEYWORD_MIN_SKILL_SCORE: KEYWORD_MIN_SKILL_SCORE,
   isSystemPrompt: isSystemPrompt,
   promptHash: promptHash,

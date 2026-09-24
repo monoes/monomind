@@ -14,7 +14,17 @@ describe('route-outcomes end-to-end correlation', () => {
     fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'registry.json'),
-      JSON.stringify({ agents: [{ slug: 'devops-automator', name: 'DevOps Automator' }] }),
+      JSON.stringify({
+        agents: [
+          { slug: 'coder', name: 'coder', description: 'Writes code' },
+          {
+            slug: 'engineering-security-engineer',
+            name: 'Security Engineer',
+            description: 'Threat modeling and vulnerability assessment',
+          },
+          { slug: 'devops-automator', name: 'DevOps Automator', description: 'CI/CD pipelines' },
+        ],
+      }),
     );
   });
 
@@ -37,7 +47,7 @@ describe('route-outcomes end-to-end correlation', () => {
     const pickCore = require('../../.claude/helpers/handlers/pick-core.cjs');
 
     await routeHandler.handle({
-      prompt: 'ask the devops automator to set up the deploy',
+      prompt: 'ask the devops automator to set up the CI/CD pipelines',
       hookInput: { session_id: 'sess-123' },
       router: { routeTask: () => ({ agent: 'backend-developer', confidence: 0.9 }) },
       intelligence: { getContext: () => null },
@@ -84,7 +94,7 @@ describe('route-outcomes end-to-end correlation', () => {
     const routeHandler = require('../../.claude/helpers/handlers/route-handler.cjs');
     const sessionHandler = require('../../.claude/helpers/handlers/session-handler.cjs');
     await routeHandler.handle({
-      prompt: 'ask the devops automator to set up the deploy',
+      prompt: 'ask the devops automator to set up the CI/CD pipelines',
       hookInput: { session_id: 'sess-9' },
       router: null,
       intelligence: null,
@@ -111,7 +121,7 @@ describe('route-outcomes end-to-end correlation', () => {
     const routeHandler = require('../../.claude/helpers/handlers/route-handler.cjs');
     const sessionHandler = require('../../.claude/helpers/handlers/session-handler.cjs');
     await routeHandler.handle({
-      prompt: 'ask the devops automator to set up the deploy',
+      prompt: 'ask the devops automator to set up the CI/CD pipelines',
       hookInput: { session_id: 'sess-big' },
       router: null,
       intelligence: null,

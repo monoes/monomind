@@ -250,7 +250,17 @@ describe('route-handler routing path', () => {
     fs.mkdirSync(monomindDir, { recursive: true });
     fs.writeFileSync(
       path.join(monomindDir, 'registry.json'),
-      JSON.stringify({ agents: [{ slug: 'devops-automator', name: 'DevOps Automator' }] }),
+      JSON.stringify({
+        agents: [
+          { slug: 'coder', name: 'coder', description: 'Writes code' },
+          {
+            slug: 'engineering-security-engineer',
+            name: 'Security Engineer',
+            description: 'Threat modeling and vulnerability assessment',
+          },
+          { slug: 'devops-automator', name: 'DevOps Automator', description: 'CI/CD pipelines' },
+        ],
+      }),
     );
     fs.writeFileSync(
       path.join(monomindDir, 'last-dispatch.json'),
@@ -261,7 +271,7 @@ describe('route-handler routing path', () => {
       }),
     );
     const logSpy = vi.spyOn(console, 'log');
-    const hCtx = makeHCtx({ prompt: 'ask the devops automator to fix the deploy' });
+    const hCtx = makeHCtx({ prompt: 'ask the devops automator to fix the CI/CD pipelines' });
     await rh.handle(hCtx);
     const dedupMsg = logSpy.mock.calls.find(
       (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),
@@ -276,7 +286,17 @@ describe('route-handler routing path', () => {
     fs.mkdirSync(monomindDir, { recursive: true });
     fs.writeFileSync(
       path.join(monomindDir, 'registry.json'),
-      JSON.stringify({ agents: [{ slug: 'devops-automator', name: 'DevOps Automator' }] }),
+      JSON.stringify({
+        agents: [
+          { slug: 'coder', name: 'coder', description: 'Writes code' },
+          {
+            slug: 'engineering-security-engineer',
+            name: 'Security Engineer',
+            description: 'Threat modeling and vulnerability assessment',
+          },
+          { slug: 'devops-automator', name: 'DevOps Automator', description: 'CI/CD pipelines' },
+        ],
+      }),
     );
     fs.writeFileSync(
       path.join(monomindDir, 'last-dispatch.json'),
@@ -289,7 +309,7 @@ describe('route-handler routing path', () => {
     const logSpy = vi.spyOn(console, 'log');
     await rh.handle(
       makeHCtx({
-        prompt: 'ask the devops automator to fix the deploy',
+        prompt: 'ask the devops automator to fix the CI/CD pipelines',
         hookInput: { session_id: 'mine' },
       }),
     );

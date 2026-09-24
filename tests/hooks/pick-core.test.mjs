@@ -128,7 +128,7 @@ describe('rankAgents / decide', () => {
       ],
     });
     expect(tie.agent).toBeNull();
-    const weak = decide({ agents, keywordCands: [{ id: 'coder', name: 'coder', score: 3 }] });
+    const weak = decide({ agents, keywordCands: [{ id: 'coder', name: 'coder', score: 1.5 }] });
     expect(weak.agent).toBeNull();
     expect(weak.method).toBe('none');
   });

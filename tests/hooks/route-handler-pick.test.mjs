@@ -166,7 +166,7 @@ describe('route-handler [PICK] delivery', () => {
   });
 
   it('prints a strong keyword pick over the registry without Jev', async () => {
-    await loadRH().handle(makeHCtx('set up the devops automator for our deploy'));
+    await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));
     expect(logs).toEqual(['[PICK] agent: DevOps Automator']);
     expect(outcomes().at(-1)).toMatchObject({ method: 'keyword', agentId: 'devops-automator' });
   });
@@ -187,7 +187,7 @@ describe('route-handler [PICK] delivery', () => {
   });
 
   it('keeps the route per session', async () => {
-    await loadRH().handle(makeHCtx('set up the devops automator for our deploy'));
+    await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));
     const own = JSON.parse(
       fs.readFileSync(path.join(tmpDir, '.monomind', 'routes', 'sess-1.json'), 'utf-8'),
     );
@@ -197,7 +197,7 @@ describe('route-handler [PICK] delivery', () => {
 
   it('works without .monomind/registry.json (no agent, no crash)', async () => {
     fs.rmSync(path.join(tmpDir, '.monomind', 'registry.json'));
-    await loadRH().handle(makeHCtx('set up the devops automator for our deploy'));
+    await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));
     expect(logs).toEqual([]);
     expect(outcomes().at(-1)).toMatchObject({ agentName: null });
   });
