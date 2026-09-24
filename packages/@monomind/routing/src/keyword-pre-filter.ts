@@ -12,26 +12,27 @@ export interface KeywordRule {
 }
 
 /**
- * 30+ default keyword rules for fast, deterministic routing.
+ * Default keyword rules for fast, deterministic routing. Every agentSlug is a
+ * spawnable agent name (a bundled agent's frontmatter `name`).
  * First-match wins — order matters.
  */
 export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Security / CVE
   {
     pattern: /CVE-\d{4}-\d+/i,
-    agentSlug: 'engineering-security-engineer',
+    agentSlug: 'Security Engineer',
     routeName: 'cve-remediation',
     description: 'CVE identifier detected',
   },
   {
     pattern: /\bOWASP\b/i,
-    agentSlug: 'engineering-security-engineer',
+    agentSlug: 'Security Engineer',
     routeName: 'owasp-security',
     description: 'OWASP security reference',
   },
   {
     pattern: /\bthreat\s*model/i,
-    agentSlug: 'engineering-security-engineer',
+    agentSlug: 'Security Engineer',
     routeName: 'threat-modeling',
     description: 'Threat modeling task',
   },
@@ -39,13 +40,13 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Test files
   {
     pattern: /\.(test|spec)\.(ts|js|tsx|jsx)\b/i,
-    agentSlug: 'tdd-london-swarm',
+    agentSlug: 'tdd-london-monoswarm',
     routeName: 'test-file',
     description: 'Test file detected',
   },
   {
     pattern: /\b(write|create|add|fix)\s+(unit|integration|e2e)?\s*tests?\b/i,
-    agentSlug: 'tdd-london-swarm',
+    agentSlug: 'tdd-london-monoswarm',
     routeName: 'test-writing',
     description: 'Test writing task',
   },
@@ -53,38 +54,38 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Docker / DevOps
   {
     pattern: /\bDockerfile\b/i,
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     routeName: 'dockerfile',
     description: 'Dockerfile detected',
   },
   {
     pattern: /\bdocker[-.]?compose\b/i,
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     routeName: 'docker-compose',
     description: 'Docker Compose detected',
   },
   {
     pattern: /\bterraform\b/i,
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     routeName: 'terraform',
     description: 'Terraform infrastructure',
   },
   {
     pattern: /\bgithub\s*actions?\b/i,
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     routeName: 'github-actions',
     description: 'GitHub Actions workflow',
   },
   {
     pattern: /\b\.github\/workflows\b/i,
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     routeName: 'github-workflows',
     description: 'GitHub workflow file',
   },
   {
     pattern:
       /\bkubernetes\b|\bk8s\b|\bhelm\b(?=[\s\S]{0,60}\b(?:kubernetes|k8s|chart|deploy|helmfile)\b)|\b(?:kubernetes|k8s|chart|deploy|helmfile)\b(?=[\s\S]{0,60}\bhelm\b)/i,
-    agentSlug: 'engineering-devops-automator',
+    agentSlug: 'DevOps Automator',
     routeName: 'kubernetes',
     description:
       'Kubernetes / Helm (bare "helm" requires nearby Kubernetes context — "take the helm" is not Kubernetes)',
@@ -93,13 +94,13 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Git operations
   {
     pattern: /\bgit\s+(rebase|blame|bisect|cherry-pick|stash|reflog)\b/i,
-    agentSlug: 'engineering-git-workflow-master',
+    agentSlug: 'Git Workflow Master',
     routeName: 'git-operations',
     description: 'Advanced git operation',
   },
   {
     pattern: /\bgit\s+(merge|branch|tag|log|diff)\b/i,
-    agentSlug: 'engineering-git-workflow-master',
+    agentSlug: 'Git Workflow Master',
     routeName: 'git-workflow',
     description: 'Git workflow operation',
   },
@@ -107,29 +108,21 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Solidity / Smart contracts
   {
     pattern: /\.sol\b/i,
-    agentSlug: 'engineering-solidity-smart-contract-engineer',
+    agentSlug: 'Solidity Smart Contract Engineer',
     routeName: 'solidity-file',
     description: 'Solidity file detected',
   },
   {
     pattern: /\bsolidity\b|\bsmart\s*contract\b/i,
-    agentSlug: 'engineering-solidity-smart-contract-engineer',
+    agentSlug: 'Solidity Smart Contract Engineer',
     routeName: 'solidity',
     description: 'Solidity / smart contract',
-  },
-
-  // ZK proofs
-  {
-    pattern: /\bzkp\b|\bcircom\b|\bsnark\b|\bzk[-\s]?proof/i,
-    agentSlug: 'zk-steward',
-    routeName: 'zk-proofs',
-    description: 'Zero-knowledge proof',
   },
 
   // MCP
   {
     pattern: /\bMCP\s*(server|builder|tool)\b/i,
-    agentSlug: 'specialized-mcp-builder',
+    agentSlug: 'MCP Builder',
     routeName: 'mcp-builder',
     description: 'MCP server/tool building',
   },
@@ -137,7 +130,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // React Native / Mobile
   {
     pattern: /\breact[-\s]?native\b/i,
-    agentSlug: 'engineering-react-native-developer',
+    agentSlug: 'mobile-dev',
     routeName: 'react-native',
     description: 'React Native development',
   },
@@ -149,7 +142,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   {
     pattern:
       /\bswiftui\b|\bxcode\b|\bios\s+app\b|\bswift\b(?=[\s\S]{0,60}\b(?:ios|xcode|apple|app)\b)|\b(?:ios|xcode|apple|app)\b(?=[\s\S]{0,60}\bswift\b)/i,
-    agentSlug: 'engineering-ios-swift-developer',
+    agentSlug: 'Mobile App Builder',
     routeName: 'ios-swift',
     description: 'iOS / Swift development',
   },
@@ -157,7 +150,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Android / Kotlin
   {
     pattern: /\bkotlin\b|\bandroid\s+(app|dev)/i,
-    agentSlug: 'engineering-android-kotlin-developer',
+    agentSlug: 'Mobile App Builder',
     routeName: 'android-kotlin',
     description: 'Android / Kotlin development',
   },
@@ -168,58 +161,15 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   {
     pattern:
       /\bfirmware\b|\brtos\b|\bmicrocontroller\b|\bembedded\b(?=[\s\S]{0,60}\b(?:firmware|hardware|mcu|rtos|chip|microcontroller|device|system)\b)|\b(?:firmware|hardware|mcu|rtos|chip|microcontroller|device|system)\b(?=[\s\S]{0,60}\bembedded\b)/i,
-    agentSlug: 'engineering-embedded-firmware-engineer',
+    agentSlug: 'Embedded Firmware Engineer',
     routeName: 'embedded-firmware',
     description: 'Embedded / firmware development',
-  },
-
-  // Salesforce
-  // Bare "apex" is a common English word ("the apex of the call graph") —
-  // only match it near Salesforce context (either word order).
-  {
-    pattern:
-      /\bsalesforce\b|\bsoql\b|\bapex\b(?=[\s\S]{0,60}\b(?:salesforce|soql|trigger|lwc|visualforce)\b)|\b(?:salesforce|soql|trigger|lwc|visualforce)\b(?=[\s\S]{0,60}\bapex\b)/i,
-    agentSlug: 'specialized-salesforce-developer',
-    routeName: 'salesforce',
-    description: 'Salesforce / Apex / SOQL',
-  },
-
-  // Game engines
-  // Bare "blender" is a common English word (kitchen appliance) — only match
-  // it near 3D/render context (either word order).
-  {
-    pattern:
-      /\bblender\b(?=[\s\S]{0,60}\b(?:3d|model|render|animation|mesh|scene|texture)\b)|\b(?:3d|model|render|animation|mesh|scene|texture)\b(?=[\s\S]{0,60}\bblender\b)/i,
-    agentSlug: 'specialized-blender-3d-artist',
-    routeName: 'blender',
-    description: 'Blender 3D modeling',
-  },
-  {
-    pattern: /\bunreal\s*engine\b|\bUE[45]\b/i,
-    agentSlug: 'specialized-unreal-engine-developer',
-    routeName: 'unreal-engine',
-    description: 'Unreal Engine development',
-  },
-  // Bare "unity" is a common English word ("ensure unity between modules") —
-  // only match it near game/engine context (either word order).
-  {
-    pattern:
-      /\bC#\s*game\b|\bunity3d\b|\bunity\b(?=[\s\S]{0,60}\b(?:game|engine|3d|prefab|asset|c#)\b)|\b(?:game|engine|3d|prefab|asset|c#)\b(?=[\s\S]{0,60}\bunity\b)/i,
-    agentSlug: 'specialized-unity-developer',
-    routeName: 'unity',
-    description: 'Unity game development',
-  },
-  {
-    pattern: /\bgodot\b|\bgdscript\b/i,
-    agentSlug: 'specialized-godot-developer',
-    routeName: 'godot',
-    description: 'Godot game development',
   },
 
   // SEO
   {
     pattern: /\bSEO\b|\bsearch\s*engine\s*optim/i,
-    agentSlug: 'specialized-seo-strategist',
+    agentSlug: 'Competitive Content Strategist',
     routeName: 'seo',
     description: 'SEO optimization',
   },
@@ -227,7 +177,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Supply chain
   {
     pattern: /\bsupply[-\s]?chain\b|\bSBOM\b/i,
-    agentSlug: 'engineering-supply-chain-security',
+    agentSlug: 'Security Engineer',
     routeName: 'supply-chain',
     description: 'Supply chain security',
   },
@@ -235,7 +185,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // GraphQL
   {
     pattern: /\bgraphql\b|\b\.graphql\b|\b\.gql\b/i,
-    agentSlug: 'engineering-graphql-developer',
+    agentSlug: 'Backend Architect',
     routeName: 'graphql',
     description: 'GraphQL development',
   },
@@ -243,7 +193,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   // Database / SQL
   {
     pattern: /\bpostgres\b|\bmysql\b|\bmongodb\b|\bredis\b/i,
-    agentSlug: 'engineering-database-engineer',
+    agentSlug: 'Database Optimizer',
     routeName: 'database',
     description: 'Database engineering',
   },

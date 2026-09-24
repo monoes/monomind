@@ -3,7 +3,7 @@ import type { Route } from '../types.js';
 export const securityRoutes: Route[] = [
   {
     name: 'security-engineer',
-    agentSlug: 'engineering-security-engineer',
+    agentSlug: 'Security Engineer',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'Application security, vulnerability scanning, CVE analysis',
@@ -26,7 +26,7 @@ export const securityRoutes: Route[] = [
   },
   {
     name: 'security-architect',
-    agentSlug: 'security-architect',
+    agentSlug: 'Security Engineer',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'Security architecture design, threat modeling',
@@ -46,7 +46,7 @@ export const securityRoutes: Route[] = [
   },
   {
     name: 'security-auditor',
-    agentSlug: 'security-auditor',
+    agentSlug: 'Security Engineer',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'Security audit, compliance review, penetration testing',
@@ -65,7 +65,7 @@ export const securityRoutes: Route[] = [
   },
   {
     name: 'blockchain-security-auditor',
-    agentSlug: 'blockchain-security-auditor',
+    agentSlug: 'Blockchain Security Auditor',
     threshold: 0.75,
     fallbackToLLM: true,
     description: 'Smart contract security, blockchain vulnerability analysis',
@@ -84,7 +84,7 @@ export const securityRoutes: Route[] = [
   },
   {
     name: 'threat-detection-engineer',
-    agentSlug: 'engineering-threat-detection-engineer',
+    agentSlug: 'Threat Detection Engineer',
     threshold: 0.73,
     fallbackToLLM: true,
     description: 'Threat detection, SIEM, security monitoring',

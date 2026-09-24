@@ -24,7 +24,7 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
                               ▼
                 ┌───────────────────────────┐
                 │ Tier 1: Keyword Pre-Filter │ ── Match ──▶ confidence: 1.0 (method: 'keyword')
-                │ (30+ rules, < 1ms)        │
+                │ (24 rules, < 1ms)         │
                 └───────────────────────────┘
                               │ No Match
                               ▼
@@ -42,7 +42,7 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
 
 ### 1. Tier 1: Deterministic Keyword Pre-Filter
 - **Source**: [`keyword-pre-filter.ts:18-93`](packages/@monomind/routing/src/keyword-pre-filter.ts#L18-L93)
-- Evaluates tasks using fast regular expression matching against 30+ default rule definitions (e.g., CVE security checks, unit test files, Docker/DevOps configs, Solidity/ZK contracts, MCP tools).
+- Evaluates tasks using fast regular expression matching against 24 default rule definitions (e.g., CVE security checks, unit test files, Docker/DevOps configs, Solidity contracts, MCP tools). Every rule and route names a spawnable agent — a bundled agent's frontmatter `name`, such as `Security Engineer`.
 - Returns immediate match with `confidence: 1.0` and `method: 'keyword'`.
 
 ### 2. Tier 2: Cosine Centroid Embedding Match
@@ -115,7 +115,7 @@ const router = new RouteLayer({
   routes: [
     { name: 'coder', agentSlug: 'coder', utterances: ['implement feature', 'build api'], threshold: 0.5 },
     { name: 'tester', agentSlug: 'tester', utterances: ['write unit test', 'add coverage'], threshold: 0.5 },
-    { name: 'security', agentSlug: 'security-engineer', utterances: ['fix cve', 'audit vulnerability'], threshold: 0.5 },
+    { name: 'security', agentSlug: 'Security Engineer', utterances: ['fix cve', 'audit vulnerability'], threshold: 0.5 },
   ],
   enableKeywordFilter: true,
 });
@@ -124,7 +124,7 @@ await router.initialize();
 
 // Tier 1 Match (<1ms)
 const res1 = await router.route('Fix CVE-2024-12345 vulnerability');
-// { agentSlug: 'security-engineer', confidence: 1.0, method: 'keyword' }
+// { agentSlug: 'Security Engineer', confidence: 1.0, method: 'keyword' }
 
 // Tier 2 Match (Embedding Centroid)
 const res2 = await router.route('Create new REST endpoint for user profiles');

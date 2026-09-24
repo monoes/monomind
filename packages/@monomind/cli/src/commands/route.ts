@@ -1,8 +1,11 @@
 /**
  * CLI Route Command
- * Task-to-agent routing via keyword matching with outcome tracking.
+ * Task-to-agent routing through the central picker (`monomind pick`'s ranking)
+ * with outcome tracking.
  */
 
+import { agentCatalog } from '../decision/catalogs.js';
+import type { CatalogItem } from '../decision/jev.js';
 import {
   createKeywordRouter,
   type KeywordRouter,
@@ -12,78 +15,24 @@ import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // ============================================================================
-// Agent Type Definitions
+// Registry Agents
 // ============================================================================
 
-interface AgentType {
-  id: string;
-  name: string;
-  description: string;
-  capabilities: string[];
-  priority: number;
+/** Registry agents (.monomind/registry.json) — the agents `route` can pick. */
+function registryAgents(): CatalogItem[] {
+  return agentCatalog(process.cwd());
 }
 
-/**
- * Available agent types for routing
- */
-const AGENT_TYPES: AgentType[] = [
-  {
-    id: 'coder',
-    name: 'Coder',
-    description: 'Implements features and writes code',
-    capabilities: ['coding', 'implementation', 'refactoring'],
-    priority: 1,
-  },
-  {
-    id: 'tester',
-    name: 'Tester',
-    description: 'Creates tests and validates functionality',
-    capabilities: ['testing', 'validation', 'quality'],
-    priority: 2,
-  },
-  {
-    id: 'reviewer',
-    name: 'Reviewer',
-    description: 'Reviews code quality and security',
-    capabilities: ['review', 'security', 'best-practices'],
-    priority: 3,
-  },
-  {
-    id: 'architect',
-    name: 'Architect',
-    description: 'Designs system architecture',
-    capabilities: ['design', 'architecture', 'planning'],
-    priority: 4,
-  },
-  {
-    id: 'researcher',
-    name: 'Researcher',
-    description: 'Researches requirements and patterns',
-    capabilities: ['research', 'analysis', 'documentation'],
-    priority: 5,
-  },
-  {
-    id: 'optimizer',
-    name: 'Optimizer',
-    description: 'Optimizes performance and efficiency',
-    capabilities: ['optimization', 'performance', 'profiling'],
-    priority: 6,
-  },
-  {
-    id: 'debugger',
-    name: 'Debugger',
-    description: 'Debugs issues and fixes bugs',
-    capabilities: ['debugging', 'troubleshooting', 'fixing'],
-    priority: 7,
-  },
-  {
-    id: 'documenter',
-    name: 'Documenter',
-    description: 'Creates and updates documentation',
-    capabilities: ['documentation', 'writing', 'explaining'],
-    priority: 8,
-  },
-];
+/** Spawnable name (Task subagent_type) of a registry agent. */
+function agentName(agent: CatalogItem): string {
+  return agent.name || agent.id;
+}
+
+/** A registry agent by spawnable name or slug, case-insensitive. */
+function findAgent(query: string): CatalogItem | undefined {
+  const q = query.toLowerCase();
+  return registryAgents().find((a) => agentName(a).toLowerCase() === q || a.id.toLowerCase() === q);
+}
 
 // ============================================================================
 // Router Singleton
@@ -106,32 +55,25 @@ async function getRouter(): Promise<KeywordRouter> {
   return routerInstance;
 }
 
-/**
- * Get agent type by route name
- */
-function getAgentType(route: string): AgentType | undefined {
-  return AGENT_TYPES.find((a) => a.id === route);
-}
-
 // ============================================================================
 // Route Subcommand
 // ============================================================================
 
 const routeTaskCommand: Command = {
   name: 'task',
-  description: 'Route a task to the optimal agent using keyword matching',
+  description: 'Route a task to the best registry agent (same ranking as `monomind pick`)',
   options: [
     {
       name: 'keyword',
       short: 'k',
-      description: 'Use keyword routing for agent selection (default: true)',
+      description: 'Accepted for compatibility; routing always uses the central picker',
       type: 'boolean',
       default: true,
     },
     {
       name: 'agent',
       short: 'a',
-      description: 'Force specific agent (bypasses keyword routing)',
+      description: 'Force a specific agent by name or slug (bypasses routing)',
       type: 'string',
     },
     {
@@ -178,25 +120,24 @@ const routeTaskCommand: Command = {
     try {
       if (forceAgent) {
         // Use specified agent directly
-        const agent =
-          getAgentType(forceAgent) ||
-          AGENT_TYPES.find((a) => a.name.toLowerCase() === forceAgent.toLowerCase());
+        const agent = findAgent(forceAgent);
 
         if (!agent) {
           spinner.fail(`Agent "${forceAgent}" not found`);
           output.writeln();
           output.writeln('Available agents:');
-          output.printList(AGENT_TYPES.map((a) => `${output.highlight(a.id)} - ${a.description}`));
+          output.printList(registryAgents().map((a) => output.highlight(agentName(a))));
           return { success: false, exitCode: 1 };
         }
+        const name = agentName(agent);
 
-        spinner.succeed(`Routed to ${agent.name}`);
+        spinner.succeed(`Routed to ${name}`);
 
         if (jsonOutput) {
           output.printJson({
             task: taskDescription,
-            agentId: agent.id,
-            agentName: agent.name,
+            agentId: name,
+            agentName: name,
             confidence: 1.0,
             method: 'forced',
           });
@@ -205,33 +146,33 @@ const routeTaskCommand: Command = {
           output.printBox(
             [
               `Task: ${taskDescription}`,
-              `Agent: ${output.highlight(agent.name)} (${agent.id})`,
+              `Agent: ${output.highlight(name)}`,
               `Confidence: ${output.success('100%')} (forced)`,
-              `Description: ${agent.description}`,
+              `Description: ${agent.description ?? ''}`,
             ].join('\n'),
             'Routing Result',
           );
         }
 
-        return { success: true, data: { agentId: agent.id, agentName: agent.name } };
+        return { success: true, data: { agentId: name, agentName: name } };
       }
 
-      // Use keyword-based routing
+      // Route through the central picker (monovector createKeywordRouter)
       const router = await getRouter();
       const result: RouteDecision = await router.route(taskDescription);
-      const agent = getAgentType(result.route) || AGENT_TYPES[0];
+      const agent = findAgent(result.route);
 
-      spinner.succeed(`Routed to ${agent.name}`);
+      spinner.succeed(`Routed to ${result.route}`);
 
       if (jsonOutput) {
         output.printJson({
           task: taskDescription,
           agentId: result.route,
-          agentName: agent.name,
+          agentName: result.route,
           confidence: result.confidence,
           alternatives: (result.alternatives || []).map((a) => ({
             agentId: a.route,
-            agentName: getAgentType(a.route)?.name || a.route,
+            agentName: a.route,
             score: a.score,
           })),
         });
@@ -247,20 +188,19 @@ const routeTaskCommand: Command = {
               ? (text: string) => output.warning(text)
               : (text: string) => output.error(text);
 
-        const capabilities = agent.capabilities || [];
         const alternatives = result.alternatives || [];
 
         output.printBox(
           [
             `Task: ${taskDescription}`,
             ``,
-            `Agent: ${output.highlight(agent.name)} (${result.route})`,
+            `Agent: ${output.highlight(result.route)}`,
             `Confidence: ${confidenceColor(`${(confidence * 100).toFixed(1)}%`)}`,
             ``,
-            `Description: ${agent.description}`,
-            `Capabilities: ${capabilities.join(', ')}`,
+            `Description: ${agent?.description ?? ''}`,
+            `Category: ${agent?.category || '-'}`,
           ].join('\n'),
-          'Keyword Routing',
+          'Agent Routing',
         );
 
         if (alternatives.length > 0) {
@@ -268,11 +208,11 @@ const routeTaskCommand: Command = {
           output.writeln(output.bold('Alternatives:'));
           output.printTable({
             columns: [
-              { key: 'agent', header: 'Agent', width: 20 },
+              { key: 'agent', header: 'Agent', width: 32 },
               { key: 'score', header: 'Score', width: 12, align: 'right' },
             ],
             data: alternatives.map((a) => ({
-              agent: getAgentType(a.route)?.name || a.route,
+              agent: a.route,
               score: (a.score ?? 0).toFixed(3),
             })),
           });
@@ -313,34 +253,40 @@ const listAgentsCommand: Command = {
     const jsonOutput = ctx.flags.json as boolean;
 
     try {
+      const agents = registryAgents().map((a) => ({
+        id: a.id,
+        name: agentName(a),
+        category: a.category ?? '',
+        description: a.description ?? '',
+      }));
       if (jsonOutput) {
-        output.printJson(AGENT_TYPES);
+        output.printJson(agents);
       } else {
         output.writeln();
-        output.writeln(output.bold('Available Agent Types'));
-        output.writeln(output.dim('Ordered by priority (highest first)'));
+        output.writeln(output.bold('Available Agents'));
+        output.writeln(
+          output.dim('Name = spawnable Task subagent_type (from .monomind/registry.json)'),
+        );
         output.writeln();
 
         output.printTable({
           columns: [
-            { key: 'id', header: 'ID', width: 15 },
-            { key: 'name', header: 'Name', width: 15 },
-            { key: 'priority', header: 'Priority', width: 10, align: 'right' },
+            { key: 'name', header: 'Name', width: 32 },
+            { key: 'category', header: 'Category', width: 14 },
             { key: 'description', header: 'Description', width: 45 },
           ],
-          data: AGENT_TYPES.map((a) => ({
-            id: output.highlight(a.id),
-            name: a.name,
-            priority: String(a.priority),
-            description: a.description,
+          data: agents.map((a) => ({
+            name: output.highlight(a.name),
+            category: a.category,
+            description: a.description.replace(/\s+/g, ' ').slice(0, 90),
           })),
         });
 
         output.writeln();
-        output.writeln(output.dim(`Total: ${AGENT_TYPES.length} agent types`));
+        output.writeln(output.dim(`Total: ${agents.length} agents`));
       }
 
-      return { success: true, data: AGENT_TYPES };
+      return { success: true, data: agents };
     } catch (error) {
       output.printError(error instanceof Error ? error.message : String(error));
       return { success: false, exitCode: 1 };
@@ -477,26 +423,28 @@ const feedbackCommand: Command = {
     const taskDescription = rawFeedbackTask;
     const nextTask = rawNextTask && rawNextTask.length > 4096 ? undefined : rawNextTask;
 
-    // Validate agent
-    const agent = getAgentType(agentId);
-    if (!agent) {
+    // Validate agent against the registry (skipped when no registry exists)
+    const known = registryAgents();
+    const found = findAgent(agentId);
+    if (known.length > 0 && !found) {
       output.printError(`Unknown agent: ${agentId}`);
       output.writeln('Available agents:');
-      output.printList(AGENT_TYPES.map((a) => a.id));
+      output.printList(known.map(agentName));
       return { success: false, exitCode: 1 };
     }
+    const agent = { name: found ? agentName(found) : agentId };
 
     try {
       const router = await getRouter();
       const clampedReward = Math.max(-1, Math.min(1, reward));
-      await router.update(taskDescription, agentId, clampedReward, nextTask);
+      await router.update(taskDescription, agent.name, clampedReward, nextTask);
 
       output.printSuccess(`Feedback recorded for agent "${agent.name}"`);
       output.writeln();
       output.printBox(
         [
           `Task: ${taskDescription}`,
-          `Agent: ${agent.name} (${agentId})`,
+          `Agent: ${agent.name}`,
           `Reward: ${clampedReward >= 0 ? output.success(clampedReward.toFixed(2)) : output.error(clampedReward.toFixed(2))}`,
           `Outcome: ${clampedReward > 0 ? 'success' : 'failure'} (persisted to route-outcomes.jsonl)`,
         ]
@@ -1034,7 +982,7 @@ const semanticRouteCommand: Command = {
 
 export const routeCommand: Command = {
   name: 'route',
-  description: 'Intelligent task-to-agent routing using keyword matching',
+  description: 'Task-to-agent routing through the central picker, with outcome tracking',
   subcommands: [
     routeTaskCommand,
     semanticRouteCommand,
@@ -1050,7 +998,7 @@ export const routeCommand: Command = {
     {
       name: 'keyword',
       short: 'k',
-      description: 'Use keyword-based agent selection',
+      description: 'Accepted for compatibility; routing always uses the central picker',
       type: 'boolean',
       default: true,
     },
@@ -1078,7 +1026,7 @@ export const routeCommand: Command = {
 
     // Show help
     output.writeln();
-    output.writeln(output.bold('Keyword Agent Router'));
+    output.writeln(output.bold('Agent Router'));
     output.writeln(output.dim('Task-to-agent routing with outcome tracking'));
     output.writeln();
 
@@ -1100,7 +1048,7 @@ export const routeCommand: Command = {
 
     output.writeln(output.bold('How It Works:'));
     output.printList([
-      'Routes tasks to agents via keyword matching',
+      'Routes tasks to registry agents with the same ranking as `monomind pick`',
       'Records outcomes in route-outcomes.jsonl',
       'Tracks accuracy and adherence over time',
       'Provides confidence scores and alternatives',
@@ -1109,7 +1057,7 @@ export const routeCommand: Command = {
 
     output.writeln(output.bold('Backend Status:'));
     output.printList([
-      `Routing: ${output.success('keyword-based (JS)')}`,
+      `Routing: ${output.success('central picker (Jev when configured, keyword fallback)')}`,
       `Learning: trajectory recording + outcome correlation`,
     ]);
     output.writeln();

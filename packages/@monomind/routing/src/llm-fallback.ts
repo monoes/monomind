@@ -2,8 +2,9 @@ import { buildCandidateHints, buildCapabilityIndex } from './capability-index.js
 import { buildClassificationPrompt } from './prompts/classify.js';
 import type { LLMFallbackConfig, Route, RouteResult } from './types.js';
 
-/** Slug validation regex — must match ALLOWED_AGENT_TYPES pattern */
-const SLUG_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+/** An agent slug or spawnable agent name ("coder", "SRE (Site Reliability Engineer)");
+ *  membership in the route list below is the real check. */
+const SLUG_PATTERN = /^[a-zA-Z][a-zA-Z0-9 _&/().-]{0,63}$/;
 
 export class LLMFallbackRouter {
   private config: LLMFallbackConfig;

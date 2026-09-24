@@ -34,6 +34,7 @@ export { monographTools } from './monograph-tools.js';
 export { monomindTools } from './monomind-tools.js';
 export { monoswarmTools } from './monoswarm-tools.js';
 export { performanceTools } from './performance-tools.js';
+export { pickTools } from './pick-tools.js';
 export { platformsTools } from './platforms-tools.js';
 export { handleResourceMethod, listResources, readResource } from './resource-router.js';
 export { securityTools } from './security-tools.js';

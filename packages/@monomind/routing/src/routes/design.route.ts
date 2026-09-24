@@ -3,7 +3,7 @@ import type { Route } from '../types.js';
 export const designRoutes: Route[] = [
   {
     name: 'ui-designer',
-    agentSlug: 'design-ui-designer',
+    agentSlug: 'Monodesign',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'UI design, component design, design systems',
@@ -22,7 +22,7 @@ export const designRoutes: Route[] = [
   },
   {
     name: 'ux-architect',
-    agentSlug: 'design-ux-architect',
+    agentSlug: 'Monodesign',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'UX architecture, information architecture, user flows',
@@ -41,7 +41,7 @@ export const designRoutes: Route[] = [
   },
   {
     name: 'ux-researcher',
-    agentSlug: 'design-ux-researcher',
+    agentSlug: 'Monodesign',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'UX research, user testing, usability analysis',
@@ -60,7 +60,7 @@ export const designRoutes: Route[] = [
   },
   {
     name: 'brand-guardian',
-    agentSlug: 'design-brand-guardian',
+    agentSlug: 'Monodesign',
     threshold: 0.72,
     fallbackToLLM: true,
     description: 'Brand consistency, visual identity, style guide',
@@ -77,7 +77,7 @@ export const designRoutes: Route[] = [
   },
   {
     name: 'visual-storyteller',
-    agentSlug: 'design-visual-storyteller',
+    agentSlug: 'Monodesign',
     threshold: 0.7,
     fallbackToLLM: true,
     description: 'Visual storytelling, presentation design, data visualization',

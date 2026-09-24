@@ -58,7 +58,7 @@ describe('RouteLayer', () => {
       const layer = new RouteLayer(makeConfig({ enableKeywordFilter: true }));
       const result = await layer.route('Fix CVE-2024-12345 in production');
       expect(result.method).toBe('keyword');
-      expect(result.agentSlug).toBe('engineering-security-engineer');
+      expect(result.agentSlug).toBe('Security Engineer');
       expect(result.confidence).toBe(1.0);
     });
 

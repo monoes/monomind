@@ -102,7 +102,7 @@ export const routeCommand: Command = {
         output.writeln(output.bold('Agent Recommendations'));
         output.printTable({
           columns: [
-            { key: 'type', header: 'Agent', width: 20 },
+            { key: 'type', header: 'Agent', width: 32 },
             {
               key: 'confidence',
               header: 'Confidence',

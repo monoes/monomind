@@ -103,7 +103,7 @@ describe('hooks-core-commands', () => {
         expect(data.filePath).toBe(filePath);
         expect(data.operation).toBe('update');
         expect(data.context.fileType).toBe('.ts');
-        expect(data.context.suggestedAgents).toEqual(['coder', 'architect', 'tester']);
+        expect(data.context.suggestedAgents).toEqual(['coder', 'Software Architect', 'tester']);
         expect(data.context.patterns).toEqual([{ pattern: '.ts file editing', confidence: 0.85 }]);
         expect(data.context.risks).toEqual([]);
       } finally {
@@ -137,7 +137,10 @@ describe('hooks-core-commands', () => {
           preEditCommand,
           makeCtx({ flags: { _: [], format: 'json', file: 'README.md' } }),
         );
-        expect((md.data as any).context.suggestedAgents).toEqual(['researcher', 'documenter']);
+        expect((md.data as any).context.suggestedAgents).toEqual([
+          'Technical Writer',
+          'researcher',
+        ]);
 
         const py = await run(
           preEditCommand,
@@ -145,7 +148,7 @@ describe('hooks-core-commands', () => {
         );
         expect((py.data as any).context.suggestedAgents).toEqual([
           'coder',
-          'ml-developer',
+          'AI Engineer',
           'researcher',
         ]);
 
@@ -154,7 +157,10 @@ describe('hooks-core-commands', () => {
           makeCtx({ flags: { _: [], format: 'json', file: 'Makefile' } }),
         );
         expect((noExt.data as any).context.fileType).toBe('unknown');
-        expect((noExt.data as any).context.suggestedAgents).toEqual(['coder', 'architect']);
+        expect((noExt.data as any).context.suggestedAgents).toEqual([
+          'coder',
+          'Software Architect',
+        ]);
       } finally {
         spy.mockRestore();
       }

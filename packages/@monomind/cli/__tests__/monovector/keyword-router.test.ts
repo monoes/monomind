@@ -7,7 +7,7 @@
  * and report stats derived from that store.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createKeywordRouter } from '../../src/monovector/index.js';
@@ -93,9 +93,23 @@ describe('createKeywordRouter feedback persistence (#96)', () => {
   });
 
   it('route() labels decisions as keyword routing honestly', async () => {
+    // route() ranks the project's registry agents through the central picker;
+    // with the decision model off that ranking is the keyword fallback.
+    vi.stubEnv('MONOMIND_JEV', 'off');
+    mkdirSync(join(dir, '.monomind'), { recursive: true });
+    writeFileSync(
+      join(dir, '.monomind', 'registry.json'),
+      JSON.stringify({
+        agents: [
+          { slug: 'coder', name: 'coder', description: 'Implementation specialist' },
+          { slug: 'tester', name: 'tester', description: 'Writes unit tests and test suites' },
+        ],
+      }),
+    );
     const router = createKeywordRouter();
     const decision = await router.route('write unit tests for the parser');
     expect(decision.agentType).toBe('tester');
     expect(decision.reasoning).toContain('keyword');
+    vi.unstubAllEnvs();
   });
 });
