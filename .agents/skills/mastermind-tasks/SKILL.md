@@ -3,6 +3,7 @@ name: mastermind-tasks
 description: Mastermind tasks — view, create, assign, and move tasks on an org's task board. Supports parent-child chains, goal linkage, and status filtering.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 > **LEGACY-ORG-V1 — writes to a monotask board, not to `<org>-issues.json`.** This skill's

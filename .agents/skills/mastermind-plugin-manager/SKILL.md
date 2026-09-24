@@ -3,6 +3,7 @@ name: mastermind-plugin-manager
 description: Mastermind plugin-manager — install plugins from npm, uninstall with two-step confirmation, enable/disable installed plugins. Extends mastermind:plugins (listing) and mastermind:plugin-settings (per-plugin config) with the install/uninstall lifecycle. Mirrors PluginManager.tsx.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Plugin Manager

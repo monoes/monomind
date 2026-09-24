@@ -116,6 +116,26 @@ describe('one skill set for the hook and monomind pick', () => {
   });
 });
 
+describe('pick: low frontmatter', () => {
+  it('reaches the index and the skill catalog; other entries carry no pick', () => {
+    fixture();
+    put(
+      join(root, '.claude', 'skills', 'org-admin-page', 'SKILL.md'),
+      md('org-admin-page', 'Review and edit org settings', 'pick: low\n'),
+    );
+    put(join(root, '.claude', 'commands', 'pair', 'examples.md'), md('pair:examples', 'Examples', 'pick: low\n'));
+    const reg = builder.build(root, { user: false });
+    const entry = (id: string) => reg.skills.find((s: { skill: string }) => s.skill === id);
+    expect(entry('org-admin-page').pick).toBe('low');
+    expect(entry('pair:examples').pick).toBe('low');
+    expect(entry('mastermind-plan').pick).toBeUndefined();
+    const items = taskSkillCatalog(root);
+    expect(items.find((s) => s.id === 'org-admin-page')?.pick).toBe('low');
+    expect(items.find((s) => s.id === 'pair:examples')?.pick).toBe('low');
+    expect(items.find((s) => s.id === 'mastermind-plan')).not.toHaveProperty('pick');
+  });
+});
+
 describe('skill index freshness', () => {
   it('rebuilds when a skill is added after the index was written', () => {
     fixture();

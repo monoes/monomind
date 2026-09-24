@@ -3,6 +3,7 @@ name: mastermind-threads
 description: Mastermind threads — list, view, and create conversation threads within an org. Threads are human-or-agent discussions attached to issues, goals, or the org itself. Reads from -threads.jsonl org state files.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Threads

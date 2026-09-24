@@ -3,6 +3,7 @@ name: mastermind-workspaces
 description: Mastermind workspaces — manage isolated git worktree workspaces per project. List, attach, detach, stop, and prune workspaces. Grouped by project with running service counts and agent assignments.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Workspaces

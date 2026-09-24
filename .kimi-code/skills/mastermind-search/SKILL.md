@@ -3,6 +3,7 @@ name: mastermind-search
 description: Mastermind search — fuzzy cross-org search across tasks, goals, agents, approvals, routines, projects, and activity log. Returns ranked results with org context.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Search

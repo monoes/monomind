@@ -3,6 +3,7 @@ name: mastermind-issue-detail
 description: Mastermind issue-detail — deep per-issue/task inspection and management. Show thread summary, run history, comments, sub-issues, file attachments, assign, close, and recovery actions for a single task within an org.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Issue Detail

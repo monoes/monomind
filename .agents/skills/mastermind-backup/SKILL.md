@@ -3,6 +3,7 @@ name: mastermind-backup
 description: Mastermind backup — create, list, and restore compressed org backups. Archives all org data files (config, goals, routines, approvals, projects, members, issues, workspaces, worktrees, environments, plugins, adapters, threads, budgets, bootstrap, and activity log) into a timestamped tarball.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Backup

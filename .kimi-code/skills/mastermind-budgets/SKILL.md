@@ -3,6 +3,7 @@ name: mastermind-budgets
 description: Mastermind budgets — view, set, and track token/cost budgets for agents and the entire org. Shows current spend vs. limits, alerts on overages, and lets board members adjust per-agent or org-wide budgets. Reads from -budgets.json org state files.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Budgets

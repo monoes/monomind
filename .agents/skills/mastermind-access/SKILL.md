@@ -3,6 +3,7 @@ name: mastermind-access
 description: Mastermind access — manage org membership roles (owner/admin/operator/viewer), granular permission grants, invite tokens, and pending join requests. Controls who can do what inside an org.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Access

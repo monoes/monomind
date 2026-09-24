@@ -3,6 +3,7 @@ name: mastermind-skills
 description: Mastermind skills — list, sync, and map skills available to org agents. Scans .claude/skills/ directory and shows which roles have access to which skill domains.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Skills

@@ -3,6 +3,7 @@ name: mastermind-inbox
 description: Mastermind inbox — unified view of everything that needs human attention across all orgs: pending approvals, running heartbeats, active task assignments, and budget alerts. The single place to check before starting work.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Inbox

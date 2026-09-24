@@ -125,13 +125,16 @@ function platformSkills(root, list, gate) {
     var key = s.skill.toLowerCase().replace(/[:_]/g, '-');
     var prev = byKey.get(key);
     if (prev && !(s.invoke.charAt(0) === '/' && prev.invoke.charAt(0) !== '/')) return;
-    byKey.set(key, {
+    var item = {
       id: s.skill,
       invoke: s.invoke,
       description: typeof s.description === 'string' ? s.description : '',
       text: strings(s.nameTerms).concat(strings(s.keywords)).join(' '),
       source: 'platform',
-    });
+    };
+    // Admin/meta entries (frontmatter `pick: low`) rank below equal matches.
+    if (s.pick === 'low') item.pick = 'low';
+    byKey.set(key, item);
   });
   return Array.from(byKey.values());
 }

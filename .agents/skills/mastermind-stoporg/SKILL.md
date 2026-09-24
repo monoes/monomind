@@ -3,6 +3,7 @@ name: mastermind-stoporg
 description: Mastermind stoporg — stop a running scheduled org loop by setting its status to "stopped". The next scheduled wakeup will read the status, skip all work, and not reschedule. Loop dies within one interval — no orphaned wakeups.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Stop Org

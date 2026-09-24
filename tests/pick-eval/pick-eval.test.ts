@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type EvalTask,
   keywordEval,
+  keywordPicks,
   projectCatalogs,
   readEvalSnapshot,
   readEvalTasks,
@@ -24,7 +25,7 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 // A little under the frozen-catalog scores (60 tasks; 59 with a skill
 // expectation). Raise them when the ranker improves; never lower them to
 // make a change pass.
-const FLOOR = { agentsTop1: 45, agentsTop3: 50, skillsTop1: 47, skillsTop3: 56 };
+const FLOOR = { agentsTop1: 45, agentsTop3: 50, skillsTop1: 47, skillsTop3: 57 };
 // The live catalogs drift with every agent/skill edit: a looser floor.
 const LIVE_FLOOR = { agentsTop1: 40, skillsTop1: 42 };
 
@@ -70,6 +71,18 @@ describe('pick eval on the frozen catalog', () => {
     expect(r.agents.top3).toBeGreaterThanOrEqual(FLOOR.agentsTop3);
     expect(r.skills.top1).toBeGreaterThanOrEqual(FLOOR.skillsTop1);
     expect(r.skills.top3).toBeGreaterThanOrEqual(FLOOR.skillsTop3);
+  });
+});
+
+describe('pick: low skills on the frozen catalog', () => {
+  it('no admin/meta skill (pick: low) reaches a top 3', () => {
+    const snapshot = readEvalSnapshot(ROOT) ?? { agents: [], skills: [] };
+    const low = new Set(snapshot.skills.filter((s) => s.pick === 'low').map((s) => s.id));
+    expect(low.size).toBeGreaterThan(10);
+    const shown = keywordPicks(readEvalTasks(ROOT) ?? [], snapshot).flatMap((p) =>
+      p.skills.filter((id) => low.has(id)),
+    );
+    expect(shown).toEqual([]);
   });
 });
 

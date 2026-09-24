@@ -3,6 +3,7 @@ name: mastermind-orgs
 description: Mastermind orgs — list all saved orgs with their status, schedule, and last/next run times. Shows stopped/active/paused state for scheduled orgs.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Orgs

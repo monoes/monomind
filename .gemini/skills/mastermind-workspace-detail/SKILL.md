@@ -3,6 +3,7 @@ name: mastermind-workspace-detail
 description: Mastermind workspace-detail — deep per-execution-workspace inspection and runtime control. Manage services, provision/teardown/cleanup commands, linked issues and routines, runtime logs, and configuration for a single execution workspace.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Workspace Detail

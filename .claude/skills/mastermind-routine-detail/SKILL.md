@@ -3,6 +3,7 @@ name: mastermind-routine-detail
 description: Mastermind routine-detail — deep inspection and management of a single routine: trigger config (schedule/webhook), variables, concurrency/catchup policies, run history, webhook rotation, and revision tracking.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Routine Detail

@@ -845,56 +845,64 @@
       "invoke": "Skill(\"mastermind-access\")",
       "description": "Mastermind access — manage org membership roles (owner/admin/operator/viewer), granular permission grants, invite tokens, and pending join requests. Controls who can do what inside an org.",
       "text": "mastermind access manage org membership roles owner admin operator viewer granular permission grants invite tokens pending join requests controls who what inside",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-activity",
       "invoke": "Skill(\"mastermind-activity\")",
       "description": "Mastermind activity — full activity feed for an org with event-type filtering, actor lookups, and entity name resolution. Fetches up to 200 recent events across issue, project, goal, agent, and routine entity types. Mirrors Activity.tsx.",
       "text": "mastermind activity feed org event-type filtering actor lookups entity name resolution fetches 200 recent events issue project goal agent routine types mirrors tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-adapter-manager",
       "invoke": "Skill(\"mastermind-adapter-manager\")",
       "description": "Mastermind adapter-manager — global instance-level adapter catalog. Lists all built-in and npm-installed adapters, enables/disables them in menus, reinstalls from npm to pick up updates, adds custom HTTP adapters, and removes custom ones. Complements mastermind:adapters (per-org) with the global registry. Mirrors AdapterManager.tsx.",
       "text": "mastermind adapter manager adapter-manager global instance-level catalog lists built-in npm-installed adapters enables disables menus reinstalls npm pick updates adds custom http removes ones complements per-org registry mirrors adaptermanager tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-adapters",
       "invoke": "Skill(\"mastermind-adapters\")",
       "description": "Mastermind adapters — install, enable, disable, reload, and remove LLM adapter plugins per org. Supports claude-local, gemini-local, codex-local, cursor, hermes, http, and custom adapters.",
       "text": "mastermind adapters install enable disable reload remove llm adapter plugins org supports claude-local gemini-local codex-local cursor hermes http custom",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-agent-detail",
       "invoke": "Skill(\"mastermind-agent-detail\")",
       "description": "Mastermind agent-detail — deep per-agent inspection: show config, run history, budget usage, heartbeat status, assigned skills, and reset/reconfigure a single agent within an org.",
       "text": "mastermind agent detail agent-detail deep per-agent inspection show config history budget usage heartbeat status assigned skills reset reconfigure single within org",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-agents",
       "invoke": "Skill(\"mastermind-agents\")",
       "description": "Mastermind agents — list, inspect, hire, pause, and remove agents in a running org. Shows status, last heartbeat, adapter config, and burn rate per agent.",
       "text": "mastermind agents list inspect hire pause remove org shows status last heartbeat adapter config burn rate agent",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-approval-detail",
       "invoke": "Skill(\"mastermind-approval-detail\")",
       "description": "Mastermind approval-detail — deep inspection and action on a single approval request. View approval metadata, payload, comments, linked issues, and perform approve/reject/revision/resubmit actions. Mirrors ApprovalDetail.tsx.",
       "text": "mastermind approval detail approval-detail deep inspection action single request view metadata payload comments linked issues perform approve reject revision resubmit actions mirrors approvaldetail tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-backup",
       "invoke": "Skill(\"mastermind-backup\")",
       "description": "Mastermind backup — create, list, and restore compressed org backups. Archives all org data files (config, goals, routines, approvals, projects, members, issues, workspaces, worktrees, environments, plugins, adapters, threads, budgets, bootstrap, and activity log) into a timestamped tarball.",
       "text": "mastermind backup create list restore compressed org backups archives data files config goals routines approvals projects members issues workspaces worktrees environments plugins adapters threads budgets bootstrap activity log timestamped tarball",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-bootstrap",
@@ -908,7 +916,8 @@
       "invoke": "Skill(\"mastermind-budgets\")",
       "description": "Mastermind budgets — view, set, and track token/cost budgets for agents and the entire org. Shows current spend vs. limits, alerts on overages, and lets board members adjust per-agent or org-wide budgets. Reads from -budgets.json org state files.",
       "text": "mastermind budgets view set track token cost agents entire org shows current spend limits alerts overages lets board members adjust per-agent org-wide reads -budgets json state files",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:createorg",
@@ -943,14 +952,16 @@
       "invoke": "Skill(\"mastermind-env\")",
       "description": "Mastermind env — audit and configure the runtime environment for an org. Shows LLM provider config, memory backend, agent JWT settings, logging, and storage — highlighting missing or misconfigured values.",
       "text": "mastermind env audit configure runtime environment org shows llm provider config memory backend agent jwt settings logging storage highlighting missing misconfigured values",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-environments",
       "invoke": "Skill(\"mastermind-environments\")",
       "description": "Mastermind environments — manage execution environments (local, SSH, sandbox) for an org. Controls where agent workloads run, SSH connection details, and which environment is the default.",
       "text": "mastermind environments manage execution local ssh sandbox org controls agent workloads connection details which environment default",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:execute",
@@ -964,21 +975,24 @@
       "invoke": "Skill(\"mastermind-export\")",
       "description": "Mastermind export — full org portability. Export an org to a compressed archive (tar.gz or zip) with file tree selection, and import from an archive with collision strategy and adapter override. Mirrors Paperclip's CompanyExport/CompanyImport pages.",
       "text": "mastermind export org portability compressed archive tar zip file tree selection import collision strategy adapter override mirrors paperclip companyexport companyimport pages",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-goal-detail",
       "invoke": "Skill(\"mastermind-goal-detail\")",
       "description": "Mastermind goal-detail — deep per-goal inspection and management. Show sub-goal tree, linked projects, edit title/status/description/priority, add child goals, and close or reopen a single goal within an org.",
       "text": "mastermind goal detail goal-detail deep per-goal inspection management show sub-goal tree linked projects edit title status description priority add child goals close reopen single within org",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-goals",
       "invoke": "Skill(\"mastermind-goals\")",
       "description": "Mastermind goals — define, track, and visualize hierarchical goals for an org. Goals link to tasks, have progress metrics, and form a goal tree.",
       "text": "mastermind goals define track visualize hierarchical org link tasks progress metrics form goal tree",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:idea",
@@ -992,63 +1006,72 @@
       "invoke": "Skill(\"mastermind-import\")",
       "description": "Mastermind import — import an org from a portable ZIP archive exported by mastermind:export. Previews the archive contents, shows agent plans (create/update/skip), lets you choose a collision strategy, and applies the import to the local .monomind/orgs/ directory. Mirrors CompanyImport.tsx.",
       "text": "mastermind import org portable zip archive exported export previews contents shows agent plans create update skip lets choose collision strategy applies local monomind orgs directory mirrors companyimport tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-inbox",
       "invoke": "Skill(\"mastermind-inbox\")",
       "description": "Mastermind inbox — unified view of everything that needs human attention across all orgs: pending approvals, running heartbeats, active task assignments, and budget alerts. The single place to check before starting work.",
       "text": "mastermind inbox unified view everything human attention orgs pending approvals heartbeats active task assignments budget alerts single place check starting work",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-instance",
       "invoke": "Skill(\"mastermind-instance\")",
       "description": "Mastermind instance — global instance-level settings including scheduler heartbeat management across all orgs, system-wide configuration, and cross-org health overview.",
       "text": "mastermind instance global instance-level settings including scheduler heartbeat management orgs system-wide configuration cross-org health overview",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-invite-landing",
       "invoke": "Skill(\"mastermind-invite-landing\")",
       "description": "Mastermind invite-landing — accept an org invite as a human member or as an agent. Validates the invite token, presents org/role info, and processes join as human (name/email) or as an agent (adapter type, model, agent name, config). Mirrors InviteLanding.tsx.",
       "text": "mastermind invite landing invite-landing accept org human member agent validates token presents role info processes join name email adapter type model config mirrors invitelanding tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-invites",
       "invoke": "Skill(\"mastermind-invites\")",
       "description": "Mastermind invites — manage org invitations and join request queue. Create/revoke invites with role assignment, view invite history, review pending join requests (human and agent), and approve or reject them. Merges CompanyInvites and JoinRequestQueue pages.",
       "text": "mastermind invites manage org invitations join request queue create revoke role assignment view invite history review pending requests human agent approve reject merges companyinvites joinrequestqueue pages",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-issue-detail",
       "invoke": "Skill(\"mastermind-issue-detail\")",
       "description": "Mastermind issue-detail — deep per-issue/task inspection and management. Show thread summary, run history, comments, sub-issues, file attachments, assign, close, and recovery actions for a single task within an org.",
       "text": "mastermind issue detail issue-detail deep per-issue task inspection management show thread summary history comments sub-issues file attachments assign close recovery actions single within org",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-issues",
       "invoke": "Skill(\"mastermind-issues\")",
       "description": "Mastermind issues — list, create, update, and close org-level issues (tasks/tickets) with search, assignee, status, and workspace filters. Mirrors Issues.tsx. For personal assigned issues use mastermind:my-issues; for issue detail use mastermind:issue-detail.",
       "text": "mastermind issues list create update close org-level tasks tickets search assignee status workspace filters mirrors tsx personal assigned my-issues issue detail issue-detail",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-join-queue",
       "invoke": "Skill(\"mastermind-join-queue\")",
       "description": "Mastermind join-queue — lists pending join requests for an org, approves or rejects them, and filters by request type (human/agent/all) and status. Mirrors JoinRequestQueue.tsx.",
       "text": "mastermind join queue join-queue lists pending requests org approves rejects filters request type human agent status mirrors joinrequestqueue tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-liveness",
       "invoke": "Skill(\"mastermind-liveness\")",
       "description": "Mastermind liveness — enforce the non-terminal issue liveness contract for agent-owned work. Checks if every in_progress/blocked/in_review issue has a valid action path (active run, queued wake, explicit blocker, or recovery action). Can checkout an issue to an agent run, release checkout, trigger wakeup decisions, and file explicit recovery actions for stalled issues. Based on Paperclip's execution-semantics.md liveness contract.",
       "text": "mastermind liveness enforce non-terminal issue contract agent-owned work checks progress blocked review valid action path active queued wake explicit blocker recovery checkout agent release trigger wakeup decisions file actions stalled issues based paperclip execution-semantics",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:memory",
@@ -1076,14 +1099,16 @@
       "invoke": "Skill(\"mastermind-my-issues\")",
       "description": "Mastermind my-issues — filtered issue queue scoped to the current operator or a specific assignee. Lists open and in-progress issues, supports self-assign and unassign. Mirrors MyIssues.tsx.",
       "text": "mastermind my issues my-issues filtered issue queue scoped current operator specific assignee lists open in-progress supports self-assign unassign mirrors myissues tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-new-agent",
       "invoke": "Skill(\"mastermind-new-agent\")",
       "description": "Mastermind new-agent — wizard to hire/create a new agent within an org. Configures runtime, model, role name, reports_to hierarchy, responsibilities, skill assignments (found with `monomind org skills search`), and budget. Writes a valid Org Runtime v2 role to the org config file and validates it.",
       "text": "mastermind new agent new-agent wizard hire create within org configures runtime model role name reports hierarchy responsibilities skill assignments found monomind skills search budget writes valid config file validates",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-org",
@@ -1097,7 +1122,8 @@
       "invoke": "Skill(\"mastermind-org-settings\")",
       "description": "Mastermind org-settings — edit Org Runtime v2 configuration (name, goal, schedule, budget_tokens, memory_namespace, max_turns_per_message), export org as portable JSON, and import an org from a previously exported file.",
       "text": "mastermind org settings org-settings edit runtime configuration name goal schedule budget tokens memory namespace max turns message export portable json import previously exported file",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:orgs",
@@ -1132,28 +1158,32 @@
       "invoke": "Skill(\"mastermind-plugin-manager\")",
       "description": "Mastermind plugin-manager — install plugins from npm, uninstall with two-step confirmation, enable/disable installed plugins. Extends mastermind:plugins (listing) and mastermind:plugin-settings (per-plugin config) with the install/uninstall lifecycle. Mirrors PluginManager.tsx.",
       "text": "mastermind plugin manager plugin-manager install plugins npm uninstall two-step confirmation enable disable installed extends listing plugin-settings per-plugin config lifecycle mirrors pluginmanager tsx",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-plugin-settings",
       "invoke": "Skill(\"mastermind-plugin-settings\")",
       "description": "Mastermind plugin-settings — inspect and configure a single installed plugin. View configuration fields, manage file system access grants (read/write paths), check runtime health/status, and update plugin settings. Mirrors Paperclip's PluginSettings page with configuration and status tabs.",
       "text": "mastermind plugin settings plugin-settings inspect configure single installed view configuration fields manage file system access grants read write paths check runtime health status update mirrors paperclip pluginsettings page tabs",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-plugins",
       "invoke": "Skill(\"mastermind-plugins\")",
       "description": "Mastermind plugins — install, enable, disable, uninstall, and inspect plugins for an org. Plugins extend agent capabilities with workers, events, and custom tools. Supports npm packages and local paths.",
       "text": "mastermind plugins install enable disable uninstall inspect org extend agent capabilities workers events custom tools supports npm packages local paths",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-profile",
       "invoke": "Skill(\"mastermind-profile\")",
       "description": "Mastermind profile — view and edit the current operator profile (display name, preferences) and inspect any user's activity statistics, completion rate, and token usage. Merges ProfileSettings.tsx and UserProfile.tsx.",
       "text": "mastermind profile view edit current operator display name preferences inspect user activity statistics completion rate token usage merges profilesettings tsx userprofile",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:receive-review",
@@ -1188,14 +1218,16 @@
       "invoke": "Skill(\"mastermind-routine-detail\")",
       "description": "Mastermind routine-detail — deep inspection and management of a single routine: trigger config (schedule/webhook), variables, concurrency/catchup policies, run history, webhook rotation, and revision tracking.",
       "text": "mastermind routine detail routine-detail deep inspection management single trigger config schedule webhook variables concurrency catchup policies history rotation revision tracking",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-routines",
       "invoke": "Skill(\"mastermind-routines\")",
       "description": "Mastermind routines — schedule recurring tasks that trigger agent heartbeats on a cron-like schedule within a running org. Configure concurrency policy and catch-up behavior.",
       "text": "mastermind routines schedule recurring tasks trigger agent heartbeats cron-like within org configure concurrency policy catch-up behavior",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:runorg",
@@ -1209,14 +1241,16 @@
       "invoke": "Skill(\"mastermind-search\")",
       "description": "Mastermind search — fuzzy cross-org search across tasks, goals, agents, approvals, routines, projects, and activity log. Returns ranked results with org context.",
       "text": "mastermind search fuzzy cross-org tasks goals agents approvals routines projects activity log returns ranked results org context",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-secrets",
       "invoke": "Skill(\"mastermind-secrets\")",
       "description": "Mastermind secrets — manage org-scoped API keys and secrets consumed by agents. Store, rotate, list, and audit secrets without exposing values in logs or state files.",
       "text": "mastermind secrets manage org-scoped api keys consumed agents store rotate list audit exposing values logs state files",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:skill-builder",
@@ -1230,7 +1264,8 @@
       "invoke": "Skill(\"mastermind-skills\")",
       "description": "Mastermind skills — list, sync, and map skills available to org agents. Scans .claude/skills/ directory and shows which roles have access to which skill domains.",
       "text": "mastermind skills list sync map available org agents scans claude directory shows which roles access skill domains",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:stoporg",
@@ -1244,7 +1279,8 @@
       "invoke": "Skill(\"mastermind-tasks\")",
       "description": "Mastermind tasks — view, create, assign, and move tasks on an org's task board. Supports parent-child chains, goal linkage, and status filtering.",
       "text": "mastermind tasks view create assign move org task board supports parent-child chains goal linkage status filtering",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:techport",
@@ -1258,28 +1294,32 @@
       "invoke": "Skill(\"mastermind-threads\")",
       "description": "Mastermind threads — list, view, and create conversation threads within an org. Threads are human-or-agent discussions attached to issues, goals, or the org itself. Reads from -threads.jsonl org state files.",
       "text": "mastermind threads list view create conversation within org human-or-agent discussions attached issues goals itself reads -threads jsonl state files",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-tree-control",
       "invoke": "Skill(\"mastermind-tree-control\")",
       "description": "Mastermind tree-control — pause, hold, release, or preview recovery for an issue/task tree in an org. Lets board members stop runaway loops, hold trees during review, and resume work when ready. Mirrors Paperclip's issue-tree-control API.",
       "text": "mastermind tree control tree-control pause hold release preview recovery issue task org lets board members stop runaway loops trees review resume work ready mirrors paperclip issue-tree-control api",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-workspace-detail",
       "invoke": "Skill(\"mastermind-workspace-detail\")",
       "description": "Mastermind workspace-detail — deep per-execution-workspace inspection and runtime control. Manage services, provision/teardown/cleanup commands, linked issues and routines, runtime logs, and configuration for a single execution workspace.",
       "text": "mastermind workspace detail workspace-detail deep per-execution-workspace inspection runtime control manage services provision teardown cleanup commands linked issues routines logs configuration single execution",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind-workspaces",
       "invoke": "Skill(\"mastermind-workspaces\")",
       "description": "Mastermind workspaces — manage isolated git worktree workspaces per project. List, attach, detach, stop, and prune workspaces. Grouped by project with running service counts and agent assignments.",
       "text": "mastermind workspaces manage isolated git worktree project list attach detach stop prune grouped service counts agent assignments",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "mastermind:worktree",
@@ -1657,7 +1697,8 @@
       "invoke": "/monoswarm:optimization",
       "description": "Optimization swarm strategy — performance profiling, bottleneck detection, and coordinated optimization through specialized mesh agents",
       "text": "monoswarm optimization swarm strategy performance profiling bottleneck detection coordinated through specialized mesh agents",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "monoswarm:research",
@@ -1720,7 +1761,8 @@
       "invoke": "/pair:examples",
       "description": "Real-world pair programming scenarios — JWT auth, memory leak debugging, TDD, code review, and refactoring with effective prompt patterns",
       "text": "pair examples real-world programming scenarios jwt auth memory leak debugging tdd code review refactoring effective prompt patterns",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "pair:modes",
@@ -1755,7 +1797,8 @@
       "invoke": "Skill(\"specialagent\")",
       "description": "Find the single best specialized agent for a task — the [PICK] line or the shared pick index (mcp__monomind__pick / monomind pick), with a two-stage domain→agent fallback over the installed agents",
       "text": "specialagent find single best specialized agent task pick line shared index mcp monomind two-stage domain fallback installed agents",
-      "source": "platform"
+      "source": "platform",
+      "pick": "low"
     },
     {
       "id": "stream-chain:pipeline",

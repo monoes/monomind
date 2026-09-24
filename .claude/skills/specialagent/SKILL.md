@@ -18,6 +18,7 @@ triggers:
   - which swarm agent
 tools:
   - Bash
+pick: low
 ---
 
 # /specialagent — Best Agent for a Task

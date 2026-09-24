@@ -3,6 +3,7 @@ name: mastermind-adapters
 description: Mastermind adapters — install, enable, disable, reload, and remove LLM adapter plugins per org. Supports claude-local, gemini-local, codex-local, cursor, hermes, http, and custom adapters.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Adapters

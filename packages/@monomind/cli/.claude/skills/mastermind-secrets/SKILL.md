@@ -3,6 +3,7 @@ name: mastermind-secrets
 description: Mastermind secrets — manage org-scoped API keys and secrets consumed by agents. Store, rotate, list, and audit secrets without exposing values in logs or state files.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Secrets

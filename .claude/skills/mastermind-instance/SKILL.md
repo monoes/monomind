@@ -3,6 +3,7 @@ name: mastermind-instance
 description: Mastermind instance — global instance-level settings including scheduler heartbeat management across all orgs, system-wide configuration, and cross-org health overview.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Instance
