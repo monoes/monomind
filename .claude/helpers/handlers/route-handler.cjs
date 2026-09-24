@@ -224,18 +224,25 @@ module.exports = {
       //    MONOMIND_JEV_HOOK_TIMEOUT_MS and the failure breaker). Its one
       //    [PICK] line reaches Claude even under MONOMIND_HOOK_QUIET — it is
       //    the hook's answer, not an advisory banner.
-      var decided = await _decidePick(CWD, prompt, router);
-      var result = decided.result;
-      var pickLine = pickCore.formatPickLine(decided.pick);
-      if (pickLine) console.log(pickLine);
-      try {
-        pickCore.persistRoute(CWD, {
-          pick: decided.pick,
-          prompt: prompt,
-          sessionId: hookInput.session_id || hookInput.sessionId,
-          shown: !!pickLine,
-        });
-      } catch (e) { /* non-fatal */ }
+      //    A trivial reply ("thanks", "ok") gets no pick and no record: the
+      //    session's earlier route still describes the work in progress.
+      var result;
+      if (pickCore.isTrivialPrompt(prompt)) {
+        result = { agent: null, agentSlug: null, confidence: null, reason: 'trivial prompt', routingMethod: 'none', skillMatches: [] };
+      } else {
+        var decided = await _decidePick(CWD, prompt, router);
+        result = decided.result;
+        var pickLine = pickCore.formatPickLine(decided.pick);
+        if (pickLine) console.log(pickLine);
+        try {
+          pickCore.persistRoute(CWD, {
+            pick: decided.pick,
+            prompt: prompt,
+            sessionId: hookInput.session_id || hookInput.sessionId,
+            shown: !!pickLine,
+          });
+        } catch (e) { /* non-fatal */ }
+      }
 
       // When QUIET: the advisory output is suppressed anyway, so skip ALL the
       // expensive enrichment below (embedding search, second-brain HTTP, monograph

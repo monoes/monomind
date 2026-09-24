@@ -27,7 +27,7 @@ function makeHCtx(overrides = {}) {
     hookInput: {},
     toolInput: {},
     args: [],
-    prompt: 'implement a feature',
+    prompt: 'implement the login feature',
     CWD: cwd,
     session: null,
     router: null,

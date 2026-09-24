@@ -186,6 +186,26 @@ describe('route-handler [PICK] delivery', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it.each(['hi', 'thanks!', 'ok', 'looks good'])(
+    'makes no pick and no record for the trivial prompt %j, keeping the earlier route',
+    async (prompt) => {
+      await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));
+      const before = outcomes();
+      logs.length = 0;
+      vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
+      const fetchSpy = jevAnswer('coder', 'security-review');
+      vi.stubGlobal('fetch', fetchSpy);
+      await loadRH().handle(makeHCtx(prompt));
+      expect(logs).toEqual([]);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(outcomes()).toEqual(before);
+      const own = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.monomind', 'routes', 'sess-1.json'), 'utf-8'),
+      );
+      expect(own.agent).toBe('DevOps Automator');
+    },
+  );
+
   it('keeps the route per session', async () => {
     await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));
     const own = JSON.parse(
