@@ -281,7 +281,7 @@ describe('catalog loaders', () => {
       { id: 'coder', name: 'coder', category: 'core', description: 'Writes code', text: 'core code' },
     ]);
     expect(jp.loadSkillCatalog(root)).toEqual([
-      { id: 'mastermind-plan', invoke: '/mastermind:plan', description: 'Plans', text: 'plan' },
+      { id: 'mastermind-plan', invoke: '/mastermind:plan', description: 'Plans', text: 'plan', source: 'platform' },
     ]);
   });
 

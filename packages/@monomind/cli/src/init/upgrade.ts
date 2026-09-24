@@ -14,7 +14,9 @@ import {
   copyDirRecursive,
   findSourceDir,
   findSourceHelpersDir,
+  GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
+  regenerateSkillIndex,
   SKILLS_MAP,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
@@ -275,7 +277,7 @@ export async function executeUpgrade(
       // keep their edits, which is exactly why they are not force-synced.
       for (const entry of fs.readdirSync(sourceHelpersForUpgrade, { withFileTypes: true })) {
         if (!entry.isFile() || entry.name.startsWith('._')) continue;
-        if (criticalHelpers.includes(entry.name)) continue;
+        if (criticalHelpers.includes(entry.name) || GENERATED_HELPERS.has(entry.name)) continue;
         const targetPath = path.join(destHelpersDir, entry.name);
         if (fs.existsSync(targetPath)) continue;
         const tmp = `${targetPath}.${process.pid}.tmp`;
@@ -295,6 +297,11 @@ export async function executeUpgrade(
           copyDirRecursive(srcSubdir, destSubdir);
           result.updated.push(`.claude/helpers/${subdir}/`);
         }
+      }
+      // The skill index is generated, never copied: rebuild it now so the
+      // project's own (and the user's) skills replace any stale snapshot.
+      if (regenerateSkillIndex(targetDir, sourceHelpersForUpgrade)) {
+        result.updated.push('.claude/helpers/skill-registry.json');
       }
     } else {
       // Source not found (npx with broken paths) — use generated fallbacks

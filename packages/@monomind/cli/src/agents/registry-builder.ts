@@ -4,7 +4,7 @@
  * Scans agent definition .md files, parses YAML frontmatter,
  * and produces a unified AgentRegistry JSON.
  */
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname, isAbsolute, join, relative } from 'node:path';
 
 type TriggerPattern = { pattern: string; mode: 'glob' | 'regex' | 'exact' };
@@ -14,6 +14,11 @@ type AgentRegistryEntry = {
   version: string;
   category: string;
   description: string;
+  /** One-line `when_to_use:` frontmatter — the picker's lead description. */
+  whenToUse?: string;
+  tags: string[];
+  /** Optional `vibe:` frontmatter (personality line), ranked as extra text. */
+  vibe?: string;
   capabilities: string[];
   taskTypes: string[];
   tools: string[];
@@ -25,11 +30,15 @@ type AgentRegistryEntry = {
   registeredAt: string;
   lastUpdated: string;
 };
-type AgentRegistry = {
+/** A slug defined more than once: the first file kept, the others dropped. */
+export type DuplicateSlug = { slug: string; kept: string; dropped: string[] };
+export type AgentRegistry = {
   version: string;
   generatedAt: string;
   totalAgents: number;
   agents: AgentRegistryEntry[];
+  /** Duplicate slugs found while building (first root / first file wins). */
+  duplicates: DuplicateSlug[];
 };
 
 /** Parsed YAML frontmatter value: scalar, string array, or array of nested objects. */
@@ -38,8 +47,10 @@ type FrontmatterValue = string | boolean | string[] | Record<string, string>[];
 /** Parsed YAML frontmatter as a flat key-value map. */
 type Frontmatter = Record<string, FrontmatterValue>;
 
-/** Directories to skip during recursive scan. */
-const SKIP_DIRS = new Set<string>(['schemas', 'ephemeral']);
+/** Directories to skip during recursive scan. `reengineer-squad` is a
+ *  repo-only squad the package does not ship (package.json `files`), and its
+ *  `tester` would shadow the core tester. */
+const SKIP_DIRS = new Set<string>(['schemas', 'ephemeral', 'reengineer-squad']);
 
 /**
  * Recursively collect all `.md` files under `root`, skipping SKIP_DIRS.
@@ -316,10 +327,16 @@ export function computeAgentRoots(cwd: string): string[] {
  * @param outputPath - Optional path to write the merged registry JSON file.
  * @returns The deduplicated AgentRegistry.
  */
-export function buildUnifiedRegistry(roots: string[], outputPath?: string): AgentRegistry {
+export function buildUnifiedRegistry(
+  roots: string[],
+  outputPath?: string,
+  opts: { base?: string } = {},
+): AgentRegistry {
   const now = new Date().toISOString();
+  const base = opts.base ?? process.cwd();
   /** Slug → first-seen entry (first root wins). */
   const seen = new Map<string, AgentRegistryEntry>();
+  const dupes = new Map<string, DuplicateSlug>();
   for (const root of roots) {
     const files = collectMdFiles(root);
     for (const file of files) {
@@ -332,8 +349,16 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
       }
       const fm = parseFrontmatter(content);
       const slug = (typeof fm.slug === 'string' ? fm.slug : undefined) || slugFromFilename(file);
-      // Skip duplicates — first root wins
-      if (seen.has(slug)) continue;
+      const filePath = isAbsolute(file) ? relative(base, file) : file;
+      // Duplicates: first root wins, and the loser is recorded (doctor warns)
+      const prior = seen.get(slug);
+      if (prior) {
+        const d = dupes.get(slug) ?? { slug, kept: prior.filePath, dropped: [] };
+        d.dropped.push(filePath);
+        dupes.set(slug, d);
+        continue;
+      }
+      const str = (v: FrontmatterValue | undefined) => (typeof v === 'string' ? v : undefined);
       seen.set(slug, {
         slug,
         name: (typeof fm.name === 'string' ? fm.name : undefined) || slug,
@@ -342,6 +367,9 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
           (typeof fm.category === 'string' ? fm.category : undefined) ||
           categoryFromPath(file, root),
         description: typeof fm.description === 'string' ? fm.description : '',
+        whenToUse: str(fm.when_to_use ?? fm.whenToUse),
+        tags: toStringArray(fm.tags),
+        vibe: str(fm.vibe),
         // A `capability:` block is read flattened, so its `expertise:` list lands top-level
         capabilities: toStringArray(fm.capabilities ?? fm.expertise),
         taskTypes: toStringArray(fm.taskTypes ?? fm['task-types'] ?? fm.task_types),
@@ -350,7 +378,7 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
         deprecated: fm.deprecated === true,
         deprecatedBy: typeof fm.deprecatedBy === 'string' ? fm.deprecatedBy : undefined,
         dependencies: toStringArray(fm.dependencies),
-        filePath: isAbsolute(file) ? relative(process.cwd(), file) : file,
+        filePath,
         registeredAt: now,
         lastUpdated: now,
       });
@@ -362,9 +390,31 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
     generatedAt: now,
     totalAgents: agents.length,
     agents,
+    duplicates: [...dupes.values()],
   };
-  if (outputPath) {
-    writeFileSync(outputPath, JSON.stringify(registry, null, 2), 'utf-8');
-  }
+  if (outputPath) writeRegistryFile(outputPath, registry);
   return registry;
+}
+
+/** Agents already recorded in a registry file; 0 when missing or unreadable. */
+function agentCountOnDisk(file: string): number {
+  try {
+    const reg = JSON.parse(readFileSync(file, 'utf-8')) as { agents?: unknown };
+    return Array.isArray(reg.agents) ? reg.agents.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Atomically writes `registry` to `file` — except an empty registry never
+ * replaces a non-empty one (a build from a directory without agent files must
+ * not wipe the project's catalog). Returns whether the file was written.
+ */
+export function writeRegistryFile(file: string, registry: AgentRegistry): boolean {
+  if (registry.agents.length === 0 && agentCountOnDisk(file) > 0) return false;
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(registry, null, 2), 'utf-8');
+  renameSync(tmp, file);
+  return true;
 }

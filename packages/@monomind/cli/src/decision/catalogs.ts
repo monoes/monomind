@@ -1,10 +1,16 @@
 /**
  * Candidate catalogs for the Jev picker. Registry agents and skills come from
- * the shared helper so the hook and the CLI read them identically.
+ * the shared helper (.claude/helpers/jev-catalog.cjs) so the hook and the CLI
+ * read them identically; both indexes are refreshed first when stale.
  */
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { ensureRegistry, findProjectRoot } from '../agents/registry-freshness.js';
 import { verifyEntry } from '../catalog/digest.js';
 import { buildSnapshot, eligible } from '../catalog/snapshot.js';
-import { listSkills } from '../orgrt/skill-library.js';
+import { bundledSkillsDir, listSkills } from '../orgrt/skill-library.js';
 import type { OrgRole } from '../orgrt/types.js';
 import { type CatalogItem, jevModule } from './jev.js';
 
@@ -15,12 +21,47 @@ export interface RouteLike {
   utterances?: string[];
 }
 
+/** The project that owns `cwd` (walking up), or `cwd` itself. */
+const projectOf = (cwd: string): string => findProjectRoot(cwd) ?? cwd;
+
+/** Registry agents, rebuilt synchronously first when registry.json is missing
+ *  or older than an agent definition. */
 export function agentCatalog(root: string): CatalogItem[] {
-  return jevModule()?.loadAgentCatalog(root) ?? [];
+  const project = projectOf(root);
+  ensureRegistry(project);
+  return jevModule()?.loadAgentCatalog(project) ?? [];
 }
 
-export function skillCatalog(root: string): CatalogItem[] {
-  return jevModule()?.loadSkillCatalog(root) ?? [];
+const HERE = dirname(fileURLToPath(import.meta.url));
+/** src/decision → ../.. is the package root; dist/src/decision → ../../.. */
+const BUILDER_CANDIDATES = [
+  join(HERE, '..', '..', '.claude', 'helpers', 'build-skill-registry.cjs'),
+  join(HERE, '..', '..', '..', '.claude', 'helpers', 'build-skill-registry.cjs'),
+];
+
+interface SkillIndexBuilder {
+  build(root: string, opts?: { bundledDir?: string }): unknown;
+  ensure(root: string, opts?: { bundledDir?: string }): unknown;
+}
+
+/**
+ * The skill index for `root` (platform skills + Org library), with the
+ * bundled builder. A project with a `.claude` dir gets its
+ * .claude/helpers/skill-registry.json refreshed when a source is newer (the
+ * hook reads that file); any other directory is indexed in memory only.
+ */
+export function skillIndex(root: string): unknown {
+  const file = BUILDER_CANDIDATES.find((p) => existsSync(p));
+  if (!file) return undefined;
+  try {
+    const builder = createRequire(import.meta.url)(file) as SkillIndexBuilder;
+    const opts = { bundledDir: bundledSkillsDir() };
+    return existsSync(join(root, '.claude'))
+      ? builder.ensure(root, opts)
+      : builder.build(root, opts);
+  } catch {
+    return undefined;
+  }
 }
 
 type MaybeCatalog = { origin?: string; catalogId?: string };
@@ -54,15 +95,14 @@ export function orgSkillCatalog(root: string, names?: string[]): CatalogItem[] {
 }
 
 /** Every skill a task can use, as one index: platform skills first (they are
- *  directly invokable), then Org-library skills whose name is not already
- *  taken. Org skills are read with `monomind org skills show <name>`. */
+ *  directly invokable), then Org-library skills that are not a platform skill
+ *  or an agent by another name. Org skills are read with `monomind org skills
+ *  show <name>`. The same loader the prompt hook uses, over the same index. */
 export function taskSkillCatalog(root: string): CatalogItem[] {
-  const platform = skillCatalog(root).map((s) => ({ ...s, source: 'platform' as const }));
-  const taken = new Set(platform.map((s) => s.id));
-  const org = orgSkillCatalog(root)
-    .filter((s) => !taken.has(s.id))
-    .map((s) => ({ ...s, source: 'org' as const, invoke: `monomind org skills show ${s.id}` }));
-  return [...platform, ...org];
+  const project = projectOf(root);
+  ensureRegistry(project);
+  const index = skillIndex(project);
+  return jevModule()?.loadSkillCatalog(project, index ? { index } : undefined) ?? [];
 }
 
 export function roleCatalog(

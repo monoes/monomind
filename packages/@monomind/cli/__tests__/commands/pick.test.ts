@@ -48,16 +48,17 @@ describe('monomind pick', () => {
     vi.stubEnv('MONOMIND_JEV_URL', '');
     vi.stubEnv('TYPESAFE_API_KEY', '');
     root = mkdtempSync(join(tmpdir(), 'pick-cmd-'));
-    mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
-    writeFileSync(
-      join(root, '.claude', 'helpers', 'skill-registry.json'),
-      JSON.stringify({
-        skills: [
-          { skill: 'zorbling-audit', invoke: 'Skill("zorbling-audit")', description: 'Audit zorbling flux' },
-          { skill: 'zorbling-shared', invoke: 'Skill("zorbling-shared")', description: 'Shared zorbling flux' },
-        ],
-      }),
-    );
+    // Platform skills are indexed from the project's real .claude/skills tree.
+    for (const [name, description] of [
+      ['zorbling-audit', 'Audit zorbling flux'],
+      ['zorbling-shared', 'Shared zorbling flux'],
+    ]) {
+      mkdirSync(join(root, '.claude', 'skills', name), { recursive: true });
+      writeFileSync(
+        join(root, '.claude', 'skills', name, 'SKILL.md'),
+        `---\nname: ${name}\ndescription: ${description}\n---\n\nBody\n`,
+      );
+    }
     for (const name of ['zorbling-tuning', 'zorbling-shared']) {
       mkdirSync(join(root, '.monomind', 'org-skills', name), { recursive: true });
       writeFileSync(

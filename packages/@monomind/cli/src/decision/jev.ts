@@ -88,7 +88,7 @@ export interface JevPickerModule {
     opts?: { env?: NodeJS.ProcessEnv; fetchImpl?: typeof fetch },
   ): Promise<number>;
   loadAgentCatalog(root: string): CatalogItem[];
-  loadSkillCatalog(root: string): CatalogItem[];
+  loadSkillCatalog(root: string, opts?: { index?: unknown }): CatalogItem[];
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));

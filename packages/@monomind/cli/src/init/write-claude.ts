@@ -12,8 +12,10 @@ import {
   atomicWriteFile,
   findSourceClaudeDir,
   findSourceHelpersDir,
+  GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
   mergeGeneratedBlock,
+  regenerateSkillIndex,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -323,7 +325,7 @@ export async function writeHelpers(
       fs.mkdirSync(destDir, { recursive: true });
       for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
         // Skip exFAT/macOS AppleDouble junk files (e.g. "._foo.cjs").
-        if (entry.name.startsWith('._')) continue;
+        if (entry.name.startsWith('._') || GENERATED_HELPERS.has(entry.name)) continue;
 
         const srcPath = path.join(srcDir, entry.name);
         const destPath = path.join(destDir, entry.name);
@@ -348,6 +350,9 @@ export async function writeHelpers(
     copyRecursive(sourceHelpersDir, helpersDir, '');
     const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
     copyRecursive(sourceHelpersDir, geminiHelpersDir, '');
+    if (regenerateSkillIndex(targetDir, sourceHelpersDir)) {
+      result.created.files.push('.claude/helpers/skill-registry.json');
+    }
   }
 
   // --force means writeSettings (called elsewhere in this same init run) is

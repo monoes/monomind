@@ -302,3 +302,7 @@ test-results/
 .monomind/monoes-connection.json
 .monomind/dashboard-token
 .monomind/enable-terminal.json
+
+# generated per machine by .claude/helpers/build-skill-registry.cjs
+.claude/helpers/skill-registry.json
+**/helpers/skill-registry.json
