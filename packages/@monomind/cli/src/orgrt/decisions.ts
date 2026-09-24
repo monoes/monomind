@@ -10,7 +10,6 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { decisionModelConfigured } from '../decision/jev.js';
 import { suggestTaskSkills } from '../decision/picks.js';
 import { blockRecheckMs } from './block-recheck.js';
 import {
@@ -26,6 +25,7 @@ import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
 import { roleSkillNames } from './skill-library.js';
 import { isTerminalStatus, type OrgTask } from './task-dag.js';
+import type { TaskPick } from './task-match.js';
 import {
   DEFAULT_MAX_EVIDENCE_ATTEMPTS,
   type DecisionGate,
@@ -182,6 +182,7 @@ export function dagCreateTask(
   deps: string[],
   loadout?: string,
   brief?: string,
+  pick?: TaskPick,
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
@@ -192,6 +193,18 @@ export function dagCreateTask(
   try {
     const task = running.taskDag.add(title, assignee, deps, loadout, brief);
     task.createdBy = role;
+    task.assignedBy = pick ? 'auto' : 'explicit';
+    if (pick) {
+      task.pick = pick;
+      running.bus.emit({
+        type: 'audit',
+        from: role,
+        to: assignee,
+        reason: 'task-auto-assigned',
+        msg: `task ${task.id} auto-assigned to ${assignee} (${pick.method})`,
+        data: { taskId: task.id, assignee, ...pick },
+      });
+    }
     running.bus.emit({
       type: 'status',
       from: role,
@@ -765,11 +778,12 @@ export function dagRequestReview(
  *  a resend. Holding the dispatch for a beat lets the same-turn message join
  *  it, and both arrive as one message. Long enough for the rest of a tool-call
  *  batch to land, short enough to be invisible next to an LLM turn. */
-/** The dispatch message for a task. With a decision model configured and an
- *  assignee that has on-demand skills, it also names the ones that fit THIS
- *  task. That goes in the message, never the system prompt (ADR-O001 D7:
- *  per-task guidance is not cached). Otherwise it is the plain line, returned
- *  synchronously. The promise never rejects. */
+/** The dispatch message for a task. When the assignee has on-demand skills,
+ *  it also names the ones that fit THIS task (Jev when configured, otherwise
+ *  a keyword match over the pool), records them on the task and audits the
+ *  suggestion. That goes in the message, never the system prompt (ADR-O001
+ *  D7: per-task guidance is not cached). Otherwise it is the plain line,
+ *  returned synchronously. The promise never rejects. */
 export function dispatchLine(
   daemon: OrgDaemon,
   running: RunningOrg,
@@ -778,19 +792,60 @@ export function dispatchLine(
   // The brief rides the dispatch itself so it arrives with the task however
   // late that is — a separate org_send can miss the coalescing window below.
   const base = `${taskTag(task)} ${task.title}${task.brief ? `\n\n${task.brief}` : ''}`;
-  if (!decisionModelConfigured()) return base;
   const role = running.def?.roles.find((r) => r.id === task.assignee);
   if (!role) return base;
   const pinned = new Set(role.skills ?? []);
   const pool = roleSkillNames(role, daemon.root).filter((n) => !pinned.has(n));
   if (pool.length === 0) return base;
-  return suggestTaskSkills(task.title, pool, daemon.root).then(
-    (names) =>
-      names.length
-        ? `${base}\nSkills that fit this task (load with org_skill_load): ${names.join(', ')}`
-        : base,
+  let method: 'jev' | 'keyword' = 'keyword';
+  return suggestTaskSkills(task.title, pool, daemon.root, {
+    brief: task.brief,
+    onMethod: (m) => {
+      method = m;
+    },
+  }).then(
+    (names) => {
+      if (!names.length) return base;
+      task.suggestedSkills = names;
+      running.bus.emit({
+        type: 'audit',
+        from: task.assignee,
+        reason: 'task-skills-suggested',
+        msg: `task ${task.id}: suggested ${names.join(', ')} (${method})`,
+        data: { taskId: task.id, assignee: task.assignee, skills: names, method },
+      });
+      return `${base}\nSkills that fit this task (load with org_skill_load): ${names.join(', ')}`;
+    },
     () => base,
   );
+}
+
+/** org_skill_load served `skill` to `role`: record it on the role's open
+ *  tasks whose dispatch suggested it, and audit the load either way, so
+ *  suggestion adherence can be measured from the bus or the checkpoint. */
+export function recordSkillLoad(running: RunningOrg | undefined, role: string, skill: string): void {
+  if (!running) return;
+  const suggestedBy: string[] = [];
+  for (const t of running.taskDag?.all() ?? []) {
+    if (t.assignee !== role || isTerminalStatus(t.status)) continue;
+    if (!t.suggestedSkills?.includes(skill)) continue;
+    t.loadedSkills = [...new Set([...(t.loadedSkills ?? []), skill])];
+    suggestedBy.push(t.id);
+  }
+  running.bus.emit({
+    type: 'audit',
+    from: role,
+    reason: 'skill-loaded',
+    msg: `${role} loaded skill ${skill}${suggestedBy.length ? ` (suggested by ${suggestedBy.join(', ')})` : ''}`,
+    data: { skill, suggested: suggestedBy.length > 0, taskIds: suggestedBy },
+  });
+}
+
+/** Open (not finished) tasks assigned to `role` — the auto-assign tie-break. */
+export function openTaskCount(running: RunningOrg | undefined, role: string): number {
+  return (running?.taskDag?.all() ?? []).filter(
+    (t) => t.assignee === role && !isTerminalStatus(t.status),
+  ).length;
 }
 
 export const DISPATCH_COALESCE_MS = 500;

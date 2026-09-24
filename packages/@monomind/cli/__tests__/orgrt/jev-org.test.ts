@@ -127,18 +127,30 @@ describe('per-task skill suggestions at dispatch', () => {
     daemon.orgs.delete('acme');
   });
 
-  it('dispatches the plain line when no decision model is configured', async () => {
+  it('suggests pool skills by keyword when no decision model is configured', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', '');
     vi.stubEnv('TYPESAFE_API_KEY', '');
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
-    const { daemon, dev } = setup();
+    const { daemon, running, dev } = setup();
     const task = JSON.parse(dagCreateTask(daemon, 'acme', 'boss', 'design the REST endpoints', 'dev', []));
     await settle();
     const delivered = dev.mailbox.serialize().queue.join('\n');
     expect(delivered).toContain(`[task:${task.id}] design the REST endpoints`);
-    expect(delivered).not.toContain('Skills that fit');
+    expect(delivered).toMatch(/Skills that fit this task \(load with org_skill_load\): api-design/);
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(running.taskDag?.get(task.id)?.suggestedSkills).toContain('api-design');
+    daemon.orgs.delete('acme');
+  });
+
+  it('dispatches the plain line when no pool skill fits the task', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', '');
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    const { daemon, running, dev } = setup();
+    const task = JSON.parse(dagCreateTask(daemon, 'acme', 'boss', 'book a flight', 'dev', []));
+    await settle();
+    expect(dev.mailbox.serialize().queue.join('\n')).not.toContain('Skills that fit');
+    expect(running.taskDag?.get(task.id)?.suggestedSkills).toBeUndefined();
     daemon.orgs.delete('acme');
   });
 });
@@ -159,15 +171,29 @@ describe('org_task assignee "auto"', () => {
 
   it('resolves "auto" through pickAssignee', async () => {
     const createTask = vi.fn(() => '{"id":"task-1"}');
-    const orgTask = tools({ createTask, pickAssignee: async () => 'dev' }).find((t) => t.name === 'org_task');
+    const pickAssignee = vi.fn(async () => ({
+      role: 'dev',
+      method: 'keyword' as const,
+      score: 4,
+      candidates: [{ id: 'dev', score: 4 }],
+    }));
+    const orgTask = tools({ createTask, pickAssignee }).find((t) => t.name === 'org_task');
     expect(orgTask?.description).toContain('"auto"');
-    await orgTask?.handler({ title: 'add parser', assignee: AUTO_ASSIGNEE, deps: [] });
-    expect(createTask).toHaveBeenCalledWith('boss', 'add parser', 'dev', [], undefined, undefined);
+    await orgTask?.handler({ title: 'add parser', assignee: AUTO_ASSIGNEE, deps: [], brief: 'in src/parse' });
+    expect(pickAssignee).toHaveBeenCalledWith('add parser', 'in src/parse', 'boss');
+    expect(createTask).toHaveBeenCalledWith('boss', 'add parser', 'dev', [], undefined, 'in src/parse', {
+      method: 'keyword',
+      score: 4,
+      candidates: [{ id: 'dev', score: 4 }],
+    });
   });
 
   it('refuses "auto" when no role fits, without creating a task', async () => {
     const createTask = vi.fn(() => '{}');
-    const orgTask = tools({ createTask, pickAssignee: async () => null }).find((t) => t.name === 'org_task');
+    const orgTask = tools({
+      createTask,
+      pickAssignee: async () => ({ role: null, method: 'none' as const, candidates: [], reason: 'no-match' as const }),
+    }).find((t) => t.name === 'org_task');
     const out = await orgTask?.handler({ title: 'zzz', assignee: AUTO_ASSIGNEE, deps: [] });
     expect(JSON.stringify(out)).toContain('no role fits');
     expect(createTask).not.toHaveBeenCalled();

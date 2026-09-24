@@ -382,6 +382,28 @@ export function loadSkillText(
   return readFileSync(path, 'utf-8');
 }
 
+/** org_skill_search: the whole library, ranked against `query`, as names and
+ *  descriptions only. Discovery never widens access: a hit outside `allowed`
+ *  is marked as such and org_skill_load keeps refusing it. */
+export function skillSearchText(
+  query: string,
+  allowed: string[],
+  projectRoot?: string,
+  limit = 8,
+): string {
+  const hits = searchSkills(query, projectRoot, { limit });
+  if (hits.length === 0) return `No skill in the library matches "${query}".`;
+  const mine = new Set(allowed);
+  const lines = hits.map(
+    (s) =>
+      `- ${s.name}${mine.has(s.name) ? '' : ' (not in your pool)'}: ${s.description.replace(/\s+/g, ' ').slice(0, 200)}`,
+  );
+  return (
+    `${lines.join('\n')}\n\nLoad one of yours with org_skill_load. A skill marked "not in your pool" ` +
+    'cannot be loaded by you; ask your coordinator (org_send) to have it added to your skill_pool.'
+  );
+}
+
 /** MCP tools a set of skills asks for (monograph_*, monodesign_*). */
 export function skillTools(names: string[], projectRoot?: string): string[] {
   const out = new Set<string>();
