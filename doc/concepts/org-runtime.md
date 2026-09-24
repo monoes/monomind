@@ -842,8 +842,13 @@ status rather than `session-error`.
 
 ### Sandbox Faults
 
-A Bash result that starts with `bwrap: ` is the OS sandbox failing to start, not the command
-failing ([`sandbox-fault.ts → isSandboxFault`](packages/@monomind/cli/src/orgrt/sandbox-fault.ts#isSandboxFault)).
+A Bash result that is wholly one of bubblewrap's own setup failures — a single `bwrap: Can't …`,
+`bwrap: Creating …`, `bwrap: setting up …`, `bwrap: execvp …` (and the other messages bwrap dies
+with before it execs the command), optionally after the tool's `Exit code N` line — is the OS
+sandbox failing to start, not the command failing
+([`sandbox-fault.ts → isSandboxFault`](packages/@monomind/cli/src/orgrt/sandbox-fault.ts#isSandboxFault)).
+Output a command produced by running bwrap itself does not count: another `bwrap:` message, or a
+setup failure printed among other lines, is the command's own output.
 Each one raises a `sandbox-fault` audit event. Two in a row end the role's runner process — a new
 process builds a new sandbox — and the same session is resumed (in task scope, that task's session)
 with a continuation message saying why (`sandbox-restart` status). This happens at most twice per
