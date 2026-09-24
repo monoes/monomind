@@ -2,11 +2,17 @@
  * The prompt hook (jev-picker.cjs reading .claude/helpers/skill-registry.json)
  * and `monomind pick` (taskSkillCatalog) must rank the SAME skill set.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { orgSkillCatalog, taskSkillCatalog } from '../../src/decision/catalogs.js';
+import {
+  agentCatalog,
+  agentNames,
+  orgSkillCatalog,
+  skillIndex,
+  taskSkillCatalog,
+} from '../../src/decision/catalogs.js';
 import { newRoot, tamper, writeEntry } from '../catalog/fixtures.js';
 
 const require = createRequire(import.meta.url);
@@ -157,5 +163,67 @@ describe('skill index freshness', () => {
     expect(builder.build(root, { user: false }).skills.map((s: { skill: string }) => s.skill)).not.toContain(
       'my-user-skill',
     );
+  });
+});
+
+describe('catalogs outside a project write nothing', () => {
+  const agent = (name: string) => `---\nname: ${name}\ndescription: ${name} agent\n---\n`;
+
+  it('from the home directory: builds in memory, never creates ~/.monomind or a skill index', () => {
+    put(join(home, '.claude', 'agents', 'core', 'home-coder.md'), agent('home-coder'));
+    put(join(home, '.claude', 'skills', 'home-skill', 'SKILL.md'), md('home-skill', 'A personal skill'));
+    expect(agentCatalog(home).map((a) => a.id)).toEqual(['home-coder']);
+    expect(agentNames(home)).toEqual(new Set(['home-coder']));
+    expect(taskSkillCatalog(home).map((s) => s.id)).toContain('home-skill');
+    skillIndex(home);
+    expect(existsSync(join(home, '.monomind'))).toBe(false);
+    expect(existsSync(join(home, '.claude', 'helpers'))).toBe(false);
+  });
+
+  it('from a folder of a repository that is not a project: no .monomind anywhere', () => {
+    const repo = newRoot('parity-repo-');
+    mkdirSync(join(repo, '.git'));
+    mkdirSync(join(repo, 'sub'));
+    expect(agentCatalog(join(repo, 'sub'))).toEqual([]);
+    agentNames(join(repo, 'sub'));
+    taskSkillCatalog(join(repo, 'sub'));
+    expect(existsSync(join(repo, 'sub', '.monomind'))).toBe(false);
+    expect(existsSync(join(repo, '.monomind'))).toBe(false);
+  });
+});
+
+describe('skill index writes', () => {
+  it('never replaces a non-empty index with an empty one', () => {
+    fixture();
+    builder.write(root);
+    const before = require('node:fs').readFileSync(builder.indexPath(root), 'utf8');
+    const empty = newRoot('parity-empty-');
+    mkdirSync(join(empty, '.claude', 'helpers'), { recursive: true });
+    writeFileSync(builder.indexPath(empty), before);
+    builder.write(empty, { user: false });
+    expect(require('node:fs').readFileSync(builder.indexPath(empty), 'utf8')).toBe(before);
+  });
+
+  it('the command line indexes the project that owns the working directory', () => {
+    fixture();
+    mkdirSync(join(root, 'src', 'deep'), { recursive: true });
+    const { execFileSync } = require('node:child_process');
+    execFileSync(process.execPath, [require.resolve('../../.claude/helpers/build-skill-registry.cjs')], {
+      cwd: join(root, 'src', 'deep'),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: '' },
+    });
+    expect(existsSync(builder.indexPath(root))).toBe(true);
+    expect(existsSync(join(root, 'src', 'deep', '.claude'))).toBe(false);
+  });
+
+  it('the command line writes nothing outside a project', () => {
+    const repo = newRoot('parity-repo-');
+    mkdirSync(join(repo, '.git'));
+    const { execFileSync } = require('node:child_process');
+    execFileSync(process.execPath, [require.resolve('../../.claude/helpers/build-skill-registry.cjs')], {
+      cwd: repo,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: '' },
+    });
+    expect(existsSync(join(repo, '.claude'))).toBe(false);
   });
 });

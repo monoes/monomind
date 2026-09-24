@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { type AgentRegistry, buildUnifiedRegistry, computeAgentRoots } from '../agents/registry-builder.js';
 import { ensureRegistry, findProjectRoot, registryPath } from '../agents/registry-freshness.js';
 import { verifyEntry } from '../catalog/digest.js';
 import { buildSnapshot, eligible } from '../catalog/snapshot.js';
@@ -21,25 +22,34 @@ export interface RouteLike {
   utterances?: string[];
 }
 
-/** The project that owns `cwd` (walking up), or `cwd` itself. */
-const projectOf = (cwd: string): string => findProjectRoot(cwd) ?? cwd;
+/**
+ * Where `cwd`'s agents come from. Inside a project (walking up, never $HOME)
+ * the project's .monomind/registry.json, refreshed first when stale. Outside
+ * one the registry is built in memory and nothing is written, so a run from
+ * $HOME or a plain folder never creates a `.monomind` there.
+ */
+function agentSource(cwd: string): { root: string; registry?: AgentRegistry } {
+  const project = findProjectRoot(cwd);
+  if (project) {
+    ensureRegistry(project);
+    return { root: project };
+  }
+  return { root: cwd, registry: buildUnifiedRegistry(computeAgentRoots(cwd), undefined, { base: cwd }) };
+}
 
-/** Registry agents, rebuilt synchronously first when registry.json is missing
- *  or older than an agent definition. */
+/** Registry agents (see agentSource). */
 export function agentCatalog(root: string): CatalogItem[] {
-  const project = projectOf(root);
-  ensureRegistry(project);
-  return jevModule()?.loadAgentCatalog(project) ?? [];
+  const src = agentSource(root);
+  return jevModule()?.loadAgentCatalog(src.root, src.registry ? { registry: src.registry } : undefined) ?? [];
 }
 
 /** Every spawnable agent name (frontmatter `name`, the Task subagent_type) in
  *  the registry. Deprecated agents are included: picks hide them, but a Task
  *  call naming one still works. */
 export function agentNames(root: string): Set<string> {
-  const project = projectOf(root);
-  ensureRegistry(project);
+  const src = agentSource(root);
   try {
-    const reg = JSON.parse(readFileSync(registryPath(project), 'utf8')) as {
+    const reg = (src.registry ?? JSON.parse(readFileSync(registryPath(src.root), 'utf8'))) as {
       agents?: { name?: unknown; slug?: unknown }[];
     };
     return new Set(
@@ -82,10 +92,11 @@ export function skillIndexIsStale(root: string): boolean | undefined {
 
 /**
  * The skill index for `root` (platform skills + Org library), with the
- * bundled builder. A project with a `.claude` dir gets its
- * .claude/helpers/skill-registry.json refreshed when a source is newer (the
- * hook reads that file); any other directory is indexed in memory only.
- * `user: false` leaves ~/.claude/skills out and always indexes in memory.
+ * bundled builder. Inside a project (findProjectRoot) with a `.claude` dir,
+ * the project's .claude/helpers/skill-registry.json is refreshed when a source
+ * is newer (the hook reads that file); anywhere else — $HOME included — the
+ * index is built in memory only. `user: false` leaves ~/.claude/skills out and
+ * always indexes in memory.
  */
 export function skillIndex(root: string, opts: { user?: boolean } = {}): unknown {
   try {
@@ -93,9 +104,10 @@ export function skillIndex(root: string, opts: { user?: boolean } = {}): unknown
     if (!builder) return undefined;
     const bundledDir = bundledSkillsDir();
     if (opts.user === false) return builder.build(root, { bundledDir, user: false });
-    return existsSync(join(root, '.claude'))
-      ? builder.ensure(root, { bundledDir })
-      : builder.build(root, { bundledDir });
+    const project = findProjectRoot(root);
+    return project && existsSync(join(project, '.claude'))
+      ? builder.ensure(project, { bundledDir })
+      : builder.build(project ?? root, { bundledDir });
   } catch {
     return undefined;
   }
@@ -136,10 +148,14 @@ export function orgSkillCatalog(root: string, names?: string[]): CatalogItem[] {
  *  or an agent by another name. Org skills are read with `monomind org skills
  *  show <name>`. The same loader the prompt hook uses, over the same index. */
 export function taskSkillCatalog(root: string): CatalogItem[] {
-  const project = projectOf(root);
-  ensureRegistry(project);
-  const index = skillIndex(project);
-  return jevModule()?.loadSkillCatalog(project, index ? { index } : undefined) ?? [];
+  const src = agentSource(root);
+  const index = skillIndex(src.root);
+  return (
+    jevModule()?.loadSkillCatalog(src.root, {
+      ...(index ? { index } : {}),
+      ...(src.registry ? { registry: src.registry } : {}),
+    }) ?? []
+  );
 }
 
 export function roleCatalog(

@@ -992,6 +992,12 @@ describe('doctor-project-checks', () => {
       expect(result.message).toContain('No agents found');
     });
 
+    it('creates no .monomind in a directory that is not a project', async () => {
+      mkdirSync(join(dir, '.git'));
+      await checkAgentRegistry();
+      expect(existsSync(join(dir, '.monomind'))).toBe(false);
+    });
+
     it('passes when a well-formed agent definition is present', async () => {
       mkdirSync(join(dir, '.claude', 'agents'), { recursive: true });
       writeFileSync(

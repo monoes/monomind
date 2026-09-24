@@ -46,10 +46,11 @@ function norm(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-/** Agents from .monomind/registry.json (built by registry-builder.ts). The
- *  description leads with the one-line `when_to_use`; deprecated agents drop. */
-function loadAgentCatalog(root) {
-  var reg = readJsonFile(path.join(root, '.monomind', 'registry.json'));
+/** Agents from .monomind/registry.json (built by registry-builder.ts), or from
+ *  opts.registry (an in-memory build outside a project). The description leads
+ *  with the one-line `when_to_use`; deprecated agents drop. */
+function loadAgentCatalog(root, opts) {
+  var reg = (opts && opts.registry) || readJsonFile(path.join(root, '.monomind', 'registry.json'));
   var list = reg && Array.isArray(reg.agents) ? reg.agents : [];
   var out = [];
   var seen = new Set();
@@ -198,7 +199,8 @@ function orgSkills(root, list, taken, gate) {
  * Every skill a task can use, as one list: platform skills (directly
  * invokable) first, then Org-library skills (read with `monomind org skills
  * show <name>`). opts.index: an already-built index object (the CLI passes the
- * one it just refreshed); otherwise the file is read.
+ * one it just refreshed); otherwise the file is read. opts.registry: the agent
+ * registry to dedupe against (see loadAgentCatalog).
  */
 function loadSkillCatalog(root, opts) {
   var reg = (opts && opts.index) || readJsonFile(path.join(root, '.claude', 'helpers', 'skill-registry.json'));
@@ -206,7 +208,7 @@ function loadSkillCatalog(root, opts) {
   var platform = platformSkills(root, reg && Array.isArray(reg.skills) ? reg.skills : [], gate);
   var taken = new Set();
   platform.forEach(function (s) { taken.add(norm(s.id)); });
-  loadAgentCatalog(root).forEach(function (a) {
+  loadAgentCatalog(root, opts).forEach(function (a) {
     taken.add(norm(a.id));
     taken.add(norm(a.name));
   });

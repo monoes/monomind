@@ -101,8 +101,9 @@ export interface JevPickerModule {
     provider: JevProvider,
     opts?: { env?: NodeJS.ProcessEnv; fetchImpl?: typeof fetch },
   ): Promise<number>;
-  loadAgentCatalog(root: string): CatalogItem[];
-  loadSkillCatalog(root: string, opts?: { index?: unknown }): CatalogItem[];
+  /** opts.registry: an in-memory agent registry used instead of .monomind/registry.json. */
+  loadAgentCatalog(root: string, opts?: { registry?: unknown }): CatalogItem[];
+  loadSkillCatalog(root: string, opts?: { index?: unknown; registry?: unknown }): CatalogItem[];
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
