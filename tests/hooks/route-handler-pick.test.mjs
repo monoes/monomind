@@ -171,6 +171,39 @@ describe('route-handler [PICK] delivery', () => {
     expect(outcomes().at(-1)).toMatchObject({ method: 'keyword', agentId: 'devops-automator' });
   });
 
+  it('picks a keyword skill from the shared catalog, Org skills included, not router.cjs', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.claude', 'helpers', 'skill-registry.json'),
+      JSON.stringify({
+        skills: [
+          {
+            skill: 'security-review',
+            invoke: 'Skill("security-review")',
+            description: 'Security review',
+            nameTerms: ['security'],
+          },
+        ],
+        orgSkills: [
+          {
+            name: 'zorbling-tuning',
+            description: 'Tune zorbling flux capacitors for throughput',
+            tags: ['zorbling'],
+          },
+        ],
+      }),
+    );
+    const matchSkills = vi.fn(() => [{ skill: 'legacy', invoke: '/legacy', score: 9 }]);
+    const hCtx = makeHCtx('tune the zorbling flux capacitors');
+    hCtx.router = { ...legacyRouter, matchSkills };
+    await loadRH().handle(hCtx);
+    expect(logs).toEqual(['[PICK] skill: monomind org skills show zorbling-tuning']);
+    expect(matchSkills).not.toHaveBeenCalled();
+    expect(outcomes().at(-1)).toMatchObject({
+      method: 'keyword',
+      skill: 'monomind org skills show zorbling-tuning',
+    });
+  });
+
   it('prints and records nothing for a task notification', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     const fetchSpy = jevAnswer('engineering-security-engineer', 'security-review');

@@ -27,8 +27,11 @@ try { pickRank = require('../pick-rank.cjs'); } catch (e) { /* no trivial-prompt
 // shown, 23 of them correct.
 var KEYWORD_MIN_AGENT_SCORE = 2;
 var KEYWORD_AGENT_LEAD = 1.5;
-// router.cjs matchSkills: 2 per name term, 1 per keyword.
-var KEYWORD_MIN_SKILL_SCORE = 4;
+// A keyword skill pick (pick-rank.cjs over the shared skill catalog) needs
+// this score AND a KEYWORD_SKILL_LEAD lead over the runner-up. Calibrated on
+// tests/pick-eval (59 tasks, 514 skills): 34 shown, 31 of them correct (91%).
+var KEYWORD_MIN_SKILL_SCORE = 3;
+var KEYWORD_SKILL_LEAD = 1.25;
 var MAX_CANDIDATES = 5;
 var PREVIEW_CHARS = 120;
 // A prompt with fewer content words ("hi", "thanks", "ok, go ahead") is a
@@ -113,6 +116,20 @@ function rankAgents(jp, prompt, agents, stats) {
   return out;
 }
 
+/** Skills of the shared catalog (jev-picker loadSkillCatalog: platform and
+ *  Org skills) ranked by pick-rank's shortlist, which honours `pick: low`;
+ *  zero-overlap entries dropped, at most 5. */
+function rankSkills(jp, prompt, skills) {
+  if (!jp || typeof jp.shortlist !== 'function' || !Array.isArray(skills) || skills.length === 0) return [];
+  var ranked;
+  try { ranked = jp.shortlist(prompt, skills, MAX_CANDIDATES); } catch (e) { return []; }
+  return (Array.isArray(ranked) ? ranked : [])
+    .filter(function (s) { return s && Number.isFinite(s.score) && s.score > 0; })
+    .map(function (s) {
+      return { skill: s.id, invoke: s.invoke || s.id, description: s.description || '', score: s.score, source: s.source };
+    });
+}
+
 /** The top entry when it clears `min` and leads the runner-up by `ratio`. The
  *  floor is on keyword relevance alone (baseScore when a prior re-ranked). */
 function leads(list, min, ratio) {
@@ -151,7 +168,7 @@ function decide(opts) {
     if (js) out.skill = { skill: js.id, invoke: js.invoke };
     viaJev = true;
   } else {
-    var ks = leads(opts.skillMatches, KEYWORD_MIN_SKILL_SCORE);
+    var ks = leads(opts.skillMatches, KEYWORD_MIN_SKILL_SCORE, KEYWORD_SKILL_LEAD);
     if (ks) { out.skill = { skill: ks.skill, invoke: ks.invoke }; viaKeyword = true; }
   }
 
@@ -409,11 +426,13 @@ module.exports = {
   KEYWORD_MIN_AGENT_SCORE: KEYWORD_MIN_AGENT_SCORE,
   KEYWORD_AGENT_LEAD: KEYWORD_AGENT_LEAD,
   KEYWORD_MIN_SKILL_SCORE: KEYWORD_MIN_SKILL_SCORE,
+  KEYWORD_SKILL_LEAD: KEYWORD_SKILL_LEAD,
   isSystemPrompt: isSystemPrompt,
   isTrivialPrompt: isTrivialPrompt,
   promptHash: promptHash,
   promptPreview: promptPreview,
   rankAgents: rankAgents,
+  rankSkills: rankSkills,
   decide: decide,
   formatPickLine: formatPickLine,
   safeSessionId: safeSessionId,

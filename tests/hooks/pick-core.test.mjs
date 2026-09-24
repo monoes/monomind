@@ -198,29 +198,87 @@ describe('rankAgents / decide', () => {
     expect(d.skill).toBeNull();
   });
 
-  it('picks a keyword skill only on a strong, strictly leading score', () => {
-    const { decide } = pc();
+  it('picks a keyword skill only above the floor and with a clear lead', () => {
+    const { decide, KEYWORD_MIN_SKILL_SCORE, KEYWORD_SKILL_LEAD } = pc();
+    expect(KEYWORD_MIN_SKILL_SCORE).toBe(3);
+    expect(KEYWORD_SKILL_LEAD).toBe(1.25);
+    const skill = (skillMatches) => decide({ agents, keywordCands: [], skillMatches }).skill;
+    expect(skill([{ skill: 'tokens', invoke: '/tokens', score: 5 }])).toEqual({
+      skill: 'tokens',
+      invoke: '/tokens',
+    });
     expect(
-      decide({
-        agents,
-        keywordCands: [],
-        skillMatches: [{ skill: 'tokens', invoke: '/tokens', score: 5 }],
-      }).skill,
-    ).toEqual({ skill: 'tokens', invoke: '/tokens' });
-    expect(
-      decide({
-        agents,
-        keywordCands: [],
-        skillMatches: [
-          { skill: 'a', invoke: '/a', score: 4 },
-          { skill: 'b', invoke: '/b', score: 4 },
-        ],
-      }).skill,
+      skill([
+        { skill: 'a', invoke: '/a', score: 4 },
+        { skill: 'b', invoke: '/b', score: 4 },
+      ]),
     ).toBeNull();
     expect(
-      decide({ agents, keywordCands: [], skillMatches: [{ skill: 'a', invoke: '/a', score: 3 }] })
-        .skill,
+      skill([
+        { skill: 'a', invoke: '/a', score: 5 },
+        { skill: 'b', invoke: '/b', score: 4.5 },
+      ]),
     ).toBeNull();
+    expect(
+      skill([
+        { skill: 'a', invoke: '/a', score: 5 },
+        { skill: 'b', invoke: '/b', score: 3.9 },
+      ]),
+    ).toEqual({ skill: 'a', invoke: '/a' });
+    expect(skill([{ skill: 'a', invoke: '/a', score: 2.9 }])).toBeNull();
+  });
+});
+
+describe('rankSkills', () => {
+  const jp = require(path.resolve(__dirname, '../../.claude/helpers/jev-picker.cjs'));
+  const skills = [
+    {
+      id: 'security-review',
+      invoke: 'Skill("security-review")',
+      description: 'Review code for security vulnerabilities',
+      source: 'platform',
+    },
+    {
+      id: 'threat-model',
+      invoke: 'monomind org skills show threat-model',
+      description: 'Threat modeling of an architecture for security risks',
+      source: 'org',
+    },
+    {
+      id: 'skill-admin',
+      invoke: 'Skill("skill-admin")',
+      description: 'Security review settings for skills',
+      source: 'platform',
+      pick: 'low',
+    },
+    {
+      id: 'copywriting',
+      invoke: 'Skill("copywriting")',
+      description: 'Marketing copy',
+      source: 'platform',
+    },
+  ];
+
+  it('ranks the shared skill catalog (org skills included) with pick-rank, zero scores dropped', () => {
+    const got = pc().rankSkills(jp, 'threat modeling for the payments architecture', skills);
+    expect(got[0]).toMatchObject({
+      skill: 'threat-model',
+      invoke: 'monomind org skills show threat-model',
+    });
+    expect(got[0].score).toBeGreaterThan(0);
+    expect(got.map((m) => m.skill)).not.toContain('copywriting');
+  });
+
+  it('keeps a pick: low skill below an equally matching one', () => {
+    const got = pc()
+      .rankSkills(jp, 'security review', skills)
+      .map((m) => m.skill);
+    expect(got.indexOf('security-review')).toBeLessThan(got.indexOf('skill-admin'));
+  });
+
+  it('returns [] without a picker or catalog', () => {
+    expect(pc().rankSkills(null, 'security review', skills)).toEqual([]);
+    expect(pc().rankSkills(jp, 'security review', [])).toEqual([]);
   });
 });
 

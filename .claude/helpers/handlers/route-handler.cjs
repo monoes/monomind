@@ -98,12 +98,11 @@ function _tripJevBreaker(CWD) {
   try { fs.writeFileSync(_jevBreakerPath(CWD), JSON.stringify({ until: Date.now() + JEV_BREAKER_MS })); } catch (e) { /* best effort */ }
 }
 
-async function _pickWithJev(CWD, prompt, agents, includeAgentId) {
+async function _pickWithJev(CWD, prompt, agents, includeAgentId, skills) {
   var jp = _loadJevPicker();
   if (!jp || jp.resolveProviders(process.env).length === 0) return null;
   // A dead endpoint must not tax every prompt: after a failed pick, skip Jev for 5 min.
   if (_jevBreakerOpen(CWD)) return null;
-  var skills = jp.loadSkillCatalog(CWD);
   if (agents.length < 2 && skills.length === 0) return null;
   var failures = [];
   var picked = await jp.pick(prompt, { agents: agents, skills: skills }, {
@@ -130,19 +129,20 @@ async function _pickWithJev(CWD, prompt, agents, includeAgentId) {
 }
 
 // The prompt's pick, as the legacy result object the enrichment below reads.
-// router.cjs contributes skill keyword matches only: its hardcoded agent table
-// is not a selector any more (most of its slugs are not registry agents).
-async function _decidePick(CWD, prompt, router) {
+// Agents and skills both come from the shared catalogs (registry.json and the
+// skill index through jev-picker), the same the CLI pickers rank; router.cjs
+// is not a selector (its agent table and matchSkills predate the catalogs).
+async function _decidePick(CWD, prompt) {
   var jp = _loadJevPicker();
   var agents = jp ? jp.loadAgentCatalog(CWD) : [];
-  var skillMatches = [];
-  try { if (router && router.matchSkills) skillMatches = router.matchSkills(prompt) || []; } catch (e) { /* no skill hints */ }
+  var skills = jp ? jp.loadSkillCatalog(CWD) : [];
+  var skillMatches = pickCore.rankSkills(jp, prompt, skills);
   // Outcome prior (pick-stats.cjs): a bounded re-rank from past adherence and
   // subagent success; the file is small and read once per prompt.
   var stats = null;
   try { stats = require(path.join(__dirname, '..', 'pick-stats.cjs')).load(CWD); } catch (e) { /* no prior */ }
   var keywordCands = pickCore.rankAgents(jp, prompt, agents, stats);
-  var jev = await _pickWithJev(CWD, prompt, agents, keywordCands[0] && keywordCands[0].id);
+  var jev = await _pickWithJev(CWD, prompt, agents, keywordCands[0] && keywordCands[0].id, skills);
   var pick = pickCore.decide({ agents: agents, keywordCands: keywordCands, skillMatches: skillMatches, jev: jev });
   // Jev's skill answer replaces keyword skill matches, including "none fits".
   if (jev && jev.skillAnswered) {
@@ -170,7 +170,6 @@ module.exports = {
     var hookStart = Date.now();
     var prompt = hCtx.prompt;
     var hookInput = hCtx.hookInput;
-    var router = hCtx.router;
     var intelligence = hCtx.intelligence;
     var CWD = hCtx.CWD;
 
@@ -230,7 +229,7 @@ module.exports = {
       if (pickCore.isTrivialPrompt(prompt)) {
         result = { agent: null, agentSlug: null, confidence: null, reason: 'trivial prompt', routingMethod: 'none', skillMatches: [] };
       } else {
-        var decided = await _decidePick(CWD, prompt, router);
+        var decided = await _decidePick(CWD, prompt);
         result = decided.result;
         var pickLine = pickCore.formatPickLine(decided.pick);
         if (pickLine) console.log(pickLine);
