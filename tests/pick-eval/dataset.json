@@ -1,0 +1,429 @@
+[
+  {
+    "id": 1,
+    "domain": "backend",
+    "task": "Design and implement a REST API for order management with Postgres, pagination and idempotent POST endpoints",
+    "agents": ["engineering-backend-architect", "coder", "engineering-senior-developer"],
+    "skills": [
+      "api-design",
+      "api-designer",
+      "backend-patterns",
+      "backend-dev",
+      "postgres-patterns",
+      "contract-first"
+    ]
+  },
+  {
+    "id": 2,
+    "domain": "backend",
+    "task": "Our Node service leaks memory under load; find the root cause of the growing heap",
+    "agents": [
+      "coder",
+      "engineering-backend-architect",
+      "performance-monitor",
+      "engineering-sre",
+      "testing-performance-benchmarker"
+    ],
+    "skills": [
+      "mastermind:debug",
+      "debugging-wizard",
+      "performance-analysis",
+      "perf-analyzer",
+      "analysis:performance-bottlenecks"
+    ]
+  },
+  {
+    "id": 3,
+    "domain": "frontend",
+    "task": "Build a responsive React settings page with form validation and dark mode",
+    "agents": ["engineering-frontend-developer", "design-monodesign"],
+    "skills": [
+      "react-expert",
+      "react-patterns",
+      "frontend-patterns",
+      "responsive-design",
+      "frontend-design",
+      "frontend-design-direction"
+    ]
+  },
+  {
+    "id": 4,
+    "domain": "frontend",
+    "task": "Our Next.js dashboard re-renders too much and the list scrolls slowly; speed up the React components",
+    "agents": ["engineering-frontend-developer", "testing-performance-benchmarker"],
+    "skills": [
+      "react-performance",
+      "nextjs-developer",
+      "react-expert",
+      "performance-analysis",
+      "frontend-patterns"
+    ]
+  },
+  {
+    "id": 5,
+    "domain": "security",
+    "task": "Audit the login and session handling code for OWASP Top 10 vulnerabilities such as SQL injection and XSS",
+    "agents": ["engineering-security-engineer"],
+    "skills": [
+      "mastermind:review",
+      "security-review",
+      "security-auditor",
+      "security-reviewer",
+      "secure-code-guardian",
+      "auth-implementation-patterns"
+    ]
+  },
+  {
+    "id": 6,
+    "domain": "security",
+    "task": "Build a STRIDE threat model for our new payments microservice",
+    "agents": ["engineering-security-engineer", "engineering-software-architect"],
+    "skills": [
+      "stride-analysis-patterns",
+      "threat-mitigation-mapping",
+      "security-architect",
+      "pci-compliance"
+    ]
+  },
+  {
+    "id": 7,
+    "domain": "code-review",
+    "task": "Review this pull request diff for correctness bugs and maintainability problems before merge",
+    "agents": ["reviewer", "monoswarm-code-review", "pr-manager"],
+    "skills": [
+      "mastermind:code-review",
+      "mastermind:review",
+      "code-reviewer",
+      "github:pr-manager",
+      "adversarial-reviewer",
+      "code-review-swarm"
+    ]
+  },
+  {
+    "id": 8,
+    "domain": "code-review",
+    "task": "I got review comments on my branch; evaluate them and implement the valid ones",
+    "agents": ["coder", "reviewer"],
+    "skills": ["mastermind:receive-review"]
+  },
+  {
+    "id": 9,
+    "domain": "testing",
+    "task": "Write unit tests for the invoice calculation module and raise coverage above 90 percent",
+    "agents": ["tester", "tdd-london-monoswarm"],
+    "skills": ["test-master", "test-driven-development", "python-testing", "monoswarm:testing"]
+  },
+  {
+    "id": 10,
+    "domain": "testing",
+    "task": "Create Playwright end-to-end tests for the checkout flow in the browser",
+    "agents": ["tester", "testing-evidence-collector"],
+    "skills": ["playwright-expert", "e2e-testing", "agent-browser-testing", "monobrowse"]
+  },
+  {
+    "id": 11,
+    "domain": "testing",
+    "task": "Load test our public API endpoints and validate response contracts",
+    "agents": ["testing-api-tester", "testing-performance-benchmarker"],
+    "skills": [
+      "benchmark-methodology",
+      "benchmarker",
+      "test-master",
+      "contract-first",
+      "perf-analyzer"
+    ]
+  },
+  {
+    "id": 12,
+    "domain": "devops",
+    "task": "Set up a GitHub Actions CI pipeline that runs lint, tests and builds a Docker image on every push",
+    "agents": ["engineering-devops-automator", "workflow-automation"],
+    "skills": [
+      "cicd-engineer",
+      "deployment-pipeline-design",
+      "docker-patterns",
+      "github-toolkit",
+      "devops-engineer"
+    ]
+  },
+  {
+    "id": 13,
+    "domain": "devops",
+    "task": "Write Terraform modules for a Kubernetes cluster on AWS with autoscaling node groups",
+    "agents": ["engineering-devops-automator", "engineering-sre"],
+    "skills": [
+      "terraform-engineer",
+      "kubernetes-specialist",
+      "kubernetes-patterns",
+      "infrastructure",
+      "cloud-architect",
+      "devops-engineer",
+      "cloud-architecture"
+    ]
+  },
+  {
+    "id": 14,
+    "domain": "release",
+    "task": "Cut release v2.3.0: bump versions, generate the changelog and publish to npm",
+    "agents": ["release-manager"],
+    "skills": [
+      "mastermind:release",
+      "github:release-manager",
+      "changelog-automation",
+      "monomind-release-rules"
+    ]
+  },
+  {
+    "id": 15,
+    "domain": "docs",
+    "task": "Write API reference documentation and a getting-started tutorial for our SDK",
+    "agents": ["engineering-technical-writer", "specialized-developer-advocate"],
+    "skills": ["code-documenter", "mastermind:content", "article-writing", "monodoc"]
+  },
+  {
+    "id": 16,
+    "domain": "docs",
+    "task": "Draft an architecture decision record explaining why we chose event sourcing",
+    "agents": [
+      "engineering-software-architect",
+      "arch-system-design",
+      "engineering-technical-writer"
+    ],
+    "skills": ["mastermind:adr"]
+  },
+  {
+    "id": 17,
+    "domain": "marketing",
+    "task": "Write landing page headline and hero copy for our new AI note-taking app",
+    "agents": ["marketing-cro-specialist", "marketing-launch-strategist"],
+    "skills": ["copywriting", "mastermind:marketing", "page-cro", "content-creator"]
+  },
+  {
+    "id": 18,
+    "domain": "marketing",
+    "task": "Plan an SEO content strategy and topic clusters for a developer tools blog",
+    "agents": ["marketing-competitive-content", "specialized-developer-advocate"],
+    "skills": [
+      "content-strategy",
+      "seo",
+      "seo-specialist",
+      "programmatic-seo",
+      "mastermind:marketing",
+      "mastermind:content"
+    ]
+  },
+  {
+    "id": 19,
+    "domain": "pricing",
+    "task": "Restructure our SaaS pricing tiers and choose a value metric for usage-based billing",
+    "agents": ["marketing-pricing-strategist"],
+    "skills": ["pricing-strategy", "offer-design"]
+  },
+  {
+    "id": 20,
+    "domain": "email",
+    "task": "Create a five-email onboarding drip sequence for new trial users",
+    "agents": ["marketing-email-specialist"],
+    "skills": ["email-sequences", "email-marketing", "onboarding-cro", "mastermind:marketing"]
+  },
+  {
+    "id": 21,
+    "domain": "email",
+    "task": "Write a cold outreach email campaign targeting CTOs at mid-size fintech companies",
+    "agents": ["marketing-email-specialist"],
+    "skills": [
+      "cold-email",
+      "sales-prospecting",
+      "outbound-strategist",
+      "mastermind:sales",
+      "email-sequences"
+    ]
+  },
+  {
+    "id": 22,
+    "domain": "research",
+    "task": "Research competitors in the project management software market and summarize their positioning",
+    "agents": ["researcher", "marketing-competitive-content"],
+    "skills": [
+      "mastermind:research",
+      "competitive-landscape",
+      "competitive-teardown",
+      "market-research",
+      "competitive-report-structure",
+      "deep-research",
+      "competitive-platform-analysis",
+      "market-research-reports"
+    ]
+  },
+  {
+    "id": 23,
+    "domain": "research",
+    "task": "Do a literature review of recent papers on retrieval augmented generation evaluation",
+    "agents": ["researcher", "engineering-ai-engineer"],
+    "skills": [
+      "scientific-thinking-literature-review",
+      "deep-research",
+      "mastermind:research",
+      "llm-evaluation",
+      "rag-architect"
+    ]
+  },
+  {
+    "id": 24,
+    "domain": "architecture",
+    "task": "Split our monolith into microservices using domain-driven design bounded contexts",
+    "agents": [
+      "engineering-software-architect",
+      "arch-system-design",
+      "engineering-backend-architect"
+    ],
+    "skills": [
+      "architecture-patterns",
+      "architecture-designer",
+      "hexagonal-architecture",
+      "legacy-modernizer",
+      "mastermind:design"
+    ]
+  },
+  {
+    "id": 25,
+    "domain": "data",
+    "task": "Build an ETL pipeline with dbt and Spark that loads clickstream events into the data warehouse",
+    "agents": ["engineering-data-engineer"],
+    "skills": [
+      "dbt-transformation-patterns",
+      "spark-engineer",
+      "ml-pipeline",
+      "data-quality-frameworks"
+    ]
+  },
+  {
+    "id": 26,
+    "domain": "data",
+    "task": "Optimize slow PostgreSQL queries and design better indexes for the reporting tables",
+    "agents": ["engineering-database-optimizer"],
+    "skills": ["postgres-patterns", "sql-pro", "postgresql-table-design"]
+  },
+  {
+    "id": 27,
+    "domain": "mobile",
+    "task": "Build a React Native app screen with offline sync and push notifications for iOS and Android",
+    "agents": ["engineering-mobile-app-builder"],
+    "skills": ["react-native-expert", "react-native-patterns", "mobile-dev"]
+  },
+  {
+    "id": 28,
+    "domain": "mobile",
+    "task": "Implement a SwiftUI onboarding flow for our iPhone app",
+    "agents": ["engineering-mobile-app-builder"],
+    "skills": ["swiftui-patterns", "swift-expert", "ios-developer"]
+  },
+  {
+    "id": 29,
+    "domain": "blockchain",
+    "task": "Write an ERC-20 staking smart contract in Solidity with gas-efficient reward accounting",
+    "agents": ["engineering-solidity-smart-contract-engineer"],
+    "skills": ["solidity-engineer"]
+  },
+  {
+    "id": 30,
+    "domain": "blockchain",
+    "task": "Audit our DeFi lending protocol contracts for reentrancy and oracle manipulation",
+    "agents": ["blockchain-security-auditor"],
+    "skills": ["blockchain-auditor", "security-auditor", "mastermind:review"]
+  },
+  {
+    "id": 31,
+    "domain": "accessibility",
+    "task": "Audit the signup form for WCAG 2.2 accessibility issues and screen reader support",
+    "agents": ["testing-accessibility-auditor"],
+    "skills": ["accessibility-compliance", "monodesign-ui-quality"]
+  },
+  {
+    "id": 32,
+    "domain": "performance",
+    "task": "Profile the application and find the CPU bottleneck making requests take two seconds",
+    "agents": ["testing-performance-benchmarker", "performance-monitor", "benchmark-suite"],
+    "skills": [
+      "performance-analysis",
+      "analysis:performance-bottlenecks",
+      "analysis:bottleneck-detect",
+      "perf-analyzer",
+      "optimization:performance-optimize"
+    ]
+  },
+  {
+    "id": 33,
+    "domain": "incident",
+    "task": "Production is down with 500 errors after the last deploy; coordinate the incident response and write a postmortem",
+    "agents": ["engineering-incident-response-commander", "engineering-sre"],
+    "skills": [
+      "incident-commander",
+      "incident-command-playbook",
+      "postmortem-writing",
+      "incident-runbook-templates"
+    ]
+  },
+  {
+    "id": 34,
+    "domain": "org",
+    "task": "Create an autonomous agent organization with a CEO, engineers and a QA role to maintain our open source repo",
+    "agents": ["coordinator", "agents-orchestrator"],
+    "skills": ["mastermind:createorg", "mastermind-bootstrap", "team-composition-analysis"]
+  },
+  {
+    "id": 35,
+    "domain": "multi-agent",
+    "task": "Coordinate five parallel agents to refactor the codebase with a mesh topology and shared memory",
+    "agents": ["mesh-coordinator", "agents-orchestrator", "coordinator"],
+    "skills": [
+      "monoswarm",
+      "mastermind:monoswarm",
+      "mastermind:topology",
+      "monoswarm:development",
+      "monoswarm:monoswarm"
+    ]
+  },
+  {
+    "id": 36,
+    "domain": "github",
+    "task": "Triage the open GitHub issues, label them and close duplicates",
+    "agents": ["issue-tracker"],
+    "skills": ["github:issue-tracker", "github-toolkit"]
+  },
+  {
+    "id": 37,
+    "domain": "github",
+    "task": "Open a pull request for this branch with a clear description and request reviewers",
+    "agents": ["pr-manager"],
+    "skills": ["github:pr-manager", "github-toolkit", "finishing-a-development-branch"]
+  },
+  {
+    "id": 38,
+    "domain": "ui-design",
+    "task": "Redesign the pricing page UI with a bolder visual hierarchy, better typography and color palette",
+    "agents": ["design-monodesign", "marketing-pricing-strategist"],
+    "skills": [
+      "monodesign-ui-quality",
+      "frontend-design",
+      "visual-design-foundations",
+      "design-system",
+      "frontend-design-direction",
+      "page-cro"
+    ]
+  },
+  {
+    "id": 39,
+    "domain": "ui-design",
+    "task": "Create a reusable design system with tokens, buttons and form components",
+    "agents": ["design-monodesign", "engineering-frontend-developer"],
+    "skills": ["design-system", "design-system-patterns", "monodesign-ui-quality", "theme-factory"]
+  },
+  {
+    "id": 40,
+    "domain": "ai",
+    "task": "Build an MCP server that exposes our internal ticketing tools to Claude",
+    "agents": ["specialized-mcp-builder"],
+    "skills": ["mcp-server-builder", "mcp-server-patterns"]
+  }
+]

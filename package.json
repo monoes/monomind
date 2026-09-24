@@ -47,6 +47,7 @@
     "lint:fix": "biome check --write",
     "lint:skills": "node scripts/lint-skills.mjs",
     "lint:agent-refs": "node scripts/lint-agent-refs.mjs",
+    "pick:eval": "node scripts/pick-eval.mjs",
     "format": "biome format --write",
     "security:audit": "pnpm audit --audit-level high",
     "security:fix": "pnpm audit --fix",

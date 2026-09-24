@@ -3,6 +3,7 @@ name: mastermind-goals
 description: Mastermind goals — define, track, and visualize hierarchical goals for an org. Goals link to tasks, have progress metrics, and form a goal tree.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Goals

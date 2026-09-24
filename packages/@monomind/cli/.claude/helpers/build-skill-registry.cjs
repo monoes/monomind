@@ -22,6 +22,10 @@
  * never committed — a shipped snapshot listed skills a project did not have.
  * README/overview/reference docs, `_`-prefixed includes and helper-only
  * skills (HELPER_ONLY, or frontmatter `type: helper`) are not entries.
+ * Frontmatter `pick: low` marks an admin/meta entry (org management pages,
+ * examples, the picker itself): it stays in the index, recorded as
+ * `pick: 'low'`, and the pickers rank it below equally matching entries so
+ * generic task words ("review", "settings") do not surface it.
  *
  * Usage:  node .claude/helpers/build-skill-registry.cjs [projectRoot]
  */
@@ -172,6 +176,12 @@ function isNotACandidate(parts, fm) {
   return String(fm.type || '').toLowerCase() === 'helper';
 }
 
+/** `pick: low` frontmatter, recorded on the entry; nothing otherwise. */
+function applyPick(entry, fm) {
+  if (String(fm.pick || '').trim().toLowerCase() === 'low') entry.pick = 'low';
+  return entry;
+}
+
 function walkMarkdown(dir, out) {
   var entries;
   try {
@@ -212,7 +222,7 @@ function scanCommands(root) {
     var name = fm.name || parts[parts.length - 1];
     var description = fm.description || readLeadingComment(text) || readFirstHeading(text);
     var nameTerms = deriveNameTerms(name, invokeName);
-    out.push({
+    out.push(applyPick({
       skill: invokeName,
       invoke: '/' + invokeName,
       kind: 'command',
@@ -221,7 +231,7 @@ function scanCommands(root) {
       keywords: deriveKeywords(description, nameTerms),
       category: group,
       source: '.claude/commands/' + rel,
-    });
+    }, fm));
   }
   return out;
 }
@@ -280,6 +290,7 @@ function scanSkillDir(base, label, origin) {
       source: label + '/' + d.name + '/SKILL.md',
     };
     if (origin) entry.origin = origin;
+    applyPick(entry, fm);
     var catalog = origin ? null : readCatalogMarker(text, d.name);
     if (catalog) entry.catalog = catalog;
     out.push(entry);

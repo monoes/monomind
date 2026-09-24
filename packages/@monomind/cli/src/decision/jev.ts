@@ -19,6 +19,9 @@ export interface CatalogItem {
   invoke?: string;
   /** Skill pool: `platform` (.claude/skills) or `org` (the Org skill library). */
   source?: 'platform' | 'org';
+  /** `low`: an admin/meta skill (`pick: low` frontmatter) that keyword
+   *  ranking places below equally matching entries. */
+  pick?: 'low';
 }
 
 export interface RankedOption {

@@ -1,6 +1,7 @@
 ---
 name: pair:examples
 description: Real-world pair programming scenarios — JWT auth, memory leak debugging, TDD, code review, and refactoring with effective prompt patterns
+pick: low
 ---
 
 # Pair Programming Examples

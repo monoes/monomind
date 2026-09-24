@@ -19,6 +19,7 @@ interface Item {
   category?: string;
   description?: string;
   text?: string;
+  pick?: string;
 }
 const catalog: { agents: Item[]; skills: Item[] } = JSON.parse(
   readFileSync(join(__dirname, 'fixtures', 'pick-rank-catalog.json'), 'utf-8'),
@@ -102,6 +103,16 @@ describe('pick-rank tokens', () => {
     ];
     expect(pr.shortlist('widget', items, 3).map((i: Item) => i.id)).toEqual(['b-one', 'a-two', 'c-three']);
     expect(pr.shortlist('widget', items, 2, ['c-three']).map((i: Item) => i.id)).toEqual(['c-three', 'b-one']);
+  });
+
+  it('ranks a pick: low item below an equally matching one, but still returns it', () => {
+    const items = [
+      { id: 'org-admin', description: 'Review', pick: 'low' },
+      { id: 'auditor', description: 'Review code changes' },
+    ];
+    expect(pr.shortlist('review', items, 2).map((i: Item) => i.id)).toEqual(['auditor', 'org-admin']);
+    expect(pr.shortlist('review', items, 2)[1].score).toBeGreaterThan(0);
+    expect(top('org admin', items, 1)).toEqual(['org-admin']);
   });
 
   it('scores a name or id word above the same word in a description', () => {

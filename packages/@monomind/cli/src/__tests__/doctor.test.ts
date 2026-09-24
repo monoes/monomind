@@ -24,6 +24,14 @@ function makeCtx(overrides: Partial<CommandContext> = {}): CommandContext {
   };
 }
 
+// The Jev row joins the default run only when Jev env is set
+// (checkDecisionModelIfConfigured), so the full-run counts depend on it.
+const JEV_ROW = ['MONOMIND_JEV_URL', 'MONOMIND_JEV_HOSTED', 'MONOMIND_JEV'].some((k) =>
+  process.env[k]?.trim(),
+)
+  ? 1
+  : 0;
+
 function resultData(result: CommandResult | undefined): {
   passed: number;
   warnings: number;
@@ -127,6 +135,16 @@ describe('doctorCommand', () => {
     expect(data.results[0].message).toContain('monomind crash-reporting');
   }, 15000);
 
+  it('-c pick reaches the picking check, which the --help list names', async () => {
+    const componentOption = doctorCommand.options?.find((o) => o.name === 'component');
+    expect(componentOption?.description).toContain('pick');
+    const result = await doctorCommand.action?.(makeCtx({ flags: { _: [], component: 'pick' } }));
+    const data = resultData(result);
+    expect(data.results).toHaveLength(1);
+    expect(data.results[0].name).toBe('Agent/Skill Picking');
+    expect(data.results[0].message).toMatch(/registry: .*\n.*skills: /s);
+  }, 15000);
+
   it('treats an invalid-JSON config file as a real failure rather than crashing', async () => {
     mkdirSync(join(dir, '.monomind'), { recursive: true });
     writeFileSync(join(dir, '.monomind', 'config.json'), '{ not valid json ');
@@ -150,7 +168,7 @@ describe('doctorCommand', () => {
     // including platform adapters, the native-binding probe, i-066's
     // monoes token-exposure check and #328's hook graph rebuild check) — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(32);
+    expect(data.results.length).toBe(32 + JEV_ROW);
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for
@@ -170,6 +188,8 @@ describe('doctorCommand', () => {
     expect(names).toContain('Git Repository');
     expect(names).toContain('Config File');
     expect(names).toContain('TypeScript');
+    // `-c pick` is opt-in, never part of the default run.
+    expect(names).not.toContain('Agent/Skill Picking');
     // Bare temp dir with no .git — this must be the real "not a repo" warning.
     const gitRepoCheck = data.results.find((c) => c.name === 'Git Repository')!;
     expect(gitRepoCheck.status).toBe('warn');
@@ -209,7 +229,7 @@ describe('doctorCommand', () => {
     expect(names).toContain('Config File');
     expect(names).toContain('Crash Reporting');
     expect(names).toContain('Memory Project Root');
-    expect(data.results.length).toBe(23);
+    expect(data.results.length).toBe(23 + JEV_ROW);
   }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {

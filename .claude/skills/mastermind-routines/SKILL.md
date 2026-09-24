@@ -3,6 +3,7 @@ name: mastermind-routines
 description: Mastermind routines — schedule recurring tasks that trigger agent heartbeats on a cron-like schedule within a running org. Configure concurrency policy and catch-up behavior.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Routines

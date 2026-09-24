@@ -40,8 +40,24 @@ const BUILDER_CANDIDATES = [
 ];
 
 interface SkillIndexBuilder {
-  build(root: string, opts?: { bundledDir?: string }): unknown;
+  build(root: string, opts?: { bundledDir?: string; user?: boolean }): unknown;
   ensure(root: string, opts?: { bundledDir?: string }): unknown;
+  isStale(root: string, opts?: { bundledDir?: string }): boolean;
+}
+
+function skillIndexBuilder(): SkillIndexBuilder | undefined {
+  const file = BUILDER_CANDIDATES.find((p) => existsSync(p));
+  return file ? (createRequire(import.meta.url)(file) as SkillIndexBuilder) : undefined;
+}
+
+/** True when .claude/helpers/skill-registry.json is missing or older than a
+ *  source; undefined when the builder is unavailable. */
+export function skillIndexIsStale(root: string): boolean | undefined {
+  try {
+    return skillIndexBuilder()?.isStale(root, { bundledDir: bundledSkillsDir() });
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -49,16 +65,17 @@ interface SkillIndexBuilder {
  * bundled builder. A project with a `.claude` dir gets its
  * .claude/helpers/skill-registry.json refreshed when a source is newer (the
  * hook reads that file); any other directory is indexed in memory only.
+ * `user: false` leaves ~/.claude/skills out and always indexes in memory.
  */
-export function skillIndex(root: string): unknown {
-  const file = BUILDER_CANDIDATES.find((p) => existsSync(p));
-  if (!file) return undefined;
+export function skillIndex(root: string, opts: { user?: boolean } = {}): unknown {
   try {
-    const builder = createRequire(import.meta.url)(file) as SkillIndexBuilder;
-    const opts = { bundledDir: bundledSkillsDir() };
+    const builder = skillIndexBuilder();
+    if (!builder) return undefined;
+    const bundledDir = bundledSkillsDir();
+    if (opts.user === false) return builder.build(root, { bundledDir, user: false });
     return existsSync(join(root, '.claude'))
-      ? builder.ensure(root, opts)
-      : builder.build(root, opts);
+      ? builder.ensure(root, { bundledDir })
+      : builder.build(root, { bundledDir });
   } catch {
     return undefined;
   }

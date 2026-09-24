@@ -3,6 +3,7 @@ name: mastermind-new-agent
 description: Mastermind new-agent — wizard to hire/create a new agent within an org. Configures runtime, model, role name, reports_to hierarchy, responsibilities, skill assignments (found with `monomind org skills search`), and budget. Writes a valid Org Runtime v2 role to the org config file and validates it.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind New Agent

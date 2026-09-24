@@ -3,6 +3,7 @@ name: mastermind-environments
 description: Mastermind environments — manage execution environments (local, SSH, sandbox) for an org. Controls where agent workloads run, SSH connection details, and which environment is the default.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Environments

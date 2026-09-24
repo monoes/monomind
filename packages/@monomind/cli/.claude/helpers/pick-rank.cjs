@@ -10,7 +10,9 @@
  * does not win by sheer size), a word in an item's name or id adds a fixed
  * bonus unless it is a category prefix shared by many ids (`engineering-`,
  * `mastermind-`, ...), and the total is scaled by the share of query words
- * the item matches. Equal scores keep catalog order.
+ * the item matches. An item marked `pick: 'low'` (admin/meta skills, from
+ * `pick: low` frontmatter) keeps LOW_PICK_FACTOR of its score, so it surfaces
+ * only when the task names it. Equal scores keep catalog order.
  */
 
 var K1 = 1.2;
@@ -19,6 +21,8 @@ var B = 0.75;
 var STRONG_WEIGHT = 2;
 // An id's leading segment shared by this many ids is a category prefix.
 var PREFIX_MIN_SHARED = 3;
+// Share of its score a `pick: 'low'` item keeps.
+var LOW_PICK_FACTOR = 0.35;
 
 var STOPWORDS = new Set(
   (
@@ -124,7 +128,7 @@ function indexFor(items) {
       df.set(t, (df.get(t) || 0) + 1);
     });
     total += weakList.length;
-    return { strong: strong, weak: weak, len: weakList.length };
+    return { strong: strong, weak: weak, len: weakList.length, low: item.pick === 'low' };
   });
   return { size: items.length, docs: docs, df: df, avg: total / items.length || 1 };
 }
@@ -149,6 +153,7 @@ function scoreDoc(index, doc, query) {
   }
   // Coordination: an item matching more of the task's words ranks higher.
   if (query.length) score *= matched / query.length;
+  if (doc.low) score *= LOW_PICK_FACTOR;
   return Math.round(score * 1000) / 1000;
 }
 

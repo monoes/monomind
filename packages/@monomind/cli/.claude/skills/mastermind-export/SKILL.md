@@ -3,6 +3,7 @@ name: mastermind-export
 description: Mastermind export — full org portability. Export an org to a compressed archive (tar.gz or zip) with file tree selection, and import from an archive with collision strategy and adapter override. Mirrors Paperclip's CompanyExport/CompanyImport pages.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Export

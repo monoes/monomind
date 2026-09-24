@@ -3,6 +3,7 @@ name: mastermind-invite-landing
 description: Mastermind invite-landing — accept an org invite as a human member or as an agent. Validates the invite token, presents org/role info, and processes join as human (name/email) or as an agent (adapter type, model, agent name, config). Mirrors InviteLanding.tsx.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Invite Landing

@@ -3,6 +3,7 @@ name: mastermind-goal-detail
 description: Mastermind goal-detail — deep per-goal inspection and management. Show sub-goal tree, linked projects, edit title/status/description/priority, add child goals, and close or reopen a single goal within an org.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Goal Detail

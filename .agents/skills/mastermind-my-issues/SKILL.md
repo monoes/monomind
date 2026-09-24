@@ -3,6 +3,7 @@ name: mastermind-my-issues
 description: Mastermind my-issues — filtered issue queue scoped to the current operator or a specific assignee. Lists open and in-progress issues, supports self-assign and unassign. Mirrors MyIssues.tsx.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind My Issues

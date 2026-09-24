@@ -3,6 +3,7 @@ name: mastermind-agents
 description: Mastermind agents — list, inspect, hire, pause, and remove agents in a running org. Shows status, last heartbeat, adapter config, and burn rate per agent.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Agents

@@ -3,6 +3,7 @@ name: mastermind-invites
 description: Mastermind invites — manage org invitations and join request queue. Create/revoke invites with role assignment, view invite history, review pending join requests (human and agent), and approve or reject them. Merges CompanyInvites and JoinRequestQueue pages.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Invites

@@ -3,6 +3,7 @@ name: mastermind-orgstatus
 description: Mastermind orgstatus — show detailed status for a single org including lifecycle state, schedule, last/next run, recent activity, and roles. For scheduled orgs shows loop health and time until next iteration.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Org Status

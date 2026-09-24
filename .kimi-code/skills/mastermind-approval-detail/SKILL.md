@@ -3,6 +3,7 @@ name: mastermind-approval-detail
 description: Mastermind approval-detail — deep inspection and action on a single approval request. View approval metadata, payload, comments, linked issues, and perform approve/reject/revision/resubmit actions. Mirrors ApprovalDetail.tsx.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Approval Detail

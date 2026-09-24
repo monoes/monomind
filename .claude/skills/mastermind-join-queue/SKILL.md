@@ -3,6 +3,7 @@ name: mastermind-join-queue
 description: Mastermind join-queue — lists pending join requests for an org, approves or rejects them, and filters by request type (human/agent/all) and status. Mirrors JoinRequestQueue.tsx.
 type: domain-skill
 default_mode: auto
+pick: low
 ---
 
 # Mastermind Join Queue

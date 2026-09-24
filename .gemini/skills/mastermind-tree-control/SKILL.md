@@ -3,6 +3,7 @@ name: mastermind-tree-control
 description: Mastermind tree-control — pause, hold, release, or preview recovery for an issue/task tree in an org. Lets board members stop runaway loops, hold trees during review, and resume work when ready. Mirrors Paperclip's issue-tree-control API.
 type: domain-skill
 default_mode: confirm
+pick: low
 ---
 
 # Mastermind Tree Control
