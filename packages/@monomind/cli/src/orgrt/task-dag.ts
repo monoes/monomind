@@ -35,6 +35,11 @@ export interface OrgTask {
    *  waiting, not silence to nudge about. */
   blockedUntil?: number;
   blockedReason?: string;
+  /** #329: while blocked, when the assignee is next woken to re-check the
+   *  block, and how often (block-recheck.ts). On the task row so it rides the
+   *  checkpoint — a timer in daemon memory would not survive a resume. */
+  recheckAt?: number;
+  recheckEveryMs?: number;
   /** ADR-O001 D4: how many times the assignee has failed the completion
    *  evidence gate on THIS task since it was last accepted. It lives on the
    *  task row, so it rides the checkpoint (`toJSON`/`fromJSON`) like every
@@ -202,16 +207,20 @@ export class TaskDag {
   /** Mark a task as waiting on a real-world time, not on other tasks. Only
    *  valid from 'running' (a role already working it discovers it can't
    *  proceed further right now) — a 'ready'/'pending' task should just stay
-   *  that way until its deps clear. */
-  block(id: string, untilMs: number, reason?: string): OrgTask {
+   *  that way until its deps clear — or from 'blocked', which re-blocks it
+   *  with a new time (the answer to a #329 re-check that is still waiting). */
+  block(id: string, untilMs: number, reason?: string, recheckEveryMs?: number): OrgTask {
     const t = this.tasks.get(id);
     if (!t) throw new Error(`task "${id}" not found`);
-    if (t.status !== 'running')
+    if (t.status !== 'running' && t.status !== 'blocked')
       throw new Error(`task "${id}" must be 'running' to block (is '${t.status}')`);
-    if (untilMs <= Date.now()) throw new Error(`blockedUntil must be in the future`);
+    const now = Date.now();
+    if (untilMs <= now) throw new Error(`blockedUntil must be in the future`);
     t.status = 'blocked';
     t.blockedUntil = untilMs;
     t.blockedReason = reason;
+    t.recheckEveryMs = recheckEveryMs;
+    t.recheckAt = recheckEveryMs === undefined ? undefined : now + recheckEveryMs;
     return t;
   }
 
@@ -225,6 +234,8 @@ export class TaskDag {
         t.status = 'running';
         t.blockedUntil = undefined;
         t.blockedReason = undefined;
+        t.recheckAt = undefined;
+        t.recheckEveryMs = undefined;
         unblocked.push(t);
       }
     }

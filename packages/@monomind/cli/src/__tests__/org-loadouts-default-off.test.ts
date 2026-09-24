@@ -158,4 +158,6 @@ const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e
 // (the task's instructions, sent with its dispatch) — a shared schema, so one
 // cache miss per org on upgrade in exchange for briefs that arrive in time.
 // Recaptured when org_tasks gained an optional `taskId` filter.
-const TOOLS_SHA = 'fa7aa5c81b4d59951b463e5abe90344dd6dc6bafaeb0517d1018961269977353';
+// Recaptured when org_task_block gained an optional `recheckAfterMinutes` and
+// its description said plainly that nothing external wakes a blocked task (#329).
+const TOOLS_SHA = '8c47d22855dcb4912b9ac8fdc890c424bb7e362f03ba01bddcd9f6e2357c491f';

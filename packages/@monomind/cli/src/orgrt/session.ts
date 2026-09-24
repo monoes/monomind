@@ -16,7 +16,13 @@ import { summarizeToolOutput } from './policy.js';
 import { SandboxFaultError, SandboxRestarts } from './sandbox-fault.js';
 import { StateDetector } from './state-detector.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
-import type { DecisionKind, OrgDef, OrgRole, ToolResultEventData } from './types.js';
+import {
+  type DecisionKind,
+  MAX_BLOCK_RECHECK_MINUTES,
+  type OrgDef,
+  type OrgRole,
+  type ToolResultEventData,
+} from './types.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
  *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
@@ -391,8 +397,15 @@ export interface SessionOpts {
   /** Task DAG: mark a 'running' task as waiting on a real-world time (not a
    *  dependency) — e.g. a scheduled soak test, a CI run, a human-set
    *  deadline. The idle watchdog skips nudging while any task is actively
-   *  blocked, and auto-resumes (re-dispatches) it once the time passes. */
-  blockTask?: (role: string, taskId: string, untilIso: string, reason?: string) => string;
+   *  blocked, auto-resumes (re-dispatches) it once the time passes, and
+   *  wakes its assignee to re-check it every recheckAfterMinutes (#329). */
+  blockTask?: (
+    role: string,
+    taskId: string,
+    untilIso: string,
+    reason?: string,
+    recheckAfterMinutes?: number,
+  ) => string;
   planGraph?: (
     role: string,
     specs: {
@@ -1802,9 +1815,13 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   if (blockTask) {
     tools.push({
       name: 'org_task_block',
-      description:
-        'Mark a task you are actively working (status "running") as blocked on a real-world time, not on other tasks — e.g. a scheduled soak test, a CI run that takes hours, a human-set deadline. Use this INSTEAD of leaving the task "running" with nothing actually happening, and instead of calling org_complete just because there is genuinely nothing to do right now: the idle watchdog will stop nudging you about this task until the time you give arrives, then automatically re-dispatch it to you. Give untilIso as an ISO 8601 date/time (e.g. "2026-08-19T09:00:00Z").',
-      schema: { taskId: z.string(), untilIso: z.string(), reason: z.string().optional() },
+      description: `Mark a task you are actively working (status "running") as blocked on a real-world time, not on other tasks — e.g. a scheduled soak test, a CI run that takes hours, a human-set deadline. Use this INSTEAD of leaving the task "running" with nothing actually happening, and instead of calling org_complete just because there is genuinely nothing to do right now: the idle watchdog will stop nudging you about this task until the time you give arrives, then automatically re-dispatch it to you. Give untilIso as an ISO 8601 date/time (e.g. "2026-08-19T09:00:00Z"). Nothing external wakes a blocked task — not a background command finishing, not a Monitor event, not npm propagation — so never block on a command you started: run waits in the foreground instead, with a command timeout long enough for them. Until the deadline you are woken periodically (every run_config.block_recheck_minutes, default 5; recheckAfterMinutes sets it for this block, 1-${MAX_BLOCK_RECHECK_MINUTES}) to re-check: close the task, re-block it, or report.`,
+      schema: {
+        taskId: z.string(),
+        untilIso: z.string(),
+        reason: z.string().optional(),
+        recheckAfterMinutes: z.number().positive().max(MAX_BLOCK_RECHECK_MINUTES).optional(),
+      },
       handler: async (args) =>
         text(
           blockTask(
@@ -1812,6 +1829,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             args.taskId as string,
             args.untilIso as string,
             args.reason as string | undefined,
+            args.recheckAfterMinutes as number | undefined,
           ),
         ),
     });

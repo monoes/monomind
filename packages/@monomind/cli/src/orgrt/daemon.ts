@@ -18,6 +18,7 @@ import type { AgentRunner } from './agent-runner.js';
 import { AntigravityAgentRunner } from './antigravity-runner.js';
 // ── Extracted module imports ────────────────────────────────────────────
 import * as approvalOps from './approvals.js';
+import { wakeDueBlockRechecks } from './block-recheck.js';
 import { BrokerLease, normalizeCredential } from './broker.js';
 import { OrgBus } from './bus.js';
 import {
@@ -1591,6 +1592,7 @@ export class OrgDaemon {
       // notices until the next nudge. Runs on every tick, a hold in force
       // included: a block that expires mid-wait is real work again.
       const resumeExpiredBlocks = (): void => {
+        wakeDueBlockRechecks(running, Date.now()); // #329: every block is re-checked
         const unblocked = running.taskDag?.unblockExpired(Date.now()) ?? [];
         for (const task of unblocked) {
           const agent = running.agents.get(task.assignee);
@@ -2182,8 +2184,8 @@ export class OrgDaemon {
       cancelTask: (r: string, taskId: string, reason?: string) => {
         return this.dagCancelTask(name, r, taskId, reason);
       },
-      blockTask: (r: string, taskId: string, untilIso: string, reason?: string) => {
-        return this.dagBlockTask(name, r, taskId, untilIso, reason);
+      blockTask: (r: string, taskId: string, untilIso: string, reason?: string, every?: number) => {
+        return this.dagBlockTask(name, r, taskId, untilIso, reason, every);
       },
       planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
         return this.dagPlanGraph(name, r, specs);
@@ -3326,8 +3328,9 @@ export class OrgDaemon {
     taskId: string,
     untilIso: string,
     reason?: string,
+    recheckAfterMinutes?: number,
   ): string {
-    return decisionOps.dagBlockTask(this, org, role, taskId, untilIso, reason);
+    return decisionOps.dagBlockTask(this, org, role, taskId, untilIso, reason, recheckAfterMinutes);
   }
   private dagPlanGraph(org: string, role: string, specs: decisionOps.PlanTaskSpec[]): string {
     return decisionOps.dagPlanGraph(this, org, role, specs);

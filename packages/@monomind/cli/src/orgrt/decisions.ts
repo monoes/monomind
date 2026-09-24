@@ -12,6 +12,7 @@ import {
 import { join, resolve } from 'node:path';
 import { decisionModelConfigured } from '../decision/jev.js';
 import { suggestTaskSkills } from '../decision/picks.js';
+import { blockRecheckMs } from './block-recheck.js';
 import {
   checkTaskEvidence,
   declaresExpectExit,
@@ -387,6 +388,7 @@ export function dagBlockTask(
   taskId: string,
   untilIso: string,
   reason?: string,
+  recheckAfterMinutes?: number,
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
@@ -394,7 +396,11 @@ export function dagBlockTask(
   if (Number.isNaN(untilMs))
     return JSON.stringify({ error: `"${untilIso}" is not a valid ISO date/time` });
   try {
-    const task = running.taskDag.block(taskId, untilMs, reason);
+    const every = blockRecheckMs(
+      running.def?.run_config.block_recheck_minutes,
+      recheckAfterMinutes,
+    );
+    const task = running.taskDag.block(taskId, untilMs, reason, every);
     running.bus.emit({
       type: 'status',
       from: role,
@@ -406,6 +412,7 @@ export function dagBlockTask(
       blocked: taskId,
       until: new Date(untilMs).toISOString(),
       status: task.status,
+      nextRecheck: new Date(task.recheckAt ?? untilMs).toISOString(),
     });
   } catch (err) {
     return JSON.stringify({ error: (err as Error).message });

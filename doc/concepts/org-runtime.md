@@ -261,6 +261,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `max_tool_rounds` | `10` | Tool-call rounds per inbound message on the fence-protocol runtimes (every runtime but `claude` and `vercel`, which are bounded by `max_turns_per_message`). A positive integer up to 200 (`MAX_TOOL_ROUNDS_LIMIT`). A role's own `max_tool_rounds` overrides it. What happens at the cap: see the Fence Protocol section |
 | `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` \| `'worktree-per-role'` |
 | `idle_minutes` | `10` | Idle timeout in minutes before the watchdog nudges the boss and ultimately calls `stopOrg()`. Unset falls back to 10 ([`daemon.ts → startOrg`](packages/@monomind/cli/src/orgrt/daemon.ts#startOrg)); `0` disables the watchdog. Fractions allowed |
+| `block_recheck_minutes` | `5` | How often the assignee of a task blocked with `org_task_block` is woken to re-check it, until the block's deadline or the task's close ([#329](https://github.com/monoes/monomind/issues/329)). Positive, at most 60 (`MAX_BLOCK_RECHECK_MINUTES`), fractions allowed. A block cannot opt out, because nothing external (a background command finishing, a Monitor event, npm propagation) wakes a blocked task; the role may pass `recheckAfterMinutes` (1–60) for one block. Runs on the idle watchdog's tick, so `idle_minutes: 0` disables it along with block expiry. See [Blocked tasks](#blocked-tasks) |
 | `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts → circuit_breaker`](packages/@monomind/cli/src/orgrt/types.ts#circuit_breaker), applied [`daemon.ts → circuitBreaker`](packages/@monomind/cli/src/orgrt/daemon.ts#circuitBreaker)) |
 | `completion_evidence` | `false` | Gate `org_task_done` on machine-checkable evidence: `{ headSha, worktree?, checks: [{ command, exitCode, expectExit?, expectReason?, output }] }`. A check passes iff `exitCode === (expectExit ?? 0)` — declare `expectExit` for a criterion met by a non-zero exit (a lookup that must 404 → 1, a timeout that must fire → 124) rather than appending `\|\| true`. A non-zero `expectExit` is only for a SINGLE-PURPOSE command and always needs a one-line `expectReason` ("404 = branch not protected"), which renders with the code everywhere (`exit 1 (expected 1: 404 = branch not protected)`) and raises an `evidence-expect-exit` audit event when accepted; on a test suite or other aggregate runner (`vitest`, `jest`, an `npm`/`pnpm`/`yarn` test script, `node --test`, `pnpm -r`, `pnpm --filter … test`, `run verify`, `test:all`) it is refused, because a suite's exit code means "at least one of many things failed" and accepting it accepts every other failure too — run the failing test file alone and declare `expectExit` on that, or exclude it and record the exclusion. A report task (QA, audit) closes on commands proving the report exists and is complete (e.g. `test -s <report>`); the failures it found go in `result`, not `checks`. Evidence from outside a git worktree (a scratch dir, an installed tarball) is pinned to the worktree the artifact was built from. `headSha` must be `headSha` must be the current head of some local work — the `HEAD` of any worktree of the repository or the tip of any local branch; with `worktree` named, that worktree's `HEAD` exactly. A sha that is the head of nothing is stale and refused — unless git has no commit by that name at all, which is refused as an unknown commit (typo?) instead; a `worktree` that is an unfilled placeholder (a literal `<…>`/`{{…}}`, or a nonexistent all-caps path such as `…/SRC`) is refused with a hint to pin the real worktree path ([`completion-gate.ts → checkTaskEvidence`](packages/@monomind/cli/src/orgrt/completion-gate.ts#checkTaskEvidence), heads from [`decisions.ts → localHeads`](packages/@monomind/cli/src/orgrt/decisions.ts#localHeads)). `max_evidence_attempts` (default 3) bounds refused proofs before the task is escalated; a call with no `evidence` object at all is refused without counting |
 | `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts → stale_base_threshold`](packages/@monomind/cli/src/orgrt/types.ts#stale_base_threshold), checked at start in [`daemon.ts → startOrg`](packages/@monomind/cli/src/orgrt/daemon.ts#startOrg) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
@@ -797,6 +798,26 @@ bounded — nothing is sent while the role still has mail queued or coalescing (
 again), a task blocked on a real-world time (`org_task_block`) is never nudged, and each task earns
 at most one nudge per dispatch. It does not change the idle watchdog, which remains the org-wide
 backstop.
+
+#### Blocked tasks
+
+`org_task_block(taskId, untilIso, reason?, recheckAfterMinutes?)` moves a `running` task (or an
+already `blocked` one, to re-block it) to `blocked` until `untilIso`. The idle watchdog holds
+through an active block and, when the time passes, flips the task back to `running` and re-sends it
+([`task-dag.ts → unblockExpired`](packages/@monomind/cli/src/orgrt/task-dag.ts#unblockExpired)).
+
+Nothing external wakes a blocked task. A background command's completion or a Monitor event exists
+only in the role's own process stream, and `session_idle_exit_ms` may have ended that process; npm
+propagation reaches nobody. So every block is re-checked
+([`block-recheck.ts → wakeDueBlockRechecks`](packages/@monomind/cli/src/orgrt/block-recheck.ts#wakeDueBlockRechecks)):
+every `run_config.block_recheck_minutes` (default 5), or the block's own `recheckAfterMinutes`, the
+assignee gets `[task:<id>] still blocked (reason: …; until …) — re-check now …` and a
+`task-block-recheck` status event is emitted. The role closes the task (`org_task_done` works on a
+blocked task), re-blocks it, or reports. Re-checks repeat until the deadline or the close. The next
+re-check time (`recheckAt`) and the interval are on the task row, so they ride the checkpoint: after
+a resume, a re-check that fell due while the daemon was down fires on the first tick. A block
+restored from a checkpoint written before this existed is scheduled on the first tick. Roles should
+run waits in the foreground rather than block on a command they started.
 
 ### Cost and Token Accounting
 

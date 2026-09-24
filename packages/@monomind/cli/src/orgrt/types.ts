@@ -252,6 +252,12 @@ export type EndpointConfig = z.infer<typeof EndpointSchema>;
  *  so the cap still has to stop a model that keeps calling tools. */
 export const MAX_TOOL_ROUNDS_LIMIT = 200;
 
+/** Upper bound for a blocked task's re-check interval (#329), in minutes —
+ *  both run_config.block_recheck_minutes and org_task_block's
+ *  recheckAfterMinutes. A block may last hours; its assignee may not go
+ *  unasked for longer than this. */
+export const MAX_BLOCK_RECHECK_MINUTES = 60;
+
 export const RoleSchema = z
   .object({
     id: z.string().min(1),
@@ -485,6 +491,12 @@ export const OrgDefSchema = z
         max_tool_rounds: z.number().int().positive().max(MAX_TOOL_ROUNDS_LIMIT).optional(),
         /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
         idle_minutes: z.number().nonnegative().optional(),
+        /** #329: how often (minutes, fractions allowed) the assignee of a
+         *  task blocked with org_task_block is woken to re-check it, until its
+         *  deadline or close. Nothing external wakes a blocked task, so a
+         *  block cannot opt out; the role may ask for a different interval
+         *  per block (recheckAfterMinutes), within the same bound. Default 5. */
+        block_recheck_minutes: z.number().positive().max(MAX_BLOCK_RECHECK_MINUTES).optional(),
         /** #302: how strictly `org_complete` is gated. 'boss' (default) only
          *  constrains `outcome: 'partial'` — it must name a `blocker`
          *  ('budget' | 'human' | 'external' | 'time'), cross-checked against
