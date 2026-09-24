@@ -73,14 +73,30 @@ A role is **persona-based** if its title is a named real person, a well-known fi
 
 Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside the role's `skills` and `instructions_file`, if set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
 
+**Step 2.2b — Seed each non-persona role from the agent registry.**
+
+The project's agent registry (`.monomind/registry.json`, the `.claude/agents/**` personas) often already describes the job. For every role that is not persona-based, ask for the best-fitting registry agent with the role's title and a one-line summary of its job:
+
+```bash
+npx monomind pick -t "<role title>: <one-line summary of what it does>" --agents --top 1 --json \
+  | jq -r '.agents.ranked[0] // empty | "\(.id)\t\(.description)"'
+# Read that persona's body for concrete duties and practices:
+jq -r --arg s "<id from above>" '.agents[] | select(.slug == $s) | .filePath' .monomind/registry.json
+```
+
+(If the monomind MCP server in this session exposes an `mcp__monomind__pick` tool, it answers the same question; the CLI works everywhere.) When a hit genuinely fits, read its file and use it to write sharper `responsibilities` for the role — adapted to this org's goal, in your own words, never pasted wholesale; the org config has no field that links to the persona. When nothing is returned or the hit is a poor fit, write the responsibilities from the goal alone.
+
+Write `responsibilities` that tell roles apart: `org_task` with `assignee: "auto"` routes each task to the role whose title and responsibilities match it best (words every role shares count for nothing), so a role whose duties are only boilerplate never gets auto-assigned work.
+
 ---
 
 ## Step 2.3 — Skills (pick per role from the skill library)
 
-Every role can draw on the **org skill library**: ~380 curated skills (engineering practice, languages and frameworks, design, product, marketing, sales, finance, legal, ops, research) from monomind and MIT/Apache-2.0 open-source repos. Find candidates for each role by searching with its title and responsibilities:
+Every role can draw on the **org skill library**: ~380 curated skills (engineering practice, languages and frameworks, design, product, marketing, sales, finance, legal, ops, research) from monomind and MIT/Apache-2.0 open-source repos. For **each** role, search with its title plus its responsibilities (the ones written in Step 2.2b) and choose only from the hits — never invent a skill name, and never use slash-command names such as `mastermind:tasks`, which are not org skills:
 
 ```bash
-npx monomind org skills search "backend engineer API design postgres" --limit 8
+npx monomind org skills search "<role title> <responsibilities>" --limit 8 --format json \
+  | jq -r '.skills[] | "\(.name)\t\(.description)"'
 npx monomind org skills search "landing page conversion copy" --tag marketing
 npx monomind org skills show <name>   # read one before choosing it
 ```
@@ -92,7 +108,9 @@ Give each role two fields:
 
 Match skills to the work, not to a vague fit: a copywriter gets marketing/writing skills, never code skills. **Tools follow skills automatically** — a skill that declares monomind tools (`monograph_*` for code roles, `monodesign_*` for UI roles) gives its role exactly those tools, so only roles that work on software get the code graph and only UI roles get design tooling. For roles that write or review code, include `monograph-code-navigation` (and `monolean-minimal-change` for implementers); for roles that build or review web UI, include `monodesign-ui-quality`.
 
-`ui.icon` is only the role's picture on the canvas — it has no effect on the prompt. Leave `skills` off when nothing in the library fits cleanly; `responsibilities` alone is a complete role. `org validate` fails on an unknown skill name.
+At run time each task dispatch names the `skill_pool` skills that fit that task, and a role can look beyond its pool with `org_skill_search` (loading stays limited to its own `skills`/`skill_pool`), so a well-chosen pool matters more than a long pinned list.
+
+`ui.icon` is only the role's picture on the canvas — it has no effect on the prompt. Leave `skills` off when nothing in the library fits cleanly; `responsibilities` alone is a complete role. `org validate` fails on an unknown skill name, so the Step 5 validation is what proves every chosen name is real — fix and re-save until it passes.
 
 ---
 
