@@ -174,6 +174,8 @@ module.exports = {
         }
       }
     } catch (e) { /* non-fatal */ }
+    // Fold this session's adherence/outcome lines into pick-stats.json (the ranking prior).
+    try { require('../pick-stats.cjs').update(CWD); } catch (e) { /* non-fatal */ }
 
     // Now consolidate AFTER feedback has been recorded (so the outcome has recentEdits)
     if (!daemonHoldsLock && intelligence && intelligence.consolidate) {

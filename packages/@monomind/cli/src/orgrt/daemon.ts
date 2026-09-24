@@ -108,7 +108,7 @@ import { SessionLedger } from './session-ledger.js';
 import { effectiveToolProviders } from './skill-library.js';
 import { TaskProcesses } from './task-cancel.js';
 import { TaskDag } from './task-dag.js';
-import { pickTaskRole, type RolePick, type TaskPick } from './task-match.js';
+import { pickTaskRole, type RolePick, type TaskOutcome, type TaskPick } from './task-match.js';
 import { type ChainTrace, roleProviderPrefixes, ToolProviderHub } from './tool-providers.js';
 import {
   type BusEvent,
@@ -280,15 +280,18 @@ export function resolveRoleRunner(
  *  once left a literal "auto" assignee stranded as 'ready' forever
  *  (round1-issue1). Candidates are the agent roles other than the caller;
  *  `load` (open tasks per role) only breaks ties between interchangeable
- *  roles. */
+ *  roles; `history` (the run's tasks) lets the keyword pick lean toward roles
+ *  that finished similar tasks. */
 export function resolveAutoAssignee(
   def: Pick<OrgDef, 'roles'>,
   load?: (roleId: string) => number,
+  history?: () => TaskOutcome[],
 ): (title: string, brief?: string, caller?: string) => Promise<RolePick> {
   return (title: string, brief?: string, caller?: string) =>
     pickTaskRole({ title, brief }, def.roles, {
       caller,
       load,
+      history: history?.(),
       onError: (err) =>
         process.stderr.write(
           `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
@@ -2163,7 +2166,11 @@ export class OrgDaemon {
       ) => {
         return this.dagCreateTask(name, r, title, assignee, deps, loadout, brief, pick);
       },
-      pickAssignee: resolveAutoAssignee(def, (id) => openTaskCount(this.orgs.get(name), id)),
+      pickAssignee: resolveAutoAssignee(
+        def,
+        (id) => openTaskCount(this.orgs.get(name), id),
+        () => this.orgs.get(name)?.taskDag?.all() ?? [],
+      ),
       onSkillLoad: (r: string, skill: string) =>
         decisionOps.recordSkillLoad(this.orgs.get(name), r, skill),
       // ADR-O001 D7: only an org with a catalog gets the `loadout` argument;

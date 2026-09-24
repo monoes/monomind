@@ -806,6 +806,7 @@ export function dispatchLine(
   let method: 'jev' | 'keyword' = 'keyword';
   return suggestTaskSkills(task.title, pool, daemon.root, {
     brief: task.brief,
+    history: running.taskDag?.all(),
     onMethod: (m) => {
       method = m;
     },

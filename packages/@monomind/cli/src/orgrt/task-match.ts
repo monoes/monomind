@@ -109,6 +109,74 @@ export function scoreDocs(task: TaskText, docs: MatchDoc[]): MatchScore[] {
     .sort((a, b) => b.score - a.score);
 }
 
+// ── Outcome prior ──────────────────────────────────────────────────────────
+
+/** A finished task as the prior reads it (an OrgTask row fits). */
+export interface TaskOutcome {
+  title: string;
+  assignee: string;
+  status: string;
+  loadedSkills?: string[];
+}
+
+/** Observations a role/skill needs before its history moves a ranking. */
+export const PRIOR_MIN_OBS = 3;
+/** Largest relative move of the prior: factors lie in [1 - span, 1 + span]. */
+export const PRIOR_SPAN = 0.15;
+/** Title-word overlap (Jaccard) that makes a past task "similar". */
+const SIMILAR_JACCARD = 0.2;
+
+/** Beta(1,1)-smoothed success rate mapped to [1 - PRIOR_SPAN, 1 + PRIOR_SPAN];
+ *  1 below PRIOR_MIN_OBS outcomes. */
+export function outcomeFactor(success: number, failure: number): number {
+  const n = success + failure;
+  if (n < PRIOR_MIN_OBS) return 1;
+  return Math.round((1 + 2 * PRIOR_SPAN * ((1 + success) / (2 + n) - 0.5)) * 1000) / 1000;
+}
+
+function outcomeOf(status: string): boolean | null {
+  return status === 'done' ? true : status === 'failed' ? false : null;
+}
+
+function tally(tasks: TaskOutcome[], keys: (t: TaskOutcome) => string[]): (key: string) => number {
+  const counts = new Map<string, { s: number; f: number }>();
+  for (const t of tasks) {
+    const ok = outcomeOf(t.status);
+    if (ok === null) continue;
+    for (const k of keys(t)) {
+      const c = counts.get(k) ?? { s: 0, f: 0 };
+      if (ok) c.s++;
+      else c.f++;
+      counts.set(k, c);
+    }
+  }
+  return (key) => {
+    const c = counts.get(key);
+    return c ? outcomeFactor(c.s, c.f) : 1;
+  };
+}
+
+/** Per-role factor from how each role did on past tasks similar to `task`
+ *  (done = success, failed = failure). */
+export function roleOutcomePrior(
+  task: TaskText,
+  history: TaskOutcome[],
+): (roleId: string) => number {
+  const q = new Set(matchTokens(task.title));
+  const similar = history.filter((t) => {
+    const w = new Set(matchTokens(t.title));
+    const inter = [...w].filter((x) => q.has(x)).length;
+    const union = new Set([...w, ...q]).size;
+    return union > 0 && inter / union >= SIMILAR_JACCARD;
+  });
+  return tally(similar, (t) => [t.assignee]);
+}
+
+/** Per-skill factor from the outcomes of the tasks that loaded it. */
+export function skillOutcomePrior(history: TaskOutcome[]): (skill: string) => number {
+  return tally(history, (t) => [...new Set(t.loadedSkills ?? [])]);
+}
+
 type PickableRole = Pick<OrgRole, 'id' | 'title' | 'responsibilities'> &
   Partial<Pick<OrgRole, 'reports_to' | 'kind'>>;
 
@@ -148,12 +216,15 @@ function depth(role: PickableRole, byId: Map<string, PickableRole>): number {
   return d;
 }
 
-/** Keyword pick over `candidates`; `all` supplies the reporting tree. */
+/** Keyword pick over `candidates`; `all` supplies the reporting tree. Roles
+ *  that clear MIN_ROLE_SCORE rank by score × `prior` (roleOutcomePrior), so
+ *  history breaks near-ties but cannot move a role past a 1.35× gap. */
 export function keywordRole(
   task: TaskText,
   candidates: PickableRole[],
   all: PickableRole[] = candidates,
   load?: (roleId: string) => number,
+  prior?: (roleId: string) => number,
 ): RolePick {
   const scored = scoreDocs(
     task,
@@ -164,11 +235,14 @@ export function keywordRole(
     })),
   );
   const top3 = scored.slice(0, 3).map(({ id, score }) => ({ id, score }));
-  const best = scored[0];
-  if (!best || best.score < MIN_ROLE_SCORE)
-    return { role: null, method: 'none', candidates: top3, reason: 'no-match' };
+  const adjusted = scored
+    .filter((s) => s.score >= MIN_ROLE_SCORE)
+    .map((s) => ({ ...s, adj: Math.round(s.score * (prior?.(s.id) ?? 1) * 1000) / 1000 }))
+    .sort((a, b) => b.adj - a.adj);
+  const best = adjusted[0];
+  if (!best) return { role: null, method: 'none', candidates: top3, reason: 'no-match' };
   const byId = new Map(all.map((r) => [r.id, r]));
-  const tied = scored.filter((s) => s.score === best.score).map((s) => byId.get(s.id)!);
+  const tied = adjusted.filter((s) => s.adj === best.adj).map((s) => byId.get(s.id)!);
   // Specificity first (deeper in the tree, then the narrower description);
   // between interchangeable roles, the one with less open work.
   const spec = (r: PickableRole) => ({
@@ -191,13 +265,19 @@ export function keywordRole(
 }
 
 /** The role that should own a task: agent roles only, never the caller;
- *  Jev first (accepted answers only), then the keyword pick. */
+ *  Jev first (accepted answers only), then the keyword pick, which `history`
+ *  (the org's finished tasks) biases toward roles that did well on similar
+ *  ones. */
 export async function pickTaskRole(
   task: TaskText,
   roles: PickableRole[],
-  opts: PickOptions & { caller?: string; load?: (roleId: string) => number } = {},
+  opts: PickOptions & {
+    caller?: string;
+    load?: (roleId: string) => number;
+    history?: TaskOutcome[];
+  } = {},
 ): Promise<RolePick> {
-  const { caller, load, ...pickOpts } = opts;
+  const { caller, load, history, ...pickOpts } = opts;
   const candidates = agentRoles(roles).filter((r) => r.id !== caller);
   if (candidates.length === 0)
     return { role: null, method: 'none', candidates: [], reason: 'no-candidates' };
@@ -223,20 +303,30 @@ export async function pickTaskRole(
         .map((r) => ({ id: r.id, score: r.probability })),
     };
   }
-  return keywordRole(task, candidates, roles, load);
+  return keywordRole(
+    task,
+    candidates,
+    roles,
+    load,
+    history?.length ? roleOutcomePrior(task, history) : undefined,
+  );
 }
 
-/** Up to `max` pool skills whose name/tags/description fit the task. */
+/** Up to `max` pool skills whose name/tags/description fit the task; those
+ *  that clear MIN_SKILL_SCORE rank by score × `prior` (skillOutcomePrior). */
 export function keywordSkills(
   task: TaskText,
   skills: { id: string; description?: string; text?: string }[],
   max = 2,
+  prior?: (skill: string) => number,
 ): string[] {
   return scoreDocs(
     task,
     skills.map((s) => ({ id: s.id, strong: `${s.id} ${s.text ?? ''}`, weak: s.description ?? '' })),
   )
     .filter((s) => s.score >= MIN_SKILL_SCORE)
+    .map((s, i) => ({ id: s.id, i, adj: s.score * (prior?.(s.id) ?? 1) }))
+    .sort((a, b) => b.adj - a.adj || a.i - b.i)
     .slice(0, max)
     .map((s) => s.id);
 }

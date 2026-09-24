@@ -137,7 +137,11 @@ async function _decidePick(CWD, prompt, router) {
   var agents = jp ? jp.loadAgentCatalog(CWD) : [];
   var skillMatches = [];
   try { if (router && router.matchSkills) skillMatches = router.matchSkills(prompt) || []; } catch (e) { /* no skill hints */ }
-  var keywordCands = pickCore.rankAgents(jp, prompt, agents);
+  // Outcome prior (pick-stats.cjs): a bounded re-rank from past adherence and
+  // subagent success; the file is small and read once per prompt.
+  var stats = null;
+  try { stats = require(path.join(__dirname, '..', 'pick-stats.cjs')).load(CWD); } catch (e) { /* no prior */ }
+  var keywordCands = pickCore.rankAgents(jp, prompt, agents, stats);
   var jev = await _pickWithJev(CWD, prompt, agents, keywordCands[0] && keywordCands[0].id);
   var pick = pickCore.decide({ agents: agents, keywordCands: keywordCands, skillMatches: skillMatches, jev: jev });
   // Jev's skill answer replaces keyword skill matches, including "none fits".

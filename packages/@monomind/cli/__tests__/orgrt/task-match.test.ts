@@ -12,7 +12,11 @@ import {
   keywordRole,
   keywordSkills,
   matchTokens,
+  outcomeFactor,
   pickTaskRole,
+  roleOutcomePrior,
+  skillOutcomePrior,
+  type TaskOutcome,
 } from '../../src/orgrt/task-match.js';
 import type { OrgRole } from '../../src/orgrt/types.js';
 
@@ -179,5 +183,72 @@ describe('matchTokens / keywordSkills', () => {
     ];
     expect(keywordSkills({ title: 'design the REST api' }, pool)).toEqual(['api-design', 'api-docs']);
     expect(keywordSkills({ title: 'book a flight' }, pool)).toEqual([]);
+  });
+});
+
+describe('outcome prior (org task history)', () => {
+  const roles = [
+    { id: 'alpha', title: 'Alpha Engineer', responsibilities: ['Fix parser bugs'] },
+    { id: 'beta', title: 'Beta Engineer', responsibilities: ['Fix parser bugs'] },
+    { id: 'gamma', title: 'Gamma Parser Engineer', responsibilities: ['Fix parser bugs and lexer bugs'] },
+  ];
+  const done = (assignee: string, title = 'fix the parser crash'): TaskOutcome => ({ title, assignee, status: 'done' });
+  const failed = (assignee: string, title = 'fix the parser crash'): TaskOutcome => ({ title, assignee, status: 'failed' });
+
+  it('outcomeFactor is neutral below 3 outcomes and bounded to [0.85, 1.15]', () => {
+    expect(outcomeFactor(2, 0)).toBe(1);
+    expect(outcomeFactor(1e6, 0)).toBeLessThanOrEqual(1.15);
+    expect(outcomeFactor(1e6, 0)).toBeGreaterThan(1.14);
+    expect(outcomeFactor(0, 1e6)).toBeGreaterThanOrEqual(0.85);
+    expect(outcomeFactor(3, 3)).toBe(1);
+  });
+
+  it('counts only similar finished tasks, per role', () => {
+    const prior = roleOutcomePrior({ title: 'fix a parser crash on empty input' }, [
+      done('beta'),
+      done('beta'),
+      done('beta'),
+      failed('alpha'),
+      failed('alpha'),
+      failed('alpha'),
+      done('alpha', 'write the quarterly marketing newsletter'),
+      { title: 'fix the parser crash', assignee: 'alpha', status: 'running' },
+    ]);
+    expect(prior('beta')).toBeGreaterThan(1);
+    expect(prior('alpha')).toBeLessThan(1);
+    expect(prior('gamma')).toBe(1);
+  });
+
+  it('breaks an otherwise ambiguous tie toward the role that finished similar tasks', async () => {
+    const tied = [roles[0], roles[1]];
+    expect(keywordRole({ title: 'fix parser bugs' }, tied).reason).toBe('ambiguous');
+    const pick = await pickTaskRole({ title: 'fix parser bugs' }, tied, {
+      env: {},
+      history: [done('beta', 'fix parser bugs'), done('beta', 'fix parser bugs'), done('beta', 'fix parser bugs')],
+    });
+    expect(pick).toMatchObject({ role: 'beta', method: 'keyword' });
+  });
+
+  it('cannot flip a strong relevance gap', () => {
+    const task = { title: 'fix parser lexer bugs' };
+    const plain = keywordRole(task, roles);
+    expect(plain.role).toBe('gamma');
+    const prior = (id: string) => (id === 'gamma' ? 0.85 : 1.15);
+    expect(keywordRole(task, roles, roles, undefined, prior).role).toBe('gamma');
+  });
+
+  it('re-orders skill suggestions by the outcomes of tasks that loaded them', () => {
+    const pool = [
+      { id: 'api-design', description: 'Design a REST api' },
+      { id: 'api-docs', description: 'Document a REST api' },
+    ];
+    const history: TaskOutcome[] = [1, 2, 3].map(() => ({
+      title: 'x',
+      assignee: 'a',
+      status: 'done',
+      loadedSkills: ['api-docs'],
+    }));
+    expect(keywordSkills({ title: 'the REST api' }, pool, 1)).toEqual(['api-design']);
+    expect(keywordSkills({ title: 'the REST api' }, pool, 1, skillOutcomePrior(history))).toEqual(['api-docs']);
   });
 });
