@@ -6,7 +6,19 @@ type: helper
 
 # Agent Selection from Registry
 
-Use this pattern whenever a mastermind skill needs to select specialist agents. The shared index is `monomind pick`: it ranks the agent registry (`.monomind/registry.json`, built from `.claude/agents/`) and every skill — Claude skills plus the Org skill library — in one call. The registry keyword scorer below is only the fallback when the CLI is unavailable.
+Use this pattern whenever a mastermind skill or command needs to select specialist agents. Never hardcode a roster: the agent set differs per install, and a `subagent_type` that is not installed fails at spawn time.
+
+## The pick order (always in this order)
+
+1. **`[PICK]` line.** When the user prompt carries a hook-injected line `[PICK] agent: <name> · skill: <invoke>`, use that agent/skill unless it is clearly wrong for the task.
+2. **MCP tool `mcp__monomind__pick`** (when the monomind MCP server is connected):
+   `mcp__monomind__pick({ task: "<task>", kind: "agents", categories: ["engineering"], top: 3 })`
+   → same JSON as `monomind pick --json`; each `agents.ranked[].name` is a spawnable `subagent_type`, and `summary` is a one-line recap. Use `kind: "skills"` or `"both"` for skills.
+3. **Local CLI `monomind pick`** — the Standard Selection Block below (local binary only, never npx).
+4. **Registry keyword scorer** — the fallback inside the same block, when no usable CLI is installed.
+5. **Fixed fallback defaults** (bottom of this file) — real agent names only.
+
+The shared index behind 2 and 3 ranks the agent registry (`.monomind/registry.json`, built from `.claude/agents/`) and every skill — Claude skills plus the Org skill library — in one call.
 
 ---
 
@@ -17,69 +29,57 @@ Use this pattern whenever a mastermind skill needs to select specialist agents. 
 # Set these before the block:
 #   REGISTRY=".monomind/registry.json"
 #   PROMPT="<the user's prompt or idea description>"
-#   CATEGORIES="marketing strategy product"   # space-separated; adjust per domain
+#   CATEGORIES="marketing specialized"        # space-separated; see Category Map
 #   TOP_N=6                                   # how many agents to return
 
 REGISTRY="${REGISTRY:-.monomind/registry.json}"
 
-# 0. Decision model first. `monomind pick` asks Jev/OpenJev when configured
-#    (MONOMIND_JEV_URL, or TYPESAFE_API_KEY + MONOMIND_JEV_HOSTED=1) and
-#    otherwise ranks by keywords.
-# Local only — never npx (no registry egress). A globally installed monomind may
-# predate `pick`, so each candidate must prove it supports the command.
-mm() { for c in monomind ./node_modules/.bin/monomind; do
-         command -v "$c" >/dev/null 2>&1 || [ -x "$c" ] || continue
-         "$c" pick --help >/dev/null 2>&1 && { "$c" "$@"; return $?; }
-       done; return 127; }
-selected_agents=$(mm pick -t "$PROMPT" --agents --categories "$CATEGORIES" \
-  --top "$TOP_N" --json 2>/dev/null \
+# Local only — never npx (no registry egress). A candidate binary is accepted
+# only when its output is the unified index: every skill entry carries a
+# `source` field. Installs without `pick`, and pick builds that predate the
+# unified index, never emit it — so the call deliberately ranks skills too
+# (no --agents), and that output doubles as the version check.
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
+
+selected_agents=$(mmpick -t "$PROMPT" --categories "$CATEGORIES" --top "$TOP_N" \
   | jq -c '[.agents.ranked[] | {name: (.name // .id), slug: .id, category}]' 2>/dev/null)
 
-# Fallback when the CLI is unavailable: the registry keyword scorer below.
-if [ -z "$selected_agents" ] || [ "$selected_agents" = "[]" ]; then
-
-# 1. Extract candidates from the registry filtered by category
-candidates=$(jq -r \
-  --arg cats "$CATEGORIES" \
-  '[ (.agents // [])[]
-     | select(.deprecated != true)
-     | select(
-         .category as $c |
-         ($cats | split(" ") | any(. == $c))
-       )
-     | {name: .name, slug: .slug, category: .category}
-   ] | unique_by(.slug) | .[]' \
-  "$REGISTRY")
-
-# 2. Score each candidate by keyword overlap with the prompt
-# Extract keywords from prompt (words ≥5 chars, lowercase)
-keywords=$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')
-
-selected_agents=$(echo "$candidates" | jq -Rs \
-  --arg kw "$keywords" \
-  --argjson n "$TOP_N" \
-  '
-  [ split("\n")[] | select(length > 0) | fromjson ] |
-  map(
-    . as $agent |
-    ($kw | split(" ")) as $keywords |
-    ($agent.name | ascii_downcase) as $name |
-    ($agent.category | ascii_downcase) as $cat |
-    {
-      agent: $agent,
-      score: ([$keywords[] | if (($name | contains(.)) or ($cat | contains(.))) then 1 else 0 end] | add // 0)
-    }
-  ) |
-  sort_by(-.score) |
-  .[0:$n] |
-  map(.agent)
-  ')
+# Fallback when no usable CLI: score the registry against name + description +
+# capabilities + tags + whenToUse (keywords of 4+ letters from the prompt).
+if { [ -z "$selected_agents" ] || [ "$selected_agents" = "[]" ]; } && [ -f "$REGISTRY" ]; then
+  keywords=$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{4,}' | sort -u | tr '\n' ' ')
+  selected_agents=$(jq -c \
+    --arg cats "$CATEGORIES" \
+    --arg kw "$keywords" \
+    --argjson n "$TOP_N" \
+    '($kw | split(" ") | map(select(length > 0))) as $keywords
+     | [ (.agents // [])[]
+         | select(.deprecated != true)
+         | select(($cats | length) == 0 or (.category as $c | $cats | split(" ") | any(. == $c)))
+         | . as $a
+         | ([ $a.name, $a.description, ($a.capabilities // [] | join(" ")),
+              ($a.tags // [] | join(" ")), ($a.whenToUse // "") ]
+            | map(. // "") | join(" ") | ascii_downcase) as $text
+         | {name: $a.name, slug: $a.slug, category: $a.category,
+            score: ([ $keywords[] | select(. as $k | $text | contains($k)) ] | length)}
+       ]
+     | unique_by(.slug)
+     | map(select(.score > 0))
+     | sort_by(-.score)
+     | .[0:$n]
+     | map({name, slug, category})' \
+    "$REGISTRY" 2>/dev/null)
 fi
 
-echo "$selected_agents"
+echo "${selected_agents:-[]}"
 ```
 
-The output is a JSON array of `{name, slug, category}` objects. Use `.name` as the `subagent_type` in Task calls, `.slug` for display.
+The output is a JSON array of `{name, slug, category}` objects. Use `.name` as the `subagent_type` in Task calls and `.slug` for display. An empty array means: use the fixed fallback defaults below.
 
 ---
 
@@ -87,55 +87,38 @@ The output is a JSON array of `{name, slug, category}` objects. Use `.name` as t
 
 | Domain / purpose | Categories to include |
 |---|---|
-| **Idea — user/market angles** | `marketing specialized testing` |
-| **Idea — technical angles** | `engineering architecture core` |
-| **Build** | `core engineering architecture testing` |
-| **Marketing / Content** | `marketing specialized` |
-| **Research** | `core specialized` |
+| **Idea — user/market angles** | `marketing specialized design testing` |
+| **Idea — technical angles** | `engineering architecture core specialized` |
+| **Build** | `core engineering architecture design specialized testing` |
+| **Marketing / Content / Sales** | `marketing specialized` |
+| **Research** | `core specialized specialists` |
 | **Release** | `github engineering` |
-| **Review** | `engineering testing core` |
+| **Review** | `engineering testing core design specialized` |
+| **Ops / Finance** | `specialized engineering core` |
 | **Coordination** | `core monoswarm consensus` |
 
-Registry categories are the `.claude/agents/` folder names: `architecture consensus core design engineering github goal marketing monoswarm optimization specialists specialized templates testing`.
+Registry categories are the `.claude/agents/` folder names: `architecture consensus core design engineering github goal marketing monoswarm optimization specialists specialized templates testing`. Pass an empty `CATEGORIES` to rank every agent.
+
 ---
 
 ## Quick Pattern: pick ONE best agent for a specific task
 
+Prefer `mcp__monomind__pick({ task: "<task>", kind: "agents", top: 1 })` and use `agents.ranked[0].name`. Without MCP:
+
 ```bash
-# Pick the single best agent for a task description
 TASK_DESC="<one-line description of what this agent must do>"
-CATS="engineering development"
-
-# Local only — never npx (no registry egress). A globally installed monomind may
-# predate `pick`, so each candidate must prove it supports the command.
-mm() { for c in monomind ./node_modules/.bin/monomind; do
-         command -v "$c" >/dev/null 2>&1 || [ -x "$c" ] || continue
-         "$c" pick --help >/dev/null 2>&1 && { "$c" "$@"; return $?; }
-       done; return 127; }
-best_agent=$(mm pick -t "$TASK_DESC" --agents --categories "$CATS" --top 1 --json 2>/dev/null \
+CATS="engineering core"
+# mmpick() as defined in the Standard Selection Block
+best_agent=$(mmpick -t "$TASK_DESC" --categories "$CATS" --top 1 \
   | jq -r '.agents.ranked[0].name // .agents.ranked[0].id // empty' 2>/dev/null)
-
-if [ -z "$best_agent" ]; then
-best_agent=$(jq -r \
-  --arg cats "$CATS" \
-  --arg task "$(echo "$TASK_DESC" | tr '[:upper:]' '[:lower:]')" \
-  '[ (.agents // [])[]
-     | select(.deprecated != true)
-     | select(.category as $c | ($cats | split(" ") | any(. == $c)))
-     | {name: .name, slug: .slug,
-        score: (.name | ascii_downcase | if contains($task) then 2 else 0 end)}
-   ]
-   | sort_by(-.score)
-   | .[0].name // "coder"' \
-  "$REGISTRY")
-fi
+best_agent="${best_agent:-coder}"   # fixed fallback: a real core agent
 ```
 
 ---
 
 ## Fallback
 
-If the registry is missing or empty, fall back to these safe defaults per domain:
+If the pick tool, the CLI and the registry all come up empty, use these safe defaults per domain (all real agent names):
 
 | Domain | Fallback agents |
 |---|---|
@@ -143,20 +126,24 @@ If the registry is missing or empty, fall back to these safe defaults per domain
 | dev decomp | `Software Architect` |
 | ops decomp | `Launch Strategist` |
 | build | `coder`, `tester`, `reviewer` |
-| marketing | `Competitive Content Strategist`, `Email Marketing Specialist` |
+| marketing / content / sales | `Competitive Content Strategist`, `Email Marketing Specialist`, `Launch Strategist` |
 | review | `Code Reviewer`, `Security Engineer`, `reviewer` |
+| research | `researcher` |
+| release | `release-manager` |
+| anything else | `general-purpose` |
 ---
 
 ## Skills from the same index
 
+Prefer `mcp__monomind__pick({ task: "<task>", kind: "skills", top: 3 })`. Without MCP:
+
 ```bash
 # Best skills for a task: Claude skills (source "platform") and Org-library
 # skills (source "org") ranked together. `invoke` says how to load each one.
-mm pick -t "$PROMPT" --skills --top 3 --json 2>/dev/null \
-  | jq -c '[.skills.ranked[] | {id, source, invoke}]'
+mmpick -t "$PROMPT" --skills --top 3 | jq -c '[.skills.ranked[] | {id, source, invoke}]'
 ```
 
-A `platform` skill loads with its `invoke` (`Skill("name")`); an `org` skill is
+A `platform` skill loads with its `invoke` (a `Skill(...)` call or a `/command`); an `org` skill is
 read with `monomind org skills show <name>`, or named in an org role's `skills`
 / `skill_pool`.
 
@@ -164,8 +151,8 @@ read with `monomind org skills show <name>`, or named in an org role's `skills`
 
 ## Usage in a domain skill
 
-1. Set `REGISTRY`, `PROMPT`, `CATEGORIES`, `TOP_N`
-2. Run the Standard Selection Block
-3. Parse `selected_agents` JSON array
+1. If the prompt has a `[PICK]` line, start from it
+2. Else call `mcp__monomind__pick` with the task and the domain's categories
+3. Else set `REGISTRY`, `PROMPT`, `CATEGORIES`, `TOP_N` and run the Standard Selection Block
 4. Spawn Task agents using `.name` as `subagent_type`, one per entry
-5. If `selected_agents` is empty or registry missing: use the fallback list above
+5. If every step came back empty: use the fallback list above
