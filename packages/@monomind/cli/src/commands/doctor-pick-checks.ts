@@ -24,6 +24,7 @@ import {
   readEvalSnapshot,
   readEvalTasks,
 } from '../decision/pick-eval.js';
+import { readPickStats } from '../decision/pick-stats.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 
 const NAME = 'Agent/Skill Picking';
@@ -73,8 +74,9 @@ function records(file: string): Record<string, unknown>[] {
 }
 
 /**
- * Minimal pick stats from the hook logs. Kept in this one function so it can
- * be swapped for the shared pick-stats reader (readPickStats) when that lands.
+ * Route and adherence counts straight from the hook logs, so doctor reports
+ * them even where the pick-stats helper is not installed. Outcome rates come
+ * from readPickStats.
  */
 export function readPickAdherence(root: string): PickAdherence {
   const dir = join(root, '.monomind');
@@ -170,6 +172,12 @@ export async function checkPick(
       `adherence: ${a.routes} routes, ${a.shown} shown; spawns followed the pick ${a.followed}/${a.spawns}${rate}`,
     );
   }
+  const s = readPickStats(root);
+  const pct = (v: number | null): string => (v === null ? 'n/a' : `${Math.round(100 * v)}%`);
+  if (s.followedSuccessRate !== null || s.notFollowedSuccessRate !== null)
+    lines.push(
+      `outcomes: subagent success ${pct(s.followedSuccessRate)} when the pick was followed, ${pct(s.notFollowedSuccessRate)} when overridden`,
+    );
 
   const message = lines.join('\n  ');
   return problems.length
