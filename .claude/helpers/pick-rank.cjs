@@ -70,8 +70,36 @@ function stem(tok) {
   return s;
 }
 
+// Scripts written without spaces between words: a run of them is indexed as
+// overlapping character pairs (安全审计 -> 安全 全审 审计), the usual
+// dictionary-free approximation of their words.
+var CJK_RUN = /([\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}]+)/u;
+
+function bigrams(run) {
+  var chars = Array.from(run);
+  if (chars.length < 2) return chars;
+  var out = [];
+  for (var i = 0; i < chars.length - 1; i++) out.push(chars[i] + chars[i + 1]);
+  return out;
+}
+
+/** Lowercased letter/digit words of any script. Latin, Greek and Cyrillic
+ *  accents are folded (résumé -> resume); CJK runs become bigrams. */
 function words(text) {
-  return String(text || '').toLowerCase().match(/[a-z0-9]+/g) || [];
+  var folded = String(text || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFC')
+    .toLowerCase();
+  var out = [];
+  (folded.match(/[\p{L}\p{N}]+/gu) || []).forEach(function (run) {
+    run.split(CJK_RUN).forEach(function (piece, i) {
+      if (!piece) return;
+      if (i % 2 === 1) out.push.apply(out, bigrams(piece));
+      else out.push(piece);
+    });
+  });
+  return out;
 }
 
 function isContent(w) {

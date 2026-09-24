@@ -133,3 +133,44 @@ describe('pick-rank tokens', () => {
     expect(pr.shortlist('design a REST API', items, 1)[0].id).toBe('api-architect');
   });
 });
+
+describe('pick-rank tokens beyond ASCII', () => {
+  it('folds accents so an accented word meets its plain form', () => {
+    expect(pr.tokens('Café résumé naïve')).toEqual(pr.tokens('cafe resume naive'));
+    expect(pr.tokens('Café résumé naïve').length).toBe(3);
+  });
+
+  it('keeps Cyrillic and Greek words', () => {
+    expect(pr.tokens('проверить безопасность API')).toEqual(['проверить', 'безопасность', 'api']);
+    expect(pr.tokens('ασφάλεια')).toEqual(['ασφαλεια']);
+  });
+
+  it('splits CJK runs into character bigrams', () => {
+    expect(pr.tokens('安全审计')).toEqual(['安全', '全审', '审计']);
+    expect(pr.tokens('テスト')).toEqual(['テス', 'スト']);
+  });
+
+  it('ranks a matching non-Latin description above zero', () => {
+    const items = [
+      { id: 'sec', description: '代码安全审计与漏洞评估' },
+      { id: 'docs', description: '编写文档' },
+      { id: 'ru', description: 'Проверка безопасности кода' },
+    ];
+    const zh = pr.shortlist('请做一次安全审计', items, 3);
+    expect(zh[0]).toMatchObject({ id: 'sec' });
+    expect(zh[0].score).toBeGreaterThan(0);
+    const ru = pr.shortlist('проверка безопасности', items, 3);
+    expect(ru[0]).toMatchObject({ id: 'ru' });
+    expect(ru[0].score).toBeGreaterThan(0);
+  });
+
+  it('leaves English tokens as they were', () => {
+    expect(pr.tokens('Testing the optimizer for our CI/CD pipelines')).toEqual([
+      'test',
+      'optimiz',
+      'ci',
+      'cd',
+      'pipelin',
+    ]);
+  });
+});
