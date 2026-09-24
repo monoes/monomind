@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  installRecipe,
   isKnownRuntime,
   RUNNER_SPECS,
   resolveExecRunner,
@@ -51,6 +52,7 @@ describe('version handshake (§2)', () => {
         'org-endpoint-roles',
         'org-federation',
         'org-idle-deadline',
+        'doctor-json',
       ],
     });
     expect(p.capabilities).toContain('agent-exec');
@@ -135,6 +137,39 @@ describe('scanInstalled (§6)', () => {
     expect(grok.version).toBeNull(); // probe timed out — installed, version unknown
     expect(Date.now() - t0).toBeLessThan(5000);
   }, 10_000);
+
+  it('rev 9: every entry carries a structured install recipe and its login hint', async () => {
+    const result = await scanInstalled({ env: { PATH: '/nonexistent' }, skipVersionProbe: true });
+    const byId = new Map(result.agents.map((x) => [x.id, x]));
+    expect(byId.get('claude')).toMatchObject({
+      install: { kind: 'npm', packages: ['@anthropic-ai/claude-code'] },
+      login_hint: 'claude login',
+    });
+    expect(byId.get('antigravity')?.install).toEqual({
+      kind: 'script',
+      url: 'https://antigravity.google/cli/install.sh',
+      shell: 'bash',
+    });
+    expect(byId.get('vercel')?.install).toEqual({ kind: 'manual' });
+    for (const a of result.agents) expect(a.install.kind).toMatch(/^(npm|script|manual)$/);
+  });
+
+  it('installRecipe only accepts hints a caller can run without a shell', () => {
+    expect(installRecipe('npm install --global a b@1.2')).toEqual({
+      kind: 'npm',
+      packages: ['a', 'b@1.2'],
+    });
+    for (const hint of [
+      'npm install ai (plus the vendor model package)',
+      'npm install -g foo; echo injected',
+      'npm install -g --unsafe-perm foo',
+      'curl -fsSL http://example.com/install.sh | bash',
+      'curl -fsSL https://example.com/i.sh | bash; echo injected',
+      'install the Grok Build CLI per https://docs.x.ai/build/cli',
+    ]) {
+      expect(installRecipe(hint), hint).toEqual({ kind: 'manual' });
+    }
+  });
 
   it('vercel (in-process runner) reports no binary but an install hint', async () => {
     const result = await scanInstalled({ env: { PATH: '/nonexistent' }, skipVersionProbe: true });

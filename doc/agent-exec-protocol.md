@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 8)
+# Agent Exec Protocol — v1 (rev 9)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -97,6 +97,12 @@
     `org-endpoint-roles` (REST/webhook endpoint roles), `org-federation` (cross-root federation)
     and `org-decision-attribution` (decision attribution and request-scoped approvals) to
     `agent-exec`, `agent-scan` and `org-json-v1`. Additive only; no existing capability changed.
+  - rev 9 (2026-09-24): **setup and health for callers** — new capability `doctor-json`:
+    `monomind doctor --json` (§10) prints the health checks as one JSON document with a stable
+    `component` id and fix safety per result, so a caller (mono-agent's Settings › System health)
+    can show and apply monomind's own checks. `agent scan --json` entries gain `install` (the
+    `install_hint` as `npm` packages, an https `script`, or `manual`) and `login_hint` (§6).
+    Additive only.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
 - **Purpose**: Expose monomind's `AgentRunner` engine (14 local agent CLI runners) and org
@@ -123,7 +129,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"version":"2.10.31","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline"]}
+{"v":1,"version":"2.16.1","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
@@ -303,6 +309,19 @@ Auth status is deliberately NOT probed by `scan` (login checks are too heterogen
 failures surface at exec time as `error {code:"auth", fatal:true}` with the runtime's login
 hint in `message` (§3.4).
 
+**rev 9**: each entry also has `install` and `login_hint`:
+
+```
+"install":{"kind":"npm","packages":["@anthropic-ai/claude-code"]},"login_hint":"claude login"
+"install":{"kind":"script","url":"https://antigravity.google/cli/install.sh","shell":"bash"},"login_hint":null
+"install":{"kind":"manual"},"login_hint":null
+```
+
+`install` is derived from `install_hint` and only takes the two shapes a caller can run without a
+shell: `npm install -g <packages>` (each a plain package spec) and `curl -fsSL https://… | bash|sh`.
+Anything else — prose, a plain `npm install`, extra shell syntax — is `manual`, and the caller
+shows `install_hint` to a person instead.
+
 ## 7. Org observe contracts
 
 ### 7.1 Conventions
@@ -433,3 +452,30 @@ protocol already supported better.
    5 — see its `RunnerSpec` comment). Callers use the flag to set the user's expectations honestly
    (§3.2/§6) rather than a live UI implying a turn is stuck when it was never going to show partial
    output.
+
+## 10. `monomind doctor --json` (capability `doctor-json`, rev 9)
+
+```
+$ monomind doctor --json            # all checks for the cwd's project
+$ monomind doctor -c helpers --fix --json
+{"v":1,"cwd":"/path/to/project","success":true,
+ "summary":{"passed":20,"warnings":3,"failed":0,"info":4},
+ "results":[
+  {"component":"helpers","name":"Helper Files","status":"warn","message":"48 stale helper(s): …",
+   "fix":"monomind init upgrade","fix_safety":"auto","fix_flag":"--fix"},
+  {"component":"claude","name":"Claude Code CLI","status":"pass","message":"v2.1.281",
+   "fix":null,"fix_safety":null,"fix_flag":null},
+  …],
+ "fixes":[{"component":"helpers","outcome":"applied"}]}
+```
+
+- stdout holds exactly this one document; everything a check or fix prints goes to stderr.
+  Exit code as without `--json` (1 when a check failed).
+- `component` is the `-c` name that runs the check again on its own; one component can yield
+  several results (same `component`, different `name`). `status` is `pass|warn|fail|info`.
+- `fix` is the hint text. `fix_safety` says how it is applied: `auto` — local and repeatable,
+  applied by `--fix`; `confirm` — installs software, applied by `--install` (`fix_flag` names the
+  flag); `manual` — a person follows the hint (`fix_flag` null).
+- `fixes` lists what `--fix`/`--install` attempted in this run (`applied|failed`); results then
+  show the re-checked state.
+- Checks run against the process cwd, so a caller runs it with cwd = the project to check.

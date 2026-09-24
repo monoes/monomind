@@ -150,6 +150,17 @@ export class OutputFormatter {
   // Output Methods
   // ============================================
 
+  /**
+   * Point regular output at another stream (e.g. stderr while a command
+   * reserves stdout for its JSON payload). Returns the previous stream so
+   * the caller can restore it.
+   */
+  setOutputStream(stream: NodeJS.WriteStream): NodeJS.WriteStream {
+    const previous = this.outputStream;
+    this.outputStream = stream;
+    return previous;
+  }
+
   write(text: string): void {
     this.outputStream.write(text);
   }

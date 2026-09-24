@@ -4,6 +4,11 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **`monomind doctor --json`, advertised as capability `doctor-json`.** stdout holds one JSON document with every check's result, the `component` id that re-runs it (`-c`), and how its fix is applied: `auto` (by `--fix`), `confirm` (by `--install`) or `manual`. With `--fix` it also lists what was fixed. Everything a check or fix prints goes to stderr. mono-agent uses this to show and fix monomind's checks in its Settings › System health, per project. Contract: `doc/agent-exec-protocol.md` §10.
+- **`agent scan --json` entries carry `install` and `login_hint`.** `install` is the install hint in a shape a caller can run without a shell — `npm` packages, an https install `script` for bash/sh, or `manual` for anything else — and `login_hint` is the runtime's sign-in command. mono-agent's `agent install` and its Agents page use them.
+
 ### Changed
 
 - **Claude-runtime org roles get a 10-minute Bash timeout.** Roles hit Claude Code's 2-minute default Bash timeout on long foreground commands (three times for runtime-qa on the 2.16.1 release run). A Claude role's session env now sets `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` to 600000, which Claude Code reads; `run_config.bash_timeout_ms` (up to 3600000) changes both. Other runtimes are unaffected.
