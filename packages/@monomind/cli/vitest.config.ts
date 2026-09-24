@@ -5,7 +5,7 @@ export default defineConfig({
     environment: 'node',
     include: ['__tests__/**/*.test.ts', 'src/__tests__/**/*.test.ts'],
     exclude: ['node_modules', 'dist', '**/._*'],
-    setupFiles: ['__tests__/setup/resource-governor.setup.ts'],
+    setupFiles: ['__tests__/setup/resource-governor.setup.ts', '__tests__/setup/no-jev-env.setup.ts'],
     globals: true,
     // Cap worker count: this box-class (10 cores / 16 GB) cannot sustain the
     // default ~10 workers when several test files each load a 100MB+ ONNX

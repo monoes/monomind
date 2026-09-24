@@ -16,6 +16,8 @@ export default defineConfig({
       // assertions instead of running them. See GH issue #32.
       'tests/memory/cognee-port-eval.test.mjs',
     ],
+    // Clears Jev provider env so no test reaches a real decision model.
+    setupFiles: ['tests/setup/no-jev-env.setup.ts'],
     globals: false,
     testTimeout: 30000,
     hookTimeout: 30000,
