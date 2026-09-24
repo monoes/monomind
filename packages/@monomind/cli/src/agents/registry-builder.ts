@@ -173,6 +173,21 @@ function parseFrontmatter(content: string): Frontmatter {
     const key = trimmed.slice(0, colonIdx).trim();
     let value: FrontmatterValue = trimmed.slice(colonIdx + 1).trim();
 
+    // Block scalar (`description: |` or `>-`): the more-indented lines below are the value
+    const blockScalar = /^([|>])[+-]?$/.exec(value);
+    if (blockScalar) {
+      const parentIndent = line.length - line.trimStart().length;
+      const body: string[] = [];
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1];
+        if (next.trim() && next.length - next.trimStart().length <= parentIndent) break;
+        body.push(next.trim());
+        i++;
+      }
+      result[key] = body.join(blockScalar[1] === '|' ? '\n' : ' ').trim();
+      continue;
+    }
+
     // When the value is empty, look ahead for nested YAML list items
     if (value === '') {
       const parentIndent = line.length - line.trimStart().length;
@@ -327,7 +342,8 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
           (typeof fm.category === 'string' ? fm.category : undefined) ||
           categoryFromPath(file, root),
         description: typeof fm.description === 'string' ? fm.description : '',
-        capabilities: toStringArray(fm.capabilities),
+        // A `capability:` block is read flattened, so its `expertise:` list lands top-level
+        capabilities: toStringArray(fm.capabilities ?? fm.expertise),
         taskTypes: toStringArray(fm.taskTypes ?? fm['task-types'] ?? fm.task_types),
         tools: toStringArray(fm.tools),
         triggers: parseTriggers(fm.triggers),

@@ -242,3 +242,58 @@ describe('edge cases', () => {
     expect(agent.triggers[1].pattern).toBe('beta');
   });
 });
+
+// ── Agent catalog fields read by `monomind pick` ────────────────────────────
+
+describe('capability block and block-scalar descriptions', () => {
+  it('reads capability.expertise as capabilities and capability.task_types as taskTypes', () => {
+    const registry = writeAndBuild(
+      'coder.md',
+      [
+        '---',
+        'name: coder',
+        'description: Implementation specialist',
+        'capability:',
+        '  role: coder',
+        '  goal: Write clean code',
+        '  version: "1.0.0"',
+        '  expertise:',
+        '    - code implementation',
+        '    - refactoring',
+        '  task_types:',
+        '    - feature',
+        '    - bugfix',
+        '---',
+        '',
+        '# Coder',
+      ].join('\n'),
+    );
+
+    const agent = registry.agents[0];
+    expect(agent.capabilities).toEqual(['code implementation', 'refactoring']);
+    expect(agent.taskTypes).toEqual(['feature', 'bugfix']);
+    expect(agent.description).toBe('Implementation specialist');
+  });
+
+  it('reads a literal or folded block-scalar description', () => {
+    const literal = writeAndBuild(
+      'literal.md',
+      [
+        '---',
+        'name: literal',
+        'description: |',
+        '  Line one',
+        '  line two',
+        'color: red',
+        '---',
+      ].join('\n'),
+    ).agents.find((a) => a.slug === 'literal');
+    expect(literal?.description).toBe('Line one\nline two');
+
+    const folded = writeAndBuild(
+      'folded.md',
+      ['---', 'name: folded', 'description: >-', '  Line one', '  line two', '---'].join('\n'),
+    ).agents.find((a) => a.slug === 'folded');
+    expect(folded?.description).toBe('Line one line two');
+  });
+});
