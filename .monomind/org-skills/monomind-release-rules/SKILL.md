@@ -16,8 +16,8 @@ starts in (`pwd` before you `cd` anywhere). SRC is the release worktree
 second fix run in parallel with work on SRC. GATE is this run's scratch directory
 `$HOME/monomind-release/<VERSION>-<UTC timestamp>`; TMPDIR is `$HOME/mrg-tmp`.
 Every task's brief, delivered with its dispatch message, gives you the run's
-VERSION, target SHA, GATE and the worktree to use — use those, never values
-remembered from an earlier run.
+VERSION, target SHA, GATE and the ABSOLUTE path of the worktree to use — use
+those, never values remembered from an earlier run.
 
 ## Environment
 - Prefix EVERY command that runs node, pnpm, npm, vitest or monomind with
@@ -45,8 +45,11 @@ remembered from an earlier run.
   This org requires EVIDENCE, and a call without it wastes nothing but time —
   always pass `evidence` = { `headSha`, `worktree`, `checks` }:
   - `headSha`: the commit your checks ran on (`git -C <dir> rev-parse HEAD`);
-    `worktree`: that git worktree (SRC, DOCS or FIX2 — wherever the checks ran;
-    omit only for ORG_ROOT).
+    `worktree`: the ABSOLUTE path of that git worktree — SRC, DOCS or FIX2,
+    wherever the checks ran, e.g. `ORG_ROOT/.monomind/orgs/release/work/src`
+    as the brief gives it; omit only for ORG_ROOT. Never a label like `src`,
+    `docs` or `fix-2`: the gate resolves it against ORG_ROOT and refuses it
+    (11 of 11 first closes in 2.16.1).
   - With `worktree` set, `headSha` must be that worktree's CURRENT HEAD; without
     it, any worktree HEAD or local branch tip is accepted. So a commit in DOCS or
     FIX2 never stales evidence pinned to SRC, and SRC only moves once no open
@@ -117,33 +120,43 @@ remembered from an earlier run.
   and check `git status --porcelain` before every commit.
 
 ## Processes
-- A background process started with `&`, nohup or setsid does not outlive the
-  Bash call that started it: drive a browser in ONE command
-  (`monomind browse open … && … && monomind browse close`) and never leave a
-  server running for a later call. The Bash tool's own `run_in_background` is
-  the one supported way to run past a call (see Long-running commands).
+- No process outlives the Bash call that started it — not one started with
+  `&`, nohup or setsid, and not the Bash tool's own `run_in_background` (in a
+  sandboxed role it dies with the call). Drive a browser in ONE command
+  (`monomind browse open … && … && monomind browse close`), never leave a
+  server running for a later call, and run long work in the foreground (see
+  Long-running commands).
 - Never signal processes by name or pattern machine-wide (pkill, killall,
   `monomind cleanup --force`, reapers) except dummy processes you created; this
   org's own agents are claude-agent-sdk processes. Kill only PIDs you started.
 
 ## Long-running commands
-- The Bash tool times out after 2 minutes unless you pass a longer `timeout`
-  (10 minutes at most), and chains like `sleep 90; tail …` are blocked. Run
-  anything that can take longer — a test suite, `pnpm -r run build`, an install,
-  a live org drill — with the Bash tool's `run_in_background: true`, output
-  redirected to a `$GATE/logs/…` file and the exit code appended to it
-  (`…; echo "exit=$?" >> <log>`). Independent suites can go in separate
-  background calls at once.
-- Then call `org_task_block(taskId, untilIso, reason)` ONCE with an untilIso
-  comfortably later (e.g. now + 2 hours) so the idle watchdog leaves you alone,
-  and end your turn. The background command's completion notification resumes
-  your session; read the log and carry on — `org_task_done` closes a blocked
-  task normally. A second `org_task_block` on the same task is refused; just end
-  the turn. If your session has the `Monitor` tool you may instead wait on a
-  condition with it (`until grep -q '^exit=' <log>; do sleep 5; done`).
-- Never foreground-poll a suite in a loop. Round-1 TESTS in 2.16.0 ran in the
-  foreground, hit the 2-minute timeout 5 times and took 16.6 min; round 2, with
-  `run_in_background` + `org_task_block`, took 5.0 min.
+- The Bash tool times out after 2 minutes unless you pass its `timeout`
+  parameter, and the most it accepts is `timeout: 600000` (10 minutes). Run
+  anything that can take longer than a minute — an install,
+  `pnpm -r run build`, a test suite, a live org drill, a publish — in the
+  FOREGROUND with `timeout: 600000`, output redirected to a `$GATE/logs/…`
+  file and the exit code appended to it
+  (`… > <log> 2>&1; echo "exit=$?" >> <log>`), then read the log's tail.
+  2.16.0's round-1 TESTS ran without `timeout` and hit the 2-minute limit 5
+  times.
+- Split anything that can take longer than 10 minutes into steps that each
+  finish well inside that limit — one suite or package per call
+  (`pnpm --filter <pkg> test`), one drill per call — each logging to its own
+  `$GATE/logs/…` file.
+- Never use `run_in_background`, and never end your turn to "wait" for a
+  command, a Monitor event or anything external (npm propagation, a Pages
+  run): nothing wakes a task whose turn ended to wait except its blocked-task
+  re-check. In 2.16.1 builder and publisher sat idle ~42 minutes that way, and
+  a background build never ran at all. Wait inside a foreground call instead,
+  e.g. for npm propagation, with `timeout: 600000`:
+  `until curl -s https://registry.npmjs.org/<url-encoded name> | grep -qF '"<ver>":{'; do sleep 10; done`.
+  If it times out, run the same loop once more before reporting.
+- Messages (org_send from release-captain, operator notes) reach you only when
+  your current turn ends. Keep turns short enough to see them: when the work
+  is done, or you cannot go on, close the task with `org_task_done` (or report
+  what blocks you) and end the turn — never loop inside one turn retrying or
+  waiting.
 
 ## Reading source
 - Gather what you need in as few calls as possible: one Bash command that prints
@@ -159,4 +172,5 @@ remembered from an earlier run.
 - Claude Code's own harness tools — AskUserQuestion, ScheduleWakeup, TaskCreate /
   TaskUpdate, CronCreate / CronDelete / CronList, EnterPlanMode — are not
   available to org roles. Use the org equivalents: ask_human (release-captain,
-  PREFLIGHT only) to ask, org_task_block to wait, org_task to create work.
+  PREFLIGHT only) to ask, org_task to create work, and a foreground command
+  to wait (see Long-running commands).
