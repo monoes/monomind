@@ -1057,8 +1057,10 @@ async function runOneSession(
   if (external?.aborted) onExternalAbort();
   else external?.addEventListener('abort', onExternalAbort, { once: true });
   // org_task_cancel for this process's task: end it the same way (task-cancel.ts).
+  // Already aborted when it landed during the setup awaits above.
   const onCancelled = (): void => abort.abort(cancelled?.reason);
-  cancelled?.addEventListener('abort', onCancelled, { once: true });
+  if (cancelled?.aborted) onCancelled();
+  else cancelled?.addEventListener('abort', onCancelled, { once: true });
   try {
     // #258: policy.git enforced where git runs, not only by Bash text
     // classification — guard env for every runtime, OS sandbox + file-tool

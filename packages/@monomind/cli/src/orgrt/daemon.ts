@@ -444,7 +444,12 @@ export interface RunningOrg {
    *  same-turn message into an open entry. */
   pendingDispatch?: Map<
     string,
-    { lines: (string | Promise<string>)[]; timer: ReturnType<typeof setTimeout> }
+    {
+      lines: (string | Promise<string>)[];
+      timer: ReturnType<typeof setTimeout>;
+      /** Held line → the task it is about (dispatch-hold.ts). */
+      tasks?: Map<string | Promise<string>, string>;
+    }
   >;
   /** Task ids their assignee has already been nudged about at a turn end — the
    *  bound on decisions.ts's nudgeOpenTasksAtTurnEnd. Cleared for a task when

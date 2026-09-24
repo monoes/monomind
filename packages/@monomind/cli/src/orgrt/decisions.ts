@@ -20,6 +20,7 @@ import {
   type TaskEvidence,
 } from './completion-gate.js';
 import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
+import { holdTaskLine, resolveHeld, settleHeld } from './dispatch-hold.js';
 import { checkLoadoutSelection, taskTag } from './loadouts.js';
 import { buildReviewPacket, capText, reviewDiff } from './review-packet.js';
 import { resolveSessionScope } from './session-ledger.js';
@@ -378,6 +379,7 @@ export function dagCancelTask(
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
   try {
     const task = running.taskDag.get(taskId);
+    const priorStatus = task?.status;
     const promoted = running.taskDag.cancel(taskId, reason);
     running.bus.emit({
       type: 'status',
@@ -386,7 +388,7 @@ export function dagCancelTask(
       msg: `task ${taskId} cancelled${reason ? `: ${reason}` : ''}${promoted.length ? ` — ${promoted.map((t) => t.id).join(', ')} now ready` : ''}`,
       data: { taskId, reason, promoted: promoted.map((t) => t.id) },
     });
-    if (task) stopCancelledTaskWork(running, task, role, reason);
+    if (task && priorStatus) stopCancelledTaskWork(running, task, role, priorStatus, reason);
     if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
     return JSON.stringify({
       cancelled: taskId,
@@ -647,6 +649,8 @@ export function dagCompleteTask(
         running,
         task.assignee,
         `${taskTag(task)} NOT CLOSED — ${refusal}${attempts ? ` (attempt ${attempts} of ${cap}; after ${cap} this task is escalated instead of returned)` : evidence === undefined ? ' (no evidence was attached, so this did not count against your attempts)' : ''}`,
+        taskId,
+        true,
       );
       dispatchReadyTasks(daemon, org, running);
       return JSON.stringify({ error: refusal, requeued: taskId });
@@ -865,16 +869,21 @@ export const DISPATCH_COALESCE_MS = 500;
  *  same coalescing window (further dispatches, and same-turn messages folded in
  *  by cross-org.ts's pushMessage). The recipient is resolved again at flush
  *  time so a role replaced during the window gets the message in its new
- *  mailbox rather than the retired one. */
+ *  mailbox rather than the retired one. A line about `taskId` is withdrawn
+ *  if the task is cancelled first (dispatch-hold.ts); `received` says the
+ *  assignee already has the task (a follow-up, not its dispatch). */
 function queueDispatch(
   running: RunningOrg,
   assignee: string,
   line: string | Promise<string>,
+  taskId?: string,
+  received = false,
 ): void {
   if (!running.pendingDispatch) running.pendingDispatch = new Map();
   const open = running.pendingDispatch.get(assignee);
   if (open) {
     open.lines.push(line);
+    if (taskId) holdTaskLine(running, open, line, taskId, received);
     return;
   }
   const entry = {
@@ -884,23 +893,21 @@ function queueDispatch(
   entry.timer = setTimeout(() => {
     if (entry.lines.every((l) => typeof l === 'string')) {
       running.pendingDispatch?.delete(assignee);
-      deliverDispatch(running, assignee, entry.lines as string[]);
+      const lines = entry.lines as string[];
+      deliverDispatch(running, assignee, settleHeld(running, entry, lines, lines));
       return;
     }
     // A line is still resolving (per-task skill suggestion). Keep the entry
     // open so same-turn messages keep joining it (#275), and deliver once no
-    // new line arrived while waiting.
+    // line arrived or was withdrawn while waiting.
     void (async () => {
-      let lines: string[] = [];
-      for (let seen = -1; seen !== entry.lines.length; ) {
-        seen = entry.lines.length;
-        lines = await Promise.all(entry.lines);
-      }
+      const { held, lines } = await resolveHeld(entry);
       running.pendingDispatch?.delete(assignee);
-      deliverDispatch(running, assignee, lines);
+      deliverDispatch(running, assignee, settleHeld(running, entry, held, lines));
     })();
   }, DISPATCH_COALESCE_MS);
   entry.timer.unref?.();
+  if (taskId) holdTaskLine(running, entry, line, taskId, received);
   running.pendingDispatch.set(assignee, entry);
 }
 
@@ -908,7 +915,7 @@ function queueDispatch(
  *  window gets the message in its new mailbox rather than the retired one. */
 function deliverDispatch(running: RunningOrg, assignee: string, lines: string[]): void {
   const mailbox = running.agents.get(assignee)?.mailbox;
-  if (!mailbox || mailbox.isClosed) return;
+  if (!mailbox || mailbox.isClosed || lines.length === 0) return;
   // ADR-O001 D3: in task scope a message is routed to the model session of
   // the task it names, so a batch naming several tasks has to stay apart.
   const role = running.def?.roles.find((r) => r.id === assignee);
@@ -963,6 +970,8 @@ export function nudgeOpenTasksAtTurnEnd(running: RunningOrg, role: string): void
           ? ' and `evidence` — the commit the work sits on plus every acceptance command you ran with its real exit code'
           : ''
       }. If it genuinely cannot finish yet, call org_task_block with the time it can resume instead of leaving it open.`,
+      task.id,
+      true,
     );
   }
 }
@@ -1013,7 +1022,7 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
     if (agent && !agent.mailbox.isClosed) {
       running.taskDag.markRunning(task.id);
       noteLoadoutMismatch(running, task, agent.loadout);
-      queueDispatch(running, task.assignee, dispatchLine(daemon, running, task));
+      queueDispatch(running, task.assignee, dispatchLine(daemon, running, task), task.id);
       running.bus.emit({
         type: 'status',
         from: 'dag',
@@ -1061,7 +1070,7 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
       if (spawned && !spawned.mailbox.isClosed) {
         running.taskDag.markRunning(task.id);
         noteLoadoutMismatch(running, task, spawned.loadout);
-        queueDispatch(running, task.assignee, dispatchLine(daemon, running, task));
+        queueDispatch(running, task.assignee, dispatchLine(daemon, running, task), task.id);
         running.bus.emit({
           type: 'status',
           from: 'dag',

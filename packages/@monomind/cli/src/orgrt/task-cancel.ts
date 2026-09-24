@@ -16,7 +16,8 @@
  */
 
 import type { RunningOrg } from './daemon.js';
-import type { OrgTask } from './task-dag.js';
+import { withdrawHeldTask } from './dispatch-hold.js';
+import type { OrgTask, OrgTaskStatus } from './task-dag.js';
 
 /** The reason a task-scoped process was ended: its task was cancelled. */
 export class TaskCancelledError extends Error {
@@ -63,16 +64,33 @@ export class TaskProcesses {
   }
 }
 
-/** After `task` is cancelled by `by`: tell its assignee and end the
- *  assignee's process for it. A role cancelling its own task is mid-call and
- *  already knows. */
+/** After `task` (which was `priorStatus`) is cancelled by `by`: tell its
+ *  assignee and end the assignee's process for it. A role cancelling its own
+ *  task is mid-call and already knows. An assignee that never received the
+ *  task — never dispatched, or still held in the dispatch coalescing window —
+ *  is not told or woken: the held dispatch is withdrawn instead, so no notice
+ *  can overtake the task it cancels. */
 export function stopCancelledTaskWork(
   running: RunningOrg,
   task: Pick<OrgTask, 'id' | 'assignee'>,
   by: string,
+  priorStatus: OrgTaskStatus,
   reason?: string,
 ): void {
+  const { withdrawn, received } = withdrawHeldTask(running, task.assignee, task.id);
   if (task.assignee === by) return;
+  if (priorStatus === 'pending' || priorStatus === 'ready') return;
+  if (withdrawn && !received) {
+    running.bus.emit({
+      type: 'status',
+      from: by,
+      to: task.assignee,
+      reason: 'task-cancel-withdrawn',
+      msg: `task ${task.id} cancelled before "${task.assignee}" received it — its dispatch was withdrawn`,
+      data: { taskId: task.id, assignee: task.assignee },
+    });
+    return;
+  }
   const agent = running.agents.get(task.assignee);
   if (!agent || agent.mailbox.isClosed) return;
   const notice = cancelNotice(task.id, by, reason);
