@@ -9,12 +9,18 @@ import { jevVisible, orgSkillCatalog, roleCatalog } from './catalogs.js';
 import {
   acceptAgent,
   acceptSkills,
+  automaticMinConfidence,
   type CatalogItem,
+  decisionModelConfigured,
   type JevAnswer,
   keywordRank,
   type PickOptions,
+  pickMinConfidence,
   pickWithJev,
 } from './jev.js';
+
+/** Jev tail entries under this probability are noise, not candidates. */
+const MIN_RANKED_PROBABILITY = 0.02;
 
 export interface RankedEntry {
   id: string;
@@ -29,7 +35,21 @@ export interface RankedEntry {
 
 export interface RankedList {
   method: 'jev' | 'keyword';
+  /** `jev`: the model's ranking; `keyword`: no model is configured;
+   *  `keyword-fallback`: the model was asked but gave no usable answer or
+   *  one below the pick floor. */
+  source: 'jev' | 'keyword' | 'keyword-fallback';
+  /** A Jev answer between the pick floor and the automatic-decision floor:
+   *  worth showing, not worth acting on unattended. */
+  lowConfidence: boolean;
   ranked: RankedEntry[];
+}
+
+export interface RankOptions extends PickOptions {
+  /** Jev answers below this are discarded for keyword ranking. Defaults to
+   *  MONOMIND_JEV_PICK_MIN_CONFIDENCE (0.2); pass automaticMinConfidence()
+   *  to rank only answers an unattended caller would act on. */
+  minConfidence?: number;
 }
 
 export interface TaskRanking {
@@ -57,7 +77,9 @@ function fromAnswer(
   if (!answer) return null;
   const byId = new Map(items.map((i) => [i.id, i]));
   const ranked = answer.ranked
-    .filter((r) => byId.has(r.id))
+    .filter(
+      (r) => byId.has(r.id) && (r.id === answer.choice || r.probability >= MIN_RANKED_PROBABILITY),
+    )
     .slice(0, top)
     .map((r) => ({ ...entry(byId.get(r.id) as CatalogItem), probability: r.probability }));
   return ranked.length ? ranked : null;
@@ -71,30 +93,45 @@ export async function rankForTask(
   task: string,
   catalogs: { agents: CatalogItem[]; skills: CatalogItem[] },
   top: number,
-  opts: PickOptions = {},
+  opts: RankOptions = {},
 ): Promise<TaskRanking> {
+  const { minConfidence, ...pickOpts } = opts;
   const picked = await pickWithJev(
     task,
     {
       agents: catalogs.agents.length ? catalogs.agents : undefined,
       skills: catalogs.skills.length ? catalogs.skills : undefined,
     },
-    opts,
+    pickOpts,
   );
-  // Below the confidence floor an answer is "no decision": keep keyword ranking.
-  const agentAnswer = acceptAgent(picked?.agent, opts.env) ? picked?.agent : undefined;
+  const floor = minConfidence ?? pickMinConfidence(opts.env);
+  const automatic = automaticMinConfidence(opts.env);
+  // Below the pick floor an answer is "no decision": keep keyword ranking.
+  const agentAnswer = acceptAgent(picked?.agent, opts.env, floor) ? picked?.agent : undefined;
   const skillAnswer =
-    acceptSkills(picked?.skill, opts.env, top).length > 0 ? picked?.skill : undefined;
-  const jevAgents = fromAnswer(agentAnswer, catalogs.agents, top);
-  const jevSkills = fromAnswer(skillAnswer, catalogs.skills, top);
+    acceptSkills(picked?.skill, opts.env, top, floor).length > 0 ? picked?.skill : undefined;
+  const fallback = decisionModelConfigured(opts.env ?? process.env)
+    ? 'keyword-fallback'
+    : 'keyword';
+  const list = (answer: JevAnswer | undefined, items: CatalogItem[]): RankedList => {
+    const jev = fromAnswer(answer, items, top);
+    return jev && answer
+      ? { method: 'jev', source: 'jev', lowConfidence: answer.confidence < automatic, ranked: jev }
+      : {
+          method: 'keyword',
+          source: fallback,
+          lowConfidence: false,
+          ranked: fromKeywords(task, items, top),
+        };
+  };
+  const agents = list(agentAnswer, catalogs.agents);
+  const skills = list(skillAnswer, catalogs.skills);
   return {
-    ...(picked && (jevAgents || jevSkills) ? { provider: picked.provider } : {}),
-    agents: jevAgents
-      ? { method: 'jev', ranked: jevAgents }
-      : { method: 'keyword', ranked: fromKeywords(task, catalogs.agents, top) },
-    skills: jevSkills
-      ? { method: 'jev', ranked: jevSkills }
-      : { method: 'keyword', ranked: fromKeywords(task, catalogs.skills, top) },
+    ...(picked && (agents.method === 'jev' || skills.method === 'jev')
+      ? { provider: picked.provider }
+      : {}),
+    agents,
+    skills,
   };
 }
 

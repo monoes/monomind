@@ -22,7 +22,11 @@ var DEFAULT_TIMEOUT_MS = 3000;
 var MIN_TIMEOUT_MS = 100;
 var MAX_TIMEOUT_MS = 30000;
 var MIN_PROVIDER_WINDOW_MS = 50;
+// Automatic decisions (hook injection, org auto-assign) act only above this.
 var DEFAULT_MIN_CONFIDENCE = 0.6;
+// A ranking shown to a person (`monomind pick`) keeps Jev's answer down to
+// this, flagged low-confidence below DEFAULT_MIN_CONFIDENCE.
+var DEFAULT_PICK_MIN_CONFIDENCE = 0.2;
 var MIN_EXTRA_SKILL_PROBABILITY = 0.2;
 var DEFAULT_MAX_SKILLS = 3;
 // OpenJev scores up to 52 options per pass; 30 (+ "none") keeps one pass.
@@ -89,6 +93,17 @@ function resolveHookTimeoutMs(env) {
 function resolveMinConfidence(env) {
   var n = Number((env || process.env).MONOMIND_JEV_MIN_CONFIDENCE);
   return n > 0 && n <= 1 ? n : DEFAULT_MIN_CONFIDENCE;
+}
+
+/** The floor for rankings a person reads (MONOMIND_JEV_PICK_MIN_CONFIDENCE). */
+function resolvePickMinConfidence(env) {
+  var n = Number((env || process.env).MONOMIND_JEV_PICK_MIN_CONFIDENCE);
+  return n > 0 && n <= 1 ? n : DEFAULT_PICK_MIN_CONFIDENCE;
+}
+
+/** An explicit floor in (0, 1] wins; otherwise the automatic-decision floor. */
+function floorFor(env, minConfidence) {
+  return minConfidence > 0 && minConfidence <= 1 ? minConfidence : resolveMinConfidence(env);
 }
 
 /** Shorthand properties keep a key variable out of `apiKey: <expr>` shapes,
@@ -312,13 +327,14 @@ async function pick(task, catalogs, opts) {
   return out;
 }
 
-function acceptAgent(answer, env) {
+/** `minConfidence` overrides the automatic-decision floor for this call. */
+function acceptAgent(answer, env, minConfidence) {
   if (!answer) return null;
-  return answer.confidence >= resolveMinConfidence(env) ? answer.choice : null;
+  return answer.confidence >= floorFor(env, minConfidence) ? answer.choice : null;
 }
 
-function acceptSkills(answer, env, max) {
-  if (!answer || answer.choice === NONE_ID || answer.confidence < resolveMinConfidence(env)) return [];
+function acceptSkills(answer, env, max, minConfidence) {
+  if (!answer || answer.choice === NONE_ID || answer.confidence < floorFor(env, minConfidence)) return [];
   var limit = max || DEFAULT_MAX_SKILLS;
   var out = [answer.choice];
   for (var i = 0; i < answer.ranked.length && out.length < limit; i++) {
@@ -439,6 +455,7 @@ module.exports = {
   normalizeBaseUrl: normalizeBaseUrl,
   resolveTimeoutMs: resolveTimeoutMs,
   resolveMinConfidence: resolveMinConfidence,
+  resolvePickMinConfidence: resolvePickMinConfidence,
   resolveHookTimeoutMs: resolveHookTimeoutMs,
   redactSecrets: redaction.redactSecrets,
   SECRET_PATTERNS: redaction.SECRET_PATTERNS,
