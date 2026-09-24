@@ -71,8 +71,11 @@ export async function pickForTask(req: PickRequest): Promise<TaskRanking> {
       agents: options.include.agents.map((n) => idOf.get(n) ?? n),
     };
   }
+  // The outcome prior (.monomind/pick-stats.json) re-ranks keyword agents
+  // here, so every selector sees the same order as the prompt hook.
   const result = await rankForTask(req.task, { agents, skills }, req.top ?? 5, {
     onError: warnDecisionUnavailable,
+    priorsRoot: root,
     ...options,
   });
   return {
@@ -94,8 +97,10 @@ export function pickSummary(ranking: TaskRanking, kind: PickKind = 'both'): stri
   return parts.length ? parts.join(' · ') : 'no match';
 }
 
-/** Keyword scores are word overlaps (name words 3, other words 1); map them
- *  onto 0.4–0.9 so a strong name match reads as confident. */
+/** Keyword scores are BM25-style relevance (pick-rank.cjs: IDF-weighted
+ *  description matches plus a bonus for name/id words, scaled by the share of
+ *  task words matched), typically 0–10; map them onto 0.4–0.9 so a strong
+ *  match reads as confident. A decision-model answer keeps its probability. */
 export function confidenceOf(entry: RankedEntry): number {
   const raw =
     entry.probability !== undefined

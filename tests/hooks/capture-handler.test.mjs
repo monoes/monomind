@@ -248,7 +248,13 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
     fs.mkdirSync(path.join(projectDir, '.monomind'), { recursive: true });
     fs.writeFileSync(
       path.join(projectDir, '.monomind', 'last-route.json'),
-      JSON.stringify({ agent: 'coder', confidence: 0.85, prompt: 'test' }),
+      JSON.stringify({
+        routeId: 'route-rf',
+        sessionId: 'sess-rf',
+        agent: 'coder',
+        confidence: 0.85,
+        prompt: 'test',
+      }),
     );
   });
 
@@ -301,7 +307,7 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
         .map((l) => JSON.stringify(l))
         .join('\n')}\n`,
     );
-    runHook('subagent-stop', { transcript_path: transcript });
+    runHook('subagent-stop', { transcript_path: transcript, session_id: 'sess-rf' });
   }
 
   it('grows routing-feedback.jsonl from SubagentStop alone — never depends on SessionEnd firing', () => {
@@ -350,10 +356,12 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
     runHook('subagent-stop', {
       transcript_path: transcript,
       agent_type: 'coder',
+      agent_id: 'agent-abc',
       session_id: 'sess-7',
     });
     const [entry] = readFeedback();
     expect(entry).toMatchObject({
+      agentId: 'agent-abc',
       actualAgent: 'coder',
       suggestedAgent: 'security-engineer',
       followed: false,

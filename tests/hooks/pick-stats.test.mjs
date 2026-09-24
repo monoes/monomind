@@ -261,3 +261,66 @@ describe('summarize', () => {
     expect(ps.summarize(null)).toMatchObject({ routes: 0, adherenceRate: null, topAgents: [] });
   });
 });
+
+describe('untrusted pick-stats.json', () => {
+  const put = (s) => fs.writeFileSync(path.join(mono, 'pick-stats.json'), JSON.stringify(s));
+  const file = (agents, totals = {}) => ({ version: 1, totals, cursors: {}, agents, skills: {} });
+
+  it('keeps the prior inside [0.85, 1.15] whatever the counts claim', () => {
+    expect(ps.priorFactor({ failure: -1.99, followed: 10 })).toBeLessThanOrEqual(1.15);
+    expect(ps.priorFactor({ failure: -1.99, followed: 10 })).toBeGreaterThanOrEqual(0.85);
+    expect(ps.priorFactor({ success: -1e9, overridden: 20 })).toBeGreaterThanOrEqual(0.85);
+    expect(Number.isFinite(ps.priorFactor({ success: 'x', followed: 10 }))).toBe(true);
+    expect(
+      ps.priorFactor({ success: Number.NaN, followed: Number.POSITIVE_INFINITY }),
+    ).toBeLessThanOrEqual(1.15);
+  });
+
+  it('sanitizes counts on load to finite non-negative integers', () => {
+    put(
+      file(
+        { coder: { name: 'coder', failure: -1.99, followed: 10.7, success: 'x', chosen: null } },
+        { routes: -4, shown: 'lots', spawns: 2.5 },
+      ),
+    );
+    const s = ps.load(tmp);
+    expect(s.agents.coder).toMatchObject({ failure: 0, followed: 10, success: 0, chosen: 0 });
+    expect(s.totals).toMatchObject({ routes: 0, shown: 0, spawns: 2 });
+  });
+
+  it('drops malformed agent entries and never yields a NaN score', () => {
+    put(file({ coder: 'nope', good: { name: 'good', success: 'x', followed: 10 }, arr: [1] }));
+    const s = ps.load(tmp);
+    expect(s.agents.coder).toBeUndefined();
+    expect(s.agents.arr).toBeUndefined();
+    const out = ps.applyPriors([{ id: 'good', name: 'good', score: 2 }], s);
+    expect(Number.isFinite(out[0].score)).toBe(true);
+    expect(out[0].score).toBeLessThanOrEqual(2 * 1.15);
+  });
+});
+
+describe('dedupe across a rewrite', () => {
+  it('counts two same-agent outcomes that share a millisecond', () => {
+    const timestamp = new Date(clock++).toISOString();
+    const one = { timestamp, actualAgent: 'coder', sessionId: 's', intelligenceFeedback: true };
+    append('routing-feedback.jsonl', [one]);
+    expect(ps.update(tmp).agents.coder.success).toBe(1);
+    // A second subagent of the same type finishes in the same ms, then the
+    // file is rotated (rewritten, new inode).
+    rewrite('routing-feedback.jsonl', `${JSON.stringify(one)}\n${JSON.stringify(one)}\n`);
+    expect(ps.update(tmp).agents.coder.success).toBe(2);
+    // Nothing new: stays at 2.
+    rewrite('routing-feedback.jsonl', `${JSON.stringify(one)}\n${JSON.stringify(one)}\n`);
+    expect(ps.update(tmp).agents.coder.success).toBe(2);
+  });
+
+  it('tells subagents apart by agentId', () => {
+    const timestamp = new Date(clock++).toISOString();
+    const a = { timestamp, actualAgent: 'coder', agentId: 'a1', intelligenceFeedback: true };
+    const b = { ...a, agentId: 'b2' };
+    append('routing-feedback.jsonl', [a]);
+    ps.update(tmp);
+    rewrite('routing-feedback.jsonl', `${JSON.stringify(b)}\n${JSON.stringify(a)}\n`);
+    expect(ps.update(tmp).agents.coder.success).toBe(2);
+  });
+});

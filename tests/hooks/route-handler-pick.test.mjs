@@ -171,6 +171,39 @@ describe('route-handler [PICK] delivery', () => {
     expect(outcomes().at(-1)).toMatchObject({ method: 'keyword', agentId: 'devops-automator' });
   });
 
+  it('picks a keyword skill from the shared catalog, Org skills included, not router.cjs', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.claude', 'helpers', 'skill-registry.json'),
+      JSON.stringify({
+        skills: [
+          {
+            skill: 'security-review',
+            invoke: 'Skill("security-review")',
+            description: 'Security review',
+            nameTerms: ['security'],
+          },
+        ],
+        orgSkills: [
+          {
+            name: 'zorbling-tuning',
+            description: 'Tune zorbling flux capacitors for throughput',
+            tags: ['zorbling'],
+          },
+        ],
+      }),
+    );
+    const matchSkills = vi.fn(() => [{ skill: 'legacy', invoke: '/legacy', score: 9 }]);
+    const hCtx = makeHCtx('tune the zorbling flux capacitors');
+    hCtx.router = { ...legacyRouter, matchSkills };
+    await loadRH().handle(hCtx);
+    expect(logs).toEqual(['[PICK] skill: monomind org skills show zorbling-tuning']);
+    expect(matchSkills).not.toHaveBeenCalled();
+    expect(outcomes().at(-1)).toMatchObject({
+      method: 'keyword',
+      skill: 'monomind org skills show zorbling-tuning',
+    });
+  });
+
   it('prints and records nothing for a task notification', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     const fetchSpy = jevAnswer('engineering-security-engineer', 'security-review');
@@ -185,6 +218,26 @@ describe('route-handler [PICK] delivery', () => {
     expect(fs.existsSync(path.join(tmpDir, '.monomind', 'last-route.json'))).toBe(false);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it.each(['hi', 'thanks!', 'ok', 'looks good'])(
+    'makes no pick and no record for the trivial prompt %j, keeping the earlier route',
+    async (prompt) => {
+      await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));
+      const before = outcomes();
+      logs.length = 0;
+      vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
+      const fetchSpy = jevAnswer('coder', 'security-review');
+      vi.stubGlobal('fetch', fetchSpy);
+      await loadRH().handle(makeHCtx(prompt));
+      expect(logs).toEqual([]);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(outcomes()).toEqual(before);
+      const own = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.monomind', 'routes', 'sess-1.json'), 'utf-8'),
+      );
+      expect(own.agent).toBe('DevOps Automator');
+    },
+  );
 
   it('keeps the route per session', async () => {
     await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));

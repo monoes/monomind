@@ -240,6 +240,7 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    console.log('[OK] Task completed');
+    // SubagentStop runs post-task: the acknowledgement is silent under QUIET.
+    if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[OK] Task completed');
   }
 };

@@ -198,29 +198,87 @@ describe('rankAgents / decide', () => {
     expect(d.skill).toBeNull();
   });
 
-  it('picks a keyword skill only on a strong, strictly leading score', () => {
-    const { decide } = pc();
+  it('picks a keyword skill only above the floor and with a clear lead', () => {
+    const { decide, KEYWORD_MIN_SKILL_SCORE, KEYWORD_SKILL_LEAD } = pc();
+    expect(KEYWORD_MIN_SKILL_SCORE).toBe(3);
+    expect(KEYWORD_SKILL_LEAD).toBe(1.25);
+    const skill = (skillMatches) => decide({ agents, keywordCands: [], skillMatches }).skill;
+    expect(skill([{ skill: 'tokens', invoke: '/tokens', score: 5 }])).toEqual({
+      skill: 'tokens',
+      invoke: '/tokens',
+    });
     expect(
-      decide({
-        agents,
-        keywordCands: [],
-        skillMatches: [{ skill: 'tokens', invoke: '/tokens', score: 5 }],
-      }).skill,
-    ).toEqual({ skill: 'tokens', invoke: '/tokens' });
-    expect(
-      decide({
-        agents,
-        keywordCands: [],
-        skillMatches: [
-          { skill: 'a', invoke: '/a', score: 4 },
-          { skill: 'b', invoke: '/b', score: 4 },
-        ],
-      }).skill,
+      skill([
+        { skill: 'a', invoke: '/a', score: 4 },
+        { skill: 'b', invoke: '/b', score: 4 },
+      ]),
     ).toBeNull();
     expect(
-      decide({ agents, keywordCands: [], skillMatches: [{ skill: 'a', invoke: '/a', score: 3 }] })
-        .skill,
+      skill([
+        { skill: 'a', invoke: '/a', score: 5 },
+        { skill: 'b', invoke: '/b', score: 4.5 },
+      ]),
     ).toBeNull();
+    expect(
+      skill([
+        { skill: 'a', invoke: '/a', score: 5 },
+        { skill: 'b', invoke: '/b', score: 3.9 },
+      ]),
+    ).toEqual({ skill: 'a', invoke: '/a' });
+    expect(skill([{ skill: 'a', invoke: '/a', score: 2.9 }])).toBeNull();
+  });
+});
+
+describe('rankSkills', () => {
+  const jp = require(path.resolve(__dirname, '../../.claude/helpers/jev-picker.cjs'));
+  const skills = [
+    {
+      id: 'security-review',
+      invoke: 'Skill("security-review")',
+      description: 'Review code for security vulnerabilities',
+      source: 'platform',
+    },
+    {
+      id: 'threat-model',
+      invoke: 'monomind org skills show threat-model',
+      description: 'Threat modeling of an architecture for security risks',
+      source: 'org',
+    },
+    {
+      id: 'skill-admin',
+      invoke: 'Skill("skill-admin")',
+      description: 'Security review settings for skills',
+      source: 'platform',
+      pick: 'low',
+    },
+    {
+      id: 'copywriting',
+      invoke: 'Skill("copywriting")',
+      description: 'Marketing copy',
+      source: 'platform',
+    },
+  ];
+
+  it('ranks the shared skill catalog (org skills included) with pick-rank, zero scores dropped', () => {
+    const got = pc().rankSkills(jp, 'threat modeling for the payments architecture', skills);
+    expect(got[0]).toMatchObject({
+      skill: 'threat-model',
+      invoke: 'monomind org skills show threat-model',
+    });
+    expect(got[0].score).toBeGreaterThan(0);
+    expect(got.map((m) => m.skill)).not.toContain('copywriting');
+  });
+
+  it('keeps a pick: low skill below an equally matching one', () => {
+    const got = pc()
+      .rankSkills(jp, 'security review', skills)
+      .map((m) => m.skill);
+    expect(got.indexOf('security-review')).toBeLessThan(got.indexOf('skill-admin'));
+  });
+
+  it('returns [] without a picker or catalog', () => {
+    expect(pc().rankSkills(null, 'security review', skills)).toEqual([]);
+    expect(pc().rankSkills(jp, 'security review', [])).toEqual([]);
   });
 });
 
@@ -351,47 +409,145 @@ describe('recordAdherence', () => {
 });
 
 describe('ensureSkillRegistryFresh', () => {
-  function makeSkill(name) {
-    const d = path.join(tmp, '.claude', 'skills', name);
-    fs.mkdirSync(d, { recursive: true });
-    fs.writeFileSync(
-      path.join(d, 'SKILL.md'),
-      `---\nname: ${name}\ndescription: ${name} skill\n---\n`,
-    );
-  }
-  const builder = {
-    build: (root) => ({
-      skills: fs.readdirSync(path.join(root, '.claude', 'skills')).map((s) => ({ skill: s })),
-    }),
-  };
   const reg = () => path.join(tmp, '.claude', 'helpers', 'skill-registry.json');
 
-  it('builds the registry when it is missing', () => {
-    makeSkill('alpha');
+  it("asks build-skill-registry's isStale and rebuilds through its ensure", () => {
+    const calls = [];
+    const builder = {
+      isStale: (root) => (calls.push(['isStale', root]), true),
+      ensure: (root) => calls.push(['ensure', root]),
+    };
     expect(pc().ensureSkillRegistryFresh(tmp, builder)).toBe('rebuilt');
-    expect(JSON.parse(fs.readFileSync(reg(), 'utf-8')).skills).toEqual([{ skill: 'alpha' }]);
+    expect(calls).toEqual([
+      ['isStale', tmp],
+      ['ensure', tmp],
+    ]);
+    expect(pc().ensureSkillRegistryFresh(tmp, { isStale: () => false, ensure: () => {} })).toBe(
+      'fresh',
+    );
   });
 
-  it('rebuilds when a SKILL.md is newer and skips when fresh', () => {
-    makeSkill('alpha');
+  it('reports a builder without isStale/ensure instead of crashing', () => {
+    expect(pc().ensureSkillRegistryFresh(tmp, { build: () => ({}) })).toBe('no-builder');
+    expect(pc().ensureSkillRegistryFresh(tmp, null)).toBe('no-builder');
+  });
+
+  it('rebuilds for a new slash command, not only for .claude/skills changes', () => {
+    const cmds = path.join(tmp, '.claude', 'commands');
+    fs.mkdirSync(cmds, { recursive: true });
+    fs.writeFileSync(path.join(cmds, 'alpha.md'), '---\ndescription: alpha command\n---\n');
     const { ensureSkillRegistryFresh } = pc();
-    ensureSkillRegistryFresh(tmp, builder);
-    const past = new Date(Date.now() - 60_000);
+    expect(ensureSkillRegistryFresh(tmp)).toBe('rebuilt');
+    const past = new Date(Date.now() + 60_000);
     fs.utimesSync(reg(), past, past);
-    fs.utimesSync(path.join(tmp, '.claude', 'skills'), past, past);
-    fs.utimesSync(path.join(tmp, '.claude', 'skills', 'alpha'), past, past);
-    fs.utimesSync(path.join(tmp, '.claude', 'skills', 'alpha', 'SKILL.md'), past, past);
-    expect(ensureSkillRegistryFresh(tmp, builder)).toBe('fresh');
-    fs.utimesSync(path.join(tmp, '.claude', 'skills', 'alpha', 'SKILL.md'), new Date(), new Date());
-    expect(ensureSkillRegistryFresh(tmp, builder)).toBe('rebuilt');
+    expect(ensureSkillRegistryFresh(tmp)).toBe('fresh');
+    const later = new Date(Date.now() + 120_000);
+    fs.writeFileSync(path.join(cmds, 'beta.md'), '---\ndescription: beta command\n---\n');
+    fs.utimesSync(path.join(cmds, 'beta.md'), later, later);
+    expect(ensureSkillRegistryFresh(tmp)).toBe('rebuilt');
+  });
+});
+
+describe('route-outcomes under concurrent sessions', () => {
+  it('loses no route record when two processes append and join at once', async () => {
+    const { spawn } = await import('node:child_process');
+    const N = 150;
+    const worker = `
+      const pc = require(${JSON.stringify(PC_PATH)});
+      const [cwd, sid, n] = process.argv.slice(1);
+      const pick = { agent: { id: 'coder', name: 'coder' }, skill: null, method: 'keyword',
+        provider: null, confidence: null, candidates: [] };
+      for (let i = 0; i < Number(n); i++) {
+        pc.persistRoute(cwd, { pick, prompt: sid + ' task ' + i, sessionId: sid, shown: true });
+        pc.recordAdherence(cwd, { session_id: sid, tool_name: 'Task', tool_input: { subagent_type: 'coder' } });
+      }
+    `;
+    const run = (sid) =>
+      new Promise((resolve, reject) => {
+        const p = spawn(process.execPath, ['-e', worker, tmp, sid, String(N)], {
+          stdio: 'inherit',
+        });
+        p.on('error', reject);
+        p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`))));
+      });
+    await Promise.all([run('sess-A'), run('sess-B')]);
+    const recs = readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl'));
+    expect(recs.filter((r) => r.sessionId === 'sess-A')).toHaveLength(N);
+    expect(recs.filter((r) => r.sessionId === 'sess-B')).toHaveLength(N);
+    expect(recs.filter((r) => r.agentActuallyUsed === 'coder')).toHaveLength(2 * N);
+    expect(fs.existsSync(path.join(tmp, '.monomind', 'route-outcomes.jsonl.lock'))).toBe(false);
+  }, 60_000);
+
+  it('rotates the log down to the newest records under the lock', () => {
+    const f = path.join(tmp, '.monomind', 'route-outcomes.jsonl');
+    const big = `${JSON.stringify({ routeId: 'old', pad: 'x'.repeat(2000) })}\n`;
+    fs.writeFileSync(f, big.repeat(300));
+    const pick = {
+      agent: null,
+      skill: null,
+      method: 'none',
+      provider: null,
+      confidence: null,
+      candidates: [],
+    };
+    const id = pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: false });
+    const recs = readJsonl(f);
+    expect(recs.length).toBeLessThanOrEqual(500);
+    expect(recs.at(-1).routeId).toBe(id);
+    expect(fs.statSync(f).size).toBeLessThan(512 * 1024);
   });
 
-  it('reports a builder without a build export instead of crashing', () => {
-    makeSkill('alpha');
-    expect(pc().ensureSkillRegistryFresh(tmp, {})).toBe('no-builder');
+  it('breaks a stale lock instead of waiting on it forever', () => {
+    const lock = path.join(tmp, '.monomind', 'route-outcomes.jsonl.lock');
+    fs.writeFileSync(lock, '999999');
+    const past = new Date(Date.now() - 60_000);
+    fs.utimesSync(lock, past, past);
+    const pick = {
+      agent: null,
+      skill: null,
+      method: 'none',
+      provider: null,
+      confidence: null,
+      candidates: [],
+    };
+    const id = pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: false });
+    expect(pc().joinOutcome(tmp, id, { measuredSuccess: true })).toBe(true);
+    expect(readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl')).at(-1)).toMatchObject({
+      routeId: id,
+      measuredSuccess: true,
+    });
+    expect(fs.existsSync(lock)).toBe(false);
+  });
+});
+
+describe('slash-command routes', () => {
+  it('a route without an agent recommendation (slash command) is not adherence data', () => {
+    const { persistCommandRoute, recordAdherence } = pc();
+    persistCommandRoute(tmp, { command: '/ts', sessionId: 'sess-A' });
+    const last = JSON.parse(
+      fs.readFileSync(path.join(tmp, '.monomind', 'last-route.json'), 'utf-8'),
+    );
+    expect(last).toMatchObject({ agent: null, skill: '/ts', sessionId: 'sess-A' });
+    const rec = recordAdherence(tmp, {
+      session_id: 'sess-A',
+      tool_name: 'Task',
+      tool_input: { subagent_type: 'coder' },
+    });
+    expect(rec).toMatchObject({ recommended: null, followed: null });
   });
 
-  it('does nothing when the project has no skills tree', () => {
-    expect(pc().ensureSkillRegistryFresh(tmp, builder)).toBe('no-skills');
+  it("never answers with another session's route, even a legacy one without a session", () => {
+    const { readSessionRoute, recordAdherence } = pc();
+    fs.writeFileSync(
+      path.join(tmp, '.monomind', 'last-route.json'),
+      JSON.stringify({ agent: '/ts', confidence: 1, reason: 'predefined command' }),
+    );
+    expect(readSessionRoute(tmp, 'sess-B')).toBeNull();
+    const rec = recordAdherence(tmp, {
+      session_id: 'sess-B',
+      tool_name: 'Task',
+      tool_input: { subagent_type: 'coder' },
+    });
+    expect(rec).toMatchObject({ recommended: null, followed: null });
   });
 });

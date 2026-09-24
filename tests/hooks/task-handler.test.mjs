@@ -88,12 +88,23 @@ describe('task-handler.handlePreTask', () => {
 
 describe('task-handler.handlePostTask completion', () => {
   it('prints [OK] Task completed', async () => {
+    vi.stubEnv('MONOMIND_HOOK_QUIET', '');
     const th = loadTH();
     const hCtx = makeHCtx({ prompt: 'done' });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
     const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[OK] Task completed');
+    vi.unstubAllEnvs();
+  });
+
+  it('stays silent under MONOMIND_HOOK_QUIET=1', async () => {
+    vi.stubEnv('MONOMIND_HOOK_QUIET', '1');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await loadTH().handlePostTask(makeHCtx({ prompt: 'done' }));
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
+    expect(output).not.toContain('[OK] Task completed');
+    vi.unstubAllEnvs();
   });
 });
 

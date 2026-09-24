@@ -433,7 +433,9 @@ async function handleSubagentStop(hookInput) {
         sessionId: String(session || snap.session || hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
         intelligenceFeedback: _subagentSuccess,
       };
-      if (_route && _route.agent) {
+      // Tells apart two same-type subagents that stop in the same millisecond.
+      if (hookInput.agent_id) _rfEntry.agentId = String(hookInput.agent_id).slice(0, 128);
+      if (_route && _route.routeId && _route.agent) {
         _rfEntry.suggestedAgent = String(_route.agent).trim().toLowerCase().replace(/\s+/g, '-');
         _rfEntry.followed = _actualAgent === _route.agent || _actualAgent === _route.agentSlug;
       }

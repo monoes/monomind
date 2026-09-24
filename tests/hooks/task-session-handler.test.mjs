@@ -132,10 +132,16 @@ describe('task-handler — handlePostTask', () => {
   });
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('always logs [OK] Task completed', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir });
-    const lines = await capture(() => loadTask().handlePostTask(hCtx));
-    expect(lines.join('\n')).toContain('[OK] Task completed');
+  it('logs [OK] Task completed unless MONOMIND_HOOK_QUIET=1', async () => {
+    const saved = process.env.MONOMIND_HOOK_QUIET;
+    try {
+      delete process.env.MONOMIND_HOOK_QUIET;
+      const lines = await capture(() => loadTask().handlePostTask(makeHCtx({ CWD: tmpDir })));
+      expect(lines.join('\n')).toContain('[OK] Task completed');
+    } finally {
+      if (saved === undefined) delete process.env.MONOMIND_HOOK_QUIET;
+      else process.env.MONOMIND_HOOK_QUIET = saved;
+    }
   });
 
   it('generates an ADR file when adr.autoGenerate=true and architect agent', async () => {
@@ -219,8 +225,11 @@ describe('session-handler — handleEnd', () => {
 
   it('appends an entry to routing-feedback.jsonl when last-route.json exists', async () => {
     const routePath = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routePath, JSON.stringify({ agent: 'coder', confidence: 0.9 }));
-    const hCtx = makeHCtx({ CWD: tmpDir });
+    fs.writeFileSync(
+      routePath,
+      JSON.stringify({ agent: 'coder', confidence: 0.9, sessionId: 's1' }),
+    );
+    const hCtx = makeHCtx({ CWD: tmpDir, hookInput: { sessionId: 's1' } });
     await capture(() => loadSession().handleEnd(hCtx));
     const feedbackPath = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
     expect(fs.existsSync(feedbackPath)).toBe(true);
