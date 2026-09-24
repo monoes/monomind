@@ -13,7 +13,8 @@
  * Each source is read incrementally: a cursor stores the byte offset, inode
  * and file head. When the file was rotated or rewritten (joinOutcome rewrites
  * route-outcomes in place) the tail is re-read backwards, bounded, and only
- * records newer than the cursor's timestamp watermark count. Nothing here
+ * records newer than the cursor's timestamp watermark count, plus those at the
+ * watermark beyond the ones already counted there. Nothing here
  * throws to a hook: update() returns null on any failure.
  *
  * The prior: an agent with >= MIN_OBS observations gets a factor in
@@ -71,22 +72,44 @@ function statsPath(root) {
   return path.join(root, '.monomind', STATS_FILE);
 }
 
-/** The stored stats, or empty stats when missing, oversized or corrupt. */
+var AGENT_COUNTS = ['recommended', 'followed', 'overridden', 'chosen', 'success', 'failure'];
+
+/** A stored count as a finite non-negative integer (anything else is 0). */
+function count(v) {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+}
+
+function isObject(v) {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** The stored stats, or empty stats when missing, oversized or corrupt. The
+ *  file is not trusted: every count is sanitized, malformed entries dropped. */
 function load(root) {
   try {
     var file = statsPath(root);
     if (fs.statSync(file).size > MAX_STATS_BYTES) return emptyStats();
     var s = JSON.parse(fs.readFileSync(file, 'utf-8'));
-    if (!s || s.version !== 1 || typeof s.totals !== 'object') return emptyStats();
-    var base = emptyStats();
-    return {
-      version: 1,
-      updatedAt: s.updatedAt || null,
-      cursors: s.cursors && typeof s.cursors === 'object' ? s.cursors : {},
-      totals: Object.assign(base.totals, s.totals),
-      agents: s.agents && typeof s.agents === 'object' ? s.agents : {},
-      skills: s.skills && typeof s.skills === 'object' ? s.skills : {},
-    };
+    if (!isObject(s) || s.version !== 1 || !isObject(s.totals)) return emptyStats();
+    var out = emptyStats();
+    out.updatedAt = typeof s.updatedAt === 'string' ? s.updatedAt : null;
+    out.cursors = isObject(s.cursors) ? s.cursors : {};
+    Object.keys(out.totals).forEach(function (k) { out.totals[k] = count(s.totals[k]); });
+    if (isObject(s.agents)) {
+      Object.keys(s.agents).forEach(function (k) {
+        var a = s.agents[k];
+        if (!isObject(a)) return;
+        var entry = { name: String(typeof a.name === 'string' ? a.name : k).slice(0, 128) };
+        AGENT_COUNTS.forEach(function (c) { entry[c] = count(a[c]); });
+        out.agents[k] = entry;
+      });
+    }
+    if (isObject(s.skills)) {
+      Object.keys(s.skills).forEach(function (k) {
+        if (isObject(s.skills[k])) out.skills[k] = { recommended: count(s.skills[k].recommended) };
+      });
+    }
+    return out;
   } catch (e) {
     return emptyStats();
   }
@@ -106,9 +129,10 @@ function tsOf(rec) {
   return Number.isFinite(t) ? t : 0;
 }
 
-/** Identity of a record at the watermark timestamp (stable across joins). */
+/** Identity of a record at the watermark timestamp (stable across joins).
+ *  Records with equal keys are told apart by count (see readNew). */
 function keyOf(rec) {
-  return [tsOf(rec), rec.routeId || '', rec.actual || rec.actualAgent || '', rec.sessionId || ''].join('|');
+  return [tsOf(rec), rec.routeId || '', rec.actual || rec.actualAgent || '', rec.sessionId || '', rec.agentId || ''].join('|');
 }
 
 function parseLines(buf) {
@@ -175,10 +199,18 @@ function readNew(file, cursor) {
         : readForward(fd, 0, st.size);
     var records = got.records;
     if (!same && cursor) {
-      var seen = new Set(edge);
+      // The edge is a multiset: each stored key skips one re-read record, so
+      // two identical records at the watermark still count twice.
+      var seen = new Map();
+      edge.forEach(function (k) { seen.set(k, (seen.get(k) || 0) + 1); });
       records = records.filter(function (r) {
         var t = tsOf(r);
-        return t > lastTs || (t === lastTs && !seen.has(keyOf(r)));
+        if (t > lastTs) return true;
+        if (t < lastTs) return false;
+        var k = keyOf(r);
+        var left = seen.get(k) || 0;
+        if (left > 0) { seen.set(k, left - 1); return false; }
+        return true;
       });
     }
     var maxTs = lastTs;
@@ -299,14 +331,16 @@ function update(root, opts) {
  *  observations. Success: (1+s)/(2+s+f). Adoption: picked-and-followed or
  *  chosen over the pick, against overridden, same smoothing. */
 function priorFactor(entry) {
-  if (!entry) return 1;
-  var s = entry.success || 0;
-  var f = entry.failure || 0;
-  var a = (entry.followed || 0) + (entry.chosen || 0);
-  var o = entry.overridden || 0;
+  if (!isObject(entry)) return 1;
+  var s = count(entry.success);
+  var f = count(entry.failure);
+  var a = count(entry.followed) + count(entry.chosen);
+  var o = count(entry.overridden);
   if (s + f + a + o < MIN_OBS) return 1;
   var signal = ((1 + s) / (2 + s + f) - 0.5 + (1 + a) / (2 + a + o) - 0.5) / 2;
-  return Math.round((1 + 2 * SPAN * signal) * 1000) / 1000;
+  var factor = 1 + 2 * SPAN * signal;
+  if (!Number.isFinite(factor)) return 1;
+  return Math.round(Math.min(1 + SPAN, Math.max(1 - SPAN, factor)) * 1000) / 1000;
 }
 
 function entryFor(stats, item) {

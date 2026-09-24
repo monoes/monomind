@@ -356,10 +356,12 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
     runHook('subagent-stop', {
       transcript_path: transcript,
       agent_type: 'coder',
+      agent_id: 'agent-abc',
       session_id: 'sess-7',
     });
     const [entry] = readFeedback();
     expect(entry).toMatchObject({
+      agentId: 'agent-abc',
       actualAgent: 'coder',
       suggestedAgent: 'security-engineer',
       followed: false,
