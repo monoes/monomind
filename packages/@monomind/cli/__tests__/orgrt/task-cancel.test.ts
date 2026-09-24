@@ -105,6 +105,7 @@ describe('dagCancelTask tells the assignee', () => {
     const { daemon, taskDag, fixer } = org();
     const other = taskDag.add('DOCS r1', 'fixer', []);
     const t = taskDag.add('FIX r4', 'fixer', []);
+    taskDag.markRunning(t.id); // dispatched: a never-dispatched task needs no notice
     const live = fixer.taskProcesses!.track(other.id);
 
     dagCancelTask(daemon, 'x', 'captain', t.id, 'moot');
