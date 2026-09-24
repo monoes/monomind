@@ -343,7 +343,9 @@ module.exports = {
         if (fs.existsSync(dispatchPath) && fs.statSync(dispatchPath).size <= MAX_DISPATCH) {
           var lastDispatch = JSON.parse(fs.readFileSync(dispatchPath, 'utf-8'));
           var dispatchAge = Date.now() - new Date(lastDispatch.dispatchedAt || 0).getTime();
-          if (dispatchAge < 60000 && result.agent && (lastDispatch.agentType === result.agent || lastDispatch.agentType === result.agentSlug)) {
+          var dispatchSid = hookInput.session_id || hookInput.sessionId || null;
+          var sameSession = !lastDispatch.sessionId || !dispatchSid || lastDispatch.sessionId === dispatchSid;
+          if (dispatchAge < 60000 && sameSession && result.agent && (lastDispatch.agentType === result.agent || lastDispatch.agentType === result.agentSlug)) {
             result.recentlyDispatched = true;
             advisoryLog('[DISPATCH_DEDUP] ' + lastDispatch.agentType + ' was dispatched ' + Math.round(dispatchAge / 1000) + 's ago — consider a different specialist or direct implementation');
           }

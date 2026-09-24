@@ -106,6 +106,15 @@ describe('agent-start-handler', () => {
     expect(dispatch.description).toBe('implement feature');
   });
 
+  it('stamps last-dispatch.json with the session that dispatched', () => {
+    const ctx = makeCtx({ hookInput: { agent_type: 'coder', session_id: 'sess-42' } });
+    loadHandler('agent-start-handler.cjs').handle(ctx);
+    const dispatch = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'last-dispatch.json'), 'utf-8'),
+    );
+    expect(dispatch).toMatchObject({ agentType: 'coder', sessionId: 'sess-42' });
+  });
+
   it('falls back to agentType field when subagent_type is absent', () => {
     const ctx = makeCtx({ hookInput: { agentType: 'tester' } });
     loadHandler('agent-start-handler.cjs').handle(ctx);

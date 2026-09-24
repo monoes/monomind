@@ -220,3 +220,23 @@ describe('task-handler.handlePostTask intelligence feedback', () => {
     await expect(th.handlePostTask(hCtx)).resolves.not.toThrow();
   });
 });
+
+// ── handlePostTask — SubagentStop's agent_type ────────────────────────────────
+
+describe('task-handler.handlePostTask agent identity', () => {
+  it("uses SubagentStop's agent_type instead of reporting 'unknown'", async () => {
+    const th = loadTH();
+    const executeHooks = vi.fn(async () => {});
+    const recordMemoryDecision = vi.fn();
+    const hCtx = makeHCtx({
+      prompt: 'task done',
+      hookInput: { agent_type: 'Security Engineer', session_id: 's1' },
+      intelligence: { recordMemoryDecision },
+      _hooksModule: { executeHooks, HookEvent: { PostTask: 'post-task' } },
+    });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await th.handlePostTask(hCtx);
+    expect(executeHooks.mock.calls[0][1].task.agentSlug).toBe('Security Engineer');
+    expect(recordMemoryDecision.mock.calls[0][0].agent).toBe('Security Engineer');
+  });
+});

@@ -268,6 +268,32 @@ describe('route-handler routing path', () => {
     expect(dedupMsg[0]).toContain('DevOps Automator');
   });
 
+  it("does NOT log DISPATCH_DEDUP for another session's dispatch", async () => {
+    const rh = loadRH();
+    const monomindDir = path.join(tmpDir, '.monomind');
+    fs.mkdirSync(monomindDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(monomindDir, 'registry.json'),
+      JSON.stringify({ agents: [{ slug: 'devops-automator', name: 'DevOps Automator' }] }),
+    );
+    fs.writeFileSync(
+      path.join(monomindDir, 'last-dispatch.json'),
+      JSON.stringify({
+        agentType: 'DevOps Automator',
+        dispatchedAt: new Date().toISOString(),
+        sessionId: 'other-session',
+      }),
+    );
+    const logSpy = vi.spyOn(console, 'log');
+    await rh.handle(
+      makeHCtx({ prompt: 'ask the devops automator to fix the deploy', hookInput: { session_id: 'mine' } }),
+    );
+    const dedupMsg = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),
+    );
+    expect(dedupMsg).toBeFalsy();
+  });
+
   it('does NOT log DISPATCH_DEDUP when a different agent was dispatched', async () => {
     const rh = loadRH();
     const monomindDir = path.join(tmpDir, '.monomind');
