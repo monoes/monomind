@@ -104,6 +104,17 @@ describe('hooks_explain', () => {
     expect(r.explanation).toContain('"Security Engineer" ranked first');
     expect(r.decision.reasoning.join('\n')).toContain('Alternatives: coder, Code Reviewer');
   });
+
+  it('lists the ranked agents as its matched patterns', async () => {
+    const r = (await hooksExplain.handler({ task: 'secure the login' })) as {
+      patterns: { pattern: string; matchScore: number; examples: string[] }[];
+    };
+    expect(r.patterns).toEqual([
+      { pattern: 'Security Engineer', matchScore: 0.75, examples: ['r1'] },
+      { pattern: 'coder', matchScore: 0.55, examples: ['r2'] },
+      { pattern: 'Code Reviewer', matchScore: 0.45, examples: ['r3'] },
+    ]);
+  });
 });
 
 describe('monovector createKeywordRouter().route', () => {

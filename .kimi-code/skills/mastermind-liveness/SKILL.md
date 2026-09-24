@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Liveness
 
-This skill is invoked by `mastermind:liveness` or directly via `/mastermind:liveness`.
+This skill is invoked by `mastermind:liveness` or directly via `/mastermind-liveness`.
 
 ---
 
@@ -231,7 +231,7 @@ if stalled:
         print(f"    {iid}: [{s}] {t}")
         print(f"      → {p}")
     print()
-    print("  Fix: /mastermind:liveness --org <org> --action recover --issue-id <id> --reason 'execution path lost'")
+    print("  Fix: /mastermind-liveness --org <org> --action recover --issue-id <id> --reason 'execution path lost'")
 else:
     print("  ✓ No stalled issues.")
 
@@ -266,7 +266,7 @@ for iss in issues:
         existing = iss.get("checkoutRunId")
         if existing and existing != runId:
             print(f"  CONFLICT: Issue already checked out by run {existing}")
-            print(f"  Release first: /mastermind:liveness --org <org> --action release --issue-id {iid}")
+            print(f"  Release first: /mastermind-liveness --org <org> --action release --issue-id {iid}")
             sys.exit(1)
         iss["checkoutRunId"]  = runId
         iss["executionRunId"] = runId
@@ -431,7 +431,7 @@ for iss in issues:
         print(f"  Issue {iid} → status: blocked (pending recovery)")
         print(f"  Owner: {owner}")
         print(f"  Cause: {cause}")
-        print(f"  Resolve with: /mastermind:liveness --org <org> --action checkout --issue-id {iid} --agent-id <id> --run-id <id>")
+        print(f"  Resolve with: /mastermind-liveness --org <org> --action checkout --issue-id {iid} --agent-id <id> --run-id <id>")
         sys.exit(0)
 
 print(f"  ERROR: Issue '{iid}' not found.")

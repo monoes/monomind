@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Profile
 
-This skill is invoked by `mastermind:profile` or directly via `/mastermind:profile`.
+This skill is invoked by `mastermind:profile` or directly via `/mastermind-profile`.
 
 ---
 

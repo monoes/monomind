@@ -438,7 +438,7 @@ const startCommand: Command = {
     output.printTable({
       columns: [
         { key: 'role', header: 'Role', width: 20 },
-        { key: 'type', header: 'Type', width: 15 },
+        { key: 'type', header: 'Type', width: 25 },
         { key: 'count', header: 'Count', width: 8, align: 'right' },
         { key: 'purpose', header: 'Purpose', width: 30 },
       ],
@@ -765,7 +765,8 @@ export const monoswarmCommand: Command = {
   },
 };
 
-// Helper function
+/** The deployment plan `monoswarm start` shows; every `type` is a registry
+ *  agent name (a spawnable Task subagent_type). */
 function getAgentPlan(
   strategy: string,
 ): Array<{ role: string; type: string; count: number; purpose: string }> {
@@ -781,7 +782,7 @@ function getAgentPlan(
         purpose: 'Central orchestration (anti-drift)',
       },
       { role: 'Researcher', type: 'researcher', count: 1, purpose: 'Requirements analysis' },
-      { role: 'Architect', type: 'architect', count: 1, purpose: 'System design' },
+      { role: 'Architect', type: 'Software Architect', count: 1, purpose: 'System design' },
       { role: 'Coder', type: 'coder', count: 2, purpose: 'Implementation' },
       { role: 'Tester', type: 'tester', count: 1, purpose: 'Quality assurance' },
       { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Code review' },
@@ -798,7 +799,7 @@ function getAgentPlan(
     ],
     development: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Orchestrate workflow' },
-      { role: 'Architect', type: 'architect', count: 1, purpose: 'System design' },
+      { role: 'Architect', type: 'Software Architect', count: 1, purpose: 'System design' },
       { role: 'Coder', type: 'coder', count: 3, purpose: 'Implementation' },
       { role: 'Tester', type: 'tester', count: 2, purpose: 'Quality assurance' },
       { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Code review' },
@@ -806,7 +807,7 @@ function getAgentPlan(
     research: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Research coordination' },
       { role: 'Researcher', type: 'researcher', count: 4, purpose: 'Data gathering' },
-      { role: 'Analyst', type: 'analyst', count: 2, purpose: 'Analysis and synthesis' },
+      { role: 'Analyst', type: 'researcher', count: 2, purpose: 'Analysis and synthesis' },
     ],
     testing: [
       { role: 'Test Lead', type: 'tester', count: 1, purpose: 'Test strategy' },
@@ -815,8 +816,13 @@ function getAgentPlan(
       { role: 'QA Reviewer', type: 'reviewer', count: 1, purpose: 'Quality review' },
     ],
     optimization: [
-      { role: 'Performance Lead', type: 'optimizer', count: 1, purpose: 'Performance strategy' },
-      { role: 'Profiler', type: 'analyst', count: 2, purpose: 'Profiling' },
+      {
+        role: 'Performance Lead',
+        type: 'Performance Benchmarker',
+        count: 1,
+        purpose: 'Performance strategy',
+      },
+      { role: 'Profiler', type: 'Performance Monitor', count: 2, purpose: 'Profiling' },
       { role: 'Optimizer', type: 'coder', count: 2, purpose: 'Optimization' },
     ],
     maintenance: [
@@ -825,9 +831,9 @@ function getAgentPlan(
       { role: 'Documenter', type: 'researcher', count: 1, purpose: 'Documentation' },
     ],
     analysis: [
-      { role: 'Analyst Lead', type: 'analyst', count: 1, purpose: 'Analysis coordination' },
-      { role: 'Code Analyst', type: 'analyst', count: 2, purpose: 'Code analysis' },
-      { role: 'Security Analyst', type: 'reviewer', count: 1, purpose: 'Security review' },
+      { role: 'Analyst Lead', type: 'researcher', count: 1, purpose: 'Analysis coordination' },
+      { role: 'Code Analyst', type: 'reviewer', count: 2, purpose: 'Code analysis' },
+      { role: 'Security Analyst', type: 'Security Engineer', count: 1, purpose: 'Security review' },
     ],
   };
 

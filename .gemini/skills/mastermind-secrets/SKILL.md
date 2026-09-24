@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Secrets
 
-This skill is invoked by `mastermind:secrets` or directly via `/mastermind:secrets`.
+This skill is invoked by `mastermind:secrets` or directly via `/mastermind-secrets`.
 
 ---
 
@@ -92,7 +92,7 @@ chmod 700 "$secretDir"
 
 # Write value from env var reference — NEVER inline
 if [ -z "${secret_value}" ]; then
-  echo "ERROR: Pass the secret value as an env var: secret_value=\$MY_VAR /mastermind:secrets --action set"
+  echo "ERROR: Pass the secret value as an env var: secret_value=\$MY_VAR /mastermind-secrets --action set"
   exit 1
 fi
 

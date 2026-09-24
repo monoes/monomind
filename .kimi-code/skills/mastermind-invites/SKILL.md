@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Invites
 
-This skill is invoked by `mastermind:invites` or directly via `/mastermind:invites`.
+This skill is invoked by `mastermind:invites` or directly via `/mastermind-invites`.
 
 ---
 
@@ -215,7 +215,7 @@ jq --arg id "$request_id" --arg role "$reqRole" --arg ts "$ts" \
 
 echo "Join request '$request_id' approved."
 echo "  Role: $reqRole  |  Joined: $ts"
-echo "  Member added. View members: /mastermind:access --org $org_name --action list"
+echo "  Member added. View members: /mastermind-access --org $org_name --action list"
 ```
 
 ### reject-join

@@ -39,6 +39,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommandContext } from '../types.js';
 
@@ -292,6 +293,51 @@ describe('monoswarm start agent plan generation (getAgentPlan)', () => {
     for (const role of ['coordinator', 'researcher', 'coder', 'tester']) {
       expect(types).toContain(role);
     }
+  });
+
+  it('names only registry agents (spawnable Task subagent_types) in every plan', async () => {
+    const agentsDir = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '..',
+      '..',
+      '.claude',
+      'agents',
+    );
+    const names = new Set<string>();
+    const walk = (dir: string): void => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const f = path.join(dir, e.name);
+        if (e.isDirectory()) walk(f);
+        else if (e.name.endsWith('.md')) {
+          const n = fs
+            .readFileSync(f, 'utf8')
+            .match(/^---\n([\s\S]*?)\n---/)?.[1]
+            .match(/^name:\s*(.+)$/m)?.[1]
+            ?.trim();
+          if (n) names.add(n);
+        }
+      }
+    };
+    walk(agentsDir);
+    const unknown: string[] = [];
+    for (const strategy of [
+      'specialized',
+      'balanced',
+      'adaptive',
+      'development',
+      'research',
+      'testing',
+      'optimization',
+      'maintenance',
+      'analysis',
+    ]) {
+      const ctx = makeCtx({ flags: { objective: 'x', strategy, _: [] } });
+      await findSub('start').action?.(ctx);
+      for (const r of lastPrintTableData()) {
+        if (!names.has(r.type as string)) unknown.push(`${strategy}:${r.type}`);
+      }
+    }
+    expect(unknown).toEqual([]);
   });
 });
 

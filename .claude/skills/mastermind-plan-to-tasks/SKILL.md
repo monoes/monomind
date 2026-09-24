@@ -7,7 +7,7 @@ default_mode: confirm
 
 # Mastermind Plan to Tasks
 
-This skill is invoked by `mastermind:plan-to-tasks` or directly via `/mastermind:plan-to-tasks`.
+This skill is invoked by `mastermind:plan-to-tasks` or directly via `/mastermind-plan-to-tasks`.
 
 ---
 

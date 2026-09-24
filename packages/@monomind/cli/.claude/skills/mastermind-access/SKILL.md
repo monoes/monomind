@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Access
 
-This skill is invoked by `mastermind:access` or directly via `/mastermind:access`.
+This skill is invoked by `mastermind:access` or directly via `/mastermind-access`.
 
 ---
 
@@ -189,8 +189,8 @@ echo "JOIN REQUESTS — org: $org_name"
 echo "────────────────────────────────────────────────────────"
 jq -r '(.join_requests // [])[] | select(.status == "pending") |
   "[\(.id)] type=\(.type // "join")  role=\(.role // "viewer")  created=\(.createdAt // "?")
-   → /mastermind:access --org '"$org_name"' --action approve-join --request-id \(.id)
-   → /mastermind:access --org '"$org_name"' --action reject-join  --request-id \(.id)"
+   → /mastermind-access --org '"$org_name"' --action approve-join --request-id \(.id)
+   → /mastermind-access --org '"$org_name"' --action reject-join  --request-id \(.id)"
 ' "$membersFile" 2>/dev/null || echo "  No pending join requests."
 ```
 

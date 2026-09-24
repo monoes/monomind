@@ -1,12 +1,12 @@
 /**
- * guidance_capabilities / guidance_workflow (and guidance_recommend, which
- * reads the same catalog) only recommend agents that exist: every name is a
- * bundled agent's frontmatter `name`, the spawnable Task subagent_type.
+ * guidance_capabilities / guidance_workflow only recommend agents that exist,
+ * and guidance_recommend's agents come from the central picker: every name is
+ * a bundled agent's frontmatter `name`, the spawnable Task subagent_type.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { guidanceTools } from '../mcp-tools/guidance-tools.js';
 
 function agentNames(dir: string, out = new Set<string>()): Set<string> {
@@ -56,5 +56,29 @@ describe('guidance recommends real agents only', () => {
       unknown.push(...(wf.agents ?? []).filter((a) => !NAMES.has(a)));
     }
     expect(unknown).toEqual([]);
+  });
+});
+
+describe('guidance_recommend picks agents with the central picker', () => {
+  // The keyword ranking decides; no decision model in tests.
+  beforeEach(() => vi.stubEnv('MONOMIND_JEV', 'off'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('ranks registry agents for the task, beside the capability guidance', async () => {
+    const res = await json('guidance_recommend', {
+      task: 'fix a security vulnerability in the login handler',
+    });
+    expect(res.recommendations.length).toBeGreaterThan(0);
+    expect(res.recommendations.every((r: object) => !('agents' in r))).toBe(true);
+    expect(res.agents.length).toBeGreaterThan(0);
+    expect(
+      res.agents.map((a: { name: string }) => a.name).filter((n: string) => !NAMES.has(n)),
+    ).toEqual([]);
+  });
+
+  it('still names an agent when no capability pattern matches', async () => {
+    const res = await json('guidance_recommend', { task: 'set up a zettelkasten for my notes' });
+    expect(res.suggestions).toBeDefined();
+    expect(res.agents[0]).toMatchObject({ name: 'ZK Steward' });
   });
 });

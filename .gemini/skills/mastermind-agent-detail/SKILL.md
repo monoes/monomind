@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Agent Detail
 
-This skill is invoked by `mastermind:agent-detail` or directly via `/mastermind:agent-detail`.
+This skill is invoked by `mastermind:agent-detail` or directly via `/mastermind-agent-detail`.
 
 ---
 
@@ -186,7 +186,7 @@ echo "  Enabled:   $enabled"
 echo "  Interval:  ${interval}s"
 echo "  Last beat: $lastHb"
 echo ""
-echo "To toggle: /mastermind:instance --action toggle-heartbeat --org $org_name --agent-id $agent_id"
+echo "To toggle: /mastermind-instance --action toggle-heartbeat --org $org_name --agent-id $agent_id"
 ```
 
 ### skills
@@ -197,7 +197,7 @@ echo "────────────────────────�
 skillList=$(echo "$agentDef" | jq -r '(.skills // [])[]' 2>/dev/null)
 
 if [ -z "$skillList" ]; then
-  echo "  No skills assigned. Use /mastermind:skills to map skills to this agent."
+  echo "  No skills assigned. Use /mastermind-skills to map skills to this agent."
 else
   while IFS= read -r sk; do
     skillFile=".claude/skills/${sk//:///}.md"
@@ -220,7 +220,7 @@ if [ -f "$stateFile" ]; then
 fi
 
 echo "Agent '$agent_id' state reset. Run history is preserved in activity log."
-echo "To reconfigure adapter: edit the role in /mastermind:org --action show (then edit org config)."
+echo "To reconfigure adapter: edit the role in /mastermind-org --action show (then edit org config)."
 ```
 
 ---

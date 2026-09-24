@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Adapter Manager
 
-This skill is invoked by `mastermind:adapter-manager` or directly via `/mastermind:adapter-manager`.
+This skill is invoked by `mastermind:adapter-manager` or directly via `/mastermind-adapter-manager`.
 
 ---
 

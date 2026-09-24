@@ -224,7 +224,7 @@ if [ "$is_v2" = "yes" ]; then
   echo "  Logs:         monomind org logs $name --follow"
   echo "  Report:       monomind org report $name   (add --all for run history)"
   echo "  Validate:     monomind org validate $name"
-  echo "  Settings:     /mastermind:org-settings --org $name"
+  echo "  Settings:     /mastermind-org-settings --org $name"
 # LEGACY-ORG-V1: remove the next two branches when v1 orgs are gone
 elif [ "$has_schedule" = "yes" ]; then
   case "$status" in

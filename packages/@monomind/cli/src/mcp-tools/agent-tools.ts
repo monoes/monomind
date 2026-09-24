@@ -91,6 +91,9 @@ const AGENT_TYPE_MODEL_DEFAULTS: Record<string, ClaudeModel> = {
   'security-architect': 'opus',
   'system-architect': 'opus',
   'core-architect': 'opus',
+  // Registry agents the old architect/security types now resolve to.
+  'Software Architect': 'opus',
+  'Security Engineer': 'opus',
   // Medium complexity → sonnet
   coder: 'sonnet',
   reviewer: 'sonnet',

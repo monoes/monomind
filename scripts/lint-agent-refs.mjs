@@ -32,6 +32,12 @@
  * tree (.agents, .gemini, .kimi-code) may also name that tree's own skill
  * dirs, since those trees carry commands converted to skills.
  *
+ * CLAUDE.md files (the repo root's and each package's) also carry prose
+ * rosters. Under a heading that mentions agents, a line made only of
+ * backticked names (`coder`, `Security Engineer` — optionally followed by a
+ * dash or parenthesised note) names agents, and so does the last column of a
+ * table whose last header cell is "Agents" or "Recommended agents".
+ *
  * Placeholders are skipped: any name containing < > $ { } [ ] or |, and the
  * literal example names in PLACEHOLDERS ("Agent Name", "mastermind-X", ...).
  *
@@ -206,8 +212,67 @@ for (const scope of ['packages', 'packages/@monomind', 'packages/@monoes']) {
   }
 }
 
+/** Agent names in a CLAUDE.md's prose rosters, with their offsets. */
+function rosterRefs(text) {
+  const refs = [];
+  let agentLevel = 0; // heading level of the enclosing agents section, 0 = none
+  let tableAgents = false;
+  let offset = 0;
+  for (const line of text.split('\n')) {
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (heading) {
+      const level = heading[1].length;
+      if (agentLevel && level <= agentLevel) agentLevel = 0;
+      if (!agentLevel && /\bagents?\b/i.test(heading[2])) agentLevel = level;
+    } else if (line.startsWith('|')) {
+      const cells = line
+        .split('|')
+        .slice(1, -1)
+        .map((c) => c.trim());
+      const last = cells[cells.length - 1] ?? '';
+      if (/^(recommended )?agents$/i.test(last)) tableAgents = true;
+      else if (tableAgents && !/^-+$/.test(last)) {
+        for (const name of last
+          .split(',')
+          .map((n) => n.trim())
+          .filter(Boolean))
+          refs.push({ name, index: offset + line.lastIndexOf(name) });
+      }
+    } else {
+      tableAgents = false;
+      const roster = line.match(/^(`[^`]+`(?:\s*,\s*`[^`]+`)*)\s*(?:(?:—|--).*|\(.*\))?$/);
+      if (agentLevel && roster) {
+        for (const m of roster[1].matchAll(/`([^`]+)`/g))
+          refs.push({ name: m[1], index: offset + m.index });
+      }
+    }
+    offset += line.length + 1;
+  }
+  return refs;
+}
+
+const claudeMds = ['CLAUDE.md'];
+for (const scope of ['packages', 'packages/@monomind', 'packages/@monoes']) {
+  const abs = join(ROOT, scope);
+  if (!existsSync(abs)) continue;
+  for (const pkg of readdirSync(abs))
+    if (!pkg.startsWith('@') && existsSync(join(abs, pkg, 'CLAUDE.md')))
+      claudeMds.push(`${scope}/${pkg}/CLAUDE.md`);
+}
+
 const problems = [];
 let checked = 0;
+for (const file of claudeMds.filter((f) => existsSync(join(ROOT, f)))) {
+  const text = readFileSync(join(ROOT, file), 'utf8');
+  for (const { name, index } of rosterRefs(text)) {
+    if (isPlaceholder(name)) continue;
+    checked++;
+    const ok = AGENTS.has(name);
+    const line = text.slice(0, index).split('\n').length;
+    if (LIST) console.log(`${ok ? 'ok ' : 'BAD'} agent ${JSON.stringify(name)} ${file}:${line}`);
+    if (!ok) problems.push(`${file}:${line}: unknown agent ${JSON.stringify(name)}`);
+  }
+}
 for (const file of files) {
   const text = readFileSync(join(ROOT, file), 'utf8');
   for (const { kind, re } of PATTERNS) {

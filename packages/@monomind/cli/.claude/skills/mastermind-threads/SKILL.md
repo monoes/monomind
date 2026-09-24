@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Threads
 
-This skill is invoked by `mastermind:threads` or directly via `/mastermind:threads`.
+This skill is invoked by `mastermind:threads` or directly via `/mastermind-threads`.
 
 ---
 
@@ -55,7 +55,7 @@ echo "────────────────────────�
 if [ ! -f "$threadsFile" ] || [ ! -s "$threadsFile" ]; then
   echo "  No threads found."
   echo ""
-  echo "  Create: /mastermind:threads --org $org_name --action create --message 'Hello team'"
+  echo "  Create: /mastermind-threads --org $org_name --action create --message 'Hello team'"
   exit 0
 fi
 
@@ -95,7 +95,7 @@ else:
         created = (t.get("createdAt") or "-")[:10]
         print(f"  {tid:<28} {subj:<32} {author:<20} {msgs:<6} {created}")
 
-print(f"\n  {len(threads)} thread(s). View: /mastermind:threads --org <org> --action view --thread-id <id>")
+print(f"\n  {len(threads)} thread(s). View: /mastermind-threads --org <org> --action view --thread-id <id>")
 PYEOF
 ```
 

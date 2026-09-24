@@ -1,5 +1,6 @@
 /**
- * scripts/lint-agent-refs.mjs fails when shipped text names an agent or skill
+ * scripts/lint-agent-refs.mjs fails when shipped text (including CLAUDE.md
+ * agent rosters) names an agent or skill
  * that does not exist: `subagent_type: "backend-dev"` fails at spawn time and
  * `Skill("mastermind-do")` fails at load time (only the /mastermind:do
  * command exists). These tests pin the repo clean and pin what the lint
@@ -77,6 +78,27 @@ describe('lint-agent-refs', () => {
       "const y = { agentSlug: 'not-scanned' };\n",
     );
     write(root, 'packages/@monomind/routing/src/r.ts', "const z = { agentSlug: 'excluded' };\n");
+    // Prose rosters in CLAUDE.md: roster lines under an agents heading and the
+    // last column of an agents table; other backticked text is not a name.
+    write(
+      root,
+      'packages/@monomind/cli/CLAUDE.md',
+      [
+        '## Available Agents',
+        '',
+        '### Core',
+        '`coder`, `security-architect`',
+        '`Security Engineer` — security work.',
+        '`src/utils/input-guards.ts` holds the guards',
+        '',
+        '| Code | Task | Agents |',
+        '| ---- | ---- | ------ |',
+        '| 1 | Bug Fix | coder, perf-engineer |',
+        '',
+        '## Commands',
+        '`not-an-agent`',
+      ].join('\n'),
+    );
 
     const run = spawnSync('node', [SCRIPT, '--root', root], { encoding: 'utf8' });
 
@@ -90,6 +112,8 @@ describe('lint-agent-refs', () => {
         .filter((l) => l.includes(': unknown '))
         .map((l) => l.trim());
       expect(bad).toEqual([
+        'packages/@monomind/cli/CLAUDE.md:4: unknown agent "security-architect"',
+        'packages/@monomind/cli/CLAUDE.md:10: unknown agent "perf-engineer"',
         '.claude/skills/bad/SKILL.md:1: unknown agent "backend-dev"',
         '.claude/skills/bad/SKILL.md:2: unknown skill "mastermind-do"',
         'packages/@monomind/cli/src/gen.ts:1: unknown agent "security-architect"',

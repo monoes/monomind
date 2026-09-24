@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Environments
 
-This skill is invoked by `mastermind:environments` or directly via `/mastermind:environments`.
+This skill is invoked by `mastermind:environments` or directly via `/mastermind-environments`.
 
 ---
 

@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Goal Detail
 
-This skill is invoked by `mastermind:goal-detail` or directly via `/mastermind:goal-detail`.
+This skill is invoked by `mastermind:goal-detail` or directly via `/mastermind-goal-detail`.
 
 ---
 
@@ -52,7 +52,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 [ ! -f "$orgFile" ] && { echo "ERROR: Org '${org_name}' not found."; exit 1; }
 
 goalsFile=".monomind/orgs/${org_name}-goals.json"
-[ ! -f "$goalsFile" ] && { echo "ERROR: No goals file for org '$org_name'. Create goals via /mastermind:goals."; exit 1; }
+[ ! -f "$goalsFile" ] && { echo "ERROR: No goals file for org '$org_name'. Create goals via /mastermind-goals."; exit 1; }
 
 goalDef=$(jq -r --arg id "$goal_id" '(.goals // [])[] | select(.id == $id or .slug == $id)' "$goalsFile")
 [ -z "$goalDef" ] && { echo "ERROR: Goal '$goal_id' not found in org '$org_name'."; exit 1; }

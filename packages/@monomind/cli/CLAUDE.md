@@ -113,20 +113,20 @@ Bash("npx monomind@latest hooks worker run map")
 
 ### Agent Routing (Anti-Drift)
 
-| Code | Task        | Agents                                          |
-| ---- | ----------- | ----------------------------------------------- |
-| 1    | Bug Fix     | coordinator, researcher, coder, tester          |
-| 3    | Feature     | coordinator, architect, coder, tester, reviewer |
-| 5    | Refactor    | coordinator, architect, coder, reviewer         |
-| 7    | Performance | coordinator, perf-engineer, coder               |
-| 9    | Security    | coordinator, security-architect, auditor        |
-| 11   | Memory      | coordinator, memory-specialist, perf-engineer   |
-| 13   | Docs        | researcher, api-docs                            |
+| Code | Task        | Agents                                                         |
+| ---- | ----------- | -------------------------------------------------------------- |
+| 1    | Bug Fix     | coordinator, researcher, coder, tester                         |
+| 3    | Feature     | coordinator, system-architect, coder, tester, reviewer         |
+| 5    | Refactor    | coordinator, system-architect, coder, reviewer                 |
+| 7    | Performance | coordinator, Performance Benchmarker, coder                    |
+| 9    | Security    | coordinator, Security Engineer, reviewer                       |
+| 11   | Memory      | coordinator, monoswarm-memory-manager, Performance Benchmarker |
+| 13   | Docs        | researcher, Technical Writer                                   |
 
 **Codes 1-11: hierarchical/specialized (anti-drift). Code 13: mesh/balanced**
 
 This table is a convention, not code: nothing in `src/` dispatches on these codes.
-The root `CLAUDE.md` table is authoritative and this one matches it. The narrower table
+Every name is a registry agent `name`, the Task `subagent_type`. The narrower table
 emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
 ## CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
@@ -243,7 +243,7 @@ file each in architecture, design, goal, and specialists.
 
 The curated roster below is the subset worth routing to by hand. It is **not** the complete
 set — names such as `security-manager`, `production-validator`,
-`swarm-memory-manager` and `workflow-automation` are absent from it but do exist as
+`monoswarm-memory-manager` and `workflow-automation` are absent from it but do exist as
 checked-in definitions in this package, and `src/init/executor.ts` and
 `mcp-tools/guidance-tools.ts` can legitimately reference them.
 
@@ -253,11 +253,11 @@ checked-in definitions in this package, and `src/init/executor.ts` and
 
 ### Engineering
 
-`ai-engineer`, `backend-architect`, `code-reviewer`, `devops-automator`, `frontend-developer`, `security-engineer`, `software-architect`, `technical-writer`
+`AI Engineer`, `Backend Architect`, `DevOps Automator`, `Frontend Developer`, `Security Engineer`, `Software Architect`, `Technical Writer`
 
 ### GitHub
 
-`github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `repo-architect`
+`github-modes`, `pr-manager`, `monoswarm-code-review`, `issue-tracker`, `release-manager`, `repo-architect`
 
 ### Monoswarm / Consensus
 
@@ -266,15 +266,15 @@ checked-in definitions in this package, and `src/init/executor.ts` and
 
 ### Specialized
 
-`mcp-builder`, `mobile-dev` (spec-mobile-react-native), `integration-architect`, `goal-planner`, `tdd-london-swarm`
+`MCP Builder`, `Mobile App Builder`, `v1-integration-architect`, `goal-planner`, `tdd-london-monoswarm`
 
 ### Design
 
-`monodesign` — the only design agent.
+`Monodesign` — the only design agent.
 
 ### Non-roster definitions
 
-`coordinator-swarm-init` (template) and `dashboard-verifier` (generated).
+`monoswarm-init` (template) and `dashboard-verifier` (generated, repo-root tree only).
 
 ### Input Guards (inlined into `src/utils/input-guards.ts`)
 

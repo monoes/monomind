@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Routine Detail
 
-This skill is invoked by `mastermind:routine-detail` or directly via `/mastermind:routine-detail`.
+This skill is invoked by `mastermind:routine-detail` or directly via `/mastermind-routine-detail`.
 
 ---
 

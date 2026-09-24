@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Issue Detail
 
-This skill is invoked by `mastermind:issue-detail` or directly via `/mastermind:issue-detail`.
+This skill is invoked by `mastermind:issue-detail` or directly via `/mastermind-issue-detail`.
 
 ---
 
@@ -53,7 +53,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 [ ! -f "$orgFile" ] && { echo "ERROR: Org '${org_name}' not found."; exit 1; }
 
 issuesFile=".monomind/orgs/${org_name}-issues.json"
-[ ! -f "$issuesFile" ] && { echo "ERROR: No issues file for org '$org_name'. Create issues via /mastermind:issues --action create."; exit 1; }
+[ ! -f "$issuesFile" ] && { echo "ERROR: No issues file for org '$org_name'. Create issues via /mastermind-issues --action create."; exit 1; }
 
 issueDef=$(jq -r --arg id "$issue_id" '(.issues // [])[] | select(.id == $id or .slug == $id)' "$issuesFile")
 [ -z "$issueDef" ] && { echo "ERROR: Issue '$issue_id' not found in org '$org_name'."; exit 1; }
@@ -211,7 +211,7 @@ jq -r --arg pid "$resolvedId" '(.issues // [])[] | select(.parentId == $pid) |
 done
 
 echo ""
-echo "To create a sub-issue: /mastermind:issues --org $org_name --action create --title '<title>' --parent-id $issue_id"
+echo "To create a sub-issue: /mastermind-issues --org $org_name --action create --title '<title>' --parent-id $issue_id"
 ```
 
 ### attachments

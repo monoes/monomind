@@ -8,7 +8,7 @@ pick: low
 
 # Mastermind Export
 
-This skill is invoked by `mastermind:export` or directly via `/mastermind:export`.
+This skill is invoked by `mastermind:export` or directly via `/mastermind-export`.
 
 ---
 

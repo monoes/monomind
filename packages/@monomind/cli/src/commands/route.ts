@@ -865,7 +865,8 @@ const coverageRouteCommand: Command = {
 const semanticRouteCommand: Command = {
   name: 'semantic',
   aliases: ['sem'],
-  description: 'Route a task to the optimal agent using cosine similarity (RouteLayer)',
+  description:
+    'Route a task through the central picker, falling back to cosine similarity (RouteLayer) and Haiku',
   options: [
     {
       name: 'task',

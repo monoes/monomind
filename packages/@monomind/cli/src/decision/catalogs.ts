@@ -3,11 +3,11 @@
  * the shared helper (.claude/helpers/jev-catalog.cjs) so the hook and the CLI
  * read them identically; both indexes are refreshed first when stale.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensureRegistry, findProjectRoot } from '../agents/registry-freshness.js';
+import { ensureRegistry, findProjectRoot, registryPath } from '../agents/registry-freshness.js';
 import { verifyEntry } from '../catalog/digest.js';
 import { buildSnapshot, eligible } from '../catalog/snapshot.js';
 import { bundledSkillsDir, listSkills } from '../orgrt/skill-library.js';
@@ -30,6 +30,26 @@ export function agentCatalog(root: string): CatalogItem[] {
   const project = projectOf(root);
   ensureRegistry(project);
   return jevModule()?.loadAgentCatalog(project) ?? [];
+}
+
+/** Every spawnable agent name (frontmatter `name`, the Task subagent_type) in
+ *  the registry. Deprecated agents are included: picks hide them, but a Task
+ *  call naming one still works. */
+export function agentNames(root: string): Set<string> {
+  const project = projectOf(root);
+  ensureRegistry(project);
+  try {
+    const reg = JSON.parse(readFileSync(registryPath(project), 'utf8')) as {
+      agents?: { name?: unknown; slug?: unknown }[];
+    };
+    return new Set(
+      (reg.agents ?? [])
+        .map((a) => a.name ?? a.slug)
+        .filter((n): n is string => typeof n === 'string' && n.length > 0),
+    );
+  } catch {
+    return new Set();
+  }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -130,21 +150,4 @@ export function roleCatalog(
     name: r.title,
     description: [r.title, ...(r.responsibilities ?? [])].filter(Boolean).join('; '),
   }));
-}
-
-/** @monoes/routing routes, one entry per agent slug. */
-export function routeCatalog(routes: RouteLike[]): CatalogItem[] {
-  const seen = new Set<string>();
-  const out: CatalogItem[] = [];
-  for (const r of routes) {
-    if (seen.has(r.agentSlug)) continue;
-    seen.add(r.agentSlug);
-    out.push({
-      id: r.agentSlug,
-      name: r.name,
-      description: r.description ?? r.name,
-      text: (r.utterances ?? []).join(' '),
-    });
-  }
-  return out;
 }
