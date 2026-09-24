@@ -42,6 +42,55 @@ const MAX_ROUTE_RECORDS = 500;
  *  never skip a needed trim, only unnecessary reads. */
 const APPROX_BYTES_PER_RECORD = 600;
 
+/** The prompt hook (.claude/helpers/handlers/pick-core.cjs) appends to and
+ *  rewrites this same file. Every rewrite here holds the same lock file with
+ *  the same rules (O_EXCL create, broken when older than LOCK_STALE_MS), so a
+ *  rewrite never drops a line another process appended meanwhile. */
+const LOCK_WAIT_MS = 1000;
+const LOCK_STALE_MS = 10_000;
+
+async function claimLock(lock: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await fs.writeFile(lock, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch {
+      const st = await fs.stat(lock).catch(() => null);
+      if (!st) continue;
+      if (Date.now() - st.mtimeMs < LOCK_STALE_MS) return false;
+      const claimed = `${lock}.${process.pid}.${Date.now()}.stale`;
+      if (
+        !(await fs.rename(lock, claimed).then(
+          () => true,
+          () => false,
+        ))
+      )
+        continue;
+      await fs.unlink(claimed).catch(() => {});
+    }
+  }
+  return false;
+}
+
+/** Run `fn` holding route-outcomes.jsonl.lock; resolves to undefined without
+ *  running it when the lock stays held for LOCK_WAIT_MS. */
+async function withLock<T>(path: string, fn: () => Promise<T>): Promise<T | undefined> {
+  const lock = `${path}.lock`;
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  let locked = await claimLock(lock);
+  while (!locked && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2 + Math.floor(Math.random() * 4)));
+    locked = await claimLock(lock);
+  }
+  if (!locked) return undefined;
+  try {
+    return await fn();
+  } finally {
+    const owner = await fs.readFile(lock, 'utf8').catch(() => '');
+    if (Number(owner) === process.pid) await fs.unlink(lock).catch(() => {});
+  }
+}
+
 /** Append a route recommendation (pre-outcome). Opportunistically trims the
  *  file to MAX_ROUTE_RECORDS lines to prevent unbounded growth. */
 export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Promise<void> {
@@ -63,11 +112,13 @@ export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Pro
     // avoids O(file-size) I/O on every routing call.
     const fileStat = await fs.stat(path).catch(() => null);
     if (fileStat && fileStat.size > MAX_ROUTE_RECORDS * APPROX_BYTES_PER_RECORD) {
-      const content = await fs.readFile(path, 'utf8').catch(() => '');
-      const lines = content.trim().split('\n').filter(Boolean);
-      if (lines.length > MAX_ROUTE_RECORDS) {
-        await fs.writeFile(path, `${lines.slice(-MAX_ROUTE_RECORDS).join('\n')}\n`, 'utf8');
-      }
+      await withLock(path, async () => {
+        const content = await fs.readFile(path, 'utf8').catch(() => '');
+        const lines = content.trim().split('\n').filter(Boolean);
+        if (lines.length > MAX_ROUTE_RECORDS) {
+          await fs.writeFile(path, `${lines.slice(-MAX_ROUTE_RECORDS).join('\n')}\n`, 'utf8');
+        }
+      });
     }
   } catch {
     // Non-fatal — telemetry must never break routing
@@ -87,22 +138,24 @@ export async function joinOutcome(
     } catch {
       /* file absent */
     }
-    const content = await fs.readFile(path, 'utf8').catch(() => '');
-    if (!content) return;
-    const lines = content.trim().split('\n');
-    // Find the last record with this routeId and merge outcome
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const rec = JSON.parse(lines[i]) as RouteOutcomeRecord;
-        if (rec.routeId === routeId) {
-          lines[i] = JSON.stringify({ ...rec, ...outcome });
-          break;
+    await withLock(path, async () => {
+      const content = await fs.readFile(path, 'utf8').catch(() => '');
+      if (!content) return;
+      const lines = content.trim().split('\n');
+      // Find the last record with this routeId and merge outcome
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const rec = JSON.parse(lines[i]) as RouteOutcomeRecord;
+          if (rec.routeId === routeId) {
+            lines[i] = JSON.stringify({ ...rec, ...outcome });
+            break;
+          }
+        } catch {
+          /* skip malformed line */
         }
-      } catch {
-        /* skip malformed line */
       }
-    }
-    await fs.writeFile(path, `${lines.join('\n')}\n`, 'utf8');
+      await fs.writeFile(path, `${lines.join('\n')}\n`, 'utf8');
+    });
   } catch {
     // Non-fatal
   }
@@ -125,13 +178,18 @@ export async function joinLatestUnresolved(
     } catch {
       /* file absent */
     }
-    const content = await fs.readFile(path, 'utf8').catch(() => '');
-    if (!content) return null;
-    const lines = content.trim().split('\n');
-    const now = Date.now();
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const rec = JSON.parse(lines[i]) as RouteOutcomeRecord;
+    const joined = await withLock(path, async (): Promise<string | null> => {
+      const content = await fs.readFile(path, 'utf8').catch(() => '');
+      if (!content) return null;
+      const lines = content.trim().split('\n');
+      const now = Date.now();
+      for (let i = lines.length - 1; i >= 0; i--) {
+        let rec: RouteOutcomeRecord;
+        try {
+          rec = JSON.parse(lines[i]) as RouteOutcomeRecord;
+        } catch {
+          continue; // skip malformed
+        }
         // Skip already-joined records
         if (typeof rec.measuredSuccess === 'boolean') continue;
         // Skip stale records beyond the correlation window
@@ -139,11 +197,10 @@ export async function joinLatestUnresolved(
         lines[i] = JSON.stringify({ ...rec, ...outcome });
         await fs.writeFile(path, `${lines.join('\n')}\n`, 'utf8');
         return rec.routeId;
-      } catch {
-        /* skip malformed */
       }
-    }
-    return null;
+      return null;
+    });
+    return joined ?? null;
   } catch {
     return null;
   }

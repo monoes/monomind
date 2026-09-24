@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -204,5 +204,45 @@ describe('computeAdherence', () => {
     const adh = await computeAdherence(dir);
     expect(adh.sample).toBe(3);
     expect(adh.adherence).toBeCloseTo(2 / 3, 5);
+  });
+});
+
+describe('route-outcomes.jsonl lock (shared with the prompt hook)', () => {
+  let dir: string;
+  const file = () => join(dir, 'route-outcomes.jsonl');
+  const lock = () => `${file()}.lock`;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'route-lock-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does not rewrite the file while another process holds a fresh lock', async () => {
+    const r = rec({ routeId: 'held' });
+    await recordRoute(dir, r);
+    writeFileSync(lock(), '999999');
+    await joinOutcome(dir, 'held', { agentActuallyUsed: 'coder', measuredSuccess: true });
+    expect(await joinLatestUnresolved(dir, { measuredSuccess: true })).toBeNull();
+    expect(readFileSync(file(), 'utf8')).not.toContain('measuredSuccess');
+    expect(existsSync(lock())).toBe(true);
+  });
+
+  it('breaks a stale lock, joins, and releases the lock', async () => {
+    await recordRoute(dir, rec({ routeId: 'stale' }));
+    writeFileSync(lock(), '999999');
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(lock(), old, old);
+    await joinOutcome(dir, 'stale', { agentActuallyUsed: 'coder', measuredSuccess: true });
+    expect(readFileSync(file(), 'utf8')).toContain('"measuredSuccess":true');
+    expect(existsSync(lock())).toBe(false);
+  });
+
+  it('still appends a route while the lock is held', async () => {
+    writeFileSync(lock(), '999999');
+    await recordRoute(dir, rec({ routeId: 'appended' }));
+    expect(readFileSync(file(), 'utf8')).toContain('appended');
   });
 });
