@@ -95,7 +95,7 @@ export const coverageRouteCommand: Command = {
       const primaryAgent = taskLower.includes('test')
         ? 'tester'
         : taskLower.includes('security') || taskLower.includes('auth')
-          ? 'security-auditor'
+          ? 'Security Engineer'
           : taskLower.includes('fix') || taskLower.includes('bug')
             ? 'coder'
             : 'tester';

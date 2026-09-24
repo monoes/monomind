@@ -96,6 +96,53 @@ describe('spawnCommand', () => {
     expect((Object.values(store.agents)[0] as { agentType: string }).agentType).toBe('researcher');
   });
 
+  describe('--type is checked against the registry', () => {
+    beforeEach(() => {
+      mkdirSync(join(dir, '.monomind'), { recursive: true });
+      writeFileSync(
+        join(dir, '.monomind', 'registry.json'),
+        JSON.stringify({
+          agents: [
+            { slug: 'coder', name: 'coder' },
+            { slug: 'engineering-software-architect', name: 'Software Architect' },
+            { slug: 'engineering-security-engineer', name: 'Security Engineer' },
+            { slug: 'mobile-dev', name: 'mobile-dev', deprecated: true },
+          ],
+        }),
+      );
+    });
+    const spawnedType = () => (Object.values(readStore().agents)[0] as { agentType: string }).agentType;
+
+    it('offers no hardcoded choice list', () => {
+      expect(spawnCommand.options?.find((o) => o.name === 'type')?.choices).toBeUndefined();
+    });
+
+    it('spawns any registry agent name, deprecated ones included', async () => {
+      for (const type of ['Security Engineer', 'mobile-dev']) {
+        const r = (await spawnCommand.action?.(makeCtx({ flags: { type, _: [] } }))) as CommandResult;
+        expect(r.success).toBe(true);
+      }
+    });
+
+    it('maps an old type name to its registry agent', async () => {
+      const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const r = (await spawnCommand.action?.(
+        makeCtx({ flags: { type: 'architect', _: [] } }),
+      )) as CommandResult;
+      stderr.mockRestore();
+      expect(r.success).toBe(true);
+      expect(spawnedType()).toBe('Software Architect');
+    });
+
+    it('refuses a name no agent carries', async () => {
+      const r = (await spawnCommand.action?.(
+        makeCtx({ flags: { type: 'backend-dev', _: [] } }),
+      )) as CommandResult;
+      expect(r).toEqual({ success: false, exitCode: 1 });
+      expect(existsSync(storePath())).toBe(false);
+    });
+  });
+
   it('fails with exitCode 1 and does not touch the store when --type is missing and there is no --task to route from', async () => {
     const result = (await spawnCommand.action?.(makeCtx({ flags: { _: [] } }))) as CommandResult;
     expect(result).toEqual({ success: false, exitCode: 1 });

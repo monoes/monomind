@@ -4,11 +4,13 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { agentCatalog, agentNames } from '../decision/catalogs.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { output } from '../output.js';
 import { confirm, input, select } from '../prompt.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { getProjectCwd } from '../utils/paths.js';
 
 // ─── Shared utilities ────────────────────────────────────────────────────────
 
@@ -42,43 +44,37 @@ export function updateSwarmActivityMetrics(agentCountDelta: number): void {
   }
 }
 
-export const AGENT_TYPES = [
-  { value: 'coder', label: 'Coder', hint: 'Code development with neural patterns' },
-  { value: 'researcher', label: 'Researcher', hint: 'Research with web access and data analysis' },
-  { value: 'tester', label: 'Tester', hint: 'Comprehensive testing with automation' },
-  { value: 'reviewer', label: 'Reviewer', hint: 'Code review with security and quality checks' },
-  { value: 'architect', label: 'Architect', hint: 'System design with enterprise patterns' },
-  { value: 'coordinator', label: 'Coordinator', hint: 'Multi-agent orchestration and workflow' },
-  { value: 'analyst', label: 'Analyst', hint: 'Performance analysis and optimization' },
-  {
-    value: 'optimizer',
-    label: 'Optimizer',
-    hint: 'Performance optimization and bottleneck analysis',
-  },
-  {
-    value: 'security-architect',
-    label: 'Security Architect',
-    hint: 'Security architecture and threat modeling',
-  },
-  {
-    value: 'security-auditor',
-    label: 'Security Auditor',
-    hint: 'CVE remediation and security testing',
-  },
-  {
-    value: 'memory-specialist',
-    label: 'Memory Specialist',
-    hint: 'Local SQLite-backed memory operations',
-  },
-  { value: 'swarm-specialist', label: 'Swarm Specialist', hint: 'Unified coordination engine' },
-  {
-    value: 'performance-engineer',
-    label: 'Performance Engineer',
-    hint: 'Performance optimization and bottleneck analysis',
-  },
-  { value: 'core-architect', label: 'Core Architect', hint: 'Domain-driven design restructure' },
-  { value: 'test-architect', label: 'Test Architect', hint: 'TDD London School methodology' },
-];
+/** Type names `agent spawn --type` used to offer before it read the registry,
+ *  mapped to the registry agent that does that job. `coder`, `researcher`,
+ *  `tester`, `reviewer` and `coordinator` are registry names already. */
+export const AGENT_TYPE_ALIASES: Record<string, string> = {
+  architect: 'Software Architect',
+  'core-architect': 'Software Architect',
+  analyst: 'Performance Benchmarker',
+  optimizer: 'Performance Benchmarker',
+  'performance-engineer': 'Performance Benchmarker',
+  'security-architect': 'Security Engineer',
+  'security-auditor': 'Security Engineer',
+  'memory-specialist': 'monoswarm-memory-manager',
+  'swarm-specialist': 'coordinator',
+  'test-architect': 'tdd-london-monoswarm',
+};
+
+/** The registry agent a `--type` value names: the value itself when it is a
+ *  registry agent name, its alias target, or null when neither exists. With
+ *  no registry to check against, the value passes through unchanged. */
+export function resolveAgentType(type: string, names: Set<string>): string | null {
+  if (names.size === 0 || names.has(type)) return type;
+  const alias = AGENT_TYPE_ALIASES[type];
+  return alias && names.has(alias) ? alias : null;
+}
+
+/** Interactive choices: the registry's non-deprecated agents, by name. */
+function agentTypeOptions(root: string): { value: string; label: string; hint?: string }[] {
+  return agentCatalog(root)
+    .map((a) => ({ value: a.name ?? a.id, label: a.name ?? a.id, hint: a.category }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
 
 export function getAgentCapabilities(type: string): string[] {
   const capabilities: Record<string, string[]> = {
@@ -121,9 +117,9 @@ export const spawnCommand: Command = {
     {
       name: 'type',
       short: 't',
-      description: 'Agent type to spawn',
+      description:
+        'Agent type to spawn: a registry agent name (see `monomind route list-agents`)',
       type: 'string',
-      choices: AGENT_TYPES.map((a) => a.value),
     },
     { name: 'name', short: 'n', description: 'Agent name/identifier', type: 'string' },
     {
@@ -157,8 +153,22 @@ export const spawnCommand: Command = {
     let agentType = (ctx.flags.type as string | undefined)?.slice(0, 64) ?? '';
     let agentName = (ctx.flags.name as string | undefined)?.slice(0, 128) ?? '';
 
+    const root = getProjectCwd();
     if (!agentType && ctx.interactive) {
-      agentType = await select({ message: 'Select agent type:', options: AGENT_TYPES });
+      agentType = await select({ message: 'Select agent type:', options: agentTypeOptions(root) });
+    }
+    if (agentType) {
+      const resolved = resolveAgentType(agentType, agentNames(root));
+      if (!resolved) {
+        output.printError(
+          `Unknown agent type "${agentType}". Use a registry agent name (see \`monomind route list-agents\`).`,
+        );
+        return { success: false, exitCode: 1 };
+      }
+      if (resolved !== agentType) {
+        process.stderr.write(`[agent] "${agentType}" is an old type name; spawning "${resolved}"\n`);
+        agentType = resolved;
+      }
     }
 
     const taskDescription = (ctx.flags.task as string | undefined)?.slice(0, 2048);

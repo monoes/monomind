@@ -15,7 +15,7 @@ vi.mock('../mcp-client.js', async (orig) => ({
 }));
 
 const { createConfiguredRouteLayer } = await import('../routing/route-layer-factory.js');
-const { spawnCommand } = await import('../commands/agent-lifecycle.js');
+const { AGENT_TYPE_ALIASES, spawnCommand } = await import('../commands/agent-lifecycle.js');
 
 function agentNames(dir: string, out = new Set<string>()): Set<string> {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -87,5 +87,11 @@ describe('agent spawn --task', () => {
     expect(tool).toBe('agent_spawn');
     expect(input.agentType).toBe('Security Engineer');
     expect(NAMES.has(input.agentType)).toBe(true);
+  });
+});
+
+describe('agent spawn --type aliases', () => {
+  it('map old type names to real agents', () => {
+    expect(Object.values(AGENT_TYPE_ALIASES).filter((n) => !NAMES.has(n))).toEqual([]);
   });
 });
