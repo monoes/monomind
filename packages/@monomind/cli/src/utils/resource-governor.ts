@@ -175,14 +175,37 @@ const liveSessionCmd = (cmd: string): string => {
   const sep = cmd.indexOf(' -- ');
   return sep < 0 ? '' : cmd.slice(sep + 4);
 };
+// Same rationale as LIVE_SESSION_EXEC_RE just above: whether a wrapped
+// command is ITSELF a claude-agent-sdk invocation is decided by adjacent
+// argv tokens — a path token containing a "/claude-agent-sdk/" package
+// segment directly next to the "--output-format" flag the SDK is always
+// invoked with — never by scanning the whole (possibly multi-line) command
+// text for the two substrings in any order at any distance. SDK_CMD_RE's
+// `[\s\S]*` wildcard did exactly that: a bwrap-wrapped shell script whose
+// text merely CONTAINS both substrings somewhere — e.g. this org's own
+// pre-bash audit hook embedding a copy of the operator's actual bash command
+// (a `grep -rn "claude-agent-sdk.*--output-format"` search, or an
+// audit-logged echo of a past invocation) into the wrapped argv purely as
+// plain text — matched anyway and wrongly shielded every orphan under that
+// ancestor forever, even though the ancestor was never actually running the
+// SDK.
+const SDK_PATH_TOKEN_RE = /(^|[\\/])claude-agent-sdk([\\/]|$)/;
+const OUTPUT_FORMAT_TOKEN_RE = /^--output-format(=|$)/;
+const isSdkInvocationTokens = (tokens: string[]): boolean =>
+  tokens.some(
+    (tok, i) =>
+      (SDK_PATH_TOKEN_RE.test(tok) && OUTPUT_FORMAT_TOKEN_RE.test(tokens[i + 1] ?? '')) ||
+      (OUTPUT_FORMAT_TOKEN_RE.test(tok) && SDK_PATH_TOKEN_RE.test(tokens[i + 1] ?? '')),
+  );
 // True when `cmd` (after unwrapping bwrap's own args above) is ITSELF a
 // claude-agent-sdk, Claude Code or monomind process — judged by its own
 // executable name(s), not by whether some argument or path elsewhere on the
 // line happens to contain those words.
 const isLiveSessionCmd = (cmd: string): boolean => {
   const target = liveSessionCmd(cmd);
-  if (SDK_CMD_RE.test(target)) return true;
-  return target.split(/\s+/).some((tok) => LIVE_SESSION_EXEC_RE.test(tok.split('/').pop() ?? tok));
+  const tokens = target.split(/\s+/);
+  if (isSdkInvocationTokens(tokens)) return true;
+  return tokens.some((tok) => LIVE_SESSION_EXEC_RE.test(tok.split('/').pop() ?? tok));
 };
 // Fallback-only (no session ids, e.g. macOS `ps`): a parent other than pid 1
 // counts as a subreaper only if it is an init/systemd by name.

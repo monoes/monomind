@@ -167,6 +167,50 @@ describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
     expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
   });
 
+  it('reaps an orphan behind a bwrap-wrapped ancestor whose script only mentions "claude-agent-sdk" and "--output-format" as unrelated plain text (an audit-logged copy of a past command), not as its own SDK invocation', () => {
+    // Real trigger (round-3 cli-qa, on top of the round-2/round-3 bwrap
+    // fixes): this org's own pre-bash audit hook embeds a copy of the
+    // operator's actual bash command into the wrapped argv for logging. When
+    // that copied text happens to mention "claude-agent-sdk" and
+    // "--output-format" — e.g. a `grep -rn "claude-agent-sdk.*--output-format"`
+    // search, or an audit line echoing a past invocation — the old
+    // SDK_CMD_RE's `[\s\S]*` wildcard matched across the whole multi-line
+    // wrapped command regardless of order or distance, wrongly treating this
+    // unrelated ancestor as a live SDK session and shielding every orphan
+    // under it forever. Neither word here is its own "--output-format" argv
+    // token adjacent to a "/claude-agent-sdk/" path token, so this ancestor
+    // is not actually running the SDK and the orphan should be reaped.
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd:
+        'bwrap --ro-bind /home/user/.claude /home/user/.claude -- ' +
+        '/bin/bash -c "echo \'[audit] ran: grep -rn claude-agent-sdk.*--output-format src/\' ' +
+        '>> audit.log && exec sleep 300"',
+    };
+    const orphan = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, orphan])).toEqual([7000]);
+  });
+
+  it('still protects a child of a real live claude-agent-sdk ancestor behind bwrap', () => {
+    // Companion to the test above: proves the fix is a real argv-adjacency
+    // check, not a blanket "ignore SDK_CMD_RE" — a genuine SDK invocation as
+    // the wrapped command (path token immediately followed by its
+    // --output-format flag) still counts as a live session and protects its
+    // child.
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd: `bwrap --ro-bind /home/user/.claude /home/user/.claude -- ${SDK}`,
+    };
+    const child = { pid: 7000, ppid: 1, pgrp: 7000, sid: 7000, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
+  });
+
   it('keeps a process with a live claude/monomind ancestor further up the chain', () => {
     const daemon = { pid: 5000, ppid: 1500, pgrp: 5000, sid: 5000, cmd: 'node monomind org daemon' };
     const wrapper = { pid: 5100, ppid: 5000, pgrp: 5100, sid: 5100, cmd: 'sh -c run' };
