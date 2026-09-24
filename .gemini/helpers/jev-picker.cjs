@@ -13,6 +13,8 @@
 var fs = require('fs');
 var path = require('path');
 var redaction = require('./redact-secrets.cjs');
+// Keyword ranking builds the candidate shortlist (and is every caller's fallback).
+var shortlist = require('./pick-rank.cjs').shortlist;
 
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
 var DEFAULT_MODEL = 'jev-latest';
@@ -227,52 +229,6 @@ async function probe(provider, opts) {
     throw new JevError('probe answer is malformed', provider.name);
   }
   return Date.now() - started;
-}
-
-// ── Candidate shortlist ────────────────────────────────────────────────────
-
-function stem(tok) {
-  if (tok.length > 4 && tok.slice(-3) === 'ies') return tok.slice(0, -3) + 'y';
-  if (tok.length > 3 && tok.slice(-1) === 's' && tok.slice(-2) !== 'ss') return tok.slice(0, -1);
-  return tok;
-}
-
-function tokens(text) {
-  return (String(text || '').toLowerCase().match(/[a-z0-9]+/g) || []).map(stem);
-}
-
-/** Items ranked by word overlap with the query (id/name words count 3, other
- *  text 1), forced ids first, capped at `limit`. Stable for equal scores. */
-function shortlist(query, items, limit, include) {
-  var q = Array.from(new Set(tokens(query)));
-  var scored = items.map(function (item, index) {
-    var strong = new Set(tokens(item.id + ' ' + (item.name || '')));
-    var weak = new Set(tokens((item.description || '') + ' ' + (item.text || '')));
-    var score = 0;
-    for (var i = 0; i < q.length; i++) {
-      if (strong.has(q[i])) score += 3;
-      else if (weak.has(q[i])) score += 1;
-    }
-    return { item: item, index: index, score: score };
-  });
-  scored.sort(function (a, b) {
-    return b.score - a.score || a.index - b.index;
-  });
-  var out = [];
-  var seen = new Set();
-  function take(entry) {
-    if (seen.has(entry.item.id) || out.length >= limit) return;
-    seen.add(entry.item.id);
-    out.push(Object.assign({}, entry.item, { score: entry.score }));
-  }
-  (include || []).forEach(function (id) {
-    var hit = scored.find(function (s) {
-      return s.item.id === id;
-    });
-    if (hit) take(hit);
-  });
-  scored.forEach(take);
-  return out;
 }
 
 // ── Picking ────────────────────────────────────────────────────────────────

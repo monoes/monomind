@@ -1,0 +1,261 @@
+{
+ "_comment": "Frozen 2026-09 excerpt of the shipped agent registry and skill registry. Do not refresh from the live catalogs: pick-rank.test.ts pins keyword ranking against exactly this text.",
+ "agents": [
+  {
+   "id": "goal-planner",
+   "name": "goal-planner",
+   "category": "goal",
+   "description": "Goal-Oriented Action Planning (GOAP) specialist that dynamically creates intelligent plans to achieve complex objectives. Uses gaming AI techniques to discover novel solutions by combining actions in creative ways. Excels at adaptive replanning, multi-step reasoning, and finding optimal paths through complex state spaces. Examples: <example>Context: User needs to optimize a complex workflow with many dependencies. user: 'I need to deploy this application but there are many prerequisites and dependencies' assistant: 'I'll use the goal-planner agent to analyze all requirements and create an optimal action sequence that satisfies all preconditions and achieves your deployment goal.' <commentary>Complex multi-step planning with dependencies requires the goal-planner agent's GOAP algorithm to find the optimal path.</commentary></example> <example>Context: User has a high-level goal but isn't sure of the steps. user: 'Make my application production-ready' assistant: 'I'll use the goal-planner agent to break down this goal into concrete actions, analyze preconditions, and create an adaptive plan that achieves production readiness.' <commentary>High-level goals that need intelligent decomposition and planning benefit from the goal-planner agent's capabilities.</commentary></example>",
+   "text": "goal"
+  },
+  {
+   "id": "coder",
+   "name": "coder",
+   "category": "core",
+   "description": "Implementation specialist for writing clean, efficient code",
+   "text": "core code implementation API design refactoring performance optimization error handling feature-implementation code-refactoring bug-fix api-development"
+  },
+  {
+   "id": "tester",
+   "name": "tester",
+   "category": "core",
+   "description": "Comprehensive testing and quality assurance specialist",
+   "text": "core test design and strategy unit and integration testing edge case analysis performance validation security testing test-design test-implementation coverage-analysis regression-testing"
+  },
+  {
+   "id": "reviewer",
+   "name": "reviewer",
+   "category": "core",
+   "description": "Code review and quality assurance specialist",
+   "text": "core code quality review security auditing performance analysis standards compliance documentation review code-review security-audit quality-assessment standards-check"
+  },
+  {
+   "id": "researcher",
+   "name": "researcher",
+   "category": "core",
+   "description": "Deep research and information gathering specialist",
+   "text": "core code analysis and pattern recognition dependency mapping documentation review technology evaluation best practice identification code-analysis technology-research dependency-audit documentation-review"
+  },
+  {
+   "id": "engineering-frontend-developer",
+   "name": "Frontend Developer",
+   "category": "engineering",
+   "description": "Expert frontend developer specializing in modern web technologies, React/Vue/Angular frameworks, UI implementation, and performance optimization",
+   "text": "engineering React and Vue frameworks CSS and responsive design web accessibility and WCAG compliance frontend performance optimization TypeScript and modern JavaScript ui-implementation frontend-architecture accessibility-audit performance-optimization"
+  },
+  {
+   "id": "design-monodesign",
+   "name": "Monodesign",
+   "category": "design",
+   "description": "The unified frontend design intelligence agent for monomind. Handles all frontend design tasks — UI/component systems, brand strategy, UX research, visual storytelling, CSS architecture, design critique, image prompts, inclusive representation, whimsy/delight, and antipattern detection. Delegates to the monodesign skill for its knowledge base.",
+   "text": "design UI component systems and design tokens (OKLCH) Brand identity and visual strategy UX research and usability testing Typography, color, spatial design, motion CSS architecture and theme systems Antipattern detection and design critique Inclusive visuals and image generation prompts Visual storytelling and brand personality Responsive design and accessibility (WCAG AA) Performance-conscious design ui-design component-system brand-identity ux-research design-critique design-system visual-storytelling image-prompts css-architecture accessibility-audit"
+  },
+  {
+   "id": "engineering-backend-architect",
+   "name": "Backend Architect",
+   "category": "engineering",
+   "description": "Senior backend architect specializing in scalable system design, database architecture, API development, and cloud infrastructure. Builds robust, secure, performant server-side applications and microservices",
+   "text": "engineering scalable system design database architecture API development cloud infrastructure microservices patterns system-design api-architecture database-design cloud-infrastructure"
+  },
+  {
+   "id": "engineering-security-engineer",
+   "name": "Security Engineer",
+   "category": "engineering",
+   "description": "Expert application security engineer specializing in threat modeling, vulnerability assessment, secure code review, and security architecture design for modern web and cloud-native applications.",
+   "text": "engineering application security OWASP Top 10 CVE analysis and remediation authentication and authorization systems cryptography and key management security-audit vulnerability-scan cve-remediation code-security-review"
+  },
+  {
+   "id": "engineering-technical-writer",
+   "name": "Technical Writer",
+   "category": "engineering",
+   "description": "Expert technical writer specializing in developer documentation, API references, README files, and tutorials. Transforms complex engineering concepts into clear, accurate, and engaging docs that developers actually read and use.",
+   "text": "engineering API reference documentation developer tutorials and guides README and quickstart authoring documentation information architecture code example curation api-documentation tutorial-writing readme-authoring documentation-review"
+  },
+  {
+   "id": "engineering-devops-automator",
+   "name": "DevOps Automator",
+   "category": "engineering",
+   "description": "Expert DevOps engineer specializing in infrastructure automation, CI/CD pipeline development, and cloud operations",
+   "text": "engineering CI/CD pipeline development infrastructure as code container orchestration cloud platform management monitoring and observability pipeline-setup infrastructure-automation deployment-configuration monitoring-setup"
+  },
+  {
+   "id": "testing-api-tester",
+   "name": "API Tester",
+   "category": "testing",
+   "description": "Expert API testing specialist focused on comprehensive API validation, performance testing, and quality assurance across all systems and third-party integrations",
+   "text": "testing"
+  },
+  {
+   "id": "testing-performance-benchmarker",
+   "name": "Performance Benchmarker",
+   "category": "testing",
+   "description": "Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance across all applications and infrastructure",
+   "text": "testing"
+  },
+  {
+   "id": "monoswarm-memory-manager",
+   "name": "monoswarm-memory-manager",
+   "category": "monoswarm",
+   "description": "Manages distributed memory across the hive mind, ensuring data consistency, persistence, and efficient retrieval through advanced caching and synchronization protocols",
+   "text": "monoswarm"
+  },
+  {
+   "id": "marketing-cro-specialist",
+   "name": "CRO Specialist",
+   "category": "marketing",
+   "description": "Expert in conversion rate optimization for marketing pages, signup flows, forms, popups, and onboarding. Analyzes why pages aren't converting and delivers prioritized recommendations with test hypotheses. Use for homepage, landing page, pricing page, feature page, signup flow, form optimization, popup strategy, or any surface where visitors aren't taking the desired action.",
+   "text": "marketing"
+  },
+  {
+   "id": "marketing-email-specialist",
+   "name": "Email Marketing Specialist",
+   "category": "marketing",
+   "description": "Expert in email sequences, drip campaigns, lifecycle email programs, and cold outreach. Write and optimize welcome series, nurture sequences, re-engagement campaigns, onboarding flows, and B2B cold email. Use when the task involves any multi-email automated flow, cold prospecting, or email copywriting.",
+   "text": "marketing"
+  },
+  {
+   "id": "engineering-database-optimizer",
+   "name": "Database Optimizer",
+   "category": "engineering",
+   "description": "Expert database specialist focusing on schema design, query optimization, indexing strategies, and performance tuning for PostgreSQL, MySQL, and modern databases like Supabase and PlanetScale.",
+   "text": "engineering PostgreSQL query optimization index design and strategy schema normalization and denormalization connection pool tuning database migration patterns query-optimization schema-design index-tuning performance-profiling"
+  },
+  {
+   "id": "load-balancer",
+   "name": "Load Balancing Coordinator",
+   "category": "optimization",
+   "description": "Dynamic task distribution, work-stealing algorithms and adaptive load balancing",
+   "text": "optimization"
+  },
+  {
+   "id": "release-manager",
+   "name": "release-manager",
+   "category": "github",
+   "description": "Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages",
+   "text": "github"
+  },
+  {
+   "id": "engineering-git-workflow-master",
+   "name": "Git Workflow Master",
+   "category": "engineering",
+   "description": "Expert in Git workflows, branching strategies, and version control best practices including conventional commits, rebasing, worktrees, and CI-friendly branch management.",
+   "text": "engineering Git branching strategies conventional commits interactive rebase and history management worktrees and advanced Git features CI-friendly branch management workflow-setup branch-strategy history-cleanup release-management"
+  },
+  {
+   "id": "engineering-sre",
+   "name": "SRE (Site Reliability Engineer)",
+   "category": "engineering",
+   "description": "Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction for production systems at scale.",
+   "text": "engineering SLO and error budget management observability and monitoring chaos engineering incident response toil reduction automation slo-definition observability-setup incident-response reliability-review"
+  },
+  {
+   "id": "spec-mobile-react-native",
+   "name": "mobile-dev",
+   "category": "specialized",
+   "description": "Expert agent for React Native mobile application development across iOS and Android",
+   "text": "specialized"
+  }
+ ],
+ "skills": [
+  {
+   "id": "mastermind-plugin-settings",
+   "description": "Mastermind plugin-settings — inspect and configure a single installed plugin. View configuration fields, manage file system access grants (read/write paths), check runtime health/status, and update plugin settings. Mirrors Paperclip's PluginSettings page with configuration and status tabs.",
+   "text": "mastermind plugin settings plugin-settings inspect configure single installed view configuration fields manage file system access grants read write paths check runtime health status update mirrors paperclip pluginsettings page tabs"
+  },
+  {
+   "id": "mastermind:debug",
+   "description": "Systematic root-cause debugging — use before ANY fix attempt for bugs, test failures, unexpected behavior, build failures, or performance regressions. Enforces Phase 1 root-cause investigation before proposing fixes.",
+   "text": "mastermind debug systematic root-cause debugging fix attempt bugs test failures unexpected behavior build performance regressions enforces phase investigation proposing fixes"
+  },
+  {
+   "id": "mastermind:memory",
+   "description": "LanceDB memory system — store, search, retrieve, list, delete, and manage cross-session persistent memory with vector embeddings",
+   "text": "mastermind memory lancedb system store search retrieve list delete manage cross-session persistent vector embeddings"
+  },
+  {
+   "id": "mastermind-invite-landing",
+   "description": "Mastermind invite-landing — accept an org invite as a human member or as an agent. Validates the invite token, presents org/role info, and processes join as human (name/email) or as an agent (adapter type, model, agent name, config). Mirrors InviteLanding.tsx.",
+   "text": "mastermind invite landing invite-landing accept org human member agent validates token presents role info processes join name email adapter type model config mirrors invitelanding tsx"
+  },
+  {
+   "id": "mastermind:review",
+   "description": "Mastermind review domain — code review, security audit, content and strategy review. Default mode: auto.",
+   "text": "mastermind review domain code security audit content strategy default mode auto"
+  },
+  {
+   "id": "analysis:performance-bottlenecks",
+   "description": "Performance Bottleneck Analysis",
+   "text": "analysis performance bottlenecks bottleneck"
+  },
+  {
+   "id": "analysis:bottleneck-detect",
+   "description": "bottleneck-detect",
+   "text": "analysis bottleneck detect bottleneck-detect"
+  },
+  {
+   "id": "systematic-debugging",
+   "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+   "text": "engineering testing"
+  },
+  {
+   "id": "react-patterns",
+   "description": "React 18/19 patterns including hooks discipline, server/client component boundaries, Suspense + error boundaries, form actions, data fetching, state management decision trees, and accessibility-first composition. Use when writing or reviewing React components.",
+   "text": "frontend"
+  },
+  {
+   "id": "responsive-design",
+   "description": "Implement modern responsive layouts using container queries, fluid typography, CSS Grid, and mobile-first breakpoint strategies. Use when building adaptive interfaces, implementing fluid layouts, or creating component-level responsive behavior.",
+   "text": "design frontend"
+  },
+  {
+   "id": "page-cro",
+   "description": "When the user wants to optimize, improve, or increase conversions on any marketing page or form — including homepage, landing pages, pricing pages, feature pages, lead capture forms, or contact forms.",
+   "text": "marketing design frontend"
+  },
+  {
+   "id": "copywriting",
+   "description": "When the user wants to write, rewrite, or improve marketing copy for any page — including homepage, landing pages, pricing pages, feature pages, about pages, or product pages.",
+   "text": "marketing writing"
+  },
+  {
+   "id": "test-driven-development",
+   "description": "Use when implementing any feature or bugfix, before writing implementation code",
+   "text": "engineering testing"
+  },
+  {
+   "id": "tester",
+   "description": "Tester role best practices. Builds confidence that code works — through the right mix of unit, integration, and end-to-end tests targeting real risk, not just coverage numbers.",
+   "text": "engineering"
+  },
+  {
+   "id": "security-review",
+   "description": "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.",
+   "text": "security engineering"
+  },
+  {
+   "id": "postgres-patterns",
+   "description": "PostgreSQL database patterns for query optimization, schema design, indexing, and security. Based on Supabase best practices. Use when designing PostgreSQL schemas, indexes, or RLS policies, or when a query is too slow.",
+   "text": "data backend"
+  },
+  {
+   "id": "git-advanced-workflows",
+   "description": "Master advanced Git workflows including rebasing, cherry-picking, bisect, worktrees, and reflog to maintain clean history and recover from any situation. Use when managing complex Git histories, collaborating on feature branches, or troubleshooting repository issues.",
+   "text": "engineering devops"
+  },
+  {
+   "id": "memory-coordinator",
+   "description": "Memory Coordinator role best practices. Manages shared memory/state across multiple agents — deciding what's stored where, keeping it consistent, and making sure agents read fresh, correctly-scoped information instead of stale or conflicting state.",
+   "text": "engineering"
+  },
+  {
+   "id": "before-you-build",
+   "description": "Pre-build product and feature risk review for founders, product managers, and AI-assisted builders. Use this skill when the user is about to build a landing page, MVP, SaaS product, internal tool, agent workflow, or major feature and needs to check demand, positioning, monetization, retention, trust, distribution, and adoption risk before implementation starts.",
+   "text": "product"
+  },
+  {
+   "id": "monoswarm",
+   "description": "Coordinate in-process multi-agent work with monomind — topology selection, agent lifecycle, shared memory, and vote-based consensus. Use when scaling beyond a single agent on tasks with clear decomposition, or when a decision needs a recorded vote before work proceeds.",
+   "text": "monoswarm coordinate in-process multi-agent work monomind topology selection agent lifecycle shared memory vote-based consensus scaling beyond single tasks clear decomposition decision recorded vote proceeds"
+  }
+ ]
+}
