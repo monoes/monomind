@@ -22,59 +22,16 @@ process.emitWarning = function (warning) {
 };
 
 // @monoes/monograph is "type":"module" with an exports map that has no
-// "require" condition — a bare `require('@monoes/monograph')` (or
-// require() of its package directory) always throws "No exports main
-// defined", regardless of whether the package is actually installed.
-// require()-ing the package's *resolved entry file* directly bypasses the
-// exports-map restriction and works via Node's require(esm) support (this
-// codebase targets Node 20+, which has it). Reads the entry path from the
-// package's own package.json instead of hardcoding "dist/src/index.js" so
-// this survives a future monograph dist-layout change.
-function _resolvePkgEntryFile(pkgDir) {
-  try {
-    var pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf-8'));
-    var entry = (pkg.exports && pkg.exports['.'] && (pkg.exports['.'].import || pkg.exports['.'].default)) || pkg.main;
-    if (!entry) return null;
-    var full = path.join(pkgDir, entry);
-    return fs.existsSync(full) ? full : null;
-  } catch (e) { return null; }
-}
-
+// "require" condition — a bare `require('@monoes/monograph')` always throws
+// "No exports main defined". require()-ing the package's *resolved entry
+// file* directly works via Node's require(esm) support. The entry comes from
+// monograph-resolve.cjs, the one resolution every hook uses: project install,
+// global npm root, then the copy bundled with the CLI in the npx cache (#328).
 function _requireMonograph() {
-  var candidates = [
-    path.join(CWD, 'node_modules/.pnpm/node_modules/@monoes/monograph'),
-    path.join(CWD, 'packages/node_modules/.pnpm/node_modules/@monoes/monograph'),
-    path.join(CWD, 'node_modules/@monoes/monograph'),
-  ];
-  for (var i = 0; i < candidates.length; i++) {
-    var entry = fs.existsSync(candidates[i]) ? _resolvePkgEntryFile(candidates[i]) : null;
-    if (entry) { try { return require(entry); } catch (e) {} }
-  }
-  // Ancestor-directory search — the equivalent of bare `require('@monoes/
-  // monograph')`'s own node_modules walk, needed since that call form can
-  // never succeed against this package's exports map.
-  var dir = CWD;
-  for (;;) {
-    var pkgDir = path.join(dir, 'node_modules', '@monoes', 'monograph');
-    var entry = fs.existsSync(pkgDir) ? _resolvePkgEntryFile(pkgDir) : null;
-    if (entry) { try { return require(entry); } catch (e) {} break; }
-    var parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  // Global npm install fallback (e.g. `npm install -g @monoes/monograph`).
-  // Mirrors monograph-freshen.cjs's resolveMonographEntry(), which already
-  // checks this — without it, a global-only install builds the graph fine
-  // (via that script) but every hook-side consumer of this function
-  // (graph-status, inline suggestions, micro-agents) can never find it.
   try {
-    var { execSync } = require('child_process');
-    var globalRoot = execSync('npm root -g', { encoding: 'utf-8', timeout: 5000 }).trim();
-    var globalPkgDir = path.join(globalRoot, '@monoes', 'monograph');
-    var globalEntry = fs.existsSync(globalPkgDir) ? _resolvePkgEntryFile(globalPkgDir) : null;
-    if (globalEntry) return require(globalEntry);
-  } catch (e) {}
-  return null;
+    var hit = require('./monograph-resolve.cjs').resolveMonographEntry(CWD);
+    return hit ? require(hit.entry) : null;
+  } catch (e) { return null; }
 }
 
 // Memoized at module scope — opening monograph.db can take 7-10s.

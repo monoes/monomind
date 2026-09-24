@@ -258,3 +258,93 @@ describe('edit-handler affected tests', () => {
     expect(output).not.toContain('[AFFECTED_TESTS]');
   });
 });
+
+// ── monograph rebuild (#328) ───────────────────────────────────────────────────
+
+describe('edit-handler monograph rebuild', () => {
+  const RESOLVE_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/monograph-resolve.cjs');
+  let savedEnv;
+
+  beforeEach(() => {
+    savedEnv = { PATH: process.env.PATH, npm_config_cache: process.env.npm_config_cache };
+    process.env.npm_config_cache = path.join(tmpDir, 'no-npm-cache');
+    delete require.cache[RESOLVE_PATH];
+  });
+  afterEach(() => {
+    process.env.PATH = savedEnv.PATH;
+    if (savedEnv.npm_config_cache === undefined) delete process.env.npm_config_cache;
+    else process.env.npm_config_cache = savedEnv.npm_config_cache;
+    delete require.cache[RESOLVE_PATH];
+  });
+
+  function waitFor(pred, ms = 8000) {
+    const end = Date.now() + ms;
+    while (Date.now() < end && !pred()) {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+    }
+    return pred();
+  }
+
+  // Serve `npm root -g` from a fake global root holding a fake @monoes/monograph
+  // whose buildAsync writes `marker`.
+  function fakeGlobalMonograph(marker) {
+    const globalRoot = path.join(tmpDir, 'global');
+    const pkgDir = path.join(globalRoot, '@monoes', 'monograph');
+    fs.mkdirSync(path.join(pkgDir, 'dist', 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkgDir, 'package.json'),
+      JSON.stringify({
+        name: '@monoes/monograph',
+        version: '9.9.9',
+        type: 'module',
+        exports: { '.': { import: './dist/src/index.js' } },
+      }),
+    );
+    fs.writeFileSync(
+      path.join(pkgDir, 'dist', 'src', 'index.js'),
+      `import { writeFileSync } from 'node:fs';\nexport async function buildAsync(dir) { writeFileSync(${JSON.stringify(marker)}, dir); }\n`,
+    );
+    const shimDir = path.join(tmpDir, 'shim');
+    fs.mkdirSync(shimDir, { recursive: true });
+    fs.writeFileSync(path.join(shimDir, 'npm'), `#!/bin/sh\necho ${JSON.stringify(globalRoot)}\n`);
+    fs.chmodSync(path.join(shimDir, 'npm'), 0o755);
+    process.env.PATH = shimDir;
+  }
+
+  it('rebuilds with a globally installed @monoes/monograph (no bare-specifier import)', async () => {
+    const marker = path.join(tmpDir, 'built');
+    fakeGlobalMonograph(marker);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await loadEH().handle(makeHCtx({ hookInput: { file_path: path.join(tmpDir, 'a.ts') } }));
+    expect(logSpy.mock.calls.map((c) => c[0]).join('\n')).toContain(
+      '[MONOGRAPH] Incremental rebuild triggered',
+    );
+    expect(waitFor(() => fs.existsSync(marker))).toBe(true);
+    const log = path.join(tmpDir, '.monomind', 'graph', 'build.log');
+    expect(fs.existsSync(log) ? fs.readFileSync(log, 'utf-8') : '').not.toContain(
+      'ERR_MODULE_NOT_FOUND',
+    );
+  });
+
+  it('removes .rebuild-lock once the rebuild finishes', async () => {
+    const marker = path.join(tmpDir, 'built');
+    fakeGlobalMonograph(marker);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await loadEH().handle(makeHCtx({ hookInput: { file_path: path.join(tmpDir, 'a.ts') } }));
+    const lock = path.join(tmpDir, '.monomind', 'graph', '.rebuild-lock');
+    expect(waitFor(() => fs.existsSync(marker) && !fs.existsSync(lock))).toBe(true);
+  });
+
+  it('records one deduped build.log line when nothing can rebuild', async () => {
+    process.env.PATH = '';
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const lock = path.join(tmpDir, '.monomind', 'graph', '.rebuild-lock');
+    for (let i = 0; i < 3; i++) {
+      await loadEH().handle(makeHCtx({ hookInput: { file_path: path.join(tmpDir, 'a.ts') } }));
+      fs.rmSync(lock, { force: true }); // skip the 5 s cooldown
+    }
+    const log = fs.readFileSync(path.join(tmpDir, '.monomind', 'graph', 'build.log'), 'utf-8');
+    expect(log.trim().split('\n')).toHaveLength(1);
+    expect(log).toContain('npm i -g --allow-scripts=better-sqlite3 @monoes/monograph');
+  });
+});

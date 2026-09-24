@@ -5,7 +5,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { claimLock } = require('../utils/fs-helpers.cjs');
+const { claimRebuildLock, startRebuild } = require('../utils/monograph-resolve.cjs');
 
 module.exports = {
   handle: async function(hCtx) {
@@ -102,18 +102,20 @@ module.exports = {
         // check and spawns its own rebuild + ua-enrich child (see the
         // 896-orphan-process incident fixed in control-start.cjs). claimLock
         // mirrors that same TOCTOU-safe stale-lock-breaking pattern.
-        if (claimLock(lockFile, COOLDOWN_MS)) {
+        // #328: the rebuild child now owns the lock (its PID replaces ours)
+        // and removes it when done, so a running rebuild blocks a second one
+        // and a lock left by an exited process is stale after the cooldown.
+        if (claimRebuildLock(lockFile, COOLDOWN_MS, 10 * 60 * 1000)) {
           var { spawn: spawnRebuild } = require('child_process');
-          var rebuildScript = "import { buildAsync } from '@monoes/monograph'; await buildAsync(" + JSON.stringify(CWD) + ");";
-          var graphDir = path.join(CWD, '.monomind', 'graph');
-          var logPath = path.join(graphDir, 'build.log');
-          var logFd;
-          try { logFd = fs.openSync(logPath, 'a'); } catch(e) { logFd = 'ignore'; }
-          var child = spawnRebuild(process.execPath, ['--input-type=module', '--eval', rebuildScript], {
-            detached: true, stdio: ['ignore', logFd, logFd], cwd: CWD,
-          });
-          child.unref();
-          console.log('[MONOGRAPH] Incremental rebuild triggered for ' + path.basename(editedFile2));
+          // Resolves @monoes/monograph to an absolute path (project, global
+          // npm, npx cache) and imports it by file URL — a bare-specifier
+          // import only finds a project-local install. Falls back to
+          // `monomind monograph build`; with neither, it records one deduped
+          // failure line instead of an ERR_MODULE_NOT_FOUND per edit.
+          var rebuild = startRebuild(CWD, { lockPath: lockFile });
+          if (rebuild.mode !== 'none') {
+            console.log('[MONOGRAPH] Incremental rebuild triggered for ' + path.basename(editedFile2));
+          }
 
           // Option C: fire ua-enrich.mjs in background after monograph rebuild
           var uaEnrichScript = path.join(CWD, 'scripts', 'ua-enrich.mjs');

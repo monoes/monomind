@@ -978,6 +978,12 @@ module.exports = {
             advisoryLog('[MONOGRAPH] ' + nodeCount + ' nodes. Call mcp__monomind__monograph_suggest to find relevant files.');
             hCtx._recordGraphTelemetry('preresolve_miss');
           }
+        } else if (!hintDb || nodeCount > 100) {
+          // #328: the gate and these hints switch off when the hooks can't
+          // open the graph or it is past the 50-commit limit. Say so once per
+          // cause (not per prompt), even under MONOMIND_HOOK_QUIET.
+          var offNotice = require('../utils/monograph-resolve.cjs').graphOffNoticeOnce(CWD, hintDb || null);
+          if (offNotice) console.log(offNotice);
         }
       } catch(e) {}
 

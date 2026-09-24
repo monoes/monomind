@@ -6,12 +6,19 @@
 
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const BETTER_SQLITE3_DIR = path.dirname(
+  createRequire(path.resolve(__dirname, '../../packages/@monomind/monograph/package.json')).resolve(
+    'better-sqlite3/package.json',
+  ),
+);
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/monograph-freshen.cjs');
 
 function run(env = {}, { cwd } = {}) {
@@ -33,6 +40,20 @@ function createFakeMonograph(dir) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   // Minimal ESM export that buildAsync resolves so the spawned script doesn't hang
   fs.writeFileSync(p, 'export async function buildAsync() {}\n');
+  // freshen loads better-sqlite3 from the package before building (#328);
+  // lend the fake the repo's working copy.
+  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
+  fs.symlinkSync(BETTER_SQLITE3_DIR, path.join(dir, 'node_modules', 'better-sqlite3'));
+  // Only a directory whose package.json names @monoes/monograph counts (#328).
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({
+      name: '@monoes/monograph',
+      version: '1.0.0',
+      type: 'module',
+      main: 'dist/src/index.js',
+    }),
+  );
 }
 
 let tmpDir;
@@ -152,5 +173,80 @@ describe('monograph-freshen: lazy global-npm resolution', () => {
 
     expect(r.status).toBe(0);
     expect(fs.existsSync(sentinel)).toBe(false);
+  });
+});
+
+// ── #328: unresolvable package, stale graph, dead-PID lock ─────────────────
+
+// PATH holding only git and an `npm` whose global root is empty, plus an empty
+// npx cache: nothing can resolve @monoes/monograph or the monomind CLI.
+function isolatedEnv() {
+  const shim = path.join(tmpDir, 'shim');
+  fs.mkdirSync(shim, { recursive: true });
+  fs.writeFileSync(
+    path.join(shim, 'npm'),
+    `#!/bin/sh\necho ${JSON.stringify(path.join(tmpDir, 'no-global'))}\n`,
+  );
+  fs.chmodSync(path.join(shim, 'npm'), 0o755);
+  const git = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf-8' }).stdout.trim();
+  fs.symlinkSync(git, path.join(shim, 'git'));
+  return {
+    CLAUDE_PROJECT_DIR: tmpDir,
+    PATH: shim,
+    npm_config_cache: path.join(tmpDir, 'no-cache'),
+  };
+}
+
+function commitGraphBehind(dir, extra) {
+  const g = (...a) =>
+    spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...a], {
+      cwd: dir,
+      encoding: 'utf-8',
+    }).stdout.trim();
+  g('init', '-q');
+  g('commit', '-q', '--allow-empty', '-m', 'c0');
+  const first = g('rev-parse', 'HEAD');
+  for (let i = 0; i < extra; i++) g('commit', '-q', '--allow-empty', '-m', `c${i + 1}`);
+  const { DatabaseSync } = require('node:sqlite');
+  fs.mkdirSync(path.join(dir, '.monomind'), { recursive: true });
+  const db = new DatabaseSync(path.join(dir, '.monomind', 'monograph.db'));
+  db.exec('CREATE TABLE index_meta (key TEXT PRIMARY KEY, value TEXT)');
+  db.prepare("INSERT INTO index_meta VALUES ('last_commit_hash', ?)").run(first);
+  db.close();
+}
+
+describe('monograph-freshen: stale graph that cannot rebuild', () => {
+  it('prints a one-line SessionStart warning with the fix on stdout', () => {
+    commitGraphBehind(tmpDir, 4);
+    const r = run(isolatedEnv(), { cwd: tmpDir });
+    expect(r.status).toBe(0);
+    const lines = r.stdout.trim().split('\n');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(
+      /^\[MONOGRAPH_WARN\] The monograph graph is 4 commit\(s\) behind HEAD and the hooks cannot rebuild it/,
+    );
+    expect(lines[0]).toContain('npm i -g --allow-scripts=better-sqlite3 @monoes/monograph');
+  });
+
+  it('logs the failure to build.log once across repeated sessions', () => {
+    commitGraphBehind(tmpDir, 1);
+    const env = isolatedEnv();
+    for (let i = 0; i < 3; i++) run(env, { cwd: tmpDir });
+    const log = fs.readFileSync(path.join(tmpDir, '.monomind', 'graph', 'build.log'), 'utf-8');
+    expect(log.trim().split('\n')).toHaveLength(1);
+  });
+});
+
+describe('monograph-freshen: build.lock left by an exited build', () => {
+  it('treats it as stale and starts a build', () => {
+    createFakeMonograph(tmpDir);
+    const lockPath = path.join(tmpDir, '.monomind', 'graph', 'build.lock');
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    const dead = spawnSync(process.execPath, ['-e', '0']).pid;
+    fs.writeFileSync(lockPath, String(dead));
+    const oneMinAgo = new Date(Date.now() - 60 * 1000);
+    fs.utimesSync(lockPath, oneMinAgo, oneMinAgo);
+    const r = run({ CLAUDE_PROJECT_DIR: tmpDir }, { cwd: tmpDir });
+    expect(r.stdout).toContain('background build started for');
   });
 });

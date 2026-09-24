@@ -5,91 +5,38 @@
 if (String(process.env.MONOMIND_SDK_AGENT || '') === '1') process.exit(0);
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
-const { pathToFileURL } = require('url');
-const { claimLock } = require('./utils/fs-helpers.cjs');
+const mg = require('./utils/monograph-resolve.cjs');
 
 const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const graphDir = path.join(projectDir, '.monomind', 'graph');
 fs.mkdirSync(graphDir, { recursive: true });
+const quiet = String(process.env.MONOMIND_HOOK_QUIET || '') === '1';
 
-const logPath = path.join(graphDir, 'build.log');
-let logFd;
-try { logFd = fs.openSync(logPath, 'a'); } catch { logFd = 'ignore'; }
-
-// Resolve the monograph entry point — searches several common layouts
-function resolveMonographEntry(dir) {
-  // pnpm virtual store — the reliable pre-built copy not affected by workspace symlinks
-  const pnpmStore = (() => {
-    try {
-      const storeBase = path.join(dir, 'node_modules', '.pnpm');
-      if (!fs.existsSync(storeBase)) return null;
-      const entries = fs.readdirSync(storeBase).filter(e => e.startsWith('@monoes+monograph@'));
-      for (const e of entries.sort().reverse()) { // newest version first
-        const p = path.join(storeBase, e, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
-        if (fs.existsSync(p)) return p;
-      }
-    } catch {}
-    return null;
-  })();
-
-  const candidates = [
-    // Monorepo workspace build FIRST — it carries unpublished fixes; the pnpm store
-    // holds registry tarballs that can lag behind the workspace source.
-    path.join(dir, 'packages', '@monomind', 'monograph', 'dist', 'src', 'index.js'),
-    // Installed as a flat dependency (follows workspace symlinks when linked)
-    path.join(dir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js'),
-    path.join(dir, 'node_modules', '@monomind', 'monograph', 'dist', 'src', 'index.js'),
-    // Monorepo: monomind root is the monograph package
-    path.join(dir, 'dist', 'src', 'index.js'),
-    // pnpm store registry copy
-    pnpmStore,
-  ].filter(Boolean);
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+// Same resolution as the post-edit rebuild and every other hook consumer:
+// project install, global npm root, then the copy bundled with the monomind
+// CLI in the npx cache (#328).
+const resolved = mg.resolveMonographEntry(projectDir);
+const native = resolved ? mg.checkNative(resolved, projectDir) : null;
+const canRebuild = resolved ? native.ok : !!mg.findMonomindBin(projectDir);
+if (!canRebuild) {
+  if (!resolved) {
+    mg.recordRebuildFailure(projectDir, 'unresolvable',
+      '@monoes/monograph not found in the project, the global npm root or the npx cache', mg.GLOBAL_FIX);
+  } else {
+    mg.recordRebuildFailure(projectDir, 'native', 'better-sqlite3 failed to load: ' + native.error, native.fix);
   }
-
-  // Global npm / homebrew install of @monomind/cli (most common for npx/global users).
-  // Resolved lazily — shells out to `npm root -g` (~65ms) — so that cost is only paid
-  // when none of the faster candidates above matched.
-  try {
-    const { execSync } = require('child_process');
-    const globalRoot = execSync('npm root -g', { encoding: 'utf-8', timeout: 5000 }).trim();
-    const p = path.join(globalRoot, '@monoes', 'monograph', 'dist', 'src', 'index.js');
-    if (fs.existsSync(p)) return p;
-  } catch {}
-
-  return null;
-}
-
-const entryPoint = resolveMonographEntry(projectDir);
-if (!entryPoint) {
-  console.error('[graph] @monoes/monograph not found — skipping build');
+  // SessionStart stdout reaches the session; stderr of this hook does not.
+  const warning = mg.sessionWarning(mg.diagnose(projectDir));
+  if (warning) console.log(warning);
+  else if (!resolved) console.error('[graph] @monoes/monograph not found — skipping build');
   process.exit(0);
 }
 
 // Skip if index is already fresh — don't waste CPU on every session start
 const dbPath = path.join(projectDir, '.monomind', 'monograph.db');
-if (fs.existsSync(dbPath)) {
-  try {
-    const Database = require(require.resolve('better-sqlite3', { paths: [path.dirname(entryPoint)] }));
-    const db = new Database(dbPath, { readonly: true, timeout: 5000 });
-    try {
-      const row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get();
-      if (row && row.value && /^[0-9a-f]{7,40}$/i.test(row.value)) {
-        const { execFileSync } = require('child_process');
-        const out = execFileSync('git', ['rev-list', '--count', row.value + '..HEAD'], {
-          cwd: projectDir, encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'pipe']
-        }).trim();
-        const behind = parseInt(out, 10);
-        if (behind === 0) {
-          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[graph] index is fresh — skipping rebuild');
-          db.close();
-          process.exit(0);
-        }
-      }
-    } finally { try { db.close(); } catch {} }
-  } catch { /* can't check — proceed with build */ }
+if (fs.existsSync(dbPath) && mg.commitsBehind(projectDir, mg.readIndexedCommit(dbPath)) === 0) {
+  if (!quiet) console.log('[graph] index is fresh — skipping rebuild');
+  process.exit(0);
 }
 
 // Skip if another build is already in progress (avoids SQLite BUSY on concurrent init + session-start)
@@ -99,51 +46,22 @@ if (fs.existsSync(dbPath)) {
 // both pass the check and both spawn a detached rebuild child. claimLock
 // uses the same TOCTOU-safe stale-lock-break (atomic rename-to-claim) as
 // control-start.cjs's spawn lock (see P2-25) — a lock older than 5 minutes
-// is treated as abandoned and safely reclaimed.
+// is treated as abandoned and safely reclaimed, and so is one whose build
+// process has exited.
 const lockPath = path.join(graphDir, 'build.lock');
-if (!claimLock(lockPath, 5 * 60 * 1000)) {
-  if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[graph] build already in progress — skipping');
+if (!mg.claimRebuildLock(lockPath, 0, 5 * 60 * 1000)) {
+  if (!quiet) console.log('[graph] build already in progress — skipping');
   process.exit(0);
 }
 
-// Spawn a detached node process to run buildAsync from @monoes/monograph (ESM).
-// After the build, VACUUM the DB if it has >50% bloat (reclaim space from
-// delete/insert churn; opens are ~5x faster on a tight DB).
-const dbPathStr = JSON.stringify(path.join(projectDir, '.monomind', 'monograph.db'));
-const script = `
-import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
-import { unlinkSync, statSync } from 'fs';
-import { execFileSync } from 'child_process';
-try {
-  await buildAsync(${JSON.stringify(projectDir)});
-  // Vacuum if bloat ratio is high — keeps openDb fast over time.
-  try {
-    const dbPath = ${dbPathStr};
-    const fileMB = statSync(dbPath).size / 1024 / 1024;
-    // execFileSync with array argv — no shell involved, so a project
-    // directory name containing '"' or '$(...)' cannot break out and
-    // execute arbitrary commands (P3-8).
-    const liveMB = parseInt(
-      execFileSync('sqlite3', [dbPath, 'SELECT SUM(pgsize)/1024/1024 FROM dbstat;'],
-        { encoding: 'utf-8', timeout: 30000 }).trim(), 10);
-    if (fileMB > 100 && liveMB / fileMB < 0.5) {
-      execFileSync('sqlite3', [dbPath, 'VACUUM;'], { timeout: 120000 });
-    }
-  } catch (_) {}
-} finally {
-  try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}
-  try { unlinkSync(${JSON.stringify(path.join(graphDir, 'build.pid'))}); } catch {}
-}`;
-const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
-  detached: true,
-  stdio: ['ignore', logFd, logFd],
-  cwd: projectDir,
-});
-child.unref();
+// Detached rebuild; after the build, VACUUM the DB if it has >50% bloat
+// (reclaim space from delete/insert churn; opens are ~5x faster on a tight DB).
+const pidPath = path.join(graphDir, 'build.pid');
+const started = mg.startRebuild(projectDir, { resolved, lockPath, cleanup: [pidPath], vacuum: true });
 
 // Track PID so control-stop.cjs can kill it on session exit
 try {
-  fs.writeFileSync(path.join(graphDir, 'build.pid'), String(child.pid), 'utf-8');
+  if (started.pid) fs.writeFileSync(pidPath, String(started.pid), 'utf-8');
 } catch { /* best-effort */ }
 
-if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[graph] background build started for ' + projectDir);
+if (!quiet) console.log('[graph] background build started for ' + projectDir);
