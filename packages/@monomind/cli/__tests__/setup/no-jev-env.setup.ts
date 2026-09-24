@@ -4,6 +4,11 @@
 // nothing once fell through to api.typesafe.ai. Clear every provider variable
 // jev-picker.cjs resolveProviders reads; a test that needs a provider stubs its
 // own (vi.stubEnv, or an explicit env object pointing at a fake fetch).
-for (const name of ['MONOMIND_JEV_URL', 'MONOMIND_JEV_API_KEY', 'TYPESAFE_API_KEY', 'MONOMIND_JEV_HOSTED']) {
+for (const name of [
+  'MONOMIND_JEV_URL',
+  'MONOMIND_JEV_API_KEY',
+  'TYPESAFE_API_KEY',
+  'MONOMIND_JEV_HOSTED',
+]) {
   delete process.env[name];
 }

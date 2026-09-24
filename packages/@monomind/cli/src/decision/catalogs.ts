@@ -7,7 +7,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type AgentRegistry, buildUnifiedRegistry, computeAgentRoots } from '../agents/registry-builder.js';
+import {
+  type AgentRegistry,
+  buildUnifiedRegistry,
+  computeAgentRoots,
+} from '../agents/registry-builder.js';
 import { ensureRegistry, findProjectRoot, registryPath } from '../agents/registry-freshness.js';
 import { verifyEntry } from '../catalog/digest.js';
 import { buildSnapshot, eligible } from '../catalog/snapshot.js';
@@ -34,13 +38,21 @@ function agentSource(cwd: string): { root: string; registry?: AgentRegistry } {
     ensureRegistry(project);
     return { root: project };
   }
-  return { root: cwd, registry: buildUnifiedRegistry(computeAgentRoots(cwd), undefined, { base: cwd }) };
+  return {
+    root: cwd,
+    registry: buildUnifiedRegistry(computeAgentRoots(cwd), undefined, { base: cwd }),
+  };
 }
 
 /** Registry agents (see agentSource). */
 export function agentCatalog(root: string): CatalogItem[] {
   const src = agentSource(root);
-  return jevModule()?.loadAgentCatalog(src.root, src.registry ? { registry: src.registry } : undefined) ?? [];
+  return (
+    jevModule()?.loadAgentCatalog(
+      src.root,
+      src.registry ? { registry: src.registry } : undefined,
+    ) ?? []
+  );
 }
 
 /** Every spawnable agent name (frontmatter `name`, the Task subagent_type) in
