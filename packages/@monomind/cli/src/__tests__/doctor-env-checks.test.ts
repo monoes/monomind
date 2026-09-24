@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -241,6 +241,19 @@ describe('checkBuildTools', () => {
     expect(check.name).toBe('TypeScript');
     expect(check.status).toBe('pass');
     expect(check.message).toMatch(/^v\d/);
+  });
+
+  it("reads the project's own typescript package instead of running npx (#335)", async () => {
+    // `npx tsc` downloads the unrelated `tsc` package when TypeScript is
+    // missing; the version comes from node_modules without the network.
+    writeFileSync(join(dir, 'package.json'), '{"name":"x"}');
+    mkdirSync(join(dir, 'node_modules', 'typescript'), { recursive: true });
+    writeFileSync(
+      join(dir, 'node_modules', 'typescript', 'package.json'),
+      '{"name":"typescript","version":"5.0.0-local"}',
+    );
+    process.chdir(dir);
+    expect(await checkBuildTools()).toMatchObject({ status: 'pass', message: 'v5.0.0-local' });
   });
 });
 

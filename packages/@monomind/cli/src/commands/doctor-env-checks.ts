@@ -5,6 +5,7 @@
 
 import { exec, execSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -193,17 +194,16 @@ export async function checkBuildTools(): Promise<HealthCheck> {
       message: 'N/A — no package.json (not a Node.js project)',
     };
   }
+  // Resolved from node_modules, not `npx tsc --version`: without a local
+  // TypeScript, npx downloads the unrelated `tsc` package from the registry
+  // (issue #335 — doctor must not use the network or write npm's cache).
   try {
-    const tscVersion = await runCommand('npx tsc --version', 10000);
-    if (!tscVersion || tscVersion.includes('not found')) {
-      return {
-        name: 'TypeScript',
-        status: 'warn',
-        message: 'Not installed locally',
-        fix: 'npm install -D typescript',
-      };
-    }
-    return { name: 'TypeScript', status: 'pass', message: tscVersion.replace('Version ', 'v') };
+    const pkgPath = createRequire(join(process.cwd(), 'package.json')).resolve(
+      'typescript/package.json',
+    );
+    const { version } = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string };
+    if (!version) throw new Error('no version');
+    return { name: 'TypeScript', status: 'pass', message: `v${version}` };
   } catch {
     return {
       name: 'TypeScript',
