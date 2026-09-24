@@ -123,39 +123,14 @@ npx monomind monoswarm monitor
 
 ## Available Agents
 
-### Core Development (5)
-\`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`
+The full roster ships as \`.claude/agents/**/*.md\` and differs per install, so
+this file does not list it. Pick agents per task:
 
-### V1 Specialized (1)
-\`security-architect\`
+- When a prompt carries a \`[PICK]\` line (\`[PICK] agent: <name> · skill: <invoke>\`), use that agent/skill unless it is clearly wrong.
+- Otherwise call \`mcp__monomind__pick\` (\`{ task, kind: "agents" | "skills" | "both" }\`) and use a returned agent \`name\` as the Task \`subagent_type\`; without MCP, run \`monomind pick -t "<task>"\`.
 
-### Monoswarm Coordination (3)
-\`mesh-coordinator\`, \`collective-intelligence-coordinator\`, \`swarm-memory-manager\`
-
-### Consensus (2)
-\`quorum-manager\`, \`security-manager\`
-
-### Performance & Optimization (5)
-\`perf-analyzer\`, \`performance-benchmarker\`, \`task-orchestrator\`, \`memory-coordinator\`, \`smart-agent\`
-
-### GitHub & Repository (9)
-\`github-modes\`, \`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\`, \`workflow-automation\`, \`project-board-sync\`, \`repo-architect\`, \`multi-repo-swarm\`
-
-### Specialized Development (8)
-\`backend-dev\`, \`mobile-dev\`, \`ml-developer\`, \`cicd-engineer\`, \`api-docs\`, \`system-architect\`, \`code-analyzer\`, \`base-template-generator\`
-
-### Testing & Validation (2)
-\`tdd-london-swarm\`, \`production-validator\`
-
-### Agent Routing by Task
-| Task Type | Recommended Agents | Topology |
-|-----------|-------------------|----------|
-| Bug Fix | researcher, coder, tester | mesh |
-| New Feature | coordinator, architect, coder, tester, reviewer | hierarchical |
-| Refactoring | architect, coder, reviewer | mesh |
-| Performance | researcher, perf-engineer, coder | hierarchical |
-| Security | security-architect, auditor, reviewer | hierarchical |
-| Docs | researcher, api-docs | mesh |
+Fallback when picking returns nothing — real core agents:
+\`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`, \`system-architect\`, \`Security Engineer\`, \`mesh-coordinator\`
 
 ---
 
