@@ -446,6 +446,8 @@ async function handleSubagentStop(hookInput) {
       );
     }
   } catch (e) { /* non-fatal — feedback recording must never block subagent-stop */ }
+  // Fold the new adherence/outcome lines into pick-stats.json (the ranking prior).
+  try { require('../pick-stats.cjs').update(CWD); } catch (e) { /* non-fatal */ }
 
   if (!org && !session) {
     // No active org or session — log to general capture file only

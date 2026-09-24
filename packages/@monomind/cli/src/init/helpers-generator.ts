@@ -1362,6 +1362,10 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   // The keyword ranker jev-picker.cjs requires for its candidate shortlist;
   // without it the picker fails to load and the hook keeps keyword routing.
   'pick-rank.cjs': { forceSync: true, doctorTracked: true },
+  // The pick learning loop: handlers/pick-core.cjs, capture-handler.cjs and
+  // session-handler.cjs require it, and so does the CLI's
+  // src/decision/pick-stats.ts. Without it picks keep their keyword order.
+  'pick-stats.cjs': { forceSync: true, doctorTracked: true },
   'memory.cjs': { generate: generateMemoryHelper },
   'session.cjs': { generate: generateSessionManager },
   'pre-commit': { generate: generatePreCommitHook },
