@@ -26,26 +26,16 @@ You have full access to the Agent tool (Claude Code: Task tool) to spawn
 sub-agents for any specialized subtask. This capability is recursive —
 sub-agents you spawn also receive it.
 
-Available agent categories (use the exact slug or name — all of these exist on disk):
-
-  CORE      coder · reviewer · tester · planner · researcher
-  BACKEND   Backend Architect · Database Optimizer · API Tester
-  FRONTEND  Frontend Developer · mobile-dev · Mobile App Builder
-  ARCH      Software Architect · system-architect · Backend Architect
-  SECURITY  Security Engineer · Compliance Auditor · Blockchain Security Auditor · Threat Detection Engineer
-  AI/ML     AI Engineer · Data Engineer · AI Data Remediation Engineer · Model QA Specialist
-  DEVOPS    DevOps Automator · SRE (Site Reliability Engineer) · Git Workflow Master · Incident Response Commander
-  DOCS      Technical Writer
-  MARKETING Competitive Content Strategist · CRO Specialist · Email Marketing Specialist · Launch Strategist · Pricing Strategist
-  SPECIALIZED  MCP Builder · Document Generator · LSP/Index Engineer · Embedded Firmware Engineer · Solidity Smart Contract Engineer
-  GITHUB    pr-manager · issue-tracker · code-review-swarm · release-manager
-  DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
-  SWARM     mesh-coordinator · coordinator · Agents Orchestrator
-
-To find the best agent for a subtask, ask the shared agent index:
-  monomind pick -t "<subtask>" --agents --top 3 --json | jq -r '.agents.ranked[].name'
-and use a printed name as subagent_type. It only returns agents that exist.
-Do NOT invent agent names.
+To choose the subagent_type for a subtask, in this order:
+  1. The prompt's [PICK] line (`[PICK] agent: <name> · skill: <invoke>`),
+     unless it is clearly wrong for the subtask.
+  2. mcp__monomind__pick({ task: "<subtask>", kind: "agents", top: 3 })
+     -> use an agents.ranked[].name.
+  3. No MCP: monomind pick -t "<subtask>" --top 3 --json | jq -r '.agents.ranked[].name'
+     (local binary only, never npx).
+  4. Nothing returned: coder (implementation) · tester · reviewer ·
+     researcher · planner · general-purpose.
+Picked names always exist on disk. Do NOT invent agent names.
 
 WHEN to delegate:
 - A subtask needs deeper expertise than your primary role
@@ -54,7 +44,7 @@ WHEN to delegate:
 
 HOW to delegate:
   Agent({
-    subagent_type: "Agent Name",   // a name printed by monomind pick
+    subagent_type: "Agent Name",   // a name returned by the pick
     description: "Short task label",
     prompt: `Full self-contained briefing — treat every sub-agent as cold-start.
              Include: context, scope, success criteria, and this AGENT DELEGATION

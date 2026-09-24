@@ -13,7 +13,7 @@ This skill is invoked by `mastermind:master` or directly via `/mastermind:idea`.
 
 **File mode (default, `USE_MONOTASK=false`):**
 
-Invoke `Skill("mastermind-ideate", $ARGUMENTS)` immediately — it provides the same research, evaluation, elaboration, and task-decomposition pipeline with file-first storage (`docs/ideas/` and `docs/tasks/`). The rest of this skill is skipped in file mode.
+Invoke `Skill("mastermind:ideate", $ARGUMENTS)` immediately — it provides the same research, evaluation, elaboration, and task-decomposition pipeline with file-first storage (`docs/ideas/` and `docs/tasks/`). The rest of this skill is skipped in file mode.
 
 **Board mode (`USE_MONOTASK=true`):**
 
@@ -154,27 +154,36 @@ echo "==================================="
 
 ### Step 4 — Idea Manager Agent (Divergent Thinking)
 
-**Before spawning the Idea Manager**, pick specialists from the shared agent index (`monomind pick`) to determine which agents to use, instead of hardcoded agent types.
+**Before spawning the Idea Manager**, pick specialists from the shared agent index instead of hardcoded agent types (pick order in `mastermind-agent-select/SKILL.md`).
+
+**If `mcp__monomind__pick` is available**, call it twice — `{ task: prompt, kind: "agents", categories: ["marketing","specialized","design","testing"], top: 6 }` and `{ task: prompt, kind: "agents", categories: ["engineering","architecture","core","specialized"], top: 2 }` — merge the `agents.ranked[].name` values (unique, max 8) into `specialist_list`, and skip the Bash block below unless fewer than 2 came back.
 
 ```bash
 PROMPT="$prompt"
 
 # The shared agent index: Jev when configured, keyword ranking otherwise. It
-# only returns agents that exist. Local CLI only — never npx.
-pick_names() { command -v monomind >/dev/null 2>&1 || return 0
-  monomind pick -t "$1" --agents --categories "$2" --top "$3" --json 2>/dev/null \
+# only returns agents that exist.
+# Local only — never npx. Accept a binary only when its pick output is the
+# unified index (skill entries carry `source`); see mastermind-agent-select.
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
+pick_names() { mmpick -t "$1" --categories "$2" --top "$3" \
     | jq -c '[.agents.ranked[].name]' 2>/dev/null; }
 
 # User/market/ops angle specialists, then technical angle specialists
-user_market_agents=$(pick_names "$PROMPT" "marketing specialized testing" 6)
-tech_agents=$(pick_names "$PROMPT" "engineering architecture core" 2)
+user_market_agents=$(pick_names "$PROMPT" "marketing specialized design testing" 6)
+tech_agents=$(pick_names "$PROMPT" "engineering architecture core specialized" 2)
 
 # Merge: top 6 market/ops + top 2 tech (cap at 8 total)
 specialist_list=$(jq -s 'add // [] | unique | .[0:8]' \
   <(printf '%s' "${user_market_agents:-[]}") \
   <(printf '%s' "${tech_agents:-[]}") 2>/dev/null)
 
-# Fallback if the CLI is missing or returned too few — need at least 2 specialists
+# Fallback if picking is unavailable or returned too few — need at least 2 specialists
 specialist_count=$(echo "$specialist_list" | jq 'length // 0' 2>/dev/null || echo 0)
 [ "${specialist_count:-0}" -lt 2 ] && specialist_list='["researcher","Launch Strategist","CRO Specialist","Competitive Content Strategist","Software Architect","Pricing Strategist"]'
 
@@ -296,7 +305,7 @@ ideas_list=$(echo "$ideas_output_json" | jq -r \
 **CRITICAL — Variable substitution required for Step 5 Task call:**
 Before constructing the Task prompt below, read the literal UUID values from the `=== IDEA BOARD LITERAL VALUES ===` echo block (Step 3) and embed them as hard-coded strings. Also embed the full `brain_context`, `prompt`, and `ideas_list` (built above) as literal text. Replace every `${BOARD_ID}`, `${COL_EVALUATED}`, `${COL_ICED}`, `${COL_REJECTED}`, `${brain_context}`, `${prompt}`, `${project_name}`, `${date}`, and `${ideas_list}` with its actual value before calling Task — the agent receives unsubstituted `${...}` strings verbatim and silently skips every board update.
 
-Spawn a single `general-purpose` agent via the Task tool. Do NOT use `Product Manager` — that agent type lacks Bash tool access and cannot execute `monotask` CLI commands. The evaluator agent produces verdicts and executes all board updates directly via Bash.
+Spawn a single `general-purpose` agent via the Task tool. Do NOT substitute a specialist whose definition restricts `tools:` without Bash — it cannot execute `monotask` CLI commands. The evaluator agent produces verdicts and executes all board updates directly via Bash.
 
 ```javascript
 Task({
@@ -517,7 +526,8 @@ ELABORATION_OUTPUT
 END_ELABORATION_OUTPUT`
 })
 
-// Agent 2 — feasibility assessor: monomind pick -t "feasibility assessment: <ops ideas>" --agents --top 1 --json | jq -r '.agents.ranked[0].name' (fallback "general-purpose")
+// Agent 2 — feasibility assessor: mcp__monomind__pick({task: "feasibility assessment: <ops ideas>", kind: "agents", top: 1}) -> agents.ranked[0].name
+//   (no MCP: mmpick -t "feasibility assessment: <ops ideas>" --top 1 | jq -r '.agents.ranked[0].name'; fallback "general-purpose")
 Task({
   subagent_type: "<picked agent>",
   description: "Elaboration: feasibility assessment for ops ideas",
@@ -695,12 +705,19 @@ After applying all user instructions, proceed to Step 6c with the remaining idea
 
 #### 6c. Task Decomposition
 
-**Select decomposition agents from the shared agent index** before spawning. Run this selection once per track:
+**Select decomposition agents from the shared agent index** before spawning. With `mcp__monomind__pick`, call it once per track (`kind: "agents"`, `top: 1`, the categories below as an array) and use `agents.ranked[0].name`; otherwise run this selection once per track:
 
 ```bash
 # The shared agent index picks the best decomposer for each track.
-pick_one() { command -v monomind >/dev/null 2>&1 || return 0
-  monomind pick -t "$1" --agents --categories "$2" --top 1 --json 2>/dev/null \
+# Local only — never npx. Accept a binary only when its pick output is the
+# unified index (skill entries carry `source`); see mastermind-agent-select.
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
+pick_one() { mmpick -t "$1" --categories "$2" --top 1 \
     | jq -r '.agents.ranked[0].name // empty' 2>/dev/null; }
 
 dev_decomp_agent=$(pick_one "decompose into engineering tasks: $dev_ideas_list" "engineering architecture")

@@ -53,7 +53,7 @@ For each task in the plan:
 
 ```javascript
 Task({
-  subagent_type: "coder", // the plan's agent recommendation, else: monomind pick -t "<task title>" --agents --top 1 --json | jq -r '.agents.ranked[0].name'
+  subagent_type: "coder", // the plan's agent recommendation if installed, else the [PICK] line, else mcp__monomind__pick({task: "<task title>", kind: "agents", top: 1}).agents.ranked[0].name (no MCP: mmpick from mastermind-agent-select), else "coder"
   description: "<task title from plan>",
   run_in_background: false, // true only when running independently alongside other parallel tasks
   prompt: `You are executing one task from an implementation plan for project "${project_name}".
