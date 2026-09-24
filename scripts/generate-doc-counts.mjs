@@ -119,6 +119,65 @@ function countRootSkills() {
   return countNamedFiles('.claude/skills', 'SKILL.md');
 }
 
+/** Top-level CLI commands: keys of COMMAND_LOADERS in commands/index.ts
+ *  (includes the hidden `report-crash`, which --help omits). */
+function countCliCommands() {
+  const src = read('packages/@monomind/cli/src/commands/index.ts');
+  const start = src.indexOf('const COMMAND_LOADERS');
+  if (start === -1) throw new Error('COMMAND_LOADERS not found in commands/index.ts');
+  const body = src.slice(start, src.indexOf('\n};', start));
+  return [...body.matchAll(/^ {2}'?[a-z][a-z-]*'?: async/gm)].length;
+}
+
+/** The top-level `subcommands: [ ... ]` block of one exported Command. */
+function subcommandsBlock(relFile, exportName) {
+  const src = read(relFile);
+  const start = src.indexOf(`export const ${exportName}`);
+  if (start === -1) throw new Error(`${exportName} not found in ${relFile}`);
+  const open = src.indexOf('\n  subcommands: [', start);
+  const close = src.indexOf('\n  ],', open);
+  if (open === -1 || close === -1) throw new Error(`${exportName}.subcommands not found`);
+  return src.slice(open, close);
+}
+
+/** `org` subcommands: inline objects, multi-line (`      name:`) or one-line (`    { name:`). */
+function countOrgSubcommands() {
+  const block = subcommandsBlock('packages/@monomind/cli/src/commands/org.ts', 'orgCommand');
+  return [...block.matchAll(/^( {6}name: '| {4}\{ name: ')/gm)].length;
+}
+
+/** `hooks` subcommands: identifiers listed one per line (deprecated/aliases included). */
+function countHooksSubcommands() {
+  const block = subcommandsBlock('packages/@monomind/cli/src/commands/hooks.ts', 'hooksCommand');
+  return [...block.matchAll(/^ {4}[A-Za-z]+Command,$/gm)].length;
+}
+
+/** User-facing /mastermind:* commands in the npm-shipped asset tree; `_`-prefixed
+ *  files are internal includes (e.g. _repeat, _taskfile), not commands. */
+function countMastermindCommands() {
+  return readdirSync(join(REPO_ROOT, 'packages/@monomind/cli/.claude/commands/mastermind')).filter(
+    (n) => n.endsWith('.md') && !n.startsWith('_') && !n.startsWith('.'),
+  ).length;
+}
+
+/** Workspace packages with a package.json (pnpm-workspace.yaml globs), not counting the root umbrella. */
+function countPackages() {
+  let n = 0;
+  for (const scope of ['packages/@monomind', 'packages/@monoes']) {
+    for (const name of readdirSync(join(REPO_ROOT, scope))) {
+      try {
+        statSync(join(REPO_ROOT, scope, name, 'package.json'));
+        n++;
+      } catch {}
+    }
+  }
+  try {
+    statSync(join(REPO_ROOT, 'packages/monofence-ai/package.json'));
+    n++;
+  } catch {}
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // Marker substitution
 // ---------------------------------------------------------------------------
@@ -126,6 +185,11 @@ function countRootSkills() {
 const COUNTS = {
   workers: countWorkers(),
   'root-skills': countRootSkills(),
+  'cli-commands': countCliCommands(),
+  'org-subcommands': countOrgSubcommands(),
+  'hooks-subcommands': countHooksSubcommands(),
+  'mastermind-commands': countMastermindCommands(),
+  packages: countPackages(),
 };
 
 /**

@@ -5,7 +5,7 @@
  *
  * Features:
  * - 50+ prompt injection patterns
- * - HNSW-indexed threat pattern search (150x-12,500x faster with LanceDB)
+ * - Vector similarity search over learned threat patterns
  * - ReasoningBank-style pattern learning
  * - Adaptive mitigation with effectiveness tracking
  * - Strange-loop meta-learning integration
@@ -129,7 +129,6 @@ export interface MonoDefence {
 
   /**
    * Search for similar threat patterns using HNSW
-   * Achieves 150x-12,500x speedup with vector backend
    */
   searchSimilarThreats(
     query: string,

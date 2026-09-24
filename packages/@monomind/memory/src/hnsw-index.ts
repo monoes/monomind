@@ -1,8 +1,10 @@
 /**
  * V1 HNSW Vector Index
  *
- * High-performance Hierarchical Navigable Small World (HNSW) index for
- * 150x-12,500x faster vector similarity search compared to brute force.
+ * Hierarchical Navigable Small World (HNSW) index for approximate
+ * nearest-neighbour vector search. SqlBackend switches to it above
+ * MONOMIND_HNSW_THRESHOLD (default 5,000 entries); below that, brute-force
+ * cosine is used. No measured speedup figure is claimed here.
  *
  * OPTIMIZATIONS:
  * - BinaryMinHeap/BinaryMaxHeap for O(log n) operations (vs O(n log n) Array.sort)

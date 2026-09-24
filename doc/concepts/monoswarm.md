@@ -112,7 +112,7 @@ monomind monoswarm stop
 ```
 /mastermind          — topology picker: lists all monoswarm modes and
                        gives one concrete recommendation for the current task
-/mastermind:swarm    — full monoswarm coordination reference
+/mastermind:monoswarm — full monoswarm coordination reference
 ```
 
 ---

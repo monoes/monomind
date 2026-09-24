@@ -12,7 +12,7 @@
 ### CLI Subsystem
 - The core CLI engine is `@monoes/monomindcli` (`packages/@monomind/cli/`).
 - Entrypoint: [`packages/@monomind/cli/src/commands/index.ts`](packages/@monomind/cli/src/commands/index.ts)
-- Exposes 32 top-level commands (e.g. `monomind monograph`, `monomind route`, `monomind org`).
+- Exposes 38 top-level commands (e.g. `monomind monograph`, `monomind route`, `monomind org`).
 
 ### Model Context Protocol (MCP) Server
 - Core protocol engine is `@monoes/mcp` (`packages/@monomind/mcp/`).

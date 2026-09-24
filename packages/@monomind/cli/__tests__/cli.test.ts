@@ -110,13 +110,13 @@ describe('CLI', () => {
       expect(output).toContain('config');
     });
 
-    it('should show V1 features in help', async () => {
+    it('should show features in help', async () => {
       await cli.run(['--help']);
 
       const output = consoleOutput.join('');
-      expect(output).toContain('V1 FEATURES:');
-      expect(output).toContain('15-agent');
-      expect(output).toContain('SQLite-backed ANN vector indexing');
+      expect(output).toContain('FEATURES:');
+      expect(output).not.toContain('15-agent hierarchical mesh coordination');
+      expect(output).toContain('HNSW ANN index above 5,000 entries');
     });
 
     it('should show examples in help', async () => {

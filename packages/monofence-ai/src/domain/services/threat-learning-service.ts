@@ -5,7 +5,7 @@
  * and ReasoningBank-style pattern storage.
  *
  * Features:
- * - HNSW-indexed threat pattern search (150x-12,500x faster)
+ * - Vector similarity search over learned threat patterns
  * - Pattern learning from successful detections
  * - Effectiveness tracking for adaptive mitigation
  * - Integration with Monomind attention mechanisms
@@ -247,7 +247,6 @@ export class ThreatLearningService {
 
   /**
    * Search for similar threat patterns using HNSW
-   * With LanceDB, achieves 150x-12,500x speedup
    */
   async searchSimilarThreats(
     query: string,

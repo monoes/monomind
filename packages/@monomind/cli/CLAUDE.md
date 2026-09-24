@@ -184,7 +184,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 28          | Self-learning hooks + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers                               | Working         |
-| `org`       | 33          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, watch, report, memory [stats\|search\|rules\|rollback], costs, inbox, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [resumes live execution from a checkpoint — distinct from replay's debug-only event replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
+| `org`       | <!-- doc-count:org-subcommands -->36<!-- /doc-count:org-subcommands -->          | SDK org runtime v2 (skills, run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory [stats\|search\|rules\|rollback], costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [resumes live execution from a checkpoint — distinct from replay's debug-only event replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 
@@ -213,8 +213,8 @@ npx monomind@latest agent spawn -t coder --name my-coder
 # Initialize monoswarm
 npx monomind@latest monoswarm init --v1-mode
 
-# Search memory (local SQLite + local HF-embeddings; keyword fallback. Not HNSW —
-# the pure-JS HNSW index is a sql.js-fallback path only, via --build-hnsw)
+# Search memory (local SQLite + local HF-embeddings; keyword fallback. HNSW ANN
+# index is used automatically above 5,000 entries; --build-hnsw builds it early)
 npx monomind@latest memory search --query "authentication patterns"
 
 # System diagnostics
@@ -285,7 +285,7 @@ package was deleted:
 - Path traversal prevention utilities
 - Command injection protection utilities
 
-## Hooks System (29 Hook Subcommands + 9 Background Workers)
+## Hooks System (<!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> Hook Subcommands + <!-- doc-count:workers -->9<!-- /doc-count:workers --> Background Workers)
 
 Full hook list with flags: `npx monomind@latest hooks list`. Worker list: `npx monomind@latest hooks worker list` (run one on demand with `hooks worker run <name>`). The metrics-producing workers (ddd, map, audit, consolidate) refresh automatically at session start when their output file is missing or older than 6 hours.
 
@@ -480,8 +480,8 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 It includes:
 
 - Agent type definitions with recommendations
-- All 32 CLI commands
-- All 29 hook subcommands + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers (@monoes/hooks)
+- All <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> CLI commands
+- All <!-- doc-count:hooks-subcommands -->28<!-- /doc-count:hooks-subcommands --> hook subcommands + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Monoswarm coordination and vote strategies
 - Integration ecosystem (agentic-flow, agentic-jujutsu)

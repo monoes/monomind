@@ -132,7 +132,7 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 ### 1. Dense Embeddings
 - **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge.ts → BRIDGE_EMBEDDING_MODEL`](packages/@monomind/cli/src/memory/memory-bridge.ts#BRIDGE_EMBEDDING_MODEL)).
 - **Engine:** `@xenova/transformers` ONNX feature extraction (`embedding-operations.ts:84-100`).
-- **HNSW-First:** When the optional `@monoes/memory` package is installed, `memory-read.ts` tries the pure-JS `HNSWIndex` *first* on every semantic search — it is not merely a fallback for when the native SQLite binding fails to load ([`memory-read.ts → searchEntries`](packages/@monomind/cli/src/memory/memory-read.ts#searchEntries)). Only when HNSW returns no results (e.g. the package isn't installed, so [`getHNSWIndex()`](packages/@monomind/cli/src/memory/hnsw-operations.ts) returns `null`) does the search fall through to brute-force SQLite.
+- **HNSW (size-gated):** semantic search goes through `SqlBackend.search()` in `@monoes/memory` ([`memory-read.ts → searchEntries`](packages/@monomind/cli/src/memory/memory-read.ts#searchEntries) → `bridgeSearchEntries`). Below `MONOMIND_HNSW_THRESHOLD` (default 5,000 active embedded entries) it uses brute-force cosine; above it, an HNSW ANN index is built once, reused until the entry set changes, and cached next to the SQLite file ([`sql-backend.ts`](packages/@monomind/memory/src/sql-backend.ts)). `memory search --build-hnsw` forces an early build. The old standalone pure-JS HNSW layer in `hnsw-operations.ts` was removed.
 
 ### 2. Lexical Okapi BM25
 - **Parameters:** `BM25_K1 = 1.2`, `BM25_B = 0.75` ([`bm25-index.ts → BM25_K1`](packages/@monomind/cli/src/memory/bm25-index.ts#BM25_K1)).

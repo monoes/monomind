@@ -324,7 +324,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="card reveal"><div class="card-icon">🏢</div><div class="card-title">Org Runtime</div><div class="card-desc">Run real agent organizations — role hierarchies, goals, budgets, and approval workflows backed by actual Claude Agent SDK sessions per role, with a live dashboard.</div></div>
       <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 19 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
-      <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
+      <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:review --tillend finds, fixes, and re-verifies until a round comes back clean.</div></div>
       <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">20 typed hook events (PreEdit, PostEdit, SessionStart...) in the registry/executor, plus 29 separate hooks CLI subcommands and <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers. Zero-overhead dispatch across editing, tasks, sessions, and agent teams.</div></div>
     </div>
     <div class="section-title reveal">Quick Install</div>
@@ -390,14 +390,15 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </div>
     <div class="section-title reveal">5. Autonomous Loop</div>
     <div class="code-block reveal">
-<span class="comment"># Research → Build → Review until nothing left</span>
-<span class="cmd">/mastermind:autodev --tillend</span>
+<span class="comment"># Review → fix → re-verify until a round finds nothing</span>
+<span class="cmd">/mastermind:review --tillend</span>
 
-<span class="comment"># 9 improvements, then stop</span>
-<span class="cmd">/mastermind:autodev 9 --tillend</span>
+<span class="comment"># Analyze a component three times, then stop</span>
+<span class="cmd">/mastermind:improve --repeat 3 the auth flow</span>
 
-<span class="comment"># Review loop until clean</span>
-<span class="cmd">/mastermind:review --tillend --auto</span></div>
+<span class="comment"># Plan first, then execute the plan</span>
+<span class="cmd">/mastermind:plan add pagination to the users API</span>
+<span class="cmd">/mastermind:execute</span></div>
     <div class="section-title reveal">Core Commands Quick Reference</div>
     <div class="table-wrap reveal">
     <table class="doc-table">
@@ -410,7 +411,6 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">npx monomind memory search</td><td>Keyword/BM25 search over stored memories</td></tr>
         <tr><td class="mono">npx monomind org run &lt;name&gt;</td><td>Start a persistent SDK-backed agent org</td></tr>
         <tr><td class="mono">npx monomind hooks list</td><td>Show all registered hooks</td></tr>
-        <tr><td class="mono">/mastermind:autodev</td><td>Autonomous build loop inside Claude Code</td></tr>
       </tbody>
     </table>
     </div>
@@ -864,19 +864,12 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="tokens usage cost dashboard spend"><div class="cmd-name">/tokens</div><div class="cmd-desc">Token usage dashboard: today/week/30days/month</div></div>
       <div class="cmd-item" data-search="ts statusline toggle compact full panel"><div class="cmd-name">/ts</div><div class="cmd-desc">Toggle statusline between full and compact mode</div></div>
       <!-- mastermind: — dev commands -->
-      <div class="cmd-item" data-search="mastermind autodev build review loop autonomous tillend research"><div class="cmd-name">/mastermind:autodev</div><div class="cmd-desc">Autonomous research→build→review loop</div></div>
-      <div class="cmd-item" data-search="mastermind build implement feature brief spec"><div class="cmd-name">/mastermind:build</div><div class="cmd-desc">Build a specific feature from a brief</div></div>
       <div class="cmd-item" data-search="mastermind review audit code clean iterative security"><div class="cmd-name">/mastermind:review</div><div class="cmd-desc">Iterative code review and security audit</div></div>
       <div class="cmd-item" data-search="mastermind code-review multi agent auto fix hil findings"><div class="cmd-name">/mastermind:code-review</div><div class="cmd-desc">Multi-agent iterative review with auto-fix</div></div>
-      <div class="cmd-item" data-search="mastermind architect design system architecture file structure"><div class="cmd-name">/mastermind:architect</div><div class="cmd-desc">Architecture review and file structure design</div></div>
       <div class="cmd-item" data-search="mastermind debug root cause systematic fix trace error"><div class="cmd-name">/mastermind:debug</div><div class="cmd-desc">Systematic root-cause debugging</div></div>
-      <div class="cmd-item" data-search="mastermind tdd test driven development red green refactor"><div class="cmd-name">/mastermind:tdd</div><div class="cmd-desc">Test-Driven Development: Red-Green-Refactor</div></div>
       <div class="cmd-item" data-search="mastermind plan implementation comprehensive spec requirements"><div class="cmd-name">/mastermind:plan</div><div class="cmd-desc">Write a comprehensive implementation plan</div></div>
       <div class="cmd-item" data-search="mastermind execute implementation plan step by step review"><div class="cmd-name">/mastermind:execute</div><div class="cmd-desc">Execute a written implementation plan step by step</div></div>
-      <div class="cmd-item" data-search="mastermind taskdev task by task fresh subagents pipeline"><div class="cmd-name">/mastermind:taskdev</div><div class="cmd-desc">Execute plan task-by-task with fresh subagents</div></div>
       <div class="cmd-item" data-search="mastermind improve component deep pipeline analysis"><div class="cmd-name">/mastermind:improve</div><div class="cmd-desc">Deep component improvement pipeline</div></div>
-      <div class="cmd-item" data-search="mastermind verify verification gate complete fix checked"><div class="cmd-name">/mastermind:verify</div><div class="cmd-desc">Verification gate before claiming work complete</div></div>
-      <div class="cmd-item" data-search="mastermind finish integrate complete implementation decision"><div class="cmd-name">/mastermind:finish</div><div class="cmd-desc">Decide how to integrate completed implementation</div></div>
       <div class="cmd-item" data-search="mastermind worktree git isolation feature branch"><div class="cmd-name">/mastermind:worktree</div><div class="cmd-desc">Start feature work in isolated git worktree</div></div>
       <div class="cmd-item" data-search="mastermind receive review feedback evaluate implement"><div class="cmd-name">/mastermind:receive-review</div><div class="cmd-desc">Evaluate and implement code review feedback</div></div>
       <!-- mastermind: — research & ideas -->
@@ -893,11 +886,11 @@ monomind doc ingest ./their-knowledge -s shared
       <!-- mastermind: — autonomous orgs -->
       <div class="cmd-item" data-search="org run daemon sdk agent runtime v2 primary"><div class="cmd-name">monomind org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon (the current, recommended path)</div></div>
       <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy legacy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Define and save a v2 org config (roles, hierarchy, schedule) — run it with <code>/mastermind:runorg</code> or <code>monomind org run</code></div></div>
-      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled delegator validator"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Org Runtime v2 delegator: validates org configs, auto-migrates v1 definitions, starts via <code>monomind org run/serve</code>; deprecated prompt path is <code>/mastermind:runorgv1</code></div></div>
+      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled delegator validator"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Org Runtime v2 delegator: validates org configs, auto-migrates v1 definitions, starts via <code>monomind org run/serve</code>; the v1 prompt-orchestrated path was retired</div></div>
       <div class="cmd-item" data-search="mastermind stoporg stop scheduled org loop status stopped legacy"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Legacy — use <code>monomind org stop</code> for v2 orgs</div></div>
       <div class="cmd-item" data-search="mastermind orgs list saved status schedule interval legacy"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">Legacy — use <code>monomind org list</code> for v2 orgs</div></div>
       <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org legacy"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Legacy — use <code>monomind org status</code> for v2 orgs</div></div>
-      <div class="cmd-item" data-search="mastermind approve review pending approval agents running v1 legacy"><div class="cmd-name">/mastermind:approvev1</div><div class="cmd-desc">Legacy approval for v1 prompt-orchestrated orgs; v2 approvals arrive in the dashboard's Human Input tab</div></div>
+      <div class="cmd-item" data-search="org approve deny pending tool approval role human input"><div class="cmd-name">monomind org approve / deny</div><div class="cmd-desc">Approve or deny a role's pending tool request: <code>monomind org approve &lt;org&gt; &lt;role&gt; "&lt;tool&gt;"</code> — or use the dashboard's Human Input tab</div></div>
       <!-- mastermind: — utilities -->
       <div class="cmd-item" data-search="mastermind okf export knowledge bundle second brain portable markdown"><div class="cmd-name">/mastermind:okf-export</div><div class="cmd-desc">Export Second Brain as OKF bundle</div></div>
       <div class="cmd-item" data-search="mastermind okf import knowledge bundle second brain ingest"><div class="cmd-name">/mastermind:okf-import</div><div class="cmd-desc">Import an OKF bundle into Second Brain</div></div>
@@ -908,7 +901,7 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="mastermind loops active running tillend repeat command"><div class="cmd-name">/mastermind:loops</div><div class="cmd-desc">List active --tillend/--repeat loops</div></div>
       <div class="cmd-item" data-search="mastermind repeat loop schedule every times command"><div class="cmd-name">/mastermind:repeat</div><div class="cmd-desc">Repeat any prompt or slash command on a schedule</div></div>
       <div class="cmd-item" data-search="mastermind understand semantic enrichment monograph codebase"><div class="cmd-name">/mastermind:understand</div><div class="cmd-desc">Semantic enrichment for monograph</div></div>
-      <div class="cmd-item" data-search="mastermind swarm coordination init start status stop scale"><div class="cmd-name">/mastermind:swarm</div><div class="cmd-desc">Multi-agent swarm coordination</div></div>
+      <div class="cmd-item" data-search="mastermind monoswarm swarm coordination init start status stop scale"><div class="cmd-name">/mastermind:monoswarm</div><div class="cmd-desc">Multi-agent swarm coordination</div></div>
       <div class="cmd-item" data-search="mastermind help reference commands skills workflow quick"><div class="cmd-name">/mastermind:help</div><div class="cmd-desc">Quick-reference: all skills, commands, and CLI</div></div>
       <div class="cmd-item" data-search="mastermind skill builder create edit verify skills"><div class="cmd-name">/mastermind:skill-builder</div><div class="cmd-desc">Create, edit, or verify mastermind skills</div></div>
       <div class="cmd-item" data-search="mastermind specialagents specialist activate persona category"><div class="cmd-name">/mastermind:specialagents</div><div class="cmd-desc">Activate a specialist agent persona</div></div>
@@ -955,19 +948,11 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">Mastermind</h1>
-      <p class="page-desc">40+ autonomous operation commands with Brain Load/Write protocol, --tillend loop mechanics, and the autodev research-build-review cycle.</p>
-    </div>
-    <div class="section-title reveal">autodev — The Autonomous Build Loop</div>
-    <div class="phase-flow reveal">
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 1</div><div class="phase-name">Research</div><div class="phase-desc">Parallel: git log, file scan, package.json, README, TODO/FIXME grep, monograph god nodes, memory search for already-built items. Returns ranked list of 3–5 improvement candidates.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 2</div><div class="phase-name">Selection</div><div class="phase-desc">Picks best candidate by feasibility × blast-radius × focus alignment. Stores selection to the memory store. Focus flags: <code>--focus security</code>, <code>--focus dx</code>, <code>--focus performance</code>.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 3</div><div class="phase-name">Build</div><div class="phase-desc">Invokes <code>mastermind:build</code> with concrete spec, acceptance criteria, and blast radius guard. Spawns architect → coder → tester → reviewer agent chain.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 4</div><div class="phase-name">Review Loop</div><div class="phase-desc">Invokes <code>mastermind:review</code> inline. Runs Code Reviewer + Security Engineer + Reality Checker in parallel. Repeats up to 5 iterations until zero findings.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 5</div><div class="phase-name">Log</div><div class="phase-desc">Records completion to memory. If count &gt; 1, continues to next improvement. If <code>--tillend</code>, schedules next session via ScheduleWakeup.</div></div></div>
+      <p class="page-desc">42 slash commands with Brain Load/Write protocol and --tillend loop mechanics.</p>
     </div>
     <div class="section-title reveal">--tillend Loop Mechanics</div>
     <div class="code-block reveal">
-Session 1: <span class="cmd">/mastermind:autodev --tillend</span>
+Session 1: <span class="cmd">/mastermind:review --tillend</span>
   → runs → schedules ScheduleWakeup(delay=60s)
 
 Session 2: wakeup fires → checks staleness guard
@@ -989,9 +974,6 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">--repeat &lt;N&gt;</td><td>off</td><td>Repeat exactly N times</td></tr>
         <tr><td class="mono">--wait &lt;seconds&gt;</td><td>60</td><td>Minimum seconds between repeat runs</td></tr>
         <tr><td class="mono">--maxruns &lt;N&gt;</td><td>50</td><td>Safety cap for --tillend</td></tr>
-        <tr><td class="mono">--auto</td><td>off</td><td>No confirmation prompts</td></tr>
-        <tr><td class="mono">--confirm</td><td>off</td><td>Ask before each action</td></tr>
-        <tr><td class="mono">--focus &lt;area&gt;</td><td>—</td><td>Bias toward: security, dx, performance</td></tr>
       </tbody>
     </table>
     </div>
@@ -1001,19 +983,12 @@ Session N: empty round (zero findings AND zero actions)
       <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
       <tbody>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Development —</td></tr>
-        <tr><td class="mono">/mastermind:autodev</td><td>Autonomous research → build → review loop</td></tr>
-        <tr><td class="mono">/mastermind:build</td><td>Build a specific feature from a brief</td></tr>
         <tr><td class="mono">/mastermind:review</td><td>Iterative code review and security audit</td></tr>
         <tr><td class="mono">/mastermind:code-review</td><td>Multi-agent iterative review with auto-fix</td></tr>
-        <tr><td class="mono">/mastermind:architect</td><td>Architecture review and file structure design</td></tr>
         <tr><td class="mono">/mastermind:debug</td><td>Systematic root-cause debugging</td></tr>
-        <tr><td class="mono">/mastermind:tdd</td><td>Test-Driven Development: Red-Green-Refactor</td></tr>
         <tr><td class="mono">/mastermind:plan</td><td>Write a comprehensive implementation plan</td></tr>
         <tr><td class="mono">/mastermind:execute</td><td>Execute a written implementation plan step by step</td></tr>
-        <tr><td class="mono">/mastermind:taskdev</td><td>Execute plan task-by-task with fresh subagents</td></tr>
         <tr><td class="mono">/mastermind:improve</td><td>Deep component improvement pipeline</td></tr>
-        <tr><td class="mono">/mastermind:verify</td><td>Verification gate before claiming work complete</td></tr>
-        <tr><td class="mono">/mastermind:finish</td><td>Decide how to integrate completed implementation</td></tr>
         <tr><td class="mono">/mastermind:worktree</td><td>Start feature work in isolated git worktree</td></tr>
         <tr><td class="mono">/mastermind:receive-review</td><td>Evaluate and implement code review feedback</td></tr>
         <tr><td class="mono">/mastermind:release</td><td>Release management: versioning, changelog, deployment</td></tr>
@@ -1030,13 +1005,13 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:master</td><td>Top-level orchestrator — routes any business prompt</td></tr>
         <tr><td class="mono">monomind org run &lt;name&gt;</td><td>Start an org as a real SDK-backed daemon — the current, recommended path</td></tr>
         <tr><td class="mono">monomind org status / list / stop</td><td>Runtime state, listing, and graceful stop for v2 orgs</td></tr>
-        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Mastermind org commands (v2 default; legacy v1 names carry the v1 suffix) —</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Mastermind org commands (v2; the v1 prompt-orchestrated runner was retired) —</td></tr>
         <tr><td class="mono">/mastermind:createorg</td><td>Define and save a v2 org config (roles, hierarchy, schedule)</td></tr>
         <tr><td class="mono">/mastermind:runorg</td><td>Org v2 delegator: validates configs, auto-migrates v1 → v2, starts via <code>monomind org run/serve</code></td></tr>
         <tr><td class="mono">/mastermind:stoporg</td><td>Legacy — use <code>monomind org stop</code> for v2 orgs</td></tr>
         <tr><td class="mono">/mastermind:orgs</td><td>Legacy — use <code>monomind org list</code> for v2 orgs</td></tr>
         <tr><td class="mono">/mastermind:orgstatus</td><td>Legacy — use <code>monomind org status</code> for v2 orgs</td></tr>
-        <tr><td class="mono">/mastermind:approvev1</td><td>Legacy approvals for v1 orgs; v2 approvals appear in dashboard Human Input tab</td></tr>
+        <tr><td class="mono">monomind org approve / deny</td><td>Approve or deny a role's pending tool request (<code>monomind org approve &lt;org&gt; &lt;role&gt; "&lt;tool&gt;"</code>); also in the dashboard Human Input tab</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
         <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
         <tr><td class="mono">/mastermind:memory</td><td>Memory store: store, search, retrieve, list, delete</td></tr>
@@ -1045,7 +1020,7 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:loops</td><td>List active --tillend/--repeat loops</td></tr>
         <tr><td class="mono">/mastermind:repeat</td><td>Repeat any prompt or slash command on a schedule</td></tr>
         <tr><td class="mono">/mastermind:understand</td><td>Semantic enrichment for monograph</td></tr>
-        <tr><td class="mono">/mastermind:swarm</td><td>Multi-agent swarm coordination</td></tr>
+        <tr><td class="mono">/mastermind:monoswarm</td><td>Multi-agent swarm coordination</td></tr>
         <tr><td class="mono">/mastermind:help</td><td>Quick-reference: all skills, commands, and CLI</td></tr>
         <tr><td class="mono">/mastermind:skill-builder</td><td>Create, edit, or verify mastermind skills</td></tr>
         <tr><td class="mono">/mastermind:specialagents</td><td>Activate a specialist agent persona</td></tr>
@@ -1242,9 +1217,9 @@ Session N: empty round (zero findings AND zero actions)
     <div class="section-title reveal">Loops</div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Loops are created manually from the dashboard (+New Loop button) or via slash commands:</p>
     <div class="code-block reveal"><span class="comment"># Create a loop from Claude Code</span>
-<span class="cmd">/mastermind:autodev --tillend</span>          <span class="comment"># autonomous loop until nothing left</span>
-<span class="cmd">/mastermind:review --tillend --auto</span>    <span class="comment"># review loop until clean</span>
-<span class="cmd">/monomind:repeat --every 1h /mastermind:autodev</span>  <span class="comment"># custom repeat schedule</span></div>
+<span class="cmd">/mastermind:review --tillend</span>                        <span class="comment"># review loop until clean</span>
+<span class="cmd">/mastermind:improve --repeat 3 the auth flow</span>        <span class="comment"># run exactly 3 times</span>
+<span class="cmd">/mastermind:repeat --every 60 /mastermind:review</span>    <span class="comment"># custom repeat schedule (minutes)</span></div>
     <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">A <strong>loop</strong> is a scheduled automation: a prompt that re-runs at a fixed interval until a max-rep limit is reached or it is manually stopped.</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
@@ -1341,7 +1316,7 @@ Session N: empty round (zero findings AND zero actions)
 
 <span class="comment"># From Claude Code:</span>
 <span class="cmd">/mastermind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span></div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;"><strong>Agent Graph tab:</strong> The Agent Graph is populated automatically by sessions that spawn sub-agents. Spawn agents by running complex tasks via <code>/mastermind:build</code>, <code>/mastermind:autodev</code>, or any orchestration command.</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;"><strong>Agent Graph tab:</strong> The Agent Graph is populated automatically by sessions that spawn sub-agents. Spawn agents by running complex tasks via <code>/mastermind:execute</code>, <code>/mastermind:review</code>, or any orchestration command.</p>
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
@@ -1349,9 +1324,9 @@ Session N: empty round (zero findings AND zero actions)
     <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># start an org — real Claude Agent SDK sessions per role</span>
 <span class="cmd">monomind org status / list / stop</span>    <span class="comment"># check, list, or stop</span>
 
-<span class="comment"># Legacy v1 prompt-orchestrated runner (deprecated 2026-07 — config creation itself is v2):</span>
+<span class="comment"># From Claude Code (the v1 prompt-orchestrated runner was retired; runorg auto-migrates v1 configs):</span>
 <span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new v2 org config</span>
-<span class="cmd">/mastermind:runorgv1</span>      <span class="comment"># (v1 legacy) start a saved org via prompt-orchestrated flow</span></div>
+<span class="cmd">/mastermind:runorg</span>       <span class="comment"># validate and start a saved org via the v2 daemon</span></div>
     <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each org has 29 tabs:</p>
     <div class="table-wrap reveal">
@@ -1435,7 +1410,7 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>Orgs</td><td>List of all orgs — click to switch the dashboard's active org context</td></tr>
           <tr><td>Skills</td><td>Searchable catalog of all 35+ slash-command skills. Click any skill to copy the <code>/skill-name</code> command to clipboard</td></tr>
-          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel. Create loops with <code>/mastermind:autodev --tillend</code> or the +New Loop button in the Loops view.</td></tr>
+          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel. Create loops with <code>/mastermind:review --tillend</code> or the +New Loop button in the Loops view.</td></tr>
           <tr><td>Create Org</td><td>Form that generates and copies the equivalent <code>/mastermind:createorg</code> CLI command (legacy path — see the <a href="#orgs">Organizations</a> page for the current <code>monomind org run</code> flow)</td></tr>
           <tr><td>Metrics</td><td>Summary cards for current cost, API calls, routing confidence distribution, and active swarm topology</td></tr>
           <tr><td>Graph</td><td>Node and edge counts for the Monograph index, list of top god nodes, and an Open Monograph button</td></tr>
@@ -1816,7 +1791,7 @@ Session N: empty round (zero findings AND zero actions)
     <span class="obadge ob-b">Cross-process</span>
     <span class="obadge ob-c">Full lifecycle</span>
   </div>
-  <p style="margin-top:20px;font-size:12px;color:var(--muted)">The walkthrough below documents v1 prompt-orchestrated orgs via <code>/mastermind:createorg</code> + <code>/mastermind:runorgv1</code>. <code>/mastermind:runorg</code> is the v2 delegator (validates, auto-migrates configs, starts via <code>monomind org run</code> shown above). New orgs use v2; legacy v1 orgs still run via runorgv1.</p>
+  <p style="margin-top:20px;font-size:12px;color:var(--muted)">The v1 prompt-orchestrated org runner was retired. <code>/mastermind:createorg</code> writes v2 configs, and <code>/mastermind:runorg</code> is the v2 delegator (validates, auto-migrates v1-shaped configs, starts via <code>monomind org run</code> shown above).</p>
 </div>
 
 <!-- How it works -->
@@ -2309,12 +2284,11 @@ function runTypewriter() {
     {t:'out',text:'Node 22.0.0          ✓'},
     {t:'out',text:'Memory store         ✓  patterns.json + episodic'},
     {t:'out',text:'MCP tools            ✓  19 monograph + core monomind'},
-    {t:'cmd',text:'/mastermind:autodev --tillend --focus security'},
-    {t:'out',text:'[autodev] Research phase starting...',cls:'amber'},
-    {t:'out',text:'[autodev] 4 candidates found. Selected: CVE-1 remediation',cls:'amber'},
-    {t:'out',text:'[autodev] Build: architect → coder → tester → reviewer'},
-    {t:'out',text:'[autodev] Review loop: 0 findings. Run complete.',cls:'accent'},
-    {t:'out',text:'[tillend] Next run in 60s...'},
+    {t:'cmd',text:'/mastermind:review --tillend'},
+    {t:'out',text:'[tillend] Starting tillend loop for /mastermind:review (safety cap: 50, 60s between runs). Run 1...',cls:'amber'},
+    {t:'out',text:'[review] Auto-fixed 4 issues. Remaining 2 issues require manual intervention.',cls:'amber'},
+    {t:'out',text:'[tillend] Run 1 complete.'},
+    {t:'out',text:'[tillend] Work remains. Next run in 60s (run 2, cap: 50)...',cls:'accent'},
   ];
   let li=0,ci=0;
   function step() {

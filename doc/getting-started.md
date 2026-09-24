@@ -95,7 +95,7 @@ This lists all available slash commands. The most useful starting points:
 | `/mastermind:understand` | Analyze your project with an LLM and enrich the knowledge graph |
 | `/mastermind:debug` | Systematic root-cause debugging protocol |
 | `/mastermind:plan` | Write a comprehensive implementation plan before touching code |
-| `/mastermind:verify` | Enforce evidence-before-claims before committing |
+| `/mastermind:review` | Review the work and auto-fix findings; add `--tillend` to loop until a round comes back clean |
 
 ## What's running?
 

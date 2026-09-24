@@ -379,14 +379,13 @@ export class CLI {
     }
     this.output.writeln();
 
-    this.output.writeln(this.output.bold('V1 FEATURES:'));
+    this.output.writeln(this.output.bold('FEATURES:'));
     this.output.printList([
-      '15-agent hierarchical mesh coordination',
-      'SQLite-backed ANN vector indexing',
+      'Local SQLite memory with on-device embeddings (HNSW ANN index above 5,000 entries)',
+      'Monograph codebase knowledge graph (tree-sitter + SQLite)',
+      'Org runtime daemon with per-role policy gates (monomind org run)',
+      "Monoswarm topology, roster and vote state for your assistant's subagents",
       'Keyword routing + route-outcome measurement',
-      'Unified SwarmCoordinator engine',
-      'Event-sourced state management',
-      'Domain-Driven Design architecture',
     ]);
     this.output.writeln();
 

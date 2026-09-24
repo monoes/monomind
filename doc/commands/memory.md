@@ -21,7 +21,7 @@ Defined in `packages/@monomind/cli/src/commands/memory.ts` and `memory-transfer.
 | `store` | `monomind memory store -k <key> -v <val> [-n <ns>] [-t <tags>]` | Store a key-value entry in the specified namespace (default: `default`) with temporal decay tracking. |
 | `edit` | `monomind memory edit -k <key> -v <val> [-n <ns>]` | Update an existing memory entry content and metadata. |
 | `retrieve` | `monomind memory retrieve -k <key> [-n <ns>]` | Retrieve a specific entry by key and namespace. |
-| `search` | `monomind memory search <query> [--limit <n>] [--build-hnsw]` | Execute hybrid search across dense vector cosine distance and BM25 lexical rank. Optional `--build-hnsw` flag triggers fallback HNSW graph build. |
+| `search` | `monomind memory search <query> [--limit <n>] [--build-hnsw]` | Execute hybrid search across dense vector cosine distance and BM25 lexical rank. Optional `--build-hnsw` force-builds the HNSW ANN index now; search otherwise builds and uses it automatically once the store passes `MONOMIND_HNSW_THRESHOLD` (default 5,000 embedded entries). |
 | `list` | `monomind memory list [-n <ns>] [--limit <n>]` | List stored entries filtered by namespace and page size. |
 | `delete` | `monomind memory delete -k <key> [-n <ns>]` | Delete an entry from the specified namespace. |
 | `templates` | `monomind memory templates` | Manage reusable memory schemas and entry templates. |
@@ -43,7 +43,7 @@ Defined in `packages/@monomind/cli/src/commands/memory.ts` and `memory-transfer.
 # Execute hybrid RRF search
 monomind memory search "authentication token expiration handling"
 
-# Build fallback HNSW index (consulted only if SQLite bridge is unavailable)
+# Force-build the HNSW ANN index now (search uses it automatically above 5,000 entries)
 monomind memory search --build-hnsw
 ```
 

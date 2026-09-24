@@ -12,7 +12,7 @@
 ```
 monomind org <subcommand>
          │
-         ▼  commands/org.ts (31 subcommands)
+         ▼  commands/org.ts (36 subcommands)
      OrgDaemon  (orgrt/daemon.ts — 1 076 lines)
          │
          ├── startOrg()

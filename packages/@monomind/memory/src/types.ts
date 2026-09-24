@@ -755,10 +755,10 @@ export const PERFORMANCE_TARGETS = {
   MEMORY_REDUCTION_TARGET: 0.5, // 50%
 
   /** Minimum search improvement over brute force */
-  MIN_SEARCH_IMPROVEMENT: 150, // 150x
+  MIN_SEARCH_IMPROVEMENT: 150, // design target, not a measured result
 
   /** Maximum search improvement over brute force */
-  MAX_SEARCH_IMPROVEMENT: 12500, // 12,500x
+  MAX_SEARCH_IMPROVEMENT: 12500, // design target, not a measured result
 } as const;
 
 // ===== Multi-Tier Memory Config (Task 09) =====
