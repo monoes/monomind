@@ -106,11 +106,12 @@ The `UserPromptSubmit` hook ([`route-handler.cjs`](.claude/helpers/handlers/rout
 ```
 
 - **Agent**: a Jev answer that clears the automatic floor, else the top keyword agent when its relevance score is at least 2 and at least 1.5× the runner-up ([`pick-core.cjs → decide`](.claude/helpers/handlers/pick-core.cjs#decide)).
-- **Skill**: a confident Jev skill answer (including a confident "none fits"), else the top keyword skill match with a score of at least 4. The keyword skill match comes from `router.cjs`'s `matchSkills`, which scores the index's platform skills by name and keyword hits.
+- **Skill**: a confident Jev skill answer (including a confident "none fits"), else the top keyword skill when its score is at least 3 and at least 1.25× the runner-up. Keyword skills are ranked by the same `pick-rank.cjs` shortlist over the same skill catalog as the CLI (platform, user and Org-library skills; `pick: low` skills rank below equal matches).
 - Ties and weak overlap print nothing: a wrong pick in context costs more than none.
 - The line is printed even under `MONOMIND_HOOK_QUIET=1`. It is the hook's answer, not an advisory banner.
 - Prompts Claude Code submits itself — task notifications, reminder-only turns, slash-command expansions and local-command output — get no pick and no record ([`pick-core.cjs → isSystemPrompt`](.claude/helpers/handlers/pick-core.cjs#isSystemPrompt)).
-- `router.cjs`'s hardcoded agent table no longer selects agents; it only supplies skill keyword matches.
+- Trivial prompts (fewer than three content words, such as "hi" or "thanks") get no pick and no record; the session's earlier route stays.
+- The hook does not use `router.cjs`; its old keyword agent table is gone.
 
 The hook waits for Jev up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` (default 1500, max 10000). After a failed or timed-out pick it skips Jev for 5 minutes (`.monomind/jev-breaker.json`).
 
@@ -123,6 +124,8 @@ Every user prompt is recorded, with or without a confident pick, by [`pick-core.
 - `.monomind/route-outcomes.jsonl` — `routeId`, `sessionId`, a prompt hash and a secret-redacted 120-character preview, the picked agent and skill, `method`, `provider`, `confidence`, the top candidates, and `shown` (whether a `[PICK]` line was printed);
 - `.monomind/routes/<sessionId>.json` — the session's latest pick, so concurrent sessions do not read each other's picks;
 - `.monomind/last-route.json` — the latest pick overall, for the statusline.
+
+Appends, outcome joins and rotation of `route-outcomes.jsonl` — by the hook and by `hooks_route` — all hold one lock file (`route-outcomes.jsonl.lock`, broken after 10 s), so concurrent sessions never drop each other's records. A slash-command route names no agent, so it never counts as a recommendation.
 
 ---
 
@@ -154,7 +157,7 @@ When nothing ranks, the wrappers answer `coder`.
 }
 ```
 
-The outcome prior (section 7) re-ranks keyword agent results in `monomind pick` and the prompt hook, which read the project's `.monomind/pick-stats.json`. The MCP `pick` tool and the wrappers call `pickForTask` without it, so while pick history exists their keyword order can differ slightly from `monomind pick`.
+The outcome prior (section 7) re-ranks keyword agent results in every selector: the prompt hook, `monomind pick`, the MCP `pick` tool and the wrappers all read the project's `.monomind/pick-stats.json`, so they return the same order for the same task.
 
 ---
 
