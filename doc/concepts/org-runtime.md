@@ -848,6 +848,27 @@ with a continuation message saying why (`sandbox-restart` status). This happens 
 task session; after that the role's `reports_to` coordinator is sent one message saying the role's
 shell is not running (`sandbox-fault-exhausted` audit event), and later faults are only audited.
 
+### Tool Permission Channel
+
+A claude-runtime role asks the SDK host whether each tool call may run, and calls its in-process
+org tools, over the stdio channel to its Claude Code process. The SDK closes that channel's input
+when the prompt stream ends, so the mailbox stream is kept open for as long as a turn is live
+([`mailbox.ts → observeTurn`](packages/@monomind/cli/src/orgrt/mailbox.ts#observeTurn)): the
+`run_config.session_idle_exit_ms` window counts from the turn's `result`, not from the SDK's pull for
+the next message, and in task scope a message for another task waits for the turn to end before
+the process exits. Before this (#331), a turn longer than the idle window, or one that received mail
+for another task, had its channel closed mid-turn. Every org tool, `Read`, and Bash call needing a
+permission decision then failed with `Tool permission request failed: AbortError: Stream closed`,
+while Bash allowed by a static rule kept working. On the 2.16.1 release run the publisher spent
+ten minutes unable to close its task.
+
+If the channel closes anyway, the first such tool result
+([`sandbox-fault.ts → isChannelFault`](packages/@monomind/cli/src/orgrt/sandbox-fault.ts#isChannelFault))
+raises a `channel-fault` audit event and ends the process. The same session resumes in a fresh one
+with a continuation message (`channel-restart` status), through the same path and bound as a
+sandbox fault. The bound is counted separately for each fault kind. Once it is spent, the
+coordinator gets one message (`channel-fault-exhausted`).
+
 ### Silent Session Alarm
 
 `SILENT_SESSION_MS = 4 minutes` — if the stream opens but emits zero messages within this window, an alarm is raised.

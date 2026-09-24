@@ -17,9 +17,17 @@ import {
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'd3-ledger-'));
 
-async function pullAll(gen: AsyncGenerator<{ message: { content: string } }>): Promise<string[]> {
+/** A consumer that finishes each turn before pulling the next message, and
+ *  reports it the way session.ts does (#331: a live turn holds the stream). */
+async function pullAll(
+  gen: AsyncGenerator<{ message: { content: string } }>,
+  mb: Mailbox,
+): Promise<string[]> {
   const out: string[] = [];
-  for await (const m of gen) out.push(m.message.content);
+  for await (const m of gen) {
+    out.push(m.message.content);
+    mb.observeTurn('result');
+  }
   return out;
 }
 
@@ -31,6 +39,7 @@ describe('Mailbox.stream boundaries (D3)', () => {
     mb.push('[task:task-2] b');
     const got = await pullAll(
       mb.stream('', { stopBefore: (next) => taskKeyOf(next) !== undefined && taskKeyOf(next) !== 'task-1' }),
+      mb,
     );
     expect(got).toEqual(['[task:task-1] a', 'follow-up mail']);
     expect(mb.peek()).toBe('[task:task-2] b');
@@ -41,14 +50,14 @@ describe('Mailbox.stream boundaries (D3)', () => {
     const mb = new Mailbox();
     mb.push('[task:task-9] x');
     mb.close();
-    const got = await pullAll(mb.stream('', { stopBefore: () => true }));
+    const got = await pullAll(mb.stream('', { stopBefore: () => true }), mb);
     expect(got).toEqual(['[task:task-9] x']);
   });
 
   it('idleExitMs ends a stream parked on an empty queue, keeping later mail for the next stream', async () => {
     const mb = new Mailbox();
     mb.push('one');
-    const got = await pullAll(mb.stream('', { idleExitMs: 20 }));
+    const got = await pullAll(mb.stream('', { idleExitMs: 20 }), mb);
     expect(got).toEqual(['one']);
     expect(mb.lastStreamEnd).toBe('idle');
     mb.push('two');

@@ -67,6 +67,9 @@ export class Mailbox {
   private lastStreamEndValue?: 'boundary' | 'idle';
   /** True while stream() or waitForMessage() is parked on an empty queue. */
   private parked = false;
+  /** #331: the runner is inside a turn — from a yield (or runner activity)
+   *  until its result. See observeTurn(). */
+  private turnLive = false;
 
   /** The role has nothing to process: it is parked waiting for mail, either
    *  inside stream() between turns or in waitForMessage() with its process
@@ -173,6 +176,7 @@ export class Mailbox {
     // crash-retry path, if at all) already had its chance to act on it.
     this.inFlight = null;
     this.parked = false;
+    this.turnLive = false;
     while (true) {
       while (this.queue.length > 0) {
         if (gen !== this.generation) return; // superseded — leave the queue for the live generator
@@ -182,11 +186,13 @@ export class Mailbox {
         // the session that owns it. Never applied to the first message —
         // the caller chose this session FOR that message.
         if (yielded && opts.stopBefore?.(this.queue[0])) {
+          if (this.turnLive) break; // held until the turn settles (#331)
           this.lastStreamEndValue = 'boundary';
           return;
         }
         const content = this.queue.shift()!;
         yielded = true;
+        this.turnLive = true;
         if (!content.startsWith(Mailbox.CONTINUE_PREFIX)) this.consumedReal++;
         this.inFlight = content;
         yield {
@@ -214,12 +220,34 @@ export class Mailbox {
       if (gen !== this.generation) return;
       this.parked = false;
       if (!woke) {
+        this.wake = null;
+        if (this.turnLive) continue; // busy, not idle (#331)
         // D3: idle long enough — end the stream so the role's process can
         // exit; the next push waits in the queue for a resumed session.
-        this.wake = null;
         this.lastStreamEndValue = 'idle';
         return;
       }
+    }
+  }
+
+  /** What the runner is doing, from the type of each message it emits: a
+   *  'result' settles the turn; 'assistant'/'tool_result' mean one is running
+   *  (also one the runner started from a queued message after a result).
+   *
+   *  #331: stream() must not END during a turn. The Claude SDK writes each
+   *  yielded message to the CLI's stdin at once, pulls for the next one right
+   *  away, and closes stdin when the stream ends — and tool permission
+   *  requests and in-process MCP tool calls travel over that same channel, so
+   *  every one of them then fails with "Stream closed". The idle exit and the
+   *  task boundary therefore wait for the turn to settle. */
+  observeTurn(type: string): void {
+    if (type === 'assistant' || type === 'tool_result') {
+      this.turnLive = true;
+    } else if (type === 'result') {
+      this.turnLive = false;
+      // A parked stream re-arms its idle timer from now.
+      this.wake?.();
+      this.wake = null;
     }
   }
 
