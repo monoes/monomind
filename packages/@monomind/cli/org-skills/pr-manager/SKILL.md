@@ -1,7 +1,7 @@
 ---
 name: pr-manager
-description: "PR Manager role best practices. Own the pull-request lifecycle end to end: opening well-scoped PRs, coordinating review, validating CI, resolving conflicts, and merging cleanly."
-tags: ["engineering","devops"]
+description: "Org role guidance for a PR manager: own the pull-request lifecycle from scoped PR through risk-routed review, CI checks, conflict resolution and merge. Covers gh CLI workflow, flaky-CI discipline, draft PRs and post-merge follow-through."
+tags: ["engineering","devops","git","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

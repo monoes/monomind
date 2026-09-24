@@ -1,7 +1,7 @@
 ---
 name: secure-code-guardian
-description: "Use when implementing authentication/authorization, securing user input, or preventing OWASP Top 10 vulnerabilities — including custom security implementations such as hashing passwords with bcrypt/argon2, sanitizing SQL queries with parameterized statements, configuring CORS/CSP headers, validating input with Zod, and setting up JWT tokens."
-tags: ["security","engineering"]
+description: "Use when implementing security controls in code: auth and authorization, password hashing, parameterized SQL, input validation, CORS and CSP headers, JWTs. Workflow of threat model, implement, validate against OWASP Top 10 with checkpoints, plus TypeScript examples (bcrypt, Zod, Helmet). Implementation-focused, not an audit."
+tags: ["security","engineering","typescript","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: stride-analysis-patterns
-description: "Apply STRIDE methodology to systematically identify threats. Use when analyzing system security, conducting threat modeling sessions, or creating security documentation."
-tags: ["security"]
+description: "Use when running a STRIDE threat modeling session to identify spoofing, tampering, repudiation, disclosure, DoS and privilege threats in a design. Includes a threat analysis matrix and templates for threat documentation. For mapping threats to controls see threat-mitigation-mapping."
+tags: ["security","architecture","documentation"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/wshobson/agents

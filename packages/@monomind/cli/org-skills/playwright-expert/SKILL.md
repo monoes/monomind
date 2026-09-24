@@ -1,7 +1,7 @@
 ---
 name: playwright-expert
-description: "Use when writing E2E tests with Playwright, setting up test infrastructure, or debugging flaky browser tests. Invoke to write test scripts, create page objects, configure test fixtures, set up reporters, add CI integration, implement API mocking, or perform visual regression testing."
-tags: ["testing","frontend"]
+description: "Use when writing or debugging Playwright end-to-end browser tests in TypeScript: page objects, fixtures, locators, API mocking, traces and CI. Persona with reference files and strict rules against waitForTimeout and CSS-class selectors. Overlaps e2e-testing, which is a shorter patterns catalogue."
+tags: ["testing","frontend","typescript","debug"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

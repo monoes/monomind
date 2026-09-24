@@ -1,7 +1,7 @@
 ---
 name: monolean-minimal-change
-description: "Solve problems with the least code that actually works: question whether the work needs to exist, reuse what the codebase already has, prefer stdlib and platform features over new dependencies, and fix bugs at the root cause. Use for any implementation or refactoring task."
-tags: ["engineering"]
+description: "Use when implementing or refactoring and you want the smallest change that works: question the need, reuse existing code, prefer stdlib, fix at the root. A decision ladder against over-engineering and new dependencies."
+tags: ["engineering","monomind","refactor"]
 tools: []
 license: MIT
 source: https://github.com/monoes/monomind

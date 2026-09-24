@@ -1,7 +1,7 @@
 ---
 name: django-patterns
-description: "Django architecture patterns, REST API design with DRF, ORM best practices, caching, signals, middleware, and production-grade Django apps. Use when building or reviewing Django apps, DRF APIs, ORM queries, or caching."
-tags: ["backend"]
+description: "Use when structuring or reviewing a Django codebase against idioms: split settings, app layout, DRF API design, ORM queries, caching, signals and middleware. A pattern catalogue; for building a feature end to end with reference files use django-expert."
+tags: ["backend","django","python","architecture"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

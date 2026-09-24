@@ -1,7 +1,7 @@
 ---
 name: rag-architect
-description: "Designs and implements production-grade RAG systems by chunking documents, generating embeddings, configuring vector stores, building hybrid search pipelines, applying reranking, and evaluating retrieval quality."
-tags: ["ai-ml","engineering"]
+description: "Use when designing or tuning a RAG system: document chunking, embeddings, vector stores like Pinecone, Qdrant or pgvector, hybrid search and reranking. Walks requirements through vector store design, retrieval pipeline and metrics with checkpoints."
+tags: ["ai-ml","engineering","llm","architecture","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: trial-director
-description: "Trial Director role best practices. Owns end-to-end trial/proceeding logistics and strategy execution — coordinates evidence, witnesses, exhibits, timelines, and team roles so the case theory is presented cohesively and nothing falls through procedural cracks."
-tags: ["legal"]
+description: "Use when an org role acts as trial director and must run trial logistics: evidence, witnesses, exhibits, deadlines and roles tied to one case theory. Covers trial prep checklists, motions in limine, exhibit retrieval and witness preparation."
+tags: ["legal","planning","coordination"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

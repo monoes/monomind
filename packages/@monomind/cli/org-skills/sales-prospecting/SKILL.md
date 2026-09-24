@@ -1,7 +1,7 @@
 ---
 name: sales-prospecting
-description: "When the user wants to find, qualify, and build a list of prospects to reach out to — across B2B SaaS, general B2B, or local small businesses."
-tags: ["sales"]
+description: "Use when finding, qualifying and building a list of prospects to contact, for B2B SaaS, general B2B, local small businesses or first-customer demand signals. Branch-specific workflows from ICP definition to sourcing and qualification. For collateral, use sales-enablement."
+tags: ["sales","customer-research","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

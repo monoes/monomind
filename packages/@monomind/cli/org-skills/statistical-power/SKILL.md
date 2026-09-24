@@ -1,7 +1,7 @@
 ---
 name: statistical-power
-description: "Sample-size and statistical power calculations for planning studies. Use whenever someone asks \"how many subjects/samples/replicates do I need\", wants an a priori power analysis, a minimum detectable effect (MDE), a power curve, or needs to justify a sample size for a grant, IRB protocol, or pre-registration."
-tags: ["data","science","research"]
+description: "Use when planning a study's sample size: a priori power analysis, minimum detectable effect, power curves or justifying n for a grant, IRB or pre-registration. Covers closed-form and simulation-based power, effect size choice and attrition. For analyzing collected data see statistical-analysis."
+tags: ["data","science","research","statistics","experimentation"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

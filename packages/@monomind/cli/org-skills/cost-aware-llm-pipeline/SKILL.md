@@ -1,7 +1,7 @@
 ---
 name: cost-aware-llm-pipeline
-description: "Cost optimization patterns for LLM API usage — model routing by task complexity, budget tracking, retry logic, and prompt caching. Use when LLM spend needs to come down, or when routing tasks across model tiers and budgets."
-tags: ["ai-ml","engineering"]
+description: "Use when building a Python LLM API pipeline that must stay on budget: model routing by task complexity, immutable cost tracking, retries and prompt caching. Code patterns, not a spend audit; for auditing existing LLM spend use llm-cost-optimizer."
+tags: ["ai-ml","engineering","llm","python"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

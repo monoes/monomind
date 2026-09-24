@@ -1,7 +1,7 @@
 ---
 name: scientific-writing
-description: "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency checks. Use for manuscript sections, references, declarations, tables, figures, or submission preparation when scientific accuracy and traceability matter."
-tags: ["writing","science","research"]
+description: "Use when drafting, revising or auditing scientific manuscripts or reports with evidence provenance, reporting guidelines and authorship accountability. Enforces no fabricated citations or results and confidentiality controls. For figures use scientific-visualization."
+tags: ["writing","science","research","documentation"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

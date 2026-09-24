@@ -1,7 +1,7 @@
 ---
 name: swiftui-patterns
-description: "SwiftUI architecture patterns, state management with @Observable, view composition, navigation, performance optimization, and modern iOS/macOS UI best practices. Use when building or reviewing SwiftUI views, @Observable state, navigation, or render performance."
-tags: ["mobile","frontend"]
+description: "Use when building or reviewing SwiftUI views: @Observable state, property wrappers, view composition, NavigationStack and render performance. A catalogue of SwiftUI idioms; for full Swift app work including concurrency see swift-expert."
+tags: ["mobile","frontend","swift","ui"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

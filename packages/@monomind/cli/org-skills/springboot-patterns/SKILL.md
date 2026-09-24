@@ -1,7 +1,7 @@
 ---
 name: springboot-patterns
-description: "Spring Boot architecture patterns, REST API design, layered services, data access, caching, async processing, and logging. Use for Java Spring Boot backend work. Use when building or reviewing a Spring Boot backend — REST layer, services, data access, caching, or async work."
-tags: ["backend"]
+description: "Use when building or reviewing a Java Spring Boot backend: REST controllers, layered services, Spring Data JPA, validation, caching and async work. A catalogue of idioms with code; for end-to-end enterprise Java builds and microservices see java-architect."
+tags: ["backend","java","spring","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

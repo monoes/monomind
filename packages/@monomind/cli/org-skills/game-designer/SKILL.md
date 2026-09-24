@@ -1,7 +1,7 @@
 ---
 name: game-designer
-description: "Game Designer role best practices. Designs the core gameplay loop, mechanics, and balancing that make a game engaging — the systemic \"why is this fun\" layer that everything else (levels, narrative, art) builds on."
-tags: ["design"]
+description: "Use when an org role acts as game designer and must define the core gameplay loop, mechanics, difficulty balancing and game feel, validated by playtesting."
+tags: ["design","game-dev","ux"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

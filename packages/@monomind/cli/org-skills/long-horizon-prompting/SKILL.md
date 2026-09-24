@@ -1,7 +1,7 @@
 ---
 name: long-horizon-prompting
-description: "This skill should be used when writing, enhancing, or evaluating the launch prompt for a long-running autonomous agent or a parallel multi-agent orchestration attacking a hard problem: pseudo-formal task briefs that define terms and an exact success predicate linguistically, enumerate non-counting outcomes, set persistence rules with explicit stop and return conditions and effort floors, manage..."
-tags: ["ai-ml","writing"]
+description: "Use when writing or reviewing the launch prompt for a long-running autonomous agent or parallel multi-agent run on a hard problem. Teaches pseudo-formal briefs with definitions, an exact success predicate, non-counting outcomes, effort floors and return gates."
+tags: ["ai-ml","writing","prompting","agents"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

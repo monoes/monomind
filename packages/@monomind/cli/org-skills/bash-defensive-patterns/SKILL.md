@@ -1,7 +1,7 @@
 ---
 name: bash-defensive-patterns
-description: "Master defensive Bash programming techniques for production-grade scripts. Use when writing robust shell scripts, CI/CD pipelines, or system utilities requiring fault tolerance and safety."
-tags: ["devops","engineering"]
+description: "Use when writing production Bash scripts, CI scripts or system utilities that must fail safely: strict mode, quoting, traps and input checks. Also covers mktemp cleanup, structured logging, dry-run and idempotency."
+tags: ["devops","engineering","bash"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

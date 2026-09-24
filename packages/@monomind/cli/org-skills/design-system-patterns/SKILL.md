@@ -1,7 +1,7 @@
 ---
 name: design-system-patterns
-description: "Build scalable design systems with design tokens, theming infrastructure, and component architecture patterns. Use when creating design tokens, implementing theme switching, building component libraries, or establishing design system foundations."
-tags: ["design","frontend"]
+description: "Use when architecting a design system: primitive, semantic and component tokens, CSS custom property theming, dark mode, multi-brand themes and component APIs. An architecture pattern catalogue; for generating or auditing a system from existing code use design-system."
+tags: ["design","frontend","design-system","ui"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: mobile-app-builder
-description: "Mobile App Builder role best practices. Ships high-performance, platform-appropriate mobile apps across native (iOS/Android) and cross-platform (React Native/Flutter) stacks — choosing the right approach per project and executing it to platform-native quality."
-tags: ["frontend","engineering"]
+description: "Org role guidance for a mobile app builder: pick native iOS/Android or cross-platform React Native/Flutter per project and ship to platform-native quality. Covers offline-first design, real-device testing and store submission; mobile-dev is the React Native-focused role."
+tags: ["frontend","engineering","mobile"]
 tools: ["monograph_query","monograph_context","monograph_impact","monodesign_detect","monodesign_fix","monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

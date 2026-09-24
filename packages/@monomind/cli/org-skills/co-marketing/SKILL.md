@@ -1,7 +1,7 @@
 ---
 name: co-marketing
-description: "When the user wants to find co-marketing partners, plan joint campaigns, or brainstorm partnership opportunities. Use when the user says 'co-marketing,' 'partner marketing,' 'joint campaign,' 'who should we partner with,' 'integration marketing,' 'cross-promotion,' 'collaborate with another company,' 'partnership ideas,' or 'co-brand.' For customer referral programs, see referral-programs."
-tags: ["marketing"]
+description: "Use when finding co-marketing partners, scoring partner fit, or planning joint campaigns, integration marketing and co-branded launches. For customer referral programs use referral-programs."
+tags: ["marketing","growth","strategy"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

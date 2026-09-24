@@ -1,7 +1,7 @@
 ---
 name: issue-tracker
-description: "Issue Tracker role best practices. Keep issues accurate, well-triaged, and actionable — the single source of truth for what work exists, its state, and who owns it."
-tags: ["engineering","devops"]
+description: "Org role guidance for an issue tracker: keep issues accurate, triaged, labeled and linked to PRs as the source of truth for work and ownership. Covers gh issue workflows, templates, milestones and duplicate search."
+tags: ["engineering","devops","planning","git"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: incident-commander
-description: "Incident Commander role best practices. Turn production chaos into structured, time-boxed resolution — classify severity, assign clear roles, drive communication cadence, and convert every incident into a systemic fix via blameless post-mortem."
-tags: ["devops"]
+description: "Use when an org role acts as incident commander and must drive a production incident: set severity, assign roles, run comms and lead a blameless post-mortem. Short role guidance; for the full playbook with scripts use incident-command-playbook, for writing runbooks use incident-runbook-templates."
+tags: ["devops","incident","reliability","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

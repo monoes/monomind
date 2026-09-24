@@ -1,7 +1,7 @@
 ---
 name: receiving-code-review
-description: "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation"
-tags: ["engineering"]
+description: "Use when you have received code review feedback and must decide how to act on it, especially if a suggestion seems unclear or wrong. Read, restate, verify against the codebase, then push back or implement one item at a time; no performative agreement. For reviewing others' code, use reviewer."
+tags: ["engineering","code-review","communication"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/obra/superpowers

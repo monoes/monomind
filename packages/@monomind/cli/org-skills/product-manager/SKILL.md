@@ -1,7 +1,7 @@
 ---
 name: product-manager
-description: "Product Manager role best practices. Owns the \"why\" and \"what\" of a product: turning strategy into a prioritized roadmap, aligning stakeholders, and ensuring what ships actually solves a validated problem."
-tags: ["product"]
+description: "Use when an org role acts as product manager and must turn strategy into a prioritized roadmap, align stakeholders and solve validated problems. Covers Now/Next/Later roadmaps, RICE and MoSCoW scoring, stakeholder mapping, saying no with trade-offs, and outcome-based requirements."
+tags: ["product","planning","strategy","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

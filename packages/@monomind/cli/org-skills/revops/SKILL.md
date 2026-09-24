@@ -1,7 +1,7 @@
 ---
 name: revops
-description: "When the user wants help with revenue operations, lead lifecycle management, or marketing-to-sales handoff processes."
-tags: ["sales","operations"]
+description: "Use when designing revenue operations: lead lifecycle stages, scoring and routing, marketing-to-sales handoff SLAs, CRM hygiene and funnel metrics. Covers PLG, sales-led and hybrid motions. For sales collateral use sales-enablement; for pricing use pricing-strategy."
+tags: ["sales","operations","analytics","strategy"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

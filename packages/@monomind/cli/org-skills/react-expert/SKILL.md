@@ -1,7 +1,7 @@
 ---
 name: react-expert
-description: "Use when building React 18+ applications in .jsx or .tsx files, Next.js App Router projects, or create-react-app setups. Creates components, implements custom hooks, debugs rendering issues, migrates class components to functional, and implements state management. Invoke for Server Components, Suspense boundaries, useActionState forms, performance optimization, or React 19 features."
-tags: ["engineering","frontend"]
+description: "Use when building React 19 features end to end in TypeScript: components, hooks, Server Components, Next App Router, state and forms with actions. Persona with reference files and a tsc and Testing Library validation loop. For idiom review use react-patterns."
+tags: ["engineering","frontend","react","typescript","nextjs"]
 tools: ["monograph_query","monograph_context","monodesign_detect"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

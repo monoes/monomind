@@ -1,7 +1,7 @@
 ---
 name: code-review-swarm
-description: "Code Review Swarm role best practices. Run multi-angle code review — security, performance, style, and architecture — as coordinated specialist passes rather than one generalist skim, and turn findings into actionable, prioritized feedback."
-tags: ["engineering","devops"]
+description: "Use when an org role runs a multi-pass code review split by concern (security, performance, style, architecture) and merges findings into one review. Diff-scoped with block, warn or suggest severities; for a single-reviewer workflow see code-reviewer."
+tags: ["engineering","devops","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

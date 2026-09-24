@@ -1,7 +1,7 @@
 ---
 name: article-writing
-description: "Write articles, guides, blog posts, tutorials, newsletter issues, and other long-form content in a distinctive voice derived from supplied examples or brand guidance. Use when the user wants polished written content longer than a paragraph, especially when voice consistency, structure, and credibility matter."
-tags: ["writing","marketing"]
+description: "Use when drafting long-form content (blog posts, guides, tutorials, essays, newsletters) in a distinctive voice from examples or brand guidance. Leads with proof, bans AI filler; for short social posts use content-engine."
+tags: ["writing","marketing","content"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

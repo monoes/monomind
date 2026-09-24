@@ -1,7 +1,7 @@
 ---
 name: event-marketing
-description: "When the user wants to plan, run, sponsor, speak at, or get pipeline from events — webinars, conferences, trade shows, meetups, dinners, workshops, virtual summits, or user conferences."
-tags: ["marketing","sales"]
+description: "Use when planning, hosting, sponsoring, speaking at or attending events for pipeline: webinars, conferences, trade shows, meetups, dinners and user conferences. Covers event selection, before-and-after arcs and follow-up."
+tags: ["marketing","sales","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

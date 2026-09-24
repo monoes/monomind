@@ -1,7 +1,7 @@
 ---
 name: laravel-patterns
-description: "Laravel architecture patterns, routing/controllers, Eloquent ORM, service layers, queues, events, caching, and API resources for production apps. Use when building or reviewing Laravel apps — controllers, Eloquent, service layers, queues, or API resources."
-tags: ["backend"]
+description: "Use when building or reviewing PHP Laravel apps: layout, routing and controllers, Eloquent models, service and action layers, queues, caching and API resources. Production architecture patterns for PHP Laravel web apps and APIs."
+tags: ["backend","architecture","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

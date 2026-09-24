@@ -1,7 +1,7 @@
 ---
 name: python-testing
-description: "Python testing strategies using pytest, TDD methodology, fixtures, mocking, parametrization, and coverage requirements. Use when writing pytest tests — fixtures, mocks, parametrization, or coverage."
-tags: ["testing"]
+description: "Use when writing or reviewing Python tests with pytest: TDD red-green-refactor, fixtures, mocking, parametrization and coverage targets. Covers test-suite design and testing infrastructure setup. For React component tests use react-testing."
+tags: ["testing","python","coding-standards"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

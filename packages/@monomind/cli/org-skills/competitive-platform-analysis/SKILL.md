@@ -1,7 +1,7 @@
 ---
 name: competitive-platform-analysis
-description: "Use when scoping a competitive landscape — identifying, categorising, and score-filtering a competitor set before any benchmarking begins. Decides who counts as a competitor, which tier they belong to, and which sources to mine. First step in the three-skill competitive pipeline; precedes benchmark-methodology."
-tags: ["research","marketing"]
+description: "Use when scoping who counts as a competitor: tiering Direct, Adjacent and Aspirational rivals from a positioning brief and choosing sources. First step of the competitive pipeline, before benchmark-methodology."
+tags: ["research","marketing","competitive-analysis"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

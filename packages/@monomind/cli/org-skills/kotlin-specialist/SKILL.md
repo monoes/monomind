@@ -1,7 +1,7 @@
 ---
 name: kotlin-specialist
-description: "Provides idiomatic Kotlin implementation patterns including coroutine concurrency, Flow stream handling, multiplatform architecture, Compose UI construction, Ktor server setup, and type-safe DSL design. Use when building Kotlin applications requiring coroutines, multiplatform development, or Android with Compose."
-tags: ["engineering","mobile","backend"]
+description: "Use when building Kotlin apps end to end: coroutines and Flow, Kotlin Multiplatform, Jetpack Compose on Android, Ktor servers and type-safe DSLs. A persona with reference files and a detekt/ktlint workflow; for idiom review only, use kotlin-patterns."
+tags: ["engineering","mobile","backend","kotlin"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

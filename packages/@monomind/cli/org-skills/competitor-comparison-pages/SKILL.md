@@ -1,7 +1,7 @@
 ---
 name: competitor-comparison-pages
-description: "When the user wants to create competitor comparison or alternative pages for SEO and sales enablement. Also use when the user mentions 'alternative page,' 'vs page,' 'competitor comparison,' 'comparison page,' '[Product] vs [Product],' '[Product] alternative,' 'competitive landing pages,' 'how do we compare to X,' 'battle card,' or 'competitor teardown.'"
-tags: ["marketing","writing","sales"]
+description: "Use when creating competitor comparison or alternative pages ('X vs Y', 'X alternatives') for SEO and sales enablement, including battle cards. Honest, depth-first page content; for researching the competitors use competitive-teardown."
+tags: ["marketing","writing","sales","seo","competitive-analysis"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

@@ -1,7 +1,7 @@
 ---
 name: project-shepherd
-description: "Project Shepherd role best practices. Guides a creative/production project day-to-day through its lifecycle — less about big scheduling decisions, more about unblocking people, keeping momentum, and making sure nothing silently stalls."
-tags: ["leadership","operations"]
+description: "Use when an org role acts as project shepherd and must keep a creative or production project moving day to day by unblocking people and catching stalled work. Covers daily stall checks, blocker triage, explicit handoffs, lightweight same-day status and escalating at the right time."
+tags: ["leadership","operations","coordination","planning"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

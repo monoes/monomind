@@ -1,7 +1,7 @@
 ---
 name: contract-first
-description: "Use when multiple consumers and providers must evolve an API or event schema without field drift, integration surprises, or one side silently redefining the interface."
-tags: ["engineering","backend"]
+description: "Use when several consumers and providers must evolve an API or event schema through one canonical OpenAPI, AsyncAPI, Protobuf or JSON Schema contract. Prevents field drift and silent interface redefinition across parallel frontend, backend or service teams; for what a good API looks like, use api-design."
+tags: ["engineering","backend","api","architecture"]
 tools: ["monograph_query","monograph_impact"]
 license: MIT
 source: https://github.com/affaan-m/ECC

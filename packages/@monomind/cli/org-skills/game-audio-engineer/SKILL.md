@@ -1,7 +1,7 @@
 ---
 name: game-audio-engineer
-description: "Game Audio Engineer role best practices. Implements adaptive sound and music systems in-engine — building mixer architecture, middleware projects (Wwise/FMOD), and gameplay-driven audio parameters — not just producing sound assets."
-tags: ["design"]
+description: "Use when an org role acts as game audio engineer and must implement adaptive sound and music in-engine with Wwise or FMOD, mixer buses and gameplay parameters."
+tags: ["design","game-dev","performance"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

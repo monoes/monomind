@@ -1,7 +1,7 @@
 ---
 name: ciso-advisor
-description: "Security leadership for growth-stage companies. Risk quantification in dollars, compliance roadmap (SOC 2/ISO 27001/HIPAA/GDPR), security architecture strategy, incident response leadership, and board-level security reporting."
-tags: ["leadership","security"]
+description: "Use when a security leader needs risk quantified in dollars, a SOC 2, ISO 27001, HIPAA or GDPR roadmap, or board-level security reporting. Also zero-trust strategy and IR leadership; strategic, not hands-on audits, for controls and evidence work see compliance-auditor."
+tags: ["leadership","security","compliance","strategy"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

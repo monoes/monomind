@@ -1,7 +1,7 @@
 ---
 name: offer-design
-description: "When the user wants to design, construct, or improve an offer — the thing they actually sell — including value framing, bonus stacking, guarantee design, scarcity/urgency, naming, and payment structure."
-tags: ["marketing","sales"]
+description: "Use when designing or improving the offer itself: value equation, bonus stacking, guarantees, scarcity and urgency, naming and payment structure. Best for services, courses, coaching and high-ticket B2B; for SaaS tier pricing see pricing-strategy."
+tags: ["marketing","sales","pricing","cro"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

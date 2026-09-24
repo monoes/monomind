@@ -1,7 +1,7 @@
 ---
 name: kubernetes-specialist
-description: "Use when deploying or managing Kubernetes workloads. Invoke to create deployment manifests, configure pod security policies, set up service accounts, define network isolation rules, debug pod crashes, analyze resource limits, inspect container logs, or right-size workloads."
-tags: ["devops"]
+description: "Use when deploying or operating Kubernetes workloads end to end: StatefulSets, NetworkPolicies, storage, Helm charts, operators, service mesh and GitOps. A persona with deep reference files; for quick manifest patterns see kubernetes-patterns."
+tags: ["devops","kubernetes","deploy","cloud"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

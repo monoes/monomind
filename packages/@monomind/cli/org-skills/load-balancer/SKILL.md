@@ -1,7 +1,7 @@
 ---
 name: load-balancer
-description: "Load Balancer role best practices. Distributes tasks dynamically across available agents/workers so no one is overloaded while others sit idle — using real-time capacity signals rather than static assignment."
-tags: ["engineering"]
+description: "Use when an org role acts as load balancer and must spread tasks across agents or workers using live load signals, work-stealing, priority lanes and breakers. Covers fairness metrics and starvation prevention."
+tags: ["engineering","coordination","agents","performance"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

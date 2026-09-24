@@ -1,7 +1,7 @@
 ---
 name: scientific-critical-thinking
-description: "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias), or teaching critical analysis. Best for understanding evidence quality, identifying flaws."
-tags: ["research","science"]
+description: "Use when judging the rigor of scientific claims or studies: design validity, bias and confounding, statistics, and GRADE or Cochrane risk of bias. For rubric-scored feedback on a paper or proposal, use scientific-thinking-scholar-evaluation."
+tags: ["research","science","evaluation","statistics"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

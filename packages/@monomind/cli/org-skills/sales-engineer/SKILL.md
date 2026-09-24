@@ -1,7 +1,7 @@
 ---
 name: sales-engineer
-description: "Sales Engineer role best practices. Bridges product capability and customer need during the technical sales cycle — running discovery, demos, and POCs that prove a solution actually solves the buyer's problem, not just that it has features."
-tags: ["sales"]
+description: "Use when an org role acts as sales engineer and must run technical discovery, tailored demos and scoped POCs that prove the product fits the buyer. Covers discovery-to-demo mapping, POC scorecards, objection libraries and reference architectures. For making collateral, use sales-enablement."
+tags: ["sales","engineering","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

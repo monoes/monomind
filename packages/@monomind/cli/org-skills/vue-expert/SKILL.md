@@ -1,7 +1,7 @@
 ---
 name: vue-expert
-description: "Builds Vue 3 components with Composition API patterns, configures Nuxt 3 SSR/SSG projects, sets up Pinia stores, scaffolds Quasar/Capacitor mobile apps, implements PWA features, and optimises Vite builds."
-tags: ["engineering","frontend"]
+description: "Use when building Vue 3 apps end to end: Composition API components, Nuxt 3 SSR/SSG, Pinia stores, Quasar/Capacitor mobile, PWA and Vite build tuning. Persona with reference files and vue-tsc and Vitest validation. For a catalogue of Vue idioms see vue-patterns."
+tags: ["engineering","frontend","vue"]
 tools: ["monograph_query","monograph_context","monodesign_detect"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

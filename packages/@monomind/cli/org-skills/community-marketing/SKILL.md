@@ -1,7 +1,7 @@
 ---
 name: community-marketing
-description: "Build and leverage online communities to drive product growth and brand loyalty. Use when the user wants to create a community strategy, grow a Discord or Slack community, manage a forum or subreddit, build brand advocates, increase word-of-mouth, drive community-led growth, engage users post-signup, or turn customers into evangelists."
-tags: ["marketing","support"]
+description: "Use when building or growing a product community on Discord, Slack, Circle, Reddit or forums to drive community-led growth, advocacy and word of mouth. Covers identity, member value and the community flywheel."
+tags: ["marketing","support","growth","social"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

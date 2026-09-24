@@ -1,7 +1,7 @@
 ---
 name: ai-citation
-description: "AI Citation role best practices. Structures content so it gets extracted and cited by generative AI answer engines (ChatGPT, Perplexity, Gemini, AI Overviews) — generative engine optimization (GEO), layered on top of a strong SEO foundation."
-tags: ["writing","marketing"]
+description: "Use when an org role acts as a GEO writer and must structure content to get cited by ChatGPT, Perplexity, Gemini and Google AI Overviews. Covers answer blocks, original data, E-E-A-T and FAQPage schema layered on SEO; for a full AI search audit use ai-seo."
+tags: ["writing","marketing","seo","content"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

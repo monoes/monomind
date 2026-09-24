@@ -1,7 +1,7 @@
 ---
 name: stripe-integration
-description: "Implement Stripe payment processing for robust, PCI-compliant payment flows including checkout, subscriptions, and webhooks. Use when integrating Stripe payments, building subscription systems, or implementing secure checkout flows."
-tags: ["backend","finance"]
+description: "Use when integrating Stripe payments: Checkout Sessions, Payment Intents, subscriptions, webhooks, refunds and saved payment methods. Also covers SCA, Stripe Connect marketplace flows and PCI-compliant client handling. For PCI DSS requirements generally see pci-compliance."
+tags: ["backend","finance","stripe","api"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: golang-patterns
-description: "Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications. Use when writing or reviewing Go code and idiomatic structure or conventions are in question."
-tags: ["engineering","backend"]
+description: "Use when writing, reviewing or refactoring Go code for idiomatic structure: error wrapping, small interfaces, goroutine coordination and package design."
+tags: ["engineering","backend","go","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

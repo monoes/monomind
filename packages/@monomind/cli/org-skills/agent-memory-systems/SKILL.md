@@ -1,7 +1,7 @@
 ---
 name: agent-memory-systems
-description: "This skill should be used for persistent semantic memory in agent systems: cross-session knowledge retention, entity tracking, temporal validity, graph or vector retrieval, memory consolidation, and memory benchmark selection. Route file-backed scratchpads to filesystem-context, handoff summaries to context-compression, and token-efficiency tactics to context-optimization."
-tags: ["ai-ml","engineering"]
+description: "Use when designing persistent cross-session memory for agents: entity tracking, temporal validity, graph or vector retrieval and framework choice. Compares Mem0, Zep, Letta, Cognee and LangMem with LoCoMo and LongMemEval benchmarks; for multi-agent shared state as an org role see memory-coordinator."
+tags: ["ai-ml","engineering","agents","llm","architecture"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

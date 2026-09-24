@@ -1,7 +1,7 @@
 ---
 name: threat-mitigation-mapping
-description: "Map identified threats to appropriate security controls and mitigations. Use when prioritizing security investments, creating remediation plans, or validating control effectiveness."
-tags: ["security"]
+description: "Use when mapping identified threats to security controls: prioritizing security spend, remediation roadmaps or validating control coverage. Covers preventive, detective and corrective controls across network, app, data, endpoint and process layers. For writing detections see threat-detection."
+tags: ["security","architecture","planning"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

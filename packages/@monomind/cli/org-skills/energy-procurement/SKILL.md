@@ -1,7 +1,7 @@
 ---
 name: energy-procurement
-description: "Codified expertise for electricity and gas procurement, tariff optimization, demand charge management, renewable PPA evaluation, and multi-facility energy cost management. Informed by energy procurement managers with 15+ years experience at large commercial and industrial consumers. Includes market structure analysis, hedging strategies, load profiling, and sustainability reporting frameworks."
-tags: ["operations","finance"]
+description: "Use when buying electricity or gas for multiple facilities: supply RFPs, tariff and demand charge optimization, renewable PPA evaluation and hedging."
+tags: ["operations","finance","supply-chain"]
 tools: []
 license: Apache-2.0
 source: https://github.com/affaan-m/ECC

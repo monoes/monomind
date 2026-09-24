@@ -1,7 +1,7 @@
 ---
 name: cmo-advisor
-description: "Marketing leadership for scaling companies. Brand positioning, growth model design, marketing budget allocation, and marketing org design. Use when designing brand strategy, selecting growth models (PLG vs sales-led vs community-led), allocating marketing budgets, building marketing teams, or when user mentions CMO, brand strategy, growth model, CAC, LTV, channel mix, or marketing ROI."
-tags: ["leadership","marketing"]
+description: "Use when a marketing leader needs brand positioning, a growth model choice (PLG, sales-led, community-led), channel budget allocation or marketing org design. Strategy, not campaign execution or content creation."
+tags: ["leadership","marketing","strategy","growth"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

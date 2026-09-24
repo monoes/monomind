@@ -1,7 +1,7 @@
 ---
 name: react-testing
-description: "React component testing with React Testing Library, Vitest/Jest, MSW for network mocking, accessibility assertions with axe, and the decision boundary between component tests and Playwright/Cypress end-to-end runs. Use when writing or fixing tests for React components, hooks, or pages."
-tags: ["frontend","testing"]
+description: "Use when writing or fixing tests for React components and hooks with React Testing Library, Vitest or Jest, MSW network mocks and axe accessibility checks. Also decides what belongs in component tests vs Playwright or Cypress E2E. For browser E2E suites use playwright-expert."
+tags: ["frontend","testing","react","accessibility"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
-description: "Frontend Developer role best practices. Builds responsive, accessible, and performant web UIs with modern frameworks (React/Vue/Angular/Svelte) — turning designs into production-quality, maintainable interfaces."
-tags: ["frontend","engineering"]
+description: "Org role guidance for a frontend developer: build responsive, accessible web UIs in React, Vue, Angular or Svelte that meet Core Web Vitals. For React and Next.js code patterns use frontend-patterns."
+tags: ["frontend","engineering","accessibility","performance"]
 tools: ["monograph_query","monograph_context","monograph_impact","monodesign_detect","monodesign_fix","monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

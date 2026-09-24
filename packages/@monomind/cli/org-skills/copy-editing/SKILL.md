@@ -1,7 +1,7 @@
 ---
 name: copy-editing
-description: "When the user wants to edit, review, or improve existing marketing copy, or refresh outdated content."
-tags: ["marketing","writing"]
+description: "Use when editing or reviewing existing marketing copy through seven focused sweeps: clarity, voice, so-what, proof, specificity, emotion and zero risk. Preserves the core message and author voice; for writing new page copy use copywriting."
+tags: ["marketing","writing","copywriting","content"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

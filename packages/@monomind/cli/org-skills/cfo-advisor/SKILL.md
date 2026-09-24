@@ -1,7 +1,7 @@
 ---
 name: cfo-advisor
-description: "Financial leadership for startups and scaling companies. Financial modeling, unit economics, fundraising strategy, cash management, and board financial packages. Use when building financial models, analyzing unit economics, planning fundraising, managing cash runway, preparing board materials, or when user mentions CFO, burn rate, runway, fundraising, unit economics, LTV, CAC, term sheets, or..."
-tags: ["leadership","finance"]
+description: "Use when a startup finance leader needs burn and runway scenarios, cohort unit economics, fundraising and dilution modeling, or board financial packages. Strategic CFO frameworks with scripts for LTV, CAC and payback; for detailed 3-5 year projections use startup-financial-modeling."
+tags: ["leadership","finance","fundraising","strategy"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

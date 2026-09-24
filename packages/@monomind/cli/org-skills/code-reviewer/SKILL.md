@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
-description: "Analyzes code diffs and files to identify bugs, security vulnerabilities (SQL injection, XSS, insecure deserialization), code smells, N+1 queries, naming issues, and architectural concerns, then produces a structured review report with prioritized, actionable feedback."
-tags: ["engineering","testing"]
+description: "Org role guidance for a code reviewer: review PRs for bugs, security holes, N+1 queries and design issues, then write a structured, prioritized report. Workflow with checklist, feedback and spec-compliance references."
+tags: ["engineering","testing","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

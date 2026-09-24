@@ -1,7 +1,7 @@
 ---
 name: debugging-wizard
-description: "Parses error messages, traces execution flow through stack traces, correlates log entries to identify failure points, and applies systematic hypothesis-driven methodology to isolate and resolve bugs. Use when investigating errors, analyzing stack traces, finding root causes of unexpected behavior, troubleshooting crashes, or performing log analysis, error investigation, or root cause analysis."
-tags: ["engineering"]
+description: "Use when isolating a bug from error messages, stack traces and logs with a reproduce, isolate, hypothesize, fix and prevent loop in any language. Includes per-language debugger setup, common bug patterns and git bisect strategies; for repairing a whole broken feature use focused-fix."
+tags: ["engineering","debug","testing"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

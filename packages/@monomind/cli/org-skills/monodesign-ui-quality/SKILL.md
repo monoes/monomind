@@ -1,7 +1,7 @@
 ---
 name: monodesign-ui-quality
-description: "Check and fix frontend UI quality with monomind's monodesign engine: detect design anti-patterns in HTML/CSS (overused fonts, tiny text, gradient text, glow, layout issues), apply deterministic fixes, and pick a coherent OKLCH brand palette. Use when building, restyling, or reviewing any web UI."
-tags: ["design","frontend"]
+description: "Use when building, restyling or reviewing web UI with monomind's monodesign tools: detect HTML/CSS anti-patterns, apply fixes and pick an OKLCH palette. Tool workflow for detect, fix dry-run and palette; not general design critique."
+tags: ["design","frontend","monomind","ui"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

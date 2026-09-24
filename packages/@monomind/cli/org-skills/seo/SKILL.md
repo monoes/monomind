@@ -1,7 +1,7 @@
 ---
 name: seo
-description: "Audit, plan, and implement SEO improvements across technical SEO, on-page optimization, structured data, Core Web Vitals, and content strategy. Use when the user wants better search visibility, SEO remediation, schema markup, sitemap/robots work, or keyword mapping."
-tags: ["marketing","frontend"]
+description: "Use when implementing SEO fixes in a site's code: crawlability, canonicals, redirects, meta tags, structured data, Core Web Vitals and internal links. Engineering-oriented checklist with page-specific, implementable recommendations. For a diagnostic audit report use seo-audit; for pages at scale use programmatic-seo."
+tags: ["marketing","frontend","seo","performance"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

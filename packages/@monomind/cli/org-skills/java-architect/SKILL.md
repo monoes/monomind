@@ -1,7 +1,7 @@
 ---
 name: java-architect
-description: "Use when building, configuring, or debugging enterprise Java applications with Spring Boot 3.x, microservices, or reactive programming. Invoke to implement WebFlux endpoints, optimize JPA queries and database performance, configure Spring Security with OAuth2/JWT, or resolve authentication issues and async processing challenges in cloud-native Spring applications."
-tags: ["engineering","backend"]
+description: "Use when building or debugging enterprise Java 21 apps on Spring Boot 3: microservices, WebFlux endpoints, JPA query tuning and Spring Security OAuth2/JWT. A persona with reference files on setup, reactive, JPA, security and testing; for style rules see java-coding-standards."
+tags: ["engineering","backend","java","spring"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

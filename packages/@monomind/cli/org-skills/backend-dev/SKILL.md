@@ -1,7 +1,7 @@
 ---
 name: backend-dev
-description: "Backend Dev role best practices. Builds and maintains server-side services, APIs, and database logic that are correct, secure, and performant under real load."
-tags: ["engineering"]
+description: "Use when an org role acts as backend developer and must build server-side services, APIs and database logic that are correct, secure and performant under load. Covers boundary validation, parameterized queries, idempotent writes and N+1 avoidance; for Node code patterns use backend-patterns."
+tags: ["engineering","backend","api","database"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: rust-patterns
-description: "Idiomatic Rust patterns, ownership, error handling, traits, concurrency, and best practices for building safe, performant applications. Use when writing or reviewing Rust code and ownership, error handling, traits, or concurrency is in question."
-tags: ["engineering"]
+description: "Use when writing or reviewing Rust code and idiom is in question: ownership and borrowing, Result and ? error propagation, traits, concurrency and crate layout. A patterns catalogue with good vs bad examples; for an end-to-end build persona, use rust-engineer."
+tags: ["engineering","rust","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

@@ -1,7 +1,7 @@
 ---
 name: frontend-patterns
-description: "Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices. Use when building or reviewing React or Next.js components, state, or render performance."
-tags: ["frontend"]
+description: "Use when building or reviewing React and Next.js components: composition, state with Zustand or Context, SWR or React Query fetching, Zod forms and memoization. A broad pattern catalogue; for deeper React-only guidance see react-patterns or react-expert."
+tags: ["frontend","react","nextjs","typescript","performance"]
 tools: ["monograph_query","monograph_context","monodesign_detect"]
 license: MIT
 source: https://github.com/affaan-m/ECC

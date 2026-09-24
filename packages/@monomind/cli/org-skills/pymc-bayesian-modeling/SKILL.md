@@ -1,7 +1,7 @@
 ---
 name: pymc-bayesian-modeling
-description: "Bayesian modeling with PyMC. Build hierarchical models, MCMC (NUTS), variational inference, LOO/WAIC comparison, posterior checks, for probabilistic programming and inference."
-tags: ["data","science","ai-ml"]
+description: "Use when building Bayesian models in Python with PyMC: hierarchical models, NUTS MCMC, variational inference, predictive checks and LOO/WAIC comparison. Follows an eight-step workflow and covers divergences, missing data and uncertainty quantification."
+tags: ["data","science","ai-ml","python","statistics"]
 tools: []
 license: Apache-2.0
 source: https://github.com/K-Dense-AI/scientific-agent-skills

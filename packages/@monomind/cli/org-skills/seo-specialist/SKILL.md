@@ -1,7 +1,7 @@
 ---
 name: seo-specialist
-description: "SEO Specialist role best practices. Improves organic visibility through technical SEO, content optimization, and authority building — increasingly across both traditional search and AI-driven answer engines."
-tags: ["writing","marketing"]
+description: "Use when an org role acts as SEO specialist and must grow organic visibility across search and AI answer engines through technical SEO, content and authority. Covers technical foundations, search intent, topical authority via internal linking, schema markup, Core Web Vitals and entity-first optimization."
+tags: ["writing","marketing","seo","content"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

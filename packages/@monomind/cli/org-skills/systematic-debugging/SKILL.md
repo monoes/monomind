@@ -1,7 +1,7 @@
 ---
 name: systematic-debugging
-description: "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes"
-tags: ["engineering","testing"]
+description: "Use when hitting any bug, test failure, build failure or unexpected behavior, before proposing a fix: a four-phase root-cause-first process. Iron law of no fixes without root cause investigation, then pattern analysis, hypothesis testing and implementation. Process discipline, not a stack-trace parsing toolkit (see debugging-wizard)."
+tags: ["engineering","testing","debug"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/obra/superpowers

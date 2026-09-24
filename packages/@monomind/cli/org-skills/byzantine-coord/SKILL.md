@@ -1,7 +1,7 @@
 ---
 name: byzantine-coord
-description: "Byzantine Coordinator role best practices. Coordinates agreement among agents when some participants may be faulty, malicious, or reporting contradictory information — not just slow or offline."
-tags: ["operations"]
+description: "Use when an org role acts as Byzantine coordinator and must reach agreement among agents that may be faulty, malicious or contradictory. Uses n of at least 3f+1, 2/3+ quorums, multi-phase commit and signed audit logs; for choosing among mechanisms see consensus-coordinator."
+tags: ["operations","coordination","agents","reliability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

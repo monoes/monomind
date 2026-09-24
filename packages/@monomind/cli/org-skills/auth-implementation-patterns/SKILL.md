@@ -1,7 +1,7 @@
 ---
 name: auth-implementation-patterns
-description: "Master authentication and authorization patterns including JWT, OAuth2, session management, and RBAC to build secure, scalable access control systems. Use when implementing auth systems, securing APIs, or debugging security issues."
-tags: ["security","backend"]
+description: "Use when implementing authentication and authorization: sessions, JWT, OAuth2 and OpenID Connect, RBAC, SSO, multi-tenancy, or debugging auth issues. Covers AuthN vs AuthZ, token strategies and securing REST or GraphQL APIs."
+tags: ["security","backend","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/wshobson/agents

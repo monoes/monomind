@@ -1,7 +1,7 @@
 ---
 name: launch-strategist
-description: "Launch Strategist role best practices. Plans and sequences product launches and feature announcements — from internal validation through full public release — to build momentum and convert attention into users."
-tags: ["product"]
+description: "Org role guidance for a launch strategist: sequence product launches from internal validation to full public release across owned, rented and borrowed channels. For the full imported launch playbook, use launch-strategy."
+tags: ["product","launch","marketing"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

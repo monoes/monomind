@@ -1,7 +1,7 @@
 ---
 name: test-master
-description: "Generates test files, creates mocking strategies, analyzes code coverage, designs test architectures, and produces test plans and defect reports across functional, performance, and security testing disciplines. Use when writing unit tests, integration tests, or E2E tests; creating test strategies or automation frameworks; analyzing coverage gaps; performance testing with k6 or Artillery;"
-tags: ["testing","engineering"]
+description: "Use when writing unit, integration or E2E tests, designing a test strategy or framework, finding coverage gaps or load testing with k6 or Artillery. Covers Jest, Vitest, pytest, mocking, flaky tests and security testing with defect reports. For strict test-first workflow see test-driven-development."
+tags: ["testing","engineering","performance"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

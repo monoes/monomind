@@ -1,7 +1,7 @@
 ---
 name: agent-tool-design
-description: "This skill should be used for the tool-interface layer of an agent system specifically: writing tool descriptions agents can route on, designing tool schemas and response formats, naming conventions, actionable error recovery messages, MCP server design, tool-set consolidation, and deciding when to add or remove an individual tool."
-tags: ["ai-ml","engineering"]
+description: "Use when designing the tools an agent calls: routable tool descriptions, schemas, response formats, naming, actionable errors and catalog consolidation. Includes MCP namespacing; unit of work is one tool or catalog, for building MCP servers see mcp-builder."
+tags: ["ai-ml","engineering","agents","mcp","api"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

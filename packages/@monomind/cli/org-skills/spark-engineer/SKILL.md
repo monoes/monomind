@@ -1,7 +1,7 @@
 ---
 name: spark-engineer
-description: "Use when writing Spark jobs, debugging performance issues, or configuring cluster settings for Apache Spark applications, distributed data processing pipelines, or big data workloads. Invoke to write DataFrame transformations, optimize Spark SQL queries, implement RDD pipelines, tune shuffle operations, configure executor memory, process .parquet files, handle data partitioning, or build..."
-tags: ["data","engineering"]
+description: "Use when writing or tuning Apache Spark jobs: PySpark DataFrame and Spark SQL transformations, RDD pipelines, partitioning, shuffle and executor memory tuning. Also covers skew handling, caching and broadcast joins, Parquet I/O and Structured Streaming for big data ETL."
+tags: ["data","engineering","python","performance"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

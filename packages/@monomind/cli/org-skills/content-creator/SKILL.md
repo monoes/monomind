@@ -1,7 +1,7 @@
 ---
 name: content-creator
-description: "Content Creator role best practices. Produces and repurposes content across formats and platforms — turning one core idea into platform-native assets that build audience and drive measurable outcomes, not just volume."
-tags: ["writing","marketing"]
+description: "Use when an org role acts as content creator and must turn one core idea into platform-native assets across formats and platforms. Covers hooks, consistent voice and per-asset KPIs; for drafting specific posts and threads use content-engine."
+tags: ["writing","marketing","content","social"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

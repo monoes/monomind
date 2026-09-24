@@ -1,7 +1,7 @@
 ---
 name: onboarding-cro
-description: "When the user wants to optimize post-signup onboarding, user activation, first-run experience, or time-to-value."
-tags: ["product","marketing","design"]
+description: "Use when optimizing post-signup onboarding, activation, first-run experience or time-to-value. Covers aha-moment definition, onboarding psychology and checklist components; for signup forms themselves see signup-flow-cro."
+tags: ["product","marketing","design","cro","ux"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

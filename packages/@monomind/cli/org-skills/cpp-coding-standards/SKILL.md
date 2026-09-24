@@ -1,7 +1,7 @@
 ---
 name: cpp-coding-standards
-description: "C++ coding standards based on the C++ Core Guidelines (isocpp.github.io). Use when writing, reviewing, or refactoring C++ code to enforce modern, safe, and idiomatic practices."
-tags: ["engineering"]
+description: "Use when writing, reviewing or refactoring modern C++17/20/23 code against the C++ Core Guidelines: RAII, immutability, type safety and interface rules. A rule catalogue; for building high-performance C++ with templates, concurrency and SIMD use cpp-pro."
+tags: ["engineering","cpp","coding-standards","code-review"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

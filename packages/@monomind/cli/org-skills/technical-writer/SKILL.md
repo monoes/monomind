@@ -1,7 +1,7 @@
 ---
 name: technical-writer
-description: "Technical Writer role best practices. Transforms complex engineering concepts into clear, accurate developer documentation — READMEs, API references, tutorials, and conceptual guides that developers actually read and use."
-tags: ["writing","marketing"]
+description: "Org role guidance for a technical writer: turn engineering concepts into clear developer docs such as READMEs, API references, tutorials and conceptual guides. Covers tested code samples, the Divio doc types, outcome-first framing and consistent voice."
+tags: ["writing","marketing","documentation"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: technical-artist
-description: "Technical Artist role best practices. Bridges art and engineering — building shaders, tools, and pipeline standards that let artists work efficiently while keeping assets performant and engine-ready."
-tags: ["design"]
+description: "Use when an org role acts as technical artist and must bridge art and engineering in a game pipeline: shaders, tools and engine-ready asset standards. Covers shader cost, naming and LOD standards, texture budgets and draw-call reduction."
+tags: ["design","game-dev","performance"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

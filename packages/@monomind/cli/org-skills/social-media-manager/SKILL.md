@@ -1,7 +1,7 @@
 ---
 name: social-media-manager
-description: "When the user wants to develop social media strategy, plan content calendars, manage community engagement, or grow their social presence across platforms. Also use when the user mentions 'social media strategy,' 'social calendar,' 'community management,' 'social media plan,' 'grow followers,' 'engagement rate,' 'social media audit,' or 'which platforms should I use.' For writing individual..."
-tags: ["marketing"]
+description: "Use when developing social media strategy: picking platforms, planning content calendars, auditing a weak presence or scaling community management. Three modes: build from scratch, audit and optimize, scale and systematize. For writing individual posts use social-content."
+tags: ["marketing","social","strategy","growth"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: theme-factory
-description: "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly."
-tags: ["design"]
+description: "Use when applying a consistent color and font theme to slides, docs, reports or HTML pages, picking from 10 preset themes or generating a new one. Each theme has a hex palette and header/body font pairing, shown in a showcase PDF for selection."
+tags: ["design","ui","design-system"]
 tools: ["monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/anthropics/skills

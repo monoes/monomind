@@ -1,7 +1,7 @@
 ---
 name: legacy-modernizer
-description: "Designs incremental migration strategies, identifies service boundaries, produces dependency maps and migration roadmaps, and generates API facade designs for aging codebases. Use when modernizing legacy systems, implementing strangler fig pattern or branch by abstraction, decomposing monoliths, upgrading frameworks or languages, or reducing technical debt without disrupting business operations."
-tags: ["engineering"]
+description: "Use when modernizing a legacy system incrementally: dependency maps, strangler fig facades, branch by abstraction, characterization tests and phased cutover. Also covers monolith decomposition and framework upgrades with rollback plans per phase."
+tags: ["engineering","migrate","refactor","architecture"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: monograph-code-navigation
-description: "Navigate and change a codebase through monomind's Monograph code knowledge graph: find symbols, see callers and callees, and measure blast radius before editing. Use for any coding, refactoring, debugging, or code review work."
-tags: ["engineering","testing"]
+description: "Use when coding, refactoring, debugging or reviewing in a monomind project and you need symbols, callers or blast radius from the Monograph code graph. Explains which monograph tool answers which question and when to fall back to grep."
+tags: ["engineering","testing","monomind","refactor","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_neighbors","monograph_suggest"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: board-deck-builder
-description: "Assembles comprehensive board and investor update decks by pulling perspectives from all C-suite roles. Use when preparing board meetings, investor updates, quarterly business reviews, or fundraising narratives. Covers structure, narrative framework, bad news delivery, and common mistakes."
-tags: ["leadership","finance","writing"]
+description: "Use when assembling a board or investor update deck: executive summary, metrics table, financials, per-function sections, bad-news delivery and asks. Pulls C-suite perspectives into one narrative and never invents numbers."
+tags: ["leadership","finance","writing","fundraising","communication"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

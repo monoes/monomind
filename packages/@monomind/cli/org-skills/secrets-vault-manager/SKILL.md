@@ -1,7 +1,7 @@
 ---
 name: secrets-vault-manager
-description: "Use when the user asks to set up secret management infrastructure, integrate HashiCorp Vault, configure cloud secret stores (AWS Secrets Manager, Azure Key Vault, GCP Secret Manager), implement secret rotation, or audit secret access patterns."
-tags: ["security","devops"]
+description: "Use when setting up secret management infrastructure: HashiCorp Vault, AWS Secrets Manager, Azure Key Vault or GCP Secret Manager, rotation and access audits. Covers Vault auth methods and policies, dynamic secrets, Kubernetes and CI/CD secret injection and leak revocation. Not for local env-file hygiene."
+tags: ["security","devops","cloud","kubernetes"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

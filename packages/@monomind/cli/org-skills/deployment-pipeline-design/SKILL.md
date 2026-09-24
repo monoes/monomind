@@ -1,7 +1,7 @@
 ---
 name: deployment-pipeline-design
-description: "Design multi-stage CI/CD pipelines with approval gates, security checks, and deployment orchestration. Use this skill when designing zero-downtime deployment pipelines, implementing canary rollout strategies, setting up multi-environment promotion workflows, or debugging failed deployment gates in CI/CD."
-tags: ["devops"]
+description: "Use when architecting a multi-stage CI/CD pipeline with approval gates, SAST and DAST scans, environment promotion, canary rollout and automated rollback. Design-level; for concrete Dockerfile and health check patterns use deployment-patterns."
+tags: ["devops","deploy","architecture"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

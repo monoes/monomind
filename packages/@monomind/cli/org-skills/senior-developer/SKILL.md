@@ -1,7 +1,7 @@
 ---
 name: senior-developer
-description: "Senior Developer role best practices. Owns full-stack feature delivery end-to-end — architecture-aware implementation, polished UI/UX, and production-grade performance, not just \"code that works.\""
-tags: ["engineering"]
+description: "Org role guidance for a senior developer: own full-stack feature delivery end to end with architecture-aware code, polished UI states and fast pages. Covers planning data flow first, matching stack idioms, accessibility, responsive testing, render-path performance and avoiding gold-plating."
+tags: ["engineering","frontend","performance","accessibility"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: level-designer
-description: "Level Designer role best practices. Builds individual playable spaces that teach mechanics, control pacing, and guide players — translating a game's core mechanics and story beats into concrete, playable geometry and encounters."
-tags: ["design"]
+description: "Use when an org role acts as a game level designer and must build playable spaces that teach mechanics, pace intensity and guide players along a golden path. Covers greybox blockouts, environmental teaching and peak/trough pacing charts."
+tags: ["design","game-dev","ux"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

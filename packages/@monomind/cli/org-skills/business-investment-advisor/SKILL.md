@@ -1,7 +1,7 @@
 ---
 name: business-investment-advisor
-description: "Business investment analysis and capital allocation advisor. Use when evaluating whether to invest in equipment, real estate, a new business, hiring, technology, or any capital expenditure. Also use for ROI calculations, IRR, NPV, payback period, build vs buy decisions, lease vs buy analysis, vendor evaluation, or deciding where to allocate limited budget for maximum return."
-tags: ["finance"]
+description: "Use when evaluating a business capital decision (equipment, hire, software, real estate, new line) with ROI, NPV, IRR and payback. Also build vs buy, lease vs buy and allocating a limited budget; not for personal stock or securities advice."
+tags: ["finance","strategy","planning"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

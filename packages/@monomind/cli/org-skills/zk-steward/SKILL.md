@@ -1,7 +1,7 @@
 ---
 name: zk-steward
-description: "ZK Steward role best practices. Engineers zero-knowledge proof systems — circuit design, protocol selection, and security review — for privacy-preserving and scalable smart-contract applications. (Note: despite the \"ZK\" name overlap with Zettelkasten note-taking tools, this role is zero-knowledge cryptography.)"
-tags: ["engineering","security"]
+description: "Org role guidance for a ZK steward: engineer zero-knowledge proof systems with circuit design, SNARK vs STARK choice and security review. This is zero-knowledge cryptography, not Zettelkasten note-taking."
+tags: ["engineering","security","blockchain"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

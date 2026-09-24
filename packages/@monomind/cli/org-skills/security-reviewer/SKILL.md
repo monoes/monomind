@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
-description: "Identifies security vulnerabilities, generates structured audit reports with severity ratings, and provides actionable remediation guidance. Use when conducting security audits, reviewing code for vulnerabilities, or analyzing infrastructure security. Invoke for SAST scans, penetration testing, DevSecOps practices, cloud security reviews, dependency audits, secrets scanning, or compliance checks."
-tags: ["security","engineering"]
+description: "Use when conducting a security audit or pentest: SAST, dependency and secrets scans, manual auth and crypto review, and a severity-rated report. Tools include Semgrep, Bandit, Gitleaks, npm audit and Trivy, plus infrastructure and cloud checks; requires scoped authorization. For an in-flight coding checklist use security-review."
+tags: ["security","engineering","audit","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

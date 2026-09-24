@@ -1,7 +1,7 @@
 ---
 name: consensus-coordinator
-description: "Consensus Coordinator role best practices. Picks and runs the right agreement mechanism for a given decision — vote tally, crash-fault-tolerant replication, or Byzantine-tolerant agreement — rather than defaulting to one protocol for every situation."
-tags: ["operations"]
+description: "Use when an org role acts as consensus coordinator and must pick the right agreement mechanism for a decision from its threat model. Chooses among threshold votes, Raft-style replication and Byzantine agreement; for running BFT itself see byzantine-coord."
+tags: ["operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

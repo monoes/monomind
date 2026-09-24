@@ -1,7 +1,7 @@
 ---
 name: worker-specialist
-description: "Worker Specialist role best practices. Executes one assigned, well-scoped task with precision and reports status honestly — the actual work gets done here, not at the coordination layer."
-tags: ["operations"]
+description: "Org role guidance for a worker specialist: execute one assigned, well-scoped task with precision and report status honestly at real milestones. Covers confirming done-criteria first, surfacing blockers immediately and sharing intermediate results with peers."
+tags: ["operations","agents","coordination"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

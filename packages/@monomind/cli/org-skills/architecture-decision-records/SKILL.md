@@ -1,7 +1,7 @@
 ---
 name: architecture-decision-records
-description: "Write and maintain Architecture Decision Records (ADRs) following best practices for technical decision documentation. Use when documenting significant technical decisions, reviewing past architectural choices, or establishing decision processes."
-tags: ["engineering","writing"]
+description: "Use when writing or maintaining Architecture Decision Records (ADRs): MADR templates, when to write one, status lifecycle and review process. For designing the architecture itself use architecture-designer."
+tags: ["engineering","writing","architecture","documentation"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/wshobson/agents

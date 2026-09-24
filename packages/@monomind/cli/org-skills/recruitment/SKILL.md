@@ -1,7 +1,7 @@
 ---
 name: recruitment
-description: "Recruitment role best practices. Sources, screens, and moves candidates through a hiring pipeline — for technical or general roles — balancing speed, candidate experience, and signal quality."
-tags: ["leadership","operations"]
+description: "Use when an org role acts as recruiter and must source, screen and move candidates through a hiring pipeline, balancing speed, candidate experience and signal. Covers role specs, referral channels, few purposeful interview stages, structured scorecards, fast feedback and stage conversion tracking."
+tags: ["leadership","operations","people"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

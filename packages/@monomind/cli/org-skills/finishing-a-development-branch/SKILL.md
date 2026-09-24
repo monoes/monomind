@@ -1,7 +1,7 @@
 ---
 name: finishing-a-development-branch
-description: "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work"
-tags: ["engineering","devops"]
+description: "Use when implementation is done and tests pass and you must choose how to integrate a git branch or worktree: merge locally, open a PR or keep it. Verifies the suite, detects worktree state and cleans up afterwards."
+tags: ["engineering","devops","git"]
 tools: []
 license: MIT
 source: https://github.com/obra/superpowers

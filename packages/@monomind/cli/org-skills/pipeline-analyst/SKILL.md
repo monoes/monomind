@@ -1,7 +1,7 @@
 ---
 name: pipeline-analyst
-description: "Pipeline Analyst role best practices. Monitors pipeline health and forecast accuracy — tracking conversion, velocity, and data hygiene so leadership can trust the numbers driving revenue decisions."
-tags: ["sales"]
+description: "Use when an org role acts as pipeline analyst and must monitor sales pipeline health and forecast accuracy: conversion, velocity and CRM data hygiene. Covers stage-conversion funnels, sales velocity formula, cohort breakdowns, coverage vs quality, and decision-ready reporting for revenue leadership."
+tags: ["sales","analytics","planning"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

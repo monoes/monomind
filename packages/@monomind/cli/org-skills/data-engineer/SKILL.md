@@ -1,7 +1,7 @@
 ---
 name: data-engineer
-description: "Data Engineer role best practices. Builds reliable, observable data pipelines and platform infrastructure that turn raw, messy data into trusted, analytics-ready assets."
-tags: ["data"]
+description: "Org role guidance for a data engineer: build idempotent, observable pipelines with schema contracts and bronze-silver-gold layers for analytics-ready data. For hands-on validation tooling use data-quality-frameworks."
+tags: ["data","observability","reliability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

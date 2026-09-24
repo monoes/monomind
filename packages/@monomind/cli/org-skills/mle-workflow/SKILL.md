@@ -1,7 +1,7 @@
 ---
 name: mle-workflow
-description: "Production machine-learning engineering workflow for data contracts, reproducible training, model evaluation, deployment, monitoring, and rollback. Use when building, reviewing, or hardening ML systems beyond one-off notebooks."
-tags: ["ai-ml","data"]
+description: "Use when turning model work into a production ML system: data contracts, reproducible training, evaluation gates, deployment, monitoring and rollback. Stack-agnostic workflow for classifiers, rankers, forecasters and embeddings, unlike ml-pipeline, which targets specific tools."
+tags: ["ai-ml","data","deploy","observability"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

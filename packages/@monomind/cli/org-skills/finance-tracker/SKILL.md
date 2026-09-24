@@ -1,7 +1,7 @@
 ---
 name: finance-tracker
-description: "Finance Tracker role best practices. Keeps ongoing visibility into money in and out — expenses, budgets, and core financial KPIs — so decisions are made on current, accurate data rather than stale or informal impressions."
-tags: ["sales"]
+description: "Use when an org role acts as finance tracker and must keep expenses, budgets, budget-vs-actual variance, burn and cash runway current and auditable."
+tags: ["sales","finance","analytics"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

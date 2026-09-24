@@ -1,7 +1,7 @@
 ---
 name: launch-strategy
-description: "When the user wants to plan a product launch, feature announcement, or release strategy. Also use when the user mentions 'launch,' 'Product Hunt,' 'feature release,' 'announcement,' 'go-to-market,' 'beta launch,' 'early access,' 'waitlist,' 'product update,' 'how do I launch this,' 'launch checklist,' 'GTM plan,' or 'we're about to ship.'"
-tags: ["marketing","product"]
+description: "Use when planning a product launch, feature announcement or release: ORB channels, phased beta and early access, Product Hunt and launch checklists. The full imported playbook; launch-strategist is the short org-role version."
+tags: ["marketing","product","launch","strategy"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

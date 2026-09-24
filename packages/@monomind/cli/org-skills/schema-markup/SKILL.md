@@ -1,7 +1,7 @@
 ---
 name: schema-markup
-description: "When the user wants to add, fix, or optimize schema markup and structured data on their site. Also use when the user mentions \"schema markup,\" \"structured data,\" \"JSON-LD,\" \"rich snippets,\" \"schema.org,\" \"FAQ schema,\" \"product schema,\" \"review schema,\" \"breadcrumb schema,\" \"Google rich results,\" \"knowledge panel,\" \"star ratings in search,\" or \"add structured data.\""
-tags: ["marketing","frontend"]
+description: "Use when adding, fixing or optimizing schema.org structured data with JSON-LD for rich results: FAQ, product, review, article, organization and more. Covers accuracy, Google's guidelines and validation."
+tags: ["marketing","frontend","seo"]
 tools: ["monograph_query"]
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

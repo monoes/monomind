@@ -1,7 +1,7 @@
 ---
 name: automation-governance
-description: "Automation Governance role best practices. Decide what should be automated, how it should be built, and what must stay human-controlled — auditing value, risk, and maintainability before any automation ships, not after."
-tags: ["devops"]
+description: "Use when an org role acts as automation governor and must decide what gets automated and what stays human, scoring value, risk and maintainability first. Requires an owner, fallback, idempotency and an explicit verdict per request before anything ships."
+tags: ["devops","audit","planning"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

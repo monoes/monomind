@@ -1,7 +1,7 @@
 ---
 name: team-communications
-description: "Write internal company communications — 3P updates (Progress/Plans/Problems), company-wide newsletters, FAQ roundups, incident reports, leadership updates, status reports, project updates, and general internal comms. Use this skill any time the user asks to draft, edit, or format something meant for internal audiences."
-tags: ["writing","operations"]
+description: "Use when drafting internal company comms: 3P updates (Progress, Plans, Problems), newsletters, FAQ roundups, incident reports or status updates. Routes to a format reference per type and can pull real data via Slack, Gmail or Drive tools."
+tags: ["writing","operations","communication"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

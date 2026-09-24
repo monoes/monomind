@@ -1,7 +1,7 @@
 ---
 name: backend-patterns
-description: "Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes. Use when building or reviewing Node.js, Express, or Next.js API routes and their data access."
-tags: ["engineering","backend"]
+description: "Use when building or reviewing Node, Express or Next API routes and their data access: repository and service layers, caching, N+1 fixes and jobs. TypeScript code catalogue including middleware; for REST contract conventions use api-design."
+tags: ["engineering","backend","typescript","nextjs","api"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/affaan-m/ECC

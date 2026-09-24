@@ -1,7 +1,7 @@
 ---
 name: email-sequences
-description: "When the user wants to create or optimize an email sequence, drip campaign, automated email flow, or lifecycle email program."
-tags: ["marketing","writing"]
+description: "Use when creating or optimizing an automated email sequence: welcome, onboarding, lead nurture, re-engagement, post-purchase or lifecycle drip flows. Covers sequence types, timing and per-email copy; for B2B cold outreach use cold-email."
+tags: ["marketing","writing","email","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

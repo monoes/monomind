@@ -1,7 +1,7 @@
 ---
 name: python-pro
-description: "Use when building Python 3.11+ applications requiring type safety, async programming, or robust error handling. Generates type-annotated Python code, configures mypy in strict mode, writes pytest test suites with fixtures and mocking, and validates code with black and ruff."
-tags: ["engineering","backend"]
+description: "Use when building a Python 3.11+ application end to end with full type hints, async/await, pytest suites and mypy strict, black and ruff checks. Persona with reference files on the type system, asyncio, stdlib, testing and Poetry packaging. For idiom and PEP 8 review only, use python-patterns."
+tags: ["engineering","backend","python","testing"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

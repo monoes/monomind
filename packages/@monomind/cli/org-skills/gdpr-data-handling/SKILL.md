@@ -1,7 +1,7 @@
 ---
 name: gdpr-data-handling
-description: "Implement GDPR-compliant data handling with consent management, data subject rights, and privacy by design. Use when building systems that process EU personal data, implementing privacy controls, or conducting GDPR compliance reviews."
-tags: ["legal","security"]
+description: "Use when building systems that process EU personal data under GDPR: lawful bases, consent management, data subject requests, privacy by design and DPAs."
+tags: ["legal","security","compliance"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: task-orchestrator
-description: "Task Orchestrator role best practices. Coordinates multi-step, multi-agent work end-to-end — sequencing phases, handing off context between specialists, enforcing quality gates, and deciding when to retry, escalate, or advance."
-tags: ["engineering"]
+description: "Use when an org role acts as task orchestrator and must run multi-agent work: sequence phases, hand off context, enforce gates, retry or escalate. Covers small verifiable tasks, explicit state tracking and capped retries."
+tags: ["engineering","coordination","agents"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: raft-manager
-description: "Raft Manager role best practices. Maintains a single authoritative, replicated log across participants via leader election and log replication — consensus under crash/omission faults, not malicious ones."
-tags: ["operations"]
+description: "Use when an org role acts as Raft manager and must keep one replicated log consistent via leader election and majority-committed replication. Covers randomized election timeouts, persisting term and vote, idempotent ops, split-brain tests and snapshotting; crash faults only, not Byzantine."
+tags: ["operations","coordination","reliability","architecture"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

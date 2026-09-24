@@ -1,7 +1,7 @@
 ---
 name: ios-developer
-description: "iOS Developer role best practices. Builds native iOS applications with Swift and SwiftUI — modern, safe, performant apps that follow Apple's current platform conventions and data-safety guarantees."
-tags: ["frontend","engineering"]
+description: "Use when an org role acts as iOS developer and must build native apps in Swift and SwiftUI with @Observable state, strict concurrency, SwiftData and Keychain. Short role guidance on Apple conventions and accessibility; for deep Swift reference material use swift-expert."
+tags: ["frontend","engineering","swift","mobile"]
 tools: ["monograph_query","monograph_context","monograph_impact","monodesign_detect","monodesign_fix","monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

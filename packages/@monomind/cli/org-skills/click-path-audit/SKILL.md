@@ -1,7 +1,7 @@
 ---
 name: click-path-audit
-description: "Trace every user-facing button/touchpoint through its full state change sequence to find bugs where functions individually work but cancel each other out, produce wrong final state, or leave the UI in an inconsistent state. Use when: systematic debugging found no bugs but users report broken buttons, or after any major refactor touching shared state stores."
-tags: ["frontend","testing"]
+description: "Use when users report broken buttons that code review cannot explain: trace each UI handler's state writes and side effects to find calls that undo each other. Covers Zustand, Redux and React context stores and race conditions, also after refactors touching shared state."
+tags: ["frontend","testing","debug","react"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

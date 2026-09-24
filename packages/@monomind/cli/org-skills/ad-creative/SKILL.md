@@ -1,7 +1,7 @@
 ---
 name: ad-creative
-description: "When the user wants to generate, iterate, or scale ad creative — headlines, descriptions, primary text, or full ad variations — for any paid advertising platform."
-tags: ["marketing","writing"]
+description: "Use when generating, iterating or scaling paid ad copy (headlines, descriptions, primary text, full variations) for Google, Meta, LinkedIn, TikTok or X ads. Works from scratch or from performance data; for campaign strategy, targeting and budgets use paid-ads."
+tags: ["marketing","writing","ads","copywriting"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

@@ -1,7 +1,7 @@
 ---
 name: competitive-teardown
-description: "Analyzes competitor products and companies by synthesizing data from pricing pages, app store reviews, job postings, SEO signals, and social media into structured competitive intelligence. Produces feature comparison matrices scored across 12 dimensions, SWOT analyses, positioning maps, UX audits, pricing model breakdowns, action item roadmaps, and stakeholder presentation templates."
-tags: ["product","research","marketing"]
+description: "Use when tearing down specific competitor products from pricing pages, reviews, job posts, SEO and social signals into structured intelligence. Produces a 12-dimension scorecard, feature matrix, SWOT and action plan; for market-level strategy use competitive-landscape."
+tags: ["product","research","marketing","competitive-analysis"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

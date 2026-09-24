@@ -1,7 +1,7 @@
 ---
 name: swift-expert
-description: "Builds iOS/macOS/watchOS/tvOS applications, implements SwiftUI views and state management, designs protocol-oriented architectures, handles async/await concurrency, implements actors for thread safety, and debugs Swift-specific issues. Use when building iOS/macOS applications with Swift 5.9+, SwiftUI, or async/await concurrency."
-tags: ["engineering","mobile"]
+description: "Use when building iOS, macOS, watchOS or tvOS apps in Swift end to end: SwiftUI views, protocol-oriented architecture, async/await, actors and XCTest. Persona with reference files on concurrency, memory and performance. For a SwiftUI-only pattern catalogue see swiftui-patterns."
+tags: ["engineering","mobile","swift"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

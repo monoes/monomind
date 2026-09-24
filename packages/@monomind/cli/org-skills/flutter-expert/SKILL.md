@@ -1,7 +1,7 @@
 ---
 name: flutter-expert
-description: "Use when building cross-platform applications with Flutter 3+ and Dart. Invoke for widget development, Riverpod/Bloc state management, GoRouter navigation, platform-specific implementations, performance optimization."
-tags: ["engineering","mobile"]
+description: "Use when building a Flutter 3 and Dart app end to end: Riverpod or Bloc state, GoRouter, custom widgets and animations, tests and DevTools profiling. A persona with deep reference files; for a copy-paste Dart idiom catalogue use dart-flutter-patterns."
+tags: ["engineering","mobile","flutter","performance"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

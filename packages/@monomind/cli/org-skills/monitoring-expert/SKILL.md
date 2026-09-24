@@ -1,7 +1,7 @@
 ---
 name: monitoring-expert
-description: "Configures monitoring systems, implements structured logging pipelines, creates Prometheus/Grafana dashboards, defines alerting rules, and instruments distributed tracing. Implements Prometheus/Grafana stacks, conducts load testing, performs application profiling, and plans infrastructure capacity."
-tags: ["devops"]
+description: "Use when setting up observability: structured logging, Prometheus metrics, Grafana dashboards, alert rules and OpenTelemetry distributed tracing. Also covers load testing, profiling and capacity planning, with RED and USE dashboard methods."
+tags: ["devops","observability","performance"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

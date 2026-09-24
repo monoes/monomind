@@ -1,7 +1,7 @@
 ---
 name: vue-patterns
-description: "Vue.js 3 Composition API patterns, component architecture, reactivity best practices, Pinia state management, Vue Router navigation, and Nuxt SSR patterns. Activates for Vue, Nuxt, Vite, or Pinia projects. Use when building or reviewing Vue 3, Nuxt, or Pinia code — Composition API, reactivity, or router navigation."
-tags: ["frontend"]
+description: "Use when building or reviewing Vue 3, Nuxt or Pinia code and want idioms: Composition API, project layout, reactivity, Vue Router and SSR. A pattern catalogue; for full builds including Quasar mobile and PWA see vue-expert."
+tags: ["frontend","vue","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

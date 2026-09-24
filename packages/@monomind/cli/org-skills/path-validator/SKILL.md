@@ -1,7 +1,7 @@
 ---
 name: path-validator
-description: "Path Validator role best practices. Guards filesystem access from path traversal and injection — ensures any user-influenced path resolves inside its intended base directory before it's ever opened, read, or written."
-tags: ["security"]
+description: "Use when an org role acts as path validator and must stop path traversal by checking any user-influenced file path resolves inside its intended base directory. Covers canonicalize-then-prefix-check, decoding before validation, symlink escapes, null-byte tricks, filename allowlists and Windows vs POSIX differences."
+tags: ["security","audit","api"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

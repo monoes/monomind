@@ -1,7 +1,7 @@
 ---
 name: referral-programs
-description: "When the user wants to create, optimize, or analyze a referral program, affiliate program, or word-of-mouth strategy. Also use when the user mentions 'referral,' 'affiliate,' 'ambassador,' 'word of mouth,' 'viral loop,' 'refer a friend,' 'partner program,' 'referral incentive,' 'how to get referrals,' 'customers referring customers,' or 'affiliate payout.'"
-tags: ["marketing"]
+description: "Use when creating, optimizing or analyzing a customer referral, affiliate or ambassador program, or engineering word of mouth and viral loops. Covers incentive design, program fit, B2B vs B2C, LTV and CAC math and platform choice."
+tags: ["marketing","growth","strategy"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

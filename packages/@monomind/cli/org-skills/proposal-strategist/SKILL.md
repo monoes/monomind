@@ -1,7 +1,7 @@
 ---
 name: proposal-strategist
-description: "Proposal Strategist role best practices. Shapes and writes competitive proposals and RFP responses — turning a pile of requirements into a persuasive, differentiated case for why this vendor is the only logical choice."
-tags: ["sales"]
+description: "Use when an org role acts as proposal strategist and must write a competitive proposal or RFP response built on win themes and differentiation. Covers go/no-go calls, requirements traceability, executive summary structure, tailoring to the buyer and reusable proof-point libraries."
+tags: ["sales","writing","competitive-analysis","strategy"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

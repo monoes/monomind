@@ -1,7 +1,7 @@
 ---
 name: senior-pm-playbook
-description: "Senior Project Manager for enterprise software, SaaS, and digital transformation projects. Specializes in portfolio management, quantitative risk analysis, resource optimization, stakeholder alignment, and executive reporting. Uses advanced methodologies including EMV analysis, Monte Carlo simulation, WSJF prioritization, and multi-dimensional health scoring."
-tags: ["operations","leadership"]
+description: "Use when managing an enterprise software project portfolio: health scoring, quantitative risk (EMV, Monte Carlo), capacity and RAG executive reports. Includes Python scripts for project health dashboards and risk matrices, WSJF/RICE prioritization and RACI governance. Project management, not product management; for product direction see senior-pm."
+tags: ["operations","leadership","planning","communication"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

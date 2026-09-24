@@ -1,7 +1,7 @@
 ---
 name: the-fool
-description: "Use when challenging ideas, plans, decisions, or proposals using structured critical reasoning. Invoke to play devil's advocate, run a pre-mortem, red team, or audit evidence and assumptions."
-tags: ["leadership","research"]
+description: "Use when stress-testing an idea, plan or decision with structured critique: devil's advocate, pre-mortem, red team, Socratic questions, evidence audit. Five modes that steelman the position, present the strongest challenges and synthesize a stronger version."
+tags: ["leadership","research","strategy"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

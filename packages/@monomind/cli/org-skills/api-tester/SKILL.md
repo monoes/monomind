@@ -1,7 +1,7 @@
 ---
 name: api-tester
-description: "API Tester role best practices. Validates APIs end-to-end — functional correctness, security, and performance — before third-party integrations or internal consumers ever hit a broken or vulnerable endpoint."
-tags: ["testing","engineering"]
+description: "Org role guidance for an API tester: validate APIs for functional correctness, security (OWASP API Top 10) and performance before consumers hit them. Covers auth negative cases, contract tests, k6 or Gatling load and CI gates."
+tags: ["testing","engineering","api","security"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

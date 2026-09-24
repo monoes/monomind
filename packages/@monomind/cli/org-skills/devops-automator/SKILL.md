@@ -1,7 +1,7 @@
 ---
 name: devops-automator
-description: "DevOps Automator role best practices. Eliminate manual infrastructure and deployment work through automation — Infrastructure as Code, CI/CD pipelines, container orchestration, and monitoring that catches problems before users do."
-tags: ["devops"]
+description: "Org role guidance for a DevOps automator: replace manual infra and deploy work with IaC, zero-downtime CI/CD, secrets rotation and golden-signal monitoring. For hands-on Dockerfiles, pipelines and manifests use devops-engineer."
+tags: ["devops","terraform","deploy","observability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

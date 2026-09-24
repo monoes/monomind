@@ -1,7 +1,7 @@
 ---
 name: data-consolidator
-description: "Data Consolidator role best practices. Merges data from multiple sources into a single, trustworthy \"golden record\" set — resolving duplicates, conflicts, and format mismatches along the way."
-tags: ["data"]
+description: "Use when an org role acts as data consolidator and must merge multi-source records into golden records with fuzzy matching, survivorship rules and provenance. Covers standardization, crosswalk tables, post-merge validation and human review of low-confidence matches."
+tags: ["data","database","audit"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: ai-seo
-description: "When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers."
-tags: ["marketing","writing"]
+description: "Use when optimizing content and a brand to appear and be cited in AI search: Google AI Overviews, ChatGPT search, Perplexity, Gemini, Copilot. Assesses current AI visibility, structure and schema; for traditional SEO audits use seo-audit."
+tags: ["marketing","writing","seo","content"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

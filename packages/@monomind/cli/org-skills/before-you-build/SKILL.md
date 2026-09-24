@@ -1,7 +1,7 @@
 ---
 name: before-you-build
-description: "Pre-build product and feature risk review for founders, product managers, and AI-assisted builders. Use this skill when the user is about to build a landing page, MVP, SaaS product, internal tool, agent workflow, or major feature and needs to check demand, positioning, monetization, retention, trust, distribution, and adoption risk before implementation starts."
-tags: ["product"]
+description: "Use when about to build an MVP, SaaS product, landing page, agent workflow or major feature and need a quick pre-mortem on demand and adoption risk. Checks positioning, monetization, retention, trust and distribution, returning a short verdict and the smallest validation step."
+tags: ["product","planning","strategy"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: ux-researcher-designer
-description: "UX research and design toolkit for Senior UX Designer/Researcher including data-driven persona generation, journey mapping, usability testing frameworks, and research synthesis. Use when conducting user research, creating personas, mapping user journeys, planning usability tests, or validating designs."
-tags: ["design","research","product"]
+description: "Use when conducting UX research: data-driven personas, user journey maps, usability test plans or synthesizing interview findings into design fixes. Includes empathy maps, pain-point analysis and research sample sizing."
+tags: ["design","research","product","ux","customer-research"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: rust-engineer
-description: "Writes, reviews, and debugs idiomatic Rust code with memory safety and zero-cost abstractions. Implements ownership patterns, manages lifetimes, designs trait hierarchies, builds async applications with tokio, and structures error handling with Result/Option."
-tags: ["engineering","backend"]
+description: "Use when writing, reviewing or debugging Rust end to end: ownership and lifetimes, traits, thiserror error handling, async tokio, tests and clippy gates. Persona with reference files. For an idioms catalogue, use rust-patterns."
+tags: ["engineering","backend","rust","debug"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

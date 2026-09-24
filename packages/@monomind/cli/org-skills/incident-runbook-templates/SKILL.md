@@ -1,7 +1,7 @@
 ---
 name: incident-runbook-templates
-description: "Create structured incident response runbooks with step-by-step procedures, escalation paths, and recovery actions. Use this skill when building a service outage runbook for a payment processing system; creating database incident procedures covering connection pool exhaustion, replication lag, and disk space alerts;"
-tags: ["operations","devops"]
+description: "Use when writing incident runbooks for a service: detection, triage, mitigation, rollback, escalation matrix and communication templates. Authoring templates, not live incident command (see incident-commander). Includes worked database and Kubernetes examples."
+tags: ["operations","devops","incident","documentation","reliability"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: changelog-automation
-description: "Automate changelog generation from commits, PRs, and releases following Keep a Changelog format. Use when setting up release workflows, generating release notes, or standardizing commit conventions."
-tags: ["engineering","devops","writing"]
+description: "Use when automating changelogs and release notes from commits and PRs with Keep a Changelog, Conventional Commits and semantic versioning. Tooling and format, including GitHub or GitLab release notes; for coordinating a release as an org role see release-manager."
+tags: ["engineering","devops","writing","git","documentation"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

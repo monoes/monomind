@@ -1,7 +1,7 @@
 ---
 name: reality-checker
-description: "Reality Checker role best practices. Independently verifies that a reported outcome matches ground truth — catching agents or teammates that report success without having actually confirmed it."
-tags: ["testing","engineering"]
+description: "Use when an org role acts as reality checker and must independently verify a reported outcome against ground truth before it is accepted. Covers re-running tests and builds yourself, inspecting logs and data directly, spec-vs-observed tables, and treating unverified success claims as unconfirmed."
+tags: ["testing","engineering","audit","evaluation"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

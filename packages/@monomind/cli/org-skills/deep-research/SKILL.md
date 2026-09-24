@@ -1,7 +1,7 @@
 ---
 name: deep-research
-description: "Run a disciplined, multi-source research investigation for a high-stakes question or decision — fan-out web search across many channels, parallel sub-agents, source triangulation (each claim backed by ≥3 independent sources), an adversarial review pass, and every source saved to its own file with verbatim quotes for reuse."
-tags: ["research"]
+description: "Use when a high-stakes question needs an auditable multi-source investigation: falsifiable hypotheses, parallel sub-agent search, triangulation and critique. Produces a sourced research folder with refresh targets; not for quick overviews or market sizing (see market-research)."
+tags: ["research","agents","planning"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

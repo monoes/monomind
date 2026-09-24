@@ -1,7 +1,7 @@
 ---
 name: defender
-description: "Defender role best practices. Provides zealous advocacy for the opposing party within ethical bounds — the defender's job is to test the prosecution's case rigorously and ensure every weakness, gap, and alternative explanation is surfaced, not to assume the accusation is true."
-tags: ["legal"]
+description: "Use when an org role acts as defender and must test the prosecution's case: evidence gap analysis, procedural defenses and alternative theories, within ethics."
+tags: ["legal","strategy","audit"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: content-strategy
-description: "When the user wants to plan a content strategy, decide what content to create, or figure out what topics to cover."
-tags: ["marketing","writing"]
+description: "Use when planning a content strategy: what topics to cover, searchable vs shareable pieces, topic clusters, scoring and a content calendar. Planning, not drafting; for writing posts use content-engine or article-writing."
+tags: ["marketing","writing","content","strategy","seo"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

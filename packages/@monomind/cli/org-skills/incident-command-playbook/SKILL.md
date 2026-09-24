@@ -1,7 +1,7 @@
 ---
 name: incident-command-playbook
-description: "Comprehensive incident response framework from detection through resolution and post-incident review. Battle-tested SRE/DevOps practices: severity classification, timeline reconstruction, structured post-incident analysis. Use when declaring an incident, coordinating multi-team response during an outage, leading a post-mortem, or setting up on-call practices for a new service."
-tags: ["operations","devops"]
+description: "Use when declaring or running an availability incident (outage, degradation, failed deploy): SEV1-SEV4 triage, timeline reconstruction and post-incident review. Imported playbook with Python classifier, timeline and PIR generator scripts; not for security incidents. For the org-role persona, see incident-commander."
+tags: ["operations","devops","incident","reliability"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

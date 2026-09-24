@@ -1,7 +1,7 @@
 ---
 name: startup-financial-modeling
-description: "Build comprehensive 3-5 year financial models with revenue projections, cost structures, cash flow analysis, and scenario planning for early-stage startups. Use this skill when creating financial projections, calculating burn rate or runway, modeling fundraising scenarios, or preparing investor-ready financials for a seed or Series A raise."
-tags: ["finance"]
+description: "Use when building a 3-5 year startup financial model: cohort revenue, cost structure, cash flow, burn, runway and seed or Series A fundraising scenarios. For tracking and benchmarking operating metrics like CAC and LTV see startup-metrics-framework."
+tags: ["finance","fundraising","planning"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

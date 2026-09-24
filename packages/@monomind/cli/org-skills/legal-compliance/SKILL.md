@@ -1,7 +1,7 @@
 ---
 name: legal-compliance
-description: "Legal Compliance role best practices. Builds and maintains the organization's compliance posture — identifies applicable regulations, sets policy, monitors adherence, and ensures issues are caught and corrected before they become violations or liabilities."
-tags: ["legal"]
+description: "Use when an org role acts as legal compliance lead and must run the compliance program: map regulations, write auditable policies and track gaps to remediation. Organizational compliance posture, not a specific certification audit."
+tags: ["legal","compliance","audit"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: mobile-dev
-description: "Mobile Developer role best practices. Builds cross-platform mobile apps (primarily React Native) that feel native on both iOS and Android — balancing shared code with platform-specific polish."
-tags: ["frontend","engineering"]
+description: "Org role guidance for a mobile developer: build React Native apps that feel native on iOS and Android, with React Navigation and virtualized lists. For deep React Native and Expo reference, use react-native-expert."
+tags: ["frontend","engineering","react-native","mobile"]
 tools: ["monograph_query","monograph_context","monograph_impact","monodesign_detect","monodesign_fix","monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

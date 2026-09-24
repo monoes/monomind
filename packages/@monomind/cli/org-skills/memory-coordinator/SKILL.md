@@ -1,7 +1,7 @@
 ---
 name: memory-coordinator
-description: "Memory Coordinator role best practices. Manages shared memory/state across multiple agents — deciding what's stored where, keeping it consistent, and making sure agents read fresh, correctly-scoped information instead of stale or conflicting state."
-tags: ["engineering"]
+description: "Use when an org role acts as memory coordinator and must manage shared state across agents: namespaces, consistency levels, provenance, dedupe and expiry. Coordination of multi-agent state, versus agent-memory-systems, which covers persistent semantic memory design."
+tags: ["engineering","coordination","agents","architecture"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

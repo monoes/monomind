@@ -1,7 +1,7 @@
 ---
 name: coding-standards
-description: "Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review. Use detailed frontend or backend skills for framework-specific patterns. Use when reviewing code quality or naming with no framework-specific skill that applies."
-tags: ["engineering"]
+description: "Use when reviewing code quality or naming with no framework-specific skill: naming, readability, immutability, KISS, DRY, YAGNI and code smells. Cross-language floor; for C++ or Java rules use cpp-coding-standards or java-coding-standards."
+tags: ["engineering","coding-standards","code-review"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

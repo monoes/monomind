@@ -1,7 +1,7 @@
 ---
 name: csharp-developer
-description: "Use when building C# applications with .NET 8+, ASP.NET Core APIs, or Blazor web apps. Builds REST APIs using minimal or controller-based routing, configures database access with Entity Framework Core, implements async patterns and cancellation, structures applications with CQRS via MediatR, and scaffolds Blazor components with state management."
-tags: ["engineering","backend"]
+description: "Use when building C# services with ASP NET Core minimal or controller APIs, Entity Framework Core, Blazor, MediatR CQRS and xUnit tests. Targets .NET 8+ and C# 12 with reference files; for a conventions catalogue use dotnet-patterns."
+tags: ["engineering","backend","dotnet","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

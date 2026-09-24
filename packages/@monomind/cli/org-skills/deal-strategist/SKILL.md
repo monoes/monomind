@@ -1,7 +1,7 @@
 ---
 name: deal-strategist
-description: "Deal Strategist role best practices. Structures, prices, and shepherds complex, high-value deals through internal approval and negotiation — acting as the cross-functional point of contact between sales, legal, finance, and operations."
-tags: ["sales"]
+description: "Use when an org role acts as deal strategist and must structure, price and steer complex high-value deals through deal-desk approvals and negotiation. Covers discount matrices, full deal economics and pre-planned concessions."
+tags: ["sales","pricing","strategy"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

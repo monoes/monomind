@@ -1,7 +1,7 @@
 ---
 name: markdown-mermaid-writing
-description: "Comprehensive markdown and Mermaid diagram writing skill. Use when creating any scientific document, report, analysis, or visualization. Establishes text-based diagrams as the default documentation standard with full style guides (markdown + mermaid), 24 diagram type references, and 9 document templates."
-tags: ["writing","engineering"]
+description: "Use when writing documentation, reports or diagrams that belong in git: markdown with embedded Mermaid as the default format instead of images. Includes style guides, 24 diagram type references and document templates, aimed at scientific and technical docs."
+tags: ["writing","engineering","documentation","visualization"]
 tools: []
 license: Apache-2.0
 source: https://github.com/K-Dense-AI/scientific-agent-skills

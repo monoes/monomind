@@ -1,7 +1,7 @@
 ---
 name: mcp-server-builder
-description: "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK)."
-tags: ["engineering","backend","ai-ml"]
+description: "Use when building an MCP server that wraps an external API or service, in TypeScript (MCP SDK) or Python (FastMCP). A phased guide from research and tool design through implementation, review and evaluation; for SDK snippets only see mcp-server-patterns."
+tags: ["engineering","backend","ai-ml","mcp","api"]
 tools: ["monograph_query","monograph_context"]
 license: Apache-2.0
 source: https://github.com/anthropics/skills

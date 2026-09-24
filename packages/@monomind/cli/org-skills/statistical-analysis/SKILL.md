@@ -1,7 +1,7 @@
 ---
 name: statistical-analysis
-description: "Guided statistical analysis for research data - test selection, assumption checking, effect sizes, power analysis, Bayesian alternatives, and APA-formatted reporting. Use whenever a user wants to compare groups, test a hypothesis, analyze experimental or survey data, check statistical assumptions, compute required sample sizes, or write up results - even if they never name a specific test."
-tags: ["data","science","research"]
+description: "Use when analyzing research data in Python: picking and running t-tests, ANOVA, chi-square, regression or Bayesian models with APA-format reporting. Uses pingouin, statsmodels, SciPy and PyMC with effect sizes. For planning sample sizes before data collection see statistical-power."
+tags: ["data","science","research","statistics","python"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

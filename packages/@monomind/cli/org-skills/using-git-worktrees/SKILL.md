@@ -1,7 +1,7 @@
 ---
 name: using-git-worktrees
-description: "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback"
-tags: ["engineering","devops"]
+description: "Use when starting feature work that needs isolation from the current workspace or before executing an implementation plan: set up an isolated git worktree. Detects existing worktrees and submodules, prefers native harness worktree tools, falls back to git worktree and runs project setup."
+tags: ["engineering","devops","git"]
 tools: []
 license: MIT
 source: https://github.com/obra/superpowers

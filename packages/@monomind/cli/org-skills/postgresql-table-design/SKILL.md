@@ -1,7 +1,7 @@
 ---
 name: postgresql-table-design
-description: "Use this skill when designing or reviewing a PostgreSQL-specific schema. Covers best-practices, data types, indexing, constraints, performance patterns, and advanced features"
-tags: ["data","backend"]
+description: "Use when designing or reviewing a PostgreSQL schema: column types, primary and foreign keys, constraints, indexes, partitioning and JSONB. Covers PostgreSQL gotchas, types to avoid, EXCLUDE constraints and zero-downtime schema change. For a quick query and index cheat sheet, use postgres-patterns."
+tags: ["data","backend","postgres","database","sql"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: inventory-demand-planning
-description: "Codified expertise for demand forecasting, safety stock optimization, replenishment planning, and promotional lift estimation at multi-location retailers. Informed by demand planners with 15+ years experience managing hundreds of SKUs. Includes forecasting method selection, ABC/XYZ analysis, seasonal transition management, and vendor negotiation frameworks."
-tags: ["operations","data"]
+description: "Use when forecasting retail demand or setting inventory policy: forecast method choice, ABC/XYZ analysis, safety stock, reorder points and promotional lift. Written for multi-location retailers; covers MAPE and bias tracking, MOQ/EOQ and seasonal transitions."
+tags: ["operations","data","supply-chain","statistics"]
 tools: []
 license: Apache-2.0
 source: https://github.com/affaan-m/ECC

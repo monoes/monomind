@@ -1,7 +1,7 @@
 ---
 name: senior-pm
-description: "Senior PM role best practices. Owns product direction and prioritization for a workstream — deciding what gets built and why, balancing user needs, business goals, and engineering reality."
-tags: ["leadership","operations"]
+description: "Use when an org role acts as senior product manager and must set product direction and prioritize what gets built and why for a workstream. Covers problem-first framing, RICE/ICE/MoSCoW prioritization, success metrics before build, tight PRDs with out-of-scope sections and trade-off communication."
+tags: ["leadership","operations","product","planning","strategy"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

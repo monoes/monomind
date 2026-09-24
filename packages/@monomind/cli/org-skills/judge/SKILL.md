@@ -1,7 +1,7 @@
 ---
 name: judge
-description: "Judge role best practices. Acts as impartial arbiter of the process and, where applicable, the facts — ensures procedural correctness, rules on admissibility and objections, and issues reasoned decisions without favoring either side."
-tags: ["legal"]
+description: "Use when an org role acts as judge and must arbitrate a proceeding impartially: rule on admissibility, hold each side to its burden, issue reasoned decisions. Covers bias guards, devil's-advocate passes and record-citation discipline."
+tags: ["legal","audit","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

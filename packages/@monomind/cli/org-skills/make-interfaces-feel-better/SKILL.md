@@ -1,7 +1,7 @@
 ---
 name: make-interfaces-feel-better
-description: "Apply concrete design-engineering details that make interfaces feel polished. Use when reviewing or improving UI spacing, typography, borders, shadows, motion, hit areas, icons, text wrapping, and interaction states."
-tags: ["design","frontend"]
+description: "Use when a UI feels flat, cramped or unfinished: concentric radii, optical alignment, shadows and borders, text wrapping, hit areas and interaction states. Small CSS-level design-engineering details with before/after recommendations."
+tags: ["design","frontend","ui"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
 license: MIT
 source: https://github.com/affaan-m/ECC

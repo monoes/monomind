@@ -1,7 +1,7 @@
 ---
 name: senior-data-scientist
-description: "World-class senior data scientist skill specialising in statistical modeling, experiment design, causal inference, and predictive analytics. Covers A/B testing (sample sizing, two-proportion z-tests, Bonferroni correction), difference-in-differences, feature engineering pipelines (Scikit-learn, XGBoost), cross-validated model evaluation (AUC-ROC, AUC-PR, SHAP), and MLflow experiment tracking —..."
-tags: ["data","ai-ml"]
+description: "Use when designing A/B tests, building statistical or predictive models, feature engineering pipelines or causal inference analyses in Python. Covers sample sizing, two-proportion z-tests, Bonferroni correction, feature pipelines with pandas and scikit-learn and model evaluation for production data science."
+tags: ["data","ai-ml","python","experimentation","statistics"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

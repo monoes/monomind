@@ -1,7 +1,7 @@
 ---
 name: canvas-design
-description: "Create beautiful visual art in .png and .pdf documents using design philosophy. Use when asked to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations."
-tags: ["design","marketing"]
+description: "Use when creating an original static visual piece (poster, artwork, design) as a PNG or PDF by first writing a design philosophy, then expressing it visually. Mostly visual, minimal text; never copies existing artists."
+tags: ["design","marketing","ui"]
 tools: []
 license: Apache-2.0
 source: https://github.com/anthropics/skills

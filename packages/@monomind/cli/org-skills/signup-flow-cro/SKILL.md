@@ -1,7 +1,7 @@
 ---
 name: signup-flow-cro
-description: "When the user wants to optimize signup, registration, account creation, or trial activation flows."
-tags: ["marketing","product","design"]
+description: "Use when optimizing signup, registration, account creation or trial activation flows to raise completion rates. Covers field minimization, value before commitment, social auth, step design and friction audits. For post-signup activation use onboarding-cro; for marketing pages use page-cro."
+tags: ["marketing","product","design","cro","growth"]
 tools: ["monodesign_detect"]
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

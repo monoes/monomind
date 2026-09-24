@@ -1,7 +1,7 @@
 ---
 name: avoid-ai-writing
-description: "Audit and rewrite prose so it stops reading as machine-generated. Use this skill when asked to remove AI-isms, clean up AI writing, edit a draft for AI tells, audit a README, changelog, release note, PR description, or blog post for machine-sounding prose, or make text sound less like AI."
-tags: ["writing","marketing"]
+description: "Use when auditing or rewriting prose that reads as AI-generated: blog posts, READMEs, changelogs, PR descriptions, LinkedIn posts. Detect, rewrite or edit-in-place modes with a pattern catalogue and word tiers; it never adds invented voice or facts."
+tags: ["writing","marketing","audit"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

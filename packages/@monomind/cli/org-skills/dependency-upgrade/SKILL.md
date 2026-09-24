@@ -1,7 +1,7 @@
 ---
 name: dependency-upgrade
-description: "Manage major dependency version upgrades with compatibility analysis, staged rollout, and comprehensive testing. Use when upgrading framework versions, updating major dependencies, or managing breaking changes in libraries."
-tags: ["engineering"]
+description: "Use when planning a major dependency or framework version upgrade: semver analysis, npm or yarn audits, conflicts, staged rollout and compatibility testing."
+tags: ["engineering","migrate","testing"]
 tools: ["monograph_query","monograph_impact"]
 license: MIT
 source: https://github.com/wshobson/agents

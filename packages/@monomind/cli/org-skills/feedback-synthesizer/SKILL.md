@@ -1,7 +1,7 @@
 ---
 name: feedback-synthesizer
-description: "Feedback Synthesizer role best practices. Turns raw, scattered user feedback (interviews, surveys, support tickets, reviews) into actionable themes and recommendations — the bridge between \"we collected data\" and \"here's what to do about it.\""
-tags: ["product"]
+description: "Use when an org role acts as feedback synthesizer and must turn interviews, surveys, tickets and reviews into evidenced themes and prioritized recommendations."
+tags: ["product","customer-research","ux"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: mesh-coordinator
-description: "Mesh Coordinator role best practices. Coordinates several agents working as peers — no lead, no chain of command — on independent slices of one problem, then reconciles what they return."
-tags: ["operations"]
+description: "Org role guidance for a mesh coordinator: split one problem into independent slices for peer agents, dispatch them in one batch and adjudicate what comes back. For a lead-and-workers tree, use hierarchical-coord instead."
+tags: ["operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

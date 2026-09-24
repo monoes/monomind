@@ -1,7 +1,7 @@
 ---
 name: customs-trade-compliance
-description: "Codified expertise for customs documentation, tariff classification, duty optimization, restricted party screening, and regulatory compliance across multiple jurisdictions. Informed by trade compliance specialists with 15+ years experience. Includes HS classification logic, Incoterms application, FTA utilization, and penalty mitigation."
-tags: ["operations","legal"]
+description: "Use when classifying goods under HS or HTS codes, preparing customs entries, screening denied parties, qualifying FTAs or answering customs audits. Covers US, EU, UK and APAC jurisdictions, duty drawback and FTZs."
+tags: ["operations","legal","compliance","supply-chain"]
 tools: []
 license: Apache-2.0
 source: https://github.com/affaan-m/ECC

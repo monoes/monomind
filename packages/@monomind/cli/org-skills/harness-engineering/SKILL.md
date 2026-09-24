@@ -1,7 +1,7 @@
 ---
 name: harness-engineering
-description: "This skill should be used when designing autonomous agent harnesses: research loops, evaluation scaffolds, locked and editable surfaces, durable logs, novelty gates, pruning, rollback, PR preparation, and human approval boundaries."
-tags: ["ai-ml","engineering"]
+description: "Use when designing the control harness around an autonomous agent: locked vs editable surfaces, durable logs, novelty gates, rollback and human approval. Covers autoresearch-style loops and PR-producing background agents. Not for tool schemas (agent-tool-design) or project-level pipeline planning (llm-project-development)."
+tags: ["ai-ml","engineering","agents","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

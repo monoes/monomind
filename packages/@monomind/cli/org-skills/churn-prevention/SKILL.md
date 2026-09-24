@@ -1,7 +1,7 @@
 ---
 name: churn-prevention
-description: "When the user wants to reduce churn, build cancellation flows, set up save offers, recover failed payments, or implement retention strategies."
-tags: ["marketing","product","support"]
+description: "Use when reducing SaaS churn: cancellation flows, save offers, exit surveys, dunning and failed-payment recovery, and retention strategy. Treats voluntary and involuntary churn separately, with billing tools like Stripe, Chargebee or Paddle."
+tags: ["marketing","product","support","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

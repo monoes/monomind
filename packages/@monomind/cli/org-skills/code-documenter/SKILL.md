@@ -1,7 +1,7 @@
 ---
 name: code-documenter
-description: "Generates, formats, and validates technical documentation — including docstrings, OpenAPI/Swagger specs, JSDoc annotations, doc portals, and user guides. Use when adding docstrings to functions or classes, creating API documentation, building documentation sites, or writing tutorials and user guides. Invoke for OpenAPI/Swagger specs, JSDoc, doc portals, getting started guides."
-tags: ["engineering","writing"]
+description: "Use when adding docstrings, JSDoc or OpenAPI specs to code, or building doc sites and developer guides, with examples validated by doctest, tsc or Redocly lint. Documents existing code and reports coverage."
+tags: ["engineering","writing","documentation"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

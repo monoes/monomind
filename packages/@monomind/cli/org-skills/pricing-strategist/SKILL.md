@@ -1,7 +1,7 @@
 ---
 name: pricing-strategist
-description: "Pricing Strategist role best practices. Designs pricing and packaging that captures value, drives growth, and matches customer willingness to pay — covering strategy, tier architecture, and pricing-page design."
-tags: ["product"]
+description: "Org role guidance for a pricing strategist: design pricing and packaging, value metric, tier architecture and pricing page to match willingness to pay. Short role checklist covering Good-Better-Best, freemium vs trial and benchmarks. For a guided pricing engagement with deep references, use pricing-strategy."
+tags: ["product","pricing","strategy"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

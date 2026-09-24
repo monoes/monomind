@@ -1,7 +1,7 @@
 ---
 name: e2e-testing
-description: "Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test strategies. Use when writing Playwright tests, structuring page objects, or fixing flaky E2E runs in CI."
-tags: ["testing","frontend"]
+description: "Use when writing or stabilizing Playwright end-to-end tests: Page Object Model, test file layout, config, CI integration, artifacts and flaky test fixes. For React component tests use react-testing."
+tags: ["testing","frontend","typescript"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

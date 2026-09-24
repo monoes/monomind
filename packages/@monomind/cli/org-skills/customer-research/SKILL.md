@@ -1,7 +1,7 @@
 ---
 name: customer-research
-description: "When the user wants to conduct, analyze, or synthesize customer research."
-tags: ["research","product","marketing"]
+description: "Use when conducting, analyzing or synthesizing customer research: interview transcripts, surveys, tickets, reviews, Reddit and G2 mining and PMF surveys. Extracts pains, triggers, objections and customer language for positioning and copy."
+tags: ["research","product","marketing","customer-research"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

@@ -1,7 +1,7 @@
 ---
 name: coo-advisor
-description: "Operations leadership for scaling companies. Process design, OKR execution, operational cadence, and scaling playbooks. Use when designing operations, setting up OKRs, building processes, scaling teams, analyzing bottlenecks, planning operational cadence, or when user mentions COO, operations, process improvement, OKRs, scaling, operational efficiency, or execution."
-tags: ["leadership","operations"]
+description: "Use when a scaling company needs COO-level help: process design, bottleneck analysis, OKR cascades, operating cadence and scaling playbooks. Includes ops efficiency and OKR tracker scripts."
+tags: ["leadership","operations","strategy","planning"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

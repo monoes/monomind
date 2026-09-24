@@ -1,7 +1,7 @@
 ---
 name: perf-analyzer
-description: "Perf Analyzer role best practices. Diagnoses where time, memory, and coordination overhead actually go in a running system — collecting metrics, detecting bottlenecks, and separating real regressions from noise."
-tags: ["engineering"]
+description: "Use when an org role acts as perf analyzer and must find where time, memory and coordination overhead go, separating real regressions from noise. Covers baselines, p50-p99 percentiles, cross-layer metrics, flame graphs, anomaly detection and before/after re-measurement of fixes."
+tags: ["engineering","performance","observability","debug"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

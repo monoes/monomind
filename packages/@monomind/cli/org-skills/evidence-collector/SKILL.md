@@ -1,7 +1,7 @@
 ---
 name: evidence-collector
-description: "Evidence Collector role best practices. Gathers and verifies visual/factual proof that a claimed implementation actually works — the antidote to \"it should work\" reports that were never actually checked."
-tags: ["testing","engineering"]
+description: "Org role guidance for an evidence collector: verify claimed work with screenshots, command output and spec-vs-evidence tables before anything is marked done."
+tags: ["testing","engineering","audit"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

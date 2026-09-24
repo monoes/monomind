@@ -1,7 +1,7 @@
 ---
 name: safe-executor
-description: "Safe Executor role best practices. Runs untrusted or agent-generated code without letting it touch the host, adjacent workloads, or secrets — the last line of defense when code execution itself is the feature."
-tags: ["security"]
+description: "Use when an org role acts as safe executor and must run untrusted or agent-generated code without touching the host, other workloads or secrets. Covers microVM or gVisor isolation, hard resource limits, default-deny network, per-run filesystems, no shell interpolation and ephemeral sandboxes."
+tags: ["security","agents","docker"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind
