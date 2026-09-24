@@ -236,6 +236,16 @@ describe('accept rules', () => {
     expect(jp.acceptAgent(undefined, {})).toBeNull();
   });
 
+  it('takes a per-call floor, and reads the pick floor from MONOMIND_JEV_PICK_MIN_CONFIDENCE', () => {
+    const a = { choice: 'tester', confidence: 0.4, ranked: [{ id: 'tester', probability: 0.4 }] };
+    expect(jp.acceptAgent(a, {}, 0.3)).toBe('tester');
+    expect(jp.acceptSkills(a, {}, 3, 0.3)).toEqual(['tester']);
+    expect(jp.acceptSkills(a, {}, 3)).toEqual([]);
+    expect(jp.resolvePickMinConfidence({})).toBe(0.25);
+    expect(jp.resolvePickMinConfidence({ MONOMIND_JEV_PICK_MIN_CONFIDENCE: '0.35' })).toBe(0.35);
+    expect(jp.resolvePickMinConfidence({ MONOMIND_JEV_PICK_MIN_CONFIDENCE: '7' })).toBe(0.25);
+  });
+
   it('acceptSkills returns the choice plus strong runners-up, never "none"', () => {
     const a = {
       choice: 'a',

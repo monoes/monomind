@@ -1344,6 +1344,9 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   // The secret redactor jev-picker.cjs requires; without it the picker fails to
   // load and the hook keeps keyword routing.
   'redact-secrets.cjs': { forceSync: true, doctorTracked: true },
+  // The keyword ranker jev-picker.cjs requires for its candidate shortlist;
+  // without it the picker fails to load and the hook keeps keyword routing.
+  'pick-rank.cjs': { forceSync: true, doctorTracked: true },
   'memory.cjs': { generate: generateMemoryHelper },
   'session.cjs': { generate: generateSessionManager },
   'pre-commit': { generate: generatePreCommitHook },

@@ -43,7 +43,7 @@ describe('rankForTask', () => {
   it('ranks by keywords when no decision model is configured', async () => {
     const r = await rankForTask('write tests for the parser', { agents, skills }, 3, { env: {} });
     expect(r.provider).toBeUndefined();
-    expect(r.agents.method).toBe('keyword');
+    expect(r.agents).toMatchObject({ method: 'keyword', source: 'keyword', lowConfidence: false });
     expect(r.agents.ranked[0].id).toBe('tester');
   });
 
@@ -74,16 +74,59 @@ describe('rankForTask', () => {
     expect(r.skills.ranked.map((s) => s.id)).toEqual(['security-review', 'monodesign']);
   });
 
-  it('keeps keyword ranking when Jev is below the confidence floor', async () => {
+  it('keeps a Jev answer below the automatic floor, flagged low-confidence', async () => {
     const fetchImpl = answering({
       agent: { type: 'choice', choice: 'security-engineer', confidence: 0.4, probabilities: { 'security-engineer': 0.4 } },
       skill: { type: 'choice', choice: 'monodesign', confidence: 0.3, probabilities: { monodesign: 0.3 } },
     });
     const r = await rankForTask('write tests for the parser', { agents, skills }, 3, { env: localEnv, fetchImpl });
+    expect(r.provider).toBe('custom');
+    expect(r.agents).toMatchObject({ method: 'jev', source: 'jev', lowConfidence: true });
+    expect(r.agents.ranked[0].id).toBe('security-engineer');
+    expect(r.skills).toMatchObject({ method: 'jev', lowConfidence: true });
+  });
+
+  it('keeps keyword ranking when Jev is below the pick floor', async () => {
+    const fetchImpl = answering({
+      agent: { type: 'choice', choice: 'security-engineer', confidence: 0.1, probabilities: { 'security-engineer': 0.1 } },
+      skill: { type: 'choice', choice: 'monodesign', confidence: 0.1, probabilities: { monodesign: 0.1 } },
+    });
+    const r = await rankForTask('write tests for the parser', { agents, skills }, 3, { env: localEnv, fetchImpl });
     expect(r.provider).toBeUndefined();
-    expect(r.agents.method).toBe('keyword');
+    expect(r.agents).toMatchObject({ method: 'keyword', source: 'keyword-fallback', lowConfidence: false });
     expect(r.skills.method).toBe('keyword');
     expect(r.agents.ranked[0].id).toBe('tester');
+  });
+
+  it('lets the caller (minConfidence) or MONOMIND_JEV_PICK_MIN_CONFIDENCE raise the pick floor', async () => {
+    const answers = {
+      agent: { type: 'choice', choice: 'security-engineer', confidence: 0.4, probabilities: { 'security-engineer': 0.4 } },
+    };
+    const strict = await rankForTask('write tests for the parser', { agents, skills: [] }, 3, {
+      env: localEnv,
+      fetchImpl: answering(answers),
+      minConfidence: 0.6,
+    });
+    expect(strict.agents.method).toBe('keyword');
+    const byEnv = await rankForTask('write tests for the parser', { agents, skills: [] }, 3, {
+      env: { ...localEnv, MONOMIND_JEV_PICK_MIN_CONFIDENCE: '0.5' },
+      fetchImpl: answering(answers),
+    });
+    expect(byEnv.agents.method).toBe('keyword');
+  });
+
+  it('drops near-zero Jev tail entries instead of padding the list', async () => {
+    const fetchImpl = answering({
+      agent: {
+        type: 'choice',
+        choice: 'security-engineer',
+        confidence: 0.9,
+        probabilities: { 'security-engineer': 0.9, coder: 0.08, tester: 0.001 },
+      },
+    });
+    const r = await rankForTask('audit', { agents, skills: [] }, 5, { env: localEnv, fetchImpl });
+    expect(r.agents).toMatchObject({ method: 'jev', lowConfidence: false });
+    expect(r.agents.ranked.map((a) => a.id)).toEqual(['security-engineer', 'coder']);
   });
 
   it('falls back to keywords when the decision model fails', async () => {
@@ -91,7 +134,7 @@ describe('rankForTask', () => {
       env: localEnv,
       fetchImpl: failing,
     });
-    expect(r.agents.method).toBe('keyword');
+    expect(r.agents).toMatchObject({ method: 'keyword', source: 'keyword-fallback' });
   });
 });
 

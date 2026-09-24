@@ -69,6 +69,8 @@ export interface JevPickerModule {
   resolveProviders(env?: NodeJS.ProcessEnv): JevProvider[];
   resolveTimeoutMs(env?: NodeJS.ProcessEnv): number;
   resolveHookTimeoutMs(env?: NodeJS.ProcessEnv): number;
+  resolveMinConfidence(env?: NodeJS.ProcessEnv): number;
+  resolvePickMinConfidence(env?: NodeJS.ProcessEnv): number;
   redactSecrets(text: string): string;
   shortlist<T extends CatalogItem>(
     query: string,
@@ -81,8 +83,17 @@ export interface JevPickerModule {
     catalogs: { agents?: CatalogItem[]; skills?: CatalogItem[] },
     opts?: PickOptions,
   ): Promise<JevPick | null>;
-  acceptAgent(answer: JevAnswer | undefined, env?: NodeJS.ProcessEnv): string | null;
-  acceptSkills(answer: JevAnswer | undefined, env?: NodeJS.ProcessEnv, max?: number): string[];
+  acceptAgent(
+    answer: JevAnswer | undefined,
+    env?: NodeJS.ProcessEnv,
+    minConfidence?: number,
+  ): string | null;
+  acceptSkills(
+    answer: JevAnswer | undefined,
+    env?: NodeJS.ProcessEnv,
+    max?: number,
+    minConfidence?: number,
+  ): string[];
   probe(
     provider: JevProvider,
     opts?: { env?: NodeJS.ProcessEnv; fetchImpl?: typeof fetch },
@@ -145,16 +156,34 @@ export async function pickWithJev(
   }
 }
 
-export function acceptAgent(answer: JevAnswer | undefined, env?: NodeJS.ProcessEnv): string | null {
-  return jevModule()?.acceptAgent(answer, env) ?? null;
+/** The floor automatic decisions (hook injection, org auto-assign) act above
+ *  (MONOMIND_JEV_MIN_CONFIDENCE, default 0.6). */
+export function automaticMinConfidence(env?: NodeJS.ProcessEnv): number {
+  return jevModule()?.resolveMinConfidence(env) ?? 0.6;
+}
+
+/** The floor for rankings a person reads (MONOMIND_JEV_PICK_MIN_CONFIDENCE,
+ *  default 0.25); between it and the automatic floor an answer is low-confidence. */
+export function pickMinConfidence(env?: NodeJS.ProcessEnv): number {
+  return jevModule()?.resolvePickMinConfidence(env) ?? 0.25;
+}
+
+/** `minConfidence` overrides the automatic floor for this call. */
+export function acceptAgent(
+  answer: JevAnswer | undefined,
+  env?: NodeJS.ProcessEnv,
+  minConfidence?: number,
+): string | null {
+  return jevModule()?.acceptAgent(answer, env, minConfidence) ?? null;
 }
 
 export function acceptSkills(
   answer: JevAnswer | undefined,
   env?: NodeJS.ProcessEnv,
   max?: number,
+  minConfidence?: number,
 ): string[] {
-  return jevModule()?.acceptSkills(answer, env, max) ?? [];
+  return jevModule()?.acceptSkills(answer, env, max, minConfidence) ?? [];
 }
 
 /** Keyword ranking (the no-model fallback): only items with some overlap. */

@@ -91,6 +91,55 @@ describe('monomind pick', () => {
     ]);
   });
 
+  it('prints the spawnable agent name in text mode and keeps id + name in JSON', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', '');
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    root = mkdtempSync(join(tmpdir(), 'pick-cmd-'));
+    mkdirSync(join(root, '.monomind'));
+    writeFileSync(
+      join(root, '.monomind', 'registry.json'),
+      JSON.stringify({
+        agents: [
+          { slug: 'engineering-technical-writer', name: 'Technical Writer', category: 'engineering', description: 'Writes docs and READMEs' },
+          { slug: 'coder', name: 'coder', category: 'core', description: 'Writes code' },
+        ],
+      }),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((m?: unknown) => {
+      logs.push(String(m));
+    });
+    await pickAction({
+      args: [],
+      flags: { _: [], task: 'update the README docs', agents: true },
+      cwd: root,
+      interactive: false,
+    });
+    expect(logs.join('\n')).toContain('Technical Writer');
+    logs.length = 0;
+    await pickAction({
+      args: [],
+      flags: { _: [], task: 'update the README docs', agents: true, json: true },
+      cwd: root,
+      interactive: false,
+    });
+    const out = JSON.parse(logs.join('\n'));
+    expect(out.agents).toMatchObject({ method: 'keyword', source: 'keyword', lowConfidence: false });
+    expect(out.agents.ranked[0]).toMatchObject({ id: 'engineering-technical-writer', name: 'Technical Writer' });
+  });
+
+  it('rejects a --min-confidence outside (0, 1]', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await pickAction({
+      args: [],
+      flags: { _: [], task: 'x', 'min-confidence': 3 },
+      cwd: tmpdir(),
+      interactive: false,
+    });
+    expect(res).toMatchObject({ success: false, exitCode: 1 });
+  });
+
   it('fails with usage when --task is missing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});

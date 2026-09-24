@@ -11,6 +11,8 @@
  * caller keeps its existing routing.
  */
 var redaction = require('./redact-secrets.cjs');
+// Keyword ranking builds the candidate shortlist (and is every caller's fallback).
+var shortlist = require('./pick-rank.cjs').shortlist;
 
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
 var DEFAULT_MODEL = 'jev-latest';
@@ -18,7 +20,12 @@ var DEFAULT_TIMEOUT_MS = 3000;
 var MIN_TIMEOUT_MS = 100;
 var MAX_TIMEOUT_MS = 30000;
 var MIN_PROVIDER_WINDOW_MS = 50;
+// Automatic decisions (hook injection, org auto-assign) act only above this.
 var DEFAULT_MIN_CONFIDENCE = 0.6;
+// A ranking shown to a person (`monomind pick`) keeps Jev's answer down to
+// this, flagged low-confidence below DEFAULT_MIN_CONFIDENCE. On the 60-task
+// pick benchmark every answer at >= 0.35 was right and the one under 0.2 wrong.
+var DEFAULT_PICK_MIN_CONFIDENCE = 0.25;
 var MIN_EXTRA_SKILL_PROBABILITY = 0.2;
 var DEFAULT_MAX_SKILLS = 3;
 // OpenJev scores up to 52 options per pass; 30 (+ "none") keeps one pass.
@@ -84,6 +91,17 @@ function resolveHookTimeoutMs(env) {
 function resolveMinConfidence(env) {
   var n = Number((env || process.env).MONOMIND_JEV_MIN_CONFIDENCE);
   return n > 0 && n <= 1 ? n : DEFAULT_MIN_CONFIDENCE;
+}
+
+/** The floor for rankings a person reads (MONOMIND_JEV_PICK_MIN_CONFIDENCE). */
+function resolvePickMinConfidence(env) {
+  var n = Number((env || process.env).MONOMIND_JEV_PICK_MIN_CONFIDENCE);
+  return n > 0 && n <= 1 ? n : DEFAULT_PICK_MIN_CONFIDENCE;
+}
+
+/** An explicit floor in (0, 1] wins; otherwise the automatic-decision floor. */
+function floorFor(env, minConfidence) {
+  return minConfidence > 0 && minConfidence <= 1 ? minConfidence : resolveMinConfidence(env);
 }
 
 /** Shorthand properties keep a key variable out of `apiKey: <expr>` shapes,
@@ -226,52 +244,6 @@ async function probe(provider, opts) {
   return Date.now() - started;
 }
 
-// ── Candidate shortlist ────────────────────────────────────────────────────
-
-function stem(tok) {
-  if (tok.length > 4 && tok.slice(-3) === 'ies') return tok.slice(0, -3) + 'y';
-  if (tok.length > 3 && tok.slice(-1) === 's' && tok.slice(-2) !== 'ss') return tok.slice(0, -1);
-  return tok;
-}
-
-function tokens(text) {
-  return (String(text || '').toLowerCase().match(/[a-z0-9]+/g) || []).map(stem);
-}
-
-/** Items ranked by word overlap with the query (id/name words count 3, other
- *  text 1), forced ids first, capped at `limit`. Stable for equal scores. */
-function shortlist(query, items, limit, include) {
-  var q = Array.from(new Set(tokens(query)));
-  var scored = items.map(function (item, index) {
-    var strong = new Set(tokens(item.id + ' ' + (item.name || '')));
-    var weak = new Set(tokens((item.description || '') + ' ' + (item.text || '')));
-    var score = 0;
-    for (var i = 0; i < q.length; i++) {
-      if (strong.has(q[i])) score += 3;
-      else if (weak.has(q[i])) score += 1;
-    }
-    return { item: item, index: index, score: score };
-  });
-  scored.sort(function (a, b) {
-    return b.score - a.score || a.index - b.index;
-  });
-  var out = [];
-  var seen = new Set();
-  function take(entry) {
-    if (seen.has(entry.item.id) || out.length >= limit) return;
-    seen.add(entry.item.id);
-    out.push(Object.assign({}, entry.item, { score: entry.score }));
-  }
-  (include || []).forEach(function (id) {
-    var hit = scored.find(function (s) {
-      return s.item.id === id;
-    });
-    if (hit) take(hit);
-  });
-  scored.forEach(take);
-  return out;
-}
-
 // ── Picking ────────────────────────────────────────────────────────────────
 
 function describeItem(item) {
@@ -353,13 +325,14 @@ async function pick(task, catalogs, opts) {
   return out;
 }
 
-function acceptAgent(answer, env) {
+/** `minConfidence` overrides the automatic-decision floor for this call. */
+function acceptAgent(answer, env, minConfidence) {
   if (!answer) return null;
-  return answer.confidence >= resolveMinConfidence(env) ? answer.choice : null;
+  return answer.confidence >= floorFor(env, minConfidence) ? answer.choice : null;
 }
 
-function acceptSkills(answer, env, max) {
-  if (!answer || answer.choice === NONE_ID || answer.confidence < resolveMinConfidence(env)) return [];
+function acceptSkills(answer, env, max, minConfidence) {
+  if (!answer || answer.choice === NONE_ID || answer.confidence < floorFor(env, minConfidence)) return [];
   var limit = max || DEFAULT_MAX_SKILLS;
   var out = [answer.choice];
   for (var i = 0; i < answer.ranked.length && out.length < limit; i++) {
@@ -398,6 +371,7 @@ module.exports = {
   normalizeBaseUrl: normalizeBaseUrl,
   resolveTimeoutMs: resolveTimeoutMs,
   resolveMinConfidence: resolveMinConfidence,
+  resolvePickMinConfidence: resolvePickMinConfidence,
   resolveHookTimeoutMs: resolveHookTimeoutMs,
   redactSecrets: redaction.redactSecrets,
   SECRET_PATTERNS: redaction.SECRET_PATTERNS,
