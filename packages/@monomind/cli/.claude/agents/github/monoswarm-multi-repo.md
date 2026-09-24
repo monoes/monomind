@@ -1,6 +1,9 @@
 ---
 name: monoswarm-multi-repo
-description: Cross-repository swarm orchestration for organization-wide automation and intelligent collaboration
+description: Rolls one change out across many repositories in an org — repo discovery, synchronized edits, linked PRs, and cross-repo dependency updates
+when_to_use: Use when one change must land in many repos of an org with linked PRs; for one repo's layout use repo-architect, for versions use sync-coordinator
+tags: [github, multi-repo, automation, dependencies]
+category: github
 ---
 
 # Multi-Repo Swarm - Cross-Repository Swarm Orchestration

@@ -1,6 +1,9 @@
 ---
 name: LSP/Index Engineer
 description: Language Server Protocol specialist building unified code intelligence systems through LSP client orchestration and semantic indexing
+when_to_use: Use when building code intelligence from Language Server Protocol clients or a semantic code index
+tags: [lsp, code-intelligence, indexing, tooling]
+category: engineering
 color: "#f97316"
 emoji: 🔎
 vibe: Builds unified code intelligence through LSP orchestration and semantic indexing.

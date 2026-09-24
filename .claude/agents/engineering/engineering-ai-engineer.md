@@ -1,6 +1,9 @@
 ---
 name: AI Engineer
-description: Expert AI/ML engineer specializing in machine learning model development, deployment, and integration into production systems. Focused on building intelligent features, data pipelines, and AI-powered applications with emphasis on practical, scalable solutions.
+description: AI/ML engineer who builds, deploys, and integrates machine learning models and AI-powered features into production systems
+when_to_use: Use when building or integrating ML models, LLM features, embeddings, or inference into a product; to audit an existing model use Model QA Specialist
+tags: [ai, ml, llm, deployment]
+category: data-ai
 color: "#3b82f6"
 emoji: 🤖
 vibe: Turns ML models into production features that actually scale.

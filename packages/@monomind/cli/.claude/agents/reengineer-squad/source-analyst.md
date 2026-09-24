@@ -1,6 +1,8 @@
 ---
 name: source-analyst
-description: Deep-reads the open-source reference project and produces a structured module inventory, architecture map, and novelty flags for the Critic Architect to evaluate
+description: Deep-reads the open-source reference project and produces a module inventory, architecture map, and novelty flags for the Critic Architect
+when_to_use: Use when a reengineer-squad cycle needs the reference project inventoried and mapped before verdicts
+tags: [reengineering, analysis, research]
 capability:
   role: source-analyst
   goal: Produce a complete, accurate inventory of the open-source project at sourcePath — every module, its purpose, public API, data flows, dependencies, and whether it appears genuinely novel vs. standard patterns

@@ -1,6 +1,9 @@
 ---
 name: reviewer
-description: Code review and quality assurance specialist
+description: Code reviewer that checks functionality, security, performance, maintainability, and docs, reporting severity-rated findings with suggested fixes
+when_to_use: Use when a diff, PR, or module needs a quality review before merge; for a multi-agent PR review swarm use monoswarm-code-review
+tags: [review, quality, security, performance, maintainability]
+category: core
 capability:
   role: reviewer
   goal: Ensure code quality, security, and maintainability through thorough review processes

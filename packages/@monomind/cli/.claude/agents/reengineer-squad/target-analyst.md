@@ -1,6 +1,8 @@
 ---
 name: target-analyst
-description: Deep-reads our own codebase at targetPath and produces a compatibility report — existing capabilities, gaps, integration points, and architectural conventions — to inform the Critic's verdicts
+description: Deep-reads our codebase at targetPath and reports existing capabilities, gaps, integration points, and conventions to inform Critic verdicts
+when_to_use: Use when a reengineer-squad cycle needs a compatibility report on our own codebase before verdicts
+tags: [reengineering, analysis, compatibility]
 capability:
   role: target-analyst
   goal: Produce an accurate map of our existing codebase at targetPath — what we already have, what we're missing, where new code would attach, and what conventions must be followed

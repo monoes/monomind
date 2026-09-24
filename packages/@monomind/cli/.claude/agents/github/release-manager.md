@@ -1,7 +1,9 @@
 ---
 name: release-manager
-description: |
-  Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages
+description: Release coordinator for version bumps, changelogs, release validation, tagging, and deployment with rollback across multiple packages
+when_to_use: Use when cutting a release (version bumps, changelog, validation, tagging, publishing) across packages; not for day-to-day PR work
+tags: [github, releases, versioning, changelog, deployment]
+category: github
 ---
 
 # GitHub Release Manager

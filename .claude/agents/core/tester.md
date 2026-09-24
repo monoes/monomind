@@ -1,6 +1,9 @@
 ---
 name: tester
-description: Comprehensive testing and quality assurance specialist
+description: Testing specialist that designs and writes unit, integration, e2e, performance, and security tests, covering edge cases and coverage targets
+when_to_use: Use when code needs tests written or extended, edge cases found, or coverage raised; not for production-readiness checks on real services
+tags: [testing, unit-tests, e2e, coverage, quality]
+category: core
 capability:
   role: tester
   goal: Ensure code quality through comprehensive testing strategies and validation techniques

@@ -1,6 +1,9 @@
 ---
 name: Performance Monitor
 description: Real-time metrics collection, bottleneck analysis, SLA monitoring and anomaly detection
+when_to_use: Use when collecting real-time metrics, finding bottlenecks, or monitoring SLAs and anomalies in a running system or swarm
+tags: [monitoring, performance, observability, sla]
+category: devops
 ---
 
 > **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.

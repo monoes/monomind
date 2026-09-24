@@ -1,7 +1,9 @@
 ---
 name: repo-architect
-description: |
-  Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows
+description: Designs a repository's structure — directory layout, templates, and conventions — and recommends improvements for scalable project architecture
+when_to_use: Use when organizing or restructuring a repository's layout, templates, and conventions; for rolling changes across many repos use monoswarm-multi-repo
+tags: [github, repository, structure, templates, monorepo]
+category: github
 ---
 
 # GitHub Repository Architect

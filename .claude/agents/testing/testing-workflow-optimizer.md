@@ -1,6 +1,9 @@
 ---
 name: Workflow Optimizer
-description: Expert process improvement specialist focused on analyzing, optimizing, and automating workflows across all business functions for maximum productivity and efficiency
+description: Process improvement specialist who analyzes, optimizes, and automates workflows across business functions for productivity
+when_to_use: Use when a business or team process is slow or manual and needs analysis, streamlining, or automation
+tags: [workflow, process-improvement, automation, productivity]
+category: specialized
 color: "#22c55e"
 emoji: ⚡
 vibe: Finds the bottleneck, fixes the process, automates the rest.

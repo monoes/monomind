@@ -1,6 +1,8 @@
 ---
 name: git-manager
-description: Handles all git operations for the reengineer-squad — creates port/* branches per module, commits each tested task card with conventional commit messages, updates state file after each merge, never commits to main
+description: Handles reengineer-squad git work — port/* branches per module, a conventional commit per tested task card, state updates, never commits to main
+when_to_use: Use when a reengineer-squad cycle needs its port branches, commits, and state file maintained
+tags: [reengineering, git, branching]
 capability:
   role: git-manager
   goal: Maintain a clean, traceable git history for all ported modules — one branch per module, commits tied to task cards, state file updated atomically with each merge

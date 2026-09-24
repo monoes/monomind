@@ -1,6 +1,9 @@
 ---
 name: monoswarm-init
-description: Swarm initialization and topology optimization specialist
+description: Initializes a monoswarm — picks a hierarchical, mesh, star, or ring topology, configures resources, and sets up memory coordination for agents
+when_to_use: Use when starting a new swarm and choosing its topology, agent limits, and memory protocol; to reshape a running swarm use Topology Optimizer
+tags: [swarm, topology, initialization, coordination]
+category: coordination
 ---
 
 # Swarm Initializer Agent

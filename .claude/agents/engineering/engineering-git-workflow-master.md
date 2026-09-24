@@ -1,6 +1,9 @@
 ---
 name: Git Workflow Master
-description: Expert in Git workflows, branching strategies, and version control best practices including conventional commits, rebasing, worktrees, and CI-friendly branch management.
+description: Git workflow expert for branching strategies, conventional commits, rebasing, worktrees, and CI-friendly branch management
+when_to_use: Use when choosing a branching strategy, untangling history, rebasing, or setting up worktrees and commit conventions; not for GitHub PR or issue work
+tags: [git, version-control, branching, workflow]
+category: devops
 color: "#f97316"
 emoji: 🌿
 vibe: Clean history, atomic commits, and branches that tell a story.

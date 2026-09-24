@@ -1,6 +1,8 @@
 ---
 name: boss
 description: Orchestrator for the reengineer-squad — reads state, assigns module batches to specialists, tracks progress, and drives the cycle to completion
+when_to_use: Use when running a reengineer-squad port cycle and module batches need assigning and tracking to completion
+tags: [reengineering, orchestration, porting]
 capability:
   role: boss
   goal: Coordinate the full reengineer cycle — load state, dispatch analysis tasks, collect verdicts, trigger implementation, and write state back — until all modules are evaluated and implemented or vetoed

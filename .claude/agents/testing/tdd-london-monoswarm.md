@@ -1,6 +1,9 @@
 ---
 name: tdd-london-monoswarm
 description: TDD London School specialist for mock-driven development within swarm coordination
+when_to_use: Use when driving development outside-in with mocks and interaction tests (London-school TDD); for general test writing use tester
+tags: [tdd, mocks, testing, contracts]
+category: testing
 capability:
   role: tdd-london-monoswarm
   goal: Drive development from user behavior down to implementation using mock-driven TDD
