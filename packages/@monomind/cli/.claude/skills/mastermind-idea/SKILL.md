@@ -154,59 +154,29 @@ echo "==================================="
 
 ### Step 4 — Idea Manager Agent (Divergent Thinking)
 
-**Before spawning the Idea Manager**, run the registry-aware specialist selection to determine which agents to use. This replaces hardcoded agent types with the best available specialists for the prompt.
+**Before spawning the Idea Manager**, pick specialists from the shared agent index (`monomind pick`) to determine which agents to use, instead of hardcoded agent types.
 
 ```bash
-REGISTRY=".monomind/registry.json"
 PROMPT="$prompt"
-TOP_N=6
 
-# Select user/market/ops angle specialists
-CATEGORIES="marketing strategy product academic specialized"
-user_market_agents=$(jq \
-  --arg cats "$CATEGORIES" \
-  --arg kw "$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
-  --argjson n "$TOP_N" \
-  '[ (.agents // [])[] | select(.deprecated != true)
-     | select(.category as $c | ($cats | split(" ") | any(. == $c)))
-     | {name: .name, slug: .slug, category: .category,
-        score: (
-          (.name | ascii_downcase) as $n |
-          (.description // "" | ascii_downcase) as $desc |
-          # Score keyword matches against both name (weight 2) and description (weight 1) —
-          # name match is a stronger signal (mirrors master.md pick_domain_manager scoring).
-          # Bind each word to $w before contains(): piping into contains(.) rebinds "." to the
-          # piped value, which would silently match everything.
-          (if ($kw | length) > 0
-           then ([$kw | split(" ")[] | select(length > 0) | . as $w |
-                  (if ($n | contains($w)) then 2 else 0 end) +
-                  (if ($desc | contains($w)) then 1 else 0 end)
-                 ] | add // 0)
-           else 0 end)
-        )}
-   ] | sort_by(-.score) | unique_by(.slug) | .[0:$n] | [.[].name]' \
-  "$REGISTRY" 2>/dev/null)
+# The shared agent index: Jev when configured, keyword ranking otherwise. It
+# only returns agents that exist. Local CLI only — never npx.
+pick_names() { command -v monomind >/dev/null 2>&1 || return 0
+  monomind pick -t "$1" --agents --categories "$2" --top "$3" --json 2>/dev/null \
+    | jq -c '[.agents.ranked[].name]' 2>/dev/null; }
 
-# Select technical angle specialists
-CATEGORIES="engineering development architecture"
-tech_agents=$(jq \
-  --arg cats "$CATEGORIES" \
-  --argjson n 3 \
-  '[ (.agents // [])[] | select(.deprecated != true)
-     | select(.category as $c | ($cats | split(" ") | any(. == $c)))
-     | {name: .name, slug: .slug}
-   ] | unique_by(.slug) | .[0:$n] | [.[].name]' \
-  "$REGISTRY" 2>/dev/null)
+# User/market/ops angle specialists, then technical angle specialists
+user_market_agents=$(pick_names "$PROMPT" "marketing specialized testing" 6)
+tech_agents=$(pick_names "$PROMPT" "engineering architecture core" 2)
 
-# Merge: take top 6 from market/ops + top 2 from tech (cap at 8 total)
-# Both variables hold JSON arrays (no -r flag) — use jq -s add to merge properly
+# Merge: top 6 market/ops + top 2 tech (cap at 8 total)
 specialist_list=$(jq -s 'add // [] | unique | .[0:8]' \
-  <(printf '%s' "$user_market_agents") \
-  <(printf '%s' "$tech_agents") 2>/dev/null)
+  <(printf '%s' "${user_market_agents:-[]}") \
+  <(printf '%s' "${tech_agents:-[]}") 2>/dev/null)
 
-# Fallback if registry missing or returned an empty array — need at least 2 specialists
+# Fallback if the CLI is missing or returned too few — need at least 2 specialists
 specialist_count=$(echo "$specialist_list" | jq 'length // 0' 2>/dev/null || echo 0)
-[ "$specialist_count" -lt 2 ] && specialist_list='["researcher","Trend Researcher","Growth Hacker","UX Researcher","Content Creator","Account Strategist"]'
+[ "${specialist_count:-0}" -lt 2 ] && specialist_list='["researcher","Launch Strategist","CRO Specialist","Competitive Content Strategist","Software Architect","Pricing Strategist"]'
 
 echo "Selected specialists: $specialist_list"
 ```
@@ -244,7 +214,7 @@ STEP 2 — SPAWN SPECIALISTS
 Spawn one Task agent per angle (all in parallel, mesh topology). Each agent receives the
 angle description, brain context, and project context, and must return a JSON array of ideas.
 
-The following specialist agents have been pre-selected from the registry as best-fit for this prompt.
+The following specialist agents have been pre-selected from the shared agent index as best-fit for this prompt.
 Spawn ALL of them in one message, assigning each a distinct angle:
 
 SPECIALISTS: ${specialist_list}
@@ -463,7 +433,7 @@ Spawn two agents in parallel via Task tool:
 ```javascript
 // Agent 1 — code explorer
 Task({
-  subagent_type: "feature-dev:code-explorer",
+  subagent_type: "Explore",
   description: "Elaboration: codebase constraints for dev ideas",
   run_in_background: true,
   prompt: `SAFETY CHECK: You are an elaboration agent. Do NOT call monotask board create, space create, or column create. Your only job is producing an ELABORATION_OUTPUT block — the outer skill writes to the board.
@@ -547,9 +517,9 @@ ELABORATION_OUTPUT
 END_ELABORATION_OUTPUT`
 })
 
-// Agent 2 — Product Manager
+// Agent 2 — feasibility assessor: monomind pick -t "feasibility assessment: <ops ideas>" --agents --top 1 --json | jq -r '.agents.ranked[0].name' (fallback "general-purpose")
 Task({
-  subagent_type: "Product Manager",
+  subagent_type: "<picked agent>",
   description: "Elaboration: feasibility assessment for ops ideas",
   run_in_background: true,
   prompt: `SAFETY CHECK: You are an elaboration agent. Do NOT call monotask board create, space create, or column create. Your only job is producing an ELABORATION_OUTPUT block — the outer skill writes to the board.
@@ -725,52 +695,25 @@ After applying all user instructions, proceed to Step 6c with the remaining idea
 
 #### 6c. Task Decomposition
 
-**Select decomposition agents from the registry** before spawning. Run this selection once per track:
+**Select decomposition agents from the shared agent index** before spawning. Run this selection once per track:
 
 ```bash
-REGISTRY=".monomind/registry.json"
+# The shared agent index picks the best decomposer for each track.
+pick_one() { command -v monomind >/dev/null 2>&1 || return 0
+  monomind pick -t "$1" --agents --categories "$2" --top 1 --json 2>/dev/null \
+    | jq -r '.agents.ranked[0].name // empty' 2>/dev/null; }
 
-# Dev decomposition agent — pick the most relevant engineering/architecture specialist
-dev_decomp_agent=$(jq -r \
-  '[ (.agents // [])[] | select(.deprecated != true)
-     | select(.category == "engineering" or .category == "architecture")
-     | {name: .name,
-        score: (.name | ascii_downcase |
-                if contains("architect") then 3
-                elif contains("backend") then 2
-                elif contains("mobile") then 2
-                elif contains("frontend") then 2
-                elif contains("security") then 2
-                elif contains("data") then 2
-                else 1 end
-               )}
-   ] | sort_by(-.score) | .[0].name // "Software Architect"' \
-  "$REGISTRY" 2>/dev/null)
+dev_decomp_agent=$(pick_one "decompose into engineering tasks: $dev_ideas_list" "engineering architecture")
 dev_decomp_agent="${dev_decomp_agent:-Software Architect}"
 
-# Ops decomposition agent — pick the most relevant strategy/sales/product specialist
-ops_decomp_agent=$(jq -r \
-  '[ (.agents // [])[] | select(.deprecated != true)
-     | select(.category == "strategy" or .category == "sales" or .category == "product" or .category == "marketing")
-     | {name: .name,
-        score: (.name | ascii_downcase |
-                if contains("product manager") then 4
-                elif contains("launch") then 3
-                elif contains("outbound") then 3
-                elif contains("deal") then 3
-                elif contains("pricing") then 3
-                elif contains("growth") then 2
-                else 1 end
-               )}
-   ] | sort_by(-.score) | .[0].name // "Product Manager"' \
-  "$REGISTRY" 2>/dev/null)
-ops_decomp_agent="${ops_decomp_agent:-Product Manager}"
+ops_decomp_agent=$(pick_one "decompose into go-to-market and operations tasks: $ops_ideas_list" "marketing specialized")
+ops_decomp_agent="${ops_decomp_agent:-Launch Strategist}"
 
 echo "Dev decomp: $dev_decomp_agent | Ops decomp: $ops_decomp_agent"
 ```
 
 **CRITICAL — Variable substitution required for Step 6c Task calls:**
-Before constructing each Task prompt, replace `${brain_context}`, `${prompt}`, `${project_name}`, `${dev_ideas_elaborated}`, and `${ops_ideas_elaborated}` with actual literal text. Also substitute the `subagent_type` values: replace `dev_decomp_agent` and `ops_decomp_agent` with the string values echoed by the registry selection above (e.g. `"Software Architect"`). Build those lists from the VERDICTS_OUTPUT and ELABORATION_OUTPUT results:
+Before constructing each Task prompt, replace `${brain_context}`, `${prompt}`, `${project_name}`, `${dev_ideas_elaborated}`, and `${ops_ideas_elaborated}` with actual literal text. Also substitute the `subagent_type` values: replace `dev_decomp_agent` and `ops_decomp_agent` with the string values echoed by the selection above (e.g. `"Software Architect"`). Build those lists from the VERDICTS_OUTPUT and ELABORATION_OUTPUT results:
 
 ```bash
 # Collect IDs of cards iced during elaboration (blocking_issue was set) — exclude from decomposition.
@@ -804,7 +747,7 @@ ops_ideas_elaborated=$(echo "$verdicts_output_json" | jq -r \
 ```javascript
 // Dev decomposition agent (only if dev_ideas_elaborated is non-empty)
 Task({
-  subagent_type: dev_decomp_agent,  // value from registry selection above
+  subagent_type: dev_decomp_agent,  // value from the selection above
   description: "Task decomposition: dev ideas for " + project_name,
   run_in_background: true,
   prompt: `SAFETY CHECK: You are a decomposition agent. You must NOT call monotask board create, space create, or column create. Your only job is producing a TASKS_OUTPUT block — the outer skill creates the cards. If you are unsure of any card ID, list it as "UNKNOWN" rather than inventing a value.
@@ -843,7 +786,7 @@ END_TASKS_OUTPUT`
 
 // Ops decomposition agent (only if ops_ideas_elaborated is non-empty)
 Task({
-  subagent_type: ops_decomp_agent,  // value from registry selection above
+  subagent_type: ops_decomp_agent,  // value from the selection above
   description: "Task decomposition: ops ideas for " + project_name,
   run_in_background: true,
   prompt: `SAFETY CHECK: You are a decomposition agent. You must NOT call monotask board create, space create, or column create. Your only job is producing a TASKS_OUTPUT block — the outer skill creates the cards. If you are unsure of any card ID, list it as "UNKNOWN" rather than inventing a value.

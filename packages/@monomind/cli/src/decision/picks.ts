@@ -21,6 +21,7 @@ export interface RankedEntry {
   name?: string;
   category?: string;
   invoke?: string;
+  source?: CatalogItem['source'];
   description?: string;
   probability?: number;
   score?: number;
@@ -43,6 +44,7 @@ function entry(item: CatalogItem): RankedEntry {
     name: item.name,
     category: item.category,
     invoke: item.invoke,
+    source: item.source,
     description: item.description,
   };
 }

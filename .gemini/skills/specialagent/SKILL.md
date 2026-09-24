@@ -35,7 +35,7 @@ Stage 2: Give LLM agent names in that domain → LLM picks best agent
 
 The verified roster is ~98 agent definitions (97 registered in `packages/@monomind/cli/.monomind/registry.json`). Domains and representative agents from each:
 
-| Domain | Representative agents (NOT exhaustive — run `ls .claude/agents/` for the full set) |
+| Domain | Representative agents (NOT exhaustive — `monomind pick -t "<task>" --agents` ranks the full set) |
 |---|---|
 | development | coder · Backend Architect · Frontend Developer · mobile-dev · Mobile App Builder · Rapid Prototyper · Software Architect · Senior Developer · AI Engineer · Data Engineer · Database Optimizer · AI Data Remediation Engineer · LSP/Index Engineer · Embedded Firmware Engineer · Solidity Smart Contract Engineer · WeChat Mini Program Developer · Feishu Integration Developer · Model QA Specialist |
 | testing | tester · tdd-london-swarm · production-validator · API Tester · Accessibility Auditor · Evidence Collector · Performance Benchmarker · Test Results Analyzer · Tool Evaluator · Workflow Optimizer · Code Reviewer |

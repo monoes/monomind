@@ -17,6 +17,8 @@ export interface CatalogItem {
   description?: string;
   text?: string;
   invoke?: string;
+  /** Skill pool: `platform` (.claude/skills) or `org` (the Org skill library). */
+  source?: 'platform' | 'org';
 }
 
 export interface RankedOption {

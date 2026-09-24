@@ -3,7 +3,7 @@
  * Jev decision model when configured (MONOMIND_JEV_URL / TYPESAFE_API_KEY) and
  * falls back to keyword ranking, so scripts and skills always get an answer.
  */
-import { agentCatalog, skillCatalog } from '../decision/catalogs.js';
+import { agentCatalog, taskSkillCatalog } from '../decision/catalogs.js';
 import { type RankedList, rankForTask } from '../decision/picks.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -40,7 +40,7 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
     : agentCatalog(root).filter(
         (a) => categories.length === 0 || categories.includes(a.category ?? ''),
       );
-  const skills = onlyAgents ? [] : skillCatalog(root);
+  const skills = onlyAgents ? [] : taskSkillCatalog(root);
   const result = await rankForTask(task, { agents, skills }, top, {
     onError: (err) =>
       process.stderr.write(

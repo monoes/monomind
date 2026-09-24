@@ -6,7 +6,7 @@ type: helper
 
 # Agent Selection from Registry
 
-Use this pattern whenever a mastermind skill needs to select specialist agents. The registry lives at `.monomind/registry.json` and contains all 257+ available agent types with their category labels.
+Use this pattern whenever a mastermind skill needs to select specialist agents. The shared index is `monomind pick`: it ranks the agent registry (`.monomind/registry.json`, built from `.claude/agents/`) and every skill — Claude skills plus the Org skill library — in one call. The registry keyword scorer below is only the fallback when the CLI is unavailable.
 
 ---
 
@@ -87,19 +87,16 @@ The output is a JSON array of `{name, slug, category}` objects. Use `.name` as t
 
 | Domain / purpose | Categories to include |
 |---|---|
-| **Idea — user/market angles** | `marketing strategy product academic` |
-| **Idea — technical angles** | `engineering development architecture` |
-| **Idea — ops/business angles** | `sales strategy product project-management` |
-| **Build** | `engineering development architecture devops testing` |
-| **Marketing** | `marketing paid-media strategy` |
-| **Sales** | `sales strategy product` |
-| **Research** | `academic specialized strategy` |
-| **Content** | `marketing specialized` |
-| **Ops** | `project-management strategy support` |
-| **Release** | `devops github engineering` |
-| **Review** | `engineering testing analysis` |
-| **Finance** | `strategy specialized` |
+| **Idea — user/market angles** | `marketing specialized testing` |
+| **Idea — technical angles** | `engineering architecture core` |
+| **Build** | `core engineering architecture testing` |
+| **Marketing / Content** | `marketing specialized` |
+| **Research** | `core specialized` |
+| **Release** | `github engineering` |
+| **Review** | `engineering testing core` |
+| **Coordination** | `core monoswarm consensus` |
 
+Registry categories are the `.claude/agents/` folder names: `architecture consensus core design engineering github goal marketing monoswarm optimization specialists specialized templates testing`.
 ---
 
 ## Quick Pattern: pick ONE best agent for a specific task
@@ -142,12 +139,26 @@ If the registry is missing or empty, fall back to these safe defaults per domain
 
 | Domain | Fallback agents |
 |---|---|
-| idea specialists | `researcher`, `Trend Researcher`, `Growth Hacker` |
+| idea specialists | `researcher`, `Launch Strategist`, `CRO Specialist` |
 | dev decomp | `Software Architect` |
-| ops decomp | `Product Manager` |
+| ops decomp | `Launch Strategist` |
 | build | `coder`, `tester`, `reviewer` |
-| marketing | `Content Creator`, `SEO Specialist` |
-| sales | `Outbound Strategist`, `Deal Strategist` |
+| marketing | `Competitive Content Strategist`, `Email Marketing Specialist` |
+| review | `Code Reviewer`, `Security Engineer`, `reviewer` |
+---
+
+## Skills from the same index
+
+```bash
+# Best skills for a task: Claude skills (source "platform") and Org-library
+# skills (source "org") ranked together. `invoke` says how to load each one.
+mm pick -t "$PROMPT" --skills --top 3 --json 2>/dev/null \
+  | jq -c '[.skills.ranked[] | {id, source, invoke}]'
+```
+
+A `platform` skill loads with its `invoke` (`Skill("name")`); an `org` skill is
+read with `monomind org skills show <name>`, or named in an org role's `skills`
+/ `skill_pool`.
 
 ---
 

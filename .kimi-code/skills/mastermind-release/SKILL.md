@@ -105,18 +105,23 @@ SCOPE: [packages, environments, services in scope]
 CONSTRAINTS: [breaking change rules, downtime windows, rollback triggers, compliance gates]
 SUCCESS CRITERIA:
 - [ ] [checkable item — e.g. \"all tests green before deploy\"]
-AGENT: [release-manager | tester | DevOps Automator | cicd-engineer]
+AGENT: [specialist picked in STEP 3]
 SWARM: hierarchical 5 raft
 DEPENDENCIES: [prior stage task ID — release pipeline is sequential]
 OUTPUT FORMAT: unified output schema"
 ```
 
 STEP 3 — EXECUTE
-Spawn Task agents in release order (hierarchical raft — coordinator maintains authoritative release state):
-- Pre-release prep: subagent_type "release-manager"
-- Testing gate: subagent_type "tester"
-- Infrastructure and deploy: subagent_type "DevOps Automator"
-- CI/CD pipeline: subagent_type "cicd-engineer"
+Spawn Task agents in release order (hierarchical raft — coordinator maintains authoritative release state).
+Pick one specialist per release stage from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist:
+```bash
+monomind pick -t "<release stage>: <scope>" --agents --top 1 --json | jq -r '.agents.ranked[0].name // empty'
+```
+Use the printed name as that release stage's subagent_type. If `monomind` is not installed or prints nothing, use the default below.
+- Pre-release prep: "release-manager"
+- Testing gate: "tester"
+- Infrastructure and deploy: "DevOps Automator"
+- CI/CD pipeline: "workflow-automation"
 
 Also run /mastermind:do --board <board_id> to track execution.
 

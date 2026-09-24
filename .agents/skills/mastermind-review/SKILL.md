@@ -116,19 +116,24 @@ SCOPE: [exact files, URLs, documents, or system surfaces in scope]
 CONSTRAINTS: [known acceptable risks, existing decisions not to revisit, standards to apply]
 SUCCESS CRITERIA:
 - [ ] [checkable item — e.g. \"all critical issues documented\"]
-AGENT: [Code Reviewer | Security Engineer | analyst | Accessibility Auditor | UX Researcher]
+AGENT: [specialist picked in STEP 3]
 SWARM: mesh 4 gossip
 DEPENDENCIES: [task IDs or \"none\"]
 OUTPUT FORMAT: unified output schema"
 ```
 
 STEP 3 — EXECUTE
-Spawn one Task agent per review angle (mesh topology — reviewers share findings):
-- Code quality: subagent_type "Code Reviewer"
-- Security: subagent_type "Security Engineer"
-- Architecture: subagent_type "Software Architect"
-- Analytics/metrics: subagent_type "Analytics Reporter"
-- Accessibility: subagent_type "Accessibility Auditor"
+Spawn one Task agent per review angle (mesh topology — reviewers share findings).
+Pick one specialist per review angle from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist:
+```bash
+monomind pick -t "<review angle>: <scope>" --agents --top 1 --json | jq -r '.agents.ranked[0].name // empty'
+```
+Use the printed name as that review angle's subagent_type. If `monomind` is not installed or prints nothing, use the default below.
+- Code quality: "Code Reviewer"
+- Security: "Security Engineer"
+- Architecture: "Software Architect"
+- Accessibility: "Accessibility Auditor"
+- Any other angle: "reviewer"
 
 **If `monofence_check = true`** — add a monofence-ai self-validation step to the Security Engineer's briefing:
 ```

@@ -53,6 +53,18 @@ export function orgSkillCatalog(root: string, names?: string[]): CatalogItem[] {
     .map((s) => ({ id: s.name, description: s.description, text: s.tags.join(' ') }));
 }
 
+/** Every skill a task can use, as one index: platform skills first (they are
+ *  directly invokable), then Org-library skills whose name is not already
+ *  taken. Org skills are read with `monomind org skills show <name>`. */
+export function taskSkillCatalog(root: string): CatalogItem[] {
+  const platform = skillCatalog(root).map((s) => ({ ...s, source: 'platform' as const }));
+  const taken = new Set(platform.map((s) => s.id));
+  const org = orgSkillCatalog(root)
+    .filter((s) => !taken.has(s.id))
+    .map((s) => ({ ...s, source: 'org' as const, invoke: `monomind org skills show ${s.id}` }));
+  return [...platform, ...org];
+}
+
 export function roleCatalog(
   roles: Pick<OrgRole, 'id' | 'title' | 'responsibilities'>[],
 ): CatalogItem[] {

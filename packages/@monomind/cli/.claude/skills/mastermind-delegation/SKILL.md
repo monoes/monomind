@@ -42,8 +42,10 @@ Available agent categories (use the exact slug or name — all of these exist on
   DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
   SWARM     mesh-coordinator · coordinator · Agents Orchestrator
 
-The authoritative list is the filesystem — run `ls .claude/agents/` for the full
-~98-agent set. Do NOT invent agent names; only delegate to agents that exist.
+To find the best agent for a subtask, ask the shared agent index:
+  monomind pick -t "<subtask>" --agents --top 3 --json | jq -r '.agents.ranked[].name'
+and use a printed name as subagent_type. It only returns agents that exist.
+Do NOT invent agent names.
 
 WHEN to delegate:
 - A subtask needs deeper expertise than your primary role
@@ -52,7 +54,7 @@ WHEN to delegate:
 
 HOW to delegate:
   Agent({
-    subagent_type: "agent-slug",
+    subagent_type: "Agent Name",   // a name printed by monomind pick
     description: "Short task label",
     prompt: `Full self-contained briefing — treat every sub-agent as cold-start.
              Include: context, scope, success criteria, and this AGENT DELEGATION

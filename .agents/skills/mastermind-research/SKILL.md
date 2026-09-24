@@ -105,18 +105,20 @@ SCOPE: [sources to consult, search queries to run, depth of analysis]
 CONSTRAINTS: [recency requirements, geographic scope, data reliability thresholds]
 SUCCESS CRITERIA:
 - [ ] [checkable item — e.g. \"top 5 competitors identified with pricing\"]
-AGENT: [researcher | Trend Researcher | UX Researcher | Analytics Reporter]
+AGENT: [specialist picked in STEP 3]
 SWARM: mesh 4 gossip
 DEPENDENCIES: [task IDs or \"none\"]
 OUTPUT FORMAT: unified output schema"
 ```
 
 STEP 3 — EXECUTE
-Spawn one Task agent per research stream (mesh topology — findings cross-pollinate):
-- Web and market research: subagent_type "researcher"
-- Trend and signal analysis: subagent_type "Trend Researcher"
-- User behavior and UX signals: subagent_type "UX Researcher"
-- Data and metrics analysis: subagent_type "Analytics Reporter"
+Spawn one Task agent per research stream (mesh topology — findings cross-pollinate).
+Pick one specialist per research stream from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist:
+```bash
+monomind pick -t "<research stream>: <scope>" --agents --top 1 --json | jq -r '.agents.ranked[0].name // empty'
+```
+Use the printed name as that research stream's subagent_type. If `monomind` is not installed or prints nothing, use the default below.
+- Any stream: "researcher"
 
 Also run /mastermind:do --board <board_id> to track execution.
 
