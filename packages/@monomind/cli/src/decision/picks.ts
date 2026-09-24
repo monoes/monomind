@@ -4,7 +4,13 @@
  * a keyword role match for auto-assignment, and a keyword pool match for
  * per-task skills.
  */
-import { keywordSkills, PICK_BRIEF_CHARS, pickTaskRole } from '../orgrt/task-match.js';
+import {
+  keywordSkills,
+  PICK_BRIEF_CHARS,
+  pickTaskRole,
+  skillOutcomePrior,
+  type TaskOutcome,
+} from '../orgrt/task-match.js';
 import type { OrgRole } from '../orgrt/types.js';
 import { jevVisible, orgSkillCatalog } from './catalogs.js';
 import {
@@ -19,6 +25,7 @@ import {
   pickMinConfidence,
   pickWithJev,
 } from './jev.js';
+import { applyAgentPriors } from './pick-stats.js';
 
 /** Jev tail entries under this probability are noise, not candidates. */
 const MIN_RANKED_PROBABILITY = 0.02;
@@ -32,6 +39,10 @@ export interface RankedEntry {
   description?: string;
   probability?: number;
   score?: number;
+  /** Keyword agents re-ranked by the outcome prior: the relevance score
+   *  before it and the factor applied (`score` = baseScore × prior). */
+  baseScore?: number;
+  prior?: number;
 }
 
 export interface RankedList {
@@ -51,6 +62,9 @@ export interface RankOptions extends PickOptions {
    *  MONOMIND_JEV_PICK_MIN_CONFIDENCE (0.25); pass automaticMinConfidence()
    *  to rank only answers an unattended caller would act on. */
   minConfidence?: number;
+  /** Project root whose .monomind/pick-stats.json re-ranks keyword agent
+   *  results (a bounded outcome prior). Omitted: plain keyword order. */
+  priorsRoot?: string;
 }
 
 export interface TaskRanking {
@@ -86,8 +100,20 @@ function fromAnswer(
   return ranked.length ? ranked : null;
 }
 
-function fromKeywords(task: string, items: CatalogItem[], top: number): RankedEntry[] {
-  return keywordRank(task, items, top).map((i) => ({ ...entry(i), score: i.score }));
+/** Keyword candidates the outcome prior may re-order before the list is cut. */
+const PRIOR_WINDOW = 25;
+
+function fromKeywords(
+  task: string,
+  items: CatalogItem[],
+  top: number,
+  priorsRoot?: string,
+): RankedEntry[] {
+  if (!priorsRoot)
+    return keywordRank(task, items, top).map((i) => ({ ...entry(i), score: i.score }));
+  return applyAgentPriors(priorsRoot, keywordRank(task, items, Math.max(top, PRIOR_WINDOW)))
+    .slice(0, top)
+    .map((i) => ({ ...entry(i), score: i.score, baseScore: i.baseScore, prior: i.prior }));
 }
 
 export async function rankForTask(
@@ -96,7 +122,7 @@ export async function rankForTask(
   top: number,
   opts: RankOptions = {},
 ): Promise<TaskRanking> {
-  const { minConfidence, ...pickOpts } = opts;
+  const { minConfidence, priorsRoot, ...pickOpts } = opts;
   const picked = await pickWithJev(
     task,
     {
@@ -114,7 +140,7 @@ export async function rankForTask(
   const fallback = decisionModelConfigured(opts.env ?? process.env)
     ? 'keyword-fallback'
     : 'keyword';
-  const list = (answer: JevAnswer | undefined, items: CatalogItem[]): RankedList => {
+  const list = (answer: JevAnswer | undefined, items: CatalogItem[], root?: string): RankedList => {
     const jev = fromAnswer(answer, items, top);
     return jev && answer
       ? { method: 'jev', source: 'jev', lowConfidence: answer.confidence < automatic, ranked: jev }
@@ -122,10 +148,10 @@ export async function rankForTask(
           method: 'keyword',
           source: fallback,
           lowConfidence: false,
-          ranked: fromKeywords(task, items, top),
+          ranked: fromKeywords(task, items, top, root),
         };
   };
-  const agents = list(agentAnswer, catalogs.agents);
+  const agents = list(agentAnswer, catalogs.agents, priorsRoot);
   const skills = list(skillAnswer, catalogs.skills);
   return {
     ...(picked && (agents.method === 'jev' || skills.method === 'jev')
@@ -138,15 +164,20 @@ export async function rankForTask(
 
 /** Up to two skills from a role's pool that fit this task; [] = no suggestion.
  *  Jev decides when it answers (its "none" included); without a decision
- *  model, or when it fails, a keyword match over the pool does. Either way
- *  only names from the pool can come back. */
+ *  model, or when it fails, a keyword match over the pool does, biased by
+ *  `history` toward skills whose tasks finished done. Either way only names
+ *  from the pool can come back. */
 export async function suggestTaskSkills(
   title: string,
   pool: string[],
   root: string,
-  opts: PickOptions & { brief?: string; onMethod?: (method: 'jev' | 'keyword') => void } = {},
+  opts: PickOptions & {
+    brief?: string;
+    onMethod?: (method: 'jev' | 'keyword') => void;
+    history?: TaskOutcome[];
+  } = {},
 ): Promise<string[]> {
-  const { brief, onMethod, ...pickOpts } = opts;
+  const { brief, onMethod, history, ...pickOpts } = opts;
   const skills = orgSkillCatalog(root, pool);
   if (skills.length === 0) return [];
   const excerpt = brief?.slice(0, PICK_BRIEF_CHARS);
@@ -162,7 +193,12 @@ export async function suggestTaskSkills(
     return acceptSkills(picked.skill, pickOpts.env, 2).filter((id) => sent.has(id));
   }
   onMethod?.('keyword');
-  return keywordSkills({ title, brief }, skills, 2);
+  return keywordSkills(
+    { title, brief },
+    skills,
+    2,
+    history?.length ? skillOutcomePrior(history) : undefined,
+  );
 }
 
 /** The role that should own a task: Jev first, then a keyword match (see

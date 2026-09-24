@@ -4,12 +4,36 @@
  * falls back to keyword ranking, so scripts and skills always get an answer.
  */
 import { agentCatalog, taskSkillCatalog } from '../decision/catalogs.js';
-import { type RankedList, rankForTask } from '../decision/picks.js';
+import { readPickStats } from '../decision/pick-stats.js';
+import { type RankedEntry, type RankedList, rankForTask } from '../decision/picks.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const USAGE =
-  'usage: monomind pick -t "<task>" [--agents | --skills] [--categories "a b"] [--top N] [--min-confidence P] [--json]';
+  'usage: monomind pick -t "<task>" [--agents | --skills] [--categories "a b"] [--top N] [--min-confidence P] [--explain] [--json]';
+
+/** ` 3.10 = 2.90 × 1.07 prior`: how the outcome prior moved a keyword score. */
+function priorNote(e: RankedEntry): string {
+  if (e.prior === undefined || e.baseScore === undefined) return '';
+  return ` ${(e.score ?? 0).toFixed(2)} = ${e.baseScore.toFixed(2)} × ${e.prior.toFixed(2)} prior`;
+}
+
+function pct(rate: number | null): string {
+  return rate === null ? 'n/a' : `${Math.round(rate * 100)}%`;
+}
+
+/** The learning-loop numbers behind the prior (.monomind/pick-stats.json). */
+function showStats(root: string): void {
+  const s = readPickStats(root);
+  console.log(
+    `Pick history: ${s.routes} routes, ${s.shown} shown, ${s.spawns} spawns · adherence ${pct(s.adherenceRate)} · success followed ${pct(s.followedSuccessRate)} / overridden ${pct(s.notFollowedSuccessRate)}`,
+  );
+  for (const a of s.topAgents) {
+    console.log(
+      `  ${a.name}: recommended ${a.recommended}, followed ${a.followed}, overridden ${a.overridden}, chosen ${a.chosen}, success ${a.success}/${a.success + a.failure} → prior ×${a.prior.toFixed(2)}`,
+    );
+  }
+}
 
 /** Agents print their spawnable name (the id is the registry slug). */
 function show(
@@ -17,6 +41,7 @@ function show(
   list: RankedList,
   provider: string | undefined,
   byName: boolean,
+  explain = false,
 ): void {
   const how = list.method === 'jev' && provider ? `jev: ${provider}` : list.method;
   console.log(`${label} (${how}${list.lowConfidence ? ', low confidence' : ''})`);
@@ -24,7 +49,8 @@ function show(
   for (const e of list.ranked) {
     const p = e.probability !== undefined ? ` ${e.probability.toFixed(2)}` : '';
     const d = e.description ? ` — ${e.description.replace(/\s+/g, ' ').slice(0, 100)}` : '';
-    console.log(`  ${output.highlight(byName ? (e.name ?? e.id) : e.id)}${p}${d}`);
+    const why = explain ? priorNote(e) : '';
+    console.log(`  ${output.highlight(byName ? (e.name ?? e.id) : e.id)}${p}${why}${d}`);
   }
 }
 
@@ -55,19 +81,27 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
         (a) => categories.length === 0 || categories.includes(a.category ?? ''),
       );
   const skills = onlyAgents ? [] : taskSkillCatalog(root);
+  const explain = ctx.flags.explain === true;
   const result = await rankForTask(task, { agents, skills }, top, {
     minConfidence,
+    priorsRoot: root,
     onError: (err) =>
       process.stderr.write(
         `[pick] decision model "${err.provider}" unavailable (${err.message})\n`,
       ),
   });
   if (ctx.flags.json === true) {
-    console.log(JSON.stringify(result, null, 2));
-    return { success: true, data: result };
+    const data = explain ? { ...result, stats: readPickStats(root) } : result;
+    console.log(JSON.stringify(data, null, 2));
+    return { success: true, data };
   }
-  if (!onlySkills) show('Agents', result.agents, result.provider, true);
+  if (!onlySkills) show('Agents', result.agents, result.provider, true, explain);
   if (!onlyAgents) show('Skills', result.skills, result.provider, false);
+  if (explain) {
+    if (result.agents.method === 'jev')
+      console.log('(the outcome prior re-ranks keyword agent results only)');
+    showStats(root);
+  }
   return { success: true, data: result };
 }
 
@@ -89,6 +123,11 @@ export const pickCommand: Command = {
       description:
         'Discard a decision-model answer below this probability (default MONOMIND_JEV_PICK_MIN_CONFIDENCE or 0.25)',
       type: 'number',
+    },
+    {
+      name: 'explain',
+      description: 'Show how the outcome prior (pick history) moved each keyword agent score',
+      type: 'boolean',
     },
     { name: 'json', description: 'Output JSON', type: 'boolean' },
   ],
