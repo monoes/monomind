@@ -124,6 +124,49 @@ describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
     expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
   });
 
+  it('reaps an orphan behind a bwrap-wrapped shell script that only incidentally mentions .claude paths and a claude-http-*.sock name', () => {
+    // Real repro (round-2 cli-qa, reapertest-36c79c6d): the wrapped command
+    // after bwrap's `--` is not Claude Code or monomind at all — it's a
+    // bash script that sources a Claude Code shell snapshot from
+    // ~/.claude/shell-snapshots/... and opens a proxy socket named
+    // claude-http-<hash>.sock, both for reasons unrelated to being a live
+    // claude/monomind session. A raw word-boundary substring test against
+    // the whole wrapped line matches ".claude" and "claude-http-...sock"
+    // anyway and wrongly shields every orphan under this ancestor.
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd:
+        'bwrap --ro-bind /home/user/.claude /home/user/.claude -- ' +
+        '/bin/bash -c "source /home/user/.claude/shell-snapshots/snap-abc123.sh ' +
+        '&& exec node server.js --socket /tmp/claude-http-9f3a2c.sock"',
+    };
+    const orphan = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, orphan])).toEqual([7000]);
+  });
+
+  it('still protects a real live session even when the same bwrap-wrapped line also has incidental .claude/monomind path mentions', () => {
+    // Same shape as above, but the wrapped command really does exec Claude
+    // Code (a bare `claude` executable token) alongside the same kind of
+    // incidental .claude path and claude-http-*.sock mentions — proving the
+    // fix isn't a blanket "ignore bwrap-wrapped scripts" but a real
+    // executable-name check that still fires on a genuine live session.
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd:
+        'bwrap --ro-bind /home/user/.claude /home/user/.claude -- ' +
+        '/bin/bash -c "source /home/user/.claude/shell-snapshots/snap-abc123.sh ' +
+        '&& exec node /usr/local/bin/claude --socket /tmp/claude-http-9f3a2c.sock"',
+    };
+    const child = { pid: 7100, ppid: 1, pgrp: 7100, sid: 7100, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
+  });
+
   it('keeps a process with a live claude/monomind ancestor further up the chain', () => {
     const daemon = { pid: 5000, ppid: 1500, pgrp: 5000, sid: 5000, cmd: 'node monomind org daemon' };
     const wrapper = { pid: 5100, ppid: 5000, pgrp: 5100, sid: 5100, cmd: 'sh -c run' };
