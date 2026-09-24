@@ -24,6 +24,7 @@ import {
   checkVersionFreshness,
   installClaudeCode,
 } from './doctor-env-checks.js';
+import { checkHookMonograph } from './doctor-hook-monograph-checks.js';
 import {
   checkMonoesTokenExposure,
   checkMonoesTools,
@@ -91,7 +92,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog)',
+        'Check specific component (version, node, npm, config, project-root, memory, api, git, mcp, claude, disk, native, typescript, monograph, graph-freshness, hook-monograph, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, monoes-token, dashboard-token, metrics-freshness, security-audit, documents, platforms, crash-reporting, jev, catalog)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -188,6 +189,7 @@ export const doctorCommand: Command = {
       checkMcpServers,
       checkBuildTools,
       checkMonographFreshness,
+      () => checkHookMonograph(),
       checkGitignoreCoverage,
       checkMonoesTokenExposure,
       checkPlatforms,
@@ -222,6 +224,7 @@ export const doctorCommand: Command = {
       typescript: checkBuildTools,
       monograph: checkMonograph,
       'graph-freshness': checkMonographFreshness,
+      'hook-monograph': () => checkHookMonograph(),
       native: checkNativeBindings,
       'native-modules': checkNativeBindings,
       'memory-pkg': checkMonoesMemory,
