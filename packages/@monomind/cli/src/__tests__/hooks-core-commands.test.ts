@@ -137,7 +137,10 @@ describe('hooks-core-commands', () => {
           preEditCommand,
           makeCtx({ flags: { _: [], format: 'json', file: 'README.md' } }),
         );
-        expect((md.data as any).context.suggestedAgents).toEqual(['Technical Writer', 'researcher']);
+        expect((md.data as any).context.suggestedAgents).toEqual([
+          'Technical Writer',
+          'researcher',
+        ]);
 
         const py = await run(
           preEditCommand,
@@ -154,7 +157,10 @@ describe('hooks-core-commands', () => {
           makeCtx({ flags: { _: [], format: 'json', file: 'Makefile' } }),
         );
         expect((noExt.data as any).context.fileType).toBe('unknown');
-        expect((noExt.data as any).context.suggestedAgents).toEqual(['coder', 'Software Architect']);
+        expect((noExt.data as any).context.suggestedAgents).toEqual([
+          'coder',
+          'Software Architect',
+        ]);
       } finally {
         spy.mockRestore();
       }
