@@ -1204,20 +1204,26 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
     const { buildUnifiedRegistry, computeAgentRoots } = await import(
       '../agents/registry-builder.js'
     );
-    const cwd = process.cwd();
+    const { findProjectRoot, registryPath } = await import('../agents/registry-freshness.js');
+    const cwd = findProjectRoot(process.cwd()) ?? process.cwd();
     const roots = computeAgentRoots(cwd);
-    const outDir = join(cwd, '.monomind');
-    mkdirSync(outDir, { recursive: true });
-    // Rebuilds fresh in-memory (and refreshes .monomind/registry.json on disk)
-    // rather than reading a file that a separate, unawaited startup task also
-    // writes — avoids reporting stale results from a race between the two.
-    const registry = buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
+    mkdirSync(join(cwd, '.monomind'), { recursive: true });
+    // Rebuilds fresh in-memory (and refreshes .monomind/registry.json on disk,
+    // never replacing a non-empty registry with an empty one) rather than
+    // reading a file a separate startup task may also be writing.
+    const registry = buildUnifiedRegistry(roots, registryPath(cwd), { base: cwd });
     const entries = registry.agents;
+    // An extra root (MONOMIND_EXTRA_AGENT_PATHS or a sibling agency-agents dir)
+    // wins slug conflicts over .claude/agents — say so instead of hiding it.
+    const extras = roots.slice(0, -1);
+    const extraNote = extras.length
+      ? `; extra agent roots (win on conflict): ${extras.join(', ')}`
+      : '';
     if (entries.length === 0) {
       return {
         name: 'Agent Registry',
         status: 'warn',
-        message: 'No agents found under .claude/agents',
+        message: `No agents found under .claude/agents${extraNote}`,
         fix: 'monomind init  (installs agent definitions)',
       };
     }
@@ -1229,26 +1235,32 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
       if (!agent.name) missingName++;
       if (!agent.description) missingDescription++;
     }
-    const total = missingSlug + missingName + missingDescription;
+    const dupes = registry.duplicates;
+    const total = missingSlug + missingName + missingDescription + dupes.length;
     if (total === 0) {
       return {
         name: 'Agent Registry',
         status: 'pass',
-        message: `${entries.length} agent(s), all metadata complete`,
+        message: `${entries.length} agent(s), all metadata complete${extraNote}`,
       };
     }
     const parts = [
       missingSlug > 0 ? `${missingSlug} missing slug` : null,
       missingName > 0 ? `${missingName} missing name` : null,
       missingDescription > 0 ? `${missingDescription} missing description` : null,
+      dupes.length > 0
+        ? `duplicate slug ${dupes.map((d) => `"${d.slug}" (kept ${d.kept}, dropped ${d.dropped.join(', ')})`).join('; ')}`
+        : null,
     ]
       .filter(Boolean)
       .join(', ');
     return {
       name: 'Agent Registry',
       status: 'warn',
-      message: `${total} metadata issue(s) across ${entries.length} agent(s): ${parts}`,
-      fix: 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
+      message: `${total} metadata issue(s) across ${entries.length} agent(s): ${parts}${extraNote}`,
+      fix: dupes.length
+        ? 'Give each duplicated agent a unique `slug:` in its frontmatter'
+        : 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
     };
   } catch {
     return {

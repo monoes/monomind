@@ -577,21 +577,16 @@ export class CLI {
         console.error('[index] MonoswarmCheckpointer init failed:', e);
     }
 
-    // Task 30: Build unified agent registry — extras (canonical) first, dev copies second.
-    // Deduplication is slug-based; agency-agents wins on conflict.
-    // Extra paths are read from MONOMIND_EXTRA_AGENT_PATHS env var (colon-separated)
-    // or fall back to the known local path when available.
+    // Task 30: Keep the project's agent registry fresh. The project root is
+    // found by walking up from cwd (a CLI run from a directory without agent
+    // files must not overwrite the registry with an empty one), and the build
+    // only runs when registry.json is older than an agent definition. Readers
+    // that need it (`monomind pick`) call ensureRegistry themselves, so this
+    // unawaited refresh never has to win a race.
     try {
-      const { buildUnifiedRegistry, computeAgentRoots } = await import(
-        './agents/registry-builder.js'
-      );
-      const { mkdirSync } = await import('node:fs');
-      const { join } = await import('node:path');
-
-      const roots = computeAgentRoots(process.cwd());
-      const outDir = join(process.cwd(), '.monomind');
-      mkdirSync(outDir, { recursive: true });
-      buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
+      const { findProjectRoot, ensureRegistry } = await import('./agents/registry-freshness.js');
+      const root = findProjectRoot(process.cwd());
+      if (root) ensureRegistry(root);
     } catch (e) {
       // optional — registry build failures must never block startup
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
