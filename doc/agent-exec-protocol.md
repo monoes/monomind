@@ -257,7 +257,8 @@ Rules:
 - One JSON object per line on caller stdin; `id` MUST match the pending `tool_call`.
 - `result.text` (string) is what the agent sees; `ok:false` result text should describe the error.
 - `--tool-timeout` expiry fails the call (`ERROR: tool timeout`) — the turn continues.
-- Max 10 tool rounds per turn for fence runners (`MAX_TOOL_ROUNDS`, `tool-fence.ts`); native
+- Max 10 tool rounds per turn for fence runners (`MAX_TOOL_ROUNDS`, `tool-fence.ts`), then one
+  wrap-up round in which the capped calls come back as "round cap reached" tool results; native
   runners are bounded by `--max-turns` instead. Hitting either cap yields
   `result.stop_reason="tool_round_cap"` / `"max_turns"` (machine-readable, §3.2).
 - Caller may send `{"v":1,"type":"cancel"}` on stdin at any time to request cancellation

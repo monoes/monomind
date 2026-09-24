@@ -102,6 +102,9 @@ export interface AgentRunArgs {
    */
   envAuthoritative?: boolean;
   maxTurns: number;
+  /** Fence-protocol runners: tool rounds per mailbox message (#326). Unset =
+   *  tool-fence.ts MAX_TOOL_ROUNDS. */
+  maxToolRounds?: number;
   resume?: string;
   /** `meta.toolUseId` (#289) is the harness's id for this specific call —
    *  threaded through so the invocation event can be correlated with the

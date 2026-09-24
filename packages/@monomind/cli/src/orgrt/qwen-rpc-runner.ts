@@ -98,10 +98,9 @@ import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -486,26 +485,18 @@ export class QwenRpcAgentRunner implements AgentRunner {
               yield { type: 'assistant', session_id: sessionId, text: note };
             if (calls.length === 0) break;
 
-            round += 1;
-            if (round > MAX_TOOL_ROUNDS) {
-              yield {
-                type: 'assistant',
-                session_id: sessionId,
-                text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-              };
-              break;
-            }
-
             toolCallInFlight = true;
-            const results: string[] = [];
+            let ran: Awaited<ReturnType<typeof runToolRound>>;
             try {
-              for (const call of calls)
-                results.push(await executeToolCall(args.tools, call, args.canUseTool));
+              ran = await runToolRound(args, calls, round);
             } finally {
               toolCallInFlight = false;
               lastEventAt = Date.now();
             }
-            nextMessage = formatToolResults(calls, results);
+            round += 1;
+            if (ran.note) yield { type: 'assistant', session_id: sessionId, text: ran.note };
+            if (!ran.results) break;
+            nextMessage = formatToolResults(calls, ran.results);
           }
         } finally {
           turnInFlight = false;

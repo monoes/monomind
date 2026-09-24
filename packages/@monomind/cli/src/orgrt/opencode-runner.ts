@@ -83,10 +83,9 @@ import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -217,7 +216,8 @@ export class OpencodeAgentRunner implements AgentRunner {
 
         // Tool-call loop: keep driving the same session until a turn produces
         // no tool_call fences (or the round cap hits).
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+        // runToolRound ends this loop past the round cap (#326).
+        for (let round = 0; ; round++) {
           await withTimeout(
             client.session.promptAsync({
               path: { id: sessionId },
@@ -377,19 +377,9 @@ export class OpencodeAgentRunner implements AgentRunner {
           }
           if (calls.length === 0) break;
 
-          if (round === MAX_TOOL_ROUNDS) {
-            yield {
-              type: 'assistant',
-              session_id: sessionId,
-              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-            };
-            break;
-          }
-
-          const results: string[] = [];
-          for (const call of calls) {
-            results.push(await executeToolCall(args.tools, call, args.canUseTool));
-          }
+          const { results, note } = await runToolRound(args, calls, round);
+          if (note) yield { type: 'assistant', session_id: sessionId, text: note };
+          if (!results) break;
           nextPrompt = formatToolResults(calls, results);
         }
 

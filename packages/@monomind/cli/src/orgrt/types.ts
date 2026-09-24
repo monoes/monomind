@@ -248,6 +248,10 @@ export const EndpointSchema = z
   .passthrough();
 export type EndpointConfig = z.infer<typeof EndpointSchema>;
 
+/** Upper bound for `max_tool_rounds` (#326): each round is a full model turn,
+ *  so the cap still has to stop a model that keeps calling tools. */
+export const MAX_TOOL_ROUNDS_LIMIT = 200;
+
 export const RoleSchema = z
   .object({
     id: z.string().min(1),
@@ -332,6 +336,8 @@ export const RoleSchema = z
      *  need many more turns per message (e.g. a developer doing sequential build/fix/verify
      *  cycles) than others (e.g. docs, pm) shouldn't be forced onto one global budget. */
     max_turns_per_message: z.number().int().positive().optional(),
+    /** Per-role override of run_config.max_tool_rounds (#326). */
+    max_tool_rounds: z.number().int().positive().max(MAX_TOOL_ROUNDS_LIMIT).optional(),
     /** Per-role override of the even run_config.budget_tokens split — a role on a
      *  token-hungry model (e.g. GLM via opencode) can get a larger budget without
      *  inflating the org-wide budget for every other role. Unset = even split. */
@@ -471,6 +477,12 @@ export const OrgDefSchema = z
         budget_tokens_basis: z.enum(['uncached', 'billable']).optional(),
         memory_namespace: z.string().optional(),
         max_turns_per_message: z.number().int().positive().default(DEFAULT_MAX_TURNS_PER_MESSAGE),
+        /** #326: how many tool_call → tool_result rounds a fence-protocol
+         *  runtime (every runtime but claude and vercel) runs per mailbox
+         *  message. Unset = 10. At the cap the role gets its pending calls
+         *  back unrun, with a notice, and one round to report and ask to be
+         *  continued. A role's own max_tool_rounds overrides it. */
+        max_tool_rounds: z.number().int().positive().max(MAX_TOOL_ROUNDS_LIMIT).optional(),
         /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
         idle_minutes: z.number().nonnegative().optional(),
         /** #302: how strictly `org_complete` is gated. 'boss' (default) only

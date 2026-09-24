@@ -86,10 +86,9 @@ import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -261,7 +260,8 @@ export class GrokAgentRunner implements AgentRunner {
         let turnInputTokens = 0;
         let turnOutputTokens = 0;
 
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+        // runToolRound ends this loop past the round cap (#326).
+        for (let round = 0; ; round++) {
           // Gated on !sessionId alone, NOT `round === 0 && !sessionId` — if
           // a session id never gets parsed out of grok's output (a real
           // risk, per this file's header: the exact event shape is a
@@ -321,18 +321,9 @@ export class GrokAgentRunner implements AgentRunner {
             yield { type: 'assistant', session_id: sessionId, text: note };
           if (calls.length === 0) break;
 
-          if (round === MAX_TOOL_ROUNDS) {
-            yield {
-              type: 'assistant',
-              session_id: sessionId,
-              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-            };
-            break;
-          }
-
-          const results: string[] = [];
-          for (const call of calls)
-            results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          const { results, note } = await runToolRound(args, calls, round);
+          if (note) yield { type: 'assistant', session_id: sessionId, text: note };
+          if (!results) break;
           nextPrompt = formatToolResults(calls, results);
         }
 

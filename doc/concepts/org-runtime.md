@@ -70,8 +70,8 @@ Three concrete implementations are available:
 - **Server start timeout:** 30s when spawning an ephemeral server (the SDK
   default of 5s crashed roles on cold starts).
 - **Tool delivery:** Uses the **Fence Protocol** (`tool-fence.ts`) — org tools are rendered
-  in the system prompt as markdown and parsed back from assistant text. Tool rounds capped
-  at `MAX_TOOL_ROUNDS = 10`. Trailing junk after the JSON object (e.g. an extra
+  in the system prompt as markdown and parsed back from assistant text. Tool rounds are capped
+  per message by `max_tool_rounds` (default 10, see the Fence Protocol section). Trailing junk after the JSON object (e.g. an extra
   `}` — observed from kimi k3) is tolerated by parsing the first balanced JSON
   object; a truly unparseable fence is surfaced as a `[monomind] ignored
   malformed tool_call fence …` assistant note on the org bus instead of being
@@ -258,6 +258,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `max_concurrent_agents` | `4` | How many role sessions run concurrently |
 | `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run, split evenly across roles unless a role sets its own `budget_tokens` |
 | `max_turns_per_message` | `100 000` | Agent turns cap per inbound mailbox message. Deliberately huge (`DEFAULT_MAX_TURNS_PER_MESSAGE`, [`types.ts → DEFAULT_MAX_TURNS_PER_MESSAGE`](packages/@monomind/cli/src/orgrt/types.ts#DEFAULT_MAX_TURNS_PER_MESSAGE)) so the ceiling never bricks a long task — set it explicitly, or a role's own `max_turns_per_message`, to impose a real cap |
+| `max_tool_rounds` | `10` | Tool-call rounds per inbound message on the fence-protocol runtimes (every runtime but `claude` and `vercel`, which are bounded by `max_turns_per_message`). A positive integer up to 200 (`MAX_TOOL_ROUNDS_LIMIT`). A role's own `max_tool_rounds` overrides it. What happens at the cap: see the Fence Protocol section |
 | `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` \| `'worktree-per-role'` |
 | `idle_minutes` | `10` | Idle timeout in minutes before the watchdog nudges the boss and ultimately calls `stopOrg()`. Unset falls back to 10 ([`daemon.ts → startOrg`](packages/@monomind/cli/src/orgrt/daemon.ts#startOrg)); `0` disables the watchdog. Fractions allowed |
 | `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts → circuit_breaker`](packages/@monomind/cli/src/orgrt/types.ts#circuit_breaker), applied [`daemon.ts → circuitBreaker`](packages/@monomind/cli/src/orgrt/daemon.ts#circuitBreaker)) |
@@ -275,6 +276,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
 | `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
+| `max_tool_rounds` | _(unset)_ | Per-role override of `run_config.max_tool_rounds`, for a role that makes many tool calls in reply to one message |
 | `budget_usd` | _(unset)_ | Per-role USD spend cap. Unlike `budget_tokens` there is **no** org-wide even split: unset means no USD enforcement for this role, only token budgets |
 | `skills` | _(unset)_ | Org skill library entries pinned into the role's system prompt for the whole run — see §6.6 |
 | `skill_pool` | _(unset)_ | Skills the role may load mid-run with `org_skill_load` — names or `tag:<tag>`; only their one-line descriptions sit in the prompt. See §6.6 |
@@ -693,7 +695,7 @@ Cross-process org registry using the filesystem:
 Used by OpenCode and KimiCode runners to deliver org tools through the LLM text stream:
 
 - `TOOL_CALL_RE = /\`\`\`tool_call\s*\n([\s\S]*?)\`\`\`/g`
-- `MAX_TOOL_ROUNDS = 10`
+- `MAX_TOOL_ROUNDS = 10`: the default tool-call round cap per mailbox message. `run_config.max_tool_rounds`, or a role's own `max_tool_rounds`, changes it for a role. When a round reaches the cap, its calls don't run. Each gets a tool result saying the round cap was reached, so the role knows why. It then gets one wrap-up round whose calls do run, to report its progress and ask to be continued (e.g. `org_send` to whoever gave it the work). Calls after the wrap-up round are dropped with a `[monomind] tool-call round cap … dropping` note on the bus ([`tool-fence.ts → runToolRound`](packages/@monomind/cli/src/orgrt/tool-fence.ts#runToolRound)).
 - `buildToolProtocol(tools)` — renders org tools as system-prompt markdown.
 - `parseToolCalls()` / `executeToolCall()` / `formatToolResults()` — parse → execute → format.
 

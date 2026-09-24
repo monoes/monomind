@@ -41,7 +41,7 @@
  *   assistant text, executes the real OrgToolDef handlers in-process (the same
  *   handlers ClaudeAgentRunner registers with the SDK), and feeds the results
  *   back as the next prompt IN THE SAME kimi session. Loop repeats until a
- *   turn produces no tool calls (cap: MAX_TOOL_ROUNDS). Tool-call fences are
+ *   turn produces no tool calls (cap: AgentRunArgs.maxToolRounds, default MAX_TOOL_ROUNDS). Tool-call fences are
  *   stripped from the text yielded to session.ts so the bus only sees prose.
  *
  * Usage accounting — WIRE FILE:
@@ -76,10 +76,9 @@ import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -150,7 +149,8 @@ export class KimiCodeAgentRunner implements AgentRunner {
 
         // Tool-call loop: keep driving the same kimi session until a turn
         // produces no tool_call fences (or the round cap hits).
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+        // runToolRound ends this loop past the round cap (#326).
+        for (let round = 0; ; round++) {
           const roundStart = Date.now();
           // Filled in by streamTurn as the subprocess runs and when it exits.
           const outcome: TurnOutcome = { exitCode: 1, stderrTail: '', timedOut: false };
@@ -204,21 +204,11 @@ export class KimiCodeAgentRunner implements AgentRunner {
           }
           if (calls.length === 0) break;
 
-          if (round === MAX_TOOL_ROUNDS) {
-            yield {
-              type: 'assistant',
-              session_id: sessionId,
-              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-            };
-            break;
-          }
-
           // Execute the real OrgToolDef handlers in-process and feed results
           // back into the same kimi session as the next prompt.
-          const results: string[] = [];
-          for (const call of calls) {
-            results.push(await executeToolCall(args.tools, call, args.canUseTool));
-          }
+          const { results, note } = await runToolRound(args, calls, round);
+          if (note) yield { type: 'assistant', session_id: sessionId, text: note };
+          if (!results) break;
           nextPrompt = formatToolResults(calls, results);
         }
 

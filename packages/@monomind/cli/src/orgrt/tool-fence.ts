@@ -15,7 +15,7 @@
  */
 
 import { z } from 'zod';
-import type { OrgToolDef } from './agent-runner.js';
+import type { AgentRunArgs, OrgToolDef } from './agent-runner.js';
 
 /** The zod object that validates `tool`'s arguments: its shape, keeping
  *  unlisted keys when the tool declares a catchall. */
@@ -59,9 +59,48 @@ function firstBalancedJson(s: string): string {
   return s;
 }
 
-/** Max tool_call → tool_result round-trips within a single mailbox prompt.
- *  Guards against a model that keeps calling tools forever. */
+/** Default max tool_call → tool_result round-trips within a single mailbox
+ *  prompt (`AgentRunArgs.maxToolRounds` overrides it). Guards against a model
+ *  that keeps calling tools forever. */
 export const MAX_TOOL_ROUNDS = 10;
+
+/** The tool result a role gets for each call it made once the round cap was
+ *  reached: the call did not run, and the next round is its last. */
+export function roundCapResult(cap: number): string {
+  return (
+    `ERROR: not run — this message reached its tool-call round cap (${cap} rounds). ` +
+    'Your next reply is the last round for this message: use its tool calls only to ' +
+    'report what you finished and what is left, and to ask to be continued (e.g. ' +
+    'org_send to whoever gave you this work). Calls after that are dropped. ' +
+    'Re-issue the unfinished calls when your next message arrives.'
+  );
+}
+
+/** Handle one round of parsed tool calls, `round` being how many rounds this
+ *  message already ran. Below the cap (`args.maxToolRounds`, default
+ *  MAX_TOOL_ROUNDS) the calls run. At the cap each gets roundCapResult
+ *  instead, so the role learns why and can wrap up; the calls of that wrap-up
+ *  round run. Anything later is dropped: `results` is then undefined and the
+ *  runner stops. `note` is for the bus. */
+export async function runToolRound(
+  args: Pick<AgentRunArgs, 'tools' | 'canUseTool' | 'maxToolRounds'>,
+  calls: ToolCall[],
+  round: number,
+): Promise<{ results?: string[]; note?: string }> {
+  const cap = args.maxToolRounds ?? MAX_TOOL_ROUNDS;
+  if (round > cap + 1)
+    return {
+      note: `[monomind] tool-call round cap (${cap}) reached — dropping ${calls.length} tool call(s) from the wrap-up round`,
+    };
+  if (round === cap)
+    return {
+      results: calls.map(() => roundCapResult(cap)),
+      note: `[monomind] tool-call round cap (${cap}) reached — ${calls.length} pending tool call(s) returned unrun; the role gets one wrap-up round`,
+    };
+  const results: string[] = [];
+  for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+  return { results };
+}
 
 export interface ToolCall {
   name: string;

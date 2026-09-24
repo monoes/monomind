@@ -151,10 +151,9 @@ import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -266,7 +265,8 @@ export class CodexAgentRunner implements AgentRunner {
         // Tool-call loop (same shape as KimiCodeAgentRunner/AntigravityAgentRunner):
         // keep driving the same codex session until a turn produces no
         // tool_call fences (or the round cap hits).
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+        // runToolRound ends this loop past the round cap (#326).
+        for (let round = 0; ; round++) {
           // Prepend system prompt + tool protocol on first turn only (when
           // there's no thread to resume). Subsequent turns in the same
           // session carry context via the thread_id.
@@ -325,20 +325,10 @@ export class CodexAgentRunner implements AgentRunner {
           }
           if (calls.length === 0) break;
 
-          if (round === MAX_TOOL_ROUNDS) {
-            yield {
-              type: 'assistant',
-              session_id: threadId,
-              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-            };
-            break;
-          }
-
           // Execute org tools in-process, gated through canUseTool
-          const results: string[] = [];
-          for (const call of calls) {
-            results.push(await executeToolCall(args.tools, call, args.canUseTool));
-          }
+          const { results, note } = await runToolRound(args, calls, round);
+          if (note) yield { type: 'assistant', session_id: threadId, text: note };
+          if (!results) break;
           nextPrompt = formatToolResults(calls, results);
         }
 

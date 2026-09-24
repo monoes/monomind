@@ -103,10 +103,9 @@ import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -289,7 +288,8 @@ export class CopilotAgentRunner implements AgentRunner {
         let promptInputTokens = 0;
         let promptOutputTokens = 0;
 
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+        // runToolRound ends this loop past the round cap (#326).
+        for (let round = 0; ; round++) {
           // Filled in by streamTurn as the subprocess runs and when it exits.
           const outcome: TurnOutcome = {
             exitCode: 1,
@@ -353,11 +353,9 @@ export class CopilotAgentRunner implements AgentRunner {
             break;
           }
 
-          if (round === MAX_TOOL_ROUNDS) {
-            yield {
-              type: 'assistant',
-              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-            };
+          const { results, note } = await runToolRound(args, calls, round);
+          if (note) yield { type: 'assistant', text: note };
+          if (!results) {
             yield {
               type: 'result',
               subtype: 'success',
@@ -366,10 +364,6 @@ export class CopilotAgentRunner implements AgentRunner {
             };
             break;
           }
-
-          const results: string[] = [];
-          for (const call of calls)
-            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           nextPrompt = `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${formatToolResults(calls, results)}`;
         }
       }

@@ -102,10 +102,9 @@ import { maskedCommand } from './authority-mask.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -612,29 +611,22 @@ export class PiRpcAgentRunner implements AgentRunner {
             for (const note of malformed) yield { type: 'assistant', text: note };
             if (calls.length === 0) break;
 
-            round += 1;
-            if (round > MAX_TOOL_ROUNDS) {
-              yield {
-                type: 'assistant',
-                text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-              };
-              break;
-            }
-
             // Pause the silence watchdog for the duration — see its
             // declaration above for why a call like ask_human blocking on a
             // human isn't "pi is wedged". Always un-paused in `finally` so an
             // exception out of executeToolCall can't leave it stuck off.
             toolCallInFlight = true;
-            const results: string[] = [];
+            let ran: Awaited<ReturnType<typeof runToolRound>>;
             try {
-              for (const call of calls)
-                results.push(await executeToolCall(args.tools, call, args.canUseTool));
+              ran = await runToolRound(args, calls, round);
             } finally {
               toolCallInFlight = false;
               lastEventAt = Date.now(); // the post-tool-call silence window starts fresh, not already partway elapsed
             }
-            nextMessage = formatToolResults(calls, results);
+            round += 1;
+            if (ran.note) yield { type: 'assistant', text: ran.note };
+            if (!ran.results) break;
+            nextMessage = formatToolResults(calls, ran.results);
           }
         } finally {
           turnInFlight = false;

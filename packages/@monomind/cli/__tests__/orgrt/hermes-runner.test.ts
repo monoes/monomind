@@ -267,10 +267,13 @@ describe('HermesAgentRunner', () => {
         ],
       });
       const { messages } = await collect(new HermesAgentRunner(bin), args);
-      const capMsg = messages.find(
+      // #326: the capped round is answered with a notice first, then the
+      // wrap-up round's calls are dropped.
+      const capMsgs = messages.filter(
         (m) => m.type === 'assistant' && m.text?.includes('tool-call round cap'),
       );
-      expect(capMsg?.text).toContain('dropping');
+      expect(capMsgs[0]?.text).toContain('returned unrun');
+      expect(capMsgs[1]?.text).toContain('dropping');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

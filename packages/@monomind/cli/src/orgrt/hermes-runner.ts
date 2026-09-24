@@ -29,7 +29,7 @@
  * exits before the caller ever sees one). So every round here resends the
  * FULL transcript (system prompt + tool protocol + original user text +
  * every prior round's raw assistant text + tool results) as one flat
- * string. Bounded by MAX_TOOL_ROUNDS (10), so not unbounded, but real extra
+ * string. Bounded by the tool-round cap (default 10), so not unbounded, but real extra
  * token cost on any multi-round turn compared to codex's resume-based
  * approach — worth knowing going in.
  *
@@ -117,10 +117,9 @@ import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import {
   buildToolProtocol,
-  executeToolCall,
   formatToolResults,
-  MAX_TOOL_ROUNDS,
   parseToolCalls,
+  runToolRound,
   TOOL_CALL_RE,
 } from './tool-fence.js';
 
@@ -169,7 +168,8 @@ export class HermesAgentRunner implements AgentRunner {
         // why (headless hermes has no session-resume flag, unlike codex).
         const transcript: string[] = [`${args.systemPrompt}${buildToolProtocol(args.tools)}`, text];
 
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+        // runToolRound ends this loop past the round cap (#326).
+        for (let round = 0; ; round++) {
           fs.writeFileSync(promptFile, transcript.join('\n\n---\n\n'));
 
           const outcome: TurnOutcome = {
@@ -203,22 +203,12 @@ export class HermesAgentRunner implements AgentRunner {
           }
           if (calls.length === 0) break;
 
-          if (round === MAX_TOOL_ROUNDS) {
-            yield {
-              type: 'assistant',
-              session_id: sessionId,
-              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
-            };
-            break;
-          }
-
           // Execute org tools in-process, gated through canUseTool, then
           // append THIS round's raw assistant text and the tool results to
           // the transcript — the whole thing gets resent next round.
-          const results: string[] = [];
-          for (const call of calls) {
-            results.push(await executeToolCall(args.tools, call, args.canUseTool));
-          }
+          const { results, note } = await runToolRound(args, calls, round);
+          if (note) yield { type: 'assistant', session_id: sessionId, text: note };
+          if (!results) break;
           transcript.push(rawText, formatToolResults(calls, results));
         }
 
