@@ -70,7 +70,7 @@ Write failing tests, then implement just enough to pass, then refactor.
 
 **Invoke the TDD skill for full workflow:**
 ```
-Skill("superpowers:test-driven-development")
+Skill("mastermind-debug")   # Phase 4: failing test first, then Red-Green-Refactor
 ```
 
 ---
@@ -87,7 +87,7 @@ Work through existing code with Codex as reviewer.
 
 **Invoke the review skill:**
 ```
-Skill("superpowers:requesting-code-review")
+Skill("mastermind-review")
 ```
 
 ---
@@ -101,7 +101,7 @@ Systematic debugging as a pair.
 
 **Invoke the debugging skill:**
 ```
-Skill("superpowers:systematic-debugging")
+Skill("mastermind-debug")
 ```
 
 ---

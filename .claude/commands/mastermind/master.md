@@ -97,8 +97,8 @@ digraph mastermind_routing {
 | Execute a written plan step-by-step with stop-on-blocker | `Skill("mastermind-execute")` |
 | Execute a plan via fresh subagents with 2-stage review | `Skill("mastermind-execute")` |
 | Fix or investigate 2+ independent problems concurrently (different files, subsystems, or bugs) | dispatch parallel subagents in one message — one per independent domain; use `Skill("mastermind-execute")` for plan-driven parallel work |
-| Ingest a prompt/spec/folder and generate agent-optimized tasks | `Skill("mastermind-createtask")` |
-| Execute tasks from a task file or monotask board (parallel/sequential/minimal modes, review cycles, loop) | `Skill("mastermind-do")` |
+| Ingest a prompt/spec/folder and generate agent-optimized tasks | `Skill("mastermind:createtask")` |
+| Execute tasks from a task file or monotask board (parallel/sequential/minimal modes, review cycles, loop) | `Skill("mastermind:do")` |
 | Design first — spec, approaches, approval gate before code | `Skill("mastermind-design")` |
 | Build a feature, fix a bug, implement anything | `Skill("mastermind-plan")` then `Skill("mastermind-execute")` |
 | Code review, content critique, strategy audit | `Skill("mastermind-review")` |
@@ -106,31 +106,32 @@ digraph mastermind_routing {
 | System architecture, DDD, technical design | `Skill("mastermind-design")` |
 | Market research, competitive analysis, user insights | `Skill("mastermind-research")` |
 | Ideas, feature generation, opportunity framing | `Skill("mastermind-idea")` |
-| Research ideas, evaluate with PM lens, decompose into subtasks | `Skill("mastermind-ideate")` |
-| Analyze a component, research improvements, generate improvement tasks | `Skill("mastermind-improve")` |
-| Marketing campaign, copy, SEO | `Skill("mastermind-marketing")` |
-| Sales outreach, proposals, pipeline | `Skill("mastermind-sales")` |
-| Blog, docs, newsletters, threads | `Skill("mastermind-content")` |
+| Research ideas, evaluate with PM lens, decompose into subtasks | `Skill("mastermind:ideate")` |
+| Analyze a component, research improvements, generate improvement tasks | `Skill("mastermind:improve")` |
+| Marketing campaign, copy, SEO | `Skill("mastermind:marketing")` |
+| Sales outreach, proposals, pipeline | `Skill("mastermind:sales")` |
+| Blog, docs, newsletters, threads | `Skill("mastermind:content")` |
 | Versioning, changelogs, deployment | `Skill("mastermind-release")` |
 | Finish a branch — tests, options menu, merge/PR/discard | `Skill("mastermind-review")` |
-| Workflow, process, reporting | `Skill("mastermind-ops")` |
-| Invoicing, forecasting, cost | `Skill("mastermind-finance")` |
-| Inspect or manage brain memory | `Skill("mastermind-brain")` |
+| Workflow, process, reporting | `Skill("mastermind:ops")` |
+| Invoicing, forecasting, cost | `Skill("mastermind:finance")` |
+| Inspect or manage brain memory | `Skill("mastermind:brain")` |
 | Technical portfolio, project state assessment | `Skill("mastermind-techport")` |
 | Define/run an agent organization | `Skill("mastermind-createorg")` / `Skill("mastermind-runorg")` |
 | Autonomous build + review until clean | `Skill("mastermind-execute")` |
 | Isolate work in a git worktree | `Skill("mastermind-worktree")` |
 | Write or improve a mastermind skill | `Skill("mastermind-skill-builder")` |
+| Choose the specialist agent (`subagent_type`) or skill for any task | the prompt's `[PICK]` line, else `mcp__monomind__pick` — see `mastermind-agent-select/SKILL.md`; never a hardcoded roster |
 
 ### Skill Execution Order
 
 When multiple skills could apply to a **single-skill invocation** (not a full mastermind:master multi-domain run):
 
-1. **Process skills first** — debug (`mastermind:debug`), brainstorming (`mastermind:idea`), architecture (`mastermind:architect`), research (`mastermind:research`) determine HOW to approach the work
+1. **Process skills first** — debug (`mastermind:debug`), brainstorming (`mastermind:idea`), architecture (`mastermind:design`), research (`mastermind:research`) determine HOW to approach the work
 2. **Execution skills second** — build, review, release execute the approach
 
-"Let's build X" → `mastermind:architect` first if approach is unclear, then `mastermind:build`.
-"Fix this" → `mastermind:debug` to find root cause first, then `mastermind:build` to fix.
+"Let's build X" → `mastermind:design` first if approach is unclear, then `mastermind:plan` → `mastermind:execute`.
+"Fix this" → `mastermind:debug` to find root cause first, then `mastermind:execute` to fix.
 "Ship it" → `mastermind:review` to verify clean, then `mastermind:release`.
 
 **Multi-domain runs (Steps 4–7 of this command):** Domain manager agents for different domains run concurrently — there is no enforced serial order between `build` and `architect` domain managers when both are active. The order above applies when you (the master) are choosing which single skill to invoke directly.
@@ -219,19 +220,15 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 
 **Debug & quality**
 `/mastermind:debug` — systematic root-cause investigation before any fix attempt
-`/mastermind:verify` — confirm claims with evidence: tests pass, feature works, fix resolved
-`/mastermind:tdd` — enforce Red-Green-Refactor; no production code before failing test
+`Skill("verification-quality")` — confirm claims with evidence: tests pass, feature works, fix resolved
 
 **Plan & execute**
 `/mastermind:design` — brainstorm, propose approaches, write approved spec before building
 `/mastermind:plan` — write a complete implementation plan (no placeholders, exact file paths)
 `/mastermind:execute` — run a written plan step-by-step with stop-on-blocker discipline
-`/mastermind:taskdev` — execute a plan via fresh subagents with two-stage per-task review
-`/mastermind:finish` — complete a branch: verify tests → options menu → merge/PR/keep/discard
 
 **Build & ship**
-`/mastermind:build` — code, features, bug fixes, test suites
-`/mastermind:architect` — system structure, DDD, deduplication, migration (`--scope review|design|deduplicate|migrate|all`)
+`/mastermind:do` — execute tasks from a task file or monotask board (code, features, bug fixes, test suites)
 `/mastermind:idea` — products, features, pivots, opportunity framing
 `/mastermind:content` — blog, threads, documentation, newsletters
 
@@ -256,7 +253,7 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 `/mastermind:approvev1` — review and action pending approval requests from running org agents (v1 orgs only — v2 approvals arrive in the dashboard Human Input tab)
 
 **Autonomous & advanced**
-`/mastermind:autodev` — research → build → review loop until clean (`--tillend` supported)
+`/mastermind:repeat` — wrap any mastermind command in a loop (`--tillend` supported)
 `/mastermind:techport` — technical portfolio assessment; port capabilities from other projects
 `/mastermind:worktree` — isolate work in a git worktree safely
 `/mastermind:skill-builder` — write or improve a mastermind skill with TDD discipline
@@ -607,9 +604,11 @@ echo "Session state saved to current.json"
 
 Skipping any of these steps produces an incomplete pipeline run — card content is generated but no evaluation, elaboration, or task breakdown occurs.
 
-**Before spawning**, select the best domain manager agent type from the registry for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal.
+**Before spawning**, pick the best domain manager agent for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal. Pick order (see `mastermind-agent-select/SKILL.md`): the prompt's `[PICK]` line → `mcp__monomind__pick` → local `monomind pick` → registry keyword scorer → `coordinator`.
 
-**BASH TOOL REQUIREMENT:** Domain managers must run `monotask` CLI commands. Only use subagent_types that include Bash in their tool list. If the registry returns an agent without Bash (e.g. `Product Manager`, `Backend Architect`), override it with `general-purpose` (which has all tools). Agents without Bash cannot create cards, emit curl events, or write session files — they will silently produce degraded output.
+**If `mcp__monomind__pick` is available**, call it once per active domain before Phase A — `{ task: "<domain goal>", kind: "agents", categories: <the domain's categories from the case table below, as an array>, top: 1 }` — and put the answers into Phase A as `MCP_PICKS='{"<domain>":"<agents.ranked[0].name>", ...}'` on the first line of the Bash call. Phase A uses those first.
+
+**BASH TOOL REQUIREMENT:** Domain managers must run `monotask` CLI commands. Only use subagent_types that include Bash in their tool list. If the picked agent's definition restricts `tools:` and leaves out Bash, override it with `general-purpose` (which has all tools). Agents without Bash cannot create cards, emit curl events, or write session files — they will silently produce degraded output.
 
 **Phase A — Registry selection** (run as one Bash call; must complete before Phase C):
 
@@ -629,27 +628,46 @@ fi
 domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | grep -v '^idea$' | tr '\n' ' ')
 [ -z "$domains_needed" ] && { echo "INFO: no non-idea domains to spawn as Task agents"; }  # idea-only runs are valid
 
-# Returns: best agent name from registry for the given domain+goal
+# MCP_PICKS: optional JSON {domain: agent name} from mcp__monomind__pick (see above)
+[ -n "$MCP_PICKS" ] || MCP_PICKS='{}'
+
+# Local only — never npx. Accept a binary only when its pick output is the
+# unified index (skill entries carry `source`); see mastermind-agent-select.
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
+
+# Returns: best agent name for the given domain+goal
 pick_domain_manager() {
   local domain="$1"
   local goal="$2"
   local kw cats result
-  kw=$(echo "$goal" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')
+  kw=$(echo "$goal" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{4,}' | sort -u | tr '\n' ' ')
+  # Real registry categories (the .claude/agents/ folder names)
   case "$domain" in
-    build)     cats="engineering development architecture" ;;
-    marketing) cats="marketing paid-media strategy" ;;
-    sales)     cats="sales strategy" ;;
-    research)  cats="academic specialized strategy" ;;
+    build)     cats="engineering core architecture design specialized" ;;
+    marketing) cats="marketing specialized" ;;
+    sales)     cats="marketing specialized" ;;
+    research)  cats="core specialized specialists" ;;
     content)   cats="marketing specialized" ;;
-    ops)       cats="project-management strategy support" ;;
-    release)   cats="devops github engineering" ;;
-    review)    cats="engineering testing analysis" ;;
-    finance)   cats="strategy specialized" ;;
+    ops)       cats="specialized engineering core" ;;
+    release)   cats="github engineering" ;;
+    review)    cats="engineering testing core design specialized" ;;
+    finance)   cats="specialized core" ;;
     architect) cats="architecture engineering" ;;
-    idea)      cats="product strategy marketing" ;;
-    *)         cats="core strategy" ;;
+    idea)      cats="marketing specialized design" ;;
+    *)         cats="core" ;;
   esac
-  result=$(jq -r \
+  # 1. mcp__monomind__pick answer passed in by the caller
+  result=$(echo "$MCP_PICKS" | jq -r --arg d "$domain" '.[$d] // empty' 2>/dev/null)
+  # 2. local monomind pick
+  [ -z "$result" ] && result=$(mmpick -t "$domain manager: $goal" --categories "$cats" --top 1 \
+    | jq -r '.agents.ranked[0].name // .agents.ranked[0].id // empty' 2>/dev/null)
+  # 3. registry keyword scorer
+  [ -z "$result" ] && result=$(jq -r \
     --arg cats "$cats" \
     --arg kw "$kw" \
     '[ .agents[] | select(.deprecated != true)
@@ -657,7 +675,8 @@ pick_domain_manager() {
        | {name: .name,
           score: (
             (.name | ascii_downcase) as $n |
-            (.description // "" | ascii_downcase) as $desc |
+            ([.description, (.capabilities // [] | join(" ")), (.tags // [] | join(" ")), (.whenToUse // "")]
+             | map(. // "") | join(" ") | ascii_downcase) as $desc |
             # Score keyword matches against both name (weight 2) and description (weight 1) —
             # name match is a stronger signal. Bind each word to $w before contains(): piping
             # into contains(.) rebinds "." to the piped value, which would silently match everything.
@@ -672,7 +691,7 @@ pick_domain_manager() {
      ] | sort_by(-.score) | .[0].name // empty' \
     "$REGISTRY" 2>/dev/null)
   if [ -z "$result" ]; then
-    echo "WARN: registry lookup failed for domain=$domain, using coordinator fallback" >&2
+    echo "WARN: agent pick failed for domain=$domain, using coordinator fallback" >&2
     echo "coordinator"
   else
     echo "$result"
@@ -764,7 +783,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - The specific goal for this domain
 - The project name and run context
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
-- Instruction to use `Skill("mastermind-do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
+- Instruction to use `Skill("mastermind:do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - **For the `build` domain only:** instruct the manager: "Use `Skill("mastermind-execute")`. This was resolved in the Step 3.6 Plan Gate (or Step 5)." If `build_plan` is set in `current.json`, include the plan path and instruct the manager to execute THAT plan task-by-task rather than re-deriving tasks from the goal.
 - Instruction to return the unified output schema when done
@@ -797,11 +816,10 @@ Task({
     "1. Break this goal into discrete tasks using:\n" +
     "   monotask card create <board_build> <todo_col_build> '<title>' --json\n" +
     "   Each card description MUST include: context, goal, scope, constraints, success criteria, agent, dependencies.\n\n" +
-    "2. Spawn specialized agents for each task using the Task tool:\n" +
-    "   - Backend work: subagent_type 'backend-dev'\n" +
-    "   - Frontend work: subagent_type 'frontend-dev'\n" +
-    "   - Testing: subagent_type 'tester'\n" +
-    "   - Code review: subagent_type 'reviewer'\n" +
+    "2. Spawn specialized agents for each task using the Task tool. Pick each subagent_type with\n" +
+    "   mcp__monomind__pick({task: '<card title>', kind: 'agents', top: 1}) -> agents.ranked[0].name\n" +
+    "   (no MCP: monomind pick -t '<card title>' --top 1 --json, see mastermind-agent-select).\n" +
+    "   Fallbacks if picking returns nothing: implementation 'coder', testing 'tester', code review 'reviewer'\n" +
     "   Default swarm: hierarchical 6 agents raft\n\n" +
     "3. BEFORE spawning each agent, emit agent:spawn via curl (NOT WebFetch — use jq for correct ms timestamps):\n" +
     "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +
@@ -1088,7 +1106,7 @@ Log this as a decision in the cycle's output schema with `confidence` set accord
 
 #### 12c — Execute
 
-Execute the chosen activity by invoking the appropriate domain skill via the `Skill` tool (Steps 4–10 of the main flow, condensed). Use `Skill("mastermind-<domain>")` — do NOT use slash command syntax (`/<name>`), which only works when typed interactively in the Claude Code CLI, not within an executing command or skill:
+Execute the chosen activity by invoking the appropriate domain skill via the `Skill` tool (Steps 4–10 of the main flow, condensed). Use the domain's skill — `Skill("mastermind-<domain>")` for a skill package, `Skill("mastermind:<domain>")` for a command — do NOT use slash command syntax (`/<name>`), which only works when typed interactively in the Claude Code CLI, not within an executing command or skill:
 
 - Test → `Skill("mastermind-debug")` Phase 4 with the untested artifacts as prompt (write the failing test first, enforce Red-Green-Refactor)
 - Debug/Fix → `Skill("mastermind-debug")` with the failing test or error as prompt (root-cause first, then fix)
@@ -1096,7 +1114,7 @@ Execute the chosen activity by invoking the appropriate domain skill via the `Sk
 - Improve/Refactor → `Skill("mastermind-plan")` then `Skill("mastermind-execute")` with refactor prompt
 - Add feature → `Skill("mastermind-plan")` then `Skill("mastermind-execute")` with the next feature from the `next_actions` array printed by the Step 12a output above
 - Research → `Skill("mastermind-research")` with the open question as prompt
-- Content/Docs → `Skill("mastermind-content")` with scope = new artifacts
+- Content/Docs → `Skill("mastermind:content")` with scope = new artifacts
 - Release → `Skill("mastermind-release")` with project scope
 
 Always pass: the current brain_context, project_name (from the `project_name` field above), the relevant board_id, and mode = auto (iteration cycles never pause for confirmation).

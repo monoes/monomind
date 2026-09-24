@@ -11,7 +11,7 @@ System maintenance and updates through coordinated agents.
 ## How to Invoke
 
 ```
-Skill("swarm:maintenance")
+Skill("monoswarm:maintenance")
 ```
 
 Then describe the maintenance task:
