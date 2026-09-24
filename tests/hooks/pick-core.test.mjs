@@ -109,6 +109,30 @@ describe('rankAgents / decide', () => {
     expect(pc().rankAgents(jp, 'anything', agents)[0].id).toBe('devops-automator');
   });
 
+  it('re-ranks candidates by the outcome prior and keeps the base score', () => {
+    const jp = {
+      keywordRank: () => [
+        { ...agents[0], score: 3.0 },
+        { ...agents[3], score: 2.9 },
+      ],
+    };
+    const stats = {
+      agents: { 'devops-automator': { name: 'DevOps Automator', success: 20, followed: 20 } },
+    };
+    const c = pc().rankAgents(jp, 'anything', agents, stats);
+    expect(c[0]).toMatchObject({ id: 'devops-automator', baseScore: 2.9 });
+    expect(c[0].prior).toBeGreaterThan(1);
+    expect(pc().rankAgents(jp, 'anything', agents)[0].id).toBe('coder');
+  });
+
+  it('holds the keyword floor on relevance, not on a prior-boosted score', () => {
+    const d = pc().decide({
+      agents,
+      keywordCands: [{ id: 'coder', name: 'coder', score: 2.2, baseScore: 1.9, prior: 1.15 }],
+    });
+    expect(d.agent).toBeNull();
+  });
+
   it('picks a keyword agent only on a strong, strictly leading score', () => {
     const { decide } = pc();
     const strong = decide({

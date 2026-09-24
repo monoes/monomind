@@ -14,6 +14,8 @@ const crypto = require('crypto');
 
 var redaction = null;
 try { redaction = require('../redact-secrets.cjs'); } catch (e) { /* preview falls back to no redaction of the cut text */ }
+var pickStats = null;
+try { pickStats = require('../pick-stats.cjs'); } catch (e) { /* no outcome prior: keyword order stands */ }
 
 // A keyword pick needs this score (pick-rank.cjs: idf-weighted BM25 times the
 // share of task words matched) AND a lead of KEYWORD_AGENT_LEAD over the
@@ -61,8 +63,10 @@ function normName(name) {
 }
 
 /** Registry agents ranked by the jev-picker keyword ranker (keywordRank when it
- *  exists, else shortlist). Same-name duplicates collapse; at most 5 return. */
-function rankAgents(jp, prompt, agents) {
+ *  exists, else shortlist), re-ordered by the outcome prior from `stats`
+ *  (pick-stats.cjs; each candidate then carries baseScore and prior). Same-name
+ *  duplicates collapse; at most 5 return. */
+function rankAgents(jp, prompt, agents, stats) {
   if (!jp || !Array.isArray(agents) || agents.length === 0) return [];
   var ranked = null;
   try {
@@ -71,6 +75,7 @@ function rankAgents(jp, prompt, agents) {
       : jp.shortlist(prompt, agents, 25);
   } catch (e) { return []; }
   if (!Array.isArray(ranked)) return [];
+  if (stats && pickStats) ranked = pickStats.applyPriors(ranked, stats);
   var byId = {};
   agents.forEach(function (a) { byId[a.id] = a; });
   var out = [];
@@ -82,14 +87,18 @@ function rankAgents(jp, prompt, agents) {
     var key = normName(item.name);
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ id: item.id, name: item.name, score: r.score });
+    var cand = { id: item.id, name: item.name, score: r.score };
+    if (r.prior !== undefined) { cand.baseScore = r.baseScore; cand.prior = r.prior; }
+    out.push(cand);
   }
   return out;
 }
 
+/** The top entry when it clears `min` and leads the runner-up by `ratio`. The
+ *  floor is on keyword relevance alone (baseScore when a prior re-ranked). */
 function leads(list, min, ratio) {
   var top = list && list[0];
-  if (!top || !(top.score >= min)) return null;
+  if (!top || !((top.baseScore !== undefined ? top.baseScore : top.score) >= min)) return null;
   var second = list[1];
   if (!second || !(second.score > 0)) return top;
   return top.score >= second.score * (ratio || 1) && top.score > second.score ? top : null;
@@ -132,7 +141,7 @@ function decide(opts) {
       .map(function (r) { return { name: byId[r.id].name, score: r.probability }; });
   } else {
     out.candidates = (opts.keywordCands || []).slice(0, MAX_CANDIDATES)
-      .map(function (c) { return { name: c.name, score: c.score }; });
+      .map(function (c) { return c.prior !== undefined && c.prior !== 1 ? { name: c.name, score: c.score, prior: c.prior } : { name: c.name, score: c.score }; });
   }
   if (viaJev) { out.method = 'jev'; out.provider = jev.provider || null; }
   else if (viaKeyword) out.method = 'keyword';
