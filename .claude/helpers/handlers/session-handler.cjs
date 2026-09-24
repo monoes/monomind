@@ -5,6 +5,27 @@
 
 const path = require('path');
 const fs = require('fs');
+const pickCore = require('./pick-core.cjs');
+
+// The last `bytes` of a JSONL file as parsed records (a partial first line is
+// dropped), so a large file still yields its recent entries instead of none.
+function readTailRecords(file, bytes) {
+  var fd;
+  try {
+    var size = fs.statSync(file).size;
+    var len = Math.min(bytes, size);
+    var buf = Buffer.alloc(len);
+    fd = fs.openSync(file, 'r');
+    fs.readSync(fd, buf, 0, len, size - len);
+    var lines = buf.toString('utf-8').split('\n');
+    if (size > len) lines.shift();
+    return lines.map(function(l) { try { return l ? JSON.parse(l) : null; } catch (e) { return null; } }).filter(Boolean);
+  } catch (e) {
+    return [];
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch (e) { /* ignore */ }
+  }
+}
 
 module.exports = {
   handleEnd: async function(hCtx) {
@@ -36,10 +57,9 @@ module.exports = {
     var sessionSuccess = null; // null = no evidence; only set to a boolean from real signals
     try {
       var feedbackPath = path.join(CWD, '.monomind', 'routing-feedback.jsonl');
-      var lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
-      var MAX_ROUTE = 64 * 1024; // 64 KiB
-      if (fs.existsSync(lastRoutePath) && (function() { try { return fs.statSync(lastRoutePath).size <= MAX_ROUTE; } catch(_) { return false; } }())) {
-        var lastRoute = JSON.parse(fs.readFileSync(lastRoutePath, 'utf-8'));
+      var endSessionId = hookInput.sessionId || hookInput.session_id || '';
+      var lastRoute = pickCore.readSessionRoute(CWD, endSessionId);
+      if (lastRoute) {
 
         // Derive sessionSuccess. A commit alone is not proof of success — a
         // session can commit a partial fix and then hit repeated failures —
@@ -50,14 +70,13 @@ module.exports = {
 
           var outcomesSignal = null; // majority success/failure from intelligence-outcomes, if any
           var outcomesPath = path.join(CWD, '.monomind', 'data', 'intelligence-outcomes.jsonl');
-          var MAX_OUTCOMES = 512 * 1024;
-          if (fs.existsSync(outcomesPath) && (function() { try { return fs.statSync(outcomesPath).size <= MAX_OUTCOMES; } catch(_) { return false; } }())) {
+          // Only the tail is read: the 30-minute window lives at the end of the
+          // file, and a size cap used to drop the whole signal once it grew.
+          if (fs.existsSync(outcomesPath)) {
             var windowMs = 30 * 60 * 1000;
             var cutoff = Date.now() - windowMs;
-            var outcomeLines = fs.readFileSync(outcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
-            var recent = outcomeLines.map(function(l) {
-              try { return JSON.parse(l); } catch { return null; }
-            }).filter(function(e) { return e && e.ts && e.ts >= cutoff; });
+            var recent = readTailRecords(outcomesPath, 256 * 1024)
+              .filter(function(e) { return e.ts && e.ts >= cutoff; });
             if (recent.length > 0) {
               var failures = recent.filter(function(e) { return e.success === false; }).length;
               outcomesSignal = failures / recent.length < 0.5;
@@ -88,7 +107,13 @@ module.exports = {
         if (intelligence && intelligence.feedback && typeof sessionSuccess === 'boolean') {
           try { intelligence.feedback(sessionSuccess); } catch (e) { /* non-fatal */ }
         }
-        // Normalize agent label to a lowercase slug ("Coder" → "coder", "backend dev" → "backend-dev")
+        // The session's outcome joins its latest route by routeId. The agent
+        // actually used is never inferred here: pick-adherence (PreToolUse
+        // Task|Agent) records the real subagent_type on the route when one ran.
+        if (typeof sessionSuccess === 'boolean' && lastRoute.routeId) {
+          try { pickCore.joinOutcome(CWD, lastRoute.routeId, { measuredSuccess: sessionSuccess }); } catch (eRo) { /* non-fatal */ }
+        }
+        // routing-feedback.jsonl: the recommendation (skip when there was none).
         var agentSlug = String(lastRoute.agent || '').trim().toLowerCase().replace(/\s+/g, '-');
         // Skip non-agent placeholders — "AI selecting" etc. carry no routing signal
         if (agentSlug && agentSlug !== 'ai-selecting' && agentSlug !== 'unknown') {
@@ -98,52 +123,10 @@ module.exports = {
             confidence: lastRoute.confidence,
             sessionId: String(hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
           };
+          if (lastRoute.routeId) feedbackEntry.routeId = lastRoute.routeId;
           // Only write the success flag when derived from actual evidence (commits, outcomes)
           if (typeof sessionSuccess === 'boolean') feedbackEntry.intelligenceFeedback = sessionSuccess;
           fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
-
-          // Also join/record into route-outcomes.jsonl if routeId exists or outcome measured
-          if (typeof sessionSuccess === 'boolean') {
-            try {
-              var routeOutcomesPath = path.join(CWD, '.monomind', 'route-outcomes.jsonl');
-              if (fs.existsSync(routeOutcomesPath)) {
-                var roLines = fs.readFileSync(routeOutcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
-                var updated = false;
-                if (lastRoute.routeId) {
-                  for (var ri = roLines.length - 1; ri >= 0; ri--) {
-                    try {
-                      var roRec = JSON.parse(roLines[ri]);
-                      if (roRec.routeId === lastRoute.routeId) {
-                        roRec.agentActuallyUsed = agentSlug;
-                        roRec.measuredSuccess = sessionSuccess;
-                        roLines[ri] = JSON.stringify(roRec);
-                        updated = true;
-                        break;
-                      }
-                    } catch (_) {}
-                  }
-                }
-                if (!updated) {
-                  // If not found by routeId, join latest unresolved record
-                  for (var ri2 = roLines.length - 1; ri2 >= 0; ri2--) {
-                    try {
-                      var roRec2 = JSON.parse(roLines[ri2]);
-                      if (roRec2.measuredSuccess === undefined) {
-                        roRec2.agentActuallyUsed = agentSlug;
-                        roRec2.measuredSuccess = sessionSuccess;
-                        roLines[ri2] = JSON.stringify(roRec2);
-                        updated = true;
-                        break;
-                      }
-                    } catch (_) {}
-                  }
-                }
-                if (updated) {
-                  fs.writeFileSync(routeOutcomesPath, roLines.join('\n') + '\n', 'utf-8');
-                }
-              }
-            } catch (eRo) { /* non-fatal */ }
-          }
           // Rotate: keep last 1000 lines to prevent unbounded growth.
           try {
             var MAX_FEEDBACK = 512 * 1024; // 512 KiB
@@ -237,16 +220,13 @@ module.exports = {
 
       // Collect session context
       var sessId = String(hookInput.sessionId || hookInput.session_id || process.env.CLAUDE_SESSION_ID || '');
-      var lastRouteFile = path.join(CWD, '.monomind', 'last-route.json');
       var routeAgent = 'unknown';
       var routePrompt = '';
-      try {
-        if (fs.existsSync(lastRouteFile) && fs.statSync(lastRouteFile).size < 16384) {
-          var lr = JSON.parse(fs.readFileSync(lastRouteFile, 'utf-8'));
-          routeAgent = lr.agent || 'unknown';
-          routePrompt = lr.prompt || '';
-        }
-      } catch (e) {}
+      var lr = pickCore.readSessionRoute(CWD, sessId);
+      if (lr) {
+        routeAgent = lr.agent || 'unknown';
+        routePrompt = lr.prompt || '';
+      }
 
       // Strip system noise (task notifications, XML tags) from prompt
       if (routePrompt && (routePrompt.includes('<task-notification>') || routePrompt.includes('<system-reminder>'))) {

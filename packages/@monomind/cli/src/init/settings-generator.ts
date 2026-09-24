@@ -54,8 +54,9 @@ export function generateSettings(options: InitOptions): object {
     MONOMIND_HOOKS_ENABLED: 'true',
     // Quiet by default: silence per-prompt advisory blocks ([AUDIT],
     // [CODEBASE], [MONOGRAPH], [INTELLIGENCE], [COST], …). Side-effects
-    // (file writes, telemetry, route mutations) are unchanged. Opt out by
-    // removing this or setting MONOMIND_HOOK_VERBOSE=1.
+    // (file writes, telemetry, route mutations) are unchanged, and the one
+    // [PICK] line still reaches Claude. Opt out by removing this or setting
+    // it to 0.
     MONOMIND_HOOK_QUIET: '1',
   };
 
@@ -218,6 +219,11 @@ function generateStatusLineConfig(_options: InitOptions): object {
  * All hooks invoke scripts directly via `node <script> <subcommand>`,
  * working identically on Windows, macOS, and Linux.
  */
+/** Claude Code reads hook `timeout` in seconds; HooksConfig.timeout is milliseconds. */
+function seconds(ms: number): number {
+  return Math.max(1, Math.ceil(ms / 1000));
+}
+
 function generateHooksConfig(config: HooksConfig, monograph = true): object {
   const hooks: Record<string, unknown[]> = {};
 
@@ -233,7 +239,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('pre-bash'),
-            timeout: config.timeout,
+            timeout: seconds(config.timeout),
           },
         ],
       },
@@ -253,7 +259,19 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
             // for any project set up via a default `monomind init`.
             type: 'command',
             command: hookHandlerCmd('pre-write'),
-            timeout: config.timeout,
+            timeout: seconds(config.timeout),
+          },
+        ],
+      },
+      // Task/Agent spawns → record whether the subagent followed the prompt's
+      // [PICK] (.monomind/pick-adherence.jsonl). Observation only, never blocks.
+      {
+        matcher: 'Task|Agent',
+        hooks: [
+          {
+            type: 'command',
+            command: hookHandlerCmd('pre-agent'),
+            timeout: 3,
           },
         ],
       },
@@ -264,7 +282,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('pre-search'),
-            timeout: 4000,
+            timeout: 4,
           },
         ],
       },
@@ -280,7 +298,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('post-edit'),
-            timeout: 10000,
+            timeout: 10,
           },
         ],
       },
@@ -290,7 +308,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('post-bash'),
-            timeout: config.timeout,
+            timeout: seconds(config.timeout),
           },
         ],
       },
@@ -301,7 +319,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('post-graph-tool'),
-            timeout: 2000,
+            timeout: 2,
           },
         ],
       },
@@ -316,12 +334,14 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('route'),
-            timeout: 10000,
+            // Covers the route hook's own exit deadline with the longest Jev
+            // window (MONOMIND_JEV_HOOK_TIMEOUT_MS max 10 s + 1.5 s).
+            timeout: 12,
           },
           {
             type: 'command',
             command: standaloneHelperCmd('monolean-tracker.cjs'),
-            timeout: 3000,
+            timeout: 3,
           },
         ],
       },
@@ -334,12 +354,12 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
       {
         type: 'command',
         command: hookHandlerCmd('session-restore'),
-        timeout: 15000,
+        timeout: 15,
       },
       {
         type: 'command',
         command: autoMemoryCmd('import'),
-        timeout: 8000,
+        timeout: 8,
       },
     ];
 
@@ -347,20 +367,20 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
       sessionStartHooks.push({
         type: 'command',
         command: standaloneHelperCmd('monograph-freshen.cjs'),
-        timeout: 5000,
+        timeout: 5,
       });
     }
 
     sessionStartHooks.push({
       type: 'command',
       command: standaloneHelperCmd('control-start.cjs'),
-      timeout: 5000,
+      timeout: 5,
     });
 
     sessionStartHooks.push({
       type: 'command',
       command: standaloneHelperCmd('monolean-activate.cjs'),
-      timeout: 5000,
+      timeout: 5,
     });
 
     hooks.SessionStart = [{ hooks: sessionStartHooks }];
@@ -374,7 +394,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('session-end'),
-            timeout: 10000,
+            timeout: 10,
           },
         ],
       },
@@ -389,7 +409,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: autoMemoryCmd('sync'),
-            timeout: 10000,
+            timeout: 10,
           },
         ],
       },
@@ -409,7 +429,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('session-end'),
-            timeout: 5000,
+            timeout: 5,
           },
         ],
       },
@@ -423,7 +443,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('session-end'),
-            timeout: 6000,
+            timeout: 6,
           },
         ],
       },
@@ -437,17 +457,17 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
         {
           type: 'command',
           command: hookHandlerCmd('status'),
-          timeout: 3000,
+          timeout: 3,
         },
         {
           type: 'command',
           command: captureHandlerCmd('subagent-start'),
-          timeout: 5000,
+          timeout: 5,
         },
         {
           type: 'command',
           command: standaloneHelperCmd('monolean-propagate.cjs'),
-          timeout: 3000,
+          timeout: 3,
         },
       ],
     },
@@ -461,12 +481,12 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
         {
           type: 'command',
           command: hookHandlerCmd('post-task'),
-          timeout: 5000,
+          timeout: 5,
         },
         {
           type: 'command',
           command: captureHandlerCmd('subagent-stop'),
-          timeout: 10000,
+          timeout: 10,
         },
       ],
     },
@@ -480,7 +500,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
           {
             type: 'command',
             command: hookHandlerCmd('notify'),
-            timeout: 3000,
+            timeout: 3,
           },
         ],
       },

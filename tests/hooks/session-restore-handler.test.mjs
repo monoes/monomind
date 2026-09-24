@@ -357,3 +357,33 @@ describe('session-restore-handler', () => {
     });
   });
 });
+
+// ── Skill registry freshness ────────────────────────────────────────────────
+
+describe('session-restore skill registry refresh', () => {
+  let tmp;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-skillreg-'));
+    const skill = path.join(tmp, '.claude', 'skills', 'alpha-skill');
+    fs.mkdirSync(skill, { recursive: true });
+    fs.writeFileSync(
+      path.join(skill, 'SKILL.md'),
+      '---\nname: alpha-skill\ndescription: Alpha things\n---\n# Alpha\n',
+    );
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  it('builds skill-registry.json when it is missing, without a registry.json', async () => {
+    process.env.MONOMIND_HOOK_QUIET = '1';
+    try {
+      await loadHandler().handleRestore(makeHCtx({ CWD: tmp }));
+    } finally {
+      if (_savedHookQuiet !== undefined) process.env.MONOMIND_HOOK_QUIET = _savedHookQuiet;
+      else delete process.env.MONOMIND_HOOK_QUIET;
+    }
+    const reg = JSON.parse(
+      fs.readFileSync(path.join(tmp, '.claude', 'helpers', 'skill-registry.json'), 'utf-8'),
+    );
+    expect(reg.skills.map((s) => s.skill)).toContain('alpha-skill');
+  });
+});

@@ -108,32 +108,26 @@ describe('route-handler', () => {
     expect(lines.find((l) => l.includes('monomind | Primary Recommendation'))).toBeUndefined();
   });
 
-  it('no router logs [INFO] Router not available', async () => {
+  it('routes without a router (registry pick only, no [INFO] banner)', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, router: null });
     const lines = await capture(() => loadRoute().handle(hCtx));
-    expect(lines.join('\n')).toContain('[INFO] Router not available');
+    expect(lines.join('\n')).not.toContain('[INFO] Router not available');
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'last-route.json'))).toBe(true);
   });
 
-  it('router result writes last-route.json with agent and confidence', async () => {
+  it("ignores the router's agent when writing last-route.json", async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       router: {
-        routeTask: () => ({
-          agent: 'coder',
-          confidence: 0.9,
-          reason: 'test',
-          skillMatches: [],
-          specificAgents: [],
-          extrasMatches: [],
-        }),
+        routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'test', skillMatches: [] }),
       },
     });
     await capture(() => loadRoute().handle(hCtx));
     const data = JSON.parse(
       fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'),
     );
-    expect(data.agent).toBe('coder');
-    expect(data.confidence).toBe(0.9);
+    expect(data.agent).toBeNull();
+    expect(data.routeId).toBeDefined();
   });
 
   it('does not show primary recommendation panel (removed)', async () => {

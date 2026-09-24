@@ -104,6 +104,8 @@ describe('writeSettings --force preserves hooks the generator does not produce',
     const afterPreBash = after.hooks.PreToolUse.find(
       (g: { matcher?: string }) => g.matcher === 'Bash',
     );
-    expect(afterPreBash.hooks[0].timeout).toBe(DEFAULT_INIT_OPTIONS.hooks.timeout);
+    expect(afterPreBash.hooks[0].timeout).toBe(
+      Math.ceil(DEFAULT_INIT_OPTIONS.hooks.timeout / 1000),
+    );
   });
 });

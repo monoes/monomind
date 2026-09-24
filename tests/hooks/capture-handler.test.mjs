@@ -321,6 +321,51 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
     expect(entries.every((e) => e.suggestedAgent === 'coder')).toBe(true);
   }, 30000);
 
+  it('logs the spawned agent as actualAgent and the session pick as suggestedAgent, joined by routeId', () => {
+    fs.mkdirSync(path.join(projectDir, '.monomind', 'routes'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, '.monomind', 'routes', 'sess-7.json'),
+      JSON.stringify({
+        routeId: 'route-7',
+        sessionId: 'sess-7',
+        agent: 'Security Engineer',
+        agentSlug: 'engineering-security-engineer',
+        confidence: 0.9,
+      }),
+    );
+    fs.writeFileSync(
+      path.join(projectDir, '.monomind', 'route-outcomes.jsonl'),
+      `${JSON.stringify({ routeId: 'route-7', recommendedAgent: 'Security Engineer' })}\n`,
+    );
+    const transcript = path.join(claudeDir, 'sec.jsonl');
+    runHook('subagent-start', {
+      transcript_path: transcript,
+      agent_type: 'coder',
+      session_id: 'sess-7',
+    });
+    fs.writeFileSync(
+      transcript,
+      `${JSON.stringify({ message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } })}\n`,
+    );
+    runHook('subagent-stop', {
+      transcript_path: transcript,
+      agent_type: 'coder',
+      session_id: 'sess-7',
+    });
+    const [entry] = readFeedback();
+    expect(entry).toMatchObject({
+      actualAgent: 'coder',
+      suggestedAgent: 'security-engineer',
+      followed: false,
+      routeId: 'route-7',
+      confidence: 0.9,
+    });
+    const rec = JSON.parse(
+      fs.readFileSync(path.join(projectDir, '.monomind', 'route-outcomes.jsonl'), 'utf-8').trim(),
+    );
+    expect(rec).toMatchObject({ agentActuallyUsed: 'coder', subagentSuccess: true });
+  });
+
   it('skips writing when the agent slug is a non-agent placeholder', () => {
     const transcript = path.join(claudeDir, 'unknown-agent.jsonl');
     runHook('subagent-start', { transcript_path: transcript }); // no agentType -> 'unknown'

@@ -197,75 +197,90 @@ module.exports = commands;
 }
 
 /**
- * Generate agent router script
+ * Generate the fallback agent router, written only when the full router.cjs
+ * can't be copied. It carries no agent table of its own: agents come from
+ * .monomind/registry.json (named by frontmatter `name`, the value the Task
+ * tool accepts) and skills from .claude/helpers/skill-registry.json.
  */
 export function generateAgentRouter(): string {
   return `#!/usr/bin/env node
 /**
- * Monomind Agent Router
- * Routes tasks to optimal agents based on learned patterns
+ * Monomind Agent Router (fallback)
+ * Agents from .monomind/registry.json, skills from
+ * .claude/helpers/skill-registry.json. No built-in agent names.
  */
+const fs = require('fs');
+const path = require('path');
 
-const AGENT_CAPABILITIES = {
-  coder: ['code-generation', 'refactoring', 'debugging', 'implementation'],
-  tester: ['unit-testing', 'integration-testing', 'coverage', 'test-generation'],
-  reviewer: ['code-review', 'security-audit', 'quality-check', 'best-practices'],
-  researcher: ['web-search', 'documentation', 'analysis', 'summarization'],
-  architect: ['system-design', 'architecture', 'patterns', 'scalability'],
-  'backend-dev': ['api', 'database', 'server', 'authentication'],
-  'frontend-dev': ['ui', 'react', 'css', 'components'],
-  devops: ['ci-cd', 'docker', 'deployment', 'infrastructure'],
-};
+const ROOT = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+const MIN_AGENT_SCORE = 4;
 
-const TASK_PATTERNS = {
-  // Code patterns
-  'implement|create|build|add|write code': 'coder',
-  'test|spec|coverage|unit test|integration': 'tester',
-  'review|audit|check|validate|security': 'reviewer',
-  'research|find|search|documentation|explore': 'researcher',
-  'design|architect|structure|plan': 'architect',
+function readJson(rel) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf-8'));
+  } catch {
+    return null;
+  }
+}
 
-  // Domain patterns
-  'api|endpoint|server|backend|database': 'backend-dev',
-  'ui|frontend|component|react|css|style': 'frontend-dev',
-  'deploy|docker|ci|cd|pipeline|infrastructure': 'devops',
-};
+function words(text) {
+  return new Set(String(text || '').toLowerCase().match(/[a-z0-9]+/g) || []);
+}
 
+// Registry agent with a strong, strictly leading word overlap; otherwise none.
 function routeTask(task) {
-  const taskLower = task.toLowerCase();
-
-  // Check patterns
-  for (const [pattern, agent] of Object.entries(TASK_PATTERNS)) {
-    const regex = new RegExp(pattern, 'i');
-    if (regex.test(taskLower)) {
-      return {
-        agent,
-        confidence: 0.8,
-        reason: \`Matched pattern: \${pattern}\`,
-      };
+  const reg = readJson('.monomind/registry.json');
+  const agents = reg && Array.isArray(reg.agents) ? reg.agents : [];
+  const query = words(task);
+  let best = null;
+  let second = 0;
+  for (const a of agents) {
+    if (!a || typeof a.slug !== 'string' || a.deprecated === true) continue;
+    const strong = words(a.slug + ' ' + (a.name || ''));
+    const weak = words(a.description);
+    let score = 0;
+    for (const w of query) score += strong.has(w) ? 3 : weak.has(w) ? 1 : 0;
+    if (!best || score > best.score) {
+      second = best ? best.score : 0;
+      best = { agent: a, score };
+    } else if (score > second) {
+      second = score;
     }
   }
-
-  // Default to coder for unknown tasks
+  if (!best || best.score < MIN_AGENT_SCORE || best.score <= second) {
+    return { agent: null, agentSlug: null, confidence: 0, reason: 'no confident registry match' };
+  }
   return {
-    agent: 'coder',
-    confidence: 0.5,
-    reason: 'Default routing - no specific pattern matched',
+    agent: best.agent.name || best.agent.slug,
+    agentSlug: best.agent.slug,
+    confidence: null,
+    reason: 'registry keyword match',
   };
 }
 
-// CLI
-const task = process.argv.slice(2).join(' ');
-
-if (task) {
-  const result = routeTask(task);
-  console.log(JSON.stringify(result, null, 2));
-} else {
-  console.log('Usage: router.js <task description>');
-  console.log('\\nAvailable agents:', Object.keys(AGENT_CAPABILITIES).join(', '));
+// Skills scored 2 per name term and 1 per keyword; at least 2 to count.
+function matchSkills(prompt, topN) {
+  const reg = readJson('.claude/helpers/skill-registry.json');
+  const list = reg && Array.isArray(reg.skills) ? reg.skills : [];
+  const query = words(prompt);
+  const out = [];
+  for (const s of list) {
+    if (!s || typeof s.skill !== 'string' || typeof s.invoke !== 'string') continue;
+    let score = 0;
+    for (const t of s.nameTerms || []) if (query.has(String(t).toLowerCase())) score += 2;
+    for (const t of s.keywords || []) if (query.has(String(t).toLowerCase())) score += 1;
+    if (score >= 2) out.push({ skill: s.skill, invoke: s.invoke, description: s.description || '', score });
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, topN || 5);
 }
 
-module.exports = { routeTask, AGENT_CAPABILITIES, TASK_PATTERNS };
+if (require.main === module) {
+  const task = process.argv.slice(2).join(' ');
+  if (task) console.log(JSON.stringify(routeTask(task), null, 2));
+  else console.log('Usage: router.cjs <task description>');
+}
+
+module.exports = { routeTask, routeTaskSemantic: routeTask, matchSkills };
 `;
 }
 

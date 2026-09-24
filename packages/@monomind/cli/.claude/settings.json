@@ -51,7 +51,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" pre-bash'",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       },
@@ -61,7 +61,17 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" pre-search'",
-            "timeout": 4000
+            "timeout": 4
+          }
+        ]
+      },
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" pre-agent'",
+            "timeout": 3
           }
         ]
       },
@@ -71,7 +81,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" pre-write'",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       },
@@ -81,7 +91,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" pre-tool'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       },
@@ -91,7 +101,7 @@
           {
             "type": "command",
             "command": "node \"$(p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; echo \"$p\")/.claude/helpers/handlers/capture-handler.cjs\" pretool",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -103,7 +113,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" post-edit'",
-            "timeout": 10000
+            "timeout": 10
           }
         ]
       },
@@ -113,7 +123,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/loop-tracker.cjs\"'",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -123,7 +133,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" post-graph-tool'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       },
@@ -133,7 +143,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" post-tool'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       },
@@ -143,7 +153,7 @@
           {
             "type": "command",
             "command": "node \"$(p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; echo \"$p\")/.claude/helpers/handlers/capture-handler.cjs\" posttool",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -153,7 +163,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" post-bash'",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -164,7 +174,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" notify'",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -173,7 +183,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" notification'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -184,12 +194,12 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" route'",
-            "timeout": 10000
+            "timeout": 12
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/monolean-tracker.cjs\"'",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -198,7 +208,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" user-prompt'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -209,27 +219,27 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" session-restore'",
-            "timeout": 15000
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/auto-memory-hook.mjs\" import'",
-            "timeout": 8000
+            "timeout": 8
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/monograph-freshen.cjs\"'",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/control-start.cjs\"'",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/monolean-activate.cjs\"'",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       },
@@ -238,7 +248,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/mastermind-activate.cjs\"'",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       },
@@ -247,7 +257,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" session-start'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -258,7 +268,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" session-end'",
-            "timeout": 10000
+            "timeout": 10
           }
         ]
       },
@@ -267,12 +277,12 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/control-stop.cjs\" --session'",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" session-end'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -283,7 +293,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/auto-memory-hook.mjs\" sync'",
-            "timeout": 10000
+            "timeout": 10
           }
         ]
       },
@@ -292,7 +302,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" stop'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -308,7 +318,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" session-end'",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       },
@@ -318,7 +328,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" compact'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       },
@@ -332,7 +342,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" session-end'",
-            "timeout": 6000
+            "timeout": 6
           }
         ]
       },
@@ -342,7 +352,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" compact'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -353,17 +363,17 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" status'",
-            "timeout": 3000
+            "timeout": 3
           },
           {
             "type": "command",
             "command": "node \"$(p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; echo \"$p\")/.claude/helpers/handlers/capture-handler.cjs\" subagent-start",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/monolean-propagate.cjs\"'",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -372,17 +382,17 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" agent-start'",
-            "timeout": 3000
+            "timeout": 3
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" pre-task'",
-            "timeout": 3000
+            "timeout": 3
           },
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" subagent-start'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }
@@ -393,12 +403,12 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/hook-handler.cjs\" post-task'",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "node \"$(p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; echo \"$p\")/.claude/helpers/handlers/capture-handler.cjs\" subagent-stop",
-            "timeout": 10000
+            "timeout": 10
           }
         ]
       },
@@ -407,7 +417,7 @@
           {
             "type": "command",
             "command": "sh -c 'p=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$p/.claude/helpers\" ] || p=\"$PWD\"; while [ ! -d \"$p/.claude/helpers\" ] && [ \"$p\" != \"/\" ]; do p=$(dirname \"$p\"); done; exec node \"$p/.claude/helpers/event-logger.cjs\" subagent-stop'",
-            "timeout": 2000
+            "timeout": 2
           }
         ]
       }

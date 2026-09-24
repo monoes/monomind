@@ -1,7 +1,14 @@
 'use strict';
 /**
- * Keyword-based task router for hook-handler.cjs
- * Returns: { agent, agentSlug, confidence, reason, semanticRouting, specificAgents, skillMatches, extrasMatches }
+ * Keyword-based task router.
+ *
+ * The prompt hook (handlers/route-handler.cjs) uses matchSkills() only. Its
+ * agent pick comes from .monomind/registry.json (Jev, else the jev-picker
+ * keyword ranker), because most slugs in the tables below are not registry
+ * agents and must never be shown to Claude as a subagent_type. routeTask()
+ * stays for callers that want the legacy keyword classification.
+ *
+ * routeTask returns: { agent, agentSlug, confidence, reason, semanticRouting, specificAgents, skillMatches, extrasMatches }
  *
  * Exports:
  *   routeTask(prompt)           → routing result object

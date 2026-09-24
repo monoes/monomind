@@ -129,38 +129,30 @@ describe('route-handler simple command path', () => {
 // ── complex prompt with router ─────────────────────────────────────────────────
 
 describe('route-handler routing path', () => {
-  it('calls router.routeTask with prompt', async () => {
+  it('does not use router.routeTask as the agent selector', async () => {
     const rh = loadRH();
-    const mockRoute = vi.fn().mockResolvedValue({
-      agent: 'coder',
-      confidence: 0.9,
-      reason: 'keyword match',
-    });
+    const mockRoute = vi.fn().mockResolvedValue({ agent: 'coder', confidence: 0.9 });
     const hCtx = makeHCtx({
       prompt: 'implement a new authentication module with JWT support',
-      router: { routeTask: mockRoute },
+      router: { routeTask: mockRoute, matchSkills: () => [] },
     });
     await rh.handle(hCtx);
-    expect(mockRoute).toHaveBeenCalled();
+    expect(mockRoute).not.toHaveBeenCalled();
   });
 
-  it('writes last-route.json with resolved agent', async () => {
+  it("never persists the router's agent: only a registry pick names an agent", async () => {
     const rh = loadRH();
     const hCtx = makeHCtx({
       prompt: 'implement authentication module',
       router: {
-        routeTask: vi.fn().mockResolvedValue({
-          agent: 'backend-dev',
-          confidence: 0.88,
-          reason: 'backend keyword match',
-        }),
+        routeTask: vi.fn().mockResolvedValue({ agent: 'backend-dev', confidence: 0.88 }),
       },
     });
     await rh.handle(hCtx);
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-    expect(data.agent).toBe('backend-dev');
-    expect(data.confidence).toBe(0.88);
+    expect(data.agent).toBeNull();
+    expect(data.routeId).toBeDefined();
   });
 
   it('outputs routing panel for high-confidence long prompt', async () => {
@@ -234,78 +226,21 @@ describe('route-handler routing path', () => {
     await expect(rh.handle(hCtx)).resolves.not.toThrow();
   });
 
-  it('enriches coder catch-all with @monoes/routing keyword rules when available', async () => {
+  it('does not override the pick with the @monoes/routing keyword table', async () => {
     const rh = loadRH();
-    // Set up a routing dist directory with keyword rules
     const routingDist = path.join(tmpDir, 'packages', '@monomind', 'routing', 'dist');
     fs.mkdirSync(routingDist, { recursive: true });
-    // Write a minimal keyword-pre-filter.js ESM module
     fs.writeFileSync(
       path.join(routingDist, 'keyword-pre-filter.js'),
       `export const DEFAULT_KEYWORD_ROUTES = [
-        { pattern: /\\bsolidity\\b/i, agentSlug: 'engineering-solidity-smart-contract-engineer', routeName: 'solidity', description: 'Solidity / smart contract' },
+        { pattern: /\\bsolidity\\b/i, agentSlug: 'engineering-solidity-smart-contract-engineer', routeName: 'solidity' },
       ];\n`,
     );
-    const hCtx = makeHCtx({
-      prompt: 'write a solidity smart contract for token vesting',
-      router: {
-        routeTask: vi.fn().mockResolvedValue({
-          agent: 'Coder',
-          agentSlug: 'coder',
-          confidence: 0.8,
-          reason: 'Default routing — keyword match: coder',
-          skillMatches: [],
-        }),
-      },
-    });
-    await rh.handle(hCtx);
-    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-    expect(data.agentSlug).toBe('engineering-solidity-smart-contract-engineer');
-    expect(data.confidence).toBe(0.85);
-  });
-
-  it('does not enrich when router returns a specific non-coder agent', async () => {
-    const rh = loadRH();
-    const hCtx = makeHCtx({
-      prompt: 'review the authentication code',
-      router: {
-        routeTask: vi.fn().mockResolvedValue({
-          agent: 'Reviewer',
-          agentSlug: 'reviewer',
-          confidence: 0.82,
-          reason: 'Keyword match: reviewer',
-          skillMatches: [],
-        }),
-      },
-    });
-    await rh.handle(hCtx);
-    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-    expect(data.agentSlug).toBe('reviewer');
-    expect(data.confidence).toBe(0.82);
-  });
-
-  it('writes last-route.json with "extras" resolved to specialist name', async () => {
-    const rh = loadRH();
-    const hCtx = makeHCtx({
-      prompt: 'implement a new auth feature with multiple steps and file changes',
-      router: {
-        routeTask: vi.fn().mockResolvedValue({
-          agent: 'extras',
-          confidence: 0.75,
-          reason: 'specialist match',
-          extrasMatches: [
-            { name: 'SEO Specialist', slug: 'seo-specialist', category: 'marketing' },
-          ],
-        }),
-      },
-    });
-    await rh.handle(hCtx);
-    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-    // Simplified persistence: agent field is passed through as-is
-    expect(data.agent).toBe('extras');
+    await rh.handle(makeHCtx({ prompt: 'write a solidity smart contract for token vesting' }));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'),
+    );
+    expect(data.agentSlug).toBeNull();
   });
 
   it('logs DISPATCH_DEDUP when same agent was recently dispatched', async () => {
@@ -314,32 +249,54 @@ describe('route-handler routing path', () => {
     const monomindDir = path.join(tmpDir, '.monomind');
     fs.mkdirSync(monomindDir, { recursive: true });
     fs.writeFileSync(
+      path.join(monomindDir, 'registry.json'),
+      JSON.stringify({ agents: [{ slug: 'devops-automator', name: 'DevOps Automator' }] }),
+    );
+    fs.writeFileSync(
       path.join(monomindDir, 'last-dispatch.json'),
       JSON.stringify({
-        agentType: 'coder',
+        agentType: 'DevOps Automator',
         description: 'test task',
         dispatchedAt: new Date().toISOString(),
       }),
     );
     const logSpy = vi.spyOn(console, 'log');
-    const hCtx = makeHCtx({
-      prompt: 'fix a bug in the auth module',
-      router: {
-        routeTask: vi.fn().mockResolvedValue({
-          agent: 'coder',
-          agentSlug: 'coder',
-          confidence: 0.8,
-          reason: 'default',
-          skillMatches: [],
-        }),
-      },
-    });
+    const hCtx = makeHCtx({ prompt: 'ask the devops automator to fix the deploy' });
     await rh.handle(hCtx);
     const dedupMsg = logSpy.mock.calls.find(
       (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),
     );
     expect(dedupMsg).toBeTruthy();
-    expect(dedupMsg[0]).toContain('coder');
+    expect(dedupMsg[0]).toContain('DevOps Automator');
+  });
+
+  it("does NOT log DISPATCH_DEDUP for another session's dispatch", async () => {
+    const rh = loadRH();
+    const monomindDir = path.join(tmpDir, '.monomind');
+    fs.mkdirSync(monomindDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(monomindDir, 'registry.json'),
+      JSON.stringify({ agents: [{ slug: 'devops-automator', name: 'DevOps Automator' }] }),
+    );
+    fs.writeFileSync(
+      path.join(monomindDir, 'last-dispatch.json'),
+      JSON.stringify({
+        agentType: 'DevOps Automator',
+        dispatchedAt: new Date().toISOString(),
+        sessionId: 'other-session',
+      }),
+    );
+    const logSpy = vi.spyOn(console, 'log');
+    await rh.handle(
+      makeHCtx({
+        prompt: 'ask the devops automator to fix the deploy',
+        hookInput: { session_id: 'mine' },
+      }),
+    );
+    const dedupMsg = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),
+    );
+    expect(dedupMsg).toBeFalsy();
   });
 
   it('does NOT log DISPATCH_DEDUP when a different agent was dispatched', async () => {
