@@ -64,6 +64,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 - **Four duplicate Org skills.** `database-migration`, `internal-comms`, `accessibility` and `error-handling-patterns` are gone; use `database-migrations`, `team-communications`, `accessibility-compliance` and `error-handling`. A role that names a removed skill in `skills` or `skill_pool` must be updated.
 - **`hooks_route`'s `useSemanticRouter` input**, and the `@monoes/routing` routes and rules listed under Changed.
+- **`cleanup --force` reaps an orphaned SDK process under a bwrap sandbox.** ([Fixes #333](https://github.com/monoes/monomind/issues/333)) In a sandbox, bwrap stays pid 1 and keeps the whole wrapped Bash command in its own cmdline. Any word in that text could make the reaper treat it as a live session and skip every orphan beneath it: `monomind cleanup --force` itself, `claude`, or `claude-agent-sdk --output-format` next to each other. The 2.16.2 fixes narrowed this case but did not close it. An ancestor now counts as a live session only when the program it runs is Claude Code, monomind, or the SDK: its first word, or the script after `node`/`bun`. Words later on the line are ignored. A Claude Code, monomind or SDK process that a shell starts is its own process, so it still protects the processes under it. Verified in a real bwrap PID namespace with the issue's repro: the orphan is reaped and the live sibling is kept.
 
 ## [2.16.2] — 2026-09-24
 

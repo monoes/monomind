@@ -148,11 +148,13 @@ describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
   });
 
   it('still protects a real live session even when the same bwrap-wrapped line also has incidental .claude/monomind path mentions', () => {
-    // Same shape as above, but the wrapped command really does exec Claude
-    // Code (a bare `claude` executable token) alongside the same kind of
-    // incidental .claude path and claude-http-*.sock mentions — proving the
-    // fix isn't a blanket "ignore bwrap-wrapped scripts" but a real
-    // executable-name check that still fires on a genuine live session.
+    // Same shape as above, but the wrapped script really does exec Claude
+    // Code alongside the same kind of incidental .claude path and
+    // claude-http-*.sock mentions. bwrap stays pid 1 and the exec'd Claude
+    // Code is its own process (pid 2), whose children carry it in their
+    // parent chain — proving the fix isn't a blanket "ignore bwrap-wrapped
+    // scripts" but a real executable-name check that still fires on a
+    // genuine live session.
     const bwrap1: ProcEntry = {
       pid: 1,
       ppid: 0,
@@ -163,8 +165,15 @@ describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
         '/bin/bash -c "source /home/user/.claude/shell-snapshots/snap-abc123.sh ' +
         '&& exec node /usr/local/bin/claude --socket /tmp/claude-http-9f3a2c.sock"',
     };
-    const child = { pid: 7100, ppid: 1, pgrp: 7100, sid: 7100, cmd: SDK };
-    expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
+    const claude2: ProcEntry = {
+      pid: 2,
+      ppid: 1,
+      pgrp: 2,
+      sid: 2,
+      cmd: 'node /usr/local/bin/claude --socket /tmp/claude-http-9f3a2c.sock',
+    };
+    const child = { pid: 7100, ppid: 2, pgrp: 7100, sid: 7100, cmd: SDK };
+    expect(select([bwrap1, claude2, userSystemd, ...invoker, child])).toEqual([]);
   });
 
   it('reaps an orphan behind a bwrap-wrapped ancestor whose script only mentions "claude-agent-sdk" and "--output-format" as unrelated plain text (an audit-logged copy of a past command), not as its own SDK invocation', () => {
@@ -209,6 +218,72 @@ describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
     };
     const child = { pid: 7000, ppid: 1, pgrp: 7000, sid: 7000, cmd: SDK };
     expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
+  });
+
+  it('reaps the #333 repro orphan: pid 1 is bwrap wrapping the very bash script that runs `monomind cleanup --force` and tags the dummy as the SDK', () => {
+    // Issue #333, as a role's Bash tool really runs it: bwrap stays the
+    // sandbox's pid 1 and keeps the whole wrapped script in its cmdline, so
+    // that text holds bare `monomind`/`claude` words and an unquoted
+    // "claude-agent-sdk --output-format" pair. The wrapped program is bash,
+    // not a live session, so none of that may shield the setsid orphan.
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd:
+        'bwrap --new-session --die-with-parent --ro-bind /home/user/.claude /home/user/.claude -- ' +
+        '/usr/bin/bash -c source /home/user/.claude/shell-snapshots/snap.sh && eval ' +
+        `'setsid -f bash -c \\'exec -a "claude-agent-sdk --output-format stream-json" sleep 240\\' ; ` +
+        'echo claude-agent-sdk --output-format >> notes.txt ; claude --version ; ' +
+        "monomind init --yes --no-install --no-watch ; monomind cleanup --force'",
+    };
+    const shell = { pid: 2, ppid: 1, pgrp: 2, sid: 2, cmd: '/usr/bin/bash -c ...' };
+    const self = { pid: SELF, ppid: 2, pgrp: SELF, sid: 2, cmd: 'node /x/bin/monomind cleanup --force' };
+    const orphan = {
+      pid: 7000,
+      ppid: 1,
+      pgrp: 7000,
+      sid: 7000,
+      cmd: 'claude-agent-sdk --output-format stream-json',
+    };
+    const liveSibling = {
+      pid: 7001,
+      ppid: 2,
+      pgrp: 7001,
+      sid: 2,
+      cmd: 'claude-agent-sdk --output-format stream-json',
+    };
+    expect(selectOrphanedSdkPids([bwrap1, shell, self, orphan, liveSibling], SELF, new Set())).toEqual([
+      7000,
+    ]);
+  });
+
+  it('reaps an orphan behind a bwrap-wrapped script that names an SDK path right before --output-format as plain text', () => {
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd:
+        'bwrap --ro-bind /home/user/.claude /home/user/.claude -- /bin/bash -c ' +
+        'grep -rn /x/node_modules/@anthropic-ai/claude-agent-sdk/cli.js --output-format src/',
+    };
+    const orphan = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, orphan])).toEqual([7000]);
+  });
+
+  it('keeps the child of a live native claude-agent-sdk binary (the SDK as it ships today)', () => {
+    const app = { pid: 5000, ppid: 1500, pgrp: 5000, sid: 5000, cmd: 'node /srv/app.js' };
+    const sdk = {
+      pid: 6000,
+      ppid: 5000,
+      pgrp: 5000,
+      sid: 5000,
+      cmd: '/x/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude --output-format stream-json --verbose',
+    };
+    const child = { pid: 7000, ppid: 6000, pgrp: 7000, sid: 7000, cmd: SDK };
+    expect(select([init, userSystemd, ...invoker, app, sdk, child])).toEqual([]);
   });
 
   it('keeps a process with a live claude/monomind ancestor further up the chain', () => {
