@@ -781,7 +781,7 @@ call, low confidence) a deterministic keyword match over each role's id, title a
 responsibilities does. It drops stopwords, weighs each word by how few candidates mention it (a
 word every role shares — the org's rules skill, "worktree" — counts for nothing), counts title
 words double and the title's leading verb double again, and needs a score of at least
-`MIN_ROLE_SCORE` (1.5). Equal scores go to the more specific role — deeper in the reporting tree,
+`MIN_ROLE_SCORE` (1.5). Among the roles that clear it, each score is multiplied by how that role did on similar finished tasks of this run (title-word overlap of at least 0.2; `done` counts as a success, `failed` as a failure): a factor in [0.85, 1.15] once a role has 3 such outcomes, 1 before that, so history breaks near-ties but cannot overturn a gap wider than 1.35× ([`task-match.ts → roleOutcomePrior`](packages/@monomind/cli/src/orgrt/task-match.ts#roleOutcomePrior)). Equal scores go to the more specific role — deeper in the reporting tree,
 then the narrower description — and between interchangeable roles (say two identical developers)
 to the one with fewer open tasks, never to whichever is declared first; a tie that survives all
 of that, like no role clearing the bar, refuses the call with an error naming the closest roles,
@@ -799,7 +799,7 @@ brief, appended to the mailbox line — `Skills that fit this task (load with or
 ([`decisions.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchLine),
 [`picks.ts → suggestTaskSkills`](packages/@monomind/cli/src/decision/picks.ts#suggestTaskSkills)):
 Jev's pick when it answers, otherwise a keyword match over the pool (`MIN_SKILL_SCORE`, at most
-two), and only ever names from the role's own pool. The suggestion is recorded on the task
+two, near-ties broken the same bounded way by the outcomes of this run's tasks that loaded each skill — [`task-match.ts → skillOutcomePrior`](packages/@monomind/cli/src/orgrt/task-match.ts#skillOutcomePrior)), and only ever names from the role's own pool. The suggestion is recorded on the task
 (`suggestedSkills`) with a `task-skills-suggested` audit event (`method`: `jev` or `keyword`). When
 the role then loads a skill with `org_skill_load`, a `skill-loaded` audit event says whether an open
 task of that role suggested it, and the skill is added to that task's `loadedSkills` — so

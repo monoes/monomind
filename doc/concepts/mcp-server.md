@@ -43,7 +43,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 | **Monograph** | [`mcp-tools/monograph/`](packages/@monomind/cli/src/mcp-tools/monograph/) (`monograph-tools.ts` is now a re-export shim, not the source) | `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors`, and 40 more — see [Monograph concept doc](../concepts/monograph.md) for the full 19-default/27-advanced-gated breakdown |
 | **Memory** | [`memory-tools.ts`](packages/@monomind/cli/src/mcp-tools/memory-tools.ts) | `memory_pattern-search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
 | **Second Brain** | [`knowledge-tools.ts`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts) | `knowledge_ingest`, `knowledge_search`, `knowledge_remove` |
-| **Pick** | [`pick-tools.ts`](packages/@monomind/cli/src/mcp-tools/pick-tools.ts) | `pick` — best agents and skills for a task, the same JSON as `monomind pick --json` plus a one-line `summary`; input `{ task, kind?: agents\|skills\|both, categories?, top?: 1-20 }` |
+| **Pick** | [`pick-tools.ts`](packages/@monomind/cli/src/mcp-tools/pick-tools.ts) | `pick` — best agents and skills for a task, the same JSON as `monomind pick --json` plus a one-line `summary`; input `{ task, kind?: agents\|skills\|both, categories?, top?: 1-20 }`. In the core set, so advertised by default. `hooks_route`, `hooks_pre-task`, `hooks_explain` and `guidance_recommend` rank through the same picker; `hooks_route_semantic` asks it before embeddings (see [Routing](./routing.md)) |
 | **Monomind Tool Index** | [`monomind-tools.ts`](packages/@monomind/cli/src/mcp-tools/monomind-tools.ts) | `monomind_tool_search` |
 | **Orgs & Monoswarm** | [`task-tools.ts`](packages/@monomind/cli/src/mcp-tools/task-tools.ts), [`system-tools.ts`](packages/@monomind/cli/src/mcp-tools/system-tools.ts), [`monoswarm-tools.ts`](packages/@monomind/cli/src/mcp-tools/monoswarm-tools.ts) | `task_create`, `task_status`, `system_status`, `monoswarm_init` |
 | **Browser & Terminal** | [`browser-tools.ts`](packages/@monomind/cli/src/mcp-tools/browser-tools.ts), [`terminal-tools.ts`](packages/@monomind/cli/src/mcp-tools/terminal-tools.ts) | `browser_open`, `browser_snapshot`, `browser_click`, `browser_fill`, terminal execution |
@@ -55,7 +55,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 The guidance suite ([src/mcp-tools/guidance-tools.ts](packages/@monomind/cli/src/mcp-tools/guidance-tools.ts)) equips AI assistants with capability discovery and workflow recommendations:
 
 1. `guidance_capabilities`: Inspect system capability status and active enforcement gates.
-2. `guidance_recommend`: Get recommended tool sequences based on intent.
+2. `guidance_recommend`: Get recommended capability areas, tools and workflow for a task, plus a top-level `agents` array (`{ name, confidence, reason }`) from the central picker. Capability areas no longer carry an `agents` list.
 3. `guidance_discover`: Discover relevant tools and commands dynamically for a given task prompt.
 4. `guidance_workflow`: Retrieve step-by-step workflow guides for complex multi-agent or memory operations.
 5. `guidance_quickref`: Generate quick reference cards for submodules, CLI commands, and MCP schemas.
