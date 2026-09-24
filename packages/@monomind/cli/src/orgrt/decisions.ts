@@ -823,7 +823,11 @@ export function dispatchLine(
 /** org_skill_load served `skill` to `role`: record it on the role's open
  *  tasks whose dispatch suggested it, and audit the load either way, so
  *  suggestion adherence can be measured from the bus or the checkpoint. */
-export function recordSkillLoad(running: RunningOrg | undefined, role: string, skill: string): void {
+export function recordSkillLoad(
+  running: RunningOrg | undefined,
+  role: string,
+  skill: string,
+): void {
   if (!running) return;
   const suggestedBy: string[] = [];
   for (const t of running.taskDag?.all() ?? []) {

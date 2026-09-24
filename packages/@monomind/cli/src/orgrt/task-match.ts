@@ -12,8 +12,9 @@
  * the order roles are declared in; a tie that survives that is reported as
  * ambiguous instead of being guessed.
  */
-import { acceptAgent, type PickOptions, pickWithJev } from '../decision/jev.js';
+
 import { roleCatalog } from '../decision/catalogs.js';
+import { acceptAgent, type PickOptions, pickWithJev } from '../decision/jev.js';
 import { agentRoles } from './endpoint-roles.js';
 import type { OrgRole } from './types.js';
 
@@ -43,7 +44,11 @@ function stem(t: string): string {
 }
 
 export function matchTokens(text: string | undefined): string[] {
-  return (String(text ?? '').toLowerCase().match(/[a-z0-9]+/g) ?? [])
+  return (
+    String(text ?? '')
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) ?? []
+  )
     .filter((t) => !STOPWORDS.has(t))
     .map(stem);
 }
