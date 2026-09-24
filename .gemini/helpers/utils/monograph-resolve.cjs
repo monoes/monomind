@@ -366,12 +366,20 @@ function _suppressSqliteWarning(fn) {
 var COMMIT_SQL = "SELECT value FROM index_meta WHERE key IN ('last_commit_hash','lastCommit') ORDER BY key = 'last_commit_hash' DESC LIMIT 1";
 
 // The commit the graph was built at, read with node:sqlite so it works even
-// when @monoes/monograph or its native addon is what's missing.
-function readIndexedCommit(dbPath) {
+// when @monoes/monograph or its native addon is what's missing. `immutable`
+// (doctor --read-only) opens without SQLite's -shm/-wal files, which even a
+// read-only connection to a WAL database creates or updates; it does not see
+// changes still in the WAL, which a finished build has checkpointed.
+function readIndexedCommit(dbPath, immutable) {
   try {
     return _suppressSqliteWarning(function () {
       var DatabaseSync = require('node:sqlite').DatabaseSync;
-      var db = new DatabaseSync(dbPath, { readOnly: true });
+      var target = dbPath;
+      if (immutable) {
+        target = require('node:url').pathToFileURL(dbPath);
+        target.search = '?immutable=1';
+      }
+      var db = new DatabaseSync(target, { readOnly: true });
       try { var row = db.prepare(COMMIT_SQL).get(); return row && row.value ? String(row.value) : null; }
       finally { db.close(); }
     });
@@ -400,7 +408,7 @@ function diagnose(projectDir, opts) {
   var native = resolved ? checkNative(resolved, projectDir) : null;
   var dbPath = path.join(projectDir, '.monomind', 'monograph.db');
   var dbExists = fs.existsSync(dbPath);
-  var commit = dbExists ? readIndexedCommit(dbPath) : null;
+  var commit = dbExists ? readIndexedCommit(dbPath, opts.readOnly) : null;
   var problem = null;
   var fix = null;
   if (!resolved && !cliBin) {

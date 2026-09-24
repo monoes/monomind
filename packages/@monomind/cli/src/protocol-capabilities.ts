@@ -32,6 +32,10 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *  - `doctor-json` — `doctor --json` prints its results as JSON (each with its
  *    component id and fix safety), and `doctor --fix --json` / `--install
  *    --json` add the fix outcomes (doc/agent-exec-protocol.md §10)
+ *  - `doctor-read-only` — `doctor --json` (without `--fix`/`--install`) and
+ *    `doctor --read-only` change no file; the payload carries `read_only` (§10)
+ *  - `doctor-offline` — `doctor --offline` skips the checks that use the
+ *    network and reports them as `skipped` with `skipped_reason` (§10)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -43,6 +47,8 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'org-federation',
   'org-idle-deadline',
   'doctor-json',
+  'doctor-read-only',
+  'doctor-offline',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */

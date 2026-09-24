@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 9)
+# Agent Exec Protocol — v1 (rev 10)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -104,6 +104,12 @@
     `install_hint` as `npm` packages, an https `script`, or `manual`) and `login_hint`, display
     text never to be executed (§6).
     Additive only.
+  - rev 10 (2026-09-24): **read-only and offline doctor** (issue #335) — new capabilities
+    `doctor-read-only` and `doctor-offline`. `doctor --json` without `--fix`/`--install` now changes
+    no file (it used to rewrite `.monomind/registry.json`, create the memory database and fill
+    `~/.npm`), `--read-only` asks for the same in human output, and `--offline` skips the checks
+    that use the network. The payload gains `read_only`, `offline`, `summary.skipped` and a
+    `skipped_reason` per result; `status` gains `skipped` (§10). Additive only.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
 - **Purpose**: Expose monomind's `AgentRunner` engine (14 local agent CLI runners) and org
@@ -130,7 +136,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json"]}
+{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json","doctor-read-only","doctor-offline"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
@@ -459,18 +465,19 @@ protocol already supported better.
    (§3.2/§6) rather than a live UI implying a turn is stuck when it was never going to show partial
    output.
 
-## 10. `monomind doctor --json` (capability `doctor-json`, rev 9)
+## 10. `monomind doctor --json` (capability `doctor-json`, rev 9; `doctor-read-only`, `doctor-offline`, rev 10)
 
 ```
-$ monomind doctor --json            # all checks for the cwd's project
+$ monomind doctor --json            # all checks for the cwd's project; changes no file
+$ monomind doctor --json --offline  # …and uses no network
 $ monomind doctor -c helpers --fix --json
-{"v":1,"cwd":"/path/to/project","success":true,"error":null,
- "summary":{"passed":20,"warnings":3,"failed":0,"info":4},
+{"v":1,"cwd":"/path/to/project","read_only":false,"offline":false,"success":true,"error":null,
+ "summary":{"passed":20,"warnings":3,"failed":0,"info":4,"skipped":0},
  "results":[
   {"component":"helpers","name":"Helper Files","status":"warn","message":"48 stale helper(s): …",
-   "fix":"monomind init upgrade","fix_safety":"auto","fix_flag":"--fix"},
+   "fix":"monomind init upgrade","fix_safety":"auto","fix_flag":"--fix","skipped_reason":null},
   {"component":"claude","name":"Claude Code CLI","status":"pass","message":"v2.1.281",
-   "fix":null,"fix_safety":null,"fix_flag":null},
+   "fix":null,"fix_safety":null,"fix_flag":null,"skipped_reason":null},
   …],
  "fixes":[{"component":"helpers","outcome":"applied"}]}
 ```
@@ -479,7 +486,9 @@ $ monomind doctor -c helpers --fix --json
   subprocesses a fix runs, and `-v` debug lines) goes to stderr.
   Exit code as without `--json` (1 when a check failed).
 - `component` is the `-c` name that runs the check again on its own; one component can yield
-  several results (same `component`, different `name`). `status` is `pass|warn|fail|info`.
+  several results (same `component`, different `name`). `status` is `pass|warn|fail|info|skipped`;
+  a `skipped` result did not run, and `skipped_reason` (`read-only` or `offline`, null otherwise)
+  says why.
 - `fix` is the hint text. `fix_safety` says how it is applied: `auto` — local and repeatable,
   applied by `--fix`; `confirm` — installs software or runs network or `sudo` commands (the Claude
   Code CLI by `--install`, the monoes tools by `--fix`), so the caller asks a person first;
@@ -490,3 +499,26 @@ $ monomind doctor -c helpers --fix --json
 - `fixes` lists what `--fix`/`--install` attempted in this run (`applied|failed`); results then
   show the re-checked state.
 - Checks run against the process cwd, so a caller runs it with cwd = the project to check.
+
+### 10.1 Read-only and offline (capabilities `doctor-read-only`, `doctor-offline`, rev 10)
+
+- **Read-only** (`read_only: true`) is the default under `--json` unless `--fix` or `--install` is
+  given, since a fix is a write. `--read-only` asks for it without `--json`, and `--no-read-only`
+  turns it off. `--read-only` with `--fix` or `--install` is refused (`error`, exit 1).
+  A read-only run changes no file in the project or `$HOME`: no startup registry refresh or
+  update check, the agent registry is built in memory only, the monograph db is read without
+  touching SQLite's `-shm`/`-wal` files, and `npm` runs with a throwaway cache in the system temp
+  dir, removed afterwards (npm writes its cache dir on every command, even `npm root -g`).
+  Read-only is about files, not the network: the version check still asks the npm registry.
+  Two checks are skipped (`skipped_reason: "read-only"`) because they cannot run without
+  writing: `kg` (opening the memory database writes to it) and `-c pick` (rebuilds stale
+  indexes). `-c mcp` is skipped too, because it starts the MCP server, which runs its own
+  startup.
+- **Offline** (`offline: true`, `--offline`) skips every check that uses the network, with
+  `skipped_reason: "offline"`: `version` (asks the npm registry), `-c monoes-tools` (GitHub
+  releases), `-c jev`/`-c decision` (probe providers) and `-c mcp` (may download the server with
+  `npx`). The full run's `mcp` and `jev` rows are config-only and still run. The startup update
+  check is skipped as well. `--offline` with `--install` is refused; `--offline --fix` applies only
+  local fixes.
+- Callers that need these guarantees check for the capability first: an older monomind rejects or
+  ignores the flags, and writes under `--json`.

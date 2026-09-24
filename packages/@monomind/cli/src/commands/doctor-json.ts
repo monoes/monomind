@@ -5,6 +5,7 @@
 
 import type { CommandContext, CommandResult } from '../types.js';
 import type { HealthCheck } from './doctor-env-checks.js';
+import { resolveDoctorMode } from './doctor-mode.js';
 
 /** A check result tagged with the component (`-c` name) that produced it. */
 export type DoctorResult = HealthCheck & { component?: string };
@@ -45,12 +46,16 @@ export function doctorJsonPayload(ctx: CommandContext, result: CommandResult) {
       fix: r.fix ?? null,
       fix_safety: r.fix ? safety : null,
       fix_flag: r.fix && safety !== 'manual' ? (apply?.flag ?? null) : null,
+      skipped_reason: r.skippedReason ?? null,
     };
   });
   const count = (st: string) => results.filter((r) => r.status === st).length;
+  const mode = resolveDoctorMode(ctx.flags);
   return {
     v: 1,
     cwd: ctx.cwd || process.cwd(),
+    read_only: mode.readOnly,
+    offline: mode.offline,
     success: result.success,
     error: data.error ?? null,
     summary: {
@@ -58,6 +63,7 @@ export function doctorJsonPayload(ctx: CommandContext, result: CommandResult) {
       warnings: count('warn'),
       failed: count('fail'),
       info: count('info'),
+      skipped: count('skipped'),
     },
     results,
     fixes: data.fixes ?? [],

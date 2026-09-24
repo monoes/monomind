@@ -8,6 +8,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveDoctorMode } from './commands/doctor-mode.js';
 import {
   getCommand,
   getCommandAsync,
@@ -141,7 +142,11 @@ export class CLI {
       // (which checked the flag name against the GLOBAL pool of every
       // command's boolean options, so an unrelated command declaring its
       // own `update` boolean flag could hijack `--no-update`'s meaning).
-      if (flags.update !== false && commandPath[0] !== 'update') {
+      // `doctor --read-only` / `--offline` (issue #335) must not write the
+      // update-check state or touch the network, nor refresh the registry.
+      const doctorMode = commandPath[0] === 'doctor' ? resolveDoctorMode(flags) : null;
+      const quietDoctor = Boolean(doctorMode?.readOnly || doctorMode?.offline);
+      if (flags.update !== false && commandPath[0] !== 'update' && !quietDoctor) {
         this.checkForUpdatesOnStartup().catch(() => {
           /* silent */
         });
@@ -206,9 +211,10 @@ export class CLI {
       // so running this here means `monomind --help` (or any invocation in a
       // directory that's never been a monomind project) no longer creates
       // .monomind/registry.json as a side effect of just asking for help.
-      this.initSubsystems().catch(() => {
-        /* silent */
-      });
+      if (!doctorMode?.readOnly)
+        this.initSubsystems().catch(() => {
+          /* silent */
+        });
 
       // Handle subcommand (supports nested subcommands)
       let targetCommand = command;

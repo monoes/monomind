@@ -1199,7 +1199,7 @@ export async function fixGitignoreCoverage(): Promise<boolean> {
   }
 }
 
-export async function checkAgentRegistry(): Promise<HealthCheck> {
+export async function checkAgentRegistry(opts: { readOnly?: boolean } = {}): Promise<HealthCheck> {
   try {
     const { buildUnifiedRegistry, computeAgentRoots } = await import(
       '../agents/registry-builder.js'
@@ -1208,12 +1208,14 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
     const project = findProjectRoot(process.cwd());
     const cwd = project ?? process.cwd();
     const roots = computeAgentRoots(cwd);
-    if (project) mkdirSync(join(cwd, '.monomind'), { recursive: true });
+    const write = project !== null && !opts.readOnly;
+    if (write) mkdirSync(join(cwd, '.monomind'), { recursive: true });
     // Rebuilds fresh in-memory (and, inside a project, refreshes
     // .monomind/registry.json on disk, never replacing a non-empty registry
     // with an empty one) rather than reading a file a separate startup task
-    // may also be writing. Outside a project nothing is written.
-    const registry = buildUnifiedRegistry(roots, project ? registryPath(cwd) : undefined, {
+    // may also be writing. Outside a project, and in read-only mode (issue
+    // #335), nothing is written.
+    const registry = buildUnifiedRegistry(roots, write ? registryPath(cwd) : undefined, {
       base: cwd,
     });
     const entries = registry.agents;

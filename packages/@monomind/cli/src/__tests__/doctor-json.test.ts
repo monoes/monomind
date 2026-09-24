@@ -60,7 +60,7 @@ describe('doctor --json', () => {
       fix_safety: 'auto',
       fix_flag: '--fix',
     });
-    expect(payload.summary).toEqual({ passed: 0, warnings: 1, failed: 0, info: 0 });
+    expect(payload.summary).toEqual({ passed: 0, warnings: 1, failed: 0, info: 0, skipped: 0 });
     expect(payload.fixes).toEqual([]);
   }, 30000);
 

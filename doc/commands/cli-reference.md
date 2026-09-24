@@ -24,7 +24,7 @@
 | `guidance` | Wire enforcement gates into Claude Code hooks | 1 — setup |
 | `autopilot` | Autonomous task execution — persistent swarm run to completion | 8 — status, enable, disable, config, reset, log, predict, check |
 | `config` | Configuration management | 7 — init, get, set, providers, reset, export, import |
-| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--component` (`--component` accepts one of 28 named categories — see below) |
+| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--json`, `--read-only`, `--offline`, `--component` (`--component` accepts one of 28 named categories — see below) |
 | `completions` | Shell completion scripts | 4 — bash, zsh, fish, powershell |
 | `analyze` | Codebase analysis — diff classification, change risk | 7 — diff, code, deps, ast, complexity, symbols, imports |
 | `route` | Task-to-agent routing (`route task` through the central picker; `route semantic` picker first, then the embedding cascade). See [Route Command Reference](./route.md) & [Routing Concept](../concepts/routing.md). | 9 — task (default), semantic, list-agents, stats, feedback, reset, export, import, coverage (alias: cov) |

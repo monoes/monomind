@@ -1037,6 +1037,17 @@ describe('doctor-project-checks', () => {
       expect(result.message).toContain('1 missing when_to_use');
       expect(result.fix).toContain('monomind init upgrade');
     });
+
+    it('read-only: builds the registry in memory and writes nothing (#335)', async () => {
+      mkdirSync(join(dir, '.claude', 'agents'), { recursive: true });
+      writeFileSync(
+        join(dir, '.claude', 'agents', 'coder.md'),
+        '---\nname: Coder\nslug: coder\ndescription: Writes code\nwhen_to_use: Code\n---\n',
+      );
+      const result = await checkAgentRegistry({ readOnly: true });
+      expect(result.status).toBe('pass');
+      expect(existsSync(join(dir, '.monomind'))).toBe(false);
+    });
   });
 
   // ---------------------------------------------------------------------

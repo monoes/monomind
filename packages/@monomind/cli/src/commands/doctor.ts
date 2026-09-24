@@ -24,9 +24,17 @@ import {
   checkVersionFreshness,
   installClaudeCode,
 } from './doctor-env-checks.js';
+import { downgradeFreshInstallWarnings } from './doctor-fresh-install.js';
 import { checkHookMonograph } from './doctor-hook-monograph-checks.js';
 import { checkHookSettings } from './doctor-hook-settings-checks.js';
 import { type DoctorResult, doctorJsonPayload } from './doctor-json.js';
+import {
+  DOCTOR_MODE_OPTIONS,
+  doctorError,
+  modeLabel,
+  resolveDoctorMode,
+  skippedCheck,
+} from './doctor-mode.js';
 import {
   checkMonoesTokenExposure,
   checkMonoesTools,
@@ -68,7 +76,9 @@ function formatCheck(check: HealthCheck): string {
         ? output.warning('⚠')
         : check.status === 'info'
           ? output.dim('ℹ')
-          : output.error('✗');
+          : check.status === 'skipped'
+            ? output.dim('-')
+            : output.error('✗');
   return `${icon} ${check.name}: ${check.message}`;
 }
 
@@ -106,6 +116,7 @@ export const doctorCommand: Command = {
       type: 'boolean',
       default: false,
     },
+    ...DOCTOR_MODE_OPTIONS,
   ],
   examples: [
     { command: 'monomind doctor', description: 'Run full health check' },
@@ -113,6 +124,10 @@ export const doctorCommand: Command = {
     {
       command: 'monomind doctor --json',
       description: 'Machine-readable results (add --fix to apply fixes)',
+    },
+    {
+      command: 'monomind doctor --json --offline',
+      description: 'Health check that changes no file and uses no network',
     },
     { command: 'monomind doctor --install', description: 'Auto-install missing dependencies' },
     { command: 'monomind doctor -c version', description: 'Check for stale npx cache' },
@@ -152,6 +167,8 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
   const showFix = ctx.flags.fix as boolean;
   const autoInstall = ctx.flags.install as boolean;
   const component = ctx.flags.component as string;
+  const mode = resolveDoctorMode(ctx.flags);
+  if (mode.error) return doctorError(mode.error);
   const checkPlatforms = async (): Promise<HealthCheck> => {
     const reports = await runPlatformsDoctor({ path: ctx.cwd, scope: 'project' });
     const lines = reports.map((report) => {
@@ -169,6 +186,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
   output.writeln(output.bold('MonoMind Doctor'));
   output.writeln(output.dim('System diagnostics and health check'));
   output.writeln(output.dim('─'.repeat(50)));
+  if (modeLabel(mode)) output.writeln(output.dim(modeLabel(mode)));
   output.writeln();
 
   // Capability-aware scoping: skip code-specific checks in non-code directories
@@ -189,7 +207,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
   // Each check is paired with its component id (the `-c` name), which is
   // also how `--json` identifies results.
   const alwaysOnChecks: [string, CheckFn][] = [
-    ['version', checkVersionFreshness],
+    ['version', () => checkVersionFreshness({ readOnly: mode.readOnly })],
     ['node', checkNodeVersion],
     ['npm', checkNpmVersion],
     ['claude', checkClaudeCode],
@@ -203,7 +221,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['monoes', checkMonoesIntegration],
     ['gates', checkGuidanceGates],
     ['hook-settings', () => checkHookSettings(ctx.cwd || process.cwd())],
-    ['registry', checkAgentRegistry],
+    ['registry', () => checkAgentRegistry({ readOnly: mode.readOnly })],
     ['git', checkGit],
     ['api', checkApiKeys],
     ['memory-proficiency', checkMemoryProficiency],
@@ -228,7 +246,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['mcp', checkMcpServers],
     ['typescript', checkBuildTools],
     ['graph-freshness', checkMonographFreshness],
-    ['hook-monograph', () => checkHookMonograph()],
+    ['hook-monograph', () => checkHookMonograph(process.cwd(), { readOnly: mode.readOnly })],
     ['gitignore', checkGitignoreCoverage],
     ['monoes-token', checkMonoesTokenExposure],
     ['platforms', checkPlatforms],
@@ -239,8 +257,8 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     : alwaysOnChecks;
 
   const componentMap: Record<string, () => Promise<HealthCheck | HealthCheck[]>> = {
-    version: checkVersionFreshness,
-    freshness: checkVersionFreshness,
+    version: () => checkVersionFreshness({ readOnly: mode.readOnly }),
+    freshness: () => checkVersionFreshness({ readOnly: mode.readOnly }),
     node: checkNodeVersion,
     npm: checkNpmVersion,
     claude: checkClaudeCode,
@@ -263,7 +281,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     typescript: checkBuildTools,
     monograph: checkMonograph,
     'graph-freshness': checkMonographFreshness,
-    'hook-monograph': () => checkHookMonograph(),
+    'hook-monograph': () => checkHookMonograph(process.cwd(), { readOnly: mode.readOnly }),
     native: checkNativeBindings,
     'native-modules': checkNativeBindings,
     'memory-pkg': checkMonoesMemory,
@@ -272,7 +290,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     gates: checkGuidanceGates,
     'hook-settings': () => checkHookSettings(ctx.cwd || process.cwd()),
     gitignore: checkGitignoreCoverage,
-    registry: checkAgentRegistry,
+    registry: () => checkAgentRegistry({ readOnly: mode.readOnly }),
     'memory-proficiency': checkMemoryProficiency,
     'monoes-tools': checkMonoesTools,
     'monoes-token': checkMonoesTokenExposure,
@@ -333,7 +351,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     const settled: DoctorResult[] = [];
     for (const [id, check] of checksToRun) {
       try {
-        const result = await check();
+        const result = skippedCheck(id, mode, Boolean(component)) ?? (await check());
         for (const r of Array.isArray(result) ? result : [result])
           settled.push({ ...r, component: id });
       } catch (err) {
@@ -347,45 +365,8 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     }
     spinner.stop();
 
-    // P2-14: Quiet the fresh-install doctor. On a brand-new install, 9+ checks
-    // report warnings that are actually expected states. Detect fresh install
-    // (`.monomind/` dir < 5 min old) and downgrade expected warnings to info
-    // unless --verbose is set.
-    const verbose = ctx.flags.verbose as boolean;
-    if (!verbose) {
-      const monomindDir = path.join(ctx.cwd, '.monomind');
-      let isFreshInstall = false;
-      try {
-        const { statSync } = await import('node:fs');
-        const stat = statSync(monomindDir);
-        isFreshInstall = Date.now() - stat.birthtimeMs < 5 * 60 * 1000; // < 5 min old
-      } catch {
-        /* dir doesn't exist — not our project */
-      }
-      if (isFreshInstall) {
-        const FRESH_EXPECTED = new Set([
-          'Memory Database',
-          'Memory Knowledge Graph',
-          'Second Brain Model',
-          'Graph freshness',
-          'MCP Servers',
-          'Worker Metrics',
-          'Security Audit',
-          'Helper Files',
-          'AppleDouble Sidecars',
-          'Monoes Memory',
-        ]);
-        for (let i = 0; i < settled.length; i++) {
-          if (settled[i].status === 'warn' && FRESH_EXPECTED.has(settled[i].name)) {
-            settled[i] = {
-              ...settled[i],
-              status: 'info' as const,
-              message: `${settled[i].message} (expected on fresh install — run with --verbose for details)`,
-            };
-          }
-        }
-      }
-    }
+    // P2-14: expected warnings on a brand-new install read as info.
+    if (!ctx.flags.verbose) downgradeFreshInstallWarnings(settled, ctx.cwd);
 
     for (const r of settled) {
       results.push(r);
@@ -452,6 +433,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
   const passed = results.filter((r) => r.status === 'pass').length;
   const warnings = results.filter((r) => r.status === 'warn').length;
   const failed = results.filter((r) => r.status === 'fail').length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
 
   output.writeln();
   output.writeln(output.dim('─'.repeat(50)));
@@ -461,6 +443,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     output.success(`${passed} passed`),
     warnings > 0 ? output.warning(`${warnings} warnings`) : null,
     failed > 0 ? output.error(`${failed} failed`) : null,
+    skipped > 0 ? output.dim(`${skipped} skipped`) : null,
   ].filter(Boolean);
   output.writeln(`Summary: ${summaryParts.join(', ')}`);
 

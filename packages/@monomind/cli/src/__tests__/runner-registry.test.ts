@@ -53,6 +53,8 @@ describe('version handshake (§2)', () => {
         'org-federation',
         'org-idle-deadline',
         'doctor-json',
+        'doctor-read-only',
+        'doctor-offline',
       ],
     });
     expect(p.capabilities).toContain('agent-exec');

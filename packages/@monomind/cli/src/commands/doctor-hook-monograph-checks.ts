@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { HealthCheck } from './doctor-env-checks.js';
+import { type HealthCheck, runCommand, withThrowawayNpmCache } from './doctor-env-checks.js';
 
 const NAME = 'Hook graph rebuild';
 const REL = join('.claude', 'helpers', 'utils', 'monograph-resolve.cjs');
@@ -23,6 +23,8 @@ export interface ResolveOptions {
   globalRoot?: string | null;
   npxCacheDir?: string;
   pathEnv?: string;
+  /** Read the graph's commit without touching its -shm/-wal files (doctor --read-only). */
+  readOnly?: boolean;
 }
 
 interface Diagnosis {
@@ -41,13 +43,16 @@ interface ResolveModule {
   diagnose(projectDir: string, opts?: ResolveOptions): Diagnosis;
 }
 
-function loadResolver(cwd: string): ResolveModule | null {
-  const candidates = [
-    join(cwd, REL),
+function loadResolver(cwd: string, readOnly?: boolean): ResolveModule | null {
+  const bundled = [
     // src/commands → ../.. is the package root; dist/src/commands → ../../..
     join(HERE, '..', '..', REL),
     join(HERE, '..', '..', '..', REL),
   ];
+  // Read-only prefers this build's copy: a project's older copy opens the
+  // graph db in a way that updates SQLite's -shm file (a stale copy is what
+  // the `helpers` check reports).
+  const candidates = readOnly ? [...bundled, join(cwd, REL)] : [join(cwd, REL), ...bundled];
   const file = candidates.find((p) => existsSync(p));
   try {
     return file ? (createRequire(import.meta.url)(file) as ResolveModule) : null;
@@ -60,7 +65,7 @@ export async function checkHookMonograph(
   cwd: string = process.cwd(),
   opts?: ResolveOptions,
 ): Promise<HealthCheck> {
-  const mod = loadResolver(cwd);
+  const mod = loadResolver(cwd, opts?.readOnly);
   if (!mod) {
     return {
       name: NAME,
@@ -68,6 +73,13 @@ export async function checkHookMonograph(
       message: 'utils/monograph-resolve.cjs is missing, so the hooks cannot rebuild the graph',
       fix: 'npx monomind init upgrade',
     };
+  }
+  // The resolver's own `npm root -g` would write npm's log under ~/.npm.
+  if (opts?.readOnly && opts.globalRoot === undefined) {
+    const root = await withThrowawayNpmCache((env) => runCommand('npm root -g', 5000, env)).catch(
+      () => null,
+    );
+    opts = { ...opts, globalRoot: root || null };
   }
   const d = mod.diagnose(cwd, opts);
   const limit = mod.STALE_LIMIT;

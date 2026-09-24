@@ -4,8 +4,9 @@
  */
 
 import { exec, execSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -23,8 +24,10 @@ const execAsync = promisify(exec);
 
 export interface HealthCheck {
   name: string;
-  status: 'pass' | 'warn' | 'fail' | 'info';
+  status: 'pass' | 'warn' | 'fail' | 'info' | 'skipped';
   message: string;
+  /** Why a `skipped` check did not run (doctor-mode.ts). */
+  skippedReason?: 'read-only' | 'offline';
   fix?: string;
   /**
    * How `fix` is applied, when it differs by result rather than by component
@@ -33,15 +36,35 @@ export interface HealthCheck {
   fixSafety?: 'auto' | 'confirm' | 'manual';
 }
 
-export async function runCommand(command: string, timeoutMs = 5000): Promise<string> {
+export async function runCommand(
+  command: string,
+  timeoutMs = 5000,
+  env: NodeJS.ProcessEnv = {},
+): Promise<string> {
   const { stdout } = await execAsync(command, {
     encoding: 'utf8' as BufferEncoding,
     timeout: timeoutMs,
     shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
-    env: { ...process.env },
+    env: { ...process.env, ...env },
     windowsHide: true,
   });
   return (stdout as string).trim();
+}
+
+/**
+ * Runs npm with a throwaway cache (doctor --read-only, issue #335): every npm
+ * command writes into its cache dir — `npm view` cache entries, a debug log
+ * even for `npm root -g`, an update-notifier stamp — which is ~/.npm otherwise.
+ */
+export async function withThrowawayNpmCache<T>(
+  fn: (env: NodeJS.ProcessEnv) => Promise<T>,
+): Promise<T> {
+  const cache = mkdtempSync(join(tmpdir(), 'monomind-doctor-npm-'));
+  try {
+    return await fn({ npm_config_cache: cache, npm_config_update_notifier: 'false' });
+  } finally {
+    rmSync(cache, { recursive: true, force: true });
+  }
 }
 
 export async function checkNodeVersion(version: string = process.version): Promise<HealthCheck> {
@@ -214,7 +237,9 @@ export async function checkBuildTools(): Promise<HealthCheck> {
   }
 }
 
-export async function checkVersionFreshness(): Promise<HealthCheck> {
+export async function checkVersionFreshness(
+  opts: { readOnly?: boolean } = {},
+): Promise<HealthCheck> {
   try {
     let currentVersion = '0.0.0';
     try {
@@ -254,7 +279,8 @@ export async function checkVersionFreshness(): Promise<HealthCheck> {
 
     let latestVersion = currentVersion;
     try {
-      latestVersion = (await runCommand('npm view monomind version', 5000)).trim();
+      const view = (env?: NodeJS.ProcessEnv) => runCommand('npm view monomind version', 5000, env);
+      latestVersion = (await (opts.readOnly ? withThrowawayNpmCache(view) : view())).trim();
     } catch {
       return {
         name: 'Version Freshness',
