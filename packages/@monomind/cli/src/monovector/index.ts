@@ -3,7 +3,7 @@
  *
  * After the SONA / native / WASM teardown this module provides:
  * - Initialization state: createInitState()
- * - Keyword-based task routing: createKeywordRouter()
+ * - Task routing: createKeywordRouter() (delegates to the central picker)
  * - Route recommendation→outcome records: recordRoute(), joinOutcome(), accuracy
  * - AST diff classification: DiffClassifier
  *
@@ -94,39 +94,21 @@ export interface RouteDecision {
 export type KeywordRouterConfig = {};
 
 export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRouter {
-  const agentTypes = [
-    'coder',
-    'tester',
-    'reviewer',
-    'architect',
-    'researcher',
-    'optimizer',
-    'debugger',
-    'documenter',
-  ];
   const baseDir = join(process.cwd(), '.monomind');
 
   return {
+    // Delegates to the central picker so `route task` agrees with `monomind
+    // pick`, the `pick` MCP tool and `hooks route`; routes are spawnable names.
     async route(task: string): Promise<RouteDecision> {
-      const lower = task.toLowerCase();
-      let agentType = 'coder';
-      if (lower.includes('test')) agentType = 'tester';
-      else if (lower.includes('review') || lower.includes('security')) agentType = 'reviewer';
-      else if (lower.includes('design') || lower.includes('architect')) agentType = 'architect';
-      else if (lower.includes('research') || lower.includes('analyz')) agentType = 'researcher';
-      else if (lower.includes('optim') || lower.includes('perform')) agentType = 'optimizer';
-      else if (lower.includes('debug') || lower.includes('fix') || lower.includes('bug'))
-        agentType = 'debugger';
-      else if (lower.includes('doc')) agentType = 'documenter';
+      const { pickAgents } = await import('../routing/agent-pick.js');
+      const pick = await pickAgents(task, 4, process.cwd());
+      const [primary, ...rest] = pick.agents;
       return {
-        agentType,
-        confidence: 0.75,
-        reasoning: 'keyword-based routing',
-        route: agentType,
-        alternatives: agentTypes
-          .filter((a) => a !== agentType)
-          .slice(0, 3)
-          .map((a) => ({ route: a, score: 0 })),
+        agentType: primary.type,
+        confidence: primary.confidence,
+        reasoning: `${pick.method} pick: ${primary.reason}`,
+        route: primary.type,
+        alternatives: rest.map((a) => ({ route: a.type, score: a.confidence })),
       };
     },
     async initialize() {},

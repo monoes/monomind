@@ -275,7 +275,7 @@ export function classifyCoverageGap(
 export function suggestAgentsForFile(filePath: string): string[] {
   const lower = filePath.toLowerCase();
   if (lower.includes('test') || lower.includes('spec')) return ['tester'];
-  if (lower.includes('security') || lower.includes('auth')) return ['security-auditor', 'tester'];
+  if (lower.includes('security') || lower.includes('auth')) return ['Security Engineer', 'tester'];
   if (lower.includes('api') || lower.includes('route') || lower.includes('controller'))
     return ['coder', 'tester'];
   if (lower.includes('model') || lower.includes('schema') || lower.includes('entity'))

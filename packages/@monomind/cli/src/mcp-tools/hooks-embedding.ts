@@ -557,42 +557,22 @@ export function getIntelligenceStatsFromMemory(): {
   };
 }
 
-// Agent routing configuration - maps file types to recommended agents
+// File type → recommended agents for hooks_pre-edit. Every value is a spawnable
+// agent name (a bundled agent's frontmatter `name`, the Task subagent_type).
 export const AGENT_PATTERNS: Record<string, string[]> = {
-  '.ts': ['coder', 'architect', 'tester'],
-  '.tsx': ['coder', 'architect', 'reviewer'],
+  '.ts': ['coder', 'Software Architect', 'tester'],
+  '.tsx': ['Frontend Developer', 'coder', 'reviewer'],
   '.test.ts': ['tester', 'reviewer'],
   '.spec.ts': ['tester', 'reviewer'],
-  '.md': ['researcher', 'documenter'],
-  '.json': ['coder', 'architect'],
-  '.yaml': ['coder', 'devops'],
-  '.yml': ['coder', 'devops'],
-  '.sh': ['devops', 'coder'],
-  '.py': ['coder', 'ml-developer', 'researcher'],
-  '.sql': ['coder', 'architect'],
-  '.css': ['coder', 'designer'],
-  '.scss': ['coder', 'designer'],
-};
-
-// Keyword patterns for fallback routing (when semantic routing doesn't match)
-export const KEYWORD_PATTERNS: Record<string, { agents: string[]; confidence: number }> = {
-  authentication: { agents: ['security-architect', 'coder', 'tester'], confidence: 0.9 },
-  auth: { agents: ['security-architect', 'coder', 'tester'], confidence: 0.85 },
-  api: { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
-  test: { agents: ['tester', 'reviewer'], confidence: 0.95 },
-  refactor: { agents: ['architect', 'coder', 'reviewer'], confidence: 0.9 },
-  performance: { agents: ['performance-engineer', 'coder', 'tester'], confidence: 0.88 },
-  security: { agents: ['security-architect', 'security-auditor', 'reviewer'], confidence: 0.92 },
-  database: { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
-  frontend: { agents: ['coder', 'designer', 'tester'], confidence: 0.82 },
-  backend: { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
-  bug: { agents: ['coder', 'tester', 'reviewer'], confidence: 0.88 },
-  fix: { agents: ['coder', 'tester', 'reviewer'], confidence: 0.85 },
-  feature: { agents: ['architect', 'coder', 'tester'], confidence: 0.8 },
-  swarm: { agents: ['swarm-specialist', 'coordinator', 'architect'], confidence: 0.9 },
-  memory: { agents: ['memory-specialist', 'architect', 'coder'], confidence: 0.88 },
-  deploy: { agents: ['devops', 'coder', 'tester'], confidence: 0.85 },
-  'ci/cd': { agents: ['devops', 'coder'], confidence: 0.9 },
+  '.md': ['Technical Writer', 'researcher'],
+  '.json': ['coder', 'Software Architect'],
+  '.yaml': ['DevOps Automator', 'coder'],
+  '.yml': ['DevOps Automator', 'coder'],
+  '.sh': ['DevOps Automator', 'coder'],
+  '.py': ['coder', 'AI Engineer', 'researcher'],
+  '.sql': ['Database Optimizer', 'coder'],
+  '.css': ['Frontend Developer', 'Monodesign'],
+  '.scss': ['Frontend Developer', 'Monodesign'],
 };
 
 export function getFileExtension(filePath: string): string {
@@ -608,50 +588,13 @@ export function suggestAgentsForFile(filePath: string): string[] {
     return AGENT_PATTERNS['.test.ts'] || ['tester', 'reviewer'];
   }
 
-  return AGENT_PATTERNS[ext] || ['coder', 'architect'];
-}
-
-export function suggestAgentsForTask(task: string): { agents: string[]; confidence: number } {
-  const taskLower = task.toLowerCase();
-
-  // Check static keyword patterns first
-  for (const [pattern, result] of Object.entries(KEYWORD_PATTERNS)) {
-    if (taskLower.includes(pattern)) {
-      return result;
-    }
-  }
-
-  // Check runtime-learned patterns from successful task outcomes
-  const taskKeywords = extractKeywords(task);
-  if (taskKeywords.length > 0) {
-    const outcomes = loadRoutingOutcomes();
-    let bestAgent = '';
-    let bestOverlap = 0;
-
-    for (const outcome of outcomes) {
-      if (!outcome.success || !outcome.agent || !outcome.keywords?.length) continue;
-      const overlap = taskKeywords.filter((kw) => outcome.keywords.includes(kw)).length;
-      if (overlap > bestOverlap) {
-        bestOverlap = overlap;
-        bestAgent = outcome.agent;
-      }
-    }
-
-    // Require at least 2 keyword overlap to prevent false positives
-    if (bestAgent && bestOverlap >= 2) {
-      return { agents: [bestAgent], confidence: Math.min(0.6 + bestOverlap * 0.05, 0.85) };
-    }
-  }
-
-  // Default fallback
-  return { agents: ['coder', 'researcher', 'tester'], confidence: 0.7 };
+  return AGENT_PATTERNS[ext] || ['coder', 'Software Architect'];
 }
 
 /**
  * V3: Augment agent suggestions with semantic matches from intelligence.ts ReasoningBank.
  * Returns null when the intelligence system is unavailable or has no relevant patterns.
- * Kept sync-safe by returning a Promise — callers that need a sync result use the
- * non-async suggestAgentsForTask above and optionally merge async results.
+ * Used by the prompt hook (.claude/helpers/handlers/route-handler.cjs).
  */
 // Canonical set of valid monomind agent type strings.
 // Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')

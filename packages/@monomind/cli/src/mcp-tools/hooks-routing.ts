@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join, resolve, sep } from 'node:path';
 import { deriveRecentSuccess, recordCommand } from '../monovector/command-outcomes.js';
 import { joinLatestUnresolved, joinOutcome, recordRoute } from '../monovector/route-outcomes.js';
+import { pickAgents } from '../routing/agent-pick.js';
 import { validateMcpString } from '../utils/input-guards.js';
 import { mergeRecordsById } from '../utils/json-file.js';
 import {
@@ -29,8 +30,6 @@ import {
   MEMORY_DIR,
   saveRoutingOutcomes,
   suggestAgentsForFile,
-  suggestAgentsForTask,
-  suggestAgentsFromIntelligence,
   TASK_PATTERNS,
 } from './hooks-embedding.js';
 import { getProjectCwd, type MCPTool } from './types.js';
@@ -289,24 +288,36 @@ export const hooksPostCommand: MCPTool = {
   },
 };
 
+/** Rough effort band from task wording — shared by hooks_route and hooks_pre-task. */
+function taskComplexity(task: string): 'low' | 'medium' | 'high' {
+  const lower = task.toLowerCase();
+  if (lower.includes('complex') || lower.includes('architecture') || task.length > 200) {
+    return 'high';
+  }
+  if (lower.includes('simple') || lower.includes('fix') || task.length < 50) return 'low';
+  return 'medium';
+}
+
+function estimatedDuration(complexity: 'low' | 'medium' | 'high'): string {
+  return complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min';
+}
+
 export const hooksRoute: MCPTool = {
   name: 'hooks_route',
-  description: 'Route task to optimal agent using semantic similarity (native HNSW or pure JS)',
+  description:
+    'Route a task to the best agent — a thin wrapper over the central picker (same ranking as ' +
+    'the `pick` tool and `monomind pick`). primaryAgent.type is a spawnable Task subagent_type.',
   inputSchema: {
     type: 'object',
     properties: {
       task: { type: 'string', description: 'Task description' },
       context: { type: 'string', description: 'Additional context' },
-      useSemanticRouter: {
-        type: 'boolean',
-        description: 'Use semantic similarity routing (default: true)',
-      },
+      topK: { type: 'number', description: 'Number of agents to return, 1-20 (default: 3)' },
     },
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
-    // Cap task and context lengths: both are forwarded to generateEmbedding
-    // via bridgeRouteTask, and task is used in extractKeywords + stored in
+    // Cap task and context lengths: task is ranked and stored in
     // route-outcomes.jsonl.  16 KB matches the cap in hooksPatternSearch.
     const MAX_ROUTE_TASK_LEN = 16 * 1024;
     const MAX_ROUTE_CTX_LEN = 4 * 1024;
@@ -315,142 +326,25 @@ export const hooksRoute: MCPTool = {
       return { error: 'task is required (non-empty string, no control chars, max 16KB)' };
     }
     const _context = validateMcpString(params.context, 'context', MAX_ROUTE_CTX_LEN) ?? undefined;
-    const useSemanticRouter = params.useSemanticRouter !== false;
+    const topK = Math.max(1, Math.min(20, Math.trunc(Number(params.topK)) || 3));
 
-    // Phase 5: Try memory backend SemanticRouter / LearningSystem first
-    if (useSemanticRouter) {
-      try {
-        const bridge = await import('../memory/memory-bridge.js');
-        const memoryRoute = await bridge.bridgeRouteTask({ task });
-        if (memoryRoute?.routes && memoryRoute.routes.length > 0) {
-          const topRoute = memoryRoute.routes[0];
-          const routeConfidence = topRoute.confidence ?? 0;
-          if (routeConfidence > 0.5) {
-            const agents = memoryRoute.routes.map((r: { agentType: string }) => r.agentType);
-            const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
-            const memoryMethod = 'memory-sqlite';
-            const memoryConfidence = Math.round(routeConfidence * 100) / 100;
-            const matchedPattern = topRoute.pattern ?? task.slice(0, 60);
-            // Record the route recommendation so post-task can join the actual outcome
-            const routeId = randomUUID();
-            await recordRoute(getRouteOutcomesBaseDir(), {
-              routeId,
-              ts: Date.now(),
-              task,
-              recommendedAgent: agents[0],
-              routingMethod: memoryMethod,
-              confidence: memoryConfidence,
-              learningMode: 'js' as const,
-            });
-            return {
-              routeId,
-              task,
-              routing: {
-                method: memoryMethod,
-                backend: 'sqlite',
-                latencyMs: 0,
-                throughput: 'N/A',
-              },
-              matchedPattern,
-              semanticMatches: [{ pattern: matchedPattern, score: routeConfidence }],
-              primaryAgent: {
-                type: agents[0],
-                confidence: memoryConfidence,
-                reason: `memory:sqlite: "${matchedPattern}" (${Math.round(routeConfidence * 100)}%)`,
-              },
-              alternativeAgents: agents.slice(1).map((agent: string, i: number) => ({
-                type: agent,
-                confidence: Math.round((routeConfidence - 0.1 * (i + 1)) * 100) / 100,
-                reason: 'Alternative from sqlite',
-              })),
-              estimatedMetrics: {
-                successProbability: memoryConfidence,
-                estimatedDuration:
-                  complexity === 'high'
-                    ? '2-4 hours'
-                    : complexity === 'medium'
-                      ? '30-60 min'
-                      : '10-30 min',
-                complexity,
-              },
-              swarmRecommendation:
-                agents.length > 2
-                  ? { topology: 'hierarchical', agents, coordination: 'queen-led' }
-                  : null,
-            };
-          }
-        }
-      } catch {
-        // memory router not available — fall through to local routing
-      }
-    }
+    const started = Date.now();
+    const pick = await pickAgents(task, topK);
+    const routingLatencyMs = Date.now() - started;
+    const [primary, ...alternatives] = pick.agents;
+    const agents = pick.agents.map((a) => a.type);
+    const routingMethod = pick.method;
+    const complexity = taskComplexity(task);
 
-    // Deterministic keyword routing is the baseline (and only) local path.
-    const semanticResult: { intent: string; score: number; metadata: Record<string, unknown> }[] =
-      [];
-    let routingMethod = 'keyword';
-    const routingLatencyMs = 0;
-    let backendInfo = '';
-
-    // Get agents from keyword routing
-    let agents: string[];
-    let confidence: number;
-    let matchedPattern = '';
-
-    {
-      // Keyword fallback is the baseline
-      const keywordSuggestion = suggestAgentsForTask(task);
-      agents = keywordSuggestion.agents;
-      confidence = keywordSuggestion.confidence;
-      matchedPattern = 'keyword-fallback';
-      routingMethod = 'keyword';
-      backendInfo = 'keyword matching';
-
-      // V3: augment with neural ReasoningBank patterns — merge into agent list
-      // rather than replacing, so keyword precision is preserved while neural
-      // adds learned agents from past sessions.
-      const intelSuggestion = await suggestAgentsFromIntelligence(task).catch(() => null);
-      if (intelSuggestion && intelSuggestion.confidence > 0.5) {
-        // Prepend neural agents (deduped) and boost confidence
-        const existingSet = new Set(agents);
-        const neuralOnly = intelSuggestion.agents.filter((a) => !existingSet.has(a));
-        agents = [
-          ...intelSuggestion.agents,
-          ...agents.filter((a) => !new Set(intelSuggestion.agents).has(a)),
-        ];
-        const neuralWeight = intelSuggestion.confidence > 0.7 ? 0.65 : 0.5;
-        const keywordWeight = 1 - neuralWeight;
-        confidence = Math.min(
-          0.95,
-          intelSuggestion.confidence * neuralWeight +
-            confidence * keywordWeight +
-            (neuralOnly.length > 0 ? 0.03 : 0),
-        );
-        matchedPattern = 'neural+keyword';
-        routingMethod = 'neural-augmented';
-        backendInfo = 'intelligence ReasoningBank + keyword matching';
-      }
-    }
-
-    // Determine complexity
-    const taskLower = task.toLowerCase();
-    const complexity =
-      taskLower.includes('complex') || taskLower.includes('architecture') || task.length > 200
-        ? 'high'
-        : taskLower.includes('simple') || taskLower.includes('fix') || task.length < 50
-          ? 'low'
-          : 'medium';
-
-    const primaryConfidence = Math.round(confidence * 100) / 100;
     // Record the route recommendation so post-task can join the actual outcome
     const routeId = randomUUID();
     await recordRoute(getRouteOutcomesBaseDir(), {
       routeId,
       ts: Date.now(),
       task,
-      recommendedAgent: agents[0],
+      recommendedAgent: primary.type,
       routingMethod,
-      confidence: primaryConfidence,
+      confidence: primary.confidence,
       learningMode: 'js' as const,
     });
 
@@ -459,32 +353,18 @@ export const hooksRoute: MCPTool = {
       task,
       routing: {
         method: routingMethod,
-        backend: backendInfo,
+        backend: pick.provider ? `jev: ${pick.provider}` : 'monomind pick',
         latencyMs: routingLatencyMs,
         throughput:
           routingLatencyMs > 0 ? `${Math.round(1000 / routingLatencyMs)} routes/s` : 'N/A',
       },
-      matchedPattern,
-      semanticMatches: semanticResult.slice(0, 3).map((r) => ({
-        pattern: r.intent,
-        score: Math.round(r.score * 100) / 100,
-      })),
-      primaryAgent: {
-        type: agents[0],
-        confidence: Math.round(confidence * 100) / 100,
-        reason: routingMethod.startsWith('semantic')
-          ? `Semantic similarity to "${matchedPattern}" pattern (${Math.round(confidence * 100)}%)`
-          : `Task contains keywords matching ${agents[0]} specialization`,
-      },
-      alternativeAgents: agents.slice(1).map((agent, i) => ({
-        type: agent,
-        confidence: Math.round((confidence - 0.1 * (i + 1)) * 100) / 100,
-        reason: `Alternative agent for ${agent} capabilities`,
-      })),
+      matchedPattern: routingMethod,
+      semanticMatches: [],
+      primaryAgent: primary,
+      alternativeAgents: alternatives,
       estimatedMetrics: {
-        successProbability: Math.round(confidence * 100) / 100,
-        estimatedDuration:
-          complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+        successProbability: primary.confidence,
+        estimatedDuration: estimatedDuration(complexity),
         complexity,
       },
       swarmRecommendation:
@@ -801,18 +681,8 @@ export const hooksPreTask: MCPTool = {
       return { error: 'description is required (non-empty string, no control chars, max 16KB)' };
     }
     const _filePath = validateMcpString(params.filePath, 'filePath', 4 * 1024) ?? undefined;
-    const suggestion = suggestAgentsForTask(description);
-
-    // Determine complexity
-    const descLower = description.toLowerCase();
-    const complexity: 'low' | 'medium' | 'high' =
-      descLower.includes('complex') ||
-      descLower.includes('architecture') ||
-      description.length > 200
-        ? 'high'
-        : descLower.includes('simple') || descLower.includes('fix') || description.length < 50
-          ? 'low'
-          : 'medium';
+    const suggestion = await pickAgents(description, 3);
+    const complexity = taskComplexity(description);
 
     // Enhanced model routing module was never shipped — modelRouting stays undefined.
     const modelRouting: Record<string, unknown> | undefined = undefined;
@@ -896,20 +766,12 @@ export const hooksPreTask: MCPTool = {
     return {
       taskId,
       description,
-      suggestedAgents: suggestion.agents.map((agent, i) => ({
-        type: agent,
-        confidence: suggestion.confidence - 0.05 * i,
-        reason:
-          i === 0
-            ? `Primary agent for ${agent} tasks based on learned patterns`
-            : `Alternative agent with ${agent} capabilities`,
-      })),
+      suggestedAgents: suggestion.agents,
       complexity,
-      estimatedDuration:
-        complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+      estimatedDuration: estimatedDuration(complexity),
       risks: complexity === 'high' ? ['Complex task may require multiple iterations'] : [],
       recommendations: [
-        `Use ${suggestion.agents[0]} as primary agent`,
+        `Use ${suggestion.agents[0].type} as primary agent`,
         suggestion.agents.length > 2
           ? 'Consider using swarm coordination'
           : 'Single agent recommended',
@@ -1252,14 +1114,22 @@ export const hooksExplain: MCPTool = {
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
-    // Cap task: forwarded to suggestAgentsForTask (O(n) keyword loop + extractKeywords),
-    // .toLowerCase() (O(n)), and reflected verbatim in the response.
+    // Cap task: ranked by the central picker, .toLowerCase() (O(n)), and
+    // reflected verbatim in the response.
     const MAX_EXPLAIN_TASK_LEN = 16 * 1024;
     const task = validateMcpString(params.task, 'task', MAX_EXPLAIN_TASK_LEN);
     if (!task) {
       return { error: 'task is required (non-empty string, no control chars, max 16KB)' };
     }
-    const suggestion = suggestAgentsForTask(task);
+    // Same pick hooks_route makes, so the explanation matches the decision.
+    const pick = await pickAgents(task, 3);
+    const top = pick.agents[0];
+    const how =
+      pick.method === 'jev'
+        ? `the decision model${pick.provider ? ` (${pick.provider})` : ''} ranked the registry agents`
+        : pick.method === 'keyword'
+          ? 'task words were matched against registry agent names and descriptions'
+          : 'no registry agent matched, so the default agent was used';
     const taskLower = task.toLowerCase();
 
     // Determine matched patterns
@@ -1296,13 +1166,13 @@ export const hooksExplain: MCPTool = {
     return {
       task,
       explanation:
-        `The routing decision was made based on keyword analysis of the task description. ` +
-        `The task contains keywords that match the "${suggestion.agents[0]}" specialization with ${(suggestion.confidence * 100).toFixed(0)}% confidence.`,
+        `The routing decision was made by the central picker: ${how}. ` +
+        `"${top.type}" ranked first with ${(top.confidence * 100).toFixed(0)}% confidence.`,
       factors: [
         {
-          factor: 'Keyword Match',
+          factor: pick.method === 'jev' ? 'Decision Model' : 'Keyword Match',
           weight: 0.4,
-          value: suggestion.confidence,
+          value: top.confidence,
           impact: 'Primary routing signal',
         },
         {
@@ -1335,15 +1205,20 @@ export const hooksExplain: MCPTool = {
               },
             ],
       decision: {
-        agent: suggestion.agents[0],
-        confidence: suggestion.confidence,
+        agent: top.type,
+        confidence: top.confidence,
         reasoning: [
-          `Task analysis identified ${matchedPatterns.length || 1} relevant patterns`,
-          `"${suggestion.agents[0]}" has highest capability match for this task type`,
+          `Ranking method: ${pick.method} — ${how}`,
+          `"${top.type}" ranked first`,
+          pick.agents.length > 1
+            ? `Alternatives: ${pick.agents
+                .slice(1)
+                .map((a) => a.type)
+                .join(', ')}`
+            : 'No alternative agent ranked',
           historicalSuccess !== null
             ? `Historical success rate for similar tasks: ${(historicalSuccess * 100).toFixed(0)}%`
             : `No historical outcome data available yet`,
-          `Confidence threshold met (${(suggestion.confidence * 100).toFixed(0)}% >= 70%)`,
         ],
       },
     };
