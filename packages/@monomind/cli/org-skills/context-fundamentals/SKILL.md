@@ -1,7 +1,7 @@
 ---
 name: context-fundamentals
-description: "This skill should be used to explain or reason about the foundational concepts of context engineering: what context is, the anatomy of a context window, how attention mechanics work, the U-shaped attention curve, why context quality matters more than quantity, and the mental models needed to interpret every other context-engineering decision."
-tags: ["ai-ml"]
+description: "Use when explaining or reasoning from first principles about LLM context engineering: context window anatomy, attention budget and the U-shaped attention curve. Conceptual only; for diagnosing active failures use context-degradation, for cost tactics use context-optimization."
+tags: ["ai-ml","llm","agents","prompting"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

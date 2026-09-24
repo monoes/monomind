@@ -1,7 +1,7 @@
 ---
 name: marketing-loops
-description: "When the user wants to set up a recurring, self-running marketing workflow — a repeatable loop an AI agent runs on a cadence (weekly, daily, on a trigger) rather than a one-off task."
-tags: ["marketing","operations"]
+description: "Use when setting up a recurring, self-running marketing workflow that an AI agent runs on a cadence or trigger rather than a one-off task. Defines each loop's cadence, action condition, self-check, state, stop rule and human checkpoint."
+tags: ["marketing","operations","agents","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

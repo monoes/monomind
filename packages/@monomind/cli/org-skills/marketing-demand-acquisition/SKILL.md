@@ -1,7 +1,7 @@
 ---
 name: marketing-demand-acquisition
-description: "Creates demand generation campaigns, optimizes paid ad spend across LinkedIn, Google, and Meta, develops SEO strategies, and structures partnership programs. Use when planning demand gen strategy, growth marketing, advertising campaigns, PPC optimization, lead generation, pipeline generation, or marketing budgets."
-tags: ["marketing"]
+description: "Use when planning B2B demand generation and paid acquisition: LinkedIn, Google and Meta ads, SEO, partnerships, UTM and HubSpot setup and pipeline KPIs. Aimed at Series A+ startups with hybrid PLG and sales-led motions."
+tags: ["marketing","ads","seo","growth"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

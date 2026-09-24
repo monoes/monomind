@@ -1,7 +1,7 @@
 ---
 name: dotnet-patterns
-description: "Idiomatic C# and .NET patterns, conventions, dependency injection, async/await, and best practices for building robust, maintainable .NET applications. Use when writing or reviewing C# / .NET code — DI, async, or general conventions."
-tags: ["backend"]
+description: "Use when writing or reviewing C# code for idiomatic conventions: records and immutability, dependency injection, async/await and ASP NET Core service design. A conventions catalogue; for building APIs with EF Core and Blazor end to end use csharp-developer."
+tags: ["backend","dotnet","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

@@ -1,7 +1,7 @@
 ---
 name: change-management
-description: "Framework for rolling out organizational changes without chaos. Covers the ADKAR model adapted for startups, communication templates, resistance patterns, and change fatigue management. Handles process changes, org restructures, strategy pivots, and culture changes."
-tags: ["leadership","operations"]
+description: "Use when rolling out an org change (reorg, process or tool migration, strategy pivot, culture change) using ADKAR adapted for startups. Covers communication templates, resistance patterns and change fatigue."
+tags: ["leadership","operations","people","communication"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

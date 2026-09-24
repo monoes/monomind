@@ -1,7 +1,7 @@
 ---
 name: general-counsel-advisor
-description: "General Counsel advisory for startups: contract review (MSA, SaaS, NDA, DPA, employment), IP strategy, term sheet decoding, and regulatory landscape mapping. Use when reviewing any contract or term sheet, deciding when to engage outside counsel, defining IP strategy, evaluating regulatory exposure (HIPAA, GDPR, FDA, fintech), or when user mentions general counsel, GC, legal review, contract..."
-tags: ["legal","leadership"]
+description: "Use when a startup founder or GC needs legal triage: contract review (MSA, SaaS, NDA, DPA, employment), IP ownership, term sheet terms and regulatory mapping. Includes contract risk and term sheet scanner scripts; not legal advice. For drafting contracts use contract-and-proposal-writer."
+tags: ["legal","leadership","compliance","fundraising"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

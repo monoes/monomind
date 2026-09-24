@@ -1,7 +1,7 @@
 ---
 name: lead-magnets
-description: "When the user wants to create, plan, or optimize a lead magnet for email capture or lead generation."
-tags: ["marketing"]
+description: "Use when creating, planning or optimizing a lead magnet for email capture or lead generation: picking the format, matching buyer stage and pathing to product. For standalone free tools, see free-tool-strategy."
+tags: ["marketing","growth","content","email"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

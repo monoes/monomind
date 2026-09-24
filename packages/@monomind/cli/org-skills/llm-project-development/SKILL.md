@@ -1,7 +1,7 @@
 ---
 name: llm-project-development
-description: "This skill should be used for project-level decisions about LLM-powered systems: whether an LLM is the right primitive for the task at hand, the shape of a multi-stage batch or agent pipeline, token and cost estimation, choosing between single-agent and multi-agent at the project level, structured output design for downstream parsing, and structuring agent-assisted iteration."
-tags: ["ai-ml","product"]
+description: "Use when making project-level decisions about an LLM system: task-model fit, pipeline shape, token and cost estimates, and single vs multi-agent choice. Covers manual prototype checks and cross-stage structured output; not for per-tool design or agent topology details."
+tags: ["ai-ml","product","llm","planning"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

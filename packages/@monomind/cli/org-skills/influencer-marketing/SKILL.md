@@ -1,7 +1,7 @@
 ---
 name: influencer-marketing
-description: "When the user wants to run influencer, creator, or ambassador partnerships to promote their product — finding and vetting partners, structuring deals, briefing creators, disclosure compliance, and measuring ROI."
-tags: ["marketing"]
+description: "Use when running influencer, creator or ambassador partnerships: vetting partners, structuring flat, CPA or hybrid deals, briefs, disclosure and ROI. Covers B2C (Instagram, TikTok, YouTube) and B2B creators (LinkedIn, newsletters, podcasts)."
+tags: ["marketing","social","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

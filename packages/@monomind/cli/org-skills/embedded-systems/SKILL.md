@@ -1,7 +1,7 @@
 ---
 name: embedded-systems
-description: "Use when developing firmware for microcontrollers, implementing RTOS applications, or optimizing power consumption. Invoke for STM32, ESP32, FreeRTOS, bare-metal, power optimization, real-time systems, configure peripherals, write interrupt handlers, implement DMA transfers, debug timing issues."
-tags: ["engineering"]
+description: "Use when developing microcontroller firmware end to end: STM32 or ESP32 drivers, FreeRTOS tasks, bare-metal peripherals, I2C, SPI, UART, CAN and low power. A persona with deep reference files; for org role guidance see embedded-firmware."
+tags: ["engineering","embedded","performance"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

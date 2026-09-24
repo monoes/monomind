@@ -1,7 +1,7 @@
 ---
 name: mcp-builder
-description: "MCP Builder role best practices. Designs and builds Model Context Protocol servers — custom tools, resources, and prompts that extend what an AI agent can actually do."
-tags: ["engineering"]
+description: "Org role guidance for an MCP builder: design and build Model Context Protocol servers whose tools, resources and prompts agents can reliably pick and use. Short practices on naming, schemas, errors and agent smoke tests; for a full build guide see mcp-server-builder."
+tags: ["engineering","mcp","agents"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

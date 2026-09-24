@@ -1,7 +1,7 @@
 ---
 name: hypothesis-generation
-description: "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis plans. Use when turning observations or preliminary findings into transparent, testable research plans without treating hypotheses as facts."
-tags: ["research","science"]
+description: "Use when turning observations into testable scientific hypotheses: rival explanations, causal estimands, predictions and preregistration-ready analysis plans. Includes safety and ethics gates and keeps observation, hypothesis, prediction and evidence strictly distinct."
+tags: ["research","science","statistics","experimentation"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

@@ -1,7 +1,7 @@
 ---
 name: java-coding-standards
-description: "Java coding standards for Spring Boot and Quarkus services: naming, immutability, Optional usage, streams, exceptions, generics, CDI, reactive patterns, and project layout. Automatically applies framework-specific conventions. Use when writing or reviewing Java in a Spring Boot or Quarkus service."
-tags: ["engineering","backend"]
+description: "Use when writing or reviewing Java 17+ code in Spring Boot or Quarkus for naming, immutability, Optional, streams, exceptions, generics and project layout. Detects the framework from the build file and applies Spring or Quarkus (CDI, Panache) conventions; a style guide, not an architecture guide."
+tags: ["engineering","backend","java","coding-standards","spring"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

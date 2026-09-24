@@ -1,7 +1,7 @@
 ---
 name: golang-pro
-description: "Implements concurrent Go patterns using goroutines and channels, designs and builds microservices with gRPC or REST, optimizes Go application performance with pprof, and enforces idiomatic Go with generics, interfaces, and robust error handling. Use when building Go applications requiring concurrent programming, microservices architecture, or high-performance systems."
-tags: ["engineering","backend"]
+description: "Use when building Go services end to end: goroutine and channel concurrency, gRPC or REST microservices, generics, pprof profiling and race-tested table tests. A senior-Go persona with reference files on concurrency, interfaces, generics, testing and module layout."
+tags: ["engineering","backend","go","performance"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

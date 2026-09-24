@@ -1,7 +1,7 @@
 ---
 name: experiment-designer
-description: "Use when planning product experiments, writing testable hypotheses, estimating sample size, prioritizing tests, or interpreting A/B outcomes with practical statistical rigor."
-tags: ["product","data"]
+description: "Use when planning a product A/B or multivariate test: If/Then/Because hypotheses, primary and guardrail metrics, sample size and MDE, ICE prioritization. For logging and reproducing ML runs use experiment-tracker; for scientific study design use experimental-design."
+tags: ["product","data","experimentation","statistics"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

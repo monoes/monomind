@@ -1,7 +1,7 @@
 ---
 name: content-engine
-description: "Create platform-native content systems for X, LinkedIn, TikTok, YouTube, newsletters, and repurposed multi-platform campaigns. Use when the user wants social posts, threads, scripts, content calendars, or one source asset adapted cleanly across platforms."
-tags: ["marketing","writing"]
+description: "Use when writing X posts or threads, LinkedIn posts, short-form video or YouTube scripts, or repurposing one source asset across platforms. Source-first with voice kept intact; for planning what content to create use content-strategy."
+tags: ["marketing","writing","content","social"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

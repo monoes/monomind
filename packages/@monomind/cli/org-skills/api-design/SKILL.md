@@ -1,7 +1,7 @@
 ---
 name: api-design
-description: "REST API design patterns including resource naming, status codes, pagination, filtering, error responses, versioning, and rate limiting for production APIs. Use when designing or reviewing REST endpoints, resource names, status codes, pagination, or versioning."
-tags: ["engineering","backend"]
+description: "Use when designing or reviewing REST endpoints: resource naming, status codes, pagination, filtering, error bodies, versioning and rate limits. A catalogue of REST conventions; for OpenAPI specs and GraphQL design use api-designer."
+tags: ["engineering","backend","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

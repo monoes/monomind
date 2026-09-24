@@ -1,7 +1,7 @@
 ---
 name: prisma-patterns
-description: "Prisma ORM patterns for TypeScript backends — schema design, query optimization, transactions, pagination, and critical traps like updateMany returning count not records, $transaction timeouts, migrate dev resetting the DB, @updatedAt skipped on bulk writes, and serverless connection exhaustion."
-tags: ["data","backend"]
+description: "Use when designing Prisma schemas or writing Prisma queries, transactions, pagination or migrations in a TypeScript backend. Flags traps like updateMany returning a count, $transaction timeouts, migrate dev resetting the DB and @updatedAt skipped on bulk updates, plus serverless and soft-delete patterns."
+tags: ["data","backend","typescript","database","migrate"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

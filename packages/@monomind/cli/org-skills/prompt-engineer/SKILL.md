@@ -1,7 +1,7 @@
 ---
 name: prompt-engineer
-description: "Writes, refactors, and evaluates prompts for LLMs — generating optimized prompt templates, structured output schemas, evaluation rubrics, and test suites. Use when designing prompts for new LLM applications, refactoring existing prompts for better accuracy or token efficiency, implementing chain-of-thought or few-shot learning, creating system prompts with personas and guardrails, building..."
-tags: ["ai-ml"]
+description: "Use when designing, refactoring or evaluating LLM prompts: system prompts, few-shot and chain-of-thought, JSON outputs, function calling and prompt tests. Covers iterative optimization, evaluation rubrics, injection defense, context management and migrating prompts between models."
+tags: ["ai-ml","prompting","llm","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

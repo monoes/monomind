@@ -1,7 +1,7 @@
 ---
 name: shap-model-explainability
-description: "Explain and audit machine-learning predictions with SHAP. Use for selecting SHAP explainers and maskers, computing and validating feature attributions, handling multi-output explanations, and producing local or global SHAP visualizations."
-tags: ["ai-ml","data"]
+description: "Use when explaining or auditing ML model predictions with SHAP in Python: choosing explainers and maskers, feature attributions and SHAP plots. Aligned to SHAP 0.52 and the shap.Explanation API; covers background data choice, multi-output models, additivity checks and local vs global visualizations."
+tags: ["ai-ml","data","python","evaluation","visualization"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

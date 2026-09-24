@@ -1,7 +1,7 @@
 ---
 name: adaptive-coordinator2
-description: "Adaptive Coord. II role best practices. Coordinates a group of agents whose topology and task split should change mid-run as conditions change — unlike a fixed mesh or hierarchy, this role actively re-partitions work and re-routes based on what's coming back."
-tags: ["leadership","operations"]
+description: "Use when an org role acts as adaptive coordinator and must re-partition and re-route agent work mid-run when agents stall or assumptions break. Stresses batched dispatch, evidence-based reconciliation and honest coverage reports, unlike the fixed-topology mesh-coordinator."
+tags: ["leadership","operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: public-relations
-description: "When the user wants help with public relations, earned media, press coverage, journalist outreach, or media strategy (not pull requests)."
-tags: ["marketing","writing"]
+description: "Use when seeking earned media for a software product: journalist and podcast pitching, newsjacking, press requests, media lists and press kits. Covers story angles, when PR is worth it, and PR as a distribution multiplier. Not for pull requests."
+tags: ["marketing","writing","communication","content"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

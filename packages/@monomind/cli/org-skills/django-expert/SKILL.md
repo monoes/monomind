@@ -1,7 +1,7 @@
 ---
 name: django-expert
-description: "Use when building Django web applications or REST APIs with Django REST Framework. Invoke when working with settings.py, models.py, manage.py, or any Django project file. Creates Django models with proper indexes, optimizes ORM queries using select_related/prefetch_related, builds DRF serializers and viewsets, and configures JWT authentication."
-tags: ["engineering","backend"]
+description: "Use when building a Django 5 web app or REST API end to end: models and migrations, DRF serializers and viewsets, JWT auth and APITestCase tests. A persona with deep reference files; for a catalogue of Django architecture idioms use django-patterns."
+tags: ["engineering","backend","django","python","api"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: react-native-expert
-description: "Builds, optimizes, and debugs cross-platform mobile applications with React Native and Expo. Implements navigation hierarchies (tabs, stacks, drawers), configures native modules, optimizes FlatList rendering with memo and useCallback, and handles platform-specific code for iOS and Android."
-tags: ["engineering","mobile"]
+description: "Use when building, debugging or shipping a React Native and Expo app end to end: navigation, native modules, FlatList tuning and iOS or Android builds. Persona with reference files and error-recovery steps. For a catalogue of Expo patterns, use react-native-patterns."
+tags: ["engineering","mobile","react-native","debug"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

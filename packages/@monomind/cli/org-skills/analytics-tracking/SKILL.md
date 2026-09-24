@@ -1,7 +1,7 @@
 ---
 name: analytics-tracking
-description: "When the user wants to set up, improve, or audit analytics tracking and measurement."
-tags: ["marketing","data","engineering"]
+description: "Use when setting up, improving or auditing product and marketing analytics tracking: tracking plans, event naming, properties and conversion measurement. Instrumentation with tools like GA4 and GTM, not experiment design; for A/B tests use ab-testing."
+tags: ["marketing","data","engineering","analytics"]
 tools: ["monograph_query"]
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

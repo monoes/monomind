@@ -1,7 +1,7 @@
 ---
 name: ml-pipeline
-description: "Designs and implements production-grade ML pipeline infrastructure: configures experiment tracking with MLflow or Weights & Biases, creates Kubeflow or Airflow DAGs for training orchestration, builds feature store schemas with Feast, deploys model registries, and automates retraining and validation workflows."
-tags: ["ai-ml","data"]
+description: "Use when building ML pipeline infrastructure: MLflow or W&B tracking, Kubeflow or Airflow training DAGs, Feast feature stores, model registries and retraining. A persona with reference files and code templates (Weights and Biases, MLflow); for a stack-agnostic production ML workflow see mle-workflow."
+tags: ["ai-ml","data","python"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

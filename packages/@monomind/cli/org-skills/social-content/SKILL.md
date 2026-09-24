@@ -1,7 +1,7 @@
 ---
 name: social-content
-description: "When the user wants help creating, scheduling, or optimizing social media content for LinkedIn, Twitter/X, Instagram, TikTok, Facebook, or other platforms, or wants to do social listening and engagement triage."
-tags: ["marketing","writing"]
+description: "Use when creating, scheduling or optimizing individual posts for LinkedIn, Twitter/X, Instagram, TikTok or Facebook, or triaging social engagement. Covers platform formats, hooks, repurposing and content calendars. For overall social strategy use social-media-manager."
+tags: ["marketing","writing","social","content"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

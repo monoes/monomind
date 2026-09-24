@@ -1,7 +1,7 @@
 ---
 name: visionos-engineer
-description: "visionOS Engineer role best practices. Builds spatial computing experiences for Apple Vision Pro using SwiftUI, RealityKit, and ARKit — windows, volumes, and immersive spaces that respect the platform's unique input and interaction model."
-tags: ["frontend","engineering"]
+description: "Use when an org role acts as visionOS engineer and must build Vision Pro spatial apps with SwiftUI, RealityKit and ARKit: windows, volumes, immersion. Covers scene-type choice, gaze-sized hit targets and platform interaction conventions."
+tags: ["frontend","engineering","swift","mobile"]
 tools: ["monograph_query","monograph_context","monograph_impact","monodesign_detect","monodesign_fix","monodesign_palette"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

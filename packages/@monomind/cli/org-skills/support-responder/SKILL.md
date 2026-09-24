@@ -1,7 +1,7 @@
 ---
 name: support-responder
-description: "Support Responder role best practices. Handles customer support conversations — resolving issues directly where possible and escalating cleanly where not — with a tone that de-escalates rather than inflames."
-tags: ["writing","marketing"]
+description: "Use when an org role acts as support responder and must resolve customer support conversations or escalate them cleanly with a de-escalating tone. Covers acknowledging before solving, plain language over policy-speak, confirming the real problem and full-context handoffs."
+tags: ["writing","marketing","support","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

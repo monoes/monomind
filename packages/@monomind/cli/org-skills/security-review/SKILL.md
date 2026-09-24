@@ -1,7 +1,7 @@
 ---
 name: security-review
-description: "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns."
-tags: ["security","engineering"]
+description: "Use when adding auth, user input, file uploads, secrets, API endpoints or payment features: a pass/fail security checklist with TypeScript patterns. Covers secrets in env vars, Zod validation, SQL injection, XSS, CSRF, rate limiting and data exposure. A developer checklist; for full audits and pentest reports use security-reviewer."
+tags: ["security","engineering","typescript","code-review"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

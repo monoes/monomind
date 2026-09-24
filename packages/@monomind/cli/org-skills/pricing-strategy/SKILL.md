@@ -1,7 +1,7 @@
 ---
 name: pricing-strategy
-description: "When the user wants help with pricing decisions, packaging, or monetization strategy."
-tags: ["product","marketing","finance"]
+description: "Use when deciding SaaS pricing, packaging or monetization: value metric, tier structure, price points, freemium vs trial, and willingness-to-pay research. Guided playbook that gathers business context first and covers value-based pricing and pricing-page design. The pricing-strategist skill is a shorter org-role checklist."
+tags: ["product","marketing","finance","pricing","strategy"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

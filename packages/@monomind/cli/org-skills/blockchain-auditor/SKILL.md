@@ -1,7 +1,7 @@
 ---
 name: blockchain-auditor
-description: "Blockchain Auditor role best practices. Audits smart contracts and DeFi protocols for exploitable vulnerabilities — combining automated analysis, manual review, and economic attack modeling — before attackers find the bugs first."
-tags: ["engineering","security"]
+description: "Use when an org role acts as blockchain auditor and must audit smart contracts and DeFi protocols for fund-loss vulnerabilities before attackers do. Manual review plus Slither, Mythril, fuzzing and economic attack modeling, with PoCs and honest severity; for general app security use security-auditor."
+tags: ["engineering","security","blockchain","audit"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: kpi-dashboard-design
-description: "Design effective KPI dashboards with metrics selection, visualization best practices, and real-time monitoring patterns. Use this skill when building an executive SaaS metrics dashboard tracking MRR, churn, and LTV/CAC ratios; designing an operations center with live service health and request throughput; creating a cohort retention analysis view for a product team;"
-tags: ["data","operations"]
+description: "Use when designing business KPI dashboards: choosing SMART metrics, strategic, tactical and operational layers, executive views and visualization layout. Focus is business metrics (MRR, churn, LTV/CAC), unlike dashboard-builder, which targets Grafana-style operational monitoring."
+tags: ["data","operations","visualization","analytics"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

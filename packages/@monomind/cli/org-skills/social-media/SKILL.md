@@ -1,7 +1,7 @@
 ---
 name: social-media
-description: "Social Media role best practices. Runs platform-native social presence — content, scheduling, and community engagement — tuned to each platform's format and audience rather than a single cross-posted strategy."
-tags: ["writing","marketing"]
+description: "Use when an org role acts as social media manager and must run a platform-native presence: per-platform content, posting cadence and fast community engagement. Covers audience-based platform choice, per-platform briefs and KPIs and conversation-driving content. Role guidance; for strategy playbooks see social-media-manager."
+tags: ["writing","marketing","social","content"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

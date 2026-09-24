@@ -1,7 +1,7 @@
 ---
 name: marketing-attribution
-description: "When the user wants to figure out which marketing actually drives conversions and revenue, choose or interpret an attribution model, or reconcile conflicting numbers across tools."
-tags: ["marketing","data"]
+description: "Use when finding which marketing drives conversions and revenue: choosing an attribution model, reconciling tool numbers or building first-party attribution. Covers first/last-touch, U-shaped and data-driven models; tracking setup belongs to analytics skills."
+tags: ["marketing","data","analytics"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

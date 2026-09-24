@@ -1,7 +1,7 @@
 ---
 name: accessibility-compliance
-description: "Implement WCAG 2.2 compliant interfaces with mobile accessibility, inclusive design patterns, and assistive technology support. Use when auditing accessibility, implementing ARIA patterns, building for screen readers, or ensuring inclusive user experiences."
-tags: ["design","frontend"]
+description: "Use when implementing or auditing WCAG 2.2 AA or AAA accessibility: ARIA patterns, keyboard navigation, focus management and screen readers. Includes mobile VoiceOver and TalkBack, accessible forms, reduced motion, contrast and common violation fixes."
+tags: ["design","frontend","accessibility","audit","ui"]
 tools: ["monodesign_detect","monodesign_fix"]
 license: MIT
 source: https://github.com/wshobson/agents

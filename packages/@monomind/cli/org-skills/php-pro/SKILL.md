@@ -1,7 +1,7 @@
 ---
 name: php-pro
-description: "Use when building PHP applications with modern PHP 8.3+ features, Laravel, or Symfony frameworks. Invokes strict typing, PHPStan level 9, async patterns with Swoole, and PSR standards. Creates controllers, configures middleware, generates migrations, writes PHPUnit/Pest tests, defines typed DTOs and value objects, sets up dependency injection, and scaffolds REST/GraphQL APIs."
-tags: ["engineering","backend"]
+description: "Use when building PHP 8.3+ applications with Laravel or Symfony under strict typing, PSR-12 and PHPStan level 9. Persona with reference files covering typed DTOs, services, repositories, async with Swoole or ReactPHP, and PHPUnit or Pest tests with 80%+ coverage."
+tags: ["engineering","backend","api","testing"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: nextjs-developer
-description: "Use when building Next.js 14+ applications with App Router, server components, or server actions. Invoke to configure route handlers, implement middleware, set up API routes, add streaming SSR, write generateMetadata for SEO, scaffold loading.tsx/error.tsx boundaries, or deploy to Vercel."
-tags: ["engineering","frontend"]
+description: "Use when building Next 14+ apps with the App Router, server components, server actions, route handlers, middleware, streaming SSR and generateMetadata SEO. A persona with reference files on routing, data fetching and Vercel or self-hosted deployment."
+tags: ["engineering","frontend","nextjs","react"]
 tools: ["monograph_query","monograph_context","monodesign_detect"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

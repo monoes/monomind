@@ -1,7 +1,7 @@
 ---
 name: culture-architect
-description: "Build, measure, and evolve company culture as operational behavior — not wall posters. Covers mission/vision/values workshops, values-to-behaviors translation, culture code creation, culture health assessment, and cultural rituals by stage."
-tags: ["leadership","operations"]
+description: "Use when defining or repairing company culture as behavior: mission, vision and values workshops, behavior anchors, culture codes and culture health checks."
+tags: ["leadership","operations","people"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

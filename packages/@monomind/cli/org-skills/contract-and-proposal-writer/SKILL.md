@@ -1,6 +1,6 @@
 ---
 name: contract-and-proposal-writer
-description: "Generate professional, jurisdiction-aware business documents: freelance contracts, project proposals, SOWs, NDAs, and MSAs. Structured Markdown output with docx conversion instructions. Covers US (Delaware), EU (GDPR), UK, and DACH (German law) jurisdictions. Not a substitute for legal counsel — use as strong starting points."
+description: "Use when drafting a freelance contract, project proposal, SOW, NDA or MSA with US, EU, UK or DACH jurisdiction clauses and GDPR data processing addenda. Outputs structured Markdown with docx conversion steps; not a substitute for legal counsel."
 tags: ["legal","sales","writing"]
 tools: []
 license: MIT

@@ -1,7 +1,7 @@
 ---
 name: pci-compliance
-description: "Implement PCI DSS compliance requirements for secure handling of payment card data and payment systems. Use when securing payment processing, achieving PCI compliance, or implementing payment card security measures."
-tags: ["security","legal"]
+description: "Use when building or auditing payment systems that must meet PCI DSS: the 12 requirements, compliance levels, data minimization, tokenization and encryption. Helps reduce PCI scope and prepare for assessments. For implementing Stripe checkout and subscriptions, use stripe-integration."
+tags: ["security","legal","compliance","audit","stripe"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

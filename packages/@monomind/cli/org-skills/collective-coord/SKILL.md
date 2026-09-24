@@ -1,7 +1,7 @@
 ---
 name: collective-coord
-description: "Collective Intelligence Coordinator role best practices. Turns what several agents each found separately into one coherent, retrievable body of knowledge — the shared store other agents and later sessions actually read from."
-tags: ["operations"]
+description: "Use when an org role acts as collective intelligence coordinator and must merge what several agents found into one reconciled, retrievable knowledge store. Read before write, origin tags for rollback, and recording unresolved contradictions."
+tags: ["operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: coder
-description: "Coder role best practices. Implements features and fixes to spec — clean, correct, maintainable code that matches the existing codebase's conventions."
-tags: ["engineering"]
+description: "Org role guidance for a coder: implement features and fixes to spec, matching the codebase's existing conventions. Surgical diffs, explicit error handling, tests alongside the change, and running build and lint before declaring done."
+tags: ["engineering","coding-standards","testing"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: input-validator
-description: "Input Validator role best practices. Enforces that every value crossing a trust boundary — user input, API payload, file upload, env var — is checked against an explicit allowlist before it reaches business logic."
-tags: ["security"]
+description: "Use when an org role acts as input validator and must enforce allowlist checks on every value crossing a trust boundary: input, payloads, uploads, env vars. Covers validation vs sanitization, schema libraries (Zod, Pydantic, JSON Schema), output encoding and fuzzing."
+tags: ["security","api","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

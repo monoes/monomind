@@ -1,7 +1,7 @@
 ---
 name: healthcare-phi-compliance
-description: "Protected Health Information (PHI) and Personally Identifiable Information (PII) compliance patterns for healthcare applications. Covers data classification, access control, audit trails, encryption, and common leak vectors. Use when code touches PHI or PII in a healthcare system, or when auditing access control, audit trails, or leak vectors."
-tags: ["legal","security","engineering"]
+description: "Use when code touches patient PHI or PII in a healthcare system: data classification, Postgres row-level security, tamper-proof audit trails and leak vectors. Applies to HIPAA, GDPR and DISHA; covers error messages, logs and URLs as common leak paths."
+tags: ["legal","security","engineering","compliance","postgres"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

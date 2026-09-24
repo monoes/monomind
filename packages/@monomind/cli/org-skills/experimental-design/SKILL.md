@@ -1,7 +1,7 @@
 ---
 name: experimental-design
-description: "Design experiments and studies BEFORE data is collected — choosing a design, randomizing, blocking, and laying out treatment combinations so results are interpretable."
-tags: ["science","research","data"]
+description: "Use when designing a scientific study before data collection: randomization, blocking, replication, factorial and response-surface DOE layouts with pyDOE3. Covers crossover, split-plot, cluster and adaptive designs; for product A/B tests use experiment-designer."
+tags: ["science","research","data","statistics","experimentation"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

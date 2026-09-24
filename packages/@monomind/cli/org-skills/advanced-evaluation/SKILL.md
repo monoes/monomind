@@ -1,7 +1,7 @@
 ---
 name: advanced-evaluation
-description: "This skill should be used for advanced LLM evaluation: LLM-as-judge systems, direct scoring, pairwise comparison, rubric calibration, evaluator bias mitigation, confidence scoring, and automated quality assessment."
-tags: ["ai-ml","testing"]
+description: "Use when building LLM-as-judge evaluation: direct scoring, pairwise comparison, rubric calibration and mitigating position, length and self-enhancement bias. For deterministic regression suites and quality gates on agent pipelines, use agent-evaluation instead."
+tags: ["ai-ml","testing","llm","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

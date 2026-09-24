@@ -1,7 +1,7 @@
 ---
 name: markitdown-document-conversion
-description: "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats, batch workflows, plugins, vision OCR, Azure extraction, and the official MCP server."
-tags: ["data","engineering"]
+description: "Use when converting PDFs, Office files, HTML, CSV, EPUB or ZIP to Markdown with Microsoft MarkItDown for search, analysis or LLM and RAG ingestion. Covers the Python API, streams, OCR plugins, Azure extraction and the MCP server."
+tags: ["data","engineering","python","llm"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

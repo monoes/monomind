@@ -1,7 +1,7 @@
 ---
 name: investor-materials
-description: "Create and update pitch decks, one-pagers, investor memos, accelerator applications, financial models, and fundraising materials. Use when the user needs investor-facing documents, projections, use-of-funds tables, milestone plans, or materials that must stay internally consistent across multiple fundraising assets."
-tags: ["finance","writing"]
+description: "Use when creating or updating pitch decks, one-pagers, investor memos, accelerator applications, financial models or use-of-funds tables. Enforces one source of truth so every fundraising document agrees on metrics, raise size and milestones."
+tags: ["finance","writing","fundraising"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

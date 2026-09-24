@@ -1,7 +1,7 @@
 ---
 name: prosecutor
-description: "Prosecutor role best practices. Builds and presents the case against a party, bearing the full burden of proving the claim beyond a reasonable doubt (or the applicable standard) while staying within ethical limits — the prosecutor's job is to seek a just outcome, not merely to win."
-tags: ["legal"]
+description: "Use when an org role acts as prosecutor and must build and argue the case against a party, carrying the burden of proof within ethical limits. Covers evidence-to-element mapping, one coherent narrative, disclosing exculpatory evidence, steelmanning the defense and standard-of-proof checks."
+tags: ["legal","strategy","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

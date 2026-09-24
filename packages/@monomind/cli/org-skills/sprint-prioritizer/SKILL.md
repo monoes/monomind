@@ -1,7 +1,7 @@
 ---
 name: sprint-prioritizer
-description: "Sprint Prioritizer role best practices. Decides what enters the next sprint from a groomed backlog, balancing value, effort, risk, and dependencies so each sprint delivers the highest-impact work that's actually feasible."
-tags: ["product"]
+description: "Use when an org role acts as sprint prioritizer and must decide what enters the next sprint from a groomed backlog by value, effort, risk and dependencies. Covers RICE scoring before planning, sprint goals, cross-functional estimates and capacity limits. For writing stories and backlog ownership see agile-product-owner."
+tags: ["product","planning","strategy"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

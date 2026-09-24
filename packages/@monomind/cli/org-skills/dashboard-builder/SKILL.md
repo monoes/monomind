@@ -1,7 +1,7 @@
 ---
 name: dashboard-builder
-description: "Build monitoring dashboards that answer real operator questions for Grafana, SigNoz, and similar platforms. Use when turning metrics into a working dashboard instead of a vanity board."
-tags: ["devops","operations"]
+description: "Use when building an operator monitoring dashboard in Grafana, SigNoz or similar, organized around health, latency, throughput and saturation questions. For business KPI dashboards use kpi-dashboard-design."
+tags: ["devops","operations","observability","visualization"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

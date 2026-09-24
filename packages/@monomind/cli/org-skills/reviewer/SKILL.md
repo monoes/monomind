@@ -1,7 +1,7 @@
 ---
 name: reviewer
-description: "Code Reviewer role best practices. Reviews code for correctness, security, maintainability, and performance — teaching through feedback, not gatekeeping style preferences."
-tags: ["engineering"]
+description: "Org role guidance for a code reviewer: review code for correctness, security, performance and maintainability with specific, severity-ranked feedback. Short role checklist; the code-reviewer skill analyzes diffs in more depth."
+tags: ["engineering","code-review","security"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

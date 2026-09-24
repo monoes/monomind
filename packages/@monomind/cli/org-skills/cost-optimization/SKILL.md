@@ -1,7 +1,7 @@
 ---
 name: cost-optimization
-description: "Optimize cloud costs across AWS, Azure, GCP, and OCI through resource rightsizing, tagging strategies, reserved instances, and spending analysis. Use when reducing cloud expenses, analyzing infrastructure costs, or implementing cost governance policies."
-tags: ["devops","finance"]
+description: "Use when reducing cloud spend on AWS, Azure, GCP or OCI through rightsizing, cost allocation tags, reserved capacity, spot instances and savings plans. Infrastructure spend, not LLM API cost (see llm-cost-optimizer)."
+tags: ["devops","finance","cloud"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

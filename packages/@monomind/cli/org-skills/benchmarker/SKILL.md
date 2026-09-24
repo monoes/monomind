@@ -1,7 +1,7 @@
 ---
 name: benchmarker
-description: "Benchmarker role best practices. Designs and runs load, stress, and regression benchmarks that produce statistically trustworthy, reproducible performance numbers — and turns them into clear pass/fail verdicts against defined targets."
-tags: ["engineering"]
+description: "Use when an org role acts as benchmarker and must design and run load, stress and regression benchmarks that give reproducible pass or fail verdicts. Warm-up, repeated trials, p95 and p99 thresholds and baselines, with k6, Locust or Gatling and CI regression gates."
+tags: ["engineering","performance","testing"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: adaptive-coordinator
-description: "Adaptive Coordinator role best practices. Reconfigures the coordination topology itself (hierarchical, mesh, ring, star) as workload, failure conditions, or team size change, instead of running one fixed structure for the whole task."
-tags: ["operations"]
+description: "Use when an org role acts as adaptive coordinator and must switch team topology (hierarchical, mesh, ring, star) at phase boundaries as load or failures change. Covers trigger signals and draining in-flight work before a switch; for peer-only coordination use mesh-coordinator."
+tags: ["operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

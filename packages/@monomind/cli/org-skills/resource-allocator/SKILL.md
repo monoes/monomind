@@ -1,7 +1,7 @@
 ---
 name: resource-allocator
-description: "Resource Allocator role best practices. Plans and adjusts compute/agent capacity ahead of demand — predicting resource needs from workload patterns and allocating (or scaling) accordingly, rather than reacting after saturation."
-tags: ["engineering"]
+description: "Org role guidance for a resource allocator: forecast compute or agent capacity from workload patterns and allocate or scale ahead of demand. Covers p90 provisioning, confidence thresholds, gradual rollout, multi-objective trade-offs, bulkhead isolation and allocation KPIs."
+tags: ["engineering","performance","planning","cloud"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

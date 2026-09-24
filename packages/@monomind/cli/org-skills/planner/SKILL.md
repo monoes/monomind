@@ -1,7 +1,7 @@
 ---
 name: planner
-description: "Planner role best practices. Breaks complex objectives into concrete, sequenced, assignable tasks with clear dependencies and success criteria — before anyone starts executing."
-tags: ["engineering"]
+description: "Org role guidance for a planner: break complex objectives into sequenced, assignable tasks with dependencies, critical path and success criteria. Covers atomic verifiable tasks, DAG dependencies, risk mitigation, verification checkpoints and avoiding over-planning."
+tags: ["engineering","planning","coordination"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

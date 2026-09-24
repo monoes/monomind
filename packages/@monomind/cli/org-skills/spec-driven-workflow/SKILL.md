@@ -1,7 +1,7 @@
 ---
 name: spec-driven-workflow
-description: "Use when the user asks to write specs before code, define acceptance criteria, plan features before implementation, generate tests from specifications, or follow spec-first development practices."
-tags: ["engineering","product"]
+description: "Use when writing a spec before code: RFC 2119 requirements, Given/When/Then acceptance criteria, edge cases, API contracts and data models. Enforces no code without an approved spec and derives tests from acceptance criteria. For lighter intent clarification alongside work, see intent-driven-development."
+tags: ["engineering","product","planning","documentation"]
 tools: ["monograph_query","monograph_suggest"]
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

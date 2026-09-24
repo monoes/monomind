@@ -1,7 +1,7 @@
 ---
 name: ai-engineer
-description: "AI Engineer role best practices. Builds and ships AI-powered features and integrations into production applications — wiring models, APIs, and data pipelines into real systems with attention to latency, cost, and reliability."
-tags: ["ai-ml","engineering"]
+description: "Org role guidance for an AI engineer: ship LLM features into production apps with explicit cost, latency and quality trade-offs and safe fallbacks. Covers output validation, RAG, prompt versioning, shadow deploys and per-call metrics."
+tags: ["ai-ml","engineering","llm"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

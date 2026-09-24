@@ -1,7 +1,7 @@
 ---
 name: llm-cost-optimizer
-description: "Use proactively whenever LLM API costs come up -- or should. Triggers include: 'my AI costs are too high', 'optimize token usage', 'which model should I use', 'LLM spend is out of control', 'implement prompt caching', 'we're about to launch an AI feature', 'build me an AI endpoint'."
-tags: ["ai-ml","finance"]
+description: "Use when LLM API spend is too high or a new AI feature needs cost controls: cost audits, model routing by task complexity, prompt caching and token budgets. Also use for 'which model should I use' questions; runs audit, optimize or design modes to cut spend 40 to 80 percent."
+tags: ["ai-ml","finance","llm","performance"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

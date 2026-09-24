@@ -1,7 +1,7 @@
 ---
 name: marketing-strategy-pmm
-description: "Product marketing skill for positioning, GTM strategy, competitive intelligence, and product launches. Use when the user asks about product positioning, go-to-market planning, competitive analysis, target audience definition, ICP definition, market research, launch plans, or sales enablement."
-tags: ["marketing","product"]
+description: "Use when doing product marketing strategy: ICP definition, positioning, GTM planning, competitive intelligence, launch plans and sales enablement. PMM frameworks and templates, not campaign copy production (see marketing-campaign)."
+tags: ["marketing","product","strategy","competitive-analysis"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

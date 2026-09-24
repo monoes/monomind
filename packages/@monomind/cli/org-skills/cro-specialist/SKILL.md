@@ -1,7 +1,7 @@
 ---
 name: cro-specialist
-description: "CRO Specialist role best practices. Diagnoses why visitors on a page, flow, or form aren't converting, and turns that diagnosis into prioritized, testable recommendations grounded in behavioral psychology."
-tags: ["product"]
+description: "Org role guidance for a CRO specialist: diagnose why a page, signup flow, form or popup is not converting and turn it into prioritized test hypotheses. Covers value prop, CTA, friction and trust signals; for a hands-on page conversion playbook use page-cro."
+tags: ["product","cro","experimentation","ux"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

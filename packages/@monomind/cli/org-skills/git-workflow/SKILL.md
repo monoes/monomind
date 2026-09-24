@@ -1,7 +1,7 @@
 ---
 name: git-workflow
-description: "Git workflow patterns including branching strategies, commit conventions, merge vs rebase, conflict resolution, and collaborative development best practices for teams of all sizes. Use when choosing a branching strategy, writing commit conventions, deciding merge versus rebase, or resolving conflicts."
-tags: ["engineering","devops"]
+description: "Use when choosing a team Git workflow: GitHub flow, trunk-based or GitFlow branching, commit conventions, merge vs rebase, conflict resolution and release tags. For history surgery like bisect or reflog use git-advanced-workflows."
+tags: ["engineering","devops","git"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

@@ -1,7 +1,7 @@
 ---
 name: model-qa
-description: "Model QA Specialist role best practices. Independently audits ML/statistical models end-to-end — documentation, data, replication, calibration, and fairness — to certify whether a model is sound before or during production use."
-tags: ["ai-ml","engineering"]
+description: "Use when an org role acts as model QA specialist and must independently audit an ML or statistical model: replication, calibration, drift, fairness, governance. Rates findings by severity with PSI, SHAP and champion-challenger tests; audits models others built."
+tags: ["ai-ml","engineering","audit","evaluation"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

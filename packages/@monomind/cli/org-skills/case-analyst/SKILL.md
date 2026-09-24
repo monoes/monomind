@@ -1,7 +1,7 @@
 ---
 name: case-analyst
-description: "Case Analyst role best practices. Performs neutral, systematic case evaluation and legal research — gathers facts, maps applicable law, identifies precedent, and surfaces risks and weaknesses for whichever party or process consumes the analysis."
-tags: ["legal"]
+description: "Use when an org role acts as case analyst and must neutrally evaluate a legal matter: facts, applicable law, precedent hierarchy and risks on both sides. Research with cited sources, flagging ambiguity rather than advocating."
+tags: ["legal","research","audit"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

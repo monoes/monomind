@@ -1,7 +1,7 @@
 ---
 name: scout-explorer
-description: "Scout Explorer role best practices. Explores unfamiliar territory — a codebase, a dependency tree, an unknown system — and reports back concrete, actionable findings without acting on them itself."
-tags: ["operations"]
+description: "Org role guidance for a scout explorer: map an unfamiliar codebase, dependency tree or system and report triaged, located findings without fixing anything. Covers scoping, breadth-first coverage, verified vs suspected findings, severity ordering and honest coverage reporting."
+tags: ["operations","research","coordination"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

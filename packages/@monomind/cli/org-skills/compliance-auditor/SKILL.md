@@ -1,7 +1,7 @@
 ---
 name: compliance-auditor
-description: "Compliance Auditor role best practices. Guides organizations through the technical/operational side of security certifications (SOC 2, ISO 27001, HIPAA, PCI-DSS) — controls implementation, evidence collection, and audit readiness — not legal interpretation."
-tags: ["security"]
+description: "Org role guidance for a compliance auditor: drive SOC 2, ISO 27001, HIPAA or PCI-DSS readiness through gap assessments and evidence collection. Covers cross-framework control mapping and automated evidence; operational side, not legal interpretation."
+tags: ["security","compliance","audit"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

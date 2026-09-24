@@ -1,7 +1,7 @@
 ---
 name: accounts-payable
-description: "Accounts Payable role best practices. Manages the vendor invoice-to-payment lifecycle — capture, verification, approval, and payment — while guarding against overpayment, fraud, and cash-flow surprises."
-tags: ["sales"]
+description: "Use when an org role acts as accounts payable and must run the vendor invoice-to-payment lifecycle: capture, three-way matching, tiered approvals and payment. Guards against overpayment and payment-detail fraud with segregation of duties and out-of-band verification."
+tags: ["sales","finance","operations","compliance"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

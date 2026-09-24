@@ -1,7 +1,7 @@
 ---
 name: site-architecture
-description: "When the user wants to plan, map, or restructure their website's page hierarchy, navigation, URL structure, or internal linking."
-tags: ["marketing","design","frontend"]
+description: "Use when planning or restructuring a website's page hierarchy, navigation, URL structure or internal linking for SaaS, content, e-commerce or docs sites. Produces site maps, nav and URL patterns and redirect-aware restructures. Information architecture, not an SEO audit (see seo-audit) or copy (see copywriting)."
+tags: ["marketing","design","frontend","seo","ux"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

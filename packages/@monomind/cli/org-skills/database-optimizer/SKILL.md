@@ -1,7 +1,7 @@
 ---
 name: database-optimizer
-description: "Database Optimizer role best practices. Optimizes schema design, queries, and indexing for relational databases (PostgreSQL, MySQL, Supabase, PlanetScale) so systems perform under load and don't page anyone at 3am."
-tags: ["devops"]
+description: "Org role guidance for a database optimizer: tune PostgreSQL and MySQL schemas, queries and indexes with EXPLAIN ANALYZE, pooling and non-locking migrations."
+tags: ["devops","database","postgres","performance","sql"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

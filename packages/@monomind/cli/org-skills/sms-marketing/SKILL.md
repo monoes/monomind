@@ -1,7 +1,7 @@
 ---
 name: sms-marketing
-description: "When the user wants to plan, build, or optimize SMS or MMS marketing — including welcome flows, abandoned cart texts, post-purchase, win-back, promotional sends, or transactional/auth SMS."
-tags: ["marketing"]
+description: "Use when planning or optimizing SMS or MMS marketing: welcome flows, abandoned cart texts, post-purchase, win-back, promotional or transactional sends. Covers when SMS beats email, A2P 10DLC and opt-in compliance, short code vs toll-free numbers and list economics."
+tags: ["marketing","growth","compliance"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

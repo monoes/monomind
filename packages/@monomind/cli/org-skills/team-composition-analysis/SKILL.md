@@ -1,7 +1,7 @@
 ---
 name: team-composition-analysis
-description: "Design optimal team structures, hiring plans, compensation strategies, and equity allocation for early-stage startups from pre-seed through Series A. Use this skill when planning headcount, determining which roles to hire next, setting compensation or equity ranges, designing org structure, or building a hiring budget aligned to funding milestones."
-tags: ["leadership","operations"]
+description: "Use when planning startup headcount from pre-seed to Series A: next hires, team structure by stage, comp and equity ranges and hiring budgets. For broader people leadership, culture and retention see chro-advisor."
+tags: ["leadership","operations","people","planning"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: scientific-thinking-scholar-evaluation
-description: "Structured scholarly-work evaluation for papers, proposals, literature reviews, methods sections, evidence quality, citation support, and research-writing feedback. Use when evaluating academic or scientific work — papers, proposals, methods sections, or evidence quality — against a repeatable rubric."
-tags: ["research","science","writing"]
+description: "Use when evaluating a paper, proposal, thesis chapter or literature review with a repeatable 1-5 rubric on methods, evidence and citations. Supports comprehensive, targeted or comparative scope and revision feedback. For general claim appraisal, use scientific-critical-thinking."
+tags: ["research","science","writing","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

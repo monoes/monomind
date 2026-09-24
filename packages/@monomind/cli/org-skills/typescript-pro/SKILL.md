@@ -1,7 +1,7 @@
 ---
 name: typescript-pro
-description: "Implements advanced TypeScript type systems, creates custom type guards, utility types, and branded types, and configures tRPC for end-to-end type safety. Use when building TypeScript applications requiring advanced generics, conditional or mapped types, discriminated unions, monorepo setup, or full-stack type safety with tRPC."
-tags: ["engineering","frontend","backend"]
+description: "Use when writing advanced TypeScript types: generics, conditional and mapped types, branded types, type guards, tsconfig and tRPC end-to-end safety. Also covers discriminated unions and monorepo project references. Type-system specialist; for Python see python-pro."
+tags: ["engineering","frontend","backend","typescript"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

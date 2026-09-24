@@ -1,7 +1,7 @@
 ---
 name: sales-coach
-description: "Sales Coach role best practices. Improves rep performance through structured, ongoing coaching — call reviews, skill-building, and habit reinforcement — rather than one-off feedback or deal rescue."
-tags: ["sales"]
+description: "Use when an org role acts as sales coach and must improve rep performance through ongoing call reviews, skill-building and habit reinforcement. Covers weekly rubric-based review loops, one or two skills per session, GROW 1:1s, objection libraries and tracking behavior change. For discovery calls specifically, use discovery-coach."
+tags: ["sales","people","leadership"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

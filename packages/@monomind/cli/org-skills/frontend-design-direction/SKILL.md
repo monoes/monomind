@@ -1,7 +1,7 @@
 ---
 name: frontend-design-direction
-description: "Set an ECC-specific frontend design direction for production UI work. Use when building or improving websites, dashboards, applications, components, landing pages, visual tools, or any web UI that needs stronger product-specific design judgment."
-tags: ["design","frontend"]
+description: "Use when a working web UI reads as generic and needs an explicit direction first: purpose, audience, tone and one memorable detail, before styling. ECC's design-direction checklist; for studio-style visual design guidance use frontend-design."
+tags: ["design","frontend","ui","ux"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
 license: MIT
 source: https://github.com/affaan-m/ECC

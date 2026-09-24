@@ -1,7 +1,7 @@
 ---
 name: narrative-designer
-description: "Narrative Designer role best practices. Integrates story with gameplay mechanics — plot, character, lore, and dialogue systems — so narrative and interactive elements reinforce each other rather than sitting side by side."
-tags: ["design"]
+description: "Use when an org role acts as a game narrative designer and must integrate plot, character, lore and branching dialogue with gameplay mechanics. Covers funnel dialogue, condition-gated choices, branching structures and worldbuilding bibles."
+tags: ["design","game-dev","writing"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: unity-architect
-description: "Unity Architect role best practices. Designs the code and data architecture of a Unity project — project structure, ScriptableObject-driven data systems, and performance patterns — so the codebase stays maintainable and scalable as the team and content grow."
-tags: ["design"]
+description: "Use when an org role acts as Unity architect and must design project structure, ScriptableObject data and event channels and performance patterns. Covers decoupling via event channels instead of singletons and shared config vs runtime state."
+tags: ["design","game-dev","architecture"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

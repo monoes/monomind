@@ -1,7 +1,7 @@
 ---
 name: threat-detection
-description: "Threat Detection role best practices. Builds and tunes the detection layer that catches attackers after they bypass preventive controls — SIEM rules, ATT&CK coverage mapping, and threat hunting that converts into automated detections."
-tags: ["security"]
+description: "Use when an org role acts as threat detection engineer and must build and tune SIEM rules, ATT&CK coverage mapping and threat hunts. Covers Sigma rules, behavioral over IOC detection and false-positive profiles. For mapping threats to controls see threat-mitigation-mapping."
+tags: ["security","observability","incident"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

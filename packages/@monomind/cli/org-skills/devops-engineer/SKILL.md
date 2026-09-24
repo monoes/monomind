@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
-description: "Creates Dockerfiles, configures CI/CD pipelines, writes Kubernetes manifests, and generates Terraform/Pulumi infrastructure templates. Handles deployment automation, GitOps configuration, incident response runbooks, and internal developer platform tooling."
-tags: ["devops"]
+description: "Use when writing Dockerfiles, GitHub Actions, GitLab CI or Jenkins pipelines, Kubernetes manifests or Terraform and Pulumi IaC, with approval-gated deploys. A hands-on persona with reference files; for org role guidance see devops-automator."
+tags: ["devops","docker","kubernetes","terraform","deploy"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

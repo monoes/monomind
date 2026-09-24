@@ -1,7 +1,7 @@
 ---
 name: data-quality-frameworks
-description: "Implement data quality validation with Great Expectations, dbt tests, and data contracts. Use when building data quality pipelines, implementing validation rules, or establishing data contracts."
-tags: ["data"]
+description: "Use when adding data quality checks to pipelines with Great Expectations, dbt tests and data contracts, including CI automation and quality metrics. For dbt model structure use dbt-transformation-patterns."
+tags: ["data","testing","sql"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

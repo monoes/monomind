@@ -1,7 +1,7 @@
 ---
 name: trend-researcher
-description: "Trend Researcher role best practices. Scans for early signals of emerging shifts (market, technology, or product) and separates genuine trends from short-lived noise, using structured methodology rather than gut feel."
-tags: ["ai-ml","engineering"]
+description: "Use when an org role acts as trend researcher and must spot emerging market, technology or product shifts and separate real trends from noise. Covers multi-source scanning, time-series collection, smoothing and source lead times."
+tags: ["ai-ml","engineering","research","strategy"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

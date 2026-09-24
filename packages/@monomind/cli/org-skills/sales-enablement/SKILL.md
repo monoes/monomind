@@ -1,7 +1,7 @@
 ---
 name: sales-enablement
-description: "When the user wants to create sales collateral, pitch decks, one-pagers, objection handling docs, or demo scripts."
-tags: ["sales","writing"]
+description: "Use when creating B2B sales collateral reps will actually use: pitch decks, one-pagers, objection-handling docs, demo scripts and battlecards. Gathers value prop, sales motion and current assets first. For finding prospects use sales-prospecting; for running demos as a role use sales-engineer."
+tags: ["sales","writing","content","competitive-analysis"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

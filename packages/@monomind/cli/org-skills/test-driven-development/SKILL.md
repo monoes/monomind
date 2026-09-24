@@ -1,7 +1,7 @@
 ---
 name: test-driven-development
-description: "Use when implementing any feature or bugfix, before writing implementation code"
-tags: ["engineering","testing"]
+description: "Use when implementing any feature or bugfix, before writing implementation code: strict red-green-refactor TDD. Iron law of no production code without a failing test first, with rationalization checks. A process discipline; for test strategy, coverage and performance testing see test-master."
+tags: ["engineering","testing","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/obra/superpowers

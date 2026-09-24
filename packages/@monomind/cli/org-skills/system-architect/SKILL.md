@@ -1,7 +1,7 @@
 ---
 name: system-architect
-description: "System Architect role best practices. Makes high-level technical and structural decisions — system boundaries, component interactions, and technology trade-offs — that other roles then implement against."
-tags: ["engineering"]
+description: "Org role guidance for a system architect: decide system boundaries, component contracts and technology trade-offs that other roles implement. Covers quality attributes first, ADRs with rejected options, right-sized scale and operational concerns up front."
+tags: ["engineering","architecture","planning"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: react-native-patterns
-description: "React Native and Expo app patterns — Expo Router navigation, state separation (server/client/route/form), TanStack Query data fetching with Zod, performant lists, NativeWind/StyleSheet styling, native APIs, and secure storage. Use when building or editing React Native / Expo screens, components, navigation, or data layers."
-tags: ["mobile","frontend"]
+description: "Use when writing or reviewing Expo React Native screens: Expo Router, state placement, TanStack Query with Zod, lists, NativeWind and native APIs. A patterns catalogue; for an end-to-end build and debug persona, use react-native-expert."
+tags: ["mobile","frontend","react-native","typescript"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

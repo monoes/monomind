@@ -1,7 +1,7 @@
 ---
 name: cloud-architect
-description: "Cloud Architect role best practices. Designs cloud system architecture — service topology, networking, and provider-specific patterns — balancing reliability, security, performance, and cost across AWS/GCP/Azure."
-tags: ["devops"]
+description: "Use when an org role acts as cloud architect and must design service topology, networking and multi-AZ resilience across AWS, GCP or Azure. Role guidance on explicit cost and reliability trade-offs; for migrations, DR and provider reference files use cloud-architecture."
+tags: ["devops","cloud","architecture"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: ml-developer
-description: "ML Developer role best practices. Develops and trains machine learning models end-to-end — data preparation, feature engineering, training, evaluation — with rigor about what makes a model actually trustworthy, not just accurate on paper."
-tags: ["ai-ml","engineering"]
+description: "Use when an org role acts as ML developer and must train and evaluate models rigorously: leakage-safe splits, baselines, right metrics, calibration, fairness. Model development practice; for pipeline infrastructure see ml-pipeline."
+tags: ["ai-ml","engineering","python","evaluation"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

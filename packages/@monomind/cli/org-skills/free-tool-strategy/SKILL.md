@@ -1,7 +1,7 @@
 ---
 name: free-tool-strategy
-description: "When the user wants to plan, evaluate, or build a free tool for marketing purposes — lead generation, SEO value, or brand awareness."
-tags: ["marketing","product"]
+description: "Use when planning, evaluating or building a free tool as engineering-as-marketing for lead generation, SEO traffic or brand awareness."
+tags: ["marketing","product","growth","seo"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

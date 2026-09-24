@@ -1,7 +1,7 @@
 ---
 name: release-manager
-description: "Release Manager role best practices. Coordinate version bumps, changelogs, and deployment across one or more packages so releases are predictable, tested, and reversible."
-tags: ["engineering","devops"]
+description: "Org role guidance for a release manager: coordinate semver bumps, changelogs and staged deploys across monorepo packages so releases are reversible. Covers consistent internal versions, validation gates, rollback plans and gh release notes. For changelog tooling, use changelog-automation."
+tags: ["engineering","devops","deploy","git"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: roadmap-communicator
-description: "Use when preparing roadmap narratives, release notes, changelogs, or stakeholder updates tailored for executives, engineering teams, and customers."
-tags: ["product","writing"]
+description: "Use when preparing roadmap presentations, stakeholder updates, release notes, changelogs or feature announcements for executives, engineers or customers. Covers Now/Next/Later, timeline and theme-based formats plus audience-specific update patterns."
+tags: ["product","writing","communication","documentation"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

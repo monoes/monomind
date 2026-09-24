@@ -1,7 +1,7 @@
 ---
 name: embedded-firmware
-description: "Embedded Firmware role best practices. Writes production-grade firmware for resource-constrained embedded systems (ESP32/ESP-IDF, STM32 HAL/LL, Nordic nRF/Zephyr, FreeRTOS) where hardware constraints and undefined behavior carry real consequences."
-tags: ["devops"]
+description: "Use when an org role acts as embedded firmware engineer and must ship reliable ESP32, STM32, nRF or Zephyr firmware under FreeRTOS memory and ISR constraints. For hands-on drivers, RTOS and power work with reference files use embedded-systems."
+tags: ["devops","embedded","reliability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

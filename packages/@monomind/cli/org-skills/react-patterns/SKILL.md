@@ -1,7 +1,7 @@
 ---
 name: react-patterns
-description: "React 18/19 patterns including hooks discipline, server/client component boundaries, Suspense + error boundaries, form actions, data fetching, state management decision trees, and accessibility-first composition. Use when writing or reviewing React components."
-tags: ["frontend"]
+description: "Use when writing or reviewing React 18/19 components for idiom: hooks discipline, derived state, server/client boundaries, Suspense and form actions. A patterns catalogue; for perf rules use react-performance, for tests react-testing."
+tags: ["frontend","react","coding-standards","accessibility"]
 tools: ["monograph_query","monograph_context","monodesign_detect"]
 license: MIT
 source: https://github.com/affaan-m/ECC

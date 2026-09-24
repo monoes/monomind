@@ -1,7 +1,7 @@
 ---
 name: quality-nonconformance
-description: "Codified expertise for quality control, non-conformance investigation, root cause analysis, corrective action, and supplier quality management in regulated manufacturing. Informed by quality engineers with 15+ years experience across FDA, IATF 16949, and AS9100 environments. Includes NCR lifecycle management, CAPA systems, SPC interpretation, and audit methodology."
-tags: ["operations"]
+description: "Use when handling a manufacturing non-conformance: NCR investigation, root cause analysis, MRB disposition, CAPA and supplier corrective action. Senior quality-engineer persona for regulated settings like FDA 21 CFR 820, IATF 16949 and AS9100, including SPC signal reading."
+tags: ["operations","compliance","supply-chain","audit"]
 tools: []
 license: Apache-2.0
 source: https://github.com/affaan-m/ECC

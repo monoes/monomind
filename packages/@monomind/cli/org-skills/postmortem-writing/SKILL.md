@@ -1,7 +1,7 @@
 ---
 name: postmortem-writing
-description: "Write effective blameless postmortems with root cause analysis, timelines, and action items. Use when conducting incident reviews, writing postmortem documents, or improving incident response processes."
-tags: ["operations","devops","writing"]
+description: "Use when running a post-incident review or writing a blameless postmortem with timeline, root cause analysis, 5 Whys and action items. Covers postmortem triggers, meeting facilitation, templates and building a learning culture after outages."
+tags: ["operations","devops","writing","incident","reliability"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

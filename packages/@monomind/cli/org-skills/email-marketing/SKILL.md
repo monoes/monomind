@@ -1,7 +1,7 @@
 ---
 name: email-marketing
-description: "Email Marketing role best practices. Designs and writes email sequences — welcome series, nurture, onboarding, re-engagement, and B2B cold outreach — that read as human and drive action without feeling like a sales machine."
-tags: ["writing","marketing"]
+description: "Use when an org role acts as email marketer and must design and write welcome, nurture, onboarding, re-engagement and B2B cold email sequences. Role guidance with benchmarks; for a detailed sequence-design playbook use email-sequences, for cold outreach copy use cold-email."
+tags: ["writing","marketing","email","copywriting"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

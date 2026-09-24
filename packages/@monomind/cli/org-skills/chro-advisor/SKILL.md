@@ -1,7 +1,7 @@
 ---
 name: chro-advisor
-description: "People leadership for scaling companies. Hiring strategy, compensation design, org structure, culture, and retention. Use when building hiring plans, designing comp frameworks, restructuring teams, managing performance, building culture, or when user mentions CHRO, HR, people strategy, talent, headcount, compensation, org design, retention, or performance management."
-tags: ["leadership","operations"]
+description: "Use when a people leader needs headcount planning, compensation bands and equity, org design, performance calibration or retention strategy. Includes hiring-plan and comp scripts for scaling companies; for early-stage team and equity design see team-composition-analysis."
+tags: ["leadership","operations","people"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

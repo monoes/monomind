@@ -1,7 +1,7 @@
 ---
 name: hierarchical-coord
-description: "Hierarchical Coordinator role best practices. Runs a manager/worker tree: owns authoritative state, decomposes objectives into subtasks with a single accountable owner each, and reconciles reports flowing back up the chain."
-tags: ["operations"]
+description: "Use when an org role acts as hierarchical coordinator and must run a manager/worker tree: decompose goals into owned subtasks and reconcile reports upward. Differs from queen-coordinator by covering multi-level trees, when to stay flat, and drift intervention."
+tags: ["operations","coordination","agents","planning"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

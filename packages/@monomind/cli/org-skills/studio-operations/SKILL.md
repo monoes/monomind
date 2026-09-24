@@ -1,7 +1,7 @@
 ---
 name: studio-operations
-description: "Studio Operations role best practices. Keeps the studio's operating infrastructure running — tools, pipelines, budgets, vendor/contractor logistics, and the processes that let creative teams focus on making the thing instead of fighting the environment."
-tags: ["leadership","operations"]
+description: "Use when an org role acts as studio operations lead and must keep a creative or game studio's tools, pipelines, budgets and vendor logistics running. Covers pipeline friction as backlog, milestone-tied budget burn, standardized processes and contractor terms. For scope and schedule see studio-producer."
+tags: ["leadership","operations","game-dev"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: scientific-brainstorming
-description: "Facilitates evidence-aware scientific ideation with independent generation, structured discussion, explicit assumptions, transparent evaluation, adversarial review, and decision logs. Use for early-stage research brainstorming or prioritizing candidate directions; hand off empirical validation, study design, ethics or regulatory review, and clinical questions to appropriate experts or skills."
-tags: ["research","science"]
+description: "Use when generating and prioritizing early-stage research ideas, with independent ideation, explicit assumptions, adversarial review and decision logs. Outputs are proposals, not findings. For judging existing evidence use scientific-critical-thinking."
+tags: ["research","science","planning"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

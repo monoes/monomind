@@ -1,7 +1,7 @@
 ---
 name: mysql-patterns
-description: "MySQL and MariaDB schema, query, indexing, transaction, replication, and connection-pool patterns for production backends. Use when designing MySQL or MariaDB schemas and indexes, or when a query, transaction, or replica lags."
-tags: ["data","backend"]
+description: "Use when designing MySQL or MariaDB schemas and indexes, or debugging slow queries, deadlocks, replica lag or connection pools. Covers version-specific syntax, upserts, keyset pagination, queues with SKIP LOCKED and safe migrations."
+tags: ["data","backend","sql","database"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

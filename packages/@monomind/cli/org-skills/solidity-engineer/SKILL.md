@@ -1,7 +1,7 @@
 ---
 name: solidity-engineer
-description: "Solidity Engineer role best practices. Writes and ships EVM smart contracts — gas-efficient, security-first, and audit-ready — for token standards, upgradeable proxies, and DeFi protocols across Ethereum and L2 chains."
-tags: ["engineering","security"]
+description: "Use when an org role acts as Solidity engineer and must ship gas-efficient, audit-ready EVM contracts: tokens, upgradeable proxies and DeFi on L1 and L2s. Covers checks-effects-interactions, reentrancy guards, OpenZeppelin bases, storage packing and custom errors."
+tags: ["engineering","security","blockchain"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: production-audit
-description: "Local-evidence production readiness audit for shipped apps, pre-launch reviews, post-merge checks, and \"what breaks in prod?\" questions without sending repo data to an external audit service. Use when auditing production readiness before launch, after a merge, or when asked what breaks in prod."
-tags: ["engineering","devops","security"]
+description: "Use when asking whether an app is production-ready or what breaks in prod, as a pre-launch or post-merge audit built only from local evidence. Checks release surface, recent changes, auth, data, payments, CI, migrations and rollback, then gives a ship/block call. Not a formal compliance audit."
+tags: ["engineering","devops","security","audit","reliability"]
 tools: ["monograph_query","monograph_suggest"]
 license: MIT
 source: https://github.com/affaan-m/ECC

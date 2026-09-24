@@ -1,7 +1,7 @@
 ---
 name: programmatic-seo
-description: "When the user wants to create SEO-driven pages at scale using templates and data. Also use when the user mentions \"programmatic SEO,\" \"template pages,\" \"pages at scale,\" \"directory pages,\" \"location pages,\" \"[keyword] + [city] pages,\" \"comparison pages,\" \"integration pages,\" \"building many pages for SEO,\" \"pSEO,\" \"generate 100 pages,\" \"data-driven pages,\" or \"templated landing pages.\""
-tags: ["marketing","engineering"]
+description: "Use when building SEO pages at scale from templates and data: location, directory, integration, comparison or keyword-plus-modifier pages. Covers opportunity sizing, unique value per page, proprietary data, URL structure and avoiding thin-content penalties. For one-off competitor pages, use competitor-comparison-pages."
+tags: ["marketing","engineering","seo","content","growth"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

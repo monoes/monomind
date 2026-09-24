@@ -1,7 +1,7 @@
 ---
 name: researcher
-description: "Researcher role best practices. Investigates a codebase, technology, or question thoroughly and synthesizes findings into evidence-backed, actionable recommendations for other roles to act on."
-tags: ["engineering"]
+description: "Org role guidance for a researcher: investigate a codebase, technology or question and synthesize evidence-backed, cited recommendations for other roles. Covers broad-then-narrow search, cross-referencing sources, separating fact from inference, git history and flagging unknowns."
+tags: ["engineering","research","documentation"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

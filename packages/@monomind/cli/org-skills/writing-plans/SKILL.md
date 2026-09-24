@@ -1,7 +1,7 @@
 ---
 name: writing-plans
-description: "Use when you have a spec or requirements for a multi-step task, before touching code"
-tags: ["engineering","product"]
+description: "Use when you have a spec or requirements for a multi-step coding task and must write an implementation plan before touching code. Produces bite-sized TDD tasks with exact file paths, code and commands for an engineer with zero context."
+tags: ["engineering","product","planning"]
 tools: ["monograph_suggest","monograph_query"]
 license: MIT
 source: https://github.com/obra/superpowers

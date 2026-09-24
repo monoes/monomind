@@ -1,7 +1,7 @@
 ---
 name: startup-metrics-framework
-description: "Track, calculate, and optimize key performance metrics for SaaS, marketplace, consumer, and B2B startups from seed through Series A, including unit economics, growth efficiency, and cash management. Use this skill when defining a metrics framework, calculating CAC/LTV/burn multiple, benchmarking business health, or preparing metrics dashboards for investors or board reporting."
-tags: ["finance","product"]
+description: "Use when defining or calculating startup KPIs for SaaS, marketplace, consumer or B2B: MRR/ARR growth, CAC, LTV, burn multiple and stage benchmarks. Supports investor and board metrics dashboards. For forward-looking financial projections see startup-financial-modeling."
+tags: ["finance","product","analytics","fundraising"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

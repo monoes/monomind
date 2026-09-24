@@ -1,7 +1,7 @@
 ---
 name: account-strategist
-description: "Account Strategist role best practices. Owns the long-term growth and retention plan for an existing key account — turning a single sale into an expanding, durable relationship built on demonstrated value."
-tags: ["sales"]
+description: "Use when an org role acts as account strategist and must own the growth and retention plan for an existing key account. Covers stakeholder maps, health scoring, QBRs, expansion tracking and multi-threaded relationships, with renewal as an outcome of delivered value."
+tags: ["sales","strategy","customer-research"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

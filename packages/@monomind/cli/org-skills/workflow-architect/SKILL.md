@@ -1,7 +1,7 @@
 ---
 name: workflow-architect
-description: "Workflow Architect role best practices. Maps complete workflow trees for systems, user journeys, and agent interactions — happy paths, every branch, failure modes, recovery paths, and handoff contracts — before implementation starts."
-tags: ["leadership","operations"]
+description: "Org role guidance for a workflow architect: map full workflow trees for systems, user journeys and agents, covering every branch and failure. Covers discovering workflows from code, handoff contracts, timeouts, recovery paths and observable state."
+tags: ["leadership","operations","architecture","planning"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

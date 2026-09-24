@@ -1,7 +1,7 @@
 ---
 name: market-research
-description: "Conduct market research, competitive analysis, investor due diligence, and industry intelligence with source attribution and decision-oriented summaries. Use when the user wants market sizing, competitor comparisons, fund research, technology scans, or research that informs business decisions."
-tags: ["research","marketing"]
+description: "Use when researching a market, competitor, investor or technology trend and turning sourced findings into a decision. Covers fund diligence, competitive analysis and quick sizing with source attribution and untrusted-source guards; for formal auditable reports see market-research-reports."
+tags: ["research","marketing","competitive-analysis","strategy"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

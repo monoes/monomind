@@ -1,7 +1,7 @@
 ---
 name: employment-contract-templates
-description: "Create employment contracts, offer letters, and HR policy documents following legal best practices. Use when drafting employment agreements, creating HR policies, or standardizing employment documentation."
-tags: ["legal","operations"]
+description: "Use when drafting employment contracts, offer letters, employee handbooks, HR policies, NDAs or non-competes and choosing at-will vs contract terms."
+tags: ["legal","operations","people"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

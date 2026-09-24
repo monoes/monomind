@@ -1,7 +1,7 @@
 ---
 name: verification-before-completion
-description: "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always"
-tags: ["engineering","testing"]
+description: "Use when about to claim work is complete, fixed or passing, before committing or opening a PR: run the verifying command and read its output first. Gate function of identify, run, read, verify, then claim, with a table of what evidence each claim needs."
+tags: ["engineering","testing","code-review"]
 tools: []
 license: MIT
 source: https://github.com/obra/superpowers

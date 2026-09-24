@@ -1,7 +1,7 @@
 ---
 name: dbt-transformation-patterns
-description: "Master dbt (data build tool) for analytics engineering with model organization, testing, documentation, and incremental strategies. Use when building data transformations, creating data models, or implementing analytics engineering best practices."
-tags: ["data"]
+description: "Use when building dbt models for analytics engineering: staging, intermediate and marts layers, naming conventions, tests, docs and incremental models. For quality validation with Great Expectations and data contracts use data-quality-frameworks."
+tags: ["data","sql","analytics"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

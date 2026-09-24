@@ -1,7 +1,7 @@
 ---
 name: architecture-patterns
-description: "Implement proven backend architecture patterns including Clean Architecture, Hexagonal Architecture, and Domain-Driven Design. Use this skill when designing clean architecture for a new microservice, when refactoring a monolith to use bounded contexts, when implementing hexagonal or onion architecture patterns, or when debugging dependency cycles between application layers."
-tags: ["engineering","backend"]
+description: "Use when applying Clean Architecture, Hexagonal (ports and adapters) or DDD tactical patterns inside a backend service or untangling domain from ORM code. Covers bounded contexts and dependency cycles; for system-level design use architecture-designer."
+tags: ["engineering","backend","architecture","refactor"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/wshobson/agents

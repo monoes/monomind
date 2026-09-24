@@ -1,7 +1,7 @@
 ---
 name: scientific-visualization
-description: "Create and audit truthful, accessible, publication-ready scientific figures with Matplotlib, Seaborn, or Plotly. Use for figure design, multi-panel layouts, uncertainty and missing-data displays, color/contrast review, image metadata validation, and journal export planning."
-tags: ["data","science","design"]
+description: "Use when creating or auditing publication-ready scientific figures in Matplotlib, Seaborn or Plotly: honest encodings, panels, uncertainty and color. Stresses data integrity, provenance and verifying live journal requirements."
+tags: ["data","science","design","visualization","python"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

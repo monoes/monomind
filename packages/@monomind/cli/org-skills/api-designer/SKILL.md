@@ -1,7 +1,7 @@
 ---
 name: api-designer
-description: "Use when designing REST or GraphQL APIs, creating OpenAPI specifications, or planning API architecture. Invoke for resource modeling, versioning strategies, pagination patterns, error handling standards."
-tags: ["engineering","backend"]
+description: "Use when designing a REST or GraphQL API end to end and writing a validated OpenAPI 3.1 spec, with mocking, RFC 7807 errors, pagination and versioning plans. Persona workflow with reference files; for a quick REST conventions catalogue use api-design."
+tags: ["engineering","backend","api","documentation"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

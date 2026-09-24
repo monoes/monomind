@@ -1,7 +1,7 @@
 ---
 name: mcp-server-patterns
-description: "Build MCP servers with Node/TypeScript SDK — tools, resources, prompts, Zod validation, stdio vs Streamable HTTP. Use Context7 or official MCP docs for latest API. Use when building or debugging an MCP server — tools, resources, prompts, validation, or transport choice."
-tags: ["ai-ml","backend"]
+description: "Use when writing or debugging an MCP server with the Node or TypeScript SDK: registering tools, resources and prompts, Zod validation and transport choice. Quick SDK patterns; for an end-to-end build process see mcp-server-builder."
+tags: ["ai-ml","backend","mcp","typescript"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

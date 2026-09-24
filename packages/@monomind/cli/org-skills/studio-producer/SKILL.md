@@ -1,7 +1,7 @@
 ---
 name: studio-producer
-description: "Studio Producer role best practices. Owns scope, schedule, and capacity for a creative/game production — the person who keeps a project moving from pitch to shippable build without burning the team out."
-tags: ["leadership","operations"]
+description: "Use when an org role acts as studio producer and must own scope, schedule and capacity for a creative or game production from pitch to shippable build. Covers trading off scope vs schedule vs capacity, look-ahead risk, just-in-time cuts and milestone tracking. For tooling and vendor ops see studio-operations."
+tags: ["leadership","operations","game-dev","planning"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

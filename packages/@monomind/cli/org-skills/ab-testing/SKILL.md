@@ -1,7 +1,7 @@
 ---
 name: ab-testing
-description: "When the user wants to plan, design, or implement an A/B test or experiment, or build a growth experimentation program."
-tags: ["marketing","product","data"]
+description: "Use when planning, designing or implementing an A/B test or growth experiment: hypothesis, sample size, primary and guardrail metrics, and reading results. Covers building an experimentation program; for event instrumentation use analytics-tracking."
+tags: ["marketing","product","data","experimentation","statistics"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

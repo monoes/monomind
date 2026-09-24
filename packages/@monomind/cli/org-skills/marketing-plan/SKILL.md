@@ -1,7 +1,7 @@
 ---
 name: marketing-plan
-description: "When the user needs a comprehensive marketing plan for a client, a company they advise, or their own product. Also use when the user mentions \"marketing plan,\" \"growth plan,\" \"GTM plan,\" \"go-to-market plan,\" \"AARRR plan,\" \"90-day marketing plan,\" \"12-month marketing roadmap,\" \"fractional CMO plan,\" or \"fCMO plan.\""
-tags: ["marketing","leadership"]
+description: "Use when producing a full 12-month marketing plan or GTM roadmap for a client or product, as a fractional CMO would. Runs an INIT, REVIEW and FINALIZE workflow with a current-state rubric and resumable progress; not for single-channel tactics."
+tags: ["marketing","leadership","strategy","planning"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

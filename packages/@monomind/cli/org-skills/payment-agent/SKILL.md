@@ -1,7 +1,7 @@
 ---
 name: payment-agent
-description: "Payment Agent role best practices. Executes payment and billing operations on a user's behalf (charges, refunds, subscription changes) with strict least-privilege access, auditability, and zero tolerance for wrong or unauthorized actions."
-tags: ["engineering","security"]
+description: "Use when an org role acts as payment agent and must execute charges, refunds or subscription changes for a user with least privilege and a full audit trail. Covers idempotency keys, confirming irreversible actions, never persisting cardholder data, and relying on native PCI-compliant platforms like Stripe."
+tags: ["engineering","security","stripe","compliance"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

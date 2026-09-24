@@ -1,7 +1,7 @@
 ---
 name: context-degradation
-description: "This skill should be used for diagnosing and mitigating context degradation: lost-in-middle failures, context poisoning, context clash, context confusion, attention-pattern issues, and agent performance degradation caused by accumulated or conflicting context."
-tags: ["ai-ml"]
+description: "Use when diagnosing an LLM agent whose output degrades in long contexts: lost-in-middle, context poisoning, distraction, confusion or clash. Covers detection signals, recovery and placement strategy. For foundational concepts use context-fundamentals; for token-cost tactics use context-optimization."
+tags: ["ai-ml","llm","agents","debug"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

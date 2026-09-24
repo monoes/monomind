@@ -1,7 +1,7 @@
 ---
 name: error-handling
-description: "Patterns for robust error handling across TypeScript, Python, and Go. Covers typed errors, error boundaries, retries, circuit breakers, and user-facing error messages. Use when designing error types, retries, circuit breakers, or user-facing failure messages in TypeScript, Python, or Go."
-tags: ["engineering","backend"]
+description: "Use when designing error types, retries, circuit breakers, error boundaries or user-facing error messages in TypeScript, Python or Go services."
+tags: ["engineering","backend","typescript","python","go"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

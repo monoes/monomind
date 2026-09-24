@@ -1,7 +1,7 @@
 ---
 name: competitive-landscape
-description: "Analyze competition, identify differentiation opportunities, and develop winning market positioning strategies using Porter's Five Forces, Blue Ocean Strategy, and positioning maps. Use this skill when evaluating competitors, assessing market positioning, identifying sustainable competitive advantages, or preparing competitive strategy analysis for a startup or investor pitch."
-tags: ["research","marketing","product"]
+description: "Use when analyzing market competition with Porter's Five Forces, Blue Ocean Strategy and positioning maps to find differentiation and defensible advantage. Market-level strategy; for product-level teardowns use competitive-teardown."
+tags: ["research","marketing","product","competitive-analysis","strategy"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

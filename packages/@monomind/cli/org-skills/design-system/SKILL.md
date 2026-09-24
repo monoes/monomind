@@ -1,7 +1,7 @@
 ---
 name: design-system
-description: "Use this skill to generate or audit design systems, check visual consistency, and review PRs that touch styling. Use when generating or auditing a design system, checking visual consistency, or reviewing a PR that touches styling."
-tags: ["design","frontend"]
+description: "Use when generating a design system from an existing codebase's CSS or Tailwind, or auditing UI visual consistency across 10 scored dimensions. Outputs DESIGN.md, design tokens and an HTML preview, and reviews styling PRs; for token and theming architecture use design-system-patterns."
+tags: ["design","frontend","design-system","audit"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
 license: MIT
 source: https://github.com/affaan-m/ECC

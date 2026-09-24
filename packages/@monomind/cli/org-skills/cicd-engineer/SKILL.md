@@ -1,7 +1,7 @@
 ---
 name: cicd-engineer
-description: "CI/CD Engineer role best practices. Build and operate the pipelines that take code from commit to production — fast enough that developers don't dread them, safe enough that bad code rarely ships, observable enough that failures are easy to diagnose."
-tags: ["devops"]
+description: "Use when an org role acts as CI/CD engineer and must build and run commit-to-production pipelines that are fast, gated and reversible. Covers pipeline-as-code, quality and security gates, caching, canary or blue-green rollout and one-command rollback."
+tags: ["devops","deploy","reliability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

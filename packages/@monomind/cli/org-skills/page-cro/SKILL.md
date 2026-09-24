@@ -1,7 +1,7 @@
 ---
 name: page-cro
-description: "When the user wants to optimize, improve, or increase conversions on any marketing page or form — including homepage, landing pages, pricing pages, feature pages, lead capture forms, or contact forms."
-tags: ["marketing","design","frontend"]
+description: "Use when auditing or improving conversion on a marketing page: homepage, landing, pricing or feature page, and lead-capture or contact forms. Scores value prop, headline, CTAs, visual hierarchy, trust signals and objections, with test ideas. For signup flows use signup-flow-cro; for post-signup activation use onboarding-cro."
+tags: ["marketing","design","frontend","cro","copywriting"]
 tools: ["monodesign_detect"]
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

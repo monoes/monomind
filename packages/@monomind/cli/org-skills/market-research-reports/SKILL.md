@@ -1,7 +1,7 @@
 ---
 name: market-research-reports
-description: "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/SOM reconciliation, forecast sensitivity, and auditable report scaffolds."
-tags: ["research","marketing","product"]
+description: "Use when building an auditable market research report or sizing forecast: formal market definition, claim-to-source mapping and TAM/SAM/SOM reconciliation. Evidence-traceable deliverables, heavier than market-research."
+tags: ["research","marketing","product","competitive-analysis"]
 tools: []
 license: MIT
 source: https://github.com/K-Dense-AI/scientific-agent-skills

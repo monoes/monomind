@@ -1,7 +1,7 @@
 ---
 name: llm-evaluation
-description: "Implement comprehensive evaluation strategies for LLM applications using automated metrics, human feedback, and benchmarking. Use when testing LLM performance, measuring AI application quality, or establishing evaluation frameworks."
-tags: ["ai-ml","testing"]
+description: "Use when building evaluation for an LLM app: automated metrics (BLEU, ROUGE, BERTScore, RAG retrieval), human rating, LLM-as-judge and regression baselines. Broad metric-level overview; for judge rubric design use advanced-evaluation, for agent pipelines use agent-evaluation."
+tags: ["ai-ml","testing","llm","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

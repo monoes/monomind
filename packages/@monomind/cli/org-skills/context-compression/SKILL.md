@@ -1,7 +1,7 @@
 ---
 name: context-compression
-description: "This skill should be used when long-running agent sessions need context compression, structured summarization, compaction, token-per-task optimization, or durable handoff summaries that preserve decisions, files, risks, and next actions."
-tags: ["ai-ml"]
+description: "Use when long agent sessions exceed context limits and need compaction: anchored iterative summaries, artifact-trail preservation and durable handoff summaries. For masking and caching tactics use context-optimization."
+tags: ["ai-ml","llm","agents"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

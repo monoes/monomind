@@ -1,7 +1,7 @@
 ---
 name: product-lens
-description: "Use this skill to validate the \"why\" before building, run product diagnostics, and pressure-test product direction before the request becomes an implementation contract."
-tags: ["product"]
+description: "Use when pressure-testing whether a feature or product is worth building: YC-style diagnostic, founder review or user-journey audit with a go/no-go brief. For turning an approved idea into an implementation contract, use product-capability."
+tags: ["product","strategy","ux","planning"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

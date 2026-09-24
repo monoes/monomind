@@ -1,7 +1,7 @@
 ---
 name: cloud-architecture
-description: "Designs cloud architectures, creates migration plans, generates cost optimization recommendations, and produces disaster recovery strategies across AWS, Azure, and GCP. Use when designing cloud architectures, planning migrations, or optimizing multi-cloud deployments."
-tags: ["devops","engineering"]
+description: "Use when designing AWS, Azure or GCP architectures, planning migrations with the 6Rs, setting DR with RTO and RPO checks, or cutting cloud costs. Persona workflow with per-provider references and CLI validation steps; for pure cost work see cost-optimization."
+tags: ["devops","engineering","cloud","architecture","migrate"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

@@ -1,7 +1,7 @@
 ---
 name: react-performance
-description: "React and Next.js performance optimization patterns adapted from Vercel Engineering's React Best Practices (https://github.com/vercel-labs/agent-skills). Organizes 70+ rules across 8 priority categories — waterfalls, bundle size, server-side, client fetching, re-render, rendering, JS micro-perf, advanced. Use when writing, reviewing, or refactoring React/Next.js code for performance."
-tags: ["frontend"]
+description: "Use when a React or Next app is slow or a PR needs a perf pass: request waterfalls, bundle size, server rendering, re-renders and hydration. Organizes 70+ prioritized rules adapted from Vercel's React best practices. For general React idioms use react-patterns."
+tags: ["frontend","react","nextjs","performance"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

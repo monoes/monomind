@@ -1,7 +1,7 @@
 ---
 name: responsive-design
-description: "Implement modern responsive layouts using container queries, fluid typography, CSS Grid, and mobile-first breakpoint strategies. Use when building adaptive interfaces, implementing fluid layouts, or creating component-level responsive behavior."
-tags: ["design","frontend"]
+description: "Use when implementing responsive CSS layouts: mobile-first breakpoints, container queries, fluid typography, Grid and Flexbox, and responsive images. Covers touch targets, logical properties and common overflow issues."
+tags: ["design","frontend","ui","accessibility"]
 tools: ["monodesign_detect","monodesign_fix"]
 license: MIT
 source: https://github.com/wshobson/agents

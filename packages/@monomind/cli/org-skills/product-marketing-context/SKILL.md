@@ -1,7 +1,7 @@
 ---
 name: product-marketing-context
-description: "When the user wants to create or update their product marketing context document. Also use when the user mentions 'product context,' 'marketing context,' 'set up context,' 'positioning,' 'who is my target audience,' 'describe my product,' 'ICP,' 'ideal customer profile,' or wants to avoid repeating foundational information across marketing tasks."
-tags: ["marketing","product"]
+description: "Use when creating or updating the shared product marketing context doc: positioning, ICP, personas, messaging and verbatim customer language. Stored at .agents/product-marketing.md; auto-drafts from the codebase or interviews section by section; other marketing skills read this file first."
+tags: ["marketing","product","strategy","customer-research"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

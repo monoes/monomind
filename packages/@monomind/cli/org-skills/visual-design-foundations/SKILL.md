@@ -1,7 +1,7 @@
 ---
 name: visual-design-foundations
-description: "Apply typography, color theory, spacing systems, and iconography principles to create cohesive visual designs. Use when establishing design tokens, building style guides, or improving visual hierarchy and consistency."
-tags: ["design"]
+description: "Use when establishing design tokens or a style guide: typography scales, color palettes, 8-point spacing, iconography and visual hierarchy. Includes CSS token examples, accessible contrast and dark mode theming."
+tags: ["design","design-system","ui","accessibility"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette"]
 license: MIT
 source: https://github.com/wshobson/agents

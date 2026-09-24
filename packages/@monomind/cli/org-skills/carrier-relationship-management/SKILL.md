@@ -1,7 +1,7 @@
 ---
 name: carrier-relationship-management
-description: "Codified expertise for managing carrier portfolios, negotiating freight rates, tracking carrier performance, allocating freight, and maintaining strategic carrier relationships. Informed by transportation managers with 15+ years experience. Includes scorecarding frameworks, RFP processes, market intelligence, and compliance vetting."
-tags: ["operations"]
+description: "Use when managing freight carrier portfolios: FMCSA vetting and onboarding, lane RFPs, rate and fuel-surcharge negotiation, scorecards and routing guides. For shipment delays, damages and claims use logistics-exception-management."
+tags: ["operations","supply-chain","strategy"]
 tools: []
 license: Apache-2.0
 source: https://github.com/affaan-m/ECC

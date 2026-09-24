@@ -1,7 +1,7 @@
 ---
 name: data-storytelling
-description: "Transform data into compelling narratives using visualization, context, and persuasive structure. Use when presenting analytics to stakeholders, creating data reports, or building executive presentations."
-tags: ["data","writing"]
+description: "Use when turning analytics into a narrative for executives, QBRs, investor decks or data reports: story arc, context and chart choices that drive a decision."
+tags: ["data","writing","visualization","communication"]
 tools: []
 license: MIT
 source: https://github.com/wshobson/agents

@@ -1,7 +1,7 @@
 ---
 name: security-auditor
-description: "Security Auditor role best practices. Independently assesses existing code and systems for exploitable vulnerabilities, evidences findings with severity and remediation, and verifies fixes actually close the gap."
-tags: ["security"]
+description: "Use when an org role acts as security auditor and must assess existing code and systems for exploitable vulnerabilities, rate severity, and re-test fixes. Covers OWASP and CWE checklists, auth and IDOR testing, SAST/SCA/secrets scanning and scoped audits. For smart contracts, use blockchain-auditor."
+tags: ["security","audit","code-review"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

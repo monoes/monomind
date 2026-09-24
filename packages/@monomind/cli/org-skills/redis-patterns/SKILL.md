@@ -1,7 +1,7 @@
 ---
 name: redis-patterns
-description: "Redis data structure patterns, caching strategies, distributed locks, rate limiting, pub/sub, and connection management for production applications. Use when adding caching, a distributed lock, rate limiting, or pub/sub with Redis, or when key design needs review."
-tags: ["data","backend"]
+description: "Use when adding Redis for caching, distributed locks, rate limiting, sessions, pub/sub or Streams, or tuning it for production. Covers data-structure choice, key design, cache-aside and other patterns, pooling, eviction and clustering."
+tags: ["data","backend","database","performance"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

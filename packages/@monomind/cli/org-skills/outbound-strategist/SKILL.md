@@ -1,7 +1,7 @@
 ---
 name: outbound-strategist
-description: "Outbound Strategist role best practices. Designs and runs targeted outbound prospecting motions — signal-based targeting, multichannel sequences, and messaging that earns replies from cold or lightly-warmed accounts."
-tags: ["sales"]
+description: "Use when an org role acts as outbound strategist and must run cold prospecting: signal-based targeting, researched personalization and multichannel sequences. Covers reply-rate analysis, A/B testing and deliverability."
+tags: ["sales","email","growth"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

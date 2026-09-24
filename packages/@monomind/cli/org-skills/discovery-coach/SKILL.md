@@ -1,7 +1,7 @@
 ---
 name: discovery-coach
-description: "Discovery Coach role best practices. Sharpens how reps run discovery calls — the questions they ask, the depth they go to, and the qualification rigor — since discovery quality predicts win rate more than almost any other sales skill."
-tags: ["sales"]
+description: "Use when an org role acts as discovery coach and must improve reps' sales discovery calls with SPIN, MEDDIC or BANT qualification and call scorecards. Sales discovery, not product discovery (see product-discovery)."
+tags: ["sales","customer-research","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

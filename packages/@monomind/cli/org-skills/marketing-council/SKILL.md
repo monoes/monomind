@@ -1,7 +1,7 @@
 ---
 name: marketing-council
-description: "When the user wants multiple expert perspectives on a marketing question — a simulated board of advisors staffed by legendary marketers (Seth Godin, David Ogilvy, Eugene Schwartz, April Dunford, Rory Sutherland, Alex Hormozi, Byron Sharp, and more)."
-tags: ["marketing","leadership"]
+description: "Use when you want several expert takes on a marketing decision from a simulated board of named marketers such as Godin, Ogilvy, Schwartz, Dunford and Hormozi. Persona simulation grounded in their published frameworks, with quick-take, council and full-council modes."
+tags: ["marketing","leadership","strategy"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

@@ -1,7 +1,7 @@
 ---
 name: infrastructure
-description: "Infrastructure role best practices. Designs and operates the underlying systems (compute, networking, storage, CI/CD) that everything else runs on — reliability and reproducibility over feature velocity."
-tags: ["devops"]
+description: "Use when an org role acts as infrastructure engineer and must design and operate compute, networking, storage and CI/CD as reproducible infrastructure as code. Covers Terraform or Pulumi plan/apply review, well-architected trade-offs, right-sizing and monitoring before incidents."
+tags: ["devops","cloud","terraform","reliability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

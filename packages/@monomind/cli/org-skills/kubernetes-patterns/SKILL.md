@@ -1,7 +1,7 @@
 ---
 name: kubernetes-patterns
-description: "Kubernetes workload patterns, resource management, RBAC, probes, autoscaling, ConfigMap/Secret handling, and kubectl debugging for production-grade deployments. Use when writing or reviewing Kubernetes manifests, or debugging probes, RBAC, autoscaling, or resource limits."
-tags: ["devops"]
+description: "Use when writing or reviewing Kubernetes manifests, or debugging CrashLoopBackOff, probes, RBAC, HPA or resource limits, with copy-paste YAML and kubectl. A pattern catalogue; for Helm, operators, service mesh, GitOps or multi-cluster use kubernetes-specialist."
+tags: ["devops","kubernetes","debug"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

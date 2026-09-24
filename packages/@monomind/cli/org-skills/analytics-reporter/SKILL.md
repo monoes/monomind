@@ -1,7 +1,7 @@
 ---
 name: analytics-reporter
-description: "Analytics Reporter role best practices. Turns raw metrics and data into focused, decision-ready reports and dashboards — not just numbers, but numbers with meaning and a recommended next step."
-tags: ["data"]
+description: "Use when an org role acts as analytics reporter and must turn raw metrics into decision-ready reports and dashboards with a recommended next step. Stresses 5-10 KPIs, trends vs target, consistent metric definitions and audience-tailored depth."
+tags: ["data","analytics","visualization","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

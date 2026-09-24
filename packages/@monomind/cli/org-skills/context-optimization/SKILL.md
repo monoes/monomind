@@ -1,7 +1,7 @@
 ---
 name: context-optimization
-description: "This skill should be used for improving context efficiency: context budgeting, observation masking, prefix or KV-cache strategy, partitioning, token-cost reduction, retrieval scoping, and extending effective context capacity without lowering answer quality."
-tags: ["ai-ml"]
+description: "Use when cutting LLM agent token cost or extending effective context: KV-cache prefix ordering, observation masking, compaction and sub-agent partitioning. For structured handoff summaries of a long session use context-compression; for diagnosing failures use context-degradation."
+tags: ["ai-ml","llm","agents","performance"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

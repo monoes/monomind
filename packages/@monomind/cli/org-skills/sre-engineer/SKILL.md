@@ -1,7 +1,7 @@
 ---
 name: sre-engineer
-description: "Defines service level objectives, creates error budget policies, designs incident response procedures, develops capacity models, and produces monitoring configurations and automation scripts for production systems. Use when defining SLIs/SLOs, managing error budgets, building reliable systems at scale, incident management, chaos engineering, toil reduction, or capacity planning."
-tags: ["devops","operations"]
+description: "Use when producing SRE artifacts: SLI/SLO definitions, error budget policies, golden-signal alerts, incident runbooks, capacity models, chaos tests. Includes blameless postmortems and toil-reduction automation. For the org role persona see sre."
+tags: ["devops","operations","reliability","observability","incident"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

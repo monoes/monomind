@@ -1,7 +1,7 @@
 ---
 name: deployment-patterns
-description: "Deployment workflows, CI/CD pipeline patterns, Docker containerization, health checks, rollback strategies, and production readiness checklists for web applications. Use when setting up CI/CD, containerizing an app, or checking production readiness before a release."
-tags: ["devops"]
+description: "Use when setting up CI/CD and deployment for a web app: rolling, blue-green or canary rollout, Docker images, health checks, rollback and readiness checklists. Hands-on patterns; for architecting multi-stage pipelines with approval and security gates use deployment-pipeline-design."
+tags: ["devops","deploy","docker"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

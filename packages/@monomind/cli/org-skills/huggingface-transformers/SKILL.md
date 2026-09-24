@@ -1,7 +1,7 @@
 ---
 name: huggingface-transformers
-description: "Hugging Face Transformers for loading Hub models, running pipeline inference, text generation, and Trainer fine-tuning on NLP, vision, audio, and multimodal tasks. Use when working with AutoModel, pipelines, tokenizers, or TrainingArguments—not for general ML outside the Transformers library."
-tags: ["ai-ml","engineering"]
+description: "Use when working with the Hugging Face Transformers library in Python: loading Hub models, pipelines, tokenizers, text generation and Trainer fine-tuning. Covers NLP, vision, audio and multimodal tasks on Transformers v5 (PyTorch-only), Hub auth and caching; not for general ML outside Transformers."
+tags: ["ai-ml","engineering","python","llm"]
 tools: []
 license: Apache-2.0
 source: https://github.com/K-Dense-AI/scientific-agent-skills

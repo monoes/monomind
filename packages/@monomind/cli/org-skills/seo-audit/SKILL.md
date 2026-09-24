@@ -1,7 +1,7 @@
 ---
 name: seo-audit
-description: "When the user wants to audit, review, or diagnose SEO issues on their site."
-tags: ["marketing","frontend"]
+description: "Use when auditing or diagnosing SEO issues on a site to produce prioritized findings on crawlability, indexation, technical, on-page and content quality. Includes a caveat that curl and web_fetch miss JS-injected schema markup. For implementing fixes use seo; for AI answer engines use ai-seo."
+tags: ["marketing","frontend","seo","audit"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

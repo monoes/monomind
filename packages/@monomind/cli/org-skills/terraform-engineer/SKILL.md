@@ -1,7 +1,7 @@
 ---
 name: terraform-engineer
-description: "Use when implementing infrastructure as code with Terraform across AWS, Azure, or GCP. Invoke for module development (create reusable modules, manage module versioning), state management (migrate backends, import existing resources, resolve state conflicts), provider configuration, multi-environment workflows, and infrastructure testing."
-tags: ["devops"]
+description: "Use when writing or maintaining Terraform on AWS, Azure or GCP: reusable modules, remote state and backend migration, imports and multi-env workflows. Enforces fmt, validate, tflint and a reviewed plan before apply."
+tags: ["devops","terraform","cloud"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

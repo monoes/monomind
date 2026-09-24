@@ -1,7 +1,7 @@
 ---
 name: paid-ads
-description: "When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms."
-tags: ["marketing"]
+description: "Use when planning, auditing or scaling paid ad campaigns on Google Ads, Meta, LinkedIn, X or TikTok: structure, targeting, budgets, bidding and kill rules. Includes payback math, conversion tracking and account-audit checklists. For writing the ad copy and variations themselves, use ad-creative."
+tags: ["marketing","ads","growth","analytics"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

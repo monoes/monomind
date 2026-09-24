@@ -1,7 +1,7 @@
 ---
 name: experiment-tracker
-description: "Experiment Tracker role best practices. Records and organizes every experiment (ML training run, A/B test, feature trial) — parameters, code version, data, environment, and results — so outcomes are reproducible, comparable, and auditable."
-tags: ["ai-ml","engineering"]
+description: "Use when an org role acts as experiment tracker and must log every ML run or A/B test with params, code, data and environment so results are reproducible. Covers MLflow or W&B style tracking and decision records; for designing product A/B tests use experiment-designer."
+tags: ["ai-ml","engineering","experimentation","evaluation"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

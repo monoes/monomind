@@ -1,7 +1,7 @@
 ---
 name: agent-evaluation
-description: "This skill should be used when building agent evaluation systems: deterministic checks, regression suites, multi-dimensional rubrics, quality gates, production monitoring, baseline comparison, and outcome measurement for agent pipelines."
-tags: ["ai-ml","testing"]
+description: "Use when building evaluation for agent systems: deterministic checks, regression suites, multi-dimensional rubrics, quality gates and production monitoring. Judges outcomes, not paths; for designing the LLM judge itself use advanced-evaluation."
+tags: ["ai-ml","testing","agents","evaluation"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

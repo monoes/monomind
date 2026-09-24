@@ -1,7 +1,7 @@
 ---
 name: architecture-designer
-description: "Use when designing new high-level system architecture, reviewing existing designs, or making architectural decisions. Invoke to create architecture diagrams, write Architecture Decision Records (ADRs), evaluate technology trade-offs, design component interactions, and plan for scalability."
-tags: ["engineering"]
+description: "Use when designing or reviewing high-level system architecture: pattern choice, monolith vs microservices, database selection, NFRs, diagrams and trade-offs. Persona that also writes ADRs; for layering patterns inside one service see architecture-patterns."
+tags: ["engineering","architecture","planning"]
 tools: ["monograph_query","monograph_context","monograph_suggest"]
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

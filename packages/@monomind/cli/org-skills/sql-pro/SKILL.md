@@ -1,7 +1,7 @@
 ---
 name: sql-pro
-description: "Optimizes SQL queries, designs database schemas, and troubleshoots performance issues. Use when a user asks why their query is slow, needs help writing complex joins or aggregations, mentions database performance issues, or wants to design or migrate a schema."
-tags: ["engineering","data","backend"]
+description: "Use when a SQL query is slow or you need complex joins, CTEs, window functions or aggregations, or to design or migrate a schema. Covers EXPLAIN ANALYZE, indexing, normalization and dialect differences across PostgreSQL, MySQL and SQL Server."
+tags: ["engineering","data","backend","sql","database"]
 tools: []
 license: MIT
 source: https://github.com/Jeffallan/claude-skills

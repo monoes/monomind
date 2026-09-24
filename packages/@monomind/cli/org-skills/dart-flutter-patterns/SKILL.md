@@ -1,7 +1,7 @@
 ---
 name: dart-flutter-patterns
-description: "Production-ready Dart and Flutter patterns covering null safety, immutable state, async composition, widget architecture, popular state management frameworks (BLoC, Riverpod, Provider), GoRouter navigation, Dio networking, Freezed code generation, and clean architecture. Use when writing or reviewing Dart and Flutter code — state, widgets, navigation, networking, or architecture."
-tags: ["mobile"]
+description: "Use when writing or reviewing Dart and Flutter code with copy-paste idioms: null safety, sealed state, BLoC or Riverpod, GoRouter guards, Dio and widget tests. A pattern catalogue; for building a Flutter app end to end with reference files use flutter-expert."
+tags: ["mobile","flutter","coding-standards"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

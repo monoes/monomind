@@ -1,7 +1,7 @@
 ---
 name: soc2-compliance
-description: "Use when the user asks to prepare for SOC 2 audits, map Trust Service Criteria, build control matrices, collect audit evidence, perform gap analysis, or assess SOC 2 Type I vs Type II readiness."
-tags: ["legal","security"]
+description: "Use when preparing a SaaS company for a SOC 2 Type I or Type II audit: Trust Service Criteria mapping, control matrices, gap analysis and evidence collection. Also covers readiness checklists, vendor management and continuous compliance. Framework playbook; for the auditor org role across SOC 2, ISO 27001 and HIPAA see compliance-auditor."
+tags: ["legal","security","compliance","audit"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

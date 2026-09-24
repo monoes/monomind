@@ -1,7 +1,7 @@
 ---
 name: logistics-exception-management
-description: "Codified expertise for handling freight exceptions, shipment delays, damages, losses, and carrier disputes. Informed by logistics professionals with 15+ years operational experience. Includes escalation protocols, carrier-specific behaviors, claims procedures, and judgment frameworks. Use when handling shipping exceptions, freight claims, delivery issues, or carrier disputes."
-tags: ["operations"]
+description: "Use when handling freight exceptions: delays, damage, loss, shortages, refusals, carrier disputes and freight claims across LTL, FTL, parcel, ocean and air. Includes escalation tiers, filing deadlines and carrier behavior by mode."
+tags: ["operations","supply-chain","communication"]
 tools: []
 license: Apache-2.0
 source: https://github.com/affaan-m/ECC

@@ -1,7 +1,7 @@
 ---
 name: cto-advisor
-description: "Technical leadership guidance for engineering teams, architecture decisions, and technology strategy. Use when assessing technical debt, scaling engineering teams, evaluating technologies, making architecture decisions, establishing engineering metrics, or when user mentions CTO, tech debt, technical debt, team scaling, architecture decisions, technology evaluation, engineering metrics, DORA..."
-tags: ["leadership","engineering"]
+description: "Use when making CTO-level decisions: technology strategy, tech debt assessment, build vs buy, architecture governance, DORA metrics and team scaling. Includes tech debt and team scaling calculator scripts."
+tags: ["leadership","engineering","strategy","architecture"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

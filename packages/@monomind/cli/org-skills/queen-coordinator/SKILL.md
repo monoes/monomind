@@ -1,7 +1,7 @@
 ---
 name: queen-coordinator
-description: "Queen Coordinator role best practices. Same shape as a lead coordinator — decompose, delegate, hold authoritative state, decide when done — but scoped to a single bounded session with workers that report directly up to it and nowhere else."
-tags: ["operations"]
+description: "Use when an org role acts as queen coordinator and must decompose, delegate and reconcile work within one bounded session whose workers report only to it. Covers authoritative session state, capability routing, acceptance gates, drift correction and not overclaiming consensus. For a multi-level manager/worker tree, use hierarchical-coord."
+tags: ["operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: focused-fix
-description: "Use when the user asks to fix, debug, or make a specific feature/module/area work end-to-end. Triggers: 'make X work', 'fix the Y feature', 'the Z module is broken', 'focus on [area]'. Not for quick single-bug fixes — this is for systematic deep-dive repair across all files and dependencies."
-tags: ["engineering"]
+description: "Use when a whole feature or module is broken and must work end to end: scope it, trace every dependency, diagnose all issues, then fix and verify. Triggers: 'make X work', 'fix the Y feature', 'the Z module is broken'; for a single bug use systematic-debugging."
+tags: ["engineering","debug","testing"]
 tools: ["monograph_query","monograph_context","monograph_impact","monograph_suggest"]
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills

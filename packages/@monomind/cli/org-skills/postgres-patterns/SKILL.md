@@ -1,7 +1,7 @@
 ---
 name: postgres-patterns
-description: "PostgreSQL database patterns for query optimization, schema design, indexing, and security. Based on Supabase best practices. Use when designing PostgreSQL schemas, indexes, or RLS policies, or when a query is too slow."
-tags: ["data","backend"]
+description: "Use when writing PostgreSQL queries or migrations, fixing a slow query, or adding indexes, RLS policies or connection pooling, as a quick cheat sheet. Covers index types, composite and partial indexes, data types, UPSERT and Supabase-style RLS. For full schema design rules, use postgresql-table-design."
+tags: ["data","backend","postgres","sql","performance"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

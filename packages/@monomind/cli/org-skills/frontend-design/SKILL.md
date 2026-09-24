@@ -1,7 +1,7 @@
 ---
 name: frontend-design
-description: "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults."
-tags: ["frontend","design"]
+description: "Use when building or reshaping a web UI that needs a distinctive, subject-grounded visual identity: typography, color tokens, layout and restrained motion. Plans, critiques and avoids generated-page defaults; for ECC's lighter direction checklist use frontend-design-direction."
+tags: ["frontend","design","ui"]
 tools: ["monodesign_detect","monodesign_fix","monodesign_palette","monograph_query"]
 license: Apache-2.0
 source: https://github.com/anthropics/skills

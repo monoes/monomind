@@ -1,7 +1,7 @@
 ---
 name: quorum-manager
-description: "Quorum Manager role best practices. Runs vote tallies over participating agents' votes and decides whether a proposal has met an explicit threshold — this is vote counting, not distributed consensus with leader election or fault tolerance."
-tags: ["operations"]
+description: "Org role guidance for a quorum manager: tally agent votes against an explicit majority, supermajority, unanimous or custom threshold and record the decision. Vote counting, not distributed consensus; covers roster denominators, double-vote checks, partial participation and signed audit records."
+tags: ["operations","coordination","agents"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

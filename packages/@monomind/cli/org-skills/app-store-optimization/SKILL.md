@@ -1,7 +1,7 @@
 ---
 name: app-store-optimization
-description: "When the user wants to audit or optimize an App Store or Google Play listing. Also use when the user mentions 'ASO audit,' 'app store optimization,' 'optimize my app listing,' 'improve app visibility,' 'app store ranking,' 'audit my listing,' 'why aren't people downloading my app,' 'improve my app conversion,' 'keyword optimization for app,' or 'compare my app to competitors.'"
-tags: ["marketing","mobile"]
+description: "Use when auditing or optimizing an Apple App Store or Google Play listing (ASO): title, subtitle, keywords, screenshots, ratings and competitor comparison. Fetches the live listing, scores it and returns a prioritized action plan."
+tags: ["marketing","mobile","seo","audit"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

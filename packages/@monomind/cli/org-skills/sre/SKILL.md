@@ -1,7 +1,7 @@
 ---
 name: sre
-description: "SRE role best practices. Treat reliability as a measurable, budgeted feature — define SLOs that reflect real user experience, build observability that answers questions before they're asked, and automate away toil."
-tags: ["devops"]
+description: "Use when an org role acts as SRE and must make reliability a budgeted feature: user-facing SLOs, error-budget policy, observability and toil automation. Role guidance; for SLO definitions, runbooks and monitoring configs produced as artifacts see sre-engineer."
+tags: ["devops","reliability","observability"]
 tools: []
 license: Apache-2.0
 source: https://github.com/monoes/monomind

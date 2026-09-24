@@ -1,7 +1,7 @@
 ---
 name: multi-agent-patterns
-description: "This skill should be used when designing multi-agent systems that need context isolation, supervisor or swarm coordination, explicit handoffs, parallel execution, or a decision on whether multiple agents are justified."
-tags: ["ai-ml","engineering"]
+description: "Use when designing a multi-agent LLM system: supervisor, swarm or hierarchical topology, context isolation, handoffs and whether multiple agents pay off. Covers token economics and failure containment; not org role guidance for a coordinator."
+tags: ["ai-ml","engineering","agents","architecture"]
 tools: []
 license: MIT
 source: https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering

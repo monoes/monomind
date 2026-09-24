@@ -1,7 +1,7 @@
 ---
 name: workflow-automation
-description: "Workflow Automation role best practices. Build and maintain the CI/CD workflow definitions themselves (GitHub Actions or equivalent) — triggers, jobs, matrices, caching — so pipelines are fast, reliable, and self-explanatory."
-tags: ["engineering","devops"]
+description: "Org role guidance for workflow automation: build and maintain CI/CD definitions in GitHub Actions or equivalent: triggers, jobs, matrices, caching. Covers path filters, dependency caching, parallel jobs, timeouts and fail-fast ordering."
+tags: ["engineering","devops","deploy"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: security-architect
-description: "Security Architect role best practices. Designs security into systems before they're built — threat models, trust boundaries, zero-trust architecture, and authn/authz patterns — so vulnerabilities never get a chance to ship."
-tags: ["security"]
+description: "Use when an org role acts as security architect and must design security in before build: threat models, trust boundaries, zero-trust and authn/authz patterns. Covers STRIDE, least privilege, defense in depth, secrets architecture, OIDC and mTLS, and ADRs for security controls."
+tags: ["security","architecture","planning"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

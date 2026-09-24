@@ -1,7 +1,7 @@
 ---
 name: python-patterns
-description: "Pythonic idioms, PEP 8 standards, type hints, and best practices for building robust, efficient, and maintainable Python applications. Use when writing or reviewing Python code and idiomatic structure, typing, or PEP 8 is in question."
-tags: ["engineering","backend"]
+description: "Use when writing or reviewing Python code and the question is idiom and style: PEP 8, type hints, readability, explicit design and package layout. A catalogue of Pythonic patterns with good vs bad examples. For building a typed async app end to end use python-pro; for pytest use python-testing."
+tags: ["engineering","backend","python","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

@@ -1,7 +1,7 @@
 ---
 name: scientific-thinking-literature-review
-description: "Systematic literature-review workflow for academic, biomedical, technical, and scientific topics, including search planning, source screening, synthesis, citation checks, and evidence logging. Use when the task is to find, screen, synthesize, and cite a body of academic or technical literature."
-tags: ["research","science"]
+description: "Use when finding, screening, synthesizing and citing a body of academic or technical literature as a narrative, scoping or systematic review or meta-analysis. Covers question framing with PICO, search planning, screening, citation checks and evidence logs."
+tags: ["research","science","writing"]
 tools: []
 license: MIT
 source: https://github.com/affaan-m/ECC

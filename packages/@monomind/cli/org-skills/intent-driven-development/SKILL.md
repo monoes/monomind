@@ -1,7 +1,7 @@
 ---
 name: intent-driven-development
-description: "Turn ambiguous or high-impact product and engineering changes into scoped, verifiable acceptance criteria before or alongside implementation. Use when a user asks to clarify a feature, define acceptance criteria, de-risk a security/data/migration/integration change, prepare implementation requirements for another agent, or make a complex request testable."
-tags: ["engineering","product"]
+description: "Use when a feature or high-risk change (auth, data, migration, external API) needs scoped, verifiable acceptance criteria before or alongside implementation. Produces Quick Capture or Full Acceptance Briefs with AC-NNN criteria and handles revisions; lighter-weight and risk-scaled compared with spec-driven-workflow."
+tags: ["engineering","product","planning"]
 tools: ["monograph_suggest"]
 license: MIT
 source: https://github.com/affaan-m/ECC

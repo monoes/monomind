@@ -1,7 +1,7 @@
 ---
 name: tester
-description: "Tester role best practices. Builds confidence that code works — through the right mix of unit, integration, and end-to-end tests targeting real risk, not just coverage numbers."
-tags: ["engineering"]
+description: "Org role guidance for a tester: build confidence code works with the right mix of unit, integration and end-to-end tests aimed at real risk. Covers the test pyramid, edge cases, Arrange-Act-Assert, mocking dependencies and bug-reproducing tests."
+tags: ["engineering","testing","coding-standards"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

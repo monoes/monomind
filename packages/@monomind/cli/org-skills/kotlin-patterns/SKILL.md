@@ -1,7 +1,7 @@
 ---
 name: kotlin-patterns
-description: "Idiomatic Kotlin patterns, best practices, and conventions for building robust, efficient, and maintainable Kotlin applications with coroutines, null safety, and DSL builders. Use when writing or reviewing Kotlin code and idiomatic structure or null safety is in question."
-tags: ["engineering","mobile"]
+description: "Use when writing or reviewing Kotlin code for idioms: null safety, immutability, sealed classes, coroutines, extension functions and DSL builders. A catalogue of idioms; for end-to-end KMP, Compose or Ktor work use kotlin-specialist."
+tags: ["engineering","mobile","kotlin","coding-standards"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
 source: https://github.com/affaan-m/ECC

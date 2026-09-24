@@ -1,7 +1,7 @@
 ---
 name: copywriting
-description: "When the user wants to write, rewrite, or improve marketing copy for any page — including homepage, landing pages, pricing pages, feature pages, about pages, or product pages."
-tags: ["marketing","writing"]
+description: "Use when writing or rewriting conversion copy for a homepage, landing, pricing, feature, about or product page. Covers page purpose, audience, benefits over features and style rules; for editing existing copy use copy-editing, for conversion audits use page-cro."
+tags: ["marketing","writing","copywriting","cro"]
 tools: []
 license: MIT
 source: https://github.com/coreyhaines31/marketingskills

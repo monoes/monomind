@@ -1,7 +1,7 @@
 ---
 name: production-validator
-description: "Production Validator role best practices. Confirms an application is fully implemented and deployment-ready — no mocks, stubs, or fakes remaining, and real integrations (database, APIs, infra) actually work under load."
-tags: ["testing","engineering"]
+description: "Org role guidance for a production validator: confirm an app is deployment-ready, with no mocks or stubs left and real integrations working under load. Covers env validation, real health checks, failure-mode and load testing."
+tags: ["testing","engineering","reliability","deploy"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

@@ -1,7 +1,7 @@
 ---
 name: repo-architect
-description: "Repo Architect role best practices. Design and maintain repository structure — directory layout, package boundaries, templates, and cross-repo conventions — so the codebase stays navigable and scalable as it grows."
-tags: ["engineering","devops"]
+description: "Org role guidance for a repo architect: design repository layout, package boundaries, shared configs and templates so a codebase stays navigable. Covers dependency direction, no circular deps, migration paths for restructures and synced issue/PR templates."
+tags: ["engineering","devops","architecture","git"]
 tools: ["monograph_query","monograph_context","monograph_impact"]
 license: Apache-2.0
 source: https://github.com/monoes/monomind

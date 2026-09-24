@@ -1,7 +1,7 @@
 ---
 name: product-discovery
-description: "Use when validating product opportunities, mapping assumptions, planning discovery sprints, or testing problem-solution fit before committing delivery resources."
-tags: ["product","research"]
+description: "Use when validating product opportunities before building: Opportunity Solution Trees, assumption mapping, validation interviews and discovery sprints. Includes an assumption-mapper script and proceed, pivot or stop decisions."
+tags: ["product","research","customer-research","experimentation"]
 tools: []
 license: MIT
 source: https://github.com/alirezarezvani/claude-skills
