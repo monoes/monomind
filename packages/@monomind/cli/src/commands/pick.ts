@@ -9,15 +9,22 @@ import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const USAGE =
-  'usage: monomind pick -t "<task>" [--agents | --skills] [--categories "a b"] [--top N] [--json]';
+  'usage: monomind pick -t "<task>" [--agents | --skills] [--categories "a b"] [--top N] [--min-confidence P] [--json]';
 
-function show(label: string, list: RankedList, provider?: string): void {
-  console.log(`${label} (${list.method === 'jev' && provider ? `jev: ${provider}` : list.method})`);
+/** Agents print their spawnable name (the id is the registry slug). */
+function show(
+  label: string,
+  list: RankedList,
+  provider: string | undefined,
+  byName: boolean,
+): void {
+  const how = list.method === 'jev' && provider ? `jev: ${provider}` : list.method;
+  console.log(`${label} (${how}${list.lowConfidence ? ', low confidence' : ''})`);
   if (list.ranked.length === 0) console.log('  (no match)');
   for (const e of list.ranked) {
     const p = e.probability !== undefined ? ` ${e.probability.toFixed(2)}` : '';
     const d = e.description ? ` — ${e.description.replace(/\s+/g, ' ').slice(0, 100)}` : '';
-    console.log(`  ${output.highlight(e.id)}${p}${d}`);
+    console.log(`  ${output.highlight(byName ? (e.name ?? e.id) : e.id)}${p}${d}`);
   }
 }
 
@@ -26,6 +33,13 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
   if (!task) {
     output.printError(USAGE);
     return { success: false, exitCode: 1, message: USAGE };
+  }
+  const rawFloor = ctx.flags['min-confidence'];
+  const minConfidence = rawFloor === undefined ? undefined : Number(rawFloor);
+  if (minConfidence !== undefined && !(minConfidence > 0 && minConfidence <= 1)) {
+    const msg = `--min-confidence must be a number in (0, 1]\n${USAGE}`;
+    output.printError(msg);
+    return { success: false, exitCode: 1, message: msg };
   }
   const root = ctx.cwd || process.cwd();
   const onlyAgents = ctx.flags.agents === true && ctx.flags.skills !== true;
@@ -42,6 +56,7 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
       );
   const skills = onlyAgents ? [] : taskSkillCatalog(root);
   const result = await rankForTask(task, { agents, skills }, top, {
+    minConfidence,
     onError: (err) =>
       process.stderr.write(
         `[pick] decision model "${err.provider}" unavailable (${err.message})\n`,
@@ -51,8 +66,8 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
     console.log(JSON.stringify(result, null, 2));
     return { success: true, data: result };
   }
-  if (!onlySkills) show('Agents', result.agents, result.provider);
-  if (!onlyAgents) show('Skills', result.skills, result.provider);
+  if (!onlySkills) show('Agents', result.agents, result.provider, true);
+  if (!onlyAgents) show('Skills', result.skills, result.provider, false);
   return { success: true, data: result };
 }
 
@@ -69,6 +84,12 @@ export const pickCommand: Command = {
       type: 'string',
     },
     { name: 'top', description: 'Entries per list (1-50)', type: 'number', default: 5 },
+    {
+      name: 'min-confidence',
+      description:
+        'Discard a decision-model answer below this probability (default MONOMIND_JEV_PICK_MIN_CONFIDENCE or 0.2)',
+      type: 'number',
+    },
     { name: 'json', description: 'Output JSON', type: 'boolean' },
   ],
   examples: [
