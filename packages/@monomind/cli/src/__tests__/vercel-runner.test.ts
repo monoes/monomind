@@ -118,12 +118,12 @@ describe('VercelAgentRunner error handling', () => {
 // instant a role tries to use one. Source-level check (not a live import)
 // because 'ai' isn't mocked in this test env — see file header comment.
 describe('VercelAgentRunner tool schema wrapping', () => {
-  it('wraps OrgToolDef shape objects in z.object() before passing to ai-sdk tool()', () => {
+  it('wraps OrgToolDef shape objects in a zod object (toolInputSchema) before passing to ai-sdk tool()', () => {
     const src = readFileSync(
       fileURLToPath(new URL('../orgrt/vercel-runner.ts', import.meta.url)),
       'utf8',
     );
-    expect(src).toMatch(/inputSchema:\s*z\.object\(t\.schema\)/);
+    expect(src).toMatch(/inputSchema:\s*toolInputSchema\(t\)/);
   });
 });
 

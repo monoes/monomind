@@ -433,6 +433,8 @@ Roles can declare `tool_providers[]` — stdio MCP servers whose tools are expos
 - `timeout_ms`: Per-call timeout (default: 660000)
 - `idle_ms`: Process exits after this long without calls (default: 300000)
 
+**Arguments:** each tool's `inputSchema` validates the role's arguments on every runtime. Keys listed under `properties` are type-checked. Unlisted keys reach `tools/call` unless the top-level schema sets `additionalProperties: false`, as JSON Schema allows them by default. When `additionalProperties` is itself a schema, unlisted keys are checked against it.
+
 **Lifecycle** ([`tool-providers.ts → ToolProviderHub`](packages/@monomind/cli/src/orgrt/tool-providers.ts#ToolProviderHub)):
 - Tool list fetched once per provider config (hash of command, args, env, allow) by a short-lived process, cached for the daemon's lifetime
 - Provider process spawned lazily on first call, reused across calls, exits after `idle_ms` idle

@@ -17,6 +17,13 @@
 import { z } from 'zod';
 import type { OrgToolDef } from './agent-runner.js';
 
+/** The zod object that validates `tool`'s arguments: its shape, keeping
+ *  unlisted keys when the tool declares a catchall. */
+export function toolInputSchema(tool: OrgToolDef): z.ZodObject<any> {
+  const o = z.object(tool.schema);
+  return tool.catchall ? o.catchall(tool.catchall) : o;
+}
+
 /** Fenced block the model uses to call a tool (see buildToolProtocol). */
 export const TOOL_CALL_RE = /```tool_call\s*\n([\s\S]*?)```/g;
 
@@ -100,10 +107,9 @@ export function buildToolProtocol(tools: OrgToolDef[]): string {
     '',
   ];
   for (const t of tools) {
-    const params = Object.entries(t.schema)
-      .map(([k, v]) => `${k}: ${describeZod(v)}`)
-      .join(', ');
-    lines.push(`- **${t.name}**(${params}) — ${t.description}`);
+    const params = Object.entries(t.schema).map(([k, v]) => `${k}: ${describeZod(v)}`);
+    if (t.catchall) params.push('...other keys');
+    lines.push(`- **${t.name}**(${params.join(', ')}) — ${t.description}`);
   }
   lines.push('');
   return lines.join('\n');
@@ -201,7 +207,7 @@ export async function executeToolCall(
   const tool = tools.find((t) => t.name === call.name);
   if (!tool)
     return `ERROR: unknown tool "${call.name}". Available: ${tools.map((t) => t.name).join(', ')}`;
-  const parsed = z.object(tool.schema).safeParse(call.arguments);
+  const parsed = toolInputSchema(tool).safeParse(call.arguments);
   if (!parsed.success) {
     return `ERROR: invalid arguments for ${call.name}: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`;
   }

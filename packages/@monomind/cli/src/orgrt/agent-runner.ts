@@ -22,6 +22,7 @@ import type { z } from 'zod';
 import { maskedCommand } from './authority-mask.js';
 import type { OrgEffortLevel } from './cost-tier.js';
 import { omitAnthropicManagedKeys } from './provider.js';
+import { toolInputSchema } from './tool-fence.js';
 import { toolResultSpillHook } from './tool-spill.js';
 
 /** Launch the Claude Code process inside the authority mask. Same stdio as the
@@ -56,6 +57,10 @@ export interface OrgToolDef {
   /** zod shape object (e.g. { query: z.string() }), NOT a z.object() instance.
    *  Both the Claude SDK's tool() and opencode's tool() consume a shape. */
   schema: Record<string, z.ZodType<any>>;
+  /** Schema for argument keys `schema` does not list. Unset: unlisted keys are
+   *  stripped. Set (a provider tool whose JSON Schema allows
+   *  additionalProperties): they are kept and validated against it. */
+  catchall?: z.ZodType<any>;
   handler: (args: Record<string, unknown>) => Promise<{ text: string }>;
 }
 
@@ -248,10 +253,17 @@ export class ClaudeAgentRunner implements AgentRunner {
     // Wrap each OrgToolDef handler ({ text }) into the Claude SDK's
     // { content: [{ type: 'text', text }] } return shape.
     const sdkTools = args.tools.map((t) =>
-      tool(t.name, t.description, t.schema, async (input: Record<string, unknown>) => {
-        const r = await t.handler(input);
-        return { content: [{ type: 'text' as const, text: r.text }] };
-      }),
+      // A catchall tool needs the full object schema (the MCP server strips
+      // unlisted keys from a bare shape); the SDK accepts either at runtime.
+      tool(
+        t.name,
+        t.description,
+        (t.catchall ? toolInputSchema(t) : t.schema) as typeof t.schema,
+        async (input: Record<string, unknown>) => {
+          const r = await t.handler(input);
+          return { content: [{ type: 'text' as const, text: r.text }] };
+        },
+      ),
     );
     const orgServer = createSdkMcpServer({ name: 'org', version: '1.0.0', tools: sdkTools });
 

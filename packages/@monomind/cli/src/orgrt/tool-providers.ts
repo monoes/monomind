@@ -140,6 +140,15 @@ export function jsonSchemaToZodShape(schema: unknown): Record<string, z.ZodType<
   return shape;
 }
 
+/** Zod schema for the argument keys an object JSON Schema does not list under
+ *  `properties`, or undefined when `additionalProperties: false` forbids them.
+ *  JSON Schema allows extra keys by default, so an absent keyword keeps them. */
+export function jsonSchemaCatchall(schema: unknown): z.ZodType<any> | undefined {
+  const extra = (schema as { additionalProperties?: unknown } | null)?.additionalProperties;
+  if (extra === false) return undefined;
+  return extra && typeof extra === 'object' ? jsonSchemaToZod(extra) : z.unknown();
+}
+
 // ── MCP result mapping ───────────────────────────────────────────────────
 
 /** MCP `tools/call` result → tool text: text parts joined with '\n',
@@ -644,6 +653,7 @@ export class ToolProviderHub {
           name: exposed,
           description: t.description || `Tool "${t.name}" from tool provider ${cfg.name}.`,
           schema: jsonSchemaToZodShape(t.inputSchema),
+          catchall: jsonSchemaCatchall(t.inputSchema),
           handler: async (args) => ({
             text: await proc.call(t.name, args, {
               org: ctx.org,
