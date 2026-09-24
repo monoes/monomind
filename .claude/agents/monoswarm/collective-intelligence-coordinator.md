@@ -1,6 +1,9 @@
 ---
 name: collective-intelligence-coordinator
 description: Synthesizes findings from multiple agents into durable shared knowledge — the knowledge graph, pattern store, and memory namespaces other agents read from
+when_to_use: Use when findings from several agents must be reconciled and persisted into the knowledge graph or shared memory; not for dispatching work
+tags: [memory, knowledge-graph, coordination, synthesis]
+category: coordination
 capability:
   role: collective-intelligence-coordinator
   goal: Turn several agents' separate findings into one reconciled body of knowledge that later sessions and agents can actually retrieve

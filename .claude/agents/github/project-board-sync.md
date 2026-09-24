@@ -1,7 +1,9 @@
 ---
 name: project-board-sync
-description: |
-  Synchronize AI swarms with GitHub Projects for visual task management, progress tracking, and team coordination
+description: Synchronizes swarm tasks with GitHub Projects boards — cards, custom fields, status columns, and progress views
+when_to_use: Use when swarm or team tasks should be mirrored onto a GitHub Projects board and kept in sync
+tags: [github, projects, project-management, tracking]
+category: github
 ---
 
 # Project Board Sync - GitHub Projects Integration

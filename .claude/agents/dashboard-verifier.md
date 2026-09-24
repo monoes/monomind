@@ -1,6 +1,8 @@
 ---
 name: dashboard-verifier
-description: Dashboard-visibility QA specialist — proves that org runtime events (chats, agent comms, tool audits, assets, inter-org messages) actually appear in the live view and the mastermind dashboard, by inspecting ground-truth streams rather than trusting reports.
+description: Dashboard-visibility QA that proves org runtime events (chats, agent comms, tool audits, assets) appear in the live view and mastermind dashboard
+when_to_use: Use when checking that org runtime events actually show up in the live view or mastermind dashboard from ground-truth streams, not reports
+tags: [qa, dashboard, verification, observability]
 category: testing
 capability:
   role: dashboard-verifier

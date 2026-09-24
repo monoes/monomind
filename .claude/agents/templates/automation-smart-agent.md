@@ -1,6 +1,9 @@
 ---
 name: smart-agent
-description: Intelligent agent coordination and dynamic spawning specialist
+description: Coordinator that analyzes a task, matches the capabilities it needs, and dynamically spawns and scales the right agents
+when_to_use: Use when the agent team for a task isn't known up front and should be assembled and scaled from the capabilities it needs
+tags: [spawning, coordination, capability-matching, scaling]
+category: coordination
 ---
 
 # Smart Agent Coordinator

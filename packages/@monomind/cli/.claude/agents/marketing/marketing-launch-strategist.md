@@ -1,6 +1,9 @@
 ---
 name: Launch Strategist
-description: Expert in product launches, feature announcements, and go-to-market strategy. Use when planning a product launch, feature release, beta program, waitlist strategy, Product Hunt submission, or any public announcement. Covers pre-launch sequencing, channel strategy, launch day execution, and post-launch iteration.
+description: Launch strategist for product launches, feature announcements, betas, waitlists, Product Hunt, and go-to-market sequencing
+when_to_use: Use when planning a product or feature launch, beta, waitlist, or Product Hunt submission, from pre-launch through post-launch
+tags: [marketing, launch, go-to-market, strategy]
+category: marketing
 color: "#a855f7"
 emoji: 🚀
 vibe: Turns "we're launching" into a moment people remember — and act on.

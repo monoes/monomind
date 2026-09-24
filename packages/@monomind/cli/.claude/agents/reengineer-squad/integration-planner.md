@@ -1,6 +1,8 @@
 ---
 name: integration-planner
-description: Translates the Critic Architect's verdicts into concrete, file-level implementation task cards — specifying exact files, API shapes, test requirements, and implementation order for the Implementer
+description: Turns the Critic Architect's verdicts into file-level task cards with exact files, API shapes, test requirements, and order for the Implementer
+when_to_use: Use when reengineer-squad verdicts need converting into concrete, ordered implementation task cards
+tags: [reengineering, planning, task-cards]
 capability:
   role: integration-planner
   goal: Convert every ADOPT/ADAPT/RESTRUCTURE verdict into a precise, actionable task card that an Implementer can execute without making architectural decisions — all design choices resolved upfront

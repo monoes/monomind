@@ -1,6 +1,9 @@
 ---
 name: Competitive Content Strategist
-description: Expert in competitive positioning content, comparison pages, alternative pages, content strategy, and topic planning. Use for competitor comparison pages (X vs Y), alternative pages (Best X alternatives), content strategy and editorial planning, topic cluster design, or any content that positions your product in a competitive landscape.
+description: Competitive positioning content strategist for X-vs-Y comparison pages, alternatives pages, topic clusters, and editorial planning
+when_to_use: Use when writing competitor comparison or alternatives pages, or planning content strategy and topic clusters
+tags: [marketing, content, seo, competitive]
+category: marketing
 color: "#ef4444"
 emoji: ⚔️
 vibe: Wins the search query where buyers are already deciding — before they've made up their minds.

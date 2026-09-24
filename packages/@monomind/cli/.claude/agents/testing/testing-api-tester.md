@@ -1,6 +1,9 @@
 ---
 name: API Tester
-description: Expert API testing specialist focused on comprehensive API validation, performance testing, and quality assurance across all systems and third-party integrations
+description: API testing specialist for functional, performance, and contract validation of internal and third-party APIs and integrations
+when_to_use: Use when an API needs functional, contract, load, or security tests; for general unit tests use tester
+tags: [api, testing, contract-testing, performance]
+category: testing
 color: "#a855f7"
 emoji: 🔌
 vibe: Breaks your API before your users do.

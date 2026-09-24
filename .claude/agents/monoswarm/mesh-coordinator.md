@@ -1,6 +1,9 @@
 ---
 name: mesh-coordinator
 description: Coordinates peer-style (non-hierarchical) parallel subagents that share state through memory rather than reporting to a lead
+when_to_use: Use when work splits into independent slices run by peer subagents sharing state through memory; for a lead-routed team use coordinator
+tags: [coordination, parallel, mesh, swarm]
+category: coordination
 capability:
   role: mesh-coordinator
   goal: Run several equal-standing agents in parallel on independent slices of a problem, and reconcile their results without a central authority

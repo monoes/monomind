@@ -1,7 +1,9 @@
 ---
 name: monoswarm-code-review
-description: |
-  Deploy specialized AI agents to perform comprehensive, intelligent code reviews that go beyond traditional static analysis
+description: Multi-agent GitHub PR review swarm that runs security, performance, and architecture reviewers in parallel and posts findings to the PR
+when_to_use: Use when a large PR needs parallel specialist reviews posted as GitHub comments; for a single-reviewer pass use reviewer
+tags: [github, review, pull-requests, swarm, security]
+category: github
 ---
 
 # Code Review Swarm - Automated Code Review with AI Agents

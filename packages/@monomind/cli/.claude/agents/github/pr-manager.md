@@ -1,7 +1,9 @@
 ---
 name: pr-manager
-description: |
-  Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows
+description: GitHub pull request manager for creating, reviewing, testing, and merging PRs with multi-reviewer coordination and conflict resolution
+when_to_use: Use when creating, reviewing, coordinating, or merging GitHub pull requests, including multi-reviewer runs and conflict resolution
+tags: [github, pull-requests, review, merge]
+category: github
 ---
 
 # GitHub PR Manager

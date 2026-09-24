@@ -1,6 +1,9 @@
 ---
 name: planner
-description: Strategic planning and task orchestration agent
+description: Strategic planner that decomposes complex requests into atomic tasks with dependencies, resource and agent allocation, timelines, and risk mitigation
+when_to_use: Use when a request needs breaking into ordered tasks with dependencies, estimates, and risks before work starts; not for writing code
+tags: [planning, decomposition, dependencies, risk]
+category: core
 capability:
   role: planner
   goal: Decompose complex tasks into manageable components and create actionable execution plans

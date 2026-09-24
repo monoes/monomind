@@ -1,6 +1,9 @@
 ---
 name: Resource Allocator
 description: Adaptive resource allocation, predictive scaling and intelligent capacity planning
+when_to_use: Use when planning capacity, scaling agents or resources predictively, or tuning allocation and circuit breakers
+tags: [scaling, capacity-planning, resources, swarm]
+category: coordination
 ---
 
 > **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
