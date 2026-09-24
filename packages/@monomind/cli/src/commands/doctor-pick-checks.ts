@@ -92,12 +92,18 @@ export function readPickAdherence(root: string): PickAdherence {
   };
 }
 
-function registryDuplicates(root: string): number {
+/** What the registry file holds: every agent (deprecated included) and slug clashes. */
+function registryCounts(root: string): { total: number; deprecated: number; duplicates: number } {
   try {
     const reg = JSON.parse(readFileSync(registryPath(root), 'utf-8'));
-    return Array.isArray(reg.duplicates) ? reg.duplicates.length : 0;
+    const agents: { deprecated?: unknown }[] = Array.isArray(reg.agents) ? reg.agents : [];
+    return {
+      total: agents.length,
+      deprecated: agents.filter((a) => a?.deprecated === true).length,
+      duplicates: Array.isArray(reg.duplicates) ? reg.duplicates.length : 0,
+    };
   } catch {
-    return 0;
+    return { total: 0, deprecated: 0, duplicates: 0 };
   }
 }
 
@@ -114,9 +120,15 @@ export async function checkPick(
 
   const registryWasStale = registryIsStale(root);
   const agents = agentCatalog(root); // rebuilds a stale registry
-  const dupes = registryDuplicates(root);
+  // Picks rank the non-deprecated agents; the registry file holds them all.
+  const reg = registryCounts(root);
+  const dupes = reg.duplicates;
+  const hidden = Math.max(0, reg.total - agents.length);
+  const hiddenNote = hidden
+    ? ` (${hidden} hidden: ${hidden === reg.deprecated ? 'deprecated' : `${reg.deprecated} deprecated, ${hidden - reg.deprecated} other`})`
+    : '';
   lines.push(
-    `registry: ${plural(agents.length, 'agent')}, ${plural(dupes, 'duplicate')}, ${registryWasStale ? 'was stale (rebuilt)' : 'fresh'}`,
+    `registry: ${plural(agents.length, 'pickable agent')} of ${reg.total} registered${hiddenNote}, ${plural(dupes, 'duplicate')}, ${registryWasStale ? 'was stale (rebuilt)' : 'fresh'}`,
   );
   if (agents.length === 0) {
     problems.push('no agents to pick from');
@@ -140,8 +152,11 @@ export async function checkPick(
       : indexWasStale
         ? 'was stale (rebuilt)'
         : 'fresh';
+  // The index lists commands and skills separately; picks count a
+  // command/skill pair once, so the two numbers differ.
+  const indexed = index?.skills?.length ?? 0;
   lines.push(
-    `skills: ${skills.length} (${platform} platform, ${org} org, ${user} user), index ${freshness}`,
+    `skills: ${skills.length} pickable (${platform} platform, ${org} org, ${user} user); skill index holds ${indexed} ${indexed === 1 ? 'entry' : 'entries'}, ${freshness}`,
   );
   if (skills.length === 0) {
     problems.push('no skills to pick from');

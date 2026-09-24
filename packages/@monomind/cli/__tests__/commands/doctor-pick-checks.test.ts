@@ -59,12 +59,24 @@ describe('checkPick', () => {
     const r = await checkPick(root, {});
     expect(r.name).toBe('Agent/Skill Picking');
     expect(r.status).toBe('pass');
-    expect(r.message).toMatch(/registry: 1 agent/);
+    expect(r.message).toMatch(/registry: 1 pickable agent of 1 registered/);
     expect(r.message).toMatch(/0 duplicate/);
-    expect(r.message).toMatch(/skills: \d+ \(1 platform, \d+ org, 0 user\)/);
+    expect(r.message).toMatch(/skills: \d+ pickable \(1 platform, \d+ org, 0 user\); skill index holds \d+ entr/);
     expect(r.message).toMatch(/decision model: not configured/);
     expect(r.message).toMatch(/eval: no tests\/pick-eval set/);
     expect(r.message).toMatch(/adherence: no picks logged/);
+  });
+
+  // The registry file holds deprecated agents too; picks hide them, so the
+  // two counts differ and the label must say which one it shows.
+  it('says how many registered agents picks hide', async () => {
+    const root = project();
+    put(
+      join(root, '.claude', 'agents', 'core', 'old-tester.md'),
+      '---\nname: old-tester\nslug: old-tester\ndescription: Old tests\ndeprecated: true\ndeprecatedBy: tester\n---\n',
+    );
+    const r = await checkPick(root, {});
+    expect(r.message).toMatch(/registry: 1 pickable agent of 2 registered \(1 hidden: deprecated\)/);
   });
 
   it('warns when the registry has no agents', async () => {
@@ -73,7 +85,7 @@ describe('checkPick', () => {
     mkdirSync(join(root, '.monomind'));
     const r = await checkPick(root, {});
     expect(r.status).toBe('warn');
-    expect(r.message).toMatch(/registry: 0 agents/);
+    expect(r.message).toMatch(/registry: 0 pickable agents of 0 registered/);
     expect(r.fix).toMatch(/monomind init/);
   });
 
