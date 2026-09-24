@@ -112,4 +112,35 @@ describe('CapabilityManager', () => {
     const saved = JSON.parse(fs.readFileSync(capFile, 'utf-8'));
     expect(saved.active).toContain('documents');
   });
+
+  it('applies the type filter before the limit so one type cannot crowd out another', async () => {
+    const mgr = new CapabilityManager();
+    const docs: CapabilityModule = {
+      ...makeCap('documents', 0.5),
+      search: vi.fn().mockResolvedValue(
+        Array.from({ length: 5 }, (_, i) => ({
+          path: `doc${i}.md`,
+          score: 1,
+          snippet: 'doc',
+          type: 'documents' as const,
+        })),
+      ),
+    };
+    const code: CapabilityModule = {
+      ...makeCap('code', 0.5),
+      search: vi
+        .fn()
+        .mockResolvedValue([{ path: 'a.js', score: 0.5, snippet: 'Function f', type: 'code' as const }]),
+    };
+    mgr.register(docs);
+    mgr.register(code);
+    await mgr.activateFromScan(makeScan(), tmpDir, false);
+
+    // Unfiltered: documents outrank code and fill the limit
+    expect((await mgr.search('f', 3)).every((r) => r.type === 'documents')).toBe(true);
+    // Filtered: code still surfaces, and documents are never queried
+    const filtered = await mgr.search('f', 3, 'code');
+    expect(filtered.map((r) => r.path)).toEqual(['a.js']);
+    expect(docs.search).toHaveBeenCalledTimes(1);
+  });
 });

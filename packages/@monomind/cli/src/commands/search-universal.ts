@@ -204,10 +204,8 @@ export const searchUniversalCommand: Command = {
     }
 
     const limit = (ctx.flags.limit as number) ?? 20;
-    const results = await mgr.search(query, limit);
-
     const typeFilter = ctx.flags.type as CapabilityName | undefined;
-    const filteredResults = typeFilter ? results.filter((r) => r.type === typeFilter) : results;
+    const filteredResults = await mgr.search(query, limit, typeFilter);
 
     const output = formatSearchResults(filteredResults);
     console.log(output);

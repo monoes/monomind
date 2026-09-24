@@ -25,6 +25,9 @@ export const codeCapability: CapabilityModule = {
   name: 'code',
 
   detect(scan: DirectoryScan): number {
+    // A built monograph index is proof there is code to search, even when the
+    // fingerprint predates the code (e.g. the one `init` writes up front).
+    if (scan.root && fs.existsSync(getMonographDbPath(scan.root))) return 1;
     return scan.capabilities.code.confidence;
   },
 
@@ -63,12 +66,13 @@ export const codeCapability: CapabilityModule = {
         const rows = ftsSearch(db, query, limit);
         return rows
           .filter((r) => r.filePath)
-          .map((r) => ({
+          .map((r, idx) => ({
             path: r.filePath as string,
-            // FTS5 rank is <= 0, more negative = better match; flip the sign
-            // so higher score = better, matching CapabilityManager.search()'s
-            // sort order across capabilities.
-            score: -r.rank,
+            // Rows arrive best-first. Raw FTS5 bm25 ranks are tiny on small
+            // indexes (~1e-6), which sank every code hit below the 0.5..1
+            // scores of other capabilities in CapabilityManager.search();
+            // score by position instead, as cap-documents does.
+            score: 1 / (idx + 1),
             snippet:
               r.startLine && r.startLine > 0
                 ? `${r.label} ${r.name} (line ${r.startLine})`

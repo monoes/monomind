@@ -83,9 +83,11 @@ export class CapabilityManager {
     return results;
   }
 
-  async search(query: string, limit = 20): Promise<SearchResult[]> {
+  /** `type` restricts the search to one capability, so others can't crowd it out of `limit`. */
+  async search(query: string, limit = 20, type?: CapabilityName): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
     for (const module of this.active.values()) {
+      if (type && module.name !== type) continue;
       if (module.search) {
         allResults.push(...(await module.search(query, limit)));
       }
