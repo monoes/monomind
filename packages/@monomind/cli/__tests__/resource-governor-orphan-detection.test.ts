@@ -94,6 +94,36 @@ describe('selectOrphanedSdkPids — ownership, not pid-1 names', () => {
     expect(select([claude1, execShell, self, child])).toEqual([]);
   });
 
+  it('reaps a genuine orphan whose pid 1 is a bwrap wrapper bind-mounting claude/monomind paths', () => {
+    // bwrap (the sandbox every org role's actual runtime is confined by)
+    // stays resident as the sandbox's pid 1/subreaper, keeping its own
+    // invocation — including --ro-bind paths that mention "claude" and
+    // "monomind" — as pid 1's cmdline. That must not be mistaken for a live
+    // claude/monomind session: the wrapped command (after bwrap's `--`) is
+    // an unrelated shell, so the orphan should still be reaped.
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd: 'bwrap --ro-bind /home/user/.claude /home/user/.claude --ro-bind /home/user/.monomind /home/user/.monomind --dev /dev -- /bin/sh -c run.sh',
+    };
+    const orphan = { pid: 7000, ppid: 1, pgrp: 6999, sid: 6999, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, orphan])).toEqual([7000]);
+  });
+
+  it('still protects a live claude/monomind session bwrap execs after its bind-mount flags', () => {
+    const bwrap1: ProcEntry = {
+      pid: 1,
+      ppid: 0,
+      pgrp: 1,
+      sid: 1,
+      cmd: 'bwrap --ro-bind /home/user/.claude /home/user/.claude -- node /usr/local/bin/claude',
+    };
+    const child = { pid: 7000, ppid: 1, pgrp: 7000, sid: 7000, cmd: SDK };
+    expect(select([bwrap1, userSystemd, ...invoker, child])).toEqual([]);
+  });
+
   it('keeps a process with a live claude/monomind ancestor further up the chain', () => {
     const daemon = { pid: 5000, ppid: 1500, pgrp: 5000, sid: 5000, cmd: 'node monomind org daemon' };
     const wrapper = { pid: 5100, ppid: 5000, pgrp: 5100, sid: 5100, cmd: 'sh -c run' };

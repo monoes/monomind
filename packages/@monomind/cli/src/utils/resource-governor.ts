@@ -153,6 +153,21 @@ const SDK_CMD_RE = /claude-agent-sdk[\s\S]*--output-format|--output-format[\s\S]
 // A still-running claude/monomind session anywhere up a process's parent
 // chain owns it: Claude Code itself, an SDK process, or a monomind daemon.
 const LIVE_SESSION_RE = /\bclaude\b|monomind/i;
+// bwrap (the sandbox every org role's actual runtime is confined by) keeps
+// the bind-mount arguments it was invoked with in ITS OWN cmdline, e.g.
+// `bwrap --ro-bind /home/user/.claude /home/user/.claude -- <command>`. That
+// substring-matches LIVE_SESSION_RE even though bwrap is not itself a live
+// claude/monomind session — it's sandbox plumbing, and every orphan's parent
+// chain inside the sandbox terminates at this same wrapper. bwrap always
+// separates its own options from the wrapped command with a literal ` -- `,
+// so only the wrapped-command portion (if any) is real evidence of a live
+// session; the bind-mount flags before it are not.
+const BWRAP_RE = /(^|\/)bwrap\b/;
+const liveSessionCmd = (cmd: string): string => {
+  if (!BWRAP_RE.test(cmd)) return cmd;
+  const sep = cmd.indexOf(' -- ');
+  return sep < 0 ? '' : cmd.slice(sep + 4);
+};
 // Fallback-only (no session ids, e.g. macOS `ps`): a parent other than pid 1
 // counts as a subreaper only if it is an init/systemd by name.
 const INIT_SUBREAPER_RE = /(^|\/)systemd( --user)?$|\/sbin\/init|\/lib\/systemd\/systemd/;
@@ -279,7 +294,7 @@ export function selectOrphanedSdkPids(
     if (chain.some((a) => a.pid === selfPid)) continue; // our own descendant
     if (self.sid !== undefined && c.sid === self.sid) continue;
     if (self.pgrp !== undefined && c.pgrp === self.pgrp) continue;
-    if (chain.some((a) => LIVE_SESSION_RE.test(a.cmd))) continue;
+    if (chain.some((a) => LIVE_SESSION_RE.test(liveSessionCmd(a.cmd)))) continue;
     const parent = byPid.get(c.ppid);
     if (!parent) {
       if (c.ppid !== 1) continue;
