@@ -351,7 +351,11 @@ export async function installClaudeCode(): Promise<boolean> {
   try {
     output.writeln();
     output.writeln(output.bold('Installing Claude Code CLI...'));
-    execSync('npm install -g @anthropic-ai/claude-code', { encoding: 'utf8', stdio: 'inherit' });
+    // npm's output goes to stderr: under `doctor --json` stdout is the JSON.
+    execSync('npm install -g @anthropic-ai/claude-code', {
+      encoding: 'utf8',
+      stdio: ['inherit', process.stderr, process.stderr],
+    });
     output.writeln(output.success('Claude Code CLI installed successfully!'));
     return true;
   } catch (error) {

@@ -218,14 +218,15 @@ export class OutputFormatter {
     // Debug only shows in verbose/debug mode
     if (this.verbosity !== 'verbose' && this.verbosity !== 'debug') return;
     const icon = this.color('[DEBUG]', 'gray');
-    this.writeln(`${icon} ${this.dim(message)}`);
+    // stderr, like printInfo: `-v` must not corrupt a --json command's stdout
+    this.writeErrorln(`${icon} ${this.dim(message)}`);
   }
 
   printTrace(message: string): void {
     // Trace only shows in debug mode
     if (this.verbosity !== 'debug') return;
     const icon = this.color('[TRACE]', 'gray', 'dim');
-    this.writeln(`${icon} ${this.dim(message)}`);
+    this.writeErrorln(`${icon} ${this.dim(message)}`);
   }
 
   // ============================================

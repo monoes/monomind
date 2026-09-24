@@ -219,24 +219,26 @@ describe('OutputFormatter', () => {
       expect(errorCaptured.join('')).toContain('information');
     });
 
-    it('printDebug should only output in verbose/debug mode', () => {
+    it('printDebug should only output in verbose/debug mode, to stderr so it never interleaves with --json output', () => {
       out.setVerbosity('normal');
       out.printDebug('debug msg');
-      expect(captured.join('')).not.toContain('debug msg');
+      expect(errorCaptured.join('')).not.toContain('debug msg');
 
       out.setVerbosity('verbose');
       out.printDebug('debug msg');
-      expect(captured.join('')).toContain('debug msg');
+      expect(errorCaptured.join('')).toContain('debug msg');
+      expect(captured.join('')).not.toContain('debug msg');
     });
 
-    it('printTrace should only output in debug mode', () => {
+    it('printTrace should only output in debug mode, to stderr', () => {
       out.setVerbosity('verbose');
       out.printTrace('trace msg');
-      expect(captured.join('')).not.toContain('trace msg');
+      expect(errorCaptured.join('')).not.toContain('trace msg');
 
       out.setVerbosity('debug');
       out.printTrace('trace msg');
-      expect(captured.join('')).toContain('trace msg');
+      expect(errorCaptured.join('')).toContain('trace msg');
+      expect(captured.join('')).not.toContain('trace msg');
     });
   });
 

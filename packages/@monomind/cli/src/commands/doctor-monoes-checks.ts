@@ -385,9 +385,11 @@ export async function fixMonoesTools(): Promise<boolean> {
       // 2min timeout: generous enough for an interactive sudo password prompt
       // (mono-agent's fix uses sudo mv), but still bounded — avoids hanging the
       // whole `doctor --install` run on a stalled brew/curl network call.
+      // stdin stays inherited for that prompt; output goes to stderr, since
+      // under `doctor --json` stdout is the JSON.
       execSync(issue.fixCommand, {
         encoding: 'utf8',
-        stdio: 'inherit',
+        stdio: ['inherit', process.stderr, process.stderr],
         shell: '/bin/bash',
         timeout: 120_000,
       });
