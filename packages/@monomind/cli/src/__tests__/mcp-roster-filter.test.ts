@@ -17,6 +17,8 @@ describe('MCP core-roster filter', () => {
     expect(names.has('memory_kg_search')).toBe(true);
     expect(names.has('monograph_query')).toBe(true);
     expect(names.has('monomind_tool_search')).toBe(true);
+    // The central agent/skill picker (mcp__monomind__pick).
+    expect(names.has('pick')).toBe(true);
 
     // Non-core capabilities are NOT advertised by default.
     expect(names.has('browser_open')).toBe(false);
