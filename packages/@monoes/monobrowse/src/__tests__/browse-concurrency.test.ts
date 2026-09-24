@@ -18,7 +18,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CHROME_EXECUTABLES } from '../browser/types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -100,7 +100,51 @@ afterEach(async () => {
   }
 });
 
+/**
+ * Start Chrome once, outside any trial, and let it finish. A runner's first
+ * Chrome start pays for paging the binary and its libraries in and building
+ * the font cache; two of them at once in trial 1 took longer than `open`'s
+ * 10 s CDP wait on CI, while every later trial passed. `--dump-dom` exits on
+ * its own once the page loads, so this has no timeout of `open`'s to beat.
+ */
+async function warmUpChrome(): Promise<void> {
+  let found: string;
+  try {
+    found = execFileSync('which', ['google-chrome', 'chromium-browser', 'chromium'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch (err) {
+    // `which` exits non-zero when any one name is missing; the rest still print.
+    found = String((err as { stdout?: string }).stdout ?? '');
+  }
+  const chrome = CHROME_EXECUTABLES.find((p) => existsSync(p)) ?? found.split('\n')[0];
+  if (!chrome) return;
+  const profile = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'monobrowse-warmup-'));
+  try {
+    await new Promise<void>((resolve) => {
+      execFile(
+        chrome,
+        [
+          '--headless=new',
+          `--user-data-dir=${profile}`,
+          '--no-first-run',
+          ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
+          '--dump-dom',
+          'about:blank',
+        ],
+        { timeout: 60_000 },
+        () => resolve(),
+      );
+    });
+  } finally {
+    await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+}
+
 describe.skipIf(!runnable)('#318 concurrent browse sessions (real processes)', () => {
+  beforeAll(warmUpChrome, 90_000);
+
   for (const trial of [1, 2, 3, 4, 5]) {
     it(`trial ${trial}: two bare \`open\` calls each get their own browser, and each close kills only its own`, async () => {
       const root = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'monobrowse-318-'));
