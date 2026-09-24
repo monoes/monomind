@@ -3,10 +3,10 @@
  * Jev decision model when configured (MONOMIND_JEV_URL / TYPESAFE_API_KEY) and
  * falls back to keyword ranking, so scripts and skills always get an answer.
  */
-import { agentCatalog, taskSkillCatalog } from '../decision/catalogs.js';
 import { readPickStats } from '../decision/pick-stats.js';
-import { type RankedEntry, type RankedList, rankForTask } from '../decision/picks.js';
+import type { RankedEntry, RankedList } from '../decision/picks.js';
 import { output } from '../output.js';
+import { pickForTask, pickSummary } from '../routing/agent-pick.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const USAGE =
@@ -75,23 +75,22 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
     typeof ctx.flags.categories === 'string'
       ? ctx.flags.categories.split(/\s+/).filter(Boolean)
       : [];
-  const agents = onlySkills
-    ? []
-    : agentCatalog(root).filter(
-        (a) => categories.length === 0 || categories.includes(a.category ?? ''),
-      );
-  const skills = onlyAgents ? [] : taskSkillCatalog(root);
   const explain = ctx.flags.explain === true;
-  const result = await rankForTask(task, { agents, skills }, top, {
-    minConfidence,
-    priorsRoot: root,
-    onError: (err) =>
-      process.stderr.write(
-        `[pick] decision model "${err.provider}" unavailable (${err.message})\n`,
-      ),
+  const kind = onlyAgents ? 'agents' : onlySkills ? 'skills' : 'both';
+  // The same ranking as the `pick` MCP tool and the routing hooks.
+  const result = await pickForTask({
+    task,
+    kind,
+    categories,
+    top,
+    root,
+    options: { minConfidence },
   });
   if (ctx.flags.json === true) {
-    const data = explain ? { ...result, stats: readPickStats(root) } : result;
+    const summary = pickSummary(result, kind);
+    const data = explain
+      ? { ...result, summary, stats: readPickStats(root) }
+      : { ...result, summary };
     console.log(JSON.stringify(data, null, 2));
     return { success: true, data };
   }

@@ -406,7 +406,9 @@ describe('route-outcomes under concurrent sessions', () => {
     `;
     const run = (sid) =>
       new Promise((resolve, reject) => {
-        const p = spawn(process.execPath, ['-e', worker, tmp, sid, String(N)], { stdio: 'inherit' });
+        const p = spawn(process.execPath, ['-e', worker, tmp, sid, String(N)], {
+          stdio: 'inherit',
+        });
         p.on('error', reject);
         p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`))));
       });
@@ -422,7 +424,14 @@ describe('route-outcomes under concurrent sessions', () => {
     const f = path.join(tmp, '.monomind', 'route-outcomes.jsonl');
     const big = `${JSON.stringify({ routeId: 'old', pad: 'x'.repeat(2000) })}\n`;
     fs.writeFileSync(f, big.repeat(300));
-    const pick = { agent: null, skill: null, method: 'none', provider: null, confidence: null, candidates: [] };
+    const pick = {
+      agent: null,
+      skill: null,
+      method: 'none',
+      provider: null,
+      confidence: null,
+      candidates: [],
+    };
     const id = pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: false });
     const recs = readJsonl(f);
     expect(recs.length).toBeLessThanOrEqual(500);
@@ -435,7 +444,14 @@ describe('route-outcomes under concurrent sessions', () => {
     fs.writeFileSync(lock, '999999');
     const past = new Date(Date.now() - 60_000);
     fs.utimesSync(lock, past, past);
-    const pick = { agent: null, skill: null, method: 'none', provider: null, confidence: null, candidates: [] };
+    const pick = {
+      agent: null,
+      skill: null,
+      method: 'none',
+      provider: null,
+      confidence: null,
+      candidates: [],
+    };
     const id = pc().persistRoute(tmp, { pick, prompt: 'p', sessionId: 's', shown: false });
     expect(pc().joinOutcome(tmp, id, { measuredSuccess: true })).toBe(true);
     expect(readJsonl(path.join(tmp, '.monomind', 'route-outcomes.jsonl')).at(-1)).toMatchObject({
@@ -450,7 +466,9 @@ describe('slash-command routes', () => {
   it('a route without an agent recommendation (slash command) is not adherence data', () => {
     const { persistCommandRoute, recordAdherence } = pc();
     persistCommandRoute(tmp, { command: '/ts', sessionId: 'sess-A' });
-    const last = JSON.parse(fs.readFileSync(path.join(tmp, '.monomind', 'last-route.json'), 'utf-8'));
+    const last = JSON.parse(
+      fs.readFileSync(path.join(tmp, '.monomind', 'last-route.json'), 'utf-8'),
+    );
     expect(last).toMatchObject({ agent: null, skill: '/ts', sessionId: 'sess-A' });
     const rec = recordAdherence(tmp, {
       session_id: 'sess-A',

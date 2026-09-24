@@ -133,7 +133,9 @@ describe('session-handler routing feedback', () => {
   it('writes routing-feedback.jsonl when last-route.json exists', async () => {
     const sh = loadSH();
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'coder', confidence: 0.9, sessionId: 'sess-1' }),
+    fs.writeFileSync(
+      routeFile,
+      JSON.stringify({ agent: 'coder', confidence: 0.9, sessionId: 'sess-1' }),
       'utf-8',
     );
     const hCtx = makeHCtx({
@@ -177,7 +179,10 @@ describe('session-handler routing feedback', () => {
       JSON.stringify({ agent: 'Backend Dev', confidence: 0.8, sessionId: 'sess-1' }),
       'utf-8',
     );
-    const hCtx = makeHCtx({ hookInput: { sessionId: 'sess-1' }, intelligence: { feedback: vi.fn() } });
+    const hCtx = makeHCtx({
+      hookInput: { sessionId: 'sess-1' },
+      intelligence: { feedback: vi.fn() },
+    });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
     const feedbackFile = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');

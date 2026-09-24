@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pickAction } from '../../src/commands/pick.js';
+import { pickTool } from '../../src/mcp-tools/pick-tools.js';
 import { readPickStats } from '../../src/decision/pick-stats.js';
 
 describe('monomind pick', () => {
@@ -198,6 +199,50 @@ describe('monomind pick', () => {
     const text = logs.join('\n');
     expect(text).toMatch(/beta.*= [0-9.]+ × 1\.[0-9]+ prior/);
     expect(text).toMatch(/Pick history: 0 routes, 0 shown, 6 spawns · adherence 0%/);
+  });
+
+  it('agrees with the MCP pick tool on a project with pick history, summary included', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', '');
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    root = mkdtempSync(join(tmpdir(), 'pick-cmd-'));
+    mkdirSync(join(root, '.monomind'));
+    writeFileSync(
+      join(root, '.monomind', 'registry.json'),
+      JSON.stringify({
+        agents: [
+          { slug: 'alpha', name: 'alpha', category: 'core', description: 'Fixes parser bugs' },
+          { slug: 'beta', name: 'beta', category: 'core', description: 'Fixes parser bugs' },
+        ],
+      }),
+    );
+    // Keyword order alone is alpha, beta; the history favours beta.
+    writeFileSync(
+      join(root, '.monomind', 'pick-stats.json'),
+      JSON.stringify({
+        version: 1,
+        totals: {},
+        cursors: {},
+        agents: { beta: { name: 'beta', chosen: 6, success: 6 } },
+        skills: {},
+      }),
+    );
+    vi.stubEnv('MONOMIND_CWD', root);
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((m?: unknown) => {
+      logs.push(String(m));
+    });
+    await pickAction({
+      args: [],
+      flags: { _: [], task: 'fix parser bugs', agents: true, json: true },
+      cwd: root,
+      interactive: false,
+    });
+    const cli = JSON.parse(logs.join('\n'));
+    const mcp = (await pickTool.handler({ task: 'fix parser bugs', kind: 'agents' })) as typeof cli;
+    expect(cli.agents.ranked[0].name).toBe('beta');
+    expect(mcp.agents.ranked[0].name).toBe(cli.agents.ranked[0].name);
+    expect(cli.summary).toBe('agent: beta');
+    expect(cli.summary).toBe(mcp.summary);
   });
 
   it('readPickStats is empty without history', () => {

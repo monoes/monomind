@@ -271,9 +271,9 @@ describe('untrusted pick-stats.json', () => {
     expect(ps.priorFactor({ failure: -1.99, followed: 10 })).toBeGreaterThanOrEqual(0.85);
     expect(ps.priorFactor({ success: -1e9, overridden: 20 })).toBeGreaterThanOrEqual(0.85);
     expect(Number.isFinite(ps.priorFactor({ success: 'x', followed: 10 }))).toBe(true);
-    expect(ps.priorFactor({ success: Number.NaN, followed: Number.POSITIVE_INFINITY })).toBeLessThanOrEqual(
-      1.15,
-    );
+    expect(
+      ps.priorFactor({ success: Number.NaN, followed: Number.POSITIVE_INFINITY }),
+    ).toBeLessThanOrEqual(1.15);
   });
 
   it('sanitizes counts on load to finite non-negative integers', () => {
