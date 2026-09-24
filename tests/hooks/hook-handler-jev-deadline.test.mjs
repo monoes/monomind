@@ -114,11 +114,14 @@ describe('route hook with a slow Jev', () => {
         }),
       });
       let stderr = '';
-      child.stdout.resume();
+      let stdout = '';
+      child.stdout.on('data', (d) => {
+        stdout += d;
+      });
       child.stderr.on('data', (d) => {
         stderr += d;
       });
-      child.on('close', (code) => resolve({ code, stderr, elapsed: Date.now() - started }));
+      child.on('close', (code) => resolve({ code, stdout, stderr, elapsed: Date.now() - started }));
       child.stdin.end(JSON.stringify({ prompt: 'write unit tests for the invoice parser' }));
     });
   }
@@ -153,8 +156,9 @@ describe('route hook with a slow Jev', () => {
     expect(r.elapsed).toBeGreaterThanOrEqual(5500);
     expect(lastRoute()).toMatchObject({
       agentSlug: 'tester',
-      reason: 'Jev decision model (custom)',
+      reason: 'jev (custom)',
     });
+    expect(r.stdout).toContain('[PICK] agent: tester');
   }, 30000);
 
   it('persists the keyword route before the extended exit when Jev never answers', async () => {
@@ -163,6 +167,6 @@ describe('route hook with a slow Jev', () => {
     expect(r.code).toBe(0);
     // It waited the configured 8 s window, then fell back.
     expect(r.elapsed).toBeGreaterThanOrEqual(7500);
-    expect(lastRoute().reason).not.toMatch(/^Jev decision model/);
+    expect(lastRoute().reason).not.toMatch(/^jev/);
   }, 30000);
 });

@@ -168,7 +168,7 @@ describe('route-handler with Jev', () => {
     expect(out).toContain('Skill("security-review")');
   });
 
-  it('keeps the keyword route when Jev fails', async () => {
+  it('falls back to keyword routing (no confident match here) when Jev fails', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     vi.stubGlobal(
       'fetch',
@@ -177,11 +177,11 @@ describe('route-handler with Jev', () => {
       }),
     );
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
-    expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
+    expect(lastRoute()).toMatchObject({ agentSlug: null });
     expect(logs.join('\n')).toContain('[JEV] custom: request failed');
   });
 
-  it('still decides (and records) the route in quiet mode, printing nothing', async () => {
+  it('still decides (and records) the route in quiet mode, printing only the pick', async () => {
     process.env.MONOMIND_HOOK_QUIET = '1';
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     const fetchSpy = vi.fn(
@@ -215,7 +215,8 @@ describe('route-handler with Jev', () => {
       .trim()
       .split('\n');
     expect(JSON.parse(outcomes[outcomes.length - 1]).routingMethod).toBe('jev');
-    expect(logs.join('\n')).toBe(''); // quiet still prints nothing
+    // Quiet silences every banner; the pick itself still reaches Claude.
+    expect(logs).toEqual(['[PICK] agent: security-engineer']);
   });
 
   it('skips Jev for five minutes after a failed pick', async () => {
@@ -231,7 +232,7 @@ describe('route-handler with Jev', () => {
     expect(fs.existsSync(path.join(tmpDir, '.monomind', 'jev-breaker.json'))).toBe(true);
     await loadRH().handle(makeHCtx('check the login handler for injection bugs'));
     expect(jevCalls()).toBe(first);
-    expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
+    expect(lastRoute()).toMatchObject({ agentSlug: null });
   });
 
   it('persists the route inside the hook exit after a timed-out Jev pick and a slow intelligence lookup', async () => {
@@ -261,7 +262,7 @@ describe('route-handler with Jev', () => {
     const elapsed = Date.now() - started;
     // Designed to finish 500 ms before the hook exit; the bound keeps scheduler slack.
     expect(elapsed).toBeLessThan(rh.routeDeadlineMs(process.env) - 50);
-    expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
+    expect(lastRoute()).toMatchObject({ agentSlug: null });
   }, 15000);
 
   it('makes no request when Jev is not configured', async () => {
@@ -272,6 +273,6 @@ describe('route-handler with Jev', () => {
     // Other enrichment in the hook may use fetch; only Jev's endpoint must stay untouched.
     const jevCalls = fetchSpy.mock.calls.filter((c) => String(c[0]).includes('/v1/systemone'));
     expect(jevCalls).toHaveLength(0);
-    expect(lastRoute()).toMatchObject({ agentSlug: 'coder' });
+    expect(lastRoute()).toMatchObject({ agentSlug: null });
   });
 });

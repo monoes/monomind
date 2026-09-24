@@ -17,6 +17,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const pickCore = require('./pick-core.cjs');
 
 // ── Advisory output gate ────────────────────────────────────────────────────
 // Set MONOMIND_HOOK_QUIET=1 to silence the per-prompt advisory blocks
@@ -97,17 +98,16 @@ function _tripJevBreaker(CWD) {
   try { fs.writeFileSync(_jevBreakerPath(CWD), JSON.stringify({ until: Date.now() + JEV_BREAKER_MS })); } catch (e) { /* best effort */ }
 }
 
-async function _pickWithJev(CWD, prompt, keywordResult) {
+async function _pickWithJev(CWD, prompt, agents, includeAgentId) {
   var jp = _loadJevPicker();
   if (!jp || jp.resolveProviders(process.env).length === 0) return null;
   // A dead endpoint must not tax every prompt: after a failed pick, skip Jev for 5 min.
   if (_jevBreakerOpen(CWD)) return null;
-  var agents = jp.loadAgentCatalog(CWD);
   var skills = jp.loadSkillCatalog(CWD);
   if (agents.length < 2 && skills.length === 0) return null;
   var failures = [];
   var picked = await jp.pick(prompt, { agents: agents, skills: skills }, {
-    include: { agents: keywordResult && keywordResult.agentSlug ? [keywordResult.agentSlug] : [] },
+    include: { agents: includeAgentId ? [includeAgentId] : [] },
     timeoutMs: jp.resolveHookTimeoutMs(process.env),
     onError: function (err) { failures.push(err.provider + ': ' + err.message); },
   });
@@ -122,27 +122,41 @@ async function _pickWithJev(CWD, prompt, keywordResult) {
     provider: picked.provider,
     agent: jp.acceptAgent(picked.agent),
     agentConfidence: picked.agent ? picked.agent.confidence : 0,
+    agentRanked: picked.agent ? picked.agent.ranked : [],
     // Only a confident skill answer (including a confident "none fits") replaces keyword matches.
     skillAnswered: !!picked.skill && picked.skill.confidence >= jp.resolveMinConfidence(process.env),
     skills: jp.acceptSkills(picked.skill).map(function (id) { return skillById[id]; }).filter(Boolean),
   };
 }
 
-function _applyJevPick(result, jev) {
-  if (jev.agent) {
-    result.keywordAgent = result.agentSlug || result.agent;
-    result.agent = jev.agent;
-    result.agentSlug = jev.agent;
-    result.confidence = jev.agentConfidence;
-    result.reason = 'Jev decision model (' + jev.provider + ')';
-    result.routingMethod = 'jev';
-  }
+// The prompt's pick, as the legacy result object the enrichment below reads.
+// router.cjs contributes skill keyword matches only: its hardcoded agent table
+// is not a selector any more (most of its slugs are not registry agents).
+async function _decidePick(CWD, prompt, router) {
+  var jp = _loadJevPicker();
+  var agents = jp ? jp.loadAgentCatalog(CWD) : [];
+  var skillMatches = [];
+  try { if (router && router.matchSkills) skillMatches = router.matchSkills(prompt) || []; } catch (e) { /* no skill hints */ }
+  var keywordCands = pickCore.rankAgents(jp, prompt, agents);
+  var jev = await _pickWithJev(CWD, prompt, agents, keywordCands[0] && keywordCands[0].id);
+  var pick = pickCore.decide({ agents: agents, keywordCands: keywordCands, skillMatches: skillMatches, jev: jev });
   // Jev's skill answer replaces keyword skill matches, including "none fits".
-  if (jev.skillAnswered) {
-    result.skillMatches = jev.skills.map(function (s, i) {
+  if (jev && jev.skillAnswered) {
+    skillMatches = jev.skills.map(function (s, i) {
       return { skill: s.id, invoke: s.invoke, description: s.description || '', score: i === 0 ? 2 : 1, source: 'jev' };
     });
   }
+  return {
+    pick: pick,
+    result: {
+      agent: pick.agent ? pick.agent.name : null,
+      agentSlug: pick.agent ? pick.agent.id : null,
+      confidence: pick.confidence,
+      reason: pick.method,
+      routingMethod: pick.method,
+      skillMatches: skillMatches,
+    },
+  };
 }
 
 
@@ -180,6 +194,10 @@ module.exports = {
       return;
     }
 
+    // Claude Code's own turns (task notifications, reminder-only prompts,
+    // slash-command expansions) carry no user intent: no pick, no record.
+    if (pickCore.isSystemPrompt(prompt)) return;
+
     if (intelligence && intelligence.getContext) {
       try {
         // Each hook event runs as a fresh node process, so the module-level
@@ -204,102 +222,36 @@ module.exports = {
         if (ctx) advisoryLog(ctx);
       } catch (e) { /* non-fatal */ }
     }
-    if (router && (router.routeTaskSemantic || router.routeTask)) {
-      const routeFn = router.routeTaskSemantic || router.routeTask;
-      var result = await Promise.resolve(routeFn(prompt));
-      // ── Decision model first, in BOTH modes: this is the route decision,
-      //    not advisory enrichment. The quiet block below persists whatever
-      //    it chooses (statusline, compact/session context, outcomes).
-      //    Bounded by MONOMIND_JEV_HOOK_TIMEOUT_MS and the failure breaker.
-      var jevOutcome = await _pickWithJev(CWD, prompt, result);
-      if (jevOutcome) _applyJevPick(result, jevOutcome);
-
-
+    {
+      // ── The pick, in BOTH modes: Jev over the agent registry, else a strong
+      //    keyword match over the same registry (bounded by
+      //    MONOMIND_JEV_HOOK_TIMEOUT_MS and the failure breaker). Its one
+      //    [PICK] line reaches Claude even under MONOMIND_HOOK_QUIET — it is
+      //    the hook's answer, not an advisory banner.
+      var decided = await _decidePick(CWD, prompt, router);
+      var result = decided.result;
+      var pickLine = pickCore.formatPickLine(decided.pick);
+      if (pickLine) console.log(pickLine);
+      try {
+        pickCore.persistRoute(CWD, {
+          pick: decided.pick,
+          prompt: prompt,
+          sessionId: hookInput.session_id || hookInput.sessionId,
+          shown: !!pickLine,
+        });
+      } catch (e) { /* non-fatal */ }
 
       // When QUIET: the advisory output is suppressed anyway, so skip ALL the
       // expensive enrichment below (embedding search, second-brain HTTP, monograph
-      // DB queries, metrics reads, episodes search). Persist the same outcome
-      // correlation identity as the full path before exiting: quiet changes
-      // advisory output and enrichment cost, never lifecycle side effects.
-      if (_HOOK_QUIET) {
-        try {
-          var crypto = require('crypto');
-          var routeId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : ('route-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
-          var routeDir = path.join(CWD, '.monomind');
-          fs.mkdirSync(routeDir, { recursive: true });
-          var agentName = result.agent || 'coder';
-          var promptSlice = (prompt || '').slice(0, 500);
-          fs.writeFileSync(path.join(routeDir, 'last-route.json'), JSON.stringify({
-            routeId: routeId,
-            agent: agentName,
-            agentSlug: result.agentSlug || null,
-            confidence: result.confidence,
-            reason: result.reason,
-            prompt: promptSlice,
-            updatedAt: new Date().toISOString(),
-          }), 'utf-8');
-          fs.appendFileSync(path.join(routeDir, 'route-outcomes.jsonl'), JSON.stringify({
-            routeId: routeId,
-            ts: Date.now(),
-            task: promptSlice,
-            recommendedAgent: agentName,
-            routingMethod: result.routingMethod || 'keyword',
-            confidence: typeof result.confidence === 'number' ? result.confidence : 0,
-            learningMode: 'js',
-          }) + '\n', 'utf-8');
-        } catch (e) { /* non-fatal */ }
-        return;
-      }
-
-      // ── Enrichment: when router.cjs falls to the broad "coder" catch-all,
-      //    try @monoes/routing's richer keyword pre-filter (30+ specialized
-      //    rules for Solidity, game engines, DevOps, embedded, etc.) for a
-      //    more specific agent match. This bridges the hooks layer (router.cjs)
-      //    with the CLI routing package without requiring ESM imports. ─────────
-      if (result && result.routingMethod !== 'jev' && result.agentSlug === 'coder' && result.confidence <= 0.8) {
-        try {
-          var routingPkgPath = path.resolve(
-            CWD, 'packages', '@monomind', 'routing', 'dist', 'keyword-pre-filter.js'
-          );
-          // Also check CLI's node_modules (symlinked workspace)
-          if (!fs.existsSync(routingPkgPath)) {
-            routingPkgPath = path.resolve(
-              CWD, 'packages', '@monomind', 'cli', 'node_modules',
-              '@monomind', 'routing', 'dist', 'keyword-pre-filter.js'
-            );
-          }
-          if (fs.existsSync(routingPkgPath)) {
-            var routingMod = await import(routingPkgPath);
-            var enrichRules = routingMod.DEFAULT_KEYWORD_ROUTES;
-            if (enrichRules && enrichRules.length > 0) {
-              for (var eri = 0; eri < enrichRules.length; eri++) {
-                var erRule = enrichRules[eri];
-                if (erRule.pattern && erRule.pattern.test(prompt)) {
-                  result.agent = erRule.routeName || erRule.agentSlug;
-                  result.agentSlug = erRule.agentSlug;
-                  result.confidence = erRule.score != null ? Math.min(0.98, Math.max(0.70, erRule.score)) : 0.85;
-                  result.reason = 'Enriched: ' + (erRule.description || erRule.routeName);
-                  result.enrichedFrom = 'routing-keyword-pre-filter';
-                  break;
-                }
-              }
-            }
-          }
-        } catch (e) { /* non-fatal — routing package may not be available */ }
-      }
+      // DB queries, metrics reads, episodes search).
+      if (_HOOK_QUIET) return;
 
       // ── Intelligence embedding suggestion (SONA/ReasoningBank read path) ──
-      // Wires the previously-write-only intelligence system into live routing:
-      // suggestAgentsFromIntelligence() runs an embedding similarity search
-      // over patterns stored by recordMemoryDecision() on every post-task.
-      // This ENHANCES the keyword route — it only overrides when the
-      // embedding match is meaningfully more confident, and never blocks or
-      // delays routing beyond a 2s budget (fails silently otherwise).
-      // A slow or failed Jev attempt may already have spent most of the time
-      // before the hook exit, so the budget shrinks to keep the route persist
-      // below in time (500 ms before routeDeadlineMs).
+      // An advisory signal only: its agent labels come from post-task records,
+      // not the registry, so it never replaces the pick. Bounded by a 2 s budget
+      // that shrinks after a slow Jev attempt so the hook exits in time.
       var intelBudgetMs = Math.min(2000, Math.max(0, routeDeadlineMs(process.env) - 500 - (Date.now() - hookStart)));
-      if (result.routingMethod !== 'jev' && intelBudgetMs > 0) try {
+      if (intelBudgetMs > 0) try {
         var intelResult = await Promise.race([
           (async function() {
             var mod = await _loadIntelligenceModule(CWD);
@@ -312,23 +264,8 @@ module.exports = {
           var topIntelAgent = intelResult.agents[0];
           var intelConf = intelResult.confidence != null ? intelResult.confidence : 0;
           result.intelligenceSuggestion = { agents: intelResult.agents, confidence: intelConf };
-
-          var curAgent = result.agentSlug || result.agent;
-          var curConf = result.confidence != null ? result.confidence : 0;
-          if (topIntelAgent !== curAgent) {
-            // Only override when the embedding match clearly beats the keyword
-            // route (0.1 margin) — otherwise just surface it as a signal.
-            if (intelConf > curConf + 0.1) {
-              advisoryLog('[INTELLIGENCE] Embedding suggestion overrides keyword routing: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') vs keyword ' + curAgent + ' (' + curConf.toFixed(2) + ')');
-              result.keywordAgent = curAgent;
-              result.agent = topIntelAgent;
-              result.agentSlug = topIntelAgent;
-              result.confidence = intelConf;
-              result.reason = 'Intelligence embedding match (SONA/ReasoningBank)' + (result.reason ? '; keyword route was: ' + result.reason : '');
-              result.enrichedFrom = 'intelligence-embedding';
-            } else {
-              advisoryLog('[INTELLIGENCE] Embedding suggestion: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') — kept keyword route ' + curAgent);
-            }
+          if (topIntelAgent !== result.agent) {
+            advisoryLog('[INTELLIGENCE] Embedding suggestion: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ')');
           }
         }
       } catch (e) { /* non-fatal — intelligence system unavailable or timed out */ }
@@ -349,7 +286,7 @@ module.exports = {
                 successRate: Math.round(patterns[pi].wins / patterns[pi].total * 100)
               };
             }
-            var routedAgent = result.agent || 'coder';
+            var routedAgent = result.agent;
             var routedPattern = patternMap[routedAgent];
             // Find if there's a clearly better agent
             if (routedPattern && routedPattern.successRate < 50) {
@@ -370,7 +307,7 @@ module.exports = {
         if (fs.existsSync(rfPath) && fs.statSync(rfPath).size <= MAX_RF) {
           var rfLines = fs.readFileSync(rfPath, 'utf-8').trim().split('\n').filter(Boolean);
           // Check last 50 entries for this agent's feedback
-          var routedAgent = result.agent || 'coder';
+          var routedAgent = result.agent;
           var recentRf = rfLines.slice(-50);
           var agentFeedback = [];
           for (var ri = 0; ri < recentRf.length; ri++) {
@@ -406,7 +343,7 @@ module.exports = {
         if (fs.existsSync(dispatchPath) && fs.statSync(dispatchPath).size <= MAX_DISPATCH) {
           var lastDispatch = JSON.parse(fs.readFileSync(dispatchPath, 'utf-8'));
           var dispatchAge = Date.now() - new Date(lastDispatch.dispatchedAt || 0).getTime();
-          if (dispatchAge < 60000 && lastDispatch.agentType === (result.agentSlug || result.agent)) {
+          if (dispatchAge < 60000 && result.agent && (lastDispatch.agentType === result.agent || lastDispatch.agentType === result.agentSlug)) {
             result.recentlyDispatched = true;
             advisoryLog('[DISPATCH_DEDUP] ' + lastDispatch.agentType + ' was dispatched ' + Math.round(dispatchAge / 1000) + 's ago — consider a different specialist or direct implementation');
           }
@@ -415,44 +352,6 @@ module.exports = {
 
       var output = [];
       var conf = result.confidence != null ? result.confidence : 0;
-
-      // ── Persist routing result for statusline display & outcome correlation ─
-      try {
-        var crypto = require('crypto');
-        var routeId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : ('route-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
-        var routeDir = path.join(CWD, '.monomind');
-        fs.mkdirSync(routeDir, { recursive: true });
-        var agentName = result.agent || 'coder';
-        var confVal = typeof result.confidence === 'number' ? result.confidence : 0;
-        var promptSlice = (prompt || '').slice(0, 500);
-        fs.writeFileSync(
-          path.join(routeDir, 'last-route.json'),
-          JSON.stringify({
-            routeId: routeId,
-            agent: agentName,
-            agentSlug: result.agentSlug || null,
-            confidence: result.confidence,
-            reason: result.reason,
-            prompt: promptSlice,
-            historicalPattern: result.historicalPattern || null,
-            updatedAt: new Date().toISOString(),
-          }),
-          'utf-8'
-        );
-
-        // Append initial route recommendation to route-outcomes.jsonl
-        var routeRec = {
-          routeId: routeId,
-          ts: Date.now(),
-          task: promptSlice,
-          recommendedAgent: agentName,
-          routingMethod: result.routingMethod || 'keyword',
-          confidence: confVal,
-          learningMode: 'js',
-        };
-        var outcomesPath = path.join(routeDir, 'route-outcomes.jsonl');
-        fs.appendFileSync(outcomesPath, JSON.stringify(routeRec) + '\n', 'utf-8');
-      } catch (e) { /* non-fatal */ }
 
       // ── Skill auto-activation (the one thing the hook does better than Claude) ──
       var matches = result.skillMatches || [];
@@ -988,8 +887,6 @@ module.exports = {
       } catch(e) {}
 
       // Swarm mode selection is available on-demand via /mastermind slash command.
-    } else {
-      advisoryLog('[INFO] Router not available, using default routing');
     }
 
     // Task 22: TeamRoutingModes — only log when an explicit swarm config is present
