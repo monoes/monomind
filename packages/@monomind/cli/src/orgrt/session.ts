@@ -4,6 +4,7 @@ import type { query } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
+import { claudeBashTimeoutEnv } from './bash-timeout.js';
 import type { OrgBus } from './bus.js';
 import type { TaskEvidence } from './completion-gate.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
@@ -1055,6 +1056,10 @@ async function runOneSession(
         // Empty for Claude (handled natively by ClaudeAgentRunner) and for a
         // provider that declares no mechanism — which simply ignores effort.
         ...(tier?.env ?? {}),
+        // Claude Code's 2-minute Bash default is too short for org work.
+        ...(runner instanceof ClaudeAgentRunner
+          ? claudeBashTimeoutEnv(opts.def?.run_config?.bash_timeout_ms)
+          : {}),
         // Custom-endpoint providers (named-provider path): pin the engine's
         // model env so background/haiku tasks also route to the endpoint's
         // model instead of erroring on an Anthropic-only default.

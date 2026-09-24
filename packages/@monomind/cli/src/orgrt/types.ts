@@ -1,6 +1,7 @@
 // packages/@monomind/cli/src/orgrt/types.ts
 import { z } from 'zod';
 import { CATALOG_NAME_RE } from '../catalog/types.js';
+import { MAX_CLAUDE_BASH_TIMEOUT_MS } from './bash-timeout.js';
 import { ORG_EFFORT_LEVELS } from './cost-tier.js';
 
 export const ContextSliceSchema = z.object({ source: z.string(), summary: z.string() });
@@ -536,6 +537,12 @@ export const OrgDefSchema = z
          *  (the process parks, as before). Idle residency costs no tokens,
          *  so this is about process count, not spend. */
         session_idle_exit_ms: z.number().int().positive().optional(),
+        /** Claude-runtime roles: the Bash tool's default and maximum command
+         *  timeout (BASH_DEFAULT_TIMEOUT_MS / BASH_MAX_TIMEOUT_MS in the role's
+         *  session env). Default 600000 — Claude Code's own default is 2
+         *  minutes, too short for an install or a full build. Ignored by
+         *  other runtimes. See bash-timeout.ts. */
+        bash_timeout_ms: z.number().int().positive().max(MAX_CLAUDE_BASH_TIMEOUT_MS).optional(),
         /** When a task completes, send its creator (the role that called
          *  org_task / org_plan_graph) a `[task:<id>] DONE` message with the
          *  result and evidence summary. Off by default: without it a
