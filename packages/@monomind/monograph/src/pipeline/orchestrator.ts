@@ -9,14 +9,18 @@ import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { isWithinScope, readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
+import { contextualProximityPhase } from './phases/contextual-proximity.js';
 import { crossFilePhase } from './phases/cross-file.js';
+import { docsParsePhase } from './phases/docs-parse.js';
 import { frameworkDetectPhase } from './phases/framework-detect.js';
 import { godNodesPhase } from './phases/god-nodes.js';
 import { importResolverPhase } from './phases/import-resolver.js';
+import { llmExtractPhase } from './phases/llm-extract.js';
 import { markdownPhase } from './phases/markdown.js';
 import { mroPhase } from './phases/mro.js';
 import { ormPhase } from './phases/orm.js';
 import { parsePhase } from './phases/parse.js';
+import { pdfParsePhase } from './phases/pdf-parse.js';
 import { processesPhase } from './phases/processes.js';
 import { routesPhase } from './phases/routes.js';
 import { scanPhase } from './phases/scan.js';
@@ -204,6 +208,10 @@ async function buildAsyncLocked(
       parsePhase,
       variablesPhase,
       markdownPhase,
+      docsParsePhase,
+      pdfParsePhase,
+      contextualProximityPhase,
+      llmExtractPhase,
       routesPhase,
       toolsPhase,
       ormPhase,

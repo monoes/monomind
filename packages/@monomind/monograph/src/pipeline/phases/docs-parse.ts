@@ -131,7 +131,9 @@ function extractTags(text: string, meta: Record<string, unknown>): string[] {
 
 export const docsParsePhase: PipelinePhase<DocsParseOutput> = {
   name: 'docs-parse',
-  deps: ['structure'],
+  // After parse: parse purges the rows of every non-markdown file it re-reads
+  // (.txt, .rst, .mdx), which would drop Section nodes written before it ran.
+  deps: ['structure', 'parse'],
 
   async execute(ctx, deps) {
     // Respect codeOnly flag
@@ -334,6 +336,20 @@ export const docsParsePhase: PipelinePhase<DocsParseOutput> = {
           });
         }
       }
+    }
+
+    // Section ids embed the heading's line number, so a moved or renamed heading
+    // gets a new id — drop the previous build's sections for these files first.
+    const sectionIdsForFile = `SELECT id FROM nodes WHERE file_path = ? AND label = 'Section'`;
+    const deleteSectionEdges = ctx.db.prepare(
+      `DELETE FROM edges WHERE source_id IN (${sectionIdsForFile}) OR target_id IN (${sectionIdsForFile})`,
+    );
+    const deleteSections = ctx.db.prepare(
+      `DELETE FROM nodes WHERE file_path = ? AND label = 'Section'`,
+    );
+    for (const fileNode of docFiles) {
+      deleteSectionEdges.run(fileNode.filePath, fileNode.filePath);
+      deleteSections.run(fileNode.filePath);
     }
 
     // File nodes are never persisted by structure/parse phases — insert them here
