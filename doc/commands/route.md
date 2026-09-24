@@ -1,7 +1,7 @@
 # `monomind route` Command Reference
 
 > **Version 2.9.0**  
-> CLI reference for `monomind route` subcommands. Task routing maps developer tasks to specialized agent types using deterministic keyword matching (`route task`, the default), 256-D vector cosine similarity (`RouteLayer`, via `route semantic`), and coverage gap analysis (`route coverage`) — backed by an outcome-tracking ledger (`route stats`/`feedback`) that measures routing accuracy over time. There is no reinforcement learning of any kind: no Q-table, no epsilon exploration, no learned state-action values. `route task`'s router is a fixed keyword-substring matcher (`createKeywordRouter`, `monovector/index.ts`).
+> CLI reference for `monomind route` subcommands. Task routing maps developer tasks to registry agents through the central picker (`route task`, the default — the same ranking as `monomind pick` and the `pick` MCP tool), 256-D vector cosine similarity (`RouteLayer`, via `route semantic`), and coverage gap analysis (`route coverage`) — backed by an outcome-tracking ledger (`route stats`/`feedback`) that measures routing accuracy over time. There is no reinforcement learning of any kind: no Q-table, no epsilon exploration, no learned state-action values. `route task`'s router (`createKeywordRouter`, `monovector/index.ts`) delegates to [`routing/agent-pick.ts → pickAgents`](packages/@monomind/cli/src/routing/agent-pick.ts#pickAgents).
 
 ---
 
@@ -31,17 +31,17 @@ monomind route <subcommand> [options]
 ## Subcommand Details
 
 ### 1. `monomind route task` *(default)*
-Routes a task description to an agent type using keyword substring matching (`createKeywordRouter`, `monovector/index.ts`) — a fixed set of `.includes()` checks against the task text (e.g. `"test"` → `tester`, `"review"`/`"security"` → `reviewer`), not a trained or learned model.
+Routes a task description to the best agent in `.monomind/registry.json` through the central picker: the Jev decision model when configured, otherwise keyword overlap with each agent's name and description (`createKeywordRouter` → `pickAgents` → `rankForTask`). The agent it returns is a spawnable name (the Task tool's `subagent_type`); with no registry match it answers `coder`.
 
 ```bash
 monomind route task "implement authentication system"
 monomind route task "write unit tests"
-monomind route task "review security" --agent reviewer
+monomind route task "review security" --agent "Security Engineer"
 ```
 
 - **Flags** (`commands/route.ts` `routeTaskCommand.options`):
-  - `-k, --keyword`: Use keyword routing for agent selection (default: `true`).
-  - `-a, --agent <id>`: Force specific agent ID (bypasses automatic routing).
+  - `-k, --keyword`: Accepted for compatibility; routing always uses the central picker.
+  - `-a, --agent <name>`: Force a registry agent by name or slug (bypasses routing); answers with its spawnable name.
   - `-j, --json`: Output decision as JSON.
 
 ---
@@ -62,7 +62,7 @@ monomind route semantic -t "refactor react components" --debug
 ---
 
 ### 3. `monomind route list-agents`
-Lists all supported target agent types, their descriptions, capabilities, and priorities.
+Lists the registry agents (`.monomind/registry.json`) `route task` can pick: spawnable name, category and description.
 
 ```bash
 monomind route list-agents
@@ -86,23 +86,16 @@ When invoking `monomind route task --json` or `monomind route semantic --json`, 
 }
 ```
 
-- `agentSlug`: Target agent role (`coder`, `tester`, `reviewer`, `architect`, `researcher`, `optimizer`, `debugger`, `documenter`).
+- `agentSlug`: Spawnable agent name — a bundled agent's frontmatter `name`, such as `coder` or `Security Engineer`. Every `@monoes/routing` route and keyword rule names one (checked by `routing/src/__tests__/agent-slugs.test.ts`); `general-purpose` only when no route could be scored.
 - `confidence`: Normalized confidence score in $[0.0, 1.0]$.
 - `method`: Routing cascade tier (`keyword`, `semantic`, `llm_fallback`, `semantic_degraded`).
 - `routeName`: Matching rule name or centroid name.
 
 ---
 
-### Available Agent Types (8)
+### Available Agents
 
-- `coder`: Implements features and writes code (Priority 1)
-- `tester`: Creates tests and validates functionality (Priority 2)
-- `reviewer`: Reviews code quality and security (Priority 3)
-- `architect`: Designs system architecture (Priority 4)
-- `researcher`: Researches requirements and patterns (Priority 5)
-- `optimizer`: Optimizes performance and efficiency (Priority 6)
-- `debugger`: Debugs issues and fixes bugs (Priority 7)
-- `documenter`: Creates and updates documentation (Priority 8)
+`route task`, `route list-agents` and `route feedback` read the project's agent registry (`.monomind/registry.json`, built from `.claude/agents/**.md`), so the choice is whatever agents the project ships — not a fixed list. `route feedback --agent` accepts a name or slug and records the spawnable name.
 
 ---
 
