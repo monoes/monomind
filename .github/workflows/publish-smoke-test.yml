@@ -130,6 +130,13 @@ jobs:
           # is what the next steps run.
           echo "tarball_path=$(tail -n1 /tmp/tarballs.txt)" >> "$GITHUB_OUTPUT"
 
+      # 2.16.2-2.16.4 shipped without the monodesign skill (gitignored,
+      # compiled at pack time). Assert the packed CLI tarball holds it and every
+      # skill SKILLS_MAP installs; the CLI tarball is in the closure for both
+      # matrix packages.
+      - name: Assert the CLI tarball ships every installed skill
+        run: node scripts/check-cli-pack.mjs "$(grep -E 'monoes-monomindcli-[^/]*\.tgz$' /tmp/tarballs.txt)"
+
       # Switches to the version this job is actually meant to verify (20 or
       # 26) — this is the version that matters from here on: a plain `npm
       # install` of the packed tarball, plus running its bin, neither of
