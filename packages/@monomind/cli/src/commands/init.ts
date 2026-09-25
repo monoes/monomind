@@ -502,33 +502,10 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         return { success: false, exitCode: 1 };
       }
 
-      const { execFileSync } = await import('node:child_process');
-
-      try {
-        output.writeln(output.dim(`  Model: ${embeddingModel}`));
-        output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
-        execFileSync(
-          process.platform === 'win32' ? 'npx.cmd' : 'npx',
-          [
-            'monomind@latest',
-            'embeddings',
-            'init',
-            '--model',
-            embeddingModel,
-            '--no-download',
-            '--force',
-          ],
-          {
-            stdio: 'pipe',
-            cwd: ctx.cwd,
-            timeout: 30000,
-          },
-        );
-        output.writeln(output.success('  ✓ Embeddings initialized'));
-        output.writeln(output.dim('    Run "embeddings init --download" to download model'));
-      } catch {
-        output.writeln(output.warning('  Embedding initialization skipped (run manually)'));
-      }
+      output.writeln(output.dim(`  Model: ${embeddingModel}`));
+      output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
+      const { runEmbeddingsStep } = await import('../init/embeddings-step.js');
+      await runEmbeddingsStep(embeddingModel);
     }
 
     // Semantic routing needs the arctic-embed weights (~88 MB) cached on disk;
@@ -907,7 +884,8 @@ export const initCommand: Command = {
     },
     {
       name: 'with-embeddings',
-      description: 'Initialize ONNX embedding subsystem with hyperbolic support',
+      description:
+        'Write the embeddings config and download the local embedding model memory search uses (one-time, needs network; degrades to keyword search offline)',
       type: 'boolean',
       default: false,
     },
