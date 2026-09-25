@@ -122,7 +122,7 @@ describe('lint-agent-refs', () => {
     );
     // Hook helpers are scanned.
     write(root, '.claude/helpers/handlers/h.cjs', 'console.log(\'Skill("no-such-skill")\');\n');
-    // A deprecated agent resolves, but is reported as a warning.
+    // A deprecated agent still spawns, but naming it fails the lint.
     write(
       root,
       'packages/@monomind/cli/.claude/agents/github/old-pr.md',
@@ -153,10 +153,28 @@ describe('lint-agent-refs', () => {
       ]);
     });
 
-    it('warns (without failing on it) about deprecated agents', () => {
+    it('reports deprecated agents', () => {
       expect(run.stderr).toContain(
         '.claude/commands/uses-old.md:1: "old-pr" is deprecated (use "coder")',
       );
     });
+  });
+
+  it('fails on a deprecated agent reference alone', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lint-agent-refs-dep-'));
+    try {
+      write(
+        root,
+        'packages/@monomind/cli/.claude/agents/github/old-pr.md',
+        '---\nname: old-pr\ndeprecated: true\ndeprecatedBy: coder\n---\nbody\n',
+      );
+      write(root, '.claude/commands/uses-old.md', 'Task({ subagent_type: "old-pr" })\n');
+      const run = spawnSync('node', [SCRIPT, '--root', root], { encoding: 'utf8' });
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain('"old-pr" is deprecated (use "coder")');
+      expect(run.stderr).not.toContain('unresolved reference');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

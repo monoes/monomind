@@ -2,7 +2,7 @@
 description: mastermind code-review command (monomind)
 ---
 
-<!-- "Monomind — Multi-agent iterative review loop: runs Code Reviewer, Security Engineer, and domain specialists in parallel, auto-fixes findings each iteration, and captures human-in-loop items to a dated file." -->
+<!-- "Monomind — Multi-agent iterative review loop: runs reviewer, Security Engineer, and domain specialists in parallel, auto-fixes findings each iteration, and captures human-in-loop items to a dated file." -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
@@ -66,7 +66,7 @@ ITERATION_FIXED_FILES = []  # file paths edited this iteration
 Based on `STACK`, determine which specialist agents to run beyond the always-on core set.
 
 **Always run (every stack):**
-- `Code Reviewer` — correctness, maintainability, performance, naming, dead code
+- `reviewer` — correctness, maintainability, performance, naming, dead code
 - `Security Engineer` — injection, auth gaps, secrets exposure, CVE-prone patterns, OWASP Top 10
 - `Reality Checker` — evidence-based assessment: does the code actually do what it claims?
 
@@ -117,7 +117,7 @@ All agent prompts share this finding schema. `hil_reason` and `context` are only
 }
 ```
 
-**Code Reviewer prompt:**
+**reviewer prompt:**
 > Review the codebase for: logic errors, off-by-one bugs, null/undefined handling, dead code, overly complex functions (>50 lines or >3 nesting levels), naming inconsistencies, missing error propagation, and performance anti-patterns (N+1, blocking I/O, unnecessary allocations). Focus on `CHANGED_FILES` first, then related files. Return findings using the shared schema above.
 
 **Security Engineer prompt:**
@@ -145,7 +145,7 @@ All agent prompts share this finding schema. `hil_reason` and `context` are only
 
 ### Step 3: Merge and Deduplicate Findings
 
-Collect all agent outputs. As you collect each agent's findings, annotate each finding with `reporter: <agent role name>` (e.g., `"Code Reviewer"`, `"Security Engineer"`, `"Reality Checker"`). Merge into a single `ITERATION_FINDINGS` list. Deduplicate by `(file, category, description[:60])` — keep highest severity when duplicates exist. Do NOT deduplicate by line number, as applied fixes shift line numbers across iterations. Exclude anything already in `ALL_FIXED` or `ALL_HIL` by matching on `(file, description[:60])`.
+Collect all agent outputs. As you collect each agent's findings, annotate each finding with `reporter: <agent role name>` (e.g., `"reviewer"`, `"Security Engineer"`, `"Reality Checker"`). Merge into a single `ITERATION_FINDINGS` list. Deduplicate by `(file, category, description[:60])` — keep highest severity when duplicates exist. Do NOT deduplicate by line number, as applied fixes shift line numbers across iterations. Exclude anything already in `ALL_FIXED` or `ALL_HIL` by matching on `(file, description[:60])`.
 
 Sort by severity: critical → high → medium → low.
 
@@ -262,7 +262,7 @@ Increment `ITERATIONS_RUN` by 1. Then print a table:
 
 | Reviewer            | Findings | Auto-Fixed | HIL |
 |---------------------|----------|------------|-----|
-| Code Reviewer       | N        | N          | N   |
+| reviewer            | N        | N          | N   |
 | Security Engineer   | N        | N          | N   |
 | Reality Checker     | N        | N          | N   |
 | ...                 | ...      | ...        | ... |

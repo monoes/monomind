@@ -127,7 +127,7 @@ If the pick tool, the CLI and the registry all come up empty, use these safe def
 | ops decomp | `Launch Strategist` |
 | build | `coder`, `tester`, `reviewer` |
 | marketing / content / sales | `Competitive Content Strategist`, `Email Marketing Specialist`, `Launch Strategist` |
-| review | `Code Reviewer`, `Security Engineer`, `reviewer` |
+| review | `reviewer`, `Security Engineer` |
 | research | `researcher` |
 | release | `release-manager` |
 | anything else | `general-purpose` |
