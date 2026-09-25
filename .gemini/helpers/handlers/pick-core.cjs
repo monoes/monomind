@@ -18,20 +18,17 @@ try { redaction = require('../redact-secrets.cjs'); } catch (e) { /* preview fal
 var pickStats = null;
 try { pickStats = require('../pick-stats.cjs'); } catch (e) { /* no outcome prior: keyword order stands */ }
 var pickRank = null;
-try { pickRank = require('../pick-rank.cjs'); } catch (e) { /* no trivial-prompt check */ }
+try { pickRank = require('../pick-rank.cjs'); } catch (e) { /* no trivial-prompt check, no keyword pick */ }
 
-// A keyword pick needs this score (pick-rank.cjs: idf-weighted BM25 times the
-// share of task words matched) AND a lead of KEYWORD_AGENT_LEAD over the
-// runner-up. Ties and weak overlap print nothing: a wrong pick in Claude's
-// context costs more than none. Tuned on the 40-task pick benchmark: 25/40
-// shown, 23 of them correct.
-var KEYWORD_MIN_AGENT_SCORE = 2;
-var KEYWORD_AGENT_LEAD = 1.5;
-// A keyword skill pick (pick-rank.cjs over the shared skill catalog) needs
-// this score AND a KEYWORD_SKILL_LEAD lead over the runner-up. Calibrated on
-// tests/pick-eval (59 tasks, 514 skills): 34 shown, 31 of them correct (91%).
-var KEYWORD_MIN_SKILL_SCORE = 3;
-var KEYWORD_SKILL_LEAD = 1.25;
+// A keyword pick needs a minimum score (pick-rank.cjs: idf-weighted BM25 times
+// the share of task words matched) AND a lead over the runner-up: the one
+// gate pick-rank.cjs defines (KEYWORD_GATE, leads) and the CLI's `pick`
+// shares. Without pick-rank nothing clears it.
+var GATE = (pickRank && pickRank.KEYWORD_GATE) || { agents: { min: Infinity, lead: 1 }, skills: { min: Infinity, lead: 1 } };
+var KEYWORD_MIN_AGENT_SCORE = GATE.agents.min;
+var KEYWORD_AGENT_LEAD = GATE.agents.lead;
+var KEYWORD_MIN_SKILL_SCORE = GATE.skills.min;
+var KEYWORD_SKILL_LEAD = GATE.skills.lead;
 var MAX_CANDIDATES = 5;
 var PREVIEW_CHARS = 120;
 // A prompt with fewer content words ("hi", "thanks", "ok, go ahead") is a
@@ -131,14 +128,9 @@ function rankSkills(jp, prompt, skills) {
     });
 }
 
-/** The top entry when it clears `min` and leads the runner-up by `ratio`. The
- *  floor is on keyword relevance alone (baseScore when a prior re-ranked). */
+/** pick-rank.cjs leads(): the top entry when it clears the gate. */
 function leads(list, min, ratio) {
-  var top = list && list[0];
-  if (!top || !((top.baseScore !== undefined ? top.baseScore : top.score) >= min)) return null;
-  var second = list[1];
-  if (!second || !(second.score > 0)) return top;
-  return top.score >= second.score * (ratio || 1) && top.score > second.score ? top : null;
+  return pickRank ? pickRank.leads(list, min, ratio) : null;
 }
 
 /**

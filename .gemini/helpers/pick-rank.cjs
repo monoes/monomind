@@ -365,7 +365,31 @@ function shortlist(query, items, limit, include) {
   return out;
 }
 
+// The bar a keyword pick must clear before anything acts on it (the prompt
+// hook's [PICK] line, `pick`'s summary and `confident` flag): a minimum
+// relevance AND a lead over the runner-up. Ties and weak overlap are no
+// decision — a wrong pick in Claude's context costs more than none. Agents
+// were tuned on the 40-task pick benchmark (25/40 shown, 23 correct), skills
+// on tests/pick-eval (59 tasks, 514 skills: 34 shown, 31 correct).
+var KEYWORD_GATE = {
+  agents: { min: 2, lead: 1.5 },
+  skills: { min: 3, lead: 1.25 },
+};
+
+/** The top of a ranked list when it clears `min` and leads the runner-up by
+ *  `ratio`, else null. The floor is on keyword relevance alone (`baseScore`
+ *  when an outcome prior re-ranked). */
+function leads(list, min, ratio) {
+  var top = list && list[0];
+  if (!top || !((top.baseScore !== undefined ? top.baseScore : top.score) >= min)) return null;
+  var second = list[1];
+  if (!second || !(second.score > 0)) return top;
+  return top.score >= second.score * (ratio || 1) && top.score > second.score ? top : null;
+}
+
 module.exports = {
+  KEYWORD_GATE: KEYWORD_GATE,
+  leads: leads,
   stem: stem,
   tokens: tokens,
   queryTokens: queryTokens,

@@ -129,6 +129,41 @@ describe('rankForTask', () => {
     expect(r.agents.ranked.map((a) => a.id)).toEqual(['security-engineer', 'coder']);
   });
 
+  it('respects a confident Jev "none fits": an empty list with source jev, not keyword ranking', async () => {
+    const fetchImpl = answering({
+      agent: { type: 'choice', choice: '__none__', confidence: 0.9, probabilities: { __none__: 0.9, tester: 0.1 } },
+      skill: { type: 'choice', choice: '__none__', confidence: 0.8, probabilities: { __none__: 0.8 } },
+    });
+    const r = await rankForTask('bake a sourdough bread recipe', { agents, skills }, 3, { env: localEnv, fetchImpl });
+    expect(r.provider).toBe('custom');
+    expect(r.agents).toMatchObject({ method: 'jev', source: 'jev', ranked: [], confident: false });
+    expect(r.skills).toMatchObject({ method: 'jev', source: 'jev', ranked: [], confident: false });
+  });
+
+  it('marks a keyword list confident only when its top clears the prompt hook\'s bar', async () => {
+    const strong = await rankForTask('security audits', { agents, skills }, 3, { env: {} });
+    expect(strong.agents.ranked[0].id).toBe('security-engineer');
+    expect(strong.agents.confident).toBe(true);
+    // coder and tester tie on "writes": ranked, but no decision.
+    const tie = await rankForTask('writes', { agents, skills }, 3, { env: {} });
+    expect(tie.agents.ranked.length).toBeGreaterThan(0);
+    expect(tie.agents.confident).toBe(false);
+    // With top=1 the runner-up still counts.
+    expect((await rankForTask('writes', { agents, skills }, 1, { env: {} })).agents.confident).toBe(false);
+  });
+
+  it('marks a Jev list confident only at the automatic floor, and a keyword fallback after a weak Jev answer never', async () => {
+    const at = (confidence: number) =>
+      answering({
+        agent: { type: 'choice', choice: 'security-engineer', confidence, probabilities: { 'security-engineer': confidence } },
+      });
+    const opts = (confidence: number) => ({ env: localEnv, fetchImpl: at(confidence) });
+    expect((await rankForTask('security audits', { agents, skills: [] }, 3, opts(0.8))).agents.confident).toBe(true);
+    expect((await rankForTask('security audits', { agents, skills: [] }, 3, opts(0.4))).agents.confident).toBe(false);
+    const weak = await rankForTask('security audits', { agents, skills: [] }, 3, opts(0.1));
+    expect(weak.agents).toMatchObject({ method: 'keyword', source: 'keyword-fallback', confident: false });
+  });
+
   it('falls back to keywords when the decision model fails', async () => {
     const r = await rankForTask('write tests for the parser', { agents, skills }, 3, {
       env: localEnv,

@@ -26,6 +26,13 @@ export interface CatalogItem {
   pick?: 'low';
 }
 
+export type GateKind = 'agents' | 'skills';
+
+export interface GateEntry {
+  score?: number;
+  baseScore?: number;
+}
+
 export interface RankedOption {
   id: string;
   probability: number;
@@ -85,6 +92,9 @@ export interface JevPickerModule {
   ): (T & { score: number })[];
   /** `text` minus exclusion cues and the words they rule out (pick-rank.cjs). */
   withoutExclusions?(text: string): string;
+  /** The keyword pick bar the prompt hook uses (pick-rank.cjs). */
+  KEYWORD_GATE?: Record<GateKind, { min: number; lead: number }>;
+  leads?<T extends GateEntry>(list: T[], min: number, ratio: number): T | null;
   pick(
     task: string,
     catalogs: { agents?: CatalogItem[]; skills?: CatalogItem[] },
@@ -192,6 +202,20 @@ export function acceptSkills(
   minConfidence?: number,
 ): string[] {
   return jevModule()?.acceptSkills(answer, env, max, minConfidence) ?? [];
+}
+
+/** True for a Jev "none of these fits" answer at or above `minConfidence`. */
+export function noneFits(answer: JevAnswer | undefined, minConfidence: number): boolean {
+  const none = jevModule()?.NONE_ID;
+  return !!answer && !!none && answer.choice === none && answer.confidence >= minConfidence;
+}
+
+/** The top of a keyword-ranked list when it clears the bar the prompt hook's
+ *  [PICK] line uses (pick-rank.cjs KEYWORD_GATE + leads), else null. */
+export function keywordGateLeader<T extends GateEntry>(ranked: T[], kind: GateKind): T | null {
+  const mod = jevModule();
+  const gate = mod?.KEYWORD_GATE?.[kind];
+  return mod?.leads && gate ? mod.leads(ranked, gate.min, gate.lead) : null;
 }
 
 /** Keyword ranking (the no-model fallback): only items with some overlap. */

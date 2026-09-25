@@ -418,6 +418,8 @@ module.exports = {
   probe: probe,
   shortlist: shortlist,
   withoutExclusions: pickRank.withoutExclusions,
+  KEYWORD_GATE: pickRank.KEYWORD_GATE,
+  leads: pickRank.leads,
   pick: pick,
   acceptAgent: acceptAgent,
   acceptSkills: acceptSkills,

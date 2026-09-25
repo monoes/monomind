@@ -26,6 +26,7 @@ function ranking(over: Record<string, unknown> = {}) {
   return {
     agents: {
       method: 'keyword',
+      confident: true,
       ranked: [
         { id: 'engineering-security-engineer', name: 'Security Engineer', score: 7 },
         { id: 'no-name-agent', score: 3 },
@@ -33,6 +34,7 @@ function ranking(over: Record<string, unknown> = {}) {
     },
     skills: {
       method: 'keyword',
+      confident: true,
       ranked: [{ id: 'mastermind-review', invoke: 'Skill("mastermind-review")', score: 4 }],
     },
     ...over,
@@ -116,7 +118,8 @@ describe('pick MCP tool — contract', () => {
       skills: { method: 'keyword', ranked: [] },
     });
     const body = await call({ task: 'x' });
-    expect(body.summary).toBe('no match');
+    expect(body.summary).toBe('no confident match');
+    expect(body.confident).toBe(false);
   });
 });
 
@@ -131,6 +134,36 @@ describe('pick MCP tool — registration', () => {
 });
 
 describe('pickSummary', () => {
+  it('names only a list whose top clears the confidence bar', async () => {
+    rankForTask.mockResolvedValue(
+      ranking({
+        skills: {
+          method: 'keyword',
+          confident: false,
+          ranked: [{ id: 'public-relations', invoke: 'Skill("public-relations")', score: 3.1 }],
+        },
+      }),
+    );
+    const body = await call({ task: 'review pull request 482' });
+    expect(body.summary).toBe('agent: Security Engineer');
+    expect(body.confident).toBe(true);
+    rankForTask.mockResolvedValue(
+      ranking({
+        agents: {
+          method: 'keyword',
+          confident: false,
+          ranked: [{ id: 'coder', name: 'coder', score: 1 }],
+        },
+        skills: { method: 'jev', confident: false, ranked: [] },
+      }),
+    );
+    const none = await call({ task: 'bake a sourdough bread recipe' });
+    expect(none.summary).toBe('no confident match');
+    expect(none.confident).toBe(false);
+    // The ranking itself is still returned for a person to read.
+    expect(none.agents.ranked[0].name).toBe('coder');
+  });
+
   it('omits the kind that was not ranked', () => {
     const r = ranking();
     expect(pickSummary(r as never, 'agents')).toBe('agent: Security Engineer');
