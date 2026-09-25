@@ -5,6 +5,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,5 +95,60 @@ describe('hook-handler.cjs — stdin hook data', () => {
   it('accepts malformed JSON on stdin gracefully', () => {
     const r = run('status', { stdin: 'not-json{{{}' });
     expect(r.status).toBe(0);
+  });
+});
+
+// ── slash commands vs. paths on the route hook ─────────────────────────────────
+
+describe('hook-handler.cjs route — slash commands', () => {
+  let dir;
+
+  function routeIn(prompt) {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-slash-'));
+    fs.mkdirSync(path.join(dir, '.monomind'));
+    fs.writeFileSync(
+      path.join(dir, '.monomind', 'registry.json'),
+      JSON.stringify({
+        agents: [
+          {
+            slug: 'planner',
+            name: 'planner',
+            category: 'core',
+            description: 'Plans caching work and features',
+          },
+          { slug: 'coder', name: 'coder', category: 'core', description: 'Writes code' },
+        ],
+      }),
+    );
+    const r = run('route', {
+      cwd: dir,
+      env: { MONOMIND_JEV: 'off' },
+      stdin: JSON.stringify({ session_id: 'slash-1', prompt }),
+    });
+    const f = path.join(dir, '.monomind', 'route-outcomes.jsonl');
+    const outcomes = fs.existsSync(f)
+      ? fs.readFileSync(f, 'utf-8').trim().split('\n').filter(Boolean)
+      : [];
+    const last = JSON.parse(
+      fs.readFileSync(path.join(dir, '.monomind', 'last-route.json'), 'utf-8'),
+    );
+    fs.rmSync(dir, { recursive: true, force: true });
+    return { r, outcomes, last };
+  }
+
+  it('treats a namespaced command (/mastermind:plan) as a command: no [PICK], no pick record', () => {
+    const { r, outcomes, last } = routeIn('/mastermind:plan add caching to the planner');
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toContain('[PICK]');
+    expect(outcomes).toEqual([]);
+    expect(last).toMatchObject({ agent: null, skill: '/mastermind:plan' });
+    expect(last.routeId).toBeUndefined();
+  });
+
+  it('treats a prompt that starts with a file path as a normal prompt', () => {
+    const { r, outcomes, last } = routeIn('/var/log/app.log shows the planner crashing on caching');
+    expect(r.status).toBe(0);
+    expect(outcomes).toHaveLength(1);
+    expect(last.routeId).toBeTruthy();
   });
 });
