@@ -103,12 +103,11 @@ body { font-family: var(--ff-b); background: var(--bg); color: var(--text); line
 .reveal { }
 
 /* Code */
-.code-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; font-family: var(--ff-m); font-size: 13px; color: var(--text2); overflow-x: auto; line-height: 1.7; margin-bottom: 24px; }
+.code-block { white-space: pre; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; font-family: var(--ff-m); font-size: 13px; color: var(--text2); overflow-x: auto; line-height: 1.7; margin-bottom: 24px; }
 .code-block .comment { color: var(--muted); }
 .code-block .keyword { color: var(--accent); }
 .code-block .string { color: var(--amber); }
 .code-block .cmd { color: var(--cyan); }
-#page-agents .code-block { white-space: pre; }
 
 /* Terminal */
 .terminal { background: oklch(9% 0.010 265); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 32px; }
@@ -330,8 +329,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">20 typed hook events (PreEdit, PostEdit, SessionStart...) in the registry/executor, plus 29 separate hooks CLI subcommands and <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers. Zero-overhead dispatch across editing, tasks, sessions, and agent teams.</div></div>
     </div>
     <div class="section-title reveal">Quick Install</div>
-    <div class="code-block reveal">
-<span class="comment"># Install globally</span>
+    <div class="code-block reveal"><span class="comment"># Install globally</span>
 <span class="cmd">npm install -g monomind</span>
 
 <span class="comment"># Wire into Claude Code</span>
@@ -354,23 +352,20 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <p class="page-desc">Install Monomind, wire it into Claude Code, and run your first autonomous agent loop.</p>
     </div>
     <div class="section-title reveal">1. Installation</div>
-    <div class="code-block reveal">
-<span class="comment"># Option A: global install</span>
+    <div class="code-block reveal"><span class="comment"># Option A: global install</span>
 <span class="cmd">npm install -g monomind</span>
 
 <span class="comment"># Option B: npx (always latest)</span>
 <span class="cmd">npx monomind@latest --version</span></div>
     <div class="section-title reveal">2. MCP Setup</div>
     <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;">The MCP server requires the explicit <code>mcp start</code> subcommand. Auto-detect is disabled by default (set <code>MONOMIND_MCP_AUTODETECT=1</code> to restore legacy behavior).</p>
-    <div class="code-block reveal">
-<span class="cmd">claude mcp add monomind npx monomind@latest mcp start</span>
+    <div class="code-block reveal"><span class="cmd">claude mcp add monomind npx monomind@latest mcp start</span>
 
 <span class="comment"># Verify tools are registered</span>
 <span class="cmd">claude mcp list</span></div>
     <div class="section-title reveal">3. Project Initialization</div>
     <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;line-height:1.7;"><code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">npx monomind init</code> initializes every supported coding system: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. To initialize only one, use <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--target &lt;system&gt;</code> with <code>claude</code>, <code>antigravity</code>, <code>opencode</code>, <code>kimicode</code>, or <code>codex</code>. The legacy <code>--codex</code>, <code>--opencode</code>, and <code>--kimicode</code> flags remain aliases.</p>
-    <div class="code-block reveal">
-<span class="cmd">cd your-project</span>
+    <div class="code-block reveal"><span class="cmd">cd your-project</span>
 <span class="cmd">npx monomind init</span>
 <span class="comment"># Interactive wizard: topology, memory backend, hooks</span>
 
@@ -391,8 +386,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="terminal-body" id="typewriter-output"></div>
     </div>
     <div class="section-title reveal">5. Autonomous Loop</div>
-    <div class="code-block reveal">
-<span class="comment"># Review → fix → re-verify until a round finds nothing</span>
+    <div class="code-block reveal"><span class="comment"># Review → fix → re-verify until a round finds nothing</span>
 <span class="cmd">/mastermind:review --tillend</span>
 
 <span class="comment"># Analyze a component three times, then stop</span>
@@ -632,8 +626,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       </tbody>
     </table>
     </div>
-    <div class="code-block reveal" style="margin-top:16px">
-<span class="comment"># Export your knowledge base</span>
+    <div class="code-block reveal" style="margin-top:16px"><span class="comment"># Export your knowledge base</span>
 monomind doc export -o ./my-knowledge -s shared
 
 <span class="comment"># Import an OKF bundle from another project</span>
@@ -641,8 +634,7 @@ monomind doc ingest ./their-knowledge -s shared
 
 <span class="comment"># Or use slash commands inside Claude Code</span>
 /mastermind:okf-export -o ./bundle
-/mastermind:okf-import ./bundle
-    </div>
+/mastermind:okf-import ./bundle</div>
 
     <div class="section-title reveal">Learning Pipeline</div>
     <div class="phase-flow reveal">
@@ -705,8 +697,7 @@ monomind doc ingest ./their-knowledge -s shared
     </div>
     <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Workers live in <code>@monoes/hooks</code> and start with the session. Metrics-producing workers (map, audit, consolidate, ddd) refresh when their <code>.monomind/metrics/*.json</code> output is missing or older than 6 hours; <code>doctor</code> reports metrics freshness. Run any worker on demand with <code>monomind hooks worker run &lt;name&gt;</code>.</p>
     <div class="section-title reveal">Hook Configuration</div>
-    <div class="code-block reveal">
-<span class="comment">// .claude/settings.json</span>
+    <div class="code-block reveal"><span class="comment">// .claude/settings.json</span>
 {
   <span class="string">"hooks"</span>: {
     <span class="string">"pre-task"</span>: [{ <span class="string">"matcher"</span>: <span class="string">".*"</span>, <span class="string">"hooks"</span>: [{
@@ -741,8 +732,7 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="card"><div class="card-title">Pattern Consolidation</div><div class="card-desc">The <code>learning</code> worker dedups, detects contradictions, and prunes old entries from <code>patterns.json</code> on a 30-minute interval.</div></div>
     </div>
     <div class="section-title reveal">CLI</div>
-    <div class="code-block reveal">
-<span class="comment"># Inspect logged patterns</span>
+    <div class="code-block reveal"><span class="comment"># Inspect logged patterns</span>
 <span class="cmd">npx monomind hooks intelligence patterns --action list</span>
 
 <span class="comment"># Predict routing for a task from logged patterns</span>
@@ -957,8 +947,7 @@ monomind doc ingest ./their-knowledge -s shared
       <p class="page-desc"><!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> slash commands with Brain Load/Write protocol and --tillend loop mechanics.</p>
     </div>
     <div class="section-title reveal">--tillend Loop Mechanics</div>
-    <div class="code-block reveal">
-Session 1: <span class="cmd">/mastermind:review --tillend</span>
+    <div class="code-block reveal">Session 1: <span class="cmd">/mastermind:review --tillend</span>
   → runs → schedules ScheduleWakeup(delay=60s)
 
 Session 2: wakeup fires → checks staleness guard
@@ -1040,8 +1029,7 @@ Session N: empty round (zero findings AND zero actions)
     </table>
     </div>
     <div class="section-title reveal">Brain Protocol</div>
-    <div class="code-block reveal">
-<span class="comment">// Brain Load (session start)</span>
+    <div class="code-block reveal"><span class="comment">// Brain Load (session start)</span>
 1. Search memory-store namespace <span class="string">"mastermind:{domain}"</span>
 2. Three tiers: raw records (last 7 days)
                 → weekly summaries
@@ -2058,13 +2046,11 @@ You are an API contract reviewer. ...</div>
     </div>
 
     <div class="section-title reveal">Install</div>
-    <div class="code-block reveal">
-<span class="comment"># Standalone package — works with any LLM stack</span>
+    <div class="code-block reveal"><span class="comment"># Standalone package — works with any LLM stack</span>
 <span class="cmd">npm install monofence-ai</span></div>
 
     <div class="section-title reveal">Quick Usage</div>
-    <div class="code-block reveal">
-<span class="keyword">import</span> { createMonoDefence } <span class="keyword">from</span> <span class="string">'monofence-ai'</span>;
+    <div class="code-block reveal"><span class="keyword">import</span> { createMonoDefence } <span class="keyword">from</span> <span class="string">'monofence-ai'</span>;
 
 <span class="keyword">const</span> fence = createMonoDefence();
 
@@ -2117,8 +2103,7 @@ fence.resetContext();                 <span class="comment">// start a new conve
     </div>
 
     <div class="section-title reveal">CLI Integration</div>
-    <div class="code-block reveal">
-<span class="comment"># Wire MonoFence AI into the pre-task hook (blocks on 'attack' state)</span>
+    <div class="code-block reveal"><span class="comment"># Wire MonoFence AI into the pre-task hook (blocks on 'attack' state)</span>
 <span class="cmd">npx monomind hooks pre-task --monofence-ai-check</span>
 
 <span class="comment"># Enable in mastermind:review — adds security pass to each review iteration</span>
@@ -2159,8 +2144,7 @@ fence.resetContext();                 <span class="comment">// start a new conve
     </div>
 
     <div class="section-title reveal">Advanced: Multi-Agent Consensus</div>
-    <div class="code-block reveal">
-<span class="keyword">import</span> { createMonoDefence, calculateSecurityConsensus } <span class="keyword">from</span> <span class="string">'monofence-ai'</span>;
+    <div class="code-block reveal"><span class="keyword">import</span> { createMonoDefence, calculateSecurityConsensus } <span class="keyword">from</span> <span class="string">'monofence-ai'</span>;
 
 <span class="comment">// Run detection on two independent agents in parallel</span>
 <span class="keyword">const</span> [resultA, resultB] = <span class="keyword">await</span> Promise.all([
