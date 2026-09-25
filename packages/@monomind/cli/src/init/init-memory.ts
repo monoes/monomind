@@ -8,8 +8,9 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
+import { initializeMemoryDatabase, storeEntry } from '../memory/memory-initializer.js';
 import { output } from '../output.js';
+import type { MemorySeed } from './shared-instructions-generator.js';
 import type { InitMemoryResult } from './types.js';
 
 export async function initProjectMemory(
@@ -35,6 +36,48 @@ export async function initProjectMemory(
   } catch (e) {
     return { status: 'failed', dbPath, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+// Seed keys come from package.json's `name`; keep them to a plain shape.
+const SEED_KEY = /^[a-zA-Z0-9._:/-]{1,128}$/;
+const SEED_NAMESPACE = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/**
+ * Store the seeds shared_instructions generation detected, in-process, in
+ * `targetDir`'s memory store — the one `monomind memory store` run there
+ * writes to, which the bridge resolves from MONOMIND_CWD (else the cwd), so
+ * it is pinned to `targetDir` for the duration. Best-effort; returns how
+ * many were stored. No embeddings are computed, so init neither loads a
+ * model nor goes online.
+ */
+export async function seedProjectMemory(
+  targetDir: string,
+  seeds: readonly MemorySeed[],
+): Promise<number> {
+  const previousCwd = process.env.MONOMIND_CWD;
+  process.env.MONOMIND_CWD = targetDir;
+  let stored = 0;
+  try {
+    for (const { key, value, namespace } of seeds) {
+      if (!SEED_KEY.test(key) || !SEED_NAMESPACE.test(namespace)) continue;
+      try {
+        const result = await storeEntry({
+          key,
+          value,
+          namespace,
+          generateEmbeddingFlag: false,
+          upsert: true,
+        });
+        if (result.success) stored++;
+      } catch {
+        // Non-critical — memory seeding is best-effort
+      }
+    }
+  } finally {
+    if (previousCwd === undefined) delete process.env.MONOMIND_CWD;
+    else process.env.MONOMIND_CWD = previousCwd;
+  }
+  return stored;
 }
 
 /** Print the outcome; a failure is a warning with the fix, never an error. */

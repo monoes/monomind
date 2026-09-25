@@ -25,7 +25,7 @@ import {
 import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 import { finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
-import { initProjectMemory } from './init-memory.js';
+import { initProjectMemory, seedProjectMemory } from './init-memory.js';
 import { buildProjectIndexes } from './project-indexes.js';
 // Split modules
 import { DIRECTORIES, findSourceHelpersDir, MAX_EXEC_FILE_BYTES } from './shared.js';
@@ -309,8 +309,9 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       result.skipped.push(...applied.diagnostics.map((line) => `platform ${platform}: ${line}`));
     }
 
-    // Generate .agents/shared_instructions.md + seed project memory
-    writeSharedInstructions(targetDir, options.force, result);
+    // Generate .agents/shared_instructions.md; its memory seeds are stored
+    // once the database exists (below).
+    const memorySeeds = writeSharedInstructions(targetDir, options.force, result);
 
     // Every agent and skill is on disk now: index them (project + user-level)
     // so the prompt hook and `monomind pick` route to them from the start.
@@ -333,6 +334,10 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       result.memory = await initProjectMemory(targetDir, {
         syncToClaude: options.components.settings,
       });
+      if (memorySeeds.length > 0) {
+        const seeded = await seedProjectMemory(targetDir, memorySeeds);
+        if (seeded > 0) result.created.files.push(`memory: ${seeded} project patterns seeded`);
+      }
     }
 
     // Run doctor auto-fix (non-blocking, best-effort)

