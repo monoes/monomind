@@ -4,7 +4,8 @@ description: Mastermind review domain — code review, content review, strategy 
 type: domain-skill
 default_mode: auto
 ---
-# monomind:start skills:agents:mastermind-review
+
+<!-- monomind:start skills:agents:mastermind-review -->
 # Mastermind Review Domain
 
 This skill is invoked by `mastermind:master` or directly via `/mastermind:review`.
@@ -236,4 +237,4 @@ For simple tasks (single reviewer, single artifact):
 | Code review only | reviewer | hierarchical 3 raft specialized |
 | Strategy review | analyst + researcher | mesh 3 gossip balanced |
 | Content review | reviewer (content) | single agent |
-# monomind:end skills:agents:mastermind-review
+<!-- monomind:end skills:agents:mastermind-review -->

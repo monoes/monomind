@@ -1,4 +1,4 @@
-# monomind:start skills:agents:mastermind:references/copilot-tools.md
+<!-- monomind:start skills:agents:mastermind:references/copilot-tools.md -->
 # Copilot CLI Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Copilot CLI these resolve to the tools below.
@@ -48,4 +48,4 @@ Copilot CLI supports persistent async shell sessions:
 | `sql` | Query the session's SQLite database (todos, metadata) |
 | `fetch_copilot_cli_documentation` | Look up Copilot CLI documentation |
 | GitHub MCP tools (`github-mcp-server-*`) | Native GitHub API access (issues, PRs, code search) |
-# monomind:end skills:agents:mastermind:references/copilot-tools.md
+<!-- monomind:end skills:agents:mastermind:references/copilot-tools.md -->

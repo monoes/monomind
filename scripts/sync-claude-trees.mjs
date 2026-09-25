@@ -9,7 +9,8 @@
  * ---------------
  * `monomind init --force` is a supported thing to run here, and it rewrites
  * assets in place: the skill writer wraps each file it owns in
- * `# monomind:start skills:<platform>:<name>` / `# monomind:end` markers. That
+ * `<!-- monomind:start skills:<platform>:<name> -->` / `<!-- monomind:end … -->`
+ * markers (older versions wrote `# monomind:start …` lines). That
  * is correct behaviour in a *user's* project — it is how the writer claims the
  * files it manages. In this repo it is not, because here those same files are
  * the product's sources.
@@ -109,16 +110,17 @@ const IGNORED_NAMES = new Set([
 const IGNORED_DIRS = new Set(['worktrees', 'checkpoints', 'node_modules', '.git']);
 
 /**
- * A whole-line `# monomind:start skills:<platform>:<name>` / `# monomind:end …`
- * marker, in any of the comment syntaxes the writer emits. Deliberately scoped
+ * A whole-line `<!-- monomind:start skills:<platform>:<name> -->` /
+ * `<!-- monomind:end … -->` marker, in any of the comment syntaxes the writer
+ * emits or once emitted (`#`, `//`, HTML). Deliberately scoped
  * to the `skills:` namespace: `instructions:` blocks (CLAUDE.md, AGENTS.md) are
  * committed content owned by a different, still-live subsystem.
  */
 const SKILL_MARKER_LINE =
   /^[\t ]*(?:(?:#|\/\/)\s*|<!--\s*)?monomind:(?:start|end)\s+skills:\S+[^\S\r\n]*(?:-->)?[^\S\r\n]*\r?\n/gm;
 
-/** YAML frontmatter followed immediately by the body, with no blank line. */
-const FRONTMATTER_WITHOUT_GAP = /^(---\r?\n[\s\S]*?\r?\n---\r?\n)(?!\r?\n)/;
+/** YAML frontmatter, up to and including its first closing `---` line. */
+const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
 
 /**
  * `.agents/skills` paths carrying a committed co-owned `skills:agents:<name>`
@@ -192,9 +194,10 @@ function collectFiles(dir, base = dir, out = []) {
 /**
  * The root copy with init's skill-ownership marker lines removed.
  *
- * The opening marker is written *over* the blank line that separates YAML
- * frontmatter from the body, so removing it would close the gap and leave every
- * synced file one whitespace line away from its committed form. All 629
+ * The old `#`-form opening marker was written *over* the blank line that
+ * separates YAML frontmatter from the body, so removing it would close the gap
+ * and leave every synced file one whitespace line away from its committed
+ * form. All 629
  * frontmatter'd markdown files in the five skill trees have that blank line, so
  * it is restored when a marker removal closed it — and only then.
  */
@@ -202,7 +205,11 @@ export function canonicalContent(text) {
   SKILL_MARKER_LINE.lastIndex = 0;
   const stripped = text.replace(SKILL_MARKER_LINE, '');
   if (stripped === text) return stripped;
-  return stripped.replace(FRONTMATTER_WITHOUT_GAP, (_m, frontmatter) => `${frontmatter}\n`);
+  // Only the frontmatter's own closing line: a lookahead on a lazy match would
+  // run on to the next `---` in the body when the gap is already there.
+  const frontmatter = FRONTMATTER.exec(stripped)?.[0];
+  if (!frontmatter || /^\r?\n/.test(stripped.slice(frontmatter.length))) return stripped;
+  return `${frontmatter}\n${stripped.slice(frontmatter.length)}`;
 }
 
 /**

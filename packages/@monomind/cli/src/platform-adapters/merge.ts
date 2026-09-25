@@ -26,7 +26,7 @@ function markerBlockPattern(marker: string): RegExp | undefined {
 
   const escapedMarker = escapeRegExp(marker);
   const commentPrefix = '(?:(?:#|//)\\s*|<!--\\s*)?';
-  const suffix = '\\s*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
+  const suffix = '[^\\S\\r\\n]*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
   return new RegExp(
     `^[\\t ]*${commentPrefix}monomind:start\\s+${escapedMarker}${suffix}[\\s\\S]*?^[\\t ]*${commentPrefix}monomind:end\\s+${escapedMarker}${suffix}`,
     'gm',
@@ -37,7 +37,9 @@ function lineEnding(content: string): '\n' | '\r\n' {
   return content.includes('\r\n') ? '\r\n' : '\n';
 }
 
-type MarkerComment = '#' | '//';
+/** `html` (`<!-- … -->`) is the Markdown form: a `# monomind:start` line is a
+ *  level-1 heading there. All three forms are read, whatever is written. */
+export type MarkerComment = '#' | '//' | 'html';
 
 function managedBlock(
   marker: string,
@@ -46,8 +48,12 @@ function managedBlock(
   comment: MarkerComment,
 ): string {
   const body = content.replace(/\r\n|\r|\n/g, eol).replace(new RegExp(`(?:${eol})+$`), '');
-  const start = `${comment} monomind:start ${marker}`;
-  const end = `${comment} monomind:end ${marker}`;
+  const edge = (kind: 'start' | 'end') =>
+    comment === 'html'
+      ? `<!-- monomind:${kind} ${marker} -->`
+      : `${comment} monomind:${kind} ${marker}`;
+  const start = edge('start');
+  const end = edge('end');
   return body.length > 0 ? `${start}${eol}${body}${eol}${end}${eol}` : `${start}${eol}${end}${eol}`;
 }
 
@@ -85,7 +91,7 @@ export function mergeManagedBlock(
  */
 function anyManagedBlockPattern(): RegExp {
   const commentPrefix = '(?:(?:#|//)\\s*|<!--\\s*)?';
-  const suffix = '\\s*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
+  const suffix = '[^\\S\\r\\n]*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
   return new RegExp(
     `^[\\t ]*${commentPrefix}monomind:start\\s+(\\S+)${suffix}[\\s\\S]*?^[\\t ]*${commentPrefix}monomind:end\\s+\\1${suffix}`,
     'gm',
@@ -135,7 +141,7 @@ export function mergeSkillFileManagedBlock(
   existing: string,
   marker: string,
   content: string,
-  comment: MarkerComment = '#',
+  comment: MarkerComment = 'html',
 ): string {
   if (!isValidMarker(marker)) return existing;
   const block = managedBlock(marker, content, lineEnding(existing), comment);
@@ -236,15 +242,24 @@ export function mergeSkillManagedBlock(
   existing: string,
   marker: string,
   rendered: string,
+  comment: MarkerComment = 'html',
 ): SafeJsonResult {
   const renderedEnd = frontmatterEnd(rendered);
   const name = skillName(rendered);
   if (renderedEnd === undefined || !name)
     return { content: existing, diagnostics: ['ERROR: rendered skill has invalid frontmatter'] };
+  // A block right after the frontmatter follows the blank line there; the
+  // `#` form used to be written over that line, and it is restored here.
+  // Anything else (user text first) is left exactly as it is.
+  const afterHeader = (merged: string): string =>
+    /^(?:<!--|#|\/\/)[^\S\r\n]*monomind:start /.test(merged) ? `\n${merged}` : merged;
   if (!existing) {
     const header = rendered.slice(0, renderedEnd);
     const body = rendered.slice(renderedEnd).replace(/^\n/, '');
-    return { content: `${header}${mergeSkillFileManagedBlock('', marker, body)}`, diagnostics: [] };
+    return {
+      content: `${header}${afterHeader(mergeSkillFileManagedBlock('', marker, body, comment))}`,
+      diagnostics: [],
+    };
   }
   const existingEnd = frontmatterEnd(existing);
   if (existingEnd === undefined || skillName(existing) !== name) {
@@ -267,7 +282,7 @@ export function mergeSkillManagedBlock(
   // than appended to (GH #286).
   const base = normalize(body) === normalize(renderedBody) ? '' : body;
   return {
-    content: `${header}${mergeSkillFileManagedBlock(base, marker, renderedBody)}`,
+    content: `${header}${afterHeader(mergeSkillFileManagedBlock(base, marker, renderedBody, comment))}`,
     diagnostics: [],
   };
 }

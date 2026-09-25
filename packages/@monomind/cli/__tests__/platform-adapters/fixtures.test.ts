@@ -76,7 +76,7 @@ describe('evidence-gated platform fixture matrix', () => {
     const body = installed.replace(/^---\n[\s\S]*?\n---\n/, '');
     const half = body.slice(0, Math.floor(body.length / 2)).trimEnd();
     expect(half.length > 200 && body.indexOf(half, half.length) !== -1).toBe(false);
-    expect(installed).toContain('# monomind:start skills:claude:mastermind-memory');
+    expect(installed).toContain('<!-- monomind:start skills:claude:mastermind-memory -->');
 
     // A second `init` run: the legacy copier clobbers the file back to raw
     // before the merge runs again, every time — must stay idempotent.

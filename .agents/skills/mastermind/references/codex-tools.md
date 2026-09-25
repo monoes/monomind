@@ -1,4 +1,4 @@
-# monomind:start skills:agents:mastermind:references/codex-tools.md
+<!-- monomind:start skills:agents:mastermind:references/codex-tools.md -->
 # Codex Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Codex these resolve to the tools below.
@@ -63,4 +63,4 @@ When the sandbox blocks branch/push operations (detached HEAD in an externally m
 - **"Hand off to local"** — transfers work to the user's local checkout
 
 The agent can still run tests, stage files, and output suggested branch names, commit messages, and PR descriptions for the user to copy.
-# monomind:end skills:agents:mastermind:references/codex-tools.md
+<!-- monomind:end skills:agents:mastermind:references/codex-tools.md -->

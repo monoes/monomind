@@ -1,4 +1,4 @@
-# monomind:start skills:agents:mastermind:references/claude-code-tools.md
+<!-- monomind:start skills:agents:mastermind:references/claude-code-tools.md -->
 # Claude Code Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Claude Code these resolve to the tools below.
@@ -49,4 +49,4 @@ For path-scoped rules and larger-project organization, see `.claude/rules/` (rul
 ## Personal skills directory
 
 User-level skills live at **`~/.claude/skills/`**. Each skill is a subdirectory containing a `SKILL.md` (with `name` and `description` frontmatter) plus any supporting files. Claude Code does not currently recognize the cross-runtime `~/.agents/skills/` path that Codex, Copilot CLI, and Gemini CLI read; if you're relying on cross-runtime support in the future, verify against the official skills docs.
-# monomind:end skills:agents:mastermind:references/claude-code-tools.md
+<!-- monomind:end skills:agents:mastermind:references/claude-code-tools.md -->

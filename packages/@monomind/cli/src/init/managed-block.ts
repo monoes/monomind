@@ -44,7 +44,7 @@ function currentBlockPattern(marker: string): RegExp {
 function legacyMarkerPattern(marker: string): RegExp {
   const escaped = escapeForBlockMarker(marker);
   const commentPrefix = '(?:(?:#|//)\\s*|<!--\\s*)?';
-  const suffix = '\\s*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
+  const suffix = '[^\\S\\r\\n]*(?:-->)?[^\\S\\r\\n]*(?:\\r?\\n|$)';
   return new RegExp(
     `^[\\t ]*${commentPrefix}monomind:start\\s+${escaped}${suffix}[\\s\\S]*?^[\\t ]*${commentPrefix}monomind:end\\s+${escaped}${suffix}`,
     'm',
@@ -148,7 +148,7 @@ function findLegacyUnmarkedRange(
  * Every path is idempotent: a second run matches case 2 and rewrites byte-for-
  * byte identical content. Content outside the block is never touched.
  *
- * The delimiter text is deliberately NOT the `# monomind:start <name>`
+ * The delimiter text is deliberately NOT the `monomind:start <name>`
  * convention platform-adapters/merge.ts uses for its own instruction blocks:
  * that text is also matched, none too precisely, by the legacy bare-block
  * migration regexes in platform-adapters/migration.ts, which would treat a

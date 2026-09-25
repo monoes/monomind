@@ -1,4 +1,4 @@
-# monomind:start skills:agents:mastermind:references/gemini-tools.md
+<!-- monomind:start skills:agents:mastermind:references/gemini-tools.md -->
 # Gemini CLI Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Gemini CLI these resolve to the tools below.
@@ -62,4 +62,4 @@ These tools are unique to Gemini CLI:
 | `complete_task` | Signal that a Gemini subagent has completed and return its result to the parent agent |
 | `tracker_create_task`, `tracker_update_task`, `tracker_get_task`, `tracker_list_tasks`, `tracker_add_dependency`, `tracker_visualize` | Rich task tracker with dependency and visualization support |
 | `read_mcp_resource`, `list_mcp_resources` | MCP resource access |
-# monomind:end skills:agents:mastermind:references/gemini-tools.md
+<!-- monomind:end skills:agents:mastermind:references/gemini-tools.md -->

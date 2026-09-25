@@ -231,10 +231,10 @@ npx monomind doctor --fix
 - Documentation: https://github.com/monoes/monomind
 - Issues: https://github.com/monoes/monomind/issues
 <!-- /monomind-block:claude-md -->
-# monomind:start instructions:claude
+<!-- monomind:start instructions:claude -->
 # Monomind
 
 Use the `monomind` MCP tools for graph navigation, impact analysis, memory, and organization work.
 For multi-step work, load only the applicable `mastermind-*` skill; do not load all workflows at once.
 If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monomind@latest` commands.
-# monomind:end instructions:claude
+<!-- monomind:end instructions:claude -->

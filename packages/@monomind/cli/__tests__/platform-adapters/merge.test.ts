@@ -96,7 +96,7 @@ describe('portable skill packages', () => {
 
     expect(twice.diagnostics).toEqual([]);
     expect(twice.content).toMatch(/^---\nname: mastermind-plan\ndescription: Plan safely\.\n---\n/);
-    expect(twice.content).toContain('# monomind:start skills:codex:mastermind-plan');
+    expect(twice.content).toContain('<!-- monomind:start skills:codex:mastermind-plan -->');
     expect(twice.content).toContain('User guidance');
   });
 
@@ -120,7 +120,7 @@ describe('portable skill packages', () => {
     const first = mergeSkillManagedBlock(rendered, marker, rendered);
     expect(first.diagnostics).toEqual([]);
     expect(first.content.match(/# Plan/g)).toHaveLength(1);
-    expect(first.content).toContain('# monomind:start skills:claude:mastermind-plan');
+    expect(first.content).toContain('<!-- monomind:start skills:claude:mastermind-plan -->');
 
     // A second `init` run: the legacy copier clobbers the file back to the
     // raw canonical source again before the merge runs, every time.
@@ -149,7 +149,7 @@ describe('portable skill reference files (GH #286)', () => {
     'No native fetch tool.',
     '',
   ].join('\n');
-  const wrapped = `# monomind:start ${marker}\n${reference.trimEnd()}\n# monomind:end ${marker}\n`;
+  const wrapped = `<!-- monomind:start ${marker} -->\n${reference.trimEnd()}\n<!-- monomind:end ${marker} -->\n`;
   const titles = (text: string): number => text.match(/^# Codex Tool Mapping$/gm)?.length ?? 0;
 
   it('wraps a pre-marker file instead of appending a second copy', () => {

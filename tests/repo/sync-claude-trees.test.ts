@@ -143,6 +143,17 @@ describe('sync-claude-trees', () => {
     expect(canonicalContent(instructions)).toBe(instructions);
   });
 
+  it('strips HTML-comment markers, and adds no blank line at a later `---` in the body', () => {
+    // init now writes `<!-- monomind:start … -->` after the frontmatter's own
+    // blank line. The gap check must look only at the frontmatter's closing
+    // `---`, not run on to a horizontal rule further down the body.
+    expect(
+      canonicalContent(
+        '---\nname: x\n---\n\n<!-- monomind:start skills:claude:x -->\n# T\n\n---\nafter rule\n<!-- monomind:end skills:claude:x -->\n',
+      ),
+    ).toBe('---\nname: x\n---\n\n# T\n\n---\nafter rule\n');
+  });
+
   it('is idempotent — a second run writes nothing', () => {
     const { root, mirrors } = makeFixture();
 

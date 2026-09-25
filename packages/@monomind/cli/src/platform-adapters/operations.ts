@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import {
   adoptSupersededBlocks,
+  type MarkerComment,
   mergeManagedBlock,
   mergeSkillFileManagedBlock,
   mergeSkillManagedBlock,
@@ -160,8 +161,12 @@ function isSkillPackage(intent: ArtifactIntent): boolean {
   return intent.kind === 'skill' && (intent.relativePath ?? '').endsWith('/SKILL.md');
 }
 
-function markerComment(format: ResolvedArtifactLocation['format']): '#' | '//' {
-  return format === 'js' ? '//' : '#';
+function markerComment(location: ResolvedArtifactLocation, marker = ''): MarkerComment {
+  // Catalog projections keep the `#` form: build-skill-registry.cjs reads the
+  // line `# monomind:start catalog:<id>` literally.
+  if (marker.startsWith('catalog:')) return '#';
+  if (location.format === 'md' || location.path.endsWith('.md')) return 'html';
+  return location.format === 'js' ? '//' : '#';
 }
 
 function isEmptyOwnedSkillFile(content: string, intent: ArtifactIntent): boolean {
@@ -192,7 +197,12 @@ function applyIntent(
     const marker = intent.marker ?? `${intent.kind}:${adapter.id}`;
     const base = adoptSupersededBlocks(oldContent, marker, intent.supersedes ?? []);
     if (isSkillPackage(intent)) {
-      const merged = mergeSkillManagedBlock(base, marker, intent.content);
+      const merged = mergeSkillManagedBlock(
+        base,
+        marker,
+        intent.content,
+        markerComment(location, marker),
+      );
       content = merged.content;
       diagnostics = [...merged.diagnostics];
     } else if (intent.kind === 'skill') {
@@ -203,10 +213,10 @@ function applyIntent(
         base,
         marker,
         intent.content,
-        markerComment(location.format),
+        markerComment(location, marker),
       );
     } else {
-      content = mergeManagedBlock(base, marker, intent.content, markerComment(location.format));
+      content = mergeManagedBlock(base, marker, intent.content, markerComment(location, marker));
     }
   } else if (intent.replace === 'named_entry') {
     if (location.format !== 'json') {

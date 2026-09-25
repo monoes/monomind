@@ -4,7 +4,8 @@ description: Mastermind research domain — market research, competitor analysis
 type: domain-skill
 default_mode: auto
 ---
-# monomind:start skills:agents:mastermind-research
+
+<!-- monomind:start skills:agents:mastermind-research -->
 # Mastermind Research Domain
 
 This skill is invoked by `mastermind:master` or directly via `/mastermind:research`.
@@ -168,4 +169,4 @@ For simple tasks (single researcher, single question):
 | Trend scan | researcher | single agent |
 | User research synthesis | researcher + Monodesign | hierarchical 3 raft specialized |
 | Quick factual lookup | researcher | single agent |
-# monomind:end skills:agents:mastermind-research
+<!-- monomind:end skills:agents:mastermind-research -->

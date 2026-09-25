@@ -92,7 +92,7 @@ describe('shared .agents/skills surface', () => {
       const body = rendered!.content.slice(header.length).replace(/^\n/, '').replace(/\n+$/, '');
       expect(after).toBe(
         `${header}USER TOP\n` +
-          `# monomind:start skills:agents:mastermind-org\n${body}\n# monomind:end skills:agents:mastermind-org\n` +
+          `<!-- monomind:start skills:agents:mastermind-org -->\n${body}\n<!-- monomind:end skills:agents:mastermind-org -->\n` +
           'USER MIDDLE\nUSER TAIL\n',
       );
 
@@ -114,9 +114,13 @@ describe('shared .agents/skills surface', () => {
       await installPlatform({ platform: 'codex', path: root, scope: 'project' });
       const file = join(root, '.agents', 'skills', 'mastermind-org', 'SKILL.md');
       const current = readFileSync(file, 'utf8');
-      // Rebuild the 2.16.0 shape: the same body once per sharing platform.
+      // Rebuild the 2.16.0 shape: the same body once per sharing platform, in
+      // the `#` marker form written over the blank line after the frontmatter.
+      const legacyForm = current
+        .replace(/<!-- monomind:(start|end) (\S+) -->/g, '# monomind:$1 $2')
+        .replace(/^(---\n[\s\S]*?\n---\n)\n/, '$1');
       const legacy = ['opencode', 'kimi', 'codex']
-        .map((platform) => current.replaceAll('skills:agents:', `skills:${platform}:`))
+        .map((platform) => legacyForm.replaceAll('skills:agents:', `skills:${platform}:`))
         .map((content, index) => (index === 0 ? content : content.replace(/^---\n[\s\S]*?\n---\n/, '')))
         .join('');
       writeFileSync(file, legacy);
