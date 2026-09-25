@@ -4,6 +4,18 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.16.5] — 2026-09-25
+
+### Fixed
+
+- **`init` no longer destroys user content.** `.mcp.json`, `.monomind/config.yaml` and `opencode.json` are merged instead of overwritten (860a48d1c, 1ed11c258, ce68c8879, 6b89484f9); managed blocks in `.monomind/.gitignore` and `GEMINI.md` are tracked with HTML-comment ownership markers so user-written content around them survives `--force` (1a15198cd, ce68c8879, 4ee8db935); shipped files are hash-guarded, and a locally-edited file is never overwritten in place — it gets a `.monomind-new` copy alongside it instead (4b34f8645); anything `init` does overwrite is backed up first; `--force` says so when it refreshes a block that predates block hashes (4ee8db935); the deny-by-default `.gitignore` no longer gets never-commit lines appended to it (6cc057fa5); project memory is seeded in-process and only when memory is on (9477ed4b5); `doctor` writes specific `.monomind` excludes and warns when a running MCP server predates the installed CLI (185d1e1df, f8e3f5ac4).
+- **Agent/skill picking is more conservative and more correct.** `monomind pick` (CLI and MCP) and the `[PICK]` hook line now apply the same confidence gate consistently (4d809461c, 9f3290f5e); the CLI's fallback text is shown in org-skill `[PICK]` lines (9f3290f5e); the prompt hook refreshes a stale skill index and drops removed skills instead of picking them (c1f27fb1b); namespaced slash commands are treated as commands, not prompts to pick for (312c2eb33); Jev's "no fit" verdict is never overridden by a keyword pick — a clear "none" stays "none" (2d98766e8); the Jev hook window is capped at 3s regardless of what the environment asks for (65bdeafb1); Jev now gets a category-diverse candidate set when keywords barely match, instead of a keyword-skewed one (d2a6e21a4); a description's own "not for X" clause is honoured when ranking candidates (f31e79951); `doctor`'s MCP-running check and `pick-stats`' adherence counting were both fixed (f8e3f5ac4, b25b5ab97).
+- **Skill trees and packaging stay consistent with what ships.** The CLI package always ships the monodesign skill (193930c87), which is recompiled only when its sources actually change (0a5f26536, c4b1c76eb); a derived-kimi-tree check catches drift (8e37b0640); dead CLI references in skills — commands the built CLI doesn't have — are replaced with real ones, and `lint-skills` now fails the build if any remain (db2495d28, 6ff62eb55); `SKILLS_MAP` matches the shipped skill tree (66b21d20c); command and skill descriptions were fixed where missing, invalid YAML, or stale (580a5c7a9, 61b0dd7e9, 1f988a04e).
+
+### Internal
+
+- Fixed a flaky assertion in `init-generated-timestamp-stability.test.ts` that asserted on a timestamp-stamp collision (402828396); test-only, no behavior change.
+
 ## [2.16.4] — 2026-09-25
 
 ### Added
