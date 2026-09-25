@@ -61,7 +61,7 @@ Bundle everything into `FULL_CONTEXT`.
 
 **File mode (default, `USE_MONOTASK=false`):**
 
-Compute the output path (follow slug rules from `mastermind-taskfile/SKILL.md`):
+Compute the output path (follow slug rules from `.claude/commands/mastermind/_taskfile.md`):
 ```bash
 DATE=$(date +%Y-%m-%d)
 SLUG=$(echo "$INPUT_LABEL" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/-\+/-/g; s/^-//; s/-$//' | cut -c1-40)
@@ -167,7 +167,7 @@ Store as `TASKS` array.
 
 **File mode (default, `USE_MONOTASK=false`):**
 
-Write the file using the Write tool. Follow the task section format from `mastermind-taskfile/SKILL.md` exactly. The file structure:
+Write the file using the Write tool. Follow the task section format from `.claude/commands/mastermind/_taskfile.md` exactly. The file structure:
 
 1. **Write frontmatter + header** (once):
 ```markdown
@@ -186,7 +186,7 @@ recommended_mode: <parallel|minimal|sequential>
 ---
 ```
 
-2. **Append one section per task** (initial status = `todo` if no prerequisites, `backlog` if has prerequisites), following the task section format from `mastermind-taskfile/SKILL.md`:
+2. **Append one section per task** (initial status = `todo` if no prerequisites, `backlog` if has prerequisites), following the task section format from `.claude/commands/mastermind/_taskfile.md`:
 ```markdown
 ## Task N: <title>
 

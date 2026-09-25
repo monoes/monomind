@@ -91,7 +91,15 @@
  * is idempotent: running it twice in a row writes nothing.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -288,7 +296,113 @@ export function syncTrees({ root = REPO_ROOT, mirrors = MIRRORS, check = false }
   return { pairs, written, staleExceptions };
 }
 
-function main(argv) {
+/**
+ * THE KIMI TREES
+ * --------------
+ * `.kimi-code/agents/*.md`, `.kimi-code/plugin/commands/*.md` and every
+ * `.kimi-code/skills/<dir>/SKILL.md` are not mirrors: they are the OUTPUT of
+ * the kimi converters (`convertClaudeTreeToKimi` in
+ * `packages/@monomind/cli/src/init/write-kimicode.ts`) run over the root
+ * `.claude/{agents,commands,skills}` tree. So unlike the mirrors above they are
+ * compared against the converter's output, a file the converter no longer
+ * produces is stale, and regenerating removes it. Only `SKILL.md` files are
+ * owned here — other files inside a skill directory are the mirror's business.
+ *
+ * The converter is loaded from the BUILT CLI (`pnpm -r run build`, or
+ * `npm run build` in packages/@monomind/cli). A missing build is an error, not
+ * a skip — a check that silently passes when it cannot run is no check.
+ */
+const KIMI_CONVERTER = 'packages/@monomind/cli/dist/src/init/write-kimicode.js';
+
+/**
+ * Kimi skill directories produced by something other than the converter:
+ * `monodesign` is compiled by packages/@monoes/monodesign/scripts/sync-skill.mjs
+ * and its root `.claude/skills/monodesign` source is gitignored, so it cannot
+ * be derived from a clean checkout.
+ */
+const KIMI_EXCEPT_SKILLS = ['monodesign'];
+
+export async function loadKimiConverter(root = REPO_ROOT) {
+  const modPath = join(root, KIMI_CONVERTER);
+  if (!existsSync(modPath)) {
+    throw new Error(
+      `${KIMI_CONVERTER} is missing — build the CLI first (pnpm -r run build). ` +
+        'The kimi trees are compared against its converters.',
+    );
+  }
+  const mod = await import(pathToFileURL(modPath).href);
+  return (claudeDir) => mod.convertClaudeTreeToKimi(claudeDir);
+}
+
+function listDir(dir) {
+  try {
+    return readdirSync(dir).filter((name) => !isIgnored(name));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Compare (and unless `check`, regenerate) the kimi trees. `convert` maps a
+ * `.claude` directory to `{ agents, skills, pluginCommands }` maps.
+ */
+export function syncKimiTrees({
+  root = REPO_ROOT,
+  convert,
+  check = false,
+  exceptSkills = KIMI_EXCEPT_SKILLS,
+}) {
+  const expected = convert(join(root, '.claude'));
+  const except = new Set(exceptSkills);
+  const kimi = '.kimi-code';
+  const wanted = new Map();
+  for (const [file, content] of expected.agents) wanted.set(`${kimi}/agents/${file}`, content);
+  for (const [dir, content] of expected.skills) {
+    if (!except.has(dir)) wanted.set(`${kimi}/skills/${dir}/SKILL.md`, content);
+  }
+  for (const [file, content] of expected.pluginCommands) {
+    wanted.set(`${kimi}/plugin/commands/${file}`, content);
+  }
+
+  const missing = [];
+  const diverged = [];
+  for (const [rel, content] of wanted) {
+    const abs = join(root, rel);
+    if (!existsSync(abs)) missing.push(rel);
+    else if (readFileSync(abs, 'utf8') !== content) diverged.push(rel);
+  }
+
+  const stale = [];
+  for (const file of listDir(join(root, kimi, 'agents'))) {
+    if (file.endsWith('.md') && !expected.agents.has(file)) stale.push(`${kimi}/agents/${file}`);
+  }
+  for (const file of listDir(join(root, kimi, 'plugin', 'commands'))) {
+    if (file.endsWith('.md') && !expected.pluginCommands.has(file)) {
+      stale.push(`${kimi}/plugin/commands/${file}`);
+    }
+  }
+  for (const dir of listDir(join(root, kimi, 'skills'))) {
+    if (!except.has(dir) && !expected.skills.has(dir)) stale.push(`${kimi}/skills/${dir}`);
+  }
+
+  const written = [];
+  if (!check) {
+    for (const rel of [...missing, ...diverged]) {
+      const abs = join(root, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, wanted.get(rel));
+      written.push(rel);
+    }
+    for (const rel of stale) {
+      rmSync(join(root, rel), { recursive: true, force: true });
+      written.push(`${rel} (removed)`);
+    }
+  }
+
+  return { missing: missing.sort(), diverged: diverged.sort(), stale: stale.sort(), written };
+}
+
+async function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) {
     console.log(
       [
@@ -299,6 +413,11 @@ function main(argv) {
         'the result into the other four on the INTERSECTION of paths only. A file',
         'present in just one tree is never created and never deleted — the shipped',
         'package tree is a deliberate superset.',
+        '',
+        'Then regenerates the derived kimi trees (.kimi-code/agents, .kimi-code/',
+        'plugin/commands and every .kimi-code/skills/<dir>/SKILL.md) by running the',
+        "built CLI's kimi converters over .claude/, removing entries they no longer",
+        'produce. Needs the CLI built (pnpm -r run build).',
         '',
         '  --check   report divergence and exit 1 without writing anything',
       ].join('\n'),
@@ -340,29 +459,49 @@ function main(argv) {
     return 1;
   }
 
+  // Kimi runs after the mirrors so it sees the synced .claude/ tree.
+  let kimi;
+  try {
+    kimi = syncKimiTrees({ convert: await loadKimiConverter(), check });
+  } catch (err) {
+    console.error(`\n❌ ${err.message}`);
+    return 1;
+  }
+  const kimiOff = kimi.missing.length + kimi.diverged.length + kimi.stale.length;
+  console.log(
+    `.claude -> .kimi-code (converted): ${kimi.missing.length} missing, ` +
+      `${kimi.diverged.length} diverged, ${kimi.stale.length} stale`,
+  );
+  for (const rel of kimi.missing) console.log(`    ${rel} (missing)`);
+  for (const rel of kimi.diverged) console.log(`    ${rel}`);
+  for (const rel of kimi.stale) console.log(`    ${rel} (stale)`);
+
   if (check) {
-    if (divergedTotal === 0 && markedRootFiles.size === 0) {
-      console.log('\n✓ All five .claude asset trees hold the canonical content.');
+    if (divergedTotal === 0 && markedRootFiles.size === 0 && kimiOff === 0) {
+      console.log(
+        '\n✓ All .claude asset trees and the derived kimi trees hold the canonical content.',
+      );
       return 0;
     }
     console.error(
-      `\n❌ ${divergedTotal} mirrored file(s) and ${markedRootFiles.size} root file(s) ` +
-        'are not in their canonical form.\n' +
-        '   Run `pnpm run sync:claude-trees` to fix both.\n' +
+      `\n❌ ${divergedTotal} mirrored file(s), ${markedRootFiles.size} root file(s) and ` +
+        `${kimiOff} kimi file(s) are not in their canonical form.\n` +
+        '   Run `pnpm run sync:claude-trees` to fix them.\n' +
         '   (`monomind init --force` rewrites .claude/ and .agents/skills only, ' +
         'adding its ownership markers, which is what leaves the rest behind.)',
     );
     return 1;
   }
 
+  const total = written.length + kimi.written.length;
   console.log(
-    written.length === 0
-      ? '\n✓ Nothing to do — all five .claude asset trees already hold the canonical content.'
-      : `\n✓ Rewrote ${written.length} file(s) to the canonical content.`,
+    total === 0
+      ? '\n✓ Nothing to do — all .claude asset trees and kimi trees already hold the canonical content.'
+      : `\n✓ Rewrote ${total} file(s) to the canonical content.`,
   );
   return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exit(main(process.argv.slice(2)));
+  process.exit(await main(process.argv.slice(2)));
 }
