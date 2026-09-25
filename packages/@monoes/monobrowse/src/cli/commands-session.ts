@@ -8,17 +8,16 @@
  * differently: it must never kill a Chrome it did not launch.
  */
 
+import { detectAttentionNeeded, switchToHeaded } from './attention-wall.js';
 import { output } from './output.js';
 import {
   adoptLegacySession,
-  detectAttentionNeeded,
   ensureConnected,
   getBrowser,
   launchSessionBrowser,
   pinnedPort,
   resolveLiveSession,
   session,
-  switchToHeaded,
 } from './session.js';
 import type { Command, CommandContext, CommandResult } from './types.js';
 
