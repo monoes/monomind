@@ -174,13 +174,30 @@ export function ensureSignalCleanupHandlers(): void {
 // crashed or manually-killed Chrome must not wedge every later command.
 //
 // `name` selects the session recorded under that `--session` name; without
-// one, only unnamed sessions are candidates.
+// one, only unnamed sessions are candidates — UNLESS there is exactly one
+// other live session, named or not (see `soleOtherLive` below): a command
+// that named nothing still has to resolve to *something* when there is only
+// one browser to mean, or every command run after a named-only `open` (any
+// flag combination that leaves `session.name` unset — e.g. `snapshot`'s `-s`
+// is `--selector`, not `--session`, see withSessionSelector) would silently
+// miss the live named session and launch a brand-new, unrelated Chrome
+// instead — the process this file exists to prevent (#318), just with an
+// empty new tab standing in for the "wrong browser" (issue: named-session
+// snapshot showed Chrome's New Tab instead of the opened page). Ambiguity
+// (two or more other live sessions) is still refused: guessing among several
+// named browsers is exactly the cross-session bleed #318 fixed.
 export async function resolveLiveSession(
   browser: Awaited<ReturnType<typeof getBrowser>>,
   opts: { strict?: boolean; name?: string } = {},
 ): Promise<SessionRecord | null> {
+  const soleOtherLive: SessionRecord[] = [];
   for (const record of await browser.listSessionRecords()) {
-    if ((record.name ?? '') !== (opts.name ?? '')) continue;
+    if ((record.name ?? '') !== (opts.name ?? '')) {
+      if (opts.name === undefined && soleOtherLive.length < 2 && (await cdpAnswers(record.port))) {
+        soleOtherLive.push(record);
+      }
+      continue;
+    }
     if (await cdpAnswers(record.port)) return record;
     await browser.removeSessionRecord(record.port);
     await browser.clearRefCache(record.port);
@@ -195,9 +212,11 @@ export async function resolveLiveSession(
       );
     }
   }
-  // Nothing native is live. A session opened by a pre-#318 CLI in this
-  // directory may still be — it is the oldest possible candidate, so it is
-  // considered last. It predates names, so a named lookup never adopts it.
+  if (opts.name === undefined && soleOtherLive.length === 1) return soleOtherLive[0];
+  // Nothing native is live (or matched). A session opened by a pre-#318 CLI
+  // in this directory may still be — it is the oldest possible candidate, so
+  // it is considered last. It predates names, so a named lookup never adopts
+  // it.
   return opts.name ? null : adoptLegacySession(browser);
 }
 

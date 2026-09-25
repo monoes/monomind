@@ -325,6 +325,33 @@ describe('--session names a live session', () => {
     expect(await store.loadSessionRecord(41111)).toBeNull();
   });
 
+  // Regression: a command whose flags never set `session.name` (e.g.
+  // `snapshot -s <name>` — `-s` is `--selector` on snapshot, not
+  // `--session`, see withSessionSelector in cli/commands.ts) used to find
+  // NO live session at all once the only live session was named, so
+  // ensureConnected silently launched a brand-new, unrelated headless
+  // Chrome — its blank "New Tab" is what a following snapshot showed
+  // instead of the page the named session had actually opened. With only
+  // one live session, named or not, a nameless lookup must still resolve to
+  // it: there is nothing else it could mean.
+  it('a command with no name resolves the sole live session even if it is named', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await recordInOrder(store, { port: 41111, name: 'ctrl' });
+    onlyLive(41111);
+
+    expect((await resolveLiveSession(browser))?.port).toBe(41111);
+  });
+
+  // But guessing between two DIFFERENT named sessions would reintroduce the
+  // exact cross-session bleed #318 fixed — refuse instead of picking one.
+  it('a command with no name refuses to guess between two live named sessions', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await recordInOrder(store, { port: 41111, name: 'alpha' }, { port: 42222, name: 'beta' });
+    onlyLive(41111, 42222);
+
+    expect(await resolveLiveSession(browser)).toBeNull();
+  });
+
   it('--session sets the process session name; a missing flag leaves it alone', async () => {
     const { applySessionNameFlag, session } = await load();
     applySessionNameFlag({ _: [], session: 'ref' });
