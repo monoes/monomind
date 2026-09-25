@@ -13,16 +13,14 @@
  * test runs the real, built converter against the live repo.
  */
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { syncKimiTrees } from '../../scripts/sync-claude-trees.mjs';
+import { loadKimiConverter, syncKimiTrees } from '../../scripts/sync-claude-trees.mjs';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SCRIPT = join(REPO_ROOT, 'scripts', 'sync-claude-trees.mjs');
 
 const created: string[] = [];
 afterEach(() => {
@@ -104,9 +102,12 @@ describe('sync-claude-trees: kimi derived trees', () => {
     expect([...again.missing, ...again.diverged, ...again.stale]).toEqual([]);
   });
 
-  it('the live repo kimi trees match the converters run over .claude/ (needs the built CLI)', () => {
-    expect(() =>
-      execFileSync('node', [SCRIPT, '--check'], { encoding: 'utf8', cwd: REPO_ROOT }),
-    ).not.toThrow();
+  it('the live repo kimi trees match the converters run over .claude/ (needs the built CLI)', async () => {
+    const report = syncKimiTrees({
+      root: REPO_ROOT,
+      convert: await loadKimiConverter(REPO_ROOT),
+      check: true,
+    });
+    expect([...report.missing, ...report.diverged, ...report.stale]).toEqual([]);
   });
 });

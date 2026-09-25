@@ -92,6 +92,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -409,15 +410,68 @@ export function syncKimiTrees({
  * `.agents` and `.gemini` copies mirror it, so without compiling it first the
  * comparison depended on whether this machine happened to have run
  * sync-skill.mjs (a clean checkout compared nothing, a stale local copy
- * "fixed" the mirrors backwards). Compile it every time; it writes only
+ * "fixed" the mirrors backwards). Compile it before comparing; it writes only
  * gitignored output, so this is safe in --check mode too.
  */
-const GENERATED_SKILL_SCRIPTS = ['packages/@monoes/monodesign/scripts/sync-skill.mjs'];
+const MONODESIGN = 'packages/@monoes/monodesign';
+const MONODESIGN_INPUTS = ['skill', 'cli/engine', 'cli/lib', 'scripts/sync-skill.mjs'];
+const MONODESIGN_OUTPUTS = [
+  '.claude/skills/monodesign/SKILL.md',
+  'packages/@monomind/cli/.claude/skills/monodesign/SKILL.md',
+];
 
-function compileGeneratedSkills(root = REPO_ROOT) {
-  for (const rel of GENERATED_SKILL_SCRIPTS) {
-    const script = join(root, rel);
-    if (existsSync(script)) execFileSync('node', [script], { cwd: root, stdio: 'ignore' });
+/** Content hash of everything sync-skill.mjs compiles from. */
+function monodesignSourceHash(root) {
+  const hash = createHash('sha256');
+  for (const input of MONODESIGN_INPUTS) {
+    const abs = join(root, MONODESIGN, input);
+    const files = statSync(abs, { throwIfNoEntry: false })?.isDirectory()
+      ? collectFiles(abs).map((rel) => join(abs, rel))
+      : [abs];
+    for (const file of files.sort()) {
+      if (!existsSync(file)) continue;
+      hash.update(file.slice(root.length)).update('\0').update(readFileSync(file)).update('\0');
+    }
+  }
+  return hash.digest('hex');
+}
+
+/**
+ * Compile the monodesign skill when its sources changed since the last
+ * compile (or an output is missing). Skipping an up-to-date compile matters:
+ * sync-skill.mjs deletes and rewrites its output directories, so running it on
+ * every --check would race any concurrent reader of the trees (the repo tests
+ * run in parallel). A lock serialises concurrent first compiles.
+ */
+export function compileGeneratedSkills(root = REPO_ROOT) {
+  const script = join(root, MONODESIGN, 'scripts', 'sync-skill.mjs');
+  if (!existsSync(script)) return;
+  const cacheDir = join(root, 'node_modules', '.cache', 'sync-claude-trees');
+  const stamp = join(cacheDir, 'monodesign.sha256');
+  const lock = join(cacheDir, 'monodesign.lock');
+  mkdirSync(cacheDir, { recursive: true });
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (err) {
+      if (err.code !== 'EEXIST' || Date.now() > deadline) throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    }
+  }
+  try {
+    const current = monodesignSourceHash(root);
+    const fresh =
+      existsSync(stamp) &&
+      readFileSync(stamp, 'utf8') === current &&
+      MONODESIGN_OUTPUTS.every((rel) => existsSync(join(root, rel)));
+    if (!fresh) {
+      execFileSync('node', [script], { cwd: root, stdio: 'ignore' });
+      writeFileSync(stamp, current);
+    }
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
   }
 }
 
