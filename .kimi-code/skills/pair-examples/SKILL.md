@@ -36,7 +36,7 @@ End:
 > "Summarize what we built and what's still needed before this is production-ready."
 
 ```bash
-npx monomind hooks post-task --task-id <id> --success true --quality 0.9
+npx monomind hooks post-task --task-id <id> --success true
 ```
 
 ---
@@ -153,6 +153,5 @@ At end:
 
 - [modes.md](./modes.md) — choosing the right mode
 - [session.md](./session.md) — session lifecycle and tracking
-- `superpowers:pair-programming` — structured pair programming skill
-- `superpowers:test-driven-development` — full TDD workflow
-- `superpowers:systematic-debugging` — debugging methodology
+- The `pair-programming` skill — structured pair programming workflow
+- The `mastermind-debug` skill — systematic debugging, failing test first

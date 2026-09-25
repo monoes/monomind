@@ -46,7 +46,7 @@ If you need persistent, scheduled, autonomous agent organizations that outlive a
 ### 1. Initialize
 
 ```bash
-npx monomind@latest swarm init \
+npx monomind@latest monoswarm init \
   --topology hierarchical \
   --max-agents 8 \
   --strategy specialized
@@ -67,7 +67,7 @@ Equivalent MCP: `mcp__monomind__monoswarm_agent_add { type: "...", name: "..." }
 ### 3. Start work
 
 ```bash
-npx monomind@latest swarm start \
+npx monomind@latest monoswarm start \
   --objective "Add OAuth2 login with tests" \
   --strategy specialized \
   --agents 4
@@ -76,11 +76,11 @@ npx monomind@latest swarm start \
 ### 4. Monitor, scale, and stop
 
 ```bash
-npx monomind@latest swarm status
+npx monomind@latest monoswarm status
 npx monomind@latest agent list
 npx monomind@latest agent status <id>
-npx monomind@latest swarm scale --agents 12
-npx monomind@latest swarm stop
+npx monomind@latest monoswarm scale --agents 12
+npx monomind@latest monoswarm stop
 ```
 
 Equivalent MCP: `monoswarm_status`, `monoswarm_scale`, `monoswarm_health`, `monoswarm_shutdown { graceful: true, force: false }`.
@@ -112,8 +112,8 @@ These are real agent names (Task `subagent_type`). For a task-specific pick use 
 ### Sequential pipeline (design → code → test → review)
 
 ```bash
-npx monomind@latest swarm init --topology hierarchical --strategy development --max-agents 4
-npx monomind@latest swarm start --objective "Build user-profile API with full test coverage"
+npx monomind@latest monoswarm init --topology hierarchical --strategy development --max-agents 4
+npx monomind@latest monoswarm start --objective "Build user-profile API with full test coverage"
 ```
 
 Drive each stage via task assignment — the next stage picks up when the previous completes:
@@ -129,8 +129,8 @@ mcp__monomind__task_assign { task_id: "...", agent_id: "<tester-id>" }
 ### Parallel fan-out (independent subtasks)
 
 ```bash
-npx monomind@latest swarm init --topology mesh --strategy balanced --max-agents 6
-npx monomind@latest swarm start --objective "Audit 6 modules for security issues" --agents 6
+npx monomind@latest monoswarm init --topology mesh --strategy balanced --max-agents 6
+npx monomind@latest monoswarm start --objective "Audit 6 modules for security issues" --agents 6
 ```
 
 Spawn one Task-tool agent per module; each writes findings to the shared namespace.
@@ -167,8 +167,8 @@ mcp__monomind__monoswarm_vote { action: "vote", proposalId: "<id>", vote: true, 
 mcp__monomind__monoswarm_memory { action: "set", key: "decision-architecture-v1", value: { summary: "...", proposalId: "<id>" } }
 
 # 5. Execute with a regular swarm run, sharing the decision via memory namespace
-npx monomind@latest swarm init --topology hierarchical --max-agents 6
-npx monomind@latest swarm start --objective "Implement modular monolith per decision-architecture-v1"
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 6
+npx monomind@latest monoswarm start --objective "Implement modular monolith per decision-architecture-v1"
 ```
 
 ## Vote Strategies
@@ -235,8 +235,8 @@ npx monomind@latest memory search --query "auth requirements"
 In-process "load balancing" is task routing, not network LB. Two mechanisms: `hooks_route` (picks the optimal agent type from the routing table) and `strategy` (`balanced` evens work, `specialized` keeps roles fixed). For uneven workloads, scale up and reassign stalled tasks:
 
 ```bash
-npx monomind@latest swarm scale --agents 12
-npx monomind@latest swarm status
+npx monomind@latest monoswarm scale --agents 12
+npx monomind@latest monoswarm status
 ```
 
 ```
@@ -246,7 +246,7 @@ mcp__monomind__task_assign { task_id: "...", agent_id: "<idle-agent-id>" }
 ## Full Example: Feature Build
 
 ```bash
-npx monomind@latest swarm init --topology hierarchical --max-agents 5 --strategy specialized
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 5 --strategy specialized
 
 npx monomind@latest memory store \
   --key "feature-spec" \
@@ -258,9 +258,9 @@ npx monomind@latest agent spawn -t coder       --name impl
 npx monomind@latest agent spawn -t tester      --name qa
 npx monomind@latest agent spawn -t reviewer    --name audit
 
-npx monomind@latest swarm start --objective "Implement CSV import end-to-end" --agents 4
-npx monomind@latest swarm status
-npx monomind@latest swarm stop
+npx monomind@latest monoswarm start --objective "Implement CSV import end-to-end" --agents 4
+npx monomind@latest monoswarm status
+npx monomind@latest monoswarm stop
 ```
 
 Execution happens in Claude Code Task-tool agents. The CLI coordinates; Task agents do the work.

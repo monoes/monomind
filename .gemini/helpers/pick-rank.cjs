@@ -14,7 +14,7 @@
  * `pick: low` frontmatter) keeps LOW_PICK_FACTOR of its score, so it surfaces
  * only when the task names it. Equal scores keep catalog order.
  *
- * Exclusions (English only, query side only): words the task explicitly
+ * Exclusions in the task (English only): words the task explicitly
  * rules out do not count ("anything pending rather than release" must not
  * pick release-manager). withoutExclusions() drops each cue and the words in
  * its scope before tokenizing. Cues: "rather than", "other than", "instead
@@ -25,6 +25,14 @@
  * staging"), or after SCOPE_WORDS content words. Problem descriptions are not
  * exclusions: "not"/"no" after a copula or auxiliary ("is not loading",
  * "are no tests", "does not"), "not only", and "don't know/see/get/..." stay.
+ *
+ * Exclusions on the document side (English only): a description's own
+ * "not for X" / "never for X" / "do not use for X" clause names work the item
+ * is NOT for. Its words leave the item's index unless the rest of the
+ * description uses them too, so "Not for pull requests" no longer matches
+ * "pull request". A task that names what a "not for" clause rules out (more
+ * than half the words of one of its alternatives, at least one of them a word
+ * the item does not otherwise carry) keeps EXCLUDED_FACTOR of its score.
  */
 
 var K1 = 1.2;
@@ -35,6 +43,8 @@ var STRONG_WEIGHT = 2;
 var PREFIX_MIN_SHARED = 3;
 // Share of its score a `pick: 'low'` item keeps.
 var LOW_PICK_FACTOR = 0.35;
+// Share of its score an item keeps when the task names what it is not for.
+var EXCLUDED_FACTOR = 0.2;
 
 var STOPWORDS = new Set(
   (
@@ -195,6 +205,39 @@ function queryTokens(text) {
   return tokens(withoutExclusions(text));
 }
 
+// A description clause: sentence punctuation, brackets or dashes end it.
+var DOC_CLAUSE_SPLIT = /[.;:!?()[\]{}<>|\n\r\u2013\u2014]+|\s-+\s/;
+var DOC_NOT_FOR = /\b(?:not|never)\s+(?:intended\s+|meant\s+)?for\s+(.+)$|\b(?:do\s+not|don't|dont|never)\s+use\s+(?:it\s+|this\s+)?for\s+(.+)$/;
+var DOC_ALTERNATIVES = /,|\s(?:or|and|nor)\s/;
+
+/** A description's own exclusions (see the file header): `kept` is the text
+ *  without its "not for" clauses, `ruledOut` the word lists of each
+ *  alternative a "not for" clause names, `dropped` every word those clauses
+ *  hold. */
+function docExclusions(description) {
+  var kept = [];
+  var ruledOut = [];
+  var dropped = [];
+  String(description || '')
+    .toLowerCase()
+    .replace(/\u2019/g, "'")
+    .split(DOC_CLAUSE_SPLIT)
+    .forEach(function (clause) {
+      var m = DOC_NOT_FOR.exec(clause);
+      if (m) {
+        kept.push(clause.slice(0, m.index));
+        (m[1] || m[2]).split(DOC_ALTERNATIVES).forEach(function (alt) {
+          var t = tokens(alt);
+          if (t.length) ruledOut.push(t);
+        });
+        dropped.push(m[1] || m[2]);
+        return;
+      }
+      kept.push(clause);
+    });
+  return { kept: kept.join(' . '), ruledOut: ruledOut, dropped: new Set(tokens(dropped.join(' '))) };
+}
+
 /** Leading id segments ("engineering-", "mastermind:", "analysis:") that are
  *  shared by >= PREFIX_MIN_SHARED ids or equal the item's category. */
 function categoryPrefixes(items) {
@@ -234,13 +277,26 @@ function indexFor(items) {
   var total = 0;
   var docs = items.map(function (item) {
     var strong = strongTerms(item, isPrefix);
-    var weakList = tokens((item.description || '') + ' ' + (item.text || ''));
+    var ex = docExclusions(item.description);
+    var keptList = tokens(ex.kept);
+    var own = new Set(keptList);
+    // `text` repeats description words (derived keywords): a word only an
+    // exclusion clause holds leaves it too.
+    var weakList = keptList.concat(tokens(item.text || '').filter(function (t) {
+      return own.has(t) || !ex.dropped.has(t);
+    }));
     var weak = termCounts(weakList);
     new Set(Array.from(strong).concat(Array.from(weak.keys()))).forEach(function (t) {
       df.set(t, (df.get(t) || 0) + 1);
     });
     total += weakList.length;
-    return { strong: strong, weak: weak, len: weakList.length, low: item.pick === 'low' };
+    // Each "not for" alternative, with the words it names beyond the item's own.
+    var ruledOut = ex.ruledOut
+      .map(function (alt) {
+        return { all: alt, own: alt.filter(function (t) { return strong.has(t) || weak.has(t); }) };
+      })
+      .filter(function (alt) { return alt.own.length < alt.all.length; });
+    return { strong: strong, weak: weak, len: weakList.length, low: item.pick === 'low', ruledOut: ruledOut };
   });
   return { size: items.length, docs: docs, df: df, avg: total / items.length || 1 };
 }
@@ -248,6 +304,16 @@ function indexFor(items) {
 function idf(index, term) {
   var n = index.df.get(term) || 0;
   return Math.log(1 + (index.size - n + 0.5) / (n + 0.5));
+}
+
+/** True when the task names more than half of the words of one of the
+ *  item's "not for" alternatives, one of them a word the item does not
+ *  otherwise carry. */
+function namesRuledOut(doc, query) {
+  return doc.ruledOut.some(function (alt) {
+    var hits = alt.all.filter(function (t) { return query.indexOf(t) !== -1; });
+    return hits.length * 2 > alt.all.length && hits.some(function (t) { return alt.own.indexOf(t) === -1; });
+  });
 }
 
 function scoreDoc(index, doc, query) {
@@ -266,6 +332,7 @@ function scoreDoc(index, doc, query) {
   // Coordination: an item matching more of the task's words ranks higher.
   if (query.length) score *= matched / query.length;
   if (doc.low) score *= LOW_PICK_FACTOR;
+  if (namesRuledOut(doc, query)) score *= EXCLUDED_FACTOR;
   return Math.round(score * 1000) / 1000;
 }
 
@@ -298,10 +365,35 @@ function shortlist(query, items, limit, include) {
   return out;
 }
 
+// The bar a keyword pick must clear before anything acts on it (the prompt
+// hook's [PICK] line, `pick`'s summary and `confident` flag): a minimum
+// relevance AND a lead over the runner-up. Ties and weak overlap are no
+// decision — a wrong pick in Claude's context costs more than none. Agents
+// were tuned on the 40-task pick benchmark (25/40 shown, 23 correct), skills
+// on tests/pick-eval (59 tasks, 514 skills: 34 shown, 31 correct).
+var KEYWORD_GATE = {
+  agents: { min: 2, lead: 1.5 },
+  skills: { min: 3, lead: 1.25 },
+};
+
+/** The top of a ranked list when it clears `min` and leads the runner-up by
+ *  `ratio`, else null. The floor is on keyword relevance alone (`baseScore`
+ *  when an outcome prior re-ranked). */
+function leads(list, min, ratio) {
+  var top = list && list[0];
+  if (!top || !((top.baseScore !== undefined ? top.baseScore : top.score) >= min)) return null;
+  var second = list[1];
+  if (!second || !(second.score > 0)) return top;
+  return top.score >= second.score * (ratio || 1) && top.score > second.score ? top : null;
+}
+
 module.exports = {
+  KEYWORD_GATE: KEYWORD_GATE,
+  leads: leads,
   stem: stem,
   tokens: tokens,
   queryTokens: queryTokens,
   withoutExclusions: withoutExclusions,
+  docExclusions: docExclusions,
   shortlist: shortlist,
 };

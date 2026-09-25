@@ -18,20 +18,17 @@ try { redaction = require('../redact-secrets.cjs'); } catch (e) { /* preview fal
 var pickStats = null;
 try { pickStats = require('../pick-stats.cjs'); } catch (e) { /* no outcome prior: keyword order stands */ }
 var pickRank = null;
-try { pickRank = require('../pick-rank.cjs'); } catch (e) { /* no trivial-prompt check */ }
+try { pickRank = require('../pick-rank.cjs'); } catch (e) { /* no trivial-prompt check, no keyword pick */ }
 
-// A keyword pick needs this score (pick-rank.cjs: idf-weighted BM25 times the
-// share of task words matched) AND a lead of KEYWORD_AGENT_LEAD over the
-// runner-up. Ties and weak overlap print nothing: a wrong pick in Claude's
-// context costs more than none. Tuned on the 40-task pick benchmark: 25/40
-// shown, 23 of them correct.
-var KEYWORD_MIN_AGENT_SCORE = 2;
-var KEYWORD_AGENT_LEAD = 1.5;
-// A keyword skill pick (pick-rank.cjs over the shared skill catalog) needs
-// this score AND a KEYWORD_SKILL_LEAD lead over the runner-up. Calibrated on
-// tests/pick-eval (59 tasks, 514 skills): 34 shown, 31 of them correct (91%).
-var KEYWORD_MIN_SKILL_SCORE = 3;
-var KEYWORD_SKILL_LEAD = 1.25;
+// A keyword pick needs a minimum score (pick-rank.cjs: idf-weighted BM25 times
+// the share of task words matched) AND a lead over the runner-up: the one
+// gate pick-rank.cjs defines (KEYWORD_GATE, leads) and the CLI's `pick`
+// shares. Without pick-rank nothing clears it.
+var GATE = (pickRank && pickRank.KEYWORD_GATE) || { agents: { min: Infinity, lead: 1 }, skills: { min: Infinity, lead: 1 } };
+var KEYWORD_MIN_AGENT_SCORE = GATE.agents.min;
+var KEYWORD_AGENT_LEAD = GATE.agents.lead;
+var KEYWORD_MIN_SKILL_SCORE = GATE.skills.min;
+var KEYWORD_SKILL_LEAD = GATE.skills.lead;
 var MAX_CANDIDATES = 5;
 var PREVIEW_CHARS = 120;
 // A prompt with fewer content words ("hi", "thanks", "ok, go ahead") is a
@@ -131,20 +128,18 @@ function rankSkills(jp, prompt, skills) {
     });
 }
 
-/** The top entry when it clears `min` and leads the runner-up by `ratio`. The
- *  floor is on keyword relevance alone (baseScore when a prior re-ranked). */
+/** pick-rank.cjs leads(): the top entry when it clears the gate. */
 function leads(list, min, ratio) {
-  var top = list && list[0];
-  if (!top || !((top.baseScore !== undefined ? top.baseScore : top.score) >= min)) return null;
-  var second = list[1];
-  if (!second || !(second.score > 0)) return top;
-  return top.score >= second.score * (ratio || 1) && top.score > second.score ? top : null;
+  return pickRank ? pickRank.leads(list, min, ratio) : null;
 }
 
 /**
  * The prompt's pick. A Jev agent answer (already past acceptAgent) wins, else a
  * strong keyword agent; a confident Jev skill answer (including "none fits")
- * wins, else a strong keyword skill. Agent ids are resolved to registry names.
+ * wins, else a strong keyword skill. A question Jev answered below its bar
+ * (agentResponded / skillResponded) gets no pick at all: its candidates held
+ * the keyword leaders and it did not back them. Agent ids are resolved to
+ * registry names.
  */
 function decide(opts) {
   var agents = opts.agents || [];
@@ -159,6 +154,8 @@ function decide(opts) {
     out.agent = { id: jev.agent, name: byId[jev.agent].name };
     out.confidence = jev.agentConfidence;
     viaJev = true;
+  } else if (jev && jev.agentResponded) {
+    viaJev = true;
   } else {
     var kw = leads(opts.keywordCands, KEYWORD_MIN_AGENT_SCORE, KEYWORD_AGENT_LEAD);
     if (kw) { out.agent = { id: kw.id, name: kw.name }; viaKeyword = true; }
@@ -167,6 +164,8 @@ function decide(opts) {
   if (jev && jev.skillAnswered) {
     var js = (jev.skills || [])[0];
     if (js) out.skill = { skill: js.id, invoke: js.invoke };
+    viaJev = true;
+  } else if (jev && jev.skillResponded) {
     viaJev = true;
   } else {
     var ks = leads(opts.skillMatches, KEYWORD_MIN_SKILL_SCORE, KEYWORD_SKILL_LEAD);
@@ -185,11 +184,23 @@ function decide(opts) {
   return out;
 }
 
-/** The one line Claude sees: `[PICK] agent: <name> · skill: <invoke>`, '' when nothing is confident. */
+var ORG_SKILL_INVOKE = 'mcp__monomind__org_skill_show ';
+
+/** The one line Claude sees: `[PICK] agent: <name> · skill: <invoke>`, '' when
+ *  nothing is confident. An Org skill also names its CLI read: Claude Code
+ *  keeps a running MCP server until restart, and one older than the
+ *  org_skill_show tool fails the MCP call. */
 function formatPickLine(pick) {
   var parts = [];
   if (pick && pick.agent) parts.push('agent: ' + pick.agent.name);
-  if (pick && pick.skill) parts.push('skill: ' + pick.skill.invoke);
+  if (pick && pick.skill) {
+    var invoke = pick.skill.invoke;
+    // Only a plain skill name (the org_skill_show name rule) goes into a command line.
+    if (invoke.indexOf(ORG_SKILL_INVOKE) === 0 && /^[a-z0-9][a-z0-9-]{0,63}$/.test(pick.skill.skill || '')) {
+      invoke += ' (or: npx -y monomind org skills show ' + pick.skill.skill + ')';
+    }
+    parts.push('skill: ' + invoke);
+  }
   return parts.length ? '[PICK] ' + parts.join(' · ') : '';
 }
 

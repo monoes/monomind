@@ -1,6 +1,6 @@
 ---
-description: github sync-coordinator command (monomind)
 name: github:sync-coordinator
+description: Multi-package synchronization and version alignment with monomind swarm coordination for seamless integration across packages.
 ---
 
 # GitHub Sync Coordinator

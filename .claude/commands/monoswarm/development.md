@@ -38,8 +38,8 @@ mcp__monomind__coordination_orchestrate({
 
 ```bash
 # CLI equivalent
-npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
-npx monomind swarm start "build feature X" --strategy development --parallel
+npx monomind monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind monoswarm start "build feature X" --strategy development --parallel
 ```
 
 ## Agent Roles
@@ -68,5 +68,5 @@ mcp__monomind__system_health({})
 ```
 
 ```bash
-npx monomind swarm status
+npx monomind monoswarm status
 ```

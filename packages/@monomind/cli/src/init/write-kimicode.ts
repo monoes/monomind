@@ -87,41 +87,24 @@ export async function writeKimiFiles(
   // Convert the .claude/{agents,commands,skills} tree that copyAgents/Skills/
   // Commands just wrote into kimi shape — same approach as writeOpencodeFiles:
   // reading from the target .claude/ dir means only the user's selected subset
-  // is converted.
+  // is converted. The conversion itself is pure (convertClaudeTreeToKimi) so
+  // the repo's tree check can run it in memory; this function only decides
+  // which destinations are safe to write.
   const claudeDir = path.join(targetDir, '.claude');
-  let agentCount = 0,
-    commandCount = 0,
-    skillCount = 0;
-  const seenAgents = new Set<string>();
+  const tree = convertClaudeTreeToKimi(claudeDir);
 
-  // Agents → .kimi-code/agents/<name>.md (flattened, deduped by name)
-  const srcAgents = path.join(claudeDir, 'agents');
-  if (fs.existsSync(srcAgents)) {
-    const destAgents = path.join(kimiDir, 'agents');
-    if (isSafeConversionTarget(destAgents, claudeDir, result, '.kimi-code/agents')) {
-      for (const rel of walkMdFiles(srcAgents)) {
-        const abs = path.join(srcAgents, rel);
-        if (!isLikelyUserFile(rel)) continue;
-        const src = fs.readFileSync(abs, 'utf-8');
-        const fallback = path.basename(rel, '.md');
-        const converted = convertKimiAgentMd(src, fallback);
-        const name = extractFmName(converted) || fallback;
-        if (seenAgents.has(name)) continue;
-        seenAgents.add(name);
-        fs.mkdirSync(destAgents, { recursive: true });
-        atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
-        agentCount++;
-      }
+  const destAgents = path.join(kimiDir, 'agents');
+  if (
+    tree.agents.size > 0 &&
+    isSafeConversionTarget(destAgents, claudeDir, result, '.kimi-code/agents')
+  ) {
+    fs.mkdirSync(destAgents, { recursive: true });
+    for (const [file, content] of tree.agents) {
+      atomicWriteFile(path.join(destAgents, file), content);
     }
   }
+  const agentCount = tree.agents.size;
 
-  // Skills → .kimi-code/skills/<name>/SKILL.md (same shape).
-  // Track the directory names written here so command flow-skills below never
-  // overwrite a REAL skill that happens to share the <category>-<name> slug
-  // (e.g. a skill dir "mastermind-debug" vs a command "mastermind/debug.md").
-  const writtenSkillDirs = new Set<string>();
-  // Shared destination for both this loop and the commands loop's flow-skill
-  // branch below — checked once since both write into the same directory.
   const kimiSkillsRoot = path.join(kimiDir, 'skills');
   const skillsDestSafe = isSafeConversionTarget(
     kimiSkillsRoot,
@@ -129,29 +112,19 @@ export async function writeKimiFiles(
     result,
     '.kimi-code/skills',
   );
-  const srcSkills = path.join(claudeDir, 'skills');
-  if (fs.existsSync(srcSkills) && skillsDestSafe) {
-    for (const rel of walkMdFiles(srcSkills)) {
-      const segs = rel.split(path.sep);
-      if (segs.length < 2 || segs[segs.length - 1] !== 'SKILL.md') continue;
-      const skillName = segs[0];
-      const abs = path.join(srcSkills, rel);
-      const src = fs.readFileSync(abs, 'utf-8');
-      const converted = convertKimiSkillMd(src, skillName);
-      const destDir = path.join(kimiSkillsRoot, skillName);
+  const writtenSkillDirs = new Set<string>();
+  let skillCount = 0;
+  if (skillsDestSafe) {
+    for (const [dir, content] of tree.skills) {
+      const destDir = path.join(kimiSkillsRoot, dir);
       fs.mkdirSync(destDir, { recursive: true });
-      atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
-      writtenSkillDirs.add(skillName);
+      atomicWriteFile(path.join(destDir, 'SKILL.md'), content);
+      writtenSkillDirs.add(dir);
       skillCount++;
     }
+    result.skipped.push(...tree.skipped);
   }
 
-  // Commands → TWO outputs from the same source pass:
-  //   (a) .kimi-code/skills/<cat>-<name>/SKILL.md as type:flow skills — the only
-  //       project-level invocable-command mechanism kimi has (/skill:<name>).
-  //   (b) .kimi-code/plugin/commands/<cat>-<name>.md for the Tier 3 plugin
-  //       (/monomind:<name> slash commands once installed).
-  const srcCommands = path.join(claudeDir, 'commands');
   const pluginDir = path.join(kimiDir, 'plugin');
   // Always create plugin/commands/ — the manifest declares ./commands/ and a
   // missing path surfaces as a plugin diagnostic in kimi (e.g. --skip-claude
@@ -165,52 +138,12 @@ export async function writeKimiFiles(
     '.kimi-code/plugin/commands',
   );
   const writtenPluginCommands = new Set<string>();
-  if (fs.existsSync(srcCommands)) {
-    for (const rel of walkMdFiles(srcCommands)) {
-      const abs = path.join(srcCommands, rel);
-      if (!isLikelyUserFile(rel)) continue;
-      const segs = rel.split(path.sep);
-      const category = segs.length > 1 ? segs[0] : 'monomind';
-      const fileBase = path.basename(rel, '.md');
-      const src = fs.readFileSync(abs, 'utf-8');
-
-      // (a) flow skill — skipped when a real skill already owns this directory
-      // name (real skills win; the plugin command below still provides the
-      // command under /monomind:<name>), and skipped for a command written
-      // in the catalog-style router shape (e.g. .claude/commands/mastermind.md,
-      // the universal intent router) — that shape is reserved for the
-      // canonical mastermind/SKILL.md router and must never be duplicated
-      // into skills/ as a second, contradicting router. The plugin command
-      // below still provides it under /monomind:<name>.
-      if (skillsDestSafe) {
-        const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
-        const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
-        if (isCatalogStyleRouterCommand(src)) {
-          result.skipped.push(
-            `.kimi-code/skills/${flowName}/ (catalog-style router command — plugin command only, never a flow skill)`,
-          );
-        } else if (writtenSkillDirs.has(flowName)) {
-          result.skipped.push(
-            `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
-          );
-        } else {
-          const flowDir = path.join(kimiSkillsRoot, flowName);
-          fs.mkdirSync(flowDir, { recursive: true });
-          atomicWriteFile(path.join(flowDir, 'SKILL.md'), flowSkill);
-          writtenSkillDirs.add(flowName);
-          skillCount++;
-        }
-      }
-
-      // (b) plugin command
-      if (pluginCommandsDestSafe) {
-        const pluginCmd = convertKimiPluginCommandMd(src, category, fileBase);
-        fs.mkdirSync(destPluginCommands, { recursive: true });
-        const pluginCommandFilename = kimiCommandFilename(category, fileBase);
-        atomicWriteFile(path.join(destPluginCommands, pluginCommandFilename), pluginCmd);
-        writtenPluginCommands.add(pluginCommandFilename);
-        commandCount++;
-      }
+  let commandCount = 0;
+  if (pluginCommandsDestSafe) {
+    for (const [file, content] of tree.pluginCommands) {
+      atomicWriteFile(path.join(destPluginCommands, file), content);
+      writtenPluginCommands.add(file);
+      commandCount++;
     }
   }
 
@@ -298,4 +231,115 @@ export async function writeKimiFiles(
   // Kimi's status-line configuration is user-scoped. Project init must not
   // infer consent from an existing ~/.kimi-code directory; it is configured
   // only through the explicit user-scope platform lifecycle command.
+}
+
+/**
+ * True for a `.claude/commands/` markdown file that is an invocable command.
+ * Not commands: READMEs, `_`-prefixed shared includes other commands read
+ * (e.g. `mastermind/_repeat.md`, `mastermind/_taskfile.md`) and anything under
+ * a `references/` directory (platform tool-mapping notes). Converting those
+ * exposed them as slash commands, and `_repeat.md` slugified to the same
+ * `mastermind-repeat.md` as the real `repeat.md` — whichever the directory
+ * walk returned last silently won.
+ */
+export function isConvertibleCommand(rel: string): boolean {
+  if (!isLikelyUserFile(rel)) return false;
+  const segs = rel.split(/[\\/]/);
+  if (segs[segs.length - 1].startsWith('_')) return false;
+  if (segs.slice(0, -1).includes('references')) return false;
+  return true;
+}
+
+/** Kimi artifacts derived from one `.claude/` tree, keyed by destination. */
+export interface KimiConvertedTree {
+  /** `.kimi-code/agents/<file>` → content */
+  agents: Map<string, string>;
+  /** `.kimi-code/skills/<dir>/SKILL.md` → content (real skills and command flow skills) */
+  skills: Map<string, string>;
+  /** `.kimi-code/plugin/commands/<file>` → content */
+  pluginCommands: Map<string, string>;
+  /** Human-readable notes for sources that were deliberately not converted. */
+  skipped: string[];
+}
+
+/**
+ * Convert `<claudeDir>/{agents,skills,commands}` into kimi shape, in memory.
+ * Sources are visited in sorted order so the output — including which source
+ * wins a name collision — is the same on every machine.
+ */
+export function convertClaudeTreeToKimi(claudeDir: string): KimiConvertedTree {
+  const tree: KimiConvertedTree = {
+    agents: new Map(),
+    skills: new Map(),
+    pluginCommands: new Map(),
+    skipped: [],
+  };
+  const sortedMd = (dir: string) =>
+    fs.existsSync(dir) ? walkMdFiles(dir).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)) : [];
+
+  // Agents → <name>.md (flattened, deduped by name; first in sorted order wins)
+  const srcAgents = path.join(claudeDir, 'agents');
+  for (const rel of sortedMd(srcAgents)) {
+    if (!isLikelyUserFile(rel)) continue;
+    const src = fs.readFileSync(path.join(srcAgents, rel), 'utf-8');
+    const fallback = path.basename(rel, '.md');
+    const converted = convertKimiAgentMd(src, fallback);
+    const name = extractFmName(converted) || fallback;
+    if (tree.agents.has(`${name}.md`)) continue;
+    tree.agents.set(`${name}.md`, converted);
+  }
+
+  // Skills → <skill>/SKILL.md (same shape)
+  const srcSkills = path.join(claudeDir, 'skills');
+  for (const rel of sortedMd(srcSkills)) {
+    const segs = rel.split(path.sep);
+    if (segs.length !== 2 || segs[1] !== 'SKILL.md') continue;
+    const src = fs.readFileSync(path.join(srcSkills, rel), 'utf-8');
+    tree.skills.set(segs[0], convertKimiSkillMd(src, segs[0]));
+  }
+  const realSkills = new Set(tree.skills.keys());
+
+  // Commands → TWO outputs from the same source pass:
+  //   (a) <cat>-<name>/SKILL.md as type:flow skills — the only project-level
+  //       invocable-command mechanism kimi has (/skill:<name>).
+  //   (b) plugin/commands/<cat>-<name>.md for the Tier 3 plugin
+  //       (/monomind:<name> slash commands once installed).
+  const srcCommands = path.join(claudeDir, 'commands');
+  for (const rel of sortedMd(srcCommands)) {
+    if (!isConvertibleCommand(rel)) continue;
+    const segs = rel.split(path.sep);
+    const category = segs.length > 1 ? segs[0] : 'monomind';
+    const fileBase = path.basename(rel, '.md');
+    const src = fs.readFileSync(path.join(srcCommands, rel), 'utf-8');
+
+    const pluginFile = kimiCommandFilename(category, fileBase);
+    if (tree.pluginCommands.has(pluginFile)) {
+      tree.skipped.push(
+        `.claude/commands/${segs.join('/')} (collides with an earlier command on .kimi-code/plugin/commands/${pluginFile} — not converted)`,
+      );
+      continue;
+    }
+    tree.pluginCommands.set(pluginFile, convertKimiPluginCommandMd(src, category, fileBase));
+
+    // Flow skill — skipped when a real skill already owns this directory name
+    // (real skills win; the plugin command still provides /monomind:<name>),
+    // and for a command in the catalog-style router shape (e.g.
+    // .claude/commands/mastermind.md) — that shape is reserved for the
+    // canonical mastermind/SKILL.md router and must never be duplicated into
+    // skills/ as a second, contradicting router.
+    const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
+    const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
+    if (isCatalogStyleRouterCommand(src)) {
+      tree.skipped.push(
+        `.kimi-code/skills/${flowName}/ (catalog-style router command — plugin command only, never a flow skill)`,
+      );
+    } else if (realSkills.has(flowName)) {
+      tree.skipped.push(
+        `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
+      );
+    } else if (!tree.skills.has(flowName)) {
+      tree.skills.set(flowName, flowSkill);
+    }
+  }
+  return tree;
 }

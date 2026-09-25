@@ -1,8 +1,6 @@
 ---
-description: mastermind debug command (monomind)
+description: Systematic root-cause debugging — use before ANY fix attempt for bugs, test failures, unexpected behavior, build failures, or performance regressions. Enforces Phase 1 root-cause investigation before proposing fixes.
 ---
-
-<!-- Systematic root-cause debugging — use before ANY fix attempt for bugs, test failures, unexpected behavior, build failures, or performance regressions. Enforces Phase 1 root-cause investigation before proposing fixes. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
 

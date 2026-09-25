@@ -1,18 +1,16 @@
 ---
-description: mastermind memory command (monomind)
+description: Memory system — store, search, retrieve, list, delete, and manage cross-session persistent memory in local SQLite with vector embeddings
 ---
-
-<!-- LanceDB memory system — store, search, retrieve, list, delete, and manage cross-session persistent memory with vector embeddings -->
 
 # Monomind Memory System
 
-Persistent memory backed by LanceDB with pure-JS HNSW vector indexing for semantic search (O(log n) approximate nearest neighbor). Supports cross-session and cross-agent collaboration.
+Persistent memory in local SQLite (sql.js/WASM when no native driver is available) with on-device embeddings for semantic search. Above 5,000 entries (`MONOMIND_HNSW_THRESHOLD`) search switches to an HNSW approximate-nearest-neighbour index; below it, brute-force cosine is faster. Supports cross-session and cross-agent collaboration.
 
 ## Subcommands
 
 | Subcommand | Alias | Description |
 |---|---|---|
-| `init` | — | Initialize memory database (sql.js + LanceDB) |
+| `init` | — | Initialize the SQLite memory database |
 | `store` | — | Store a key/value entry |
 | `edit` | — | Edit an existing entry |
 | `retrieve` | `get` | Retrieve entry by key |
@@ -22,8 +20,6 @@ Persistent memory backed by LanceDB with pure-JS HNSW vector indexing for semant
 | `templates` | — | Show best-practice entry templates |
 | `stats` | — | Show memory statistics |
 | `configure` | `config` | Configure memory backend |
-| `cleanup` | — | Clean expired/stale entries |
-| `compress` | — | Compress and optimize storage |
 | `export` | — | Export memory to file |
 | `import` | — | Import memory from file |
 
@@ -31,11 +27,11 @@ Persistent memory backed by LanceDB with pure-JS HNSW vector indexing for semant
 
 ```bash
 npx monomind memory init
-npx monomind memory init --backend lancedb --verbose --verify
+npx monomind memory init --backend sqlite --verbose --verify
 npx monomind memory init --force  # Overwrite existing
 ```
 
-**Flags:** `--backend hybrid|sqlite|lancedb` (default: `hybrid`), `--path`, `--force`, `--verbose`, `--verify` (default: true), `--load-embeddings`
+**Flags:** `--backend hybrid|sqlite` (default: `hybrid`; `lancedb` is accepted as a legacy alias for SQLite), `--path`, `--force`, `--verbose`, `--verify` (default: true), `--load-embeddings`
 
 ## store — Store Data
 
@@ -136,39 +132,11 @@ Shows backend, total entries, storage size, oldest/newest entry.
 ## configure — Backend Settings
 
 ```bash
-npx monomind memory configure --backend lancedb
+npx monomind memory configure --backend sqlite
 npx monomind memory configure --backend hybrid --cache-size 512 --hnsw-m 16 --hnsw-ef 200
 ```
 
 **Flags:** `--backend/-b`, `--path`, `--cache-size`, `--hnsw-m`, `--hnsw-ef`
-
-## cleanup — Remove Stale Entries
-
-```bash
-# Preview without deleting
-npx monomind memory cleanup --dry-run
-
-# Delete entries older than 30 days
-npx monomind memory cleanup --older-than 30d
-
-# Remove expired TTL entries only
-npx monomind memory cleanup --expired-only
-
-# Clean specific namespace
-npx monomind memory cleanup --namespace temp --older-than 7d --force
-```
-
-**Flags:** `--dry-run/-d`, `--older-than/-o` (e.g., `7d`, `30d`), `--expired-only/-e`, `--namespace/-n`, `--force/-f`
-
-## compress — Optimize Storage
-
-```bash
-npx monomind memory compress
-npx monomind memory compress --quantize --bits 4  # 32x size reduction
-npx monomind memory compress --level max --target vectors
-```
-
-**Flags:** `--level fast|balanced|max` (default: `balanced`), `--target vectors|text|patterns|all`, `--quantize/-z`, `--bits 4|8|16`, `--rebuild-index/-r` (default: true)
 
 ## export / import
 

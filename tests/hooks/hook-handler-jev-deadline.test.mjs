@@ -2,6 +2,7 @@
  * The hook process's global safety exit: extended for the `route` hook only,
  * and only while a Jev decision model is configured, so a slow Jev pick still
  * lands; every other hook (above all the pre-bash/pre-write gates) keeps 5 s.
+ * The Jev hook window itself is capped at 3 s, so the route hook stays at 5 s.
  */
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -40,8 +41,9 @@ describe('hook safety exit', () => {
   const { safetyTimeoutMs } = require(HANDLER);
   const jev = { MONOMIND_JEV_URL: 'http://127.0.0.1:3999', MONOMIND_JEV_HOOK_TIMEOUT_MS: '8000' };
 
-  it('extends the route hook to the Jev limit plus 1.5 s when Jev is configured', () => {
-    expect(safetyTimeoutMs('route', jev)).toBe(9500);
+  it('keeps the route hook at 5 s even when the env asks Jev for more (the window caps at 3 s)', () => {
+    expect(safetyTimeoutMs('route', jev)).toBe(5000);
+    expect(safetyTimeoutMs('route', { ...jev, MONOMIND_JEV_HOOK_TIMEOUT_MS: '10000' })).toBe(5000);
   });
 
   it('keeps 5 s for every other hook, the security gates above all', () => {
@@ -110,7 +112,8 @@ describe('route hook with a slow Jev', () => {
         env: cleanEnv({
           CLAUDE_PROJECT_DIR: tmpDir,
           MONOMIND_JEV_URL: jevUrl,
-          MONOMIND_JEV_HOOK_TIMEOUT_MS: '8000',
+          // The user's env from the incident: capped to the 3 s hook window.
+          MONOMIND_JEV_HOOK_TIMEOUT_MS: '10000',
         }),
       });
       let stderr = '';
@@ -149,11 +152,11 @@ describe('route hook with a slow Jev', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('waits for a Jev pick that answers at ~6 s and records it', async () => {
-    const r = await runRoute(await startJev(6000));
+  it('waits for a Jev pick that answers inside the 3 s window and records it', async () => {
+    const r = await runRoute(await startJev(2000));
     expect(r.stderr).not.toContain('global timeout');
     expect(r.code).toBe(0);
-    expect(r.elapsed).toBeGreaterThanOrEqual(5500);
+    expect(r.elapsed).toBeGreaterThanOrEqual(1900);
     expect(lastRoute()).toMatchObject({
       agentSlug: 'tester',
       reason: 'jev (custom)',
@@ -161,12 +164,12 @@ describe('route hook with a slow Jev', () => {
     expect(r.stdout).toContain('[PICK] agent: tester');
   }, 30000);
 
-  it('persists the keyword route before the extended exit when Jev never answers', async () => {
+  it('gives up on a dead endpoint after the capped 3 s window, not the 10 s the env asks for', async () => {
     const r = await runRoute(await startJev(null));
     expect(r.stderr).not.toContain('global timeout');
     expect(r.code).toBe(0);
-    // It waited the configured 8 s window, then fell back.
-    expect(r.elapsed).toBeGreaterThanOrEqual(7500);
+    expect(r.elapsed).toBeGreaterThanOrEqual(2900);
+    expect(r.elapsed).toBeLessThan(5000);
     expect(lastRoute().reason).not.toMatch(/^jev/);
   }, 30000);
 });

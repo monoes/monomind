@@ -19,8 +19,11 @@ import {
   automaticMinConfidence,
   type CatalogItem,
   decisionModelConfigured,
+  type GateKind,
   type JevAnswer,
+  keywordGateLeader,
   keywordRank,
+  noneFits,
   type PickOptions,
   pickMinConfidence,
   pickWithJev,
@@ -55,6 +58,11 @@ export interface RankedList {
   /** A Jev answer between the pick floor and the automatic-decision floor:
    *  worth showing, not worth acting on unattended. */
   lowConfidence: boolean;
+  /** The top entry clears the bar the prompt hook's [PICK] line uses: a Jev
+   *  answer at the automatic floor, or a keyword leader past pick-rank's gate
+   *  for a question Jev did not answer. False for an empty list (a Jev
+   *  "none fits" included). Only a confident top is worth acting on. */
+  confident: boolean;
   ranked: RankedEntry[];
 }
 
@@ -142,19 +150,47 @@ export async function rankForTask(
   const fallback = decisionModelConfigured(opts.env ?? process.env)
     ? 'keyword-fallback'
     : 'keyword';
-  const list = (answer: JevAnswer | undefined, items: CatalogItem[], root?: string): RankedList => {
+  const list = (
+    kind: GateKind,
+    raw: JevAnswer | undefined,
+    answer: JevAnswer | undefined,
+    items: CatalogItem[],
+    root?: string,
+  ): RankedList => {
+    // A confident "none fits" is the answer: nothing, not keyword ranking.
+    if (noneFits(raw, floor))
+      return {
+        method: 'jev',
+        source: 'jev',
+        lowConfidence: (raw as JevAnswer).confidence < automatic,
+        confident: false,
+        ranked: [],
+      };
     const jev = fromAnswer(answer, items, top);
-    return jev && answer
-      ? { method: 'jev', source: 'jev', lowConfidence: answer.confidence < automatic, ranked: jev }
-      : {
-          method: 'keyword',
-          source: fallback,
-          lowConfidence: false,
-          ranked: fromKeywords(task, items, top, root),
-        };
+    if (jev && answer) {
+      const lowConfidence = answer.confidence < automatic;
+      return {
+        method: 'jev',
+        source: 'jev',
+        lowConfidence,
+        confident: !lowConfidence,
+        ranked: jev,
+      };
+    }
+    // The runner-up decides the keyword bar, so rank at least two.
+    const ranked = fromKeywords(task, items, Math.max(top, 2), root);
+    return {
+      method: 'keyword',
+      source: fallback,
+      lowConfidence: false,
+      // A question Jev answered below the floor had these leaders among its
+      // candidates and did not back them: no decision.
+      confident: !raw && keywordGateLeader(ranked, kind) !== null,
+      ranked: ranked.slice(0, top),
+    };
   };
-  const agents = list(agentAnswer, catalogs.agents, priorsRoot);
-  const skills = list(skillAnswer, catalogs.skills);
+  const agents = list('agents', picked?.agent, agentAnswer, catalogs.agents, priorsRoot);
+  const skills = list('skills', picked?.skill, skillAnswer, catalogs.skills);
   return {
     ...(picked && (agents.method === 'jev' || skills.method === 'jev')
       ? { provider: picked.provider }

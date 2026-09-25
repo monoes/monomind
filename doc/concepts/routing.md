@@ -116,7 +116,7 @@ The `UserPromptSubmit` hook ([`route-handler.cjs`](.claude/helpers/handlers/rout
 - Trivial prompts (fewer than three content words, such as "hi" or "thanks") get no pick and no record; the session's earlier route stays.
 - The hook does not use `router.cjs`; its old keyword agent table is gone.
 
-The hook waits for Jev up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` (default 1500, max 10000). After a failed or timed-out pick it skips Jev for 5 minutes (`.monomind/jev-breaker.json`).
+The hook waits for Jev up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` (default 1500; larger values are capped at 3000, so a dead endpoint delays a prompt at most 3 s). After a failed or timed-out pick it skips Jev for 5 minutes (`.monomind/jev-breaker.json`).
 
 The generated `CLAUDE.md` tells Claude to use a `[PICK]` line's agent and skill unless clearly wrong, and to call `mcp__monomind__pick` (or `monomind pick`) before choosing a subagent itself. The mastermind skills and commands pick specialists the same way: the `[PICK]` line, then the `pick` MCP tool, then a local `monomind pick` (never through `npx`), then a fallback of agents that exist.
 

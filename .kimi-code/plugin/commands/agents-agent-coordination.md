@@ -1,6 +1,6 @@
 ---
-description: agents agent-coordination command (monomind)
 name: agents:agent-coordination
+description: Coordination patterns for multi-agent collaboration.
 ---
 
 # agent-coordination

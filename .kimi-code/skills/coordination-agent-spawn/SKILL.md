@@ -1,7 +1,7 @@
 ---
-description: coordination agent-spawn command (monomind)
-type: flow
 name: coordination-agent-spawn
+description: Spawn a new agent in the current swarm.
+type: flow
 ---
 
 # agent-spawn

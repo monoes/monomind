@@ -1,10 +1,8 @@
 ---
-description: mastermind master command (monomind)
+description: Use when starting any conversation or receiving any user request — loads the brain, routes to the right mastermind skill, enforces anti-drift discipline, and spawns domain managers for complex multi-domain work. Single entry point for all mastermind capabilities.
 type: flow
 name: mastermind-master
 ---
-
-<!-- Use when starting any conversation or receiving any user request — loads the brain, routes to the right mastermind skill, enforces anti-drift discipline, and spawns domain managers for complex multi-domain work. Single entry point for all mastermind capabilities. -->
 
 <SUBAGENT-STOP>
 If you were dispatched as a subagent to execute a specific task, skip the MASTERMIND PROTOCOL section below and proceed directly to execution.

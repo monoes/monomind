@@ -1,7 +1,7 @@
 ---
-description: analysis token-usage command (monomind)
-type: flow
 name: analysis-token-usage
+description: Analyze token consumption and cost across sessions.
+type: flow
 ---
 
 # token-usage

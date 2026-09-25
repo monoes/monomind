@@ -1,6 +1,6 @@
 ---
 name: mastermind-inbox
-description: Mastermind inbox — unified view of everything that needs human attention across all orgs: pending tool approvals, running orgs, active task assignments, and budget alerts. The single place to check before starting work.
+description: "Mastermind inbox — unified view of everything that needs human attention across all orgs: pending tool approvals, running orgs, active task assignments, and budget alerts. The single place to check before starting work."
 type: domain-skill
 default_mode: auto
 pick: low

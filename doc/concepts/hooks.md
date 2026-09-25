@@ -59,7 +59,7 @@ Runs for every user message:
 5. **Route record** — `.monomind/route-outcomes.jsonl` (prompt hash, redacted preview, pick, candidates, method, provider, session id, `shown`), `.monomind/routes/<sessionId>.json` and `.monomind/last-route.json`.
 6. **Advisory enrichment** (skipped under `MONOMIND_HOOK_QUIET`) — embedding suggestion, monograph hints, MicroAgent trigger scan and the other banners.
 
-When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`), the prompt waits up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` for it (default 1500, max 10000); a slow model therefore delays every prompt by up to that limit, and after a failed or timed-out pick the hook skips Jev for 5 minutes (`.monomind/jev-breaker.json`). Every hook process force-exits after 5 s — the `route` hook alone, while Jev is configured, gets the Jev limit plus 1.5 s instead, so the route is still recorded after a slow pick. The `pre-bash`/`pre-write` security gates always keep 5 s.
+When a Jev decision model is configured (`MONOMIND_JEV_URL`, or `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`), the prompt waits up to `MONOMIND_JEV_HOOK_TIMEOUT_MS` for it (default 1500; larger values are capped at 3000); a slow model therefore delays every prompt by up to that limit, and after a failed or timed-out pick the hook skips Jev for 5 minutes (`.monomind/jev-breaker.json`). Every hook process force-exits after 5 s, which leaves the `route` hook time to record its route after the capped Jev window. The `pre-bash`/`pre-write` security gates always keep 5 s.
 
 ### `PreToolUse(Task|Agent)` → `pre-agent`
 
@@ -296,7 +296,7 @@ Confirmed read by hooks/helpers source:
 | `MONOMIND_CONTROL_NO_SPAWN` | Disables spawning the control-plane process |
 | `MONOMIND_CONTROL_PORT` | Overrides the control-plane port |
 | `MONOMIND_DEBUG` | Verbose hook/helper debug logging |
-| `MONOMIND_JEV_HOOK_TIMEOUT_MS` | How long the `route` hook waits for the Jev decision model, in ms (default 1500, 100–10000; out-of-range values fall back to the default) |
+| `MONOMIND_JEV_HOOK_TIMEOUT_MS` | How long the `route` hook waits for the Jev decision model, in ms (default 1500; values above 3000 are capped at 3000, values below 100 fall back to the default) |
 | `MONOMIND_GRAPH_GATE` | Set to `off` to disable the monograph gate (`.claude/helpers/utils/monograph.cjs`) |
 | `MONOMIND_MONOFENCE_GATE` | Set to `off` to disable the monofence threat-scan gate (`.claude/helpers/handlers/gates-handler.cjs`) |
 

@@ -41,7 +41,7 @@ import {
   fixMonoesTools,
 } from './doctor-monoes-checks.js';
 import { checkNativeBindings } from './doctor-native-checks.js';
-import { checkPick } from './doctor-pick-checks.js';
+import { checkPick, checkRunningMcpServer } from './doctor-pick-checks.js';
 import {
   checkAgentRegistry,
   checkApiKeys,
@@ -244,6 +244,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['git-repo', checkGitRepo],
     ['native', checkNativeBindings],
     ['mcp', checkMcpServers],
+    ['mcp-running', () => checkRunningMcpServer(ctx.cwd || process.cwd())],
     ['typescript', checkBuildTools],
     ['graph-freshness', checkMonographFreshness],
     ['hook-monograph', () => checkHookMonograph(process.cwd(), { readOnly: mode.readOnly })],
@@ -273,6 +274,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     // would spawn a subprocess (and, with an npx entry, possibly a package
     // download) on every invocation, interactive and CI alike.
     mcp: () => checkMcpServers({ probe: true }),
+    'mcp-running': () => checkRunningMcpServer(ctx.cwd || process.cwd()),
     disk: checkDiskSpace,
     'second-brain': checkSecondBrainModel,
     kg: checkMemoryKnowledgeGraph,

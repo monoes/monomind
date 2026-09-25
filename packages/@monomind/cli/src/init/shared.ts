@@ -183,10 +183,12 @@ export const SKILLS_MAP: Record<string, string[]> = {
     'monodesign',
     'monomotion',
     'monolean',
-    'monolean-review',
     'monolean-audit',
     'monolean-debt',
     'monolean-help',
+    // Read by the marketing agents (CRO, email, competitive content) before
+    // they deliver copy.
+    'stop-slop',
     // The canonical workflow list comes from the manifest. Keep the wildcard
     // for supplementary legacy workflows that continue to ship during M1;
     // copySkills expands and de-duplicates both sources deterministically.

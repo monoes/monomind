@@ -1,4 +1,6 @@
-<!-- Execute a written implementation plan step by step with review checkpoints and finishing handoff. -->
+---
+description: Execute a written implementation plan step by step with review checkpoints and finishing handoff.
+---
 
 **First — extract repeat flags:** Follow REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
 

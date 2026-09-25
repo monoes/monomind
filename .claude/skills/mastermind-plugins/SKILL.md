@@ -83,7 +83,7 @@ echo "Total: $count plugin(s)"
 Show example/available plugins from the monomind registry:
 
 ```bash
-echo "AVAILABLE PLUGINS (monomind registry)"
+echo "AVAILABLE PLUGINS — monomind registry"
 echo "──────────────────────────────────────"
 cat <<'EXAMPLES'
   @monomind/plugin-sentry      — Error tracking and alerting

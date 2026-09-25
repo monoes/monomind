@@ -1,7 +1,7 @@
 ---
-description: agents agent-capabilities command (monomind)
-type: flow
 name: agents-agent-capabilities
+description: Matrix of agent capabilities and their specializations.
+type: flow
 ---
 
 # agent-capabilities

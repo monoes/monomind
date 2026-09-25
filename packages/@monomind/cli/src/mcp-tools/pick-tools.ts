@@ -3,10 +3,15 @@
  * Same ranking and JSON as `monomind pick --json`, plus a one-line `summary`.
  */
 import { z } from 'zod';
-import { pickForTask, pickSummary } from '../routing/agent-pick.js';
-import type { MCPTool } from './types.js';
+import { pickConfident, pickForTask, pickSummary } from '../routing/agent-pick.js';
+import type { MCPTool, MCPToolResult } from './types.js';
 
 const MAX_TASK_LEN = 16 * 1024;
+
+/** An error the MCP client sees as one (isError), `{ error }` as its text. */
+function toolError(error: string): MCPToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify({ error }) }], isError: true };
+}
 
 const PickInput = z.object({
   task: z.string().trim().min(1).max(MAX_TASK_LEN),
@@ -21,7 +26,8 @@ export const pickTool: MCPTool = {
     'Pick the best agents and skills for a task — the same ranking as `monomind pick` (Jev ' +
     'decision model when configured, keyword fallback). Every agent entry has `name`, the ' +
     'spawnable Task subagent_type; skills carry `invoke` (Org skills: org_skill_show). ' +
-    '`summary` is one line naming the top picks.',
+    "`summary` names only confident top picks (the prompt hook's [PICK] bar); " +
+    '`confident: false` means nothing fits well enough to act on.',
   category: 'pick',
   inputSchema: {
     type: 'object',
@@ -45,13 +51,17 @@ export const pickTool: MCPTool = {
     const parsed = PickInput.safeParse(input);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`);
-      return { error: `invalid input — ${issues.join('; ')}` };
+      return toolError(`invalid input — ${issues.join('; ')}`);
     }
     const { task, kind, categories, top } = parsed.data;
     const ranking = await pickForTask({ task, kind, categories, top });
     // Plain data: the MCP server serialises the return value into the text
     // content itself, so this is exactly what the client reads.
-    return { ...ranking, summary: pickSummary(ranking, kind) };
+    return {
+      ...ranking,
+      summary: pickSummary(ranking, kind),
+      confident: pickConfident(ranking, kind),
+    };
   },
 };
 

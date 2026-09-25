@@ -1,5 +1,6 @@
 ---
 name: automation:smart-agents
+description: Automatically spawn the right agents at the right time without manual intervention.
 ---
 
 # Smart Agent Auto-Spawning

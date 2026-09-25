@@ -1,10 +1,8 @@
 ---
-description: mastermind specialagents command (monomind)
+description: Activate a specialist agent persona — browse by category, activate by slug, or auto-select based on conversation context
 type: flow
 name: mastermind-specialagents
 ---
-
-<!-- Activate a specialist agent persona — browse by category, activate by slug, or auto-select based on conversation context -->
 
 Activate a specialist agent persona. Three modes:
 

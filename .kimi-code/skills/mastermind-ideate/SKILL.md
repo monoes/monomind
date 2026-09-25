@@ -1,10 +1,8 @@
 ---
-description: mastermind ideate command (monomind)
+description: Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)
 type: flow
 name: mastermind-ideate
 ---
-
-<!-- "Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)" -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
@@ -109,7 +107,7 @@ After all agents complete:
 2. Deduplicate by title similarity (fuzzy match — drop ideas whose titles are >80% similar to an already-kept idea).
 3. Persist each unique idea:
 
-**File mode:** Append to `IDEA_FILE` using the idea section format from `mastermind-taskfile/SKILL.md`:
+**File mode:** Append to `IDEA_FILE` using the idea section format from `.claude/commands/mastermind/_taskfile.md`:
 ```markdown
 ### <Idea Title>
 > status: new

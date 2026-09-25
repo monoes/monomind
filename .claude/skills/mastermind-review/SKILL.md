@@ -124,8 +124,16 @@ OUTPUT FORMAT: unified output schema"
 
 STEP 3 — EXECUTE
 Spawn one Task agent per review angle (mesh topology — reviewers share findings).
-Pick one specialist per review angle from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist. In order: the prompt's `[PICK]` line when it fits this review angle; else `mcp__monomind__pick({ task: "<review angle>: <scope>", kind: "agents", top: 1 })` → `agents.ranked[0].name`; else the local CLI through the version-checked `mmpick` helper from `mastermind-agent-select/SKILL.md` (never npx):
+Pick one specialist per review angle from the shared agent index (the Jev decision model when configured, keyword ranking otherwise); it only returns agents that exist. In order: the prompt's `[PICK]` line when it fits this review angle; else `mcp__monomind__pick({ task: "<review angle>: <scope>", kind: "agents", top: 1 })` → `agents.ranked[0].name`; else the local CLI through the version-checked `mmpick` helper (never npx; the block defines it because each Bash call starts a fresh shell):
 ```bash
+# Local only — never npx. Accept a binary only when its pick output is the
+# unified index (skill entries carry `source`); see mastermind-agent-select.
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
 mmpick -t "<review angle>: <scope>" --top 1 | jq -r '.agents.ranked[0].name // empty'
 ```
 Use the returned name as that review angle's subagent_type. If nothing is returned, use the default below.

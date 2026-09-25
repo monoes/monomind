@@ -1,8 +1,6 @@
 ---
-description: mastermind okf-export command (monomind)
+description: Export the Second Brain knowledge base as a portable OKF (Open Knowledge Format) bundle.
 ---
-
-<!-- Export the Second Brain knowledge base as a portable OKF (Open Knowledge Format) bundle. -->
 
 Parse `$ARGUMENTS` for:
 - `--output <dir>` or `-o <dir>` → output directory (default: `.monomind/knowledge-export`)

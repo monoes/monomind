@@ -1,4 +1,6 @@
-<!-- Write a comprehensive implementation plan from a spec or requirements. Saves to docs/mastermind/plans/. Default mode: confirm. -->
+---
+description: "Write a comprehensive implementation plan from a spec or requirements. Saves to docs/mastermind/plans/. Default mode: confirm."
+---
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 

@@ -1,7 +1,7 @@
 ---
-description: automation auto-agent command (monomind)
-type: flow
 name: automation-auto-agent
+description: Automatically spawn agents based on task requirements.
+type: flow
 ---
 
 # auto-agent

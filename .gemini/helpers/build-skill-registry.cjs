@@ -20,8 +20,9 @@
  * Org skill library (`orgSkills`, via org-skill-index.cjs). The file is
  * generated per machine (init, upgrade, SessionStart, `monomind pick`) and is
  * never committed — a shipped snapshot listed skills a project did not have.
- * README/overview/reference docs, `_`-prefixed includes and helper-only
- * skills (HELPER_ONLY, or frontmatter `type: helper`) are not entries.
+ * README/overview/reference docs, internal includes (any `_`-prefixed file,
+ * folder or frontmatter `name`) and helper-only skills (HELPER_ONLY, or
+ * frontmatter `type: helper`) are not entries.
  * Frontmatter `pick: low` marks an admin/meta entry (org management pages,
  * examples, the picker itself): it stays in the index, recorded as
  * `pick: 'low'`, and the pickers rank it below equally matching entries so
@@ -35,10 +36,11 @@ var os = require('os');
 var path = require('path');
 var orgIndex = require('./org-skill-index.cjs');
 
-/** Protocol pieces other skills include; never invoked on their own. */
+/** Protocol pieces other skills include; never invoked on their own.
+ *  (`_`-prefixed includes need no entry here: isNotACandidate skips them all.) */
 var HELPER_ONLY = new Set([
   'mastermind-agent-select', 'mastermind-delegation', 'mastermind-intake',
-  'mastermind-protocol', 'mastermind-repeat', '_repeat', '_taskfile',
+  'mastermind-protocol', 'mastermind-repeat',
 ]);
 /** Documentation pages that live beside commands but are not commands. */
 var DOC_NAMES = new Set(['readme', 'overview', 'reference', 'references']);
@@ -167,11 +169,13 @@ function isJunk(basename) {
 }
 
 /** Docs and helper-only pieces: README/overview/reference pages (or anything
- *  under a references/ dir), HELPER_ONLY names, and `type: helper` frontmatter. */
+ *  under a references/ dir), internal includes (a `_`-prefixed path segment or
+ *  frontmatter name), HELPER_ONLY names, and `type: helper` frontmatter. */
 function isNotACandidate(parts, fm) {
   for (var i = 0; i < parts.length; i++) {
-    if (DOC_NAMES.has(parts[i].toLowerCase())) return true;
+    if (DOC_NAMES.has(parts[i].toLowerCase()) || parts[i].charAt(0) === '_') return true;
   }
+  if (String(fm.name || '').trim().charAt(0) === '_') return true;
   if (HELPER_ONLY.has(parts[parts.length - 1])) return true;
   return String(fm.type || '').toLowerCase() === 'helper';
 }

@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   type EvalTask,
+  gatedEval,
   keywordEval,
   keywordPicks,
   projectCatalogs,
@@ -22,10 +23,13 @@ import {
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-// A little under the frozen-catalog scores (66 tasks; 65 with a skill
-// expectation). Raise them when the ranker improves; never lower them to
-// make a change pass.
+// A little under the frozen-catalog scores (77 tasks; 74 with an agent and
+// 73 with a skill expectation, 3 where nothing fits). Raise them when the
+// ranker improves; never lower them to make a change pass.
 const FLOOR = { agentsTop1: 49, agentsTop3: 55, skillsTop1: 51, skillsTop3: 63 };
+// Precision of what the [PICK] gate shows over keyword ranking (frozen: agents
+// 44/47, skills 34/40; before the vibe / "not for" fixes 46/50 and 34/42).
+const GATED_FLOOR = { agents: 0.92, skills: 0.83 };
 // The live catalogs drift with every agent/skill edit: a looser floor.
 const LIVE_FLOOR = { agentsTop1: 40, skillsTop1: 42 };
 
@@ -56,7 +60,7 @@ describe('pick eval on the frozen catalog', () => {
   const snapshot = readEvalSnapshot(ROOT);
 
   it('has the eval set and the snapshot', () => {
-    expect(tasks?.length).toBe(66);
+    expect(tasks?.length).toBe(77);
     expect(snapshot?.agents.length).toBeGreaterThan(50);
     expect(snapshot?.skills.length).toBeGreaterThan(300);
   });
@@ -74,12 +78,41 @@ describe('pick eval on the frozen catalog', () => {
   });
 });
 
+describe('the gated pick on the frozen catalog', () => {
+  const tasks = readEvalTasks(ROOT) ?? [];
+  const r = gatedEval(tasks, readEvalSnapshot(ROOT) ?? { agents: [], skills: [] });
+
+  it('shows mostly right picks (precision of what clears the [PICK] bar)', () => {
+    expect(r.agents.precision).toBeGreaterThanOrEqual(GATED_FLOOR.agents);
+    expect(r.skills.precision).toBeGreaterThanOrEqual(GATED_FLOOR.skills);
+  });
+
+  it('shows nothing when nothing fits', () => {
+    const none = new Set(tasks.filter((t) => t.noPick).map((t) => t.id));
+    expect(none.size).toBeGreaterThanOrEqual(3);
+    expect([...r.agents.wrong, ...r.skills.wrong].filter((w) => none.has(w.id))).toEqual([]);
+  });
+
+  it('never shows the reviewed false positives', () => {
+    const shown = [...r.agents.wrong, ...r.skills.wrong].map((w) => w.shown);
+    for (const id of [
+      'public-relations',
+      'engineering-embedded-firmware-engineer',
+      'competitor-comparison-pages',
+    ])
+      expect(shown).not.toContain(id);
+  });
+});
+
 describe('pick: low skills on the frozen catalog', () => {
   it('no admin/meta skill (pick: low) reaches a top 3', () => {
     const snapshot = readEvalSnapshot(ROOT) ?? { agents: [], skills: [] };
     const low = new Set(snapshot.skills.filter((s) => s.pick === 'low').map((s) => s.id));
     expect(low.size).toBeGreaterThan(10);
-    const shown = keywordPicks(readEvalTasks(ROOT) ?? [], snapshot).flatMap((p) =>
+    // A task that names org management ("create a new org") is what the
+    // admin pages are for: they may surface there.
+    const tasks = (readEvalTasks(ROOT) ?? []).filter((t) => t.domain !== 'org-admin');
+    const shown = keywordPicks(tasks, snapshot).flatMap((p) =>
       p.skills.filter((id) => low.has(id)),
     );
     expect(shown).toEqual([]);

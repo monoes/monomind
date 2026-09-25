@@ -1,7 +1,7 @@
 ---
-description: hooks overview command (monomind)
-type: flow
 name: hooks-overview
+description: Self-learning hooks for intelligent workflow automation.
+type: flow
 ---
 
 # Hooks System Overview

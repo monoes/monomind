@@ -1,7 +1,7 @@
 ---
-description: hooks post-edit command (monomind)
-type: flow
 name: hooks-post-edit
+description: Record editing outcome for neural pattern learning.
+type: flow
 ---
 
 # hooks post-edit

@@ -8,7 +8,12 @@
  */
 import { z } from 'zod';
 import { getSkill, SKILL_NAME_RE } from '../orgrt/skill-library.js';
-import { getProjectCwd, type MCPTool } from './types.js';
+import { getProjectCwd, type MCPTool, type MCPToolResult } from './types.js';
+
+/** An error the MCP client sees as one (isError), `{ error }` as its text. */
+function toolError(error: string): MCPToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify({ error }) }], isError: true };
+}
 
 const OrgSkillShowInput = z.object({
   name: z.string().regex(SKILL_NAME_RE, 'must be a skill name (a-z, 0-9, -)'),
@@ -32,10 +37,10 @@ export const orgSkillShowTool: MCPTool = {
     const parsed = OrgSkillShowInput.safeParse(input);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`);
-      return { error: `invalid input — ${issues.join('; ')}` };
+      return toolError(`invalid input — ${issues.join('; ')}`);
     }
     const s = getSkill(parsed.data.name, getProjectCwd());
-    if (!s) return { error: `unknown org skill: ${parsed.data.name}` };
+    if (!s) return toolError(`unknown org skill: ${parsed.data.name}`);
     const { name, description, tags, tools, origin, body, files } = s;
     return { name, description, tags, tools, origin, body, files };
   },

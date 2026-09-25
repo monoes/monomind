@@ -26,7 +26,6 @@ Level sticks until changed or session end.
 | Skill | Trigger | What it does |
 |-------|---------|--------------|
 | **monolean** | `/monolean` | Lean mode itself. Simplest solution that works. |
-| **monolean-review** | `/monolean-review` | Over-engineering review: `L42: yagni: factory, one product. Inline.` |
 | **monolean-audit** | `/monolean-audit` | Whole-repo audit for over-engineering. Ranked findings. |
 | **monolean-debt** | `/monolean-debt` | Harvest `monolean:` comments into a debt ledger. |
 | **monolean-help** | `/monolean-help` | This card. |

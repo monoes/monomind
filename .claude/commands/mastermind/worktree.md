@@ -1,4 +1,6 @@
-<!-- Use when starting feature work that needs isolation from the current workspace or before executing implementation plans — sets up an isolated git worktree -->
+---
+description: Use when starting feature work that needs isolation from the current workspace or before executing implementation plans — sets up an isolated git worktree
+---
 
 **First — extract repeat flags:** Follow REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
 

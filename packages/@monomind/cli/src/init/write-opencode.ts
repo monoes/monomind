@@ -27,6 +27,7 @@ import {
   walkMdFiles,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
+import { isConvertibleCommand } from './write-kimicode.js';
 
 /**
  * Write opencode artifacts. ADDITIVE — only invoked when
@@ -237,21 +238,6 @@ export async function writeOpencodeFiles(
   if (agentCount) result.created.files.push(`.opencode/agent/ (${agentCount} agents)`);
   if (commandCount) result.created.files.push(`.opencode/command/ (${commandCount} commands)`);
   if (skillCount) result.created.files.push(`.opencode/skills/ (${skillCount} skills)`);
-}
-
-/**
- * True for a `.claude/commands/` markdown file that is an invocable command.
- * Not commands: READMEs, `_`-prefixed shared includes other commands read
- * (`mastermind/_repeat.md`, `_taskfile.md`) and anything under a
- * `references/` directory. Converting `_repeat.md` also overwrote the real
- * `repeat.md`, both slugifying to `mastermind-repeat.md`. Same rule as the
- * kimi converter's.
- */
-function isConvertibleCommand(rel: string): boolean {
-  if (!isLikelyUserFile(rel)) return false;
-  const segs = rel.split(/[\\/]/);
-  if (segs[segs.length - 1].startsWith('_')) return false;
-  return !segs.slice(0, -1).includes('references');
 }
 
 /** `existing` with every key it lacks filled in from `defaults`: objects are

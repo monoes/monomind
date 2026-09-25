@@ -136,6 +136,11 @@ jobs:
       - name: Check .claude asset trees are canonical and in sync
         run: node scripts/sync-claude-trees.mjs --check
 
+      # Counts quoted in README/doc markers, computed from tracked files plus
+      # the skills generated at pack time (see scripts/generate-doc-counts.mjs).
+      - name: Check doc-count markers
+        run: node scripts/generate-doc-counts.mjs --check
+
       # doc-eval-asserts-fire.test.ts, doc-eval-metrics.test.ts, and
       # knowledge-superseded.test.ts need the real embedding (and reranker)
       # weights on disk to run for real — the eval harness deliberately

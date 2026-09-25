@@ -6,7 +6,7 @@
 import { readPickStats } from '../decision/pick-stats.js';
 import type { RankedEntry, RankedList } from '../decision/picks.js';
 import { output } from '../output.js';
-import { pickForTask, pickSummary } from '../routing/agent-pick.js';
+import { pickConfident, pickForTask, pickSummary } from '../routing/agent-pick.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const USAGE =
@@ -88,9 +88,10 @@ export async function pickAction(ctx: CommandContext): Promise<CommandResult> {
   });
   if (ctx.flags.json === true) {
     const summary = pickSummary(result, kind);
+    const confident = pickConfident(result, kind);
     const data = explain
-      ? { ...result, summary, stats: readPickStats(root) }
-      : { ...result, summary };
+      ? { ...result, summary, confident, stats: readPickStats(root) }
+      : { ...result, summary, confident };
     console.log(JSON.stringify(data, null, 2));
     return { success: true, data };
   }

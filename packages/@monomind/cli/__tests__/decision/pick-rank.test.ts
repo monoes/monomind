@@ -250,3 +250,46 @@ describe('pick-rank exclusion cues', () => {
     expect(pr.shortlist('pending release', items, 2)[0].id).toBe('release-manager');
   });
 });
+
+describe('pick-rank exclusion clauses in descriptions', () => {
+  // Verbatim from the frozen eval catalog (tests/pick-eval/catalog-snapshot.json).
+  const pr_ = {
+    id: 'public-relations',
+    description:
+      'Use when seeking earned media for a software product: journalist and podcast pitching, newsjacking, press requests, media lists and press kits. Covers story angles, when PR is worth it, and PR as a distribution multiplier. Not for pull requests.',
+    text: 'marketing writing communication content',
+  };
+  const reviewer = {
+    id: 'code-reviewer',
+    description:
+      'Org role guidance for a code reviewer: review PRs for bugs, security holes, N+1 queries and design issues, then write a structured, prioritized report. Workflow with checklist, feedback and spec-compliance references.',
+    text: 'engineering testing code-review',
+  };
+  const planner = { id: 'planner', description: 'Breaks work into tasks; not for writing code' };
+  const coder = { id: 'coder', description: 'Writes and changes production code' };
+
+  it('a "not for X" clause no longer matches X, and a task naming X demotes the item', () => {
+    const items = [pr_, reviewer, { id: 'other', description: 'Unrelated filler entry' }];
+    const got = pr.shortlist('review pull request 482 for correctness', items, 3);
+    expect(got[0].id).toBe('code-reviewer');
+    const prScore = got.find((i: { id: string }) => i.id === 'public-relations').score;
+    // Nothing but "pull request" overlapped it: demoted to (near) nothing.
+    expect(prScore).toBeLessThan(0.5);
+    // The rest of the description still ranks it for its own work.
+    expect(top('pitch our launch to journalists and press', items, 1)).toEqual(['public-relations']);
+  });
+
+  it('demotes on most of the ruled-out words, not on a shared one', () => {
+    expect(top('write the code for the parser', [planner, coder], 1)).toEqual(['coder']);
+    // "writing tasks" shares one of planner's two ruled-out words: not demoted.
+    const s = pr.shortlist('break the work into tasks', [planner, coder], 2);
+    expect(s[0].id).toBe('planner');
+  });
+
+  it('exposes the parsed clauses', () => {
+    const ex = pr.docExclusions('Plans work; not for writing code or market sizing. Covers X');
+    expect(ex.ruledOut).toEqual([pr.tokens('writing code'), pr.tokens('market sizing')]);
+    expect(ex.kept).not.toContain('code');
+    expect(ex.kept).toContain('covers x');
+  });
+});

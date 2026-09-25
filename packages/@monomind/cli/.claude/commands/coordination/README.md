@@ -8,6 +8,6 @@ Commands and guidance for swarm coordination and task orchestration in Monomind.
 
 ## Commands (invoke as slash commands)
 
-- [swarm-init](./swarm-init.md) — initialize a swarm with topology and strategy (`monomind swarm init`)
+- [swarm-init](./swarm-init.md) — initialize a swarm with topology and strategy (`monomind monoswarm init`)
 - [agent-spawn](./agent-spawn.md) — spawn a new agent in the swarm (`monomind agent spawn`)
-- [task-orchestrate](./task-orchestrate.md) — coordinate tasks across swarm agents (`monomind swarm init`)
+- [task-orchestrate](./task-orchestrate.md) — coordinate tasks across swarm agents (`monomind monoswarm init`)

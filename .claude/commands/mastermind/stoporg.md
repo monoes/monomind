@@ -1,4 +1,6 @@
-<!-- Stop a running org. Wraps `monomind org stop`, which writes the stop file the org daemon polls — the daemon exits within about 2s. -->
+---
+description: Stop a running org. Wraps `monomind org stop`, which writes the stop file the org daemon polls — the daemon exits within about 2s.
+---
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 

@@ -1,7 +1,7 @@
 ---
-description: monitoring agent-metrics command (monomind)
-type: flow
 name: monitoring-agent-metrics
+description: Show agent performance metrics — tasks completed, success rate, and memory vectors by agent type.
+type: flow
 ---
 
 # agent metrics

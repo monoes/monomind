@@ -38,7 +38,10 @@ var NONE_ID = '__none__';
 var OFF_VALUES = ['0', 'off', 'false', 'no'];
 var ON_VALUES = ['1', 'on', 'true', 'yes'];
 var DEFAULT_HOOK_TIMEOUT_MS = 1500;
-var MAX_HOOK_TIMEOUT_MS = 10000;
+// Every prompt waits on the hook window, so a larger value is capped here
+// whatever MONOMIND_JEV_HOOK_TIMEOUT_MS asks: a dead endpoint once held each
+// prompt 10 s. Hosted Jev answers well inside it.
+var MAX_HOOK_TIMEOUT_MS = 3000;
 
 class JevError extends Error {
   constructor(message, provider, status) {
@@ -83,10 +86,11 @@ function resolveTimeoutMs(env) {
   return Number.isInteger(n) && n >= MIN_TIMEOUT_MS && n <= MAX_TIMEOUT_MS ? n : DEFAULT_TIMEOUT_MS;
 }
 
-/** The per-prompt hook's window: short, because every prompt waits on it. */
+/** The per-prompt hook's window: short, because every prompt waits on it.
+ *  Values above MAX_HOOK_TIMEOUT_MS are capped to it. */
 function resolveHookTimeoutMs(env) {
   var n = Number((env || process.env).MONOMIND_JEV_HOOK_TIMEOUT_MS);
-  return Number.isInteger(n) && n >= MIN_TIMEOUT_MS && n <= MAX_HOOK_TIMEOUT_MS ? n : DEFAULT_HOOK_TIMEOUT_MS;
+  return Number.isInteger(n) && n >= MIN_TIMEOUT_MS ? Math.min(n, MAX_HOOK_TIMEOUT_MS) : DEFAULT_HOOK_TIMEOUT_MS;
 }
 
 function resolveMinConfidence(env) {
@@ -282,6 +286,39 @@ function toAnswer(answer, criteria) {
   return { choice: answer.choice, confidence: answer.confidence, ranked: rankedFrom(answer, criteria) };
 }
 
+/** The options sent for one question: the keyword-ranked items that share a
+ *  word with the task (forced `include` ids first), then the rest round-robin
+ *  across categories (an agent's category, else an id's first segment) — so
+ *  a task that matches few or no words (a non-English prompt) is not judged
+ *  over the first `max` entries of one category. */
+function candidatesFor(text, items, max, include) {
+  var forced = new Set(include || []);
+  var out = shortlist(text, items, max, include).filter(function (item) {
+    return item.score > 0 || forced.has(item.id);
+  });
+  if (out.length >= max) return out;
+  var taken = new Set(out.map(function (item) { return item.id; }));
+  var groups = new Map();
+  items.forEach(function (item) {
+    if (taken.has(item.id)) return;
+    var key = item.category || String(item.id).toLowerCase().split(/[-:_/]/)[0];
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+  var lists = Array.from(groups.values());
+  for (var round = 0; out.length < max; round++) {
+    var added = false;
+    for (var g = 0; g < lists.length && out.length < max; g++) {
+      if (round < lists[g].length) {
+        out.push(lists[g][round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
 /** Pick an agent and/or a skill for `task` in ONE request. null = no decision. */
 async function pick(task, catalogs, opts) {
   opts = opts || {};
@@ -296,14 +333,16 @@ async function pick(task, catalogs, opts) {
   var skills = catalogs && Array.isArray(catalogs.skills) ? catalogs.skills : [];
   var questions = {};
   if (agents.length >= 2) {
+    var agentCriteria = criteriaFor(candidatesFor(text, agents, max, include.agents));
+    agentCriteria[NONE_ID] = 'None of these agents fits the task';
     questions.agent = {
       type: 'choice',
       instructions: opts.agentInstructions || 'Which specialist agent should handle this task?',
-      criteria: criteriaFor(shortlist(text, agents, max, include.agents)),
+      criteria: agentCriteria,
     };
   }
   if (skills.length >= 1) {
-    var skillCriteria = criteriaFor(shortlist(text, skills, max, include.skills));
+    var skillCriteria = criteriaFor(candidatesFor(text, skills, max, include.skills));
     skillCriteria[NONE_ID] = 'None of these skills fits the task';
     questions.skill = {
       type: 'choice',
@@ -326,9 +365,10 @@ async function pick(task, catalogs, opts) {
   return out;
 }
 
-/** `minConfidence` overrides the automatic-decision floor for this call. */
+/** `minConfidence` overrides the automatic-decision floor for this call.
+ *  "None fits" is never an agent. */
 function acceptAgent(answer, env, minConfidence) {
-  if (!answer) return null;
+  if (!answer || answer.choice === NONE_ID) return null;
   return answer.confidence >= floorFor(env, minConfidence) ? answer.choice : null;
 }
 
@@ -382,6 +422,8 @@ module.exports = {
   probe: probe,
   shortlist: shortlist,
   withoutExclusions: pickRank.withoutExclusions,
+  KEYWORD_GATE: pickRank.KEYWORD_GATE,
+  leads: pickRank.leads,
   pick: pick,
   acceptAgent: acceptAgent,
   acceptSkills: acceptSkills,

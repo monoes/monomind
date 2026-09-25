@@ -49,7 +49,9 @@ function norm(s) {
 
 /** Agents from .monomind/registry.json (built by registry-builder.ts), or from
  *  opts.registry (an in-memory build outside a project). The description leads
- *  with the one-line `when_to_use`; deprecated agents drop. */
+ *  with the one-line `when_to_use`; deprecated agents drop. The `vibe`
+ *  personality line is not ranked: its words ("crashes", "segfault") name no
+ *  capability and pulled unrelated tasks to the agent. */
 function loadAgentCatalog(root, opts) {
   var reg = (opts && opts.registry) || readJsonFile(path.join(root, '.monomind', 'registry.json'));
   var list = reg && Array.isArray(reg.agents) ? reg.agents : [];
@@ -67,7 +69,7 @@ function loadAgentCatalog(root, opts) {
       category: category,
       description: when ? when + (description ? ' — ' + description : '') : description,
       text: [category]
-        .concat(strings(a.tags), strings(a.capabilities), strings(a.taskTypes), typeof a.vibe === 'string' ? [a.vibe] : [])
+        .concat(strings(a.tags), strings(a.capabilities), strings(a.taskTypes))
         .filter(Boolean)
         .join(' '),
     };
@@ -143,11 +145,13 @@ function jevAllowed(gate, s, root) {
 }
 
 /** Platform commands/skills. Command/skill mirrors of one capability collapse,
- *  preferring the slash form. */
+ *  preferring the slash form. An entry whose source file is gone (the index
+ *  predates its removal) is dropped: naming it would fail at invoke time. */
 function platformSkills(root, list, gate) {
   var byKey = new Map();
   list.forEach(function (s) {
     if (!s || typeof s.skill !== 'string' || typeof s.invoke !== 'string') return;
+    if (typeof s.source === 'string' && !fs.existsSync(sourceFile(root, s.source))) return;
     // A catalog projection reaches the decision model only when approved with
     // the jev target; ordinary skills carry no catalog field and are unaffected.
     if (s.catalog && s.catalog.jev !== true) return;

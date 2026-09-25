@@ -142,6 +142,27 @@ describe('pick: low frontmatter', () => {
   });
 });
 
+describe('internal includes (`_`-prefixed)', () => {
+  it('indexes no `_`-prefixed command, command folder, skill folder or skill name', () => {
+    root = newRoot('parity-underscore-');
+    mkdirSync(join(root, '.git'));
+    const commands = join(root, '.claude', 'commands');
+    const skills = join(root, '.claude', 'skills');
+    put(join(commands, 'mastermind', 'plan.md'), md('plan', 'Write plans'));
+    put(join(commands, 'mastermind', '_repeat.md'), md('_repeat', 'Loop postamble'));
+    put(join(commands, 'mastermind', '_anything-new.md'), md('_anything-new', 'Some include'));
+    put(join(commands, '_shared', 'thing.md'), md('thing', 'In an include folder'));
+    put(join(skills, 'real-skill', 'SKILL.md'), md('real-skill', 'A skill'));
+    put(join(skills, '_partial', 'SKILL.md'), md('_partial', 'Include'));
+    // An include that lives in an ordinary folder but names itself as one.
+    put(join(skills, 'loop-postamble', 'SKILL.md'), md('_loop-postamble', 'Include by name'));
+    const ids = builder.build(root, { user: false }).skills.map((s: { skill: string }) => s.skill);
+    expect(ids.sort()).toEqual(['mastermind:plan', 'real-skill']);
+    // No list of include names to keep up to date.
+    expect([...builder.HELPER_ONLY].filter((n: string) => n.startsWith('_'))).toEqual([]);
+  });
+});
+
 describe('skill index freshness', () => {
   it('rebuilds when a skill is added after the index was written', () => {
     fixture();

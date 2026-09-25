@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { writeEntry } from '../catalog/fixtures.js';
 
@@ -112,12 +112,15 @@ describe('provider resolution', () => {
     expect(jp.resolveTimeoutMs({ MONOMIND_JEV_TIMEOUT_MS: '50' })).toBe(3000);
   });
 
-  it('defaults the hook window to 1500 ms and caps it at 10 s', () => {
+  it('defaults the hook window to 1500 ms and caps it at 3 s whatever the env asks', () => {
+    // Every prompt waits on this window; a dead endpoint must not hold one 10 s.
     expect(jp.resolveHookTimeoutMs({})).toBe(1500);
     expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '800' })).toBe(800);
-    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '9000' })).toBe(9000);
-    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '10000' })).toBe(10000);
-    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '10001' })).toBe(1500);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '3000' })).toBe(3000);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '9000' })).toBe(3000);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '10000' })).toBe(3000);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: '50' })).toBe(1500);
+    expect(jp.resolveHookTimeoutMs({ MONOMIND_JEV_HOOK_TIMEOUT_MS: 'soon' })).toBe(1500);
   });
 });
 
@@ -179,7 +182,7 @@ describe('pick', () => {
     expect(f.calls).toHaveLength(0);
   });
 
-  it('asks the agent and skill questions in one request, with a "none" skill option', async () => {
+  it('asks the agent and skill questions in one request, each with a "none" option', async () => {
     const f = fakeFetch(
       json({
         answers: {
@@ -191,7 +194,12 @@ describe('pick', () => {
     const res = await jp.pick('audit for sql injection', { agents, skills }, { env: localEnv, fetchImpl: f.impl });
     expect(f.calls).toHaveLength(1);
     const sent = JSON.parse(String(f.calls[0].init.body));
-    expect(Object.keys(sent.questions.agent.criteria).sort()).toEqual(['coder', 'security-engineer', 'tester']);
+    expect(Object.keys(sent.questions.agent.criteria).sort()).toEqual([
+      '__none__',
+      'coder',
+      'security-engineer',
+      'tester',
+    ]);
     expect(sent.questions.skill.criteria).toHaveProperty('__none__');
     expect(res.provider).toBe('custom');
     expect(res.agent).toEqual({
@@ -203,6 +211,36 @@ describe('pick', () => {
       ],
     });
     expect(res.skill.choice).toBe('security-review');
+  });
+
+  it('sends a category-diverse set, not catalog order, when no candidate shares a word with the task', async () => {
+    // A non-English task overlaps no English description: the shortlist used
+    // to be the first 30 catalog entries (one category here).
+    const many = [
+      ...Array.from({ length: 40 }, (_, i) => ({ id: `mkt-${i}`, category: 'marketing', description: 'ads' })),
+      { id: 'eng-coder', category: 'engineering', description: 'code' },
+      { id: 'test-tester', category: 'testing', description: 'tests' },
+    ];
+    const f = fakeFetch(json({ answers: { agent: choice('eng-coder', 0.9) } }));
+    await jp.pick('重构认证模块并添加单元测试', { agents: many }, { env: localEnv, fetchImpl: f.impl });
+    const sent = JSON.parse(String(f.calls[0].init.body));
+    const ids = Object.keys(sent.questions.agent.criteria);
+    expect(ids).toContain('eng-coder');
+    expect(ids).toContain('test-tester');
+    expect(ids).toHaveLength(31);
+  });
+
+  it('keeps the keyword-ranked candidates first and fills the rest across categories', async () => {
+    const many = [
+      ...Array.from({ length: 40 }, (_, i) => ({ id: `mkt-${i}`, category: 'marketing', description: 'ads' })),
+      { id: 'sec-auditor', category: 'security', description: 'audits injection bugs' },
+      { id: 'test-tester', category: 'testing', description: 'tests' },
+    ];
+    const f = fakeFetch(json({ answers: { agent: choice('sec-auditor', 0.9) } }));
+    await jp.pick('audit for injection', { agents: many }, { env: localEnv, fetchImpl: f.impl });
+    const ids = Object.keys(JSON.parse(String(f.calls[0].init.body)).questions.agent.criteria);
+    expect(ids[0]).toBe('sec-auditor');
+    expect(ids).toContain('test-tester');
   });
 
   it('ranks only the options it sent, with probabilities in [0, 1]', async () => {
@@ -235,6 +273,10 @@ describe('accept rules', () => {
     expect(jp.acceptAgent({ ...a, confidence: 0.5 }, {})).toBeNull();
     expect(jp.acceptAgent(a, { MONOMIND_JEV_MIN_CONFIDENCE: '0.9' })).toBeNull();
     expect(jp.acceptAgent(undefined, {})).toBeNull();
+  });
+
+  it('acceptAgent never returns "none" as an agent', () => {
+    expect(jp.acceptAgent({ choice: '__none__', confidence: 0.95, ranked: [] }, {})).toBeNull();
   });
 
   it('takes a per-call floor, and reads the pick floor from MONOMIND_JEV_PICK_MIN_CONFIDENCE', () => {
@@ -296,6 +338,55 @@ describe('catalog loaders', () => {
     ]);
   });
 
+  it('leaves an agent\'s `vibe` personality line out of the ranked text', () => {
+    // "debug why the node process crashes with a segfault" picked Embedded
+    // Firmware Engineer on its vibe; a personality line is not a capability.
+    root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
+    mkdirSync(join(root, '.monomind'));
+    writeFileSync(
+      join(root, '.monomind', 'registry.json'),
+      JSON.stringify({
+        agents: [
+          {
+            slug: 'fw',
+            name: 'fw',
+            category: 'engineering',
+            description: 'Writes firmware',
+            tags: ['esp32'],
+            vibe: 'Knows why your process crashes with a segfault',
+          },
+        ],
+      }),
+    );
+    expect(jp.loadAgentCatalog(root)).toEqual([
+      { id: 'fw', name: 'fw', category: 'engineering', description: 'Writes firmware', text: 'engineering esp32' },
+    ]);
+  });
+
+  it('drops a platform skill whose source file is gone (an index older than a removal)', () => {
+    root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
+    mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
+    mkdirSync(join(root, '.claude', 'skills', 'kept'), { recursive: true });
+    writeFileSync(join(root, '.claude', 'skills', 'kept', 'SKILL.md'), '---\nname: kept\n---\n');
+    const entry = (name: string, source?: string) => ({
+      skill: name,
+      invoke: `Skill("${name}")`,
+      description: name,
+      ...(source ? { source } : {}),
+    });
+    writeFileSync(
+      join(root, '.claude', 'helpers', 'skill-registry.json'),
+      JSON.stringify({
+        skills: [
+          entry('kept', '.claude/skills/kept/SKILL.md'),
+          entry('removed', '.claude/skills/removed/SKILL.md'),
+          entry('no-source'),
+        ],
+      }),
+    );
+    expect(jp.loadSkillCatalog(root).map((s: { id: string }) => s.id)).toEqual(['kept', 'no-source']);
+  });
+
   it('lets a catalog skill through only while its state entry is active with the jev target', () => {
     root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
     mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
@@ -319,8 +410,11 @@ describe('catalog loaders', () => {
     skillMd('old-revoked', `<!-- monomind:start catalog:skill:old-revoked -->\nbody`);
     // Hand-written skills that merely share a name with a catalog entry.
     skillMd('hand-staged', 'my own skill');
-    mkdirSync(join(root, 'outside'));
-    writeFileSync(join(root, 'outside', 'SKILL.md'), '<!-- monomind:start catalog:skill:hand-escape -->');
+    // Plain skills whose files exist (an entry without its file is dropped).
+    for (const name of ['plain', 'old-active', 'hand-missing']) skillMd(name, 'plain body');
+    // A marked file outside the project and ~/.claude/skills is never read.
+    const outside = mkdtempSync(join(tmpdir(), 'jev-outside-'));
+    writeFileSync(join(outside, 'SKILL.md'), '<!-- monomind:start catalog:skill:hand-escape -->');
     writeFileSync(
       join(root, '.claude', 'helpers', 'skill-registry.json'),
       JSON.stringify({
@@ -334,7 +428,7 @@ describe('catalog loaders', () => {
           bare('old-active'),
           bare('hand-staged'),
           bare('hand-missing'),
-          bare('hand-escape', '../outside/SKILL.md'),
+          bare('hand-escape', relative(root, join(outside, 'SKILL.md'))),
         ],
       }),
     );
@@ -370,6 +464,7 @@ describe('catalog loaders', () => {
     // Unreadable state: every catalog-marked skill is dropped, the rest stay.
     writeFileSync(state, '{ not json');
     expect(ids()).toEqual(['plain', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
+    rmSync(outside, { recursive: true, force: true });
   });
 
   it('returns empty catalogs when the files are missing', () => {

@@ -1,4 +1,6 @@
-<!-- Show detailed status for a single org — runtime state, schedule, config health, pending approvals, recent activity, and roles. -->
+---
+description: Show detailed status for a single org — runtime state, schedule, config health, pending approvals, recent activity, and roles.
+---
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 

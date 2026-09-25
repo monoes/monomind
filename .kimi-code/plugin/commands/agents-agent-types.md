@@ -1,6 +1,6 @@
 ---
-description: agents agent-types command (monomind)
 name: agents:agent-types
+description: Complete guide to all 60+ available agent types in Monomind.
 ---
 
 # agent-types

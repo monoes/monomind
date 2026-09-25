@@ -17,6 +17,13 @@
  * watermark beyond the ones already counted there. Nothing here
  * throws to a hook: update() returns null on any failure.
  *
+ * Adherence is a route's, not a spawn's: a route counts as followed once, at
+ * its first spawn of the picked agent (an override counted for an earlier
+ * spawn of that route is taken back), and as overridden once otherwise.
+ * Slash-command routes are not picks. When .monomind/registry.json is
+ * readable only its agents are tracked (other subagent_types, e.g. "issue-337",
+ * never enter the stats, and stored ones are dropped).
+ *
  * The prior: an agent with >= MIN_OBS observations gets a factor in
  * [1 - SPAN, 1 + SPAN] from Beta(1,1)-smoothed success and adoption rates. It
  * multiplies a keyword score, so a zero-overlap item stays at zero, and the
@@ -41,6 +48,10 @@ var MAX_ENTRIES = 300;
 var MAX_EDGE_KEYS = 50;
 var MIN_OBS = 5;
 var SPAN = 0.15;
+// Routes whose adherence is remembered (followed / overridden / a command).
+var MAX_ROUTE_STATES = 500;
+// A prompt that is a slash command (the route hook's rule): not a pick.
+var COMMAND_PROMPT = /^\/[a-z0-9_-]+(:[a-z0-9_-]+)*(\s|$)/i;
 
 function emptyStats() {
   return {
@@ -61,6 +72,7 @@ function emptyStats() {
     },
     agents: {},
     skills: {},
+    routeStates: {},
   };
 }
 
@@ -107,6 +119,17 @@ function load(root) {
     if (isObject(s.skills)) {
       Object.keys(s.skills).forEach(function (k) {
         if (isObject(s.skills[k])) out.skills[k] = { recommended: count(s.skills[k].recommended) };
+      });
+    }
+    if (isObject(s.routeStates)) {
+      Object.keys(s.routeStates).slice(-MAX_ROUTE_STATES).forEach(function (k) {
+        var r = s.routeStates[k];
+        if (!isObject(r)) return;
+        var st = {};
+        if (r.c === 1) st.c = 1;
+        if (r.f === 1) st.f = 1;
+        if (typeof r.o === 'string') st.o = r.o.slice(0, 128);
+        out.routeStates[String(k).slice(0, 128)] = st;
       });
     }
     return out;
@@ -230,9 +253,30 @@ function readNew(file, cursor) {
 
 // ── Aggregation ─────────────────────────────────────────────────────────────
 
+/** normName()s of every agent name and slug in .monomind/registry.json, or
+ *  null when it cannot be read (then nothing is filtered). */
+function registryNames(root) {
+  try {
+    var file = path.join(root, '.monomind', 'registry.json');
+    if (fs.statSync(file).size > 5 * 1024 * 1024) return null;
+    var reg = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    if (!reg || !Array.isArray(reg.agents)) return null;
+    var names = new Set();
+    reg.agents.forEach(function (a) {
+      if (!a) return;
+      if (typeof a.name === 'string') names.add(normName(a.name));
+      if (typeof a.slug === 'string') names.add(normName(a.slug));
+    });
+    return names;
+  } catch (e) {
+    return null;
+  }
+}
+
 function agentEntry(stats, name) {
   var key = normName(name);
   if (!key) return null;
+  if (stats._known && !stats._known.has(key)) return null;
   if (!stats.agents[key]) {
     stats.agents[key] = { name: String(name).slice(0, 128), recommended: 0, followed: 0, overridden: 0, chosen: 0, success: 0, failure: 0 };
   }
@@ -246,7 +290,26 @@ function skillEntry(stats, invoke) {
   return stats.skills[key];
 }
 
+/** This route's remembered adherence (created on demand; oldest dropped). */
+function routeState(stats, routeId) {
+  var id = String(routeId).slice(0, 128);
+  var st = stats.routeStates[id];
+  if (st) return st;
+  st = stats.routeStates[id] = {};
+  var ids = Object.keys(stats.routeStates);
+  for (var i = 0; i < ids.length - MAX_ROUTE_STATES; i++) delete stats.routeStates[ids[i]];
+  return st;
+}
+
+function dec(obj, key) {
+  if (obj && obj[key] > 0) obj[key]--;
+}
+
 function addRoute(stats, rec) {
+  if (COMMAND_PROMPT.test(String(rec.promptPreview || rec.task || '').trim())) {
+    if (rec.routeId) routeState(stats, rec.routeId).c = 1;
+    return;
+  }
   stats.totals.routes++;
   if (!rec.shown) return;
   stats.totals.shown++;
@@ -258,16 +321,30 @@ function addRoute(stats, rec) {
 
 function addAdherence(stats, rec) {
   stats.totals.spawns++;
-  if (!rec.recommended) { stats.totals.unpicked++; return; }
+  var st = rec.routeId ? routeState(stats, rec.routeId) : null;
+  if (!rec.recommended || (st && st.c)) { stats.totals.unpicked++; return; }
   var rec1 = agentEntry(stats, rec.recommended);
   if (rec.followed === true) {
+    if (st && st.f) return;
+    if (st && st.o !== undefined) {
+      // An earlier spawn of this route was counted as an override: the
+      // route was followed after all.
+      dec(stats.totals, 'overridden');
+      dec(rec1, 'overridden');
+      if (st.o) dec(stats.agents[st.o], 'chosen');
+      delete st.o;
+    }
     stats.totals.followed++;
     if (rec1) rec1.followed++;
+    if (st) st.f = 1;
   } else if (rec.followed === false) {
+    if (st && (st.f || st.o !== undefined)) return;
     stats.totals.overridden++;
     if (rec1) rec1.overridden++;
     var actual = rec.actual ? agentEntry(stats, rec.actual) : null;
-    if (actual && actual !== rec1) actual.chosen++;
+    var chosen = actual && actual !== rec1;
+    if (chosen) actual.chosen++;
+    if (st) st.o = chosen ? normName(rec.actual) : '';
   }
 }
 
@@ -303,6 +380,13 @@ function update(root, opts) {
     var persist = !opts || opts.persist !== false;
     var stats = load(root);
     var dir = path.join(root, '.monomind');
+    var known = registryNames(root);
+    Object.defineProperty(stats, '_known', { value: known, enumerable: false });
+    if (known) {
+      Object.keys(stats.agents).forEach(function (k) {
+        if (!known.has(k)) delete stats.agents[k];
+      });
+    }
     var adders = { routes: addRoute, adherence: addAdherence, feedback: addFeedback };
     Object.keys(SOURCES).forEach(function (src) {
       var got = readNew(path.join(dir, SOURCES[src]), stats.cursors[src]);

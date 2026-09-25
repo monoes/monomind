@@ -159,5 +159,85 @@
     "task": "Audit the codebase for vulnerabilities, except the mobile app",
     "agents": ["engineering-security-engineer"],
     "skills": ["security-auditor", "security-reviewer"]
+  },
+  {
+    "id": 127,
+    "domain": "review",
+    "task": "review pull request 482 for correctness",
+    "agents": ["reviewer", "monoswarm-code-review", "pr-manager"],
+    "skills": ["code-reviewer", "mastermind:code-review", "mastermind:review", "code-review-swarm"]
+  },
+  {
+    "id": 128,
+    "domain": "debugging",
+    "task": "debug why the node process crashes with a segfault",
+    "agents": ["coder", "engineering-backend-architect", "engineering-sre"],
+    "skills": ["mastermind:debug", "debugging-wizard"]
+  },
+  {
+    "id": 129,
+    "domain": "org-admin",
+    "task": "create a new org that monitors competitors and reports weekly",
+    "agents": ["coordinator", "agents-orchestrator", "planner"],
+    "skills": ["mastermind:createorg", "mastermind-org"]
+  },
+  {
+    "id": 130,
+    "domain": "docs",
+    "task": "write developer documentation for the REST API",
+    "agents": ["engineering-technical-writer", "specialized-developer-advocate"],
+    "skills": ["code-documenter", "monodoc"]
+  },
+  {
+    "id": 131,
+    "domain": "nothing-fits",
+    "task": "bake a sourdough bread recipe",
+    "agents": [],
+    "skills": [],
+    "noPick": true
+  },
+  {
+    "id": 132,
+    "domain": "nothing-fits",
+    "task": "plan my weekend trip to Lisbon",
+    "agents": [],
+    "skills": [],
+    "noPick": true
+  },
+  {
+    "id": 133,
+    "domain": "nothing-fits",
+    "task": "write a birthday poem for my grandmother",
+    "agents": [],
+    "skills": [],
+    "noPick": true
+  },
+  {
+    "id": 134,
+    "domain": "non-english",
+    "task": "revisa el pull request 482 y busca errores",
+    "agents": ["reviewer", "monoswarm-code-review", "pr-manager"],
+    "skills": ["code-reviewer", "mastermind:code-review", "mastermind:review", "code-review-swarm"]
+  },
+  {
+    "id": 135,
+    "domain": "non-english",
+    "task": "重构认证模块并添加单元测试",
+    "agents": ["coder", "tester"],
+    "skills": ["test-master", "test-driven-development"]
+  },
+  {
+    "id": 136,
+    "domain": "non-english",
+    "task": "Schreibe Unit-Tests für den Rechnungsparser",
+    "agents": ["tester"],
+    "skills": ["test-master", "test-driven-development"]
+  },
+  {
+    "id": 137,
+    "domain": "non-english",
+    "task": "optimise les requêtes SQL lentes de la base de données",
+    "agents": ["engineering-database-optimizer"],
+    "skills": ["sql-pro", "postgres-patterns", "mysql-patterns"]
   }
 ]

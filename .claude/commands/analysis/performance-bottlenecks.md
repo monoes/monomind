@@ -1,5 +1,6 @@
 ---
 name: analysis:performance-bottlenecks
+description: Identify and resolve performance bottlenecks in your development workflow.
 ---
 
 # Performance Bottleneck Analysis

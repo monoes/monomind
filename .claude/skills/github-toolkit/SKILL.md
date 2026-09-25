@@ -5,7 +5,7 @@ description: >
   repo structure, and multi-package sync. Trigger on "open a PR", "manage
   issues", "cut a release", "sync packages", or any GitHub Actions/repo
   automation request. All GitHub operations use the `gh` CLI plus monomind's
-  MCP GitHub tools — there is no `monomind github` CLI command group.
+  MCP GitHub tools — the `monomind` CLI has no `github` command group.
 ---
 
 # GitHub Toolkit

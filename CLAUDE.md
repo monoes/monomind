@@ -238,3 +238,7 @@ Use the `monomind` MCP tools for graph navigation, impact analysis, memory, and 
 For multi-step work, load only the applicable `mastermind-*` skill; do not load all workflows at once.
 If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monomind@latest` commands.
 <!-- monomind:end instructions:claude -->
+
+## Asset Trees
+
+- After changing a skill, command or agent, edit the root `.claude/` copy, then run `pnpm run sync:claude-trees` (mirrors it to the package, `.agents`, `.gemini` and `.kimi-code` trees and regenerates the kimi agents/commands); CI fails on `pnpm run sync:claude-trees:check`.

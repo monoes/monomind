@@ -6,6 +6,7 @@
  * Task subagent_type.
  */
 import { agentCatalog, taskSkillCatalog } from '../decision/catalogs.js';
+import { keywordGateLeader } from '../decision/jev.js';
 import {
   type RankedEntry,
   type RankOptions,
@@ -87,14 +88,25 @@ export async function pickForTask(req: PickRequest): Promise<TaskRanking> {
   };
 }
 
-/** One line for humans and prompts: `agent: <name> · skill: <invoke>`. */
+/** True when a ranked list of `kind` has a top worth acting on (the bar the
+ *  prompt hook's [PICK] line uses; see RankedList.confident). */
+export function pickConfident(ranking: TaskRanking, kind: PickKind = 'both'): boolean {
+  return (
+    (kind !== 'skills' && ranking.agents.confident === true) ||
+    (kind !== 'agents' && ranking.skills.confident === true)
+  );
+}
+
+/** One line for humans and prompts, `agent: <name> · skill: <invoke>`, naming
+ *  only a confident top (as the [PICK] line does); `no confident match` when
+ *  neither is. */
 export function pickSummary(ranking: TaskRanking, kind: PickKind = 'both'): string {
   const parts: string[] = [];
-  const agent = ranking.agents.ranked[0];
-  const skill = ranking.skills.ranked[0];
+  const agent = ranking.agents.confident ? ranking.agents.ranked[0] : undefined;
+  const skill = ranking.skills.confident ? ranking.skills.ranked[0] : undefined;
   if (kind !== 'skills' && agent) parts.push(`agent: ${spawnableName(agent)}`);
   if (kind !== 'agents' && skill) parts.push(`skill: ${skill.invoke || skill.id}`);
-  return parts.length ? parts.join(' · ') : 'no match';
+  return parts.length ? parts.join(' · ') : 'no confident match';
 }
 
 /** Keyword scores are BM25-style relevance (pick-rank.cjs: IDF-weighted
@@ -109,19 +121,11 @@ export function confidenceOf(entry: RankedEntry): number {
   return Math.round(raw * 100) / 100;
 }
 
-/** The bar the prompt hook's [PICK] line uses for a keyword agent pick
- *  (.claude/helpers/handlers/pick-core.cjs): a score of at least 2 and a
- *  1.5x lead over the runner-up. Ties and weak overlap are no decision. */
-export const KEYWORD_MIN_AGENT_SCORE = 2;
-export const KEYWORD_AGENT_LEAD = 1.5;
-
-/** The top keyword-ranked agent when it clears the [PICK] bar, else null. */
+/** The top keyword-ranked agent when it clears the bar the prompt hook's
+ *  [PICK] line uses (pick-rank.cjs KEYWORD_GATE: a minimum score and a lead
+ *  over the runner-up), else null. Ties and weak overlap are no decision. */
 export function keywordLeader(ranked: RankedEntry[]): RankedEntry | null {
-  const [top, second] = ranked;
-  if (!top || !((top.score ?? 0) >= KEYWORD_MIN_AGENT_SCORE)) return null;
-  const runnerUp = second?.score ?? 0;
-  if (runnerUp <= 0) return top;
-  return (top.score ?? 0) >= runnerUp * KEYWORD_AGENT_LEAD ? top : null;
+  return keywordGateLeader(ranked, 'agents');
 }
 
 /** Ranked agents in the `{type, confidence, reason}` shape the routing hooks

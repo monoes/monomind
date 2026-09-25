@@ -1,5 +1,6 @@
 ---
 name: github:github-modes
+description: Reference of the GitHub integration modes available in Monomind.
 ---
 
 # GitHub Integration Modes

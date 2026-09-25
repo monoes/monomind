@@ -108,7 +108,14 @@ Prefer `mcp__monomind__pick({ task: "<task>", kind: "agents", top: 1 })` and use
 ```bash
 TASK_DESC="<one-line description of what this agent must do>"
 CATS="engineering core"
-# mmpick() as defined in the Standard Selection Block
+# Local only — never npx. Accept a binary only when its pick output is the
+# unified index (skill entries carry `source`); see mastermind-agent-select.
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
 best_agent=$(mmpick -t "$TASK_DESC" --categories "$CATS" --top 1 \
   | jq -r '.agents.ranked[0].name // .agents.ranked[0].id // empty' 2>/dev/null)
 best_agent="${best_agent:-coder}"   # fixed fallback: a real core agent
@@ -140,6 +147,14 @@ Prefer `mcp__monomind__pick({ task: "<task>", kind: "skills", top: 3 })`. Withou
 ```bash
 # Best skills for a task: Claude skills (source "platform") and Org-library
 # skills (source "org") ranked together. `invoke` says how to load each one.
+# Local only — never npx. Accept a binary only when its pick output is the
+# unified index (skill entries carry `source`).
+mmpick() { for c in monomind ./node_modules/.bin/monomind; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    out=$("$c" pick "$@" --json 2>/dev/null) || continue
+    printf '%s' "$out" | jq -e '[.skills.ranked[]? | has("source")] | (length > 0 and all)' \
+      >/dev/null 2>&1 && { printf '%s\n' "$out"; return 0; }
+  done; return 127; }
 mmpick -t "$PROMPT" --skills --top 3 | jq -c '[.skills.ranked[] | {id, source, invoke}]'
 ```
 

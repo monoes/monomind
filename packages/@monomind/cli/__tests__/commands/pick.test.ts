@@ -274,8 +274,12 @@ describe('monomind pick', () => {
     const mcp = (await pickTool.handler({ task: 'fix parser bugs', kind: 'agents' })) as typeof cli;
     expect(cli.agents.ranked[0].name).toBe('beta');
     expect(mcp.agents.ranked[0].name).toBe(cli.agents.ranked[0].name);
-    expect(cli.summary).toBe('agent: beta');
+    // alpha and beta tie on relevance: the prior orders them, but a tie
+    // clears no confidence bar, so neither summary names an agent.
+    expect(cli.summary).toBe('no confident match');
+    expect(cli.confident).toBe(false);
     expect(cli.summary).toBe(mcp.summary);
+    expect(mcp.confident).toBe(cli.confident);
   });
 
   it('readPickStats is empty without history', () => {

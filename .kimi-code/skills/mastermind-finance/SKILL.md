@@ -1,10 +1,8 @@
 ---
-description: mastermind finance command (monomind)
+description: "Mastermind finance domain — invoicing, budget tracking, financial forecasting. Default mode: confirm."
 type: flow
 name: mastermind-finance
 ---
-
-<!-- Mastermind finance domain — invoicing, budget tracking, financial forecasting. Default mode: confirm. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 

@@ -1,5 +1,6 @@
 ---
 name: analysis:bottleneck-detect
+description: Detect performance bottlenecks in system components and swarm operations.
 ---
 
 # bottleneck-detect

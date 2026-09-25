@@ -1,6 +1,6 @@
 ---
-description: monoswarm memory command (monomind)
 name: monoswarm:memory
+description: Access and manage monoswarm shared memory — a key-value blob on the run's state file, readable/writable by all agents coordinating in the current run.
 ---
 
 # monoswarm memory

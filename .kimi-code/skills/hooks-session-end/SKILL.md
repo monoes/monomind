@@ -1,7 +1,7 @@
 ---
-description: hooks session-end command (monomind)
-type: flow
 name: hooks-session-end
+description: End the current session and persist state for later restoration.
+type: flow
 ---
 
 # hooks session-end

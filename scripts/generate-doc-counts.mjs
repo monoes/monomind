@@ -26,13 +26,55 @@
  * every machine and in CI.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compileGeneratedSkills } from './sync-claude-trees.mjs';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(REPO_ROOT, p), 'utf8');
+
+// ---------------------------------------------------------------------------
+// What counts: tracked files, plus the skills generated at pack time.
+//
+// Walking the working tree made the counts machine-dependent: the monodesign
+// skill is gitignored and compiled locally (and by the CLI's prepack), so a
+// checkout that had compiled it said 90 bundled skills and one that had not
+// said 89; any untracked scratch file counted too. Now a file counts when git
+// tracks it or when it lies in a generated skill directory, which is compiled
+// fresh first — exactly what `npm pack` ships.
+// ---------------------------------------------------------------------------
+
+/** Skill directories compiled at pack time rather than committed. */
+const GENERATED_SKILL_DIRS = [
+  '.claude/skills/monodesign/',
+  'packages/@monomind/cli/.claude/skills/monodesign/',
+];
+
+compileGeneratedSkills(REPO_ROOT);
+
+const TRACKED = new Set(
+  execFileSync('git', ['ls-files', '-z'], { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 << 20 })
+    .split('\0')
+    .filter(Boolean),
+);
+
+/** True for a repo-relative path that ships: tracked, or inside a generated skill dir. */
+function counts(rel) {
+  return TRACKED.has(rel) || GENERATED_SKILL_DIRS.some((dir) => rel.startsWith(dir));
+}
 
 // ---------------------------------------------------------------------------
 // Count computation — each function reads exactly one source of truth.
@@ -109,7 +151,7 @@ function countNamedFiles(relDir, fileName) {
         continue;
       }
       if (st.isDirectory()) walk(full);
-      else if (name === fileName) count++;
+      else if (name === fileName && counts(full.slice(REPO_ROOT.length + 1))) count++;
     }
   };
   walk(join(REPO_ROOT, relDir));
@@ -156,8 +198,9 @@ function countHooksSubcommands() {
 /** User-facing /mastermind:* commands in the npm-shipped asset tree; `_`-prefixed
  *  files are internal includes (e.g. _repeat, _taskfile), not commands. */
 function countMastermindCommands() {
-  return readdirSync(join(REPO_ROOT, 'packages/@monomind/cli/.claude/commands/mastermind')).filter(
-    (n) => n.endsWith('.md') && !n.startsWith('_') && !n.startsWith('.'),
+  const rel = 'packages/@monomind/cli/.claude/commands/mastermind';
+  return readdirSync(join(REPO_ROOT, rel)).filter(
+    (n) => n.endsWith('.md') && !n.startsWith('_') && !n.startsWith('.') && counts(`${rel}/${n}`),
   ).length;
 }
 
@@ -180,7 +223,7 @@ function countShippedAgents() {
       const full = join(dir, e.name);
       if (e.isDirectory()) {
         if (!skipDirs.has(e.name)) walk(full);
-      } else if (e.name.endsWith('.md')) {
+      } else if (e.name.endsWith('.md') && counts(full.slice(REPO_ROOT.length + 1))) {
         total++;
         const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(full, 'utf8'));
         if (fm && /^deprecated:\s*true\s*$/m.test(fm[1])) deprecated++;
@@ -195,17 +238,42 @@ function countShippedAgents() {
  *  the same builder the hooks and CLI use (.claude/helpers/build-skill-registry.cjs),
  *  without the machine-local ~/.claude/skills. */
 function countShippedIndex() {
-  const require = createRequire(import.meta.url);
-  const builder = require(join(REPO_ROOT, '.claude/helpers/build-skill-registry.cjs'));
-  const { counts } = builder.build(join(REPO_ROOT, CLI_PKG), { user: false })._meta;
-  return { commands: counts.commands, skills: counts.skills };
+  // The builder reads <root>/.claude/{commands,skills} from disk, so give it a
+  // snapshot holding only the files that ship.
+  const snapshot = mkdtempSync(join(tmpdir(), 'doc-counts-'));
+  try {
+    for (const sub of ['.claude/commands', '.claude/skills']) {
+      const walk = (dir) => {
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, e.name);
+          const rel = full.slice(REPO_ROOT.length + 1);
+          if (e.isDirectory()) walk(full);
+          else if (counts(rel)) {
+            const dest = join(snapshot, full.slice(join(REPO_ROOT, CLI_PKG).length + 1));
+            mkdirSync(dirname(dest), { recursive: true });
+            copyFileSync(full, dest);
+          }
+        }
+      };
+      walk(join(REPO_ROOT, CLI_PKG, sub));
+    }
+    const require = createRequire(import.meta.url);
+    const builder = require(join(REPO_ROOT, '.claude/helpers/build-skill-registry.cjs'));
+    const { counts: c } = builder.build(snapshot, { user: false })._meta;
+    return { commands: c.commands, skills: c.skills };
+  } finally {
+    rmSync(snapshot, { recursive: true, force: true });
+  }
 }
 
 /** Bundled Org skills: `<name>/SKILL.md` directories in the package's org-skills. */
 function countOrgSkills() {
   const dir = join(REPO_ROOT, CLI_PKG, 'org-skills');
   return readdirSync(dir).filter(
-    (n) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(n) && existsSync(join(dir, n, 'SKILL.md')),
+    (n) =>
+      /^[a-z0-9][a-z0-9-]{0,63}$/.test(n) &&
+      existsSync(join(dir, n, 'SKILL.md')) &&
+      counts(`${CLI_PKG}/org-skills/${n}/SKILL.md`),
   ).length;
 }
 

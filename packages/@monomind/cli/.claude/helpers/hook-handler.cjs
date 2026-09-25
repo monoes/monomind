@@ -313,8 +313,10 @@ async function main() {
   function isSimpleCommand(p) {
     if (typeof p !== 'string') return false;
     var s = p.trim();
-    // Slash commands: /ts, /list-agents, /commit, /help, /use-agent etc.
-    if (/^\/[a-z0-9_-]+(\s|$)/i.test(s)) return true;
+    // Slash commands: /ts, /list-agents, /commit, /help, and namespaced ones
+    // (/mastermind:plan). A path (/var/log/app.log …) has a second '/' and is
+    // not a command.
+    if (/^\/[a-z0-9_-]+(:[a-z0-9_-]+)*(\s|$)/i.test(s)) return true;
     // Short single-word operator tokens (toggle, list, status)
     if (/^(ts|ls|ps|pwd|help|clear|exit|quit|status|toggle|refresh)$/i.test(s)) return true;
     // Already-resolved command messages (Claude Code sends hook with command-name context)
