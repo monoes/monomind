@@ -145,11 +145,13 @@ function jevAllowed(gate, s, root) {
 }
 
 /** Platform commands/skills. Command/skill mirrors of one capability collapse,
- *  preferring the slash form. */
+ *  preferring the slash form. An entry whose source file is gone (the index
+ *  predates its removal) is dropped: naming it would fail at invoke time. */
 function platformSkills(root, list, gate) {
   var byKey = new Map();
   list.forEach(function (s) {
     if (!s || typeof s.skill !== 'string' || typeof s.invoke !== 'string') return;
+    if (typeof s.source === 'string' && !fs.existsSync(sourceFile(root, s.source))) return;
     // A catalog projection reaches the decision model only when approved with
     // the jev target; ordinary skills carry no catalog field and are unaffected.
     if (s.catalog && s.catalog.jev !== true) return;

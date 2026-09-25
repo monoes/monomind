@@ -137,6 +137,10 @@ async function _pickWithJev(CWD, prompt, agents, includeAgentId, skills) {
 // is not a selector (its agent table and matchSkills predate the catalogs).
 async function _decidePick(CWD, prompt) {
   var jp = _loadJevPicker();
+  // The skill index is read below: rebuild it first when a skill/command tree
+  // is newer (a stat scan, plus a ~30 ms build only when stale). Fails open:
+  // the catalog still drops entries whose file is gone.
+  try { pickCore.ensureSkillRegistryFresh(CWD); } catch (e) { /* keep the index as it is */ }
   var agents = jp ? jp.loadAgentCatalog(CWD) : [];
   var skills = jp ? jp.loadSkillCatalog(CWD) : [];
   var skillMatches = pickCore.rankSkills(jp, prompt, skills);

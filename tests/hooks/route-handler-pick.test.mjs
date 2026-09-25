@@ -206,6 +206,30 @@ describe('route-handler [PICK] delivery', () => {
     });
   });
 
+  it('refreshes a stale skill index before picking, so a removed skill is never named', async () => {
+    const skillMd = (name, description) => {
+      fs.mkdirSync(path.join(tmpDir, '.claude', 'skills', name), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.claude', 'skills', name, 'SKILL.md'),
+        `---\nname: ${name}\ndescription: ${description}\n---\n`,
+      );
+    };
+    skillMd('browser-testing', 'Browser UI testing with screenshots and flows');
+    require('../../.claude/helpers/build-skill-registry.cjs').write(tmpDir, { user: false });
+    // The skill is removed after the index was written; nothing rebuilt it.
+    fs.rmSync(path.join(tmpDir, '.claude', 'skills', 'browser-testing'), { recursive: true });
+    await loadRH().handle(makeHCtx('browser UI testing with screenshots of the flows'));
+    expect(logs.join('\n')).not.toContain('browser-testing');
+
+    // A skill added after the index was written is picked on the next prompt.
+    const past = new Date(Date.now() - 60_000);
+    fs.utimesSync(path.join(tmpDir, '.claude', 'helpers', 'skill-registry.json'), past, past);
+    skillMd('invoice-parsing', 'Parse invoice PDFs into line items and totals');
+    logs = [];
+    await loadRH().handle(makeHCtx('parse the invoice PDFs into line items and totals'));
+    expect(logs.join('\n')).toContain('[PICK] skill: Skill("invoice-parsing")');
+  });
+
   it('prints and records nothing for a task notification', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     const fetchSpy = jevAnswer('engineering-security-engineer', 'security-review');

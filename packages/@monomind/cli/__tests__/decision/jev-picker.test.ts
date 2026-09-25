@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { writeEntry } from '../catalog/fixtures.js';
 
@@ -330,6 +330,30 @@ describe('catalog loaders', () => {
     ]);
   });
 
+  it('drops a platform skill whose source file is gone (an index older than a removal)', () => {
+    root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
+    mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
+    mkdirSync(join(root, '.claude', 'skills', 'kept'), { recursive: true });
+    writeFileSync(join(root, '.claude', 'skills', 'kept', 'SKILL.md'), '---\nname: kept\n---\n');
+    const entry = (name: string, source?: string) => ({
+      skill: name,
+      invoke: `Skill("${name}")`,
+      description: name,
+      ...(source ? { source } : {}),
+    });
+    writeFileSync(
+      join(root, '.claude', 'helpers', 'skill-registry.json'),
+      JSON.stringify({
+        skills: [
+          entry('kept', '.claude/skills/kept/SKILL.md'),
+          entry('removed', '.claude/skills/removed/SKILL.md'),
+          entry('no-source'),
+        ],
+      }),
+    );
+    expect(jp.loadSkillCatalog(root).map((s: { id: string }) => s.id)).toEqual(['kept', 'no-source']);
+  });
+
   it('lets a catalog skill through only while its state entry is active with the jev target', () => {
     root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
     mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });
@@ -353,8 +377,11 @@ describe('catalog loaders', () => {
     skillMd('old-revoked', `<!-- monomind:start catalog:skill:old-revoked -->\nbody`);
     // Hand-written skills that merely share a name with a catalog entry.
     skillMd('hand-staged', 'my own skill');
-    mkdirSync(join(root, 'outside'));
-    writeFileSync(join(root, 'outside', 'SKILL.md'), '<!-- monomind:start catalog:skill:hand-escape -->');
+    // Plain skills whose files exist (an entry without its file is dropped).
+    for (const name of ['plain', 'old-active', 'hand-missing']) skillMd(name, 'plain body');
+    // A marked file outside the project and ~/.claude/skills is never read.
+    const outside = mkdtempSync(join(tmpdir(), 'jev-outside-'));
+    writeFileSync(join(outside, 'SKILL.md'), '<!-- monomind:start catalog:skill:hand-escape -->');
     writeFileSync(
       join(root, '.claude', 'helpers', 'skill-registry.json'),
       JSON.stringify({
@@ -368,7 +395,7 @@ describe('catalog loaders', () => {
           bare('old-active'),
           bare('hand-staged'),
           bare('hand-missing'),
-          bare('hand-escape', '../outside/SKILL.md'),
+          bare('hand-escape', relative(root, join(outside, 'SKILL.md'))),
         ],
       }),
     );
@@ -404,6 +431,7 @@ describe('catalog loaders', () => {
     // Unreadable state: every catalog-marked skill is dropped, the rest stay.
     writeFileSync(state, '{ not json');
     expect(ids()).toEqual(['plain', 'old-active', 'hand-staged', 'hand-missing', 'hand-escape']);
+    rmSync(outside, { recursive: true, force: true });
   });
 
   it('returns empty catalogs when the files are missing', () => {
