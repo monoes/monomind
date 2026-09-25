@@ -122,7 +122,11 @@ those copies (`packages/@monomind/cli/.claude`) to every npm user:
 adapter points at — `.claude/` and `.agents/skills` — and writes each shipped file exactly as it
 ships: ownership is tracked by content hash in `.monomind/init-manifest.json`, not by markers in
 the file (older versions wrapped the Mastermind skills in `skills:<owner>:<name>` marker blocks;
-see GH #344). A file already identical to the shipped copy is not rewritten.
+see GH #344). A file already identical to the shipped copy is not rewritten; a file you
+hand-edited is left as-is and the incoming shipped version is written alongside it as
+`<file>.monomind-new` so you can diff and merge at your own pace. The migration away from
+the old markers runs on the next plain `init` or `init --force` (not `init upgrade`, which
+only touches helpers, the statusline and `CLAUDE.md`/`CAPABILITIES.md`).
 
 After hand-editing `.claude/`, before committing:
 
