@@ -17,7 +17,7 @@ import {
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOCTOR_TRACKED_HELPERS, OBSOLETE_HELPER_NAMES } from '../init/helpers-generator.js';
 import { MONOMIND_NEVER_COMMIT } from '../init/never-commit.js';
@@ -844,7 +844,13 @@ function _bundledTopLevelHelperNames(): string[] {
   }
 }
 
-async function _detectStaleHelpers(): Promise<{
+// The installed helper copies doctor compares against the bundle: the Claude
+// Code tree, plus the copy init writes to .gemini/helpers (Antigravity's status
+// bar runs .gemini/helpers/statusline.cjs), which is only checked when present.
+const CLAUDE_HELPERS = join('.claude', 'helpers');
+const GEMINI_HELPERS = join('.gemini', 'helpers');
+
+async function _detectStaleHelpers(helpersDir: string = CLAUDE_HELPERS): Promise<{
   stale: string[];
   missing: string[];
   orphaned: string[];
@@ -872,7 +878,7 @@ async function _detectStaleHelpers(): Promise<{
       missing.push(name);
       continue;
     }
-    const local = join(process.cwd(), '.claude', 'helpers', name);
+    const local = join(process.cwd(), helpersDir, name);
     if (!existsSync(local)) {
       stale.push(name);
       continue;
@@ -890,11 +896,23 @@ async function _detectStaleHelpers(): Promise<{
   return { stale, missing, orphaned };
 }
 
+/** Stale helpers in the Gemini copy, as `.gemini/helpers/<name>`; none if not installed. */
+async function _detectStaleGeminiHelpers(): Promise<string[]> {
+  if (!existsSync(join(process.cwd(), GEMINI_HELPERS))) return [];
+  const { stale } = await _detectStaleHelpers(GEMINI_HELPERS);
+  return stale.map((name) => `.gemini/helpers/${name.split(sep).join('/')}`);
+}
+
 export async function fixStaleHelpers(): Promise<boolean> {
   const { stale } = await _detectStaleHelpers();
+  const targets = stale.map((name) => ({ name, local: join(process.cwd(), CLAUDE_HELPERS, name) }));
+  if (existsSync(join(process.cwd(), GEMINI_HELPERS))) {
+    for (const name of (await _detectStaleHelpers(GEMINI_HELPERS)).stale) {
+      targets.push({ name, local: join(process.cwd(), GEMINI_HELPERS, name) });
+    }
+  }
   let fixed = 0;
-  for (const name of stale) {
-    const local = join(process.cwd(), '.claude', 'helpers', name);
+  for (const { name, local } of targets) {
     const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
     if (bundled) {
       try {
@@ -912,7 +930,8 @@ export async function fixStaleHelpers(): Promise<boolean> {
 
 export async function checkHelpersFresh(): Promise<HealthCheck> {
   try {
-    const { stale, missing, orphaned } = await _detectStaleHelpers();
+    const { stale: claudeStale, missing, orphaned } = await _detectStaleHelpers();
+    const stale = [...claudeStale, ...(await _detectStaleGeminiHelpers())];
     if (orphaned.length > 0) {
       return {
         name: 'Helper Files',
