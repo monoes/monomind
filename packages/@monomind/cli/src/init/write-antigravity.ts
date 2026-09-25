@@ -9,7 +9,12 @@ import {
   generateGeminiRulesMd,
   generateStatuslineSh,
 } from './geminimd-generator.js';
-import { atomicWriteFile, MAX_EXEC_FILE_BYTES } from './shared.js';
+import {
+  atomicWriteFile,
+  findSourceHelpersDir,
+  GENERATED_HELPERS,
+  MAX_EXEC_FILE_BYTES,
+} from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**
@@ -17,6 +22,7 @@ import type { InitOptions, InitResult } from './types.js';
  *   GEMINI.md                       — agent instructions read by agy
  *   .gemini/rules/monomind.md       — workflow rules file
  *   .gemini/helpers/statusline.sh   — shell wrapper for the agy status bar
+ *   .gemini/helpers/*               — helper tree it runs, if writeHelpers did not copy it
  *   .gemini/settings.json           — wires the statusline command into agy
  */
 export async function writeGeminiFiles(
@@ -47,6 +53,24 @@ export async function writeGeminiFiles(
   // .gemini/helpers/statusline.sh
   const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
   fs.mkdirSync(geminiHelpersDir, { recursive: true });
+
+  // statusline.sh runs .gemini/helpers/statusline.cjs (which requires
+  // ./utils/). writeHelpers mirrors the helper tree here when the helpers
+  // component is on; when it is off (e.g. `--target antigravity` alone), copy
+  // the same tree here so the status bar works — into .gemini/helpers only,
+  // so no Claude helpers or hooks are installed.
+  const sourceHelpersDir = findSourceHelpersDir(options.sourceBaseDir);
+  if (!options.components.helpers && sourceHelpersDir) {
+    fs.cpSync(sourceHelpersDir, geminiHelpersDir, {
+      recursive: true,
+      force: options.force === true,
+      filter: (src) => {
+        const name = path.basename(src);
+        return !name.startsWith('._') && !GENERATED_HELPERS.has(name);
+      },
+    });
+    result.created.files.push('.gemini/helpers/ (helper tree for the status bar)');
+  }
   const statuslineShPath = path.join(geminiHelpersDir, 'statusline.sh');
   if (!fs.existsSync(statuslineShPath) || options.force) {
     atomicWriteFile(statuslineShPath, generateStatuslineSh());

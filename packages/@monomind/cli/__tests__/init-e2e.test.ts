@@ -428,4 +428,63 @@ describe('Init Command E2E (real fs)', () => {
     expect(second.success).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(true);
   }, 90000); // two real-fs init runs + first-use embedding-model load — #33
+  // .gemini/helpers is read only by Antigravity's status bar
+  // (.gemini/helpers/statusline.sh -> statusline.cjs). Kimi's statusline reads
+  // .claude/helpers first, so no other platform needs the Gemini copy.
+  describe('.gemini/helpers follows the Antigravity selection', () => {
+    const geminiStatusline = () => path.join(tmpDir, '.gemini', 'helpers', 'statusline.cjs');
+    const run = async (platform: string) => {
+      ctx.flags = { platform, _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+      expect(result.success).toBe(true);
+    };
+
+    it('is not written for claude alone', async () => {
+      await run('claude');
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'helpers', 'statusline.cjs'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers'))).toBe(false);
+      // upgrade refreshes .gemini/helpers only where it exists
+      const { executeUpgrade } = await import('../src/init/upgrade.js');
+      await executeUpgrade(tmpDir);
+      expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers'))).toBe(false);
+    }, 60000);
+
+    it('is not written for claude + kimi or codex', async () => {
+      await run('claude,kimi,codex');
+      expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers'))).toBe(false);
+    }, 30000);
+
+    it('is written when antigravity is selected', async () => {
+      await run('claude,antigravity');
+      expect(fs.existsSync(geminiStatusline())).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers', 'statusline.sh'))).toBe(true);
+    }, 30000);
+
+    it('gives antigravity-only init a working status bar without Claude helpers', async () => {
+      ctx.flags = { target: 'antigravity', _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+      expect(result.success).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'helpers', 'statusline.cjs'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(false);
+
+      const { spawnSync } =
+        await vi.importActual<typeof import('child_process')>('child_process');
+      const run = spawnSync(process.execPath, [geminiStatusline()], {
+        cwd: tmpDir,
+        env: { ...process.env, HOME: fakeHome, CLAUDE_PROJECT_DIR: tmpDir },
+        encoding: 'utf8',
+        timeout: 20000,
+      });
+      expect(run.stderr).toBe('');
+      expect(run.status).toBe(0);
+      expect(run.stdout.trim().length).toBeGreaterThan(0);
+    }, 60000);
+
+    it('leaves an existing .gemini/helpers alone when antigravity is not selected', async () => {
+      fs.mkdirSync(path.dirname(geminiStatusline()), { recursive: true });
+      fs.writeFileSync(geminiStatusline(), '// existing\n');
+      await run('claude');
+      expect(fs.readFileSync(geminiStatusline(), 'utf8')).toBe('// existing\n');
+    }, 30000);
+  });
 });
