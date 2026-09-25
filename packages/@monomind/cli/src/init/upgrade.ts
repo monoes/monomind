@@ -8,6 +8,7 @@ import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
 import { refreshBundledAgents } from './agent-refresh.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
 import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
+import { buildProjectIndexes, type ProjectIndexCounts } from './project-indexes.js';
 import { generateSettings } from './settings-generator.js';
 import {
   AGENTS_MAP,
@@ -18,7 +19,6 @@ import {
   findSourceHelpersDir,
   GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
-  regenerateSkillIndex,
   SKILLS_MAP,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
@@ -46,6 +46,23 @@ export interface UpgradeResult {
   refreshedAgents?: string[];
   /** Installed agents left alone because their body differs from the bundle. */
   keptAgents?: string[];
+  /** Agent registry and skill index counts (see init/project-indexes.ts). */
+  indexes?: ProjectIndexCounts;
+}
+
+/** Rebuilds the agent registry and skill index, recording them in `result`. */
+function indexProject(
+  targetDir: string,
+  result: UpgradeResult,
+  sourceHelpersDir?: string | null,
+): void {
+  result.indexes = buildProjectIndexes(targetDir, sourceHelpersDir);
+  for (const [file, built] of [
+    ['.claude/helpers/skill-registry.json', result.indexes.skills],
+    ['.monomind/registry.json', result.indexes.agents],
+  ] as const) {
+    if (built && !result.updated.includes(file)) result.updated.push(file);
+  }
 }
 
 /**
@@ -288,11 +305,6 @@ export async function executeUpgrade(
       if (fs.existsSync(geminiHelpersDir)) {
         syncHelperTree(sourceHelpersForUpgrade, geminiHelpersDir, '.gemini/helpers', result);
       }
-      // The skill index is generated, never copied: rebuild it now so the
-      // project's own (and the user's) skills replace any stale snapshot.
-      if (regenerateSkillIndex(targetDir, sourceHelpersForUpgrade)) {
-        result.updated.push('.claude/helpers/skill-registry.json');
-      }
     } else {
       // Source not found (npx with broken paths) — use generated fallbacks
       // for every force-synced helper that has one (see HELPER_FILES registry).
@@ -503,6 +515,11 @@ export async function executeUpgrade(
         result.settingsUpdated = ['Created new settings.json with Agent Teams'];
       }
     }
+
+    // Both routing indexes are generated, never copied: rebuild them now so
+    // the project's own and the user's (~/.claude) agents and skills replace
+    // any stale snapshot.
+    indexProject(targetDir, result, sourceHelpersForUpgrade);
   } catch (error) {
     result.success = false;
     result.errors.push(error instanceof Error ? error.message : String(error));
@@ -651,6 +668,11 @@ export async function executeUpgradeWithMissing(
     result.errors.push(
       `Add missing failed: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+
+  // Newly added agents and skills join the indexes built by executeUpgrade.
+  if (result.addedSkills?.length || result.addedAgents?.length || result.addedCommands?.length) {
+    indexProject(targetDir, result);
   }
 
   return result;

@@ -127,8 +127,9 @@ export async function checkPick(
   const hiddenNote = hidden
     ? ` (${hidden} hidden: ${hidden === reg.deprecated ? 'deprecated' : `${reg.deprecated} deprecated, ${hidden - reg.deprecated} other`})`
     : '';
+  const userAgents = agents.filter((a) => a.origin === 'user').length;
   lines.push(
-    `registry: ${plural(agents.length, 'pickable agent')} of ${reg.total} registered${hiddenNote}, ${plural(dupes, 'duplicate')}, ${registryWasStale ? 'was stale (rebuilt)' : 'fresh'}`,
+    `registry: ${plural(agents.length, 'pickable agent')} of ${reg.total} registered${hiddenNote}, ${userAgents} from ~/.claude/agents, ${plural(dupes, 'duplicate')}, ${registryWasStale ? 'was stale (rebuilt)' : 'fresh'}`,
   );
   if (agents.length === 0) {
     problems.push('no agents to pick from');

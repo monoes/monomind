@@ -117,6 +117,43 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
   }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
 
+  it('indexes project and user-level (~/.claude) agents and skills, and says how many', async () => {
+    const put = (file: string, text: string) => {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, text);
+    };
+    put(
+      path.join(fakeHome, '.claude', 'agents', 'my-zorbler.md'),
+      '---\nname: my-zorbler\ndescription: Tunes zorbling flux\n---\n',
+    );
+    put(
+      path.join(fakeHome, '.claude', 'skills', 'my-zorb-skill', 'SKILL.md'),
+      '---\nname: my-zorb-skill\ndescription: Zorbling skill\n---\n',
+    );
+    const info = vi.spyOn(output, 'printInfo');
+    const result = await initCommand.action!(ctx);
+    expect(result.success).toBe(true);
+
+    const reg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'registry.json'), 'utf8'));
+    const mine = reg.agents.find((a: { slug: string }) => a.slug === 'my-zorbler');
+    expect(mine).toMatchObject({ origin: 'user', filePath: '~/.claude/agents/my-zorbler.md' });
+    expect(reg.agents.filter((a: { origin: string }) => a.origin === 'project').length).toBeGreaterThan(10);
+    const index = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.claude', 'helpers', 'skill-registry.json'), 'utf8'),
+    );
+    expect(index.skills.find((s: { skill: string }) => s.skill === 'my-zorb-skill')?.origin).toBe('user');
+
+    const indexes = (result.data as InitResult).indexes;
+    expect(indexes?.agents).toEqual({ total: reg.agents.length, user: 1 });
+    expect(indexes?.skills).toEqual({
+      total: index.skills.length + index.orgSkills.length,
+      user: 1,
+    });
+    expect(info).toHaveBeenCalledWith(
+      `Indexed ${reg.agents.length} agents (1 from ~/.claude/agents) and ${indexes?.skills?.total} skills (1 from ~/.claude/skills)`,
+    );
+  }, 60000);
+
   it('writes one managed block per shared .agents/skills file, not one per platform', async () => {
     ctx.flags = { ...ctx.flags, yes: true, 'no-install': true };
     const result = await initCommand.action!(ctx);

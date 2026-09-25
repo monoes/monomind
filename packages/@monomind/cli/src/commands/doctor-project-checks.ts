@@ -1240,15 +1240,18 @@ export async function checkAgentRegistry(opts: { readOnly?: boolean } = {}): Pro
     const entries = registry.agents;
     // An extra root (MONOMIND_EXTRA_AGENT_PATHS or a sibling agency-agents dir)
     // wins slug conflicts over .claude/agents — say so instead of hiding it.
-    const extras = roots.slice(0, -1);
-    const extraNote = extras.length
-      ? `; extra agent roots (win on conflict): ${extras.join(', ')}`
-      : '';
+    const extras = roots.filter((r) => r.origin === 'extra').map((r) => r.dir);
+    // User agents (~/.claude/agents) are indexed too; project agents win.
+    const shadowed = registry.shadowed.length;
+    const extraNote =
+      `; ${registry.counts.user} from ~/.claude/agents` +
+      (shadowed ? ` (${shadowed} shadowed by a project agent)` : '') +
+      (extras.length ? `; extra agent roots (win on conflict): ${extras.join(', ')}` : '');
     if (entries.length === 0) {
       return {
         name: 'Agent Registry',
         status: 'warn',
-        message: `No agents found under .claude/agents${extraNote}`,
+        message: `No agents found under .claude/agents or ~/.claude/agents${extraNote}`,
         fix: 'monomind init  (installs agent definitions)',
       };
     }

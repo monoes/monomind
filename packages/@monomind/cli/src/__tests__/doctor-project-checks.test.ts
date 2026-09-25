@@ -104,6 +104,9 @@ describe('doctor-project-checks', () => {
 
     homeState.dir = join(dir, '__home__');
     mkdirSync(homeState.dir, { recursive: true });
+    // CommonJS helpers (agent-registry.cjs) use the real os.homedir(), which
+    // the mock above cannot reach: point $HOME at the same directory.
+    vi.stubEnv('HOME', homeState.dir);
 
     execState.claudeAvailable = false;
 
@@ -115,6 +118,7 @@ describe('doctor-project-checks', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     process.chdir(originalCwd);
     for (const k of KEY_ENV_VARS) {
       if (savedEnv[k] === undefined) delete process.env[k];
@@ -1039,6 +1043,24 @@ describe('doctor-project-checks', () => {
       const result = await checkAgentRegistry();
       expect(result.status).toBe('pass');
       expect(result.message).toContain('all metadata complete');
+    });
+
+    it('counts agents from ~/.claude/agents and notes the ones a project agent shadows', async () => {
+      const agent = (file: string, name: string) => {
+        mkdirSync(join(file, '..'), { recursive: true });
+        writeFileSync(
+          file,
+          `---\nname: ${name}\ndescription: d\nwhen_to_use: Use for ${name}\n---\n`,
+        );
+      };
+      agent(join(dir, '.claude', 'agents', 'coder.md'), 'coder');
+      agent(join(homeState.dir, '.claude', 'agents', 'coder.md'), 'coder');
+      agent(join(homeState.dir, '.claude', 'agents', 'mine.md'), 'mine');
+      const result = await checkAgentRegistry();
+      expect(result.status).toBe('pass');
+      expect(result.message).toBe(
+        '2 agent(s), all metadata complete; 1 from ~/.claude/agents (1 shadowed by a project agent)',
+      );
     });
 
     // Older installs keep agents without when_to_use, which the pick index

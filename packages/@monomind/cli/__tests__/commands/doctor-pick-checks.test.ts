@@ -25,8 +25,9 @@ function project(): string {
   return root;
 }
 
+let home = '';
 beforeEach(() => {
-  const home = newRoot('pick-doctor-home-');
+  home = newRoot('pick-doctor-home-');
   vi.stubEnv('HOME', home);
   vi.stubEnv('MONOMIND_HOME', join(home, '.monomind'));
 });
@@ -77,6 +78,16 @@ describe('checkPick', () => {
     );
     const r = await checkPick(root, {});
     expect(r.message).toMatch(/registry: 1 pickable agent of 2 registered \(1 hidden: deprecated\)/);
+  });
+
+  it('counts agents from ~/.claude/agents', async () => {
+    const root = project();
+    put(
+      join(home, '.claude', 'agents', 'mine.md'),
+      '---\nname: mine\ndescription: My own agent\n---\n',
+    );
+    const r = await checkPick(root, {});
+    expect(r.message).toMatch(/registry: 2 pickable agents of 2 registered, 1 from ~\/\.claude\/agents, 0 duplicates/);
   });
 
   it('warns when the registry has no agents', async () => {

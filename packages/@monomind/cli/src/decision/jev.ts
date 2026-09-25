@@ -19,6 +19,8 @@ export interface CatalogItem {
   invoke?: string;
   /** Skill pool: `platform` (.claude/skills) or `org` (the Org skill library). */
   source?: 'platform' | 'org';
+  /** Agent definition origin: the project, the user's ~/.claude/agents, or an extra root. */
+  origin?: 'project' | 'user' | 'extra';
   /** `low`: an admin/meta skill (`pick: low` frontmatter) that keyword
    *  ranking places below equally matching entries. */
   pick?: 'low';

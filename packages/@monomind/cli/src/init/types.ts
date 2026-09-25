@@ -5,6 +5,7 @@
 
 import os from 'node:os';
 import path from 'node:path';
+import type { ProjectIndexCounts } from './project-indexes.js';
 
 /**
  * Components that can be initialized
@@ -614,6 +615,8 @@ export interface InitResult {
   errors: string[];
   /** Memory database setup outcome; absent when it was not attempted. */
   memory?: InitMemoryResult;
+  /** Agent registry and skill index counts (see init/project-indexes.ts). */
+  indexes?: ProjectIndexCounts;
   summary: {
     skillsCount: number;
     commandsCount: number;

@@ -15,7 +15,6 @@ import {
   GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
   mergeGeneratedBlock,
-  regenerateSkillIndex,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -350,9 +349,8 @@ export async function writeHelpers(
     copyRecursive(sourceHelpersDir, helpersDir, '');
     const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
     copyRecursive(sourceHelpersDir, geminiHelpersDir, '');
-    if (regenerateSkillIndex(targetDir, sourceHelpersDir)) {
-      result.created.files.push('.claude/helpers/skill-registry.json');
-    }
+    // skill-registry.json is built with the agent registry once init has
+    // written every file (executor.ts, buildProjectIndexes).
   }
 
   // --force means writeSettings (called elsewhere in this same init run) is

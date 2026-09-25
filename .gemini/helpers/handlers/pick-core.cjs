@@ -422,6 +422,22 @@ function ensureSkillRegistryFresh(root, builder) {
   return 'rebuilt';
 }
 
+/** Rebuild .monomind/registry.json when agent-registry.cjs says it is stale
+ *  (missing, or older than an agent in .claude/agents, ~/.claude/agents or an
+ *  extra root), so a new user agent is routed from the next session on. Only
+ *  inside a project (findProjectRoot: never the home directory, never a
+ *  folder without .monomind or .claude/agents). opts.home overrides the home
+ *  directory. Returns what it did. */
+function ensureAgentRegistryFresh(root, builder, opts) {
+  if (builder === undefined) {
+    try { builder = require('../agent-registry.cjs'); } catch (e) { builder = null; }
+  }
+  if (!builder || typeof builder.isStale !== 'function' || typeof builder.ensure !== 'function') return 'no-builder';
+  if (builder.findProjectRoot(root, opts && opts.home) !== path.resolve(root)) return 'not-a-project';
+  if (!builder.isStale(root, opts)) return 'fresh';
+  return builder.ensure(root, opts) ? 'rebuilt' : 'failed';
+}
+
 module.exports = {
   KEYWORD_MIN_AGENT_SCORE: KEYWORD_MIN_AGENT_SCORE,
   KEYWORD_AGENT_LEAD: KEYWORD_AGENT_LEAD,
@@ -442,4 +458,5 @@ module.exports = {
   joinOutcome: joinOutcome,
   recordAdherence: recordAdherence,
   ensureSkillRegistryFresh: ensureSkillRegistryFresh,
+  ensureAgentRegistryFresh: ensureAgentRegistryFresh,
 };

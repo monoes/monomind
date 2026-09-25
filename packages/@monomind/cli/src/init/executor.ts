@@ -25,8 +25,9 @@ import {
 import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 import { initProjectMemory } from './init-memory.js';
+import { buildProjectIndexes } from './project-indexes.js';
 // Split modules
-import { DIRECTORIES, MAX_EXEC_FILE_BYTES } from './shared.js';
+import { DIRECTORIES, findSourceHelpersDir, MAX_EXEC_FILE_BYTES } from './shared.js';
 import { writeSharedInstructions } from './shared-instructions-generator.js';
 import type { InitOptions, InitResult } from './types.js';
 import { detectPlatform } from './types.js';
@@ -305,6 +306,12 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 
     // Generate .agents/shared_instructions.md + seed project memory
     writeSharedInstructions(targetDir, options.force, result);
+
+    // Every agent and skill is on disk now: index them (project + user-level)
+    // so the prompt hook and `monomind pick` route to them from the start.
+    result.indexes = buildProjectIndexes(targetDir, findSourceHelpersDir(options.sourceBaseDir));
+    if (result.indexes.skills) result.created.files.push('.claude/helpers/skill-registry.json');
+    if (result.indexes.agents) result.created.files.push('.monomind/registry.json');
 
     // Count enabled hooks
     result.summary.hooksEnabled = countEnabledHooks(options);

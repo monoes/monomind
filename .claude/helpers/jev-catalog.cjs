@@ -4,7 +4,8 @@
  * prompt hook (via jev-picker.cjs) and the CLI (`monomind pick`, MCP pick via
  * src/decision/catalogs.ts), so both rank exactly the same agents and skills.
  *
- *   agents  .monomind/registry.json            (src/agents/registry-builder.ts)
+ *   agents  .monomind/registry.json            (agent-registry.cjs: project,
+ *           ~/.claude/agents and extra roots)
  *   skills  .claude/helpers/skill-registry.json (build-skill-registry.cjs):
  *           `skills` = platform commands/skills, `orgSkills` = Org library
  */
@@ -60,7 +61,7 @@ function loadAgentCatalog(root, opts) {
     var category = typeof a.category === 'string' ? a.category : '';
     var description = typeof a.description === 'string' ? a.description : '';
     var when = typeof a.whenToUse === 'string' ? a.whenToUse.trim() : '';
-    out.push({
+    var item = {
       id: a.slug,
       name: typeof a.name === 'string' ? a.name : a.slug,
       category: category,
@@ -69,7 +70,10 @@ function loadAgentCatalog(root, opts) {
         .concat(strings(a.tags), strings(a.capabilities), strings(a.taskTypes), typeof a.vibe === 'string' ? [a.vibe] : [])
         .filter(Boolean)
         .join(' '),
-    });
+    };
+    // 'project' | 'user' (~/.claude/agents) | 'extra'; shown by `pick --json`, never sent to the model.
+    if (typeof a.origin === 'string') item.origin = a.origin;
+    out.push(item);
   });
   return out;
 }

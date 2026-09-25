@@ -1346,6 +1346,10 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   // the registry with, and router.cjs degrades to its built-in FALLBACK_SKILLS
   // rather than breaking. init/upgrade run it; the index is never copied.
   'build-skill-registry.cjs': { forceSync: true, doctorTracked: true },
+  // Builds .monomind/registry.json (project, ~/.claude/agents and extra
+  // agents); the CLI's src/agents/registry-builder.ts loads the same file, and
+  // SessionStart (handlers/pick-core.cjs) rebuilds a stale registry with it.
+  'agent-registry.cjs': { forceSync: true, doctorTracked: true },
   // The Org skill library read from CommonJS; required by build-skill-registry.cjs
   // and jev-catalog.cjs.
   'org-skill-index.cjs': { forceSync: true, doctorTracked: true },

@@ -5,6 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { executeUpgrade, executeUpgradeWithMissing, findMonomindProjects } from '../init/index.js';
+import { formatIndexSummary } from '../init/project-indexes.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -184,6 +185,8 @@ export const upgradeCommand: Command = {
       }
 
       spinner.succeed('Upgrade complete!');
+      const indexLine = formatIndexSummary(result.indexes);
+      if (indexLine) output.printInfo(indexLine);
       output.writeln();
 
       if (result.updated.length > 0) {

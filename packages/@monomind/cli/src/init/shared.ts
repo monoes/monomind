@@ -675,18 +675,25 @@ export const GENERATED_HELPERS = new Set(['skill-registry.json']);
 /**
  * (Re)generates `<targetDir>/.claude/helpers/skill-registry.json` from the
  * project's skill trees, ~/.claude/skills and the Org library, with the
- * package's bundled builder. Returns false when the builder is unavailable.
+ * package's bundled builder. Returns its entry counts (`total` includes Org
+ * skills, `user` the ~/.claude/skills ones), or null when the builder is
+ * unavailable.
  */
-export function regenerateSkillIndex(targetDir: string, sourceHelpersDir?: string | null): boolean {
+export function regenerateSkillIndex(
+  targetDir: string,
+  sourceHelpersDir?: string | null,
+): { total: number; user: number } | null {
   const dir = sourceHelpersDir ?? findSourceHelpersDir();
   const builder = dir ? path.join(dir, 'build-skill-registry.cjs') : '';
-  if (!builder || !fs.existsSync(builder)) return false;
+  if (!builder || !fs.existsSync(builder)) return null;
   try {
-    const mod = createRequire(import.meta.url)(builder) as { write(root: string): unknown };
-    mod.write(targetDir);
-    return true;
+    const mod = createRequire(import.meta.url)(builder) as {
+      write(root: string): { _meta?: { counts?: Record<string, number> } };
+    };
+    const c = mod.write(targetDir)?._meta?.counts ?? {};
+    return { total: (c.total ?? 0) + (c.orgSkills ?? 0), user: c.user ?? 0 };
   } catch {
-    return false;
+    return null;
   }
 }
 
