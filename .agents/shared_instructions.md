@@ -68,7 +68,6 @@ pnpm typecheck
 - Keep CI builds under 10 minutes — split slow jobs if needed
 - Never commit secrets or API keys — use environment variables from the CI secret store
 - Write commit messages that pass the conventional commits format: `type(scope): description`
-- When a commit resolves an issue, put `Fixes #N` in the body — a bare `(#N)` leaves the issue open
 
 ## Agent Collaboration Rules
 - Write a brief ## Handoff Context block when completing a task in a chain
@@ -77,3 +76,7 @@ pnpm typecheck
 - Search project memory before starting: `npx monomind memory search --query "[task]"`
 - Store successful patterns after completion: `npx monomind memory store --namespace patterns --key "[pattern]" --value "[what worked]"`
 <!-- /monomind-block:shared-instructions -->
+
+## Project Rules
+
+- When a commit resolves an issue, put `Fixes #N` in the body — a bare `(#N)` leaves the issue open
