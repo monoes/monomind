@@ -18,7 +18,7 @@ This makes delegation recursive: every spawned agent can itself spawn sub-agents
 
 **Placement:** In the Task/Agent `description` or `prompt` field, insert the full `== AGENT DELEGATION CAPABILITY == ... =================================` block immediately after `BRAIN CONTEXT:`.
 
-**Why this matters:** Agents read their prompts cold. Without the delegation block, a spawned Security Engineer won't know it can delegate codebase exploration to a Code Reviewer, or that it can spawn a Backend Architect to fix the issues it finds. With the block, every agent in the chain can self-organize and pull in the right specialist.
+**Why this matters:** Agents read their prompts cold. Without the delegation block, a spawned Security Engineer won't know it can delegate codebase exploration to a reviewer, or that it can spawn a Backend Architect to fix the issues it finds. With the block, every agent in the chain can self-organize and pull in the right specialist.
 
 **Reference:** Full block text is in `mastermind-delegation/SKILL.md`. Copy it verbatim — do not paraphrase.
 

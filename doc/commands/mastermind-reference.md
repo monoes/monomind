@@ -53,7 +53,7 @@ Shows all monoswarm modes (topologies + vote strategies), asks for task descript
 ```
 
 **What it does:**
-- Runs Code Reviewer + Security Engineer + Reality Checker in parallel
+- Runs reviewer + Security Engineer + Reality Checker in parallel
 - Auto-fixes findings
 - Writes human-in-loop items to `humaninloopreview-YYYY-MM-DD.md` for decisions requiring human input
 - Repeats until zero findings (with `--tillend`)

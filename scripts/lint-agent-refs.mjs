@@ -42,8 +42,10 @@
  * generators' templates (packages/@monomind/cli/src/init/*.ts) are read the
  * same way, with their escaped backticks unescaped.
  *
- * A reference to an agent whose frontmatter says `deprecated: true` resolves
- * (it still spawns) but is printed as a warning naming its `deprecatedBy`.
+ * A reference to an agent whose frontmatter says `deprecated: true` still
+ * spawns, but picks hide it and shipped text must name its replacement, so it
+ * fails the lint with a message naming its `deprecatedBy`. The deprecated
+ * agent files themselves are not scanned (they live under the agent tree).
  *
  * Placeholders are skipped: any name containing < > $ { } [ ] or |, and the
  * literal example names in PLACEHOLDERS ("Agent Name", "mastermind-X", ...).
@@ -67,7 +69,7 @@
  *     and validated by the createorg/new-agent change.
  *
  * Run:   node scripts/lint-agent-refs.mjs [--root <dir>] [--list]
- * Exit:  0 when every reference resolves, 1 otherwise.
+ * Exit:  0 when every reference resolves to a non-deprecated name, 1 otherwise.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -336,11 +338,11 @@ for (const file of files) {
   }
 }
 
-// Deprecated agents still spawn (so they are not errors), but picks hide
-// them and shipped text should name the replacement.
+// Deprecated agents still spawn, but picks hide them and shipped text must
+// name the replacement.
 if (deprecatedRefs.length) {
-  console.warn(`⚠ ${deprecatedRefs.length} reference(s) to deprecated agents:`);
-  for (const d of deprecatedRefs) console.warn(`  ${d}`);
+  console.error(`✗ ${deprecatedRefs.length} reference(s) to deprecated agents:`);
+  for (const d of deprecatedRefs) console.error(`  ${d}`);
 }
 
 if (problems.length) {
@@ -349,8 +351,8 @@ if (problems.length) {
   console.error(
     '  Agents must be a frontmatter name under packages/@monomind/cli/.claude/agents; skills a skill dir or command (a:b).',
   );
-  process.exit(1);
 }
+if (problems.length || deprecatedRefs.length) process.exit(1);
 console.log(
   `✓ Agent/skill reference lint passed — ${checked} reference(s) in ${files.length} file(s)`,
 );

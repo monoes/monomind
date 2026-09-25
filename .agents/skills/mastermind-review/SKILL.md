@@ -39,7 +39,7 @@ Assess the prompt to determine execution mode:
 **Simple (direct execution):** Single file or single artifact:
 - "Review this function for bugs"
 - "Check this paragraph for clarity"
-→ Use a single Code Reviewer or content reviewer agent. Skip manager delegation.
+→ Use a single `reviewer` agent (for code or content). Skip manager delegation.
 
 **Complex (spawn Review Manager agent):** Any of these:
 - Full codebase or module audit
@@ -129,7 +129,7 @@ Pick one specialist per review angle from the shared agent index (the Jev decisi
 mmpick -t "<review angle>: <scope>" --top 1 | jq -r '.agents.ranked[0].name // empty'
 ```
 Use the returned name as that review angle's subagent_type. If nothing is returned, use the default below.
-- Code quality: "Code Reviewer"
+- Code quality: "reviewer"
 - Security: "Security Engineer"
 - Architecture: "Software Architect"
 - Accessibility: "Accessibility Auditor"
@@ -232,8 +232,8 @@ For simple tasks (single reviewer, single artifact):
 | Task Type | Agent | Swarm |
 |---|---|---|
 | Full multi-angle review | reviewer + specialists | mesh 4 gossip balanced |
-| Security audit | Security Engineer + Code Reviewer | hive-mind hierarchical-mesh byzantine 6 |
-| Code review only | Code Reviewer | hierarchical 3 raft specialized |
+| Security audit | Security Engineer + reviewer | hive-mind hierarchical-mesh byzantine 6 |
+| Code review only | reviewer | hierarchical 3 raft specialized |
 | Strategy review | analyst + researcher | mesh 3 gossip balanced |
-| Content review | Code Reviewer (content) | single agent |
+| Content review | reviewer (content) | single agent |
 # monomind:end skills:agents:mastermind-review
