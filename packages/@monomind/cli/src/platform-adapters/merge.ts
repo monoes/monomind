@@ -174,6 +174,31 @@ export function mergeSkillFileManagedBlock(
     : `${existing}${lineEnding(existing)}${block}`;
 }
 
+/** A whole-line `skills:<owner>:<name>` start/end marker, in any comment form. */
+const SKILL_OWNERSHIP_LINE =
+  /^[\t ]*(?:(?:#|\/\/)\s*|<!--\s*)?monomind:(?:start|end)\s+skills:\S+[^\S\r\n]*(?:-->)?[^\S\r\n]*(?:\r?\n|$)/gm;
+
+/**
+ * `text` without the `skills:<owner>:<name>` ownership markup older versions
+ * wrapped shipped skill files in (GH #344): each block's marker lines go, and
+ * a block repeating an earlier block's artifact goes whole (the 2.16.0 shared
+ * root carried the same body once per platform). Text outside the blocks and
+ * every other marker namespace are kept. Used to compare a file with what
+ * ships, ignoring that markup.
+ */
+export function withoutSkillOwnership(text: string): string {
+  const seen = new Set<string>();
+  return splitManagedBlocks(text)
+    .map(({ text: segment, marker }) => {
+      if (!marker?.startsWith('skills:')) return segment;
+      const artifact = marker.split(':').slice(2).join(':');
+      if (seen.has(artifact)) return '';
+      seen.add(artifact);
+      return segment.replace(SKILL_OWNERSHIP_LINE, '');
+    })
+    .join('');
+}
+
 /**
  * Folds blocks written under superseded markers into `marker`. Before shared
  * skill roots were co-owned, each platform targeting `.agents/skills` wrapped
@@ -226,7 +251,8 @@ function frontmatterEnd(content: string): number | undefined {
   return end === -1 ? undefined : end + '\n---\n'.length;
 }
 
-function skillName(content: string): string | undefined {
+/** The `name:` in a SKILL.md's frontmatter. */
+export function skillName(content: string): string | undefined {
   const end = frontmatterEnd(content);
   if (end === undefined) return undefined;
   return /^name:\s*([^\s]+)\s*$/m.exec(content.slice(0, end))?.[1];

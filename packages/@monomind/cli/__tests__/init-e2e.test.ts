@@ -154,7 +154,7 @@ describe('Init Command E2E (real fs)', () => {
     );
   }, 60000);
 
-  it('writes one managed block per shared .agents/skills file, not one per platform', async () => {
+  it('writes one unmarked copy per shared .agents/skills file, not one per platform', async () => {
     ctx.flags = { ...ctx.flags, yes: true, 'no-install': true };
     const result = await initCommand.action!(ctx);
 
@@ -164,12 +164,11 @@ describe('Init Command E2E (real fs)', () => {
       .readdirSync(root, { withFileTypes: true, recursive: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
       .map((entry) => path.join(entry.parentPath, entry.name));
-    // Non-Mastermind skills are copied unwrapped; no file may carry two blocks.
-    const counts = files.map(
-      (file) => (fs.readFileSync(file, 'utf8').match(/monomind:start \S+/g) ?? []).length,
-    );
-    expect(counts.filter((count) => count === 1).length).toBeGreaterThan(10);
-    expect(files.filter((_, index) => counts[index]! > 1)).toEqual([]);
+    // Ownership is in the init manifest, not in-file markers (GH #344).
+    expect(files.length).toBeGreaterThan(10);
+    expect(files.filter((file) => /monomind:start skills:/.test(fs.readFileSync(file, 'utf8')))).toEqual([]);
+    const router = fs.readFileSync(path.join(root, 'mastermind', 'SKILL.md'), 'utf8');
+    expect(router.match(/^# Mastermind Router$/gm)).toHaveLength(1);
   }, 30000);
 
   it('suggests optional SheetJS installation without downloading it', async () => {

@@ -2,7 +2,9 @@
 
 import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { FileGuard } from '../init/file-guard.js';
+import { readInitManifest } from '../init/shared.js';
 import {
   adoptSupersededBlocks,
   type MarkerComment,
@@ -21,6 +23,7 @@ import {
   dropSurfaceOwner,
   withMutationLock,
 } from './mutation.js';
+import { applyOwnedFile, hasLegacyOwnership, releaseOwnedFile } from './owned-files.js';
 import { PLATFORM_IDS, PLATFORM_REGISTRY } from './registry.js';
 import { getRenderer } from './renderers/index.js';
 import { legacySurfaceOwners, releaseSharedBlock, sharedSkillSurface } from './shared-surface.js';
@@ -32,6 +35,7 @@ import type {
   DiscoveryResult,
   InstallRequest,
   MutationRequest,
+  OwnedFileWriter,
   PlatformAdapter,
   PlatformDoctorReport,
   PlatformPlan,
@@ -128,10 +132,15 @@ export function intentLocation(
 /**
  * Doctor must tolerate both document artifacts and directory-root artifacts
  * (notably portable skill roots). A directory is managed only when its router
- * package carries this platform's own marker; an arbitrary existing directory
- * remains foreign.
+ * package is recorded in the init manifest (or, from an older install, carries
+ * this platform's own marker); an arbitrary existing directory remains foreign.
  */
-function artifactState(path: string, kind: ArtifactKind, platform: string): 'managed' | 'foreign' {
+function artifactState(
+  path: string,
+  kind: ArtifactKind,
+  platform: string,
+  base: string,
+): 'managed' | 'foreign' {
   // Intent markers use plural artifact namespaces for the two shared roots.
   // Keep this mapping here rather than guessing from a filesystem path.
   const marker =
@@ -146,7 +155,9 @@ function artifactState(path: string, kind: ArtifactKind, platform: string): 'man
     if (statSync(path).isDirectory()) {
       if (kind !== 'skill') return 'foreign';
       const router = join(path, 'mastermind', 'SKILL.md');
-      return existsSync(router) && readFileSync(router, 'utf8').includes(marker)
+      const recorded = readInitManifest(base)?.files?.[relative(base, router).split(sep).join('/')];
+      return existsSync(router) &&
+        (recorded !== undefined || readFileSync(router, 'utf8').includes(marker))
         ? 'managed'
         : 'foreign';
     }
@@ -180,6 +191,7 @@ function applyIntent(
   adapter: PlatformAdapter,
   intent: ArtifactIntent,
   request: InstallRequest,
+  writer: () => OwnedFileWriter,
 ): { changed?: string; skipped?: string; diagnostics: string[] } {
   const location = intentLocation(adapter, intent, request);
   if (!location)
@@ -190,6 +202,8 @@ function applyIntent(
 
   if (request.protectedPaths?.has(location.path))
     return { skipped: location.displayPath, diagnostics: [] };
+  if (intent.replace === 'owned_file')
+    return applyOwnedFile(location, intent, request.dryRun === true, writer);
   const oldContent = existsSync(location.path) ? readFileSync(location.path, 'utf8') : '';
   let content = oldContent;
   let diagnostics: string[] = [];
@@ -280,12 +294,19 @@ export function applyIntents(
   const changed: string[] = [];
   const skipped: string[] = [];
   const diagnostics: string[] = [];
+  // Outside init (which passes its run's guard) the install keeps its own,
+  // recording what it writes in the init manifest.
+  let own: FileGuard | undefined;
+  const writer = () =>
+    request.fileGuard ??
+    (own ??= new FileGuard(mutationRoot(request), { replaceUnrecorded: false }));
   for (const intent of intents) {
-    const result = applyIntent(adapter, intent, request);
+    const result = applyIntent(adapter, intent, request, writer);
     if (result.changed) changed.push(result.changed);
     if (result.skipped) skipped.push(result.skipped);
     diagnostics.push(...result.diagnostics);
   }
+  own?.flush();
   return { changed, skipped, diagnostics };
 }
 
@@ -364,7 +385,14 @@ export async function uninstallPlatform(request: MutationRequest): Promise<Apply
         const oldContent = readFileSync(location.path, 'utf8');
         let content = oldContent;
         let resultDiagnostics: readonly string[] = [];
-        if (intent.replace === 'managed_block') {
+        if (intent.replace === 'owned_file' && !hasLegacyOwnership(oldContent, intent)) {
+          const removed =
+            !coOwners.length &&
+            releaseOwnedFile(mutationRoot(request), location.path, intent, request);
+          (removed ? changed : skipped).push(location.displayPath);
+          continue;
+        }
+        if (intent.replace === 'managed_block' || intent.replace === 'owned_file') {
           content = intent.surface
             ? releaseSharedBlock(oldContent, intent, platform, coOwners)
             : removeManagedMarker(oldContent, intent.marker ?? `${intent.kind}:${platform}`);
@@ -456,6 +484,10 @@ export async function runPlatformsDoctor(request: {
     const adapter = PLATFORM_REGISTRY[platform];
     const artifacts: PlatformDoctorReport['artifacts'][number][] = [];
     const diagnostics: string[] = [];
+    const base =
+      request.scope === 'project'
+        ? resolve(request.path ?? process.cwd())
+        : resolve(request.home ?? homedir());
     for (const kind of Object.keys(adapter.paths.locations) as ArtifactKind[]) {
       const location = resolveArtifactLocation(adapter, kind, request.scope, {
         root: request.path,
@@ -479,13 +511,9 @@ export async function runPlatformsDoctor(request: {
       const owner = kind === 'skill' ? sharedSkillSurface(adapter, request.scope)?.id : undefined;
       artifacts.push({
         path: location.displayPath,
-        state: artifactState(location.path, kind, owner ?? platform),
+        state: artifactState(location.path, kind, owner ?? platform, base),
       });
     }
-    const base =
-      request.scope === 'project'
-        ? resolve(request.path ?? process.cwd())
-        : resolve(request.home ?? homedir());
     const legacyFindings = findLegacySurfaces(base, request.scope);
     if (adapter.requiresDiscovery)
       diagnostics.push(`${adapter.displayName}: native enhancements require successful discovery.`);

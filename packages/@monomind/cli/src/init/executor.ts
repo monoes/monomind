@@ -304,6 +304,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
         enableHooks: options.enablePlatformHooks,
         protectedPaths: guard.keptPaths(),
         backupDir: guard.backupDir,
+        fileGuard: guard,
       });
       result.updated.push(...applied.changed.map((file) => `platform ${platform}: ${file}`));
       result.skipped.push(...applied.skipped.map((file) => `platform ${platform}: ${file}`));

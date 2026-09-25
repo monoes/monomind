@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { readInitManifest } from '../init/shared.js';
 import { mergeManagedBlock, removeManagedMarker } from './merge.js';
 
 export interface LegacySurface {
@@ -205,10 +206,12 @@ export function isMonomindOwned(content: string): boolean {
 /**
  * The shared skill roots are also the *current* portable skill location for
  * most adapters, so their existence is not evidence of a legacy install. Only
- * a mastermind skill package written before adapters owned their body with a
- * named marker is.
+ * a mastermind skill package written before adapters owned it is: one neither
+ * recorded in the init manifest (current installs, GH #344) nor wrapped in a
+ * named `skills:` marker (installs between the two).
  */
-function hasLegacySkillPackage(root: string): boolean {
+function hasLegacySkillPackage(root: string, base: string, rel: string): boolean {
+  const recorded = readInitManifest(base)?.files ?? {};
   let entries: string[];
   try {
     entries = readdirSync(root);
@@ -220,7 +223,11 @@ function hasLegacySkillPackage(root: string): boolean {
     if (!existsSync(skill)) return false;
     try {
       const content = readFileSync(skill, 'utf8');
-      return /^name:\s*mastermind/m.test(content) && !/monomind:start\s+skills:/.test(content);
+      return (
+        /^name:\s*mastermind/m.test(content) &&
+        !/monomind:start\s+skills:/.test(content) &&
+        recorded[`${rel}/${entry}/SKILL.md`] === undefined
+      );
     } catch {
       return false;
     }
@@ -234,7 +241,8 @@ export function findLegacySurfaces(root: string, scope: 'project' | 'user'): str
     .filter((surface) => {
       const path = join(root, surface.path);
       if (!existsSync(path)) return false;
-      if (SHARED_SKILL_ROOTS.has(surface.id)) return hasLegacySkillPackage(path);
+      if (SHARED_SKILL_ROOTS.has(surface.id))
+        return hasLegacySkillPackage(path, root, surface.path);
       if (surface.ownership === 'monomind-file') return true;
       try {
         return isMonomindOwned(readFileSync(path, 'utf8'));

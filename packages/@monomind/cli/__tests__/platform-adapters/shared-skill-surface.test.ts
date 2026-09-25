@@ -2,7 +2,9 @@
  * `.agents/skills` is one physical directory shared by codex, kimi, opencode,
  * gemini, cursor, … Each adapter used to wrap the same skill body in its own
  * `skills:<platform>:<name>` block, so a file carried one full copy per
- * platform. The shared directory now carries exactly one surface-scoped block.
+ * platform; later one co-owned `skills:agents:<name>` block. Since GH #344 the
+ * file is written whole, without markers, and owned through the init manifest;
+ * the ledger still records which platforms share it.
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -41,32 +43,34 @@ function block(platform: string, body: string): string {
 }
 
 describe('shared .agents/skills surface', () => {
-  it('writes exactly one surface-scoped block per file however many platforms share it', async () => {
+  it('writes one unmarked copy per file however many platforms share it', async () => {
     await withProject(async (root) => {
       for (const platform of ['opencode', 'kimi', 'codex', 'gemini'] as const)
         await installPlatform({ platform, path: root, scope: 'project' });
 
+      const plan = await planInstall({ platform: 'codex', scope: 'project', path: root });
       const files = managedFiles(join(root, '.agents', 'skills'));
       expect(files.length).toBeGreaterThan(10);
       for (const file of files) {
-        const markers = starts(readFileSync(file, 'utf8'));
-        expect(markers, file).toHaveLength(1);
-        expect(markers[0], file).toMatch(/^skills:agents:/);
+        const content = readFileSync(file, 'utf8');
+        expect(starts(content), file).toEqual([]);
+        const rel = file.slice(join(root, '.agents', 'skills').length + 1);
+        expect(content, file).toBe(plan.intents.find((i) => i.relativePath === rel)?.content);
       }
       const [doctor] = await runPlatformsDoctor({ platform: 'kimi', path: root, scope: 'project' });
       expect(doctor!.artifacts).toContainEqual({ path: '.agents/skills', state: 'managed' });
     });
   });
 
-  it('keeps platform-specific skill roots platform-scoped', async () => {
+  it('writes platform-specific skill roots without markers', async () => {
     await withProject(async (root) => {
       await installPlatform({ platform: 'claude', path: root, scope: 'project' });
       const router = readFileSync(join(root, '.claude', 'skills', 'mastermind', 'SKILL.md'), 'utf8');
-      expect(starts(router)).toEqual(['skills:claude:mastermind']);
+      expect(starts(router)).toEqual([]);
     });
   });
 
-  it('collapses legacy per-platform blocks into one, preserving user text and backing up', async () => {
+  it('keeps a legacy per-platform file holding user text, writing the new version beside it', async () => {
     await withProject(async (root) => {
       const plan = await planInstall({ platform: 'codex', scope: 'project', path: root });
       const rendered = plan.intents.find((intent) => intent.relativePath === 'mastermind-org/SKILL.md');
@@ -84,22 +88,10 @@ describe('shared .agents/skills surface', () => {
       writeFileSync(file, seeded);
 
       const result = await installPlatform({ platform: 'codex', path: root, scope: 'project' });
-      expect(result.changed).toContain('.agents/skills/mastermind-org/SKILL.md');
-
-      const after = readFileSync(file, 'utf8');
-      expect(starts(after)).toEqual(['skills:agents:mastermind-org']);
-      expect(after).not.toContain('old ');
-      const body = rendered!.content.slice(header.length).replace(/^\n/, '').replace(/\n+$/, '');
-      expect(after).toBe(
-        `${header}USER TOP\n` +
-          `<!-- monomind:start skills:agents:mastermind-org -->\n${body}\n<!-- monomind:end skills:agents:mastermind-org -->\n` +
-          'USER MIDDLE\nUSER TAIL\n',
-      );
-
-      const backups = readdirSync(join(root, '.monomind', 'backups')).map((stamp) =>
-        join(root, '.monomind', 'backups', stamp, '.agents', 'skills', 'mastermind-org', 'SKILL.md'),
-      );
-      expect(backups.some((path) => existsSync(path) && readFileSync(path, 'utf8') === seeded)).toBe(true);
+      expect(result.changed).not.toContain('.agents/skills/mastermind-org/SKILL.md');
+      expect(result.diagnostics.join('\n')).toMatch(/mastermind-org\/SKILL\.md: kept/);
+      expect(readFileSync(file, 'utf8')).toBe(seeded);
+      expect(readFileSync(`${file}.monomind-new`, 'utf8')).toBe(rendered!.content);
 
       // A second apply by any sharing platform changes nothing.
       for (const platform of ['codex', 'kimi', 'opencode'] as const) {
@@ -116,15 +108,17 @@ describe('shared .agents/skills surface', () => {
       const current = readFileSync(file, 'utf8');
       // Rebuild the 2.16.0 shape: the same body once per sharing platform, in
       // the `#` marker form written over the blank line after the frontmatter.
-      const legacyForm = current
-        .replace(/<!-- monomind:(start|end) (\S+) -->/g, '# monomind:$1 $2')
-        .replace(/^(---\n[\s\S]*?\n---\n)\n/, '$1');
+      const header = current.match(/^---\n[\s\S]*?\n---\n/)![0];
+      const body = current.slice(header.length).replace(/^\n/, '').replace(/\n+$/, '');
+      const legacyForm = `${header}# monomind:start skills:agents:mastermind-org\n${body}\n# monomind:end skills:agents:mastermind-org\n`;
       const legacy = ['opencode', 'kimi', 'codex']
         .map((platform) => legacyForm.replaceAll('skills:agents:', `skills:${platform}:`))
         .map((content, index) => (index === 0 ? content : content.replace(/^---\n[\s\S]*?\n---\n/, '')))
         .join('');
       writeFileSync(file, legacy);
+      // As 2.16.0 left it: no ledger, and no file hashes (they came in 2.16.5).
       rmSync(join(root, '.monomind', 'platforms'), { recursive: true, force: true });
+      rmSync(join(root, '.monomind', 'init-manifest.json'), { force: true });
 
       const result = await executeUpgrade(root);
       expect(result.errors).toEqual([]);
@@ -137,22 +131,34 @@ describe('shared .agents/skills surface', () => {
     });
   }, 60_000);
 
-  it('keeps the shared block while another installed platform still targets it', async () => {
+  it('keeps a shared file while another installed platform still targets it', async () => {
     await withProject(async (root) => {
       await installPlatform({ platform: 'codex', path: root, scope: 'project' });
       await installPlatform({ platform: 'kimi', path: root, scope: 'project' });
       const router = join(root, '.agents', 'skills', 'mastermind', 'SKILL.md');
+      const installed = readFileSync(router, 'utf8');
 
       await uninstallPlatform({ platform: 'codex', path: root, scope: 'project' });
-      expect(existsSync(router)).toBe(true);
-      expect(starts(readFileSync(router, 'utf8'))).toEqual(['skills:agents:mastermind']);
+      expect(readFileSync(router, 'utf8')).toBe(installed);
 
       await uninstallPlatform({ platform: 'kimi', path: root, scope: 'project' });
       expect(existsSync(router)).toBe(false);
     });
   });
 
-  it('keeps the shared block for a co-owner known only from a legacy block', async () => {
+  it('leaves an edited shared file in place on uninstall', async () => {
+    await withProject(async (root) => {
+      await installPlatform({ platform: 'codex', path: root, scope: 'project' });
+      const router = join(root, '.agents', 'skills', 'mastermind', 'SKILL.md');
+      const edited = `${readFileSync(router, 'utf8')}\nMY NOTES\n`;
+      writeFileSync(router, edited);
+
+      await uninstallPlatform({ platform: 'codex', path: root, scope: 'project' });
+      expect(readFileSync(router, 'utf8')).toBe(edited);
+    });
+  });
+
+  it('keeps the shared file for a co-owner known only from a legacy block', async () => {
     await withProject(async (root) => {
       const router = join(root, '.agents', 'skills', 'mastermind', 'SKILL.md');
       await installPlatform({ platform: 'codex', path: root, scope: 'project' });
@@ -162,7 +168,9 @@ describe('shared .agents/skills surface', () => {
       rmSync(join(root, '.monomind', 'platforms'), { recursive: true, force: true });
 
       await uninstallPlatform({ platform: 'codex', path: root, scope: 'project' });
-      expect(starts(readFileSync(router, 'utf8'))).toContain('skills:agents:mastermind');
+      expect(readFileSync(router, 'utf8')).toBe(
+        `${content}# monomind:start skills:kimi:mastermind\nold\n# monomind:end skills:kimi:mastermind\n`,
+      );
     });
   });
 });

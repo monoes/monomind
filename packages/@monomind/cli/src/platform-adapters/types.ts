@@ -105,6 +105,14 @@ export interface InstallRequest {
   protectedPaths?: ReadonlySet<string>;
   /** One backup directory for every file this install replaces. */
   backupDir?: string;
+  /** Writes `owned_file` intents, keeping a file the user edited. init passes
+   *  its run's guard; without one an install uses its own (init/file-guard.ts). */
+  fileGuard?: OwnedFileWriter;
+}
+
+/** The part of init's FileGuard an install needs for `owned_file` intents. */
+export interface OwnedFileWriter {
+  write(dest: string, content: string): 'written' | 'unchanged' | 'kept';
 }
 
 export type MutationRequest = Omit<InstallRequest, 'platform'> & {
@@ -118,7 +126,10 @@ export interface ArtifactIntent {
   locationKey: ArtifactKind;
   content: string;
   scope: InstallScope;
-  replace: 'managed_block' | 'named_entry' | 'create_if_missing';
+  /** `owned_file`: the whole file is Monomind's, owned through the init
+   *  manifest's hashes rather than in-file markers (GH #344). */
+  replace: 'managed_block' | 'named_entry' | 'create_if_missing' | 'owned_file';
+  /** For `owned_file`, the marker older versions wrapped the file in. */
   marker?: string;
   /** Path below a declared directory root (currently used by skill packages). */
   relativePath?: string;

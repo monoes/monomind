@@ -46,6 +46,25 @@ describe('FileGuard.write', () => {
     const guard = new FileGuard(dir, { replaceUnrecorded: false });
     expect(guard.write(file, '---\nname: x\n---\n\nbody\n')).toBe('written');
   });
+
+  it('adopts the 2.16.0 shared-root form: the same body once per platform block', () => {
+    const file = join(dir, 'SKILL.md');
+    const copy = (p: string) =>
+      `<!-- monomind:start skills:${p}:x -->\nbody\n<!-- monomind:end skills:${p}:x -->\n`;
+    writeFileSync(file, `---\nname: x\n---\n\n${copy('codex')}${copy('kimi')}`);
+    const guard = new FileGuard(dir, { replaceUnrecorded: false });
+    expect(guard.write(file, '---\nname: x\n---\n\nbody\n')).toBe('written');
+    expect(readFileSync(file, 'utf8')).toBe('---\nname: x\n---\n\nbody\n');
+  });
+
+  it('keeps an unrecorded marked file with text outside the markers', () => {
+    const file = join(dir, 'SKILL.md');
+    const marked = `---\nname: x\n---\n\n<!-- monomind:start skills:claude:x -->\nbody\n<!-- monomind:end skills:claude:x -->\nmine\n`;
+    writeFileSync(file, marked);
+    const guard = new FileGuard(dir, { replaceUnrecorded: false });
+    expect(guard.write(file, '---\nname: x\n---\n\nbody\n')).toBe('kept');
+    expect(readFileSync(file, 'utf8')).toBe(marked);
+  });
 });
 
 describe('FileGuard.mergeBlock', () => {

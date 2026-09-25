@@ -27,6 +27,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { withoutSkillOwnership } from '../platform-adapters/merge.js';
 import { backup } from '../platform-adapters/mutation.js';
 import { mergeGeneratedBlock, readGeneratedBlock } from './managed-block.js';
 import { atomicWriteFile, readInitManifest, recordManifestHashes } from './shared.js';
@@ -38,10 +39,11 @@ export const BACKUPS_KEPT = 5;
 
 const sha256 = (data: string | Buffer): string => createHash('sha256').update(data).digest('hex');
 
-/** Content with ownership-marker lines and blank lines removed, for adopting
- *  an unrecorded file that differs from the shipped one only by those. */
+/** Content with ownership-marker lines and blank lines removed (and the
+ *  per-platform duplicate skill blocks 2.16.0 wrote), for adopting an
+ *  unrecorded file that differs from the shipped one only by those. */
 const withoutMarkers = (text: string): string =>
-  text
+  withoutSkillOwnership(text)
     .split(/\r?\n/)
     .filter(
       (line) => line.trim() !== '' && !/^\s*(?:#|\/\/|<!--)\s*monomind:(?:start|end)\s/.test(line),

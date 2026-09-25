@@ -32,6 +32,9 @@ export function renderSkillRouter(adapter: PlatformAdapter, scope: InstallScope)
   // was never a fallback for a missing source dir either — this .map() would
   // already throw on the first non-mastermind renderSkillPackage() call
   // before any such guard could run.
+  // Each file is written whole and owned through the init manifest's hashes
+  // (GH #344). `marker`/`supersedes` name the blocks older versions wrapped it
+  // in, so an install can still recognise and migrate those files.
   const surface = sharedSkillSurface(adapter, scope);
   const owner = surface?.id ?? adapter.id;
   const sharing = (name: string) =>
@@ -47,7 +50,7 @@ export function renderSkillRouter(adapter: PlatformAdapter, scope: InstallScope)
     ...sharing(skill.name),
     relativePath: `${skill.source}/SKILL.md`,
     scope,
-    replace: 'managed_block' as const,
+    replace: 'owned_file' as const,
     format: 'md' as const,
   }));
   const sourceDir = getMastermindSkillSourceDir();
@@ -61,7 +64,7 @@ export function renderSkillRouter(adapter: PlatformAdapter, scope: InstallScope)
       ...sharing(`${skill.name}:${reference}`),
       relativePath: `${skill.source}/${reference}`,
       scope,
-      replace: 'managed_block' as const,
+      replace: 'owned_file' as const,
       format: 'md' as const,
     })),
   );

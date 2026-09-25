@@ -1,8 +1,11 @@
 /**
  * Skill roots several platforms declare at one path. `.agents/skills` is the
  * portable root for codex, kimi, opencode, gemini, cursor and more, so each
- * file there is written by every one of those adapters. It carries a single
- * co-owned `skills:agents:<name>` block instead of one full copy per platform.
+ * file there is written by every one of those adapters. It is co-owned: the
+ * ledger records the platforms installed into it, and a file goes only with
+ * the last of them. Older versions wrapped each file in a `skills:agents:<name>`
+ * block (before that, one `skills:<platform>:<name>` copy per platform); those
+ * markers are still read so such files migrate.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -14,6 +17,7 @@ import type {
   ArtifactIntent,
   InstallRequest,
   InstallScope,
+  OwnedFileWriter,
   PlatformAdapter,
   PlatformId,
 } from './types.js';
@@ -90,11 +94,14 @@ export function releaseSharedBlock(
  * rewritten (with a backup), and the platforms those blocks named are recorded
  * as the surface's owners.
  */
-export async function foldLegacySharedSkills(root: string): Promise<string[]> {
+export async function foldLegacySharedSkills(
+  root: string,
+  fileGuard?: OwnedFileWriter,
+): Promise<string[]> {
   const changed: string[] = [];
   const folded = new Set<string>();
   for (const platform of PLATFORM_IDS) {
-    const request: InstallRequest = { platform, scope: 'project', path: root };
+    const request: InstallRequest = { platform, scope: 'project', path: root, fileGuard };
     const shared = (await planInstall(request)).intents.filter((intent) => intent.supersedes);
     const surface = shared[0]?.surface;
     if (!surface || folded.has(surface)) continue;

@@ -87,6 +87,7 @@ describe('installed Markdown artifacts', () => {
     expect(claudeMd).toContain('<!-- monomind:end instructions:claude -->\n\nAfter.\n');
     expect(claudeMd).not.toMatch(/^# monomind:/m);
     const skill = readFileSync(join(dir, '.claude', 'skills', 'mastermind', 'SKILL.md'), 'utf8');
-    expect(skill).toMatch(/\n---\n\n<!-- monomind:start skills:claude:mastermind -->\n/);
+    // Skill files carry no ownership markers at all (GH #344).
+    expect(skill).not.toMatch(/monomind:start/);
   });
 });

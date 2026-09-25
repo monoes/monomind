@@ -408,7 +408,7 @@ export async function executeUpgrade(
     // 1.6. Collapse the one-block-per-platform copies an older install left in
     // `.agents/skills` (every platform sharing it wrote its own full copy).
     try {
-      result.updated.push(...(await foldLegacySharedSkills(targetDir)));
+      result.updated.push(...(await foldLegacySharedSkills(targetDir, guard)));
     } catch (foldError) {
       result.errors.push(
         `Shared skill fold failed: ${foldError instanceof Error ? foldError.message : String(foldError)}`,
