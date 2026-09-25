@@ -91,6 +91,7 @@
  * is idempotent: running it twice in a row writes nothing.
  */
 
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -402,6 +403,24 @@ export function syncKimiTrees({
   return { missing: missing.sort(), diverged: diverged.sort(), stale: stale.sort(), written };
 }
 
+/**
+ * The root `.claude/skills/monodesign` copy is gitignored: it is compiled from
+ * packages/@monoes/monodesign by that package's sync-skill.mjs. The tracked
+ * `.agents` and `.gemini` copies mirror it, so without compiling it first the
+ * comparison depended on whether this machine happened to have run
+ * sync-skill.mjs (a clean checkout compared nothing, a stale local copy
+ * "fixed" the mirrors backwards). Compile it every time; it writes only
+ * gitignored output, so this is safe in --check mode too.
+ */
+const GENERATED_SKILL_SCRIPTS = ['packages/@monoes/monodesign/scripts/sync-skill.mjs'];
+
+function compileGeneratedSkills(root = REPO_ROOT) {
+  for (const rel of GENERATED_SKILL_SCRIPTS) {
+    const script = join(root, rel);
+    if (existsSync(script)) execFileSync('node', [script], { cwd: root, stdio: 'ignore' });
+  }
+}
+
 async function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) {
     console.log(
@@ -426,6 +445,7 @@ async function main(argv) {
   }
 
   const check = argv.includes('--check');
+  compileGeneratedSkills();
   const { pairs, written, staleExceptions } = syncTrees({ check });
 
   let divergedTotal = 0;
