@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.16.3] — 2026-09-25
+
 ### Added
 
 - **`monomind doctor --json`, advertised as capability `doctor-json`.** stdout holds one JSON document with every check's result, the `component` id that re-runs it (`-c`), and how its fix is applied: `auto` (local and repeatable, by `--fix`), `confirm` (installs software or runs network or `sudo` commands, so the caller asks a person first, then passes the flag the result names) or `manual`. With `--fix` it also lists what was fixed. Everything a check or fix prints, and the subprocesses a fix runs, go to stderr. An unknown `-c` name comes back as the payload's `error`. mono-agent uses this to show and fix monomind's checks in its Settings › System health, per project. Contract: `doc/agent-exec-protocol.md` §10.
