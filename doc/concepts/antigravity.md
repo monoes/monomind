@@ -27,7 +27,7 @@ agy mcp add monomind -- npx -y monomind@latest mcp start   # or reuse the existi
 
 | Capability | How it shows up in agy |
 |---|---|
-| **Instructions** | `GEMINI.md` — behavioral rules (graph-first navigation, memory loop, security rules) plus the MCP quick reference. Written by `generateGeminiMd`; skip-if-exists. |
+| **Instructions** | `GEMINI.md` — behavioral rules (graph-first navigation, memory loop, security rules) plus the MCP quick reference. Written by `generateGeminiMd` inside a managed `<!-- monomind-block:gemini-md -->` block, the same edit-preserving merge `CLAUDE.md`/`AGENTS.md` use: your text outside the block is kept, `--force` refreshes only monomind's block. |
 | **Workflow rules** | `.gemini/rules/monomind.md` — the Monograph/memory/documents rules in agy's rules format. |
 | **Status bar** | `.gemini/helpers/statusline.sh` → `.gemini/helpers/statusline.cjs`, wired into agy via `.gemini/settings.json` (`statusLine: { type: 'command' }`). Shows graph node count, stale nodes, routing, cost, git state. agy polls it and renders stdout in the bar at the bottom of the chat window. |
 | **Helpers** | When Antigravity is selected (it is in the default `--target all`), the full `.claude/helpers/` tree is mirrored to `.gemini/helpers/` so the statusline resolves the same scripts Claude Code uses. No other platform reads this copy, so `init` without Antigravity does not write it (an existing copy is left in place). `--target antigravity` alone installs no Claude helpers, so this copy is then the only one. `init upgrade` refreshes this copy the same way it refreshes `.claude/helpers`, and `doctor` warns when it is stale. |
