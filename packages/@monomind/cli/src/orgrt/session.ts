@@ -4,7 +4,11 @@ import type { query } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
-import { claudeBashTimeoutEnv } from './bash-timeout.js';
+import {
+  CLAUDE_SANDBOX_CWD_ENV,
+  claudeBashTimeoutEnv,
+  claudeSandboxCwdNote,
+} from './bash-timeout.js';
 import type { OrgBus } from './bus.js';
 import type { TaskEvidence } from './completion-gate.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
@@ -1081,7 +1085,9 @@ async function runOneSession(
       tools,
       // No options = the pre-D3 stream, exactly.
       prompt: streamOpts ? mailbox.stream('', streamOpts) : mailbox.stream(),
-      systemPrompt: rolePromptFor(opts),
+      systemPrompt: gitEnforcement.claudeRestrictions?.sandbox
+        ? `${rolePromptFor(opts)}\n\n${claudeSandboxCwdNote(cwd)}`
+        : rolePromptFor(opts),
       model,
       cwd,
       effort: tier?.effort,
@@ -1102,6 +1108,7 @@ async function runOneSession(
           ? { ANTHROPIC_MODEL: model, ANTHROPIC_SMALL_FAST_MODEL: model }
           : {}),
         ...gitEnforcement.env,
+        ...(gitEnforcement.claudeRestrictions?.sandbox ? CLAUDE_SANDBOX_CWD_ENV : {}),
         // No MONOMIND_HOOK_QUIET / MONOMIND_GRAPH_GATE / MONOMIND_SDK_AGENT
         // here (#249): every CLI hands this env to its shell tool, so they
         // reached every command the role ran and silently muted monomind's

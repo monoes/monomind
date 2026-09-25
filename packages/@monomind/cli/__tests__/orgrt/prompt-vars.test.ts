@@ -134,7 +134,9 @@ describe('runAgentSession system prompt', () => {
       })();
     await runAgentSession({
       org: 'o',
-      role: role(responsibilities),
+      // #339: where the OS sandbox runs, a role's prompt also says that `cd`
+      // lasts for one Bash command; keep it off so the prompt is host-independent.
+      role: { ...role(responsibilities), policy: { sandbox: { mode: 'off' } } },
       bus,
       policy: new PolicyEngine('dev', {}, bus, '/work'),
       mailbox,

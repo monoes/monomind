@@ -101,7 +101,9 @@ async function capturedSystemPrompt(role: OrgRole, message: string): Promise<str
     })();
   await runAgentSession({
     org: 'acme',
-    role,
+    // #339: where the OS sandbox runs, a role's prompt also says that `cd`
+    // lasts for one Bash command; keep it off so the prompt is host-independent.
+    role: { ...role, policy: { ...role.policy, sandbox: { mode: 'off' } } },
     bus,
     policy: new PolicyEngine(role.id, {}, bus, '/work'),
     mailbox,

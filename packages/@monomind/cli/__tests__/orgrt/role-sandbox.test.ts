@@ -557,6 +557,28 @@ describe('session wiring', () => {
     expect(options.disallowedTools?.some((t: string) => t.startsWith('Edit('))).toBe(true);
     if (sandboxAvailability().available) expect(options.sandbox?.enabled).toBe(true);
   });
+
+  // #339: the sandbox makes `hooks`/`config` read-only in every directory
+  // between the cwd and the Bash shell's current directory; pinning the shell
+  // to the cwd keeps that set fixed.
+  it.skipIf(!sandboxAvailability().available)(
+    'a sandboxed Claude role keeps its Bash shell in the cwd, and is told so',
+    async () => {
+      const options = await capture({ git: 'read' }, true);
+      expect(options.sandbox?.enabled).toBe(true);
+      expect(options.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR).toBe('1');
+      expect(options.systemPrompt).toContain(`Every Bash command starts in ${options.cwd}`);
+    },
+  );
+
+  it('an unsandboxed Claude role keeps the default Bash working directory', async () => {
+    const options = await capture({ git: 'read', sandbox: { mode: 'off' } }, true);
+    expect(options.sandbox).toBeUndefined();
+    expect(options.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR).toBe(
+      process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR,
+    );
+    expect(options.systemPrompt).not.toContain('Every Bash command starts in');
+  });
 });
 
 describe('gitEnforcementFindings (org validate)', () => {
