@@ -118,37 +118,28 @@ those copies (`packages/@monomind/cli/.claude`) to every npm user:
 | `.agents/skills/` | Shared install target for opencode/kimi/codex. |
 | `.gemini/skills/`, `.kimi-code/skills/` | Passive mirrors. |
 
-`monomind init --force` is safe to run inside this repo, but it rewrites assets in place.
-It only writes the trees a platform adapter points at — `.claude/` and `.agents/skills` —
-wrapping each file it owns in `# monomind:start skills:<owner>:<name>` markers (`claude`
-in `.claude/skills`; `agents` in `.agents/skills`, one block co-owned by every platform
-sharing it). The
-other three copies are left behind, which fails `tests/repo/claude-tree-parity.test.ts`
-and `scripts/lint-skills.mjs`.
+`monomind init --force` is safe to run inside this repo. It only writes the trees a platform
+adapter points at — `.claude/` and `.agents/skills` — and writes each shipped file exactly as it
+ships: ownership is tracked by content hash in `.monomind/init-manifest.json`, not by markers in
+the file (older versions wrapped the Mastermind skills in `skills:<owner>:<name>` marker blocks;
+see GH #344). A file already identical to the shipped copy is not rewritten.
 
-After running init (or hand-editing `.claude/`), before committing:
+After hand-editing `.claude/`, before committing:
 
 ```bash
-pnpm run sync:claude-trees          # normalise + mirror
+pnpm run sync:claude-trees          # mirror
 pnpm run sync:claude-trees:check    # report only; exit 1 on divergence
 ```
 
-Two things it does, and one it refuses to:
+It **mirrors only the intersection.** A path in both trees is made to agree with the root
+`.claude/` copy; a path in only one is never created and never deleted. That is what keeps the
+shipped superset safe — its predecessor `sync-claude-assets.sh` had `rsync --delete`
+semantics, had to be hard-disabled in 2026-07, and is now gone.
+`tests/repo/no-skill-ownership-markers.test.ts` fails if a committed skill file carries a
+`skills:` ownership marker.
 
-- **Strips init's `skills:` ownership markers** rather than propagating them. They are
-  per-project install bookkeeping, and the repo's committed form has none. Mirroring them
-  into `packages/@monomind/cli/.claude` would publish them to npm *and* make the next
-  `init --force` nest a second block inside the first, because that tree is init's own
-  asset source (`findSourceDir()` gives it highest priority).
-- **Mirrors only the intersection.** A path in both trees is made to agree; a path in only
-  one is never created and never deleted. That is what keeps the shipped superset safe —
-  its predecessor `sync-claude-assets.sh` had `rsync --delete` semantics, had to be
-  hard-disabled in 2026-07, and is now gone.
-- It never touches the nine `.agents/skills` files that carry a committed co-owned
-  `skills:agents:<name>` block; they are that tree's own install output, not a stale mirror.
-
-The check mode runs in `pnpm run verify` and in CI. Full rationale, including the
-reproduction of the nested-marker bug, is at the top of `scripts/sync-claude-trees.mjs`.
+The check mode runs in `pnpm run verify` and in CI. Full rationale is at the top of
+`scripts/sync-claude-trees.mjs`.
 
 ## Support
 
