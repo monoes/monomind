@@ -3,6 +3,7 @@ import { extname, relative } from 'node:path';
 import chokidar from 'chokidar';
 import { isSupportedExtension } from '../parsers/loader.js';
 import type { PipelineProgress } from '../types.js';
+import { createRebuildQueue, describeRebuildEvent } from './rebuild-queue.js';
 
 /** Tested against '/'-separated paths relative to the watched repo root. */
 const IGNORED_RELATIVE_PATHS = [
@@ -24,6 +25,8 @@ export interface WatchAsyncOptions extends WatcherOptions {
   llmMaxSections?: number;
   /** Auto-stop after this many ms of no file changes. Default 30min. 0 = never. */
   idleTimeoutMs?: number;
+  /** Delay before retrying a rebuild that found the build lock held. Default 2000ms. */
+  retryDelayMs?: number;
 }
 
 /** Convenience: start a watcher and trigger buildAsync on every change. Returns stop() fn. */
@@ -77,39 +80,28 @@ export async function watchAsync(
     (fullRebuildTimer as { unref?: () => void }).unref?.();
   };
 
-  let building = false;
-  let pendingFiles = new Set<string>();
-  watcher.on('monograph:updated', async (files: string[]) => {
-    resetIdle();
-    for (const f of files) pendingFiles.add(f);
-    if (building) return;
-    building = true;
-    try {
-      while (pendingFiles.size > 0) {
-        const batch = [...pendingFiles];
-        pendingFiles = new Set();
-        opts.onProgress?.({ phase: 'watch', message: `Changed: ${batch.slice(0, 3).join(', ')}` });
-        try {
-          await buildIncrementalAsync(repoPath, batch, {
-            onProgress: opts.onProgress,
-            force: opts.force,
-            codeOnly: opts.codeOnly,
-            llmMaxSections: opts.llmMaxSections ?? 0,
-          });
-          incrementalSinceLastFull = true;
-          scheduleFullRebuild();
-          opts.onProgress?.({ phase: 'watch', message: 'Graph updated (incremental).' });
-        } catch (err) {
-          watcher.emit('monograph:error', err);
-          opts.onProgress?.({
-            phase: 'watch',
-            message: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}`,
-          });
-        }
+  const queue = createRebuildQueue({
+    retryDelayMs: opts.retryDelayMs,
+    build: (batch) =>
+      buildIncrementalAsync(repoPath, batch, {
+        onProgress: opts.onProgress,
+        force: opts.force,
+        codeOnly: opts.codeOnly,
+        llmMaxSections: opts.llmMaxSections ?? 0,
+      }),
+    onEvent: (e) => {
+      if (e.kind === 'built') {
+        incrementalSinceLastFull = true;
+        scheduleFullRebuild();
+      } else if (e.kind === 'failed') {
+        watcher.emit('monograph:error', e.error);
       }
-    } finally {
-      building = false;
-    }
+      opts.onProgress?.({ phase: 'watch', message: describeRebuildEvent(e, repoPath) });
+    },
+  });
+  watcher.on('monograph:updated', (files: string[]) => {
+    resetIdle();
+    queue.enqueue(files);
   });
 
   await watcher.start();
@@ -118,6 +110,7 @@ export async function watchAsync(
     stop: async () => {
       if (idleTimer) clearTimeout(idleTimer);
       if (fullRebuildTimer) clearTimeout(fullRebuildTimer);
+      queue.stop();
       await watcher.stop();
     },
   };

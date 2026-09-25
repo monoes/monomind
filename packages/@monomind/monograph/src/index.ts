@@ -99,6 +99,7 @@ export * from './storage/fts-store.js';
 export * from './storage/node-store.js';
 export * from './types.js';
 export * from './validation/extraction-validator.js';
+export * from './watch/rebuild-queue.js';
 export * from './watch/watcher.js';
 export * from './web/analyze-api.js';
 export * from './web/api.js';

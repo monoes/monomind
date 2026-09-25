@@ -667,30 +667,26 @@ const watchCommand: Command = {
     try {
       // watchAsync is not exported in @monoes/monograph@1.1.0.
       // Use MonographWatcher directly, mirroring the monograph_watch MCP tool.
-      const { MonographWatcher, buildAsync } = await import('@monoes/monograph');
+      const { MonographWatcher, buildAsync, createRebuildQueue, describeRebuildEvent } =
+        await import('@monoes/monograph');
 
       const watcher = new MonographWatcher(root);
-      watcher.on('monograph:updated', () => {
-        output.writeln(output.dim('  [watch] File change detected, rebuilding…'));
-        buildAsync(root, {
-          codeOnly: false,
-          llmMaxSections,
-          // Without this, a lock-skip or fresh-skip from acquireBuildLock()
-          // (orchestrator.ts) is silently swallowed — watch mode gives zero
-          // feedback and looks permanently hung instead of reporting the skip.
-          onProgress: (p: { phase: string; message?: string }) => {
-            if (p.phase === 'skip') {
-              output.writeln(output.dim(`  [watch] ${p.message ?? 'Rebuild skipped'}`));
-            }
-          },
-        })
-          .then(() => {
-            output.writeln(output.dim('  [watch] Rebuild complete.'));
-          })
-          .catch((err: Error) => {
-            output.writeln(output.dim(`  [watch] Rebuild error: ${formatErrorWithCause(err)}`));
-          });
+      // The queue serializes rebuilds and retries a batch whose build found the
+      // lock held, instead of dropping it while still printing "Rebuild
+      // complete." (#338). Each event line says what happened to the graph.
+      const queue = createRebuildQueue({
+        // onProgress keeps phase chatter (and the non-git HEAD warning) off
+        // the watch log; the queue's events report the outcome.
+        build: () => buildAsync(root, { codeOnly: false, llmMaxSections, onProgress: () => {} }),
+        onEvent: (e) => {
+          const line =
+            e.kind === 'failed'
+              ? `Rebuild error: ${formatErrorWithCause(e.error)}`
+              : describeRebuildEvent(e, root);
+          output.writeln(output.dim(`  [watch] ${line}`));
+        },
       });
+      watcher.on('monograph:updated', (files: string[]) => queue.enqueue(files));
       await watcher.start();
 
       output.printSuccess('Watching for changes…');
@@ -711,6 +707,7 @@ const watchCommand: Command = {
         const finish = (reason: string): void => {
           if (finished) return;
           finished = true;
+          queue.stop();
           watcher.stop();
           output.writeln();
           output.writeln(output.dim(reason));

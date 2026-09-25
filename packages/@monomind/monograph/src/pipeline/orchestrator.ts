@@ -50,6 +50,26 @@ export interface BuildOptions extends Partial<PipelineOptions> {
   incremental?: boolean;
 }
 
+/**
+ * What a build call actually did. A resolved promise alone does not mean the
+ * graph changed: a build that found the lock held or the index fresh returns
+ * without writing, and callers that report outcomes (the watcher) need to tell
+ * those apart (#338).
+ */
+export type BuildResult =
+  | {
+      status: 'built';
+      nodes: { before: number; after: number };
+      edges: { before: number; after: number };
+    }
+  | { status: 'skipped'; reason: 'locked' | 'fresh'; message: string };
+
+function countGraph(db: ReturnType<typeof openDb>): { nodes: number; edges: number } {
+  const count = (table: string): number =>
+    (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+  return { nodes: count('nodes'), edges: count('edges') };
+}
+
 // Cross-process build mutex. Callers arrive from several independent entry points
 // (session-start hook, MCP staleness auto-build, CLI, watcher), each with its own
 // ad-hoc lock file that the others don't know about — concurrent builds then fail
@@ -98,18 +118,22 @@ async function acquireBuildLock(dbPath: string): Promise<(() => void) | null> {
   };
 }
 
-export async function buildAsync(repoPath: string, options: BuildOptions = {}): Promise<void> {
+export async function buildAsync(
+  repoPath: string,
+  options: BuildOptions = {},
+): Promise<BuildResult> {
   const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
   const fullOptions: PipelineOptions = { ...DEFAULT_OPTIONS, ...options };
   clearWorkspacePackageMapCache(repoPath);
 
   const releaseLock = await acquireBuildLock(dbPath);
   if (!releaseLock) {
-    options.onProgress?.({ phase: 'skip', message: 'Another build is in progress — skipping' });
-    return;
+    const message = 'Another build is in progress — skipping';
+    options.onProgress?.({ phase: 'skip', message });
+    return { status: 'skipped', reason: 'locked', message };
   }
   try {
-    await buildAsyncLocked(repoPath, dbPath, fullOptions, options);
+    return await buildAsyncLocked(repoPath, dbPath, fullOptions, options);
   } finally {
     releaseLock();
   }
@@ -120,7 +144,7 @@ async function buildAsyncLocked(
   dbPath: string,
   fullOptions: PipelineOptions,
   options: BuildOptions,
-): Promise<void> {
+): Promise<BuildResult> {
   // Incremental guard: if the caller requested skip-when-fresh and force is
   // not set, check staleness before opening the DB for a full write cycle.
   if (options.incremental && !options.force) {
@@ -139,8 +163,9 @@ async function buildAsyncLocked(
         // matches AND the worktree is clean AND that was determinable, so it
         // subsumes the old currentCommit !== null check.
         if (report.state === 'fresh') {
-          options.onProgress?.({ phase: 'skip', message: 'Index is fresh — skipping rebuild' });
-          return; // Already up-to-date
+          const message = 'Index is fresh — skipping rebuild';
+          options.onProgress?.({ phase: 'skip', message });
+          return { status: 'skipped', reason: 'fresh', message }; // Already up-to-date
         }
       } finally {
         closeDb(tmpDb);
@@ -168,6 +193,7 @@ async function buildAsyncLocked(
   }
 
   const db = openDb(dbPath);
+  const before = countGraph(db);
 
   // Source-scope continuity (issue: a code-only auto-refresh wiped every
   // previously-indexed Document node). A caller that doesn't state a scope
@@ -333,6 +359,7 @@ async function buildAsyncLocked(
       new Date().toISOString(),
     );
     writeIndexScope(db, activeScope);
+    const after = countGraph(db);
     db.exec('COMMIT');
 
     // Skip expensive report regeneration when all files were cached (nothing changed) —
@@ -350,6 +377,11 @@ async function buildAsyncLocked(
         // Report generation is non-fatal — the build itself already committed.
       }
     }
+    return {
+      status: 'built',
+      nodes: { before: before.nodes, after: after.nodes },
+      edges: { before: before.edges, after: after.edges },
+    };
   } catch (err) {
     // Best-effort: if the connection is already broken (e.g. the failure was
     // itself a corrupt-database error), rolling back can throw too — the
@@ -386,14 +418,17 @@ export async function buildIncrementalAsync(
   repoPath: string,
   changedAbsPaths: string[],
   options: BuildOptions = {},
-): Promise<void> {
-  if (changedAbsPaths.length === 0) return;
+): Promise<BuildResult | null> {
+  if (changedAbsPaths.length === 0) return null;
   // `incremental` means "skip when the index is already fresh", which is keyed on
   // git HEAD. A working-tree edit doesn't move HEAD, so honouring the flag here
   // would skip the very rebuild the caller just asked for.
-  await buildAsync(repoPath, { ...options, incremental: false });
-  options.onProgress?.({
-    phase: 'incremental',
-    message: `Rebuilt after ${changedAbsPaths.length} changed file(s)`,
-  });
+  const result = await buildAsync(repoPath, { ...options, incremental: false });
+  if (result.status === 'built') {
+    options.onProgress?.({
+      phase: 'incremental',
+      message: `Rebuilt after ${changedAbsPaths.length} changed file(s)`,
+    });
+  }
+  return result;
 }

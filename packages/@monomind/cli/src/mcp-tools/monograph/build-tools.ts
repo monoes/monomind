@@ -57,22 +57,29 @@ export const monographWatchTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { MonographWatcher } = await import('@monoes/monograph');
+    const { MonographWatcher, buildAsync, createRebuildQueue } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
     if (_activeWatchers.has(repoPath)) {
       return text(`Monograph watcher already running for ${repoPath}.`);
     }
     const watcher = new MonographWatcher(repoPath);
-    watcher.on('monograph:updated', (_paths: string[]) => {
-      import('@monoes/monograph')
-        .then(({ buildAsync }) => buildAsync(repoPath))
-        .catch((e) => {
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-            console.error('[monograph_watch] background rebuild failed:', e);
-        });
+    // Serialized and retried on a held build lock, so a change batch is never
+    // dropped (#338).
+    const queue = createRebuildQueue({
+      build: () => buildAsync(repoPath),
+      onEvent: (e) => {
+        if (e.kind === 'failed' && (process.env.DEBUG || process.env.MONOMIND_DEBUG))
+          console.error('[monograph_watch] background rebuild failed:', e.error);
+      },
     });
+    watcher.on('monograph:updated', (paths: string[]) => queue.enqueue(paths));
     await watcher.start();
-    _activeWatchers.set(repoPath, watcher);
+    _activeWatchers.set(repoPath, {
+      stop: async () => {
+        queue.stop();
+        await watcher.stop();
+      },
+    });
     return text(`Monograph watcher started for ${repoPath}. Watching for file changes...`);
   },
 };

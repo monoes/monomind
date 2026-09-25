@@ -8,10 +8,14 @@
  * with nothing wired up here, that message was silently dropped and `watch`
  * looked permanently hung after a rebuild was skipped, with zero log output.
  *
- * Mocks `@monoes/monograph` (same pattern as monograph-integration.test.ts)
- * so this runs in milliseconds and does not depend on a real file watcher or
- * a real lock collision — it only proves the CLI wires onProgress through
- * and surfaces a 'skip' phase message to the user.
+ * #338: surfacing the skip was not enough — the skipped batch was dropped and
+ * "Rebuild complete." printed anyway, so the graph never saw the change. The
+ * watch command now retries a lock-skipped batch and reports what each
+ * rebuild actually did.
+ *
+ * Mocks the watcher and `buildAsync` (same pattern as
+ * monograph-integration.test.ts) so this does not depend on a real file
+ * watcher or a real lock collision; the rebuild queue is the real one.
  */
 
 import { EventEmitter } from 'node:events';
@@ -33,16 +37,14 @@ class FakeWatcher extends EventEmitter {
   stop = vi.fn();
 }
 
-const mockBuildAsync = vi.fn(
-  async (
-    _root: string,
-    opts: { onProgress?: (p: { phase: string; message?: string }) => void },
-  ) => {
-    // Simulate acquireBuildLock() finding the lock already held — the exact
-    // scenario cli-qa reproduced (round-1 logs cliqa-17..19).
-    opts.onProgress?.({ phase: 'skip', message: 'Another build is in progress — skipping' });
-  },
-);
+const built = {
+  status: 'built' as const,
+  nodes: { before: 10, after: 12 },
+  edges: { before: 5, after: 6 },
+};
+// First call: acquireBuildLock() finds the lock already held — the scenario
+// cli-qa reproduced (round-1 logs cliqa-17..19). Second call: the retry builds.
+const mockBuildAsync = vi.fn(async (_root: string, _opts: unknown): Promise<unknown> => built);
 
 // A plain constructor function (not `class`) so it can return the shared
 // FakeWatcher instance without tripping the "constructor should not return a
@@ -52,7 +54,8 @@ function MockMonographWatcher() {
   return state.watcherInstance;
 }
 
-vi.mock('@monoes/monograph', () => ({
+vi.mock('@monoes/monograph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@monoes/monograph')>()),
   MonographWatcher: MockMonographWatcher,
   buildAsync: mockBuildAsync,
 }));
@@ -80,14 +83,19 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'mg-watch-progress-'));
   state.watcherInstance = undefined;
   mockBuildAsync.mockClear();
+  mockBuildAsync.mockResolvedValueOnce({
+    status: 'skipped',
+    reason: 'locked',
+    message: 'Another build is in progress — skipping',
+  });
 });
 
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('monograph watch — build-lock skip visibility', () => {
-  it('reports a skipped rebuild instead of going silent', async () => {
+describe('monograph watch — build-lock skip', () => {
+  it('retries a lock-skipped rebuild and reports what the retry changed', async () => {
     const { output } = await import('../output.js');
     const { default: monographCommand } = await import('../commands/monograph.js');
     const watch = monographCommand.subcommands?.find((c) => c.name === 'watch');
@@ -95,7 +103,7 @@ describe('monograph watch — build-lock skip visibility', () => {
 
     const writelnSpy = vi.spyOn(output, 'writeln');
 
-    const actionPromise = watch.action(ctx({ path: root, timeout: 1 }));
+    const actionPromise = watch.action(ctx({ path: root, timeout: 4 }));
 
     // Let the dynamic import + watcher.start() mock resolve so `watcherInstance`
     // is constructed before we simulate a file change. The dynamic import can
@@ -103,15 +111,21 @@ describe('monograph watch — build-lock skip visibility', () => {
     // setImmediate.
     await waitFor(() => state.watcherInstance !== undefined);
 
-    (state.watcherInstance as FakeWatcher).emit('monograph:updated', ['src/changed.ts']);
+    (state.watcherInstance as FakeWatcher).emit('monograph:updated', [join(root, 'changed.ts')]);
 
     await actionPromise;
 
-    expect(mockBuildAsync).toHaveBeenCalledTimes(1);
-    const [, buildOpts] = mockBuildAsync.mock.calls[0];
-    expect(typeof buildOpts.onProgress).toBe('function');
-
+    expect(mockBuildAsync).toHaveBeenCalledTimes(2);
     const lines = writelnSpy.mock.calls.map((c) => String(c[0] ?? ''));
-    expect(lines.some((l) => l.includes('Another build is in progress — skipping'))).toBe(true);
-  });
+    const deferred = lines.findIndex((l) => l.includes('another build is in progress'));
+    const updated = lines.findIndex(
+      (l) =>
+        l.includes('Graph updated') &&
+        l.includes('nodes +2 (now 12)') &&
+        l.includes('edges +1 (now 6)'),
+    );
+    expect(deferred).toBeGreaterThan(-1);
+    expect(updated).toBeGreaterThan(deferred);
+    expect(lines.some((l) => l.includes('Rebuild complete'))).toBe(false);
+  }, 10000);
 });
