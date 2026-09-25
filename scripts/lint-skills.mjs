@@ -97,7 +97,8 @@ const CMD_REF = /(?<![\w./@-])monomind(?:@[\w.-]+)?[ \t]+([a-z][\w-]*)(?:[ \t]+(
 // start of the line or a shell/quote boundary, optionally followed by an
 // `npx [-y]` / `pnpm` / `bunx` runner. Anything else ("is monomind
 // installed?", "with monomind integration") is prose inside code.
-const COMMAND_POSITION = /(?:^|[$;|&(`'"=>]|\brun:)\s*(?:(?:npx|bunx|pnpm(?:\s+dlx)?)\s+(?:-y\s+|--yes\s+)?)?$/;
+const COMMAND_POSITION =
+  /(?:^|[$;|&(`'"=>]|\brun:)\s*(?:(?:npx|bunx|pnpm(?:\s+dlx)?)\s+(?:-y\s+|--yes\s+)?)?$/;
 
 /** Code regions of a markdown document: fenced block bodies and inline code spans. */
 function codeRegions(content) {
