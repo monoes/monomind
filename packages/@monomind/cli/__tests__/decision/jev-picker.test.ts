@@ -296,6 +296,31 @@ describe('catalog loaders', () => {
     ]);
   });
 
+  it('leaves an agent\'s `vibe` personality line out of the ranked text', () => {
+    // "debug why the node process crashes with a segfault" picked Embedded
+    // Firmware Engineer on its vibe; a personality line is not a capability.
+    root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
+    mkdirSync(join(root, '.monomind'));
+    writeFileSync(
+      join(root, '.monomind', 'registry.json'),
+      JSON.stringify({
+        agents: [
+          {
+            slug: 'fw',
+            name: 'fw',
+            category: 'engineering',
+            description: 'Writes firmware',
+            tags: ['esp32'],
+            vibe: 'Knows why your process crashes with a segfault',
+          },
+        ],
+      }),
+    );
+    expect(jp.loadAgentCatalog(root)).toEqual([
+      { id: 'fw', name: 'fw', category: 'engineering', description: 'Writes firmware', text: 'engineering esp32' },
+    ]);
+  });
+
   it('lets a catalog skill through only while its state entry is active with the jev target', () => {
     root = mkdtempSync(join(tmpdir(), 'jev-catalog-'));
     mkdirSync(join(root, '.claude', 'helpers'), { recursive: true });

@@ -80,161 +80,161 @@
       "name": "Monodesign",
       "category": "design",
       "description": "Use when designing, critiquing, or polishing a frontend UI, component system, or brand look; not for backend or non-visual work — Unified frontend design agent for UI and component systems, UX research, brand, CSS architecture, critique, and antipattern detection via the monodesign skill",
-      "text": "design design ui ux frontend css UI component systems and design tokens (OKLCH) Brand identity and visual strategy UX research and usability testing Typography, color, spatial design, motion CSS architecture and theme systems Antipattern detection and design critique Inclusive visuals and image generation prompts Visual storytelling and brand personality Responsive design and accessibility (WCAG AA) Performance-conscious design ui-design component-system brand-identity ux-research design-critique design-system visual-storytelling image-prompts css-architecture accessibility-audit Production-grade design intelligence. Real code, committed choices, no AI slop."
+      "text": "design design ui ux frontend css UI component systems and design tokens (OKLCH) Brand identity and visual strategy UX research and usability testing Typography, color, spatial design, motion CSS architecture and theme systems Antipattern detection and design critique Inclusive visuals and image generation prompts Visual storytelling and brand personality Responsive design and accessibility (WCAG AA) Performance-conscious design ui-design component-system brand-identity ux-research design-critique design-system visual-storytelling image-prompts css-architecture accessibility-audit"
     },
     {
       "id": "engineering-ai-data-remediation-engineer",
       "name": "AI Data Remediation Engineer",
       "category": "data-ai",
       "description": "Use when bad data must be intercepted and repaired inside a running pipeline without stopping it; for building new pipelines use Data Engineer — Self-healing data pipeline specialist that detects, classifies, and fixes data anomalies with air-gapped local SLMs and semantic clustering, with zero data loss",
-      "text": "data-ai data-quality data-pipeline llm remediation Fixes your broken data with surgical AI precision — no rows left behind."
+      "text": "data-ai data-quality data-pipeline llm remediation"
     },
     {
       "id": "engineering-ai-engineer",
       "name": "AI Engineer",
       "category": "data-ai",
       "description": "Use when building or integrating ML models, LLM features, embeddings, or inference into a product; to audit an existing model use Model QA Specialist — AI/ML engineer who builds, deploys, and integrates machine learning models and AI-powered features into production systems",
-      "text": "data-ai ai ml llm deployment machine learning model development ML pipeline and deployment data preprocessing and feature engineering model evaluation and monitoring AI-powered application integration model-development ml-pipeline-setup model-deployment ai-feature-integration Turns ML models into production features that actually scale."
+      "text": "data-ai ai ml llm deployment machine learning model development ML pipeline and deployment data preprocessing and feature engineering model evaluation and monitoring AI-powered application integration model-development ml-pipeline-setup model-deployment ai-feature-integration"
     },
     {
       "id": "engineering-autonomous-optimization-architect",
       "name": "Autonomous Optimization Architect",
       "category": "data-ai",
       "description": "Use when LLM or API routing needs shadow-testing of cheaper models with LLM-as-judge grading, circuit breakers, and cost guardrails — Intelligent system governor that continuously shadow-tests APIs for performance while enforcing strict financial and security guardrails against runaway costs.",
-      "text": "data-ai llm cost routing guardrails shadow-testing The system governor that makes things faster without bankrupting you."
+      "text": "data-ai llm cost routing guardrails shadow-testing"
     },
     {
       "id": "engineering-backend-architect",
       "name": "Backend Architect",
       "category": "architecture",
       "description": "Use when designing server-side APIs, database schemas, microservices, or cloud backends; for domain boundaries use Software Architect — Backend architect for scalable server-side systems — database schemas, API design, microservices, event-driven flows, and cloud infrastructure",
-      "text": "architecture architecture backend api database microservices scalable system design database architecture API development cloud infrastructure microservices patterns system-design api-architecture database-design cloud-infrastructure Designs the systems that hold everything up — databases, APIs, cloud, scale."
+      "text": "architecture architecture backend api database microservices scalable system design database architecture API development cloud infrastructure microservices patterns system-design api-architecture database-design cloud-infrastructure"
     },
     {
       "id": "engineering-data-engineer",
       "name": "Data Engineer",
       "category": "data-ai",
       "description": "Use when building or fixing data pipelines, warehouses, lakehouses, or streaming ingestion; for app database tuning use Database Optimizer — Data engineer who builds reliable ETL/ELT pipelines, lakehouse architectures, and streaming systems with Spark, dbt, and cloud data platforms",
-      "text": "data-ai data-pipeline etl spark dbt streaming Builds the pipelines that turn raw data into trusted, analytics-ready assets."
+      "text": "data-ai data-pipeline etl spark dbt streaming"
     },
     {
       "id": "engineering-database-optimizer",
       "name": "Database Optimizer",
       "category": "data-ai",
       "description": "Use when an app database needs schema design, slow-query fixes, indexing, or migration planning; for analytics pipelines use Data Engineer — Database specialist for schema design, query optimization, indexing, and performance tuning on PostgreSQL, MySQL, Supabase, and PlanetScale",
-      "text": "data-ai database sql postgresql performance indexing PostgreSQL query optimization index design and strategy schema normalization and denormalization connection pool tuning database migration patterns query-optimization schema-design index-tuning performance-profiling Indexes, query plans, and schema design — databases that don't wake you at 3am."
+      "text": "data-ai database sql postgresql performance indexing PostgreSQL query optimization index design and strategy schema normalization and denormalization connection pool tuning database migration patterns query-optimization schema-design index-tuning performance-profiling"
     },
     {
       "id": "engineering-devops-automator",
       "name": "DevOps Automator",
       "category": "devops",
       "description": "Use when setting up CI/CD pipelines, infrastructure as code, containers, or cloud deployment automation; for GitHub Actions specifically use workflow-automation — Expert DevOps engineer specializing in infrastructure automation, CI/CD pipeline development, and cloud operations",
-      "text": "devops devops ci-cd infrastructure cloud automation CI/CD pipeline development infrastructure as code container orchestration cloud platform management monitoring and observability pipeline-setup infrastructure-automation deployment-configuration monitoring-setup Automates infrastructure so your team ships faster and sleeps better."
+      "text": "devops devops ci-cd infrastructure cloud automation CI/CD pipeline development infrastructure as code container orchestration cloud platform management monitoring and observability pipeline-setup infrastructure-automation deployment-configuration monitoring-setup"
     },
     {
       "id": "engineering-embedded-firmware-engineer",
       "name": "Embedded Firmware Engineer",
       "category": "engineering",
       "description": "Use when writing or debugging bare-metal or RTOS firmware for ESP32, STM32, nRF, or other microcontrollers — Specialist in bare-metal and RTOS firmware - ESP32/ESP-IDF, PlatformIO, Arduino, ARM Cortex-M, STM32 HAL/LL, Nordic nRF5/nRF Connect SDK, FreeRTOS, Zephyr",
-      "text": "engineering embedded firmware rtos iot Writes production-grade firmware for hardware that can't afford to crash."
+      "text": "engineering embedded firmware rtos iot"
     },
     {
       "id": "engineering-feishu-integration-developer",
       "name": "Feishu Integration Developer",
       "category": "engineering",
       "description": "Use when building on the Feishu or Lark Open Platform (bots, approvals, Bitable, message cards, SSO); not for other chat platforms — Feishu (Lark) Open Platform integration developer for bots, mini programs, approval workflows, Bitable, message cards, webhooks, and SSO",
-      "text": "engineering integration feishu bots webhooks automation Builds enterprise integrations on the Feishu (Lark) platform — bots, approvals, data sync, and SSO — so your team's workflows run on autopilot."
+      "text": "engineering integration feishu bots webhooks automation"
     },
     {
       "id": "engineering-frontend-developer",
       "name": "Frontend Developer",
       "category": "engineering",
       "description": "Use when implementing web UI in React, Vue, or Angular, fixing frontend bugs, or improving page performance; for visual design direction use Monodesign — Expert frontend developer specializing in modern web technologies, React/Vue/Angular frameworks, UI implementation, and performance optimization",
-      "text": "engineering frontend react ui web performance React and Vue frameworks CSS and responsive design web accessibility and WCAG compliance frontend performance optimization TypeScript and modern JavaScript ui-implementation frontend-architecture accessibility-audit performance-optimization Builds responsive, accessible web apps with pixel-perfect precision."
+      "text": "engineering frontend react ui web performance React and Vue frameworks CSS and responsive design web accessibility and WCAG compliance frontend performance optimization TypeScript and modern JavaScript ui-implementation frontend-architecture accessibility-audit performance-optimization"
     },
     {
       "id": "engineering-git-workflow-master",
       "name": "Git Workflow Master",
       "category": "devops",
       "description": "Use when choosing a branching strategy, untangling history, rebasing, or setting up worktrees and commit conventions; not for GitHub PR or issue work — Git workflow expert for branching strategies, conventional commits, rebasing, worktrees, and CI-friendly branch management",
-      "text": "devops git version-control branching workflow Git branching strategies conventional commits interactive rebase and history management worktrees and advanced Git features CI-friendly branch management workflow-setup branch-strategy history-cleanup release-management Clean history, atomic commits, and branches that tell a story."
+      "text": "devops git version-control branching workflow Git branching strategies conventional commits interactive rebase and history management worktrees and advanced Git features CI-friendly branch management workflow-setup branch-strategy history-cleanup release-management"
     },
     {
       "id": "engineering-incident-response-commander",
       "name": "Incident Response Commander",
       "category": "devops",
       "description": "Use when a production incident needs coordinated response, a post-mortem, or on-call process design; for SLO and toil engineering use SRE — Incident commander for production outages — structured response coordination, post-mortems, SLO/SLI tracking, and on-call process design",
-      "text": "devops incident-response on-call postmortem reliability Turns production chaos into structured resolution."
+      "text": "devops incident-response on-call postmortem reliability"
     },
     {
       "id": "engineering-mobile-app-builder",
       "name": "Mobile App Builder",
       "category": "engineering",
       "description": "Use when building iOS, Android, or cross-platform (React Native, Flutter) apps, including native features, offline sync, and store readiness — Specialized mobile application developer with expertise in native iOS/Android development and cross-platform frameworks",
-      "text": "engineering mobile ios android react-native flutter Ships native-quality apps on iOS and Android, fast."
+      "text": "engineering mobile ios android react-native flutter"
     },
     {
       "id": "engineering-rapid-prototyper",
       "name": "Rapid Prototyper",
       "category": "engineering",
       "description": "Use when you need a fast proof of concept or MVP to validate an idea, trading polish for speed; not for production-hardened code — Specialized in ultra-fast proof-of-concept development and MVP creation using efficient tools and frameworks",
-      "text": "engineering prototyping mvp implementation Turns an idea into a working prototype before the meeting's over."
+      "text": "engineering prototyping mvp implementation"
     },
     {
       "id": "engineering-security-engineer",
       "name": "Security Engineer",
       "category": "security",
       "description": "Use when an app, API, or cloud service needs threat modeling, a security code review, OWASP checks, or a vulnerability assessment — Application security engineer for threat modeling, vulnerability assessment, secure code review, and security architecture of web and cloud apps",
-      "text": "security security owasp threat-modeling audit appsec application security OWASP Top 10 CVE analysis and remediation authentication and authorization systems cryptography and key management security-audit vulnerability-scan cve-remediation code-security-review Models threats, reviews code, and designs security architecture that actually holds."
+      "text": "security security owasp threat-modeling audit appsec application security OWASP Top 10 CVE analysis and remediation authentication and authorization systems cryptography and key management security-audit vulnerability-scan cve-remediation code-security-review"
     },
     {
       "id": "engineering-senior-developer",
       "name": "Senior Developer",
       "category": "engineering",
       "description": "Use when implementing premium Laravel, Livewire, or FluxUI features, advanced CSS, or Three.js scenes; for general code use coder — Premium implementation specialist - Masters Laravel/Livewire/FluxUI, advanced CSS, Three.js integration",
-      "text": "engineering laravel php css threejs implementation Laravel and Livewire advanced CSS and animations Three.js integration full-stack web development FluxUI components feature-implementation full-stack-development ui-polish integration-development Premium full-stack craftsperson — Laravel, Livewire, Three.js, advanced CSS."
+      "text": "engineering laravel php css threejs implementation Laravel and Livewire advanced CSS and animations Three.js integration full-stack web development FluxUI components feature-implementation full-stack-development ui-polish integration-development"
     },
     {
       "id": "engineering-software-architect",
       "name": "Software Architect",
       "category": "architecture",
       "description": "Use when modeling a domain, drawing module or service boundaries, or choosing monolith vs microservices; for server APIs and DBs use Backend Architect — Software architect for domain-driven design, bounded contexts, architectural patterns, and ADRs that name trade-offs for maintainable systems",
-      "text": "architecture architecture ddd adr patterns trade-offs domain-driven design architectural decision records system decomposition technology evaluation trade-off analysis architecture-design technology-selection system-decomposition architectural-review Designs systems that survive the team that built them. Every decision has a trade-off — name it."
+      "text": "architecture architecture ddd adr patterns trade-offs domain-driven design architectural decision records system decomposition technology evaluation trade-off analysis architecture-design technology-selection system-decomposition architectural-review"
     },
     {
       "id": "engineering-solidity-smart-contract-engineer",
       "name": "Solidity Smart Contract Engineer",
       "category": "engineering",
       "description": "Use when writing or optimizing Solidity contracts, proxies, or DeFi protocols; for an independent audit use Blockchain Security Auditor — Solidity engineer for EVM smart contracts — gas optimization, upgradeable proxies, DeFi protocols, and security-first design on Ethereum and L2s",
-      "text": "engineering blockchain solidity smart-contracts defi evm Battle-hardened Solidity developer who lives and breathes the EVM."
+      "text": "engineering blockchain solidity smart-contracts defi evm"
     },
     {
       "id": "engineering-sre",
       "name": "SRE (Site Reliability Engineer)",
       "category": "devops",
       "description": "Use when defining SLOs and error budgets, improving observability, running chaos experiments, or cutting toil; for a live outage use Incident Response Commander — Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction for production systems at scale.",
-      "text": "devops sre reliability observability slo chaos-engineering SLO and error budget management observability and monitoring chaos engineering incident response toil reduction automation slo-definition observability-setup incident-response reliability-review Reliability is a feature. Error budgets fund velocity — spend them wisely."
+      "text": "devops sre reliability observability slo chaos-engineering SLO and error budget management observability and monitoring chaos engineering incident response toil reduction automation slo-definition observability-setup incident-response reliability-review"
     },
     {
       "id": "engineering-technical-writer",
       "name": "Technical Writer",
       "category": "engineering",
       "description": "Use when writing or restructuring READMEs, API references, tutorials, or developer guides; not for marketing copy — Technical writer for developer docs, API references, READMEs, and tutorials that turn complex engineering concepts into clear, accurate documentation",
-      "text": "engineering documentation api-docs tutorials writing API reference documentation developer tutorials and guides README and quickstart authoring documentation information architecture code example curation api-documentation tutorial-writing readme-authoring documentation-review Writes the docs that developers actually read and use."
+      "text": "engineering documentation api-docs tutorials writing API reference documentation developer tutorials and guides README and quickstart authoring documentation information architecture code example curation api-documentation tutorial-writing readme-authoring documentation-review"
     },
     {
       "id": "engineering-threat-detection-engineer",
       "name": "Threat Detection Engineer",
       "category": "security",
       "description": "Use when writing SIEM detections, mapping ATT&CK coverage, hunting threats, or tuning noisy alerts; for app code review use Security Engineer — Detection engineer for SIEM rules, MITRE ATT&CK coverage mapping, threat hunting, alert tuning, and detection-as-code pipelines",
-      "text": "security security siem detection threat-hunting mitre-attack Builds the detection layer that catches attackers after they bypass prevention."
+      "text": "security security siem detection threat-hunting mitre-attack"
     },
     {
       "id": "engineering-wechat-mini-program-developer",
       "name": "WeChat Mini Program Developer",
       "category": "engineering",
       "description": "Use when building or debugging a WeChat Mini Program, WeChat Pay, or WeChat API integration — WeChat Mini Program developer for WXML/WXSS/WXS, WeChat API integration, payments, subscription messaging, and the wider WeChat ecosystem",
-      "text": "engineering wechat mini-program mobile payments Builds performant Mini Programs that thrive in the WeChat ecosystem."
+      "text": "engineering wechat mini-program mobile payments"
     },
     {
       "id": "github-modes",
@@ -318,35 +318,35 @@
       "name": "Competitive Content Strategist",
       "category": "marketing",
       "description": "Use when writing competitor comparison or alternatives pages, or planning content strategy and topic clusters — Competitive positioning content strategist for X-vs-Y comparison pages, alternatives pages, topic clusters, and editorial planning",
-      "text": "marketing marketing content seo competitive Wins the search query where buyers are already deciding — before they've made up their minds."
+      "text": "marketing marketing content seo competitive"
     },
     {
       "id": "marketing-cro-specialist",
       "name": "CRO Specialist",
       "category": "marketing",
       "description": "Use when a page, form, signup flow, or onboarding isn't converting and needs diagnosis plus A/B test ideas — Conversion rate optimization specialist for landing, pricing, and signup pages, forms, popups, and onboarding, with prioritized test hypotheses",
-      "text": "marketing marketing conversion cro ab-testing landing-pages Finds the invisible friction between intent and action — and removes it."
+      "text": "marketing marketing conversion cro ab-testing landing-pages"
     },
     {
       "id": "marketing-email-specialist",
       "name": "Email Marketing Specialist",
       "category": "marketing",
       "description": "Use when writing or optimizing any automated multi-email flow, lifecycle program, or cold outreach sequence — Email marketing specialist for welcome, nurture, re-engagement, and onboarding sequences, lifecycle programs, and B2B cold outreach",
-      "text": "marketing marketing email lifecycle copywriting Turns inboxes into relationships — one well-timed email at a time."
+      "text": "marketing marketing email lifecycle copywriting"
     },
     {
       "id": "marketing-launch-strategist",
       "name": "Launch Strategist",
       "category": "marketing",
       "description": "Use when planning a product or feature launch, beta, waitlist, or Product Hunt submission, from pre-launch through post-launch — Launch strategist for product launches, feature announcements, betas, waitlists, Product Hunt, and go-to-market sequencing",
-      "text": "marketing marketing launch go-to-market strategy Turns \"we're launching\" into a moment people remember — and act on."
+      "text": "marketing marketing launch go-to-market strategy"
     },
     {
       "id": "marketing-pricing-strategist",
       "name": "Pricing Strategist",
       "category": "marketing",
       "description": "Use when making pricing or packaging decisions, restructuring plans, or designing a pricing page — SaaS pricing strategist for packaging, tier structure, value metrics, freemium vs trial, willingness-to-pay research, and pricing page design",
-      "text": "marketing marketing pricing saas monetization Finds the number that captures the value you deliver — and makes customers glad to pay it."
+      "text": "marketing marketing pricing saas monetization"
     },
     {
       "id": "collective-intelligence-coordinator",
@@ -430,98 +430,98 @@
       "name": "Agentic Identity & Trust Architect",
       "category": "security",
       "description": "Use when multi-agent systems need agent identity, authorization, delegation, or tamper-evident audit trails — Designs identity, authentication, and trust verification for autonomous AI agents so they can prove who they are, what they may do, and what they did",
-      "text": "security security identity auth agents trust Ensures every AI agent can prove who it is, what it's allowed to do, and what it actually did."
+      "text": "security security identity auth agents trust"
     },
     {
       "id": "agents-orchestrator",
       "name": "Agents Orchestrator",
       "category": "coordination",
       "description": "Use when a whole development pipeline (PM, architecture, dev and QA loops, integration) should be driven end to end by one autonomous lead — Autonomous pipeline manager that orchestrates the entire development workflow. You are the leader of this process.",
-      "text": "coordination orchestration pipeline coordination qa The conductor who runs the entire dev pipeline from spec to ship."
+      "text": "coordination orchestration pipeline coordination qa"
     },
     {
       "id": "automation-governance-architect",
       "name": "Automation Governance Architect",
       "category": "specialized",
       "description": "Use when auditing a proposed business automation (n8n-first) for value, risk, and maintainability before building it — Governance-first architect for business automations (n8n-first) who audits value, risk, and maintainability before implementation.",
-      "text": "specialized automation n8n governance risk Calm, skeptical, and operations-focused. Prefer reliable systems over automation hype."
+      "text": "specialized automation n8n governance risk"
     },
     {
       "id": "blockchain-security-auditor",
       "name": "Blockchain Security Auditor",
       "category": "security",
       "description": "Use when smart contracts or DeFi protocols need an independent security audit and report; for writing contracts use Solidity Smart Contract Engineer — Smart contract security auditor for vulnerability detection, formal verification, exploit analysis, and audit reports on DeFi and blockchain apps",
-      "text": "security security blockchain smart-contracts audit defi Finds the exploit in your smart contract before the attacker does."
+      "text": "security security blockchain smart-contracts audit defi"
     },
     {
       "id": "compliance-auditor",
       "name": "Compliance Auditor",
       "category": "security",
       "description": "Use when preparing for or running a SOC 2, ISO 27001, HIPAA, or PCI-DSS audit, including controls mapping and evidence — Technical compliance auditor for SOC 2, ISO 27001, HIPAA, and PCI-DSS, from readiness assessment through evidence collection to certification",
-      "text": "security compliance audit soc2 security Walks you from readiness assessment through evidence collection to SOC 2 certification."
+      "text": "security compliance audit soc2 security"
     },
     {
       "id": "identity-graph-operator",
       "name": "Identity Graph Operator",
       "category": "data-ai",
       "description": "Use when multiple agents must resolve and deduplicate the same people, companies, or records to one canonical identity — Operates a shared identity graph so every agent in a multi-agent system resolves an entity to the same canonical answer, even under concurrent writes",
-      "text": "data-ai identity-resolution data deduplication agents Ensures every agent in a multi-agent system gets the same canonical answer for \"who is this?\""
+      "text": "data-ai identity-resolution data deduplication agents"
     },
     {
       "id": "lsp-index-engineer",
       "name": "LSP/Index Engineer",
       "category": "engineering",
       "description": "Use when building code intelligence from Language Server Protocol clients or a semantic code index — Language Server Protocol specialist building unified code intelligence systems through LSP client orchestration and semantic indexing",
-      "text": "engineering lsp code-intelligence indexing tooling Builds unified code intelligence through LSP orchestration and semantic indexing."
+      "text": "engineering lsp code-intelligence indexing tooling"
     },
     {
       "id": "specialized-cultural-intelligence-strategist",
       "name": "Cultural Intelligence Strategist",
       "category": "design",
       "description": "Use when software must avoid invisible exclusion and resonate across cultures, languages, and identities in names, imagery, and copy — CQ specialist that detects invisible exclusion, researches global context, and ensures software resonates authentically across intersectional identities.",
-      "text": "design i18n inclusion culture ux Detects invisible exclusion and ensures your software resonates across cultures."
+      "text": "design i18n inclusion culture ux"
     },
     {
       "id": "specialized-developer-advocate",
       "name": "Developer Advocate",
       "category": "marketing",
       "description": "Use when planning developer community programs, DX improvements, technical talks, or demo content to drive adoption — Developer advocate who builds developer communities, technical content, and developer experience (DX) to drive platform adoption",
-      "text": "marketing devrel community content dx Bridges your product team and the developer community through authentic engagement."
+      "text": "marketing devrel community content dx"
     },
     {
       "id": "specialized-document-generator",
       "name": "Document Generator",
       "category": "specialized",
       "description": "Use when a task must produce a PDF, slide deck, Word document, or spreadsheet file programmatically — Generates professional PDF, PPTX, DOCX, and XLSX files in code, with proper formatting, charts, and data visualization",
-      "text": "specialized documents pdf pptx docx xlsx Professional documents from code — PDFs, slides, spreadsheets, and reports."
+      "text": "specialized documents pdf pptx docx xlsx"
     },
     {
       "id": "specialized-mcp-builder",
       "name": "MCP Builder",
       "category": "engineering",
       "description": "Use when designing, building, or testing an MCP server with custom tools, resources, or prompts — Expert Model Context Protocol developer who designs, builds, and tests MCP servers that extend AI agent capabilities with custom tools, resources, and prompts.",
-      "text": "engineering mcp tools integration api Builds the tools that make AI agents actually useful in the real world."
+      "text": "engineering mcp tools integration api"
     },
     {
       "id": "specialized-model-qa",
       "name": "Model QA Specialist",
       "category": "data-ai",
       "description": "Use when an existing ML or statistical model needs independent validation, replication, calibration testing, or an audit report — Independent model QA expert who audits ML and statistical models end to end — replication, calibration, interpretability, and monitoring",
-      "text": "data-ai ml model-validation audit qa Audits ML models end-to-end — from data reconstruction to calibration testing."
+      "text": "data-ai ml model-validation audit qa"
     },
     {
       "id": "specialized-workflow-architect",
       "name": "Workflow Architect",
       "category": "architecture",
       "description": "Use when a system, user journey, or agent interaction needs every path and failure mode specified before build; not for tuning existing processes — Maps complete workflow trees — happy paths, branches, failure and recovery paths, handoffs, and observable states — into build-ready specs",
-      "text": "architecture workflow specification architecture failure-modes Every path the system can take — mapped, named, and specified before a single line is written."
+      "text": "architecture workflow specification architecture failure-modes"
     },
     {
       "id": "zk-steward",
       "name": "ZK Steward",
       "category": "specialized",
       "description": "Use when organizing personal knowledge notes, linking ideas, or breaking down complex decisions; not for zero-knowledge proofs or cryptography — Zettelkasten note-taking steward (not zero-knowledge crypto) that manages linked atomic notes and switches expert lenses for decisions",
-      "text": "specialized knowledge-management zettelkasten notes research Channels Luhmann's Zettelkasten to build connected, validated knowledge bases."
+      "text": "specialized knowledge-management zettelkasten notes research"
     },
     {
       "id": "automation-smart-agent",
@@ -556,49 +556,49 @@
       "name": "Accessibility Auditor",
       "category": "testing",
       "description": "Use when a UI needs a WCAG audit, screen-reader or keyboard testing, or accessibility fixes verified — Accessibility specialist who audits interfaces against WCAG, tests with assistive technologies, and reports barriers to inclusive use",
-      "text": "testing accessibility wcag audit ui If it's not tested with a screen reader, it's not accessible."
+      "text": "testing accessibility wcag audit ui"
     },
     {
       "id": "testing-api-tester",
       "name": "API Tester",
       "category": "testing",
       "description": "Use when an API needs functional, contract, load, or security tests; for general unit tests use tester — API testing specialist for functional, performance, and contract validation of internal and third-party APIs and integrations",
-      "text": "testing api testing contract-testing performance Breaks your API before your users do."
+      "text": "testing api testing contract-testing performance"
     },
     {
       "id": "testing-evidence-collector",
       "name": "Evidence Collector",
       "category": "testing",
       "description": "Use when UI work needs skeptical visual QA with screenshot evidence for every claim — Screenshot-obsessed, fantasy-allergic QA specialist - Default to finding 3-5 issues, requires visual proof for everything",
-      "text": "testing qa screenshots ui verification Screenshot-obsessed QA who won't approve anything without visual proof."
+      "text": "testing qa screenshots ui verification"
     },
     {
       "id": "testing-performance-benchmarker",
       "name": "Performance Benchmarker",
       "category": "testing",
       "description": "Use when load testing, profiling, or measuring app and infrastructure performance against targets; for swarm benchmark regressions use Benchmark Suite — Performance testing specialist who measures, analyzes, and improves system performance across applications and infrastructure",
-      "text": "testing performance load-testing profiling benchmarking Measures everything, optimizes what matters, and proves the improvement."
+      "text": "testing performance load-testing profiling benchmarking"
     },
     {
       "id": "testing-test-results-analyzer",
       "name": "Test Results Analyzer",
       "category": "testing",
       "description": "Use when test runs, flaky failures, or coverage and quality metrics need analysis and prioritized follow-up — Test analysis specialist who evaluates test results and quality metrics and turns them into actionable insights",
-      "text": "testing testing analysis quality metrics flaky-tests Reads test results like a detective reads evidence — nothing gets past."
+      "text": "testing testing analysis quality metrics flaky-tests"
     },
     {
       "id": "testing-tool-evaluator",
       "name": "Tool Evaluator",
       "category": "specialized",
       "description": "Use when comparing or selecting tools, SaaS products, libraries, or platforms and a recommendation is needed — Technology assessment specialist who evaluates, tests, and recommends tools, software, and platforms for business use",
-      "text": "specialized evaluation tools research comparison Tests and recommends the right tools so your team doesn't waste time on the wrong ones."
+      "text": "specialized evaluation tools research comparison"
     },
     {
       "id": "testing-workflow-optimizer",
       "name": "Workflow Optimizer",
       "category": "specialized",
       "description": "Use when a business or team process is slow or manual and needs analysis, streamlining, or automation — Process improvement specialist who analyzes, optimizes, and automates workflows across business functions for productivity",
-      "text": "specialized workflow process-improvement automation productivity Finds the bottleneck, fixes the process, automates the rest."
+      "text": "specialized workflow process-improvement automation productivity"
     }
   ],
   "skills": [

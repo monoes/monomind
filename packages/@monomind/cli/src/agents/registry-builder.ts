@@ -25,7 +25,7 @@ type AgentRegistryEntry = {
   /** One-line `when_to_use:` frontmatter — the picker's lead description. */
   whenToUse?: string;
   tags: string[];
-  /** Optional `vibe:` frontmatter (personality line), ranked as extra text. */
+  /** Optional `vibe:` frontmatter (personality line); stored, never ranked. */
   vibe?: string;
   capabilities: string[];
   taskTypes: string[];

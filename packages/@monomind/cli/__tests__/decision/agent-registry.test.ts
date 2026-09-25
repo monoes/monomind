@@ -123,7 +123,7 @@ describe('registry fields and duplicates', () => {
     ]);
   });
 
-  it('stores when_to_use, tags and vibe; the catalog leads with when_to_use and skips deprecated', () => {
+  it('stores when_to_use, tags and vibe; the catalog leads with when_to_use, ranks no vibe and skips deprecated', () => {
     project();
     writeFileSync(
       join(root, '.claude', 'agents', 'core', 'coder.md'),
@@ -159,7 +159,7 @@ describe('registry fields and duplicates', () => {
         name: 'Coder',
         category: 'core',
         description: 'Writing or changing production code — Implementation specialist',
-        text: 'core implementation refactor typescript Ships clean diffs',
+        text: 'core implementation refactor typescript',
         origin: 'project',
       },
     ]);
