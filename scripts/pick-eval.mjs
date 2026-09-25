@@ -114,6 +114,14 @@ function printText(report, opts, methods, formatScore) {
         `    #${m.id} ${m.rank ? `hit@${m.rank}` : 'miss  '} got [${m.got.join(', ')}] want one of [${m.expected.join(', ')}]`,
       );
   }
+  if (report.gated)
+    for (const k of ['agents', 'skills']) {
+      const g = report.gated[k];
+      console.log(
+        `  gated ${k}: shown ${g.shown}/${g.n}, correct ${g.correct} (precision ${g.precision ?? 'n/a'})`,
+      );
+      for (const w of g.wrong) console.log(`    #${w.id} showed ${w.shown}`);
+    }
   if (report.unknown.length)
     console.log(
       `  expectations not in this catalog: ${report.unknown.map((u) => `#${u.id} ${u.kind}: ${u.missing.join(', ')}`).join('; ')}`,
@@ -224,6 +232,8 @@ async function main() {
       skills: catalogs.skills.length,
     },
     unknown: ev.unknownExpectations(tasks, catalogs),
+    // The [PICK] gate over keyword ranking (what the hook shows without Jev).
+    ...(opts.jev ? {} : { gated: ev.gatedEval(tasks, catalogs) }),
     ...(methods ? { methods } : {}),
   };
 

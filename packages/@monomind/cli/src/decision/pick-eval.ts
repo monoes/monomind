@@ -9,7 +9,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { agentCatalog, skillIndex } from './catalogs.js';
-import { type CatalogItem, jevModule, keywordRank } from './jev.js';
+import { type CatalogItem, jevModule, keywordGateLeader, keywordRank } from './jev.js';
 
 export type EvalKind = 'agents' | 'skills';
 
@@ -21,6 +21,8 @@ export interface EvalTask {
   domain?: string;
   agents: string[];
   skills: string[];
+  /** Nothing in the catalogs fits: the gated pick must show nothing. */
+  noPick?: boolean;
 }
 
 export interface EvalCatalogs {
@@ -167,4 +169,39 @@ export function unknownExpectations(
 
 export function formatScore(s: KindScore): string {
   return `top1 ${s.top1}/${s.n}, top3 ${s.top3}/${s.n}`;
+}
+
+/** What the gated pick (the [PICK] bar: pick-rank.cjs KEYWORD_GATE) showed
+ *  for one kind. `precision` = correct / shown; a show on a `noPick` task, or
+ *  of an id the task does not accept, is wrong. */
+export interface GatedScore {
+  /** Tasks judged: those with an expectation for this kind, plus noPick tasks. */
+  n: number;
+  shown: number;
+  correct: number;
+  precision: number | null;
+  wrong: { id: number; task: string; shown: string }[];
+}
+
+/** Keyword picks through the prompt hook's gate: how often it shows one, and
+ *  how often what it shows is right. */
+export function gatedEval(
+  tasks: EvalTask[],
+  catalogs: EvalCatalogs,
+): { agents: GatedScore; skills: GatedScore } {
+  const kind = (k: EvalKind): GatedScore => {
+    const score: GatedScore = { n: 0, shown: 0, correct: 0, precision: null, wrong: [] };
+    for (const t of tasks) {
+      if (!t.noPick && t[k].length === 0) continue;
+      score.n++;
+      const leader = keywordGateLeader(keywordRank(t.task, catalogs[k], 5), k);
+      if (!leader) continue;
+      score.shown++;
+      if (!t.noPick && t[k].includes(leader.id)) score.correct++;
+      else score.wrong.push({ id: t.id, task: t.task, shown: leader.id });
+    }
+    score.precision = score.shown ? Math.round((1000 * score.correct) / score.shown) / 1000 : null;
+    return score;
+  };
+  return { agents: kind('agents'), skills: kind('skills') };
 }
