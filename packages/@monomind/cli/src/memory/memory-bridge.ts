@@ -749,6 +749,22 @@ async function loadEmbedder(): Promise<void> {
   await _embedderPromise;
 }
 
+/** Fetches the local embedding model into the transformers cache so later
+ *  loadEmbedder() calls (local_files_only) find it. Same model, revision and
+ *  dtype as loadEmbedder() — only the network is allowed here, which is why it
+ *  is reserved for explicit opt-in steps (`init --with-embeddings`). Throws
+ *  when the model cannot be fetched (offline, disabled, package missing);
+ *  callers degrade. Loads onnxruntime, so ADR-R001 applies to the caller. */
+export async function downloadEmbeddingModel(): Promise<void> {
+  if (localEmbeddingsDisabled())
+    throw new Error('local embeddings are disabled (MONOMIND_NO_LOCAL_EMBEDDINGS=1)');
+  const hf = await import('@huggingface/transformers' as string);
+  await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, {
+    revision: 'main',
+    dtype: 'q8',
+  });
+}
+
 async function getBackend(dbPath?: string): Promise<any | null> {
   const dir = getDbPath(dbPath);
   let slot = backendSlots.get(dir);

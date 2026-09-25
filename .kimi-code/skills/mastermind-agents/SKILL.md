@@ -49,7 +49,7 @@ Display all agents in the org, then the org's live runtime status:
 ```bash
 orgFile=".monomind/orgs/${org_name}.json"
 
-jq -r '(.roles // [])[] | "• [\(.id)] \(.title)  agent=\(.agent_type)  reports_to=\(.reports_to // "none")"' "$orgFile"
+jq -r '(.roles // [])[] | "• [\(.id)] \(.title)  type=\(.type // "specialist")  reports_to=\(.reports_to // "none")"' "$orgFile"
 
 # Live runtime status (running/stopped/crashed, current run) — per-role
 # activity for a run is in `monomind org report <org>`.
@@ -63,26 +63,28 @@ Render as table:
 ```
 AGENTS — org: <org_name>
 ──────────────────────────────────────────────────────
-ID              TITLE              AGENT TYPE          REPORTS TO
-boss            CEO / Boss         coordinator         none
-content-writer  Content Writer     Content Creator     boss
+ID              TITLE              TYPE                REPORTS TO
+boss            CEO / Boss         boss                none
+content-writer  Content Writer     specialist          boss
 reviewer        Content Reviewer   reviewer            boss
 ...
 ```
 
 ### inspect
 
-Show full config + responsibilities + communication edges for a single agent:
+Show the full role config (responsibilities, adapter config) and who it reports to / who reports to it:
 
 ```bash
 jq --arg id "$agent_id" '(.roles // [])[] | select(.id == $id)' "$orgFile"
-jq --arg id "$agent_id" '(.communication // [])[] | select(.from == $id or .to == $id)' "$orgFile"
+jq -r --arg id "$agent_id" '(.roles // [])[] | select(.reports_to == $id) | "  direct report: \(.id)"' "$orgFile"
 ```
 
 ### hire
 
 Add a new role to the org. Prompt the user for:
-- `id` (slug, e.g. `seo-lead`), `title` (display name), `agent_type` (from mapping table in createorg.md), `responsibilities` (comma-separated), `reports_to` (role id or null)
+- `id` (slug, e.g. `seo-lead`), `title` (display name), `role_type` → the role's `type` (`specialist`, or a domain synonym such as `reviewer` / `researcher` — free text; only `boss` is special, and an org has exactly one root), `responsibilities` (comma-separated), `reports_to` (an existing role id — a hired role is never the root)
+
+Write the Org Runtime role shape (`RoleSchema` in `packages/@monomind/cli/src/orgrt/types.ts`): `type`, never the legacy `agent_type` key — a role carrying `agent_type` makes the whole config read as the retired v1 format.
 
 **Adapter/model selection** — present this picker:
 
@@ -109,16 +111,17 @@ adapter_model="${selected_model:-claude-sonnet-5}"
 tmp="${orgFile}.tmp"
 jq --arg id "$agent_id" \
    --arg title "$title" \
-   --arg agent_type "$agent_type" \
-   --arg reports_to "${reports_to:-}" \
+   --arg type "${role_type:-specialist}" \
+   --arg reports_to "$reports_to" \
    --arg model "$adapter_model" \
    --argjson resp "$(echo "$responsibilities" | jq -R 'split(",") | map(ltrimstr(" "))')" \
-   '.roles += [{"id":$id,"title":$title,"agent_type":$agent_type,
+   '.roles += [{"id":$id,"title":$title,"type":$type,
      "responsibilities":$resp,
-     "reports_to":($reports_to|if .=="" then null else . end),
+     "reports_to":$reports_to,
      "adapter_config":{"model":$model,"max_tokens":8192}}]' \
    "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-echo "Hired: $title ($agent_type) → adapter: $adapter_model"
+echo "Hired: $title (${role_type:-specialist}) → adapter: $adapter_model"
+npx -y monomind@latest org validate "$org_name"
 ```
 
 ### pause / resume
@@ -138,7 +141,7 @@ Confirm with user, then remove role from org config:
 
 ```bash
 tmp="${orgFile}.tmp"
-jq --arg id "$agent_id" '.roles = [(.roles // [])[] | select(.id != $id)] | .communication = [(.communication // [])[] | select(.from != $id and .to != $id)]' \
+jq --arg id "$agent_id" '.roles = [(.roles // [])[] | select(.id != $id)]' \
   "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
 ```
 

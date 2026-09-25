@@ -30,9 +30,8 @@ const ingestCommand: Command = {
     {
       name: 'embedder',
       description:
-        'Embedding model for this ingest: minilm (default, 384d) or bge-m3 (1024d, 8192-token context, 100+ languages; ~600MB+ download on first use)',
+        'Deprecated, has no effect: the knowledge base always embeds with Alibaba-NLP/gte-modernbert-base (768d), so every stored and searched vector shares one model. "minilm" (the legacy default) means that same model; any other value is ignored with a warning',
       type: 'string',
-      default: 'minilm',
     },
   ],
   examples: [
@@ -42,26 +41,19 @@ const ingestCommand: Command = {
       description: 'Ingest into the global brain (auto-detected for paths outside the project)',
     },
     { command: 'monomind doc ingest report.pdf', description: 'Ingest a single file' },
-    {
-      command: 'monomind doc ingest ./docs --embedder bge-m3',
-      description: 'Ingest using BGE-M3 (higher quality, larger model)',
-    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.args[0] || '.';
 
-    // P2-6: Wire embedder override before any embedding work happens.
+    // --embedder is kept only so existing scripts don't break. Chunks are stored
+    // through the memory bridge, which always embeds with its own model; an
+    // override here never reached it (it only swapped embedding-operations'
+    // model), and a different-dimension model could not share the 768d store.
     const embedder = ctx.flags.embedder as string | undefined;
     if (embedder && embedder !== 'minilm') {
-      const { setEmbedderOverride } = await import('../memory/embedding-operations.js');
-      try {
-        setEmbedderOverride(embedder);
-        output.writeln(output.dim(`  Using embedder: ${embedder}`));
-      } catch (_e) {
-        output.printWarning(
-          `Unknown embedder '${embedder}'. Available: minilm, bge-m3. Using default.`,
-        );
-      }
+      output.printWarning(
+        `--embedder ${embedder} is ignored: documents are always embedded with Alibaba-NLP/gte-modernbert-base (768d).`,
+      );
     }
 
     const { ingestDocument, ingestDirectory } = await import('../knowledge/document-pipeline.js');
