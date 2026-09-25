@@ -10,7 +10,7 @@ Coordinate tasks across a swarm of agents.
 ## Usage
 
 ```bash
-npx monomind swarm init [options]
+npx monomind monoswarm init [options]
 ```
 
 ## Options
@@ -25,19 +25,19 @@ npx monomind swarm init [options]
 ### Coordinate in parallel (default)
 
 ```bash
-npx monomind swarm init --task "Run all tests" --strategy parallel
+npx monomind monoswarm init --task "Run all tests" --strategy parallel
 ```
 
 ### Sequential pipeline
 
 ```bash
-npx monomind swarm init --task "Build, test, and deploy" --strategy pipeline
+npx monomind monoswarm init --task "Build, test, and deploy" --strategy pipeline
 ```
 
 ### Broadcast to all agents
 
 ```bash
-npx monomind swarm init --task "Update shared context" --strategy broadcast
+npx monomind monoswarm init --task "Update shared context" --strategy broadcast
 ```
 
 ## Task Lifecycle (separate from orchestration)
@@ -77,4 +77,4 @@ mcp__monomind__coordination_orchestrate({
 
 - `swarm-init` — initialize the swarm before orchestrating
 - `agent-spawn` — create agents to orchestrate tasks across
-- `swarm status` — check current swarm state (`monomind swarm status`)
+- `swarm status` — check current swarm state (`monomind monoswarm status`)

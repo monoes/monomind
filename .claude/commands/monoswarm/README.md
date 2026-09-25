@@ -50,9 +50,9 @@ monoswarm_shutdown        Clear run workers from the agent store, reset run stat
 
 ```bash
 # Initialize and start a run via CLI
-npx monomind swarm init --topology hierarchical --max-agents 8
-npx monomind swarm start "Build REST API" --strategy development
-npx monomind swarm status
+npx monomind monoswarm init --topology hierarchical --max-agents 8
+npx monomind monoswarm start "Build REST API" --strategy development
+npx monomind monoswarm status
 ```
 
 For vote-based decisions, use the MCP tools directly — see

@@ -58,10 +58,11 @@ Based on the task or user choice, pick ONE mode and output EXACTLY this structur
 **Launch command:**
 ```bash
 # Swarm:
-npx monomind swarm init --topology <topology> --max-agents <N> --strategy <strategy>
+npx monomind monoswarm init --topology <topology> --max-agents <N> --strategy <strategy>
 
-# OR Hive-Mind (no --strategy flag):
-npx monomind hive-mind init --topology <topology> --consensus <protocol> --max-agents <N>
+# OR Hive-Mind: the same command without --strategy. There is no --consensus
+# flag — state the consensus protocol in the coordinator's Task prompt.
+npx monomind monoswarm init --topology <topology> --max-agents <N>
 ```
 
 **Agent team:**

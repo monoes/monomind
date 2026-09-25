@@ -9,7 +9,7 @@ Initialize a monoswarm run with topology and (optionally) vote-strategy settings
 
 There is no `npx monomind monoswarm init` CLI command for the vote/consensus
 side — that part is invoked directly as an MCP tool call. For plain agent
-coordination without voting, use `npx monomind swarm init` (see `monoswarm.md`).
+coordination without voting, use `npx monomind monoswarm init` (see `monoswarm.md`).
 
 ```javascript
 mcp__monomind__monoswarm_init({

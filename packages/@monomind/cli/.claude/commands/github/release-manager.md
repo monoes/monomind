@@ -322,8 +322,6 @@ jobs:
           node-version: "20"
       - name: Install and Test
         run: npm install && npm test
-      - name: Validate Release
-        run: npx monomind release validate
 ```
 
 ## Monitoring and Metrics

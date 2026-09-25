@@ -4,57 +4,51 @@ name: automation:workflow-select
 
 # workflow-select
 
-Run a predefined workflow template for common tasks.
+Pick a predefined multi-agent workflow for a common task. The CLI has no `workflow` command; predefined workflows are org starter templates, run with `monomind org`.
 
-## Usage
+## Templates
 
-```bash
-npx monomind workflow run [options]
-```
-
-## Options
-
-- `--template, -t <name>` - Workflow template name
-- `--task <description>` - Task description (for template selection)
-- `--parallel` - Enable parallel agent execution
-- `--max-agents <n>` - Max agents to spawn (default: 4)
-- `--dry-run` - Preview workflow without executing
+| Template | Use for |
+|---|---|
+| `dev-team` | Feature development: plan, implement, test, review |
+| `research-pod` | Research and analysis |
+| `content-team` | Content production |
+| `kg-extraction` | Knowledge-graph extraction from documents |
+| `advisor-orchestrator` | An orchestrator that consults advisor roles |
 
 ## Examples
 
-### List available templates
+### Create an org from a template
 
 ```bash
-npx monomind workflow template list
-```
-
-### Run a template
-
-```bash
-npx monomind workflow run --template feature-development --task "Add OAuth login"
+npx monomind org create oauth --template dev-team --goal "Add OAuth login"
 ```
 
 ### Preview without executing
 
 ```bash
-npx monomind workflow run --template deploy --dry-run
+npx monomind org validate oauth
+npx monomind org run oauth --dry-run
 ```
 
-### Run in parallel
+### Run it
 
 ```bash
-npx monomind workflow run --template code-review --parallel --max-agents 6
+npx monomind org run oauth --task "Add OAuth login" --budget-usd 5
 ```
 
 ## Workflow Status
 
 ```bash
-npx monomind workflow list
-npx monomind workflow status --watch
+npx monomind org list
+npx monomind org status oauth
+npx monomind org logs oauth
 ```
+
+For a one-off workflow inside the conversation, skip the org and spawn the stage's agents with the Task tool instead (see `/workflows:workflow-execute`).
 
 ## See Also
 
 - `auto-agent` — spawn agents without a template
 - `smart-spawn` — auto-select agents from task description
-- `swarm init` — manual swarm initialization
+- `monoswarm init` — manual monoswarm initialization

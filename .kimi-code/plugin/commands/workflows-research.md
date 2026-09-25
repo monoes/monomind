@@ -1,11 +1,11 @@
 ---
 name: workflows:research
-description: Research workflow coordination pattern — mesh swarm for comprehensive exploration using real MCP tools and npx monomind workflow run -t research
+description: Research workflow pattern — parallel researcher agents via the Task tool with findings kept in memory, or a research-pod org via npx monomind org
 ---
 
 # Research Workflow Coordination
 
-Coordinate multi-agent research activities for comprehensive, systematic exploration.
+Coordinate multi-agent research. The CLI has no `workflow` command; run the stages with the Task tool, or as a `research-pod` org.
 
 ## How to Invoke
 
@@ -15,75 +15,59 @@ Skill("workflows:research")
 
 ---
 
-## Quick Start
-
-```bash
-# Run the built-in research workflow
-npx monomind workflow run -t research --task "Analyze modern web framework performance"
-
-# Preview stages without executing
-npx monomind workflow run -t research --dry-run
-
-# Show template details
-npx monomind workflow template show research
-```
-
 ## Stages
 
-The `research` template runs these stages:
-1. **Discovery** — Identify sources, gather raw information
-2. **Analysis** — Evaluate and compare findings
-3. **Synthesis** — Combine into coherent conclusions
-4. **Documentation** — Write up findings
+1. **Discovery** — identify sources, gather raw information
+2. **Analysis** — evaluate and compare findings
+3. **Synthesis** — combine into conclusions
+4. **Documentation** — write up findings
 
-Agents: `researcher`, `analyst` (mesh topology for broad coverage)
+## In the Conversation (Task Tool)
 
-## MCP Coordination
+Search past research first:
 
-For custom research coordination via MCP:
+```bash
+npx monomind memory search --query "web framework performance" --namespace research
+```
+
+Spawn one researcher per angle, in one message:
 
 ```javascript
-// Initialize mesh swarm for broad exploration
-mcp__monomind__swarm_init({
-  topology: "mesh",
-  maxAgents: 5,
-  strategy: "balanced"
-})
-
-// Run the research workflow
-mcp__monomind__workflow_run({
-  template: "research",
-  task: "Research modern web frameworks performance",
-  options: { parallel: true, maxAgents: 4 }
-})
-
-// Store research findings in memory
-mcp__monomind__memory_pattern-store({
-  key: "research-web-frameworks-2026",
-  value: "React/Next.js leads for SSR; Astro for static; Svelte for performance",
-  namespace: "research"
-})
-
-// Search past research before starting
-mcp__monomind__memory_pattern-search({
-  query: "web framework performance analysis",
-  namespace: "research",
-  limit: 5
-})
+Task({ subagent_type: "researcher", prompt: "Benchmarks and SSR performance of Next.js vs Astro vs SvelteKit (2026 sources)." })
+Task({ subagent_type: "researcher", prompt: "Bundle size and hydration cost comparisons for the same frameworks." })
+Task({ subagent_type: "researcher", prompt: "Production case studies and migration reports for the same frameworks." })
 ```
+
+Synthesize the results in the conversation, then store the conclusion:
+
+```bash
+npx monomind memory store --key "research-web-frameworks-2026" \
+  --value "Next.js leads for SSR; Astro for static; Svelte for runtime performance" \
+  --namespace research
+```
+
+Optional: record a mesh topology for the roster with `npx monomind monoswarm init --topology mesh --max-agents 5`.
+
+## As an Org
+
+```bash
+npx monomind org create fw-brief --template research-pod --goal "Brief on web framework performance"
+npx monomind org run fw-brief
+npx monomind org report fw-brief
+```
+
+The `research-pod` template has lead-analyst, researcher, and fact-checker roles.
 
 ## What Claude Code Actually Does
 
-1. **WebSearch** tool — finds relevant resources
-2. **Read** tool — analyzes documentation and code
-3. **Task** tool — spawns parallel research agents for different angles
-4. Synthesizes findings in the conversation
-5. Stores insights in memory for future sessions
-
-The workflow template coordinates the research strategy; Claude Code does the actual searching and reading.
+1. **WebSearch / WebFetch** — find and read sources
+2. **Read** — analyze documentation and code
+3. **Task** — parallel research agents for different angles
+4. Synthesizes findings and stores them in memory
 
 ## Related Skills
 
-- `workflows:workflow-execute` — Full workflow run reference
-- `swarm:research` — Direct swarm-based research coordination
-- `memory:memory-search` — Search past research findings
+- `workflows:workflow-execute` — Running workflows
+- `monoswarm:research` — Monoswarm-based research coordination
+- `mastermind-research` — Structured research protocol
+- `memory:memory-search` — Search past findings

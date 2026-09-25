@@ -39,8 +39,8 @@ mcp__monomind__coordination_orchestrate({
 
 ```bash
 # CLI equivalent
-npx monomind swarm init --topology star --max-agents 7
-npx monomind swarm start "test application" --strategy testing --parallel
+npx monomind monoswarm init --topology star --max-agents 7
+npx monomind monoswarm start "test application" --strategy testing --parallel
 ```
 
 ## Agent Roles

@@ -42,8 +42,8 @@ Pending tool approvals from a running org: `monomind org approvals <org>`, then 
 # Initialize project
 npx monomind init --wizard
 
-# Start background daemon
-npx monomind daemon start
+# Start the orchestration system (there is no background daemon)
+npx monomind start
 
 # System diagnostics
 npx monomind doctor --fix
@@ -55,9 +55,9 @@ npx monomind agent status --id <agent-id>
 npx monomind agent stop --id <agent-id>
 
 # Swarm management
-npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
-npx monomind swarm status
-npx monomind swarm stop
+npx monomind monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind monoswarm status
+npx monomind monoswarm stop
 
 # Memory operations
 npx monomind memory store --key "my-key" --value "my-value" --namespace patterns
@@ -65,9 +65,10 @@ npx monomind memory search --query "search terms"
 npx monomind memory list --namespace patterns
 npx monomind memory retrieve --key "my-key"
 
-# Workflow management
-npx monomind workflow run -t development --task "Build feature"
-npx monomind workflow list
+# Workflows (org starter templates — there is no workflow command)
+npx monomind org create feature --template dev-team --goal "Build feature"
+npx monomind org run feature --task "Build feature"
+npx monomind org list
 
 # Knowledge graph
 npx monomind monograph build

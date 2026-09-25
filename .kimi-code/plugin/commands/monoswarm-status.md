@@ -9,7 +9,7 @@ Show monoswarm status: agent roster, task metrics, and (if voting is in
 use) pending/history proposals.
 
 ```bash
-npx monomind@latest swarm status
+npx monomind@latest monoswarm status
 ```
 
 Or, for the fuller vote/consensus view, as an MCP tool call:
