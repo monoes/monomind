@@ -5,6 +5,7 @@
 
 import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -608,7 +609,12 @@ export function shouldRegisterMonomindProject(dir: string): boolean {
   // repository once per worktree and leaves stale entries when worktrees are
   // removed. This is intentionally path-component based so a project merely
   // containing the text ".worktrees" in another directory name is unaffected.
-  return !path.resolve(dir).split(path.sep).includes('.worktrees');
+  const resolved = path.resolve(dir);
+  if (resolved.split(path.sep).includes('.worktrees')) return false;
+  // Nor is a project under the temp directory: test suites and sandboxes init
+  // there by the hundred, and every entry is revisited by upgrade --all.
+  const inTmp = path.relative(path.resolve(os.tmpdir()), resolved);
+  return inTmp.startsWith('..') || path.isAbsolute(inTmp);
 }
 
 function _registerMonomindProject(dir: string): void {

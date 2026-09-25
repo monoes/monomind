@@ -40,7 +40,10 @@ function runInit(cwd: string, args: string[] = []): string {
     cwd,
     encoding: 'utf-8',
     timeout: 120_000,
-    env: { ...process.env, CI: '' }, // prove the TTY check alone is sufficient
+    // CI='' proves the TTY check alone is sufficient. A throwaway HOME keeps
+    // each run out of the real ~/.monomind-projects.json, which had collected
+    // one entry per run of this suite.
+    env: { ...process.env, CI: '', HOME: home },
   });
   return `${res.stdout ?? ''}${res.stderr ?? ''}`;
 }
@@ -61,12 +64,15 @@ function isAlive(pid: number): boolean {
   }
 }
 
+let home: string;
+
 describe('init does not orphan a watcher in a non-interactive run', () => {
   let cwd: string;
   const spawned: number[] = [];
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'init-watch-'));
+    home = mkdtempSync(join(tmpdir(), 'init-watch-home-'));
     mkdirSync(join(cwd, '.git'), { recursive: true }); // look like a repo
   });
 
@@ -80,6 +86,7 @@ describe('init does not orphan a watcher in a non-interactive run', () => {
       }
     }
     rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('starts no watcher and writes no PID file', () => {

@@ -71,6 +71,13 @@ describe('project-scope init writers', () => {
     expect(shouldRegisterMonomindProject('/projects/app/.worktrees/platform-parity')).toBe(false);
   });
 
+  it('does not register a project in the temp directory (test and sandbox inits)', () => {
+    // ~/.monomind-projects.json had collected hundreds of these, one per
+    // test run, each revisited by `init upgrade --all`.
+    expect(shouldRegisterMonomindProject(path.join(os.tmpdir(), 'monomind-init-x'))).toBe(false);
+    expect(shouldRegisterMonomindProject(os.tmpdir())).toBe(false);
+  });
+
   it('sweeps stale .kimi-code/plugin/commands and .kimi-code/skills entries once the source command is removed', async () => {
     const project = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-sweep-'));
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-sweep-home-'));
