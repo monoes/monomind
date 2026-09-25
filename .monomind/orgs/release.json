@@ -501,7 +501,7 @@
       "adapter_config": {
         "model": "claude-sonnet-5"
       },
-      "budget_usd": 12,
+      "budget_usd": 25,
       "policy": {
         "fileWrite": [],
         "git": "read",
