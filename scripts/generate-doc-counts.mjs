@@ -26,7 +26,8 @@
  * every machine and in CI.
  */
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -160,6 +161,54 @@ function countMastermindCommands() {
   ).length;
 }
 
+/** The npm-shipped asset tree `monomind init` copies from. */
+const CLI_PKG = 'packages/@monomind/cli';
+
+/**
+ * Agent definitions in the shipped tree, as the registry builder sees them
+ * (src/agents/registry-builder.ts: every `.md`, minus its SKIP_DIRS and `._`
+ * files). `pickable` leaves out `deprecated: true` agents, which stay
+ * spawnable by name but are never ranked.
+ */
+function countShippedAgents() {
+  const skipDirs = new Set(['schemas', 'ephemeral', 'reengineer-squad']);
+  let total = 0;
+  let deprecated = 0;
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('._')) continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (!skipDirs.has(e.name)) walk(full);
+      } else if (e.name.endsWith('.md')) {
+        total++;
+        const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(full, 'utf8'));
+        if (fm && /^deprecated:\s*true\s*$/m.test(fm[1])) deprecated++;
+      }
+    }
+  };
+  walk(join(REPO_ROOT, CLI_PKG, '.claude/agents'));
+  return { total, pickable: total - deprecated };
+}
+
+/** Slash commands and skills the pick index lists for the shipped tree —
+ *  the same builder the hooks and CLI use (.claude/helpers/build-skill-registry.cjs),
+ *  without the machine-local ~/.claude/skills. */
+function countShippedIndex() {
+  const require = createRequire(import.meta.url);
+  const builder = require(join(REPO_ROOT, '.claude/helpers/build-skill-registry.cjs'));
+  const { counts } = builder.build(join(REPO_ROOT, CLI_PKG), { user: false })._meta;
+  return { commands: counts.commands, skills: counts.skills };
+}
+
+/** Bundled Org skills: `<name>/SKILL.md` directories in the package's org-skills. */
+function countOrgSkills() {
+  const dir = join(REPO_ROOT, CLI_PKG, 'org-skills');
+  return readdirSync(dir).filter(
+    (n) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(n) && existsSync(join(dir, n, 'SKILL.md')),
+  ).length;
+}
+
 /** Workspace packages with a package.json (pnpm-workspace.yaml globs), not counting the root umbrella. */
 function countPackages() {
   let n = 0;
@@ -182,6 +231,9 @@ function countPackages() {
 // Marker substitution
 // ---------------------------------------------------------------------------
 
+const SHIPPED_AGENTS = countShippedAgents();
+const SHIPPED_INDEX = countShippedIndex();
+
 const COUNTS = {
   workers: countWorkers(),
   'root-skills': countRootSkills(),
@@ -190,6 +242,12 @@ const COUNTS = {
   'hooks-subcommands': countHooksSubcommands(),
   'mastermind-commands': countMastermindCommands(),
   packages: countPackages(),
+  'bundled-agents': SHIPPED_AGENTS.total,
+  'pickable-agents': SHIPPED_AGENTS.pickable,
+  'bundled-skills': countNamedFiles(`${CLI_PKG}/.claude/skills`, 'SKILL.md'),
+  'pickable-skills': SHIPPED_INDEX.skills,
+  'slash-commands': SHIPPED_INDEX.commands,
+  'org-skills': countOrgSkills(),
 };
 
 /**
@@ -249,7 +307,10 @@ const DOC_FILES = [
   'packages/@monomind/cli/CLAUDE.md',
   'doc/index.html',
   'doc/design-system.html',
+  'doc/getting-started.md',
+  'doc/concepts/agents-and-skills.md',
   'doc/commands/cli-reference.md',
+  'doc/commands/org.md',
   'doc/concepts/hooks.md',
   'doc/concepts/statusline.md',
 ];

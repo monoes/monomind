@@ -227,19 +227,21 @@ npx monomind@latest security scan --depth full
 npx monomind@latest performance benchmark --suite all
 ```
 
-## Available Agents (97 definitions in this package's `.claude/agents/`, 97 registered)
+## Available Agents (<!-- doc-count:bundled-agents -->88<!-- /doc-count:bundled-agents --> shipped, <!-- doc-count:pickable-agents -->84<!-- /doc-count:pickable-agents --> pickable)
 
 **Counts are for THIS package, not the repo root.** `packages/@monomind/cli/.claude/agents/`
-holds 97 `.md` files with 97 entries in `packages/@monomind/cli/.monomind/registry.json`;
-the repo-root `.claude/agents/` tree is a different set (88 files). Unlike the repo-root
-tree, this package's tree has no `generated/` subdirectory — the one generated definition
-(`dashboard-verifier`) lives only under the repo-root `.claude/agents/generated/`. Because
-`package.json`'s `files` array includes `.claude`, all 97 ship to npm users — so the
-package's own tree is the number that matters here.
+holds 97 `.md` files. The 9 under `reengineer-squad/` are repo-only: `package.json`'s `files`
+array excludes them and the registry builder skips them, so npm users get the rest, and
+`monomind init` copies them into `.claude/agents/`. Of those, 4 carry `deprecated: true`
+(`Code Reviewer`, `monoswarm-pr`, `monoswarm-issue`, `mobile-dev`): they stay
+spawnable by name but are never picked.
 
 By directory: engineering 23, specialized 15, github 12, testing 9, reengineer-squad 9,
 core 6, optimization 5, marketing 5, monoswarm 5, consensus 2, templates 2, plus one
 file each in architecture, design, goal, and specialists.
+
+Where agents, skills and Org skills live, their frontmatter, and how to add your own:
+`doc/concepts/agents-and-skills.md`. How the picker ranks them: `doc/concepts/routing.md`.
 
 The curated roster below is the subset worth routing to by hand. It is **not** the complete
 set — names such as `security-manager`, `production-validator`,
@@ -274,7 +276,7 @@ checked-in definitions in this package, and `src/init/executor.ts` and
 
 ### Non-roster definitions
 
-`monoswarm-init` (template) and `dashboard-verifier` (generated, repo-root tree only).
+`monoswarm-init` (template) and `dashboard-verifier` (repo-root tree only).
 
 ### Input Guards (inlined into `src/utils/input-guards.ts`)
 
@@ -326,8 +328,8 @@ npx monomind@latest hooks statusline --json
 
 The lean build records what happens and measures whether routing helped — no neural training:
 
-- **Keyword routing**: deterministic task→handler routing (`createKeywordRouter`)
-- **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
+- **Agent and skill picking**: one index of registry agents and skills, ranked by a Jev decision model when configured and by a BM25-style keyword ranker otherwise; the prompt hook delivers it as a `[PICK]` line, `monomind pick` and the `pick` MCP tool on request (`doc/concepts/routing.md`)
+- **Route-outcome measurement**: correlates each pick with the subagent actually spawned and its success; adherence surfaced by `doctor -c pick` and `route stats`, and near-tied keyword picks re-ranked within ±15 %
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
 - **HNSW**: real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` (`packages/@monomind/memory/src/sql-backend.ts`) — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 5000; below it, brute-force cosine is cheaper and stays the path, per the second-brain-scale note on `search()`). The built graph is persisted to disk next to the SQLite file (`HNSWIndex.serialize()`/`.deserialize()` in `hnsw-index.ts`) and validated by entry count, so a fresh CLI invocation loads it instead of paying a full rebuild when the corpus hasn't changed. `memory search --build-hnsw` force-builds and caches it ahead of time (`bridgeForceBuildHNSW()` in `memory-bridge.ts`); `bridgeGetHNSWStatus()` reports real status.

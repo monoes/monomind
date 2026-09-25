@@ -22,6 +22,7 @@
   <a href="https://monoes.github.io/monomind/#orgs">🏢 Orgs</a> &nbsp;·&nbsp;
   <a href="https://monoes.github.io/monomind/#getting-started">🚀 Quickstart</a> &nbsp;·&nbsp;
   <a href="https://monoes.github.io/monomind/#mastermind">⚡ Mastermind</a> &nbsp;·&nbsp;
+  <a href="https://monoes.github.io/monomind/#agents">🧩 Agents &amp; Skills</a> &nbsp;·&nbsp;
   <a href="https://monoes.github.io/monomind/#slash">📋 Commands</a> &nbsp;·&nbsp;
   <a href="https://monoes.github.io/monomind/#architecture">🏗️ Architecture</a>
 </p>
@@ -35,7 +36,8 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [
 - **Codebase knowledge graph** — tree-sitter parses your code into a SQLite-backed graph of files, functions, classes, and their relationships. Query imports, callers, and blast radius before making changes.
 - **Persistent memory** — a JSON pattern store with episodic recall that survives across sessions. Agents and orgs share context without re-prompting.
 - **Multi-agent coordination** — in-session, spawn ad-hoc agent teams via Claude Code's Task tool; for persistent background work, `monomind org run` starts a real SDK-backed daemon with policy-gated role agents and a live dashboard.
-- **Reusable slash commands** — 30+ development workflows (build, review, debug, TDD, architecture) available as `/mastermind:*` commands inside Claude Code.
+- **Agents, skills and picking** — ships <!-- doc-count:pickable-agents -->84<!-- /doc-count:pickable-agents --> pickable agents, <!-- doc-count:pickable-skills -->84<!-- /doc-count:pickable-skills --> skills and <!-- doc-count:org-skills -->376<!-- /doc-count:org-skills --> Org skills, and you add your own as Markdown files. One index of all of them ranks the best fit for each task; the prompt hook puts it in Claude's context as a `[PICK]` line, and `monomind pick` or the `pick` MCP tool return it on request. See [Agents & Skills](doc/concepts/agents-and-skills.md) and [Routing](doc/concepts/routing.md).
+- **Reusable slash commands** — <!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> workflows (plan, execute, review, debug, release, research, worktree) available as `/mastermind:*` commands inside Claude Code.
 
 ```bash
 npm install -g monomind        # Apache 2.0 licensed, runs entirely on your machine
@@ -191,46 +193,30 @@ monomind org delete <name>          # remove an org
 monomind org memory <name>          # cross-run KG memory: stats (default) | search <q> | rules | rollback <run-ref>
 ```
 
-`org` has 31 subcommands total (run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory, costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete) — `org memory` is the newest addition.
+`org` has <!-- doc-count:org-subcommands -->36<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete).
 
-> **Note:** `/mastermind:runorg` now delegates directly to the Org Runtime v2 daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. The old prompt-orchestrated flow (Task-tool boss agent, monotask board, manual dashboard event posting) is retired to `/mastermind:runorgv1`, reachable only by that explicit legacy name, kept only for orgs not yet migrated off the v1 config shape. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
+> **Note:** `/mastermind:runorg` now delegates directly to the Org Runtime v2 daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. The old prompt-orchestrated flow (Task-tool boss agent, monotask board, manual dashboard event posting) is retired and no longer ships; `/mastermind:runorg` auto-migrates v1-shaped configs before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
 
 ---
 
-## ⚡ The Autonomous Build Loop
+## ⚡ Looping Workflows
 
-For code, `/mastermind:autodev` is the equivalent of Orgs — a loop that researches, builds, and reviews your codebase without stopping.
-
-```mermaid
-flowchart LR
-    R["Research\nParallel scan:\ngit log, files\nTODOs, graph\nmemory"] --> S
-    S["Select\nFeasibility x\nblast-radius x\nfocus"] --> B
-    B["Build\nArchitect\nCoder\nTester\nReviewer"] --> V
-    V["Review Loop\nCode + Security\n+ Reality\nmax 5 iterations"] --> L
-    L["Log + Loop\nStore to memory\n--tillend:\nschedule next"]
-    L -->|"more to do"| R
-
-    style R fill:#00D2AA22,stroke:#00D2AA
-    style B fill:#8B5CF622,stroke:#8B5CF6
-    style V fill:#F59E0B22,stroke:#F59E0B
-    style L fill:#10B98122,stroke:#10B981
-```
+For code, the `/mastermind:*` workflows can loop instead of running once. Add `--tillend` to `/mastermind:review`, `/mastermind:improve`, `/mastermind:debug` and most other workflows (`/mastermind:help` lists them) to repeat until a round finds nothing left to do.
 
 ```bash
-/mastermind:autodev --tillend              # loop until nothing left
-/mastermind:autodev --tillend --focus security   # bias toward security fixes
-/mastermind:autodev 3                     # exactly 3 improvements
+/mastermind:review --tillend                     # review → fix → verify until a round finds nothing
+/mastermind:improve --repeat 3 the auth flow     # exactly 3 improvement passes
+/mastermind:plan add rate limiting               # then /mastermind:execute the plan
 ```
 
-### Universal loop flags
+### Loop flags
 
 | Flag | Purpose |
 |---|---|
-| `--tillend` | Repeat until empty round (zero findings, zero actions) |
+| `--tillend` | Repeat until an empty round (zero findings, zero actions) |
 | `--repeat <N>` | Repeat exactly N times |
-| `--focus <area>` | Bias toward: `security` · `dx` · `performance` |
-| `--auto` | No confirmation prompts |
-| `--maxruns <N>` | Safety cap (default 50) |
+| `--maxruns <N>` | Safety cap for `--tillend` (default 50) |
+| `--wait <seconds>` | Pause between runs |
 
 ---
 
@@ -251,14 +237,14 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 monomind doctor --fix
 ```
 
-> **Semantic routing (opt-in download):** embedding-based task routing needs a local model (~88 MB, `Snowflake/snowflake-arctic-embed-xs` via transformers.js). `monomind init` asks interactively whether to download it — the default is No, and non-interactive/CI installs never download it silently. Declining is fine: routing falls back to keyword mode. Fetch it any time with `monomind download-embeddings` (or `node scripts/download-embedding-model.mjs` on a source checkout).
+> **Semantic routing (opt-in download):** embedding-based task routing needs a local model (~88 MB, `Snowflake/snowflake-arctic-embed-xs` via transformers.js). `monomind init` asks interactively whether to download it — the default is No, and non-interactive/CI installs never download it silently. Declining is fine: agent picking (`monomind pick`, the `[PICK]` hook line, `hooks route`) never needs the model; only `route semantic`, `hooks_route_semantic` and `agent spawn --task` use it, after the picker, and fall back to keyword and hash matching without it. Fetch it any time with `monomind download-embeddings` (or `node scripts/download-embedding-model.mjs` on a source checkout).
 
 > **Native module install blocked?** If `doctor` reports a missing `better-sqlite3` binding (`Could not locate the bindings file`, or npm logs an install script that was "blocked because it is not covered by allowScripts"), your npm's `allowScripts` policy blocked its native build — this isn't a Monomind bug. Run `npm install-scripts approve better-sqlite3 && npm rebuild better-sqlite3`, then re-run `monomind doctor --fix`.
 
-Open Claude Code. You now have 49 `/mastermind:*` workflows available:
+Open Claude Code. You now have <!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> `/mastermind:*` workflows available:
 
 ```bash
-/mastermind:autodev --tillend     # start autonomous code loop
+/mastermind:review --tillend      # review and fix until nothing is left
 monomind org run sample-team      # run your first AI org (init writes a runnable sample-team.json — edit it, or run it as-is)
 /mastermind:help                  # show all commands
 ```
@@ -372,20 +358,19 @@ In Claude Code, the live pre-bash/pre-write gate is wired up via its own lazy-lo
 
 ---
 
-## 📋 49 Mastermind Commands
+## 📋 <!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> Mastermind Commands
 
 Everything runs from inside Claude Code via slash commands. Here's the highlight reel:
 
 ### Development
 | Command | What it does |
 |---|---|
-| `/mastermind:autodev` | Autonomous research → build → review loop |
-| `/mastermind:build` | Build a feature from a brief |
+| `/mastermind:plan` | Comprehensive implementation plan |
+| `/mastermind:execute` | Execute a written plan step by step, then hand off to review |
 | `/mastermind:review` | Iterative review until zero findings |
 | `/mastermind:debug` | Systematic root-cause debugging |
-| `/mastermind:tdd` | Red → Green → Refactor |
-| `/mastermind:architect` | Architecture review + file structure |
-| `/mastermind:plan` | Comprehensive implementation plan |
+| `/mastermind:improve` | Analyze a component and write improvement tasks |
+| `/mastermind:release` | Versioning, changelog, deployment coordination |
 | `/mastermind:worktree` | Feature work in isolated git worktree |
 
 ### Organizations
@@ -394,7 +379,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `monomind org run <name>` | Start an org as a real SDK-backed daemon |
 | `monomind org status` / `list` | Runtime state for one or all orgs |
 | `monomind org stop <name>` | Request a graceful stop |
-| `/mastermind:approvev1` | Action pending approval requests |
+| `monomind org approve <name>` / `deny` | Act on pending approval requests |
 
 ### Business Domains
 | Command | What it does |
@@ -405,7 +390,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `/mastermind:finance` | Budgets, invoicing, modeling |
 | `/mastermind:ops` | Operations and workflow automation |
 
-**[→ Full reference (49 commands)](https://monoes.github.io/monomind/#slash)**
+**[→ Full reference (<!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> commands)](https://monoes.github.io/monomind/#slash)**
 
 ---
 
@@ -414,7 +399,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | Package | npm | Purpose |
 |---|---|---|
 | `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella shim — **install this one** |
-| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (32 commands, MCP server) |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (<!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands --> commands, MCP server) |
 | `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph (tree-sitter + SQLite) |
 | `@monoes/memory` | [![npm](https://img.shields.io/npm/v/@monoes/memory?style=flat-square&color=8B5CF6)](https://www.npmjs.com/package/@monoes/memory) | Persistent memory backends (SQLite + vectors) |
 | `@monoes/hooks` | [![npm](https://img.shields.io/npm/v/@monoes/hooks?style=flat-square&color=10B981)](https://www.npmjs.com/package/@monoes/hooks) | Hook registry + 9 on-demand workers |
@@ -424,7 +409,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `@monoes/monodesign` | [![npm](https://img.shields.io/npm/v/@monoes/monodesign?style=flat-square&color=EC4899)](https://www.npmjs.com/package/@monoes/monodesign) | Frontend design intelligence |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
 
-See [CLI Reference](./doc/commands/cli-reference.md) for the full 32-command index.
+See [CLI Reference](./doc/commands/cli-reference.md) for the full <!-- doc-count:cli-commands -->38<!-- /doc-count:cli-commands -->-command index.
 
 ---
 
@@ -442,7 +427,7 @@ graph TD
 
     D --> ADB[("Memory store\npatterns + episodes")]
     D --> MG[("Monograph\ncode graph")]
-    D --> HK["Hooks\n29 subcommands"]
+    D --> HK["Hooks\n28 subcommands"]
 
     CC -->|"Task tool - spawns agents"| AG["In-session agents\narchitect, coder\ntester, reviewer\nsecurity, perf"]
     AG <-->|reads and writes| ADB

@@ -3,6 +3,8 @@
 > **Version 2.9.0**  
 > Routing in Monomind answers one question: which agent (and which skill) fits this task. Every selector asks the same **central picker** — one index of registry agents and skills, ranked by the Jev decision model when one is configured and by a BM25-style keyword ranker otherwise. The prompt hook delivers its answer to Claude as a `[PICK]` line, the `pick` MCP tool and `monomind pick` return it on request, and `hooks_route`, `hooks_pre-task`, `hooks_explain`, `route task` and `guidance_recommend` are wrappers over it. The embedding-based route layer (`@monoes/routing`: regex pre-filter, cosine similarity, Haiku fallback) runs only for `route semantic`, `hooks_route_semantic` and `agent spawn --task`, and only after the picker has no confident answer.
 >
+> Where agents, skills and Org skills live, their frontmatter and how to add one are on [Agents & Skills](./agents-and-skills.md); this page is the mechanism.
+>
 > Picks feed a small learning loop: the hooks log whether a spawned subagent followed the pick and whether it succeeded, and that history re-ranks near-tied keyword picks within ±15 %. There is no reinforcement learning here: no Q-table, no exploration, no trained model.
 
 ---
@@ -45,7 +47,7 @@ flowchart TD
 
 ### Agents
 
-Agents come only from the project's agent registry, `.monomind/registry.json`, built from `.claude/agents/**/*.md` (plus any extra agent roots, which win slug conflicts) by `registry-builder.ts`. The registry is built for the project root, rebuilt and awaited when it is missing or older than the agent files, written atomically, and never replaced by an empty one.
+Agents come only from the project's agent registry, `.monomind/registry.json`, built from `.claude/agents/**/*.md` (plus any extra agent roots — `$MONOMIND_EXTRA_AGENT_PATHS` or a sibling `../agency-agents` — which win slug conflicts) and the user's `~/.claude/agents/**` (origin `user`; a project agent of the same name wins) by `registry-builder.ts`. The registry is built for the project root, rebuilt when it is missing or older than the agent files — by any `monomind` command run in the project, and awaited before `monomind pick` and the `pick` MCP tool rank — written atomically, and never replaced by an empty one. Outside a project, `monomind pick` builds it in memory and writes nothing. The full list of roots and the frontmatter reference are in [Agents & Skills](./agents-and-skills.md#1-where-things-live).
 
 [`jev-catalog.cjs → loadAgentCatalog`](.claude/helpers/jev-catalog.cjs#loadAgentCatalog) turns it into candidates. Each agent's text is its one-line `when_to_use` followed by its description, plus its category, tags, capabilities, task types and vibe. Agents marked `deprecated: true` are left out of ranking but can still be spawned by name. Every agent carries `when_to_use`, `tags` and one `category`: core, architecture, engineering, testing, security, devops, github, marketing, design, coordination, data-ai or specialized.
 
@@ -73,6 +75,7 @@ A skill can declare `pick: low` in its frontmatter. Admin and meta skills (org m
 
 [`pick-rank.cjs`](.claude/helpers/pick-rank.cjs) scores each catalog item against the task, BM25-style:
 
+- words are letter/digit runs of any script: Latin, Greek and Cyrillic accents are folded (`résumé` → `resume`) and Chinese, Japanese and Korean runs are indexed as overlapping character pairs;
 - stopwords are dropped and words are lightly stemmed (`test`, `tests`, `testing`, `tester` meet);
 - each query word is weighted by its rarity across the catalog (IDF);
 - description matches saturate and are normalised by description length, so a long description does not win by size;
@@ -93,7 +96,7 @@ When `MONOMIND_JEV_URL` (self-hosted OpenJev) or `TYPESAFE_API_KEY` + `MONOMIND_
 
 An answer between the two floors is kept and flagged `lowConfidence: true`. Below the pick floor (or with no model, a timeout or a provider error) the list falls back to keyword ranking. Jev tail entries under probability 0.02 are dropped. Each list reports `method` (`jev` or `keyword`) and `source`: `jev`, `keyword` (no model configured) or `keyword-fallback` (a model was asked but gave no usable answer).
 
-`doctor -c jev` probes the configured providers.
+Each shortlisted candidate is sent as its id and its description (for an agent, `when_to_use — description`) cut at 160 characters, and the task is cut at 8000; secrets are redacted first. [Privacy](../privacy.md) lists exactly what leaves the machine. `doctor -c jev` probes the configured providers.
 
 ---
 

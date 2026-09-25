@@ -30,6 +30,13 @@
 - Blast radius calculations based on outgoing BFS traversal and exponential depth decay.
 - Concept Doc: [`doc/concepts/monograph.md`](doc/concepts/monograph.md)
 
+### Agents, Skills & Org Skills
+- Agents: `.claude/agents/<category>/<name>.md` (project), `~/.claude/agents/**` (user; the project wins a name clash), `$MONOMIND_EXTRA_AGENT_PATHS` or a sibling `../agency-agents` (extra roots, win slug clashes); originals ship in `packages/@monomind/cli/.claude/agents`. Indexed in `.monomind/registry.json`. Frontmatter: `name` (the spawnable Task `subagent_type`), `description` and `when_to_use` (each <=160 chars; `when_to_use` starts "Use when"), `tags`, `category`, optional `deprecated`/`deprecatedBy`, `slug`.
+- Skills: `.claude/skills/<name>/SKILL.md` and `~/.claude/skills`; slash commands: `.claude/commands/<group>/<name>.md` -> `/<group>:<name>`. Indexed per machine in `.claude/helpers/skill-registry.json` (never shipped). `pick: low` ranks an admin/meta entry below equal matches; `type: helper`, README/overview/reference pages and `_`-prefixed files are never entries.
+- Org skills: `.monomind/org-skills` (project), `~/.monomind/org-skills` (user), `packages/@monomind/cli/org-skills` (bundled; tags from `TAGS.md`), plus active catalog skills. Frontmatter: `name`, `description`, `tags`, `tools`, `license`. Read with `monomind org skills show <name>` or the `org_skill_show` MCP tool; org roles use `skills`, `skill_pool`, `org_skill_load`, `org_skill_search`.
+- Verify: `monomind pick -t "<task>" --agents|--skills [--explain]`, `monomind doctor -c pick`, `monomind org skills search`; contributors: `pnpm run pick:eval`, `pnpm run lint:agent-refs`, `node scripts/sync-claude-trees.mjs`.
+- Concept Doc: [`doc/concepts/agents-and-skills.md`](doc/concepts/agents-and-skills.md)
+
 ### Routing Subsystem
 - One central picker for agents and skills: registry agents (`.monomind/registry.json`) plus one generated skill index (platform, `~/.claude/skills` and Org-library skills). `monomind pick`, the `pick` MCP tool, the `UserPromptSubmit` hook's `[PICK] agent: <name> · skill: <invoke>` line, `hooks_route`, `hooks_pre-task`, `hooks_explain`, `route task` and `guidance_recommend` all rank through it; agents are returned as spawnable Task `subagent_type` names.
 - Ranking: a Jev-compatible decision model (self-hosted OpenJev via `MONOMIND_JEV_URL`, or hosted TypeSafe with `TYPESAFE_API_KEY` + `MONOMIND_JEV_HOSTED=1`) when configured, acted on unattended at 0.6 and shown as low-confidence down to 0.25; otherwise a BM25-style keyword ranker (stopwords, stemming, IDF, length normalisation). Off by default. Also backs `org skills search`, `org_task`'s `assignee: "auto"` and per-task org skill suggestions.

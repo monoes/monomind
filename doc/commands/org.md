@@ -1,6 +1,6 @@
 # `monomind org` — Command Reference
 
-> **33 subcommands** for starting, stopping, monitoring, and managing autonomous agent
+> **<!-- doc-count:org-subcommands -->36<!-- /doc-count:org-subcommands --> subcommands** for starting, stopping, monitoring, and managing autonomous agent
 > organizations. All commands target a named org config in `.monomind/orgs/<name>.json`.
 
 ---
@@ -22,6 +22,7 @@
 | [`watch`](#watch) | Live-tail one role's assistant chat text |
 | [`report`](#report) | Summarize a run (cost, tokens, assets, crashes) |
 | [`memory`](#memory) | Cross-run knowledge-graph memory |
+| [`skills`](#org-skills--the-org-skill-library) | Browse, search, read and import Org-library skills |
 | [`costs`](#costs) | Per-role cost tracking |
 | [`inbox`](#inbox) | Deliver an inbound cross-org message (live or queued) |
 | [`flow`](#flow) | Export Mermaid message flow diagram |
@@ -252,6 +253,30 @@ monomind org memory <name> <subcommand>
 | `rollback <run-ref>` | Undo all memory written by a specific run |
 
 **Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
+
+---
+
+## `org skills` — the Org skill library
+
+List, search, read and import the skills org roles are fed by name (`skills`, `skill_pool`). The library is the project's `.monomind/org-skills`, then `~/.monomind/org-skills`, then the bundled set, then active catalog skills; the first match by name wins. How to write one, and where each root lives, is on [Agents & Skills](../concepts/agents-and-skills.md#4-adding-an-org-skill).
+
+```bash
+monomind org skills [list] [--tag <tag>]                     # every skill, with tags and description
+monomind org skills search "<text>" [--tag <tag>] [--limit 10]
+monomind org skills show <name>                              # frontmatter, license, source, body
+monomind org skills import <owner/repo | git-url | path> [--global | --into <dir>] [--only a,b] [--tags x,y] [--overwrite]
+```
+
+| Verb | Behavior |
+|---|---|
+| `list` (default) | Every skill across the roots, sorted by name; `--tag` filters |
+| `search` | Keyword-ranks name, tags and description (a name or tag hit weighs more); when a Jev decision model is configured it re-ranks the shortlist and each hit shows its probability |
+| `show` | One skill: description, tags, `tools`, license, source and origin, reference files and the full body. The same content as the `org_skill_show` MCP tool |
+| `import` | Copies a repository's skills into `.monomind/org-skills` (`--global`: `~/.monomind/org-skills`; `--into`: any directory). Only MIT and Apache-2.0 skills are imported; others are listed as skipped |
+
+`--format json` prints JSON for every verb. `monomind org validate` fails on a `skills` or `skill_pool` entry that names no skill, or a `tag:` selector that matches none.
+
+**Source:** [`commands/org-skills.ts → orgSkillsAction`](packages/@monomind/cli/src/commands/org-skills.ts#orgSkillsAction), [`orgrt/skill-library.ts`](packages/@monomind/cli/src/orgrt/skill-library.ts#listSkills)
 
 ---
 
