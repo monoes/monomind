@@ -10,12 +10,11 @@
  * installed when its runner would spawn a different binary (or vice versa).
  */
 
-import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import { delimiter, join } from 'node:path';
 import type { AgentRunner } from './agent-runner.js';
 import { type RuntimeKind, resolveRunner } from './daemon.js';
-import { omitAnthropicManagedKeys } from './provider.js';
+import { detectVersion, type VersionSource } from './version-probe.js';
 
 export interface RunnerSpec {
   /** Runtime id accepted by `agent exec --runtime` and org role `runtime`. */
@@ -287,6 +286,8 @@ export interface ScanEntry {
   installed: boolean;
   binary: string | null;
   version: string | null;
+  /** Where `version` came from; null when not installed (rev 11, #337). */
+  version_source: VersionSource | null;
   install_hint: string;
   /** `install_hint` in a shape a caller can execute safely (rev 9). */
   install: InstallRecipe;
@@ -376,52 +377,25 @@ function locateBinary(bin: string, env: NodeJS.ProcessEnv): string | null {
   return null;
 }
 
-/** Probe `bin --version` with a hard per-binary timeout (default 5s). */
-function probeVersion(binPath: string, timeoutMs = 5000): Promise<string | null> {
-  return new Promise((resolve) => {
-    const child = execFile(
-      binPath,
-      ['--version'],
-      // o-18: binPath honours the <X>_CLI_BIN override (resolveBinary above),
-      // so this is an arbitrary, env-controlled path — strip the three
-      // ANTHROPIC_* keys the same way every AgentRunner spawn does. binPath
-      // is already absolute (locateBinary), so PATH resolution is unaffected.
-      { timeout: timeoutMs, windowsHide: true, env: omitAnthropicManagedKeys(process.env) },
-      (err, stdout) => {
-        if (err) {
-          // Some CLIs exit non-zero for --version yet still print it.
-          const line = String(stdout ?? '')
-            .trim()
-            .split('\n')[0];
-          resolve(line || null);
-          return;
-        }
-        resolve(
-          String(stdout ?? '')
-            .trim()
-            .split('\n')[0] || null,
-        );
-      },
-    );
-    // Belt-and-braces: execFile timeout kills, but a wedged pre-exec spawn
-    // also needs the promise settled.
-    child.on('error', () => resolve(null));
-  });
-}
-
 export interface ScanOptions {
   /** Env used for PATH + `<X>_CLI_BIN` overrides (default process.env). */
   env?: NodeJS.ProcessEnv;
   /** Per-binary `--version` probe timeout (default 5s). */
   versionTimeoutMs?: number;
-  /** Skip version probes (binary-presence scan only). */
+  /** Skip version detection (binary-presence scan only). */
   skipVersionProbe?: boolean;
+  /**
+   * Run `--version` (in a scratch HOME) for every installed runtime whose
+   * install metadata has no version, not only the side-effect-free ones.
+   */
+  probe?: boolean;
 }
 
 /**
  * Detect every known runtime, in parallel. Exit-0-always by contract —
  * detection, not a test. Auth is deliberately NOT probed (§6): logins are
- * too heterogeneous; auth failures surface at exec time.
+ * too heterogeneous; auth failures surface at exec time. Read-only unless
+ * `probe` is set: see version-probe.ts for when a binary is run (#337).
  */
 export async function scanInstalled(opts: ScanOptions = {}): Promise<{
   v: number;
@@ -432,15 +406,18 @@ export async function scanInstalled(opts: ScanOptions = {}): Promise<{
     RUNNER_SPECS.map(async (spec): Promise<ScanEntry> => {
       const bin = resolveBinary(spec, env);
       const binPath = bin ? locateBinary(bin, env) : null;
-      const installed = binPath !== null;
+      const detected =
+        binPath === null
+          ? null
+          : opts.skipVersionProbe
+            ? { version: null, source: 'not-probed' as const }
+            : await detectVersion(spec.id, binPath, opts);
       return {
         id: spec.id,
-        installed,
+        installed: binPath !== null,
         binary: binPath,
-        version:
-          installed && !opts.skipVersionProbe && binPath
-            ? await probeVersion(binPath, opts.versionTimeoutMs)
-            : null,
+        version: detected?.version ?? null,
+        version_source: detected?.source ?? null,
         install_hint: spec.installHint,
         install: installRecipe(spec.installHint),
         login_hint: spec.loginHint ?? null,
