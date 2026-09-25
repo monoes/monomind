@@ -16,7 +16,7 @@
 import { roleCatalog } from '../decision/catalogs.js';
 import { acceptAgent, type PickOptions, pickWithJev } from '../decision/jev.js';
 import { agentRoles } from './endpoint-roles.js';
-import type { OrgRole } from './types.js';
+import type { OrgDef, OrgRole } from './types.js';
 
 /** How much of a task brief the pickers read. */
 export const PICK_BRIEF_CHARS = 600;
@@ -329,4 +329,30 @@ export function keywordSkills(
     .sort((a, b) => b.adj - a.adj || a.i - b.i)
     .slice(0, max)
     .map((s) => s.id);
+}
+
+/** Resolves `assignee: "auto"` on org_task (SessionOpts.pickAssignee).
+ *  pickTaskRole (task-match.ts) falls back to a deterministic keyword match
+ *  over role titles/responsibilities whenever no decision model answers, so
+ *  this is wired unconditionally: gating it behind decisionModelConfigured()
+ *  once left a literal "auto" assignee stranded as 'ready' forever
+ *  (round1-issue1). Candidates are the agent roles other than the caller;
+ *  `load` (open tasks per role) only breaks ties between interchangeable
+ *  roles; `history` (the run's tasks) lets the keyword pick lean toward roles
+ *  that finished similar tasks. */
+export function resolveAutoAssignee(
+  def: Pick<OrgDef, 'roles'>,
+  load?: (roleId: string) => number,
+  history?: () => TaskOutcome[],
+): (title: string, brief?: string, caller?: string) => Promise<RolePick> {
+  return (title: string, brief?: string, caller?: string) =>
+    pickTaskRole({ title, brief }, def.roles, {
+      caller,
+      load,
+      history: history?.(),
+      onError: (err) =>
+        process.stderr.write(
+          `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
+        ),
+    });
 }

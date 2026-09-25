@@ -58,7 +58,7 @@ export interface OrgTask {
    *  with the rest of the row. Absent when none was selected. */
   loadout?: string;
   /** The creator's instructions for the task — scope, acceptance criteria,
-   *  what failed last time. Sent with the title in every dispatch (decisions.ts
+   *  what failed last time. Sent with the title in every dispatch (task-provenance.ts
    *  dispatchLine), so it arrives with the task however late that is, and it
    *  rides the checkpoint with the rest of the row. At most MAX_TASK_BRIEF. */
   brief?: string;
