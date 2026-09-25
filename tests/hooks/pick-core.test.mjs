@@ -240,7 +240,7 @@ describe('rankSkills', () => {
     },
     {
       id: 'threat-model',
-      invoke: 'monomind org skills show threat-model',
+      invoke: 'mcp__monomind__org_skill_show {"name":"threat-model"}',
       description: 'Threat modeling of an architecture for security risks',
       source: 'org',
     },
@@ -263,7 +263,7 @@ describe('rankSkills', () => {
     const got = pc().rankSkills(jp, 'threat modeling for the payments architecture', skills);
     expect(got[0]).toMatchObject({
       skill: 'threat-model',
-      invoke: 'monomind org skills show threat-model',
+      invoke: 'mcp__monomind__org_skill_show {"name":"threat-model"}',
     });
     expect(got[0].score).toBeGreaterThan(0);
     expect(got.map((m) => m.skill)).not.toContain('copywriting');

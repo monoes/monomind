@@ -217,7 +217,7 @@ sub-agents you spawn also receive it.
 Available agent categories:
   CORE      coder · reviewer · tester · planner · researcher
   BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
-  FRONTEND  Frontend Developer · mobile-dev · Mobile App Builder
+  FRONTEND  Frontend Developer · Mobile App Builder
   ARCH      Software Architect · system-architect
   SECURITY  Security Engineer · security-architect
   AI/ML     AI Engineer · ml-developer · Data Engineer
@@ -273,7 +273,7 @@ sub-agents you spawn also receive it.
 Available agent categories:
   CORE      coder · reviewer · tester · planner · researcher
   BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
-  FRONTEND  Frontend Developer · mobile-dev · Mobile App Builder
+  FRONTEND  Frontend Developer · Mobile App Builder
   ARCH      Software Architect · system-architect
   SECURITY  Security Engineer · security-architect
   AI/ML     AI Engineer · ml-developer · Data Engineer
@@ -395,9 +395,9 @@ Do NOT attempt to execute remaining chain tasks in either mode.
 
 After execution completes (DONE or DONE_WITH_CONCERNS), run a review session BEFORE moving the card.
 
-### 8a: Spawn a Code Reviewer
+### 8a: Spawn a reviewer
 
-Spawn a `feature-dev:code-reviewer` agent via the Agent tool. Provide:
+Spawn a `reviewer` agent via the Agent tool. Provide:
 - The list of files modified (from the implementer's report)
 - The `TASK_CONTEXT` (so the reviewer knows what was intended)
 - The `PROJECT_CONTEXT`

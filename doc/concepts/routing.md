@@ -57,7 +57,7 @@ Skills come from one generated index, `.claude/helpers/skill-registry.json`, wri
 
 - **platform skills**: the project's `.claude/skills` and `.claude/commands`, invoked directly (`/mastermind:plan`, `Skill("monodesign")`);
 - **user skills**: `~/.claude/skills`, for names the project lacks (`origin: "user"`);
-- **Org library skills** (`orgSkills`): bundled, `~/.monomind/org-skills`, project and active catalog skills, read with `monomind org skills show <name>`.
+- **Org library skills** (`orgSkills`): bundled, `~/.monomind/org-skills`, project and active catalog skills, read with the `org_skill_show` MCP tool (their `invoke` is `mcp__monomind__org_skill_show {"name":"<name>"}`), or `npx -y monomind org skills show <name>` without MCP.
 
 README, overview and reference pages, `_`-prefixed includes and helper-only skills (`type: helper`) are not entries. The index is generated per machine — by `monomind init`, `monomind init upgrade`, `monomind pick` and the SessionStart hook whenever a source tree is newer — and is no longer shipped or committed (it is gitignored).
 

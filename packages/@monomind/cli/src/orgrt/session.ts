@@ -16,9 +16,16 @@ import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
 import { FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
 import { StateDetector } from './state-detector.js';
-import { TaskCancelledError, type TaskProcesses } from './task-cancel.js';
+import {
+  linkAbort,
+  queueCancelNotice,
+  TaskCancelledError,
+  type TaskProcesses,
+  trackTaskProcess,
+} from './task-cancel.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
 import type { RolePick, TaskPick } from './task-match.js';
+import { orgTaskTool } from './task-tools.js';
 import {
   type DecisionKind,
   MAX_BLOCK_RECHECK_MINUTES,
@@ -52,12 +59,8 @@ import {
   resolveSessionScope,
   SessionLedger,
 } from './session-ledger.js';
-import {
-  loadSkillText,
-  roleSkillGuidance,
-  roleSkillNames,
-  skillSearchText,
-} from './skill-library.js';
+import { roleSkillGuidance } from './skill-library.js';
+import { skillTools } from './skill-tools.js';
 import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
@@ -685,10 +688,7 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
     let hitTurnLimit: boolean | undefined = false;
     const attempt = { replied: false };
     // Task scope: this process works on one task, so cancelling it ends it.
-    const tracked =
-      scope === 'task' && sessionKey !== ROLE_SESSION_KEY
-        ? opts.taskProcesses?.track(sessionKey)
-        : undefined;
+    const tracked = trackTaskProcess(opts.taskProcesses, scope, sessionKey);
     try {
       const res = await runOneSession(
         sessionOpts,
@@ -735,21 +735,11 @@ async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
       // returns immediately — so rethrowing here costs nothing.
       const stopping = mailbox.isClosed || (opts.externalAbort?.signal.aborted ?? false);
       if (!stopping && err instanceof TaskCancelledError) {
-        // Queued only now: the dead process's stream must not take it. Its
-        // work is abandoned, so the notice starts a fresh, small session
-        // instead of resuming the long one.
-        mailbox.detach();
-        mailbox.push(err.notice);
+        // Its work is abandoned: the notice starts a fresh, small session.
         sessionId = undefined;
         resumeSessionId = undefined;
         ledger.drop({ role: opts.role.id, runtime: runtimeKey, taskKey: sessionKey });
-        opts.bus.emit({
-          type: 'status',
-          from: opts.role.id,
-          reason: 'task-cancel-stopped',
-          msg: `process for ${sessionKey} ended — the task was cancelled`,
-          data: { taskKey: sessionKey },
-        });
+        queueCancelNotice(err, mailbox, opts.bus, opts.role.id, sessionKey);
       } else if (!stopping && err instanceof ProcessFaultError) {
         // Same session, new process: resume it and tell the role why.
         resumeSessionId = err.sessionId ?? resumeSessionId;
@@ -1058,9 +1048,7 @@ async function runOneSession(
   else external?.addEventListener('abort', onExternalAbort, { once: true });
   // org_task_cancel for this process's task: end it the same way (task-cancel.ts).
   // Already aborted when it landed during the setup awaits above.
-  const onCancelled = (): void => abort.abort(cancelled?.reason);
-  if (cancelled?.aborted) onCancelled();
-  else cancelled?.addEventListener('abort', onCancelled, { once: true });
+  const unlinkCancelled = linkAbort(cancelled, abort);
   try {
     // #258: policy.git enforced where git runs, not only by Bash text
     // classification — guard env for every runtime, OS sandbox + file-tool
@@ -1521,18 +1509,10 @@ async function runOneSession(
     // mid-stream by a throw from outliving it now that an org stop can no
     // longer reach it.
     external?.removeEventListener('abort', onExternalAbort);
-    cancelled?.removeEventListener('abort', onCancelled);
+    unlinkCancelled();
     abort.abort();
     providerSet?.close();
   }
-}
-
-/** ADR-O001 D7: org_task's description suffix for an org with a catalog. */
-function loadoutHelp(catalog: LoadoutSummary[]): string {
-  const list = catalog
-    .map((l) => (l.description ? `${l.name} (${l.description})` : l.name))
-    .join(', ');
-  return ` Optionally select a "loadout" — the named, stable specialisation the assignee's session is built with: ${list}. Select by kind of work; put everything specific to this task (which diff, criteria, what failed last time) in its "brief", not in the choice of loadout. The selection is recorded on the task and reused on every retry.`;
 }
 
 /** Build the org tool surface as platform-agnostic OrgToolDef[]. The handlers
@@ -1542,8 +1522,7 @@ function loadoutHelp(catalog: LoadoutSummary[]): string {
  *
  *  Behaviour is identical to the old inline definitions: conditional tools are
  *  gated on their callback being present, org_send/ask_human are always added. */
-/** org_task's assignee value that asks for automatic role selection. */
-export const AUTO_ASSIGNEE = 'auto';
+export { AUTO_ASSIGNEE } from './task-tools.js';
 
 export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   const { role, deliver } = opts;
@@ -1560,34 +1539,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       handler: async (args) => text(await searchKnowledge(role.id, args.query as string)),
     });
   }
-  const skillRoot = opts.orgRoot ?? opts.cwd;
-  const allowedSkills = roleSkillNames(role, skillRoot);
-  if (allowedSkills.length) {
-    tools.push({
-      name: 'org_skill_load',
-      description: `Load the full text of one of your skills (or one of its reference files) when the work in front of you calls for it. Your skills: ${allowedSkills.join(', ')}.`,
-      schema: { name: z.string(), file: z.string().optional() },
-      handler: async (args) => {
-        const name = args.name as string;
-        if (!allowedSkills.includes(name)) {
-          return text(
-            `ERROR: "${name}" is not one of your skills. Yours: ${allowedSkills.join(', ')}`,
-          );
-        }
-        const loaded = loadSkillText(name, args.file as string | undefined, skillRoot);
-        if (!loaded.startsWith('ERROR')) opts.onSkillLoad?.(role.id, name);
-        return text(loaded);
-      },
-    });
-    tools.push({
-      name: 'org_skill_search',
-      description:
-        "Search the org's whole skill library (names and descriptions only) when none of your skills covers the work in front of you. Only your own skills can be loaded; for a match outside your pool, ask your coordinator to add it.",
-      schema: { query: z.string() },
-      handler: async (args) =>
-        text(skillSearchText(args.query as string, allowedSkills, skillRoot)),
-    });
-  }
+  tools.push(...skillTools(role, opts.orgRoot ?? opts.cwd, opts.onSkillLoad));
   const recall = opts.recall;
   if (recall) {
     tools.push({
@@ -1719,68 +1671,11 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   const loadoutArg: Record<string, z.ZodType> = catalog
     ? { loadout: z.enum(catalog.map((l) => l.name) as [string, ...string[]]).optional() }
     : {};
-  // Sent with the dispatch itself (decisions.ts dispatchLine), so the
+  // Sent with the dispatch itself (task-provenance.ts dispatchLine), so the
   // instructions arrive with the task instead of in a follow-up message.
   const briefArg = z.string().max(MAX_TASK_BRIEF).optional();
-  const createTask = opts.createTask;
-  if (createTask) {
-    tools.push({
-      name: 'org_task',
-      description:
-        `Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee. Put the assignee's instructions — scope, acceptance criteria, paths, what failed last time — in \`brief\` (up to ${MAX_TASK_BRIEF} characters): it is delivered in the same message as the title whenever the task is dispatched, while a separate org_send can arrive after the assignee has already started.` +
-        (opts.pickAssignee
-          ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title and brief.`
-          : '') +
-        (catalog ? loadoutHelp(catalog) : ''),
-      schema: {
-        title: z.string(),
-        assignee: z.string(),
-        deps: z.array(z.string()).default([]),
-        brief: briefArg,
-        ...loadoutArg,
-      },
-      handler: async (args) => {
-        let assignee = args.assignee as string;
-        let pick: TaskPick | undefined;
-        if (assignee === AUTO_ASSIGNEE && opts.pickAssignee) {
-          const picked = await opts.pickAssignee(
-            args.title as string,
-            args.brief as string | undefined,
-            role.id,
-          );
-          if (!picked.role) {
-            const close = picked.candidates.map((c) => c.id).join(', ');
-            return text(
-              JSON.stringify({
-                error:
-                  picked.reason === 'ambiguous'
-                    ? `assignee "${AUTO_ASSIGNEE}": no role fits this task title better than the others (${close}) — name the assignee explicitly`
-                    : `assignee "${AUTO_ASSIGNEE}": no role fits this task title — name the assignee explicitly`,
-              }),
-            );
-          }
-          assignee = picked.role;
-          pick = {
-            method: picked.method as TaskPick['method'],
-            ...(picked.confidence !== undefined ? { confidence: picked.confidence } : {}),
-            ...(picked.score !== undefined ? { score: picked.score } : {}),
-            candidates: picked.candidates,
-          };
-        }
-        return text(
-          createTask(
-            role.id,
-            args.title as string,
-            assignee,
-            (args.deps as string[]) ?? [],
-            args.loadout as string | undefined,
-            args.brief as string | undefined,
-            ...(pick ? [pick] : []),
-          ),
-        );
-      },
-    });
-  }
+  const orgTask = orgTaskTool(opts, loadoutArg, briefArg);
+  if (orgTask) tools.push(orgTask);
   const completeTask = opts.completeTask;
   if (completeTask) {
     tools.push({

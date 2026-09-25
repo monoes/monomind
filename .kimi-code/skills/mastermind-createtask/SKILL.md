@@ -312,7 +312,7 @@ Mode selection: **parallel** = mostly independent tasks; **minimal** = mixed; **
 
 ## Step 8: Final Dependency Review
 
-Spawn a fresh `Code Reviewer` agent. Provide the complete `TASKS` array and `REPO_NAME`.
+Spawn a fresh `reviewer` agent. Provide the complete `TASKS` array and `REPO_NAME`.
 
 The agent MUST check:
 - **Prerequisite integrity**: all referenced prerequisites exist, no circular deps, no orphans

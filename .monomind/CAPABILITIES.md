@@ -92,7 +92,7 @@ npx monomind monoswarm monitor
 `github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `workflow-automation`, `project-board-sync`, `repo-architect`, `multi-repo-swarm`
 
 ### Specialized Development (8)
-`backend-dev`, `mobile-dev`, `ml-developer`, `cicd-engineer`, `api-docs`, `system-architect`, `code-analyzer`, `base-template-generator`
+`backend-dev`, `Mobile App Builder`, `ml-developer`, `cicd-engineer`, `api-docs`, `system-architect`, `code-analyzer`, `base-template-generator`
 
 ### Testing & Validation (2)
 `tdd-london-swarm`, `production-validator`

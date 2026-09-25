@@ -140,6 +140,89 @@ function mergeSettingsForUpgrade(
 }
 
 /**
+ * Refresh one installed helper tree from the bundled source: force-sync the
+ * HELPER_FILES critical set, create any other missing top-level helper (never
+ * overwriting one), and recursively sync utils/ and handlers/. Files the bundle
+ * does not ship are never touched, so user files survive.
+ */
+function syncHelperTree(
+  sourceDir: string,
+  destHelpersDir: string,
+  label: string,
+  result: UpgradeResult,
+): void {
+  // Copy top-level critical files atomically. Membership and fallback
+  // generators come from the shared HELPER_FILES registry (helpers-generator.ts)
+  // rather than a hardcoded list here — see that file's comment for why.
+  const criticalHelpers = FORCE_SYNC_HELPERS;
+  // Generated fallback for any critical helper missing from the source dir itself
+  // (e.g. the published npm template lacking auto-memory-hook.mjs).
+  const criticalGenerators: Record<string, () => string> = FORCE_SYNC_GENERATORS;
+  for (const helperName of criticalHelpers) {
+    const targetPath = path.join(destHelpersDir, helperName);
+    const sourcePath = path.join(sourceDir, helperName);
+    if (fs.existsSync(sourcePath)) {
+      if (fs.existsSync(targetPath)) {
+        result.updated.push(`${label}/${helperName}`);
+      } else {
+        result.created.push(`${label}/${helperName}`);
+      }
+      // Atomic copy-via-rename so a partial write can't leave a broken hook
+      const tmp = `${targetPath}.tmp`;
+      fs.copyFileSync(sourcePath, tmp);
+      try {
+        fs.chmodSync(tmp, 0o755);
+      } catch {}
+      fs.renameSync(tmp, targetPath);
+    } else if (!fs.existsSync(targetPath) && criticalGenerators[helperName]) {
+      const content = criticalGenerators[helperName]();
+      const tmp = `${targetPath}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, content, 'utf-8');
+      try {
+        fs.chmodSync(tmp, 0o755);
+      } catch {}
+      fs.renameSync(tmp, targetPath);
+      result.created.push(`${label}/${helperName}`);
+    }
+  }
+  // Restore any OTHER top-level helper the bundle ships but the project
+  // is missing (issue #225). The force-sync list above is a curated set of
+  // files we overwrite on every upgrade; it was also — wrongly — the only
+  // way a top-level helper could ever be (re)created here, so a project
+  // missing e.g. audit-log-writer.cjs never got it back. That one is
+  // require()d at module load by handlers/gates-handler.cjs, which the
+  // recursive handlers/ sync below faithfully restores, so the upgrade
+  // produced a gates handler that threw MODULE_NOT_FOUND on every
+  // PreToolUse hook — and hook-handler.cjs fails closed, deadlocking every
+  // Bash and Write call with no in-session way out. Create-if-missing only:
+  // never overwrite, so user-edited scaffolds (memory.cjs, session.cjs)
+  // keep their edits, which is exactly why they are not force-synced.
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (!entry.isFile() || entry.name.startsWith('._')) continue;
+    if (criticalHelpers.includes(entry.name) || GENERATED_HELPERS.has(entry.name)) continue;
+    const targetPath = path.join(destHelpersDir, entry.name);
+    if (fs.existsSync(targetPath)) continue;
+    const tmp = `${targetPath}.${process.pid}.tmp`;
+    fs.copyFileSync(path.join(sourceDir, entry.name), tmp);
+    try {
+      fs.chmodSync(tmp, 0o755);
+    } catch {}
+    fs.renameSync(tmp, targetPath);
+    result.created.push(`${label}/${entry.name}`);
+  }
+  // Always recursively sync subdirectories (utils/, handlers/) — required by hook-handler.cjs.
+  // Uses recursive copy so any future nested subdirs are also covered.
+  for (const subdir of ['utils', 'handlers']) {
+    const srcSubdir = path.join(sourceDir, subdir);
+    const destSubdir = path.join(destHelpersDir, subdir);
+    if (fs.existsSync(srcSubdir)) {
+      copyDirRecursive(srcSubdir, destSubdir);
+      result.updated.push(`${label}/${subdir}/`);
+    }
+  }
+}
+
+/**
  * Execute upgrade - updates helpers and creates missing metrics without losing data
  * This is safe for existing users who want the latest statusline fixes
  * @param targetDir - Target directory
@@ -192,75 +275,18 @@ export async function executeUpgrade(
     // 0. ALWAYS update critical helpers + subdirectories (force overwrite)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
     if (sourceHelpersForUpgrade) {
-      const destHelpersDir = path.join(targetDir, '.claude', 'helpers');
-      // Copy top-level critical files atomically. Membership and fallback
-      // generators come from the shared HELPER_FILES registry (helpers-generator.ts)
-      // rather than a hardcoded list here — see that file's comment for why.
-      const criticalHelpers = FORCE_SYNC_HELPERS;
-      // Generated fallback for any critical helper missing from the source dir itself
-      // (e.g. the published npm template lacking auto-memory-hook.mjs).
-      const criticalGenerators: Record<string, () => string> = FORCE_SYNC_GENERATORS;
-      for (const helperName of criticalHelpers) {
-        const targetPath = path.join(destHelpersDir, helperName);
-        const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
-        if (fs.existsSync(sourcePath)) {
-          if (fs.existsSync(targetPath)) {
-            result.updated.push(`.claude/helpers/${helperName}`);
-          } else {
-            result.created.push(`.claude/helpers/${helperName}`);
-          }
-          // Atomic copy-via-rename so a partial write can't leave a broken hook
-          const tmp = `${targetPath}.tmp`;
-          fs.copyFileSync(sourcePath, tmp);
-          try {
-            fs.chmodSync(tmp, 0o755);
-          } catch {}
-          fs.renameSync(tmp, targetPath);
-        } else if (!fs.existsSync(targetPath) && criticalGenerators[helperName]) {
-          const content = criticalGenerators[helperName]();
-          const tmp = `${targetPath}.${process.pid}.tmp`;
-          fs.writeFileSync(tmp, content, 'utf-8');
-          try {
-            fs.chmodSync(tmp, 0o755);
-          } catch {}
-          fs.renameSync(tmp, targetPath);
-          result.created.push(`.claude/helpers/${helperName}`);
-        }
-      }
-      // Restore any OTHER top-level helper the bundle ships but the project
-      // is missing (issue #225). The force-sync list above is a curated set of
-      // files we overwrite on every upgrade; it was also — wrongly — the only
-      // way a top-level helper could ever be (re)created here, so a project
-      // missing e.g. audit-log-writer.cjs never got it back. That one is
-      // require()d at module load by handlers/gates-handler.cjs, which the
-      // recursive handlers/ sync below faithfully restores, so the upgrade
-      // produced a gates handler that threw MODULE_NOT_FOUND on every
-      // PreToolUse hook — and hook-handler.cjs fails closed, deadlocking every
-      // Bash and Write call with no in-session way out. Create-if-missing only:
-      // never overwrite, so user-edited scaffolds (memory.cjs, session.cjs)
-      // keep their edits, which is exactly why they are not force-synced.
-      for (const entry of fs.readdirSync(sourceHelpersForUpgrade, { withFileTypes: true })) {
-        if (!entry.isFile() || entry.name.startsWith('._')) continue;
-        if (criticalHelpers.includes(entry.name) || GENERATED_HELPERS.has(entry.name)) continue;
-        const targetPath = path.join(destHelpersDir, entry.name);
-        if (fs.existsSync(targetPath)) continue;
-        const tmp = `${targetPath}.${process.pid}.tmp`;
-        fs.copyFileSync(path.join(sourceHelpersForUpgrade, entry.name), tmp);
-        try {
-          fs.chmodSync(tmp, 0o755);
-        } catch {}
-        fs.renameSync(tmp, targetPath);
-        result.created.push(`.claude/helpers/${entry.name}`);
-      }
-      // Always recursively sync subdirectories (utils/, handlers/) — required by hook-handler.cjs.
-      // Uses recursive copy so any future nested subdirs are also covered.
-      for (const subdir of ['utils', 'handlers']) {
-        const srcSubdir = path.join(sourceHelpersForUpgrade, subdir);
-        const destSubdir = path.join(destHelpersDir, subdir);
-        if (fs.existsSync(srcSubdir)) {
-          copyDirRecursive(srcSubdir, destSubdir);
-          result.updated.push(`.claude/helpers/${subdir}/`);
-        }
+      syncHelperTree(
+        sourceHelpersForUpgrade,
+        path.join(targetDir, '.claude', 'helpers'),
+        '.claude/helpers',
+        result,
+      );
+      // init also copies the helper tree into .gemini/helpers (writeHelpers),
+      // and Antigravity's status bar runs .gemini/helpers/statusline.cjs. Give
+      // that copy the same refresh, but only where init installed one.
+      const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
+      if (fs.existsSync(geminiHelpersDir)) {
+        syncHelperTree(sourceHelpersForUpgrade, geminiHelpersDir, '.gemini/helpers', result);
       }
       // The skill index is generated, never copied: rebuild it now so the
       // project's own (and the user's) skills replace any stale snapshot.

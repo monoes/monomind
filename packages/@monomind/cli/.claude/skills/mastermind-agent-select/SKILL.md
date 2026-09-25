@@ -127,7 +127,7 @@ If the pick tool, the CLI and the registry all come up empty, use these safe def
 | ops decomp | `Launch Strategist` |
 | build | `coder`, `tester`, `reviewer` |
 | marketing / content / sales | `Competitive Content Strategist`, `Email Marketing Specialist`, `Launch Strategist` |
-| review | `Code Reviewer`, `Security Engineer`, `reviewer` |
+| review | `reviewer`, `Security Engineer` |
 | research | `researcher` |
 | release | `release-manager` |
 | anything else | `general-purpose` |
@@ -143,9 +143,10 @@ Prefer `mcp__monomind__pick({ task: "<task>", kind: "skills", top: 3 })`. Withou
 mmpick -t "$PROMPT" --skills --top 3 | jq -c '[.skills.ranked[] | {id, source, invoke}]'
 ```
 
-A `platform` skill loads with its `invoke` (a `Skill(...)` call or a `/command`); an `org` skill is
-read with `monomind org skills show <name>`, or named in an org role's `skills`
-/ `skill_pool`.
+A `platform` skill loads with its `invoke` through the Skill tool (a `Skill(...)` call or a
+`/command`). An `org` skill's `invoke` is `mcp__monomind__org_skill_show {"name":"<name>"}`: call
+that MCP tool with that input to read it, or run `npx -y monomind org skills show <name>` when the
+tool is unavailable. An org skill can also be named in an org role's `skills` / `skill_pool`.
 
 ---
 

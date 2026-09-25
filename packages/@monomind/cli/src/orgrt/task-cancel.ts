@@ -15,8 +15,11 @@
  * only the notice is sent.
  */
 
+import type { OrgBus } from './bus.js';
 import type { RunningOrg } from './daemon.js';
 import { withdrawHeldTask } from './dispatch-hold.js';
+import type { Mailbox } from './mailbox.js';
+import { ROLE_SESSION_KEY } from './session-ledger.js';
 import type { OrgTask, OrgTaskStatus } from './task-dag.js';
 
 /** The reason a task-scoped process was ended: its task was cancelled. */
@@ -104,5 +107,47 @@ export function stopCancelledTaskWork(
     reason: 'task-cancel-notified',
     msg: `"${task.assignee}" told task ${task.id} is cancelled${stopped ? ' — its process for the task was ended' : ''}`,
     data: { taskId: task.id, assignee: task.assignee, processStopped: stopped },
+  });
+}
+
+/** The session loop's handle for a task-scoped process (session key
+ *  `sessionKey`): cancelling that task ends the process. Role scope, or the
+ *  role's own session, is never tracked. */
+export function trackTaskProcess(
+  processes: TaskProcesses | undefined,
+  scope: string,
+  sessionKey: string,
+): ReturnType<TaskProcesses['track']> | undefined {
+  return scope === 'task' && sessionKey !== ROLE_SESSION_KEY
+    ? processes?.track(sessionKey)
+    : undefined;
+}
+
+/** Links `signal` one way into `abort` (already aborted = abort now, since a
+ *  cancel can land during a session's setup awaits); returns the unlink. */
+export function linkAbort(signal: AbortSignal | undefined, abort: AbortController): () => void {
+  const onAbort = (): void => abort.abort(signal?.reason);
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener('abort', onAbort, { once: true });
+  return () => signal?.removeEventListener('abort', onAbort);
+}
+
+/** After a cancel ended the task's process: queue `err.notice` only now, so
+ *  the dead process's stream cannot take it, and say the process ended. */
+export function queueCancelNotice(
+  err: TaskCancelledError,
+  mailbox: Mailbox,
+  bus: OrgBus,
+  role: string,
+  sessionKey: string,
+): void {
+  mailbox.detach();
+  mailbox.push(err.notice);
+  bus.emit({
+    type: 'status',
+    from: role,
+    reason: 'task-cancel-stopped',
+    msg: `process for ${sessionKey} ended — the task was cancelled`,
+    data: { taskKey: sessionKey },
   });
 }

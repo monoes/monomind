@@ -20,7 +20,7 @@ Complete guide to all 60+ available agent types in Monomind.
 
 ## Specialized Agents
 - `Backend Architect` - API and server design
-- `mobile-dev` - React Native development
+- `Mobile App Builder` - Mobile (native and React Native) development
 - `AI Engineer` - Machine learning
 - `system-architect` - High-level design
 

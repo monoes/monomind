@@ -30,8 +30,8 @@ agy mcp add monomind -- npx -y monomind@latest mcp start   # or reuse the existi
 | **Instructions** | `GEMINI.md` — behavioral rules (graph-first navigation, memory loop, security rules) plus the MCP quick reference. Written by `generateGeminiMd`; skip-if-exists. |
 | **Workflow rules** | `.gemini/rules/monomind.md` — the Monograph/memory/documents rules in agy's rules format. |
 | **Status bar** | `.gemini/helpers/statusline.sh` → `.gemini/helpers/statusline.cjs`, wired into agy via `.gemini/settings.json` (`statusLine: { type: 'command' }`). Shows graph node count, stale nodes, routing, cost, git state. agy polls it and renders stdout in the bar at the bottom of the chat window. |
-| **Helpers** | The full `.claude/helpers/` tree is mirrored to `.gemini/helpers/` so agy-side hooks and the statusline resolve the same scripts Claude Code uses. |
-| **MCP server + tools** | Same stdio server as every other target (`npx monomind@latest mcp start`) — 70 tools: `monograph_query`, `memory_kg_search`, … |
+| **Helpers** | The full `.claude/helpers/` tree is mirrored to `.gemini/helpers/` so the statusline resolves the same scripts Claude Code uses. `init upgrade` refreshes this copy the same way it refreshes `.claude/helpers`, and `doctor` warns when it is stale. |
+| **MCP server + tools** | Same stdio server as every other target (`npx monomind@latest mcp start`) — 71 tools: `monograph_query`, `memory_kg_search`, … |
 | **Global statusline** | If `~/.gemini/antigravity-cli/` already exists (you actually run agy), init also wires the statusline into the **global** agy settings. It never creates that directory — no global writes for non-agy users. |
 
 ---

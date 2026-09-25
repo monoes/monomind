@@ -850,6 +850,30 @@ describe('doctor-project-checks', () => {
       expect(fixed).toBe(false);
     });
 
+    // init also copies the helper tree into .gemini/helpers, and Antigravity's
+    // status bar runs .gemini/helpers/statusline.cjs from it.
+    it('flags a stale Gemini helper copy, naming it by its .gemini path', async () => {
+      if (!existsSync(join(realHelpersDir, 'statusline.cjs'))) return;
+      copyRealHelpersInto(dir);
+      cpSync(realHelpersDir, join(dir, '.gemini', 'helpers'), { recursive: true });
+      writeFileSync(join(dir, '.gemini', 'helpers', 'statusline.cjs'), '// stale\n');
+
+      const result = await checkHelpersFresh();
+      expect(result.status).toBe('warn');
+      expect(result.message).toContain('.gemini/helpers/statusline.cjs');
+      expect(result.fix).toBe('monomind init upgrade');
+    });
+
+    it('fixStaleHelpers refreshes a stale Gemini helper copy', async () => {
+      if (!existsSync(join(realHelpersDir, 'statusline.cjs'))) return;
+      copyRealHelpersInto(dir);
+      cpSync(realHelpersDir, join(dir, '.gemini', 'helpers'), { recursive: true });
+      writeFileSync(join(dir, '.gemini', 'helpers', 'utils', 'fs-helpers.cjs'), '// stale\n');
+
+      expect(await fixStaleHelpers()).toBe(true);
+      expect((await checkHelpersFresh()).status).toBe('pass');
+    });
+
     it('warns and points at `init --force` when a pre-rename hook is still on disk', async () => {
       if (!existsSync(realHelpersDir)) return;
       copyRealHelpersInto(dir);

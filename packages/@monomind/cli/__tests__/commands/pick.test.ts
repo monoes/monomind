@@ -86,7 +86,7 @@ describe('monomind pick', () => {
     expect(byId.get('zorbling-audit')).toMatchObject({ source: 'platform' });
     expect(byId.get('zorbling-tuning')).toMatchObject({
       source: 'org',
-      invoke: 'monomind org skills show zorbling-tuning',
+      invoke: 'mcp__monomind__org_skill_show {"name":"zorbling-tuning"}',
     });
     // A name in both pools is listed once, as the invokable platform skill.
     expect(ranked.filter((s) => s.id === 'zorbling-shared')).toEqual([
