@@ -4,6 +4,7 @@
  * Extracted from hooks.ts (ARCH-1)
  */
 
+import { DEFAULT_EMBEDDING_MODEL } from '../init/types.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -314,8 +315,8 @@ export const pretrainCommand: Command = {
       name: 'embedding-model',
       description: 'ONNX embedding model',
       type: 'string',
-      default: 'Xenova/all-MiniLM-L6-v2',
-      choices: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
+      default: DEFAULT_EMBEDDING_MODEL,
+      choices: [DEFAULT_EMBEDDING_MODEL, 'Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
     },
     {
       name: 'file-types',
@@ -346,7 +347,7 @@ export const pretrainCommand: Command = {
       ctx.flags['with-embeddings'] !== false && ctx.flags.withEmbeddings !== false;
     const embeddingModel = (ctx.flags['embedding-model'] ||
       ctx.flags.embeddingModel ||
-      'Xenova/all-MiniLM-L6-v2') as string;
+      DEFAULT_EMBEDDING_MODEL) as string;
     const fileTypes = (ctx.flags['file-types'] ||
       ctx.flags.fileTypes ||
       'ts,js,py,md,json') as string;

@@ -7,6 +7,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL } from '../init/types.js';
 import { cosineSimilarity } from '../utils/cosine-similarity.js';
 import type { MCPTool } from './types.js';
 
@@ -193,8 +194,8 @@ export const allEmbeddingsTools: MCPTool[] = [
         model: {
           type: 'string',
           description: 'ONNX model ID',
-          enum: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
-          default: 'Xenova/all-MiniLM-L6-v2',
+          enum: [DEFAULT_EMBEDDING_MODEL, 'Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
+          default: DEFAULT_EMBEDDING_MODEL,
         },
         hyperbolic: {
           type: 'boolean',
@@ -219,7 +220,7 @@ export const allEmbeddingsTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const model = (input.model as string) || 'Xenova/all-MiniLM-L6-v2';
+      const model = (input.model as string) || DEFAULT_EMBEDDING_MODEL;
       const hyperbolic = input.hyperbolic !== false;
       const curvature = (input.curvature as number) || -1;
       const cacheSize = (input.cacheSize as number) || 256;
@@ -237,7 +238,12 @@ export const allEmbeddingsTools: MCPTool[] = [
         };
       }
 
-      const dimension = model.includes('mpnet') ? 768 : 384;
+      const dimension =
+        model === DEFAULT_EMBEDDING_MODEL
+          ? DEFAULT_EMBEDDING_DIMS
+          : model.includes('mpnet')
+            ? 768
+            : 384;
       const modelPath = resolve(join(CONFIG_DIR, MODELS_DIR));
 
       // Create models directory
@@ -954,7 +960,11 @@ export const allEmbeddingsTools: MCPTool[] = [
         },
         initializedAt: config.initialized,
         capabilities: {
-          onnxModels: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
+          onnxModels: [
+            DEFAULT_EMBEDDING_MODEL,
+            'Xenova/all-MiniLM-L6-v2',
+            'Xenova/all-mpnet-base-v2',
+          ],
           geometries: ['euclidean', 'poincare'],
           normalizations: ['L2', 'L1', 'minmax', 'zscore'],
           features: ['semantic search', 'hyperbolic projection', 'neural substrate'],

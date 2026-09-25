@@ -486,7 +486,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     const withEmbeddings = ctx.flags['with-embeddings'] || ctx.flags.withEmbeddings;
     const embeddingModel = (ctx.flags['embedding-model'] ||
       ctx.flags.embeddingModel ||
-      'Xenova/all-MiniLM-L6-v2') as string;
+      DEFAULT_INIT_OPTIONS.embeddings.model) as string;
 
     if (withEmbeddings) {
       output.writeln();
@@ -915,8 +915,12 @@ export const initCommand: Command = {
       name: 'embedding-model',
       description: 'ONNX embedding model to use',
       type: 'string',
-      default: 'Xenova/all-MiniLM-L6-v2',
-      choices: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
+      default: DEFAULT_INIT_OPTIONS.embeddings.model,
+      choices: [
+        DEFAULT_INIT_OPTIONS.embeddings.model,
+        'Xenova/all-MiniLM-L6-v2',
+        'Xenova/all-mpnet-base-v2',
+      ],
     },
   ],
   examples: [

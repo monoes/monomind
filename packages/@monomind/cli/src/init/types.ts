@@ -234,13 +234,23 @@ export type ClaudeMdTemplate =
   | 'solo';
 
 /**
+ * The embedding model and dimensions the memory bridge embeds with
+ * (BRIDGE_EMBEDDING_MODEL / BRIDGE_EMBEDDING_DIMS in memory/memory-bridge.ts —
+ * a test keeps them equal). Duplicated here, not imported, because many tests
+ * mock memory-bridge and these values are read at module load.
+ */
+export const DEFAULT_EMBEDDING_MODEL = 'Alibaba-NLP/gte-modernbert-base';
+export const DEFAULT_EMBEDDING_DIMS = 768;
+
+/**
  * Embeddings configuration
  */
 export interface EmbeddingsConfig {
   /** Enable embedding subsystem */
   enabled: boolean;
-  /** ONNX model ID */
+  /** ONNX model ID — defaults to the model the memory bridge embeds with */
   model:
+    | 'Alibaba-NLP/gte-modernbert-base'
     | 'Xenova/all-MiniLM-L6-v2'
     | 'Xenova/all-mpnet-base-v2'
     | 'Xenova/bge-small-en-v1.5'
@@ -458,7 +468,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   },
   embeddings: {
     enabled: true,
-    model: 'Xenova/all-MiniLM-L6-v2',
+    model: DEFAULT_EMBEDDING_MODEL,
     hyperbolic: true,
     curvature: -1.0,
     predownload: false, // Don't auto-download to speed up init
@@ -525,7 +535,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
   },
   embeddings: {
     enabled: false,
-    model: 'Xenova/all-MiniLM-L6-v2',
+    model: DEFAULT_EMBEDDING_MODEL,
     hyperbolic: false,
     curvature: -1.0,
     predownload: false,
@@ -580,7 +590,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
   },
   embeddings: {
     enabled: true,
-    model: 'Xenova/all-MiniLM-L6-v2',
+    model: DEFAULT_EMBEDDING_MODEL,
     hyperbolic: true,
     curvature: -1.0,
     predownload: true, // Pre-download for full init

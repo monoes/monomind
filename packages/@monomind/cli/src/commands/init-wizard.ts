@@ -255,15 +255,20 @@ export const wizardCommand: Command = {
         default: true,
       });
 
-      let embeddingModel = 'Xenova/all-MiniLM-L6-v2';
+      let embeddingModel = DEFAULT_INIT_OPTIONS.embeddings.model;
       if (enableEmbeddings) {
         embeddingModel = await select({
           message: 'Select embedding model:',
           options: [
             {
+              value: DEFAULT_INIT_OPTIONS.embeddings.model,
+              label: 'GTE ModernBERT Base (768d)',
+              hint: 'The model memory search uses (recommended)',
+            },
+            {
               value: 'Xenova/all-MiniLM-L6-v2',
               label: 'MiniLM L6 (384d)',
-              hint: 'Fast, good quality (recommended)',
+              hint: 'Fast, lightweight',
             },
             {
               value: 'Xenova/all-mpnet-base-v2',

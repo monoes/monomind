@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
+import { DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL } from '../init/types.js';
 import { deriveRecentSuccess, recordCommand } from '../monovector/command-outcomes.js';
 import { joinLatestUnresolved, joinOutcome, recordRoute } from '../monovector/route-outcomes.js';
 import { pickAgents } from '../routing/agent-pick.js';
@@ -1849,10 +1850,10 @@ export const hooksIntelligence: MCPTool = {
         },
         embeddings: {
           provider: 'transformers',
-          model: 'Xenova/all-MiniLM-L6-v2',
-          dimension: 384,
+          model: DEFAULT_EMBEDDING_MODEL,
+          dimension: DEFAULT_EMBEDDING_DIMS,
           implemented: true,
-          note: 'Real ONNX embeddings via Xenova/all-MiniLM-L6-v2',
+          note: `Real ONNX embeddings via ${DEFAULT_EMBEDDING_MODEL}`,
         },
       },
       realMetrics: {
