@@ -471,7 +471,15 @@ describe('Init Command E2E (real fs)', () => {
         await vi.importActual<typeof import('child_process')>('child_process');
       const run = spawnSync(process.execPath, [geminiStatusline()], {
         cwd: tmpDir,
-        env: { ...process.env, HOME: fakeHome, CLAUDE_PROJECT_DIR: tmpDir },
+        // Drop pnpm's npm_config_* vars: a status bar runs under the agent, not
+        // pnpm, and npm warns on stderr about the pnpm-only keys.
+        env: {
+          ...Object.fromEntries(
+            Object.entries(process.env).filter(([k]) => !k.toLowerCase().startsWith('npm_config_')),
+          ),
+          HOME: fakeHome,
+          CLAUDE_PROJECT_DIR: tmpDir,
+        },
         encoding: 'utf8',
         timeout: 20000,
       });
