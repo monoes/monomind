@@ -57,6 +57,15 @@ export interface CLIOptions {
 /**
  * CLI Application
  */
+/**
+ * Invocations that only read state and must not write any: `agent scan`
+ * (runtime detection). Exported for tests.
+ */
+export function isReadOnlyProbe(words: string[]): boolean {
+  const w = words.filter((x) => !x.startsWith('-'));
+  return w[0] === 'agent' && w[1] === 'scan';
+}
+
 export class CLI {
   private name: string;
   private description: string;
@@ -146,7 +155,12 @@ export class CLI {
       // update-check state or touch the network, nor refresh the registry.
       const doctorMode = commandPath[0] === 'doctor' ? resolveDoctorMode(flags) : null;
       const quietDoctor = Boolean(doctorMode?.readOnly || doctorMode?.offline);
-      if (flags.update !== false && commandPath[0] !== 'update' && !quietDoctor) {
+      // A read-only probe (`agent scan`) changes nothing: no update check
+      // (it writes ~/.monomind/update-state.json after a network call) and,
+      // below, no subsystem init (it writes .monomind/registry.json). Callers
+      // such as mono-agent run it on a timer to show installed runtimes.
+      const probe = isReadOnlyProbe([...commandPath, ...positional]);
+      if (flags.update !== false && commandPath[0] !== 'update' && !quietDoctor && !probe) {
         this.checkForUpdatesOnStartup().catch(() => {
           /* silent */
         });
@@ -211,10 +225,11 @@ export class CLI {
       // so running this here means `monomind --help` (or any invocation in a
       // directory that's never been a monomind project) no longer creates
       // .monomind/registry.json as a side effect of just asking for help.
-      if (!doctorMode?.readOnly)
+      if (!doctorMode?.readOnly && !probe) {
         this.initSubsystems().catch(() => {
           /* silent */
         });
+      }
 
       // Handle subcommand (supports nested subcommands)
       let targetCommand = command;
