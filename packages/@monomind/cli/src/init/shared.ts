@@ -282,7 +282,6 @@ export const DIRECTORIES = {
     '.gemini',
     '.gemini/skills',
     '.gemini/rules',
-    '.gemini/helpers',
     '.agents',
     '.agents/skills',
   ],

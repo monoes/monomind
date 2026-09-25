@@ -347,8 +347,12 @@ export async function writeHelpers(
     };
 
     copyRecursive(sourceHelpersDir, helpersDir, '');
-    const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
-    copyRecursive(sourceHelpersDir, geminiHelpersDir, '');
+    // Only Antigravity reads the .gemini/helpers copy (its status bar runs
+    // .gemini/helpers/statusline.sh -> statusline.cjs). Kimi's statusline
+    // reads .claude/helpers first, so it needs no Gemini copy.
+    if (options.components.antigravity) {
+      copyRecursive(sourceHelpersDir, path.join(targetDir, '.gemini', 'helpers'), '');
+    }
     // skill-registry.json is built with the agent registry once init has
     // written every file (executor.ts, buildProjectIndexes).
   }
