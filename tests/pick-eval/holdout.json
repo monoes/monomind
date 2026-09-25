@@ -123,5 +123,41 @@
       "deployment-patterns",
       "devops-engineer"
     ]
+  },
+  {
+    "id": 121,
+    "task": "Security review of the login flow, not a penetration test",
+    "agents": ["engineering-security-engineer"],
+    "skills": ["security-review", "security-reviewer"]
+  },
+  {
+    "id": 122,
+    "task": "Deploy the web app to production without touching the CI pipeline",
+    "agents": ["engineering-devops-automator"],
+    "skills": ["deployment-patterns"]
+  },
+  {
+    "id": 123,
+    "task": "Write API docs for the CLI rather than more unit tests",
+    "agents": ["engineering-technical-writer"],
+    "skills": ["monodoc", "code-documenter"]
+  },
+  {
+    "id": 124,
+    "task": "Optimize the slow SQL queries, no frontend changes",
+    "agents": ["engineering-database-optimizer"],
+    "skills": ["sql-pro", "postgres-patterns", "mysql-patterns"]
+  },
+  {
+    "id": 125,
+    "task": "Plan the next sprint instead of writing release notes",
+    "agents": ["planner"],
+    "skills": ["sprint-prioritizer", "agile-product-owner"]
+  },
+  {
+    "id": 126,
+    "task": "Audit the codebase for vulnerabilities, except the mobile app",
+    "agents": ["engineering-security-engineer"],
+    "skills": ["security-auditor", "security-reviewer"]
   }
 ]

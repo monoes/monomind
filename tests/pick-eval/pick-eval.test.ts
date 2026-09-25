@@ -22,10 +22,10 @@ import {
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-// A little under the frozen-catalog scores (60 tasks; 59 with a skill
+// A little under the frozen-catalog scores (66 tasks; 65 with a skill
 // expectation). Raise them when the ranker improves; never lower them to
 // make a change pass.
-const FLOOR = { agentsTop1: 45, agentsTop3: 50, skillsTop1: 47, skillsTop3: 57 };
+const FLOOR = { agentsTop1: 49, agentsTop3: 55, skillsTop1: 51, skillsTop3: 63 };
 // The live catalogs drift with every agent/skill edit: a looser floor.
 const LIVE_FLOOR = { agentsTop1: 40, skillsTop1: 42 };
 
@@ -56,7 +56,7 @@ describe('pick eval on the frozen catalog', () => {
   const snapshot = readEvalSnapshot(ROOT);
 
   it('has the eval set and the snapshot', () => {
-    expect(tasks?.length).toBe(60);
+    expect(tasks?.length).toBe(66);
     expect(snapshot?.agents.length).toBeGreaterThan(50);
     expect(snapshot?.skills.length).toBeGreaterThan(300);
   });

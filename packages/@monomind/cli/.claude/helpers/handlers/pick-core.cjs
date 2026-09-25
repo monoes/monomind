@@ -62,11 +62,12 @@ function isSystemPrompt(prompt) {
 }
 
 /** True for a prompt with fewer than MIN_PICK_TOKENS content words
- *  (pick-rank tokens: stopwords dropped, any script). */
+ *  (pick-rank queryTokens: stopwords and words the prompt rules out dropped,
+ *  any script), so "anything else pending rather than release" is a reply. */
 function isTrivialPrompt(prompt) {
   if (!pickRank || typeof prompt !== 'string') return false;
   var text = prompt.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, ' ').slice(0, 2000);
-  return pickRank.tokens(text).length < MIN_PICK_TOKENS;
+  return pickRank.queryTokens(text).length < MIN_PICK_TOKENS;
 }
 
 function promptHash(prompt) {

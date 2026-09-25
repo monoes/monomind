@@ -174,3 +174,79 @@ describe('pick-rank tokens beyond ASCII', () => {
     ]);
   });
 });
+
+describe('pick-rank exclusion cues', () => {
+  const q = (text: string): string[] => pr.queryTokens(text);
+
+  it.each([
+    ['anything pending rather than release', 'releas'],
+    ['anything pending other than release', 'releas'],
+    ['write docs instead of tests', 'test'],
+    ['review everything except security', 'security'],
+    ['review everything except for security', 'security'],
+    ['review everything besides security', 'security'],
+    ['review everything apart from security', 'security'],
+    ['review everything aside from security', 'security'],
+    ['review everything excluding security', 'security'],
+    ['security review, not a penetration test', 'penetr'],
+    ['refactor the parser with no database changes', 'databas'],
+    ['deploy the app without touching CI', 'ci'],
+    ["deploy the app but don't touch CI", 'ci'],
+    ['deploy the app but don’t touch CI', 'ci'],
+    ['deploy the app but dont touch CI', 'ci'],
+    ['deploy the app, do not touch CI', 'ci'],
+  ])('%s drops %s', (text, word) => {
+    expect(q(text)).not.toContain(word);
+    expect(pr.tokens(text)).toContain(word);
+  });
+
+  it('drops the cue words themselves', () => {
+    expect(q('write docs instead of tests rather than release')).toEqual(['writ', 'doc']);
+  });
+
+  it('ends the scope at punctuation', () => {
+    expect(q('not the parser; optimize queries')).toEqual(['optimiz', 'query']);
+    expect(q('no tests. Optimize queries')).toEqual(['optimiz', 'query']);
+  });
+
+  it('ends the scope at and / but / then, once a word was dropped', () => {
+    expect(q('skip nothing: without touching CI and deploy the app')).toContain('deploy');
+    expect(q('without CI but deploy the app')).toEqual(['deploy', 'app']);
+    expect(q('without CI then deploy the app')).toEqual(['deploy', 'app']);
+  });
+
+  it('keeps excluding across or / nor', () => {
+    expect(q('deploy without CI or staging')).toEqual(['deploy']);
+  });
+
+  it('ends the scope after four content words', () => {
+    expect(q('without alpha beta gamma delta epsilon')).toEqual(['epsilon']);
+  });
+
+  it('leaves problem descriptions alone (is not, does not, are no, can not)', () => {
+    expect(q('the page is not loading')).toContain('load');
+    expect(q("login doesn't work")).toContain('work');
+    expect(q('there are no tests for the parser')).toEqual(['test', 'pars']);
+    expect(q("I can't reproduce the crash")).toContain('crash');
+    expect(q("I don't know why the build fails")).toContain('build');
+    expect(q('I do not know why the build fails')).toContain('build');
+  });
+
+  it('leaves "not only" alone', () => {
+    expect(q('not only tests but docs')).toEqual(['test', 'doc']);
+  });
+
+  it('leaves a text without cues as tokens() makes it', () => {
+    const text = 'Set up SLOs and error budgets for the checkout service';
+    expect(q(text)).toEqual(pr.tokens(text));
+  });
+
+  it('keeps an excluded word from deciding the shortlist', () => {
+    const items = [
+      { id: 'release-manager', description: 'Release coordination, version bumps and changelogs' },
+      { id: 'planner', description: 'Tracks pending work and what is left to do' },
+    ];
+    expect(pr.shortlist('anything pending rather than release', items, 2)[0].id).toBe('planner');
+    expect(pr.shortlist('pending release', items, 2)[0].id).toBe('release-manager');
+  });
+});
