@@ -10,11 +10,13 @@
  * requires a minimum score. Equal scores are broken by role specificity
  * (deeper in the reporting tree, then the narrower description), never by
  * the order roles are declared in; a tie that survives that is reported as
- * ambiguous instead of being guessed.
+ * ambiguous instead of being guessed. Words the task rules out ("deploy it,
+ * not the tests", "without CI") do not count: pick-rank.cjs
+ * withoutExclusions() drops them from the title and brief first.
  */
 
 import { roleCatalog } from '../decision/catalogs.js';
-import { acceptAgent, type PickOptions, pickWithJev } from '../decision/jev.js';
+import { acceptAgent, jevModule, type PickOptions, pickWithJev } from '../decision/jev.js';
 import { agentRoles } from './endpoint-roles.js';
 import type { OrgDef, OrgRole } from './types.js';
 
@@ -53,6 +55,13 @@ export function matchTokens(text: string | undefined): string[] {
     .map(stem);
 }
 
+/** matchTokens() of task text, minus the words it rules out (pick-rank.cjs
+ *  withoutExclusions; the text as is when the helper is missing). */
+function taskTokens(text: string | undefined): string[] {
+  const drop = jevModule()?.withoutExclusions;
+  return matchTokens(drop && text ? drop(text) : text);
+}
+
 export interface MatchDoc {
   id: string;
   /** Identity text (id, title / name): a hit here weighs 3. */
@@ -75,11 +84,11 @@ export interface TaskText {
 /** Every doc with a positive score, highest first (equal scores keep input
  *  order — callers that must not favour order break ties themselves). */
 export function scoreDocs(task: TaskText, docs: MatchDoc[]): MatchScore[] {
-  const titleWords = matchTokens(task.title);
+  const titleWords = taskTokens(task.title);
   const title = new Set(titleWords);
   // Task titles are imperative: the leading verb says what kind of work it is.
   const verb = titleWords[0];
-  const brief = new Set(matchTokens(task.brief?.slice(0, PICK_BRIEF_CHARS)));
+  const brief = new Set(taskTokens(task.brief?.slice(0, PICK_BRIEF_CHARS)));
   const query = new Set([...title, ...brief]);
   if (query.size === 0 || docs.length === 0) return [];
   const sets = docs.map((d) => ({

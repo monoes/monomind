@@ -127,6 +127,17 @@ describe('pickTaskRole keyword fallback on real org shapes', () => {
     }
   });
 
+  it('ignores words the task rules out', () => {
+    const roles = [
+      { id: 'lead', title: 'Lead', reports_to: null, responsibilities: ['plan'] },
+      { id: 'ops', title: 'Ops', reports_to: 'lead', responsibilities: ['deploy the release'] },
+      { id: 'qa', title: 'QA', reports_to: 'lead', responsibilities: ['test the release'] },
+    ] as OrgRole[];
+    expect(keywordRole({ title: 'test the release' }, roles).role).toBe('qa');
+    expect(keywordRole({ title: 'deploy the release, not test' }, roles).role).toBe('ops');
+    expect(keywordRole({ title: 'release it', brief: 'deploy it without a test run' }, roles).role).toBe('ops');
+  });
+
   it('prefers the more specific role on an equal score', () => {
     const roles = [
       { id: 'lead', title: 'Lead', reports_to: null, responsibilities: ['deploy'] },

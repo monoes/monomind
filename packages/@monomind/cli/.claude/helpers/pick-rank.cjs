@@ -13,6 +13,18 @@
  * the item matches. An item marked `pick: 'low'` (admin/meta skills, from
  * `pick: low` frontmatter) keeps LOW_PICK_FACTOR of its score, so it surfaces
  * only when the task names it. Equal scores keep catalog order.
+ *
+ * Exclusions (English only, query side only): words the task explicitly
+ * rules out do not count ("anything pending rather than release" must not
+ * pick release-manager). withoutExclusions() drops each cue and the words in
+ * its scope before tokenizing. Cues: "rather than", "other than", "instead
+ * of", "apart from", "aside from", "except", "besides", "excluding",
+ * "without", "not", "no", "nor", "don't"/"dont". The scope ends at clause
+ * punctuation (. , ; : ! ? brackets, dashes), at "but"/"then"/"so", at
+ * "and" once a word was dropped ("or"/"nor" keep excluding: "without CI or
+ * staging"), or after SCOPE_WORDS content words. Problem descriptions are not
+ * exclusions: "not"/"no" after a copula or auxiliary ("is not loading",
+ * "are no tests", "does not"), "not only", and "don't know/see/get/..." stay.
  */
 
 var K1 = 1.2;
@@ -26,10 +38,10 @@ var LOW_PICK_FACTOR = 0.35;
 
 var STOPWORDS = new Set(
   (
-    'a about above after again against all also am an and any are as at be because been before being below ' +
-    'between both but by can could did do does doing down during each etc every few for from further had has ' +
+    'a about above after again against all also am an and any anything are as at be because been before being below ' +
+    'between both but by can could did do does doing down during each else etc every everything few for from further had has ' +
     'have having he her here hers him his how i if in into is it its itself just me more most must my no nor ' +
-    'not now of off on once only or other our ours out over own per please same she should so some such than ' +
+    'not nothing now of off on once only or other our ours out over own per please same she should so some something such than ' +
     'that the their theirs them then there these they this those through to too under until up upon us very ' +
     'via was we were what when where which while who whom why will with within without would you your yours'
   ).split(' '),
@@ -111,6 +123,78 @@ function tokens(text) {
   return words(text).filter(isContent).map(stem);
 }
 
+// Content words an exclusion cue rules out at most.
+var SCOPE_WORDS = 4;
+var CLAUSE_SPLIT = /[.,;:!?()[\]{}<>|\n\r\u2013\u2014]+|\s-+\s/;
+var SINGLE_CUES = new Set('except besides excluding without not no nor dont'.split(' '));
+var PAIR_CUES = { rather: 'than', other: 'than', instead: 'of', apart: 'from', aside: 'from', don: 't' };
+// "is not loading", "are no tests", "does not work": a description, not an exclusion.
+var DESCRIBES = new Set(
+  ('am is are was were be been being does did has have had can could will would get gets got ' +
+    'isn aren wasn weren doesn didn hasn haven hadn won wouldn couldn there').split(' '),
+);
+// "don't know why the build fails" describes a problem too.
+var DONT_DESCRIBES = new Set('know understand see get think remember why how'.split(' '));
+var SCOPE_ENDS = new Set('but then so'.split(' '));
+
+/** Words the cue at ws[i] spans (0: no cue there). */
+function cueAt(ws, i) {
+  var w = ws[i];
+  var next = ws[i + 1];
+  if (PAIR_CUES[w] && next === PAIR_CUES[w]) {
+    if (w === 'don' && DONT_DESCRIBES.has(ws[i + 2])) return 0;
+    return 2;
+  }
+  if (!SINGLE_CUES.has(w)) return 0;
+  if ((w === 'dont' || (w === 'not' && ws[i - 1] === 'do')) && DONT_DESCRIBES.has(next)) return 0;
+  if ((w === 'not' || w === 'no') && (DESCRIBES.has(ws[i - 1]) || next === 'only')) return 0;
+  return 1;
+}
+
+/** `text` minus the exclusion cues and the words they rule out (see the file
+ *  header), clause breaks kept as ". ". Lowercased; a text without cues keeps
+ *  every word. */
+function withoutExclusions(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/\u2019/g, "'")
+    .split(CLAUSE_SPLIT)
+    .map(function (clause) {
+      var ws = clause.match(/[\p{L}\p{N}]+/gu) || [];
+      var out = [];
+      var left = 0;
+      var dropped = 0;
+      for (var i = 0; i < ws.length; i++) {
+        var n = cueAt(ws, i);
+        if (n) {
+          i += n - 1;
+          left = SCOPE_WORDS;
+          dropped = 0;
+          continue;
+        }
+        var w = ws[i];
+        if (left > 0) {
+          if (SCOPE_ENDS.has(w) || (w === 'and' && dropped > 0)) left = 0;
+          else {
+            if (isContent(w)) {
+              left--;
+              dropped++;
+            }
+            continue;
+          }
+        }
+        out.push(w);
+      }
+      return out.join(' ');
+    })
+    .join('. ');
+}
+
+/** tokens() of a task: the words it rules out dropped first. */
+function queryTokens(text) {
+  return tokens(withoutExclusions(text));
+}
+
 /** Leading id segments ("engineering-", "mastermind:", "analysis:") that are
  *  shared by >= PREFIX_MIN_SHARED ids or equal the item's category. */
 function categoryPrefixes(items) {
@@ -190,7 +274,7 @@ function scoreDoc(index, doc, query) {
  *  overlap). Equal scores keep catalog order. */
 function shortlist(query, items, limit, include) {
   var index = indexFor(items);
-  var q = Array.from(new Set(tokens(query)));
+  var q = Array.from(new Set(queryTokens(query)));
   var scored = items.map(function (item, i) {
     return { item: item, index: i, score: scoreDoc(index, index.docs[i], q) };
   });
@@ -217,5 +301,7 @@ function shortlist(query, items, limit, include) {
 module.exports = {
   stem: stem,
   tokens: tokens,
+  queryTokens: queryTokens,
+  withoutExclusions: withoutExclusions,
   shortlist: shortlist,
 };

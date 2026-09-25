@@ -221,7 +221,14 @@ describe('route-handler [PICK] delivery', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it.each(['hi', 'thanks!', 'ok', 'looks good'])(
+  it.each([
+    'hi',
+    'thanks!',
+    'ok',
+    'looks good',
+    'anything else pending rather than release',
+    'is there anything pending?',
+  ])(
     'makes no pick and no record for the trivial prompt %j, keeping the earlier route',
     async (prompt) => {
       await loadRH().handle(makeHCtx('set up the devops automator for our CI/CD pipelines'));

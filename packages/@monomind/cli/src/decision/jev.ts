@@ -83,6 +83,8 @@ export interface JevPickerModule {
     limit: number,
     include?: string[],
   ): (T & { score: number })[];
+  /** `text` minus exclusion cues and the words they rule out (pick-rank.cjs). */
+  withoutExclusions?(text: string): string;
   pick(
     task: string,
     catalogs: { agents?: CatalogItem[]; skills?: CatalogItem[] },

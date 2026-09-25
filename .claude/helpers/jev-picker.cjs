@@ -12,7 +12,8 @@
  */
 var redaction = require('./redact-secrets.cjs');
 // Keyword ranking builds the candidate shortlist (and is every caller's fallback).
-var shortlist = require('./pick-rank.cjs').shortlist;
+var pickRank = require('./pick-rank.cjs');
+var shortlist = pickRank.shortlist;
 
 var TYPESAFE_BASE_URL = 'https://api.typesafe.ai';
 var DEFAULT_MODEL = 'jev-latest';
@@ -380,6 +381,7 @@ module.exports = {
   ask: ask,
   probe: probe,
   shortlist: shortlist,
+  withoutExclusions: pickRank.withoutExclusions,
   pick: pick,
   acceptAgent: acceptAgent,
   acceptSkills: acceptSkills,
