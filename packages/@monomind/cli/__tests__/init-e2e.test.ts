@@ -460,6 +460,26 @@ describe('Init Command E2E (real fs)', () => {
       expect(fs.existsSync(path.join(tmpDir, '.gemini', 'helpers', 'statusline.sh'))).toBe(true);
     }, 30000);
 
+    it('gives antigravity-only init a working status bar without Claude helpers', async () => {
+      ctx.flags = { target: 'antigravity', _: [], 'no-watch': true, 'no-start-all': true };
+      const result = await initCommand.action!(ctx);
+      expect(result.success).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'helpers', 'statusline.cjs'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(false);
+
+      const { spawnSync } =
+        await vi.importActual<typeof import('child_process')>('child_process');
+      const run = spawnSync(process.execPath, [geminiStatusline()], {
+        cwd: tmpDir,
+        env: { ...process.env, HOME: fakeHome, CLAUDE_PROJECT_DIR: tmpDir },
+        encoding: 'utf8',
+        timeout: 20000,
+      });
+      expect(run.stderr).toBe('');
+      expect(run.status).toBe(0);
+      expect(run.stdout.trim().length).toBeGreaterThan(0);
+    }, 60000);
+
     it('leaves an existing .gemini/helpers alone when antigravity is not selected', async () => {
       fs.mkdirSync(path.dirname(geminiStatusline()), { recursive: true });
       fs.writeFileSync(geminiStatusline(), '// existing\n');
