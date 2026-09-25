@@ -44,9 +44,24 @@ export async function writeOpencodeFiles(
   // opencode.json — write only if absent (or --force). Never clobber a user's
   // hand-written config; mirror writeGeminiFiles' skip-if-exists policy.
   const opencodeJsonPath = path.join(targetDir, 'opencode.json');
-  if (!fs.existsSync(opencodeJsonPath) || options.force) {
+  if (!fs.existsSync(opencodeJsonPath)) {
     atomicWriteFile(opencodeJsonPath, generateOpencodeJson(options));
     result.created.files.push('opencode.json');
+  } else if (options.force) {
+    // --force merges instead of replacing: every user key and value stays,
+    // missing defaults are added, and only monomind's server command is
+    // refreshed (e.g. for --pin).
+    try {
+      const existing = JSON.parse(fs.readFileSync(opencodeJsonPath, 'utf-8'));
+      const generated = JSON.parse(generateOpencodeJson(options));
+      const merged = mergeJsonDefaults(existing, generated) as Record<string, any>;
+      const command = generated.mcp?.monomind?.command;
+      if (command && merged.mcp?.monomind) merged.mcp.monomind.command = command;
+      atomicWriteFile(opencodeJsonPath, `${JSON.stringify(merged, null, 2)}\n`);
+      result.created.files.push('opencode.json (merged)');
+    } catch {
+      result.errors.push('opencode.json is not valid JSON — left untouched');
+    }
   } else {
     result.skipped.push('opencode.json');
   }
@@ -214,4 +229,23 @@ export async function writeOpencodeFiles(
   if (agentCount) result.created.files.push(`.opencode/agent/ (${agentCount} agents)`);
   if (commandCount) result.created.files.push(`.opencode/command/ (${commandCount} commands)`);
   if (skillCount) result.created.files.push(`.opencode/skills/ (${skillCount} skills)`);
+}
+
+/** `existing` with every key it lacks filled in from `defaults`: objects are
+ *  merged recursively, arrays gain the default items they are missing, and
+ *  an existing value always wins over a default. */
+function mergeJsonDefaults(existing: unknown, defaults: unknown): unknown {
+  if (Array.isArray(existing) && Array.isArray(defaults)) {
+    const seen = new Set(existing.map((item) => JSON.stringify(item)));
+    return [...existing, ...defaults.filter((item) => !seen.has(JSON.stringify(item)))];
+  }
+  const isObject = (v: unknown): v is Record<string, unknown> =>
+    typeof v === 'object' && v !== null && !Array.isArray(v);
+  if (!isObject(existing) || !isObject(defaults))
+    return existing === undefined ? defaults : existing;
+  const merged: Record<string, unknown> = { ...existing };
+  for (const [key, value] of Object.entries(defaults)) {
+    merged[key] = key in existing ? mergeJsonDefaults(existing[key], value) : value;
+  }
+  return merged;
 }

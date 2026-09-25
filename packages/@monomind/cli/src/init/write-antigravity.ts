@@ -14,6 +14,7 @@ import {
   findSourceHelpersDir,
   GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
+  mergeGeneratedBlock,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
@@ -30,10 +31,16 @@ export async function writeGeminiFiles(
   options: InitOptions,
   result: InitResult,
 ): Promise<void> {
-  // GEMINI.md
+  // GEMINI.md — monomind's body lives in a managed block, like CLAUDE.md, so
+  // --force refreshes that block and keeps the project's own text around it.
   const geminiMdPath = path.join(targetDir, 'GEMINI.md');
-  if (!fs.existsSync(geminiMdPath) || options.force) {
-    atomicWriteFile(geminiMdPath, generateGeminiMd(options));
+  const geminiMdExists = fs.existsSync(geminiMdPath);
+  if (!geminiMdExists || options.force) {
+    const existing = geminiMdExists ? fs.readFileSync(geminiMdPath, 'utf-8') : '';
+    atomicWriteFile(
+      geminiMdPath,
+      mergeGeneratedBlock(existing, 'gemini-md', generateGeminiMd(options)),
+    );
     result.created.files.push('GEMINI.md');
   } else {
     result.skipped.push('GEMINI.md');
