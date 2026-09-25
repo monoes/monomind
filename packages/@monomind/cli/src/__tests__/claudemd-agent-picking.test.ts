@@ -149,4 +149,11 @@ describe('generated docs route agent choice through the pick index', () => {
     expect(offered.length).toBeGreaterThan(3);
     expect(offered.filter((n) => !AGENTS.has(n))).toEqual([]);
   });
+
+  it('says what a pick result with confident: false means', () => {
+    const doc = generateClaudeMd({ ...DEFAULT_INIT_OPTIONS, targetDir: process.cwd() }, 'standard');
+    const picking = section(doc, 'Agent & Skill Picking');
+    expect(picking).toMatch(/`confident`/);
+    expect(picking).toMatch(/false/);
+  });
 });

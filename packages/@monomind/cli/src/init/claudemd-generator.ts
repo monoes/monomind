@@ -316,6 +316,7 @@ function agentPicking(): string {
 - When a prompt carries a \`[PICK]\` line (\`[PICK] agent: <name> · skill: <invoke>\`), use that agent/skill unless it is clearly wrong for the task.
 - Before choosing a subagent yourself, call \`mcp__monomind__pick\` if that tool is available (\`{ task, kind: "agents" }\`) and use a returned \`name\` as \`subagent_type\`. Otherwise (no MCP, or an older server without it) run \`monomind pick -t "<task>" --json\`, or \`npx -y monomind pick -t "<task>" --json\` when \`monomind\` is not installed.
 - A skill's \`invoke\`: a platform skill (\`Skill("<name>")\` or \`/command\`) loads with the Skill tool; an Org skill (\`source: "org"\`, invoke \`mcp__monomind__org_skill_show {"name":"<name>"}\`) is read by calling that MCP tool with that input, or with \`npx -y monomind org skills show <name>\` when the tool is unavailable.
+- \`pick\` results carry \`confident\`; when it is false, nothing fits well enough — pick yourself or proceed without a specialist.
 - Never invent agent names — a \`subagent_type\` that is not installed fails at spawn time.`;
 }
 

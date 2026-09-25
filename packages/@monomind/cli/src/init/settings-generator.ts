@@ -335,7 +335,7 @@ function generateHooksConfig(config: HooksConfig, monograph = true): object {
             type: 'command',
             command: hookHandlerCmd('route'),
             // Covers the route hook's own exit deadline with the longest Jev
-            // window (MONOMIND_JEV_HOOK_TIMEOUT_MS max 10 s + 1.5 s).
+            // window (MONOMIND_JEV_HOOK_TIMEOUT_MS, capped at 3 s, + 1.5 s).
             timeout: 12,
           },
           {
