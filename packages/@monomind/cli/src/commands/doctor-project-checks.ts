@@ -1126,8 +1126,8 @@ function gitignoreLineCovers(line: string, required: string): boolean {
   return !l.includes('*') && r.startsWith(`${l}/`);
 }
 
-export async function checkGitignoreCoverage(): Promise<HealthCheck> {
-  const gitignorePath = join(process.cwd(), '.gitignore');
+export async function checkGitignoreCoverage(root = process.cwd()): Promise<HealthCheck> {
+  const gitignorePath = join(root, '.gitignore');
   if (!existsSync(gitignorePath)) {
     // The old hint was `echo ".monomind/\n**/.monomind/" >> .gitignore`, which
     // writes a literal backslash-n (sh/bash echo does not interpret escapes
@@ -1167,16 +1167,14 @@ export async function checkGitignoreCoverage(): Promise<HealthCheck> {
 
 /** Patterns written by `doctor --fix` when there is no .gitignore at all.
  *  Covers monomind runtime state plus the standard secrets files, since a repo
- *  with no .gitignore has nothing protecting those either. */
+ *  with no .gitignore has nothing protecting those either. The runtime paths
+ *  are the specific ones the check requires, never a blanket `.monomind/`:
+ *  git cannot re-include a file below an ignored directory, so a blanket line
+ *  disables init's own `.monomind/.gitignore` allow-list (config.yaml,
+ *  CAPABILITIES.md, org definitions). */
 const GITIGNORE_FIX_PATTERNS = [
   '# monomind runtime state',
-  '.monomind/',
-  '**/.monomind/',
-  '.monomind/monoswarm/',
-  '**/.claude-flow/',
-  'data/sessions/',
-  'data/mastermind-*.json',
-  'data/mastermind-*.jsonl',
+  ...REQUIRED_GITIGNORE_PATTERNS.map(({ pattern }) => pattern),
   '',
   '# secrets / local env',
   '.env',
@@ -1192,8 +1190,8 @@ const GITIGNORE_FIX_PATTERNS = [
 
 /** Creates or appends the missing gitignore entries. Returns true if it wrote.
  *  Append-only and idempotent: never rewrites lines the user already has. */
-export async function fixGitignoreCoverage(): Promise<boolean> {
-  const gitignorePath = join(process.cwd(), '.gitignore');
+export async function fixGitignoreCoverage(root = process.cwd()): Promise<boolean> {
+  const gitignorePath = join(root, '.gitignore');
   try {
     if (!existsSync(gitignorePath)) {
       writeFileSync(gitignorePath, `${GITIGNORE_FIX_PATTERNS.join('\n')}\n`, 'utf-8');

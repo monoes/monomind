@@ -247,7 +247,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['typescript', checkBuildTools],
     ['graph-freshness', checkMonographFreshness],
     ['hook-monograph', () => checkHookMonograph(process.cwd(), { readOnly: mode.readOnly })],
-    ['gitignore', checkGitignoreCoverage],
+    ['gitignore', () => checkGitignoreCoverage(ctx.cwd || process.cwd())],
     ['monoes-token', checkMonoesTokenExposure],
     ['platforms', checkPlatforms],
   ];
@@ -289,7 +289,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     monoes: checkMonoesIntegration,
     gates: checkGuidanceGates,
     'hook-settings': () => checkHookSettings(ctx.cwd || process.cwd()),
-    gitignore: checkGitignoreCoverage,
+    gitignore: () => checkGitignoreCoverage(ctx.cwd || process.cwd()),
     registry: () => checkAgentRegistry({ readOnly: mode.readOnly }),
     'memory-proficiency': checkMemoryProficiency,
     'monoes-tools': checkMonoesTools,
@@ -416,8 +416,8 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
       await applyFix(
         'Gitignore Coverage',
         'gitignore',
-        fixGitignoreCoverage,
-        checkGitignoreCoverage,
+        () => fixGitignoreCoverage(ctx.cwd || process.cwd()),
+        () => checkGitignoreCoverage(ctx.cwd || process.cwd()),
       );
     if (needsFix('AppleDouble Sidecars'))
       await applyFix(

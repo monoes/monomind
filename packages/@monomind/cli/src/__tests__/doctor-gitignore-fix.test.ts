@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -111,5 +112,53 @@ describe('the fix hint is a runnable instruction, not a broken echo', () => {
     const partial = await checkGitignoreCoverage();
     expect(partial.fix).toBeDefined();
     expect(partial.fix).not.toContain('\\n');
+  });
+});
+
+// init runs `doctor --fix` on the project it just set up. That pass wrote a
+// root .gitignore with a blanket `.monomind/`, which stops git from ever
+// reading init's own `.monomind/.gitignore` allow-list — config.yaml,
+// CAPABILITIES.md and org definitions could no longer be committed. It also
+// looked at process.cwd() rather than the project doctor was pointed at.
+describe('doctor --fix respects init’s .monomind/.gitignore allow-list', () => {
+  const ignored = (rel: string): boolean => {
+    try {
+      execFileSync('git', ['check-ignore', rel], { cwd: dir, stdio: 'pipe' });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  it('writes no blanket .monomind/ line, so allow-listed files stay committable', async () => {
+    execFileSync('git', ['init', '--quiet'], { cwd: dir });
+    mkdirSync(join(dir, '.monomind', 'sessions'), { recursive: true });
+    writeFileSync(join(dir, '.monomind', '.gitignore'), '*\n!.gitignore\n!config.yaml\n');
+    writeFileSync(join(dir, '.monomind', 'config.yaml'), 'version: "3.0.0"\n');
+    writeFileSync(join(dir, '.monomind', 'sessions', 's.json'), '{}\n');
+
+    expect(await fixGitignoreCoverage()).toBe(true);
+
+    const lines = readFileSync(gitignore(), 'utf-8').split('\n');
+    expect(lines).not.toContain('.monomind/');
+    expect(lines).not.toContain('**/.monomind/');
+    expect(ignored('.monomind/config.yaml')).toBe(false);
+    expect(ignored('.monomind/sessions/s.json')).toBe(true);
+    expect((await checkGitignoreCoverage()).status).toBe('pass');
+  });
+
+  it('works on the directory it is given, not process.cwd()', async () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'mm-gitignore-cwd-'));
+    process.chdir(elsewhere);
+    try {
+      expect((await checkGitignoreCoverage(dir)).status).toBe('warn');
+      expect(await fixGitignoreCoverage(dir)).toBe(true);
+      expect(existsSync(gitignore())).toBe(true);
+      expect(existsSync(join(elsewhere, '.gitignore'))).toBe(false);
+      expect((await checkGitignoreCoverage(dir)).status).toBe('pass');
+    } finally {
+      process.chdir(dir);
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
   });
 });
