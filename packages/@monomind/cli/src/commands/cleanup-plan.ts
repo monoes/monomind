@@ -15,14 +15,16 @@
  *     other databases, org configs, backups) is kept unless `--purge-data`.
  *  3. Whole-path removal needs proof of ownership: a monomind-only namespace
  *     (.monomind/, monomind.config.json, legacy .swarm/.hive-mind), an entry
- *     listed in init's manifest, a file named `monomind*` inside a provider
- *     dir, or a file whose content is nothing but monomind marker blocks.
+ *     listed in init's manifest, a file whose content still matches the hash
+ *     init recorded for it, a file named `monomind*` inside a provider dir, or
+ *     a file whose content is nothing but monomind marker blocks.
  *  4. A file that mixes monomind marker blocks (or a `monomind` JSON entry)
  *     with other content only loses the monomind part.
  *  5. Anything else is kept and reported with the reason.
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readInitManifest } from '../init/shared.js';
@@ -181,6 +183,8 @@ class Planner {
   readonly entries: CleanupPlanEntry[] = [];
   private readonly dataPaths: Set<string>;
   private readonly owned: Set<string>;
+  /** sha256 of each file init installed, keyed by project-relative path. */
+  private readonly installed: Record<string, string>;
 
   constructor(
     private readonly cwd: string,
@@ -203,6 +207,22 @@ class Planner {
       ...(m?.kimiPluginCommands ?? []).map((n) => `.kimi-code/plugin/commands/${n}`),
       ...(m?.opencodeSkills ?? []).map((n) => `.opencode/skills/${n}`),
     ]);
+    this.installed = m?.files ?? {};
+  }
+
+  /** A regular file init installed and nobody edited since. */
+  private isUneditedInstall(rel: string): boolean {
+    const recorded = this.installed[rel];
+    try {
+      if (!recorded || !lstatSync(this.abs(rel)).isFile()) return false;
+      return (
+        createHash('sha256')
+          .update(readFileSync(this.abs(rel)))
+          .digest('hex') === recorded
+      );
+    } catch {
+      return false;
+    }
   }
 
   private abs(rel: string): string {
@@ -270,15 +290,11 @@ class Planner {
       this.add(rel, kind, 'skip', 'tracked by git');
       return false;
     }
-    const owned = this.owned.has(rel) || (ownsUnmarked && kind === 'file');
+    const listed = this.owned.has(rel) || (kind === 'file' && this.isUneditedInstall(rel));
+    const owned = listed || (ownsUnmarked && kind === 'file');
     if (kind === 'file' || lstatSync(this.abs(rel)).isSymbolicLink()) {
       if (owned || /^monomind/i.test(rel.slice(rel.lastIndexOf('/') + 1))) {
-        this.add(
-          rel,
-          kind,
-          'remove',
-          this.owned.has(rel) ? 'listed in init manifest' : 'monomind-owned',
-        );
+        this.add(rel, kind, 'remove', listed ? 'listed in init manifest' : 'monomind-owned');
         return true;
       }
       return this.planMarkedFile(rel);

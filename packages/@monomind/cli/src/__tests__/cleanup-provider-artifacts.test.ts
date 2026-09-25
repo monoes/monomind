@@ -7,6 +7,7 @@
 // and shared-instructions-generator.ts). `cleanup --force` must remove what
 // `init` creates, or these are left orphaned after cleanup.
 
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -69,5 +70,34 @@ describe('cleanup --force removes other-provider artifacts', () => {
     expect(result?.success).toBe(true);
     expect(existsSync(join(cwd, '.opencode'))).toBe(true);
     expect(existsSync(join(cwd, 'opencode.json'))).toBe(true);
+  });
+
+  // Shipped skill files carry no ownership markers since GH #344: the init
+  // manifest's hash of each file is the evidence that it is monomind's.
+  it('removes an unedited file init recorded in its manifest, and keeps an edited one', async () => {
+    cwd = mkdtempSync(join(tmpdir(), 'cleanup-provider-artifacts-hashed-'));
+    const dir = join(cwd, '.agents', 'skills', 'mastermind', 'references');
+    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(cwd, '.monomind'), { recursive: true });
+    const shipped = '# Codex Tool Mapping\n\nText.\n';
+    writeFileSync(join(dir, 'codex-tools.md'), shipped);
+    writeFileSync(join(dir, 'pi-tools.md'), `${shipped}my edit\n`);
+    const sha = createHash('sha256').update(shipped).digest('hex');
+    writeFileSync(
+      join(cwd, '.monomind', 'init-manifest.json'),
+      JSON.stringify({
+        version: 1,
+        files: {
+          '.agents/skills/mastermind/references/codex-tools.md': sha,
+          '.agents/skills/mastermind/references/pi-tools.md': sha,
+        },
+      }),
+    );
+
+    const result = await cleanupCommand.action?.(makeCtx(cwd, { force: true }));
+
+    expect(result?.success).toBe(true);
+    expect(existsSync(join(dir, 'codex-tools.md'))).toBe(false);
+    expect(existsSync(join(dir, 'pi-tools.md'))).toBe(true);
   });
 });
