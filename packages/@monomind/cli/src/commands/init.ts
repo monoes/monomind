@@ -14,6 +14,7 @@ import {
   MINIMAL_INIT_OPTIONS,
 } from '../init/index.js';
 import { reportProjectMemory } from '../init/init-memory.js';
+import { formatIndexSummary } from '../init/project-indexes.js';
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
 import { output } from '../output.js';
 import { resolvePlatformId } from '../platform-adapters/registry.js';
@@ -241,6 +242,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
 
     reportProjectMemory(result.memory);
+
+    const indexLine = formatIndexSummary(result.indexes);
+    if (indexLine) output.printInfo(indexLine);
 
     // Start monograph watch for ongoing file-change rebuilds, unless --no-watch was passed.
     // Guard: skip if a watcher PID file already exists and the process is still alive,

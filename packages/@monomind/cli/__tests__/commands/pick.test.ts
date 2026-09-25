@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,6 +45,39 @@ describe('monomind pick', () => {
     expect(out.agents.method).toBe('keyword');
     expect(out.agents.ranked[0].id).toBe('tester');
     expect(out.agents.ranked.map((a: { id: string }) => a.id)).not.toContain('seo');
+  });
+
+  it('from outside a project: ranks ~/.claude/agents with origin user and writes nothing', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', '');
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    const home = mkdtempSync(join(tmpdir(), 'pick-cmd-home-'));
+    vi.stubEnv('HOME', home);
+    mkdirSync(join(home, '.claude', 'agents'), { recursive: true });
+    writeFileSync(
+      join(home, '.claude', 'agents', 'zorbler.md'),
+      '---\nname: zorbler\ndescription: Tunes zorbling flux capacitors\n---\n\nBody\n',
+    );
+    root = mkdtempSync(join(tmpdir(), 'pick-cmd-'));
+    mkdirSync(join(root, '.git'));
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((m?: unknown) => {
+      logs.push(String(m));
+    });
+    try {
+      const res = await pickAction({
+        args: [],
+        flags: { _: [], task: 'tune the zorbling flux', json: true, agents: true },
+        cwd: root,
+        interactive: false,
+      });
+      expect(res.success).toBe(true);
+      const out = JSON.parse(logs.join('\n'));
+      expect(out.agents.ranked[0]).toMatchObject({ id: 'zorbler', name: 'zorbler', origin: 'user' });
+      expect(readdirSync(root)).toEqual(['.git']);
+      expect(existsSync(join(home, '.monomind'))).toBe(false);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it('ranks platform skills and org-library skills from one index', async () => {

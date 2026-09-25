@@ -39,6 +39,9 @@ module.exports = {
     // Keep skill-registry.json (the skill catalog routing and Jev read) in
     // step with .claude/skills: rebuilt when missing or older than any skill.
     try { require('./pick-core.cjs').ensureSkillRegistryFresh(CWD); } catch (e) { /* non-fatal */ }
+    // Same for .monomind/registry.json (the agent catalog): rebuilt when an
+    // agent in .claude/agents or ~/.claude/agents is newer.
+    try { require('./pick-core.cjs').ensureAgentRegistryFresh(CWD); } catch (e) { /* non-fatal */ }
 
     // ── Non-blocking security scan via @monoes/hooks worker ─────────────
     // The hooks package ships a security worker (worker-security.ts) that scans
@@ -135,7 +138,7 @@ module.exports = {
         if (bundledDir) {
           var healed = [];
           // Top-level critical files — mirrors executor.ts's `criticalHelpers` list.
-          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'monograph-freshen.cjs', 'control-start.cjs', 'intelligence.cjs', 'auto-memory-hook.mjs', 'build-skill-registry.cjs', 'org-skill-index.cjs', 'jev-picker.cjs', 'jev-catalog.cjs', 'redact-secrets.cjs', 'pick-rank.cjs', 'pick-stats.cjs'];
+          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'monograph-freshen.cjs', 'control-start.cjs', 'intelligence.cjs', 'auto-memory-hook.mjs', 'build-skill-registry.cjs', 'agent-registry.cjs', 'org-skill-index.cjs', 'jev-picker.cjs', 'jev-catalog.cjs', 'redact-secrets.cjs', 'pick-rank.cjs', 'pick-stats.cjs'];
           for (var hi = 0; hi < helpersToCheck.length; hi++) {
             var hName = helpersToCheck[hi];
             var healedName = _healIfStale(

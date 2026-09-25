@@ -551,3 +551,54 @@ describe('slash-command routes', () => {
     expect(rec).toMatchObject({ recommended: null, followed: null });
   });
 });
+
+describe('ensureAgentRegistryFresh', () => {
+  const reg = () => path.join(tmp, '.monomind', 'registry.json');
+  // User agents come from <home>/.claude/agents — a fake home passed as
+  // opts.home (os.homedir() ignores a worker thread's process.env.HOME).
+  let home;
+  let opts;
+  beforeEach(() => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'pick-core-home-'));
+    opts = { home };
+  });
+  afterEach(() => fs.rmSync(home, { recursive: true, force: true }));
+  const userAgent = (name, description) => {
+    const dir = path.join(home, '.claude', 'agents');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${name}.md`);
+    fs.writeFileSync(file, `---\nname: ${name}\ndescription: ${description}\n---\n`);
+    return file;
+  };
+
+  it('indexes a new ~/.claude/agents file at session start, without the CLI', () => {
+    const { ensureAgentRegistryFresh } = pc();
+    expect(ensureAgentRegistryFresh(tmp, undefined, opts)).toBe('rebuilt');
+    expect(ensureAgentRegistryFresh(tmp, undefined, opts)).toBe('fresh');
+    const later = new Date(Date.now() + 60_000);
+    fs.utimesSync(userAgent('foo', 'My personal foo agent'), later, later);
+    expect(ensureAgentRegistryFresh(tmp, undefined, opts)).toBe('rebuilt');
+    const foo = JSON.parse(fs.readFileSync(reg(), 'utf-8')).agents.find((a) => a.slug === 'foo');
+    expect(foo).toMatchObject({ origin: 'user', filePath: '~/.claude/agents/foo.md' });
+    // ...and the prompt hook's catalog sees it.
+    const catalog = require(path.resolve(__dirname, '../../.claude/helpers/jev-catalog.cjs'));
+    expect(catalog.loadAgentCatalog(tmp).map((a) => a.id)).toContain('foo');
+  });
+
+  it('never writes outside a project (no .monomind or .claude/agents, or the home directory)', () => {
+    userAgent('foo', 'My personal foo agent');
+    const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'pick-core-plain-'));
+    fs.mkdirSync(path.join(plain, '.git'));
+    const { ensureAgentRegistryFresh } = pc();
+    expect(ensureAgentRegistryFresh(plain, undefined, opts)).toBe('not-a-project');
+    fs.mkdirSync(path.join(home, '.monomind'));
+    expect(ensureAgentRegistryFresh(home, undefined, opts)).toBe('not-a-project');
+    expect(fs.readdirSync(plain)).toEqual(['.git']);
+    expect(fs.readdirSync(path.join(home, '.monomind'))).toEqual([]);
+    fs.rmSync(plain, { recursive: true, force: true });
+  });
+
+  it('reports a missing builder instead of crashing', () => {
+    expect(pc().ensureAgentRegistryFresh(tmp, null)).toBe('no-builder');
+  });
+});
