@@ -184,11 +184,23 @@ function decide(opts) {
   return out;
 }
 
-/** The one line Claude sees: `[PICK] agent: <name> · skill: <invoke>`, '' when nothing is confident. */
+var ORG_SKILL_INVOKE = 'mcp__monomind__org_skill_show ';
+
+/** The one line Claude sees: `[PICK] agent: <name> · skill: <invoke>`, '' when
+ *  nothing is confident. An Org skill also names its CLI read: Claude Code
+ *  keeps a running MCP server until restart, and one older than the
+ *  org_skill_show tool fails the MCP call. */
 function formatPickLine(pick) {
   var parts = [];
   if (pick && pick.agent) parts.push('agent: ' + pick.agent.name);
-  if (pick && pick.skill) parts.push('skill: ' + pick.skill.invoke);
+  if (pick && pick.skill) {
+    var invoke = pick.skill.invoke;
+    // Only a plain skill name (the org_skill_show name rule) goes into a command line.
+    if (invoke.indexOf(ORG_SKILL_INVOKE) === 0 && /^[a-z0-9][a-z0-9-]{0,63}$/.test(pick.skill.skill || '')) {
+      invoke += ' (or: npx -y monomind org skills show ' + pick.skill.skill + ')';
+    }
+    parts.push('skill: ' + invoke);
+  }
   return parts.length ? '[PICK] ' + parts.join(' · ') : '';
 }
 

@@ -197,7 +197,7 @@ describe('route-handler [PICK] delivery', () => {
     hCtx.router = { ...legacyRouter, matchSkills };
     await loadRH().handle(hCtx);
     expect(logs).toEqual([
-      '[PICK] skill: mcp__monomind__org_skill_show {"name":"zorbling-tuning"}',
+      '[PICK] skill: mcp__monomind__org_skill_show {"name":"zorbling-tuning"} (or: npx -y monomind org skills show zorbling-tuning)',
     ]);
     expect(matchSkills).not.toHaveBeenCalled();
     expect(outcomes().at(-1)).toMatchObject({
