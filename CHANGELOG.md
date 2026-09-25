@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.16.6] — 2026-09-26
+
+### Fixed
+
+- **`init` no longer inserts `skills:*` ownership marker comments into shipped skill files.** Ownership is now tracked via a content-hash init-manifest (`.monomind/init-manifest.json`, 4c26063ac): unedited shipped files are refreshed silently on the next `init`/`init --force`, files you hand-edited are left alone with the incoming version written alongside as `<file>.monomind-new`, and identical files are untouched. Old marker-style ownership (both the 2.16.5 HTML-comment style and pre-2.16.5 hash-style) is migrated away automatically the next time you run plain `init`/`init --force` (not `init upgrade`, which only touches helpers/statusline/CLAUDE.md/CAPABILITIES.md, f6cbeaa63). `cleanup`, `uninstall` and `platforms doctor` now use manifest-based ownership too (434ef8240). Fixes #344.
+
 ## [2.16.5] — 2026-09-25
 
 ### Fixed
