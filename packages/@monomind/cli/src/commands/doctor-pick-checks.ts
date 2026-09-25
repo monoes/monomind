@@ -10,8 +10,9 @@
  * The real-use line re-ranks logged prompts that led to a spawn
  * (decision/pick-real.ts; `pick-eval.mjs --logs` has the full report).
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
 import { findProjectRoot, registryIsStale, registryPath } from '../agents/registry-freshness.js';
 import {
   agentCatalog,
@@ -28,6 +29,7 @@ import {
 } from '../decision/pick-eval.js';
 import { readHookLog, realUseLine } from '../decision/pick-real.js';
 import { readPickStats } from '../decision/pick-stats.js';
+import { VERSION } from '../index.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 
 const NAME = 'Agent/Skill Picking';
@@ -175,4 +177,132 @@ export async function checkPick(
         fix: fixes.join('; '),
       }
     : { name: NAME, status: 'pass', message };
+}
+
+// ── The running MCP server (`doctor -c mcp-running`) ─────────────────────────
+//
+// Claude Code starts its MCP servers once per session and keeps them until it
+// restarts. After an upgrade the helpers suggest tools (org_skill_show) the
+// still-running older server does not have. A server cannot be asked its
+// version from outside its stdio pipe, so this reads what is discoverable:
+// the `monomind … mcp start` processes (`ps`), the package their script
+// belongs to (its package.json version and mtime), and on Linux their working
+// directory (/proc/<pid>/cwd) to keep this project's servers. Limits: a
+// package replaced in place is caught by its mtime, not by the code the
+// process loaded; without /proc (macOS) every project's servers count; on
+// Windows nothing is checked.
+
+export interface McpServerProcess {
+  pid: number;
+  /** Epoch ms the process started. */
+  startedAt: number;
+  /** The script node runs (resolved through symlinks when possible). */
+  script: string;
+  /** The process's working directory, when the platform exposes it. */
+  cwd?: string;
+}
+
+const CLI_PACKAGES = new Set(['@monoes/monomindcli', 'monomind']);
+
+/** `[[dd-]hh:]mm:ss` (ps etime) as seconds; NaN when it does not parse. */
+function etimeSeconds(etime: string): number {
+  const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(etime.trim());
+  if (!m) return Number.NaN;
+  return ((Number(m[1] ?? 0) * 24 + Number(m[2] ?? 0)) * 60 + Number(m[3])) * 60 + Number(m[4]);
+}
+
+/** Running `… monomind … mcp start` node processes (POSIX `ps`). */
+export function listMcpServerProcesses(now: number = Date.now()): McpServerProcess[] {
+  if (process.platform === 'win32') return [];
+  let out = '';
+  try {
+    out = execFileSync('ps', ['-axo', 'pid=,etime=,args='], { encoding: 'utf-8', timeout: 3000 });
+  } catch {
+    return [];
+  }
+  const found: McpServerProcess[] = [];
+  for (const line of out.split('\n')) {
+    const m = /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(line);
+    if (!m || !/\bmcp\s+start\b/.test(m[3])) continue;
+    // The script is the first argument that is a file of this CLI.
+    const script = m[3]
+      .split(/\s+/)
+      .slice(1)
+      .find((a) => /monomind/.test(a) && existsSync(a));
+    if (!script) continue;
+    const pid = Number(m[1]);
+    let cwd: string | undefined;
+    try {
+      cwd = readlinkSync(`/proc/${pid}/cwd`);
+    } catch {
+      /* no /proc */
+    }
+    let real = script;
+    try {
+      real = realpathSync(script);
+    } catch {
+      /* keep the path as given */
+    }
+    found.push({
+      pid,
+      startedAt: now - etimeSeconds(m[2]) * 1000,
+      script: real,
+      ...(cwd ? { cwd } : {}),
+    });
+  }
+  return found.filter((p) => Number.isFinite(p.startedAt));
+}
+
+/** The CLI package a server script belongs to: version and install time. */
+function serverPackage(script: string): { version: string; installedAt: number } | null {
+  let dir = dirname(script);
+  for (let i = 0; i < 6; i++) {
+    const file = join(dir, 'package.json');
+    try {
+      const pkg = JSON.parse(readFileSync(file, 'utf-8')) as { name?: string; version?: string };
+      if (pkg.name && CLI_PACKAGES.has(pkg.name) && typeof pkg.version === 'string')
+        return { version: pkg.version, installedAt: statSync(file).mtimeMs };
+    } catch {
+      /* not here */
+    }
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return null;
+}
+
+export async function checkRunningMcpServer(
+  cwd: string = process.cwd(),
+  deps: { processes?: () => McpServerProcess[]; now?: number; version?: string } = {},
+): Promise<HealthCheck> {
+  const name = 'MCP Server Version';
+  const now = deps.now ?? Date.now();
+  const version = deps.version ?? VERSION;
+  if (!deps.processes && process.platform === 'win32')
+    return { name, status: 'pass', message: 'not checked on Windows' };
+  const root = resolve(findProjectRoot(cwd) ?? cwd);
+  const mine = (deps.processes ?? (() => listMcpServerProcesses(now)))().filter(
+    (p) => !p.cwd || p.cwd === root || p.cwd.startsWith(root + sep),
+  );
+  if (mine.length === 0)
+    return { name, status: 'pass', message: `no running monomind MCP server found for ${root}` };
+  const stale: string[] = [];
+  const current: string[] = [];
+  for (const p of mine) {
+    const pkg = serverPackage(p.script);
+    if (!pkg) current.push(`pid ${p.pid} (version unknown)`);
+    else if (pkg.version !== version)
+      stale.push(`pid ${p.pid} runs v${pkg.version}, this CLI is v${version}`);
+    else if (pkg.installedAt > p.startedAt)
+      stale.push(`pid ${p.pid}: v${pkg.version} was updated after it started`);
+    else current.push(`pid ${p.pid} v${pkg.version}`);
+  }
+  if (stale.length === 0) return { name, status: 'pass', message: current.join('; ') };
+  return {
+    name,
+    status: 'warn',
+    message: `a running MCP server predates this install (${stale.join('; ')}): tools the hooks suggest, such as org_skill_show, may be missing`,
+    fix: 'Restart Claude Code (or reconnect monomind in /mcp) to load the current server; until then read an Org skill with `npx -y monomind org skills show <name>`',
+  };
 }

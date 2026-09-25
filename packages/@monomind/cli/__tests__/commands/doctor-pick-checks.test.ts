@@ -1,7 +1,11 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkPick, readPickAdherence } from '../../src/commands/doctor-pick-checks.js';
+import {
+  checkPick,
+  checkRunningMcpServer,
+  readPickAdherence,
+} from '../../src/commands/doctor-pick-checks.js';
 import { newRoot } from '../catalog/fixtures.js';
 
 function put(file: string, text: string): void {
@@ -149,5 +153,69 @@ describe('checkPick', () => {
     put(join(root, '.monomind', 'pick-adherence.jsonl'), jsonl([{ actual: 'tester', followed: null }]));
     const r = await checkPick(root, {});
     expect(r.message).toMatch(/real use: not enough spawns yet \(1\)/);
+  });
+});
+
+describe('checkRunningMcpServer', () => {
+  // A package the way npx installs it: .bin/monomind -> @monoes/monomindcli/bin/cli.js.
+  function serverPackage(version: string, installedAt: number): string {
+    const dir = newRoot('mcp-pkg-');
+    const pkg = join(dir, 'node_modules', '@monoes', 'monomindcli');
+    put(join(pkg, 'package.json'), JSON.stringify({ name: '@monoes/monomindcli', version }));
+    put(join(pkg, 'bin', 'cli.js'), '');
+    const t = new Date(installedAt);
+    utimesSync(join(pkg, 'package.json'), t, t);
+    return join(pkg, 'bin', 'cli.js');
+  }
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  const hour = 3600_000;
+
+  it('warns when the running server is another version than this CLI', async () => {
+    const root = project();
+    const script = serverPackage('2.14.1', now - 48 * hour);
+    const r = await checkRunningMcpServer(root, {
+      version: '2.16.4',
+      now,
+      processes: () => [{ pid: 42, startedAt: now - 24 * hour, script, cwd: root }],
+    });
+    expect(r.status).toBe('warn');
+    expect(r.message).toContain('2.14.1');
+    expect(r.message).toContain('2.16.4');
+    expect(r.fix).toMatch(/restart Claude Code/i);
+    expect(r.fix).toContain('npx -y monomind org skills show');
+  });
+
+  it('warns when the package was replaced after the server started (same version on disk)', async () => {
+    const root = project();
+    const script = serverPackage('2.16.4', now - hour);
+    const r = await checkRunningMcpServer(root, {
+      version: '2.16.4',
+      now,
+      processes: () => [{ pid: 42, startedAt: now - 24 * hour, script, cwd: root }],
+    });
+    expect(r.status).toBe('warn');
+    expect(r.message).toMatch(/updated after it started/);
+  });
+
+  it('passes a server started after its package was installed, and ignores other projects', async () => {
+    const root = project();
+    const current = serverPackage('2.16.4', now - 24 * hour);
+    const old = serverPackage('2.1.0', now - 48 * hour);
+    const r = await checkRunningMcpServer(root, {
+      version: '2.16.4',
+      now,
+      processes: () => [
+        { pid: 42, startedAt: now - hour, script: current, cwd: root },
+        { pid: 43, startedAt: now - hour, script: old, cwd: '/somewhere/else' },
+      ],
+    });
+    expect(r.status).toBe('pass');
+    expect(r.message).toContain('2.16.4');
+  });
+
+  it('passes with a note when no server is running for the project', async () => {
+    const r = await checkRunningMcpServer(project(), { version: '2.16.4', now, processes: () => [] });
+    expect(r.status).toBe('pass');
+    expect(r.message).toMatch(/no running monomind MCP server/);
   });
 });

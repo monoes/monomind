@@ -165,11 +165,12 @@ describe('doctorCommand', () => {
     expect(Array.isArray(data.results)).toBe(true);
     // alwaysOnChecks (24, including i-055 doctor follow-up's crash-reporting
     // check, o-16's Project Root disclosure check and the hook-settings
-    // check) + codeOnlyChecks (9,
+    // check) + codeOnlyChecks (10,
     // including platform adapters, the native-binding probe, i-066's
-    // monoes token-exposure check and #328's hook graph rebuild check) — no
+    // monoes token-exposure check, #328's hook graph rebuild check and the
+    // running MCP server version check) — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(33 + JEV_ROW);
+    expect(data.results.length).toBe(34 + JEV_ROW);
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for
