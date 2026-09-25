@@ -119,7 +119,13 @@ export interface SessionRecord {
   pid?: number;
   userDataDir?: string;
   savedAt?: number;
+  /** Set by `--session <name>`: only commands naming it resolve this session,
+   *  and commands naming none never land on it. */
+  name?: string;
 }
+
+/** A `--session` name: a plain identifier, safe as a label and in messages. */
+export const SESSION_NAME_RE = /^[A-Za-z0-9._-]{1,64}$/;
 
 /**
  * Record a browse session under its own port, so concurrent sessions in the
@@ -132,7 +138,13 @@ export interface SessionRecord {
  */
 export async function saveSessionRecord(
   port: number,
-  opts?: { launched?: boolean; pid?: number; userDataDir?: string; savedAt?: number },
+  opts?: {
+    launched?: boolean;
+    pid?: number;
+    userDataDir?: string;
+    savedAt?: number;
+    name?: string;
+  },
 ): Promise<void> {
   try {
     await mkdir(SESSIONS_DIR, { recursive: true });
@@ -150,6 +162,7 @@ export async function saveSessionRecord(
         pid: opts?.pid,
         userDataDir: opts?.userDataDir,
         savedAt: opts?.savedAt ?? Date.now(),
+        name: opts?.name,
       }),
     );
   } catch {
@@ -235,6 +248,7 @@ function parseSessionRecord(raw: string): SessionRecord | null {
     pid?: unknown;
     userDataDir?: unknown;
     savedAt?: unknown;
+    name?: unknown;
   };
   if (
     typeof data.port !== 'number' ||
@@ -253,5 +267,6 @@ function parseSessionRecord(raw: string): SessionRecord | null {
         : undefined,
     userDataDir: typeof data.userDataDir === 'string' ? data.userDataDir : undefined,
     savedAt: typeof data.savedAt === 'number' ? data.savedAt : undefined,
+    name: typeof data.name === 'string' && SESSION_NAME_RE.test(data.name) ? data.name : undefined,
   };
 }

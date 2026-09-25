@@ -23,6 +23,11 @@
  *     its own, exactly as `open` would.
  *   - Any later command with `--port N` acts on that session, which is how a
  *     concurrent caller pins the one `open` handed it.
+ *   - `--session <name>` is the same pin by name: `open`/`connect` record the
+ *     name on the session they start (or re-open the live one of that name),
+ *     every other command acts on the live session of that name and fails
+ *     when there is none. A command with no name never resolves a named
+ *     session, so named sessions only ever see their own commands.
  *   - `close` ends exactly the session it resolved — one browser, one record.
  *
  * Split out of commands.ts, which is now the command catalogue.
@@ -31,6 +36,7 @@
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { SESSION_NAME_RE } from '../browser/ref-cache.js';
 import type { CdpClient, ElementRef, SessionRecord } from '../index.js';
 import { output } from './output.js';
 import type { ParsedFlags } from './types.js';
@@ -49,6 +55,8 @@ export const session: {
   sessionId: string;
   targetId: string;
   port: number;
+  /** `--session <name>`, or '' for the unnamed sessions. */
+  name: string;
   refs: Map<string, ElementRef>;
   /** Saved parent sessionId when inside an iframe — restored by `frame main`. */
   parentSessionId: string;
@@ -57,6 +65,7 @@ export const session: {
   sessionId: '',
   targetId: '',
   port: UNPINNED,
+  name: '',
   refs: new Map(),
   parentSessionId: '',
 };
@@ -84,6 +93,29 @@ export function applySessionPortFlag(flags: ParsedFlags): void {
   // session the first started).
   const pinned = pinnedPort(flags);
   if (pinned !== undefined) session.port = pinned;
+}
+
+/**
+ * Select the named session given by `--session`. Like the port pin, it only
+ * ever sets: a batched command without the flag stays on the session an
+ * earlier command in this process named.
+ */
+export function applySessionNameFlag(flags: ParsedFlags): void {
+  const raw = flags.session;
+  if (raw === undefined) return;
+  if (typeof raw !== 'string' || !SESSION_NAME_RE.test(raw)) {
+    throw new Error(
+      `Invalid session name "${String(raw)}" — use 1-64 letters, digits, '.', '_' or '-'.`,
+    );
+  }
+  session.name = raw;
+}
+
+/** The error for a `--session` name no live browser answers to. */
+export function noNamedSessionError(name: string): Error {
+  return new Error(
+    `No live browse session named "${name}" — start one with: monomind browse open <url> --session ${name}`,
+  );
 }
 
 export async function getBrowser() {
@@ -140,11 +172,15 @@ export function ensureSignalCleanupHandlers(): void {
 //
 // Records whose browser is gone are dropped as we pass them (self-heal): a
 // crashed or manually-killed Chrome must not wedge every later command.
+//
+// `name` selects the session recorded under that `--session` name; without
+// one, only unnamed sessions are candidates.
 export async function resolveLiveSession(
   browser: Awaited<ReturnType<typeof getBrowser>>,
-  opts: { strict?: boolean } = {},
+  opts: { strict?: boolean; name?: string } = {},
 ): Promise<SessionRecord | null> {
   for (const record of await browser.listSessionRecords()) {
+    if ((record.name ?? '') !== (opts.name ?? '')) continue;
     if (await cdpAnswers(record.port)) return record;
     await browser.removeSessionRecord(record.port);
     await browser.clearRefCache(record.port);
@@ -161,8 +197,8 @@ export async function resolveLiveSession(
   }
   // Nothing native is live. A session opened by a pre-#318 CLI in this
   // directory may still be — it is the oldest possible candidate, so it is
-  // considered last.
-  return adoptLegacySession(browser);
+  // considered last. It predates names, so a named lookup never adopts it.
+  return opts.name ? null : adoptLegacySession(browser);
 }
 
 /**
@@ -227,7 +263,7 @@ async function cdpAnswers(port: number): Promise<boolean> {
  */
 export async function launchSessionBrowser(
   browser: Awaited<ReturnType<typeof getBrowser>>,
-  opts: { port?: number; headless: boolean },
+  opts: { port?: number; headless: boolean; name?: string },
 ): Promise<number> {
   const port = opts.port
     ? await browser.launchBrowser({ port: opts.port, headless: opts.headless })
@@ -238,7 +274,7 @@ export async function launchSessionBrowser(
         // belong to this session alone.
         userDataDir: join(tmpdir(), `monomind-browse-${process.pid}-${randomUUID().slice(0, 8)}`),
       });
-  await recordSession(browser, port);
+  await recordSession(browser, port, opts.name);
   ensureSignalCleanupHandlers();
   return port;
 }
@@ -256,15 +292,20 @@ export async function launchSessionBrowser(
 // {pid: undefined} on attach used to CLOBBER a real PID a previous `open`
 // had persisted for this exact port, destroying the only way a later
 // process's closeBrowser() PID-kill fallback could ever find it.
+//
+// `name` labels the session; without one, re-recording keeps the name the
+// session already had, so a `--port` command does not strip it.
 async function recordSession(
   browser: Awaited<ReturnType<typeof getBrowser>>,
   port: number,
+  name?: string,
 ): Promise<void> {
   const pid = browser.getLaunchedPid(port);
   if (pid !== undefined) {
     await browser.saveSessionRecord(port, {
       pid,
       userDataDir: browser.getLaunchedUserDataDir(port),
+      name: name ?? (await browser.loadSessionRecord(port))?.name,
     });
     return;
   }
@@ -277,6 +318,7 @@ async function recordSession(
     launched: existing?.launched,
     pid: existing?.pid,
     userDataDir: existing?.userDataDir,
+    name: name ?? existing?.name,
   });
 }
 
@@ -290,9 +332,16 @@ export async function ensureConnected(port: number, targetId?: string) {
       browser.teardownConsoleCapture(session.sessionId);
       session.client.close();
     }
-    // Pinned port, else the newest live session, else a session of our own —
-    // a command run before any `open` still just works.
-    const pinned = port > 0 ? port : ((await resolveLiveSession(browser))?.port ?? undefined);
+    // Pinned port, else the named session (which must exist), else the
+    // newest live unnamed session, else a session of our own — a command run
+    // before any `open` still just works.
+    let pinned: number | undefined = port > 0 ? port : undefined;
+    if (pinned === undefined && session.name) {
+      pinned = (await resolveLiveSession(browser, { name: session.name }))?.port;
+      if (pinned === undefined) throw noNamedSessionError(session.name);
+    } else if (pinned === undefined) {
+      pinned = (await resolveLiveSession(browser))?.port;
+    }
     session.port = await launchSessionBrowser(browser, { port: pinned, headless: true });
     const conn = await browser.connectToTarget(session.port, targetId);
     session.client = conn.client;

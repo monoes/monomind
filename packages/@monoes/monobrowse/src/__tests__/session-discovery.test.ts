@@ -30,8 +30,14 @@ afterEach(async () => {
 async function load() {
   vi.resetModules();
   const store = await import('../browser/ref-cache.js');
-  const { resolveLiveSession, adoptLegacySession, pinnedPort, applySessionPortFlag, session } =
-    await import('../cli/session.js');
+  const {
+    resolveLiveSession,
+    adoptLegacySession,
+    pinnedPort,
+    applySessionPortFlag,
+    applySessionNameFlag,
+    session,
+  } = await import('../cli/session.js');
   // The slice of the browser namespace resolveLiveSession uses.
   const browser = {
     listSessionRecords: store.listSessionRecords,
@@ -49,6 +55,7 @@ async function load() {
     adoptLegacySession,
     pinnedPort,
     applySessionPortFlag,
+    applySessionNameFlag,
     session,
   };
 }
@@ -255,5 +262,81 @@ describe('#318 --port session selector', () => {
     session.port = 41111; // as `open` set it earlier in this process
     applySessionPortFlag({ _: [] });
     expect(session.port).toBe(41111);
+  });
+});
+
+describe('--session names a live session', () => {
+  /** Record sessions oldest → newest, so newest-first order is deterministic. */
+  async function recordInOrder(
+    store: Awaited<ReturnType<typeof load>>['store'],
+    ...records: Array<{ port: number; name?: string }>
+  ) {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now');
+    for (const [i, r] of records.entries()) {
+      clock.mockReturnValue(now - (records.length - i) * 1_000);
+      await store.saveSessionRecord(r.port, { pid: 10 + i, name: r.name });
+    }
+    clock.mockRestore();
+  }
+
+  it('the record keeps its name', async () => {
+    const { store } = await load();
+    await store.saveSessionRecord(41111, { pid: 11, name: 'ref' });
+    expect((await store.loadSessionRecord(41111))?.name).toBe('ref');
+  });
+
+  it('resolves the live session with that name, not the newest one', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await recordInOrder(
+      store,
+      { port: 41111, name: 'ref' },
+      { port: 42222, name: 'build' },
+      { port: 43333 },
+    );
+    onlyLive(41111, 42222, 43333);
+
+    expect((await resolveLiveSession(browser, { name: 'ref' }))?.port).toBe(41111);
+    expect((await resolveLiveSession(browser, { name: 'build' }))?.port).toBe(42222);
+  });
+
+  it('an unknown name resolves to none instead of falling back to another session', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await recordInOrder(store, { port: 41111 }, { port: 42222, name: 'build' });
+    onlyLive(41111, 42222);
+
+    expect(await resolveLiveSession(browser, { name: 'ref' })).toBeNull();
+  });
+
+  it('a command with no name never lands on a named session', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await recordInOrder(store, { port: 41111 }, { port: 42222, name: 'ref' });
+    onlyLive(41111, 42222);
+
+    expect((await resolveLiveSession(browser))?.port).toBe(41111);
+  });
+
+  it('a dead named session is dropped, and the name resolves to none', async () => {
+    const { store, browser, resolveLiveSession } = await load();
+    await recordInOrder(store, { port: 41111, name: 'ref' });
+    onlyLive();
+
+    expect(await resolveLiveSession(browser, { name: 'ref' })).toBeNull();
+    expect(await store.loadSessionRecord(41111)).toBeNull();
+  });
+
+  it('--session sets the process session name; a missing flag leaves it alone', async () => {
+    const { applySessionNameFlag, session } = await load();
+    applySessionNameFlag({ _: [], session: 'ref' });
+    expect(session.name).toBe('ref');
+    applySessionNameFlag({ _: [] });
+    expect(session.name).toBe('ref');
+  });
+
+  it('rejects a session name that is not a plain identifier', async () => {
+    const { applySessionNameFlag } = await load();
+    for (const bad of ['', '../x', 'a b', 'x'.repeat(65)]) {
+      expect(() => applySessionNameFlag({ _: [], session: bad })).toThrow(/Invalid session name/);
+    }
   });
 });

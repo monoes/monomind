@@ -39,7 +39,13 @@ export const openCommand: Command = {
       description: 'Force visible browser window',
       default: false,
     },
-    { name: 'session', short: 's', type: 'string', description: 'Session name to restore' },
+    {
+      name: 'session',
+      short: 's',
+      type: 'string',
+      description:
+        'Named session: re-open the live one with this name or start it, and restore saved state of that name if any',
+    },
     { name: 'state', type: 'string', description: 'State file to load' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -48,10 +54,14 @@ export const openCommand: Command = {
 
     // No --port means "start a session of my own on a free port" (#318) —
     // never "join whatever is on 9222", which is what made two uncoordinated
-    // `open` calls race for one browser and one profile directory.
-    const port = pinnedPort(ctx.flags);
-    const forceHeaded = ctx.flags.headed as boolean;
+    // `open` calls race for one browser and one profile directory. A
+    // --session name re-opens the live session of that name, if there is one.
     const browser = await getBrowser();
+    const name = session.name || undefined;
+    const port =
+      pinnedPort(ctx.flags) ??
+      (name ? (await resolveLiveSession(browser, { name }))?.port : undefined);
+    const forceHeaded = ctx.flags.headed as boolean;
 
     if (session.client) {
       const prevSid = session.sessionId;
@@ -91,7 +101,7 @@ export const openCommand: Command = {
 
     // Starts this session's own browser (and records it) unless --port named
     // one to attach to — see the session rule in session.ts.
-    session.port = await launchSessionBrowser(browser, { port, headless: !forceHeaded });
+    session.port = await launchSessionBrowser(browser, { port, headless: !forceHeaded, name });
     const conn = await browser.connectToTarget(session.port);
     session.client = conn.client;
     session.sessionId = conn.sessionId;
@@ -107,8 +117,10 @@ export const openCommand: Command = {
     }
     if (ctx.flags.state) {
       await browser.loadStateFile(session.client, session.sessionId, ctx.flags.state as string);
-    } else if (ctx.flags.session) {
-      await browser.loadSession(session.client, session.sessionId, ctx.flags.session as string);
+    } else if (name && (await browser.listSessions()).includes(name)) {
+      // Saved state of the same name (`state save <name>`) is restored; a
+      // name with none is simply a fresh named session.
+      await browser.loadSession(session.client, session.sessionId, name);
     }
 
     await browser.openUrl(session.client, session.sessionId, url);
@@ -228,7 +240,7 @@ export const closeCommand: Command = {
             port: pinned,
             launched: true,
           })
-        : await resolveLiveSession(browser, { strict: false });
+        : await resolveLiveSession(browser, { strict: false, name: session.name || undefined });
       if (persisted?.launched) {
         try {
           const conn = await browser.connectToTarget(persisted.port);
@@ -271,7 +283,9 @@ export const closeCommand: Command = {
         output.printInfo(
           persisted
             ? `Detached from browser on port ${persisted.port} (attached via connect — left running)`
-            : 'No active browser session',
+            : session.name
+              ? `No live browse session named "${session.name}"`
+              : 'No active browser session',
         );
       }
       if (persisted) {
@@ -370,7 +384,7 @@ export const connectCommand: Command = {
     // launches a browser of its own instead of reusing this session.
     // launched:false marks this browser as someone else's — close must never
     // kill it, and a dead endpoint must not be silently relaunched.
-    await browser.saveSessionRecord(port, { launched: false });
+    await browser.saveSessionRecord(port, { launched: false, name: session.name || undefined });
     const url = await browser.getCurrentUrl(session.client, session.sessionId);
     const title = await browser.getCurrentTitle(session.client, session.sessionId);
     output.printSuccess(`Connected: ${title} (${url})`);

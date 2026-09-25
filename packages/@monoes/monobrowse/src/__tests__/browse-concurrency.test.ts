@@ -275,3 +275,64 @@ describe.skipIf(!runnable)('#318 adoption of a pre-#318 session (real processes)
     expect(await cdpAlive(legacyPort)).toBe(false);
   }, 90_000);
 });
+
+/**
+ * `--session <name>` is documented (browse-qa, browse-electron skills) as a
+ * way to drive several browsers side by side. It used to be a no-op outside
+ * `open`, where it only restored saved state and failed when none existed —
+ * AFTER launching a browser — so every later command silently acted on
+ * whichever session was newest. Real processes, because the bug is in what a
+ * later, separate CLI invocation resolves.
+ */
+describe.skipIf(!runnable)('--session named sessions (real processes)', () => {
+  beforeAll(warmUpChrome, 90_000);
+
+  it('two named sessions stay apart, a bare command never lands on them, and an unknown name fails', async () => {
+    const root = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'monobrowse-named-'));
+    dirs.push(root);
+    const pageA = join(root, 'a.html');
+    const pageB = join(root, 'b.html');
+    await writeFile(pageA, '<!doctype html><title>Page A</title><h1>a</h1>');
+    await writeFile(pageB, '<!doctype html><title>Page B</title><h1>b</h1>');
+
+    const openA = await runCli(['open', `file://${pageA}`, '--session', 'ref'], root, root);
+    expect(openA.code, `open ref failed: ${openA.stdout}${openA.stderr}`).toBe(0);
+    const openB = await runCli(['open', `file://${pageB}`, '--session', 'build'], root, root);
+    expect(openB.code, `open build failed: ${openB.stdout}${openB.stderr}`).toBe(0);
+    const portA = reportedPort(openA);
+    const portB = reportedPort(openB);
+    expect(portA).not.toBeNull();
+    expect(portA).not.toBe(portB);
+
+    // 'build' is the newest session, yet --session ref reaches 'ref'.
+    const titleA = await runCli(['get', 'title', '--session', 'ref'], root, root);
+    expect(titleA.code, `get title ref failed: ${titleA.stdout}${titleA.stderr}`).toBe(0);
+    expect(titleA.stdout).toContain('Page A');
+    const titleB = await runCli(['get', 'title', '--session', 'build'], root, root);
+    expect(titleB.stdout).toContain('Page B');
+
+    // Re-opening a name navigates that session's own browser.
+    const reopen = await runCli(['open', `file://${pageB}`, '--session', 'ref'], root, root);
+    expect(reopen.code, `re-open ref failed: ${reopen.stdout}${reopen.stderr}`).toBe(0);
+    expect(reportedPort(reopen)).toBe(portA);
+
+    // An unknown name is an error, not a silent fallback to the newest session.
+    const unknown = await runCli(['get', 'title', '--session', 'nope'], root, root);
+    expect(unknown.code).not.toBe(0);
+    expect(`${unknown.stdout}${unknown.stderr}`).toMatch(/No live browse session named "nope"/);
+
+    // A bare command starts its own browser instead of joining a named one.
+    const bare = await runCli(['get', 'title'], root, root);
+    expect(bare.code, `bare get title failed: ${bare.stdout}${bare.stderr}`).toBe(0);
+    expect(bare.stdout).not.toContain('Page');
+
+    // close --session ends exactly that session.
+    const closeA = await runCli(['close', '--session', 'ref'], root, root);
+    expect(closeA.code, `close ref failed: ${closeA.stdout}${closeA.stderr}`).toBe(0);
+    expect(await cdpAlive(portA!)).toBe(false);
+    expect(await cdpAlive(portB!)).toBe(true);
+    await runCli(['close', '--session', 'build'], root, root);
+    expect(await cdpAlive(portB!)).toBe(false);
+    await runCli(['close'], root, root);
+  }, 120_000);
+});

@@ -90,7 +90,7 @@ import {
 } from './commands-trace.js';
 import { output } from './output.js';
 import { createPlatformCommand } from './platform.js';
-import { applySessionPortFlag } from './session.js';
+import { applySessionNameFlag, applySessionPortFlag } from './session.js';
 import type { Command, CommandContext, CommandResult } from './types.js';
 
 // Re-exported for direct unit testing — these were exported from this file
@@ -230,16 +230,33 @@ const PORT_OPTION = {
   description: 'Act on the browse session on this CDP port (default: the newest live session)',
 } as const;
 
+const SESSION_OPTION = {
+  name: 'session',
+  short: 's',
+  type: 'string',
+  description: 'Act on the live browse session with this name (open/connect start it)',
+} as const;
+
 function withSessionSelector(cmd: Command): Command {
   const action = cmd.action;
+  const options = cmd.options?.some((o) => o.name === 'port')
+    ? (cmd.options ?? [])
+    : [...(cmd.options ?? []), { ...PORT_OPTION }];
   return {
     ...cmd,
-    options: cmd.options?.some((o) => o.name === 'port')
-      ? cmd.options
-      : [...(cmd.options ?? []), { ...PORT_OPTION }],
+    // `snapshot`/`scroll` already use -s for --selector: long form only there.
+    options: options.some((o) => o.name === 'session')
+      ? options
+      : [
+          ...options,
+          options.some((o) => o.short === 's')
+            ? { ...SESSION_OPTION, short: undefined }
+            : { ...SESSION_OPTION },
+        ],
     action: action
       ? async (ctx: CommandContext) => {
           applySessionPortFlag(ctx.flags);
+          applySessionNameFlag(ctx.flags);
           return action(ctx);
         }
       : undefined,
@@ -324,10 +341,7 @@ const browseCommand: Command = {
   name: 'browse',
   description: 'Native browser automation via Chrome DevTools Protocol',
   subcommands,
-  options: [
-    { ...PORT_OPTION },
-    { name: 'session', short: 's', type: 'string', description: 'Named session to use' },
-  ],
+  options: [{ ...PORT_OPTION }, { ...SESSION_OPTION }],
   examples: [
     { command: 'monomind browse open https://example.com', description: 'Open a URL' },
     {

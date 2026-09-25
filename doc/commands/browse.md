@@ -39,14 +39,28 @@ The rules a command follows:
   existing session, so two uncoordinated `open` calls always get a browser each.
 - **`open --port N` / `connect --port N` attach to the browser on port N**, or
   launch one there — the behaviour to use when you want a known, fixed port.
-- **Any later command with no `--port` acts on the newest session started in
-  this directory whose browser still answers.** Dead sessions are dropped as it
+- **Any later command with no `--port` acts on the newest unnamed session
+  started in this directory whose browser still answers.** Dead sessions are dropped as it
   looks (so a browser you killed, or one that crashed, never wedges the next
   command), and with none left the command starts a session of its own, exactly
   as `open` would.
 - **Any later command with `--port N` acts on the session on port N.** This is
   how a second concurrent caller targets the session its own `open` reported,
   rather than "the newest one".
+- **`--session <name>` selects a session by name.** `open --session ref` (or
+  `connect --session ref`) starts a session called `ref`, or re-opens the live
+  one of that name; any other command with `--session ref` acts on it, and fails
+  with `No live browse session named "ref"` when there is none. Named sessions
+  are only reached by their name (or port) — a command with no `--session` never
+  lands on one — so two named sessions can run side by side in one directory:
+
+  ```bash
+  monomind browse open https://example.com --session ref
+  monomind browse open http://localhost:3000 --session build
+  monomind browse screenshot ref.png --session ref
+  monomind browse screenshot build.png --session build
+  monomind browse close --session ref
+  ```
 - **`close` ends exactly the session it resolved** — that one browser and that
   one record. Another invocation's browser is never touched, and a browser you
   only `connect`ed to is left running.
@@ -79,7 +93,9 @@ monomind browse open <url> [--port <port>] [--headed] [--session <name>] [--stat
 - `--port`: attach to (or launch on) this CDP port. Default: a free port of this
   session's own — see [Sessions](#sessions).
 - `--headed`: Force a visible browser window.
-- `--session`: Restore previously saved cookies/session state.
+- `--session`: Start the session with this name, or re-open the live one (see
+  [Sessions](#sessions)). If state was saved under the same name
+  (`state save <name>`), it is restored.
 - `--state`: Load state from a JSON file.
 
 ---
