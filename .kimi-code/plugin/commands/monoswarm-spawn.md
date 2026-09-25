@@ -1,6 +1,6 @@
 ---
-description: monoswarm spawn command (monomind)
 name: monoswarm:spawn
+description: Write worker agent records into the agent store and register their ids on the monoswarm state file (combines `agent_spawn` + `monoswarm_join`).
 ---
 
 # monoswarm spawn

@@ -1,7 +1,7 @@
 ---
-description: github pr-manager command (monomind)
-type: flow
 name: github-pr-manager
+description: Comprehensive pull request management with monomind swarm coordination for automated reviews, testing, and merge workflows.
+type: flow
 ---
 
 # GitHub PR Manager

@@ -38,8 +38,8 @@ mcp__monomind__coordination_orchestrate({
 
 ```bash
 # CLI equivalent
-npx monomind swarm init --topology mesh --max-agents 6
-npx monomind swarm start "research topic X" --strategy research --parallel
+npx monomind monoswarm init --topology mesh --max-agents 6
+npx monomind monoswarm start "research topic X" --strategy research --parallel
 ```
 
 ## Agent Roles

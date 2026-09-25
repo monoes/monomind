@@ -1,6 +1,6 @@
 ---
-description: hooks post-task command (monomind)
 name: hooks:post-task
+description: Record task completion for neural pattern learning.
 ---
 
 # hooks post-task

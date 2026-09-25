@@ -1,8 +1,6 @@
 ---
-description: mastermind okf-import command (monomind)
+description: Import an OKF (Open Knowledge Format) bundle into the Second Brain knowledge base.
 ---
-
-<!-- Import an OKF (Open Knowledge Format) bundle into the Second Brain knowledge base. -->
 
 Parse `$ARGUMENTS` for:
 - `--scope <name>` or `-s <name>` → knowledge scope (default: `shared`)

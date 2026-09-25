@@ -1,4 +1,6 @@
-<!-- Mastermind research domain — market research, competitor analysis, user research, trend scanning. Default mode: auto. -->
+---
+description: "Mastermind research domain — market research, competitor analysis, user research, trend scanning. Default mode: auto."
+---
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 

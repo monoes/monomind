@@ -1,7 +1,7 @@
 ---
-description: monoswarm spawn command (monomind)
-type: flow
 name: monoswarm-spawn
+description: Write worker agent records into the agent store and register their ids on the monoswarm state file (combines `agent_spawn` + `monoswarm_join`).
+type: flow
 ---
 
 # monoswarm spawn

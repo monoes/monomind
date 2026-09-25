@@ -80,7 +80,7 @@ Record outcomes for future sessions:
 
 ```bash
 # Record task completion
-npx monomind hooks post-task --task-id <id> --success true --quality 0.9
+npx monomind hooks post-task --task-id <id> --success true
 
 # Store any patterns worth remembering
 npx monomind memory store \

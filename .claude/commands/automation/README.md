@@ -10,7 +10,7 @@ Commands and guidance for agent automation, self-healing, and session management
 
 - [auto-agent](./auto-agent.md) — spawn agents by type and task (`monomind agent spawn`)
 - [smart-spawn](./smart-spawn.md) — auto-spawn agents via hooks pre-task (`monomind hooks pre-task --auto-spawn`)
-- [workflow-select](./workflow-select.md) — run predefined workflow templates (`monomind workflow run`)
+- [workflow-select](./workflow-select.md) — run predefined workflow templates (`monomind org create --template`)
 
 ## Guidance Docs (contextual reference)
 

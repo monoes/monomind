@@ -1,5 +1,6 @@
 ---
 name: hooks:session-end
+description: End the current session and persist state for later restoration.
 ---
 
 # hooks session-end

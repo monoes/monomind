@@ -1,4 +1,6 @@
-<!-- Tech Port — deep-analyzes a foreign project folder and recommends porting valuable features, patterns, or infrastructure into the current monomind base project. -->
+---
+description: Tech Port — deep-analyzes a foreign project folder and recommends porting valuable features, patterns, or infrastructure into the current monomind base project.
+---
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check below.
 

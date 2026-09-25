@@ -1,5 +1,6 @@
 ---
 name: agents:agent-capabilities
+description: Matrix of agent capabilities and their specializations.
 ---
 
 # agent-capabilities

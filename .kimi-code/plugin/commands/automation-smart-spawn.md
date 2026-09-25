@@ -1,6 +1,6 @@
 ---
-description: automation smart-spawn command (monomind)
 name: automation:smart-spawn
+description: Automatically spawn agents at the start of a task using the hooks pre-task system.
 ---
 
 # smart-spawn

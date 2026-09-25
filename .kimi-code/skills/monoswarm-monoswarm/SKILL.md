@@ -26,19 +26,19 @@ Then describe what you want to accomplish:
 
 ```bash
 # Initialize a swarm
-npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Start a swarm with an objective
-npx monomind swarm start "Build REST API" --strategy development --parallel
+npx monomind monoswarm start "Build REST API" --strategy development --parallel
 
 # Check swarm status
-npx monomind swarm status
+npx monomind monoswarm status
 
 # Stop the swarm
-npx monomind swarm stop
+npx monomind monoswarm stop
 
 # Scale agents
-npx monomind swarm scale <swarm-id> --agents 12
+npx monomind monoswarm scale <swarm-id> --agents 12
 ```
 
 ## MCP Tools

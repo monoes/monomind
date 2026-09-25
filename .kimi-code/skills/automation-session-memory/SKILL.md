@@ -1,7 +1,7 @@
 ---
-description: automation session-memory command (monomind)
-type: flow
 name: automation-session-memory
+description: Maintain context and learnings across Claude Code sessions for continuous improvement.
+type: flow
 ---
 
 # Cross-Session Memory

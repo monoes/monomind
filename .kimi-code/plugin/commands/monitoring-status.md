@@ -1,6 +1,6 @@
 ---
-description: monitoring status command (monomind)
 name: monitoring:status
+description: Show system status — swarm health, agents, tasks, memory, and MCP server.
 ---
 
 # status

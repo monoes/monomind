@@ -917,13 +917,6 @@ GOLDEN_SET.push(
     tags: ['b0'],
   },
   {
-    id: 'b0-ticket-pileup',
-    query:
-      'work through a backlog of open tickets spotting near identical ones and the ones nobody has touched in a month',
-    relevant: ['packages/@monomind/cli/.claude/skills/github-issue-triage/SKILL.md'],
-    tags: ['b0'],
-  },
-  {
     id: 'b0-capture-session-file',
     query:
       'keep a moving picture of what the automated browser did so a failure can be replayed later',
@@ -1280,13 +1273,6 @@ GOLDEN_SET.push(
     query:
       'a ready made staged pipeline that goes from planning to writing to checking to joining it all up',
     relevant: ['packages/@monomind/cli/.claude/commands/workflows/development.md'],
-    tags: ['b1'],
-  },
-  {
-    id: 'b1-team-snapshot',
-    query:
-      'produce a shareable roundup of whats open and whats shipped lately to paste into the team chat',
-    relevant: ['packages/@monomind/cli/.claude/skills/github-repo-recap/SKILL.md'],
     tags: ['b1'],
   },
   {
@@ -5392,12 +5378,6 @@ GOLDEN_SET.push(
     id: 'c3lo2-conductor-baton',
     query: 'how do I coordinate a group of parallel AI workers with shared state and checkpoints',
     relevant: ['packages/@monomind/cli/.claude/skills/monoswarm/SKILL.md'],
-    tags: ['c3-lo2'],
-  },
-  {
-    id: 'c3lo2-sorting-hat',
-    query: 'how does the system automatically categorize and prioritize incoming bug reports',
-    relevant: ['packages/@monomind/cli/.claude/skills/github-issue-triage/SKILL.md'],
     tags: ['c3-lo2'],
   },
   {

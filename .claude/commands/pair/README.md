@@ -47,10 +47,10 @@ Task({
 })
 ```
 
-Or use a specific specialist:
-- `superpowers:test-driven-development` — TDD-focused pairing
-- `superpowers:systematic-debugging` — debugging sessions
-- `superpowers:receiving-code-review` — code review sessions
+Or load a skill that fits the session:
+- `mastermind-debug` — debugging sessions (failing test first, then fix)
+- `mastermind-review` — code review sessions
+- `mastermind-receive-review` — working through review feedback
 
 ## Hooks Integration
 
@@ -61,7 +61,7 @@ Use hooks to track pair session quality:
 npx monomind hooks pre-task -d "Pair programming: implement JWT auth"
 
 # After session, record outcome
-npx monomind hooks post-task --task-id <id> --success true --quality 0.95
+npx monomind hooks post-task --task-id <id> --success true
 ```
 
 ## Files
@@ -72,8 +72,7 @@ npx monomind hooks post-task --task-id <id> --success true --quality 0.95
 
 ## See Also
 
-- `superpowers:pair-programming` — structured pair programming skill
-- `superpowers:test-driven-development` — TDD workflow
-- `superpowers:systematic-debugging` — debugging workflow
-- `superpowers:requesting-code-review` — code review workflow
+- `pair-programming` skill — structured pair programming workflow
+- `mastermind-debug` skill — debugging workflow, failing test first
+- `mastermind-review` skill — code review workflow
 - `hooks pre-task` — register task start and get recommendations

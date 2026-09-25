@@ -1,5 +1,6 @@
 ---
 name: automation:session-memory
+description: Maintain context and learnings across Claude Code sessions for continuous improvement.
 ---
 
 # Cross-Session Memory

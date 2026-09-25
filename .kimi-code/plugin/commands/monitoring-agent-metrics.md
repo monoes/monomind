@@ -1,6 +1,6 @@
 ---
-description: monitoring agent-metrics command (monomind)
 name: monitoring:agent-metrics
+description: Show agent performance metrics — tasks completed, success rate, and memory vectors by agent type.
 ---
 
 # agent metrics

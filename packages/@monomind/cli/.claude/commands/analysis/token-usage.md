@@ -1,5 +1,6 @@
 ---
 name: analysis:token-usage
+description: Analyze token consumption and cost across sessions.
 ---
 
 # token-usage

@@ -1,7 +1,7 @@
 ---
-description: coordination monoswarm-init command (monomind)
-type: flow
 name: coordination-monoswarm-init
+description: Initialize a Monomind swarm with specified topology and configuration.
+type: flow
 ---
 
 # monoswarm-init
@@ -11,7 +11,7 @@ Initialize a Monomind swarm with specified topology and configuration.
 ## Usage
 
 ```bash
-npx monomind swarm init [options]
+npx monomind monoswarm init [options]
 ```
 
 ## Options
@@ -27,31 +27,31 @@ npx monomind swarm init [options]
 ### Default hierarchical swarm
 
 ```bash
-npx monomind swarm init
+npx monomind monoswarm init
 ```
 
 ### Mesh topology for research tasks
 
 ```bash
-npx monomind swarm init --topology mesh --max-agents 5 --strategy balanced
+npx monomind monoswarm init --topology mesh --max-agents 5 --strategy balanced
 ```
 
 ### Specialized development swarm
 
 ```bash
-npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 ```
 
 ### Auto-scaling adaptive swarm
 
 ```bash
-npx monomind swarm init --topology adaptive --auto-scale
+npx monomind monoswarm init --topology adaptive --auto-scale
 ```
 
 ### v1 high-performance mode (15 agents)
 
 ```bash
-npx monomind swarm init --v1-mode
+npx monomind monoswarm init --v1-mode
 ```
 
 ## Topologies
@@ -79,6 +79,6 @@ mcp__monomind__swarm_init({
 ## See Also
 
 - `agent-spawn` — create agents within the swarm
-- `swarm status` — check swarm state (`monomind swarm status`)
-- `swarm start` — start execution (`monomind swarm start --objective "..."`)
+- `swarm status` — check swarm state (`monomind monoswarm status`)
+- `swarm start` — start execution (`monomind monoswarm start --objective "..."`)
 - `task-orchestrate` — coordinate tasks across agents

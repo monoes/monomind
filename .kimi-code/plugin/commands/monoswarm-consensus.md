@@ -1,6 +1,6 @@
 ---
-description: monoswarm consensus command (monomind)
 name: monoswarm:consensus
+description: Propose or vote on a threshold-based decision — vote-count bookkeeping over one JSON state file.
 ---
 
 # monoswarm vote

@@ -165,7 +165,7 @@ const key = crypto.randomBytes(32).toString('base64');
 jj.enableEncryption(key);
 ```
 
-### 6. Operation Tracking with LanceDB
+### 6. Operation Tracking
 
 Automatic tracking of all operations:
 
@@ -396,7 +396,7 @@ for (let i = 1; i <= 10; i++) {
 | `queryTrajectories(task, limit)` | Find similar trajectories | JSON: Trajectory[] |
 | `resetLearning()` | Clear learned data | void |
 
-### LanceDB Methods
+### Operation Log Methods
 
 | Method | Description | Returns |
 |--------|-------------|---------|
@@ -630,7 +630,6 @@ async function agentSwarm(taskList) {
 - **GitHub**: https://github.com/monoes/monomind
 - **Full README**: See package README.md
 - **Validation Guide**: docs/VALIDATION_FIXES_v2.3.1.md
-- **LanceDB Guide**: docs/LANCEDB_GUIDE.md
 
 ## Version History
 

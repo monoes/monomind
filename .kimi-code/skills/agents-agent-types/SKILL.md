@@ -1,7 +1,7 @@
 ---
-description: agents agent-types command (monomind)
-type: flow
 name: agents-agent-types
+description: Complete guide to all 60+ available agent types in Monomind.
+type: flow
 ---
 
 # agent-types

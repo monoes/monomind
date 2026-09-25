@@ -91,7 +91,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
-    "prepublishOnly": "node scripts/check-workspace-deps.mjs && node ../../../scripts/check-published-pins.mjs . && node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build",
+    "prepack": "node ../../@monoes/monodesign/scripts/sync-skill.mjs",
+    "prepublishOnly": "node scripts/check-workspace-deps.mjs && node ../../../scripts/check-published-pins.mjs . && node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build && node ../../../scripts/check-cli-pack.mjs .",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },

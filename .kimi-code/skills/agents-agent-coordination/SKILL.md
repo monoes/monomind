@@ -1,7 +1,7 @@
 ---
-description: agents agent-coordination command (monomind)
-type: flow
 name: agents-agent-coordination
+description: Coordination patterns for multi-agent collaboration.
+type: flow
 ---
 
 # agent-coordination

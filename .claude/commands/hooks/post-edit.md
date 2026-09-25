@@ -1,5 +1,6 @@
 ---
 name: hooks:post-edit
+description: Record editing outcome for neural pattern learning.
 ---
 
 # hooks post-edit

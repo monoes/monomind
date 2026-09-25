@@ -1,6 +1,6 @@
 ---
-description: github issue-tracker command (monomind)
 name: github:issue-tracker
+description: Intelligent issue management and project coordination with monomind swarm integration for automated tracking, progress monitoring, and team coordination.
 ---
 
 # GitHub Issue Tracker

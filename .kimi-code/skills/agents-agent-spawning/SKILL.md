@@ -1,7 +1,7 @@
 ---
-description: agents agent-spawning command (monomind)
-type: flow
 name: agents-agent-spawning
+description: Guide to spawning agents with Claude Code's Task tool.
+type: flow
 ---
 
 # agent-spawning

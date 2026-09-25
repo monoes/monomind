@@ -1,6 +1,6 @@
 ---
-description: automation auto-agent command (monomind)
 name: automation:auto-agent
+description: Automatically spawn agents based on task requirements.
 ---
 
 # auto-agent

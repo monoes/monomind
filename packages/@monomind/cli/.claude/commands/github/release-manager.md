@@ -1,5 +1,6 @@
 ---
 name: github:release-manager
+description: Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages.
 ---
 
 # GitHub Release Manager
@@ -322,8 +323,6 @@ jobs:
           node-version: "20"
       - name: Install and Test
         run: npm install && npm test
-      - name: Validate Release
-        run: npx monomind release validate
 ```
 
 ## Monitoring and Metrics

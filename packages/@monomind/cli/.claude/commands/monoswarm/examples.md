@@ -25,8 +25,8 @@ mcp__monomind__swarm_status({ swarmId: "current" })
 ```
 
 ```bash
-npx monomind swarm init --topology mesh --max-agents 6 --strategy research
-npx monomind swarm start "research AI trends" --strategy research --parallel
+npx monomind monoswarm init --topology mesh --max-agents 6 --strategy research
+npx monomind monoswarm start "research AI trends" --strategy research --parallel
 ```
 
 ---
@@ -51,7 +51,7 @@ mcp__monomind__swarm_status({ swarmId: "current" })
 ```
 
 ```bash
-npx monomind swarm start "build REST API" --strategy development --mode hierarchical
+npx monomind monoswarm start "build REST API" --strategy development --mode hierarchical
 ```
 
 ---
@@ -75,7 +75,7 @@ mcp__monomind__performance_report({ format: "detailed" })
 ```
 
 ```bash
-npx monomind swarm start "analyze codebase" --strategy analysis --mode mesh --parallel
+npx monomind monoswarm start "analyze codebase" --strategy analysis --mode mesh --parallel
 ```
 
 ---

@@ -37,7 +37,7 @@ npx monomind status agents
 npx monomind agent metrics --period 7d
 
 # Swarm status
-npx monomind swarm status
+npx monomind monoswarm status
 ```
 
 ## Files

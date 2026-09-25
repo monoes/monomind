@@ -296,7 +296,7 @@ const integrationPattern = {
     "@monomind/memory": {
       role: "persistence_layer",
       dependencies: [],
-      provides: ["LanceDB", "HNSW_search", "sessions"],
+      provides: ["SQLite", "HNSW_search", "sessions"],
     },
   },
   communication: "MCP_protocol",

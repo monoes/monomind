@@ -1,8 +1,6 @@
 ---
-description: mastermind runorg command (monomind)
+description: Start a saved org via the Org Runtime daemon (monomind org run/serve). Validates the config, converts legacy-format config files, starts the daemon, and confirms liveness.
 ---
-
-<!-- Start a saved org via the Org Runtime daemon (monomind org run/serve). Validates the config, converts legacy-format config files, starts the daemon, and confirms liveness. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 

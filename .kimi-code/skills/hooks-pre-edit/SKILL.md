@@ -1,7 +1,7 @@
 ---
-description: hooks pre-edit command (monomind)
-type: flow
 name: hooks-pre-edit
+description: Get context and agent suggestions before editing a file.
+type: flow
 ---
 
 # hooks pre-edit

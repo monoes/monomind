@@ -1,6 +1,6 @@
 ---
-description: hooks session-end command (monomind)
 name: hooks:session-end
+description: End the current session and persist state for later restoration.
 ---
 
 # hooks session-end

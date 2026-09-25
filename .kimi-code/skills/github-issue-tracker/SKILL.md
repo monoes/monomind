@@ -1,7 +1,7 @@
 ---
-description: github issue-tracker command (monomind)
-type: flow
 name: github-issue-tracker
+description: Intelligent issue management and project coordination with monomind swarm integration for automated tracking, progress monitoring, and team coordination.
+type: flow
 ---
 
 # GitHub Issue Tracker

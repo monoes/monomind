@@ -1,5 +1,6 @@
 ---
 name: automation:self-healing
+description: Automatically detect and recover from errors without interrupting your flow.
 ---
 
 # Self-Healing Workflows

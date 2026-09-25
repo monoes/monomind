@@ -1,4 +1,6 @@
-<!-- Mastermind content domain — blog posts, threads, docs, newsletters. Default mode: confirm. -->
+---
+description: "Mastermind content domain — blog posts, threads, docs, newsletters. Default mode: confirm."
+---
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 

@@ -4,7 +4,7 @@ name: github:README
 
 # GitHub Commands
 
-Commands and guidance for GitHub workflow automation in Monomind. All GitHub operations use the `gh` CLI and real monomind MCP tools — there is no `monomind github` CLI command group.
+Commands and guidance for GitHub workflow automation in Monomind. All GitHub operations use the `gh` CLI and real monomind MCP tools — the `monomind` CLI has no `github` command group.
 
 ## Commands (invoke as slash commands)
 

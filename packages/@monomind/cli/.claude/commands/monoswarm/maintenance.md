@@ -38,8 +38,8 @@ mcp__monomind__coordination_orchestrate({
 
 ```bash
 # CLI equivalent
-npx monomind swarm init --topology star --max-agents 5
-npx monomind swarm start "update dependencies" --strategy maintenance
+npx monomind monoswarm init --topology star --max-agents 5
+npx monomind monoswarm start "update dependencies" --strategy maintenance
 ```
 
 ## Agent Roles

@@ -1,6 +1,6 @@
 ---
 name: mastermind-agent-detail
-description: Mastermind agent-detail — deep per-agent inspection: show config, run history, budget usage, heartbeat status, assigned skills, and reset/reconfigure a single agent within an org.
+description: "Mastermind agent-detail — deep per-agent inspection: show config, run history, budget usage, heartbeat status, assigned skills, and reset/reconfigure a single agent within an org."
 type: domain-skill
 default_mode: auto
 pick: low

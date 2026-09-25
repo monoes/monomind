@@ -1,7 +1,7 @@
 ---
-description: monoswarm stop command (monomind)
-type: flow
 name: monoswarm-stop
+description: Clear monoswarm workers from the shared agent store and reset run state.
+type: flow
 ---
 
 # monoswarm shutdown
@@ -9,7 +9,7 @@ name: monoswarm-stop
 Clear monoswarm workers from the shared agent store and reset run state.
 
 ```bash
-npx monomind@latest swarm stop
+npx monomind@latest monoswarm stop
 ```
 
 Or, as a direct MCP tool call (needed to also clear vote/consensus state):

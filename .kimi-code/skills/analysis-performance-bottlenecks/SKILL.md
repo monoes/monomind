@@ -1,7 +1,7 @@
 ---
-description: analysis performance-bottlenecks command (monomind)
-type: flow
 name: analysis-performance-bottlenecks
+description: Identify and resolve performance bottlenecks in your development workflow.
+type: flow
 ---
 
 # Performance Bottleneck Analysis

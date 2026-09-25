@@ -1,61 +1,58 @@
 ---
 name: hooks-automation
-description: Automated coordination, formatting, and learning from Claude Code operations using intelligent hooks with MCP integration. Includes pre/post task hooks, session management, Git integration, memory coordination, and neural pattern training for enhanced development workflows.
+description: Automated coordination and learning from Claude Code operations using the monomind hooks system. Covers pre/post edit, command and task hooks, session persistence, routing, pattern logging, background workers, Claude Code settings.json wiring, and Git hook integration.
 ---
 
 # Hooks Automation
 
-Intelligent automation system that coordinates, validates, and learns from Claude Code operations through hooks integrated with MCP tools and neural pattern training.
+Coordinate, validate, and learn from Claude Code operations through the `monomind hooks` command group and the hook handlers that `monomind init` installs into `.claude/settings.json`.
 
 ## What This Skill Does
 
-This skill provides a comprehensive hook system that automatically manages development operations, coordinates swarm agents, maintains session state, and continuously learns from coding patterns. It enables automated agent assignment, code formatting, performance tracking, and cross-session memory persistence.
+The hooks system records what happens during a session (edits, commands, tasks) and uses that history to suggest agents, assess command risk, and persist session state. It enables:
 
-**Key Capabilities:**
-- **Pre-Operation Hooks**: Validate, prepare, and auto-assign agents before operations
-- **Post-Operation Hooks**: Format, analyze, and train patterns after operations
-- **Session Management**: Persist state, restore context, generate summaries
-- **Memory Coordination**: Synchronize knowledge across swarm agents
-- **Git Integration**: Automated commit hooks with quality verification
-- **Neural Training**: Continuous learning from successful patterns
-- **MCP Integration**: Seamless coordination with swarm tools
+- **Pre-operation hooks**: context and agent suggestions before an edit, risk assessment before a command, agent suggestions before a task
+- **Post-operation hooks**: record edit, command, and task outcomes so routing can learn from them
+- **Session management**: persist state at session end and restore it later
+- **Routing**: route a task to the best agent (or model) and explain the decision
+- **Pattern store**: log trajectories and search stored patterns (`hooks intelligence`); `hooks pretrain` consolidates hook activity into JSON state — no model is trained
+- **Background workers**: run `@monoes/hooks` workers in-process
 
 ## Prerequisites
 
 **Required:**
-- Monomind CLI installed (`npm install -g monomind@latest`)
-- Claude Code with hooks enabled
-- `.claude/settings.json` with hook configurations
+- Monomind CLI (`npm install -g monomind@latest`, or use `npx monomind`)
+- Claude Code with hooks enabled in `.claude/settings.json`
 
 **Optional:**
-- Git repository for version control
-- Testing framework for quality verification
+- Git repository (for the Git hook examples)
+- A test framework (for quality gates)
 
 ## Quick Start
 
-### Initialize Hooks System
+### Initialize Hooks
 
 ```bash
-# Initialize with default hooks configuration
-npx monomind init --hooks
+# Write the hooks configuration into .claude/settings.json
+npx monomind init hooks
+
+# Only the essential hooks
+npx monomind init hooks --minimal
 ```
 
-This creates:
-- `.claude/settings.json` with pre-configured hooks
-- Hook command documentation in `.claude/commands/hooks/`
-- Default hook handlers for common operations
+This wires Claude Code's `PreToolUse`, `PostToolUse`, and session events to the helper `.claude/helpers/hook-handler.cjs` (installed by `monomind init`), which handles pre-bash, pre-search (Grep/Glob), pre-agent, post-edit, session-restore, session-end, and related events.
 
 ### Basic Hook Usage
 
 ```bash
-# Pre-task hook (auto-spawns agents)
-npx monomind hook pre-task --description "Implement authentication"
+# Record task start and get agent suggestions
+npx monomind hooks pre-task --description "Implement authentication"
 
-# Post-edit hook (auto-formats and stores in memory)
-npx monomind hook post-edit --file "src/auth.js" --memory-key "auth/login"
+# Record an edit outcome
+npx monomind hooks post-edit --file "src/auth.js" --success true
 
-# Session end hook (saves state and metrics)
-npx monomind hook session-end --session-id "dev-session" --export-metrics
+# End the session and persist state
+npx monomind hooks session-end
 ```
 
 ---
@@ -64,379 +61,210 @@ npx monomind hook session-end --session-id "dev-session" --export-metrics
 
 ### Available Hooks
 
+Run `npx monomind hooks --help` for the full list and `npx monomind hooks <sub> --help` for each subcommand's flags.
+
 #### Pre-Operation Hooks
 
-Hooks that execute BEFORE operations to prepare and validate:
-
-**pre-edit** - Validate and assign agents before file modifications
+**pre-edit** - Get context and agent suggestions before editing a file
 ```bash
-npx monomind hook pre-edit [options]
+npx monomind hooks pre-edit [options]
 
 Options:
-  --file, -f <path>         File path to be edited
-  --auto-assign-agent       Automatically assign best agent (default: true)
-  --validate-syntax         Pre-validate syntax before edit
-  --check-conflicts         Check for merge conflicts
-  --backup-file             Create backup before editing
+  -f, --file <path>         File path to edit
+  -o, --operation <type>    create | update | delete | refactor (default: update)
+  -c, --context <text>      Additional context about the edit
 
 Examples:
-  npx monomind hook pre-edit --file "src/auth/login.js"
-  npx monomind hook pre-edit -f "config/db.js" --validate-syntax
-  npx monomind hook pre-edit -f "production.env" --backup-file --check-conflicts
+  npx monomind hooks pre-edit --file "src/auth/login.js"
+  npx monomind hooks pre-edit -f "src/db.ts" -o refactor -c "split connection pool"
 ```
 
-**Features:**
-- Auto agent assignment based on file type
-- Syntax validation to prevent broken code
-- Conflict detection for concurrent edits
-- Automatic file backups for safety
-
-**pre-bash** - Check command safety and resource requirements
+**pre-command** (alias: `pre-bash`) - Assess risk before executing a command
 ```bash
-npx monomind hook pre-bash --command <cmd>
+npx monomind hooks pre-command --command <cmd>
 
 Options:
-  --command, -c <cmd>       Command to validate
-  --check-safety            Verify command safety (default: true)
-  --estimate-resources      Estimate resource usage
-  --require-confirmation    Request user confirmation for risky commands
+  -c, --command <cmd>       Command to execute (required)
+  -d, --dry-run             Only analyze, do not execute (default: true)
 
 Examples:
-  npx monomind hook pre-bash -c "rm -rf /tmp/cache"
-  npx monomind hook pre-bash --command "docker build ." --estimate-resources
+  npx monomind hooks pre-command -c "rm -rf ./build"
+  npx monomind hooks pre-bash --command "docker build ."
 ```
 
-**Features:**
-- Command safety validation
-- Resource requirement estimation
-- Destructive command confirmation
-- Permission checks
-
-**pre-task** - Auto-spawn agents and prepare for complex tasks
+**pre-task** - Record task start and get agent suggestions
 ```bash
-npx monomind hook pre-task [options]
+npx monomind hooks pre-task [options]
 
 Options:
-  --description, -d <text>  Task description for context
-  --auto-spawn-agents       Automatically spawn required agents (default: true)
-  --load-memory             Load relevant memory from previous sessions
-  --optimize-topology       Select optimal swarm topology
-  --estimate-complexity     Analyze task complexity
+  -d, --description <text>  Task description (required)
+  -i, --task-id <id>        Task identifier (auto-generated if omitted)
+  -a, --auto-spawn          Auto-spawn suggested agents (default: false)
 
 Examples:
-  npx monomind hook pre-task --description "Implement user authentication"
-  npx monomind hook pre-task -d "Continue API dev" --load-memory
-  npx monomind hook pre-task -d "Refactor codebase" --optimize-topology
+  npx monomind hooks pre-task --description "Implement user authentication"
+  npx monomind hooks pre-task -d "Refactor codebase" -i refactor-1
 ```
 
-**Features:**
-- Automatic agent spawning based on task analysis
-- Memory loading for context continuity
-- Topology optimization for task structure
-- Complexity estimation and time prediction
-
-**pre-search** - Prepare and optimize search operations
-```bash
-npx monomind hook pre-search --query <query>
-
-Options:
-  --query, -q <text>        Search query
-  --check-cache             Check cache first (default: true)
-  --optimize-query          Optimize search pattern
-
-Examples:
-  npx monomind hook pre-search -q "authentication middleware"
-```
-
-**Features:**
-- Cache checking for faster results
-- Query optimization
-- Search pattern improvement
+There is no `pre-search` CLI subcommand. Search-time context (for Grep/Glob) is handled by the installed helper (`hook-handler.cjs pre-search`) that `monomind init hooks` wires up.
 
 #### Post-Operation Hooks
 
-Hooks that execute AFTER operations to process and learn:
-
-**post-edit** - Auto-format, validate, and update memory
+**post-edit** - Record editing outcome for learning
 ```bash
-npx monomind hook post-edit [options]
+npx monomind hooks post-edit [options]
 
 Options:
-  --file, -f <path>         File path that was edited
-  --auto-format             Automatically format code (default: true)
-  --memory-key, -m <key>    Store edit context in memory
-  --train-patterns          Train neural patterns from edit
-  --validate-output         Validate edited file
+  -f, --file <path>         File path that was edited
+  -s, --success             Whether the edit was successful
+  -o, --outcome <text>      Outcome description
+  -m, --metrics <list>      Performance metrics (e.g. "time:500ms,quality:0.95")
 
 Examples:
-  npx monomind hook post-edit --file "src/components/Button.jsx"
-  npx monomind hook post-edit -f "api/auth.js" --memory-key "auth/login"
-  npx monomind hook post-edit -f "utils/helpers.ts" --train-patterns
+  npx monomind hooks post-edit --file "src/components/Button.jsx" --success true
+  npx monomind hooks post-edit -f "api/auth.js" -s true -o "added token refresh"
 ```
 
-**Features:**
-- Language-specific auto-formatting (Prettier, Black, gofmt)
-- Memory storage for edit context and decisions
-- Neural pattern training for continuous improvement
-- Output validation with linting
+The hook records the outcome; it does not format code. Run your formatter (Prettier, Black, gofmt) as its own hook command if you want auto-formatting.
 
-**post-bash** - Log execution and update metrics
+**post-command** (alias: `post-bash`) - Record command execution outcome
 ```bash
-npx monomind hook post-bash --command <cmd>
+npx monomind hooks post-command --command <cmd>
 
 Options:
-  --command, -c <cmd>       Command that was executed
-  --log-output              Log command output (default: true)
-  --update-metrics          Update performance metrics
-  --store-result            Store result in memory
+  -c, --command <cmd>       Command that was executed (required)
+  -s, --success             Whether the command succeeded
+  -e, --exit-code <n>       Command exit code (default: 0)
+  -d, --duration <ms>       Execution duration in milliseconds
 
 Examples:
-  npx monomind hook post-bash -c "npm test" --update-metrics
+  npx monomind hooks post-command -c "npm test" --success true --duration 4200
 ```
 
-**Features:**
-- Command execution logging
-- Performance metric tracking
-- Result storage for analysis
-- Error pattern detection
-
-**post-task** - Performance analysis and decision storage
+**post-task** - Record task completion for learning
 ```bash
-npx monomind hook post-task [options]
+npx monomind hooks post-task [options]
 
 Options:
-  --task-id, -t <id>        Task identifier for tracking
-  --analyze-performance     Generate performance metrics (default: true)
-  --store-decisions         Save task decisions to memory
-  --export-learnings        Export neural pattern learnings
-  --generate-report         Create task completion report
+  -i, --task-id <id>        Task identifier (required)
+  -s, --success             Whether the task succeeded
+  -d, --duration <ms>       Task duration in milliseconds
+  -o, --outcome <text>      Outcome description
+  -r, --route-id <id>       Route ID from a prior `hooks route` call (joins recommendation to outcome)
 
 Examples:
-  npx monomind hook post-task --task-id "auth-implementation"
-  npx monomind hook post-task -t "api-refactor" --analyze-performance
-  npx monomind hook post-task -t "bug-fix-123" --store-decisions
-```
-
-**Features:**
-- Execution time and token usage measurement
-- Decision and implementation choice recording
-- Neural learning pattern export
-- Completion report generation
-
-**post-search** - Cache results and improve patterns
-```bash
-npx monomind hook post-search --query <query> --results <path>
-
-Options:
-  --query, -q <text>        Original search query
-  --results, -r <path>      Results file path
-  --cache-results           Cache for future use (default: true)
-  --train-patterns          Improve search patterns
-
-Examples:
-  npx monomind hook post-search -q "auth" -r "results.json" --train-patterns
-```
-
-**Features:**
-- Result caching for faster subsequent searches
-- Search pattern improvement
-- Relevance scoring
-
-#### MCP Integration Hooks
-
-Hooks that coordinate with MCP swarm tools:
-
-**mcp-initialized** - Persist swarm configuration
-```bash
-npx monomind hook mcp-initialized --swarm-id <id>
-
-Features:
-- Save swarm topology and configuration
-- Store agent roster in memory
-- Initialize coordination namespace
-```
-
-**agent-spawned** - Update agent roster and memory
-```bash
-npx monomind hook agent-spawned --agent-id <id> --type <type>
-
-Features:
-- Register agent in coordination memory
-- Update agent roster
-- Initialize agent-specific memory namespace
-```
-
-**task-orchestrated** - Monitor task progress
-```bash
-npx monomind hook task-orchestrated --task-id <id>
-
-Features:
-- Track task progress through memory
-- Monitor agent assignments
-- Update coordination state
-```
-
-**neural-trained** - Save pattern improvements
-```bash
-npx monomind hook neural-trained --pattern <name>
-
-Features:
-- Export trained neural patterns
-- Update coordination models
-- Share learning across agents
-```
-
-#### Memory Coordination Hooks
-
-**memory-write** - Triggered when agents write to coordination memory
-```bash
-Features:
-- Validate memory key format
-- Update cross-agent indexes
-- Trigger dependent hooks
-- Notify subscribed agents
-```
-
-**memory-read** - Triggered when agents read from coordination memory
-```bash
-Features:
-- Log access patterns
-- Update popularity metrics
-- Preload related data
-- Track usage statistics
-```
-
-**memory-sync** - Synchronize memory across swarm agents
-```bash
-npx monomind hook memory-sync --namespace <ns>
-
-Features:
-- Sync memory state across agents
-- Resolve conflicts
-- Propagate updates
-- Maintain consistency
+  npx monomind hooks post-task --task-id "auth-implementation" --success true
+  npx monomind hooks post-task -i "bug-fix-123" -s false -o "flaky test, needs follow-up"
 ```
 
 #### Session Hooks
 
-**session-start** - Initialize new session
+**session-restore** - Restore a previous session
 ```bash
-npx monomind hook session-start --session-id <id>
+npx monomind hooks session-restore [options]
 
 Options:
-  --session-id, -s <id>     Session identifier
-  --load-context            Load context from previous session
-  --init-agents             Initialize required agents
-
-Features:
-- Create session directory
-- Initialize metrics tracking
-- Load previous context
-- Set up coordination namespace
-```
-
-**session-restore** - Load previous session state
-```bash
-npx monomind hook session-restore --session-id <id>
-
-Options:
-  --session-id, -s <id>     Session to restore
-  --restore-memory          Restore memory state (default: true)
-  --restore-agents          Restore agent configurations
+  -i, --session-id <id>     Session to restore ("latest" for most recent; default: latest)
+  -a, --restore-agents      Restore spawned agents (default: true)
+  -t, --restore-tasks       Restore active tasks (default: true)
 
 Examples:
-  npx monomind hook session-restore --session-id "swarm-20241019"
-  npx monomind hook session-restore -s "feature-auth" --restore-memory
+  npx monomind hooks session-restore
+  npx monomind hooks session-restore --session-id "feature-auth"
 ```
 
-**Features:**
-- Load previous session context
-- Restore memory state and decisions
-- Reconfigure agents to previous state
-- Resume in-progress tasks
+`session-start` still exists but is deprecated in favor of `session-restore`.
 
-**session-end** - Cleanup and persist session state
+**session-end** - End current session and persist state
 ```bash
-npx monomind hook session-end [options]
+npx monomind hooks session-end [options]
 
 Options:
-  --session-id, -s <id>     Session identifier to end
-  --save-state              Save current session state (default: true)
-  --export-metrics          Export session metrics
-  --generate-summary        Create session summary
-  --cleanup-temp            Remove temporary files
-
-Examples:
-  npx monomind hook session-end --session-id "dev-session-2024"
-  npx monomind hook session-end -s "feature-auth" --export-metrics --generate-summary
-  npx monomind hook session-end -s "quick-fix" --cleanup-temp
+  -s, --save-state          Save session state for later restoration (default: true)
 ```
 
-**Features:**
-- Save current context and progress
-- Export session metrics (duration, commands, tokens, files)
-- Generate work summary with decisions and next steps
-- Cleanup temporary files and optimize storage
+For named checkpoints, use the `session` command group: `npx monomind session save --name "feature-auth"`, `npx monomind session list`, `npx monomind session restore <id>`.
 
-**notify** - Custom notifications with swarm status
+**notify** - Send a notification message (logged to the session)
 ```bash
-npx monomind hook notify --message <msg>
+npx monomind hooks notify --message <msg>
 
 Options:
-  --message, -m <text>      Notification message
-  --level <level>           Notification level (info|warning|error)
-  --swarm-status            Include swarm status (default: true)
-  --broadcast               Send to all agents
+  -m, --message <text>      Notification message (required)
+  -l, --level <level>       info | warn | error (default: info)
+  -c, --channel <name>      Only "console" is implemented (default: console)
 
 Examples:
-  npx monomind hook notify -m "Task completed" --level info
-  npx monomind hook notify -m "Critical error" --level error --broadcast
+  npx monomind hooks notify -m "Task completed" --level info
 ```
 
-**Features:**
-- Send notifications to coordination system
-- Include swarm status and metrics
-- Broadcast to all agents
-- Log important events
+#### Routing and Learning
+
+```bash
+# Route a task to the best agent (top 3 suggestions by default)
+npx monomind hooks route --task "Fix authentication bug" --top-k 3
+
+# Explain a routing decision
+npx monomind hooks explain --task "Fix authentication bug" --verbose
+
+# Route to a Claude model (haiku/sonnet/opus) by complexity
+npx monomind hooks model-route --task "Rename a variable" --prefer-cost
+npx monomind hooks model-stats
+
+# Route based on test coverage gaps
+npx monomind hooks coverage-gaps --critical-only
+
+# Consolidate hook activity into JSON state (no model is trained)
+npx monomind hooks pretrain --depth shallow
+
+# Pattern store: ingest history, list/search patterns
+npx monomind hooks intelligence train
+npx monomind hooks intelligence patterns --query "auth" --limit 5
+npx monomind hooks intelligence status
+
+# Copy learned patterns from another local project
+npx monomind hooks transfer from-project --source ../other-project
+
+# Metrics dashboard
+npx monomind hooks metrics --period 7d
+npx monomind hooks metrics --v1-dashboard
+```
+
+#### Background Workers and Utilities
+
+```bash
+npx monomind hooks list                 # registered hooks
+npx monomind hooks worker list          # available background workers
+npx monomind hooks worker run --name <worker>
+npx monomind hooks statusline --compact
+```
 
 ### Configuration
 
-#### Basic Configuration
+#### Generated Configuration
 
-Edit `.claude/settings.json` to configure hooks:
+`npx monomind init hooks` writes the recommended configuration. Each entry runs the installed helper, which reads Claude Code's hook input JSON from stdin:
 
 ```json
 {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^(Write|Edit|MultiEdit)$",
+        "matcher": "Bash",
         "hooks": [{
           "type": "command",
-          "command": "npx monomind hook pre-edit --file '${tool.params.file_path}' --memory-key 'swarm/editor/current'"
-        }]
-      },
-      {
-        "matcher": "^Bash$",
-        "hooks": [{
-          "type": "command",
-          "command": "npx monomind hook pre-bash --command '${tool.params.command}'"
+          "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-bash",
+          "timeout": 5
         }]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "^(Write|Edit|MultiEdit)$",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [{
           "type": "command",
-          "command": "npx monomind hook post-edit --file '${tool.params.file_path}' --memory-key 'swarm/editor/complete' --auto-format --train-patterns"
-        }]
-      },
-      {
-        "matcher": "^Bash$",
-        "hooks": [{
-          "type": "command",
-          "command": "npx monomind hook post-bash --command '${tool.params.command}' --update-metrics"
+          "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-edit",
+          "timeout": 10
         }]
       }
     ]
@@ -444,749 +272,226 @@ Edit `.claude/settings.json` to configure hooks:
 }
 ```
 
-#### Advanced Configuration
+(The generated commands also walk up the directory tree to find `.claude/helpers`; the version above is simplified.)
 
-Complete hook configuration with all features:
+#### Calling the CLI Directly
+
+Claude Code passes hook input as JSON on stdin (for example `tool_input.file_path`, `tool_input.command`). To call `monomind hooks` subcommands directly, extract the fields with `jq`:
 
 ```json
 {
   "hooks": {
-    "enabled": true,
-    "debug": false,
-    "timeout": 5000,
-
     "PreToolUse": [
       {
-        "matcher": "^(Write|Edit|MultiEdit)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook pre-edit --file '${tool.params.file_path}' --auto-assign-agent --validate-syntax",
-            "timeout": 3000,
-            "continueOnError": true
-          }
-        ]
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "sh -c 'f=$(jq -r .tool_input.file_path); npx monomind hooks pre-edit --file \"$f\"'",
+          "timeout": 10
+        }]
       },
       {
-        "matcher": "^Task$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook pre-task --description '${tool.params.task}' --auto-spawn-agents --load-memory",
-            "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "^Grep$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook pre-search --query '${tool.params.pattern}' --check-cache"
-          }
-        ]
+        "matcher": "Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "sh -c 'c=$(jq -r .tool_input.command); npx monomind hooks pre-command --command \"$c\"'",
+          "timeout": 10
+        }]
       }
     ],
-
     "PostToolUse": [
       {
-        "matcher": "^(Write|Edit|MultiEdit)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook post-edit --file '${tool.params.file_path}' --memory-key 'edits/${tool.params.file_path}' --auto-format --train-patterns",
-            "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "^Task$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook post-task --task-id '${result.task_id}' --analyze-performance --store-decisions --export-learnings",
-            "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "^Grep$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook post-search --query '${tool.params.pattern}' --cache-results --train-patterns"
-          }
-        ]
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "sh -c 'f=$(jq -r .tool_input.file_path); npx monomind hooks post-edit --file \"$f\" --success true'",
+          "timeout": 10
+        }]
       }
     ],
-
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook session-start --session-id '${session.id}' --load-context"
-          }
-        ]
-      }
-    ],
-
     "SessionEnd": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook session-end --session-id '${session.id}' --export-metrics --generate-summary --cleanup-temp"
-          }
-        ]
+        "hooks": [{
+          "type": "command",
+          "command": "npx monomind hooks session-end"
+        }]
       }
     ]
   }
 }
 ```
 
-#### Protected File Patterns
+`npx` startup adds latency to every tool call; the helper-based configuration is faster.
 
-Add protection for sensitive files:
+#### Enforcement Gates
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "^(Write|Edit|MultiEdit)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind hook check-protected --file '${tool.params.file_path}'"
-          }
-        ]
-      }
-    ]
-  }
-}
+To block destructive commands and secret leaks, wire the guidance gates into the same hooks:
+
+```bash
+npx monomind guidance setup
 ```
 
 #### Automatic Testing
 
-Run tests after file modifications:
+Run tests after file modifications (plain shell, no monomind command needed):
 
 ```json
 {
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "^Write$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "test -f '${tool.params.file_path%.js}.test.js' && npm test '${tool.params.file_path%.js}.test.js'",
-            "continueOnError": true
-          }
-        ]
+        "matcher": "Write",
+        "hooks": [{
+          "type": "command",
+          "command": "sh -c 'f=$(jq -r .tool_input.file_path); t=\"${f%.js}.test.js\"; [ -f \"$t\" ] && npm test -- \"$t\" || true'"
+        }]
       }
     ]
   }
 }
 ```
 
-### MCP Tool Integration
+### MCP Tool Equivalents
 
-Hooks automatically integrate with MCP tools for coordination:
+The core hooks are also exposed as MCP tools, so agents can call them without a shell: `mcp__monomind__hooks_pre-task`, `mcp__monomind__hooks_post-task`, `mcp__monomind__hooks_pre-edit`, `mcp__monomind__hooks_post-edit`, `mcp__monomind__hooks_pre-command`, `mcp__monomind__hooks_post-command`, `mcp__monomind__hooks_route`, `mcp__monomind__hooks_explain`.
 
-#### Pre-Task Hook with Agent Spawning
+To share context between agents, store it explicitly in memory:
 
-```javascript
-// Hook command
-npx monomind hook pre-task --description "Build REST API"
-
-// Internally calls MCP tools:
-mcp__monomind__agent_spawn {
-  type: "Backend Architect",
-  capabilities: ["api", "database", "testing"]
-}
-
-mcp__monomind__memory_pattern-store {
-  action: "store",
-  key: "swarm/task/api-build/context",
-  namespace: "coordination",
-  value: JSON.stringify({
-    description: "Build REST API",
-    agents: ["Backend Architect"],
-    started: Date.now()
-  })
-}
-```
-
-#### Post-Edit Hook with Memory Storage
-
-```javascript
-// Hook command
-npx monomind hook post-edit --file "api/auth.js"
-
-// Internally calls MCP tools:
-mcp__monomind__memory_pattern-store {
-  action: "store",
-  key: "swarm/edits/api/auth.js",
-  namespace: "coordination",
-  value: JSON.stringify({
-    file: "api/auth.js",
-    timestamp: Date.now(),
-    changes: { added: 45, removed: 12 },
-    formatted: true,
-    linted: true
-  })
-}
-```
-
-#### Session End Hook with State Persistence
-
-```javascript
-// Hook command
-npx monomind hook session-end --session-id "dev-2024"
-
-// Internally calls MCP tools:
-// npx monomind session save --session-id "dev-2024"
-
-mcp__monomind__swarm_status {
-  swarmId: "current"
-}
-
-// Generates metrics and summary
-```
-
-### Memory Coordination Protocol
-
-All hooks follow a standardized memory coordination pattern:
-
-#### Three-Phase Memory Protocol
-
-**Phase 1: STATUS** - Hook starts
-```javascript
-mcp__monomind__memory_pattern-store {
-  action: "store",
-  key: "swarm/hooks/pre-edit/status",
-  namespace: "coordination",
-  value: JSON.stringify({
-    status: "running",
-    hook: "pre-edit",
-    file: "src/auth.js",
-    timestamp: Date.now()
-  })
-}
-```
-
-**Phase 2: PROGRESS** - Hook processes
-```javascript
-mcp__monomind__memory_pattern-store {
-  action: "store",
-  key: "swarm/hooks/pre-edit/progress",
-  namespace: "coordination",
-  value: JSON.stringify({
-    progress: 50,
-    action: "validating syntax",
-    file: "src/auth.js"
-  })
-}
-```
-
-**Phase 3: COMPLETE** - Hook finishes
-```javascript
-mcp__monomind__memory_pattern-store {
-  action: "store",
-  key: "swarm/hooks/pre-edit/complete",
-  namespace: "coordination",
-  value: JSON.stringify({
-    status: "complete",
-    result: "success",
-    agent_assigned: "Backend Architect",
-    syntax_valid: true,
-    backup_created: true
-  })
-}
-```
-
-### Hook Response Format
-
-Hooks return JSON responses to control operation flow:
-
-#### Continue Response
-```json
-{
-  "continue": true,
-  "reason": "All validations passed",
-  "metadata": {
-    "agent_assigned": "Backend Architect",
-    "syntax_valid": true,
-    "file": "src/auth.js"
-  }
-}
-```
-
-#### Block Response
-```json
-{
-  "continue": false,
-  "reason": "Protected file - manual review required",
-  "metadata": {
-    "file": ".env.production",
-    "protection_level": "high",
-    "requires": "manual_approval"
-  }
-}
-```
-
-#### Warning Response
-```json
-{
-  "continue": true,
-  "reason": "Syntax valid but complexity high",
-  "warnings": [
-    "Cyclomatic complexity: 15 (threshold: 10)",
-    "Consider refactoring for better maintainability"
-  ],
-  "metadata": {
-    "complexity": 15,
-    "threshold": 10
-  }
-}
+```bash
+npx monomind memory store --key "swarm/backend/auth-api" --value "JWT, refresh via /auth/refresh" --namespace coordination
+npx monomind memory search --query "auth api" --namespace coordination
 ```
 
 ### Git Integration
 
-Hooks can integrate with Git operations for quality control:
-
 #### Pre-Commit Hook
 ```bash
-# Add to .git/hooks/pre-commit or use husky
-
 #!/bin/bash
-# Run quality checks before commit
+# .git/hooks/pre-commit (or via husky)
 
-# Get staged files
-FILES=$(git diff --cached --name-only --diff-filter=ACM)
-
-for FILE in $FILES; do
-  # Run pre-edit hook for validation
-  npx monomind hook pre-edit --file "$FILE" --validate-syntax
-
-  if [ $? -ne 0 ]; then
-    echo "Validation failed for $FILE"
-    exit 1
-  fi
-
-  # Run post-edit hook for formatting
-  npx monomind hook post-edit --file "$FILE" --auto-format
-done
+# Risk assessment of the working-tree change against HEAD (informational)
+npx monomind analyze diff --risk --classify
 
 # Run tests
-npm test
-
-exit $?
+npm test || exit 1
 ```
 
 #### Post-Commit Hook
 ```bash
-# Add to .git/hooks/post-commit
-
 #!/bin/bash
-# Track commit metrics
-
-COMMIT_HASH=$(git rev-parse HEAD)
-COMMIT_MSG=$(git log -1 --pretty=%B)
-
-npx monomind hook notify \
-  --message "Commit completed: $COMMIT_MSG" \
-  --level info \
-  --swarm-status
+# .git/hooks/post-commit
+COMMIT_MSG=$(git log -1 --pretty=%s)
+npx monomind hooks notify --message "Commit completed: $COMMIT_MSG" --level info
 ```
 
 #### Pre-Push Hook
 ```bash
-# Add to .git/hooks/pre-push
-
 #!/bin/bash
-# Quality gate before push
-
-# Run full test suite
-npm run test:all
-
-# Run quality checks
-npx monomind hook session-end \
-  --generate-report \
-  --export-metrics
-
-# Verify quality thresholds
-TRUTH_SCORE=$(npx monomind metrics score --format json | jq -r '.truth_score')
-
-if (( $(echo "$TRUTH_SCORE < 0.95" | bc -l) )); then
-  echo "Truth score below threshold: $TRUTH_SCORE < 0.95"
-  exit 1
-fi
-
-exit 0
+# .git/hooks/pre-push
+npm test || exit 1
+npx monomind hooks session-end
 ```
 
 ### Agent Coordination Workflow
 
-How agents use hooks for coordination:
-
-#### Agent Workflow Example
-
 ```bash
 # Agent 1: Backend Developer
-# STEP 1: Pre-task preparation
-npx monomind hook pre-task \
-  --description "Implement user authentication API" \
-  --auto-spawn-agents \
-  --load-memory
+npx monomind hooks pre-task --description "Implement user authentication API" --task-id auth-api
+npx monomind hooks pre-edit --file "api/auth.js"
+# ... edit via Claude Code Edit tool ...
+npx monomind hooks post-edit --file "api/auth.js" --success true
+npx monomind memory store --key "swarm/backend/auth-api" --value "endpoints: /login, /refresh" --namespace coordination
+npx monomind hooks post-task --task-id auth-api --success true
 
-# STEP 2: Work begins - pre-edit validation
-npx monomind hook pre-edit \
-  --file "api/auth.js" \
-  --auto-assign-agent \
-  --validate-syntax
-
-# STEP 3: Edit file (via Claude Code Edit tool)
-# ... code changes ...
-
-# STEP 4: Post-edit processing
-npx monomind hook post-edit \
-  --file "api/auth.js" \
-  --memory-key "swarm/backend/auth-api" \
-  --auto-format \
-  --train-patterns
-
-# STEP 5: Notify coordination system
-npx monomind hook notify \
-  --message "Auth API implementation complete" \
-  --swarm-status \
-  --broadcast
-
-# STEP 6: Task completion
-npx monomind hook post-task \
-  --task-id "auth-api" \
-  --analyze-performance \
-  --store-decisions \
-  --export-learnings
-```
-
-```bash
-# Agent 2: Test Engineer (receives notification)
-# STEP 1: Check memory for API details
-npx monomind hook session-restore \
-  --session-id "swarm-current" \
-  --restore-memory
-
-# Memory contains: swarm/backend/auth-api with implementation details
-
-# STEP 2: Generate tests
-npx monomind hook pre-task \
-  --description "Write tests for auth API" \
-  --load-memory
-
-# STEP 3: Create test file
-npx monomind hook post-edit \
-  --file "api/auth.test.js" \
-  --memory-key "swarm/testing/auth-api-tests" \
-  --train-patterns
-
-# STEP 4: Share test results
-npx monomind hook notify \
-  --message "Auth API tests complete - 100% coverage" \
-  --broadcast
-```
-
-### Custom Hook Creation
-
-Create custom hooks for specific workflows:
-
-#### Custom Hook Template
-
-```javascript
-// .claude/hooks/custom-quality-check.js
-
-module.exports = {
-  name: 'custom-quality-check',
-  type: 'pre',
-  matcher: /\.(ts|js)$/,
-
-  async execute(context) {
-    const { file, content } = context;
-
-    // Custom validation logic
-    const complexity = await analyzeComplexity(content);
-    const securityIssues = await scanSecurity(content);
-
-    // Store in memory
-    await storeInMemory({
-      key: `quality/${file}`,
-      value: { complexity, securityIssues }
-    });
-
-    // Return decision
-    if (complexity > 15 || securityIssues.length > 0) {
-      return {
-        continue: false,
-        reason: 'Quality checks failed',
-        warnings: [
-          `Complexity: ${complexity} (max: 15)`,
-          `Security issues: ${securityIssues.length}`
-        ]
-      };
-    }
-
-    return {
-      continue: true,
-      reason: 'Quality checks passed',
-      metadata: { complexity, securityIssues: 0 }
-    };
-  }
-};
-```
-
-#### Register Custom Hook
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "^(Write|Edit)$",
-        "hooks": [
-          {
-            "type": "script",
-            "script": ".claude/hooks/custom-quality-check.js"
-          }
-        ]
-      }
-    ]
-  }
-}
+# Agent 2: Test Engineer
+npx monomind memory retrieve --key "swarm/backend/auth-api" --namespace coordination
+npx monomind hooks pre-task --description "Write tests for auth API" --task-id auth-tests
+npx monomind hooks post-edit --file "api/auth.test.js" --success true
+npx monomind hooks post-task --task-id auth-tests --success true
 ```
 
 ### Real-World Examples
 
-#### Example 1: Full-Stack Development Workflow
+#### Example 1: Full-Stack Feature
 
 ```bash
-# Session start - initialize coordination
-npx monomind hook session-start --session-id "fullstack-feature"
+npx monomind hooks session-restore
+npx monomind hooks route --task "Build user profile feature - frontend + backend + tests"
+npx monomind hooks pre-task --description "Build user profile feature" --task-id profile
 
-# Pre-task planning
-npx monomind hook pre-task \
-  --description "Build user profile feature - frontend + backend + tests" \
-  --auto-spawn-agents \
-  --optimize-topology
-
-# Backend work
-npx monomind hook pre-edit --file "api/profile.js"
+npx monomind hooks pre-edit --file "api/profile.js"
 # ... implement backend ...
-npx monomind hook post-edit \
-  --file "api/profile.js" \
-  --memory-key "profile/backend" \
-  --train-patterns
+npx monomind hooks post-edit --file "api/profile.js" --success true
 
-# Frontend work (reads backend details from memory)
-npx monomind hook pre-edit --file "components/Profile.jsx"
+npx monomind hooks pre-edit --file "components/Profile.jsx"
 # ... implement frontend ...
-npx monomind hook post-edit \
-  --file "components/Profile.jsx" \
-  --memory-key "profile/frontend" \
-  --train-patterns
+npx monomind hooks post-edit --file "components/Profile.jsx" --success true
 
-# Testing (reads both backend and frontend from memory)
-npx monomind hook pre-task \
-  --description "Test profile feature" \
-  --load-memory
-
-# Session end - export everything
-npx monomind hook session-end \
-  --session-id "fullstack-feature" \
-  --export-metrics \
-  --generate-summary
+npx monomind hooks post-task --task-id profile --success true
+npx monomind hooks session-end
 ```
 
-#### Example 2: Debugging with Hooks
+#### Example 2: Debugging
 
 ```bash
-# Start debugging session
-npx monomind hook session-start --session-id "debug-memory-leak"
-
-# Pre-task: analyze issue
-npx monomind hook pre-task \
-  --description "Debug memory leak in event handlers" \
-  --load-memory \
-  --estimate-complexity
-
-# Search for event emitters
-npx monomind hook pre-search --query "EventEmitter"
-# ... search executes ...
-npx monomind hook post-search \
-  --query "EventEmitter" \
-  --cache-results
-
-# Fix the issue
-npx monomind hook pre-edit \
-  --file "services/events.js" \
-  --backup-file
+npx monomind hooks pre-task --description "Debug memory leak in event handlers" --task-id leak
+npx monomind hooks pre-edit --file "services/events.js" --operation update -c "remove listener leak"
 # ... fix code ...
-npx monomind hook post-edit \
-  --file "services/events.js" \
-  --memory-key "debug/memory-leak-fix" \
-  --validate-output
-
-# Verify fix
-npx monomind hook post-task \
-  --task-id "memory-leak-fix" \
-  --analyze-performance \
-  --generate-report
-
-# End session
-npx monomind hook session-end \
-  --session-id "debug-memory-leak" \
-  --export-metrics
+npx monomind hooks post-edit --file "services/events.js" --success true -o "listeners removed on dispose"
+npx monomind hooks post-command --command "npm test" --success true
+npx monomind hooks post-task --task-id leak --success true
 ```
-
-#### Example 3: Multi-Agent Refactoring
-
-```bash
-# Initialize swarm for refactoring
-npx monomind hook pre-task \
-  --description "Refactor legacy codebase to modern patterns" \
-  --auto-spawn-agents \
-  --optimize-topology
-
-# Agent 1: Code Analyzer
-npx monomind hook pre-task --description "Analyze code complexity"
-# ... analysis ...
-npx monomind hook post-task \
-  --task-id "analysis" \
-  --store-decisions
-
-# Agent 2: Refactoring (reads analysis from memory)
-npx monomind hook session-restore \
-  --session-id "swarm-refactor" \
-  --restore-memory
-
-for file in src/**/*.js; do
-  npx monomind hook pre-edit --file "$file" --backup-file
-  # ... refactor ...
-  npx monomind hook post-edit \
-    --file "$file" \
-    --memory-key "refactor/$file" \
-    --auto-format \
-    --train-patterns
-done
-
-# Agent 3: Testing (reads refactored code from memory)
-npx monomind hook pre-task \
-  --description "Generate tests for refactored code" \
-  --load-memory
-
-# Broadcast completion
-npx monomind hook notify \
-  --message "Refactoring complete - all tests passing" \
-  --broadcast
-```
-
-### Performance Tips
-
-1. **Keep Hooks Lightweight** - Target < 100ms execution time
-2. **Use Async for Heavy Operations** - Don't block the main flow
-3. **Cache Aggressively** - Store frequently accessed data
-4. **Batch Related Operations** - Combine multiple actions
-5. **Use Memory Wisely** - Set appropriate TTLs
-6. **Monitor Hook Performance** - Track execution times
-7. **Parallelize When Possible** - Run independent hooks concurrently
 
 ### Debugging Hooks
 
-Enable debug mode for troubleshooting:
-
 ```bash
-# Enable debug output
-export MONOMIND_DEBUG=true
+# Verbose output
+npx monomind hooks pre-edit --file "test.js" --verbose
 
-# Test specific hook with verbose output
-npx monomind hook pre-edit --file "test.js" --debug
+# Registered hooks and learning state
+npx monomind hooks list
+npx monomind hooks metrics
 
-# Check hook execution logs
-cat .monomind/logs/hooks-$(date +%Y-%m-%d).log
-
-# Validate configuration
-npx monomind hook validate-config
+# Overall health, including hook configuration
+npx monomind doctor
 ```
 
-### Benefits
-
-- **Automatic Agent Assignment**: Right agent for every file type
-- **Consistent Code Formatting**: Language-specific formatters
-- **Continuous Learning**: Neural patterns improve over time
-- **Cross-Session Memory**: Context persists between sessions
-- **Performance Tracking**: Comprehensive metrics and analytics
-- **Automatic Coordination**: Agents sync via memory
-- **Smart Agent Spawning**: Task-based agent selection
-- **Quality Gates**: Pre-commit validation and verification
-- **Error Prevention**: Syntax validation before edits
-- **Knowledge Sharing**: Decisions stored and shared
-- **Reduced Manual Work**: Automation of repetitive tasks
-- **Better Collaboration**: Seamless multi-agent coordination
+`MONOMIND_HOOK_QUIET=1` (set in `.claude/settings.json` `env`) silences hook output in Claude Code.
 
 ### Best Practices
 
-1. **Configure Hooks Early** - Set up during project initialization
-2. **Use Memory Keys Strategically** - Organize with clear namespaces
-3. **Enable Auto-Formatting** - Maintain code consistency
-4. **Train Patterns Continuously** - Learn from successful operations
-5. **Monitor Performance** - Track hook execution times
-6. **Validate Configuration** - Test hooks before production use
-7. **Document Custom Hooks** - Maintain hook documentation
-8. **Set Appropriate Timeouts** - Prevent hanging operations
-9. **Handle Errors Gracefully** - Use continueOnError when appropriate
-10. **Review Metrics Regularly** - Optimize based on usage patterns
+1. **Initialize early** - run `monomind init hooks` when setting up a project
+2. **Keep hooks lightweight** - prefer the helper over `npx` in hot paths; set `timeout`
+3. **Record outcomes** - `post-edit`, `post-command`, and `post-task` feed routing
+4. **Join routes to outcomes** - pass `--route-id` from `hooks route` to `hooks post-task`
+5. **Use clear memory namespaces** - e.g. `coordination`, `swarm/<role>/<topic>`
+6. **Review metrics** - `hooks metrics` and `hooks model-stats`
 
 ### Troubleshooting
 
 #### Hooks Not Executing
-- Verify `.claude/settings.json` syntax
-- Check hook matcher patterns
-- Enable debug mode
-- Review permission settings
-- Ensure monomind CLI is in PATH
+- Verify `.claude/settings.json` syntax and matcher patterns
+- Check that `.claude/helpers/hook-handler.cjs` exists (`monomind init hooks` / `monomind init upgrade`)
+- Ensure `monomind` is resolvable via `npx`
+- Run `npx monomind doctor`
 
 #### Hook Timeouts
-- Increase timeout values in configuration
-- Make hooks asynchronous for heavy operations
-- Optimize hook logic
-- Check network connectivity for MCP tools
-
-#### Memory Issues
-- Set appropriate TTLs for memory keys
-- Clean up old memory entries
-- Use memory namespaces effectively
-- Monitor memory usage
-
-#### Performance Problems
-- Profile hook execution times
-- Use caching for repeated operations
-- Batch operations when possible
-- Reduce hook complexity
+- Increase `timeout` for the hook entry
+- Use the helper instead of `npx` for frequent events
 
 ### Related Commands
 
-- `npx monomind init --hooks` - Initialize hooks system
-- `npx monomind hook --list` - List available hooks
-- `npx monomind hook --test <hook>` - Test specific hook
-- `npx monomind memory usage` - Manage memory
-- `npx monomind agent spawn` - Spawn agents
-- `npx monomind swarm init` - Initialize swarm
+- `npx monomind init hooks` - Initialize hooks configuration
+- `npx monomind hooks list` - List registered hooks
+- `npx monomind hooks <sub> --help` - Flags for a specific hook
+- `npx monomind memory store|search|retrieve` - Shared memory
+- `npx monomind session save|list|restore` - Session checkpoints
+- `npx monomind agent spawn -t <type>` - Spawn agents
+- `npx monomind monoswarm init` - Initialize a monoswarm
 
 ### Integration with Other Skills
 
-This skill works seamlessly with:
-- **Pair Programming** - Automated quality in pairing sessions
-- **Verification Quality** - Truth-score validation in hooks
-- **GitHub Workflows** - Git integration for commits/PRs
-- **Performance Analysis** - Metrics collection in hooks
-- **Swarm Advanced** - Multi-agent coordination via hooks
+- **Pair Programming** - record outcomes during pairing sessions
+- **Verification Quality** - quality gates alongside hooks
+- **GitHub Toolkit** - Git and PR workflows
+- **Performance Analysis** - metrics collection

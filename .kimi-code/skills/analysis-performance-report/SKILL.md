@@ -1,7 +1,7 @@
 ---
-description: analysis performance-report command (monomind)
-type: flow
 name: analysis-performance-report
+description: Generate performance metrics reports for swarm operations and system components.
+type: flow
 ---
 
 # performance-report

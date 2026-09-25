@@ -1,7 +1,7 @@
 ---
-description: hooks setup command (monomind)
-type: flow
 name: hooks-setup
+description: Set up Monomind hooks — generate the .claude/settings.json hook configuration and verify it.
+type: flow
 ---
 
 # Setting Up Monomind Hooks

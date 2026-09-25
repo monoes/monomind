@@ -30,7 +30,7 @@ Before searching or modifying code touching 3+ files or exploring a new module:
 
 ### 5. Monomind Statusline
 To inspect real-time project progress, domain coverage, graph node counts, and session cost metrics:
-- Execute `node .gemini/helpers/statusline.cjs` (or `node .claude/helpers/statusline.cjs` / `npx monomind statusline`).
+- Execute `node .gemini/helpers/statusline.cjs` (or `node .claude/helpers/statusline.cjs` / `npx monomind hooks statusline`).
 
 ```bash
 # Example statusline execution

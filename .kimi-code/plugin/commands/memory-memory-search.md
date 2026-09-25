@@ -1,6 +1,6 @@
 ---
-description: memory memory-search command (monomind)
 name: memory:memory-search
+description: Search stored memory using semantic, keyword, or hybrid search.
 ---
 
 # memory search

@@ -1,10 +1,8 @@
 ---
-description: mastermind improve command (monomind)
+description: Mastermind — Deeply analyze a component, research improvements online, and create improvement tasks saved to docs/improvements/ (default) or monotask boards (--monotask flag)
 type: flow
 name: mastermind-improve
 ---
-
-<!-- "Mastermind — Deeply analyze a component, research improvements online, and create improvement tasks saved to docs/improvements/ (default) or monotask boards (--monotask flag)" -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
@@ -181,7 +179,7 @@ The agent must synthesize the code analysis and online research into concrete im
 
 Persist each improvement:
 
-**File mode:** Append to `IMPROVE_FILE` using the improvement section format from `mastermind-taskfile/SKILL.md`:
+**File mode:** Append to `IMPROVE_FILE` using the improvement section format from `.claude/commands/mastermind/_taskfile.md`:
 ```markdown
 ### <Improvement Title>
 > status: discovered

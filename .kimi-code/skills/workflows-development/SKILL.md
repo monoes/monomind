@@ -1,12 +1,12 @@
 ---
 name: workflows-development
-description: Development workflow coordination pattern — hierarchical swarm for structured implementation tasks using real MCP tools and npx monomind workflow run -t development
+description: Development workflow pattern — plan, implement, test, and review with Task-tool agents in Claude Code, or as a dev-team org via npx monomind org
 type: flow
 ---
 
 # Development Workflow Coordination
 
-Structure multi-agent development tasks using the built-in development template for maximum efficiency.
+Structure multi-agent development work. The CLI has no `workflow` command; run the stages with the Task tool, or as a `dev-team` org.
 
 ## How to Invoke
 
@@ -16,72 +16,59 @@ Skill("workflows:development")
 
 ---
 
-## Quick Start
-
-```bash
-# Run the built-in development workflow
-npx monomind workflow run -t development --task "Build REST API with auth"
-
-# Preview stages without executing
-npx monomind workflow run -t development --dry-run
-
-# Show template details (stages, agents, duration)
-npx monomind workflow template show development
-```
-
 ## Stages
 
-The `development` template runs these stages:
-1. **Planning** — Requirements, architecture decisions
-2. **Implementation** — Code writing
-3. **Testing** — Unit and integration tests
-4. **Review** — Code quality and security check
-5. **Integration** — Connect all pieces
+1. **Planning** — requirements, architecture decisions (`planner`)
+2. **Implementation** — code (`coder`)
+3. **Testing** — unit and integration tests (`tester`, in parallel with implementation where the contract is known)
+4. **Review** — quality and security (`reviewer`, `Security Engineer`)
+5. **Integration** — wire the pieces together, run the full build and test suite
 
-Agents: `coder`, `tester`, `reviewer` (in parallel where possible)
-
-## MCP Coordination
-
-For custom development coordination via MCP:
+## In the Conversation (Task Tool)
 
 ```javascript
-// Initialize hierarchical swarm for development
-mcp__monomind__swarm_init({
-  topology: "hierarchical",
-  maxAgents: 8,
-  strategy: "specialized"
-})
+// Stage 1
+Task({ subagent_type: "planner", prompt: "Plan a REST API with JWT auth: endpoints, data model, files to touch." })
 
-// Run the development workflow
-mcp__monomind__workflow_run({
-  template: "development",
-  task: "Build REST API with authentication",
-  options: { parallel: true, maxAgents: 6 }
-})
+// Stages 2-3, one message
+Task({ subagent_type: "coder",  prompt: "Implement the plan in src/api/ ..." })
+Task({ subagent_type: "tester", prompt: "Write tests for the endpoints defined in the plan ..." })
 
-// Check progress
-mcp__monomind__workflow_status({ workflowId: "wf-123" })
-
-// Store findings for future sessions
-mcp__monomind__memory_pattern-store({
-  key: "dev-pattern-rest-api",
-  value: "JWT auth + Express + Zod validation worked well",
-  namespace: "patterns"
-})
+// Stage 4, one message
+Task({ subagent_type: "reviewer",          prompt: "Review the diff for correctness and maintainability." })
+Task({ subagent_type: "Security Engineer", prompt: "Review the auth code for vulnerabilities." })
 ```
+
+Optional coordination and tracking:
+
+```bash
+npx monomind monoswarm init --topology hierarchical --max-agents 8
+npx monomind hooks pre-task --description "Build REST API with auth" --task-id rest-api
+npx monomind hooks post-task --task-id rest-api --success true
+npx monomind memory store --key "dev-pattern-rest-api" \
+  --value "JWT auth + Express + Zod validation worked well" --namespace patterns
+```
+
+## As an Org
+
+```bash
+npx monomind org create rest-api --template dev-team --goal "Build REST API with auth"
+npx monomind org run rest-api --dry-run
+npx monomind org run rest-api
+npx monomind org report rest-api
+```
+
+The `dev-team` template has tech-lead, developer, code-reviewer, and qa roles.
 
 ## What Claude Code Actually Does
 
-Claude Code handles all execution via native tools:
-1. **Read/Write/Edit** tools — create and modify files
-2. **Bash** tool — run tests, builds, type checks
-3. **TodoWrite** tool — track implementation steps
-4. **Task** tool — spawn parallel agent workers
-
-The workflow template defines the coordination strategy; Claude Code does the actual work.
+1. **Read/Write/Edit** — create and modify files
+2. **Bash** — run tests, builds, type checks
+3. **TodoWrite** — track stages
+4. **Task** — spawn parallel agents
 
 ## Related Skills
 
-- `workflows:workflow-execute` — Full workflow run reference
-- `swarm:development` — Direct swarm-based development coordination
-- `swarm:swarm-strategies` — Strategy selection guide
+- `workflows:workflow-execute` — Running workflows
+- `monoswarm:development` — Monoswarm-based development coordination
+- `mastermind-plan` / `mastermind-execute` — Plan, then execute step by step

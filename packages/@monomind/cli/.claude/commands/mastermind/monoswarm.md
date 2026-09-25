@@ -1,4 +1,6 @@
-<!-- Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams -->
+---
+description: Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams
+---
 
 # Monomind Swarm Coordination
 
@@ -141,7 +143,6 @@ These are real agent names (Task `subagent_type`). For a task-specific pick use 
 ## See Also
 
 - `npx monomind agent spawn` — Spawn individual agents
-- `npx monomind hive-mind init` — Byzantine fault-tolerant consensus
 - `/mastermind` — Interactive swarm topology selection
 
 Documentation: https://github.com/monoes/monomind

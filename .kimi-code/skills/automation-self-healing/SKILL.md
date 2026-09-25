@@ -1,7 +1,7 @@
 ---
-description: automation self-healing command (monomind)
-type: flow
 name: automation-self-healing
+description: Automatically detect and recover from errors without interrupting your flow.
+type: flow
 ---
 
 # Self-Healing Workflows

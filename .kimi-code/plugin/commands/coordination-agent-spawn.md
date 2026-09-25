@@ -1,6 +1,6 @@
 ---
-description: coordination agent-spawn command (monomind)
 name: coordination:agent-spawn
+description: Spawn a new agent in the current swarm.
 ---
 
 # agent-spawn
