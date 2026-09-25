@@ -108,7 +108,9 @@ describe('pick MCP tool — contract', () => {
     [{ task: 'x'.repeat(17 * 1024) }],
   ])('rejects invalid input %j without ranking', async (input) => {
     const body = await call(input);
-    expect(body.error).toMatch(/invalid input/i);
+    // An MCP error result: the client sees isError, the text carries { error }.
+    expect(body.isError).toBe(true);
+    expect(JSON.parse(body.content[0].text).error).toMatch(/invalid input/i);
     expect(rankForTask).not.toHaveBeenCalled();
   });
 

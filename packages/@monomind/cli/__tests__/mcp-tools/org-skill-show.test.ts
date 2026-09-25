@@ -30,6 +30,12 @@ afterEach(() => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const show = (input: unknown): Promise<any> => orgSkillShowTool.handler(input as never);
+/** An error reaches the client as an MCP error result: isError plus `{ error }` text. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const errorOf = (res: any): string | undefined => {
+  expect(res.isError).toBe(true);
+  return JSON.parse(res.content[0].text).error;
+};
 
 describe('org_skill_show', () => {
   it('is advertised by default and callable by name through the MCP client', async () => {
@@ -56,17 +62,14 @@ describe('org_skill_show', () => {
   });
 
   it('reports an unknown skill', async () => {
-    expect(await show({ name: 'no-such-skill-xyz' })).toEqual({
-      error: 'unknown org skill: no-such-skill-xyz',
-    });
+    expect(errorOf(await show({ name: 'no-such-skill-xyz' }))).toBe('unknown org skill: no-such-skill-xyz');
   });
 
   it('rejects names that are not skill names (path traversal included)', async () => {
     for (const name of ['../zorbling-tuning', '..', 'a/b', 'Zorbling', '', '-x', 'x'.repeat(65)]) {
-      const res = await show({ name });
-      expect(res.error, name).toMatch(/^invalid input/);
+      expect(errorOf(await show({ name })), name).toMatch(/^invalid input/);
     }
-    expect((await show({})).error).toMatch(/^invalid input/);
+    expect(errorOf(await show({}))).toMatch(/^invalid input/);
   });
 
   it('reads catalog skills only while active for org and verified', async () => {
@@ -78,6 +81,6 @@ describe('org_skill_show', () => {
     expect(ok).toMatchObject({ name: 'cat-org', origin: 'catalog' });
     expect(ok.body).toContain('BODY-SENTINEL for cat-org');
     for (const name of ['cat-platform-only', 'cat-disabled', 'cat-tampered'])
-      expect(await show({ name })).toEqual({ error: `unknown org skill: ${name}` });
+      expect(errorOf(await show({ name }))).toBe(`unknown org skill: ${name}`);
   });
 });

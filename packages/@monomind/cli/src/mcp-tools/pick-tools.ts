@@ -4,9 +4,14 @@
  */
 import { z } from 'zod';
 import { pickConfident, pickForTask, pickSummary } from '../routing/agent-pick.js';
-import type { MCPTool } from './types.js';
+import type { MCPTool, MCPToolResult } from './types.js';
 
 const MAX_TASK_LEN = 16 * 1024;
+
+/** An error the MCP client sees as one (isError), `{ error }` as its text. */
+function toolError(error: string): MCPToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify({ error }) }], isError: true };
+}
 
 const PickInput = z.object({
   task: z.string().trim().min(1).max(MAX_TASK_LEN),
@@ -46,7 +51,7 @@ export const pickTool: MCPTool = {
     const parsed = PickInput.safeParse(input);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`);
-      return { error: `invalid input — ${issues.join('; ')}` };
+      return toolError(`invalid input — ${issues.join('; ')}`);
     }
     const { task, kind, categories, top } = parsed.data;
     const ranking = await pickForTask({ task, kind, categories, top });
