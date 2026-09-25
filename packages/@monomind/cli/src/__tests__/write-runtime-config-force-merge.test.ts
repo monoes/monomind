@@ -86,6 +86,16 @@ describe('.monomind/.gitignore under --force', () => {
   });
 });
 
+describe('.monomind/.gitignore on a plain re-init', () => {
+  it('leaves a deny-by-default file alone: its `*` already covers every never-commit file', async () => {
+    await run(false);
+    writeFileSync(join(targetDir, '.monomind', 'config.yaml'), 'version: "3.0.0"\n');
+    const before = readFileSync(join(targetDir, '.monomind', '.gitignore'), 'utf-8');
+    await run(false);
+    expect(readFileSync(join(targetDir, '.monomind', '.gitignore'), 'utf-8')).toBe(before);
+  });
+});
+
 describe('.monomind/config.yaml under --force', () => {
   it('keeps user keys and values and adds only missing defaults', async () => {
     const configPath = join(targetDir, '.monomind', 'config.yaml');

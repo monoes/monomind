@@ -234,6 +234,8 @@ function writeMonomindGitignore(targetDir: string, options: InitOptions, result:
   // without a fourth hand-written append site.
   const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
   const existingLines = new Set(existingGitignore.split('\n').map((line) => line.trim()));
+  // A deny-by-default file (a bare `*`) already ignores every one of them.
+  if (existingLines.has('*')) return;
   const missing = MONOMIND_NEVER_COMMIT.filter(({ file }) => !existingLines.has(file));
   if (missing.length > 0) {
     const appendLines = missing.map(({ file, reason }) => `# ${reason}\n${file}`).join('\n');
