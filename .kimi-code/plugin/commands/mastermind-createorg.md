@@ -1,8 +1,6 @@
 ---
-description: mastermind createorg command (monomind)
+description: Define and save an autonomous agent organization (Org Runtime) — roles and hierarchy. Suggest or confirm roles, then persist the org config for `monomind org run`/`serve`.
 ---
-
-<!-- Define and save an autonomous agent organization (Org Runtime) — roles and hierarchy. Suggest or confirm roles, then persist the org config for `monomind org run`/`serve`. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 

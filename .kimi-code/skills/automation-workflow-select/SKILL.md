@@ -1,7 +1,7 @@
 ---
-description: automation workflow-select command (monomind)
-type: flow
 name: automation-workflow-select
+description: Pick a predefined multi-agent workflow for a common task.
+type: flow
 ---
 
 # workflow-select

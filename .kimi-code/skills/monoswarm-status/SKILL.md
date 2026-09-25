@@ -1,7 +1,7 @@
 ---
-description: monoswarm status command (monomind)
-type: flow
 name: monoswarm-status
+description: "Show monoswarm status: agent roster, task metrics, and (if voting is in use) pending/history proposals."
+type: flow
 ---
 
 # monoswarm status

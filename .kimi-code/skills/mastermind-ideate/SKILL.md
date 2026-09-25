@@ -1,10 +1,8 @@
 ---
-description: mastermind ideate command (monomind)
+description: Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)
 type: flow
 name: mastermind-ideate
 ---
-
-<!-- "Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)" -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 

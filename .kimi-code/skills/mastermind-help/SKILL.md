@@ -1,10 +1,8 @@
 ---
-description: mastermind help command (monomind)
+description: Mastermind commands reference — quick overview of all skills, CLI subcommands, and MCP tools available in this session
 type: flow
 name: mastermind-help
 ---
-
-<!-- Mastermind commands reference — quick overview of all skills, CLI subcommands, and MCP tools available in this session -->
 
 # Mastermind Help
 

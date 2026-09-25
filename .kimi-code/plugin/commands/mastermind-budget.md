@@ -1,8 +1,6 @@
 ---
-description: mastermind budget command (monomind)
+description: Show current budget status — today, month, limits, autotuned flag
 ---
-
-<!-- Show current budget status — today, month, limits, autotuned flag -->
 
 ```bash
 node "$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs" budget-status

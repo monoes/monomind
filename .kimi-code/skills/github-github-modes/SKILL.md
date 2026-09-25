@@ -1,7 +1,7 @@
 ---
-description: github github-modes command (monomind)
-type: flow
 name: github-github-modes
+description: Reference of the GitHub integration modes available in Monomind.
+type: flow
 ---
 
 # GitHub Integration Modes

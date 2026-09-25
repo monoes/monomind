@@ -1,4 +1,6 @@
-<!-- "Mastermind — Execute tasks from a task file (default, docs/tasks/) or monotask board (--monotask flag) with parallel, minimal, or sequential agent modes, context group routing, and review cycles" -->
+---
+description: Mastermind — Execute tasks from a task file (default, docs/tasks/) or monotask board (--monotask flag) with parallel, minimal, or sequential agent modes, context group routing, and review cycles
+---
 
 ## Repeat Flag Extraction
 

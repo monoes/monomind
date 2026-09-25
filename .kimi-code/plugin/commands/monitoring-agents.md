@@ -1,6 +1,6 @@
 ---
-description: monitoring agents command (monomind)
 name: monitoring:agents
+description: Show detailed agent status — ID, type, current task, uptime, and success rate for all running agents.
 ---
 
 # status agents

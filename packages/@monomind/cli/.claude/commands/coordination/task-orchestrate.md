@@ -1,5 +1,6 @@
 ---
 name: coordination:task-orchestrate
+description: Coordinate tasks across a swarm of agents.
 ---
 
 # task-orchestrate

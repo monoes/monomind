@@ -1,5 +1,6 @@
 ---
 name: monoswarm:stop
+description: Clear monoswarm workers from the shared agent store and reset run state.
 ---
 
 # monoswarm shutdown

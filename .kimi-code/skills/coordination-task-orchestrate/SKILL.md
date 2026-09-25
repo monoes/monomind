@@ -1,7 +1,7 @@
 ---
-description: coordination task-orchestrate command (monomind)
-type: flow
 name: coordination-task-orchestrate
+description: Coordinate tasks across a swarm of agents.
+type: flow
 ---
 
 # task-orchestrate

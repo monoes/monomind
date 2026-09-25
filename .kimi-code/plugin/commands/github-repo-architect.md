@@ -1,6 +1,6 @@
 ---
-description: github repo-architect command (monomind)
 name: github:repo-architect
+description: Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows.
 ---
 
 # GitHub Repository Architect

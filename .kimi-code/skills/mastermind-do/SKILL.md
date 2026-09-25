@@ -1,10 +1,8 @@
 ---
-description: mastermind do command (monomind)
+description: Mastermind — Execute tasks from a task file (default, docs/tasks/) or monotask board (--monotask flag) with parallel, minimal, or sequential agent modes, context group routing, and review cycles
 type: flow
 name: mastermind-do
 ---
-
-<!-- "Mastermind — Execute tasks from a task file (default, docs/tasks/) or monotask board (--monotask flag) with parallel, minimal, or sequential agent modes, context group routing, and review cycles" -->
 
 ## Repeat Flag Extraction
 

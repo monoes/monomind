@@ -1,6 +1,6 @@
 ---
-description: hooks pre-task command (monomind)
 name: hooks:pre-task
+description: Register task start and get agent suggestions.
 ---
 
 # hooks pre-task

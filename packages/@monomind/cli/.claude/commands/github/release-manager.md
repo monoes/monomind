@@ -1,5 +1,6 @@
 ---
 name: github:release-manager
+description: Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages.
 ---
 
 # GitHub Release Manager

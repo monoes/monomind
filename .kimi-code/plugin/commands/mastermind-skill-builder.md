@@ -1,8 +1,6 @@
 ---
-description: mastermind skill-builder command (monomind)
+description: Use when creating, editing, or verifying mastermind skills — guides the full TDD-for-docs cycle from baseline test through deployment
 ---
-
-<!-- Use when creating, editing, or verifying mastermind skills — guides the full TDD-for-docs cycle from baseline test through deployment -->
 
 **First — extract repeat flags:** Follow REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
 

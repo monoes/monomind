@@ -1,5 +1,6 @@
 ---
 name: analysis:performance-report
+description: Generate performance metrics reports for swarm operations and system components.
 ---
 
 # performance-report

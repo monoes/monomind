@@ -1,6 +1,6 @@
 ---
-description: coordination monoswarm-init command (monomind)
 name: coordination:monoswarm-init
+description: Initialize a Monomind swarm with specified topology and configuration.
 ---
 
 # monoswarm-init

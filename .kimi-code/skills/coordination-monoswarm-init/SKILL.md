@@ -1,7 +1,7 @@
 ---
-description: coordination monoswarm-init command (monomind)
-type: flow
 name: coordination-monoswarm-init
+description: Initialize a Monomind swarm with specified topology and configuration.
+type: flow
 ---
 
 # monoswarm-init

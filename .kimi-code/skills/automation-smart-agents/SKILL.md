@@ -1,7 +1,7 @@
 ---
-description: automation smart-agents command (monomind)
-type: flow
 name: automation-smart-agents
+description: Automatically spawn the right agents at the right time without manual intervention.
+type: flow
 ---
 
 # Smart Agent Auto-Spawning

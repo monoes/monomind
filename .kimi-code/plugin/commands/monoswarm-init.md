@@ -1,6 +1,6 @@
 ---
-description: monoswarm init command (monomind)
 name: monoswarm:init
+description: Initialize a monoswarm run with topology and (optionally) vote-strategy settings.
 ---
 
 # monoswarm init

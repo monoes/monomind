@@ -1,8 +1,6 @@
 ---
-description: mastermind createtask command (monomind)
+description: Mastermind — Ingest a prompt, file, or folder, deeply understand it, generate agent-optimized tasks saved to docs/tasks/ (default) or to a monotask board (--monotask flag)
 ---
-
-<!-- "Mastermind — Ingest a prompt, file, or folder, deeply understand it, generate agent-optimized tasks saved to docs/tasks/ (default) or to a monotask board (--monotask flag)" -->
 
 If `$ARGUMENTS` is empty, output this and STOP:
 

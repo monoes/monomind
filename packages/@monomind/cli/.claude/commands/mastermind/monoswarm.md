@@ -1,4 +1,6 @@
-<!-- Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams -->
+---
+description: Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams
+---
 
 # Monomind Swarm Coordination
 

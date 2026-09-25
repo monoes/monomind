@@ -1,7 +1,7 @@
 ---
-description: analysis bottleneck-detect command (monomind)
-type: flow
 name: analysis-bottleneck-detect
+description: Detect performance bottlenecks in system components and swarm operations.
+type: flow
 ---
 
 # bottleneck-detect

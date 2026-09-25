@@ -1,7 +1,7 @@
 ---
-description: monoswarm stop command (monomind)
-type: flow
 name: monoswarm-stop
+description: Clear monoswarm workers from the shared agent store and reset run state.
+type: flow
 ---
 
 # monoswarm shutdown

@@ -1,6 +1,6 @@
 ---
-description: coordination task-orchestrate command (monomind)
 name: coordination:task-orchestrate
+description: Coordinate tasks across a swarm of agents.
 ---
 
 # task-orchestrate

@@ -1,7 +1,7 @@
 ---
-description: hooks post-task command (monomind)
-type: flow
 name: hooks-post-task
+description: Record task completion for neural pattern learning.
+type: flow
 ---
 
 # hooks post-task

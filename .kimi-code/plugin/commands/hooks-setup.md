@@ -1,6 +1,6 @@
 ---
-description: hooks setup command (monomind)
 name: hooks:setup
+description: Set up Monomind hooks — generate the .claude/settings.json hook configuration and verify it.
 ---
 
 # Setting Up Monomind Hooks

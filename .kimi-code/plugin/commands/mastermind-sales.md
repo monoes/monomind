@@ -1,8 +1,6 @@
 ---
-description: mastermind sales command (monomind)
+description: "Mastermind sales domain — outreach sequences, proposals, pipeline management. Default mode: confirm."
 ---
-
-<!-- Mastermind sales domain — outreach sequences, proposals, pipeline management. Default mode: confirm. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 

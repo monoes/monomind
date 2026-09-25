@@ -1,10 +1,8 @@
 ---
-description: mastermind monoswarm command (monomind)
+description: Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams
 type: flow
 name: mastermind-monoswarm
 ---
-
-<!-- Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams -->
 
 # Monomind Swarm Coordination
 

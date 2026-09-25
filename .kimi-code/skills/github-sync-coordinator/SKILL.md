@@ -1,7 +1,7 @@
 ---
-description: github sync-coordinator command (monomind)
-type: flow
 name: github-sync-coordinator
+description: Multi-package synchronization and version alignment with monomind swarm coordination for seamless integration across packages.
+type: flow
 ---
 
 # GitHub Sync Coordinator

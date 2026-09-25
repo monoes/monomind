@@ -1,7 +1,7 @@
 ---
-description: hooks pre-task command (monomind)
-type: flow
 name: hooks-pre-task
+description: Register task start and get agent suggestions.
+type: flow
 ---
 
 # hooks pre-task

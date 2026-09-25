@@ -1,4 +1,6 @@
-<!-- Use when receiving code review feedback to evaluate and implement it with technical rigor — verifies before implementing, clarifies unclear items first, applies reasoned pushback when warranted -->
+---
+description: Use when receiving code review feedback to evaluate and implement it with technical rigor — verifies before implementing, clarifies unclear items first, applies reasoned pushback when warranted
+---
 
 **First — extract repeat flags:** Follow REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
 

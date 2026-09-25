@@ -1,8 +1,6 @@
 ---
-description: mastermind orgs command (monomind)
+description: List all saved orgs with their runtime status, schedule, and last run time. Flags crashed runs and legacy-format config files.
 ---
-
-<!-- List all saved orgs with their runtime status, schedule, and last run time. Flags crashed runs and legacy-format config files. -->
 
 **If $ARGUMENTS is empty:** Execute the listing below directly.
 

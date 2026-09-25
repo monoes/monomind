@@ -1,5 +1,6 @@
 ---
 name: monoswarm:status
+description: "Show monoswarm status: agent roster, task metrics, and (if voting is in use) pending/history proposals."
 ---
 
 # monoswarm status

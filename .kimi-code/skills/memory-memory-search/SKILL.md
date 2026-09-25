@@ -1,7 +1,7 @@
 ---
-description: memory memory-search command (monomind)
-type: flow
 name: memory-memory-search
+description: Search stored memory using semantic, keyword, or hybrid search.
+type: flow
 ---
 
 # memory search

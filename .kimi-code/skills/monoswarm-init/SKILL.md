@@ -1,7 +1,7 @@
 ---
-description: monoswarm init command (monomind)
-type: flow
 name: monoswarm-init
+description: Initialize a monoswarm run with topology and (optionally) vote-strategy settings.
+type: flow
 ---
 
 # monoswarm init
