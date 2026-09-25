@@ -54,14 +54,24 @@ Start an org in the **foreground**. If a live `org serve` daemon is detected (vi
 the task is sent as a runfile to the daemon instead of competing with it.
 
 ```bash
-monomind org run <name> [--task "..."] [--cross-process] [--dry-run]
+monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-run] [--budget-usd <n>] [--yes]
 ```
 
 | Flag | Purpose |
 |---|---|
 | `--task "..."` | Override the org's `goal` for this run |
-| `--cross-process` | Register with broker for cross-daemon `org_send` delivery |
+| `--resume` | Resume from the org's persisted checkpoint instead of starting fresh |
+| `--cross-process` | Register with broker for cross-daemon `org_send` delivery (default on; `--no-cross-process` disables) |
 | `--dry-run` | Validate config and print plan without starting |
+| `--budget-usd <n>` | Abort before any session starts if the upfront cost estimate exceeds `n` USD |
+| `--yes`, `-y` | Skip the interactive cost-estimate confirmation (only asked on a TTY) |
+
+Before starting, `run` prints a per-role cost estimate (rates from a built-in table,
+overridable in `~/.monomind/rates.json`). With `--budget-usd` set too low:
+
+```text
+Estimate $1.80 exceeds --budget-usd $0.0001. Aborting before any tokens are spent.
+```
 
 When the run ends — `org_complete`, `org stop`, Ctrl-C/SIGTERM, the idle watchdog, a budget, or a crash — the last line it prints names the outcome (`complete`, `stopped`, `budget` or `error`, with the cause in parentheses), the wall time and the total cost, e.g. `org release run run-… ended — outcome: complete (achieved), wall time 1h57m12s, cost $63.63`, so a detached run's log always has an ending. `org serve` keeps its own `[org serve] shutting down: …` line; each run it hosts is summarized in `history.jsonl`.
 
@@ -137,8 +147,12 @@ Detects stale PIDs (process no longer alive).
 Long-running daemon that hosts **all scheduled orgs** and responds to runfiles/stopfiles.
 
 ```bash
-monomind org serve [--forward <url>]
+monomind org serve [--no-cross-process]
 ```
+
+| Flag | Purpose |
+|---|---|
+| `--cross-process` | Register hosted orgs with the broker for cross-daemon delivery (default on; `--no-cross-process` disables) |
 
 - Polls stopfiles every 2 seconds (`pollStopfiles()`).
 - Polls runfiles every 2 seconds (`pollRunfiles()`).
@@ -154,12 +168,13 @@ monomind org serve [--forward <url>]
 Emit a launchd plist (macOS) or systemd unit (Linux) for persistent `org serve`.
 
 ```bash
-monomind org supervisor <name> [--install]
+monomind org supervisor [--format launchd|systemd] [--install]
 ```
 
 | Flag | Purpose |
 |---|---|
-| `--install` | Write the unit to the system location directly |
+| `--format launchd\|systemd` | Unit type (default: `launchd` on macOS, `systemd` otherwise); any other value errors |
+| `--install` | Write the unit into the per-user location (`~/Library/LaunchAgents/` or `~/.config/systemd/user/`) |
 
 Generates a per-project slug from a SHA256 hash of the current working directory.
 
@@ -172,8 +187,15 @@ Generates a per-project slug from a SHA256 hash of the current working directory
 Run the org's test loop (delegates to `orgrt/test-loop.ts::runTestLoop()`).
 
 ```bash
-monomind org test-loop <name>
+monomind org test-loop [--times <n>] [--scenario <file>]
 ```
+
+| Flag | Purpose |
+|---|---|
+| `--times <n>`, `-n` | Iterations (default 5) |
+| `--scenario <file>` | Run a declarative scenario file (`.monomind/scenarios/<file>`) instead of the built-in fixture — structural dry-run only |
+
+Prints a summary such as `org e2e: 1/1 passed`; exits non-zero if any iteration fails.
 
 **Source:** [`commands/org.ts → testLoopAction`](packages/@monomind/cli/src/commands/org.ts#testLoopAction)
 
@@ -361,11 +383,23 @@ monomind org flow <name> [--run <run-id>]
 List pending `ask_human` questions for a running or stopped org.
 
 ```bash
-monomind org questions <name>
+monomind org questions <name> [--all] [--format json]
 ```
 
-Questions are stored in `<org>/questions.json`. Each entry has an `id`, `role`, `text`,
-and `timestamp`.
+| Flag | Purpose |
+|---|---|
+| `--all` | Include answered questions (shown with `✓` and the answer) |
+| `--format json` | Print `{v, org, items}` |
+
+Questions are stored in `<org>/questions.json`. Each entry has a `questionId`, `role`,
+`question`, `ts` and `answer` (null while pending; answered entries add `answeredAt`
+and `resolvedBy`).
+
+```text
+❓ [q-1] 2026-09-21 14:13Z  coder: ship?
+✓ [q-2] 2026-09-10 00:26Z  coder: old?
+     ↳ no
+```
 
 ---
 
@@ -408,9 +442,10 @@ or `No approval requests recorded for org <name>.`
 Deliver a human answer to a pending `ask_human` question.
 
 ```bash
-monomind org answer <name> <question-id> "<answer text>"
+monomind org answer <name> <question-id> "<answer text>" [--by <resolver>]
 ```
 
+- `--by` is recorded as `resolvedBy` (default `human`; 1-128 printable characters).
 - **Live delivery** if the org is running.
 - **Queued to disk** if the org is stopped (consumed on next start).
 
@@ -459,8 +494,10 @@ monomind org gates <name> [--all]
 Approve a pending decision gate, unblocking the agent that raised it.
 
 ```bash
-monomind org gate-approve <name> <gate-id> ["<resolution note>"]
+monomind org gate-approve <name> <gate-id> ["<resolution note>"] [--by <resolver>]
 ```
+
+`--by` is recorded as `resolvedBy` (default `human`; 1-128 printable characters).
 
 **Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
@@ -471,8 +508,10 @@ monomind org gate-approve <name> <gate-id> ["<resolution note>"]
 Reject a pending decision gate.
 
 ```bash
-monomind org gate-reject <name> <gate-id> ["<reason>"]
+monomind org gate-reject <name> <gate-id> ["<reason>"] [--by <resolver>]
 ```
+
+`--by` is recorded as `resolvedBy` (default `human`).
 
 **Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
@@ -547,10 +586,18 @@ monomind org decisions <name> [--run <run-id>]
 Scaffold a new org config from a template.
 
 ```bash
-monomind org create <name> [--template content-team|dev-team|research-pod]
+monomind org create <name> --template <template> [--goal "..."] [--schedule 30m] [--force] [--yes]
 ```
 
-Templates available: `content-team`, `dev-team`, `research-pod`.
+| Flag | Purpose |
+|---|---|
+| `--template <t>` | Required. `content-team`, `dev-team`, `research-pod`, `kg-extraction` or `advisor-orchestrator` (omit it to print the list) |
+| `--goal "..."` | Org goal (default: the template's placeholder) |
+| `--schedule <interval>` | Daemon schedule, e.g. `30m` or `2h` |
+| `--force` | Overwrite an existing org config (otherwise: `Org "<name>" already exists — pass --force to overwrite.`) |
+| `--yes`, `-y` | Skip the per-role model confirmation prompt (asked only in an interactive terminal) |
+
+Prints the roles, their models, the token budget and the config path.
 
 ---
 
