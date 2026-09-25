@@ -166,7 +166,10 @@ export class FileGuard {
         `${this.rel(file)}: edited monomind-block:${marker} replaced (--force); previous file in ${this.backup(file)}`,
       );
     } else if (body !== null && !recorded && body !== generated.trimEnd()) {
-      this.backup(file); // provenance unknown: keep a copy before refreshing
+      // Written before block hashes existed: it may hold edits, so keep a copy.
+      this.warnings.push(
+        `${this.rel(file)}: monomind-block:${marker} differed from the generated text and was refreshed; previous file in ${this.backup(file)}`,
+      );
     }
     const merged = mergeGeneratedBlock(existing, marker, generated);
     this.blocks[key] = sha256(readGeneratedBlock(merged, marker) ?? '');
