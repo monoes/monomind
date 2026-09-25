@@ -38,7 +38,10 @@ var NONE_ID = '__none__';
 var OFF_VALUES = ['0', 'off', 'false', 'no'];
 var ON_VALUES = ['1', 'on', 'true', 'yes'];
 var DEFAULT_HOOK_TIMEOUT_MS = 1500;
-var MAX_HOOK_TIMEOUT_MS = 10000;
+// Every prompt waits on the hook window, so a larger value is capped here
+// whatever MONOMIND_JEV_HOOK_TIMEOUT_MS asks: a dead endpoint once held each
+// prompt 10 s. Hosted Jev answers well inside it.
+var MAX_HOOK_TIMEOUT_MS = 3000;
 
 class JevError extends Error {
   constructor(message, provider, status) {
@@ -83,10 +86,11 @@ function resolveTimeoutMs(env) {
   return Number.isInteger(n) && n >= MIN_TIMEOUT_MS && n <= MAX_TIMEOUT_MS ? n : DEFAULT_TIMEOUT_MS;
 }
 
-/** The per-prompt hook's window: short, because every prompt waits on it. */
+/** The per-prompt hook's window: short, because every prompt waits on it.
+ *  Values above MAX_HOOK_TIMEOUT_MS are capped to it. */
 function resolveHookTimeoutMs(env) {
   var n = Number((env || process.env).MONOMIND_JEV_HOOK_TIMEOUT_MS);
-  return Number.isInteger(n) && n >= MIN_TIMEOUT_MS && n <= MAX_HOOK_TIMEOUT_MS ? n : DEFAULT_HOOK_TIMEOUT_MS;
+  return Number.isInteger(n) && n >= MIN_TIMEOUT_MS ? Math.min(n, MAX_HOOK_TIMEOUT_MS) : DEFAULT_HOOK_TIMEOUT_MS;
 }
 
 function resolveMinConfidence(env) {
