@@ -367,8 +367,11 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     const keptFiles = formatKeptFiles(result.kept);
     if (keptFiles) output.printWarning(keptFiles);
-    for (const warning of result.warnings ?? []) output.printWarning(warning);
-    if (keptFiles || result.warnings?.length) output.writeln();
+    // Non-fatal problems (a skill with no source, an entry that could not be
+    // retired) land in result.errors; a successful run must still show them.
+    const warnings = [...(result.warnings ?? []), ...result.errors];
+    for (const warning of warnings) output.printWarning(warning);
+    if (keptFiles || warnings.length) output.writeln();
 
     if (
       options.components.claudeMd ||
