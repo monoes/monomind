@@ -35,15 +35,19 @@ import type { HealthCheck } from './doctor-env-checks.js';
 const NAME = 'Agent/Skill Picking';
 
 export interface PickAdherence {
-  /** Picks the prompt hook recorded (route-outcomes.jsonl). */
+  /** Picks the prompt hook recorded (route-outcomes.jsonl), slash commands left out. */
   routes: number;
   /** Of those, how many were shown as a [PICK] line. */
   shown: number;
-  /** Task/Agent spawns made while a pick was on record (pick-adherence.jsonl). */
+  /** Picks on record when a Task/Agent spawn was made (pick-adherence.jsonl),
+   *  each route once however many spawns it had. */
   spawns: number;
-  /** Of those, how many used the picked agent. */
+  /** Of those, how many had a spawn of the picked agent. */
   followed: number;
 }
+
+/** A prompt that is a slash command (the route hook's rule): not a pick. */
+const COMMAND_PROMPT = /^\/[a-z0-9_-]+(:[a-z0-9_-]+)*(\s|$)/i;
 
 /**
  * Route and adherence counts straight from the hook logs, so doctor reports
@@ -52,15 +56,26 @@ export interface PickAdherence {
  */
 export function readPickAdherence(root: string): PickAdherence {
   const dir = join(root, '.monomind');
-  const routes = readHookLog(join(dir, 'route-outcomes.jsonl'));
-  const spawns = readHookLog(join(dir, 'pick-adherence.jsonl')).filter(
-    (r) => typeof r.followed === 'boolean',
+  const logged = readHookLog(join(dir, 'route-outcomes.jsonl'));
+  const commands = new Set(
+    logged
+      .filter((r) => COMMAND_PROMPT.test(String(r.promptPreview ?? r.task ?? '').trim()))
+      .map((r) => r.routeId),
   );
+  const routes = logged.filter((r) => !commands.has(r.routeId));
+  // One outcome per route: followed when any of its spawns used the pick.
+  const byRoute = new Map<unknown, boolean>();
+  let unkeyed = 0;
+  for (const r of readHookLog(join(dir, 'pick-adherence.jsonl'))) {
+    if (typeof r.followed !== 'boolean' || commands.has(r.routeId)) continue;
+    if (!r.routeId) byRoute.set(unkeyed++, r.followed);
+    else byRoute.set(r.routeId, byRoute.get(r.routeId) === true || r.followed);
+  }
   return {
     routes: routes.length,
     shown: routes.filter((r) => r.shown === true).length,
-    spawns: spawns.length,
-    followed: spawns.filter((r) => r.followed === true).length,
+    spawns: byRoute.size,
+    followed: [...byRoute.values()].filter(Boolean).length,
   };
 }
 
@@ -157,7 +172,7 @@ export async function checkPick(
   else {
     const rate = a.spawns ? ` (${Math.round((100 * a.followed) / a.spawns)}%)` : '';
     lines.push(
-      `adherence: ${a.routes} routes, ${a.shown} shown; spawns followed the pick ${a.followed}/${a.spawns}${rate}`,
+      `adherence: ${a.routes} routes, ${a.shown} shown; picks followed by a spawn of the picked agent ${a.followed}/${a.spawns}${rate}`,
     );
   }
   lines.push(realUseLine(root, agents));

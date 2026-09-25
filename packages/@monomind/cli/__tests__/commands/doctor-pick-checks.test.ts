@@ -53,6 +53,28 @@ describe('readPickAdherence', () => {
     expect(readPickAdherence(root)).toEqual({ routes: 3, shown: 1, spawns: 3, followed: 2 });
   });
 
+  it('counts a route once: followed when any of its spawns used the pick; command routes are not picks', () => {
+    const root = project();
+    put(
+      join(root, '.monomind', 'route-outcomes.jsonl'),
+      jsonl([
+        { routeId: 'a', shown: true, promptPreview: 'fix the parser' },
+        { routeId: 'cmd', shown: true, promptPreview: '/mastermind:plan add caching' },
+      ]),
+    );
+    put(
+      join(root, '.monomind', 'pick-adherence.jsonl'),
+      jsonl([
+        { routeId: 'a', followed: false },
+        { routeId: 'a', followed: true },
+        { routeId: 'a', followed: true },
+        { routeId: 'b', followed: false },
+        { routeId: 'b', followed: false },
+      ]),
+    );
+    expect(readPickAdherence(root)).toEqual({ routes: 1, shown: 1, spawns: 2, followed: 1 });
+  });
+
   it('is all zeros without logs', () => {
     expect(readPickAdherence(project())).toEqual({ routes: 0, shown: 0, spawns: 0, followed: 0 });
   });
@@ -130,7 +152,9 @@ describe('checkPick', () => {
     put(join(root, '.monomind', 'route-outcomes.jsonl'), jsonl([{ shown: true }, { shown: true }]));
     put(join(root, '.monomind', 'pick-adherence.jsonl'), jsonl([{ followed: true }, { followed: false }]));
     const r = await checkPick(root, {});
-    expect(r.message).toMatch(/adherence: 2 routes, 2 shown; spawns followed the pick 1\/2 \(50%\)/);
+    expect(r.message).toMatch(
+      /adherence: 2 routes, 2 shown; picks followed by a spawn of the picked agent 1\/2 \(50%\)/,
+    );
   });
 
   it('reports real-use agreement once enough spawns are logged', async () => {

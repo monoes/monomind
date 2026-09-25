@@ -35,7 +35,8 @@ const rewrite = (name, text) => {
 
 let clock = 1_000_000;
 const route = (o) => ({ routeId: `r${clock}`, ts: clock++, shown: true, ...o });
-const adh = (o) => ({ ts: clock++, routeId: 'r', ...o });
+// Each adherence record is its own route unless a test says otherwise.
+const adh = (o) => ({ ts: clock, routeId: `a${clock++}`, ...o });
 const fb = (o) => ({ timestamp: new Date(clock++).toISOString(), ...o });
 
 describe('update: aggregation', () => {
@@ -322,5 +323,89 @@ describe('dedupe across a rewrite', () => {
     ps.update(tmp);
     rewrite('routing-feedback.jsonl', `${JSON.stringify(b)}\n${JSON.stringify(a)}\n`);
     expect(ps.update(tmp).agents.coder.success).toBe(2);
+  });
+});
+
+describe('adherence counts once per route', () => {
+  it('counts one follow per route, at its first matching spawn', () => {
+    append('pick-adherence.jsonl', [
+      // r1: the pick, spawned three times — one follow, not three.
+      adh({ routeId: 'r1', recommended: 'coder', actual: 'coder', followed: true }),
+      adh({ routeId: 'r1', recommended: 'coder', actual: 'coder', followed: true }),
+      adh({ routeId: 'r1', recommended: 'coder', actual: 'coder', followed: true }),
+      // r2: another agent first, then the pick — the route was followed.
+      adh({ routeId: 'r2', recommended: 'coder', actual: 'reviewer', followed: false }),
+    ]);
+    ps.update(tmp);
+    append('pick-adherence.jsonl', [
+      adh({ routeId: 'r2', recommended: 'coder', actual: 'coder', followed: true }),
+      // r3: never the pick — one override, its first choice counted.
+      adh({ routeId: 'r3', recommended: 'coder', actual: 'reviewer', followed: false }),
+      adh({ routeId: 'r3', recommended: 'coder', actual: 'tester', followed: false }),
+    ]);
+    const s = ps.update(tmp);
+    expect(s.totals).toMatchObject({ spawns: 7, followed: 2, overridden: 1 });
+    expect(s.agents.coder).toMatchObject({ followed: 2, overridden: 1 });
+    expect(s.agents.reviewer.chosen).toBe(1);
+    expect(s.agents.tester?.chosen ?? 0).toBe(0);
+  });
+});
+
+describe('only registry agents are tracked', () => {
+  const registry = (names) =>
+    fs.writeFileSync(
+      path.join(mono, 'registry.json'),
+      JSON.stringify({ agents: names.map((n) => ({ slug: n, name: n })) }),
+    );
+
+  it('ignores names the registry does not hold, and drops ones already stored', () => {
+    registry(['coder', 'reviewer']);
+    fs.writeFileSync(
+      path.join(mono, 'pick-stats.json'),
+      JSON.stringify({
+        version: 1,
+        totals: {},
+        agents: {
+          'issue-337': { name: 'issue-337', chosen: 4 },
+          coder: { name: 'coder', followed: 1 },
+        },
+      }),
+    );
+    append('pick-adherence.jsonl', [
+      adh({ recommended: 'coder', actual: 'issue-337', followed: false }),
+    ]);
+    append('routing-feedback.jsonl', [
+      fb({ actualAgent: 'issue-338', intelligenceFeedback: true }),
+    ]);
+    const s = ps.update(tmp);
+    expect(Object.keys(s.agents).sort()).toEqual(['coder']);
+    expect(s.agents.coder).toMatchObject({ followed: 1, overridden: 1 });
+    expect(s.totals.overridden).toBe(1);
+  });
+
+  it('keeps every name when there is no registry to check against', () => {
+    append('pick-adherence.jsonl', [
+      adh({ recommended: 'coder', actual: 'issue-337', followed: false }),
+    ]);
+    expect(ps.update(tmp).agents['issue-337'].chosen).toBe(1);
+  });
+});
+
+describe('slash-command routes', () => {
+  it('are not picks: no route, no recommendation, no adherence', () => {
+    append('route-outcomes.jsonl', [
+      route({
+        routeId: 'cmd',
+        agentName: 'planner',
+        promptPreview: '/mastermind:plan add caching',
+      }),
+      route({ agentName: 'coder', promptPreview: '/var/log/app.log shows a crash' }),
+    ]);
+    append('pick-adherence.jsonl', [
+      adh({ routeId: 'cmd', recommended: 'planner', actual: 'planner', followed: true }),
+    ]);
+    const s = ps.update(tmp);
+    expect(s.totals).toMatchObject({ routes: 1, shown: 1, followed: 0, unpicked: 1 });
+    expect(s.agents.planner).toBeUndefined();
   });
 });
