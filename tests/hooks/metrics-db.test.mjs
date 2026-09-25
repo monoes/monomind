@@ -1,28 +1,19 @@
 /**
  * Tests for .claude/helpers/metrics-db.mjs
  * Spawn-based (module calls main() at top level).
- * Tests are skipped when sql.js is not installed (the module's hard dependency).
+ * The helper aggregates .monomind/metrics/*.json using only Node built-ins; it
+ * dropped its sql.js dependency when it was rewritten, so nothing is skipped.
  */
 
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
 const METRICS = path.resolve(__dirname, '../../.claude/helpers/metrics-db.mjs');
-
-const sqlJsAvailable = (() => {
-  try {
-    require.resolve('sql.js', { paths: [path.resolve(__dirname, '../../')] });
-    return true;
-  } catch {
-    return false;
-  }
-})();
 
 function run(command, opts = {}) {
   const args = command ? [METRICS, command] : [METRICS];
@@ -43,20 +34,35 @@ describe('metrics-db dependency check', () => {
     expect(typeof r.status).toBe('number');
   });
 
-  // `it.skipIf` (not a bare `return`) so the test is REPORTED as skipped when
-  // sql.js is present and actually RUNS when it is absent — the previous
-  // `if (sqlJsAvailable) return;` form silently passed in both cases.
-  it.skipIf(sqlJsAvailable)('exits non-zero with error message when sql.js is missing', () => {
-    const r = run('sync');
-    expect(r.status).toBe(1);
-    // stderr should mention the missing module
-    expect(r.stderr).toMatch(/sql\.js|ERR_MODULE_NOT_FOUND/);
+  // Helpers are copied into user projects that may have no node_modules, so
+  // the helper must not import any package. Run a copy from a directory with
+  // no node_modules above it and NODE_PATH cleared: any bare import would fail
+  // with ERR_MODULE_NOT_FOUND regardless of how the host repo is installed.
+  it('runs with no resolvable packages (Node built-ins only)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metrics-db-isolated-'));
+    try {
+      const copy = path.join(dir, 'metrics-db.mjs');
+      fs.copyFileSync(METRICS, copy);
+      const env = { ...process.env, CLAUDE_PROJECT_DIR: dir };
+      delete env.NODE_PATH;
+      const r = spawnSync(process.execPath, [copy, 'sync'], {
+        env,
+        encoding: 'utf-8',
+        timeout: 20000,
+        cwd: dir,
+      });
+      expect(r.stderr).not.toMatch(/ERR_MODULE_NOT_FOUND|Cannot find (module|package)/);
+      expect(r.status).toBe(0);
+      expect(() => JSON.parse(r.stdout.trim())).not.toThrow();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
-// ── sync (default) — requires sql.js ──────────────────────────────────────────
+// ── sync (default) ──────────────────────────────────────────
 
-describe.skipIf(!sqlJsAvailable)('metrics-db sync', () => {
+describe('metrics-db sync', () => {
   it('exits 0', () => {
     const r = run('sync');
     expect(r.status).toBe(0);
@@ -76,9 +82,9 @@ describe.skipIf(!sqlJsAvailable)('metrics-db sync', () => {
   });
 });
 
-// ── status — requires sql.js ───────────────────────────────────────────────────
+// ── status ───────────────────────────────────────────────────
 
-describe.skipIf(!sqlJsAvailable)('metrics-db status', () => {
+describe('metrics-db status', () => {
   it('exits 0', () => {
     const r = run('status');
     expect(r.status).toBe(0);
@@ -97,9 +103,9 @@ describe.skipIf(!sqlJsAvailable)('metrics-db status', () => {
   });
 });
 
-// ── export — requires sql.js ──────────────────────────────────────────────────
+// ── export ──────────────────────────────────────────────────
 
-describe.skipIf(!sqlJsAvailable)('metrics-db export', () => {
+describe('metrics-db export', () => {
   it('exits 0', () => {
     const r = run('export');
     expect(r.status).toBe(0);
@@ -111,9 +117,9 @@ describe.skipIf(!sqlJsAvailable)('metrics-db export', () => {
   });
 });
 
-// ── unknown command — requires sql.js ─────────────────────────────────────────
+// ── unknown command ─────────────────────────────────────────
 
-describe.skipIf(!sqlJsAvailable)('metrics-db unknown command', () => {
+describe('metrics-db unknown command', () => {
   it('exits 0 for unknown command', () => {
     const r = run('bogus-xyz');
     expect(r.status).toBe(0);
