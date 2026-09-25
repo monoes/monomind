@@ -120,9 +120,12 @@ async function _pickWithJev(CWD, prompt, agents, includeAgentId, skills) {
   return {
     provider: picked.provider,
     agent: jp.acceptAgent(picked.agent),
+    // Jev answered the question (at any confidence): no keyword pick replaces it.
+    agentResponded: !!picked.agent,
     agentConfidence: picked.agent ? picked.agent.confidence : 0,
     agentRanked: picked.agent ? picked.agent.ranked : [],
-    // Only a confident skill answer (including a confident "none fits") replaces keyword matches.
+    skillResponded: !!picked.skill,
+    // Only a confident skill answer (including a confident "none fits") names a skill.
     skillAnswered: !!picked.skill && picked.skill.confidence >= jp.resolveMinConfidence(process.env),
     skills: jp.acceptSkills(picked.skill).map(function (id) { return skillById[id]; }).filter(Boolean),
   };
@@ -144,8 +147,9 @@ async function _decidePick(CWD, prompt) {
   var keywordCands = pickCore.rankAgents(jp, prompt, agents, stats);
   var jev = await _pickWithJev(CWD, prompt, agents, keywordCands[0] && keywordCands[0].id, skills);
   var pick = pickCore.decide({ agents: agents, keywordCands: keywordCands, skillMatches: skillMatches, jev: jev });
-  // Jev's skill answer replaces keyword skill matches, including "none fits".
-  if (jev && jev.skillAnswered) {
+  // Jev's skill answer replaces keyword skill matches, including "none fits"
+  // and an answer below its bar (no skills then).
+  if (jev && jev.skillResponded) {
     skillMatches = jev.skills.map(function (s, i) {
       return { skill: s.id, invoke: s.invoke, description: s.description || '', score: i === 0 ? 2 : 1, source: 'jev' };
     });

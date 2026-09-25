@@ -168,6 +168,30 @@ describe('route-handler with Jev', () => {
     expect(out).toContain('Skill("security-review")');
   });
 
+  it('shows no pick when Jev answers "no agent fits" and a skill below its bar', async () => {
+    vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            answers: {
+              agent: { type: 'choice', choice: '__none__', confidence: 0.9 },
+              skill: { type: 'choice', choice: 'security-review', confidence: 0.3 },
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchImpl);
+    // Keyword ranking alone picks security-engineer and Skill("security-review") here.
+    await loadRH().handle(makeHCtx('security review of the security engineer audits'));
+    const sent = JSON.parse(String(fetchImpl.mock.calls[0][1].body));
+    expect(sent.questions.agent.criteria).toHaveProperty('__none__');
+    expect(logs.join('\n')).not.toContain('[PICK]');
+    expect(logs.join('\n')).not.toContain('SKILL AUTO-ACTIVATED');
+    expect(lastRoute()).toMatchObject({ agentSlug: null, skill: null, reason: 'jev (custom)' });
+  });
+
   it('falls back to keyword routing (no confident match here) when Jev fails', async () => {
     vi.stubEnv('MONOMIND_JEV_URL', 'http://127.0.0.1:3999');
     vi.stubGlobal(

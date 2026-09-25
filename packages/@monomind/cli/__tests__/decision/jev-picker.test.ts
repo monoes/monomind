@@ -179,7 +179,7 @@ describe('pick', () => {
     expect(f.calls).toHaveLength(0);
   });
 
-  it('asks the agent and skill questions in one request, with a "none" skill option', async () => {
+  it('asks the agent and skill questions in one request, each with a "none" option', async () => {
     const f = fakeFetch(
       json({
         answers: {
@@ -191,7 +191,12 @@ describe('pick', () => {
     const res = await jp.pick('audit for sql injection', { agents, skills }, { env: localEnv, fetchImpl: f.impl });
     expect(f.calls).toHaveLength(1);
     const sent = JSON.parse(String(f.calls[0].init.body));
-    expect(Object.keys(sent.questions.agent.criteria).sort()).toEqual(['coder', 'security-engineer', 'tester']);
+    expect(Object.keys(sent.questions.agent.criteria).sort()).toEqual([
+      '__none__',
+      'coder',
+      'security-engineer',
+      'tester',
+    ]);
     expect(sent.questions.skill.criteria).toHaveProperty('__none__');
     expect(res.provider).toBe('custom');
     expect(res.agent).toEqual({
@@ -235,6 +240,10 @@ describe('accept rules', () => {
     expect(jp.acceptAgent({ ...a, confidence: 0.5 }, {})).toBeNull();
     expect(jp.acceptAgent(a, { MONOMIND_JEV_MIN_CONFIDENCE: '0.9' })).toBeNull();
     expect(jp.acceptAgent(undefined, {})).toBeNull();
+  });
+
+  it('acceptAgent never returns "none" as an agent', () => {
+    expect(jp.acceptAgent({ choice: '__none__', confidence: 0.95, ranked: [] }, {})).toBeNull();
   });
 
   it('takes a per-call floor, and reads the pick floor from MONOMIND_JEV_PICK_MIN_CONFIDENCE', () => {

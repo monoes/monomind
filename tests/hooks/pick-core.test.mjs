@@ -198,6 +198,39 @@ describe('rankAgents / decide', () => {
     expect(d.skill).toBeNull();
   });
 
+  it('a Jev answer below its bar shows nothing, never a keyword pick in its place', () => {
+    // Jev saw the keyword leaders among its candidates and did not back them:
+    // "revisa el pull request 482" must not fall back to public-relations.
+    const d = pc().decide({
+      agents,
+      keywordCands: [{ id: 'coder', name: 'coder', score: 9 }],
+      skillMatches: [{ skill: 'public-relations', invoke: '/public-relations', score: 9 }],
+      jev: {
+        provider: 'custom',
+        agent: null,
+        agentResponded: true,
+        agentConfidence: 0.4,
+        skillAnswered: false,
+        skillResponded: true,
+        skills: [],
+      },
+    });
+    expect(d.agent).toBeNull();
+    expect(d.skill).toBeNull();
+    expect(d).toMatchObject({ method: 'jev', provider: 'custom' });
+  });
+
+  it('keeps the keyword pick for a question Jev did not answer', () => {
+    const d = pc().decide({
+      agents,
+      keywordCands: [{ id: 'coder', name: 'coder', score: 9 }],
+      skillMatches: [{ skill: 'tokens', invoke: '/tokens', score: 9 }],
+      jev: { provider: 'custom', agent: null, skillAnswered: false, skills: [] },
+    });
+    expect(d.agent).toEqual({ id: 'coder', name: 'coder' });
+    expect(d.skill).toEqual({ skill: 'tokens', invoke: '/tokens' });
+  });
+
   it('picks a keyword skill only above the floor and with a clear lead', () => {
     const { decide, KEYWORD_MIN_SKILL_SCORE, KEYWORD_SKILL_LEAD } = pc();
     expect(KEYWORD_MIN_SKILL_SCORE).toBe(3);

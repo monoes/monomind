@@ -296,10 +296,12 @@ async function pick(task, catalogs, opts) {
   var skills = catalogs && Array.isArray(catalogs.skills) ? catalogs.skills : [];
   var questions = {};
   if (agents.length >= 2) {
+    var agentCriteria = criteriaFor(shortlist(text, agents, max, include.agents));
+    agentCriteria[NONE_ID] = 'None of these agents fits the task';
     questions.agent = {
       type: 'choice',
       instructions: opts.agentInstructions || 'Which specialist agent should handle this task?',
-      criteria: criteriaFor(shortlist(text, agents, max, include.agents)),
+      criteria: agentCriteria,
     };
   }
   if (skills.length >= 1) {
@@ -326,9 +328,10 @@ async function pick(task, catalogs, opts) {
   return out;
 }
 
-/** `minConfidence` overrides the automatic-decision floor for this call. */
+/** `minConfidence` overrides the automatic-decision floor for this call.
+ *  "None fits" is never an agent. */
 function acceptAgent(answer, env, minConfidence) {
-  if (!answer) return null;
+  if (!answer || answer.choice === NONE_ID) return null;
   return answer.confidence >= floorFor(env, minConfidence) ? answer.choice : null;
 }
 

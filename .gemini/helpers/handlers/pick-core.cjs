@@ -144,7 +144,10 @@ function leads(list, min, ratio) {
 /**
  * The prompt's pick. A Jev agent answer (already past acceptAgent) wins, else a
  * strong keyword agent; a confident Jev skill answer (including "none fits")
- * wins, else a strong keyword skill. Agent ids are resolved to registry names.
+ * wins, else a strong keyword skill. A question Jev answered below its bar
+ * (agentResponded / skillResponded) gets no pick at all: its candidates held
+ * the keyword leaders and it did not back them. Agent ids are resolved to
+ * registry names.
  */
 function decide(opts) {
   var agents = opts.agents || [];
@@ -159,6 +162,8 @@ function decide(opts) {
     out.agent = { id: jev.agent, name: byId[jev.agent].name };
     out.confidence = jev.agentConfidence;
     viaJev = true;
+  } else if (jev && jev.agentResponded) {
+    viaJev = true;
   } else {
     var kw = leads(opts.keywordCands, KEYWORD_MIN_AGENT_SCORE, KEYWORD_AGENT_LEAD);
     if (kw) { out.agent = { id: kw.id, name: kw.name }; viaKeyword = true; }
@@ -167,6 +172,8 @@ function decide(opts) {
   if (jev && jev.skillAnswered) {
     var js = (jev.skills || [])[0];
     if (js) out.skill = { skill: js.id, invoke: js.invoke };
+    viaJev = true;
+  } else if (jev && jev.skillResponded) {
     viaJev = true;
   } else {
     var ks = leads(opts.skillMatches, KEYWORD_MIN_SKILL_SCORE, KEYWORD_SKILL_LEAD);
