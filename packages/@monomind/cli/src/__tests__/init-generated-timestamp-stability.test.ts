@@ -91,7 +91,8 @@ describe('init --force is byte-stable for timestamped generated files', () => {
     // config.yaml is merged, not regenerated: --force keeps the values on
     // disk and only adds defaults the file lacks. So the real change here is
     // a default an older config.yaml never had.
-    writeFileSync(configPath, firstConfig.replace(/^ {2}port: .*\n/m, ''));
+    const strippedConfig = firstConfig.replace(/^ {2}port: .*\n/m, '');
+    writeFileSync(configPath, strippedConfig);
     await run({ maxAgents: DEFAULT_INIT_OPTIONS.runtime.maxAgents + 1 });
 
     const secondConfig = readFileSync(configPath, 'utf-8');
@@ -99,7 +100,16 @@ describe('init --force is byte-stable for timestamped generated files', () => {
 
     expect(secondConfig).toMatch(/^ {2}port: \d+$/m);
     expect(secondConfig).toContain(`maxAgents: ${DEFAULT_INIT_OPTIONS.runtime.maxAgents}\n`);
-    expect(secondConfig).not.toBe(firstConfig);
+    // Compare against strippedConfig (the file's actual state right before
+    // this run), not firstConfig: mergeYamlDefaults never overwrites a key
+    // that already exists, so the *only* other difference from firstConfig
+    // is the `Generated:` stamp — which is millisecond-resolution and can
+    // collide with the previous run's stamp when both run() calls land in
+    // the same tick, making secondConfig spuriously byte-identical to
+    // firstConfig (2/8 isolated runs observed). The restored `port:` line
+    // always differs from strippedConfig regardless of timestamp, so this
+    // assertion is deterministic while still proving a real write happened.
+    expect(secondConfig).not.toBe(strippedConfig);
     expect(secondCapabilities).not.toBe(firstCapabilities);
     expect(generatedStamp(secondConfig) >= generatedStamp(firstConfig)).toBe(true);
   });
