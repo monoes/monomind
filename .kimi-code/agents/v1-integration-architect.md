@@ -20,7 +20,7 @@ Keep the 5 Monomind packages working as a coherent system. When a package change
 |---------|------|-------------------|
 | `@monomind/cli` | Orchestration layer | MCP server, CLI commands, init generator |
 | `@monoes/hooks` | Intelligence engine | Hook events, background workers, pattern learning |
-| `@monomind/memory` | Persistence layer | LanceDB, HNSW search, session state |
+| `@monomind/memory` | Persistence layer | SQLite (sql.js fallback), HNSW search above 5,000 entries, session state |
 | `@monomind/security` | Input validation | CVE remediation, safe executor, path validator |
 | `@monoes/monograph` | Knowledge graph | Dependency analysis, community detection, impact |
 
@@ -46,14 +46,10 @@ All MCP tools exposed via `@monomind/cli/src/mcp-tools/` must:
 
 ### Memory Access Pattern
 
-```typescript
-// Standard pattern for cross-package memory access
-import { LanceDB } from '@monomind/memory';
-
-const db = LanceDB.getInstance();
-await db.store({ key, value, namespace: 'package-name' });
-const result = await db.search({ query, namespace: 'package-name' });
-```
+Cross-package memory access goes through the CLI's memory bridge
+(`packages/@monomind/cli/src/memory/memory-bridge.ts`), which backs `memory store/search`
+and the MCP memory tools on top of `@monoes/memory`'s SQLite backend. Use a
+package-specific `namespace` for everything a package stores.
 
 ## Integration Checklist
 
@@ -63,7 +59,7 @@ When a new feature spans multiple packages:
 - [ ] Hook events documented in `@monoes/hooks/src/types.ts`
 - [ ] MCP tool registered in `@monomind/cli/src/mcp-tools/index.ts`
 - [ ] Security validation added at system boundary
-- [ ] Memory schema migration written if LanceDB schema changes
+- [ ] Memory schema migration written if the SQLite schema (`sql-schema.ts`) changes
 - [ ] `pnpm run sync:claude-trees` run after any `.claude/` changes
 - [ ] Cross-package integration test added
 
@@ -80,8 +76,8 @@ packages/@monomind/hooks/src/
   workers/             — Background worker definitions
 
 packages/@monomind/memory/src/
-  lancedb/             — LanceDB core
-  hnsw/                — Vector search
+  sql-backend.ts       — SQLite backend; search() switches to HNSW above the threshold
+  hnsw-index.ts        — HNSW ANN index
 
 packages/@monomind/security/src/
   validators/          — Input validators
@@ -90,7 +86,7 @@ packages/@monomind/security/src/
 
 ## Coordination with Other Specialists
 
-- **Memory Specialist** — LanceDB schema changes, HNSW configuration
+- **Memory Specialist** — SQLite schema changes, HNSW configuration
 - **Performance Engineer** — Benchmarking cross-package call overhead
 - **Security Architect** — Validating integration boundary security
 - **Queen Coordinator** — Orchestrating multi-package feature rollouts
