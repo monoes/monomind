@@ -1,0 +1,5 @@
+{"routeId":"o1","ts":1000,"task":"write unit tests for the parser and its edge cases","recommendedAgent":"coder","routingMethod":"keyword","confidence":0.5,"learningMode":"js","agentActuallyUsed":"tester","measuredSuccess":true}
+{"routeId":"o2","ts":2000,"task":"go on","recommendedAgent":"coder","routingMethod":"keyword","confidence":0.5,"learningMode":"js","agentActuallyUsed":"coder","measuredSuccess":true}
+{"routeId":"o3","ts":3000,"task":"<task-notification>\n<task-id>b2</task-id>\n<status>completed</status>","recommendedAgent":"coder","routingMethod":"keyword","confidence":0.5,"learningMode":"js"}
+{"routeId":"o4","ts":4000,"task":"fix the login bug where the session cookie expires too early","recommendedAgent":"coder","routingMethod":"memory-sqlite","confidence":0.5,"learningMode":"js","agentActuallyUsed":"coder","measuredSuccess":true}
+{"routeId":"o5","ts":5000,"task":"plan the next release","recommendedAgent":"planner","routingMethod":"keyword","confidence":0.5,"learningMode":"js"}
