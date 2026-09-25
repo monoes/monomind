@@ -190,6 +190,13 @@ export function replaceLegacyUnmarked(
   return lines.join('\n');
 }
 
+/** The body of the current-form `marker` block in `text`, or null if absent. */
+export function readGeneratedBlock(text: string, marker: string): string | null {
+  const match = currentBlockPattern(marker).exec(text);
+  if (!match) return null;
+  return match[0].replace(/\n$/, '').split('\n').slice(1, -1).join('\n');
+}
+
 export function mergeGeneratedBlock(existing: string, marker: string, generated: string): string {
   const block = buildBlock(marker, generated);
   if (existing.length === 0) return block;

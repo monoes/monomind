@@ -6,6 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { VERSION } from '../index.js';
+import { formatKeptFiles } from '../init/file-guard.js';
 import {
   DEFAULT_INIT_OPTIONS,
   executeInit,
@@ -363,6 +364,11 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       );
       output.writeln();
     }
+
+    const keptFiles = formatKeptFiles(result.kept);
+    if (keptFiles) output.printWarning(keptFiles);
+    for (const warning of result.warnings ?? []) output.printWarning(warning);
+    if (keptFiles || result.warnings?.length) output.writeln();
 
     if (
       options.components.claudeMd ||

@@ -342,6 +342,10 @@ export interface InitOptions {
   enablePlatformHooks?: boolean;
   /** Force overwrite existing files */
   force: boolean;
+  /** Keep a managed block the user edited even though `force` is set —
+   *  `init upgrade` refreshes blocks with `force` but is not the user's
+   *  explicit --force (see file-guard.ts). */
+  preserveEdits?: boolean;
   /** Run in interactive mode */
   interactive: boolean;
   /** Components to initialize */
@@ -623,6 +627,11 @@ export interface InitResult {
    *  unnoticed. */
   removed: string[];
   errors: string[];
+  /** Shipped files kept because the user edited them; the new version was
+   *  written beside each as `<file>.monomind-new` (see file-guard.ts). */
+  kept?: string[];
+  /** Things the user must be told even though the run succeeded. */
+  warnings?: string[];
   /** Memory database setup outcome; absent when it was not attempted. */
   memory?: InitMemoryResult;
   /** Agent registry and skill index counts (see init/project-indexes.ts). */

@@ -24,6 +24,7 @@ import {
 } from '../mcp/monoes-mcp-entry.mjs';
 import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
+import { finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
 import { initProjectMemory } from './init-memory.js';
 import { buildProjectIndexes } from './project-indexes.js';
 // Split modules
@@ -79,6 +80,8 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
   try {
     // Create directory structure
     await createDirectories(targetDir, options, result);
+    // Every writer below keeps shipped files the user edited (file-guard.ts).
+    const guard = guardFor(targetDir, options, result);
 
     // Scan directory and save fingerprint (non-fatal if failed)
     let capMgr: any = null;
@@ -298,6 +301,8 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
         scope: 'project',
         yes: true,
         enableHooks: options.enablePlatformHooks,
+        protectedPaths: guard.keptPaths(),
+        backupDir: guard.backupDir,
       });
       result.updated.push(...applied.changed.map((file) => `platform ${platform}: ${file}`));
       result.skipped.push(...applied.skipped.map((file) => `platform ${platform}: ${file}`));
@@ -332,6 +337,11 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 
     // Run doctor auto-fix (non-blocking, best-effort)
     await runDoctorFix(targetDir, result, options.installClaudeCode !== false);
+
+    // Hash what this run left on disk (after adapters and doctor rewrote some
+    // of it), so the next run can tell a user edit from an untouched file.
+    finalizeGuard(result);
+    pruneBackups(targetDir);
 
     // Register this project in ~/.monomind-projects.json so upgrade --all finds it
     _registerMonomindProject(targetDir);

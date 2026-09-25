@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { guardFor } from './file-guard.js';
 import {
   generateGeminiMd,
   generateGeminiRulesMd,
@@ -14,7 +15,6 @@ import {
   findSourceHelpersDir,
   GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
-  mergeGeneratedBlock,
 } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
@@ -35,12 +35,17 @@ export async function writeGeminiFiles(
   // --force refreshes that block and keeps the project's own text around it.
   const geminiMdPath = path.join(targetDir, 'GEMINI.md');
   const geminiMdExists = fs.existsSync(geminiMdPath);
-  if (!geminiMdExists || options.force) {
-    const existing = geminiMdExists ? fs.readFileSync(geminiMdPath, 'utf-8') : '';
-    atomicWriteFile(
-      geminiMdPath,
-      mergeGeneratedBlock(existing, 'gemini-md', generateGeminiMd(options)),
-    );
+  const geminiMd =
+    !geminiMdExists || options.force
+      ? guardFor(targetDir, options, result).mergeBlock(
+          geminiMdPath,
+          geminiMdExists ? fs.readFileSync(geminiMdPath, 'utf-8') : '',
+          'gemini-md',
+          generateGeminiMd(options),
+        )
+      : null;
+  if (geminiMd !== null) {
+    atomicWriteFile(geminiMdPath, geminiMd);
     result.created.files.push('GEMINI.md');
   } else {
     result.skipped.push('GEMINI.md');

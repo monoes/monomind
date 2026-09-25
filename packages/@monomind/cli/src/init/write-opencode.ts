@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { guardFor } from './file-guard.js';
 import {
   convertAgentMd,
   convertCommandMd,
@@ -20,7 +21,6 @@ import {
   isLikelyUserFile,
   isSafeConversionTarget,
   listFilesRecursive,
-  mergeGeneratedBlock,
   previouslyGenerated,
   recordGenerated,
   retireGeneratedEntry,
@@ -76,9 +76,17 @@ export async function writeOpencodeFiles(
   // unwrapped by an older version is migrated rather than duplicated.
   const agentsMdPath = path.join(targetDir, 'AGENTS.md');
   const agentsMdExists = fs.existsSync(agentsMdPath);
-  if (!agentsMdExists || options.force) {
-    const existing = agentsMdExists ? fs.readFileSync(agentsMdPath, 'utf-8') : '';
-    atomicWriteFile(agentsMdPath, mergeGeneratedBlock(existing, 'agents-md', generateAgentsMd()));
+  const agentsMd =
+    !agentsMdExists || options.force
+      ? guardFor(targetDir, options, result).mergeBlock(
+          agentsMdPath,
+          agentsMdExists ? fs.readFileSync(agentsMdPath, 'utf-8') : '',
+          'agents-md',
+          generateAgentsMd(),
+        )
+      : null;
+  if (agentsMd !== null) {
+    atomicWriteFile(agentsMdPath, agentsMd);
     result.created.files.push('AGENTS.md');
   } else {
     result.skipped.push('AGENTS.md');

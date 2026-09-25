@@ -4,13 +4,13 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { guardFor } from './file-guard.js';
 import {
   AGENTS_MAP,
   allShippedAgents,
   allShippedCommands,
   allShippedSkills,
   COMMANDS_MAP,
-  copyDirRecursive,
   countFiles,
   findSourceDir,
   listFilesRecursive,
@@ -115,7 +115,9 @@ export async function copySkills(
     }
   }
 
-  // Always copy/overwrite skills (never skip — ensures new version content lands)
+  // Copy every selected skill so new version content lands — through the
+  // guard, which keeps any shipped file the user edited (file-guard.ts).
+  const guard = guardFor(targetDir, options, result);
   const writtenSkills: string[] = [];
   for (const skillName of knownSkills) {
     const sourcePath = path.join(sourceSkillsDir, skillName);
@@ -128,7 +130,7 @@ export async function copySkills(
       // extra command in a shipped folder. `init --force` did exactly that.
       // The cost of not wiping is that a file removed from a newer version
       // lingers; the cost of wiping is silent data loss, which is worse.
-      copyDirRecursive(sourcePath, targetPath);
+      guard.copyDir(sourcePath, targetPath);
       writtenSkills.push(skillName);
       result.created.files.push(`.claude/skills/${skillName}`);
       result.summary.skillsCount++;
@@ -161,10 +163,11 @@ export async function copySkills(
     for (const skillName of writtenSkills) {
       const sourcePath = path.join(sourceSkillsDir, skillName);
       if (fs.existsSync(sourcePath)) {
-        copyDirRecursive(sourcePath, path.join(mirrorDir, skillName));
+        guard.copyDir(sourcePath, path.join(mirrorDir, skillName));
       }
     }
   }
+  guard.flush();
 }
 
 /**
@@ -229,7 +232,8 @@ export async function copyCommands(
     }
   }
 
-  // Always copy/overwrite commands (never skip — ensures new version content lands)
+  // Copy every selected command, keeping the ones the user edited (see copySkills).
+  const guard = guardFor(targetDir, options, result);
   const writtenCommands: string[] = [];
   for (const cmdName of knownCommands) {
     const sourcePath = path.join(sourceCommandsDir, cmdName);
@@ -240,9 +244,9 @@ export async function copyCommands(
       // overwrite what they ship, so wiping first only destroys files the user
       // added inside a shipped command directory.
       if (fs.statSync(sourcePath).isDirectory()) {
-        copyDirRecursive(sourcePath, targetPath);
+        guard.copyDir(sourcePath, targetPath);
       } else {
-        fs.copyFileSync(sourcePath, targetPath);
+        guard.copyFile(sourcePath, targetPath);
       }
       writtenCommands.push(cmdName);
       result.created.files.push(`.claude/commands/${cmdName}`);
@@ -254,6 +258,7 @@ export async function copyCommands(
     (n) => !writtenCommands.includes(n) && fs.existsSync(path.join(targetCommandsDir, n)),
   );
   recordGenerated(targetDir, 'commands', [...writtenCommands, ...retainedCommands]);
+  guard.flush();
 }
 
 /**
@@ -304,7 +309,8 @@ export async function copyAgents(
     }
   }
 
-  // Always copy/overwrite agents (never skip — ensures new version content lands)
+  // Copy every selected agent category, keeping the files the user edited (see copySkills).
+  const guard = guardFor(targetDir, options, result);
   const writtenAgents: string[] = [];
   for (const agentCategory of knownAgents) {
     const sourcePath = path.join(sourceAgentsDir, agentCategory);
@@ -317,7 +323,7 @@ export async function copyAgents(
       // extra command in a shipped folder. `init --force` did exactly that.
       // The cost of not wiping is that a file removed from a newer version
       // lingers; the cost of wiping is silent data loss, which is worse.
-      copyDirRecursive(sourcePath, targetPath);
+      guard.copyDir(sourcePath, targetPath);
       // Count agent files (.md only — .yaml agents were migrated to .md)
       const mdFiles = countFiles(sourcePath, '.md');
       result.summary.agentsCount += mdFiles;
@@ -330,4 +336,5 @@ export async function copyAgents(
     (n) => !writtenAgents.includes(n) && fs.existsSync(path.join(targetAgentsDir, n)),
   );
   recordGenerated(targetDir, 'agents', [...writtenAgents, ...retainedAgents]);
+  guard.flush();
 }

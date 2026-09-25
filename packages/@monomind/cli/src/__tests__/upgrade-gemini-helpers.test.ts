@@ -61,7 +61,12 @@ describe('init upgrade refreshes the Gemini helper copy', () => {
     const gemini = join(target, '.gemini', 'helpers');
     expect(existsSync(join(gemini, 'statusline.cjs'))).toBe(true);
 
-    // Simulate an install made by an older release.
+    // Simulate an install made by an older release: it recorded no file
+    // hashes (a recorded file that changed would be a user edit, and kept).
+    const manifestPath = join(target, '.monomind', 'init-manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    delete manifest.files;
+    writeFileSync(manifestPath, JSON.stringify(manifest));
     writeFileSync(join(gemini, 'statusline.cjs'), STALE);
     writeFileSync(join(gemini, 'hook-handler.cjs'), STALE);
     writeFileSync(join(gemini, 'utils', 'fs-helpers.cjs'), STALE);

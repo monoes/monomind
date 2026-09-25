@@ -19,6 +19,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isKeptUserEdit } from '../init/file-guard.js';
 import { DOCTOR_TRACKED_HELPERS, OBSOLETE_HELPER_NAMES } from '../init/helpers-generator.js';
 import { MONOMIND_NEVER_COMMIT } from '../init/never-commit.js';
 import { mcpAddHint } from '../platform-adapters/renderers/mcp.js';
@@ -913,6 +914,8 @@ export async function fixStaleHelpers(): Promise<boolean> {
   }
   let fixed = 0;
   for (const { name, local } of targets) {
+    // A helper `monomind init` kept because the user edited it is theirs.
+    if (isKeptUserEdit(process.cwd(), local)) continue;
     const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
     if (bundled) {
       try {

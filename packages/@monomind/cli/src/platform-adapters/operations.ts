@@ -183,6 +183,8 @@ function applyIntent(
       diagnostics: [`No declared ${intent.kind} location for ${adapter.id}`],
     };
 
+  if (request.protectedPaths?.has(location.path))
+    return { skipped: location.displayPath, diagnostics: [] };
   const oldContent = existsSync(location.path) ? readFileSync(location.path, 'utf8') : '';
   let content = oldContent;
   let diagnostics: string[] = [];
@@ -234,6 +236,7 @@ function applyIntent(
       location.path,
       request.scope === 'project' ? resolve(request.path ?? process.cwd()) : homedir(),
       request.scope === 'user',
+      request.backupDir,
     );
     atomicWrite(location.path, content);
   }

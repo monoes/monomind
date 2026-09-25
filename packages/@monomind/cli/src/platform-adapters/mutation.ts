@@ -29,9 +29,19 @@ export function atomicWrite(path: string, content: string): void {
   renameSync(temporary, path);
 }
 
-export function backup(path: string, root: string, privateBackup = false): void {
-  if (!existsSync(path)) return;
-  const backupRoot = join(root, '.monomind', 'backups', `${Date.now()}-${process.pid}`);
+/**
+ * Copies `path` into a backup directory below `root` and returns the copy's
+ * path. `runDir` lets one init run collect all of its backups in a single
+ * directory instead of one per millisecond.
+ */
+export function backup(
+  path: string,
+  root: string,
+  privateBackup = false,
+  runDir?: string,
+): string | undefined {
+  if (!existsSync(path)) return undefined;
+  const backupRoot = runDir ?? join(root, '.monomind', 'backups', `${Date.now()}-${process.pid}`);
   mkdirSync(backupRoot, { recursive: true, mode: privateBackup ? 0o700 : undefined });
   // mkdir's mode is subject to umask and does not change an existing path. A
   // user-scope backup can contain credentials from a platform config, so its
@@ -52,6 +62,7 @@ export function backup(path: string, root: string, privateBackup = false): void 
   mkdirSync(dirname(destination), { recursive: true });
   if (statSync(path).isDirectory()) cpSync(path, destination, { recursive: true, force: false });
   else if (!existsSync(destination)) writeFileSync(destination, readFileSync(path));
+  return destination;
 }
 
 export function scopeStateRoot(request: Pick<InstallRequest, 'scope' | 'path'>): string {

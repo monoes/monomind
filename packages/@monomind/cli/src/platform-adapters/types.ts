@@ -100,6 +100,11 @@ export interface InstallRequest {
   enableHooks?: boolean;
   enableBlockingHooks?: boolean;
   discovery?: DiscoveryResult;
+  /** Files an install must not rewrite: init keeps these because the user
+   *  edited them (see init/file-guard.ts). */
+  protectedPaths?: ReadonlySet<string>;
+  /** One backup directory for every file this install replaces. */
+  backupDir?: string;
 }
 
 export type MutationRequest = Omit<InstallRequest, 'platform'> & {

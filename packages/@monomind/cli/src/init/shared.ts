@@ -353,6 +353,13 @@ export interface InitManifest {
   /** Every entry ever retired (o-38) — see `RetiredEntry`. Absent on a
    *  manifest written before this field existed; treated as empty. */
   retired?: RetiredEntry[];
+  /** sha256 of each shipped file as init last left it, keyed by its
+   *  project-relative path — how a later run tells a user edit from an
+   *  untouched install (see file-guard.ts). */
+  files?: Record<string, string>;
+  /** sha256 of each managed block's body as init last wrote it, keyed
+   *  `<file>#<marker>` (see file-guard.ts). */
+  blocks?: Record<string, string>;
 }
 
 export type InitManifestSection =
@@ -404,9 +411,48 @@ export function readInitManifest(targetDir: string): InitManifest | null {
               typeof (r as RetiredEntry).at === 'string',
           )
         : [],
+      files: stringRecord(parsed.files),
+      blocks: stringRecord(parsed.blocks),
     };
   } catch {
     return null;
+  }
+}
+
+function stringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
+}
+
+/** Replace the manifest's `files` or `blocks` hash map, keeping every other
+ *  field (see file-guard.ts). */
+export function recordManifestHashes(
+  targetDir: string,
+  field: 'files' | 'blocks',
+  hashes: Record<string, string>,
+): void {
+  const manifestPath = path.join(targetDir, INIT_MANIFEST_REL);
+  const manifest: InitManifest = readInitManifest(targetDir) ?? {
+    version: 1,
+    skills: [],
+    commands: [],
+    agents: [],
+    kimiSkills: [],
+    kimiPluginCommands: [],
+    opencodeSkills: [],
+  };
+  manifest[field] = Object.fromEntries(
+    Object.entries(hashes).sort(([a], [b]) => a.localeCompare(b)),
+  );
+  try {
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    atomicWriteFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  } catch {
+    // Non-fatal: without hashes the next run treats these files as unrecorded.
   }
 }
 

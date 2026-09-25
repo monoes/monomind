@@ -4,6 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { formatKeptFiles } from '../init/file-guard.js';
 import { executeUpgrade, executeUpgradeWithMissing, findMonomindProjects } from '../init/index.js';
 import { formatIndexSummary } from '../init/project-indexes.js';
 import { output } from '../output.js';
@@ -233,6 +234,10 @@ export const upgradeCommand: Command = {
         );
         output.writeln();
       }
+
+      const keptFiles = formatKeptFiles(result.kept);
+      if (keptFiles) output.printWarning(keptFiles);
+      for (const warning of result.warnings ?? []) output.printWarning(warning);
 
       if (result.keptAgents && result.keptAgents.length > 0) {
         output.printWarning(

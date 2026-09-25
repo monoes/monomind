@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
 import { refreshBundledAgents } from './agent-refresh.js';
+import { type FileGuard, finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
 import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
 import { buildProjectIndexes, type ProjectIndexCounts } from './project-indexes.js';
@@ -48,6 +49,10 @@ export interface UpgradeResult {
   keptAgents?: string[];
   /** Agent registry and skill index counts (see init/project-indexes.ts). */
   indexes?: ProjectIndexCounts;
+  /** Helpers kept because the user edited them (see file-guard.ts). */
+  kept?: string[];
+  /** Things the user must be told even though the upgrade succeeded. */
+  warnings?: string[];
 }
 
 /** Rebuilds the agent registry and skill index, recording them in `result`. */
@@ -167,6 +172,7 @@ function syncHelperTree(
   destHelpersDir: string,
   label: string,
   result: UpgradeResult,
+  guard: FileGuard,
 ): void {
   // Copy top-level critical files atomically. Membership and fallback
   // generators come from the shared HELPER_FILES registry (helpers-generator.ts)
@@ -184,21 +190,15 @@ function syncHelperTree(
       } else {
         result.created.push(`${label}/${helperName}`);
       }
-      // Atomic copy-via-rename so a partial write can't leave a broken hook
-      const tmp = `${targetPath}.tmp`;
-      fs.copyFileSync(sourcePath, tmp);
-      try {
-        fs.chmodSync(tmp, 0o755);
-      } catch {}
-      fs.renameSync(tmp, targetPath);
+      // Atomic write (the guard writes via rename) so a partial write can't
+      // leave a broken hook; a helper the user edited is kept.
+      if (guard.copyFile(sourcePath, targetPath) !== 'kept') {
+        try {
+          fs.chmodSync(targetPath, 0o755);
+        } catch {}
+      }
     } else if (!fs.existsSync(targetPath) && criticalGenerators[helperName]) {
-      const content = criticalGenerators[helperName]();
-      const tmp = `${targetPath}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, content, 'utf-8');
-      try {
-        fs.chmodSync(tmp, 0o755);
-      } catch {}
-      fs.renameSync(tmp, targetPath);
+      guard.write(targetPath, criticalGenerators[helperName](), 0o755);
       result.created.push(`${label}/${helperName}`);
     }
   }
@@ -233,7 +233,7 @@ function syncHelperTree(
     const srcSubdir = path.join(sourceDir, subdir);
     const destSubdir = path.join(destHelpersDir, subdir);
     if (fs.existsSync(srcSubdir)) {
-      copyDirRecursive(srcSubdir, destSubdir);
+      guard.copyDir(srcSubdir, destSubdir);
       result.updated.push(`${label}/${subdir}/`);
     }
   }
@@ -283,11 +283,28 @@ export async function executeUpgrade(
       ...DEFAULT_INIT_OPTIONS,
       targetDir,
       force: true,
+      // `force` refreshes managed blocks, but upgrade is not the user's
+      // explicit --force: a block they edited is kept (file-guard.ts).
+      preserveEdits: true,
       statusline: {
         ...DEFAULT_INIT_OPTIONS.statusline,
         refreshInterval: 5000,
       },
     };
+
+    // One guard for the whole upgrade: helpers a user edited are kept, and
+    // one without a recorded hash (an older install) is backed up first.
+    const docsResult: InitResult = {
+      success: true,
+      platform: detectPlatform(),
+      created: { directories: [], files: [] },
+      updated: [],
+      skipped: [],
+      removed: [],
+      errors: [],
+      summary: { skillsCount: 0, commandsCount: 0, agentsCount: 0, hooksEnabled: 0 },
+    };
+    const guard = guardFor(targetDir, upgradeOptions, docsResult);
 
     // 0. ALWAYS update critical helpers + subdirectories (force overwrite)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
@@ -297,13 +314,14 @@ export async function executeUpgrade(
         path.join(targetDir, '.claude', 'helpers'),
         '.claude/helpers',
         result,
+        guard,
       );
       // init also copies the helper tree into .gemini/helpers (writeHelpers),
       // and Antigravity's status bar runs .gemini/helpers/statusline.cjs. Give
       // that copy the same refresh, but only where init installed one.
       const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
       if (fs.existsSync(geminiHelpersDir)) {
-        syncHelperTree(sourceHelpersForUpgrade, geminiHelpersDir, '.gemini/helpers', result);
+        syncHelperTree(sourceHelpersForUpgrade, geminiHelpersDir, '.gemini/helpers', result, guard);
       }
     } else {
       // Source not found (npx with broken paths) — use generated fallbacks
@@ -318,15 +336,9 @@ export async function executeUpgrade(
         } else {
           result.created.push(`.claude/helpers/${helperName}`);
         }
-        // Atomic write (PID-suffixed) so a partial hook-handler.cjs cannot
-        // ship if init is interrupted, and concurrent inits don't collide on
-        // the same .tmp filename.
-        const tmp = `${targetPath}.${process.pid}.tmp`;
-        fs.writeFileSync(tmp, content, 'utf-8');
-        try {
-          fs.chmodSync(tmp, 0o755);
-        } catch {}
-        fs.renameSync(tmp, targetPath);
+        // Atomic write (the guard writes via a PID-suffixed rename) so a
+        // partial hook-handler.cjs cannot ship if init is interrupted.
+        guard.write(targetPath, content, 0o755);
       }
     }
 
@@ -342,7 +354,7 @@ export async function executeUpgrade(
       } else {
         result.created.push('.claude/helpers/statusline.cjs');
       }
-      atomicWriteFile(statuslinePath, statuslineContent);
+      guard.write(statuslinePath, statuslineContent);
     }
 
     // 1.4. Refresh installed agents whose body matches the bundle, so older
@@ -380,16 +392,6 @@ export async function executeUpgrade(
     const capabilitiesBefore = capabilitiesExisted
       ? fs.readFileSync(capabilitiesPath, 'utf-8')
       : null;
-    const docsResult: InitResult = {
-      success: true,
-      platform: detectPlatform(),
-      created: { directories: [], files: [] },
-      updated: [],
-      skipped: [],
-      removed: [],
-      errors: [],
-      summary: { skillsCount: 0, commandsCount: 0, agentsCount: 0, hooksEnabled: 0 },
-    };
     await writeClaudeMd(targetDir, upgradeOptions, docsResult);
     await writeCapabilitiesDoc(targetDir, upgradeOptions, docsResult);
     if (!claudeMdExisted) {
@@ -520,6 +522,11 @@ export async function executeUpgrade(
     // the project's own and the user's (~/.claude) agents and skills replace
     // any stale snapshot.
     indexProject(targetDir, result, sourceHelpersForUpgrade);
+
+    finalizeGuard(docsResult);
+    result.kept = docsResult.kept;
+    result.warnings = docsResult.warnings;
+    pruneBackups(targetDir);
   } catch (error) {
     result.success = false;
     result.errors.push(error instanceof Error ? error.message : String(error));

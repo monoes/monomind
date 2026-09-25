@@ -5,6 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { generateClaudeMd } from './claudemd-generator.js';
+import { guardFor } from './file-guard.js';
 import { INIT_FALLBACK_HELPERS, OBSOLETE_HELPER_NAMES } from './helpers-generator.js';
 import { generateMCPJson } from './mcp-generator.js';
 import { generateSettingsJson } from './settings-generator.js';
@@ -14,7 +15,6 @@ import {
   findSourceHelpersDir,
   GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
-  mergeGeneratedBlock,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -350,6 +350,8 @@ export async function writeHelpers(
 
   // Find source helpers directory (works for npm package and local dev)
   const sourceHelpersDir = findSourceHelpersDir(options.sourceBaseDir);
+  // --force refreshes existing helpers, but never one the user edited.
+  const guard = guardFor(targetDir, options, result);
 
   // Try to copy existing helpers from source first (recursive — includes utils/ and handlers/)
   if (sourceHelpersDir && fs.existsSync(sourceHelpersDir)) {
@@ -367,7 +369,7 @@ export async function writeHelpers(
           copyRecursive(srcPath, destPath, relPath);
         } else {
           if (!fs.existsSync(destPath) || options.force) {
-            fs.copyFileSync(srcPath, destPath);
+            if (guard.copyFile(srcPath, destPath) === 'kept') continue;
             if (entry.name.endsWith('.sh') || entry.name.endsWith('.mjs')) {
               fs.chmodSync(destPath, '755');
             }
@@ -434,7 +436,7 @@ export async function writeHelpers(
     if (inSource) continue;
 
     if (!fs.existsSync(filePath) || options.force) {
-      atomicWriteFile(filePath, content);
+      if (guard.write(filePath, content) === 'kept') continue;
 
       // Make shell scripts executable
       if (!name.endsWith('.js')) {
@@ -446,6 +448,7 @@ export async function writeHelpers(
       result.skipped.push(`.claude/helpers/${name}`);
     }
   }
+  guard.flush();
 }
 
 /**
@@ -461,6 +464,7 @@ export async function writeStatusline(
 
   // Find source .claude directory (works for npm package and local dev)
   const sourceClaudeDir = findSourceClaudeDir(options.sourceBaseDir);
+  const guard = guardFor(targetDir, options, result);
 
   // Try to copy existing advanced statusline files from source
   const advancedStatuslineFiles = [
@@ -475,7 +479,7 @@ export async function writeStatusline(
 
       if (fs.existsSync(sourcePath)) {
         if (!fs.existsSync(destPath) || options.force) {
-          fs.copyFileSync(sourcePath, destPath);
+          if (guard.copyFile(sourcePath, destPath) === 'kept') continue;
           // Make shell scripts and mjs executable
           if (file.src.endsWith('.sh') || file.src.endsWith('.mjs')) {
             fs.chmodSync(destPath, '755');
@@ -491,12 +495,15 @@ export async function writeStatusline(
   // ALWAYS generate statusline.cjs — the generated version includes
   // vectors/size, tests, ADRs, hooks, and integration stats that the
   // pre-installed static copy in the npm package lacks.
-  // This must overwrite any copy from writeHelpers() which copies the legacy file.
+  // This must overwrite any copy from writeHelpers() which copies the legacy
+  // file — unless the user edited it (the guard keeps it, see file-guard.ts).
   const statuslineScript = generateStatuslineScript(options);
   const statuslinePath = path.join(helpersDir, 'statusline.cjs');
 
-  atomicWriteFile(statuslinePath, statuslineScript);
-  result.created.files.push('.claude/helpers/statusline.cjs');
+  if (guard.write(statuslinePath, statuslineScript) !== 'kept') {
+    result.created.files.push('.claude/helpers/statusline.cjs');
+  }
+  guard.flush();
 }
 
 /**
@@ -527,7 +534,16 @@ export async function writeClaudeMd(
   // applies on the very first write so a later `--force` always refreshes
   // just this block instead of duplicating the body.
   const existingContent = exists ? fs.readFileSync(claudeMdPath, 'utf-8') : '';
-  const merged = mergeGeneratedBlock(existingContent, 'claude-md', generated);
+  const merged = guardFor(targetDir, options, result).mergeBlock(
+    claudeMdPath,
+    existingContent,
+    'claude-md',
+    generated,
+  );
+  if (merged === null) {
+    result.skipped.push('CLAUDE.md (edited monomind block kept)');
+    return;
+  }
   atomicWriteFile(claudeMdPath, merged);
   result.created.files.push('CLAUDE.md');
 }
