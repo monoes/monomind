@@ -20,7 +20,8 @@ export const pickTool: MCPTool = {
   description:
     'Pick the best agents and skills for a task — the same ranking as `monomind pick` (Jev ' +
     'decision model when configured, keyword fallback). Every agent entry has `name`, the ' +
-    'spawnable Task subagent_type; skills carry `invoke`. `summary` is one line naming the top picks.',
+    'spawnable Task subagent_type; skills carry `invoke` (Org skills: org_skill_show). ' +
+    '`summary` is one line naming the top picks.',
   category: 'pick',
   inputSchema: {
     type: 'object',

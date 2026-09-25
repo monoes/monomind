@@ -189,7 +189,7 @@ function orgSkills(root, list, taken, gate) {
       description: typeof s.description === 'string' ? s.description : '',
       text: strings(s.tags).join(' '),
       source: 'org',
-      invoke: 'monomind org skills show ' + s.name,
+      invoke: 'mcp__monomind__org_skill_show ' + JSON.stringify({ name: s.name }),
     });
   });
   return out;
@@ -197,9 +197,10 @@ function orgSkills(root, list, taken, gate) {
 
 /**
  * Every skill a task can use, as one list: platform skills (directly
- * invokable) first, then Org-library skills (read with `monomind org skills
- * show <name>`). opts.index: an already-built index object (the CLI passes the
- * one it just refreshed); otherwise the file is read. opts.registry: the agent
+ * invokable) first, then Org-library skills (read with the org_skill_show MCP
+ * tool, or `npx -y monomind org skills show <name>`). opts.index: an
+ * already-built index object (the CLI passes the one it just refreshed);
+ * otherwise the file is read. opts.registry: the agent
  * registry to dedupe against (see loadAgentCatalog).
  */
 function loadSkillCatalog(root, opts) {

@@ -196,11 +196,13 @@ describe('route-handler [PICK] delivery', () => {
     const hCtx = makeHCtx('tune the zorbling flux capacitors');
     hCtx.router = { ...legacyRouter, matchSkills };
     await loadRH().handle(hCtx);
-    expect(logs).toEqual(['[PICK] skill: monomind org skills show zorbling-tuning']);
+    expect(logs).toEqual([
+      '[PICK] skill: mcp__monomind__org_skill_show {"name":"zorbling-tuning"}',
+    ]);
     expect(matchSkills).not.toHaveBeenCalled();
     expect(outcomes().at(-1)).toMatchObject({
       method: 'keyword',
-      skill: 'monomind org skills show zorbling-tuning',
+      skill: 'mcp__monomind__org_skill_show {"name":"zorbling-tuning"}',
     });
   });
 

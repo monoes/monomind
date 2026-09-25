@@ -85,7 +85,7 @@ describe('one skill set for the hook and monomind pick', () => {
     // org: project skill and jev-approved verified catalog skill, as org entries
     expect(pick.find((s) => s.id === 'zorbling-tuning')).toMatchObject({
       source: 'org',
-      invoke: 'monomind org skills show zorbling-tuning',
+      invoke: 'mcp__monomind__org_skill_show {"name":"zorbling-tuning"}',
       text: 'ops flux',
     });
     expect(ids).toContain('cat-org-jev');

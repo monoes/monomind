@@ -157,8 +157,8 @@ export function orgSkillCatalog(root: string, names?: string[]): CatalogItem[] {
 
 /** Every skill a task can use, as one index: platform skills first (they are
  *  directly invokable), then Org-library skills that are not a platform skill
- *  or an agent by another name. Org skills are read with `monomind org skills
- *  show <name>`. The same loader the prompt hook uses, over the same index. */
+ *  or an agent by another name. Org skills are read with the org_skill_show
+ *  MCP tool. The same loader the prompt hook uses, over the same index. */
 export function taskSkillCatalog(root: string): CatalogItem[] {
   const src = agentSource(root);
   const index = skillIndex(src.root);

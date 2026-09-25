@@ -128,6 +128,7 @@ this file does not list it. Pick agents per task:
 
 - When a prompt carries a \`[PICK]\` line (\`[PICK] agent: <name> · skill: <invoke>\`), use that agent/skill unless it is clearly wrong.
 - Otherwise call \`mcp__monomind__pick\` if that tool is available (\`{ task, kind: "agents" | "skills" | "both" }\`) and use a returned agent \`name\` as the Task \`subagent_type\`. Without it (no MCP, or an older server) run \`monomind pick -t "<task>" --json\`, or \`npx -y monomind pick -t "<task>" --json\` when \`monomind\` is not installed.
+- A skill's \`invoke\`: a platform skill (\`Skill("<name>")\` or \`/command\`) loads with the Skill tool; an Org skill (\`source: "org"\`, invoke \`mcp__monomind__org_skill_show {"name":"<name>"}\`) is read by calling that MCP tool with that input, or with \`npx -y monomind org skills show <name>\` when the tool is unavailable.
 
 Fallback when picking returns nothing — real core agents:
 \`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`, \`system-architect\`, \`Security Engineer\`, \`mesh-coordinator\`
