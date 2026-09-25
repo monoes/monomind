@@ -39,8 +39,10 @@ describe('doc counts are the same on every machine', () => {
   // drafting) changed them: the committed docs said 89/84 bundled/pickable
   // skills where a checkout with monodesign compiled said 90/85. Only tracked
   // files plus the skills generated at pack time may count.
-  it('an untracked skill in the shipped tree does not change any count', () => {
-    const probe = join(REPO_ROOT, 'packages/@monomind/cli/.claude/skills/zz-doc-counts-probe');
+  // The probe goes in org-skills (counted through the same tracked-files gate)
+  // rather than .claude/skills, which other repo tests list concurrently.
+  it('an untracked skill in the shipped package does not change any count', () => {
+    const probe = join(REPO_ROOT, 'packages/@monomind/cli/org-skills/zz-doc-counts-probe');
     mkdirSync(probe, { recursive: true });
     writeFileSync(
       join(probe, 'SKILL.md'),
