@@ -1,15 +1,23 @@
 #!/usr/bin/env node
 
 // Skill lint script (P1-11): validates every `monomind <cmd>` and `npx monomind <cmd>`
-// reference in skill files resolves to a real command. Also checks for `monomind@alpha`
-// dist-tags and cross-tree drift between root and packages skill directories.
+// reference in skill and command files resolves to a real command. Also checks for
+// `monomind@alpha` dist-tags and cross-tree drift between root and packages skill
+// directories.
+//
+// Commands are resolved against the BUILT CLI's command registry
+// (packages/@monomind/cli/dist/src/commands/index.js — names, aliases and
+// subcommands), so build first: `pnpm -r run build`. Only code is scanned —
+// fenced blocks and inline code spans — because prose ("monomind for teams")
+// is not a command reference.
 //
 // Run: node scripts/lint-skills.mjs
-// CI: fails on any unresolved command, any @alpha dist-tag, or cross-tree drift.
+// CI: fails on any unresolved top-level command, any @alpha dist-tag, or
+// cross-tree drift. An unknown SUBCOMMAND of a real command is a warning.
 
-import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd();
 const SKILL_TREES = [
@@ -37,9 +45,7 @@ const SYNCED_SKILLS = new Set([
   'mastermind-runorg',
   'mastermind-createorg',
 ]);
-const CMD_PATTERN = /(?:npx\s+)?monomind(?:@[\w.]+)?\s+(\w[\w-]*)/g;
 const ALPHA_NEEDLE = 'monomind@alpha';
-const VALID_COMMANDS = new Set();
 const errors = [];
 const warnings = [];
 
@@ -53,59 +59,92 @@ for (const tree of SKILL_TREES) {
   }
 }
 
-// --- Gather valid commands from the built CLI ---
-try {
-  const output = execSync('node packages/@monomind/cli/bin/cli.js --help 2>/dev/null || true', {
-    encoding: 'utf8',
-    timeout: 5000,
-  });
-  for (const line of output.split('\n')) {
-    const m = line.match(/^\s*(\w[\w-]*)\s/i);
-    if (m) VALID_COMMANDS.add(m[1]);
+const CLI_COMMANDS_MODULE = 'packages/@monomind/cli/dist/src/commands/index.js';
+
+/**
+ * Map of every top-level command name and alias in the built CLI to the set of
+ * its subcommand names and aliases. Throws when the CLI is not built — a
+ * reference check that silently skips is how 1,098 unresolved references piled
+ * up as warnings nobody read.
+ */
+export async function loadCliCommands(root = ROOT) {
+  const modPath = join(root, CLI_COMMANDS_MODULE);
+  if (!existsSync(modPath)) {
+    throw new Error(`${CLI_COMMANDS_MODULE} is missing — build the CLI first (pnpm -r run build)`);
   }
-} catch {
-  /* CLI not built — skip command validation */
+  const registry = await import(pathToFileURL(modPath).href);
+  const commands = new Map();
+  for (const cmd of await registry.loadAllCommands()) {
+    const subs = new Set();
+    for (const sub of cmd.subcommands ?? []) {
+      subs.add(sub.name);
+      for (const alias of sub.aliases ?? []) subs.add(alias);
+    }
+    for (const name of [cmd.name, ...(cmd.aliases ?? [])]) commands.set(name, subs);
+  }
+  for (const name of registry.getCommandNames()) {
+    if (!commands.has(name)) commands.set(name, new Set());
+  }
+  return commands;
 }
 
-// Also add known subcommands from the commands/ directory
-try {
-  const cmdFiles = readdirSync(join(ROOT, 'packages/@monomind/cli/src/commands')).filter((f) =>
-    f.endsWith('.ts'),
+// `monomind` / `monomind@tag` as a word of its own (not `.monomind/`,
+// `@monoes/monomind`, `monomind-foo`, `monomind:start`), then the command
+// word, then an optional subcommand word (not a flag or placeholder).
+const CMD_REF = /(?<![\w./@-])monomind(?:@[\w.-]+)?[ \t]+([a-z][\w-]*)(?:[ \t]+([a-z][\w-]*))?/g;
+
+// Text allowed right before `monomind` for it to be in command position: the
+// start of the line or a shell/quote boundary, optionally followed by an
+// `npx [-y]` / `pnpm` / `bunx` runner. Anything else ("is monomind
+// installed?", "with monomind integration") is prose inside code.
+const COMMAND_POSITION = /(?:^|[$;|&(`'"=>]|\brun:)\s*(?:(?:npx|bunx|pnpm(?:\s+dlx)?)\s+(?:-y\s+|--yes\s+)?)?$/;
+
+/** Code regions of a markdown document: fenced block bodies and inline code spans. */
+function codeRegions(content) {
+  const regions = [];
+  const prose = content.replace(
+    /^([ \t]*)(```|~~~)[^\n]*\n([\s\S]*?)^[ \t]*\2[ \t]*$/gm,
+    (_m, _i, _f, body) => {
+      // Shell comments inside a block are prose too.
+      regions.push(body.replace(/(^|[ \t])#.*$/gm, '$1'));
+      return '';
+    },
   );
-  for (const f of cmdFiles) {
-    const _name = f
-      .replace(/\.ts$|\.js$/, '')
-      .replace(/-commands$/, '')
-      .replace(/[-_]/g, '-');
-    // Extract the command name from the export
-    const content = readFileSync(join(ROOT, 'packages/@monomind/cli/src/commands', f), 'utf8');
-    const nameMatch = content.match(/name:\s*['"]([^'"]+)['"]/);
-    if (nameMatch) VALID_COMMANDS.add(nameMatch[1]);
-  }
-} catch {
-  /* src not available */
+  for (const m of prose.matchAll(/`([^`\n]+)`/g)) regions.push(m[1]);
+  return regions;
 }
 
-// Always-valid names (MCP tool prefixes, alias commands, etc.)
-[
-  'mcp',
-  'memory',
-  'hooks',
-  'doctor',
-  'init',
-  'org',
-  'swarm',
-  'monograph',
-  'browse',
-  'start',
-  'stop',
-  'status',
-  'help',
-  'version',
-].forEach((c) => VALID_COMMANDS.add(c));
+/** Every `monomind <command> [<sub>]` reference inside the code of `content`. */
+export function extractCommandRefs(content) {
+  const refs = [];
+  for (const region of codeRegions(content)) {
+    for (const m of region.matchAll(CMD_REF)) {
+      const lineStart = region.lastIndexOf('\n', m.index) + 1;
+      if (!COMMAND_POSITION.test(region.slice(lineStart, m.index))) continue;
+      refs.push({ command: m[1], sub: m[2], text: m[0].trim() });
+    }
+  }
+  return refs;
+}
+
+/** Check one file's command references; push errors/warnings. */
+function checkCommandRefs(content, label, cli) {
+  for (const ref of extractCommandRefs(content)) {
+    const subs = cli.get(ref.command);
+    if (!subs) {
+      errors.push(
+        `${label}: '${ref.text}' — 'monomind ${ref.command}' is not a command of the built CLI`,
+      );
+    } else if (ref.sub && subs.size > 0 && !subs.has(ref.sub)) {
+      warnings.push(
+        `${label}: '${ref.text}' — '${ref.sub}' is not a subcommand of 'monomind ${ref.command}'`,
+      );
+    }
+  }
+}
 
 // --- Lint each skill tree ---
-function lintTree(treePath, label) {
+function lintTree(treePath, label, cli) {
   if (!existsSync(treePath)) return;
   const skills = readdirSync(treePath).filter(
     (d) => statSync(join(treePath, d)).isDirectory() && existsSync(join(treePath, d, 'SKILL.md')),
@@ -157,19 +196,7 @@ function lintTree(treePath, label) {
       );
     }
 
-    // Check command references resolve
-    if (VALID_COMMANDS.size > 0) {
-      let match;
-      while ((match = CMD_PATTERN.exec(content)) !== null) {
-        const cmd = match[1];
-        // Skip if it's a known command or a subcommand we can't verify
-        if (!VALID_COMMANDS.has(cmd) && !cmd.includes(':')) {
-          warnings.push(
-            `[${label}] ${skill}/SKILL.md: references 'monomind ${cmd}' — not a recognized top-level command`,
-          );
-        }
-      }
-    }
+    checkCommandRefs(content, `[${label}] ${skill}/SKILL.md`, cli);
   }
 }
 
@@ -180,7 +207,11 @@ function lintTree(treePath, label) {
 // this class of regression was structurally invisible to the guard even after
 // it was wired into CI. monomind-mastermind-master.md carried all 8 dangling
 // names for a full commit before this check existed.
-const COMMAND_TREES = [join(ROOT, '.claude/commands'), join(ROOT, '.kimi-code/plugin/commands')];
+const COMMAND_TREES = [
+  join(ROOT, '.claude/commands'),
+  join(ROOT, 'packages/@monomind/cli/.claude/commands'),
+  join(ROOT, '.kimi-code/plugin/commands'),
+];
 
 function walkMarkdownFiles(dirPath) {
   if (!existsSync(dirPath)) return [];
@@ -194,10 +225,11 @@ function walkMarkdownFiles(dirPath) {
   return out;
 }
 
-function lintCommandTree(treePath) {
+function lintCommandTree(treePath, cli) {
   for (const file of walkMarkdownFiles(treePath)) {
     const content = readFileSync(file, 'utf8');
     const rel = file.replace(`${ROOT}/`, '');
+    checkCommandRefs(content, rel, cli);
     for (const m of content.matchAll(/Skill\(["'](mastermind(?:-[\w-]+)?)["'][,)]/g)) {
       if (/[A-Z]/.test(m[1])) continue;
       if (!KNOWN_SKILLS.has(m[1])) {
@@ -254,23 +286,37 @@ function checkDrift() {
 }
 
 // --- Run ---
-for (const tree of SKILL_TREES) {
-  lintTree(tree, tree.replace(`${ROOT}/`, ''));
-}
-for (const tree of COMMAND_TREES) {
-  lintCommandTree(tree);
-}
-checkDrift();
+async function main() {
+  let cli;
+  try {
+    cli = await loadCliCommands();
+  } catch (err) {
+    console.error(`❌ ${err.message}`);
+    return 1;
+  }
+  for (const tree of SKILL_TREES) {
+    lintTree(tree, tree.replace(`${ROOT}/`, ''), cli);
+  }
+  for (const tree of COMMAND_TREES) {
+    lintCommandTree(tree, cli);
+  }
+  checkDrift();
 
-// --- Report ---
-if (warnings.length > 0) {
-  console.log('\n⚠️  Warnings:');
-  for (const w of warnings) console.log(`  ${w}`);
+  // --- Report ---
+  if (warnings.length > 0) {
+    console.log('\n⚠️  Warnings:');
+    for (const w of warnings) console.log(`  ${w}`);
+  }
+  if (errors.length > 0) {
+    console.error('\n❌ Errors:');
+    for (const e of errors) console.error(`  ${e}`);
+    console.error(`\n${errors.length} error(s), ${warnings.length} warning(s)`);
+    return 1;
+  }
+  console.log(`✓ Skill lint passed — 0 errors, ${warnings.length} warning(s)`);
+  return 0;
 }
-if (errors.length > 0) {
-  console.error('\n❌ Errors:');
-  for (const e of errors) console.error(`  ${e}`);
-  console.error(`\n${errors.length} error(s), ${warnings.length} warning(s)`);
-  process.exit(1);
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exit(await main());
 }
-console.log(`✓ Skill lint passed — 0 errors, ${warnings.length} warning(s)`);
