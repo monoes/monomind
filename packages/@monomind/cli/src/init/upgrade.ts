@@ -7,7 +7,7 @@ import * as path from 'node:path';
 import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
 import { refreshBundledAgents } from './agent-refresh.js';
 import { type FileGuard, finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
-import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
+import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS, helperFileMode } from './helpers-generator.js';
 import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
 import { buildProjectIndexes, type ProjectIndexCounts } from './project-indexes.js';
 import { generateSettings } from './settings-generator.js';
@@ -194,11 +194,11 @@ function syncHelperTree(
       // leave a broken hook; a helper the user edited is kept.
       if (guard.copyFile(sourcePath, targetPath) !== 'kept') {
         try {
-          fs.chmodSync(targetPath, 0o755);
+          fs.chmodSync(targetPath, helperFileMode(helperName));
         } catch {}
       }
     } else if (!fs.existsSync(targetPath) && criticalGenerators[helperName]) {
-      guard.write(targetPath, criticalGenerators[helperName](), 0o755);
+      guard.write(targetPath, criticalGenerators[helperName](), helperFileMode(helperName));
       result.created.push(`${label}/${helperName}`);
     }
   }
@@ -222,7 +222,7 @@ function syncHelperTree(
     const tmp = `${targetPath}.${process.pid}.tmp`;
     fs.copyFileSync(path.join(sourceDir, entry.name), tmp);
     try {
-      fs.chmodSync(tmp, 0o755);
+      fs.chmodSync(tmp, helperFileMode(entry.name));
     } catch {}
     fs.renameSync(tmp, targetPath);
     result.created.push(`${label}/${entry.name}`);
@@ -338,7 +338,7 @@ export async function executeUpgrade(
         }
         // Atomic write (the guard writes via a PID-suffixed rename) so a
         // partial hook-handler.cjs cannot ship if init is interrupted.
-        guard.write(targetPath, content, 0o755);
+        guard.write(targetPath, content, helperFileMode(helperName));
       }
     }
 

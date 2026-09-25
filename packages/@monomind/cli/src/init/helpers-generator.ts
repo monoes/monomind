@@ -1376,6 +1376,16 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   'post-commit': { generate: generatePostCommitHook },
 };
 
+/**
+ * Permissions for a helper file, the same from `init` and `init upgrade`.
+ * Every .cjs/.js helper is run as `node <file>` (hooks, statusline, the codex
+ * and opencode bridges), so only what is executed directly is 0755: shell
+ * scripts, .mjs entry points (shebang) and the extensionless git hooks.
+ */
+export function helperFileMode(name: string): number {
+  return /\.(sh|mjs)$/.test(name) || !/\.[^./]+$/.test(name) ? 0o755 : 0o644;
+}
+
 export const FORCE_SYNC_HELPERS: string[] = Object.keys(HELPER_FILES).filter(
   (name) => HELPER_FILES[name].forceSync,
 );

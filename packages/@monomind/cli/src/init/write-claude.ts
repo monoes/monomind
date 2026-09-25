@@ -6,7 +6,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { guardFor } from './file-guard.js';
-import { INIT_FALLBACK_HELPERS, OBSOLETE_HELPER_NAMES } from './helpers-generator.js';
+import {
+  helperFileMode,
+  INIT_FALLBACK_HELPERS,
+  OBSOLETE_HELPER_NAMES,
+} from './helpers-generator.js';
 import { generateMCPJson } from './mcp-generator.js';
 import { generateSettingsJson } from './settings-generator.js';
 import {
@@ -370,9 +374,7 @@ export async function writeHelpers(
         } else {
           if (!fs.existsSync(destPath) || options.force) {
             if (guard.copyFile(srcPath, destPath) === 'kept') continue;
-            if (entry.name.endsWith('.sh') || entry.name.endsWith('.mjs')) {
-              fs.chmodSync(destPath, '755');
-            }
+            fs.chmodSync(destPath, helperFileMode(entry.name));
             result.created.files.push(`.claude/helpers/${relPath}`);
           } else {
             result.skipped.push(`.claude/helpers/${relPath}`);
@@ -436,12 +438,7 @@ export async function writeHelpers(
     if (inSource) continue;
 
     if (!fs.existsSync(filePath) || options.force) {
-      if (guard.write(filePath, content) === 'kept') continue;
-
-      // Make shell scripts executable
-      if (!name.endsWith('.js')) {
-        fs.chmodSync(filePath, '755');
-      }
+      if (guard.write(filePath, content, helperFileMode(name)) === 'kept') continue;
 
       result.created.files.push(`.claude/helpers/${name}`);
     } else {
