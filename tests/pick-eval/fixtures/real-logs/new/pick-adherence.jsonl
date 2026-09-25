@@ -1,0 +1,9 @@
+{"ts":1100,"routeId":"r1","sessionId":"s1","tool":"Agent","recommended":"tester","recommendedId":"tester","actual":"tester","followed":true}
+{"ts":1200,"routeId":"r1","sessionId":"s1","tool":"Agent","recommended":"tester","recommendedId":"tester","actual":"tester","followed":true}
+{"ts":2100,"routeId":"r2","sessionId":"s1","tool":"Agent","recommended":"researcher","recommendedId":"researcher","actual":"general-purpose","followed":false}
+{"ts":3100,"routeId":"r3","sessionId":"s1","tool":"Task","recommended":"coder","recommendedId":"coder","actual":"coder","followed":true}
+{"ts":4100,"routeId":"r4","sessionId":"s1","tool":"Task","recommended":"coder","recommendedId":"coder","actual":"coder","followed":true}
+{"ts":5100,"routeId":"r5","sessionId":"s1","tool":"Agent","recommended":"coder","recommendedId":"coder","actual":"reviewer","followed":false}
+{"ts":6000,"routeId":null,"sessionId":"s2","tool":"Agent","recommended":null,"recommendedId":null,"actual":"tester","followed":null}
+{"ts":7000,"routeId":"gone","sessionId":"s1","tool":"Agent","recommended":"coder","recommendedId":"coder","actual":"coder","followed":true}
+{"ts":8000,"routeId":"r5","sessionId":"s1","tool":"Agent","recommended":"coder","recommendedId":"coder","actual":null,"followed":false}

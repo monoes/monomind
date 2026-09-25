@@ -128,4 +128,26 @@ describe('checkPick', () => {
     const r = await checkPick(root, {});
     expect(r.message).toMatch(/adherence: 2 routes, 2 shown; spawns followed the pick 1\/2 \(50%\)/);
   });
+
+  it('reports real-use agreement once enough spawns are logged', async () => {
+    const root = project();
+    const ids = Array.from({ length: 10 }, (_, i) => `r${i}`);
+    put(
+      join(root, '.monomind', 'route-outcomes.jsonl'),
+      jsonl(ids.map((routeId) => ({ routeId, shown: true, promptPreview: 'write unit tests for the parser', agentName: 'tester' }))),
+    );
+    put(
+      join(root, '.monomind', 'pick-adherence.jsonl'),
+      jsonl(ids.map((routeId, i) => ({ routeId, recommended: 'tester', actual: 'tester', followed: i < 8 }))),
+    );
+    const r = await checkPick(root, {});
+    expect(r.message).toMatch(/real use: 10 spawns, followed 80%, current ranker agrees 100% \(top-3\)/);
+  });
+
+  it('says when real use has too few spawns', async () => {
+    const root = project();
+    put(join(root, '.monomind', 'pick-adherence.jsonl'), jsonl([{ actual: 'tester', followed: null }]));
+    const r = await checkPick(root, {});
+    expect(r.message).toMatch(/real use: not enough spawns yet \(1\)/);
+  });
 });

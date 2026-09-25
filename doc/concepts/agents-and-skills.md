@@ -218,6 +218,8 @@ In this repository the npm-shipped tree `packages/@monomind/cli/.claude/` is the
 
   When a new agent or skill should win certain tasks, add those tasks to `tests/pick-eval/dataset.json` and run `pnpm run pick:eval` before and after.
 
+  To check picks against real use, run `node scripts/pick-eval.mjs --logs` in a project with hook logs: it re-ranks the prompts that led to a spawn and reports how often the current ranker agrees with the agent actually spawned. `--export real.json` writes them in the dataset format; review the previews for private text before moving any into `tests/pick-eval`.
+
 ---
 
 ## See also

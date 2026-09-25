@@ -1,0 +1,3 @@
+{"routeId":"q1","sessionId":"s1","ts":1000,"promptHash":"h1","promptPreview":"write unit tests for the parser module","agentName":"tester","agentId":"tester","skill":null,"method":"keyword","provider":null,"confidence":null,"candidates":[],"shown":true}
+{"routeId":"q2","sessionId":"s1","ts":2000,"promptHash":"h2","promptPreview":"what next","agentName":null,"agentId":null,"skill":null,"method":"none","provider":null,"confidence":null,"candidates":[],"shown":false}
+{"routeId":"q3","sessionId":"s1","ts":3000,"promptHash":"h3","promptPreview":"add a unit test for the date helper","agentName":"tester","agentId":"tester","skill":null,"method":"jev","provider":"typesafe","confidence":0.8,"candidates":[],"shown":true}
