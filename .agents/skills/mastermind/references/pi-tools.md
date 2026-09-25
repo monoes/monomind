@@ -1,4 +1,3 @@
-<!-- monomind:start skills:agents:mastermind:references/pi-tools.md -->
 # Pi Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Pi these resolve to the tools below.
@@ -27,4 +26,3 @@ Pi core does not ship a standard subagent tool. The `pi-subagents` package is a 
 ## Task lists
 
 Pi core does not ship a standard task-list tool. If a todo/task extension is installed, use its documented tool. Otherwise use Mastermind plan files, checklists in Markdown, or a repo-local `TODO.md` for task tracking. Older docs may refer to `TodoWrite`; treat that as the task-tracking action above.
-<!-- monomind:end skills:agents:mastermind:references/pi-tools.md -->
