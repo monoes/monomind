@@ -1,6 +1,9 @@
 ---
 name: frontend-developer
 description: Expert frontend developer specializing in modern web technologies, React/Vue/Angular frameworks, UI implementation, and performance optimization
+when_to_use: Use when implementing web UI in React, Vue, or Angular, fixing frontend bugs, or improving page performance; for visual design direction use Monodesign
+tags: [frontend, react, ui, web, performance]
+category: engineering
 color: "#06b6d4"
 emoji: 🖥️
 vibe: Builds responsive, accessible web apps with pixel-perfect precision.

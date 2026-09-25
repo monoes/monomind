@@ -1,6 +1,7 @@
 ---
 name: swarm-optimization
 description: Optimization swarm strategy — performance profiling, bottleneck detection, and coordinated optimization through specialized mesh agents
+pick: low
 ---
 
 # Optimization Swarm Strategy
@@ -10,7 +11,7 @@ Performance optimization through specialized analysis agents.
 ## How to Invoke
 
 ```
-Skill("swarm:optimization")
+Skill("monoswarm:optimization")
 ```
 
 Then describe the optimization target:

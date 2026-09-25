@@ -73,39 +73,15 @@ npx monomind monoswarm monitor
 
 ## Available Agents
 
-### Core Development (5)
-`coder`, `reviewer`, `tester`, `planner`, `researcher`
+The full roster ships as `.claude/agents/**/*.md` and differs per install, so
+this file does not list it. Pick agents per task:
 
-### V1 Specialized (1)
-`security-architect`
+- When a prompt carries a `[PICK]` line (`[PICK] agent: <name> · skill: <invoke>`), use that agent/skill unless it is clearly wrong.
+- Otherwise call `mcp__monomind__pick` if that tool is available (`{ task, kind: "agents" | "skills" | "both" }`) and use a returned agent `name` as the Task `subagent_type`. Without it (no MCP, or an older server) run `monomind pick -t "<task>" --json`, or `npx -y monomind pick -t "<task>" --json` when `monomind` is not installed.
+- A skill's `invoke`: a platform skill (`Skill("<name>")` or `/command`) loads with the Skill tool; an Org skill (`source: "org"`, invoke `mcp__monomind__org_skill_show {"name":"<name>"}`) is read by calling that MCP tool with that input, or with `npx -y monomind org skills show <name>` when the tool is unavailable.
 
-### Monoswarm Coordination (3)
-`mesh-coordinator`, `collective-intelligence-coordinator`, `swarm-memory-manager`
-
-### Consensus (2)
-`quorum-manager`, `security-manager`
-
-### Performance & Optimization (5)
-`perf-analyzer`, `performance-benchmarker`, `task-orchestrator`, `memory-coordinator`, `smart-agent`
-
-### GitHub & Repository (9)
-`github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `workflow-automation`, `project-board-sync`, `repo-architect`, `multi-repo-swarm`
-
-### Specialized Development (8)
-`backend-dev`, `Mobile App Builder`, `ml-developer`, `cicd-engineer`, `api-docs`, `system-architect`, `code-analyzer`, `base-template-generator`
-
-### Testing & Validation (2)
-`tdd-london-swarm`, `production-validator`
-
-### Agent Routing by Task
-| Task Type | Recommended Agents | Topology |
-|-----------|-------------------|----------|
-| Bug Fix | researcher, coder, tester | mesh |
-| New Feature | coordinator, architect, coder, tester, reviewer | hierarchical |
-| Refactoring | architect, coder, reviewer | mesh |
-| Performance | researcher, perf-engineer, coder | hierarchical |
-| Security | security-architect, auditor, reviewer | hierarchical |
-| Docs | researcher, api-docs | mesh |
+Fallback when picking returns nothing — real core agents:
+`coder`, `reviewer`, `tester`, `planner`, `researcher`, `system-architect`, `Security Engineer`, `mesh-coordinator`
 
 ---
 
@@ -264,8 +240,9 @@ Reach monoswarm coordination through MCP tools (`monoswarm_*`) or the
 `npx monomind monoswarm` CLI command. See `doc/concepts/monoswarm.md`
 for the full picture.
 
-### Agent Types (8)
-`researcher`, `coder`, `analyst`, `tester`, `architect`, `reviewer`, `optimizer`, `documenter`
+### Agent Types
+Monoswarm members are registry agents (any agent `name`); common ones:
+`researcher`, `coder`, `tester`, `reviewer`, `planner`, `system-architect`, `Performance Benchmarker`, `Technical Writer`
 
 ### Vote Strategies
 | Strategy | Threshold |

@@ -1,6 +1,9 @@
 ---
 name: mcp-builder
 description: Expert Model Context Protocol developer who designs, builds, and tests MCP servers that extend AI agent capabilities with custom tools, resources, and prompts.
+when_to_use: Use when designing, building, or testing an MCP server with custom tools, resources, or prompts
+tags: [mcp, tools, integration, api]
+category: engineering
 color: "#6366f1"
 emoji: 🔌
 vibe: Builds the tools that make AI agents actually useful in the real world.

@@ -1,6 +1,9 @@
 ---
 name: pricing-strategist
-description: Expert in SaaS pricing strategy, packaging, tier structure, and monetization. Use when the task involves pricing decisions, plan restructuring, freemium vs. trial strategy, value metric selection, willingness-to-pay research, or designing a pricing page. Covers both strategic pricing decisions and pricing page design.
+description: SaaS pricing strategist for packaging, tier structure, value metrics, freemium vs trial, willingness-to-pay research, and pricing page design
+when_to_use: Use when making pricing or packaging decisions, restructuring plans, or designing a pricing page
+tags: [marketing, pricing, saas, monetization]
+category: marketing
 color: "#22c55e"
 emoji: 💰
 vibe: Finds the number that captures the value you deliver — and makes customers glad to pay it.

@@ -1,6 +1,9 @@
 ---
 name: autonomous-optimization-architect
 description: Intelligent system governor that continuously shadow-tests APIs for performance while enforcing strict financial and security guardrails against runaway costs.
+when_to_use: Use when LLM or API routing needs shadow-testing of cheaper models with LLM-as-judge grading, circuit breakers, and cost guardrails
+tags: [llm, cost, routing, guardrails, shadow-testing]
+category: data-ai
 color: "#673AB7"
 emoji: ⚡
 vibe: The system governor that makes things faster without bankrupting you.

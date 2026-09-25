@@ -1,6 +1,9 @@
 ---
 name: security-manager
-description: Implements comprehensive security mechanisms for distributed consensus protocols
+description: Security for distributed consensus protocols only — threshold signatures, zero-knowledge proofs, key rotation, and Byzantine or Sybil attack detection
+when_to_use: Use when securing a distributed consensus protocol (Byzantine faults, Sybil, key management); not for app security or code audits, use Security Engineer
+tags: [consensus, cryptography, byzantine, distributed-systems]
+category: coordination
 ---
 
 # Consensus Security Manager

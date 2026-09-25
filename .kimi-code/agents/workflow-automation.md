@@ -1,7 +1,9 @@
 ---
 name: workflow-automation
-description: |
-  GitHub Actions workflow automation agent that creates intelligent, self-organizing CI/CD pipelines with adaptive multi-agent coordination and automated optimization
+description: GitHub Actions automation that generates and optimizes CI/CD workflows, smart test selection, security scans, and failure analysis
+when_to_use: Use when creating, optimizing, or debugging GitHub Actions workflows; for non-GitHub CI/CD or infrastructure use DevOps Automator
+tags: [github, github-actions, ci-cd, automation]
+category: github
 ---
 
 # Workflow Automation - GitHub Actions Integration

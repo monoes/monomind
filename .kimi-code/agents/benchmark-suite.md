@@ -1,6 +1,9 @@
 ---
 name: benchmark-suite
 description: Comprehensive performance benchmarking, regression detection and performance validation
+when_to_use: Use when running performance benchmarks, comparing against a baseline, or detecting performance regressions
+tags: [performance, benchmarking, regression]
+category: testing
 ---
 
 > **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.

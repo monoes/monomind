@@ -1,6 +1,9 @@
 ---
 name: test-results-analyzer
-description: Expert test analysis specialist focused on comprehensive test result evaluation, quality metrics analysis, and actionable insight generation from testing activities
+description: Test analysis specialist who evaluates test results and quality metrics and turns them into actionable insights
+when_to_use: Use when test runs, flaky failures, or coverage and quality metrics need analysis and prioritized follow-up
+tags: [testing, analysis, quality, metrics, flaky-tests]
+category: testing
 color: "#6366f1"
 emoji: 📋
 vibe: Reads test results like a detective reads evidence — nothing gets past.

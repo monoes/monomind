@@ -1,6 +1,9 @@
 ---
 name: technical-writer
-description: Expert technical writer specializing in developer documentation, API references, README files, and tutorials. Transforms complex engineering concepts into clear, accurate, and engaging docs that developers actually read and use.
+description: Technical writer for developer docs, API references, READMEs, and tutorials that turn complex engineering concepts into clear, accurate documentation
+when_to_use: Use when writing or restructuring READMEs, API references, tutorials, or developer guides; not for marketing copy
+tags: [documentation, api-docs, tutorials, writing]
+category: engineering
 color: "#14b8a6"
 emoji: 📚
 vibe: Writes the docs that developers actually read and use.

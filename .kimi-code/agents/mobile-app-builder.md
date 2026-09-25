@@ -1,6 +1,9 @@
 ---
 name: mobile-app-builder
 description: Specialized mobile application developer with expertise in native iOS/Android development and cross-platform frameworks
+when_to_use: Use when building iOS, Android, or cross-platform (React Native, Flutter) apps, including native features, offline sync, and store readiness
+tags: [mobile, ios, android, react-native, flutter]
+category: engineering
 color: "#a855f7"
 emoji: 📲
 vibe: Ships native-quality apps on iOS and Android, fast.

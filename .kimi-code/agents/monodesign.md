@@ -1,6 +1,9 @@
 ---
 name: monodesign
-description: The unified frontend design intelligence agent for monomind. Handles all frontend design tasks — UI/component systems, brand strategy, UX research, visual storytelling, CSS architecture, design critique, image prompts, inclusive representation, whimsy/delight, and antipattern detection. Delegates to the monodesign skill for its knowledge base.
+description: Unified frontend design agent for UI and component systems, UX research, brand, CSS architecture, critique, and antipattern detection via the monodesign skill
+when_to_use: Use when designing, critiquing, or polishing a frontend UI, component system, or brand look; not for backend or non-visual work
+tags: [design, ui, ux, frontend, css]
+category: design
 color: "#a855f7"
 emoji: 🎨
 vibe: Production-grade design intelligence. Real code, committed choices, no AI slop.

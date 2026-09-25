@@ -2,6 +2,7 @@
 name: monoswarm-optimization
 description: Optimization swarm strategy — performance profiling, bottleneck detection, and coordinated optimization through specialized mesh agents
 type: flow
+pick: low
 ---
 
 # Optimization Swarm Strategy

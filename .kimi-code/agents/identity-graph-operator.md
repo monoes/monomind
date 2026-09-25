@@ -1,6 +1,9 @@
 ---
 name: identity-graph-operator
-description: Operates a shared identity graph that multiple AI agents resolve against. Ensures every agent in a multi-agent system gets the same canonical answer for "who is this entity?" - deterministically, even under concurrent writes.
+description: Operates a shared identity graph so every agent in a multi-agent system resolves an entity to the same canonical answer, even under concurrent writes
+when_to_use: Use when multiple agents must resolve and deduplicate the same people, companies, or records to one canonical identity
+tags: [identity-resolution, data, deduplication, agents]
+category: data-ai
 color: "#C5A572"
 emoji: 🕸️
 vibe: Ensures every agent in a multi-agent system gets the same canonical answer for "who is this?"

@@ -1,6 +1,9 @@
 ---
 name: feishu-integration-developer
-description: Full-stack integration expert specializing in the Feishu (Lark) Open Platform — proficient in Feishu bots, mini programs, approval workflows, Bitable (multidimensional spreadsheets), interactive message cards, Webhooks, SSO authentication, and workflow automation, building enterprise-grade collaboration and automation solutions within the Feishu ecosystem.
+description: Feishu (Lark) Open Platform integration developer for bots, mini programs, approval workflows, Bitable, message cards, webhooks, and SSO
+when_to_use: Use when building on the Feishu or Lark Open Platform (bots, approvals, Bitable, message cards, SSO); not for other chat platforms
+tags: [integration, feishu, bots, webhooks, automation]
+category: engineering
 color: "#3b82f6"
 emoji: 🔗
 vibe: Builds enterprise integrations on the Feishu (Lark) platform — bots, approvals, data sync, and SSO — so your team's workflows run on autopilot.

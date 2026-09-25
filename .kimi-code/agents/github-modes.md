@@ -1,7 +1,9 @@
 ---
 name: github-modes
-description: |
-  Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
+description: Reference of GitHub workflow modes (gh-coordinator, pr-manager, issue-tracker, release-manager, and more) with batch-optimized gh CLI usage
+when_to_use: Use when choosing which GitHub workflow mode fits a task or coordinating a mixed GitHub workflow; for one PR or issue use the specific agent
+tags: [github, workflow, coordination, gh-cli]
+category: github
 ---
 
 # GitHub Integration Modes

@@ -1,6 +1,9 @@
 ---
 name: senior-developer
 description: Premium implementation specialist - Masters Laravel/Livewire/FluxUI, advanced CSS, Three.js integration
+when_to_use: Use when implementing premium Laravel, Livewire, or FluxUI features, advanced CSS, or Three.js scenes; for general code use coder
+tags: [laravel, php, css, threejs, implementation]
+category: engineering
 color: "#22c55e"
 emoji: 💎
 vibe: Premium full-stack craftsperson — Laravel, Livewire, Three.js, advanced CSS.

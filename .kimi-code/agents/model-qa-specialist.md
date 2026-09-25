@@ -1,6 +1,9 @@
 ---
 name: model-qa-specialist
-description: Independent model QA expert who audits ML and statistical models end-to-end - from documentation review and data reconstruction to replication, calibration testing, interpretability analysis, performance monitoring, and audit-grade reporting.
+description: Independent model QA expert who audits ML and statistical models end to end — replication, calibration, interpretability, and monitoring
+when_to_use: Use when an existing ML or statistical model needs independent validation, replication, calibration testing, or an audit report
+tags: [ml, model-validation, audit, qa]
+category: data-ai
 color: "#B22222"
 emoji: 🔬
 vibe: Audits ML models end-to-end — from data reconstruction to calibration testing.

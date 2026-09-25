@@ -56,7 +56,7 @@ Match the intent against this catalog. Pick ONE primary route, plus supporting s
 | Autonomous improve-loop | `Skill("mastermind-execute")`, re-invoking `Skill("mastermind-review")` between passes until clean |
 | Finish/merge/PR a branch | `Skill("mastermind-review")`; release/versioning: `Skill("mastermind-release")` |
 | Isolate risky work | `Skill("mastermind-worktree")` |
-| Spec → agent task file/board | `Skill("mastermind-createtask")`, execute with `Skill("mastermind-do")` |
+| Spec → agent task file/board | `Skill("mastermind:createtask")`, execute with `Skill("mastermind:do")` |
 
 ### Design, animation, frontend
 | Intent | Primary route |
@@ -79,11 +79,11 @@ Match the intent against this catalog. Pick ONE primary route, plus supporting s
 ### Research, ideas, content, business
 | Intent | Primary route |
 |---|---|
-| Market/competitor/user research | `Skill("mastermind-research")`; deep cited web report: `Skill("deep-research")` |
-| Ideation, feature brainstorm | `Skill("mastermind-idea")` / `Skill("mastermind-ideate")` (evaluate + decompose) |
-| Improve an existing component | `Skill("mastermind-improve")` |
-| Blog/docs/newsletter/threads | `Skill("mastermind-content")`; docs generation: `npx monomind doc` |
-| Marketing / sales / ops / finance | `Skill("mastermind-marketing")` / `-sales` / `-ops` / `-finance` |
+| Market/competitor/user research | `Skill("mastermind-research")`; multi-agent research swarm: `Skill("monoswarm:research")` |
+| Ideation, feature brainstorm | `Skill("mastermind-idea")` / `Skill("mastermind:ideate")` (evaluate + decompose) |
+| Improve an existing component | `Skill("mastermind:improve")` |
+| Blog/docs/newsletter/threads | `Skill("mastermind:content")`; docs generation: `npx monomind doc` |
+| Marketing / sales / ops / finance | `Skill("mastermind:marketing")` / `:sales` / `:ops` / `:finance` |
 | Port capability from another project | `Skill("mastermind-techport")` |
 
 ### Agents, orgs, orchestration
@@ -99,7 +99,7 @@ Match the intent against this catalog. Pick ONE primary route, plus supporting s
 ### System, memory, quality
 | Intent | Primary route |
 |---|---|
-| "What does monomind know" / recall context | `mcp__monomind__knowledge_search`, `memory_kg_search`; inspect: `Skill("mastermind-brain")` |
+| "What does monomind know" / recall context | `mcp__monomind__knowledge_search`, `memory_kg_search`; inspect: `Skill("mastermind:brain")` |
 | Security scan/audit/secrets | `npx monomind security scan|cve|audit|secrets` |
 | Performance profiling | `npx monomind performance profile|benchmark` |
 | System health | `npx monomind doctor` (`--fix`) / `monomind status` |

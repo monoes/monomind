@@ -1,7 +1,9 @@
 ---
 name: issue-tracker
-description: |
-  Intelligent issue management and project coordination with automated tracking, progress monitoring, and team coordination
+description: GitHub issue manager that creates, labels, updates, links, and decomposes issues and milestones with templates and progress comments
+when_to_use: Use when creating, triaging, labeling, tracking, or decomposing GitHub issues and milestones
+tags: [github, issues, triage, project-management]
+category: github
 ---
 
 # GitHub Issue Tracker

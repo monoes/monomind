@@ -10,7 +10,7 @@ Comprehensive analysis through distributed agent coordination.
 ## How to Invoke
 
 ```
-Skill("swarm:analysis")
+Skill("monoswarm:analysis")
 ```
 
 Then describe what to analyze:

@@ -1,6 +1,9 @@
 ---
 name: cultural-intelligence-strategist
 description: CQ specialist that detects invisible exclusion, researches global context, and ensures software resonates authentically across intersectional identities.
+when_to_use: Use when software must avoid invisible exclusion and resonate across cultures, languages, and identities in names, imagery, and copy
+tags: [i18n, inclusion, culture, ux]
+category: design
 color: "#FFA000"
 emoji: 🌍
 vibe: Detects invisible exclusion and ensures your software resonates across cultures.

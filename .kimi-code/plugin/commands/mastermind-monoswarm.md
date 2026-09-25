@@ -134,11 +134,13 @@ mcp__monomind__monoswarm_shutdown({})
 | Task Type | Agents | Topology |
 |---|---|---|
 | Bug Fix | coordinator, researcher, coder, tester | hierarchical |
-| Feature | coordinator, architect, coder, tester, reviewer | hierarchical |
-| Refactor | coordinator, architect, coder, reviewer | hierarchical |
-| Performance | coordinator, perf-engineer, coder | hierarchical |
-| Security | coordinator, security-architect, auditor | hierarchical |
-| Research | coordinator, researcher x4, analyst x2 | mesh |
+| Feature | coordinator, Software Architect, coder, tester, reviewer | hierarchical |
+| Refactor | coordinator, Software Architect, coder, reviewer | hierarchical |
+| Performance | coordinator, Performance Benchmarker, coder | hierarchical |
+| Security | coordinator, Security Engineer, reviewer | hierarchical |
+| Research | coordinator, researcher x4, scout-explorer x2 | mesh |
+
+These are real agent names (Task `subagent_type`). For a task-specific pick use the prompt's `[PICK]` line or `mcp__monomind__pick`.
 
 ## See Also
 

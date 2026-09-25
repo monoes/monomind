@@ -1,6 +1,9 @@
 ---
 name: performance-benchmarker
-description: Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance across all applications and infrastructure
+description: Performance testing specialist who measures, analyzes, and improves system performance across applications and infrastructure
+when_to_use: Use when load testing, profiling, or measuring app and infrastructure performance against targets; for swarm benchmark regressions use Benchmark Suite
+tags: [performance, load-testing, profiling, benchmarking]
+category: testing
 color: "#f97316"
 emoji: ⏱️
 vibe: Measures everything, optimizes what matters, and proves the improvement.

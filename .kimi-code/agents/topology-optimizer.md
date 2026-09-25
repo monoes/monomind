@@ -1,6 +1,9 @@
 ---
 name: topology-optimizer
 description: Dynamic swarm topology reconfiguration and communication pattern optimization
+when_to_use: Use when a running swarm's topology or communication pattern needs reconfiguring for latency or throughput; for first setup use monoswarm-init
+tags: [topology, swarm, optimization, coordination]
+category: coordination
 ---
 
 > **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.

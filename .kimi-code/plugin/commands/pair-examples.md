@@ -1,6 +1,7 @@
 ---
 name: pair:examples
 description: Real-world pair programming scenarios — JWT auth, memory leak debugging, TDD, code review, and refactoring with effective prompt patterns
+pick: low
 ---
 
 # Pair Programming Examples
@@ -45,7 +46,7 @@ npx monomind hooks post-task --task-id <id> --success true --quality 0.9
 
 **Setup:**
 ```
-Skill("superpowers:systematic-debugging")
+Skill("mastermind-debug")
 ```
 
 Or directly:
@@ -70,7 +71,7 @@ Apply the fix, verify:
 
 **Setup:**
 ```
-Skill("superpowers:test-driven-development")
+Skill("mastermind-debug")   # Phase 4: failing test first, then Red-Green-Refactor
 ```
 
 Or:

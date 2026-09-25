@@ -1,6 +1,9 @@
 ---
 name: workflow-architect
-description: Workflow design specialist who maps complete workflow trees for every system, user journey, and agent interaction — covering happy paths, all branch conditions, failure modes, recovery paths, handoff contracts, and observable states to produce build-ready specs that agents can implement against and QA can test against.
+description: Maps complete workflow trees — happy paths, branches, failure and recovery paths, handoffs, and observable states — into build-ready specs
+when_to_use: Use when a system, user journey, or agent interaction needs every path and failure mode specified before build; not for tuning existing processes
+tags: [workflow, specification, architecture, failure-modes]
+category: architecture
 color: "#f97316"
 emoji: "\U0001F5FA\uFE0F"
 vibe: Every path the system can take — mapped, named, and specified before a single line is written.

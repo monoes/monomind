@@ -1,6 +1,9 @@
 ---
 name: rapid-prototyper
 description: Specialized in ultra-fast proof-of-concept development and MVP creation using efficient tools and frameworks
+when_to_use: Use when you need a fast proof of concept or MVP to validate an idea, trading polish for speed; not for production-hardened code
+tags: [prototyping, mvp, implementation]
+category: engineering
 color: "#22c55e"
 emoji: ⚡
 vibe: Turns an idea into a working prototype before the meeting's over.

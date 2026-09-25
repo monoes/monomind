@@ -102,6 +102,13 @@ pnpm run lint
 - ALWAYS batch ALL file reads/writes/edits in ONE message
 - ALWAYS batch ALL Bash commands in ONE message
 
+## Agent & Skill Picking
+
+- When a prompt carries a `[PICK]` line (`[PICK] agent: <name> · skill: <invoke>`), use that agent/skill unless it is clearly wrong for the task.
+- Before choosing a subagent yourself, call `mcp__monomind__pick` if that tool is available (`{ task, kind: "agents" }`) and use a returned `name` as `subagent_type`. Otherwise (no MCP, or an older server without it) run `monomind pick -t "<task>" --json`, or `npx -y monomind pick -t "<task>" --json` when `monomind` is not installed.
+- A skill's `invoke`: a platform skill (`Skill("<name>")` or `/command`) loads with the Skill tool; an Org skill (`source: "org"`, invoke `mcp__monomind__org_skill_show {"name":"<name>"}`) is read by calling that MCP tool with that input, or with `npx -y monomind org skills show <name>` when the tool is unavailable.
+- Never invent agent names — a `subagent_type` that is not installed fails at spawn time.
+
 ## Monoswarm Rules
 
 - Monoswarm records topology, roster and votes in a state file; it starts no process, and Claude Code's Task-tool agents do the work.
@@ -141,7 +148,8 @@ npx monomind doctor --fix
 ## Available Agents (Curated Subset)
 
 The full roster ships as `.claude/agents/**/*.md` — this is a hand-picked
-subset worth routing to by name; it is not the complete set.
+fallback subset for when picking (see above) returns nothing; it is not the
+complete set.
 
 ### Core Development
 `coder`, `reviewer`, `tester`, `planner`, `researcher`

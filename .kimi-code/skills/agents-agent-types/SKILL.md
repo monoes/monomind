@@ -16,15 +16,17 @@ Complete guide to all 60+ available agent types in Monomind.
 - `researcher` - Information gathering
 
 ## Monoswarm Coordination Agents
-- `hierarchical-coordinator` - Queen-led coordination
+- `coordinator` - Lead coordination
 - `mesh-coordinator` - Peer-to-peer networks
-- `adaptive-coordinator` - Dynamic topology
+- `collective-intelligence-coordinator` - Shared knowledge synthesis
 
 ## Specialized Agents
-- `backend-dev` - API development
+- `Backend Architect` - API and server design
 - `Mobile App Builder` - Mobile (native and React Native) development
-- `ml-developer` - Machine learning
+- `AI Engineer` - Machine learning
 - `system-architect` - High-level design
+
+These names are the Task `subagent_type` values. To choose one for a task, use the prompt's `[PICK]` line or `mcp__monomind__pick` (without MCP: `monomind pick -t "<task>"`).
 
 For full list and details:
 ```bash

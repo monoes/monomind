@@ -1,6 +1,9 @@
 ---
 name: coordinator
 description: Lead coordinator that routes work to specialists, maintains org state, and governs approvals
+when_to_use: Use when a multi-specialist objective needs routing, one source of truth for task state, and approval governance; not for peer-only parallel work
+tags: [coordination, orchestration, delegation, governance]
+category: coordination
 capability:
   role: coordinator
   goal: Decompose objectives, route tasks to the right specialists, maintain authoritative org state, and keep the team converged on the goal

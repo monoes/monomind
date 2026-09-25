@@ -123,7 +123,7 @@ Group tasks by `context_group`:
 [mastermind:do] Found N tasks: X in context groups, Y independent.
 
 Context groups:
-  - <group-1>: 3 tasks (agent: backend-dev, sequential)
+  - <group-1>: 3 tasks (agent: Backend Architect, sequential)
   - <group-2>: 2 tasks (agent: Frontend Developer, sequential)
   - independent: 4 tasks (mixed agents, parallelizable)
 
@@ -206,6 +206,8 @@ Spawn ALL agents in ONE message using the Agent tool:
 
 All agents run concurrently via `run_in_background: true`.
 
+**Agent type:** use the task's assigned agent only when it is an installed agent name. When it is missing or unknown, pick one: the prompt's `[PICK]` line, else `mcp__monomind__pick({ task: "<task title>", kind: "agents", top: 1 })` → `agents.ranked[0].name`, else local `monomind pick` (see `mastermind-agent-select/SKILL.md`), else `coder`.
+
 **Agent prompt template for chain execution:**
 ```
 You have N tasks to execute in order. Complete each one before moving to the next.
@@ -216,25 +218,15 @@ You have full access to the Agent tool (Claude Code: Task tool) to spawn
 sub-agents for any specialized subtask. This capability is recursive —
 sub-agents you spawn also receive it.
 
-Available agent categories:
-  CORE      coder · reviewer · tester · planner · researcher
-  BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
-  FRONTEND  Frontend Developer · Mobile App Builder
-  ARCH      Software Architect · system-architect
-  SECURITY  Security Engineer · security-architect
-  AI/ML     AI Engineer · ml-developer · Data Engineer
-  DEVOPS    DevOps Automator · SRE · cicd-engineer
-  DOCS      Technical Writer · api-docs
-  PRODUCT   Product Manager · Launch Strategist · CRO Specialist
-  MARKETING Content Creator · SEO Specialist · Growth Hacker
-  SOCIAL    TikTok · LinkedIn · Twitter · Instagram Strategist
-  SALES     Deal Strategist · Sales Coach · Outbound Strategist
-  BUSINESS  Finance Tracker · Legal Compliance Checker · Analytics Reporter
-  DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
+To choose the subagent_type: use the prompt's [PICK] line if present, else
+mcp__monomind__pick({ task: "<subtask>", kind: "agents", top: 3 }) -> an
+agents.ranked[].name (no MCP: monomind pick -t "<subtask>" --top 3 --json).
+Fallbacks if nothing is returned: coder · tester · reviewer · researcher ·
+planner. Do NOT invent agent names.
 
 Delegate when: a subtask needs deeper expertise, parallel work speeds things up,
 or a subtask is outside your domain but blocks your progress.
-How: Agent({ subagent_type: "slug", prompt: `full briefing + this delegation block`, run_in_background: true })
+How: Agent({ subagent_type: "<picked agent>", prompt: `full briefing + this delegation block`, run_in_background: true })
 =================================
 
 TASK 1 of N: <title>
@@ -272,25 +264,15 @@ You have full access to the Agent tool (Claude Code: Task tool) to spawn
 sub-agents for any specialized subtask. This capability is recursive —
 sub-agents you spawn also receive it.
 
-Available agent categories:
-  CORE      coder · reviewer · tester · planner · researcher
-  BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
-  FRONTEND  Frontend Developer · Mobile App Builder
-  ARCH      Software Architect · system-architect
-  SECURITY  Security Engineer · security-architect
-  AI/ML     AI Engineer · ml-developer · Data Engineer
-  DEVOPS    DevOps Automator · SRE · cicd-engineer
-  DOCS      Technical Writer · api-docs
-  PRODUCT   Product Manager · Launch Strategist · CRO Specialist
-  MARKETING Content Creator · SEO Specialist · Growth Hacker
-  SOCIAL    TikTok · LinkedIn · Twitter · Instagram Strategist
-  SALES     Deal Strategist · Sales Coach · Outbound Strategist
-  BUSINESS  Finance Tracker · Legal Compliance Checker · Analytics Reporter
-  DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
+To choose the subagent_type: use the prompt's [PICK] line if present, else
+mcp__monomind__pick({ task: "<subtask>", kind: "agents", top: 3 }) -> an
+agents.ranked[].name (no MCP: monomind pick -t "<subtask>" --top 3 --json).
+Fallbacks if nothing is returned: coder · tester · reviewer · researcher ·
+planner. Do NOT invent agent names.
 
 Delegate when: a subtask needs deeper expertise, parallel work speeds things up,
 or a subtask is outside your domain but blocks your progress.
-How: Agent({ subagent_type: "slug", prompt: `full briefing + this delegation block`, run_in_background: true })
+How: Agent({ subagent_type: "<picked agent>", prompt: `full briefing + this delegation block`, run_in_background: true })
 =================================
 
 TASK: <title>
@@ -472,7 +454,7 @@ Output a status summary:
 
 | Task                          | Status         | Agent        | Review     |
 |-------------------------------|----------------|-------------|------------|
-| <title>                       | Review         | backend-dev | approved   |
+| <title>                       | Review         | coder       | approved   |
 | <title>                       | Review         | coder       | approved   |
 | <title>                       | Human in Loop  | coder       | blocked    |
 ```

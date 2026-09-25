@@ -1,6 +1,9 @@
 ---
 name: researcher
-description: Deep research and information gathering specialist
+description: Research specialist that investigates codebases and docs monograph-first, mapping patterns, dependencies, and gaps into actionable findings
+when_to_use: Use when you need to understand existing code, trace dependencies, or gather background before deciding; not for making code changes
+tags: [research, analysis, codebase, dependencies, documentation]
+category: core
 capability:
   role: researcher
   goal: Conduct thorough investigation and knowledge synthesis for software development tasks
