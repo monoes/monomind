@@ -19,6 +19,7 @@
 | [`supervisor`](#supervisor) | Generate launchd/systemd unit for persistent serve |
 | [`test-loop`](#test-loop) | Run org test loop |
 | [`logs`](#logs) | Stream or filter bus.jsonl event log |
+| [`events`](#events) | Tail a run's bus events as raw NDJSON (machine surface) |
 | [`watch`](#watch) | Live-tail one role's assistant chat text |
 | [`report`](#report) | Summarize a run (cost, tokens, assets, crashes) |
 | [`memory`](#memory) | Cross-run knowledge-graph memory |
@@ -27,9 +28,10 @@
 | [`inbox`](#inbox) | Deliver an inbound cross-org message (live or queued) |
 | [`flow`](#flow) | Export Mermaid message flow diagram |
 | [`questions`](#questions) | List pending ask_human questions |
+| [`approvals`](#approvals) | List pending tool/action approval requests |
 | [`answer`](#answer) | Deliver answer to an ask_human question |
-| [`approve`](#approve) | Approve pending tool guardrail |
-| [`deny`](#deny) | Deny pending tool guardrail |
+| [`approve`](#approve) | Approve a pending tool/action approval |
+| [`deny`](#deny) | Deny a pending tool/action approval |
 | [`gates`](#gates) | List decision gates from an org's agents |
 | [`gate-approve`](#gate-approve) | Approve a pending decision gate |
 | [`gate-reject`](#gate-reject) | Reject a pending decision gate |
@@ -197,6 +199,41 @@ monomind org logs <name> [options]
 
 ---
 
+## `events`
+
+Tail a run's `bus.jsonl` as NDJSON — one raw bus event per line on stdout, no
+formatting. This is the machine streaming surface for scripts and other tools
+(agent-exec-protocol §7.3); `logs` is the human one.
+
+```bash
+monomind org events <name> [--run <run-id>] [--follow] [--since <event-id|iso-8601>]
+```
+
+| Flag | Purpose |
+|---|---|
+| `--run <run-id>` | Run to read (default: latest) |
+| `--follow`, `-f` | Keep tailing (polls every 500 ms) until Ctrl-C / SIGTERM |
+| `--since <cursor>` | Replay cursor. An event id (`run-…`) prints only events after that id — nothing if the id is not in the log. An ISO-8601 timestamp drops events older than it. Any other value is ignored |
+| `--ndjson` | Accepted for spec symmetry; NDJSON is the only output mode |
+
+```bash
+monomind org events growth --follow
+monomind org events growth --since run-20260925-a-1 | jq -r .type
+```
+
+Output (one JSON object per line):
+
+```text
+{"id":"run-20260925-a-2","ts":"2026-09-25T10:05:00.000Z","type":"tool","from":"coder","tool":"Bash"}
+```
+
+Exits 1 with `no runs found for org <name>` when the org has no runs. A partially
+written last line is retried on the next poll; corrupt interior lines are skipped.
+
+**Source:** [`commands/org-observe.ts → eventsAction`](packages/@monomind/cli/src/commands/org-observe.ts#eventsAction)
+
+---
+
 ## `watch`
 
 Live-tail one role's assistant chat text (any runtime) — a filtered, friendlier `logs --follow`.
@@ -332,6 +369,40 @@ and `timestamp`.
 
 ---
 
+## `approvals`
+
+List tool/action approval requests raised by an org's agents — the queue in
+`<org>/approvals.json` that gates `Bash`, `WebFetch`, `WebSearch`, `org_complete` and
+any tool in a role's `policy.approvalTools` (unless listed in `policy.autoApproveTools`). Separate from `questions` and `gates`:
+resolving those grants nothing here. Resolve entries with [`approve`](#approve) /
+[`deny`](#deny).
+
+```bash
+monomind org approvals <name> [--all] [--format json]
+```
+
+| Flag | Purpose |
+|---|---|
+| `--all` | Include resolved (approved/denied) entries; default shows pending only |
+| `--format json` | Print `{v, org, items}`; each item carries `requestId`, `resolvedBy` and `input` (null when not recorded) |
+
+Output (`❓` pending, `✓` approved, `✗` denied):
+
+```text
+❓ 2026-09-21 14:13Z  coder: Bash [apr-1]
+✓ 2026-09-21 11:26Z  coder: WebFetch (by alice)
+
+Approve with: monomind org approve growth <role> <action> [--request <id>] [--by <resolver>]
+Deny with: monomind org deny growth <role> <action> [--request <id>] [--by <resolver>]
+```
+
+With nothing pending it prints `No pending approvals for org <name> (N resolved — use --all).`
+or `No approval requests recorded for org <name>.`
+
+**Source:** [`commands/org-observe.ts → approvalsAction`](packages/@monomind/cli/src/commands/org-observe.ts#approvalsAction)
+
+---
+
 ## `answer`
 
 Deliver a human answer to a pending `ask_human` question.
@@ -347,20 +418,25 @@ monomind org answer <name> <question-id> "<answer text>"
 
 ## `approve`
 
-Approve a pending tool guardrail decision.
+Approve a pending tool/action approval (see [`approvals`](#approvals)).
 
 ```bash
-monomind org approve <name> <decision-id>
+monomind org approve <name> <role> <action> [--request <apr-id>] [--by <resolver>]
 ```
+
+- Resolves every pending entry for the `<role>`/`<action>` pair, or only the one
+  named by `--request`. `--by` is recorded as `resolvedBy` (default `human`).
+- **Live** through the hosting daemon when the org is running, otherwise written
+  straight to `approvals.json`.
 
 ---
 
 ## `deny`
 
-Deny a pending tool guardrail decision.
+Deny a pending tool/action approval. Same arguments and delivery as [`approve`](#approve).
 
 ```bash
-monomind org deny <name> <decision-id>
+monomind org deny <name> <role> <action> [--request <apr-id>] [--by <resolver>]
 ```
 
 ---
