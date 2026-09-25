@@ -108,6 +108,7 @@ body { font-family: var(--ff-b); background: var(--bg); color: var(--text); line
 .code-block .keyword { color: var(--accent); }
 .code-block .string { color: var(--amber); }
 .code-block .cmd { color: var(--cyan); }
+#page-agents .code-block { white-space: pre; }
 
 /* Terminal */
 .terminal { background: oklch(9% 0.010 265); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 32px; }
@@ -251,6 +252,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
   </div>
   <div class="nav-section">
     <div class="nav-label">Usage</div>
+    <button class="nav-link" data-page="agents"><span class="nav-dot"></span>Agents &amp; Skills</button>
     <button class="nav-link" data-page="orgs"><span class="nav-dot"></span>Organizations</button>
     <button class="nav-link" data-page="mastermind"><span class="nav-dot"></span>Mastermind</button>
     <button class="nav-link" data-page="slash"><span class="nav-dot"></span>Slash Commands</button>
@@ -301,7 +303,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
     <div class="hero-eyebrow">Autonomous Claude Code Orchestration</div>
     <h1 class="hero-title">Build. Learn. Evolve.<br><em>Without stopping.</em></h1>
-    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent swarms, a code knowledge graph, and keyword routing with outcome measurement — all wired into one CLI.</p>
+    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent swarms, a code knowledge graph, and one picker that chooses the right agent and skill for every task — all wired into one CLI.</p>
     <div class="hero-actions">
       <button class="btn btn-primary" data-page="getting-started">Get Started →</button>
       <button class="btn btn-ghost" data-page="architecture">Architecture</button>
@@ -311,7 +313,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       </a>
     </div>
     <div class="hero-stats">
-      <div class="stat-item"><span class="stat-num" id="stat-agents">0</span><span class="stat-label">Agent Types</span></div>
+      <div class="stat-item"><span class="stat-num" id="stat-agents"><!-- doc-count:pickable-agents -->84<!-- /doc-count:pickable-agents --></span><span class="stat-label">Pickable Agents</span></div>
       <div class="stat-item"><span class="stat-num" id="stat-commands">0</span><span class="stat-label">CLI Commands</span></div>
       <div class="stat-item"><span class="stat-num" id="stat-hooks">0</span><span class="stat-label">Hook Events</span></div>
       <div class="stat-item"><span class="stat-num" id="stat-packages">0</span><span class="stat-label">Packages</span></div>
@@ -323,7 +325,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, plus a JSON pattern store with episodic recall injected at prompt time. Context survives across sessions.</div></div>
       <div class="card reveal"><div class="card-icon">🏢</div><div class="card-title">Org Runtime</div><div class="card-desc">Run real agent organizations — role hierarchies, goals, budgets, and approval workflows backed by actual Claude Agent SDK sessions per role, with a live dashboard.</div></div>
       <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 19 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
-      <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
+      <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Agent &amp; Skill Picking</div><div class="card-desc">One index of your agents and skills, ranked for every prompt and delivered to Claude as a <code>[PICK]</code> line. Adherence and outcomes are logged and measured by <code>doctor -c pick</code>. <a href="#agents" style="color:var(--accent)">Agents &amp; Skills</a></div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:review --tillend finds, fixes, and re-verifies until a round comes back clean.</div></div>
       <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">20 typed hook events (PreEdit, PostEdit, SessionStart...) in the registry/executor, plus 29 separate hooks CLI subcommands and <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers. Zero-overhead dispatch across editing, tasks, sessions, and agent teams.</div></div>
     </div>
@@ -486,7 +488,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">@monoes/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>20 typed hook events (registry/executor) + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers; exposed via 29 <code>hooks</code> CLI subcommands</td></tr>
         <tr><td class="mono">@monoes/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — local SQLite with embedded vectors (default engine, local HF embeddings); a dormant pure-JS HNSW index is the scale-up path. LanceDB was removed 2026-07</td></tr>
         <tr><td class="mono">@monoes/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework for explicit HTTP/WebSocket transports (<code>mcp start -t http|websocket</code>). The default stdio path (<code>claude mcp add ... mcp start</code>) uses a separate hand-rolled JSON-RPC loop in the CLI itself, not this package.</td></tr>
-        <tr><td class="mono">@monoes/routing</td><td class="mono">packages/@monomind/routing/</td><td>Real embedding-based semantic router (keyword pre-filter → local embedding → cosine similarity → LLM fallback) — opt-in via <code>route semantic</code>, <code>agent --task</code>, or <code>hooks_route_semantic</code>. The bare <code>monomind route &lt;task&gt;</code> default is a separate, simpler keyword-only stub that doesn't call this package. Both feed route-outcome measurement.</td></tr>
+        <tr><td class="mono">@monoes/routing</td><td class="mono">packages/@monomind/routing/</td><td>Embedding-based route layer (keyword pre-filter → local embedding → cosine similarity → Haiku fallback), used by <code>route semantic</code>, <code>agent spawn --task</code> and <code>hooks_route_semantic</code> only after the central picker has no confident answer. <code>monomind pick</code>, <code>route task</code> and the <code>[PICK]</code> hook use the picker alone.</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
         <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 19 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">@monoes/monobrowse</td><td class="mono">packages/@monoes/monobrowse/</td><td>Browser automation via CDP</td></tr>
@@ -676,8 +678,8 @@ monomind doc ingest ./their-knowledge -s shared
         <tr><td class="mono">session-end</td><td><span class="tag tag-cyan">session</span></td><td>Persist state; flush working memory</td></tr>
         <tr><td class="mono">session-restore</td><td><span class="tag tag-cyan">session</span></td><td>Replay session state into context</td></tr>
         <tr><td class="mono">notify</td><td><span class="tag tag-cyan">session</span></td><td>Push notification to user or external system</td></tr>
-        <tr><td class="mono">route</td><td><span class="tag tag-violet">intelligence</span></td><td>3-tier model routing decision</td></tr>
-        <tr><td class="mono">explain</td><td><span class="tag tag-violet">intelligence</span></td><td>Explain decision rationale</td></tr>
+        <tr><td class="mono">route</td><td><span class="tag tag-violet">intelligence</span></td><td>Best registry agent for a task, through the central picker</td></tr>
+        <tr><td class="mono">explain</td><td><span class="tag tag-violet">intelligence</span></td><td>Explain the picker's decision for a task</td></tr>
         <tr><td class="mono">pretrain</td><td><span class="tag tag-violet">intelligence</span></td><td>Pre-training signal ingestion</td></tr>
         <tr><td class="mono">transfer</td><td><span class="tag tag-violet">intelligence</span></td><td>Transfer learning across tasks</td></tr>
         <tr><td class="mono">teammate-idle</td><td><span class="tag tag-amber">teams</span></td><td>Auto-assign task to idle teammate</td></tr>
@@ -726,15 +728,15 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Intelligence</h1>
-      <p class="page-desc">Deterministic keyword routing, route-outcome measurement, and trajectory + pattern logging — running automatically in the background. No neural training in the lean build.</p>
+      <p class="page-desc">The central agent &amp; skill picker, route-outcome measurement, and trajectory + pattern logging — running automatically in the background. No neural training in the lean build.</p>
     </div>
     <div class="reveal" style="margin-bottom:24px">
       <img src="assets/neural-photo.png" alt="Intelligence subsystem visualization" style="width:100%;max-width:600px;border-radius:10px;display:block;object-fit:cover;max-height:260px">
     </div>
     <div class="section-title reveal">How it works</div>
     <div class="card-grid reveal">
-      <div class="card"><div class="card-title">Keyword Routing</div><div class="card-desc"><code>createKeywordRouter</code> maps a task description to an agent type by keyword scoring — no LLM call and no learned weights. Deterministic and sub-millisecond. This is the default for bare <code>monomind route &lt;task&gt;</code>. A separate, real embedding-based semantic router (<code>@monoes/routing</code>: keyword pre-filter → local embedding → cosine similarity → LLM fallback) is available opt-in via <code>route semantic</code>, <code>agent --task</code>, or the <code>hooks_route_semantic</code> MCP tool.</div></div>
-      <div class="card"><div class="card-title">Route-Outcome Measurement</div><div class="card-desc">Recommended routes are auto-correlated with actual outcomes. <code>doctor</code> surfaces routing accuracy and recommended-vs-actual adherence over a rolling window.</div></div>
+      <div class="card"><div class="card-title">Central Picker</div><div class="card-desc">One index of registry agents and skills, ranked by a Jev decision model when one is configured and by a BM25-style keyword ranker otherwise. The prompt hook delivers it as a <code>[PICK]</code> line; <code>monomind pick</code>, the <code>pick</code> MCP tool and <code>route task</code> return it on request. <code>route semantic</code> adds an embedding layer (<code>@monoes/routing</code>) after the picker. See <a href="#agents" style="color:var(--accent)">Agents &amp; Skills</a>.</div></div>
+      <div class="card"><div class="card-title">Route-Outcome Measurement</div><div class="card-desc">Every pick is recorded and joined with the subagent actually spawned and whether it succeeded. <code>doctor -c pick</code> and <code>route stats</code> report adherence and accuracy; the history breaks near-ties between keyword picks.</div></div>
       <div class="card"><div class="card-title">Trajectory + Outcome Logging</div><div class="card-desc">Steps and trajectories (<code>intelligence.ts</code>) plus command and route outcomes (<code>command-outcomes.ts</code>, <code>route-outcomes.ts</code>) are recorded as plain JSON for later analysis.</div></div>
       <div class="card"><div class="card-title">Pattern Consolidation</div><div class="card-desc">The <code>learning</code> worker dedups, detects contradictions, and prunes old entries from <code>patterns.json</code> on a 30-minute interval.</div></div>
     </div>
@@ -750,8 +752,11 @@ monomind doc ingest ./their-knowledge -s shared
 <span class="cmd">npx monomind hooks intelligence optimize --method quantize</span>
 <span class="cmd">npx monomind hooks intelligence optimize --method compact</span>
 
-<span class="comment"># Routing accuracy / adherence</span>
-<span class="cmd">npx monomind doctor</span></div>
+<span class="comment"># Pick the agent and skill for a task</span>
+<span class="cmd">npx monomind pick -t "audit the API for injection risks"</span>
+
+<span class="comment"># Pick index health, adherence and success when the pick was followed</span>
+<span class="cmd">npx monomind doctor -c pick</span></div>
   </div>
 </div>
 
@@ -839,9 +844,10 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="browse session resume restore previous cdp"><div class="cmd-name">browse session resume &lt;id&gt;</div><div class="cmd-desc">Restore a previous browser session by ID</div></div>
       <div class="cmd-item" data-search="browse platform connect gmail sheets drive microsoft graph"><div class="cmd-name">browse platform connect &lt;name&gt;</div><div class="cmd-desc">Connect a platform adapter (gmail, sheets, drive, msgraph, gemini-image)</div></div>
       <div class="cmd-item" data-search="browse platform list adapters available http file gmail"><div class="cmd-name">browse platform list</div><div class="cmd-desc">List available built-in action handlers (http, file, gmail, sheets, drive, msgraph, gemini-image)</div></div>
-      <div class="cmd-item" data-search="route task agent keyword default stub"><div class="cmd-name">route &lt;task&gt;</div><div class="cmd-desc">Default: deterministic keyword-only routing to an agent type (no embeddings, fixed confidence)</div></div>
-      <div class="cmd-item" data-search="route semantic embedding cosine similarity llm fallback opt in"><div class="cmd-name">route semantic -t "&lt;task&gt;"</div><div class="cmd-desc">Real semantic routing: keyword pre-filter → local embedding → cosine similarity → LLM fallback (@monoes/routing)</div></div>
-      <div class="cmd-item" data-search="route list-agents available types"><div class="cmd-name">route list-agents</div><div class="cmd-desc">List routable agent types</div></div>
+      <div class="cmd-item" data-search="pick agent skill best task jev keyword explain"><div class="cmd-name">pick -t "&lt;task&gt;"</div><div class="cmd-desc">Best agents and skills for a task from the central picker (--agents, --skills, --explain, --json)</div></div>
+      <div class="cmd-item" data-search="route task agent picker default"><div class="cmd-name">route &lt;task&gt;</div><div class="cmd-desc">Default: the best registry agent for a task, through the central picker</div></div>
+      <div class="cmd-item" data-search="route semantic embedding cosine similarity llm fallback opt in"><div class="cmd-name">route semantic -t "&lt;task&gt;"</div><div class="cmd-desc">Central picker first, then keyword pre-filter → local embedding → cosine similarity → Haiku fallback (@monoes/routing)</div></div>
+      <div class="cmd-item" data-search="route list-agents available types"><div class="cmd-name">route list-agents</div><div class="cmd-desc">List the registry agents the picker can choose</div></div>
       <div class="cmd-item" data-search="route stats accuracy adherence"><div class="cmd-name">route stats</div><div class="cmd-desc">Routing accuracy / adherence over a rolling window</div></div>
       <div class="cmd-item" data-search="route feedback correct outcome"><div class="cmd-name">route feedback</div><div class="cmd-desc">Record actual outcome for a routing decision</div></div>
     </div>
@@ -854,7 +860,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">Slash Commands</h1>
-      <p class="page-desc">80+ executable commands across 9 categories. Invoke via <code>/command</code> inside Claude Code.</p>
+      <p class="page-desc"><!-- doc-count:slash-commands -->115<!-- /doc-count:slash-commands --> slash commands ship with Monomind, a selection below. Invoke via <code>/command</code> inside Claude Code; add your own under <code>.claude/commands</code> (<a href="#agents" style="color:var(--accent)">Agents &amp; Skills</a>).</p>
     </div>
     <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="slash-search" placeholder="Search slash commands..." aria-label="Search slash commands"></div>
     <div class="cmd-grid" id="slash-grid">
@@ -948,7 +954,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">Mastermind</h1>
-      <p class="page-desc">42 slash commands with Brain Load/Write protocol and --tillend loop mechanics.</p>
+      <p class="page-desc"><!-- doc-count:mastermind-commands -->42<!-- /doc-count:mastermind-commands --> slash commands with Brain Load/Write protocol and --tillend loop mechanics.</p>
     </div>
     <div class="section-title reveal">--tillend Loop Mechanics</div>
     <div class="code-block reveal">
@@ -1581,6 +1587,80 @@ Session N: empty round (zero findings AND zero actions)
       </table>
     </div>
 
+  </div>
+</div>
+
+<!-- AGENTS & SKILLS -->
+<div id="page-agents" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Usage</span>
+      <h1 class="page-title">Agents &amp; Skills</h1>
+      <p class="page-desc">Monomind ships <!-- doc-count:pickable-agents -->84<!-- /doc-count:pickable-agents --> pickable agents, <!-- doc-count:pickable-skills -->84<!-- /doc-count:pickable-skills --> skills, <!-- doc-count:slash-commands -->115<!-- /doc-count:slash-commands --> slash commands and <!-- doc-count:org-skills -->376<!-- /doc-count:org-skills --> Org skills. Add your own as Markdown files; one central picker ranks all of them for every task.</p>
+    </div>
+    <div class="reveal" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:40px">
+      <a class="btn btn-primary" href="https://github.com/monoes/monomind/blob/main/doc/concepts/agents-and-skills.md" target="_blank" rel="noopener" style="text-decoration:none">Full guide: structure &amp; frontmatter</a>
+      <a class="btn btn-ghost" href="https://github.com/monoes/monomind/blob/main/doc/concepts/routing.md" target="_blank" rel="noopener" style="text-decoration:none">How picking works</a>
+    </div>
+
+    <div class="section-title reveal">Where they live</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Kind</th><th>Project</th><th>User (every project)</th><th>Used as</th></tr></thead>
+      <tbody>
+        <tr><td>Agent</td><td class="mono">.claude/agents/&lt;category&gt;/&lt;name&gt;.md</td><td class="mono">~/.claude/agents/**</td><td>Task <code>subagent_type</code> = the agent's <code>name</code></td></tr>
+        <tr><td>Skill</td><td class="mono">.claude/skills/&lt;name&gt;/SKILL.md</td><td class="mono">~/.claude/skills/&lt;name&gt;/</td><td><code>Skill("&lt;name&gt;")</code></td></tr>
+        <tr><td>Slash command</td><td class="mono">.claude/commands/&lt;group&gt;/&lt;name&gt;.md</td><td>—</td><td><code>/&lt;group&gt;:&lt;name&gt;</code></td></tr>
+        <tr><td>Org skill</td><td class="mono">.monomind/org-skills/&lt;name&gt;/SKILL.md</td><td class="mono">~/.monomind/org-skills/&lt;name&gt;/</td><td>Org roles (<code>skills</code>, <code>skill_pool</code>); <code>org skills show</code> or the <code>org_skill_show</code> MCP tool</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Two generated indexes feed the picker: <code>.monomind/registry.json</code> for agents, rebuilt by any <code>monomind</code> command when an agent file is newer, and <code>.claude/helpers/skill-registry.json</code> for skills, commands and Org skills, rebuilt at session start, by <code>init</code> and by <code>monomind pick</code>. Both are per machine and never committed. A project file wins over a user file of the same name.</p>
+
+    <div class="section-title reveal">Add an agent</div>
+    <div class="code-block reveal"><span class="comment"># .claude/agents/engineering/api-contract-reviewer.md</span>
+---
+<span class="keyword">name</span>: <span class="string">API Contract Reviewer</span>        <span class="comment"># the spawnable subagent_type</span>
+<span class="keyword">description</span>: <span class="string">Reviews API contracts for breaking changes and consistent errors.</span>
+<span class="keyword">when_to_use</span>: <span class="string">Use when an API schema changes and needs a compatibility review</span>
+<span class="keyword">tags</span>: [api, review, compatibility]
+<span class="keyword">category</span>: <span class="string">engineering</span>
+---
+You are an API contract reviewer. ...</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Keep <code>description</code> and <code>when_to_use</code> under 160 characters each: they are what the keyword ranker matches and what the decision model reads. <code>deprecated: true</code> hides an agent from picks but keeps it spawnable.</p>
+
+    <div class="section-title reveal">Add a skill, command or Org skill</div>
+    <div class="code-block reveal"><span class="comment"># .claude/skills/release-notes/SKILL.md  →  Skill("release-notes")</span>
+---
+<span class="keyword">name</span>: <span class="string">release-notes</span>
+<span class="keyword">description</span>: <span class="string">Use when drafting release notes from merged PRs and the changelog.</span>
+<span class="comment"># pick: low      admin/meta entry, ranks below equal matches</span>
+<span class="comment"># type: helper   never picked; for pieces other skills include</span>
+---
+
+<span class="comment"># .monomind/org-skills/incident-postmortem/SKILL.md  →  org roles</span>
+---
+<span class="keyword">name</span>: <span class="string">incident-postmortem</span>
+<span class="keyword">description</span>: <span class="string">Use when writing a blameless postmortem after an incident.</span>
+<span class="keyword">tags</span>: [operations, writing, incident-response]   <span class="comment"># from org-skills/TAGS.md</span>
+<span class="keyword">tools</span>: []
+<span class="keyword">license</span>: <span class="string">MIT</span>
+---</div>
+
+    <div class="section-title reveal">Check that it gets picked</div>
+    <div class="code-block reveal"><span class="cmd">monomind pick -t "review the orders endpoint for breaking changes" --agents</span>
+<span class="cmd">monomind pick -t "write release notes for 2.17" --skills --explain</span>
+<span class="cmd">monomind org skills search "blameless postmortem"</span>
+<span class="cmd">monomind doctor -c pick</span>   <span class="comment"># index counts, freshness, adherence</span></div>
+
+    <div class="section-title reveal">How a pick is made</div>
+    <div class="card-grid reveal">
+      <div class="card"><div class="card-title">One index</div><div class="card-desc">Registry agents plus every platform, user and Org skill, loaded by the same code for the hooks and the CLI.</div></div>
+      <div class="card"><div class="card-title">Decision model or keywords</div><div class="card-desc">A configured Jev decision model chooses from a 30-candidate shortlist (acted on at 0.6, shown down to 0.25). Otherwise a BM25-style keyword ranker with stemming decides. Off by default; <a href="https://github.com/monoes/monomind/blob/main/doc/privacy.md" target="_blank" rel="noopener" style="color:var(--accent)">what it sends</a>.</div></div>
+      <div class="card"><div class="card-title">The [PICK] line</div><div class="card-desc">For each prompt the hook prints <code>[PICK] agent: … · skill: …</code> into Claude's context when one candidate clearly leads. Trivial and system prompts are skipped.</div></div>
+      <div class="card"><div class="card-title">Same answer everywhere</div><div class="card-desc"><code>monomind pick</code>, the <code>pick</code> MCP tool, <code>hooks_route</code>, <code>route task</code>, <code>guidance_recommend</code>, the mastermind workflows and org auto-assignment all ask the same picker.</div></div>
+      <div class="card"><div class="card-title">Learns from outcomes</div><div class="card-desc">Whether spawned subagents followed the pick and succeeded is logged, and breaks near-ties between keyword picks within ±15 %.</div></div>
+    </div>
   </div>
 </div>
 
@@ -2249,7 +2329,8 @@ function setupReveals(container) {
 
 // ── HERO COUNTERS (RAF-based, no GSAP dependency) ────────────────────
 function animateHero() {
-  const DATA = [['stat-agents',60,'+'  ],['stat-commands',38,''],['stat-hooks',20,''],['stat-packages',9,'']];
+  // The agent count comes from the element's doc-count marker (scripts/generate-doc-counts.mjs).
+  const DATA = [['stat-agents',parseInt(document.getElementById('stat-agents').textContent,10),''],['stat-commands',38,''],['stat-hooks',20,''],['stat-packages',9,'']];
   if (!motionOK) {
     DATA.forEach(([id,t,s]) => { const el=document.getElementById(id); if(el) el.textContent=t+s; });
     return;

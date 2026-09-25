@@ -596,7 +596,7 @@ Every daemon-side resolution emits an audit event with reason `decision-resolved
 
 **Source:** [`orgrt/skill-library.ts`](packages/@monomind/cli/src/orgrt/skill-library.ts), [`orgrt/skill-import.ts`](packages/@monomind/cli/src/orgrt/skill-import.ts)
 
-A skill is a directory `<name>/SKILL.md` (frontmatter + markdown) with optional `.md` reference files. Three roots are searched, first match wins: `<project>/.monomind/org-skills/`, `~/.monomind/org-skills/`, then the ~380 curated skills shipped in `@monoes/monomindcli` (`org-skills/`, provenance in `org-skills/SOURCES.md`).
+A skill is a directory `<name>/SKILL.md` (frontmatter + markdown) with optional `.md` reference files. Three roots are searched, first match wins: `<project>/.monomind/org-skills/`, `~/.monomind/org-skills/`, then the 376 curated skills shipped in `@monoes/monomindcli` (`org-skills/`, provenance in `org-skills/SOURCES.md`), then active catalog skills. How to write one (frontmatter, tags from `org-skills/TAGS.md`) and the `org skills` commands are on [Agents & Skills](./agents-and-skills.md#4-adding-an-org-skill).
 
 - **`skills`** are pinned into the role's system prompt and never change mid-run, so the prompt stays a stable cache prefix.
 - **`skill_pool`** skills appear only as one-line descriptions; the role loads the full text (or one of its reference files) with `org_skill_load`, which serves only that role's own skills.

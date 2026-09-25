@@ -95,7 +95,7 @@ When invoking `monomind route task --json` or `monomind route semantic --json`, 
 
 ### Available Agents
 
-`route task`, `route list-agents` and `route feedback` read the project's agent registry (`.monomind/registry.json`, built from `.claude/agents/**.md`), so the choice is whatever agents the project ships — not a fixed list. `route feedback --agent` accepts a name or slug and records the spawnable name.
+`route task`, `route list-agents` and `route feedback` read the project's agent registry (`.monomind/registry.json`, built from `.claude/agents/**.md` and the other agent roots listed in [Agents & Skills](../concepts/agents-and-skills.md#agents)), so the choice is whatever agents the project has — not a fixed list. `route feedback --agent` accepts a name or slug and records the spawnable name.
 
 ---
 

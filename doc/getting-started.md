@@ -97,6 +97,16 @@ This lists all available slash commands. The most useful starting points:
 | `/mastermind:plan` | Write a comprehensive implementation plan before touching code |
 | `/mastermind:review` | Review the work and auto-fix findings; add `--tillend` to loop until a round comes back clean |
 
+### Agents and skills
+
+`monomind init` installs <!-- doc-count:pickable-agents -->84<!-- /doc-count:pickable-agents --> pickable agents under `.claude/agents`, skills under `.claude/skills` and slash commands under `.claude/commands`. You rarely name one yourself: for each prompt, the hook adds a line such as
+
+```
+[PICK] agent: Security Engineer · skill: /mastermind:review
+```
+
+to Claude's context when one agent or skill clearly fits, and Claude uses it. To see the ranking for any task, run `monomind pick -t "<task>"`. Your own agents and skills are Markdown files in the same folders; [Agents & Skills](concepts/agents-and-skills.md) shows where each kind goes and what to put in its frontmatter.
+
 ## What's running?
 
 | Component | How to check | How to stop |
@@ -122,6 +132,8 @@ monomind org run my-team --budget-usd 5     # hard-stop at $5
 
 ## Next steps
 
+- `doc/concepts/agents-and-skills.md` — where agents, skills and Org skills live, and how to add your own
+- `doc/concepts/routing.md` — how the agent and skill picker works
 - `doc/concepts/monograph.md` — how the code graph works
 - `doc/concepts/memory.md` — memory tiers and search
 - `doc/concepts/org-runtime.md` — multi-agent daemon

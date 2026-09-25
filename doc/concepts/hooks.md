@@ -67,7 +67,7 @@ Records whether a subagent spawn followed the session's latest `[PICK]`: one lin
 
 ### `SessionStart` skill index
 
-SessionStart rebuilds `.claude/helpers/skill-registry.json` when it is missing or older than `.claude/skills`. The file is generated per machine (also by `monomind init`, `init upgrade` and `monomind pick`) and is no longer shipped.
+SessionStart rebuilds `.claude/helpers/skill-registry.json` when it is missing or older than any of its sources: `.claude/skills`, `.claude/commands`, `~/.claude/skills`, the Org skill roots or the catalog state. The file is generated per machine (also by `monomind init`, `init upgrade` and `monomind pick`) and is no longer shipped. The agent registry, `.monomind/registry.json`, is read as it is; `monomind` commands rebuild it when an agent file is newer (see [Agents & Skills](./agents-and-skills.md#agents)).
 
 ### Hook timeouts
 

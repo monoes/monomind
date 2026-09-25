@@ -11,6 +11,8 @@ exactly three seams: the Org skill library, the Jev decision model (only with
 the `jev` target) and explicit projections into `.claude/skills` and
 `.agents/skills`.
 
+For where hand-written agents, skills and Org skills live without the catalog, see [Agents & Skills](./agents-and-skills.md).
+
 Command: [`catalogCommand`](packages/@monomind/cli/src/commands/catalog.ts#catalogCommand).
 Source: [`packages/@monomind/cli/src/catalog/`](packages/@monomind/cli/src/catalog/).
 
