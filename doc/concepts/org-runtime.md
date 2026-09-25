@@ -928,9 +928,3 @@ coordinator gets one message (`channel-fault-exhausted`).
 4. `monomind org answer <name> <question-id> "<text>"` delivers the answer:
    - **Live delivery** if the org is running (daemon receives it immediately).
    - **Queued offline** if the org is stopped (answer stored, consumed on next start).
-
----
-
-## 10. Known Historical Trap (v1 Only)
-
-Early debugging uncovered that the legacy v1 `runorg.md` skill path lost `runId`/`sessionId` because Claude Code truncated long bash stdout — the fix was writing a `<org>-runcontext.json` context file. **This trap applies only to the v1 skill path.** The Org Runtime v2 source (`packages/@monomind/cli/src/orgrt/`) has zero references to `runcontext.json` or `ORG_VARS` stdout parsing — v2 does not use a bash-to-Task handoff.

@@ -1,6 +1,6 @@
 ---
 name: mastermind-agents
-description: Mastermind agents — list, inspect, hire, pause, and remove agents in a running org. Shows status, last heartbeat, adapter config, and burn rate per agent.
+description: Mastermind agents — list, inspect, hire, and remove agents in an org, and pause or resume the org. Shows each role, its adapter config, and the org's live runtime status.
 type: domain-skill
 default_mode: confirm
 pick: low
@@ -44,23 +44,18 @@ If no orgs exist, print: "No orgs found. Run /mastermind:createorg to define one
 
 ### list (default)
 
-Display all agents in the org with status from state file:
+Display all agents in the org, then the org's live runtime status:
 
 ```bash
 orgFile=".monomind/orgs/${org_name}.json"
-stateFile=".monomind/orgs/${org_name}-state.json"
 
 jq -r '(.roles // [])[] | "• [\(.id)] \(.title)  agent=\(.agent_type)  reports_to=\(.reports_to // "none")"' "$orgFile"
 
-# LEGACY-ORG-V1: the state file's per-agent heartbeat tracking is a v1 concept —
-# v2 orgs report live status via `monomind org status`/`org report` instead.
-# Overlay runtime status from state file if present
-if [ -f "$stateFile" ]; then
-  echo ""
-  echo "RUNTIME STATUS:"
-  jq -r '.agents // {} | to_entries[] | "  \(.key): \(.value.status // "unknown")  last_beat=\(.value.last_heartbeat // "never")"' "$stateFile" 2>/dev/null || true
-fi
-# end LEGACY-ORG-V1
+# Live runtime status (running/stopped/crashed, current run) — per-role
+# activity for a run is in `monomind org report <org>`.
+echo ""
+echo "RUNTIME STATUS:"
+npx -y monomind@latest org status "$org_name" 2>/dev/null || echo "  (not available — is monomind installed?)"
 ```
 
 Render as table:
@@ -68,10 +63,10 @@ Render as table:
 ```
 AGENTS — org: <org_name>
 ──────────────────────────────────────────────────────
-ID              TITLE              AGENT TYPE          STATUS        LAST HEARTBEAT
-boss            CEO / Boss         coordinator         running       2 min ago
-content-writer  Content Writer     Content Creator     idle          8 min ago
-reviewer        Content Reviewer   reviewer            waiting       8 min ago
+ID              TITLE              AGENT TYPE          REPORTS TO
+boss            CEO / Boss         coordinator         none
+content-writer  Content Writer     Content Creator     boss
+reviewer        Content Reviewer   reviewer            boss
 ...
 ```
 
@@ -128,19 +123,14 @@ echo "Hired: $title ($agent_type) → adapter: $adapter_model"
 
 ### pause / resume
 
-<!-- LEGACY-ORG-V1: the agent state/heartbeat file this pauses is a v1 concept. -->
-Update state file:
+The Org Runtime pauses and resumes a whole org, not a single role — message
+delivery is suspended while it is paused:
 
 ```bash
-stateFile=".monomind/orgs/${org_name}-state.json"
-[ ! -f "$stateFile" ] && echo '{"agents":{}}' > "$stateFile"
-tmp="${stateFile}.tmp"
-jq --arg id "$agent_id" --arg status "paused" \
-  '.agents[$id].status = $status | .agents[$id].updated_at = (now|todate)' \
-  "$stateFile" > "$tmp" && mv "$tmp" "$stateFile"
+npx -y monomind@latest org pause "$org_name"    # or: org resume "$org_name"
 ```
 
-Emit `org:agent:paused` / `org:agent:resumed` event.
+To take one role out of the org, use `remove`.
 
 ### remove
 
@@ -164,7 +154,7 @@ org: <org_name>
 agents_count: <N>
 ```
 
-Print summary and any suggested next actions (e.g. "Run /mastermind:heartbeatv1 to trigger a manual heartbeat for this agent").
+Print summary and any suggested next actions (e.g. "Check live status with `monomind org status <org_name>`").
 
 ---
 

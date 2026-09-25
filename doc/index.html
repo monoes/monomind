@@ -478,7 +478,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <table class="doc-table">
       <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 38 commands, including <code>org</code> (org runtime v2, see <code>src/orgrt/</code>), <code>catalog</code> (skill catalog lifecycle) and <code>monoswarm</code> (multi-agent coordination state)</td></tr>
+        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 38 commands, including <code>org</code> (org runtime, see <code>src/orgrt/</code>), <code>catalog</code> (skill catalog lifecycle) and <code>monoswarm</code> (multi-agent coordination state)</td></tr>
         <tr><td class="mono">@monoes/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>20 typed hook events (registry/executor) + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers; exposed via 29 <code>hooks</code> CLI subcommands</td></tr>
         <tr><td class="mono">@monoes/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — local SQLite with embedded vectors (default engine, local HF embeddings); a dormant pure-JS HNSW index is the scale-up path. LanceDB was removed 2026-07</td></tr>
         <tr><td class="mono">@monoes/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework for explicit HTTP/WebSocket transports (<code>mcp start -t http|websocket</code>). The default stdio path (<code>claude mcp add ... mcp start</code>) uses a separate hand-rolled JSON-RPC loop in the CLI itself, not this package.</td></tr>
@@ -767,7 +767,7 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="agent status info"><div class="cmd-name">agent status &lt;id&gt;</div><div class="cmd-desc">Detailed agent info and metrics</div></div>
       <div class="cmd-item" data-search="agent stop kill terminate"><div class="cmd-name">agent stop &lt;id&gt;</div><div class="cmd-desc">Gracefully terminate an agent</div></div>
       <div class="cmd-item" data-search="agent metrics performance"><div class="cmd-name">agent metrics</div><div class="cmd-desc">Performance metrics by agent type</div></div>
-      <div class="cmd-item" data-search="org run daemon sdk agent runtime v2"><div class="cmd-name">org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon — the primary multi-agent runtime</div></div>
+      <div class="cmd-item" data-search="org run daemon sdk agent runtime"><div class="cmd-name">org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon — the primary multi-agent runtime</div></div>
       <div class="cmd-item" data-search="org status runtime state"><div class="cmd-name">org status [name]</div><div class="cmd-desc">Runtime state for one or all orgs</div></div>
       <div class="cmd-item" data-search="org stop graceful shutdown"><div class="cmd-name">org stop &lt;name&gt;</div><div class="cmd-desc">Request a graceful stop</div></div>
       <div class="cmd-item" data-search="org list all status"><div class="cmd-name">org list</div><div class="cmd-desc">List every org + status</div></div>
@@ -880,12 +880,12 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="mastermind release version publish changelog deployment"><div class="cmd-name">/mastermind:release</div><div class="cmd-desc">Release management: versioning, changelog, deployment</div></div>
       <div class="cmd-item" data-search="mastermind adr architecture decision record draft document"><div class="cmd-name">/mastermind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
       <!-- mastermind: — autonomous orgs -->
-      <div class="cmd-item" data-search="org run daemon sdk agent runtime v2 primary"><div class="cmd-name">monomind org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon (the current, recommended path)</div></div>
-      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy legacy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Define and save a v2 org config (roles, hierarchy, schedule) — run it with <code>/mastermind:runorg</code> or <code>monomind org run</code></div></div>
-      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled delegator validator"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Org Runtime v2 delegator: validates org configs, auto-migrates v1 definitions, starts via <code>monomind org run/serve</code>; the v1 prompt-orchestrated path was retired</div></div>
-      <div class="cmd-item" data-search="mastermind stoporg stop scheduled org loop status stopped legacy"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Legacy — use <code>monomind org stop</code> for v2 orgs</div></div>
-      <div class="cmd-item" data-search="mastermind orgs list saved status schedule interval legacy"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">Legacy — use <code>monomind org list</code> for v2 orgs</div></div>
-      <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org legacy"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Legacy — use <code>monomind org status</code> for v2 orgs</div></div>
+      <div class="cmd-item" data-search="org run daemon sdk agent runtime primary"><div class="cmd-name">monomind org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon (the current, recommended path)</div></div>
+      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Define and save an org config (roles, hierarchy, schedule) — run it with <code>/mastermind:runorg</code> or <code>monomind org run</code></div></div>
+      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled delegator validator"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Org Runtime delegator: validates org configs, converts legacy-format config files, starts via <code>monomind org run/serve</code></div></div>
+      <div class="cmd-item" data-search="mastermind stoporg stop running org daemon"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Stop a running org (wraps <code>monomind org stop</code>)</div></div>
+      <div class="cmd-item" data-search="mastermind orgs list saved status schedule"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">List saved orgs with runtime status (see also <code>monomind org list</code>)</div></div>
+      <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Detailed status for one org (see also <code>monomind org status</code>)</div></div>
       <div class="cmd-item" data-search="org approve deny pending tool approval role human input"><div class="cmd-name">monomind org approve / deny</div><div class="cmd-desc">Approve or deny a role's pending tool request: <code>monomind org approve &lt;org&gt; &lt;role&gt; "&lt;tool&gt;"</code> — or use the dashboard's Human Input tab</div></div>
       <!-- mastermind: — utilities -->
       <div class="cmd-item" data-search="mastermind okf export knowledge bundle second brain portable markdown"><div class="cmd-name">/mastermind:okf-export</div><div class="cmd-desc">Export Second Brain as OKF bundle</div></div>
@@ -999,13 +999,13 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:createtask</td><td>Decompose prompt into tasks (saved to docs/tasks/ by default; add --monotask for board)</td></tr>
         <tr><td class="mono">/mastermind:master</td><td>Top-level orchestrator — routes any business prompt</td></tr>
         <tr><td class="mono">monomind org run &lt;name&gt;</td><td>Start an org as a real SDK-backed daemon — the current, recommended path</td></tr>
-        <tr><td class="mono">monomind org status / list / stop</td><td>Runtime state, listing, and graceful stop for v2 orgs</td></tr>
-        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Mastermind org commands (v2; the v1 prompt-orchestrated runner was retired) —</td></tr>
-        <tr><td class="mono">/mastermind:createorg</td><td>Define and save a v2 org config (roles, hierarchy, schedule)</td></tr>
-        <tr><td class="mono">/mastermind:runorg</td><td>Org v2 delegator: validates configs, auto-migrates v1 → v2, starts via <code>monomind org run/serve</code></td></tr>
-        <tr><td class="mono">/mastermind:stoporg</td><td>Legacy — use <code>monomind org stop</code> for v2 orgs</td></tr>
-        <tr><td class="mono">/mastermind:orgs</td><td>Legacy — use <code>monomind org list</code> for v2 orgs</td></tr>
-        <tr><td class="mono">/mastermind:orgstatus</td><td>Legacy — use <code>monomind org status</code> for v2 orgs</td></tr>
+        <tr><td class="mono">monomind org status / list / stop</td><td>Runtime state, listing, and graceful stop for orgs</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Mastermind org commands —</td></tr>
+        <tr><td class="mono">/mastermind:createorg</td><td>Define and save an org config (roles, hierarchy, schedule)</td></tr>
+        <tr><td class="mono">/mastermind:runorg</td><td>Org Runtime delegator: validates configs, converts legacy-format config files, starts via <code>monomind org run/serve</code></td></tr>
+        <tr><td class="mono">/mastermind:stoporg</td><td>Stop a running org (wraps <code>monomind org stop</code>)</td></tr>
+        <tr><td class="mono">/mastermind:orgs</td><td>List saved orgs with runtime status</td></tr>
+        <tr><td class="mono">/mastermind:orgstatus</td><td>Detailed status for one org</td></tr>
         <tr><td class="mono">monomind org approve / deny</td><td>Approve or deny a role's pending tool request (<code>monomind org approve &lt;org&gt; &lt;role&gt; "&lt;tool&gt;"</code>); also in the dashboard Human Input tab</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
         <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
@@ -1303,7 +1303,7 @@ Session N: empty round (zero findings AND zero actions)
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;margin-bottom:4px;"><strong>Routing tab:</strong> Routing data is collected automatically whenever Claude Code routes a task to an agent. No setup required. Use <code>/hooks:overview</code> to understand the routing hook.</p>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>ADRs tab:</strong> ADRs are created via the slash command or discovered automatically from existing ADR files:</p>
     <div class="code-block reveal"><span class="cmd">/mastermind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> reflects <code>monoswarm</code> coordination state (written by Task-tool-driven work, not org-runtime-v2 activity). For a running <code>monomind org run</code> org, watch its own live dashboard instead:</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> reflects <code>monoswarm</code> coordination state (written by Task-tool-driven work, not org runtime activity). For a running <code>monomind org run</code> org, watch its own live dashboard instead:</p>
     <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># live view at http://localhost:4243</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Chunks tab:</strong> Chunks are built by indexing your project's documentation and skill files:</p>
     <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
@@ -1314,13 +1314,13 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the real org-runtime-v2 daemon (live dashboard on :4243, separate from this :4242 dashboard):</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the org runtime daemon (live dashboard on :4243, separate from this :4242 dashboard):</p>
     <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># start an org — real Claude Agent SDK sessions per role</span>
 <span class="cmd">monomind org status / list / stop</span>    <span class="comment"># check, list, or stop</span>
 
-<span class="comment"># From Claude Code (the v1 prompt-orchestrated runner was retired; runorg auto-migrates v1 configs):</span>
-<span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new v2 org config</span>
-<span class="cmd">/mastermind:runorg</span>       <span class="comment"># validate and start a saved org via the v2 daemon</span></div>
+<span class="comment"># From Claude Code:</span>
+<span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new org config</span>
+<span class="cmd">/mastermind:runorg</span>       <span class="comment"># validate and start a saved org via the daemon</span></div>
     <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each org has 29 tabs:</p>
     <div class="table-wrap reveal">
@@ -1859,7 +1859,7 @@ You are an API contract reviewer. ...</div>
     <span class="obadge ob-b">Cross-process</span>
     <span class="obadge ob-c">Full lifecycle</span>
   </div>
-  <p style="margin-top:20px;font-size:12px;color:var(--muted)">The v1 prompt-orchestrated org runner was retired. <code>/mastermind:createorg</code> writes v2 configs, and <code>/mastermind:runorg</code> is the v2 delegator (validates, auto-migrates v1-shaped configs, starts via <code>monomind org run</code> shown above).</p>
+  <p style="margin-top:20px;font-size:12px;color:var(--muted)"><code>/mastermind:createorg</code> writes org configs, and <code>/mastermind:runorg</code> starts them (validates, converts legacy-format config files, starts via <code>monomind org run</code> shown above).</p>
 </div>
 
 <!-- How it works -->

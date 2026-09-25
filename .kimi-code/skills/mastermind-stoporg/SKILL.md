@@ -1,6 +1,6 @@
 ---
 name: mastermind-stoporg
-description: Mastermind stoporg — stop a running scheduled org loop by setting its status to "stopped". The next scheduled wakeup will read the status, skip all work, and not reschedule. Loop dies within one interval — no orphaned wakeups.
+description: Mastermind stoporg — stop a running org. Wraps monomind org stop, which writes the stop file the org daemon polls; the daemon exits within about 2 seconds.
 type: domain-skill
 default_mode: auto
 pick: low
@@ -37,15 +37,8 @@ orgFile=".monomind/orgs/${org_name}.json"
 }
 ```
 
-Read current status:
-```bash
-current_status=$(jq -r '.status // "no-schedule"' "$orgFile")
-has_schedule=$(jq -r 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
-```
-
-If `has_schedule == "no"` — this is a **v2 org** (Org Runtime v2 has `schedule`,
-never `.loop`). Its daemon polls `.monomind/orgs/<name>/stop` every 2s, which is
-exactly what `monomind org stop` writes — use the CLI, not the v1 `.stops/` path:
+The org daemon polls `.monomind/orgs/<name>/stop` every 2s, which is exactly
+what `monomind org stop` writes — use the CLI:
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -54,67 +47,19 @@ npx -y monomind@latest org stop "${org_name}" \
   || { mkdir -p ".monomind/orgs/${org_name}"; date -u +%Y-%m-%dT%H:%M:%SZ > ".monomind/orgs/${org_name}/stop"; }
 # Also POST to the control server in case a dashboard-started instance is running
 curl -s -X POST -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" "${CTRL_URL}/api/orgs/${org_name}/stop" >/dev/null 2>&1 || true
-echo "Stop requested for org '${org_name}' (v2 daemon exits within 2s)."
-```
-- Exit.
-
-<!-- LEGACY-ORG-V1: remove this branch when v1 orgs are gone -->
-Everything below this point only runs for v1 orgs — v2 orgs already exited above.
-
-If `current_status == "stopped"`:
-- Print: "Org '<org_name>' is already stopped."
-- Exit.
-
----
-
-<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
-## Step 2 — Set Status to Stopped and Clear next_run (v1 only)
-
-```bash
-orgFile=".monomind/orgs/${org_name}.json"
-tmp="${orgFile}.tmp"
-# Clear next_run to avoid showing a stale future timestamp in orgstatus
-jq '.status = "stopped" | if .loop then .loop.next_run = null else . end' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+echo "Stop requested for org '${org_name}' (the daemon exits within 2s)."
 ```
 
 ---
 
-<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
-## Step 3 — Write Stop File (for any running boss agents, v1 only)
-
-Any persistent boss agent checks for this file at the start of each loop iteration:
-
-```bash
-mkdir -p .monomind/orgs/.stops
-touch ".monomind/orgs/.stops/${org_name}.stop"
-```
-
----
-
-<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
-## Step 5 — Report to User (v1 only)
-
-```
-✓ Org "<org_name>" stopped.
-
-  Current status: stopped
-  The loop will exit at its next scheduled wakeup without rescheduling.
-  Loop fully dead within: ≤$(jq -r '.loop.poll_interval_minutes // "?"' "$orgFile") minutes
-
-  To restart: /mastermind:runorg --org <org_name>
-  Status:     /mastermind:orgstatus --org <org_name>
-```
-
----
-
-## Step 6 — Return Output
+## Step 2 — Return Output
 
 ```yaml
 domain: ops
 status: complete
 decisions:
   - what: "Org <org_name> stopped"
-    why: "status set to 'stopped'; next wakeup exits without rescheduling"
+    why: "stop file written; the org daemon exits within 2s"
     confidence: 1.0
     outcome: shipped
 next_actions:
@@ -124,6 +69,6 @@ next_actions:
 
 ---
 
-## Step 7 — Brain Write (standalone only)
+## Step 3 — Brain Write (standalone only)
 
 If `caller` is not "command", follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.

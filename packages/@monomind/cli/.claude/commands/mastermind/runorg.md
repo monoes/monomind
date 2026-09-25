@@ -1,4 +1,4 @@
-<!-- Start a saved org via the Org Runtime v2 daemon (monomind org run/serve). Validates the config, auto-migrates v1-shaped configs, starts the daemon, and confirms liveness. The legacy prompt-orchestrated path lives at /mastermind:runorgv1. -->
+<!-- Start a saved org via the Org Runtime daemon (monomind org run/serve). Validates the config, converts legacy-format config files, starts the daemon, and confirms liveness. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -6,7 +6,7 @@
 
 **MASTERMIND: RUN ORG**
 
-Running an org starts it through the Org Runtime v2 daemon. Every role becomes
+Running an org starts it through the Org Runtime daemon. Every role becomes
 a live SDK session; the daemon forwards dashboard events itself — no boss
 agent, no monotask board, no manual curl emissions.
 

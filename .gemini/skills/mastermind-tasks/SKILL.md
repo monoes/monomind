@@ -6,10 +6,10 @@ default_mode: auto
 pick: low
 ---
 
-> **LEGACY-ORG-V1 — writes to a monotask board, not to `<org>-issues.json`.** This skill's
-> `parent_id`, `status` (`todo | doing | done`), and card model belong to the pre-v2
-> board-backed runner. For v2 issue tracking — including sub-issues — use
-> `/mastermind-issues --action create --parent-id <id>`.
+> **Writes to a monotask board, not to `<org>-issues.json`.** This skill only works
+> on an org config that still carries a monotask `board_id` (the legacy config
+> format); the Org Runtime never reads that board. For org issue tracking —
+> including sub-issues — use `/mastermind-issues --action create --parent-id <id>`.
 
 # Mastermind Tasks
 
@@ -41,16 +41,14 @@ If `caller` is not "command", load brain context following mastermind-protocol/S
 ## Step 1 — Load Org Config
 
 ```bash
-# LEGACY-ORG-V1: this whole board/column lookup is the pre-v2 board-backed
-# task model — boards belong to the legacy v1 runner, see runorgv1.
+# board/column ids only exist on legacy-format org configs
 orgFile=".monomind/orgs/${org_name}.json"
 board_id=$(jq -r '.board_id // empty' "$orgFile")
 todo_col=$(jq -r '.todo_col_id // empty' "$orgFile")
 doing_col=$(jq -r '.doing_col_id // empty' "$orgFile")
 done_col=$(jq -r '.done_col_id // empty' "$orgFile")
 
-[ -z "$board_id" ] && { echo "ERROR: org config missing board_id — boards belong to the legacy v1 runner, see runorgv1."; exit 1; }
-# end LEGACY-ORG-V1
+[ -z "$board_id" ] && { echo "ERROR: org config has no board_id — the Org Runtime does not use monotask boards. Use /mastermind-issues for org issues."; exit 1; }
 ```
 
 ---

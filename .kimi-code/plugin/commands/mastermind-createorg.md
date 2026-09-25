@@ -2,7 +2,7 @@
 description: mastermind createorg command (monomind)
 ---
 
-<!-- Define and save an autonomous agent organization (Org Runtime v2) — roles and hierarchy. Suggest or confirm roles, then persist the org config for `monomind org run`/`serve`. -->
+<!-- Define and save an autonomous agent organization (Org Runtime) — roles and hierarchy. Suggest or confirm roles, then persist the org config for `monomind org run`/`serve`. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -10,7 +10,7 @@ description: mastermind createorg command (monomind)
 
 **MASTERMIND: CREATE ORG**
 
-An org is a named, persistent agent team, run by the Org Runtime v2 daemon — not a one-shot Mastermind run and not a Task-tool-spawned boss. Once created, every role in the config starts as its own live agent session the moment you run the org; roles message each other directly (no shared task board) and the org keeps running until stopped.
+An org is a named, persistent agent team, run by the Org Runtime daemon — not a one-shot Mastermind run and not a Task-tool-spawned boss. Once created, every role in the config starts as its own live agent session the moment you run the org; roles message each other directly (no shared task board) and the org keeps running until stopped.
 
 Use orgs when the work is ongoing, not single-shot. A content team that ships 10 posts a month. A research squad that runs competitive scans weekly. A dev team with a permanent backlog.
 

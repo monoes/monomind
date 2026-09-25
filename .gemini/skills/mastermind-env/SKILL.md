@@ -82,18 +82,6 @@ echo "  namespace: org:${org_name}"
 npx monomind@latest memory list --namespace "org:${org_name}" 2>/dev/null | wc -l | xargs echo "  stored entries:"
 echo ""
 
-# LEGACY-ORG-V1: board_id/*_col_id only exist on the pre-v2 board-backed org shape
-# Board config
-echo "TASK BOARD"
-echo "──────────"
-board_id=$(jq -r '.board_id // "NOT CONFIGURED"' "$orgFile")
-echo "  board_id:    $board_id"
-echo "  todo_col:    $(jq -r '.todo_col_id // "NOT CONFIGURED"' "$orgFile")"
-echo "  doing_col:   $(jq -r '.doing_col_id // "NOT CONFIGURED"' "$orgFile")"
-echo "  done_col:    $(jq -r '.done_col_id // "NOT CONFIGURED"' "$orgFile")"
-echo ""
-# end LEGACY-ORG-V1 board block
-
 # Run config
 echo "RUN CONFIG"
 echo "──────────"
@@ -132,12 +120,10 @@ for key in ANTHROPIC_API_KEY; do
   fi
 done
 
-# LEGACY-ORG-V1: board_id belongs to the legacy v1 runner — see runorgv1. Org
-# Runtime v2 configs have no board_id at all, so this check only applies to
-# orgs still running the v1 board-backed shape.
-board_id=$(jq -r '.board_id // empty' "$orgFile")
-[ -z "$board_id" ] && { echo "  ✗ MISSING: board_id — boards belong to the legacy v1 runner, see runorgv1"; errors=$((errors + 1)); } || echo "  ✓ board_id"
-# end LEGACY-ORG-V1
+# Check the config against the runtime schema and structural invariants
+npx -y monomind@latest org validate "$org_name" >/dev/null 2>&1 \
+  && echo "  ✓ config valid (monomind org validate)" \
+  || { echo "  ✗ INVALID config — run: monomind org validate $org_name"; errors=$((errors + 1)); }
 
 # Check roles
 role_count=$(jq '.roles | length' "$orgFile")

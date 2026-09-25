@@ -1,4 +1,4 @@
-<!-- Stop a running scheduled org loop. Sets status to "stopped" — the next scheduled wakeup reads the status, skips all work, and does not reschedule. Loop dies within one interval. -->
+<!-- Stop a running org. Wraps `monomind org stop`, which writes the stop file the org daemon polls — the daemon exits within about 2s. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -6,7 +6,7 @@
 
 **MASTERMIND: STOP ORG**
 
-Stops a scheduled org loop cleanly. The org's `status` is set to `"stopped"` — the next scheduled wakeup will read the status, skip all work, and not reschedule itself. The loop is guaranteed to die within one interval (no orphaned wakeups).
+Stops a running org cleanly. Runs `monomind org stop <name>`, which writes `.monomind/orgs/<name>/stop`; the org daemon polls for that file and exits within about 2 seconds.
 
 **Usage:**
 
@@ -23,15 +23,11 @@ Stops a scheduled org loop cleanly. The org's `status` is set to `"stopped"` —
 
 **Lifecycle:**
 ```
-stopped  →  (runorg)   →  active
-active   →  (stoporg)  →  stopped
-active   →  (HIL)      →  paused    (set manually in .monomind/orgs/<name>.json)
-paused   →  (set active) →  active  (resume by setting status back to "active" in the JSON)
+stopped  →  (runorg / monomind org run)  →  running
+running  →  (stoporg / monomind org stop) →  stopped
+running  →  (monomind org pause)         →  paused
+paused   →  (monomind org resume)        →  running
 ```
-
-**Note:** v2 orgs (the default) are stopped via `monomind org stop <name>` — this
-command handles both: it routes v2 orgs to the CLI and legacy `.loop` orgs
-through the v1 status-flip path.
 
 Your orgs (with live runtime status):
 
@@ -48,7 +44,7 @@ npx -y monomind@latest org list 2>/dev/null || echo "(none — run /mastermind:c
 Parse `$ARGUMENTS` for:
 - `--org <name>` → org_name = <name>
 
-If `--org` is not provided, list orgs with schedules and ask which to stop.
+If `--org` is not provided, list orgs and ask which to stop.
 
 Verify the org file exists:
 ```bash

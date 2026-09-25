@@ -41,7 +41,7 @@
 | [`decisions`](#decisions) | Show rifft-style decision traces |
 | [`create`](#create) | Scaffold org from template |
 | [`validate`](#validate) | Validate org config(s) against schema |
-| [`migrate`](#migrate) | Convert v1 org config to v2 shape |
+| [`migrate`](#migrate) | Convert a legacy-format org config file to the current format |
 | [`list`](#list) | List all org configs |
 | [`delete`](#delete) | Delete org and all artifacts |
 | [`mark-complete`](#mark-complete) | Clear stale running/crashed runtime record |
@@ -613,7 +613,7 @@ monomind org validate [<name>]    # validates one or all orgs
 
 ## `migrate`
 
-Convert a v1 org config (`topology`/`board_id`/`communication` shape) to the v2 daemon shape.
+Convert a legacy-format org config file (one with `topology`/`board_id`/`communication`/`loop` fields) to the current format the runtime reads. `org run` also converts such files in memory with a deprecation warning; `migrate` rewrites the file so the warning goes away.
 
 ```bash
 monomind org migrate <name>

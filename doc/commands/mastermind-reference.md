@@ -153,7 +153,7 @@ Shows all monoswarm modes (topologies + vote strategies), asks for task descript
 
 ### `/mastermind:createorg`
 
-**Purpose:** Define and save an autonomous agent organization for the Org Runtime v2 daemon. Configs written by this command are always v2-shaped (no `topology`/`board_id`/`communication` fields) and are started with `/mastermind:runorg`.
+**Purpose:** Define and save an autonomous agent organization for the Org Runtime daemon. Configs written by this command use the current config format (no legacy `topology`/`board_id`/`communication` fields) and are started with `/mastermind:runorg`.
 
 ```
 /mastermind:createorg
@@ -163,7 +163,7 @@ Shows all monoswarm modes (topologies + vote strategies), asks for task descript
 
 ### `/mastermind:runorg`
 
-**Purpose:** Start a saved org through the Org Runtime v2 daemon (`monomind org run`/`serve`). This is the default, unqualified path — every role runs as a live SDK session, and the daemon forwards dashboard events itself (no boss agent, no monotask board, no manual curl emissions).
+**Purpose:** Start a saved org through the Org Runtime daemon (`monomind org run`/`serve`). Every role runs as a live SDK session, and the daemon forwards dashboard events itself (no boss agent, no monotask board, no manual curl emissions).
 
 ```
 /mastermind:runorg --org content-team
@@ -172,11 +172,11 @@ Shows all monoswarm modes (topologies + vote strategies), asks for task descript
 
 **What it does:**
 1. Resolves and validates the named org (`monomind org validate <name>`)
-2. If validation fails on v1-shape symptoms (`topology`, `board_id`, `loop`), auto-migrates it first via `monomind org migrate <name>` — the original config is preserved as `<name>.v1.json`
+2. If the config file is in the legacy format (`topology`, `board_id`, `loop`), converts it first via `monomind org migrate <name>` — the original file is preserved as `<name>.v1.json`
 3. Starts it: `monomind org run <name>` (one-shot) or ensures `monomind org serve` is up (scheduled orgs)
 4. Confirms liveness (`monomind org status <name>`) and surfaces the dashboard link and `monomind org logs <name> --follow`
 
-The v1 prompt-orchestrated org runner (and its `runorgv1` / `approvev1` / `heartbeatv1` commands) was retired; `/mastermind:runorg` auto-migrates v1-shaped configs as described above. Approve or deny a role's pending tool request with `monomind org approve <org> <role> "<tool>"` / `monomind org deny <org> <role> "<tool>"`, or from the dashboard's Human Input tab.
+Approve or deny a role's pending tool request with `monomind org approve <org> <role> "<tool>"` / `monomind org deny <org> <role> "<tool>"`, or from the dashboard's Human Input tab.
 
 ---
 

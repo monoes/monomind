@@ -2,7 +2,7 @@
 description: mastermind orgstatus command (monomind)
 ---
 
-<!-- Show detailed status for a single org — lifecycle state, schedule, last/next run, recent activity, and roles. For scheduled orgs shows loop health. -->
+<!-- Show detailed status for a single org — runtime state, schedule, config health, pending approvals, recent activity, and roles. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 

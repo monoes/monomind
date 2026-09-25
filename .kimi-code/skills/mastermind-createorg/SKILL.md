@@ -1,6 +1,6 @@
 ---
 name: mastermind-createorg
-description: Mastermind createorg — design and persist an autonomous agent organization (Org Runtime v2) as a `.monomind/orgs/<name>.json` config that `monomind org run/serve` loads directly. Supports optional --schedule flag for daemon-scheduled orgs.
+description: Mastermind createorg — design and persist an autonomous agent organization (Org Runtime) as a `.monomind/orgs/<name>.json` config that `monomind org run/serve` loads directly. Supports optional --schedule flag for daemon-scheduled orgs.
 type: domain-skill
 default_mode: confirm
 ---
@@ -9,7 +9,7 @@ default_mode: confirm
 
 This skill is invoked by `mastermind:createorg` or directly via `/mastermind:createorg`.
 
-Org Runtime v2 (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Task-tool-spawned boss agent. Every role in the config becomes a live SDK agent session (`@anthropic-ai/claude-agent-sdk` `query()`) the moment the org starts — there is no task board, no per-role generated `.claude/agents/*.md` file, and no communication-topology array. Roles address each other directly with the `org_send` tool using their `id` (or `<org>:<id>` cross-org). This skill's only job is to produce a config that validates against `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`).
+The Org Runtime (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Task-tool-spawned boss agent. Every role in the config becomes a live SDK agent session (`@anthropic-ai/claude-agent-sdk` `query()`) the moment the org starts — there is no task board, no per-role generated `.claude/agents/*.md` file, and no communication-topology array. Roles address each other directly with the `org_send` tool using their `id` (or `<org>:<id>` cross-org). This skill's only job is to produce a config that validates against `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`).
 
 ---
 
@@ -71,7 +71,7 @@ Exactly one role must have `reports_to: null`. If the user's role list has none,
 
 A role is **persona-based** if its title is a named real person, a well-known fictional character, or a celebrity/historical figure referred to by name. An org is persona-based if ≥50% of its roles are character names, or the goal/prompt contains `panel`, `debate`, `simulation`, `roleplay`, `celebrity`, `character`, `virtual [name]`, `impersonate`, `as [name]`.
 
-Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside the role's `skills` and `instructions_file`, if set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
+Persona roles work the same as any other role — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside the role's `skills` and `instructions_file`, if set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
 
 **Step 2.2b — Seed each non-persona role from the agent registry.**
 

@@ -1,6 +1,6 @@
 ---
 name: mastermind-org-settings
-description: Mastermind org-settings — edit Org Runtime v2 configuration (name, goal, schedule, budget_tokens, memory_namespace, max_turns_per_message), export org as portable JSON, and import an org from a previously exported file.
+description: Mastermind org-settings — edit Org Runtime configuration (name, goal, schedule, budget_tokens, memory_namespace, max_turns_per_message), export org as portable JSON, and import an org from a previously exported file.
 type: domain-skill
 default_mode: confirm
 pick: low
@@ -10,10 +10,9 @@ pick: low
 
 This skill is invoked by `mastermind:org-settings` or directly via `/mastermind-org-settings`.
 
-It edits `.monomind/orgs/<org_name>.json` in place, and only ever touches fields that `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`) actually defines — every field listed below is read by the daemon (`org.ts`/`daemon.ts`/`session.ts`) at `monomind org run`/`serve` time. Its primary edit flow targets v2 fields only: `name`, `goal`, `schedule`, and `run_config` (`budget_tokens`, `memory_namespace`, `max_turns_per_message`). Role edits are not yet supported by this skill's `edit` action — `roles` is shown read-only via `show`.
+It edits `.monomind/orgs/<org_name>.json` in place, and only ever touches fields that `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`) actually defines — every field listed below is read by the daemon (`org.ts`/`daemon.ts`/`session.ts`) at `monomind org run`/`serve` time. Its primary edit flow targets these fields only: `name`, `goal`, `schedule`, and `run_config` (`budget_tokens`, `memory_namespace`, `max_turns_per_message`). Role edits are not yet supported by this skill's `edit` action — `roles` is shown read-only via `show`.
 
-<!-- LEGACY-ORG-V1: remove this note when v1 orgs are gone -->
-There is no `topology`, `governance`, `alert_threshold`, or `ceo_adapter` in Org Runtime v2 — those were v1 board/prompt-orchestration fields with no runtime effect and have been removed from this skill's edit surface. Use `/mastermind-org-settings` only for v2-shaped orgs; v1 orgs must go through `monomind org migrate` first.
+There is no `topology`, `governance`, `alert_threshold`, or `ceo_adapter` in the org config — those are legacy fields with no runtime effect and are not part of this skill's edit surface. If an org's config file still carries them (the legacy format), convert it with `monomind org migrate <name>` first.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: mastermind-new-agent
-description: Mastermind new-agent — wizard to hire/create a new agent within an org. Configures runtime, model, role name, reports_to hierarchy, responsibilities, skill assignments (found with `monomind org skills search`), and budget. Writes a valid Org Runtime v2 role to the org config file and validates it.
+description: Mastermind new-agent — wizard to hire/create a new agent within an org. Configures runtime, model, role name, reports_to hierarchy, responsibilities, skill assignments (found with `monomind org skills search`), and budget. Writes a valid Org Runtime role to the org config file and validates it.
 type: domain-skill
 default_mode: confirm
 pick: low
@@ -10,7 +10,7 @@ pick: low
 
 This skill is invoked by `mastermind:new-agent` or directly via `/mastermind-new-agent`.
 
-It writes one role in the Org Runtime v2 shape (`RoleSchema` in `packages/@monomind/cli/src/orgrt/types.ts`) — the same shape `mastermind-createorg` produces — and runs `monomind org validate` on the result. There is no `adapter` object, heartbeat or per-role system prompt in v2: the runtime reads `runtime`, `adapter_config.model`, `responsibilities`, `skills` and `skill_pool`.
+It writes one role in the Org Runtime shape (`RoleSchema` in `packages/@monomind/cli/src/orgrt/types.ts`) — the same shape `mastermind-createorg` produces — and runs `monomind org validate` on the result. There is no `adapter` object, heartbeat or per-role system prompt in the org config: the runtime reads `runtime`, `adapter_config.model`, `responsibilities`, `skills` and `skill_pool`.
 
 ---
 
@@ -82,7 +82,7 @@ Pin 1–3 that define the role in `skills`; put the ones it needs only for some 
 ### list-runtimes
 
 ```bash
-echo "ORG RUNTIME v2 RUNTIMES (latest model)"
+echo "ORG RUNTIME RUNTIMES (latest model)"
 echo "────────────────────────────────────────────────────────"
 cat <<'RUNTIMES'
   claude        claude-sonnet-5          (default; also claude-opus-5, claude-fable-5-1, claude-haiku-4-5-20251001)

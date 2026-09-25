@@ -184,7 +184,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 28          | Self-learning hooks + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers                               | Working         |
-| `org`       | <!-- doc-count:org-subcommands -->36<!-- /doc-count:org-subcommands -->          | SDK org runtime v2 (skills, run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory [stats\|search\|rules\|rollback], costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [resumes live execution from a checkpoint — distinct from replay's debug-only event replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
+| `org`       | <!-- doc-count:org-subcommands -->36<!-- /doc-count:org-subcommands -->          | SDK org runtime (skills, run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory [stats\|search\|rules\|rollback], costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [resumes live execution from a checkpoint — distinct from replay's debug-only event replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 

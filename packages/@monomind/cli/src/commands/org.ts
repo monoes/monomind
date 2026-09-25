@@ -2999,7 +2999,7 @@ export const orgCommand: Command = {
     },
     {
       name: 'migrate',
-      description: 'Convert a v1 org config (topology/board/loop) to the v2 daemon shape',
+      description: 'Convert a legacy-format org config (topology/board/loop) to the current format',
       examples: [
         {
           command: 'monomind org migrate growth',

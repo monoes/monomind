@@ -1,4 +1,4 @@
-<!-- List all saved orgs with their status, schedule interval, and last/next run times. Shows stopped/active/paused state for scheduled orgs. -->
+<!-- List all saved orgs with their runtime status, schedule, and last run time. Flags crashed runs and legacy-format config files. -->
 
 **If $ARGUMENTS is empty:** Execute the listing below directly.
 

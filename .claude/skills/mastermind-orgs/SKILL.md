@@ -1,6 +1,6 @@
 ---
 name: mastermind-orgs
-description: Mastermind orgs — list all saved orgs with their status, schedule, and last/next run times. Shows stopped/active/paused state for scheduled orgs.
+description: Mastermind orgs — list all saved orgs with their runtime status, schedule, and last run time. Flags crashed runs and config files still in the legacy format.
 type: domain-skill
 default_mode: auto
 pick: low
@@ -43,10 +43,12 @@ fi
 
 ## Step 2 — Render Org Table
 
-For each org file (skip state/approvals files), extract and display. v2 orgs
-(Org Runtime v2, the default since 2026-07) carry `schedule` ("30m"/"2h") in the
-config and their live state in `.monomind/orgs/<name>/runtime.json`; only legacy
-v1 orgs have a `.loop` block.
+For each org file (skip state/approvals files), extract and display. An org
+carries `schedule` ("30m"/"2h") in the config and its live state in
+`.monomind/orgs/<name>/runtime.json`. A config file with a `.loop` block is in
+the legacy format — `monomind org run` converts it in memory (its
+`loop.poll_interval_minutes` becomes the schedule), and `monomind org migrate
+<name>` rewrites the file.
 
 ```bash
 echo ""
@@ -59,34 +61,25 @@ for f in $orgFiles; do
   schedule=$(jq -r '.schedule // empty' "$f" 2>/dev/null)
   loop_interval=$(jq -r '.loop.poll_interval_minutes // empty' "$f" 2>/dev/null)
 
-  if [ -z "$loop_interval" ]; then
-    # v2 org (default) — live state is in runtime.json (crashed = running record, dead pid)
-    interval="${schedule:-manual}"
-    rt=".monomind/orgs/${name}/runtime.json"
-    rt_status=$(jq -r '.status // "never run"' "$rt" 2>/dev/null || echo "never run")
-    rt_pid=$(jq -r '.pid // 0' "$rt" 2>/dev/null || echo 0)
-    if [ "$rt_status" = "running" ] && [ "$rt_pid" -gt 0 ] && ! kill -0 "$rt_pid" 2>/dev/null; then
-      indicator="✗ crashed"
-    elif [ "$rt_status" = "running" ]; then
-      indicator="● running"
-    elif [ "$rt_status" = "never run" ]; then
-      indicator="· never run"
-    else
-      indicator="○ ${rt_status}"
-    fi
-    last_run=$(jq -r '.updated // "—"' "$rt" 2>/dev/null | sed 's/T/ /;s/\..*Z//' || echo "—")
+  # legacy-format config: the runtime turns loop.poll_interval_minutes into the schedule
+  [ -z "$schedule" ] && [ -n "$loop_interval" ] && schedule="${loop_interval}m"
+  interval="${schedule:-manual}"
+  [ -n "$loop_interval" ] && interval="${interval} (legacy)"
+
+  # live state is in runtime.json (crashed = running record, dead pid)
+  rt=".monomind/orgs/${name}/runtime.json"
+  rt_status=$(jq -r '.status // "never run"' "$rt" 2>/dev/null || echo "never run")
+  rt_pid=$(jq -r '.pid // 0' "$rt" 2>/dev/null || echo 0)
+  if [ "$rt_status" = "running" ] && [ "$rt_pid" -gt 0 ] && ! kill -0 "$rt_pid" 2>/dev/null; then
+    indicator="✗ crashed"
+  elif [ "$rt_status" = "running" ]; then
+    indicator="● running"
+  elif [ "$rt_status" = "never run" ]; then
+    indicator="· never run"
   else
-    # LEGACY-ORG-V1: remove this branch when v1 orgs are gone
-    # legacy v1 scheduled org — state lives in the config's status field
-    interval="${loop_interval}m (v1)"
-    status=$(jq -r '.status // "—"' "$f" 2>/dev/null)
-    case "$status" in
-      active)  indicator="● active" ;;
-      paused)  indicator="⏸ paused" ;;
-      *)       indicator="○ stopped" ;;
-    esac
-    last_run=$(jq -r '.loop.last_run // "—"' "$f" 2>/dev/null | sed 's/T/ /;s/Z//')
+    indicator="○ ${rt_status}"
   fi
+  last_run=$(jq -r '.updated // "—"' "$rt" 2>/dev/null | sed 's/T/ /;s/\..*Z//' || echo "—")
 
   printf "%-28s %-14s %-12s %-22s\n" "$name" "$indicator" "$interval" "$last_run"
   echo "  └ $goal"
@@ -108,7 +101,8 @@ COMMANDS
   monomind org validate [name]           Check config against the runtime schema
   /mastermind:orgstatus --org <name>     Detailed status, last runs, activity
   /mastermind:createorg <goal>           Create a new org
-  /mastermind:runorg --org <name>        v2 delegator (auto-migrates v1 configs, then runs via the daemon)
+  /mastermind:runorg --org <name>        Validate and start an org (converts legacy-format configs first)
+  monomind org migrate <name>            Convert a legacy-format config file
 ```
 
 ---

@@ -195,7 +195,7 @@ monomind org memory <name>          # cross-run KG memory: stats (default) | sea
 
 `org` has <!-- doc-count:org-subcommands -->36<!-- /doc-count:org-subcommands --> subcommands total (skills, run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, events, watch, report, memory, costs, inbox, flow, questions, approvals, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete).
 
-> **Note:** `/mastermind:runorg` now delegates directly to the Org Runtime v2 daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. The old prompt-orchestrated flow (Task-tool boss agent, monotask board, manual dashboard event posting) is retired and no longer ships; `/mastermind:runorg` auto-migrates v1-shaped configs before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
+> **Note:** `/mastermind:runorg` delegates directly to the Org Runtime daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. `/mastermind:runorg` converts legacy-format org config files with `monomind org migrate` before starting the daemon. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
 
 ---
 
@@ -448,7 +448,7 @@ graph TD
 
 - 📖 [Full Documentation](https://monoes.github.io/monomind/)
 - 🖥️ [CLI Command Reference](https://github.com/monoes/monomind/blob/main/doc/commands/cli-reference.md)
-- 🏢 [Org Runtime v2 Architecture](https://github.com/monoes/monomind/blob/main/doc/concepts/org-runtime.md)
+- 🏢 [Org Runtime Architecture](https://github.com/monoes/monomind/blob/main/doc/concepts/org-runtime.md)
 - 🏢 [Autonomous Orgs](https://monoes.github.io/monomind/#orgs)
 - ⚡ [Mastermind Reference](https://monoes.github.io/monomind/#mastermind)
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)

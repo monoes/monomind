@@ -85,8 +85,9 @@ echo "  Active orgs: $orgs"
 
 ### heartbeats
 
-<!-- LEGACY-ORG-V1: role-level heartbeat scheduling is a v1 org concept — v2 orgs run on `schedule` via the daemon instead. -->
-List all agents across all orgs that have scheduled heartbeats:
+The Org Runtime does not read role-level `heartbeat` fields — orgs run on their
+top-level `schedule` under `monomind org serve`. This lists any role `heartbeat`
+fields still present in org config files:
 
 ```bash
 echo "SCHEDULER HEARTBEATS"
@@ -118,13 +119,14 @@ for orgF in .monomind/orgs/*.json; do
   done
 done
 
-[ "$found" -eq 0 ] && echo "  No scheduled heartbeat agents found. Configure via /mastermind:heartbeatv1."
+[ "$found" -eq 0 ] && echo "  No role heartbeat fields found. Orgs run on their top-level schedule via: monomind org serve"
 ```
 
 ### toggle-heartbeat
 
-<!-- LEGACY-ORG-V1: role-level heartbeat scheduling is a v1 org concept. -->
-Enable or disable the scheduler heartbeat for a specific agent:
+Flip the role-level `heartbeat.enabled` field for a specific agent. The Org
+Runtime ignores this field — to change when an org runs, edit its `schedule`
+with `/mastermind-org-settings`:
 
 ```bash
 [ -z "$agent_id" ] && { echo "ERROR: --agent-id required."; exit 1; }

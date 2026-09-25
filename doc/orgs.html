@@ -556,7 +556,7 @@ body {
       <span class="badge badge-violet">Memory-backed</span>
       <span class="badge badge-accent">Policy-gated</span>
     </div>
-    <p style="margin-top:16px;font-size:12px;color:var(--muted, #8a8a8a)">The v1 prompt-orchestrated org runner was retired. <code>/mastermind:createorg</code> writes v2 configs, and <code>/mastermind:runorg</code> is the v2 delegator (validates, auto-migrates v1-shaped configs, starts via <code>monomind org run</code> shown above).</p>
+    <p style="margin-top:16px;font-size:12px;color:var(--muted, #8a8a8a)"><code>/mastermind:createorg</code> writes org configs, and <code>/mastermind:runorg</code> starts them (validates, converts legacy-format config files, starts via <code>monomind org run</code> shown above).</p>
   </div>
 
   <div class="hero-right" aria-hidden="true">
