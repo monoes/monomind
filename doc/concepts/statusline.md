@@ -92,7 +92,7 @@ Source: `.claude/helpers/statusline.cjs:1228-1267`.
 | `🔄 no active loops` / `🔄 ⟳ cmd 2/5`        | Active `/loop` runs                                           | `.monomind/loops/*.json` (`getLoopStatus()`), skipping files with no activity in the last 6 hours. Up to 2 shown, `+N more` beyond that. `⏳ HIL` in place of `⟳` marks a loop waiting on a human answer; a `tillend`-type loop shows `run N` instead of `N/max` |
 | `⚡123ms` (only when present)                 | Per-prompt hook latency                                       | `.monomind/metrics/hook-latency.json` (`getHookLatency()`); only shown when > 0ms, coral when > 500ms                                                                                                    |
 
-**Agent display logic:** the agent name is formatted from the slug (`level-designer` → `Level Designer`). If a display name is set in the agent's markdown file, that takes priority. For predefined slash commands (`/ts`, `/commit`, etc.) the command name itself is shown instead of a routing result.
+**Agent display logic:** the agent name is formatted from the slug (`goal-planner` → `Goal Planner`). If a display name is set in the agent's markdown file, that takes priority. For predefined slash commands (`/ts`, `/commit`, etc.) the command name itself is shown instead of a routing result.
 
 ---
 
