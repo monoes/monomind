@@ -1,3 +1,4 @@
+# monomind:start gitignore
 # Monomind — deny by default, allow-list what's meant to be committed.
 # See doc/privacy.md and i-052: a curated denylist can always miss its
 # next dangerous entry (this repo shipped a live credential leak because
@@ -12,12 +13,6 @@
 !CAPABILITIES.md
 !orgs/
 !orgs/sample-team.json
-!orgs/monomind-dev.json
-!orgs/release.json
-# Project org skills (text only) — see orgrt/skill-library.ts.
-!org-skills/
-!org-skills/*/
-!org-skills/*/*.md
 
 # Org DEFINITIONS are meant to be committed (ADR-O001 D6) — but by NAME, one
 # line per org, never `!orgs/*.json`. `orgs/` is the org runtime's working
@@ -36,3 +31,11 @@
 # leave your computer" claim is about exactly this data; un-ignoring it by
 # default would be a larger privacy regression than the credential this
 # item exists to fix.
+# monomind:end gitignore
+
+!orgs/monomind-dev.json
+!orgs/release.json
+# Project org skills (text only) — see orgrt/skill-library.ts.
+!org-skills/
+!org-skills/*/
+!org-skills/*/*.md

@@ -1,3 +1,4 @@
+<!-- monomind-block:gemini-md -->
 # Monomind for Antigravity (agy) — v2.8.0
 
 > Monomind extends agy with a codebase knowledge graph (Monograph), persistent
@@ -40,3 +41,4 @@ Org role provider can be set to `gemini` in the org JSON:
 ```json
 { "provider": { "kind": "gemini", "apiKeyEnv": "GEMINI_API_KEY" } }
 ```
+<!-- /monomind-block:gemini-md -->
