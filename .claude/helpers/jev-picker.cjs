@@ -282,6 +282,39 @@ function toAnswer(answer, criteria) {
   return { choice: answer.choice, confidence: answer.confidence, ranked: rankedFrom(answer, criteria) };
 }
 
+/** The options sent for one question: the keyword-ranked items that share a
+ *  word with the task (forced `include` ids first), then the rest round-robin
+ *  across categories (an agent's category, else an id's first segment) — so
+ *  a task that matches few or no words (a non-English prompt) is not judged
+ *  over the first `max` entries of one category. */
+function candidatesFor(text, items, max, include) {
+  var forced = new Set(include || []);
+  var out = shortlist(text, items, max, include).filter(function (item) {
+    return item.score > 0 || forced.has(item.id);
+  });
+  if (out.length >= max) return out;
+  var taken = new Set(out.map(function (item) { return item.id; }));
+  var groups = new Map();
+  items.forEach(function (item) {
+    if (taken.has(item.id)) return;
+    var key = item.category || String(item.id).toLowerCase().split(/[-:_/]/)[0];
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+  var lists = Array.from(groups.values());
+  for (var round = 0; out.length < max; round++) {
+    var added = false;
+    for (var g = 0; g < lists.length && out.length < max; g++) {
+      if (round < lists[g].length) {
+        out.push(lists[g][round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
 /** Pick an agent and/or a skill for `task` in ONE request. null = no decision. */
 async function pick(task, catalogs, opts) {
   opts = opts || {};
@@ -296,7 +329,7 @@ async function pick(task, catalogs, opts) {
   var skills = catalogs && Array.isArray(catalogs.skills) ? catalogs.skills : [];
   var questions = {};
   if (agents.length >= 2) {
-    var agentCriteria = criteriaFor(shortlist(text, agents, max, include.agents));
+    var agentCriteria = criteriaFor(candidatesFor(text, agents, max, include.agents));
     agentCriteria[NONE_ID] = 'None of these agents fits the task';
     questions.agent = {
       type: 'choice',
@@ -305,7 +338,7 @@ async function pick(task, catalogs, opts) {
     };
   }
   if (skills.length >= 1) {
-    var skillCriteria = criteriaFor(shortlist(text, skills, max, include.skills));
+    var skillCriteria = criteriaFor(candidatesFor(text, skills, max, include.skills));
     skillCriteria[NONE_ID] = 'None of these skills fits the task';
     questions.skill = {
       type: 'choice',
