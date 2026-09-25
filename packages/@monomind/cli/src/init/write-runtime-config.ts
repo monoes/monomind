@@ -5,6 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MONOMIND_NEVER_COMMIT } from './never-commit.js';
+import { mergeGitignoreBlock, mergeYamlDefaults } from './runtime-config-merge.js';
 import { atomicWriteFile, MAX_EXEC_FILE_BYTES, writeGeneratedFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
@@ -41,125 +42,16 @@ export async function writeRuntimeConfig(
 ): Promise<void> {
   const configPath = path.join(targetDir, '.monomind', 'config.yaml');
 
-  if (fs.existsSync(configPath) && !options.force) {
+  // No early return when config.yaml is kept: the .gitignore coverage below
+  // must still reach projects that already have one (it never did).
+  const configExists = fs.existsSync(configPath);
+  if (configExists && !options.force) {
     result.skipped.push('.monomind/config.yaml');
-    return;
-  }
-
-  const config = `# Monomind Runtime Configuration
-# Generated: ${new Date().toISOString()}
-
-version: "3.0.0"
-
-swarm:
-  topology: ${options.runtime.topology}
-  maxAgents: ${options.runtime.maxAgents}
-  autoScale: true
-  coordinationStrategy: consensus
-
-memory:
-  backend: ${options.runtime.memoryBackend}
-  persistPath: .monomind/data
-  cacheSize: 100
-  # ADR-049: Self-Learning Memory
-  learningBridge:
-    enabled: ${options.runtime.enableLearningBridge ?? options.runtime.enableNeural}
-    confidenceDecayRate: 0.005
-    accessBoostAmount: 0.03
-    consolidationThreshold: 10
-  agentScopes:
-    enabled: ${options.runtime.enableAgentScopes ?? true}
-    defaultScope: project
-
-neural:
-  enabled: ${options.runtime.enableNeural}
-  modelPath: .monomind/neural
-
-hooks:
-  enabled: true
-  autoExecute: true
-
-mcp:
-  autoStart: ${options.mcp.autoStart}
-  port: ${options.mcp.port}
-`;
-
-  writeGeneratedFile(configPath, config);
-  result.created.files.push('.monomind/config.yaml');
-
-  // Write .monomind/.gitignore.
-  const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
-
-  if (!fs.existsSync(gitignorePath) || options.force) {
-    // i-052 §2(ii) — deny-by-default for FRESH projects. Three
-    // independently-maintained denylists (this file's old body,
-    // MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES, and doctor's
-    // REQUIRED_GITIGNORE_PATTERNS) all separately omitted `dashboard-token`
-    // — a denylist can always miss its next dangerous entry. Ignoring
-    // everything under .monomind/ and explicitly un-ignoring only what's
-    // genuinely meant to be shared means a file monomind starts writing
-    // tomorrow is protected by construction, with no list to remember to
-    // update. Order matters for git's "can't re-include inside an excluded
-    // parent" rule: `!orgs/` must precede any `!orgs/<org>.json` line.
-    const gitignore = `# Monomind — deny by default, allow-list what's meant to be committed.
-# See doc/privacy.md and i-052: a curated denylist can always miss its
-# next dangerous entry (this repo shipped a live credential leak because
-# three separate ones did). Ignoring everything and un-ignoring only what
-# monomind genuinely wants shared makes "we forgot to un-ignore something
-# harmless" the failure mode instead of "we leaked a credential".
-*
-
-# What monomind wants committed:
-!.gitignore
-!config.yaml
-!CAPABILITIES.md
-!orgs/
-!orgs/sample-team.json
-
-# Org DEFINITIONS are meant to be committed (ADR-O001 D6) — but by NAME, one
-# line per org, never \`!orgs/*.json\`. \`orgs/\` is the org runtime's working
-# directory, not a folder of definitions: the runtime and the mastermind
-# skills write ~20 sibling <org>-*.json files into it (-state, -members,
-# -approvals, -join-requests, -budgets, -issues, and -secrets). A *.json glob
-# re-includes every one of them, so the first org you create re-arms exactly
-# the leak this deny-by-default inversion exists to prevent. Only
-# sample-team.json (which \`monomind init\` itself writes) is listed here; add
-# a \`!orgs/<your-org>.json\` line for each org you want under version control.
-
-# Deliberately NOT allow-listed: knowledge/ — chunks.jsonl and
-# doc-metadata.jsonl are the actual ingested content of the user's own
-# files, not metadata (doctor-project-checks.ts's REQUIRED_GITIGNORE_PATTERNS
-# ignores it for the same reason). README/privacy.md's "Your notes never
-# leave your computer" claim is about exactly this data; un-ignoring it by
-# default would be a larger privacy regression than the credential this
-# item exists to fix.
-`;
-    atomicWriteFile(gitignorePath, gitignore);
-    result.created.files.push('.monomind/.gitignore');
   } else {
-    // i-066 reviewer finding 3, generalised for i-052: a project inited
-    // BEFORE a MONOMIND_NEVER_COMMIT entry existed keeps its old
-    // .monomind/.gitignore forever unless --force is passed, and none of
-    // that file's original patterns (*.key, *.token, *.secret, .env) match
-    // an extensionless or otherwise-shaped file like `dashboard-token`.
-    // Make the fix additive: append every currently-missing entry even on
-    // a non-forced re-init, content-guarded per line so a second run is a
-    // no-op and existing entries are never duplicated. This one loop is
-    // what originally only covered monoes-connection.json (i-066) — turned
-    // from a single hardcoded line into a list so a future
-    // MONOMIND_NEVER_COMMIT addition reaches the installed base too,
-    // without a fourth hand-written append site.
-    const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
-    const existingLines = new Set(existingGitignore.split('\n').map((line) => line.trim()));
-    const missing = MONOMIND_NEVER_COMMIT.filter(({ file }) => !existingLines.has(file));
-    if (missing.length > 0) {
-      const appendLines = missing.map(({ file, reason }) => `# ${reason}\n${file}`).join('\n');
-      atomicWriteFile(gitignorePath, `${existingGitignore.trimEnd()}\n${appendLines}\n`);
-      result.updated.push(
-        `.monomind/.gitignore (added ${missing.map(({ file }) => file).join(', ')} coverage)`,
-      );
-    }
+    writeConfigYaml(configPath, configExists, options, result);
   }
+
+  writeMonomindGitignore(targetDir, options, result);
 
   // Ensure the project-level .gitignore does NOT blanket-ignore .monomind/
   // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
@@ -208,6 +100,148 @@ mcp:
 
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
+}
+
+/** Writes config.yaml, or under --force fills in only the defaults the
+ *  user's file lacks — a wholesale rewrite discarded their settings. */
+function writeConfigYaml(
+  configPath: string,
+  exists: boolean,
+  options: InitOptions,
+  result: InitResult,
+): void {
+  const config = `# Monomind Runtime Configuration
+# Generated: ${new Date().toISOString()}
+
+version: "3.0.0"
+
+swarm:
+  topology: ${options.runtime.topology}
+  maxAgents: ${options.runtime.maxAgents}
+  autoScale: true
+  coordinationStrategy: consensus
+
+memory:
+  backend: ${options.runtime.memoryBackend}
+  persistPath: .monomind/data
+  cacheSize: 100
+  # ADR-049: Self-Learning Memory
+  learningBridge:
+    enabled: ${options.runtime.enableLearningBridge ?? options.runtime.enableNeural}
+    confidenceDecayRate: 0.005
+    accessBoostAmount: 0.03
+    consolidationThreshold: 10
+  agentScopes:
+    enabled: ${options.runtime.enableAgentScopes ?? true}
+    defaultScope: project
+
+neural:
+  enabled: ${options.runtime.enableNeural}
+  modelPath: .monomind/neural
+
+hooks:
+  enabled: true
+  autoExecute: true
+
+mcp:
+  autoStart: ${options.mcp.autoStart}
+  port: ${options.mcp.port}
+`;
+
+  // The merged file keeps the user's header; carry the fresh stamp into it so
+  // a real change is dated (writeGeneratedFile skips a stamp-only change).
+  const stamp = /Generated: \S+/.exec(config)?.[0] ?? '';
+  const merged = exists
+    ? mergeYamlDefaults(fs.readFileSync(configPath, 'utf-8'), config).replace(
+        /Generated: \S+/,
+        () => stamp,
+      )
+    : config;
+  writeGeneratedFile(configPath, merged);
+  result.created.files.push(
+    exists ? '.monomind/config.yaml (merged defaults)' : '.monomind/config.yaml',
+  );
+}
+
+// i-052 §2(ii) — deny-by-default for FRESH projects. Three
+// independently-maintained denylists (this file's old body,
+// MONOMIND_GITIGNORE_SPECIFIC_EXCLUDES, and doctor's
+// REQUIRED_GITIGNORE_PATTERNS) all separately omitted `dashboard-token`
+// — a denylist can always miss its next dangerous entry. Ignoring
+// everything under .monomind/ and explicitly un-ignoring only what's
+// genuinely meant to be shared means a file monomind starts writing
+// tomorrow is protected by construction, with no list to remember to
+// update. Order matters for git's "can't re-include inside an excluded
+// parent" rule: `!orgs/` must precede any `!orgs/<org>.json` line.
+const MONOMIND_GITIGNORE_TEMPLATE = `# Monomind — deny by default, allow-list what's meant to be committed.
+# See doc/privacy.md and i-052: a curated denylist can always miss its
+# next dangerous entry (this repo shipped a live credential leak because
+# three separate ones did). Ignoring everything and un-ignoring only what
+# monomind genuinely wants shared makes "we forgot to un-ignore something
+# harmless" the failure mode instead of "we leaked a credential".
+*
+
+# What monomind wants committed:
+!.gitignore
+!config.yaml
+!CAPABILITIES.md
+!orgs/
+!orgs/sample-team.json
+
+# Org DEFINITIONS are meant to be committed (ADR-O001 D6) — but by NAME, one
+# line per org, never \`!orgs/*.json\`. \`orgs/\` is the org runtime's working
+# directory, not a folder of definitions: the runtime and the mastermind
+# skills write ~20 sibling <org>-*.json files into it (-state, -members,
+# -approvals, -join-requests, -budgets, -issues, and -secrets). A *.json glob
+# re-includes every one of them, so the first org you create re-arms exactly
+# the leak this deny-by-default inversion exists to prevent. Only
+# sample-team.json (which \`monomind init\` itself writes) is listed here; add
+# a \`!orgs/<your-org>.json\` line for each org you want under version control.
+
+# Deliberately NOT allow-listed: knowledge/ — chunks.jsonl and
+# doc-metadata.jsonl are the actual ingested content of the user's own
+# files, not metadata (doctor-project-checks.ts's REQUIRED_GITIGNORE_PATTERNS
+# ignores it for the same reason). README/privacy.md's "Your notes never
+# leave your computer" claim is about exactly this data; un-ignoring it by
+# default would be a larger privacy regression than the credential this
+# item exists to fix.
+`;
+
+/** Writes .monomind/.gitignore. The template lives inside a managed block so
+ *  --force refreshes only that block: users are told to add
+ *  `!orgs/<org>.json` lines, and regenerating the whole file deleted them. */
+function writeMonomindGitignore(targetDir: string, options: InitOptions, result: InitResult): void {
+  const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
+  const exists = fs.existsSync(gitignorePath);
+  if (!exists || options.force) {
+    const existing = exists ? fs.readFileSync(gitignorePath, 'utf-8') : '';
+    const merged = mergeGitignoreBlock(existing, MONOMIND_GITIGNORE_TEMPLATE);
+    if (merged !== existing) atomicWriteFile(gitignorePath, merged);
+    result.created.files.push('.monomind/.gitignore');
+    return;
+  }
+  // i-066 reviewer finding 3, generalised for i-052: a project inited
+  // BEFORE a MONOMIND_NEVER_COMMIT entry existed keeps its old
+  // .monomind/.gitignore forever unless --force is passed, and none of
+  // that file's original patterns (*.key, *.token, *.secret, .env) match
+  // an extensionless or otherwise-shaped file like `dashboard-token`.
+  // Make the fix additive: append every currently-missing entry even on
+  // a non-forced re-init, content-guarded per line so a second run is a
+  // no-op and existing entries are never duplicated. This one loop is
+  // what originally only covered monoes-connection.json (i-066) — turned
+  // from a single hardcoded line into a list so a future
+  // MONOMIND_NEVER_COMMIT addition reaches the installed base too,
+  // without a fourth hand-written append site.
+  const existingGitignore = fs.readFileSync(gitignorePath, 'utf-8');
+  const existingLines = new Set(existingGitignore.split('\n').map((line) => line.trim()));
+  const missing = MONOMIND_NEVER_COMMIT.filter(({ file }) => !existingLines.has(file));
+  if (missing.length > 0) {
+    const appendLines = missing.map(({ file, reason }) => `# ${reason}\n${file}`).join('\n');
+    atomicWriteFile(gitignorePath, `${existingGitignore.trimEnd()}\n${appendLines}\n`);
+    result.updated.push(
+      `.monomind/.gitignore (added ${missing.map(({ file }) => file).join(', ')} coverage)`,
+    );
+  }
 }
 
 /**

@@ -172,6 +172,13 @@ describe('init never narrows an existing blanket .monomind/ ignore', () => {
 // criterion that reaches the installed base, which commit 2's deny-by-
 // default inversion (new projects only) explicitly does not.
 describe('an existing pre-fix .monomind/.gitignore gets every MONOMIND_NEVER_COMMIT entry appended, even without --force', () => {
+  // A project old enough to have a pre-fix .gitignore has a config.yaml too.
+  // Without it in the fixture, a non-forced run took the "fresh project"
+  // path and hid that an existing config.yaml returned before the append.
+  beforeEach(() => {
+    writeFileSync(join(targetDir, '.monomind', 'config.yaml'), 'version: "3.0.0"\n');
+  });
+
   const PRE_FIX_GITIGNORE = `# Monomind — exclude files that may contain secrets or sensitive prompt data
 sessions/
 security/

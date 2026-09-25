@@ -7,7 +7,7 @@
  * differing only in that timestamp — diff noise nobody can act on.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -88,12 +88,17 @@ describe('init --force is byte-stable for timestamped generated files', () => {
     const firstConfig = readFileSync(configPath, 'utf-8');
     const firstCapabilities = readFileSync(capabilitiesPath, 'utf-8');
 
+    // config.yaml is merged, not regenerated: --force keeps the values on
+    // disk and only adds defaults the file lacks. So the real change here is
+    // a default an older config.yaml never had.
+    writeFileSync(configPath, firstConfig.replace(/^ {2}port: .*\n/m, ''));
     await run({ maxAgents: DEFAULT_INIT_OPTIONS.runtime.maxAgents + 1 });
 
     const secondConfig = readFileSync(configPath, 'utf-8');
     const secondCapabilities = readFileSync(capabilitiesPath, 'utf-8');
 
-    expect(secondConfig).toContain(`maxAgents: ${DEFAULT_INIT_OPTIONS.runtime.maxAgents + 1}`);
+    expect(secondConfig).toMatch(/^ {2}port: \d+$/m);
+    expect(secondConfig).toContain(`maxAgents: ${DEFAULT_INIT_OPTIONS.runtime.maxAgents}\n`);
     expect(secondConfig).not.toBe(firstConfig);
     expect(secondCapabilities).not.toBe(firstCapabilities);
     expect(generatedStamp(secondConfig) >= generatedStamp(firstConfig)).toBe(true);
