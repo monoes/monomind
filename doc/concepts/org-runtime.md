@@ -762,7 +762,7 @@ as one mailbox line, `[task:<id>] <title>` (plus `[loadout:<name>]` when one was
 `org_task` and each `org_plan_graph` node take an optional `brief` (at most 4000 characters) — the
 creator's instructions: scope, acceptance criteria, paths, what failed last time. It is stored on
 the task ([`task-dag.ts → OrgTask`](packages/@monomind/cli/src/orgrt/task-dag.ts#OrgTask)), so it
-rides the checkpoint and split children inherit it, and [`decisions.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchLine)
+rides the checkpoint and split children inherit it, and [`task-provenance.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/task-provenance.ts#dispatchLine)
 appends it below the title in every dispatch of the task — the first one, one made later when its
 deps complete, and a re-dispatch after a refused close or a resume. A briefing sent as a separate
 `org_send` only joins the dispatch if it lands inside the 500 ms coalescing window; on the 2.16.0
@@ -771,7 +771,7 @@ The `[task:<id>]` tag is also the routing key: with `run_config.session_scope: "
 model session is keyed per task, so a dispatch resumes that task's session
 ([`session-ledger.ts → mailRouteKey`](packages/@monomind/cli/src/orgrt/session-ledger.ts#mailRouteKey)).
 
-`org_task`'s `assignee` accepts the literal string `"auto"`: [`daemon.ts → resolveAutoAssignee`](packages/@monomind/cli/src/orgrt/daemon.ts#resolveAutoAssignee)
+`org_task`'s `assignee` accepts the literal string `"auto"`: [`task-match.ts → resolveAutoAssignee`](packages/@monomind/cli/src/orgrt/task-match.ts#resolveAutoAssignee)
 picks the role with [`task-match.ts → pickTaskRole`](packages/@monomind/cli/src/orgrt/task-match.ts#pickTaskRole)
 from the task's title and the first 600 characters of its brief. Candidates are the agent roles
 other than the caller — an endpoint role or the role creating the task is never picked. The Jev
@@ -796,7 +796,7 @@ ride the checkpoint and older checkpoints load unchanged.
 
 Each dispatch also names the assignee's unloaded on-demand skills that fit the task's title and
 brief, appended to the mailbox line — `Skills that fit this task (load with org_skill_load): <names>`
-([`decisions.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/decisions.ts#dispatchLine),
+([`task-provenance.ts → dispatchLine`](packages/@monomind/cli/src/orgrt/task-provenance.ts#dispatchLine),
 [`picks.ts → suggestTaskSkills`](packages/@monomind/cli/src/decision/picks.ts#suggestTaskSkills)):
 Jev's pick when it answers, otherwise a keyword match over the pool (`MIN_SKILL_SCORE`, at most
 two, near-ties broken the same bounded way by the outcomes of this run's tasks that loaded each skill — [`task-match.ts → skillOutcomePrior`](packages/@monomind/cli/src/orgrt/task-match.ts#skillOutcomePrior)), and only ever names from the role's own pool. The suggestion is recorded on the task

@@ -108,7 +108,7 @@ import { SessionLedger } from './session-ledger.js';
 import { effectiveToolProviders } from './skill-library.js';
 import { TaskProcesses } from './task-cancel.js';
 import { TaskDag } from './task-dag.js';
-import { pickTaskRole, type RolePick, type TaskOutcome, type TaskPick } from './task-match.js';
+import { resolveAutoAssignee, type TaskPick } from './task-match.js';
 import { type ChainTrace, roleProviderPrefixes, ToolProviderHub } from './tool-providers.js';
 import {
   type BusEvent,
@@ -273,31 +273,7 @@ export function resolveRoleRunner(
   return resolveRunner(undefined, roleProviderKind ?? orgProviderKind, roleProvider);
 }
 
-/** Resolves `assignee: "auto"` on org_task (SessionOpts.pickAssignee).
- *  pickTaskRole (task-match.ts) falls back to a deterministic keyword match
- *  over role titles/responsibilities whenever no decision model answers, so
- *  this is wired unconditionally: gating it behind decisionModelConfigured()
- *  once left a literal "auto" assignee stranded as 'ready' forever
- *  (round1-issue1). Candidates are the agent roles other than the caller;
- *  `load` (open tasks per role) only breaks ties between interchangeable
- *  roles; `history` (the run's tasks) lets the keyword pick lean toward roles
- *  that finished similar tasks. */
-export function resolveAutoAssignee(
-  def: Pick<OrgDef, 'roles'>,
-  load?: (roleId: string) => number,
-  history?: () => TaskOutcome[],
-): (title: string, brief?: string, caller?: string) => Promise<RolePick> {
-  return (title: string, brief?: string, caller?: string) =>
-    pickTaskRole({ title, brief }, def.roles, {
-      caller,
-      load,
-      history: history?.(),
-      onError: (err) =>
-        process.stderr.write(
-          `[org] decision model "${err.provider}" unavailable (${err.message})\n`,
-        ),
-    });
-}
+export { resolveAutoAssignee } from './task-match.js';
 
 /** Per-role token budget: a role's own `budget_tokens` wins; otherwise the
  *  even split of run_config.budget_tokens across all roles. */
