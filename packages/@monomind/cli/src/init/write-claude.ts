@@ -11,7 +11,7 @@ import {
   INIT_FALLBACK_HELPERS,
   OBSOLETE_HELPER_NAMES,
 } from './helpers-generator.js';
-import { generateMCPJson } from './mcp-generator.js';
+import { generateMCPJson, mergeMCPJson } from './mcp-generator.js';
 import { generateSettingsJson } from './settings-generator.js';
 import {
   atomicWriteFile,
@@ -313,32 +313,12 @@ export async function writeMCPConfig(
 
   // --force refreshes monomind's own server entry only. Replacing the file
   // wholesale deleted every other MCP server the project had registered.
-  let existing: { mcpServers?: Record<string, Record<string, unknown>> };
-  try {
-    existing = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-    if (!existing || typeof existing !== 'object' || Array.isArray(existing)) throw new Error();
-  } catch {
+  const merged = mergeMCPJson(fs.readFileSync(mcpPath, 'utf-8'), content);
+  if (merged === null) {
     result.errors.push('.mcp.json is not a JSON object — left untouched; fix it and re-run init');
     return;
   }
-  const generated = JSON.parse(content).mcpServers as Record<string, Record<string, unknown>>;
-  const servers = { ...(existing.mcpServers ?? {}) };
-  for (const [name, entry] of Object.entries(generated)) {
-    // Servers the generator emits are monomind's own (monoes' tokenless entry
-    // is how a leaked token is migrated away), so they are replaced.
-    if (name !== 'monomind') {
-      servers[name] = entry;
-      continue;
-    }
-    // Refresh command/args, keep every field and env value the user set.
-    const current = servers.monomind ?? {};
-    servers.monomind = {
-      ...current,
-      ...entry,
-      env: { ...(entry.env as object), ...(current.env as object) },
-    };
-  }
-  atomicWriteFile(mcpPath, `${JSON.stringify({ ...existing, mcpServers: servers }, null, 2)}\n`);
+  atomicWriteFile(mcpPath, merged);
   result.created.files.push('.mcp.json (merged monomind server)');
 }
 

@@ -19,6 +19,34 @@ import type { InitOptions } from './types.js';
 export { buildMonoesMcpEntry };
 
 /**
+ * `existing` .mcp.json text with `generated`'s servers merged in, or null when
+ * `existing` is not a JSON object. Only monomind's entries change: servers the
+ * generator emits replace their namesakes (the tokenless monoes entry is how a
+ * leaked token is migrated away), except `monomind`, whose command/args are
+ * refreshed while every other field and env value the user set is kept. Other
+ * servers and top-level keys are untouched.
+ */
+export function mergeMCPJson(existing: string, generated: string): string | null {
+  type Servers = Record<string, Record<string, unknown>>;
+  let parsed: { mcpServers?: Servers };
+  try {
+    parsed = JSON.parse(existing);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const servers: Servers = { ...(parsed.mcpServers ?? {}) };
+  for (const [name, entry] of Object.entries(JSON.parse(generated).mcpServers as Servers)) {
+    const current = servers[name] ?? {};
+    servers[name] =
+      name === 'monomind'
+        ? { ...current, ...entry, env: { ...(entry.env as object), ...(current.env as object) } }
+        : entry;
+  }
+  return `${JSON.stringify({ ...parsed, mcpServers: servers }, null, 2)}\n`;
+}
+
+/**
  * Generate MCP configuration
  */
 export function generateMCPConfig(options: InitOptions): object {
