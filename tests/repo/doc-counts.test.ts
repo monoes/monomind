@@ -15,6 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -29,5 +30,31 @@ describe('#128: doc-count markers are up to date', () => {
         stdio: 'pipe',
       });
     }).not.toThrow();
+  });
+});
+
+describe('doc counts are the same on every machine', () => {
+  // The counts used to walk the working tree, so a gitignored or untracked
+  // skill (the locally compiled monodesign skill, a scratch skill someone is
+  // drafting) changed them: the committed docs said 89/84 bundled/pickable
+  // skills where a checkout with monodesign compiled said 90/85. Only tracked
+  // files plus the skills generated at pack time may count.
+  it('an untracked skill in the shipped tree does not change any count', () => {
+    const probe = join(REPO_ROOT, 'packages/@monomind/cli/.claude/skills/zz-doc-counts-probe');
+    mkdirSync(probe, { recursive: true });
+    writeFileSync(
+      join(probe, 'SKILL.md'),
+      '---\nname: zz-doc-counts-probe\ndescription: untracked probe\n---\n\nprobe\n',
+    );
+    try {
+      expect(() => {
+        execFileSync('node', [join(REPO_ROOT, 'scripts', 'generate-doc-counts.mjs'), '--check'], {
+          cwd: REPO_ROOT,
+          stdio: 'pipe',
+        });
+      }).not.toThrow();
+    } finally {
+      rmSync(probe, { recursive: true, force: true });
+    }
   });
 });
