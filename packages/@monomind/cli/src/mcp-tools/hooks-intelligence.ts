@@ -906,7 +906,7 @@ export const hooksModelOutcome: MCPTool = {
     // feed. What we do have: an append-only ledger of routing decisions and their
     // measured outcomes, mirroring route-outcomes.ts. hooks_model-stats reads this
     // back to compute real aggregate statistics.
-    await recordModelOutcome(getModelOutcomesBaseDir(), {
+    const recorded = await recordModelOutcome(getModelOutcomesBaseDir(), {
       ts: Date.now(),
       task: task || '',
       model,
@@ -915,7 +915,7 @@ export const hooksModelOutcome: MCPTool = {
     });
 
     return {
-      recorded: true,
+      recorded,
       task: (task || '').slice(0, 50),
       model,
       outcome,

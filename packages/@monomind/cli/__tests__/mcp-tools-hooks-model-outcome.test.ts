@@ -9,7 +9,7 @@
  * reader.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hooksModelOutcome, hooksModelStats } from '../src/mcp-tools/hooks-intelligence.js';
@@ -52,6 +52,20 @@ describe('hooks_model-outcome / hooks_model-stats', () => {
     expect(rec.model).toBe('sonnet');
     expect(rec.outcome).toBe('success');
     expect(rec.task).toBe('implement auth flow');
+  });
+
+  it('reports recorded: false when the ledger cannot be written (#346)', async () => {
+    // A plain file where the ledger directory should be makes mkdir/append fail.
+    mkdirSync(join(projectDir, '.monomind'), { recursive: true });
+    writeFileSync(join(projectDir, '.monomind', 'neural'), 'not a dir');
+
+    const result = (await hooksModelOutcome.handler({
+      task: 'implement auth flow',
+      model: 'sonnet',
+      outcome: 'success',
+    })) as Record<string, unknown>;
+
+    expect(result.recorded).toBe(false);
   });
 
   it('model-stats reads back multiple recorded outcomes and computes real aggregates', async () => {

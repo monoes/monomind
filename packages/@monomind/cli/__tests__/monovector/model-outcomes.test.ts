@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -31,7 +31,9 @@ describe('model-outcomes ledger', () => {
   });
 
   it('appends a real record to model-outcomes.jsonl', async () => {
-    await recordModelOutcome(dir, rec({ task: 'implement auth', model: 'opus', outcome: 'success' }));
+    expect(
+      await recordModelOutcome(dir, rec({ task: 'implement auth', model: 'opus', outcome: 'success' })),
+    ).toBe(true);
 
     const raw = readFileSync(join(dir, 'model-outcomes.jsonl'), 'utf8');
     const lines = raw.trim().split('\n');
@@ -40,6 +42,13 @@ describe('model-outcomes ledger', () => {
     expect(parsed.task).toBe('implement auth');
     expect(parsed.model).toBe('opus');
     expect(parsed.outcome).toBe('success');
+  });
+
+  it('returns false without throwing when the ledger cannot be written (#346)', async () => {
+    const blocked = join(dir, 'blocked');
+    writeFileSync(blocked, 'not a dir');
+    await expect(recordModelOutcome(join(blocked, 'neural'), rec({}))).resolves.toBe(false);
+    await expect(recordModelOutcome(blocked, rec({}))).resolves.toBe(false);
   });
 
   it('reads back multiple appended records', async () => {

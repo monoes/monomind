@@ -221,6 +221,24 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
     expect(text).toContain(`(${(data.complexity * 100).toFixed(0)}%)`);
   });
 
+  it('model-outcome reports whether the outcome reached the ledger (#346)', async () => {
+    const flags = { task: 'refactor a module', model: 'sonnet', outcome: 'success' };
+    const ok = await run(modelOutcomeCommand, makeCtx([], flags, dir));
+    expect(ok.result.success).toBe(true);
+    expect((ok.result.data as { recorded: boolean }).recorded).toBe(true);
+    expect(ok.text).toContain('Outcome recorded for sonnet: success');
+
+    // A plain file where the ledger directory should be makes the append fail.
+    rmSync(join(dir, '.monomind'), { recursive: true, force: true });
+    mkdirSync(join(dir, '.monomind'));
+    writeFileSync(join(dir, '.monomind', 'neural'), 'not a dir');
+    const failed = await run(modelOutcomeCommand, makeCtx([], flags, dir));
+    expect((failed.result.data as { recorded: boolean }).recorded).toBe(false);
+    expectClean(failed.text);
+    expect(failed.text).not.toContain('Outcome recorded for');
+    expect(failed.text).toContain('Outcome not recorded for sonnet: the ledger write failed');
+  });
+
   it('model-stats prints the success rate and quality the ledger records', async () => {
     const ctx = (model: string, outcome: string, quality: number) =>
       makeCtx([], { task: 'refactor a module', model, outcome, quality }, dir);

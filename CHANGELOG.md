@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`hooks_model-outcome` reports `recorded: false` when the ledger write fails.** ([Fixes #346](https://github.com/monoes/monomind/issues/346)) `recordModelOutcome` swallowed every error and the tool always returned `recorded: true`, so an unwritable `.monomind/neural/` or a full disk dropped the outcome without anyone knowing. `recordModelOutcome` still never throws, but it now resolves to whether the line was appended, the tool reports that, and `hooks model-outcome` prints a warning instead of "Outcome recorded" when the write failed.
+
 ## [2.16.7] — 2026-09-26
 
 ### Changed
