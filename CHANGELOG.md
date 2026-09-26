@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`agent scan` no longer runs the agent CLIs it finds, so it does not download or write their state.** ([Fixes #337](https://github.com/monoes/monomind/issues/337)) It ran every installed runtime's `--version`, and in an empty HOME grok downloaded its 159MB native binary into `~/.grok`, hermes wrote `~/.hermes/logs` and `.update_check`, and codex, opencode and copilot created their own directories. Scan now reads the version from the npm `package.json` that owns the binary or from a mise/asdf `installs/<tool>/<version>` directory, and runs `--version` only for `claude`, `antigravity` and `pi`, whose `--version` writes nothing. For any other runtime it reports `version: null`. `agent scan --probe` runs `--version` for all of them, in a scratch HOME, cwd and TMPDIR that is deleted afterwards (grok still downloads into it). Each entry gains `version_source` (`package.json`, `install-path`, `exec` or `not-probed`), and the capability `agent-scan-read-only` advertises the change. The MCP `org_list_runtime_options` tool gets the same read-only scan. Contract: `doc/agent-exec-protocol.md` §6.
+
 ## [2.16.6] — 2026-09-26
 
 ### Fixed

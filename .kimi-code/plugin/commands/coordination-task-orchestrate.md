@@ -50,7 +50,6 @@ npx monomind task list --status pending
 npx monomind task status --id <task-id>
 npx monomind task assign --id <task-id> --agent <agent-id>
 npx monomind task cancel --id <task-id>
-npx monomind task retry --id <task-id>
 ```
 
 ## Strategies

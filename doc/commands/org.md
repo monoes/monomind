@@ -115,9 +115,16 @@ monomind org resume <name>
 ## `reload`
 
 Hot-reload a running org's definition from disk without stopping any in-flight agent sessions.
-Applies changes to `goal`, `run_config`, and `schedule`; new roles are added as pending
-(lazy-spawnable on first message), removed roles are **not** killed — they finish their
-current work and are simply never re-spawned.
+Applies changes to `goal`, `run_config`, and `schedule`, and to these fields of existing roles:
+`tool_providers`, `endpoint`, `kind`, `policy`, `budget_usd` and `budget_tokens`. New roles are
+added as pending (lazy-spawnable on first message), removed roles are **not** killed — they finish
+their current work and are simply never re-spawned.
+
+A new `budget_usd` / `budget_tokens` applies to the role's total spend so far, which is kept. A role
+whose session was closed because it spent its own budget reopens when the reload raises the budget
+above that spend: its session resumes and the tasks held for it are dispatched again. A raise that
+still leaves it at or over the cap keeps it closed. See
+[Budget-closed assignees](../concepts/org-runtime.md#budget-closed-assignees).
 
 ```bash
 monomind org reload <name>

@@ -310,13 +310,23 @@ export const scanCommand: Command = {
       type: 'boolean',
     },
     { name: 'installed', description: 'Only list installed runtimes', type: 'boolean' },
+    {
+      name: 'probe',
+      description:
+        'Run --version (in a scratch HOME) for runtimes whose version is not in their install files; some download or write state',
+      type: 'boolean',
+    },
   ],
   examples: [
     { command: 'monomind agent scan --json', description: 'Full detection report as JSON' },
+    {
+      command: 'monomind agent scan --probe --json',
+      description: 'Also run --version for runtimes not known to be side-effect free',
+    },
     { command: 'monomind agent scan --installed --json', description: 'Installed-only view' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const result = await scanInstalled({});
+    const result = await scanInstalled({ probe: Boolean(ctx.flags.probe) });
     const agents = ctx.flags.installed ? result.agents.filter((a) => a.installed) : result.agents;
     const payload = { v: 1, agents };
 

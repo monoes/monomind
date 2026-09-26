@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { blockRecheckMs } from './block-recheck.js';
+import { holdForBudgetClosedAssignee, releaseBudgetHolds } from './budget-closure.js';
 import {
   checkTaskEvidence,
   declaresExpectExit,
@@ -787,7 +788,7 @@ export const DISPATCH_COALESCE_MS = 500;
  *  mailbox rather than the retired one. A line about `taskId` is withdrawn
  *  if the task is cancelled first (dispatch-hold.ts); `received` says the
  *  assignee already has the task (a follow-up, not its dispatch). */
-function queueDispatch(
+export function queueDispatch(
   running: RunningOrg,
   assignee: string,
   line: string | Promise<string>,
@@ -922,6 +923,8 @@ function noteLoadoutMismatch(
 
 export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: RunningOrg): void {
   if (!running.taskDag) return;
+  // #343: tasks held for a budget-closed assignee go out again once it reopens.
+  releaseBudgetHolds(running);
   for (const task of running.taskDag.ready()) {
     // A task going out again (first dispatch, or back after a refused close)
     // is worth one more turn-end nudge — see nudgeOpenTasksAtTurnEnd.
@@ -946,6 +949,8 @@ export function dispatchReadyTasks(daemon: OrgDaemon, org: string, running: Runn
         data: { taskId: task.id, assignee: task.assignee },
       });
     } else if (agent) {
+      // #343: closed for budget — hold the task with the reason instead.
+      if (holdForBudgetClosedAssignee(running, task)) continue;
       // Assignee resolves to a role that's crashed or otherwise closed its
       // mailbox — pushing would silently no-op. Leave the task 'ready' (not
       // 'running') so it stays visible and retriable instead of stuck in

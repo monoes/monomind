@@ -19,9 +19,6 @@ Matrix of agent capabilities and their specializations.
 
 ## Querying Capabilities
 ```bash
-# List all capabilities
-npx monomind agent capabilities
-
-# For specific agent
-npx monomind agent capabilities --type coder
+# Rank installed agents whose capabilities fit a task
+npx monomind pick -t "write integration tests" --agents
 ```

@@ -191,6 +191,12 @@ export class PolicyEngine {
     };
   }
 
+  /** #343 hot reload of budget_tokens / budget_usd: replace the ceilings and
+   *  keep what has been spent — the new cap applies to total spend. */
+  setBudgetCaps(caps: { maxTokens?: number; maxUsd?: number }): void {
+    this.policy = { ...this.policy, maxTokens: caps.maxTokens, maxUsd: caps.maxUsd };
+  }
+
   /** Legacy scalar accumulator. A caller with no breakdown to give (a
    *  pre-ADR-O001 checkpoint, a runner that reports one number) lands on the
    *  uncached `input` bucket — the basis such a number has always been on —
