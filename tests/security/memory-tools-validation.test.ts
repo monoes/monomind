@@ -7,8 +7,28 @@
  * (DoS via oversized inputs), score clamping, batch limits, and error
  * sanitization (path leakage in returned messages).
  */
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { memoryTools } from '../../packages/@monomind/cli/src/mcp-tools/memory-tools.js';
+
+// The searches below would otherwise open the developer's real per-project
+// store under ~/.monomind and merge their global brain — shared with every
+// session on this repo, so under load the "caps topK" search hit the 30s
+// timeout. Paths are resolved lazily, so stubbing before the first call is
+// enough.
+let home: string;
+beforeAll(() => {
+  home = mkdtempSync(join(tmpdir(), 'memory-tools-validation-'));
+  vi.stubEnv('HOME', home);
+  vi.stubEnv('MONOMIND_GLOBAL_BRAIN_DIR', join(home, 'global-brain'));
+  vi.stubEnv('MONOMIND_NO_LOCAL_EMBEDDINGS', '1');
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+  rmSync(home, { recursive: true, force: true });
+});
 
 const find = (name: string) => {
   const t = memoryTools.find((t) => t.name === name);
