@@ -47,6 +47,7 @@ import {
   openSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   renameSync,
   rmdirSync,
   unlinkSync,
@@ -175,6 +176,12 @@ export interface LedgerEntry {
   dev: number;
   kind: 'file' | 'dir';
   pid: number;
+  /** This pid's namespace and boot, so a later reclaim() can tell a dead pid
+   *  in our own namespace apart from a live one we simply cannot see from a
+   *  different namespace. Absent on an entry written before this field
+   *  existed (see isLegacy). */
+  pidNamespace?: string;
+  bootId?: string;
   runId: string;
   createdAt: string;
 }
@@ -191,7 +198,9 @@ function readLedger(file: string): LedgerEntry[] {
         typeof e.ino === 'number' &&
         typeof e.dev === 'number' &&
         (e.kind === 'file' || e.kind === 'dir') &&
-        Number.isInteger(e.pid),
+        Number.isInteger(e.pid) &&
+        (e.pidNamespace === undefined || typeof e.pidNamespace === 'string') &&
+        (e.bootId === undefined || typeof e.bootId === 'string'),
     );
   } catch {
     return []; // missing or corrupt: nothing to reclaim
@@ -220,6 +229,44 @@ const alive = (pid: number): boolean => {
   }
 };
 
+/** Reads what identifies THIS process's pid namespace and boot, so a ledger
+ *  entry can later tell a dead pid in our own namespace (safe to reclaim)
+ *  apart from a live daemon's pid that we simply cannot see (the Claude SDK
+ *  sandbox runs every role with `bwrap --unshare-pid`: `process.kill(pid, 0)`
+ *  on a pid outside our namespace always throws ESRCH, alive or not). */
+export interface IdentitySource {
+  /** `/proc/self/ns/pid`'s target, e.g. `pid:[4026531836]`; undefined if it
+   *  cannot be read (older kernel, no /proc). */
+  pidNamespace(): string | undefined;
+  /** `/proc/sys/kernel/random/boot_id`, stable for one boot and never reused
+   *  across a reboot — unlike a pid, which is. */
+  bootId(): string | undefined;
+}
+
+const defaultIdentity: IdentitySource = {
+  pidNamespace(): string | undefined {
+    try {
+      return readlinkSync('/proc/self/ns/pid');
+    } catch {
+      return undefined;
+    }
+  },
+  bootId(): string | undefined {
+    try {
+      return readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+    } catch {
+      return undefined;
+    }
+  },
+};
+
+/** An entry recorded before pid-namespace awareness (no `pidNamespace`/
+ *  `bootId`), or one whose reader could not read them: falls back to the
+ *  bare pid check (today's behavior, and correct outside any sandbox). */
+function isLegacy(e: LedgerEntry): boolean {
+  return e.pidNamespace === undefined || e.bootId === undefined;
+}
+
 interface Stub {
   dev: number;
   ino: number;
@@ -234,8 +281,12 @@ export class SandboxStubs {
   private reclaimed = false;
 
   /** `ledger`: the crash-ledger file (default defaultStubLedger(), read when
-   *  first needed); null keeps no ledger. */
-  constructor(private readonly ledger?: string | null) {}
+   *  first needed); null keeps no ledger. `identity`: overridable in tests;
+   *  defaults to reading this process's real pid namespace and boot id. */
+  constructor(
+    private readonly ledger?: string | null,
+    private readonly identity: IdentitySource = defaultIdentity,
+  ) {}
 
   private get ledgerFile(): string | null {
     return this.ledger === undefined ? defaultStubLedger() : this.ledger;
@@ -306,9 +357,11 @@ export class SandboxStubs {
     const file = this.ledgerFile;
     if (!file) return [];
     const entries = readLedger(file);
-    const dead = entries.filter((e) => e.pid === process.pid || !alive(e.pid));
+    const ourNs = this.identity.pidNamespace();
+    const ourBootId = this.identity.bootId();
+    const dead = entries.filter((e) => this.isDead(e, ourNs, ourBootId));
     if (!dead.length) return [];
-    const othersLive = entries.some((e) => e.pid !== process.pid && !dead.includes(e));
+    const othersLive = entries.some((e) => !this.isOwn(e, ourNs, ourBootId) && !dead.includes(e));
     const stale = dead
       .filter((e) => STUB_NAMES.has(basename(e.path)) && !this.stubs.has(e.path))
       .map((e): [string, Stub] => [
@@ -337,9 +390,38 @@ export class SandboxStubs {
       dev: s.dev,
       kind: s.dir ? 'dir' : 'file',
       pid: process.pid,
+      pidNamespace: this.identity.pidNamespace(),
+      bootId: this.identity.bootId(),
       runId,
       createdAt: new Date().toISOString(),
     };
+  }
+
+  /** Is `e` an entry this process itself wrote? For a modern entry that also
+   *  requires our current namespace and boot to match — a matching pid alone
+   *  can be a different process after a pid wrap, or the same-numbered pid in
+   *  an unrelated namespace. A legacy entry (no pidNamespace/bootId) falls
+   *  back to the bare pid check it was written under. */
+  private isOwn(e: LedgerEntry, ourNs: string | undefined, ourBootId: string | undefined): boolean {
+    if (isLegacy(e)) return e.pid === process.pid;
+    return e.pid === process.pid && e.pidNamespace === ourNs && e.bootId === ourBootId;
+  }
+
+  /** Is `e` safe to reclaim? A different boot always is (pids and namespace
+   *  ids are meaningless across a reboot). Same boot but a different pid
+   *  namespace never is — we cannot tell alive from dead across namespaces
+   *  (`process.kill` always throws ESRCH there), so it is left alone rather
+   *  than guessed at. Same boot and same namespace (or a legacy entry) falls
+   *  back to the bare pid-alive check. */
+  private isDead(
+    e: LedgerEntry,
+    ourNs: string | undefined,
+    ourBootId: string | undefined,
+  ): boolean {
+    if (isLegacy(e)) return e.pid === process.pid || !alive(e.pid);
+    if (e.bootId !== ourBootId) return true;
+    if (e.pidNamespace !== ourNs) return false;
+    return e.pid === process.pid || !alive(e.pid);
   }
 
   private updateLedger(
@@ -363,7 +445,11 @@ export class SandboxStubs {
     }
     if (entries.length) {
       const gone = new Set(entries.map(([p]) => p));
-      this.updateLedger((all) => all.filter((e) => e.pid !== process.pid || !gone.has(e.path)));
+      const ourNs = this.identity.pidNamespace();
+      const ourBootId = this.identity.bootId();
+      this.updateLedger((all) =>
+        all.filter((e) => !this.isOwn(e, ourNs, ourBootId) || !gone.has(e.path)),
+      );
     }
     return removed;
   }

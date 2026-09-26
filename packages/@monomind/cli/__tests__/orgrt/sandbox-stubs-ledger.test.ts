@@ -172,3 +172,86 @@ describe('the sandbox stub ledger', () => {
     for (const p of created) expect(existsSync(p)).toBe(true);
   });
 });
+
+/** The Claude SDK sandbox runs every role with `bwrap --unshare-pid`, so a
+ *  role's own `process.kill(hostPid, 0)` always throws ESRCH for the host
+ *  daemon's real pid even though it is alive — reclaim() must not read that
+ *  as dead. These inject a fake identity (never touching real /proc) so the
+ *  same-boot/different-boot and same-namespace/different-namespace cases can
+ *  be driven directly instead of relying on this machine's actual namespace. */
+describe('pid-namespace and boot-id aware reclaim', () => {
+  const identity = (pidNamespace: string, bootId: string) => ({
+    pidNamespace: () => pidNamespace,
+    bootId: () => bootId,
+  });
+
+  /** Same fields the ledger recorded, minus pidNamespace/bootId: what an
+   *  entry written before this change looked like. */
+  const asLegacy = (e: LedgerEntry, pid: number): LedgerEntry => ({
+    path: e.path,
+    ino: e.ino,
+    dev: e.dev,
+    kind: e.kind,
+    pid,
+    runId: e.runId,
+    createdAt: e.createdAt,
+  });
+
+  it('reclaims a same-boot, same-namespace entry whose pid is dead', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: deadPid() }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1'));
+    expect(next.reclaim().sort()).toEqual([...created].sort());
+    for (const p of created) expect(existsSync(p)).toBe(false);
+    expect(read(l.ledger)).toEqual([]);
+  });
+
+  it('leaves a same-boot, different-namespace entry alone even when our own alive() check says dead', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    // deadPid(): our sandboxed alive() would call this dead. A real cross-namespace
+    // daemon looks exactly the same to us (ESRCH), which is the bug this guards.
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: deadPid(), pidNamespace: 'ns-B' }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1'));
+    expect(next.reclaim()).toEqual([]);
+    for (const p of created) expect(existsSync(p)).toBe(true);
+    expect(read(l.ledger)).toHaveLength(created.length);
+  });
+
+  it('reclaims a different-boot entry even though its pid still resolves to a live process', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-OLD')).hold('org:run-1', l.paths);
+    // process.ppid: alive() would say alive, but a stale boot id means the pid
+    // number is meaningless (possibly a different, unrelated process reusing it).
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: process.ppid }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identity('ns-A', 'boot-NEW'));
+    expect(next.reclaim().sort()).toEqual([...created].sort());
+    for (const p of created) expect(existsSync(p)).toBe(false);
+    expect(read(l.ledger)).toEqual([]);
+  });
+
+  it('falls back to the bare pid check for a legacy entry with no namespace/boot fields', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => asLegacy(e, deadPid()));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    // Different namespace/boot than when it was written: must not matter for a legacy entry.
+    const next = new SandboxStubs(l.ledger, identity('ns-B', 'boot-2'));
+    expect(next.reclaim().sort()).toEqual([...created].sort());
+    for (const p of created) expect(existsSync(p)).toBe(false);
+  });
+
+  it('keeps a legacy entry whose bare pid is alive', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => asLegacy(e, process.ppid));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identity('ns-B', 'boot-2'));
+    expect(next.reclaim()).toEqual([]);
+    for (const p of created) expect(existsSync(p)).toBe(true);
+  });
+});
