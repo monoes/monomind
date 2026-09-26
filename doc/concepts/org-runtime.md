@@ -279,7 +279,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
 | `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
 | `max_tool_rounds` | _(unset)_ | Per-role override of `run_config.max_tool_rounds`, for a role that makes many tool calls in reply to one message |
-| `budget_usd` | _(unset)_ | Per-role USD spend cap. Unlike `budget_tokens` there is **no** org-wide even split: unset means no USD enforcement for this role, only token budgets |
+| `budget_usd` | _(unset)_ | Per-role USD spend cap. Unlike `budget_tokens` there is **no** org-wide even split: unset means no USD enforcement for this role, only token budgets. The coordinator is told once when the role passes 80% of it. Hot-reloadable, like `budget_tokens` — see [Budget-closed assignees](#budget-closed-assignees) |
 | `skills` | _(unset)_ | Org skill library entries pinned into the role's system prompt for the whole run — see §6.6 |
 | `skill_pool` | _(unset)_ | Skills the role may load mid-run with `org_skill_load` — names or `tag:<tag>`; only their one-line descriptions sit in the prompt. See §6.6 |
 | `ui` | _(unset)_ | Canvas metadata (position, icon, color), round-tripped untouched. The runtime never reads it — `ui.icon` does not select prompt text |
@@ -844,6 +844,27 @@ re-check time (`recheckAt`) and the interval are on the task row, so they ride t
 a resume, a re-check that fell due while the daemon was down fires on the first tick. A block
 restored from a checkpoint written before this existed is scheduled on the first tick. Roles should
 run waits in the foreground rather than block on a command they started.
+
+#### Budget-closed assignees
+
+A role that spends its own `budget_usd` or `budget_tokens` has its session closed
+(`budget-exhausted` status event). Its open tasks, and any task dispatched to it afterwards, become
+`blocked` with the reason in `blockedReason`, e.g.
+`assignee "release-auditor" closed: budget_usd exhausted ($12.17 / $12)`, so `org_tasks` shows why
+instead of an unstarted `ready` task
+([`budget-closure.ts`](packages/@monomind/cli/src/orgrt/budget-closure.ts)). Such a block has no
+`untilIso`: the idle watchdog neither expires it nor treats it as a legitimate wait. The
+`dispatch-recipient-unavailable` audit event says "budget exhausted" rather than "crashed or
+unreachable". The coordinator gets a `[budget]` notice when the role closes, and each task
+dispatched to the closed role afterwards sends its creator (or the coordinator) a
+`[task:<id>] BLOCKED` notice. The coordinator is also told once per run when a role passes 80% of
+its `budget_usd` (`budget-warning` audit event).
+
+To recover, raise the role's `budget_usd` / `budget_tokens` in the org definition and run
+`monomind org reload <name>`. The new cap applies to total spend, which is kept. Once the role is
+under it, its session resumes (`role-budget-reopened` audit event) and its held tasks go back to
+`ready` and are dispatched. `org_respawn_role` is not needed for this. A role closed by the
+org-wide `run_config.budget_tokens` ceiling is not reopened by a reload.
 
 #### Cancelled tasks
 
