@@ -24,6 +24,21 @@ Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@mon
 | `watch` | Starts background file watcher for incremental real-time AST updates | `--debounce-ms 300` | [`monograph.ts → watchCommand`](packages/@monomind/cli/src/commands/monograph.ts#watchCommand) |
 | `impact` | Calculates blast radius and ripple impact for a target node or file | `--target "..."`, `--depth N` | [`impact-tools.ts → monographImpactTool`](packages/@monomind/cli/src/mcp-tools/monograph/impact-tools.ts#monographImpactTool) |
 
+### `watch` and the build lock
+
+A rebuild holds `.monomind/monograph.db.build-lock` until it finishes. Ctrl+C
+during a rebuild exits at once (it no longer waits for the rebuild to end first)
+and releases the lock; Ctrl+C between rebuilds prints `Watch stopped.` A build
+that exits through `process.exit()` — an MCP server shutting down mid-rebuild,
+for example — also releases a lock it still holds. If a previous `watch` was
+killed while holding the lock, the next `watch`/`build` takes over a stale lock
+automatically: one that predates the last boot (a recycled pid) or one whose
+holder has not refreshed it for 30 minutes. While it waits, it prints
+`Rebuild deferred — another build is in progress` naming the holder (e.g.
+`pid 1234, running 2m`); after 10 minutes of deferral it stops retrying and
+reports which pid and lock file block it. Files changed during the deferral are
+picked up on the next change. (`@monoes/monograph` `1.6.11`.)
+
 ---
 
 ## Native MCP Tools (14)

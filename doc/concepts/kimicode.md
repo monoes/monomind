@@ -43,6 +43,8 @@ For slash commands and security gates, install the generated plugin once:
 
 Kimi has **no project-level slash-command directory** — real `/plugin:command` commands only come from plugins, and plugins install per-user. So the same source commands are emitted in both forms: flow skills work immediately with no install, and the plugin adds the nicer `/monomind:*` namespace plus the hook gates. If a command slug collides with a real skill (e.g. `mastermind-debug`), the real skill wins at project level and the plugin command remains the command path.
 
+Two commands can also collide with each other: flow-skill names and plugin-command filenames share one slug, so if two commands would write the same `.kimi-code/skills/<name>/` directory, the converter keeps the first and reports the later command in the conversion result's `skipped` list — the same place plugin-command filename collisions were already reported.
+
 ---
 
 ## Requirements
