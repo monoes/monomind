@@ -131,7 +131,7 @@ export async function writeOpencodeFiles(
   const srcAgents = path.join(claudeDir, 'agents');
   if (fs.existsSync(srcAgents)) {
     const destAgents = path.join(targetDir, '.opencode', 'agent');
-    if (isSafeConversionTarget(destAgents, claudeDir, result, '.opencode/agent')) {
+    if (isSafeConversionTarget(destAgents, claudeDir, result, '.opencode/agent', 'agents')) {
       for (const rel of walkMdFiles(srcAgents)) {
         const abs = path.join(srcAgents, rel);
         if (!isLikelyUserFile(rel)) continue; // skip READMEs etc.
@@ -152,7 +152,7 @@ export async function writeOpencodeFiles(
   const srcCommands = path.join(claudeDir, 'commands');
   if (fs.existsSync(srcCommands)) {
     const destCommands = path.join(targetDir, '.opencode', 'command');
-    if (isSafeConversionTarget(destCommands, claudeDir, result, '.opencode/command')) {
+    if (isSafeConversionTarget(destCommands, claudeDir, result, '.opencode/command', 'commands')) {
       for (const rel of walkMdFiles(srcCommands)) {
         const abs = path.join(srcCommands, rel);
         if (!isConvertibleCommand(rel)) continue;
@@ -176,7 +176,7 @@ export async function writeOpencodeFiles(
   const destSkillsRoot = path.join(targetDir, '.opencode', 'skills');
   const writtenOpencodeSkills = new Set<string>();
   if (fs.existsSync(srcSkills)) {
-    if (isSafeConversionTarget(destSkillsRoot, claudeDir, result, '.opencode/skills')) {
+    if (isSafeConversionTarget(destSkillsRoot, claudeDir, result, '.opencode/skills', 'skills')) {
       for (const rel of walkMdFiles(srcSkills)) {
         // rel looks like "<skillName>/SKILL.md"
         const segs = rel.split(path.sep);

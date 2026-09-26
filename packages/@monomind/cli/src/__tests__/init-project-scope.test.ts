@@ -160,7 +160,10 @@ describe('project-scope init writers', () => {
     expect(fs.existsSync(path.join(project, '.claude', 'commands', 'mastermind-adr.md'))).toBe(
       false,
     );
-    expect(result.errors.some((e) => e.includes('.opencode/command'))).toBe(true);
+    // A link to the matching .claude/ directory is a deliberate mirror: skipped
+    // quietly rather than warned about on every run.
+    expect(result.errors.some((e) => e.includes('.opencode/command'))).toBe(false);
+    expect(result.skipped.some((e) => e.includes('.opencode/command'))).toBe(true);
   });
 
   it('refuses to write opencode agents through a .opencode/agent symlink that resolves into .claude/agents', async () => {
@@ -190,6 +193,9 @@ describe('project-scope init writers', () => {
     // Must NOT silently inject opencode's `mode: subagent` frontmatter key
     // into the real, hand-authored Claude agent file via the symlink.
     expect(fs.readFileSync(agentPath, 'utf8')).toBe(originalAgentContent);
-    expect(result.errors.some((e) => e.includes('.opencode/agent'))).toBe(true);
+    // A link to the matching .claude/ directory is a deliberate mirror: skipped
+    // quietly rather than warned about on every run.
+    expect(result.errors.some((e) => e.includes('.opencode/agent'))).toBe(false);
+    expect(result.skipped.some((e) => e.includes('.opencode/agent'))).toBe(true);
   });
 });

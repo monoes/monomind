@@ -140,13 +140,16 @@ export function writeGeneratedFile(target: string, content: string): void {
  * Checked once per destination directory (not per file) before its copy loop.
  * Returns false and records one `result.errors` entry when `destDir` resolves
  * inside `claudeDir`; the caller should skip the whole loop rather than write
- * file-by-file into the wrong place.
+ * file-by-file into the wrong place. A `destDir` that is itself a symlink to
+ * `claudeDir/<mirrorOf>` is a deliberate mirror (this repo links
+ * `.opencode/agent -> ../.claude/agents`), so it is skipped without the error.
  */
 export function isSafeConversionTarget(
   destDir: string,
   claudeDir: string,
   result: InitResult,
   label: string,
+  mirrorOf?: string,
 ): boolean {
   let realDest: string;
   try {
@@ -161,6 +164,14 @@ export function isSafeConversionTarget(
     return true; // no .claude/ to collide with
   }
   if (realDest === realClaude || realDest.startsWith(`${realClaude}${path.sep}`)) {
+    if (
+      mirrorOf !== undefined &&
+      fs.lstatSync(destDir).isSymbolicLink() &&
+      realDest === path.join(realClaude, mirrorOf)
+    ) {
+      result.skipped.push(`${label} (symlink to .claude/${mirrorOf})`);
+      return false;
+    }
     result.errors.push(
       `${label} resolves inside .claude/ (likely a symlink) — skipping to avoid writing converted files back into the Claude source tree. Remove or repoint the symlink and re-run.`,
     );
