@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { liveBuildLockHolder } from '../pipeline/build-lock.js';
 import type { MonographDb } from '../storage/db.js';
 
 /**
@@ -101,20 +101,7 @@ function parseWarnings(raw: string | undefined): string[] | null {
 function isBuildInProgress(db: MonographDb): boolean {
   const dbPath = typeof db.name === 'string' ? db.name : '';
   if (!dbPath || dbPath === ':memory:') return false;
-  let pid: number;
-  try {
-    pid = Number.parseInt(readFileSync(`${dbPath}.build-lock`, 'utf8'), 10);
-  } catch {
-    return false; // no lock file
-  }
-  if (!Number.isFinite(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    // EPERM means the process exists but belongs to another user.
-    return (err as NodeJS.ErrnoException)?.code === 'EPERM';
-  }
+  return liveBuildLockHolder(dbPath) !== null;
 }
 
 interface DirtyWorktree {

@@ -6,6 +6,7 @@ import { ExtractionCache } from '../cache/extraction-cache.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
 import { closeDb, openDb } from '../storage/db.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
+import { acquireBuildLock, type BuildLockHolder, describeBuildLockHolder } from './build-lock.js';
 import { isWithinScope, readIndexScope, scopeForOptions, writeIndexScope } from './index-scope.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
@@ -62,60 +63,18 @@ export type BuildResult =
       nodes: { before: number; after: number };
       edges: { before: number; after: number };
     }
-  | { status: 'skipped'; reason: 'locked' | 'fresh'; message: string };
+  | {
+      status: 'skipped';
+      reason: 'locked' | 'fresh';
+      message: string;
+      /** Who holds the build lock, when a build was skipped for it (#340). */
+      holder?: BuildLockHolder;
+    };
 
 function countGraph(db: ReturnType<typeof openDb>): { nodes: number; edges: number } {
   const count = (table: string): number =>
     (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
   return { nodes: count('nodes'), edges: count('edges') };
-}
-
-// Cross-process build mutex. Callers arrive from several independent entry points
-// (session-start hook, MCP staleness auto-build, CLI, watcher), each with its own
-// ad-hoc lock file that the others don't know about — concurrent builds then fail
-// with "database is locked". Serialize here, the one place all builders pass through.
-async function acquireBuildLock(dbPath: string): Promise<(() => void) | null> {
-  const { writeFileSync, readFileSync, statSync, unlinkSync, mkdirSync } = await import('node:fs');
-  const { dirname } = await import('node:path');
-  const lockPath = `${dbPath}.build-lock`;
-  mkdirSync(dirname(lockPath), { recursive: true });
-  const tryAcquire = (): boolean => {
-    try {
-      writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  if (!tryAcquire()) {
-    // Reclaim if the holder is dead or the lock is older than 30 minutes
-    let stale = false;
-    try {
-      const pid = parseInt(readFileSync(lockPath, 'utf8'), 10);
-      try {
-        process.kill(pid, 0);
-      } catch {
-        stale = true;
-      }
-      if (!stale && Date.now() - statSync(lockPath).mtimeMs > 30 * 60 * 1000) stale = true;
-    } catch {
-      stale = true;
-    }
-    if (!stale) return null;
-    try {
-      unlinkSync(lockPath);
-    } catch {
-      /* raced with another reclaimer */
-    }
-    if (!tryAcquire()) return null;
-  }
-  return () => {
-    try {
-      unlinkSync(lockPath);
-    } catch {
-      /* already gone */
-    }
-  };
 }
 
 export async function buildAsync(
@@ -126,16 +85,17 @@ export async function buildAsync(
   const fullOptions: PipelineOptions = { ...DEFAULT_OPTIONS, ...options };
   clearWorkspacePackageMapCache(repoPath);
 
-  const releaseLock = await acquireBuildLock(dbPath);
-  if (!releaseLock) {
-    const message = 'Another build is in progress — skipping';
+  const lock = acquireBuildLock(dbPath);
+  if (!lock.acquired) {
+    const who = lock.holder ? ` ${describeBuildLockHolder(lock.holder)}` : '';
+    const message = `Another build${who} is in progress — skipping`;
     options.onProgress?.({ phase: 'skip', message });
-    return { status: 'skipped', reason: 'locked', message };
+    return { status: 'skipped', reason: 'locked', message, holder: lock.holder ?? undefined };
   }
   try {
     return await buildAsyncLocked(repoPath, dbPath, fullOptions, options);
   } finally {
-    releaseLock();
+    lock.release();
   }
 }
 

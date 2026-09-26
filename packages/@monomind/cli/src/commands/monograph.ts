@@ -671,13 +671,31 @@ const watchCommand: Command = {
         await import('@monoes/monograph');
 
       const watcher = new MonographWatcher(root);
+      let onSigint: (() => void) | undefined;
       // The queue serializes rebuilds and retries a batch whose build found the
       // lock held, instead of dropping it while still printing "Rebuild
       // complete." (#338). Each event line says what happened to the graph.
       const queue = createRebuildQueue({
         // onProgress keeps phase chatter (and the non-git HEAD warning) off
         // the watch log; the queue's events report the outcome.
-        build: () => buildAsync(root, { codeOnly: false, llmMaxSections, onProgress: () => {} }),
+        //
+        // A build blocks the event loop until it ends, so a Ctrl+C listener
+        // would only run afterwards: the process kept building, holding the
+        // build lock, and the next watch deferred to it (#340). Without a
+        // listener Ctrl+C kills at once, as it does for `monograph build`, and
+        // the next build takes over the dead process's lock.
+        build: async () => {
+          if (onSigint) process.off('SIGINT', onSigint);
+          try {
+            return await buildAsync(root, {
+              codeOnly: false,
+              llmMaxSections,
+              onProgress: () => {},
+            });
+          } finally {
+            if (onSigint) process.on('SIGINT', onSigint);
+          }
+        },
         onEvent: (e) => {
           const line =
             e.kind === 'failed'
@@ -713,7 +731,8 @@ const watchCommand: Command = {
           output.writeln(output.dim(reason));
           resolve();
         };
-        process.on('SIGINT', () => finish('Watch stopped.'));
+        onSigint = () => finish('Watch stopped.');
+        process.on('SIGINT', onSigint);
         if (hasTimeout) {
           setTimeout(
             () => finish(`Watch stopped after ${timeoutSec}s (--timeout).`),

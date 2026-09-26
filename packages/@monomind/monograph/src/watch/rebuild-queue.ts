@@ -1,4 +1,5 @@
 import { relative } from 'node:path';
+import { type BuildLockHolder, describeBuildLockHolder } from '../pipeline/build-lock.js';
 import type { BuildResult } from '../pipeline/orchestrator.js';
 
 export type RebuildEvent =
@@ -9,7 +10,8 @@ export type RebuildEvent =
       result: Extract<BuildResult, { status: 'built' }>;
       durationMs: number;
     }
-  | { kind: 'deferred'; files: string[]; retryInMs: number }
+  | { kind: 'deferred'; files: string[]; retryInMs: number; holder?: BuildLockHolder }
+  | { kind: 'stalled'; files: string[]; waitedMs: number; holder?: BuildLockHolder }
   | { kind: 'skipped'; files: string[]; message: string }
   | { kind: 'failed'; files: string[]; error: unknown };
 
@@ -19,6 +21,11 @@ export interface RebuildQueueOptions {
   onEvent: (e: RebuildEvent) => void;
   /** Delay before retrying a batch whose build found the lock held. Default 2000ms. */
   retryDelayMs?: number;
+  /**
+   * How long to keep retrying a lock-deferred batch before reporting it as
+   * stalled and waiting for the next change instead. Default 10 minutes.
+   */
+  maxDeferMs?: number;
 }
 
 export interface RebuildQueue {
@@ -36,6 +43,7 @@ export interface RebuildQueue {
  */
 export function createRebuildQueue(opts: RebuildQueueOptions): RebuildQueue {
   const retryDelayMs = opts.retryDelayMs ?? 2000;
+  const maxDeferMs = opts.maxDeferMs ?? 10 * 60_000;
   let pending = new Set<string>();
   let running = false;
   let stopped = false;
@@ -43,6 +51,7 @@ export function createRebuildQueue(opts: RebuildQueueOptions): RebuildQueue {
   // Set while a deferred batch is being retried, so a lock held for minutes
   // logs one "deferred" line rather than one per retry.
   let deferred = false;
+  let deferredSince = 0;
 
   const drain = async (): Promise<void> => {
     if (running || stopped || retryTimer) return;
@@ -63,8 +72,19 @@ export function createRebuildQueue(opts: RebuildQueueOptions): RebuildQueue {
         }
         if (result?.status === 'skipped' && result.reason === 'locked') {
           for (const f of files) pending.add(f);
-          if (!deferred) opts.onEvent({ kind: 'deferred', files, retryInMs: retryDelayMs });
-          deferred = true;
+          const { holder } = result;
+          if (!deferred) {
+            deferred = true;
+            deferredSince = started;
+            opts.onEvent({ kind: 'deferred', files, retryInMs: retryDelayMs, holder });
+          }
+          const waitedMs = Date.now() - deferredSince;
+          if (waitedMs >= maxDeferMs) {
+            // Keep the files: the next change retries them along with its own.
+            deferred = false;
+            opts.onEvent({ kind: 'stalled', files, waitedMs, holder });
+            return;
+          }
           retryTimer = setTimeout(() => {
             retryTimer = null;
             void drain();
@@ -116,8 +136,16 @@ export function describeRebuildEvent(e: RebuildEvent, repoPath: string): string 
     }
     case 'deferred':
       return (
-        `Rebuild deferred — another build is in progress; retrying ` +
+        `Rebuild deferred — another build is in progress` +
+        `${e.holder ? ` ${describeBuildLockHolder(e.holder)}` : ''}; retrying ` +
         `${e.files.length} changed file(s) every ${(e.retryInMs / 1000).toFixed(1)}s until it finishes`
+      );
+    case 'stalled':
+      return (
+        `Rebuild still blocked after ${Math.round(e.waitedMs / 60_000)}m — the build lock is held` +
+        `${e.holder ? ` by ${describeBuildLockHolder(e.holder).slice(1, -1)} (${e.holder.lockPath})` : ''}. ` +
+        `Stopped retrying; the ${e.files.length} changed file(s) are rebuilt on the next change, ` +
+        `or run \`monomind monograph build\` once that build has ended.`
       );
     case 'skipped':
       return `Rebuild skipped — ${e.message}`;

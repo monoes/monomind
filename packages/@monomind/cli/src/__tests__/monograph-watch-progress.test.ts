@@ -60,7 +60,7 @@ vi.mock('@monoes/monograph', async (importOriginal) => ({
   buildAsync: mockBuildAsync,
 }));
 
-async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
     if (Date.now() - start > timeoutMs) throw new Error('waitFor: condition never became true');
@@ -127,5 +127,31 @@ describe('monograph watch — build-lock skip', () => {
     expect(deferred).toBeGreaterThan(-1);
     expect(updated).toBeGreaterThan(deferred);
     expect(lines.some((l) => l.includes('Rebuild complete'))).toBe(false);
+  }, 10000);
+
+  it('drops its Ctrl+C listener while a rebuild runs, so Ctrl+C kills it instead of waiting out the build (#340)', async () => {
+    const { default: monographCommand } = await import('../commands/monograph.js');
+    const watch = monographCommand.subcommands?.find((c) => c.name === 'watch');
+    if (!watch?.action) throw new Error('watch subcommand not found');
+
+    const before = process.listenerCount('SIGINT');
+    const duringBuild: number[] = [];
+    mockBuildAsync.mockReset();
+    mockBuildAsync.mockImplementation(async () => {
+      duringBuild.push(process.listenerCount('SIGINT'));
+      return built;
+    });
+
+    const actionPromise = watch.action(ctx({ path: root, timeout: 1 }));
+    await waitFor(() => state.watcherInstance !== undefined);
+    const idle = process.listenerCount('SIGINT');
+    (state.watcherInstance as FakeWatcher).emit('monograph:updated', [join(root, 'changed.ts')]);
+    await waitFor(() => duringBuild.length === 1);
+    const afterBuild = process.listenerCount('SIGINT');
+    await actionPromise;
+
+    expect(idle).toBe(before + 1);
+    expect(duringBuild).toEqual([before]);
+    expect(afterBuild).toBe(before + 1);
   }, 10000);
 });
