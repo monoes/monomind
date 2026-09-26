@@ -272,3 +272,50 @@ describe('#343 — even split of run_config.budget_tokens on reload', () => {
     expect(running.agents.get('dev')!.policy.policy.maxTokens).toBe(5000);
   }, 20_000);
 });
+
+describe('#343 — 80% budget_tokens warnings', () => {
+  it("warns the coordinator once when a role passes 80% of its budget_tokens", async () => {
+    const { d, running, bossMail } = await start(0, (root) =>
+      writeOrg(
+        root,
+        { budget_tokens: 1_000_000 },
+        { boss: { budget_tokens: 50_000 }, dev: { budget_tokens: 1000 } },
+      ),
+    );
+    dagCreateTask(d, 'o', 'boss', 'a tok=850', 'dev', []);
+    const warned = () => running.busEvents().filter((e) => e.reason === 'budget-warning');
+    expect(await waitUntil(() => warned().length > 0)).toBe(true);
+    dagCreateTask(d, 'o', 'boss', 'b tok=10', 'dev', []);
+    expect(await waitUntil(() => running.agents.get('dev')!.policy.budgetedUsage >= 862)).toBe(
+      true,
+    );
+    await waitUntil(() => bossMail.some((m) => m.includes('budget_tokens (')), 2000);
+    expect(warned()).toHaveLength(1);
+    expect(warned()[0].data).toMatchObject({ roleId: 'dev', budget: 'budget_tokens' });
+    const notices = bossMail.filter((m) => m.includes('budget_tokens ('));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatch(/"dev" has used 851 of its 1000 budget_tokens \(85%\)/);
+    expect(running.agents.get('dev')!.mailbox.isClosed).toBe(false);
+  }, 20_000);
+
+  it('warns the coordinator once when the org passes 80% of run_config.budget_tokens', async () => {
+    const { d, running, bossMail } = await start(0, orgCapped(1000));
+    dagCreateTask(d, 'o', 'boss', 'a tok=850', 'dev', []);
+    const warned = () =>
+      running
+        .busEvents()
+        .filter((e) => e.reason === 'budget-warning' && e.data?.budget === 'run_config.budget_tokens');
+    expect(await waitUntil(() => warned().length > 0)).toBe(true);
+    dagCreateTask(d, 'o', 'boss', 'b tok=10', 'dev', []);
+    expect(await waitUntil(() => running.agents.get('dev')!.policy.budgetedUsage >= 862)).toBe(
+      true,
+    );
+    await waitUntil(() => bossMail.some((m) => m.includes('run_config.budget_tokens')), 2000);
+    expect(warned()).toHaveLength(1);
+    expect(warned()[0].msg).toMatch(/the org has used \d+ of its 1000 run_config\.budget_tokens \(8\d%\)/);
+    const notices = bossMail.filter((m) => m.includes('run_config.budget_tokens ('));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatch(/the org has used \d+ of its 1000 run_config\.budget_tokens \(8\d%\)/);
+    expect(orgExhausted(running)).toBe(0);
+  }, 20_000);
+});

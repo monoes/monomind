@@ -5,8 +5,9 @@
 // assigned to it used to stay 'ready' forever behind a bus warning that the
 // assignee was "crashed or unreachable", so the coordinator took it for a
 // dispatch stall. Here: such tasks are held as 'blocked' with the reason, the
-// coordinator is told, a role nearing its budget_usd is flagged, and a hot
-// reload that raises the budget reopens the role with its spend kept. The org-wide
+// coordinator is told, a role nearing its budget_usd / budget_tokens (or the
+// org nearing run_config.budget_tokens) is flagged, and a hot reload that
+// raises the budget reopens the role with its spend kept. The org-wide
 // run_config.budget_tokens ceiling lives here too, so a reload that raises it
 // reopens the roles it closed and re-arms it at the new value.
 
@@ -20,7 +21,8 @@ import { computeReplacementBudget } from './role-slot.js';
 import type { OrgTask } from './task-dag.js';
 import type { BusEvent } from './types.js';
 
-/** Share of budget_usd at which the coordinator is warned, once per role per run. */
+/** Share of a budget at which the coordinator is warned: once per role per
+ *  run for budget_usd and budget_tokens, once per run for run_config.budget_tokens. */
 export const BUDGET_WARN_FRACTION = 0.8;
 
 /** Which of the role's own caps it has spent, or undefined when neither. */
@@ -101,7 +103,7 @@ function notify(running: RunningOrg, closedRole: string, line: string, preferred
 }
 
 /** Bus hook (daemon.ts's org subscriber): enforce the org-wide ceiling, note
- *  a per-role budget closure and warn on the approach to budget_usd. */
+ *  a per-role budget closure and warn on the approach to a budget. */
 export function onBudgetBusEvent(running: RunningOrg, e: BusEvent): void {
   if (e.type === 'usage') enforceOrgBudget(running);
   if (!e.from) return;
@@ -140,7 +142,18 @@ function enforceOrgBudget(running: RunningOrg): void {
   const cap = running.def.run_config.budget_tokens;
   if (cap == null || running.orgBudgetClosed) return;
   const used = orgBudgetedUsage(running);
-  if (used < cap) return;
+  if (used < cap) {
+    warnApproach(running, {
+      key: 'run_config.budget_tokens',
+      budget: 'run_config.budget_tokens',
+      line: `the org has used ${used} of its ${cap} run_config.budget_tokens`,
+      spent: used,
+      cap,
+      consequence: `At the ceiling every role's session closes and their tasks are blocked. ${ORG_REMEDY}`,
+      data: { spentTokens: used, budgetTokens: cap },
+    });
+    return;
+  }
   const closed = new Set<string>();
   running.orgBudgetClosed = closed;
   if (running.pendingRoles?.size) {
@@ -163,25 +176,65 @@ function enforceOrgBudget(running: RunningOrg): void {
 
 function warnNearBudget(running: RunningOrg, roleId: string): void {
   const policy = running.agents.get(roleId)?.policy;
-  const cap = policy?.policy.maxUsd;
-  if (!policy || cap == null || running.budgetWarned?.has(roleId)) return;
-  const spent = policy.usageUsd;
-  // At or over the cap the closure notice says it instead.
-  if (spent < cap * BUDGET_WARN_FRACTION || spent >= cap) return;
-  (running.budgetWarned ??= new Set()).add(roleId);
-  const pct = Math.round((spent / cap) * 100);
+  if (!policy) return;
+  const { maxUsd, maxTokens } = policy.policy;
+  const consequence = `At the cap its session closes and tasks assigned to it are blocked. ${remedy(running, roleId)}`;
+  if (maxUsd != null) {
+    const spent = policy.usageUsd;
+    warnApproach(running, {
+      key: `${roleId}:budget_usd`,
+      roleId,
+      budget: 'budget_usd',
+      line: `"${roleId}" has spent $${spent.toFixed(2)} of its $${maxUsd} budget_usd`,
+      spent,
+      cap: maxUsd,
+      consequence,
+      data: { spentUsd: spent, budgetUsd: maxUsd },
+    });
+  }
+  if (maxTokens != null) {
+    const spent = policy.budgetedUsage;
+    warnApproach(running, {
+      key: `${roleId}:budget_tokens`,
+      roleId,
+      budget: 'budget_tokens',
+      line: `"${roleId}" has used ${spent} of its ${maxTokens} budget_tokens`,
+      spent,
+      cap: maxTokens,
+      consequence,
+      data: { spentTokens: spent, budgetTokens: maxTokens },
+    });
+  }
+}
+
+/** Once per `key` per run, between BUDGET_WARN_FRACTION and the cap (at or
+ *  over it the closure notice says it instead): a `budget-warning` audit event
+ *  naming the budget, and a notice to the coordinator. */
+function warnApproach(
+  running: RunningOrg,
+  w: {
+    key: string;
+    roleId?: string;
+    budget: 'budget_usd' | 'budget_tokens' | 'run_config.budget_tokens';
+    line: string;
+    spent: number;
+    cap: number;
+    consequence: string;
+    data: Record<string, number>;
+  },
+): void {
+  if (running.budgetWarned?.has(w.key)) return;
+  if (w.cap <= 0 || w.spent < w.cap * BUDGET_WARN_FRACTION || w.spent >= w.cap) return;
+  (running.budgetWarned ??= new Set()).add(w.key);
+  const pct = Math.round((w.spent / w.cap) * 100);
   running.bus.emit({
     type: 'audit',
-    from: roleId,
+    ...(w.roleId ? { from: w.roleId } : {}),
     reason: 'budget-warning',
-    msg: `"${roleId}" has spent $${spent.toFixed(2)} of its $${cap} budget_usd (${pct}%)`,
-    data: { roleId, spentUsd: spent, budgetUsd: cap },
+    msg: `${w.line} (${pct}%)`,
+    data: { ...(w.roleId ? { roleId: w.roleId } : {}), budget: w.budget, ...w.data },
   });
-  notify(
-    running,
-    '',
-    `[budget] "${roleId}" has spent $${spent.toFixed(2)} of its $${cap} budget_usd (${pct}%). At the cap its session closes and tasks assigned to it are blocked. ${remedy(running, roleId)}`,
-  );
+  notify(running, w.roleId ?? '', `[budget] ${w.line} (${pct}%). ${w.consequence}`);
 }
 
 /** dispatchReadyTasks, for a task whose assignee's mailbox is closed: when it

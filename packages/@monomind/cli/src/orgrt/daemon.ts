@@ -440,8 +440,8 @@ export interface RunningOrg {
   /** #343: roles whose session closed on their own budget_usd/budget_tokens
    *  this run, reopened by a reload that raises it (budget-closure.ts). */
   budgetClosed?: Set<string>;
-  /** #343: roles the coordinator was warned about nearing budget_usd — once
-   *  per role per run. */
+  /** #343: budgets the coordinator was warned about nearing, once per run:
+   *  `<role>:budget_usd`, `<role>:budget_tokens`, `run_config.budget_tokens`. */
   budgetWarned?: Set<string>;
   /** #343: set while the org-wide run_config.budget_tokens ceiling is spent —
    *  the roles it closed. A reload that raises the ceiling past the run's
@@ -1146,7 +1146,7 @@ export class OrgDaemon {
         }
       }
       // Bug 1 / #343: enforce the org-wide run_config.budget_tokens ceiling,
-      // hold a budget-closed role's tasks, warn near budget_usd.
+      // hold a budget-closed role's tasks, warn near a budget.
       onBudgetBusEvent(running, e);
       // Track last message ID for threading responses
       if ((e.type === 'message' || e.type === 'xorg') && e.from) {
