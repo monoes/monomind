@@ -148,8 +148,7 @@ export function checkApproval(
     // Require human approval for sensitive actions: the built-in list plus the
     // role's own policy.approvalTools (bare names, e.g. a provider tool
     // `monoagent__automation_publish`). autoApproveTools above still wins.
-    const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
-    if (sensitiveActions.includes(action) || roleDef?.policy?.approvalTools?.includes(action)) {
+    if (SENSITIVE_ACTIONS.includes(action) || roleDef?.policy?.approvalTools?.includes(action)) {
       // Queue for approval
       const summary = summarizeToolInput(input);
       let entry = existing;
@@ -192,6 +191,26 @@ export function checkApproval(
 
     return true; // Auto-approved for non-sensitive actions
   });
+}
+
+/** The actions that wait for human approval unless a role's autoApproveTools
+ *  (or the run's --auto-approve list) names them. */
+const SENSITIVE_ACTIONS = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
+
+/** #345: the --auto-approve entries no role of the org would ever gate — a
+ *  typo there would change nothing and leave the run waiting, so startOrg
+ *  refuses them. Returns the error message, or null when every entry is gated. */
+export function unknownAutoApproveError(
+  tools: string[],
+  roles: Array<{ policy?: { approvalTools?: string[] } }>,
+): string | null {
+  const gated = new Set([
+    ...SENSITIVE_ACTIONS,
+    ...roles.flatMap((r) => r.policy?.approvalTools ?? []),
+  ]);
+  const unknown = tools.filter((t) => !gated.has(t));
+  if (!unknown.length) return null;
+  return `--auto-approve: ${unknown.join(', ')} ${unknown.length > 1 ? 'are' : 'is'} not gated in this org — the tools that wait for approval are ${[...gated].join(', ')}`;
 }
 
 /** #345: `org run --auto-approve a,b` — the bare action names to pre-approve

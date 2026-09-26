@@ -865,7 +865,7 @@ export class OrgDaemon {
   private async startOrgInner(
     name: string,
     taskOverride?: string,
-    options?: { resume?: boolean },
+    options?: { resume?: boolean; autoApprove?: string[] },
   ): Promise<RunningOrg> {
     // #301: the PRIMARY fix — the stop-side backstops below (finishStop,
     // process 'exit') can only run for a run that ends through code we
@@ -892,6 +892,11 @@ export class OrgDaemon {
     const bp = resolveOrgDefBlueprints(parsedDef, this.root);
     // {{home}} / {{org_root}} in policy paths, before any root or sandbox sees them.
     const def = expandOrgPolicyPathVars(bp.def, promptVarsFor(this.root));
+    const autoApproveError = approvalOps.unknownAutoApproveError(
+      options?.autoApprove ?? [],
+      def.roles,
+    );
+    if (autoApproveError) throw new Error(autoApproveError);
 
     let run: string;
     let checkpoint: OrgCheckpoint | undefined;

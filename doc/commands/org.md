@@ -65,7 +65,7 @@ monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-ru
 | `--dry-run` | Validate config and print plan without starting |
 | `--budget-usd <n>` | Abort before any session starts if the upfront cost estimate exceeds `n` USD |
 | `--yes`, `-y` | Skip the interactive cost-estimate confirmation (only asked on a TTY). It does not approve tool calls |
-| `--auto-approve <tools>` | Comma-separated tools every role may call without human approval for this run only, e.g. `org_complete` for an unattended one-shot `--task` run. Adds to each role's `policy.autoApproveTools`; other gated tools still wait. Refused when an `org serve` daemon owns the project |
+| `--auto-approve <tools>` | Comma-separated tools every role may call without human approval for this run only, e.g. `org_complete` for an unattended one-shot `--task` run. Adds to each role's `policy.autoApproveTools`; other gated tools still wait. A name no role gates (not `Bash`, `WebFetch`, `WebSearch`, `org_complete` or a role's `approvalTools`) is refused, so a typo can't leave the run waiting. Also refused when an `org serve` daemon owns the project |
 
 While the run is up, each tool call that is waiting on approval is printed with the
 `monomind org approve <org> <role> <tool>` and `monomind org deny …` commands that resolve it.

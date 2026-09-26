@@ -136,6 +136,13 @@ describe('org run --auto-approve — an ad-hoc single-role run can finish itself
     expect(notices[0]).toContain('--auto-approve org_complete');
   }, 30_000);
 
+  it('refuses a tool nothing in the org gates, so a typo cannot silently leave the run waiting', async () => {
+    await expect(
+      daemon.startOrg('drill', undefined, { autoApprove: ['org_compelte'] }),
+    ).rejects.toThrow(/--auto-approve.*org_compelte.*org_complete/);
+    expect(daemon.getOrg('drill')).toBeUndefined();
+  }, 30_000);
+
   it('a run-level auto-approve does not open other gated tools', async () => {
     await daemon.startOrg('drill', undefined, { autoApprove: ['org_complete'] });
     expect(await checkApproval(daemon, 'drill', 'lead', 'Bash', { command: 'rm -rf /' })).toBe(

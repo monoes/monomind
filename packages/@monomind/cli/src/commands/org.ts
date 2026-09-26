@@ -2269,7 +2269,7 @@ export const orgCommand: Command = {
         {
           name: 'auto-approve',
           description:
-            'Comma-separated tools every role may call without human approval for this run (e.g. org_complete)',
+            'Comma-separated gated tools every role may call without human approval for this run (e.g. org_complete). -y alone approves nothing',
           type: 'string',
         },
       ],
@@ -2277,6 +2277,11 @@ export const orgCommand: Command = {
         {
           command: 'monomind org run growth --task "weekly report"',
           description: 'Run the growth org once with a task',
+        },
+        {
+          command: 'monomind org run growth --task "weekly report" -y --auto-approve org_complete',
+          description:
+            'Unattended one-shot run that may end itself without a human approving org_complete',
         },
       ],
       action: runAction,
