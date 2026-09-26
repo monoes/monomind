@@ -1,9 +1,11 @@
 name: Deploy Pages
 
+# No trigger-level `paths:` filter: every push to main gets a run, so a release
+# commit always has a pages.yml run to check (#348). The `changes` job decides
+# whether doc/** or this file changed and skips the deploy when neither did.
 on:
   push:
     branches: [main]
-    paths: ['doc/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -16,7 +18,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.diff.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push'
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          FORCED: ${{ github.event.forced }}
+        run: |
+          deploy() { echo "deploy=$1" >> "$GITHUB_OUTPUT"; echo "deploy=$1: $2"; exit 0; }
+          [ "$EVENT" = push ] || deploy true "$EVENT always deploys"
+          [ "$FORCED" = true ] && deploy true "force push"
+          case "$BEFORE" in ''|0000000000000000000000000000000000000000) deploy true "no previous commit";; esac
+          git fetch --no-tags --depth=1 origin "$BEFORE" || deploy true "cannot fetch $BEFORE"
+          files=$(git diff --name-only --no-renames "$BEFORE" "$AFTER") || deploy true "cannot diff $BEFORE..$AFTER"
+          if printf '%s\n' "$files" | grep -qE '^(doc/|\.github/workflows/pages\.yml$)'; then
+            deploy true "doc/** or pages.yml changed in $BEFORE..$AFTER"
+          fi
+          deploy false "no doc/** or pages.yml change in $BEFORE..$AFTER"
+
   deploy:
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
