@@ -1,5 +1,5 @@
 /** Adapter instruction blocks keep user edits, like init's other managed blocks. */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -86,8 +86,11 @@ describe('adapter instruction blocks under the file guard', () => {
     writeFileSync(file, `mine\n\n${block('line one\n\n  line two  ')}`);
     const guard = new FileGuard(dir, { replaceUnrecorded: true, force: true });
     install('line one\nline two', guard);
+    // No guard warning means no guarded backup. (Checking that backupDir is
+    // absent was flaky: applyIntents' own pre-write backup, taken without a
+    // run dir, is named `${Date.now()}-${pid}` too and can land on the same name.)
     expect(guard.warnings).toEqual([]);
-    expect(existsSync(guard.backupDir)).toBe(false);
+    expect(readFileSync(file, 'utf8')).toBe(`mine\n\n${block('line one\nline two')}`);
 
     // Adopted: its hash is recorded, so a later edit is protected.
     writeFileSync(file, `mine\n\n${block('line one\nline two\nMY EDIT')}`);
