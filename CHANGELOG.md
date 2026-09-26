@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.16.9] — 2026-09-26
+
 ### Fixed
 
 - **Security: every tool call of a Claude org role is now decided by the role's policy.** The Claude Code CLI asks the org's `canUseTool` gate only about calls its own rules would ask about. Read-only Bash (`cat`, `ls`, `grep`, `git status`, `git log`), `Read` inside the cwd, `Agent`, `ToolSearch` and `ListAgents` ran without it, so for those calls `denyTools`, `allowTools`, `fileRead` scopes, budget exhaustion, a pending decision gate, the fence and approvals did not apply, and no `tool` audit event was written. The 2.16.7 release run had 959 Bash results against 655 Bash decisions, and 38 `ToolSearch`, 7 `ListAgents` and 6 `Agent` calls had no decision at all. Reproduced against the real CLI: a role with `denyTools: ["Bash"]` could still run `cat`, and a role with `fileRead: ["docs/**"]` could still `Read` any file in its cwd. Write-type calls were not affected: `git commit` in a `git: 'read'` role, writes and non-read-only Bash always reached the gate, and the OS sandbox and git guard held underneath. The gate now also runs from a `PreToolUse` hook, which fires for every call, including a subagent's calls. A call is decided and audited once even when the CLI also asks `canUseTool`. `ToolSearch` is exempt from `allowTools`, since it only loads tool schemas; `denyTools` still blocks it. Approvals now cover these calls too: a role whose `Bash` needs approval (the default, unless `autoApproveTools` lists `Bash` or the run passes `--auto-approve Bash`) now also waits for approval of read-only commands. See [Where the policy is enforced](doc/concepts/org-runtime.md#where-the-policy-is-enforced-claude-runtime).
