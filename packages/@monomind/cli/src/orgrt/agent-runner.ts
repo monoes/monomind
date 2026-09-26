@@ -21,6 +21,7 @@ import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk'
 import type { z } from 'zod';
 import { maskedCommand } from './authority-mask.js';
 import type { OrgEffortLevel } from './cost-tier.js';
+import { coverEveryToolCall, POLICY_HOOK_TIMEOUT_S } from './policy-hook.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { toolInputSchema } from './tool-fence.js';
 import { toolResultSpillHook } from './tool-spill.js';
@@ -298,6 +299,8 @@ export class ClaudeAgentRunner implements AgentRunner {
     // so leaving this opt-in, rather than always-on, keeps the org runtime
     // byte-for-byte unchanged.
     const streamPartials = args.extras?.includePartialMessages === true;
+    // canUseTool alone misses every call the CLI allows itself (policy-hook.ts).
+    const gate = args.canUseTool ? coverEveryToolCall(args.canUseTool) : undefined;
 
     const stream = this.queryFn({
       prompt: args.prompt,
@@ -368,9 +371,9 @@ export class ClaudeAgentRunner implements AgentRunner {
         // #289: the SDK hands the permission gate this call's own tool_use id;
         // forward it so the invocation event can be correlated with the
         // tool_result event that later reports how the call ended.
-        canUseTool: args.canUseTool
+        canUseTool: gate
           ? (toolName: string, input: Record<string, unknown>, opts?: { toolUseID?: string }) =>
-              args.canUseTool?.(toolName, input, { toolUseId: opts?.toolUseID })
+              gate.canUseTool(toolName, input, { toolUseId: opts?.toolUseID })
           : undefined,
         abortController,
         ...(args.claudeRestrictions?.sandbox ? { sandbox: args.claudeRestrictions.sandbox } : {}),
@@ -384,8 +387,17 @@ export class ClaudeAgentRunner implements AgentRunner {
         // registered over the SDK's control protocol at initialize() time and
         // so are unaffected by `settingSources: []` above (which only stops
         // the CLI discovering the invoking user's own hooks).
-        ...(args.toolSpillDir
-          ? { hooks: { PostToolUse: [{ hooks: [toolResultSpillHook(args.toolSpillDir)] }] } }
+        ...(gate || args.toolSpillDir
+          ? {
+              hooks: {
+                ...(gate
+                  ? { PreToolUse: [{ hooks: [gate.preToolUse], timeout: POLICY_HOOK_TIMEOUT_S }] }
+                  : {}),
+                ...(args.toolSpillDir
+                  ? { PostToolUse: [{ hooks: [toolResultSpillHook(args.toolSpillDir)] }] }
+                  : {}),
+              },
+            }
           : {}),
         ...(args.extras || {}),
       } as any,

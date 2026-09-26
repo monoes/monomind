@@ -308,6 +308,14 @@ describe('PolicyEngine denial messages name the boundary (#291)', () => {
     expect(msg(d)).toContain('Grep');
   });
 
+  it('keeps ToolSearch usable under an allowlist, but not under denyTools', async () => {
+    // ToolSearch only loads deferred tool schemas — the org tools among them.
+    const p = new PolicyEngine('reviewer', { allowTools: ['Read'] }, mkBus(), '/work');
+    expect((await p.decide('ToolSearch', { query: 'org_send' })).behavior).toBe('allow');
+    const q = new PolicyEngine('reviewer', { denyTools: ['ToolSearch'] }, mkBus(), '/work');
+    expect((await q.decide('ToolSearch', { query: 'org_send' })).behavior).toBe('deny');
+  });
+
   it('lists the allowed domains when a WebFetch host is rejected', async () => {
     const p = new PolicyEngine('researcher', { webAllow: ['docs.claude.com'] }, mkBus(), '/work');
     const d = await p.decide('WebFetch', { url: 'https://evil.example.com/x' });

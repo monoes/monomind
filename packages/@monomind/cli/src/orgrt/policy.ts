@@ -346,6 +346,7 @@ export class PolicyEngine {
       this.policy.allowTools &&
       !this.policy.allowTools.includes(tool) &&
       !tool.startsWith(ORG_TOOL_NS) &&
+      tool !== 'ToolSearch' && // loads deferred tool schemas, the org tools' among them
       !(this.toolContext.providerPrefixes?.() ?? []).some((p) => tool.startsWith(p))
     )
       return deny(
