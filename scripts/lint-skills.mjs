@@ -262,7 +262,11 @@ function checkDrift() {
       readdirSync(tree2).filter((d) => existsSync(join(tree2, d, 'SKILL.md'))),
     );
 
-    const only1 = [...skills1].filter((s) => !skills2.has(s));
+    // Repo-only by design (same list as tests/repo/claude-tree-parity.test.ts):
+    // monoagent-image is tied to the local "monoes" browser profile and
+    // monodoc is a repo authoring aid, so neither ships in the package.
+    const ROOT_ONLY_ALLOWED = new Set(['monoagent-image', 'monodoc']);
+    const only1 = [...skills1].filter((s) => !skills2.has(s) && !ROOT_ONLY_ALLOWED.has(s));
     const only2 = [...skills2].filter((s) => !skills1.has(s));
 
     if (only1.length > 0) {
