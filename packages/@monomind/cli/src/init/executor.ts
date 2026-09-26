@@ -35,17 +35,12 @@ import { writeSharedInstructions } from './shared-instructions-generator.js';
 import type { InitOptions, InitResult } from './types.js';
 import { detectPlatform } from './types.js';
 import { writeGeminiFiles } from './write-antigravity.js';
-import {
-  writeClaudeMd,
-  writeHelpers,
-  writeMCPConfig,
-  writeSettings,
-  writeStatusline,
-} from './write-claude.js';
+import { writeClaudeMd, writeHelpers, writeMCPConfig, writeStatusline } from './write-claude.js';
 import { writeCodexFiles } from './write-codex.js';
 import { writeKimiFiles } from './write-kimicode.js';
 import { writeOpencodeFiles } from './write-opencode.js';
 import { writeInitialMetrics, writeRuntimeConfig } from './write-runtime-config.js';
+import { writeSettings } from './write-settings.js';
 
 export type { UpgradeResult } from './upgrade.js';
 // Re-export upgrade functions so index.ts barrel still works via './executor.js'
