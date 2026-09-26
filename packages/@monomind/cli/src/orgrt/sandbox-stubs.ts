@@ -401,9 +401,13 @@ export class SandboxStubs {
    *  requires our current namespace and boot to match — a matching pid alone
    *  can be a different process after a pid wrap, or the same-numbered pid in
    *  an unrelated namespace. A legacy entry (no pidNamespace/bootId) falls
-   *  back to the bare pid check it was written under. */
+   *  back to the bare pid check it was written under — and so does every
+   *  entry when OUR OWN identity could not be read (older kernel, no /proc):
+   *  with no `ourNs`/`ourBootId` to compare against, a modern entry's real
+   *  values would always look "different", which is not a safe basis for
+   *  ownership either. */
   private isOwn(e: LedgerEntry, ourNs: string | undefined, ourBootId: string | undefined): boolean {
-    if (isLegacy(e)) return e.pid === process.pid;
+    if (isLegacy(e) || ourNs === undefined || ourBootId === undefined) return e.pid === process.pid;
     return e.pid === process.pid && e.pidNamespace === ourNs && e.bootId === ourBootId;
   }
 
@@ -412,13 +416,19 @@ export class SandboxStubs {
    *  namespace never is — we cannot tell alive from dead across namespaces
    *  (`process.kill` always throws ESRCH there), so it is left alone rather
    *  than guessed at. Same boot and same namespace (or a legacy entry) falls
-   *  back to the bare pid-alive check. */
+   *  back to the bare pid-alive check — and so does every entry when OUR OWN
+   *  identity could not be read (older kernel, no /proc): without `ourNs`/
+   *  `ourBootId` to compare against, a modern entry's real boot/namespace
+   *  ids would always compare unequal, which would misjudge every live
+   *  entry as a different boot and reclaim it. */
   private isDead(
     e: LedgerEntry,
     ourNs: string | undefined,
     ourBootId: string | undefined,
   ): boolean {
-    if (isLegacy(e)) return e.pid === process.pid || !alive(e.pid);
+    if (isLegacy(e) || ourNs === undefined || ourBootId === undefined) {
+      return e.pid === process.pid || !alive(e.pid);
+    }
     if (e.bootId !== ourBootId) return true;
     if (e.pidNamespace !== ourNs) return false;
     return e.pid === process.pid || !alive(e.pid);

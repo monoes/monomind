@@ -254,4 +254,56 @@ describe('pid-namespace and boot-id aware reclaim', () => {
     expect(next.reclaim()).toEqual([]);
     for (const p of created) expect(existsSync(p)).toBe(true);
   });
+
+  /** `pidNamespace()`/`bootId()` can return undefined for the READING process
+   *  too (older kernel, no /proc — see IdentitySource's doc comment), not just
+   *  for a ledger entry. With no `ourNs`/`ourBootId` to compare against, a
+   *  modern entry's real values must not be treated as "a different boot": that
+   *  read the same as an unrelated fresh entry and reclaimed it unconditionally,
+   *  which is the same false-positive-dead class the pid-namespace fix closed,
+   *  just triggered by our own identity read failing instead of the entry's. */
+  const identityMissing = (pidNamespace: string | undefined, bootId: string | undefined) => ({
+    pidNamespace: () => pidNamespace,
+    bootId: () => bootId,
+  });
+
+  it('falls back to the bare pid check for a modern entry when our own pid namespace could not be read', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: deadPid() }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identityMissing(undefined, 'boot-1'));
+    expect(next.reclaim().sort()).toEqual([...created].sort());
+    for (const p of created) expect(existsSync(p)).toBe(false);
+  });
+
+  it('keeps a modern entry whose bare pid is alive when our own pid namespace could not be read', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: process.ppid }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identityMissing(undefined, 'boot-1'));
+    expect(next.reclaim()).toEqual([]);
+    for (const p of created) expect(existsSync(p)).toBe(true);
+  });
+
+  it('falls back to the bare pid check for a modern entry when our own boot id could not be read', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: deadPid() }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identityMissing('ns-A', undefined));
+    expect(next.reclaim().sort()).toEqual([...created].sort());
+    for (const p of created) expect(existsSync(p)).toBe(false);
+  });
+
+  it('keeps a modern entry whose bare pid is alive when our own boot id could not be read', () => {
+    const l = layout();
+    const created = new SandboxStubs(l.ledger, identity('ns-A', 'boot-1')).hold('org:run-1', l.paths);
+    const entries = read(l.ledger).map((e) => ({ ...e, pid: process.ppid }));
+    writeFileSync(l.ledger, JSON.stringify({ entries }));
+    const next = new SandboxStubs(l.ledger, identityMissing('ns-A', undefined));
+    expect(next.reclaim()).toEqual([]);
+    for (const p of created) expect(existsSync(p)).toBe(true);
+  });
 });
