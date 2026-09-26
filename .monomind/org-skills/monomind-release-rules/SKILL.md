@@ -175,6 +175,11 @@ those, never values remembered from an earlier run.
   with offset/limit. Never a string of one-range `awk 'NR>=a && NR<=b'` or
   `sed -n` peeks: every call re-sends your whole context (the 2.16.0 DOCS task
   made 240 calls and cost 18% of the run).
+- Never write a diff or log to a file just to Read it end to end, and never Read
+  a whole source file or log: take the file list from `git diff --stat`, the
+  hunks you need from `git show <sha> -- <path>`, and context with `grep -n` or
+  Read offset/limit (the 2.16.7 pre-audit read 20 dumped diffs and 20 logs
+  whole and cost $12.83).
 
 ## Unattended
 - No web access. Never ask the human anything: org_gate is denied for every role,
