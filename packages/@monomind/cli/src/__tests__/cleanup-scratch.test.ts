@@ -1,10 +1,23 @@
 // packages/@monomind/cli/src/__tests__/cleanup-scratch.test.ts
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { cleanupCommand, findStaleScratch } from '../commands/cleanup.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  cleanupCommand,
+  findOrphanedProjectData,
+  findStaleRegistryEntries,
+  findStaleScratch,
+} from '../commands/cleanup.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -213,6 +226,114 @@ describe('findOrphanedProjectData (--data)', () => {
     } finally {
       rmSync(base, { recursive: true, force: true });
       rmSync(liveProject, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('cleanup --data: origins under a deleted root (#347)', () => {
+  it('prunes a dir whose origin and its parent are gone unless the nearest existing ancestor is a mount point', () => {
+    const base = mkdtempSync(join(tmpdir(), 'proj-data-'));
+    const root = mkdtempSync(join(tmpdir(), 'fx-root-'));
+    try {
+      // origin <root>/fx-init/agent-ops-test-x: the whole fx-init test root was
+      // deleted, so dirname(origin) is gone too; nearest existing = <root>
+      mkdirSync(join(base, 'nested-gone'), { recursive: true });
+      writeFileSync(
+        join(base, 'nested-gone', 'origin.json'),
+        JSON.stringify({ path: join(root, 'fx-init', 'agent-ops-test-x') }),
+      );
+      // nearest existing ancestor is the temp dir itself: a well-known local
+      // root, even when it is its own mount (a tmpfs /tmp)
+      mkdirSync(join(base, 'tmp-gone'), { recursive: true });
+      writeFileSync(
+        join(base, 'tmp-gone', 'origin.json'),
+        JSON.stringify({ path: join(tmpdir(), `no-such-root-${Date.now()}`, 'a', 'proj') }),
+      );
+      // nearest existing ancestor is / (a mount point): the origin may sit on
+      // an unmounted volume, so keep it
+      mkdirSync(join(base, 'root-mount'), { recursive: true });
+      writeFileSync(
+        join(base, 'root-mount', 'origin.json'),
+        JSON.stringify({ path: '/no-such-root-zz347/a/proj' }),
+      );
+      const paths = findOrphanedProjectData(base, Date.now(), false).map((o) => o.path);
+      expect(paths).toContain(join(base, 'nested-gone'));
+      expect(paths).toContain(join(base, 'tmp-gone'));
+      expect(paths).not.toContain(join(base, 'root-mount'));
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('cleanup --data: ~/.monomind-projects.json registry (#347)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** Temp HOME whose registry lists a live, a deleted and an unmount-cautious project. */
+  function makeRegistryFixture(): { home: string; live: string; gone: string; registry: string } {
+    const home = mkdtempSync(join(tmpdir(), 'cleanup-home-'));
+    const live = join(home, 'live-project');
+    mkdirSync(live);
+    const gone = join(home, 'deleted-root', 'gone-project');
+    const registry = join(home, '.monomind-projects.json');
+    writeFileSync(
+      registry,
+      JSON.stringify({ projects: [live, gone, '/no-such-root-zz347/proj'], extra: 1 }, null, 2),
+    );
+    vi.stubEnv('HOME', home);
+    vi.stubEnv('USERPROFILE', home);
+    return { home, live, gone, registry };
+  }
+
+  it('findStaleRegistryEntries lists only provably deleted project paths', () => {
+    const { home, gone, registry } = makeRegistryFixture();
+    try {
+      expect(findStaleRegistryEntries(registry)).toEqual([gone]);
+      expect(findStaleRegistryEntries(join(home, 'missing.json'))).toEqual([]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('dry run reports stale registry entries without rewriting the registry', async () => {
+    const { home, gone, registry } = makeRegistryFixture();
+    try {
+      const before = readFileSync(registry, 'utf-8');
+      const res = await cleanupCommand.action?.({
+        args: [],
+        flags: { data: true },
+        cwd: home,
+        interactive: false,
+      } as any);
+      expect(res?.success).toBe(true);
+      expect((res?.data as { staleRegistryEntries?: string[] })?.staleRegistryEntries).toEqual([
+        gone,
+      ]);
+      expect(readFileSync(registry, 'utf-8')).toBe(before);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('--force drops stale registry entries and keeps live and unmount-cautious ones', async () => {
+    const { home, live, registry } = makeRegistryFixture();
+    try {
+      const res = await cleanupCommand.action?.({
+        args: [],
+        flags: { data: true, force: true },
+        cwd: home,
+        interactive: false,
+      } as any);
+      expect(res?.success).toBe(true);
+      expect((res?.data as { registryRemovedCount?: number })?.registryRemovedCount).toBe(1);
+      const reg = JSON.parse(readFileSync(registry, 'utf-8'));
+      expect(reg.projects).toEqual([live, '/no-such-root-zz347/proj']);
+      expect(reg.extra).toBe(1);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
     }
   });
 });

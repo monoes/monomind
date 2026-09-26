@@ -14,12 +14,14 @@ import {
   lstatSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   unlinkSync,
+  writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import {
@@ -45,6 +47,79 @@ interface StaleScratchItem {
  * source project is gone, plus dead lancedb/ dirs left by the pre-2.3.1 engine. */
 const UNKNOWN_DIR_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Where removable volumes appear; a missing path under one may just be unplugged. */
+const MEDIA_ROOTS = ['/Volumes', '/media', '/mnt', '/run/media'];
+
+function isMountPoint(dir: string): boolean {
+  const parent = dirname(dir);
+  if (parent === dir) return true; // filesystem root
+  try {
+    return statSync(dir).dev !== statSync(parent).dev;
+  } catch {
+    return true; // cannot tell — stay cautious
+  }
+}
+
+/**
+ * True when a recorded project path is gone because it was deleted, not
+ * because the volume holding it is unmounted. Walks up to the nearest existing
+ * ancestor: when that is the path's own parent (the old rule), a well-known
+ * local root (home, /tmp, /var/tmp, the OS temp dir) or an ordinary directory,
+ * the path was deleted — this covers a whole deleted test root (#347). When it
+ * is a mount point (`/`, a network share's mount) or a removable-media
+ * directory, the missing piece may be a volume that is not attached right now.
+ */
+function isProvablyDeleted(p: string): boolean {
+  const target = resolve(p);
+  if (existsSync(target)) return false;
+  const parent = dirname(target);
+  let nearest = parent;
+  while (!existsSync(nearest) && dirname(nearest) !== nearest) nearest = dirname(nearest);
+  if (nearest === parent) return true;
+  const localRoots = new Set<string>();
+  for (const r of [homedir(), '/tmp', '/var/tmp', tmpdir()]) {
+    localRoots.add(resolve(r));
+    try {
+      localRoots.add(realpathSync(r));
+    } catch {
+      /* missing root — nothing to add */
+    }
+  }
+  if (localRoots.has(nearest)) return true;
+  if (MEDIA_ROOTS.includes(nearest) || MEDIA_ROOTS.includes(dirname(nearest))) return false;
+  return !isMountPoint(nearest);
+}
+
+/**
+ * Entries of the project registry (~/.monomind-projects.json, written by
+ * `init` for `init upgrade --all`) whose project was deleted, by the same rule
+ * as project-data dirs. Exported for tests; unreadable registry → none.
+ */
+export function findStaleRegistryEntries(registryPath: string): string[] {
+  try {
+    const reg = JSON.parse(readFileSync(registryPath, 'utf-8')) as { projects?: unknown };
+    if (!Array.isArray(reg.projects)) return [];
+    return reg.projects.filter(
+      (p): p is string => typeof p === 'string' && p.length > 0 && isProvablyDeleted(p),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Rewrite the registry without `stale`, re-read first so a concurrent `init` registration survives. */
+function pruneRegistryEntries(registryPath: string, stale: string[]): number {
+  const reg = JSON.parse(readFileSync(registryPath, 'utf-8')) as { projects: unknown[] };
+  const drop = new Set(stale);
+  const kept = reg.projects.filter((p) => !(typeof p === 'string' && drop.has(p)));
+  const removed = reg.projects.length - kept.length;
+  if (removed > 0) {
+    reg.projects = kept;
+    writeFileSync(registryPath, JSON.stringify(reg, null, 2), 'utf-8');
+  }
+  return removed;
+}
+
 /**
  * Find prunable entries under the per-project data base (default
  * ~/.monomind/projects). Exported for tests — `baseDir`/`now` injectable.
@@ -52,7 +127,8 @@ const UNKNOWN_DIR_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  * Classification per dir:
  * - `origin.json` present and its recorded path still exists → keep the dir,
  *   but flag a leftover `lancedb/` subdir (dead since the SQLite engine swap).
- * - `origin.json` present, recorded path gone → orphaned → prune.
+ * - `origin.json` present, recorded path provably deleted (not merely on an
+ *   unmounted volume, see {@link isProvablyDeleted}) → orphaned → prune.
  * - no `origin.json` (pre-2.3.1 dirs can't prove their origin) → prune only
  *   when untouched for {@link UNKNOWN_DIR_MAX_AGE_MS} — or immediately with
  *   `--aggressive`, which treats unprovable dirs as junk (safe: every live
@@ -120,10 +196,10 @@ export function findOrphanedProjectData(
       continue;
     }
     if (hasOrigin && originPath) {
-      // Only classify as orphaned when the origin's PARENT exists — an
-      // unmounted volume / disconnected network share makes the whole subtree
-      // vanish temporarily, and that must never count as "project deleted".
-      if (existsSync(dirname(originPath))) {
+      // An unmounted volume / disconnected network share makes the whole
+      // subtree vanish temporarily, and that must never count as "project
+      // deleted" — see isProvablyDeleted.
+      if (isProvablyDeleted(originPath)) {
         out.push({
           path: dir,
           description: `orphaned project data (origin gone: ${originPath})`,
@@ -321,7 +397,7 @@ export const cleanupCommand: Command = {
       name: 'data',
       short: 'd',
       description:
-        'Prune orphaned per-project data in ~/.monomind/projects (gone projects, dead lancedb stores)',
+        'Prune orphaned per-project data in ~/.monomind/projects (gone projects, dead lancedb stores) and gone projects in ~/.monomind-projects.json',
       type: 'boolean',
       default: false,
     },
@@ -374,7 +450,9 @@ export const cleanupCommand: Command = {
       );
       output.writeln();
       const orphans = findOrphanedProjectData(baseDir, Date.now(), ctx.flags.aggressive === true);
-      if (orphans.length === 0) {
+      const registryPath = join(homedir(), '.monomind-projects.json');
+      const staleRegistryEntries = findStaleRegistryEntries(registryPath);
+      if (orphans.length === 0 && staleRegistryEntries.length === 0) {
         output.writeln(output.info('No orphaned project data found.'));
         return { success: true, message: 'Nothing to clean' };
       }
@@ -390,21 +468,41 @@ export const cleanupCommand: Command = {
           }
         }
       }
+      for (const p of staleRegistryEntries) {
+        output.writeln(
+          `  ${dryRun ? 'would unregister' : 'unregistering'}: ${p}  (project gone, in ${registryPath})`,
+        );
+      }
+      let registryRemoved = 0;
+      if (!dryRun && staleRegistryEntries.length > 0) {
+        try {
+          registryRemoved = pruneRegistryEntries(registryPath, staleRegistryEntries);
+        } catch {
+          /* registry unreadable/unwritable — leave it */
+        }
+      }
+      const total = orphans.length + staleRegistryEntries.length;
       output.writeln();
       if (dryRun) {
         output.writeln(
-          output.dim(`  ${orphans.length} item(s). This was a dry run. Use --force to delete.`),
+          output.dim(`  ${total} item(s). This was a dry run. Use --force to delete.`),
         );
         return {
           success: true,
-          message: `Dry run: ${orphans.length} orphaned item(s) found`,
-          data: { found: orphans, dryRun },
+          message: `Dry run: ${total} orphaned item(s) found`,
+          data: { found: orphans, staleRegistryEntries, dryRun },
         };
       }
       return {
         success: true,
-        message: `Removed ${removed} orphaned item(s)`,
-        data: { found: orphans, removedCount: removed, dryRun },
+        message: `Removed ${removed + registryRemoved} orphaned item(s)`,
+        data: {
+          found: orphans,
+          removedCount: removed,
+          staleRegistryEntries,
+          registryRemovedCount: registryRemoved,
+          dryRun,
+        },
       };
     }
 

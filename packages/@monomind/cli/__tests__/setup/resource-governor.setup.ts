@@ -22,6 +22,16 @@ if (!process.env.MONOMIND_ORGRT_OPERATOR_DIR) {
   process.env.MONOMIND_ORGRT_OPERATOR_DIR = mkdtempSync(join(tmpdir(), 'mm-operator-'));
 }
 
+// Memory and init code write to the real home: a per-project store under
+// ~/.monomind/projects/<name>-<hash> for every temp project a test runs in,
+// and ~/.monomind-projects.json entries — hundreds of leaked dirs (#347).
+// Point HOME and the global brain at a per-file temp dir; a test that stubs
+// its own HOME still wins.
+const testHome = mkdtempSync(join(tmpdir(), 'mm-test-home-'));
+process.env.HOME = testHome;
+if (process.platform === 'win32') process.env.USERPROFILE = testHome;
+process.env.MONOMIND_GLOBAL_BRAIN_DIR = join(testHome, '.monomind', 'global-brain');
+
 // CLI runs in tests (e.g. `cli.run(['--version'])`) must not stamp the real
 // ~/.monomind/update-state.json or spawn a detached registry refresh. Tests
 // of the update gate clear this themselves.
