@@ -1,53 +1,46 @@
 ---
 name: optimization-performance-optimize
-description: Analyze and apply system-level performance optimizations — memory, CPU, and latency using npx monomind performance optimize
+description: Analyze system-level performance and get optimization recommendations — memory, latency, and throughput — using the mcp__monomind__performance_optimize MCP tool
 type: flow
 ---
 
 # performance optimize
 
-Analyze and apply system-level performance optimizations — memory, CPU, and latency.
+Analyze system-level performance and get optimization recommendations — memory, latency, and throughput.
 
-## Usage
+There is no `optimize` subcommand of `monomind performance` — this is invoked
+directly as an MCP tool call. It is a rule-based recommendation engine over
+real CPU, memory, and disk readings: only garbage collection and probe-file
+cleanup are applied automatically (with `aggressive: true`); everything else is
+returned as a recommendation.
 
-```bash
-npx monomind performance optimize [options]
-```
+## Parameters
 
-## Options
-
-| Flag | Short | Type | Default | Description |
-|---|---|---|---|---|
-| `--target` | `-t` | string | `all` | Optimization target: `memory`, `cpu`, `latency`, `all` |
-| `--apply` | `-a` | boolean | `false` | Apply recommended optimizations |
-| `--dry-run` | `-d` | boolean | `false` | Show recommended changes without applying |
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `target` | string | `all` | Optimization target: `memory`, `latency`, `throughput`, `all` |
+| `aggressive` | boolean | `false` | Force GC (needs `--expose-gc`) and clear perf probe files |
 
 ## Examples
 
-```bash
-# Analyze and show recommendations (no changes)
-npx monomind performance optimize --dry-run
+```javascript
+// Analyze and show recommendations
+mcp__monomind__performance_optimize({ target: "all" })
 
-# Optimize everything and apply
-npx monomind performance optimize --target all --apply
+// Memory-specific recommendations, forcing a GC pass
+mcp__monomind__performance_optimize({ target: "memory", aggressive: true })
 
-# Memory-specific optimization
-npx monomind performance optimize --target memory --apply
-
-# CPU optimization only
-npx monomind performance optimize --target cpu --apply
-
-# Latency optimization (MCP response time)
-npx monomind performance optimize --target latency --apply
+// Latency recommendations (disk I/O)
+mcp__monomind__performance_optimize({ target: "latency" })
 ```
 
 ## Optimization Targets
 
-| Target | What It Optimizes |
+| Target | What It Checks |
 |---|---|
-| `memory` | Memory backend compression, HNSW rebuild, cache eviction |
-| `cpu` | Agent pool sizing, task batching, concurrency limits |
-| `latency` | MCP response caching, neural model quantization |
+| `memory` | System memory pressure, HNSW rebuild recommendation, forced GC (aggressive) |
+| `latency` | Disk I/O latency, batching of file operations |
+| `throughput` | Batch size for the CPU core count, CPU load throttling |
 | `all` | All of the above |
 
 ## Related Commands
@@ -61,15 +54,6 @@ npx monomind performance benchmark --suite all
 
 # View current performance metrics
 npx monomind performance metrics
-```
-
-## MCP Tool
-
-```javascript
-mcp__monomind__performance_optimize({
-  target: "all",
-  apply: false
-})
 ```
 
 ## See Also
