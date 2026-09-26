@@ -25,7 +25,12 @@ import { ORG_DIR } from '../orgrt/types.js';
 const fakeDaemon = vi.hoisted(() => ({ ticksRunning: 0, reloads: 0 }));
 vi.mock('../orgrt/daemon.js', () => ({
   OrgDaemon: class {
-    startOrg = async () => ({ def: { roles: [] }, run: 'run-1' });
+    // A real RunningOrg always carries its event bus; org run subscribes to it (#345).
+    startOrg = async () => ({
+      def: { roles: [] },
+      run: 'run-1',
+      bus: { subscribe: () => () => {} },
+    });
     // Hosts the org for `ticksRunning` wait-loop ticks, then reports it gone.
     getOrg = () => (fakeDaemon.ticksRunning-- > 0 ? {} : undefined);
     listRunning = () => ['growth'];
