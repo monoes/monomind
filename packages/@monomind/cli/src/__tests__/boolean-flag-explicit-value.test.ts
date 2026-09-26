@@ -31,12 +31,8 @@ vi.mock('../mcp-client.js', () => ({
   callMCPTool: vi.fn(async () => ({
     taskId: 'task-123',
     success: true,
-    recorded: true,
-    learningUpdates: {
-      agentPatternsUpdated: 1,
-      taskStrategiesLearned: 0,
-      complexityModelUpdated: false,
-    },
+    learningUpdates: { controller: 'sqlite', outcomePersisted: false },
+    feedback: { recorded: true, controller: 'sqlite', updates: 1 },
   })),
   MCPClientError: class MCPClientError extends Error {},
 }));

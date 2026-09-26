@@ -232,12 +232,11 @@ const postTaskCommand: Command = {
       const result = await callMCPTool<{
         taskId: string;
         success: boolean;
-        recorded: boolean;
-        learningUpdates: {
-          agentPatternsUpdated: number;
-          taskStrategiesLearned: number;
-          complexityModelUpdated: boolean;
+        learningUpdates?: {
+          controller: string;
+          outcomePersisted: boolean;
         };
+        feedback?: { recorded: boolean };
         nextRecommendations?: string[];
       }>('hooks_post-task', {
         taskId,
@@ -259,14 +258,13 @@ const postTaskCommand: Command = {
       if (result.learningUpdates) {
         output.writeln();
         output.writeln(
-          output.dim(`Agent patterns updated: ${result.learningUpdates.agentPatternsUpdated}`),
-        );
-        output.writeln(
-          output.dim(`Strategies learned: ${result.learningUpdates.taskStrategiesLearned}`),
+          output.dim(
+            `Learning feedback: ${result.feedback?.recorded ? `recorded (${result.learningUpdates.controller})` : 'not recorded'}`,
+          ),
         );
         output.writeln(
           output.dim(
-            `Complexity model: ${result.learningUpdates.complexityModelUpdated ? 'Updated' : 'No change'}`,
+            `Routing outcome: ${result.learningUpdates.outcomePersisted ? 'saved' : 'not saved'}`,
           ),
         );
       }

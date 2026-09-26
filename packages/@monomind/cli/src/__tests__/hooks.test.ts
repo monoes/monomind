@@ -293,6 +293,37 @@ describe('hooks pre-task / post-task dispatch (real task-suggestion logic)', () 
     expect(data.success).toBe(true);
   });
 
+  it('post-task text output reports the learning updates the handler recorded (#341)', async () => {
+    const postTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'post-task')!;
+    const chunks: string[] = [];
+    for (const stream of [process.stdout, process.stderr]) {
+      vi.spyOn(stream, 'write').mockImplementation((chunk: unknown) => {
+        chunks.push(String(chunk));
+        return true;
+      });
+    }
+    let result: Awaited<ReturnType<NonNullable<typeof postTaskCommand.action>>>;
+    try {
+      result = await postTaskCommand.action?.(makeCtx(['task-341'], { success: true }, dir));
+    } finally {
+      vi.restoreAllMocks();
+    }
+    const text = chunks.join('');
+    const data = result?.data as {
+      learningUpdates: { controller: string; outcomePersisted: boolean };
+      feedback: { recorded: boolean };
+    };
+
+    expect(result?.success).toBe(true);
+    expect(text).not.toContain('undefined');
+    expect(text).toContain(
+      `Learning feedback: ${data.feedback.recorded ? `recorded (${data.learningUpdates.controller})` : 'not recorded'}`,
+    );
+    expect(text).toContain(
+      `Routing outcome: ${data.learningUpdates.outcomePersisted ? 'saved' : 'not saved'}`,
+    );
+  });
+
   it('post-task fails cleanly with no task id', async () => {
     const postTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'post-task')!;
     const result = await postTaskCommand.action?.(makeCtx([], { format: 'json' }, dir));
