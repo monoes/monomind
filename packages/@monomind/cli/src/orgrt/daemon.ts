@@ -591,6 +591,10 @@ export class OrgDaemon {
       resolvedAt?: number;
     }>
   >();
+  /** @internal #345: per org, the actions `org run --auto-approve` pre-approved
+   *  for the current run (approvals.ts's checkApproval). Kept across a boss
+   *  auto-restart, replaced by every other start. */
+  runAutoApprove = new Map<string, string[]>();
   /** @internal */ approvalLocks = new Map<string, Promise<unknown>>();
   /** @internal */ gatesLocks = new Map<string, Promise<unknown>>();
   /** @internal */ questionsLocks = new Map<string, Promise<unknown>>();
@@ -795,7 +799,7 @@ export class OrgDaemon {
   async startOrg(
     name: string,
     taskOverride?: string,
-    options?: { resume?: boolean },
+    options?: { resume?: boolean; autoApprove?: string[] },
   ): Promise<RunningOrg> {
     // A restart-driven start (scheduleBossRestart) keeps its crash counter so the
     // cap holds; any other (explicit) start resets it so a manual re-run gets a
@@ -821,6 +825,13 @@ export class OrgDaemon {
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     if (this.startingOrgs.has(name)) throw new Error(`org ${name} already starting`);
     this.startingOrgs.add(name);
+    // #345: the run's --auto-approve list — kept by a boss auto-restart like
+    // the crash counter, replaced by any other start. Set only after the
+    // guards above, so a rejected start can't rewrite a live run's list.
+    if (!this.restarting.has(name)) {
+      if (options?.autoApprove?.length) this.runAutoApprove.set(name, options.autoApprove);
+      else this.runAutoApprove.delete(name);
+    }
     try {
       return await this.startOrgInner(name, taskOverride, options);
     } catch (err) {

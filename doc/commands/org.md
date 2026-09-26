@@ -54,7 +54,7 @@ Start an org in the **foreground**. If a live `org serve` daemon is detected (vi
 the task is sent as a runfile to the daemon instead of competing with it.
 
 ```bash
-monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-run] [--budget-usd <n>] [--yes]
+monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-run] [--budget-usd <n>] [--yes] [--auto-approve <tools>]
 ```
 
 | Flag | Purpose |
@@ -64,7 +64,11 @@ monomind org run <name> [--task "..."] [--resume] [--no-cross-process] [--dry-ru
 | `--cross-process` | Register with broker for cross-daemon `org_send` delivery (default on; `--no-cross-process` disables) |
 | `--dry-run` | Validate config and print plan without starting |
 | `--budget-usd <n>` | Abort before any session starts if the upfront cost estimate exceeds `n` USD |
-| `--yes`, `-y` | Skip the interactive cost-estimate confirmation (only asked on a TTY) |
+| `--yes`, `-y` | Skip the interactive cost-estimate confirmation (only asked on a TTY). It does not approve tool calls |
+| `--auto-approve <tools>` | Comma-separated tools every role may call without human approval for this run only, e.g. `org_complete` for an unattended one-shot `--task` run. Adds to each role's `policy.autoApproveTools`; other gated tools still wait. Refused when an `org serve` daemon owns the project |
+
+While the run is up, each tool call that is waiting on approval is printed with the
+`monomind org approve <org> <role> <tool>` and `monomind org deny …` commands that resolve it.
 
 Before starting, `run` prints a per-role cost estimate (rates from a built-in table,
 overridable in `~/.monomind/rates.json`). With `--budget-usd` set too low:

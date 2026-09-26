@@ -14,6 +14,7 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
+import { approvalPendingNotice, parseAutoApproveFlag } from '../orgrt/approvals.js';
 import { resolveRoleCostTier } from '../orgrt/cost-tier.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
@@ -368,6 +369,8 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const taskFlag = ctx.flags.task;
   if (Array.isArray(taskFlag))
     return { success: false, message: '--task was passed more than once — pass it exactly once' };
+  const autoApprove = parseAutoApproveFlag(ctx.flags.autoApprove);
+  if ('error' in autoApprove) return { success: false, message: autoApprove.error };
   // Fail before any side effects (inbox server) when the org doesn't exist.
   const orgsDir = join(ctx.cwd, ORG_DIR);
   if (!existsSync(join(orgsDir, `${name}.json`))) {
@@ -451,6 +454,12 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // so hand the request to the daemon via its runfile instead of racing it.
   const serveOwner = liveServeDaemonPid(ctx.cwd);
   if (serveOwner != null) {
+    // The runfile carries only the task; the serve daemon would drop the list.
+    if (autoApprove.tools.length)
+      return {
+        success: false,
+        message: `--auto-approve cannot be handed to the running "org serve" daemon (pid ${serveOwner}) — set the roles' policy.autoApproveTools instead`,
+      };
     mkdirSync(join(orgsDir, name), { recursive: true });
     // The task rides along in the runfile. Dropping it here would have made
     // `org run <name> --task "..."` silently start a generic cycle — the flag
@@ -676,7 +685,10 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
   let running: Awaited<ReturnType<typeof daemon.startOrg>>;
   try {
-    running = await daemon.startOrg(name, taskFlag as string | undefined, { resume: resumeFlag });
+    running = await daemon.startOrg(name, taskFlag as string | undefined, {
+      resume: resumeFlag,
+      autoApprove: autoApprove.tools,
+    });
   } catch (err) {
     // Don't leave the inbox server holding the event loop open on a failed start.
     srv?.close();
@@ -696,6 +708,11 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       `org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`,
     ),
   );
+  // #345: a role waiting on a tool approval is otherwise silent in this log.
+  running.bus.subscribe((e) => {
+    const notice = approvalPendingNotice(name, e);
+    if (notice) log(output.warning(notice));
+  });
   // The run log's last line: outcome, wall time, total cost (every exit path
   // below, crash handlers included), so a detached run's log has an ending.
   const startedAt = Date.now();
@@ -2248,6 +2265,12 @@ export const orgCommand: Command = {
           short: 'y',
           description: 'Skip the interactive cost-estimate confirmation prompt',
           type: 'boolean',
+        },
+        {
+          name: 'auto-approve',
+          description:
+            'Comma-separated tools every role may call without human approval for this run (e.g. org_complete)',
+          type: 'string',
         },
       ],
       examples: [

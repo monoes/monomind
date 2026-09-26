@@ -141,6 +141,9 @@ export function checkApproval(
     // pre-trusted for, skipping the human-approval pause entirely for those.
     const roleDef = daemon.orgs.get(org)?.def.roles.find((r) => r.id === role);
     if (roleDef?.policy?.autoApproveTools?.includes(action)) return true;
+    // #345: `org run --auto-approve <tools>` pre-approves the named actions for
+    // every role, for this run only.
+    if (daemon.runAutoApprove?.get(org)?.includes(action)) return true;
 
     // Require human approval for sensitive actions: the built-in list plus the
     // role's own policy.approvalTools (bare names, e.g. a provider tool
@@ -189,6 +192,41 @@ export function checkApproval(
 
     return true; // Auto-approved for non-sensitive actions
   });
+}
+
+/** #345: `org run --auto-approve a,b` — the bare action names to pre-approve
+ *  for the run (a `mcp__org__` prefix is dropped, as checkApproval does). */
+export function parseAutoApproveFlag(raw: unknown): { tools: string[] } | { error: string } {
+  if (raw === undefined) return { tools: [] };
+  if (typeof raw !== 'string')
+    return { error: '--auto-approve takes a comma-separated list of tool names' };
+  const tools = raw
+    .split(',')
+    .map((t) => normalizeToolAction(t.trim()))
+    .filter(Boolean);
+  const bad = tools.find((t) => !/^[A-Za-z0-9_.:-]+$/.test(t));
+  if (bad) return { error: `--auto-approve: "${bad}" is not a tool name` };
+  return { tools };
+}
+
+/** #345: the line `org run` prints for the approval request a `question`
+ *  event carries (checkApproval emits one per queued request), naming the
+ *  commands that resolve it; null for any other event. Without it the
+ *  request only reached approvals.json and the dashboard, and a foreground
+ *  run waiting on it looked hung. */
+export function approvalPendingNotice(
+  org: string,
+  e: { type: string; from?: string; data?: unknown },
+): string | null {
+  const data = e.data as { action?: unknown; requestId?: unknown } | undefined;
+  if (e.type !== 'question' || !e.from || typeof data?.action !== 'string' || !data.requestId)
+    return null;
+  const args = `${org} ${e.from} ${data.action}`;
+  return (
+    `approval pending (${data.requestId}): role "${e.from}" is waiting to run ${data.action} — ` +
+    `resolve with "monomind org approve ${args}" or "monomind org deny ${args}"` +
+    ` (to pre-approve it for a run, start it with --auto-approve ${data.action})`
+  );
 }
 
 /** Approve or deny a pending action (called by dashboard or CLI).
