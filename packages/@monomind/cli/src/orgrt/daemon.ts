@@ -107,6 +107,7 @@ import {
 } from './role-slot.js';
 import { currentRoleTrace, endTurn, type RoleTrace, withTrace } from './role-trace.js';
 import { buildRuntimeOptions, type RuntimeOptionsReceipt } from './runtime-options.js';
+import { sandboxStubs } from './sandbox-stubs.js';
 import * as scheduler from './scheduler-integration.js';
 import { runAgentSession } from './session.js';
 import { SessionLedger } from './session-ledger.js';
@@ -2940,6 +2941,8 @@ export class OrgDaemon {
         /* best-effort */
       }
     }
+    // The run's sessions are gone: take down the sandbox stubs it held.
+    sandboxStubs.release(`${name}:${org.run}`);
     // #302 truth gate: every stop path funnels through here, so this is the
     // one place that can record how the run ACTUALLY ended, regardless of
     // which of the five paths triggered it. `closedBy` is undefined only for
