@@ -2210,6 +2210,59 @@ export async function bridgeSessionEnd(options: {
   }
 }
 
+/** The most recently started session recorded by bridgeSessionStart, read
+ *  back from its row — or null when there is none (or no backend). */
+export async function bridgeLatestSession(options: {
+  excludeSessionId?: string;
+  dbPath?: string;
+}): Promise<{
+  sessionId: string;
+  status: string;
+  startedAt: string;
+  endedAt?: string;
+  summary?: string;
+  metrics?: Record<string, unknown>;
+} | null> {
+  const backend = await getBackend(options.dbPath);
+  if (!backend) return null;
+
+  try {
+    // Newest two rows: one of them may be the excluded (current) session.
+    const rows = await backend.query({
+      type: 'exact' as any,
+      namespace: 'sessions',
+      keyPrefix: 'session_',
+      sortField: 'createdAt',
+      sortDirection: 'desc',
+      limit: 2,
+    });
+    for (const row of rows) {
+      let data: any;
+      try {
+        data = JSON.parse(row.content);
+      } catch {
+        continue;
+      }
+      if (typeof data?.sessionId !== 'string' || data.sessionId === options.excludeSessionId)
+        continue;
+      return {
+        sessionId: data.sessionId,
+        status: typeof data.status === 'string' ? data.status : 'unknown',
+        startedAt: new Date(data.startedAt ?? row.createdAt).toISOString(),
+        ...(typeof data.endedAt === 'number'
+          ? { endedAt: new Date(data.endedAt).toISOString() }
+          : {}),
+        ...(typeof data.summary === 'string' ? { summary: data.summary } : {}),
+        ...(data.metrics && typeof data.metrics === 'object' ? { metrics: data.metrics } : {}),
+      };
+    }
+    return null;
+  } catch (e) {
+    logBridgeError('bridgeLatestSession', e);
+    return null;
+  }
+}
+
 // ===== Task routing =====
 
 export async function bridgeRouteTask(options: {

@@ -37,6 +37,7 @@ import {
   hooksPostTask,
   hooksPreEdit,
   hooksSessionEnd,
+  hooksSessionStart,
 } from '../mcp-tools/hooks-routing.js';
 import { deriveRecentSuccess, readCommandOutcomes } from '../monovector/command-outcomes.js';
 
@@ -151,6 +152,57 @@ describe('hooks_* MCP payloads carry only real values (#341 follow-up)', () => {
     it('sends no fixed learningUpdate label', async () => {
       const result = (await hooksPostEdit.handler({ filePath: 'a.ts', success: false })) as Payload;
       expect(result).not.toHaveProperty('learningUpdate');
+    });
+  });
+
+  describe('hooks_session-start', () => {
+    type Started = Payload & {
+      sessionMemory: Payload;
+      previousSession: Payload | null;
+    };
+    const start = async (params: Payload) => (await hooksSessionStart.handler(params)) as Started;
+    /** Sessions started in the same millisecond have no order to report. */
+    const tick = () => new Promise((r) => setTimeout(r, 5));
+
+    it('sends no fixed config block or restored-pattern count', async () => {
+      const result = await start({ sessionId: 's-plain' });
+      expect(result).not.toHaveProperty('config');
+      expect(result.sessionMemory).not.toHaveProperty('restoredPatterns');
+      expect(result.restored).toBe(false);
+      expect(result.previousSession).toBeNull();
+    });
+
+    it('restores nothing and invents no previous session when none exists', async () => {
+      const result = await start({ sessionId: 's-first', restoreLatest: true });
+      expect(result.restored).toBe(false);
+      expect(result.previousSession).toBeNull();
+    });
+
+    it('reports the latest real session it loaded', async () => {
+      await start({ sessionId: 's-old' });
+      await tick();
+      await start({ sessionId: 's-prev' });
+      await hooksSessionEnd.handler({ sessionId: 's-prev' });
+      await tick();
+
+      const result = await start({ sessionId: 's-new', restoreLatest: true });
+      expect(result.restored).toBe(true);
+      expect(result.previousSession).toMatchObject({
+        sessionId: 's-prev',
+        status: 'ended',
+        summary: 'Session ended with state saved',
+      });
+      expect(typeof (result.previousSession as Payload).startedAt).toBe('string');
+      expect(typeof (result.previousSession as Payload).endedAt).toBe('string');
+    });
+
+    it('never reports the session being started as its own previous session', async () => {
+      await start({ sessionId: 's-prev' });
+      await tick();
+      await start({ sessionId: 's-again' });
+      await tick();
+      const result = await start({ sessionId: 's-again', restoreLatest: true });
+      expect(result.previousSession).toMatchObject({ sessionId: 's-prev', status: 'active' });
     });
   });
 });

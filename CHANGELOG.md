@@ -4,8 +4,13 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP result shape: `hooks_session-start` drops fields that never held real values.** (Follow-up to [#341](https://github.com/monoes/monomind/issues/341)) The `config` block (`intelligenceEnabled`, `hooksEnabled` and `memoryPersistence`, all always `true`) and `sessionMemory.restoredPatterns` (always `0`) are gone. `previousSession` no longer has `id`, `tasksRestored` or `memoryRestored`; it now carries the loaded session's `sessionId`, `status`, `startedAt` and, when present, `endedAt`, `summary` and `metrics`.
+
 ### Fixed
 
+- **`hooks_session-start` with `restoreLatest` reports the previous session it actually found.** (Follow-up to [#341](https://github.com/monoes/monomind/issues/341)) It returned `restored: true` whenever `restoreLatest` was set and a `previousSession` whose id was made up from the current time minus one day, without looking anything up. It now reads the most recently started session from the `sessions` store that `hooks_session-end` updates. It reports `restored: true` and that session's record only when one exists, and `restored: false` with `previousSession: null` otherwise. The session being started is never reported as its own previous session.
 - **`hooks_model-outcome` reports `recorded: false` when the ledger write fails.** ([Fixes #346](https://github.com/monoes/monomind/issues/346)) `recordModelOutcome` swallowed every error and the tool always returned `recorded: true`, so an unwritable `.monomind/neural/` or a full disk dropped the outcome without anyone knowing. `recordModelOutcome` still never throws, but it now resolves to whether the line was appended, the tool reports that, and `hooks model-outcome` prints a warning instead of "Outcome recorded" when the write failed.
 - **Four more hooks tools stop reporting writes that did not happen.** (Follow-up to [#346](https://github.com/monoes/monomind/issues/346)) `hooks_post-task` set `learningUpdates.outcomePersisted: true` even when writing `.monomind/routing-outcomes.json` failed. `hooks_session-end` and `memory_session-end` reported the session end as persisted when no session with that id had been started, which is every `hooks session-end` run, since the command passes no session id; they now report `persisted: false` / `success: false`. `hooks_intelligence-reset` returned `reset: true` when some learning files could not be deleted; it now returns `reset: false` with a `failedFiles` list, and `hooks intelligence --reset` warns and names them. `hooks_pretrain` counted `neuralPatternsLearned` even when recording the trajectory failed; it now reports 0.
 

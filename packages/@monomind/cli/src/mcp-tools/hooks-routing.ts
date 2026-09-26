@@ -1537,7 +1537,11 @@ export const hooksSessionStart: MCPTool = {
     type: 'object',
     properties: {
       sessionId: { type: 'string', description: 'Optional session ID' },
-      restoreLatest: { type: 'boolean', description: 'Restore latest session state' },
+      restoreLatest: {
+        type: 'boolean',
+        description:
+          'Load the most recent previous session record and return it as previousSession',
+      },
     },
   },
   handler: async (params: Record<string, unknown>) => {
@@ -1545,20 +1549,22 @@ export const hooksSessionStart: MCPTool = {
       validateMcpString(params.sessionId, 'sessionId', 256) ?? `session-${Date.now()}`;
     const restoreLatest = params.restoreLatest === true;
 
-    // Phase 5: Wire ReflexionMemory session start via bridge
-    let sessionMemory: { controller: string; restoredPatterns: number } | null = null;
+    // Look up the previous session before this one's row is written, and
+    // report only what that row actually holds — nothing when there is none.
+    let previousSession: Awaited<
+      ReturnType<typeof import('../memory/memory-bridge.js').bridgeLatestSession>
+    > = null;
+    let controller = 'none';
     try {
       const bridge = await import('../memory/memory-bridge.js');
+      if (restoreLatest) {
+        previousSession = await bridge.bridgeLatestSession({ excludeSessionId: sessionId });
+      }
       const result = await bridge.bridgeSessionStart({
         sessionId,
         metadata: { context: restoreLatest ? 'restore previous session patterns' : 'new session' },
       });
-      if (result) {
-        sessionMemory = {
-          controller: result.success ? 'sqlite' : 'none',
-          restoredPatterns: 0,
-        };
-      }
+      if (result?.success) controller = 'sqlite';
     } catch (e) {
       // Bridge not available
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
@@ -1568,20 +1574,9 @@ export const hooksSessionStart: MCPTool = {
     return {
       sessionId,
       started: new Date().toISOString(),
-      restored: restoreLatest,
-      config: {
-        intelligenceEnabled: true,
-        hooksEnabled: true,
-        memoryPersistence: true,
-      },
-      sessionMemory: sessionMemory || { controller: 'none', restoredPatterns: 0 },
-      previousSession: restoreLatest
-        ? {
-            id: `session-${Date.now() - 86400000}`,
-            tasksRestored: sessionMemory?.restoredPatterns || 0,
-            memoryRestored: sessionMemory?.restoredPatterns || 0,
-          }
-        : null,
+      restored: previousSession !== null,
+      sessionMemory: { controller },
+      previousSession,
     };
   },
 };
