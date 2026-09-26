@@ -41,6 +41,10 @@ export interface OrgTask {
    *  checkpoint — a timer in daemon memory would not survive a resume. */
   recheckAt?: number;
   recheckEveryMs?: number;
+  /** #343: blocked because its assignee's session was closed for budget, not
+   *  on a real-world time — `blockedReason` says why. `releaseAssigneeHold`
+   *  puts it back to 'ready' when the role reopens (budget-closure.ts). */
+  heldForAssignee?: boolean;
   /** ADR-O001 D4: how many times the assignee has failed the completion
    *  evidence gate on THIS task since it was last accepted. It lives on the
    *  task row, so it rides the checkpoint (`toJSON`/`fromJSON`) like every
@@ -231,6 +235,35 @@ export class TaskDag {
     t.recheckEveryMs = recheckEveryMs;
     t.recheckAt = recheckEveryMs === undefined ? undefined : now + recheckEveryMs;
     return t;
+  }
+
+  /** #343: hold a 'ready' or 'running' task whose assignee cannot take it
+   *  (its session was closed for budget) as 'blocked' with the reason, so
+   *  org_tasks shows why instead of an ordinary unstarted task. Not a time
+   *  block: no blockedUntil, so it is never auto-resumed and never counts as
+   *  a legitimate wait. Re-holding a held task only refreshes the reason. */
+  holdForAssignee(id: string, reason: string): OrgTask {
+    const t = this.tasks.get(id);
+    if (!t) throw new Error(`task "${id}" not found`);
+    const held = t.status === 'blocked' && t.heldForAssignee;
+    if (!held && t.status !== 'ready' && t.status !== 'running')
+      throw new Error(`task "${id}" must be 'ready' or 'running' to hold (is '${t.status}')`);
+    t.status = 'blocked';
+    t.startedAt = undefined;
+    t.blockedReason = reason;
+    t.heldForAssignee = true;
+    return t;
+  }
+
+  /** Put a task held by `holdForAssignee` back to 'ready' so dispatchReadyTasks
+   *  sends it again. False for anything else, including a time block. */
+  releaseAssigneeHold(id: string): boolean {
+    const t = this.tasks.get(id);
+    if (t?.status !== 'blocked' || !t.heldForAssignee) return false;
+    t.status = 'ready';
+    t.blockedReason = undefined;
+    t.heldForAssignee = undefined;
+    return true;
   }
 
   /** Transition every task whose block has expired back to 'running', so its

@@ -194,3 +194,36 @@ describe('TaskDag', () => {
     expect(dag.hasPendingWork()).toBe(false);
   });
 });
+
+// #343: a task whose assignee's session was closed for budget is held as
+// 'blocked' with the reason, and released back to 'ready' when it reopens.
+describe('TaskDag — assignee holds', () => {
+  it('holds a ready or running task as blocked with the reason, and releases it to ready', () => {
+    const dag = new TaskDag();
+    const a = dag.add('a', 'dev');
+    const b = dag.add('b', 'dev');
+    dag.markRunning(b.id);
+    dag.holdForAssignee(a.id, 'assignee "dev" closed: budget_usd exhausted ($1.20 / $1)');
+    dag.holdForAssignee(b.id, 'held');
+    expect(dag.get(a.id)).toMatchObject({ status: 'blocked', heldForAssignee: true });
+    expect(dag.get(a.id)?.blockedReason).toMatch(/budget_usd exhausted/);
+    expect(dag.get(a.id)?.blockedUntil).toBeUndefined();
+    expect(dag.get(b.id)?.startedAt).toBeUndefined();
+    // not a time block: never auto-resumed and not a legitimate wait
+    expect(dag.unblockExpired(Date.now() + 1e9)).toEqual([]);
+    expect(dag.hasActiveBlock(Date.now())).toBe(false);
+    expect(dag.releaseAssigneeHold(a.id)).toBe(true);
+    expect(dag.get(a.id)).toMatchObject({ status: 'ready' });
+    expect(dag.get(a.id)?.blockedReason).toBeUndefined();
+    expect(dag.get(a.id)?.heldForAssignee).toBeUndefined();
+  });
+
+  it('does not release a time block set by org_task_block', () => {
+    const dag = new TaskDag();
+    const t = dag.add('a', 'dev');
+    dag.markRunning(t.id);
+    dag.block(t.id, Date.now() + 60_000, 'ci');
+    expect(dag.releaseAssigneeHold(t.id)).toBe(false);
+    expect(dag.get(t.id)?.status).toBe('blocked');
+  });
+});

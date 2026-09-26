@@ -1,6 +1,6 @@
 ---
 name: optimization:auto-topology
-description: Automatically select the optimal monoswarm topology based on task complexity — use pre-task hook recommendations, monoswarm init flags, and performance optimize CLI
+description: Automatically select the optimal monoswarm topology based on task complexity — use pre-task hook recommendations, monoswarm init flags, and the performance_optimize MCP tool
 ---
 
 # Auto Topology Selection
@@ -50,14 +50,11 @@ mcp__monomind__coordination_topology({
 })
 ```
 
-Or via the performance CLI:
+Or get system-level recommendations from the performance MCP tool:
 
-```bash
-# Analyze and recommend optimizations (dry run)
-npx monomind performance optimize --target all --dry-run
-
-# Apply recommended optimizations
-npx monomind performance optimize --target all --apply
+```javascript
+// Analyze and recommend optimizations
+mcp__monomind__performance_optimize({ target: "all" })
 ```
 
 ## Hook Integration
@@ -81,5 +78,5 @@ npx monomind performance optimize --target all --apply
 ## See Also
 
 - `monoswarm init` — initialize monoswarm with explicit topology
-- `performance optimize` — system-level performance tuning
+- `mcp__monomind__performance_optimize` — system-level performance recommendations
 - `hooks pre-task` — get routing and topology recommendations

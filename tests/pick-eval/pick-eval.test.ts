@@ -23,12 +23,13 @@ import {
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-// A little under the frozen-catalog scores (77 tasks; 74 with an agent and
-// 73 with a skill expectation, 3 where nothing fits). Raise them when the
+// A little under the frozen-catalog scores (82 tasks; 79 with an agent and
+// 78 with a skill expectation, 3 where nothing fits). Raise them when the
 // ranker improves; never lower them to make a change pass.
-const FLOOR = { agentsTop1: 49, agentsTop3: 55, skillsTop1: 51, skillsTop3: 63 };
+const FLOOR = { agentsTop1: 49, agentsTop3: 55, skillsTop1: 53, skillsTop3: 65 };
 // Precision of what the [PICK] gate shows over keyword ranking (frozen: agents
-// 44/47, skills 34/40; before the vibe / "not for" fixes 46/50 and 34/42).
+// 46/50, skills 36/43; before the task-head / template fixes 46/50 and 34/43,
+// before the vibe / "not for" fixes 46/50 and 34/42 on 77 tasks).
 const GATED_FLOOR = { agents: 0.92, skills: 0.83 };
 // The live catalogs drift with every agent/skill edit: a looser floor.
 const LIVE_FLOOR = { agentsTop1: 40, skillsTop1: 42 };
@@ -60,7 +61,7 @@ describe('pick eval on the frozen catalog', () => {
   const snapshot = readEvalSnapshot(ROOT);
 
   it('has the eval set and the snapshot', () => {
-    expect(tasks?.length).toBe(77);
+    expect(tasks?.length).toBe(82);
     expect(snapshot?.agents.length).toBeGreaterThan(50);
     expect(snapshot?.skills.length).toBeGreaterThan(300);
   });
@@ -101,6 +102,15 @@ describe('the gated pick on the frozen catalog', () => {
       'competitor-comparison-pages',
     ])
       expect(shown).not.toContain(id);
+  });
+
+  it('shows no wrong pick on the reviewed docs and org-creation prompts', () => {
+    // "write developer documentation for the REST API" showed api-designer and
+    // "create a new org that monitors competitors" Performance Monitor plus
+    // competitor-comparison-pages: the head of the task, not its modifier.
+    const reviewed = new Set([129, 130, 138, 141]);
+    const wrong = [...r.agents.wrong, ...r.skills.wrong].filter((w) => reviewed.has(w.id));
+    expect(wrong).toEqual([]);
   });
 });
 

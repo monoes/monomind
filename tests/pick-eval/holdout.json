@@ -239,5 +239,40 @@
     "task": "optimise les requêtes SQL lentes de la base de données",
     "agents": ["engineering-database-optimizer"],
     "skills": ["sql-pro", "postgres-patterns", "mysql-patterns"]
+  },
+  {
+    "id": 138,
+    "domain": "org-admin",
+    "task": "create a new org that monitors competitors",
+    "agents": ["coordinator", "agents-orchestrator", "planner"],
+    "skills": ["mastermind:createorg", "mastermind-org"]
+  },
+  {
+    "id": 139,
+    "domain": "org-admin",
+    "task": "set up an org that tracks competitor pricing changes",
+    "agents": ["coordinator", "agents-orchestrator", "planner"],
+    "skills": ["mastermind:createorg", "mastermind-org"]
+  },
+  {
+    "id": 140,
+    "domain": "org-admin",
+    "task": "spin up a new org that watches our competitors",
+    "agents": ["coordinator", "agents-orchestrator", "planner"],
+    "skills": ["mastermind:createorg", "mastermind-org"]
+  },
+  {
+    "id": 141,
+    "domain": "docs",
+    "task": "write developer documentation for the payments GraphQL API",
+    "agents": ["engineering-technical-writer", "specialized-developer-advocate"],
+    "skills": ["code-documenter", "monodoc"]
+  },
+  {
+    "id": 142,
+    "domain": "docs",
+    "task": "document the public REST API for external developers",
+    "agents": ["engineering-technical-writer", "specialized-developer-advocate"],
+    "skills": ["code-documenter", "monodoc"]
   }
 ]

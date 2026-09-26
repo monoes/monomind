@@ -19,6 +19,7 @@ import { AntigravityAgentRunner } from './antigravity-runner.js';
 import * as approvalOps from './approvals.js';
 import { wakeDueBlockRechecks } from './block-recheck.js';
 import { BrokerLease, normalizeCredential } from './broker.js';
+import { onBudgetBusEvent, reopenBudgetClosedRoles } from './budget-closure.js';
 import { OrgBus } from './bus.js';
 import {
   captureCheckpoint,
@@ -376,8 +377,9 @@ export interface RunningOrg {
   busEvents: () => BusEvent[];
   /** Roles not yet spawned — spawned lazily on first message. */
   pendingRoles?: Map<string, OrgRole>;
-  /** Spawn a pending role on demand. */
-  spawnRole?: (role: OrgRole) => void;
+  /** Spawn a pending role on demand — or, with a checkpoint, resume one
+   *  (budget-closure.ts reopens a budget-closed role this way). */
+  spawnRole?: (role: OrgRole, roleCheckpoint?: RoleCheckpoint) => void;
   /** Git worktree path if workspace: 'worktree' — cleaned up on stop. */
   worktreePath?: string;
   /** Task DAG for structured work ordering. */
@@ -431,6 +433,12 @@ export interface RunningOrg {
    *  bound on decisions.ts's nudgeOpenTasksAtTurnEnd. Cleared for a task when
    *  it is dispatched again, so each dispatch is worth one nudge at most. */
   nudgedOpenTasks?: Set<string>;
+  /** #343: roles whose session closed on their own budget_usd/budget_tokens
+   *  this run, reopened by a reload that raises it (budget-closure.ts). */
+  budgetClosed?: Set<string>;
+  /** #343: roles the coordinator was warned about nearing budget_usd — once
+   *  per role per run. */
+  budgetWarned?: Set<string>;
   /** #304: why this run is stopping, set by stopOrg before the org is removed from
    *  `this.orgs`. Read by the role loop so a planned stop is logged with one stable
    *  wording instead of whichever abort string the SDK produced. */
@@ -664,7 +672,17 @@ export class OrgDaemon {
     // kind and policy. Fields are replaced on the live role object (sessions
     // read tool_providers at their next start, checkApproval reads policy
     // live) and a running role's PolicyEngine gets the new policy now.
-    const RELOADABLE_ROLE_FIELDS = ['tool_providers', 'endpoint', 'kind', 'policy'] as const;
+    // #343: budget_usd / budget_tokens too — the live PolicyEngine gets the
+    // new caps with its spend kept, and a role closed for budget reopens
+    // below once it is no longer over them.
+    const RELOADABLE_ROLE_FIELDS = [
+      'tool_providers',
+      'endpoint',
+      'kind',
+      'policy',
+      'budget_usd',
+      'budget_tokens',
+    ] as const;
     for (const next of newDef.roles) {
       const live = running.def.roles.find((r) => r.id === next.id);
       if (!live) continue;
@@ -684,9 +702,15 @@ export class OrgDaemon {
           else t[field] = nextRec[field];
         }
         if (field === 'policy') running.agents.get(next.id)?.policy.updatePolicy(next.policy ?? {});
+        if (field === 'budget_usd' || field === 'budget_tokens')
+          running.agents.get(next.id)?.policy.setBudgetCaps({
+            maxTokens: live.policy?.maxTokens ?? computeReplacementBudget(running.def, next.id),
+            maxUsd: live.policy?.maxUsd ?? live.budget_usd,
+          });
         changed.push(`role:${next.id}:${field}`);
       }
     }
+    const reopened = reopenBudgetClosedRoles(this, name, running);
 
     const existingRoleIds = new Set(running.def.roles.map((r) => r.id));
     const newRoleIds = new Set(newDef.roles.map((r) => r.id));
@@ -708,7 +732,7 @@ export class OrgDaemon {
     running.bus.emit({
       type: 'audit',
       reason: 'hot-reload',
-      msg: `org def reloaded: ${changed.length} fields changed, ${newRoles.length} new roles, ${removedRoles.length} removed roles`,
+      msg: `org def reloaded: ${changed.length} fields changed, ${newRoles.length} new roles, ${removedRoles.length} removed roles${reopened.length ? `, reopened ${reopened.join(', ')}` : ''}`,
       data: { changed, newRoles, removedRoles },
     });
 
@@ -1133,6 +1157,8 @@ export class OrgDaemon {
           }
         }
       }
+      // #343: hold a budget-closed role's tasks, warn near budget_usd.
+      onBudgetBusEvent(running, e);
       // Track last message ID for threading responses
       if ((e.type === 'message' || e.type === 'xorg') && e.from) {
         const runtime = running.agents.get(e.from);
