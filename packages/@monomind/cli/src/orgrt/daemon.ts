@@ -19,7 +19,11 @@ import { AntigravityAgentRunner } from './antigravity-runner.js';
 import * as approvalOps from './approvals.js';
 import { wakeDueBlockRechecks } from './block-recheck.js';
 import { BrokerLease, normalizeCredential } from './broker.js';
-import { onBudgetBusEvent, reopenBudgetClosedRoles } from './budget-closure.js';
+import {
+  onBudgetBusEvent,
+  reopenBudgetClosedRoles,
+  rolesOnDefTokenCaps,
+} from './budget-closure.js';
 import { OrgBus } from './bus.js';
 import {
   captureCheckpoint,
@@ -439,6 +443,13 @@ export interface RunningOrg {
   /** #343: roles the coordinator was warned about nearing budget_usd — once
    *  per role per run. */
   budgetWarned?: Set<string>;
+  /** #343: set while the org-wide run_config.budget_tokens ceiling is spent —
+   *  the roles it closed. A reload that raises the ceiling past the run's
+   *  spend reopens them and clears this, re-arming the ceiling (budget-closure.ts). */
+  orgBudgetClosed?: Set<string>;
+  /** #343: pendingRoles set aside when the org-wide ceiling closed the org,
+   *  put back when a reload reopens it. */
+  orgBudgetPendingRoles?: Map<string, OrgRole>;
   /** #304: why this run is stopping, set by stopOrg before the org is removed from
    *  `this.orgs`. Read by the role loop so a planned stop is logged with one stable
    *  wording instead of whichever abort string the SDK produced. */
@@ -657,6 +668,7 @@ export class OrgDaemon {
     const changed: string[] = [];
     const newRoles: string[] = [];
     const removedRoles: string[] = [];
+    const onDefTokenCaps = rolesOnDefTokenCaps(running);
 
     if (newDef.goal !== running.def.goal) {
       running.def.goal = newDef.goal;
@@ -714,7 +726,7 @@ export class OrgDaemon {
         changed.push(`role:${next.id}:${field}`);
       }
     }
-    const reopened = reopenBudgetClosedRoles(this, name, running);
+    const reopened = reopenBudgetClosedRoles(this, name, running, onDefTokenCaps);
 
     const existingRoleIds = new Set(running.def.roles.map((r) => r.id));
     const newRoleIds = new Set(newDef.roles.map((r) => r.id));
@@ -1086,10 +1098,6 @@ export class OrgDaemon {
     // waiting its turn.
     const roleActivity = new Map<string, number>();
     const noProgressAlarmed = new Set<string>();
-    // Org-wide budget ceiling (bug 1): tracks whether run_config.budget_tokens
-    // has already been enforced this run, so the close-all-mailboxes sweep
-    // below only fires once instead of on every subsequent usage event.
-    let orgBudgetClosed = false;
     bus.subscribe((e) => {
       const slim: BusEvent =
         e.data?.content != null ? { ...e, data: { ...e.data, content: undefined } } : e;
@@ -1137,43 +1145,8 @@ export class OrgDaemon {
           }
         }
       }
-      // Bug 1: run_config.budget_tokens is an org-wide ceiling, not just a
-      // per-role one — a role's explicit budget_tokens override lets IT spend
-      // more without raising what every other role can spend, so nothing
-      // upstream of this ever summed real usage across the whole roster and
-      // stopped the org when the declared total was reached. Mirror the
-      // per-role budget-exhausted handling (session.ts's mailbox.close('token-budget'))
-      // at the org level: once the sum of every role's PolicyEngine.usage
-      // reaches the ceiling, close every mailbox and stop lazy-spawning new
-      // ones so the org can't keep spending past its declared cap.
-      if (e.type === 'usage' && !orgBudgetClosed) {
-        const orgBudget = def.run_config.budget_tokens;
-        if (orgBudget != null) {
-          let orgUsage = 0;
-          // ADR-O001 D1: budgetedUsage, not usage — the org-wide ceiling is
-          // the same declared number as the per-role one and must be compared
-          // on the same basis.
-          for (const rt of running.agents.values()) orgUsage += rt.policy.budgetedUsage;
-          // Mid-run role replacement retires a policy engine's usage into the
-          // slot instead of discarding it (see role-slot.ts / respawnRole) -
-          // include it here or a replacement could silently reset spend and
-          // let the org exceed its declared ceiling.
-          for (const slot of running.roleSlots.values()) orgUsage += slot.retiredUsage.tokens;
-          if (orgUsage >= orgBudget) {
-            orgBudgetClosed = true;
-            running.pendingRoles?.clear(); // prevent lazy spawns after the org budget is exhausted
-            for (const rt of running.agents.values()) {
-              if (!rt.mailbox.isClosed) rt.mailbox.close('token-budget');
-            }
-            bus.emit({
-              type: 'status',
-              reason: 'org-budget-exhausted',
-              msg: `org-wide token budget exhausted (${orgUsage}/${orgBudget}) — closing all roles`,
-            });
-          }
-        }
-      }
-      // #343: hold a budget-closed role's tasks, warn near budget_usd.
+      // Bug 1 / #343: enforce the org-wide run_config.budget_tokens ceiling,
+      // hold a budget-closed role's tasks, warn near budget_usd.
       onBudgetBusEvent(running, e);
       // Track last message ID for threading responses
       if ((e.type === 'message' || e.type === 'xorg') && e.from) {
