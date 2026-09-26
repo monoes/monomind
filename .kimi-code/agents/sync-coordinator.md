@@ -1,7 +1,7 @@
 ---
 name: sync-coordinator
 description: Keeps packages aligned — versions, dependencies, cross-package integration tests, and docs — across a monorepo or related repositories
-when_to_use: Use when package versions or dependencies drift across a monorepo or related repos and need aligning; not for repo layout or org-wide rollouts
+when_to_use: Use when package versions or dependencies drift across a monorepo or related repos and need aligning; not for repo layout or multi-repo rollouts
 tags: [github, monorepo, versioning, dependencies, sync]
 category: github
 ---

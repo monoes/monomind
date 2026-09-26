@@ -428,8 +428,9 @@ function mtime(p) {
   try { return fs.statSync(p).mtimeMs; } catch (e) { return 0; }
 }
 
-/** Newest mtime across every source the index is built from (a cheap stat
- *  scan; the shipped org library counts by its directory only). */
+/** Newest mtime across every source the index is built from: each skill's
+ *  SKILL.md and each command file, so an in-place edit counts (a stat scan,
+ *  a few ms for ~500 skills). */
 function sourcesMtime(root, opts) {
   var newest = Math.max(
     skillTreeMtime(path.join(root, '.claude', 'skills')),
@@ -442,7 +443,7 @@ function sourcesMtime(root, opts) {
   });
   if (!opts || opts.user !== false) newest = Math.max(newest, skillTreeMtime(path.join(homeDir(opts), '.claude', 'skills')));
   orgIndex.orgSkillRoots(root, opts).forEach(function (r) {
-    newest = Math.max(newest, r.origin === 'bundled' ? mtime(r.dir) : skillTreeMtime(r.dir));
+    newest = Math.max(newest, skillTreeMtime(r.dir));
   });
   return newest;
 }

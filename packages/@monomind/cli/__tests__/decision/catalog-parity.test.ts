@@ -174,6 +174,37 @@ describe('skill index freshness', () => {
     expect(builder.ensure(root).skills.map((s: { skill: string }) => s.skill)).toContain('fresh-skill');
   });
 
+  it('turns stale when an indexed file is edited in place, and only then', () => {
+    fixture();
+    const bundledDir = join(root, 'bundled-org-skills');
+    const sources = {
+      bundled: join(bundledDir, 'bundled-skill', 'SKILL.md'),
+      projectOrg: join(root, '.monomind', 'org-skills', 'zorbling-tuning', 'SKILL.md'),
+      platform: join(root, '.claude', 'skills', 'mastermind-plan', 'SKILL.md'),
+      command: join(root, '.claude', 'commands', 'mastermind', 'references', 'tools.md'),
+    };
+    put(sources.bundled, md('bundled-skill', 'Shipped with the CLI'));
+    const opts = { bundledDir, user: false };
+    const { utimesSync } = require('node:fs');
+    const at = (file: string, offsetMs: number) => {
+      const t = new Date(Date.now() + offsetMs);
+      utimesSync(file, t, t);
+    };
+    let clock = 0;
+    for (const [kind, file] of Object.entries(sources)) {
+      builder.write(root, opts);
+      // The index is newer than every source: nothing was edited since.
+      clock += 60_000;
+      at(builder.indexPath(root), clock);
+      expect(builder.isStale(root, opts), `${kind} unchanged`).toBe(false);
+      // Rewriting an existing file leaves its directory's mtime alone.
+      writeFileSync(file, md(`${kind}-edited`, 'Edited in place'));
+      clock += 60_000;
+      at(file, clock);
+      expect(builder.isStale(root, opts), `${kind} edited`).toBe(true);
+    }
+  });
+
   it('records user skills with origin user and skips them with user: false', () => {
     fixture();
     const reg = builder.build(root);

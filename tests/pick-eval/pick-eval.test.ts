@@ -9,7 +9,10 @@
  */
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type { CatalogItem } from '../../packages/@monomind/cli/src/decision/jev.js';
 import {
+  type EvalCatalogs,
+  type EvalKind,
   type EvalTask,
   gatedEval,
   keywordEval,
@@ -33,6 +36,29 @@ const FLOOR = { agentsTop1: 49, agentsTop3: 55, skillsTop1: 53, skillsTop3: 65 }
 const GATED_FLOOR = { agents: 0.92, skills: 0.83 };
 // The live catalogs drift with every agent/skill edit: a looser floor.
 const LIVE_FLOOR = { agentsTop1: 40, skillsTop1: 42 };
+// Catalog entries edited on purpose to fix a reviewed wrong pick whose cause
+// was the entry's own text, not the ranker. The snapshot keeps its frozen
+// text (an unrelated edit must not move the floors), so the guard below reads
+// just these entries from the repo: monoswarm-multi-repo and sync-coordinator
+// said "org" for a GitHub organization, api-designer carried a
+// `documentation` tag, code-documenter's description left out API reference
+// docs and tutorials.
+const REVISED = {
+  agents: ['monoswarm-multi-repo', 'sync-coordinator'],
+  skills: ['api-designer', 'code-documenter'],
+};
+// Reviewed prompts where a wrong [PICK] was seen: the SDK docs task (15), the
+// short docs and org-creation prompts and their variants (129, 130, 138-142).
+const REVIEWED = [15, 129, 130, 138, 139, 140, 141, 142];
+
+/** The frozen snapshot with the REVISED entries as the repo has them now. */
+function frozenWithRevisions(snapshot: EvalCatalogs, repo: EvalCatalogs): EvalCatalogs {
+  const kind = (k: EvalKind): CatalogItem[] => {
+    const current = new Map(repo[k].map((i) => [i.id, i]));
+    return snapshot[k].map((i) => (REVISED[k].includes(i.id) ? (current.get(i.id) ?? i) : i));
+  };
+  return { agents: kind('agents'), skills: kind('skills') };
+}
 
 describe('scorePicks', () => {
   const tasks: EvalTask[] = [
@@ -108,9 +134,42 @@ describe('the gated pick on the frozen catalog', () => {
     // "write developer documentation for the REST API" showed api-designer and
     // "create a new org that monitors competitors" Performance Monitor plus
     // competitor-comparison-pages: the head of the task, not its modifier.
-    const reviewed = new Set([129, 130, 138, 141]);
+    const reviewed = new Set([129, 130, 138, 140, 141]);
     const wrong = [...r.agents.wrong, ...r.skills.wrong].filter((w) => reviewed.has(w.id));
     expect(wrong).toEqual([]);
+  });
+});
+
+describe('the gated pick with the revised catalog entries', () => {
+  const tasks = readEvalTasks(ROOT) ?? [];
+  const snapshot = readEvalSnapshot(ROOT) ?? { agents: [], skills: [] };
+  const catalogs = frozenWithRevisions(snapshot, projectCatalogs(ROOT));
+
+  it('finds every revised entry in the repo', () => {
+    const repo = projectCatalogs(ROOT);
+    for (const k of ['agents', 'skills'] as const)
+      for (const id of REVISED[k]) expect(repo[k].map((i) => i.id)).toContain(id);
+  });
+
+  it('shows no wrong pick on any reviewed prompt', () => {
+    // "set up an org that tracks competitor pricing changes" showed
+    // monoswarm-multi-repo (a GitHub-organization rollout agent) and "document
+    // the public REST API for external developers" / the SDK docs task showed
+    // api-designer (designs APIs, does not document them).
+    const r = gatedEval(
+      tasks.filter((t) => REVIEWED.includes(t.id)),
+      catalogs,
+    );
+    expect([...r.agents.wrong, ...r.skills.wrong]).toEqual([]);
+  });
+
+  it('keeps the frozen floors', () => {
+    const r = keywordEval(tasks, catalogs);
+    expect(r.agents.top1).toBeGreaterThanOrEqual(FLOOR.agentsTop1);
+    expect(r.skills.top1).toBeGreaterThanOrEqual(FLOOR.skillsTop1);
+    const g = gatedEval(tasks, catalogs);
+    expect(g.agents.precision).toBeGreaterThanOrEqual(GATED_FLOOR.agents);
+    expect(g.skills.precision).toBeGreaterThanOrEqual(GATED_FLOOR.skills);
   });
 });
 
