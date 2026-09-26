@@ -238,20 +238,17 @@ export const intelligenceCommand: Command = {
               mcpHnsw?.memoryUsage ??
                 (patternsFileSize > 0 ? `${(patternsFileSize / 1024).toFixed(1)} KB` : 'N/A'),
             ),
-            dimension: Number(mcpHnsw?.dimension ?? 384),
           },
           embeddings: mcpEmb
             ? {
                 provider: String(mcpEmb.provider ?? 'transformers'),
                 model: String(mcpEmb.model ?? 'default'),
                 dimension: Number(mcpEmb.dimension ?? 384),
-                cacheHitRate: Number(mcpEmb.cacheHitRate ?? 0),
               }
             : {
                 provider: 'transformers',
                 model: 'hash-128',
                 dimension: 128,
-                cacheHitRate: 0,
               },
         },
         lastTrainingMs: lastAdaptation ? Date.now() - lastAdaptation : undefined,
@@ -390,7 +387,6 @@ export const intelligenceCommand: Command = {
             { metric: 'Index Size', value: (hnsw.indexSize ?? 0).toLocaleString() },
             { metric: 'Search Speedup', value: output.success(hnsw.searchSpeedup ?? 'N/A') },
             { metric: 'Memory Usage', value: hnsw.memoryUsage ?? 'N/A' },
-            { metric: 'Dimension', value: hnsw.dimension ?? 384 },
           ],
         });
       } else {
@@ -411,7 +407,6 @@ export const intelligenceCommand: Command = {
             { metric: 'Provider', value: emb.provider ?? 'N/A' },
             { metric: 'Model', value: emb.model ?? 'N/A' },
             { metric: 'Dimension', value: emb.dimension ?? 384 },
-            { metric: 'Cache Hit Rate', value: `${((emb.cacheHitRate ?? 0) * 100).toFixed(1)}%` },
           ],
         });
       } else {

@@ -47,7 +47,7 @@ export const modelRouteCommand: Command = {
       const result = await callMCPTool<{
         model: string;
         complexity: number;
-        confidence: number;
+        // confidence is also returned but is a fixed 0.7 from the keyword heuristic.
         reasoning: string;
         costMultiplier?: number;
         implementation?: string;
@@ -89,7 +89,6 @@ export const modelRouteCommand: Command = {
       output.printBox(
         [
           `Selected Model: ${icon} ${output.bold(model.toUpperCase())}`,
-          `Confidence: ${(result.confidence * 100).toFixed(1)}%`,
           `Complexity: ${complexityLevel} (${(complexityScore * 100).toFixed(0)}%)`,
           costSavings ? `Cost Savings: ${costSavings}` : '',
         ]
@@ -209,9 +208,8 @@ export const modelStatsCommand: Command = {
         message?: string;
         totalDecisions?: number;
         modelDistribution?: Record<string, number>;
-        avgComplexity?: number;
-        avgConfidence?: number;
-        circuitBreakerTrips?: number;
+        successRate?: number | null;
+        avgQuality?: number | null;
       }>('hooks_model-stats', {
         detailed: ctx.flags.detailed,
       });
@@ -239,15 +237,16 @@ export const modelStatsCommand: Command = {
         }
       }
       const costSavings = maxCost > 0 ? ((1 - totalCost / maxCost) * 100).toFixed(1) : '0';
+      const pct = (v: number | null | undefined) =>
+        typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : 'N/A';
 
       output.writeln();
       output.printBox(
         [
           `Total Tasks Routed: ${totalTasks}`,
-          `Avg Complexity: ${((result.avgComplexity || 0) * 100).toFixed(1)}%`,
-          `Avg Confidence: ${((result.avgConfidence || 0) * 100).toFixed(1)}%`,
+          `Success Rate: ${pct(result.successRate)}`,
+          `Avg Quality: ${pct(result.avgQuality)}`,
           `Cost Savings: ${costSavings}% vs all-opus`,
-          `Circuit Breaker Trips: ${result.circuitBreakerTrips || 0}`,
         ].join('\n'),
         'Model Routing Statistics',
       );

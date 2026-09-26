@@ -183,7 +183,8 @@ export const explainCommand: Command = {
         factors: Array<{
           factor: string;
           weight: number;
-          value: number;
+          // null when the tool has no measurement for the factor.
+          value: number | null;
           impact: string;
         }>;
         patterns: Array<{
@@ -245,7 +246,7 @@ export const explainCommand: Command = {
               header: 'Value',
               width: 10,
               align: 'right',
-              format: (v) => Number(v).toFixed(2),
+              format: (v) => (v === null ? 'N/A' : Number(v).toFixed(2)),
             },
             { key: 'impact', header: 'Impact', width: 25 },
           ],
@@ -427,7 +428,7 @@ export const pretrainCommand: Command = {
 
       output.writeln();
       output.printSuccess('Repository intelligence bootstrapped successfully');
-      if (withEmbeddings) {
+      if (withEmbeddings && result.stats.documentsIndexed !== undefined) {
         output.writeln(
           output.dim('  Semantic search enabled: Use "embeddings search -q <query>" to search'),
         );
@@ -677,19 +678,12 @@ export const transferFromProjectCommand: Command = {
 
       // Call MCP tool for transfer
       const result = await callMCPTool<{
+        error?: string;
+        message?: string;
         sourcePath: string;
         transferred: {
           total: number;
           byType: Record<string, number>;
-        };
-        skipped: {
-          lowConfidence: number;
-          duplicates: number;
-          conflicts: number;
-        };
-        stats: {
-          avgConfidence: number;
-          avgAge: string;
         };
       }>('hooks_transfer', {
         sourcePath,
@@ -698,6 +692,13 @@ export const transferFromProjectCommand: Command = {
         mergeStrategy: 'keep-highest-confidence',
       });
 
+      if (result.error) {
+        spinner.fail('Transfer failed');
+        if (ctx.flags.format === 'json') output.printJson(result);
+        else output.printError(result.error);
+        return { success: false, exitCode: 1, data: result };
+      }
+
       spinner.succeed(`Transferred ${result.transferred.total} patterns`);
 
       if (ctx.flags.format === 'json') {
@@ -705,23 +706,9 @@ export const transferFromProjectCommand: Command = {
         return { success: true, data: result };
       }
 
-      output.writeln();
-      output.writeln(output.bold('Transfer Summary'));
-      output.printTable({
-        columns: [
-          { key: 'category', header: 'Category', width: 25 },
-          { key: 'count', header: 'Count', width: 15, align: 'right' },
-        ],
-        data: [
-          {
-            category: 'Total Transferred',
-            count: output.success(String(result.transferred.total)),
-          },
-          { category: 'Skipped (Low Confidence)', count: result.skipped.lowConfidence },
-          { category: 'Skipped (Duplicates)', count: result.skipped.duplicates },
-          { category: 'Skipped (Conflicts)', count: result.skipped.conflicts },
-        ],
-      });
+      if (result.message) {
+        output.writeln(output.dim(result.message));
+      }
 
       if (Object.keys(result.transferred.byType).length > 0) {
         output.writeln();
@@ -734,12 +721,6 @@ export const transferFromProjectCommand: Command = {
           data: Object.entries(result.transferred.byType).map(([type, count]) => ({ type, count })),
         });
       }
-
-      output.writeln();
-      output.printList([
-        `Avg Confidence: ${(result.stats.avgConfidence * 100).toFixed(1)}%`,
-        `Avg Age: ${result.stats.avgAge}`,
-      ]);
 
       return { success: true, data: result };
     } catch (error) {

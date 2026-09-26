@@ -310,16 +310,17 @@ const sessionEndCommand: Command = {
     try {
       const result = await callMCPTool<{
         sessionId: string;
-        duration: number;
-        statePath?: string;
+        // statePath is also returned but names a .claude/sessions file the
+        // tool never writes; the state goes to the memory bridge instead.
+        sessionPersistence: { controller: string; persisted: boolean };
+        // summary.filesModified is also returned but is always 0.
         summary: {
           tasksExecuted: number;
-          tasksSucceeded: number;
-          tasksFailed: number;
-          commandsExecuted: number;
-          filesModified: number;
           agentsSpawned: number;
+          pendingInsights: number;
+          memoryEntries: number;
         };
+        learningUpdates: { patternsLearned: number; trajectoriesRecorded: number };
         kgNudge?: { empty: boolean; prompt?: string };
       }>('hooks_session-end', {
         saveState: ctx.flags['save-state'] ?? true,
@@ -342,23 +343,21 @@ const sessionEndCommand: Command = {
           { key: 'value', header: 'Value', width: 15, align: 'right' },
         ],
         data: [
-          { metric: 'Duration', value: `${(result.duration / 1000 / 60).toFixed(1)} min` },
           { metric: 'Tasks Executed', value: result.summary.tasksExecuted },
-          {
-            metric: 'Tasks Succeeded',
-            value: output.success(String(result.summary.tasksSucceeded)),
-          },
-          { metric: 'Tasks Failed', value: output.error(String(result.summary.tasksFailed)) },
-          { metric: 'Commands Executed', value: result.summary.commandsExecuted },
-          { metric: 'Files Modified', value: result.summary.filesModified },
           { metric: 'Agents Spawned', value: result.summary.agentsSpawned },
+          { metric: 'Patterns Learned', value: result.learningUpdates.patternsLearned },
+          { metric: 'Trajectories Recorded', value: result.learningUpdates.trajectoriesRecorded },
+          { metric: 'Pending Insights', value: result.summary.pendingInsights },
+          { metric: 'Memory Entries', value: result.summary.memoryEntries },
         ],
       });
 
-      if (result.statePath) {
-        output.writeln();
-        output.writeln(output.dim(`State saved to: ${result.statePath}`));
-      }
+      output.writeln();
+      output.writeln(
+        output.dim(
+          `Session state: ${result.sessionPersistence.persisted ? `saved (${result.sessionPersistence.controller})` : 'not saved'}`,
+        ),
+      );
 
       if (result.kgNudge?.empty && result.kgNudge.prompt) {
         output.writeln();

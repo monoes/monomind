@@ -55,12 +55,12 @@ export const preEditCommand: Command = {
       const result = await callMCPTool<{
         filePath: string;
         operation: string;
+        // The tool also returns fileExists and patterns, but both are fixed
+        // placeholders (always true, and one 85% "<ext> file editing" row).
         context: {
-          fileExists: boolean;
           fileType: string;
           relatedFiles: string[];
           suggestedAgents: string[];
-          patterns: Array<{ pattern: string; confidence: number }>;
           risks: string[];
         };
         recommendations: string[];
@@ -83,7 +83,6 @@ export const preEditCommand: Command = {
           `File: ${result.filePath}`,
           `Operation: ${result.operation}`,
           `Type: ${result.context.fileType}`,
-          `Exists: ${result.context.fileExists ? 'Yes' : 'No'}`,
         ].join('\n'),
         'File Context',
       );
@@ -98,24 +97,6 @@ export const preEditCommand: Command = {
         output.writeln();
         output.writeln(output.bold('Related Files'));
         output.printList(result.context.relatedFiles.slice(0, 5).map((f) => output.dim(f)));
-      }
-
-      if (result.context.patterns.length > 0) {
-        output.writeln();
-        output.writeln(output.bold('Learned Patterns'));
-        output.printTable({
-          columns: [
-            { key: 'pattern', header: 'Pattern', width: 40 },
-            {
-              key: 'confidence',
-              header: 'Confidence',
-              width: 12,
-              align: 'right',
-              format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
-            },
-          ],
-          data: result.context.patterns,
-        });
       }
 
       if (result.context.risks.length > 0) {
@@ -209,13 +190,7 @@ export const postEditCommand: Command = {
       const result = await callMCPTool<{
         filePath: string;
         success: boolean;
-        recorded: boolean;
-        patternId?: string;
-        learningUpdates: {
-          patternsUpdated: number;
-          confidenceAdjusted: number;
-          newPatterns: number;
-        };
+        feedback?: { recorded: boolean; controller: string };
       }>('hooks_post-edit', {
         filePath,
         success,
@@ -232,20 +207,13 @@ export const postEditCommand: Command = {
       output.writeln();
       output.printSuccess(`Outcome recorded for ${filePath}`);
 
-      if (result.learningUpdates) {
+      if (result.feedback) {
         output.writeln();
-        output.writeln(output.bold('Learning Updates'));
-        output.printTable({
-          columns: [
-            { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 15, align: 'right' },
-          ],
-          data: [
-            { metric: 'Patterns Updated', value: result.learningUpdates.patternsUpdated },
-            { metric: 'Confidence Adjusted', value: result.learningUpdates.confidenceAdjusted },
-            { metric: 'New Patterns', value: result.learningUpdates.newPatterns },
-          ],
-        });
+        output.writeln(
+          output.dim(
+            `Learning feedback: ${result.feedback.recorded ? `recorded (${result.feedback.controller})` : 'not recorded'}`,
+          ),
+        );
       }
 
       return { success: true, data: result };
@@ -440,10 +408,8 @@ export const postCommandCommand: Command = {
         command: string;
         success: boolean;
         recorded: boolean;
-        learningUpdates: {
-          commandPatternsUpdated: number;
-          riskAssessmentUpdated: boolean;
-        };
+        exitCode: number;
+        _storedIn: 'sqlite' | 'json-store' | 'none';
       }>('hooks_post-command', {
         command,
         success,
@@ -458,18 +424,12 @@ export const postCommandCommand: Command = {
       }
 
       output.writeln();
-      output.printSuccess('Command outcome recorded');
-
-      if (result.learningUpdates) {
-        output.writeln();
-        output.writeln(
-          output.dim(`Patterns updated: ${result.learningUpdates.commandPatternsUpdated}`),
+      if (result.recorded) {
+        output.printSuccess(
+          `Command outcome recorded (exit code ${result.exitCode}, ${result._storedIn})`,
         );
-        output.writeln(
-          output.dim(
-            `Risk assessment: ${result.learningUpdates.riskAssessmentUpdated ? 'Updated' : 'No change'}`,
-          ),
-        );
+      } else {
+        output.printWarning('Command outcome not recorded: no memory store was writable');
       }
 
       return { success: true, data: result };
