@@ -4,6 +4,10 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`agent scan` no longer runs the agent CLIs it finds, so it does not download or write their state.** ([Fixes #337](https://github.com/monoes/monomind/issues/337)) It ran every installed runtime's `--version`, and in an empty HOME grok downloaded its 159MB native binary into `~/.grok`, hermes wrote `~/.hermes/logs` and `.update_check`, and codex, opencode and copilot created their own directories. Scan now reads the version from the npm `package.json` that owns the binary or from a mise/asdf `installs/<tool>/<version>` directory, and runs `--version` only for `claude`, `antigravity` and `pi`, whose `--version` writes nothing. For any other runtime it reports `version: null`. `agent scan --probe` runs `--version` for all of them, in a scratch HOME, cwd and TMPDIR that is deleted afterwards (grok still downloads into it). Each entry gains `version_source` (`package.json`, `install-path`, `exec` or `not-probed`), and the capability `agent-scan-read-only` advertises the change. The MCP `org_list_runtime_options` tool gets the same read-only scan. Contract: `doc/agent-exec-protocol.md` §6.
+
 ## [2.16.6] — 2026-09-26
 
 ### Fixed
@@ -80,7 +84,6 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
-- **`agent scan` no longer runs the agent CLIs it finds, so it does not download or write their state.** ([Fixes #337](https://github.com/monoes/monomind/issues/337)) It ran every installed runtime's `--version`, and in an empty HOME grok downloaded its 159MB native binary into `~/.grok`, hermes wrote `~/.hermes/logs` and `.update_check`, and codex, opencode and copilot created their own directories. Scan now reads the version from the npm `package.json` that owns the binary or from a mise/asdf `installs/<tool>/<version>` directory, and runs `--version` only for `claude`, `antigravity` and `pi`, whose `--version` writes nothing. For any other runtime it reports `version: null`. `agent scan --probe` runs `--version` for all of them, in a scratch HOME, cwd and TMPDIR that is deleted afterwards (grok still downloads into it). Each entry gains `version_source` (`package.json`, `install-path`, `exec` or `not-probed`), and the capability `agent-scan-read-only` advertises the change. The MCP `org_list_runtime_options` tool gets the same read-only scan. Contract: `doc/agent-exec-protocol.md` §6.
 - **`agent scan` writes nothing.** It no longer runs the startup update check (which wrote `~/.monomind/update-state.json` after a network call) or the subsystem init (which wrote `.monomind/registry.json` in the current directory). Callers such as mono-agent run it on a timer to show installed runtimes. The agent CLIs' own `--version` probes may still write their own state.
 - **`init upgrade` refreshes the `.gemini/helpers` copy too.** `init` writes the helper tree to `.gemini/helpers` as well as `.claude/helpers`, and Antigravity's status bar runs `.gemini/helpers/statusline.cjs` from it, but `init upgrade` only refreshed `.claude/helpers`, so upgraded projects kept the first install's helpers there. The Gemini copy now gets the same refresh (only where it exists; files the bundle does not ship are kept), and `doctor` reports stale files in it under Helper Files.
 - **The "update available" notice goes to stderr.** It was written to stdout on the first run of any command after a release, ahead of the JSON of `agent scan --json`, `doctor --json` and the org `--json` commands, so callers such as mono-agent failed to parse it ("invalid character '↑'"). stdout now holds only the command's own output.
