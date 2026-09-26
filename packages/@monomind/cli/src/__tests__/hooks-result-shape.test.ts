@@ -110,12 +110,17 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
       postCommandCommand,
       makeCtx(['npm test'], { 'exit-code': 2 }, dir),
     );
-    const data = result.data as { recorded: boolean; exitCode: number; _storedIn: string };
+    const data = result.data as {
+      recorded: boolean;
+      success: boolean;
+      exitCode: number;
+      _storedIn: string;
+    };
     expect(result.success).toBe(true);
     expectClean(text);
     expect(data.recorded).toBe(true);
     expect(text).toContain(
-      `Command outcome recorded (exit code ${data.exitCode}, ${data._storedIn})`,
+      `Command outcome recorded as failure (exit code ${data.exitCode}, ${data._storedIn})`,
     );
   });
 

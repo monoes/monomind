@@ -435,11 +435,11 @@ describe('hooks-core-commands', () => {
       }
     });
 
-    it('records a failed command outcome (non-zero exit code) — outcome success is derived from exitCode, not the --success flag', async () => {
+    it('records a failed command outcome (non-zero exit code) — a non-zero exit code is a failure even with --success true', async () => {
       const { spy } = captureStdout();
       try {
-        // Passing --success (unused by the handler for the derived flag) alongside a
-        // non-zero exit code: the recorded/returned success is driven by exitCode only.
+        // --success true cannot override a non-zero exit code; only --success false
+        // can turn an exit code of 0 into a failure.
         const result = await run(
           postCommandCommand,
           makeCtx({

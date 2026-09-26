@@ -426,7 +426,7 @@ export const postCommandCommand: Command = {
       output.writeln();
       if (result.recorded) {
         output.printSuccess(
-          `Command outcome recorded (exit code ${result.exitCode}, ${result._storedIn})`,
+          `Command outcome recorded as ${result.success ? 'success' : 'failure'} (exit code ${result.exitCode}, ${result._storedIn})`,
         );
       } else {
         output.printWarning('Command outcome not recorded: no memory store was writable');

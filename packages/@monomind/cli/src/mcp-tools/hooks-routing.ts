@@ -209,6 +209,11 @@ export const hooksPostCommand: MCPTool = {
     properties: {
       command: { type: 'string', description: 'Executed command' },
       exitCode: { type: 'number', description: 'Command exit code' },
+      success: {
+        type: 'boolean',
+        description:
+          'Whether the command succeeded. false records a failure even with exit code 0; a non-zero exit code is always a failure.',
+      },
     },
     required: ['command'],
   },
@@ -227,7 +232,9 @@ export const hooksPostCommand: MCPTool = {
       typeof params.exitCode === 'number' && Number.isFinite(params.exitCode)
         ? Math.floor(params.exitCode)
         : 0;
-    const success = exitCode === 0;
+    // An explicit success: false wins over a 0 exit code (e.g. a command that
+    // exited 0 but printed errors); a non-zero exit code is always a failure.
+    const success = exitCode === 0 && params.success !== false;
 
     // Record the real exit code in the time-windowed command-outcome store so
     // post-task can derive a MEASURED success signal (grounded in actual exit
@@ -236,6 +243,7 @@ export const hooksPostCommand: MCPTool = {
       ts: Date.now(),
       command: typeof command === 'string' ? command.slice(0, 200) : String(command).slice(0, 200),
       exitCode,
+      success,
     });
 
     // Persist command outcome via memory backend

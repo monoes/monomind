@@ -28,10 +28,10 @@ function storePath(baseDir: string): string {
  *  anything older is dead weight. 500 gives a comfortable buffer. */
 const MAX_COMMAND_RECORDS = 500;
 
-/** Append a command outcome. Non-fatal on error. */
+/** Append a command outcome. Non-fatal on error. `success` defaults to exit code 0. */
 export async function recordCommand(
   baseDir: string,
-  cmd: { command: string; exitCode: number; ts: number },
+  cmd: { command: string; exitCode: number; ts: number; success?: boolean },
 ): Promise<void> {
   try {
     await fs.mkdir(baseDir, { recursive: true });
@@ -43,7 +43,7 @@ export async function recordCommand(
       ts: cmd.ts,
       command: safeCommand,
       exitCode: cmd.exitCode,
-      success: cmd.exitCode === 0,
+      success: cmd.success ?? cmd.exitCode === 0,
     };
     await fs.appendFile(path, `${JSON.stringify(rec)}\n`, 'utf8');
     // Opportunistic trim: rewrite only when the file exceeds the cap.
