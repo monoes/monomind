@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.16.11] — 2026-09-26
+
 ### Fixed
 
 - **A sandboxed org role could create new files in the org root it was told not to write.** In the 2.16.10 release run, a QA role with `policy.sandbox.denyWrite: ["."]` (the org root, which is also its cwd) wrote a new file, `qaSample.js`, into the org root with Bash. Since #323 a denied directory that is or holds the cwd went to the SDK sandbox as its existing children, each read-only. The directory itself became a writable mount point, because bubblewrap had to create the SDK's empty mount-point files in it. The runtime now creates those files itself before the role's restrictions are built, and keeps them for the whole run. With every one of them in place in the cwd, the cwd goes to the SDK as a plain read-only deny again: `touch newfile` fails with "Read-only file system", while reads, `ls` and `git status` still work and bubblewrap starts cleanly. If a stub is missing (it could not be created, or another process made it and may remove it), the cwd falls back to the #323 expansion. The org root above a cwd in a checkout below it, and `~/.claude`, keep the #323 expansion. The file tools (`Write`/`Edit`) were never affected. Verified against the real bundled CLI and bubblewrap. See [Git policy enforcement](doc/concepts/org-runtime.md#git-policy-enforcement).
