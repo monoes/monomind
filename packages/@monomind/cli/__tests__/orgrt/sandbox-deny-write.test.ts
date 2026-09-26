@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { gitCommonDir, prepareGitGuard } from '../../src/orgrt/git-guard.js';
 import { buildClaudeRestrictions } from '../../src/orgrt/role-sandbox.js';
 import { expandDenyWrite } from '../../src/orgrt/sandbox-deny-write.js';
+import { SandboxStubs, sandboxStubPaths } from '../../src/orgrt/sandbox-stubs.js';
 
 const tmp = (p: string) => mkdtempSync(join(tmpdir(), p));
 
@@ -123,6 +124,146 @@ describe('buildClaudeRestrictions (#323)', () => {
   });
 });
 
+/** A QA role's layout: the org root is a checkout and is the role's cwd. */
+function qaLayout() {
+  const root = tmp('deny-lock-');
+  spawnSync('git', ['init', '-q', root]);
+  writeFileSync(join(root, 'README.md'), 'hi\n');
+  const home = tmp('deny-lock-home-');
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  const guard = prepareGitGuard({
+    level: 'read',
+    stateDir: join(tmp('deny-lock-guard-'), 'guard'),
+    protectedGitDirs: [gitCommonDir(root)!],
+  })!;
+  return { root, home, guard };
+}
+
+/** What session.ts hands buildClaudeRestrictions, with a private stub set. */
+const holdWith = (stubs: SandboxStubs, cwd: string, home: string) => (writableRoots: string[]) => {
+  const paths = sandboxStubPaths({ cwd, home, writableRoots, env: {} });
+  stubs.hold('org:run', paths);
+  return stubs.missing(paths);
+};
+
+describe('the cwd stays read-only when the runtime holds its stubs', () => {
+  const qa = (
+    l: ReturnType<typeof qaLayout>,
+    holdStubs?: (roots: string[]) => string[],
+    cwd = l.root,
+    platform: NodeJS.Platform = 'linux',
+  ) =>
+    (buildClaudeRestrictions(
+      l.guard,
+      { denyWrite: ['.'] },
+      { cwd, orgRoot: l.root, home: l.home, tmp: l.home, platform, holdStubs },
+      true,
+    ).sandbox as any).filesystem;
+
+  it('every stub in place: the org root (= cwd) is a plain deny, not a mount point', () => {
+    const l = qaLayout();
+    const r = expandDenyWrite([l.root], [l.root, join(l.home, '.claude')], 'linux', {
+      cwd: l.root,
+      writableRoots: [l.root, l.home, '/tmp'],
+      missingStubs: [],
+    });
+    expect(r).toEqual({ denyWrite: [l.root], mountPoints: [] });
+    expect(qa(l, () => [])).toMatchObject({ denyWrite: expect.arrayContaining([l.root]) });
+  });
+
+  it('holds the stubs before building the deny list, then keeps the org root denied', () => {
+    const l = qaLayout();
+    const stubs = new SandboxStubs(null);
+    try {
+      const fs = qa(l, holdWith(stubs, l.root, l.home));
+      expect(existsSync(join(l.root, '.mcp.json'))).toBe(true);
+      expect(existsSync(join(l.root, '.claude', 'settings.json'))).toBe(true);
+      expect(fs.denyWrite).toContain(l.root);
+      expect(fs.denyWrite).not.toContain(join(l.root, 'README.md')); // covered by the root
+    } finally {
+      stubs.releaseAll();
+    }
+  });
+
+  it('a stub missing: the #323 expansion exactly as before', () => {
+    const l = qaLayout();
+    const before = qa(l);
+    const missing = qa(l, () => [join(l.root, '.mcp.json')]);
+    expect(missing).toEqual(before);
+    expect(missing.denyWrite).not.toContain(l.root);
+    expect(missing.denyWrite).toEqual(expect.arrayContaining([join(l.root, 'README.md')]));
+  });
+
+  it('a stub another sandbox made (empty, not ours) counts as missing: it can vanish', () => {
+    const l = qaLayout();
+    writeFileSync(join(l.root, '.mcp.json'), ''); // another process's bwrap stub
+    const stubs = new SandboxStubs(null);
+    try {
+      const fs = qa(l, holdWith(stubs, l.root, l.home));
+      expect(fs.denyWrite).not.toContain(l.root);
+    } finally {
+      stubs.releaseAll();
+    }
+  });
+
+  it('off Linux the stubs are neither held nor consulted', () => {
+    const l = qaLayout();
+    let called = false;
+    qa(l, () => ((called = true), []), l.root, 'darwin');
+    expect(called).toBe(false);
+  });
+
+  it('a directory above the cwd stays expanded; the cwd inside it is locked', () => {
+    const l = layout();
+    const r = expandDenyWrite([l.base], [l.repo], 'linux', {
+      cwd: l.repo,
+      writableRoots: [l.repo, l.base],
+      missingStubs: [],
+    });
+    expect(r.mountPoints).toEqual([l.base]);
+    expect(r.denyWrite).toEqual(expect.arrayContaining([l.repo, join(l.base, 'README.md')]));
+  });
+
+  it('not while another writable root lies inside the cwd', () => {
+    const l = qaLayout();
+    const inner = join(l.root, 'scratch');
+    mkdirSync(inner);
+    const r = expandDenyWrite([l.root], [l.root], 'linux', {
+      cwd: l.root,
+      writableRoots: [l.root, inner],
+      missingStubs: [],
+    });
+    expect(r.mountPoints).toEqual([l.root]);
+  });
+
+  it('~/.claude keeps the #323 expansion even with every stub held', () => {
+    const l = qaLayout();
+    const claude = join(l.home, '.claude');
+    writeFileSync(join(claude, 'settings.json'), '{}\n');
+    const fs = qa(l, () => []);
+    expect(fs.denyWrite).not.toContain(claude);
+    expect(fs.denyWrite).toContain(join(claude, 'settings.json'));
+    expect(fs.allowWrite).toContain(claude);
+  });
+});
+
+describe('SandboxStubs.missing', () => {
+  it('in place: held by us, or a non-empty file/dir; missing: absent or an empty one not ours', () => {
+    const d = tmp('stubs-missing-');
+    const stubs = new SandboxStubs(null);
+    try {
+      writeFileSync(join(d, 'real.json'), '{}');
+      writeFileSync(join(d, 'foreign'), '');
+      mkdirSync(join(d, 'emptydir'));
+      stubs.hold('o', [join(d, 'held')]);
+      const all = ['real.json', 'foreign', 'emptydir', 'held', 'absent', 'nodir/x'].map((p) => join(d, p));
+      expect(stubs.missing(all)).toEqual([join(d, 'foreign'), join(d, 'emptydir'), join(d, 'absent')]);
+    } finally {
+      stubs.releaseAll();
+    }
+  });
+});
+
 const bwrapWorks =
   process.platform === 'linux' &&
   spawnSync('bwrap', ['--dev-bind', '/', '/', 'true'], { encoding: 'utf8' }).status === 0;
@@ -179,5 +320,50 @@ describe.skipIf(!bwrapWorks)('real bwrap (#323 repro)', () => {
     ].join(' && ');
     const r = bwrap(args, script);
     expect(r.status, r.stderr).toBe(0);
+  });
+
+  it('accepts a locked org root (= cwd) with the stubs held: no new file, bwrap starts', () => {
+    const l = qaLayout();
+    const stubs = new SandboxStubs(null);
+    try {
+      const held = holdWith(stubs, l.root, l.home);
+      let paths: string[] = [];
+      const fs = (buildClaudeRestrictions(
+        l.guard,
+        { denyWrite: ['.'] },
+        {
+          cwd: l.root,
+          orgRoot: l.root,
+          home: l.home,
+          tmp: l.home,
+          platform: 'linux',
+          holdStubs: (roots) => {
+            paths = sandboxStubPaths({ cwd: l.root, home: l.home, writableRoots: roots, env: {} });
+            return held(roots);
+          },
+        },
+        true,
+      ).sandbox as any).filesystem;
+      expect(fs.denyWrite).toContain(l.root);
+      const inScope = (p: string) => p === l.root || p.startsWith(`${l.root}/`);
+      // The SDK's order: writable binds, read-only denies, then its own denies,
+      // which all exist now and are bound onto themselves.
+      const args = [
+        ...fs.allowWrite.filter(inScope).flatMap((p: string) => ['--bind', p, p]),
+        ...fs.denyWrite.filter(inScope).flatMap((p: string) => ['--ro-bind', p, p]),
+        ...paths.filter((p) => inScope(p) && existsSync(p)).flatMap((p) => ['--ro-bind', p, p]),
+      ];
+      const r = bwrap(
+        args,
+        [`cat ${join(l.root, 'README.md')} >/dev/null`, `ls ${l.root} >/dev/null`, `touch ${join(l.root, 'new')}`].join(
+          ' && ',
+        ),
+      );
+      expect(r.stderr).not.toMatch(/Can't create file|Can't find source path/);
+      expect(r.stderr).toMatch(/Read-only file system/);
+      expect(existsSync(join(l.root, 'new'))).toBe(false);
+    } finally {
+      stubs.releaseAll();
+    }
   });
 });

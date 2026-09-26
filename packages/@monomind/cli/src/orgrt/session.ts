@@ -1071,22 +1071,16 @@ async function runOneSession(
       bus,
       claudeRuntime: runner instanceof ClaudeAgentRunner,
       runtime: role.runtime ?? opts.def?.runtime,
+      // The sandbox's mount-point stubs, created once and kept until the run
+      // ends, so no other role's process deletes one mid-bind (sandbox-stubs.ts).
+      // Held before the deny list is built, which keeps a denied cwd read-only
+      // when all of them are in place (sandbox-deny-write.ts).
+      holdStubs: (writableRoots) => {
+        const paths = sandboxStubPaths({ cwd, home: homedir(), writableRoots, env: process.env });
+        sandboxStubs.hold(`${org}:${opts.run ?? ''}`, paths);
+        return sandboxStubs.missing(paths);
+      },
     });
-    // The sandbox's mount-point stubs, created once and kept until the run
-    // ends, so no other role's process deletes one mid-bind (sandbox-stubs.ts).
-    const osSandbox = gitEnforcement.claudeRestrictions?.sandbox as
-      | { filesystem?: { allowWrite?: string[] } }
-      | undefined;
-    if (osSandbox && process.platform === 'linux')
-      sandboxStubs.hold(
-        `${org}:${opts.run ?? ''}`,
-        sandboxStubPaths({
-          cwd,
-          home: homedir(),
-          writableRoots: osSandbox.filesystem?.allowWrite ?? [],
-          env: process.env,
-        }),
-      );
     // What this session really got, not what the config asked for (policy-git.ts).
     policy.setOsSandboxed(!!gitEnforcement.claudeRestrictions?.sandbox);
     const authorityMask = roleAuthorityMask({

@@ -240,5 +240,85 @@ describe.skipIf(
       expect(stubs.release('org:run').sort()).toEqual(created.filter((p) => p !== dotClaude).sort());
       for (const p of created) expect(existsSync(p), p).toBe(p === dotClaude);
     }, 60_000);
+
+    it('denyWrite ["."] without held stubs: the #323 fallback, a new file lands in the cwd', async () => {
+      const l = layout();
+      const cwd = l.orgRoot;
+      spawnSync('git', ['init', '-q', cwd]);
+      const guard = prepareGitGuard({
+        level: 'read',
+        stateDir: join(l.base, 'guard-qa'),
+        excludeSandboxPlaceholders: true,
+        protectedGitDirs: [gitCommonDir(cwd) as string],
+      });
+      const { sandbox } = buildClaudeRestrictions(
+        guard as NonNullable<typeof guard>,
+        { denyWrite: ['.'] },
+        { cwd, orgRoot: l.orgRoot, home: l.home, tmp: l.tmp },
+        true,
+      );
+      expect((sandbox as { filesystem: { denyWrite: string[] } }).filesystem.denyWrite).not.toContain(cwd);
+      const out = await role({ ...l, cwd, sandbox }, 'touch qaSample.js; echo "touch=$?"');
+      expect(out).toContain('touch=0');
+      expect(existsSync(join(cwd, 'qaSample.js'))).toBe(true);
+    }, 60_000);
+
+    // A QA role told not to write its checkout (policy.sandbox.denyWrite
+    // ["."]): with the stubs held before the restrictions are built, its cwd
+    // goes to the SDK as a plain deny, and bwrap has nothing to create in it.
+    for (const { name, nested, level } of [
+      { name: 'the org root is the cwd', nested: false, level: 'read' as const },
+      { name: 'the org root is the cwd, git commit level', nested: false, level: 'commit' as const },
+      { name: 'the cwd is a checkout inside the org root', nested: true, level: 'read' as const },
+    ])
+      it(`denyWrite ["."], ${name}: no new file in the cwd, reads and git still work`, async () => {
+        const l = layout();
+        const cwd = nested ? l.cwd : l.orgRoot;
+        if (!nested) spawnSync('git', ['init', '-q', cwd]);
+        writeFileSync(join(cwd, 'README.md'), 'hi\n');
+        const guard = prepareGitGuard({
+          level,
+          stateDir: join(l.base, 'guard-qa'),
+          excludeSandboxPlaceholders: true,
+          protectedGitDirs: [gitCommonDir(cwd) as string],
+        });
+        const stubs = new SandboxStubs(null);
+        try {
+          const { sandbox } = buildClaudeRestrictions(
+            guard as NonNullable<typeof guard>,
+            { denyWrite: ['.'] },
+            {
+              cwd,
+              orgRoot: l.orgRoot,
+              home: l.home,
+              tmp: l.tmp,
+              holdStubs: (writableRoots) => {
+                const paths = sandboxStubPaths({ cwd, home: l.home, writableRoots, env: {} });
+                stubs.hold('org:run', paths);
+                return stubs.missing(paths);
+              },
+            },
+            true,
+          );
+          const fs = (sandbox as { filesystem: { denyWrite: string[] } }).filesystem;
+          expect(fs.denyWrite).toContain(cwd);
+          const out = await role(
+            { ...l, cwd, sandbox },
+            [
+              'ls >/dev/null && cat README.md >/dev/null && git status --short >/dev/null && echo READS-OK',
+              'touch newfile; echo "touch=$?"',
+              `touch ${join(cwd, '.git', 'x')}; echo "git-touch=$?"`,
+            ].join('; '),
+          );
+          expect(out).not.toMatch(/Can't create file|Can't find source path|bwrap:/);
+          expect(out).toContain('READS-OK');
+          expect(out).toMatch(/newfile.*Read-only file system/);
+          expect(out).toContain('touch=1');
+          expect(out).toContain('git-touch=1');
+          expect(existsSync(join(cwd, 'newfile'))).toBe(false);
+        } finally {
+          stubs.releaseAll();
+        }
+      }, 60_000);
   },
 );

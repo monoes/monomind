@@ -11,7 +11,8 @@
  *     ('read'/'none') or its config + hooks ('commit'), the guard's hooks,
  *     local-path remotes, and git/shell/Claude config that would undo the guard
  *     (a denied directory holding the cwd or ~/.claude goes in as its existing
- *     children, #323 — sandbox-deny-write.ts);
+ *     children, #323, unless it is the cwd and the runtime holds every stub
+ *     in it — sandbox-deny-write.ts);
  *   - network: every host allowed (`policy.sandbox.allowedDomains`, default
  *     ['*']) minus the opt-in `policy.sandbox.deniedDomains`, deterministically,
  *     with local binding kept for dev servers and tests. Git remote hosts are
@@ -182,6 +183,9 @@ export function buildClaudeRestrictions(
     tmp?: string;
     env?: NodeJS.ProcessEnv;
     platform?: NodeJS.Platform;
+    /** Linux: holds the sandbox's mount-point stubs for these writable roots
+     *  (sandbox-stubs.ts) and returns the stub paths still not in place. */
+    holdStubs?: (writableRoots: string[]) => string[];
   },
   sandboxEnabled: boolean,
 ): ClaudeRestrictions {
@@ -222,8 +226,12 @@ export function buildClaudeRestrictions(
   if (!sandboxEnabled) return { disallowedTools };
 
   const allowWrite = uniq([ctx.cwd, ctx.orgRoot, home, tmp, ...(cfg?.allowWrite ?? [])]);
+  // Stubs first: with all of the cwd's in place, bwrap creates nothing there.
+  const missingStubs =
+    (ctx.platform ?? process.platform) === 'linux' ? ctx.holdStubs?.(allowWrite) : undefined;
   // #323: a read-only directory holding the cwd or ~/.claude breaks the SDK's
-  // own stub mounts — pass its children instead (sandbox-deny-write.ts).
+  // own stub mounts — pass its children instead, unless it is the cwd and the
+  // runtime holds every stub in it (sandbox-deny-write.ts).
   const expanded = expandDenyWrite(
     uniq([
       guard.dir,
@@ -235,6 +243,7 @@ export function buildClaudeRestrictions(
     ]),
     [ctx.cwd, join(home, '.claude')],
     ctx.platform,
+    missingStubs && { cwd: ctx.cwd, writableRoots: allowWrite, missingStubs },
   );
   const sandbox = {
     enabled: true,
@@ -344,6 +353,8 @@ export function resolveRoleGitEnforcement(args: {
   availability?: SandboxAvailability;
   /** Defaults to process.env; injectable for tests. */
   env?: NodeJS.ProcessEnv;
+  /** See buildClaudeRestrictions: called only when the sandbox is built. */
+  holdStubs?: (writableRoots: string[]) => string[];
 }): { env: Record<string, string>; claudeRestrictions?: ClaudeRestrictions } {
   const { role, bus } = args;
   const level = (role.policy?.git ?? 'read') as GitLevel;
@@ -451,7 +462,7 @@ export function resolveRoleGitEnforcement(args: {
     claudeRestrictions: buildClaudeRestrictions(
       guard,
       cfg,
-      { cwd: args.cwd, orgRoot: args.orgRoot },
+      { cwd: args.cwd, orgRoot: args.orgRoot, holdStubs: args.holdStubs },
       sandboxEnabled,
     ),
   };

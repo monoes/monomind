@@ -329,6 +329,19 @@ export class SandboxStubs {
     return created;
   }
 
+  /**
+   * The paths among `paths` that bwrap could still have to create as a mount
+   * point: neither a stub this process holds nor something that exists for
+   * good. An empty file or directory we did not make is what another
+   * process's bwrap stub looks like, and it vanishes when that sandbox ends,
+   * so it counts as missing. A path whose parent is not a directory is left
+   * out: the SDK skips it (a file ancestor, or no `.git` dir), and a missing
+   * `.claude` parent is reported itself.
+   */
+  missing(paths: string[]): string[] {
+    return paths.filter((p) => !this.stubs.has(p) && !lasting(p) && isDir(dirname(p)));
+  }
+
   /** Drops `owner`; removes the stubs no other run holds. Returns them. */
   release(owner: string): string[] {
     const free: Array<[string, Stub]> = [];
@@ -462,6 +475,26 @@ export class SandboxStubs {
       );
     }
     return removed;
+  }
+}
+
+const isDir = (p: string): boolean => {
+  try {
+    return lstatSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+/** Exists and is not an empty file or directory (a symlink counts: the SDK
+ *  binds over it without creating anything). */
+function lasting(p: string): boolean {
+  try {
+    const st = lstatSync(p);
+    if (st.isDirectory()) return readdirSync(p).length > 0;
+    return !st.isFile() || st.size > 0;
+  } catch {
+    return false;
   }
 }
 
