@@ -124,6 +124,10 @@ those, never values remembered from an earlier run.
   under -E, `\|` is a literal pipe, and that scan missed `Fixes #320` in 2.16.0.
 - Nobody edits, commits or checks out anything in ORG_ROOT (sole exception:
   publisher's LOCAL MAIN SYNC).
+- Nobody deletes, moves or overwrites a file in ORG_ROOT, tracked or untracked,
+  even one that looks like QA litter: it is the owner's checkout. List stray
+  files in the run report for the owner instead. In 2.16.11 release-captain
+  ran `rm -f ORG_ROOT/sample.js` during PREFLIGHT.
 - Git policy is enforced by the runtime (issue #258): every role below
   policy.git "push" runs its shell in an OS sandbox with no git/GitHub
   credentials (`gh` is not logged in, ssh keys and GH_TOKEN are hidden, pushes
