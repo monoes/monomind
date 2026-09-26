@@ -46,6 +46,7 @@ describe('version handshake (§2)', () => {
       capabilities: [
         'agent-exec',
         'agent-scan',
+        'agent-scan-read-only',
         'org-json-v1',
         'org-tool-providers',
         'org-decision-attribution',
@@ -105,7 +106,7 @@ describe('scanInstalled (§6)', () => {
     const a = stubBin('qwen', 'echo "qwen 0.21.13"');
     const b = stubBin('crush', 'echo "crush 0.89.0"');
     const env = { PATH: [a.binDir, b.binDir].join(':') };
-    const result = await scanInstalled({ env, versionTimeoutMs: 8000 });
+    const result = await scanInstalled({ env, probe: true, versionTimeoutMs: 8000 });
     const byId = new Map(result.agents.map((x) => [x.id, x]));
 
     expect(result.v).toBe(1);
@@ -123,7 +124,7 @@ describe('scanInstalled (§6)', () => {
   it('honors <X>_CLI_BIN overrides over PATH', async () => {
     const { binDir } = stubBin('codex', 'echo "codex 1.2.3"');
     const env = { PATH: '/usr/bin:/bin', CODEX_CLI_BIN: join(binDir, 'codex') };
-    const result = await scanInstalled({ env, versionTimeoutMs: 8000 });
+    const result = await scanInstalled({ env, probe: true, versionTimeoutMs: 8000 });
     const codex = result.agents.find((a) => a.id === 'codex')!;
     expect(codex.installed).toBe(true);
     expect(codex.version).toBe('codex 1.2.3');
@@ -133,7 +134,7 @@ describe('scanInstalled (§6)', () => {
     const { binDir } = stubBin('grok', 'sleep 30; echo never');
     const env = { PATH: binDir };
     const t0 = Date.now();
-    const result = await scanInstalled({ env, versionTimeoutMs: 300 });
+    const result = await scanInstalled({ env, probe: true, versionTimeoutMs: 300 });
     const grok = result.agents.find((a) => a.id === 'grok')!;
     expect(grok.installed).toBe(true);
     expect(grok.version).toBeNull(); // probe timed out — installed, version unknown
@@ -221,7 +222,11 @@ describe('scanInstalled (§6)', () => {
     const saved = process.env[probeKeyEnv];
     process.env[probeKeyEnv] = probeKeySentinel;
     try {
-      const result = await scanInstalled({ env: { PATH: binDir }, versionTimeoutMs: 8000 });
+      const result = await scanInstalled({
+        env: { PATH: binDir },
+        probe: true,
+        versionTimeoutMs: 8000,
+      });
       const codex = result.agents.find((a) => a.id === 'codex')!;
       expect(codex.version).toBe('unset');
     } finally {

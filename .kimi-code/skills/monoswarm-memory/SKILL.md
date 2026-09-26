@@ -9,7 +9,7 @@ type: flow
 Access and manage monoswarm shared memory — a key-value blob on the run's
 state file, readable/writable by all agents coordinating in the current run.
 
-There is no `npx monomind monoswarm memory` CLI command — this is invoked
+There is no `memory` subcommand of `monomind monoswarm` — this is invoked
 directly as an MCP tool call (see below).
 
 ## Parameters

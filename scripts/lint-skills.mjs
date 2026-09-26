@@ -12,8 +12,9 @@
 // is not a command reference.
 //
 // Run: node scripts/lint-skills.mjs
-// CI: fails on any unresolved top-level command, any @alpha dist-tag, or
-// cross-tree drift. An unknown SUBCOMMAND of a real command is a warning.
+// CI: fails on any unresolved command or subcommand, any @alpha dist-tag, or
+// cross-tree drift. A word after a command that has no subcommands is taken as
+// a positional argument and not checked.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -128,19 +129,25 @@ export function extractCommandRefs(content) {
   return refs;
 }
 
-/** Check one file's command references; push errors/warnings. */
+/**
+ * Why `ref` does not resolve against `cli`, or null when it does. An unknown
+ * subcommand is only reported for commands that have subcommands — for the
+ * rest the next word is a positional argument.
+ */
+export function unresolvedReason(ref, cli) {
+  const subs = cli.get(ref.command);
+  if (!subs) return `'monomind ${ref.command}' is not a command of the built CLI`;
+  if (ref.sub && subs.size > 0 && !subs.has(ref.sub)) {
+    return `'${ref.sub}' is not a subcommand of 'monomind ${ref.command}'`;
+  }
+  return null;
+}
+
+/** Check one file's command references; push errors. */
 function checkCommandRefs(content, label, cli) {
   for (const ref of extractCommandRefs(content)) {
-    const subs = cli.get(ref.command);
-    if (!subs) {
-      errors.push(
-        `${label}: '${ref.text}' — 'monomind ${ref.command}' is not a command of the built CLI`,
-      );
-    } else if (ref.sub && subs.size > 0 && !subs.has(ref.sub)) {
-      warnings.push(
-        `${label}: '${ref.text}' — '${ref.sub}' is not a subcommand of 'monomind ${ref.command}'`,
-      );
-    }
+    const reason = unresolvedReason(ref, cli);
+    if (reason) errors.push(`${label}: '${ref.text}' — ${reason}`);
   }
 }
 
@@ -255,7 +262,11 @@ function checkDrift() {
       readdirSync(tree2).filter((d) => existsSync(join(tree2, d, 'SKILL.md'))),
     );
 
-    const only1 = [...skills1].filter((s) => !skills2.has(s));
+    // Repo-only by design (same list as tests/repo/claude-tree-parity.test.ts):
+    // monoagent-image is tied to the local "monoes" browser profile and
+    // monodoc is a repo authoring aid, so neither ships in the package.
+    const ROOT_ONLY_ALLOWED = new Set(['monoagent-image', 'monodoc']);
+    const only1 = [...skills1].filter((s) => !skills2.has(s) && !ROOT_ONLY_ALLOWED.has(s));
     const only2 = [...skills2].filter((s) => !skills1.has(s));
 
     if (only1.length > 0) {

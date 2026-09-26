@@ -19,6 +19,9 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  * Capability strings advertised by `monomind --version --json`:
  *  - `agent-exec`   — `monomind agent exec` (§3)
  *  - `agent-scan`   — `monomind agent scan --json` (§6)
+ *  - `agent-scan-read-only` — `agent scan` runs no runtime binary unless it is
+ *    known to be side-effect free or `--probe` is given; entries carry
+ *    `version_source` (§6, rev 11)
  *  - `org-json-v1`  — `--json`/`--format json` output on org observe commands (§7)
  *  - `org-tool-providers` — role `tool_providers` (stdio MCP), `policy.approvalTools`,
  *    operator-authenticated `/api/xdeliver` and live `org inbox --format json`
@@ -40,6 +43,7 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
   'agent-scan',
+  'agent-scan-read-only',
   'org-json-v1',
   'org-tool-providers',
   'org-decision-attribution',

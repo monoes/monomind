@@ -8,7 +8,7 @@ description: Write worker agent records into the agent store and register their 
 Write worker agent records into the agent store and register their ids on
 the monoswarm state file (combines `agent_spawn` + `monoswarm_join`).
 
-There is no `npx monomind monoswarm spawn` CLI command, and no `--claude`
+There is no `spawn` subcommand of `monomind monoswarm`, and no `--claude`
 flag that launches Claude Code as a lead process — this tool creates
 bookkeeping entries only. No process, thread, or agent is started; real
 concurrency comes from Claude Code's Task tool.

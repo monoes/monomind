@@ -9,7 +9,7 @@ type: flow
 Propose or vote on a threshold-based decision — vote-count bookkeeping over one
 JSON state file. See `doc/concepts/monoswarm.md` for how the mechanism works.
 
-There is no `npx monomind monoswarm vote` CLI command — this is invoked
+There is no `vote` subcommand of `monomind monoswarm` — this is invoked
 directly as an MCP tool call (see below).
 
 ## Parameters

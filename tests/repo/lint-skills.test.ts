@@ -8,14 +8,20 @@
  *
  * Commands are now resolved against the BUILT CLI's registry (names and
  * aliases), only code (fenced blocks and inline code spans) is scanned, and an
- * unknown top-level command is an error.
+ * unknown top-level command is an error. An unknown SUBCOMMAND of a real
+ * command (`monomind performance optimize`, `monomind task retry`) was still
+ * only a warning, and 60 of them shipped in command files; it is an error too.
  */
 
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { extractCommandRefs, loadCliCommands } from '../../scripts/lint-skills.mjs';
+import {
+  extractCommandRefs,
+  loadCliCommands,
+  unresolvedReason,
+} from '../../scripts/lint-skills.mjs';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCRIPT = join(REPO_ROOT, 'scripts', 'lint-skills.mjs');
@@ -59,9 +65,27 @@ describe('lint-skills command references', () => {
     expect(cli.get('memory')?.has('get')).toBe(true); // subcommand alias
   });
 
-  it('passes on the repo with zero unresolved top-level commands', () => {
+  it('rejects unknown commands and unknown subcommands of commands that have them', async () => {
+    const cli = await loadCliCommands(REPO_ROOT);
+    const reason = (text: string) => {
+      const [ref] = extractCommandRefs(`\`${text}\``);
+      return unresolvedReason(ref, cli);
+    };
+    expect(reason('monomind hooks pre-edit')).toBeNull();
+    expect(reason('monomind memory get')).toBeNull(); // subcommand alias
+    expect(reason('monomind performance')).toBeNull();
+    expect(reason('monomind pick something')).toBeNull(); // no subcommands: positional
+    expect(reason('monomind hook pre-edit')).toMatch(/not a command of the built CLI/);
+    expect(reason('monomind performance optimize')).toMatch(
+      /'optimize' is not a subcommand of 'monomind performance'/,
+    );
+    expect(reason('npx monomind task retry --id x')).toMatch(/'retry' is not a subcommand/);
+  });
+
+  it('passes on the repo with zero unresolved commands or subcommands', () => {
     const run = spawnSync('node', [SCRIPT], { cwd: REPO_ROOT, encoding: 'utf8' });
     expect(run.stderr).not.toMatch(/not a command of the built CLI/);
+    expect(run.stdout + run.stderr).not.toMatch(/not a subcommand of/);
     expect(run.status).toBe(0);
   });
 });

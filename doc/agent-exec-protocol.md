@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 10)
+# Agent Exec Protocol — v1 (rev 11)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -110,6 +110,12 @@
     `~/.npm`), `--read-only` asks for the same in human output, and `--offline` skips the checks
     that use the network. The payload gains `read_only`, `offline`, `summary.skipped` and a
     `skipped_reason` per result; `status` gains `skipped` (§10). Additive only.
+  - rev 11 (2026-09-25): **read-only `agent scan`** (issue #337) — new capability
+    `agent-scan-read-only`. `agent scan` used to run every installed runtime's `--version`, and
+    several CLIs change the machine when run that way (grok downloads its ~159MB native binary into
+    `~/.grok`; hermes writes `~/.hermes/logs` and `.update_check`). Scan now reads the version from
+    install files and runs a binary only when it is known to be side-effect free or the caller
+    passes `--probe`, always in a scratch HOME. Entries gain `version_source` (§6). Additive only.
 - **Stability**: Versioned. Frames and events carry `"v": 1`. Breaking changes bump `v` and are
   announced via the capability handshake (§2).
 - **Purpose**: Expose monomind's `AgentRunner` engine (14 local agent CLI runners) and org
@@ -136,7 +142,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json","doctor-read-only","doctor-offline"]}
+{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-scan","agent-scan-read-only","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","doctor-json","doctor-read-only","doctor-offline"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)
@@ -333,6 +339,28 @@ the caller shows `install_hint` to a person instead.
 
 `login_hint` is display text for a person (`claude login`, `kimi (interactive first run)`); a
 caller shows it and never executes it.
+
+**rev 11** (capability `agent-scan-read-only`, issue #337): `agent scan` writes nothing and, by
+default, runs no runtime that is not known to be side-effect free. Each entry has
+`version_source`, which says where `version` came from:
+
+| `version_source` | Meaning |
+|---|---|
+| `"package.json"` | the `version` of the npm package whose `bin` is the resolved binary |
+| `"install-path"` | the version directory of a mise/asdf install (`…/installs/<tool>/<version>/…`) |
+| `"exec"` | the first line of `<binary> --version` (`version` is `null` if it printed nothing or timed out) |
+| `"not-probed"` | the binary was not run and its install files name no version; `version` is `null` |
+| `null` | not installed |
+
+The binary is run only when its install files name no version and either the runtime is on the
+allow-list of runtimes whose `--version` was measured to write nothing (`claude`, `antigravity`,
+`pi`, `pi-rpc` — `SIDE_EFFECT_FREE_VERSION` in `orgrt/version-probe.ts`, with the measurements) or
+the caller passes `--probe`. A run gets a new scratch directory as its cwd, `HOME`, XDG dirs,
+`TMPDIR`, `CODEX_HOME`, `GROK_HOME` and `HERMES_HOME`, with `DISABLE_AUTOUPDATER=1`,
+`NO_UPDATE_NOTIFIER=1` and mise auto-install off; the directory is deleted when the probe ends.
+`--probe` can still use the network (grok downloads its native binary into the scratch HOME before
+printing its version), so a caller on a timer should not pass it. A mise shim run under a scratch
+HOME usually cannot find its tool and reports `version: null`.
 
 ## 7. Org observe contracts
 
