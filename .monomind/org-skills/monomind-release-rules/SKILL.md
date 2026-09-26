@@ -37,6 +37,10 @@ those, never values remembered from an earlier run.
 - Evidence comes ONLY from this run's `$GATE/logs`: check file mtimes against the
   run start and the SHA inside the log. Ignore anything older. `org logs` times
   are UTC with no zone marker (issue #253).
+- Before citing a drill or scratch run (its `bus.jsonl`, run dir, logs), copy
+  what you cite into `$GATE/logs/<round>/` and cite THAT path; only then clean
+  the scratch dir up. In 2.16.9 a PASS claim could not be checked because its
+  drill's bus.jsonl was deleted with the scratch dir (issue #350).
 - Report every check as {name, command, exit_code, PASS|FAIL|SKIP|FLAKY, log path,
   one-line evidence}. SKIP needs the exact error proving the check is impossible
   on this machine. Never call a failure "environmental" without a reproduction
@@ -92,6 +96,19 @@ those, never values remembered from an earlier run.
   there deleted 1003 tracked files and the project's memory store.
 - If you damage anything outside your scratch, stop and report it to
   release-captain at once with exactly what ran and what changed.
+
+## Scratch installs
+- Install this round's build, never the registry's. Before a release is
+  published, the local packages carry the SAME version as npm, so installing
+  one tarball silently resolves its monomind siblings from the registry — the
+  previous release's code. In 2.16.9 a live drill ran the pre-fix CLI this way
+  and reported the release's own fix as broken (issue #349).
+- Install ALL of the round's tarballs in ONE `npm install` command, or the
+  output of `node scripts/pack-workspace-closure.mjs . <outDir>` run in SRC (prints the tarball paths).
+- Then prove it before running anything, and put this check in your evidence;
+  it must print nothing:
+  `jq -r '.packages | to_entries[] | select(.key | test("node_modules/(monomind|monofence-ai|@monoes/[^/]+)$")) | select((.value.resolved // "") | startswith("file:") | not) | .key' node_modules/.package-lock.json`
+  Any line it prints is a package that came from the registry: reinstall.
 
 ## Git
 - Never run `git config` in ANY checkout of this repo (worktrees share
