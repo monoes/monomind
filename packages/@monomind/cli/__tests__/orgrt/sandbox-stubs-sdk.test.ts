@@ -5,7 +5,10 @@
  * the sandbox can run — it times two live processes against each other, so it
  * stays out of every verify on a machine that happens to have bwrap
  * (`MONOMIND_SANDBOX_E2E=1 npx vitest run __tests__/orgrt/sandbox-stubs-sdk`
- * after an SDK upgrade). Two CLI processes stand
+ * after an SDK upgrade). It is skipped inside an org role (MONOMIND_ORG_ROLE):
+ * nested in a role's own sandbox the race cannot be reproduced, and the
+ * control case failed 3/3 there in the 2.16.11 release run while passing
+ * outside it. Two CLI processes stand
  * in for two roles sharing a cwd and a HOME; each talks to a scripted local
  * Messages API, so no model is involved. Role A runs a slow Bash command, role
  * B a quick one while A's is still running.
@@ -181,6 +184,7 @@ const MOUNTS = (base: string) => `awk '{print $4, $5}' /proc/self/mountinfo | gr
 
 describe.skipIf(
   process.env.MONOMIND_SANDBOX_E2E !== '1' ||
+    !!process.env.MONOMIND_ORG_ROLE ||
     process.platform !== 'linux' ||
     !sandboxAvailability().available,
 )(
