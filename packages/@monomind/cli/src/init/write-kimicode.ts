@@ -337,7 +337,11 @@ export function convertClaudeTreeToKimi(claudeDir: string): KimiConvertedTree {
       tree.skipped.push(
         `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
       );
-    } else if (!tree.skills.has(flowName)) {
+    } else if (tree.skills.has(flowName)) {
+      tree.skipped.push(
+        `.claude/commands/${segs.join('/')} (collides with an earlier command on .kimi-code/skills/${flowName}/ — flow skill not converted, plugin command kept)`,
+      );
+    } else {
       tree.skills.set(flowName, flowSkill);
     }
   }

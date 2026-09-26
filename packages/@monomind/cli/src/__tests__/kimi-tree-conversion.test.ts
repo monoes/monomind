@@ -1,13 +1,29 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_INIT_OPTIONS, type InitResult } from '../init/types.js';
 import {
   convertClaudeTreeToKimi,
   isConvertibleCommand,
   writeKimiFiles,
 } from '../init/write-kimicode.js';
+
+// Plugin command filenames and flow-skill names come from the same slug today,
+// so the plugin-command collision check also catches every flow-skill
+// collision. This switch lets a test give the two diverging names, to prove
+// the flow-skill check reports a collision on its own (GH #342).
+const kimiNames = vi.hoisted(() => ({ distinctPluginFiles: false }));
+vi.mock('../init/kimi-generator.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../init/kimi-generator.js')>();
+  return {
+    ...actual,
+    kimiCommandFilename: (category: string, file: string) =>
+      kimiNames.distinctPluginFiles
+        ? `${category}--${file}.md`
+        : actual.kimiCommandFilename(category, file),
+  };
+});
 
 function emptyResult(): InitResult {
   return {
@@ -33,6 +49,7 @@ describe('kimi command conversion', () => {
   const priorHome = process.env.HOME;
 
   afterEach(() => {
+    kimiNames.distinctPluginFiles = false;
     process.env.HOME = priorHome;
     for (const directory of directories.splice(0)) {
       fs.rmSync(directory, { recursive: true, force: true });
@@ -98,6 +115,25 @@ describe('kimi command conversion', () => {
     // Deterministic: sorted source order, first one wins.
     expect(tree.pluginCommands.get('a-b-c.md')).toContain('FIRST');
     expect(tree.skipped.some((s) => s.includes('a/b-c.md') && s.includes('collides'))).toBe(true);
+  });
+
+  it('reports a command flow-skill name collision instead of silently dropping it', () => {
+    const project = tempProject();
+    kimiNames.distinctPluginFiles = true;
+    // Both flow skills are named "a-b-c"; "a-b/c.md" sorts before "a/b-c.md".
+    writeFile(project, '.claude/commands/a/b-c.md', '---\ndescription: second\n---\n\nSECOND\n');
+    writeFile(project, '.claude/commands/a-b/c.md', '---\ndescription: first\n---\n\nFIRST\n');
+
+    const tree = convertClaudeTreeToKimi(path.join(project, '.claude'));
+
+    expect([...tree.pluginCommands.keys()].sort()).toEqual(['a--b-c.md', 'a-b--c.md']);
+    expect([...tree.skills.keys()]).toEqual(['a-b-c']);
+    expect(tree.skills.get('a-b-c')).toContain('FIRST');
+    expect(
+      tree.skipped.some(
+        (s) => s.includes('a/b-c.md') && s.includes('collides') && s.includes('skills/a-b-c/'),
+      ),
+    ).toBe(true);
   });
 
   it('produces agents, skills, flow skills and plugin commands in memory', () => {
