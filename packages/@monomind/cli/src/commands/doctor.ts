@@ -7,7 +7,7 @@
 
 import * as path from 'node:path';
 import { output } from '../output.js';
-import { runPlatformsDoctor } from '../platform-adapters/operations.js';
+import { runPlatformsDoctor } from '../platform-adapters/platform-doctor.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { checkCatalog } from './doctor-catalog-checks.js';
 import { checkDecisionModel, checkDecisionModelIfConfigured } from './doctor-decision-checks.js';
