@@ -6,21 +6,18 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { foldLegacySharedSkills } from '../platform-adapters/shared-surface.js';
 import { refreshBundledAgents } from './agent-refresh.js';
+import { AGENTS_MAP, COMMANDS_MAP, SKILLS_MAP } from './asset-maps.js';
 import { type FileGuard, finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
+import { atomicWriteFile, copyDirRecursive } from './fs-helpers.js';
 import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS, helperFileMode } from './helpers-generator.js';
 import { type HooksByEvent, mergeMonomindHooks } from './hook-settings.js';
 import { buildProjectIndexes, type ProjectIndexCounts } from './project-indexes.js';
 import { generateSettings } from './settings-generator.js';
 import {
-  AGENTS_MAP,
-  atomicWriteFile,
-  COMMANDS_MAP,
-  copyDirRecursive,
   findSourceDir,
   findSourceHelpersDir,
   GENERATED_HELPERS,
   MAX_EXEC_FILE_BYTES,
-  SKILLS_MAP,
 } from './shared.js';
 import { generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions, InitResult } from './types.js';

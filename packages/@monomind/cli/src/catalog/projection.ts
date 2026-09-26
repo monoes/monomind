@@ -9,13 +9,14 @@ import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveArtifactLocation } from '../platform-adapters/locations.js';
 import {
   atomicWrite,
   removeManagedSkillPackage,
   symlinkedComponent,
   withMutationLock,
 } from '../platform-adapters/mutation.js';
-import { applyIntents, resolveArtifactLocation } from '../platform-adapters/operations.js';
+import { applyIntents } from '../platform-adapters/operations.js';
 import { PLATFORM_REGISTRY } from '../platform-adapters/registry.js';
 import type { ArtifactIntent, InstallRequest, PlatformId } from '../platform-adapters/types.js';
 import { verifyEntry } from './digest.js';

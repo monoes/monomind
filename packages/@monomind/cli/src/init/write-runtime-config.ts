@@ -4,9 +4,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { atomicWriteFile, writeGeneratedFile } from './fs-helpers.js';
 import { MONOMIND_NEVER_COMMIT } from './never-commit.js';
 import { mergeGitignoreBlock, mergeYamlDefaults } from './runtime-config-merge.js';
-import { atomicWriteFile, MAX_EXEC_FILE_BYTES, writeGeneratedFile } from './shared.js';
+import { MAX_EXEC_FILE_BYTES } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
 

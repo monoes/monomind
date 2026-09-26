@@ -9,9 +9,10 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
+import { intentLocation } from './locations.js';
 import { hasManagedMarker, removeManagedMarker } from './merge.js';
 import { addSurfaceOwners, withMutationLock } from './mutation.js';
-import { applyIntents, intentLocation, planInstall } from './operations.js';
+import { applyIntents, planInstall } from './operations.js';
 import { PLATFORM_IDS, PLATFORM_REGISTRY } from './registry.js';
 import type {
   ArtifactIntent,

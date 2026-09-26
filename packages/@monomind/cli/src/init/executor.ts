@@ -24,27 +24,23 @@ import {
   formatMonoesLeakWarning,
 } from '../mcp/monoes-mcp-entry.mjs';
 import { installPlatform } from '../platform-adapters/operations.js';
+// Split modules
+import { DIRECTORIES } from './asset-maps.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 import { finalizeGuard, guardFor, pruneBackups } from './file-guard.js';
 import { initProjectMemory, seedProjectMemory } from './init-memory.js';
 import { buildProjectIndexes } from './project-indexes.js';
-// Split modules
-import { DIRECTORIES, findSourceHelpersDir, MAX_EXEC_FILE_BYTES } from './shared.js';
+import { findSourceHelpersDir, MAX_EXEC_FILE_BYTES } from './shared.js';
 import { writeSharedInstructions } from './shared-instructions-generator.js';
 import type { InitOptions, InitResult } from './types.js';
 import { detectPlatform } from './types.js';
 import { writeGeminiFiles } from './write-antigravity.js';
-import {
-  writeClaudeMd,
-  writeHelpers,
-  writeMCPConfig,
-  writeSettings,
-  writeStatusline,
-} from './write-claude.js';
+import { writeClaudeMd, writeHelpers, writeMCPConfig, writeStatusline } from './write-claude.js';
 import { writeCodexFiles } from './write-codex.js';
 import { writeKimiFiles } from './write-kimicode.js';
 import { writeOpencodeFiles } from './write-opencode.js';
 import { writeInitialMetrics, writeRuntimeConfig } from './write-runtime-config.js';
+import { writeSettings } from './write-settings.js';
 
 export type { UpgradeResult } from './upgrade.js';
 // Re-export upgrade functions so index.ts barrel still works via './executor.js'

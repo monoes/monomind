@@ -1,5 +1,5 @@
 /**
- * mergeHooksPreservingUnknown (write-claude.ts) matches existing hook entries
+ * mergeHooksPreservingUnknown (write-settings.ts) matches existing hook entries
  * to the freshly generated ones by exact command string. That's correct for a
  * genuinely user-added hook, but it means a hook this product itself renamed
  * (graphify-freshen.cjs -> monograph-freshen.cjs) looked "unknown" too: the
@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
-import { writeSettings } from '../init/write-claude.js';
+import { writeSettings } from '../init/write-settings.js';
 
 function freshResult(): InitResult {
   return {

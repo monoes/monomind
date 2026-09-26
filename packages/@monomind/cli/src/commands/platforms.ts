@@ -9,10 +9,10 @@ import {
   installPlatform,
   migrateLegacyInstall,
   planInstall,
-  runPlatformsDoctor,
   uninstallPlatform,
   upgradePlatforms,
 } from '../platform-adapters/operations.js';
+import { runPlatformsDoctor } from '../platform-adapters/platform-doctor.js';
 import {
   PLATFORM_IDS,
   PLATFORM_REGISTRY,

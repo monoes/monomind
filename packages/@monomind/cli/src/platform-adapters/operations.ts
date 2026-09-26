@@ -1,21 +1,22 @@
 /** Planning and application for evidence-gated platform artifacts. */
 
-import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
 import { FileGuard } from '../init/file-guard.js';
-import { readInitManifest } from '../init/shared.js';
+import { intentLocation } from './locations.js';
 import {
   adoptSupersededBlocks,
   type MarkerComment,
   mergeManagedBlock,
   mergeSkillFileManagedBlock,
   mergeSkillManagedBlock,
+  readManagedBlock,
   removeManagedMarker,
   safeJsonMerge,
   safeJsonRemove,
 } from './merge.js';
-import { findLegacySurfaces, migrateLegacyArtifacts } from './migration.js';
+import { migrateLegacyArtifacts } from './migration.js';
 import {
   addSurfaceOwners,
   atomicWrite,
@@ -26,74 +27,17 @@ import {
 import { applyOwnedFile, hasLegacyOwnership, releaseOwnedFile } from './owned-files.js';
 import { PLATFORM_IDS, PLATFORM_REGISTRY } from './registry.js';
 import { getRenderer } from './renderers/index.js';
-import { legacySurfaceOwners, releaseSharedBlock, sharedSkillSurface } from './shared-surface.js';
+import { legacySurfaceOwners, releaseSharedBlock } from './shared-surface.js';
 import type {
   ApplyResult,
   ArtifactIntent,
-  ArtifactKind,
-  Capability,
-  DiscoveryResult,
   InstallRequest,
   MutationRequest,
   OwnedFileWriter,
   PlatformAdapter,
-  PlatformDoctorReport,
   PlatformPlan,
   ResolvedArtifactLocation,
 } from './types.js';
-
-export interface PlatformEnvironment {
-  root?: string;
-  home?: string;
-  discovery?: DiscoveryResult;
-}
-
-function isWithin(parent: string, child: string): boolean {
-  const rel = relative(parent, child);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
-}
-
-function locationFor(
-  adapter: PlatformAdapter,
-  kind: ArtifactKind,
-  scope: InstallRequest['scope'],
-  discovery?: DiscoveryResult,
-) {
-  return discovery?.locations?.[kind]?.[scope] ?? adapter.paths.locations[kind]?.[scope];
-}
-
-export function redactUserPath(path: string, home = homedir()): string {
-  const resolvedHome = resolve(home);
-  const resolvedPath = resolve(path);
-  return isWithin(resolvedHome, resolvedPath)
-    ? `<home>/${relative(resolvedHome, resolvedPath)}`.replace(/\/$/, '')
-    : '<external-user-path>';
-}
-
-/** The sole conversion from declarative adapter paths into real filesystem paths. */
-export function resolveArtifactLocation(
-  adapter: PlatformAdapter,
-  kind: ArtifactKind,
-  scope: InstallRequest['scope'],
-  environment: PlatformEnvironment = {},
-): ResolvedArtifactLocation | undefined {
-  const location = locationFor(adapter, kind, scope, environment.discovery);
-  if (!location || location === 'discovery' || location === 'cli_fallback') return undefined;
-
-  const base =
-    scope === 'project'
-      ? resolve(environment.root ?? process.cwd())
-      : resolve(environment.home ?? homedir());
-  const fullPath = resolve(base, location.path);
-  if (!isWithin(base, fullPath)) return undefined;
-  return {
-    path: fullPath,
-    displayPath:
-      scope === 'user' ? redactUserPath(fullPath, base) : relative(base, fullPath) || '.',
-    format: location.format,
-    entryPath: location.entryPath,
-  };
-}
 
 function assertMutationAuthorized(request: Pick<InstallRequest, 'scope' | 'yes'>): void {
   if (request.scope === 'user' && request.yes !== true) {
@@ -104,68 +48,6 @@ function assertMutationAuthorized(request: Pick<InstallRequest, 'scope' | 'yes'>
 export async function planInstall(request: InstallRequest): Promise<PlatformPlan> {
   const adapter = PLATFORM_REGISTRY[request.platform];
   return getRenderer(request.platform).render(adapter, request);
-}
-
-export function intentLocation(
-  adapter: PlatformAdapter,
-  intent: ArtifactIntent,
-  request: InstallRequest,
-): ResolvedArtifactLocation | undefined {
-  const location = resolveArtifactLocation(adapter, intent.locationKey, intent.scope, {
-    root: request.path,
-    discovery: request.discovery,
-  });
-  if (!location) return undefined;
-  // Skill locations are package roots. Each canonical package supplies its
-  // relative output path; callers cannot escape that root.
-  if (intent.kind !== 'skill') return location;
-  const relativePath = intent.relativePath ?? join('mastermind', 'SKILL.md');
-  const skillPath = resolve(location.path, relativePath);
-  if (!isWithin(location.path, skillPath)) return undefined;
-  return {
-    ...location,
-    path: skillPath,
-    displayPath: join(location.displayPath, relativePath),
-  };
-}
-
-/**
- * Doctor must tolerate both document artifacts and directory-root artifacts
- * (notably portable skill roots). A directory is managed only when its router
- * package is recorded in the init manifest (or, from an older install, carries
- * this platform's own marker); an arbitrary existing directory remains foreign.
- */
-function artifactState(
-  path: string,
-  kind: ArtifactKind,
-  platform: string,
-  base: string,
-): 'managed' | 'foreign' {
-  // Intent markers use plural artifact namespaces for the two shared roots.
-  // Keep this mapping here rather than guessing from a filesystem path.
-  const marker =
-    kind === 'instruction'
-      ? `monomind:start instructions:${platform}`
-      : kind === 'skill'
-        ? `monomind:start skills:${platform}`
-        : kind === 'status'
-          ? `monomind:start status:${platform}`
-          : `monomind:start ${kind}s:${platform}`;
-  try {
-    if (statSync(path).isDirectory()) {
-      if (kind !== 'skill') return 'foreign';
-      const router = join(path, 'mastermind', 'SKILL.md');
-      const recorded = readInitManifest(base)?.files?.[relative(base, router).split(sep).join('/')];
-      return existsSync(router) &&
-        (recorded !== undefined || readFileSync(router, 'utf8').includes(marker))
-        ? 'managed'
-        : 'foreign';
-    }
-    return readFileSync(path, 'utf8').includes(marker) ? 'managed' : 'foreign';
-  } catch {
-    // A raced deletion or inaccessible artifact is not evidence of ownership.
-    return 'foreign';
-  }
 }
 
 function isSkillPackage(intent: ArtifactIntent): boolean {
@@ -230,7 +112,19 @@ function applyIntent(
         markerComment(location, marker),
       );
     } else {
-      content = mergeManagedBlock(base, marker, intent.content, markerComment(location, marker));
+      const merge = (text: string): string =>
+        mergeManagedBlock(text, marker, intent.content, markerComment(location, marker));
+      // An instruction block the user edited is kept, as init keeps its own.
+      const guarded =
+        intent.kind === 'instruction' && !request.dryRun
+          ? writer().guardBlock(location.path, base, marker, intent.content, {
+              label: marker,
+              read: (text) => readManagedBlock(text, marker),
+              merge,
+            })
+          : merge(base);
+      if (guarded === null) return { skipped: location.displayPath, diagnostics: [] };
+      content = guarded;
     }
   } else if (intent.replace === 'named_entry') {
     if (location.format !== 'json') {
@@ -306,7 +200,10 @@ export function applyIntents(
     if (result.skipped) skipped.push(result.skipped);
     diagnostics.push(...result.diagnostics);
   }
-  own?.flush();
+  if (own) {
+    own.flush();
+    diagnostics.push(...own.warnings);
+  }
   return { changed, skipped, diagnostics };
 }
 
@@ -452,84 +349,11 @@ export async function uninstallPlatform(request: MutationRequest): Promise<Apply
 export async function migrateLegacyInstall(request: MutationRequest): Promise<ApplyResult[]> {
   return upgradePlatforms(request);
 }
-
-/**
- * The capability that gates each artifact kind's renderer (see
- * renderers/*.ts, each of which skips rendering unless its capability is
- * 'native'). Doctor uses this to tell a capability-gated location — declared
- * in the registry but intentionally never written because the capability
- * hasn't been promoted — apart from a genuine gap in an already-native one.
- * A kind absent here (e.g. the unused 'plugin') falls back to plain 'missing'.
- */
-const KIND_CAPABILITY: Partial<Record<ArtifactKind, Capability>> = {
-  instruction: 'instructions',
-  skill: 'skills',
-  mcp: 'mcp',
-  command: 'commands',
-  agent: 'agents',
-  hook: 'hooks',
-  hook_bridge: 'hooks',
-  status: 'status',
-  permission: 'permissions',
-};
-
-export async function runPlatformsDoctor(request: {
-  platform?: PlatformAdapter['id'];
-  path?: string;
-  scope: InstallRequest['scope'];
-  home?: string;
-}): Promise<PlatformDoctorReport[]> {
-  const ids = request.platform ? [request.platform] : [...PLATFORM_IDS];
-  return ids.map((platform) => {
-    const adapter = PLATFORM_REGISTRY[platform];
-    const artifacts: PlatformDoctorReport['artifacts'][number][] = [];
-    const diagnostics: string[] = [];
-    const base =
-      request.scope === 'project'
-        ? resolve(request.path ?? process.cwd())
-        : resolve(request.home ?? homedir());
-    for (const kind of Object.keys(adapter.paths.locations) as ArtifactKind[]) {
-      const location = resolveArtifactLocation(adapter, kind, request.scope, {
-        root: request.path,
-        home: request.home,
-      });
-      if (!location) continue;
-      if (!existsSync(location.path)) {
-        const capability = KIND_CAPABILITY[kind];
-        const level = capability && adapter.capabilities[capability];
-        if (capability && level !== 'native') {
-          artifacts.push({
-            path: location.displayPath,
-            state: 'gated',
-            reason: `capability ${capability} is ${level}; this artifact is not rendered until it is native`,
-          });
-        } else {
-          artifacts.push({ path: location.displayPath, state: 'missing' });
-        }
-        continue;
-      }
-      const owner = kind === 'skill' ? sharedSkillSurface(adapter, request.scope)?.id : undefined;
-      artifacts.push({
-        path: location.displayPath,
-        state: artifactState(location.path, kind, owner ?? platform, base),
-      });
-    }
-    const legacyFindings = findLegacySurfaces(base, request.scope);
-    if (adapter.requiresDiscovery)
-      diagnostics.push(`${adapter.displayName}: native enhancements require successful discovery.`);
-    return {
-      platform,
-      capabilities: { ...adapter.capabilities },
-      verification: Object.fromEntries(
-        Object.entries(adapter.verification).map(([capability, evidence]) => [
-          capability,
-          evidence.level,
-        ]),
-      ) as PlatformDoctorReport['verification'],
-      artifacts,
-      legacy: { findings: legacyFindings, migratable: legacyFindings.length > 0 },
-      diagnostics,
-      sanitized: true,
-    };
-  });
-}
+// Split out of this module; re-exported so existing importers keep working.
+export {
+  intentLocation,
+  type PlatformEnvironment,
+  redactUserPath,
+  resolveArtifactLocation,
+} from './locations.js';
+export { runPlatformsDoctor } from './platform-doctor.js';

@@ -110,9 +110,29 @@ export interface InstallRequest {
   fileGuard?: OwnedFileWriter;
 }
 
-/** The part of init's FileGuard an install needs for `owned_file` intents. */
+/** How a managed block of one delimiter form is read and merged. */
+export interface ManagedBlockForm {
+  /** Names the block in warnings. */
+  label: string;
+  /** The block's body in a file's text, or null when it has none. */
+  read(text: string): string | null;
+  /** The file's text with the generated block merged in. */
+  merge(text: string): string;
+}
+
+/** The part of init's FileGuard an install needs for `owned_file` intents
+ *  and instruction blocks. */
 export interface OwnedFileWriter {
   write(dest: string, content: string): 'written' | 'unchanged' | 'kept';
+  /** `form.merge(existing)`, or null when the user edited the block and it is kept. */
+  guardBlock(
+    file: string,
+    existing: string,
+    marker: string,
+    generated: string,
+    form: ManagedBlockForm,
+  ): string | null;
+  readonly warnings: readonly string[];
 }
 
 export type MutationRequest = Omit<InstallRequest, 'platform'> & {

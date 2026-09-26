@@ -1,6 +1,6 @@
 /** Read-only MCP exposure of platform adapter diagnostics. */
 
-import { runPlatformsDoctor } from '../platform-adapters/operations.js';
+import { runPlatformsDoctor } from '../platform-adapters/platform-doctor.js';
 import { resolvePlatformId } from '../platform-adapters/registry.js';
 import type { MCPTool } from './types.js';
 

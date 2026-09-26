@@ -18,8 +18,8 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { resolveArtifactLocation } from './locations.js';
 import { removeManagedMarker } from './merge.js';
-import { resolveArtifactLocation } from './operations.js';
 import type { InstallRequest, PlatformAdapter } from './types.js';
 
 export function atomicWrite(path: string, content: string): void {

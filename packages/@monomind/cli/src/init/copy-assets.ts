@@ -4,21 +4,18 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { guardFor } from './file-guard.js';
 import {
   AGENTS_MAP,
   allShippedAgents,
   allShippedCommands,
   allShippedSkills,
   COMMANDS_MAP,
-  countFiles,
-  findSourceDir,
-  listFilesRecursive,
-  previouslyGenerated,
-  recordGenerated,
-  retireGeneratedEntry,
   SKILLS_MAP,
-} from './shared.js';
+} from './asset-maps.js';
+import { guardFor } from './file-guard.js';
+import { countFiles, listFilesRecursive } from './fs-helpers.js';
+import { previouslyGenerated, recordGenerated, retireGeneratedEntry } from './init-manifest.js';
+import { findSourceDir } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**

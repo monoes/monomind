@@ -10,7 +10,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initCommand } from '../src/commands/init.js';
-import { retireGeneratedEntry } from '../src/init/shared.js';
+import { retireGeneratedEntry } from '../src/init/init-manifest.js';
 import type { InitResult } from '../src/init/types.js';
 import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';

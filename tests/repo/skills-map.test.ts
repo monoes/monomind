@@ -1,5 +1,5 @@
 /**
- * SKILLS_MAP (packages/@monomind/cli/src/init/shared.ts) is what `monomind
+ * SKILLS_MAP (packages/@monomind/cli/src/init/asset-maps.ts) is what `monomind
  * init` copies out of the npm-shipped skill tree. Two drifts went unnoticed:
  *
  *   - it listed `monolean-review`, which exists in no tree, so init silently

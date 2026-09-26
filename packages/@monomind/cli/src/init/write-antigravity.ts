@@ -5,17 +5,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { guardFor } from './file-guard.js';
+import { atomicWriteFile } from './fs-helpers.js';
 import {
   generateGeminiMd,
   generateGeminiRulesMd,
   generateStatuslineSh,
 } from './geminimd-generator.js';
-import {
-  atomicWriteFile,
-  findSourceHelpersDir,
-  GENERATED_HELPERS,
-  MAX_EXEC_FILE_BYTES,
-} from './shared.js';
+import { findSourceHelpersDir, GENERATED_HELPERS, MAX_EXEC_FILE_BYTES } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**

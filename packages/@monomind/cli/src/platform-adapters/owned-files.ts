@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { relative, sep } from 'node:path';
 import { NEW_VERSION_SUFFIX } from '../init/file-guard.js';
-import { readInitManifest } from '../init/shared.js';
+import { readInitManifest } from '../init/init-manifest.js';
 import { hasManagedMarker, skillName } from './merge.js';
 import { backup } from './mutation.js';
 import type {
