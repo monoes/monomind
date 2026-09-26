@@ -293,3 +293,77 @@ describe('pick-rank exclusion clauses in descriptions', () => {
     expect(ex.kept).toContain('covers x');
   });
 });
+
+describe('pick-rank task head and modifiers', () => {
+  const terms = (text: string): [string, number][] => [...pr.queryTerms(text)];
+
+  it('weighs a purpose phrase or relative clause at half its head', () => {
+    expect(terms('write developer documentation for the REST API')).toEqual([
+      ['writ', 1],
+      ['develop', 1],
+      ['document', 1],
+      ['rest', 0.5],
+      ['api', 0.5],
+    ]);
+    expect(terms('create a new org that monitors competitors')).toEqual([
+      ['creat', 1],
+      ['org', 1],
+      ['monitor', 0.5],
+      ['competitor', 0.5],
+    ]);
+  });
+
+  it('keeps a demonstrative "that" and a leading "for" in the head', () => {
+    expect(terms('fix that bug in the parser').every(([, w]) => w === 1)).toBe(true);
+    expect(terms('for the parser, add tests').every(([, w]) => w === 1)).toBe(true);
+  });
+
+  it('ends a modifier at "and"', () => {
+    expect(terms('write unit tests for the parser and raise coverage')).toContainEqual(['coverag', 1]);
+  });
+
+  it('treats "new" as a stopword', () => {
+    expect(pr.tokens('create a new org')).toEqual(['creat', 'org']);
+  });
+
+  it('ranks the item matching the head above one matching only the modifier', () => {
+    const items = [
+      { id: 'api-designer', description: 'Designs REST APIs and writes their documentation' },
+      { id: 'code-documenter', description: 'Writes developer documentation for code' },
+      { id: 'tester', description: 'Writes unit tests' },
+      { id: 'deployer', description: 'Ships releases to production' },
+      { id: 'db-tuner', description: 'Tunes slow database queries' },
+      { id: 'marketer', description: 'Plans launch campaigns' },
+    ];
+    expect(top('write developer documentation for the REST API', items, 1)).toEqual(['code-documenter']);
+  });
+});
+
+describe('pick-rank catalog structure', () => {
+  it('ignores a description opening that a large share of the catalog shares', () => {
+    const role = (id: string, what: string) => ({
+      id,
+      description: `Use when an org role acts as ${what} and must report weekly`,
+    });
+    const items = [
+      role('analyst', 'market analyst'),
+      role('writer', 'content writer'),
+      role('seller', 'account executive'),
+      role('buyer', 'procurement lead'),
+      { id: 'org-runner', description: 'Starts, stops and inspects a running org' },
+    ];
+    const got = pr.shortlist('inspect the org', items, 5);
+    expect(got[0].id).toBe('org-runner');
+    expect(got.filter((i: { score: number }) => i.score > 0).map((i: Item) => i.id)).toEqual(['org-runner']);
+  });
+
+  it('reads an id word joining two other id words as both', () => {
+    const items = [
+      { id: 'createorg', description: 'Define and save an agent organization' },
+      { id: 'workflow-create', description: 'Make a reusable workflow' },
+      { id: 'mastermind-org', description: 'Inspect a running organization' },
+    ];
+    const got = pr.shortlist('create an org', items, 3);
+    expect(got[0].id).toBe('createorg');
+  });
+});
