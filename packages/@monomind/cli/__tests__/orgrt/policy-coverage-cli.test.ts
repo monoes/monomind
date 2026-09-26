@@ -171,6 +171,10 @@ async function runRole(
         ANTHROPIC_API_KEY: ['test', 'polcov'].join('-'),
         CLAUDE_CONFIG_DIR: config,
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+        // The scripted API is not a first-party Anthropic host, so ToolSearch
+        // is disabled unless explicitly forced on (see policy-hook.ts's
+        // ToolSearch coverage tests below).
+        ENABLE_TOOL_SEARCH: 'true',
         ...(guard?.env ?? {}),
       },
       maxTurns: calls.length + sub.length + 2,
@@ -245,6 +249,24 @@ for (const [label, sandboxed, runnable] of scenarios) {
       expect(decisions(o).get('toolu_0')).toBe('deny');
       expect(o.results.get('toolu_0')?.text).toContain('[org-policy]');
       expect(o.results.get('toolu_0')?.text).not.toContain('hello');
+    }, 90_000);
+
+    // ToolSearch is one of the 5 call types policy-hook.ts's doc comment names
+    // as previously bypassing the PolicyEngine entirely (read-only Bash, Read
+    // in the cwd, Agent, ToolSearch, ListAgents). Unlike the CLI's other
+    // built-ins, ToolSearch is only registered when the SDK considers the
+    // Messages API host "first-party" (or ENABLE_TOOL_SEARCH forces it on);
+    // this harness's scripted local server is not, so the call would
+    // otherwise fail with "No such tool available" before ever reaching a
+    // policy decision — that's a registration gate, unrelated to this test.
+    it('applies denyTools to ToolSearch', async () => {
+      const o = await runRole(
+        { git: 'read', denyTools: ['ToolSearch'] },
+        () => [{ name: 'ToolSearch', input: { query: 'select:Bash', max_results: 5 } }],
+        sandboxed,
+      );
+      expect(decisions(o).get('toolu_0')).toBe('deny');
+      expect(o.results.get('toolu_0')?.text).toContain('[org-policy]');
     }, 90_000);
 
     it("decides a subagent's calls too", async () => {
