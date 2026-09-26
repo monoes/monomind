@@ -29,6 +29,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { withoutSkillOwnership } from '../platform-adapters/merge.js';
 import { backup } from '../platform-adapters/mutation.js';
+import type { ManagedBlockForm } from '../platform-adapters/types.js';
 import { mergeGeneratedBlock, readGeneratedBlock } from './managed-block.js';
 import { atomicWriteFile, readInitManifest, recordManifestHashes } from './shared.js';
 import type { InitResult } from './types.js';
@@ -38,6 +39,9 @@ export const NEW_VERSION_SUFFIX = '.monomind-new';
 export const BACKUPS_KEPT = 5;
 
 const sha256 = (data: string | Buffer): string => createHash('sha256').update(data).digest('hex');
+
+/** Text with every whitespace run collapsed, for comparing block bodies. */
+const squashSpace = (text: string): string => text.replace(/\s+/g, ' ').trim();
 
 /** Content with ownership-marker lines and blank lines removed (and the
  *  per-platform duplicate skill blocks 2.16.0 wrote), for adopting an
@@ -153,28 +157,46 @@ export class FileGuard {
    * `marker` block, or null when the block was edited and must be kept.
    */
   mergeBlock(file: string, existing: string, marker: string, generated: string): string | null {
+    return this.guardBlock(file, existing, marker, generated, {
+      label: `monomind-block:${marker}`,
+      read: (text) => readGeneratedBlock(text, marker),
+      merge: (text) => mergeGeneratedBlock(text, marker, generated),
+    });
+  }
+
+  /**
+   * mergeBlock for a block of any delimiter form (platform adapters write
+   * `monomind:start <marker>` blocks), keyed and recorded the same way.
+   */
+  guardBlock(
+    file: string,
+    existing: string,
+    marker: string,
+    generated: string,
+    form: ManagedBlockForm,
+  ): string | null {
     const key = `${this.rel(file)}#${marker}`;
-    const body = readGeneratedBlock(existing, marker);
+    const body = form.read(existing);
     const recorded = this.blocks[key];
     if (body !== null && recorded && sha256(body) !== recorded) {
       if (!this.options.force) {
         this.warnings.push(
-          `${this.rel(file)}: text inside the monomind-block:${marker} markers was edited — left as is. ` +
+          `${this.rel(file)}: text inside the ${form.label} markers was edited — left as is. ` +
             'Move your text outside the markers; `init --force` replaces the block (with a backup).',
         );
         return null;
       }
       this.warnings.push(
-        `${this.rel(file)}: edited monomind-block:${marker} replaced (--force); previous file in ${this.backup(file)}`,
+        `${this.rel(file)}: edited ${form.label} replaced (--force); previous file in ${this.backup(file)}`,
       );
-    } else if (body !== null && !recorded && body !== generated.trimEnd()) {
+    } else if (body !== null && !recorded && squashSpace(body) !== squashSpace(generated)) {
       // Written before block hashes existed: it may hold edits, so keep a copy.
       this.warnings.push(
-        `${this.rel(file)}: monomind-block:${marker} differed from the generated text and was refreshed; previous file in ${this.backup(file)}`,
+        `${this.rel(file)}: ${form.label} differed from the generated text and was refreshed; previous file in ${this.backup(file)}`,
       );
     }
-    const merged = mergeGeneratedBlock(existing, marker, generated);
-    this.blocks[key] = sha256(readGeneratedBlock(merged, marker) ?? '');
+    const merged = form.merge(existing);
+    this.blocks[key] = sha256(form.read(merged) ?? '');
     recordManifestHashes(this.targetDir, 'blocks', this.blocks);
     return merged;
   }

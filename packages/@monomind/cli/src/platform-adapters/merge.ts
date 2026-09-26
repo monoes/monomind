@@ -84,6 +84,13 @@ export function mergeManagedBlock(
     : `${existing}${lineEnding(existing)}${block}`;
 }
 
+/** The body of the `marker` block in `existing` (`\n` line endings), or null if absent. */
+export function readManagedBlock(existing: string, marker: string): string | null {
+  const match = markerBlockPattern(marker)?.exec(existing);
+  if (!match) return null;
+  return match[0].replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').slice(1, -1).join('\n');
+}
+
 /**
  * Every Monomind marker block in the text, whoever owns it. Skill roots are
  * shared — `.agents/skills` is the portable skill location for opencode, kimi

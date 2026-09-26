@@ -11,6 +11,7 @@ import {
   mergeManagedBlock,
   mergeSkillFileManagedBlock,
   mergeSkillManagedBlock,
+  readManagedBlock,
   removeManagedMarker,
   safeJsonMerge,
   safeJsonRemove,
@@ -230,7 +231,19 @@ function applyIntent(
         markerComment(location, marker),
       );
     } else {
-      content = mergeManagedBlock(base, marker, intent.content, markerComment(location, marker));
+      const merge = (text: string): string =>
+        mergeManagedBlock(text, marker, intent.content, markerComment(location, marker));
+      // An instruction block the user edited is kept, as init keeps its own.
+      const guarded =
+        intent.kind === 'instruction' && !request.dryRun
+          ? writer().guardBlock(location.path, base, marker, intent.content, {
+              label: marker,
+              read: (text) => readManagedBlock(text, marker),
+              merge,
+            })
+          : merge(base);
+      if (guarded === null) return { skipped: location.displayPath, diagnostics: [] };
+      content = guarded;
     }
   } else if (intent.replace === 'named_entry') {
     if (location.format !== 'json') {
@@ -306,7 +319,10 @@ export function applyIntents(
     if (result.skipped) skipped.push(result.skipped);
     diagnostics.push(...result.diagnostics);
   }
-  own?.flush();
+  if (own) {
+    own.flush();
+    diagnostics.push(...own.warnings);
+  }
   return { changed, skipped, diagnostics };
 }
 
