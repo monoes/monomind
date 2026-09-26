@@ -47,7 +47,6 @@ export const modelRouteCommand: Command = {
       const result = await callMCPTool<{
         model: string;
         complexity: number;
-        // confidence is also returned but is a fixed 0.7 from the keyword heuristic.
         reasoning: string;
         costMultiplier?: number;
         implementation?: string;

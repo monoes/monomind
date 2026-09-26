@@ -42,8 +42,6 @@ npx monomind hooks pre-edit -f src/utils.ts --format json
 
 - **File context** — file type, exists/not-exists, operation
 - **Suggested agents** — which agent types are best for this file
-- **Related files** — files likely affected by the edit
-- **Learned patterns** — matching patterns from past edits with confidence scores
 - **Potential risks** — warnings about the edit
 
 ## Claude Code Integration

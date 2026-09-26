@@ -4,7 +4,13 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP result shape: `hooks_*` tools no longer send placeholder fields.** (Follow-up to [#341](https://github.com/monoes/monomind/issues/341)) These fields held a fixed value rather than anything measured, and are removed: `hooks_pre-edit` `context.patterns` (always one 85% `<ext> file editing` row) and `context.relatedFiles` (always empty); `hooks_model-route` `confidence` (always 0.7; the keyword heuristic has no confidence score); `hooks_post-task` `learningUpdates.patternsUpdated` and `newPatterns` (derived from the success flag, not counted) and `learningUpdates.trajectoryId` (a new id each call, with no trajectory recorded); `hooks_session-end` `statePath` (a `.claude/sessions/*.json` path that was never written) and `summary.filesModified` (always 0); and `hooks_post-edit` `learningUpdate` (a fixed `pattern_reinforced`/`pattern_adjusted` label). The CLI commands and the hooks docs no longer read or describe them.
+
 ### Fixed
+
+- **`hooks_pre-edit` `fileExists` and `hooks_post-edit` `recorded` report what actually happened.** (Follow-up to [#341](https://github.com/monoes/monomind/issues/341)) `fileExists` was always `true`; it now checks the path against the project directory, and `hooks pre-edit` prints `Exists: Yes` or `No` again. `recorded` was always `true`, even when the learning-feedback write, the hook's only write, failed; it now follows that write, and `hooks post-edit` warns when nothing was recorded.
 
 - **`hooks post-command --success false` is recorded as a failure.** (Follow-up to [#341](https://github.com/monoes/monomind/issues/341)) The `hooks_post-command` tool looked only at the exit code, so a command reported with `--success false` and the default exit code 0 was stored as a success, and `post-task` then counted it as the task's final successful command. An explicit `success: false` now wins; a non-zero exit code is still always a failure. The tool's input schema documents `success`, and the CLI says whether the outcome was recorded as a success or a failure.
 

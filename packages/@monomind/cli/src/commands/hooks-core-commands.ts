@@ -55,11 +55,9 @@ export const preEditCommand: Command = {
       const result = await callMCPTool<{
         filePath: string;
         operation: string;
-        // The tool also returns fileExists and patterns, but both are fixed
-        // placeholders (always true, and one 85% "<ext> file editing" row).
         context: {
+          fileExists: boolean;
           fileType: string;
-          relatedFiles: string[];
           suggestedAgents: string[];
           risks: string[];
         };
@@ -83,6 +81,7 @@ export const preEditCommand: Command = {
           `File: ${result.filePath}`,
           `Operation: ${result.operation}`,
           `Type: ${result.context.fileType}`,
+          `Exists: ${result.context.fileExists ? 'Yes' : 'No'}`,
         ].join('\n'),
         'File Context',
       );
@@ -91,12 +90,6 @@ export const preEditCommand: Command = {
         output.writeln();
         output.writeln(output.bold('Suggested Agents'));
         output.printList(result.context.suggestedAgents.map((a) => output.highlight(a)));
-      }
-
-      if (result.context.relatedFiles.length > 0) {
-        output.writeln();
-        output.writeln(output.bold('Related Files'));
-        output.printList(result.context.relatedFiles.slice(0, 5).map((f) => output.dim(f)));
       }
 
       if (result.context.risks.length > 0) {
@@ -190,7 +183,8 @@ export const postEditCommand: Command = {
       const result = await callMCPTool<{
         filePath: string;
         success: boolean;
-        feedback?: { recorded: boolean; controller: string };
+        recorded: boolean;
+        feedback: { recorded: boolean; controller: string };
       }>('hooks_post-edit', {
         filePath,
         success,
@@ -205,15 +199,10 @@ export const postEditCommand: Command = {
       }
 
       output.writeln();
-      output.printSuccess(`Outcome recorded for ${filePath}`);
-
-      if (result.feedback) {
-        output.writeln();
-        output.writeln(
-          output.dim(
-            `Learning feedback: ${result.feedback.recorded ? `recorded (${result.feedback.controller})` : 'not recorded'}`,
-          ),
-        );
+      if (result.recorded) {
+        output.printSuccess(`Outcome recorded for ${filePath} (${result.feedback.controller})`);
+      } else {
+        output.printWarning(`Outcome not recorded for ${filePath}: the feedback write failed`);
       }
 
       return { success: true, data: result };

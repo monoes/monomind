@@ -37,10 +37,10 @@ npx monomind hooks session-end --format json
 ## Output
 
 Session summary including:
-- Session ID and duration
-- Tasks executed / succeeded / failed
-- Commands executed, files modified, agents spawned
-- State file path (if saved)
+- Session ID
+- Tasks executed, agents spawned, patterns learned, trajectories recorded
+- Pending insights and memory entries
+- Whether the session state was saved, and which store took it
 
 ## Restore Later
 

@@ -41,9 +41,8 @@ npx monomind hooks post-task -i task-123 --success true --format json
 
 ## Output
 
-- Patterns updated / new patterns discovered
-- Task duration
-- Trajectory ID (for intelligence system tracking)
+- Whether the learning feedback was recorded, and which store took it
+- Whether the routing outcome was saved
 
 ## MCP Tool
 

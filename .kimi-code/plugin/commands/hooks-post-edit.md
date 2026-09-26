@@ -41,7 +41,7 @@ npx monomind hooks post-edit -f src/utils.ts --format json
 
 ## Output
 
-- **Learning updates** — patterns updated, confidence adjustments, new patterns discovered
+- Whether the outcome was recorded (the learning-feedback write), and which store took it
 
 ## Claude Code Integration
 

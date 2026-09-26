@@ -839,9 +839,10 @@ export const hooksModelRoute: MCPTool = {
         : rawTask;
     // Native neural model-router removed in the lean build — keyword complexity heuristic.
     const complexity = analyzeComplexityFallback(task);
+    // No confidence: the heuristic produces a complexity score, not a
+    // probability that the chosen model is right.
     return {
       model: complexity > 0.7 ? 'opus' : complexity > 0.4 ? 'sonnet' : 'haiku',
-      confidence: 0.7,
       complexity,
       reasoning: 'Keyword complexity heuristic',
       implementation: 'heuristic',

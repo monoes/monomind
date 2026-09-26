@@ -80,11 +80,9 @@ export const hooksPreEdit: MCPTool = {
       filePath,
       operation,
       context: {
-        fileExists: true,
+        fileExists: existsSync(resolve(getProjectCwd(), filePath)),
         fileType: ext || 'unknown',
-        relatedFiles: [],
         suggestedAgents,
-        patterns: [{ pattern: `${ext} file editing`, confidence: 0.85 }],
         risks: operation === 'delete' ? ['File deletion is irreversible'] : [],
       },
       recommendations: [
@@ -137,11 +135,11 @@ export const hooksPostEdit: MCPTool = {
     }
 
     return {
-      recorded: true,
+      // The feedback record is the only write this hook makes.
+      recorded: feedbackResult?.success === true,
       filePath,
       success,
       timestamp: new Date().toISOString(),
-      learningUpdate: success ? 'pattern_reinforced' : 'pattern_adjusted',
       feedback: feedbackResult
         ? {
             recorded: feedbackResult.success,
@@ -1089,9 +1087,6 @@ export const hooksPostTask: MCPTool = {
       successSource,
       duration,
       learningUpdates: {
-        patternsUpdated: feedbackResult?.success ? (success ? 2 : 1) : 0,
-        newPatterns: success ? 1 : 0,
-        trajectoryId: `traj-${Date.now()}`,
         controller: feedbackResult?.success ? 'sqlite' : 'none',
         outcomePersisted,
       },
@@ -1772,11 +1767,9 @@ export const hooksSessionEnd: MCPTool = {
 
     return {
       sessionId,
-      statePath: saveState ? `.claude/sessions/${sessionId}.json` : undefined,
       sessionPersistence: sessionPersistence || { controller: 'none', persisted: false },
       summary: {
         tasksExecuted: taskCount,
-        filesModified: 0,
         agentsSpawned: agentCount,
         pendingInsights: insightCount,
         memoryEntries: allEntries.length,

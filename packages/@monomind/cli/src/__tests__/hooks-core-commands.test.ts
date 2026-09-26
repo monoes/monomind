@@ -104,16 +104,14 @@ describe('hooks-core-commands', () => {
         expect(data.operation).toBe('update');
         expect(data.context.fileType).toBe('.ts');
         expect(data.context.suggestedAgents).toEqual(['coder', 'Software Architect', 'tester']);
-        expect(data.context.patterns).toEqual([{ pattern: '.ts file editing', confidence: 0.85 }]);
+        expect(data.context).not.toHaveProperty('patterns');
         expect(data.context.risks).toEqual([]);
       } finally {
         spy.mockRestore();
       }
     });
 
-    it('returns the same shape for a file path that does not exist on disk', async () => {
-      // The handler does not stat the filesystem — fileExists is hardcoded true
-      // regardless of real existence. Documenting that actual (surprising) behavior.
+    it('reports fileExists: false for a file path that does not exist on disk', async () => {
       const filePath = join(dir, 'does-not-exist.ts');
       expect(existsSync(filePath)).toBe(false);
 
@@ -124,7 +122,7 @@ describe('hooks-core-commands', () => {
           makeCtx({ flags: { _: [], format: 'json', file: filePath } }),
         );
         const data = result.data as any;
-        expect(data.context.fileExists).toBe(true);
+        expect(data.context.fileExists).toBe(false);
       } finally {
         spy.mockRestore();
       }
@@ -236,7 +234,7 @@ describe('hooks-core-commands', () => {
         const data = result.data as any;
         expect(data.recorded).toBe(true);
         expect(data.success).toBe(true);
-        expect(data.learningUpdate).toBe('pattern_reinforced');
+        expect(data).not.toHaveProperty('learningUpdate');
         expect(data.feedback).toEqual({ recorded: true, controller: 'sqlite', updates: 1 });
 
         expect(bridgeRecordFeedback).toHaveBeenCalledTimes(1);
@@ -266,7 +264,7 @@ describe('hooks-core-commands', () => {
         );
         const data = result.data as any;
         expect(data.success).toBe(false);
-        expect(data.learningUpdate).toBe('pattern_adjusted');
+        expect(data).not.toHaveProperty('learningUpdate');
 
         expect(bridgeRecordFeedback).toHaveBeenCalledTimes(1);
         const call = bridgeRecordFeedback.mock.calls[0][0] as any;
@@ -290,7 +288,7 @@ describe('hooks-core-commands', () => {
       }
     });
 
-    it('degrades gracefully (feedback.recorded=false) when the feedback bridge throws', async () => {
+    it('degrades gracefully (recorded=false) when the feedback bridge throws', async () => {
       bridgeRecordFeedback.mockRejectedValueOnce(new Error('backend unavailable'));
       const { spy } = captureStdout();
       try {
@@ -301,7 +299,8 @@ describe('hooks-core-commands', () => {
         // The command itself still succeeds — the bridge failure is caught internally.
         expect(result.success).toBe(true);
         const data = result.data as any;
-        expect(data.recorded).toBe(true);
+        // The feedback record is post-edit's only write, so nothing was recorded.
+        expect(data.recorded).toBe(false);
         expect(data.feedback).toEqual({ recorded: false, controller: 'unavailable', updates: 0 });
       } finally {
         spy.mockRestore();

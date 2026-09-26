@@ -4,8 +4,8 @@
  *
  * Each CLI command declared its own copy of the tool's result shape, and the
  * tools changed underneath them. The text output then printed `undefined`,
- * `NaN`, blanks, hard-coded placeholders (a 384 dimension, a 0% cache hit rate,
- * `Exists: Yes`) or crashed on a missing sub-object. `--format json` was never
+ * `NaN`, blanks, hard-coded placeholders (a 384 dimension, a 0% cache hit rate)
+ * or crashed on a missing sub-object. `--format json` was never
  * affected — it prints the tool result as-is.
  *
  * These tests call each command against the real in-process handler in a temp
@@ -83,25 +83,26 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('pre-edit does not print the placeholder file-exists flag or learned pattern', async () => {
+  it('pre-edit prints whether the file exists and no learned-pattern placeholder', async () => {
     const { text, result } = await run(preEditCommand, makeCtx(['nope.ts'], {}, dir));
     expect(result.success).toBe(true);
     expectClean(text);
-    // The tool hard-codes fileExists: true and one 85% "<ext> file editing" pattern.
-    expect(text).not.toContain('Exists:');
+    expect(text).toContain('Exists: No');
     expect(text).not.toContain('Learned Patterns');
     expect(text).toContain(
       `Type: ${(result.data as { context: { fileType: string } }).context.fileType}`,
     );
   });
 
-  it('post-edit reports whether the learning feedback was recorded', async () => {
+  it('post-edit reports whether the outcome was recorded', async () => {
     const { text, result } = await run(postEditCommand, makeCtx(['a.ts'], { success: true }, dir));
-    const data = result.data as { feedback: { recorded: boolean; controller: string } };
+    const data = result.data as { recorded: boolean; feedback: { controller: string } };
     expect(result.success).toBe(true);
     expectClean(text);
     expect(text).toContain(
-      `Learning feedback: ${data.feedback.recorded ? `recorded (${data.feedback.controller})` : 'not recorded'}`,
+      data.recorded
+        ? `Outcome recorded for a.ts (${data.feedback.controller})`
+        : 'Outcome not recorded for a.ts',
     );
   });
 
@@ -132,8 +133,7 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
     };
     expect(result.success).toBe(true);
     expectClean(text);
-    // Not returned by the tool (Duration, Succeeded, Failed, Commands) or
-    // hard-coded to 0 (Files Modified).
+    // None of these are returned by the tool.
     for (const gone of [
       'Duration',
       'Tasks Succeeded',
@@ -146,7 +146,6 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
     expect(text).toMatch(new RegExp(`Tasks Executed\\s*\\|\\s*${data.summary.tasksExecuted}\\s`));
     expect(text).toMatch(new RegExp(`Agents Spawned\\s*\\|\\s*${data.summary.agentsSpawned}\\s`));
     expect(text).toMatch(new RegExp(`Memory Entries\\s*\\|\\s*${data.summary.memoryEntries}\\s`));
-    // statePath names a .claude/sessions file the tool never writes.
     expect(text).not.toContain('State saved to');
     expect(text).toContain(
       `Session state: ${data.sessionPersistence.persisted ? `saved (${data.sessionPersistence.controller})` : 'not saved'}`,
@@ -210,7 +209,7 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
     expect(text).toMatch(new RegExp(`Files Analyzed\\s*\\|\\s*${data.stats.filesAnalyzed}\\s`));
   });
 
-  it('model-route does not print the tool’s fixed confidence', async () => {
+  it('model-route prints no confidence (the tool has none)', async () => {
     const { text, result } = await run(
       modelRouteCommand,
       makeCtx([], { task: 'refactor a module' }, dir),
@@ -218,7 +217,6 @@ describe('hooks text output matches the MCP tool result (#341 follow-up)', () =>
     const data = result.data as { complexity: number };
     expect(result.success).toBe(true);
     expectClean(text);
-    // hooks_model-route always returns confidence: 0.7.
     expect(text).not.toContain('Confidence:');
     expect(text).toContain(`(${(data.complexity * 100).toFixed(0)}%)`);
   });

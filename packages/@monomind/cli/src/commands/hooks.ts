@@ -310,10 +310,7 @@ const sessionEndCommand: Command = {
     try {
       const result = await callMCPTool<{
         sessionId: string;
-        // statePath is also returned but names a .claude/sessions file the
-        // tool never writes; the state goes to the memory bridge instead.
         sessionPersistence: { controller: string; persisted: boolean };
-        // summary.filesModified is also returned but is always 0.
         summary: {
           tasksExecuted: number;
           agentsSpawned: number;
@@ -582,7 +579,7 @@ export const hooksCommand: Command = {
     coverageRouteCommand,
     coverageSuggestCommand,
     coverageGapsCommand,
-    // Model routing (keyword complexity heuristic, fixed 0.7 confidence)
+    // Model routing (keyword complexity heuristic)
     modelRouteCommand,
     modelOutcomeCommand,
     modelStatsCommand,
