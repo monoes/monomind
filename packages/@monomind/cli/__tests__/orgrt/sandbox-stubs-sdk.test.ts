@@ -1,7 +1,11 @@
 // packages/@monomind/cli/__tests__/orgrt/sandbox-stubs-sdk.test.ts
 /**
  * The sandbox stub race, against the real bundled Claude Code CLI and
- * bubblewrap (skipped where the sandbox cannot run). Two CLI processes stand
+ * bubblewrap. Opt-in: runs only with MONOMIND_SANDBOX_E2E=1, and only where
+ * the sandbox can run — it times two live processes against each other, so it
+ * stays out of every verify on a machine that happens to have bwrap
+ * (`MONOMIND_SANDBOX_E2E=1 npx vitest run __tests__/orgrt/sandbox-stubs-sdk`
+ * after an SDK upgrade). Two CLI processes stand
  * in for two roles sharing a cwd and a HOME; each talks to a scripted local
  * Messages API, so no model is involved. Role A runs a slow Bash command, role
  * B a quick one while A's is still running.
@@ -175,7 +179,11 @@ async function until(cond: () => boolean, ms = 20_000): Promise<void> {
 /** mountinfo lines for the test's tree: "<source root> <mount point>". */
 const MOUNTS = (base: string) => `awk '{print $4, $5}' /proc/self/mountinfo | grep -F '${base}/'`;
 
-describe.skipIf(process.platform !== 'linux' || !sandboxAvailability().available)(
+describe.skipIf(
+  process.env.MONOMIND_SANDBOX_E2E !== '1' ||
+    process.platform !== 'linux' ||
+    !sandboxAvailability().available,
+)(
   'sandbox mount-point stubs shared by concurrent role processes',
   () => {
     it('without runtime stubs: B binds the stub A made, and A deletes it (the race)', async () => {
@@ -193,7 +201,7 @@ describe.skipIf(process.platform !== 'linux' || !sandboxAvailability().available
 
     it('with runtime stubs: nothing is created or deleted, every bind source stays', async () => {
       const l = layout();
-      const stubs = new SandboxStubs();
+      const stubs = new SandboxStubs(null);
       const paths = sandboxStubPaths({
         cwd: l.cwd,
         home: l.home,

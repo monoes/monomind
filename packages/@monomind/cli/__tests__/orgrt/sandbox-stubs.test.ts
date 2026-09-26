@@ -97,7 +97,7 @@ describe('sandboxStubPaths', () => {
 describe('SandboxStubs', () => {
   it('creates every missing file as an empty read-only file, the way bwrap would', () => {
     const { paths } = layout();
-    const created = new SandboxStubs().hold('org:run-1', paths);
+    const created = new SandboxStubs(null).hold('org:run-1', paths);
     expect(created.sort()).toEqual(files(paths).sort());
     for (const p of created) {
       const st = lstatSync(p);
@@ -111,7 +111,7 @@ describe('SandboxStubs', () => {
     const { base } = layout();
     const cwd = join(base, 'bare');
     mkdirSync(cwd);
-    const stubs = new SandboxStubs();
+    const stubs = new SandboxStubs(null);
     const created = stubs.hold('o:r', sandboxStubPaths({ cwd, home: base, writableRoots: [cwd], env: {} }));
     expect(created).toContain(join(cwd, '.claude'));
     expect(lstatSync(join(cwd, '.claude')).isDirectory()).toBe(true);
@@ -124,7 +124,7 @@ describe('SandboxStubs', () => {
     const { base } = layout();
     const cwd = join(base, 'bare');
     mkdirSync(cwd);
-    const stubs = new SandboxStubs();
+    const stubs = new SandboxStubs(null);
     stubs.hold('o:r', sandboxStubPaths({ cwd, home: base, writableRoots: [cwd], env: {} }));
     mkdirSync(join(cwd, '.claude', '.cc-writes'));
     expect(stubs.release('o:r')).not.toContain(join(cwd, '.claude'));
@@ -139,7 +139,7 @@ describe('SandboxStubs', () => {
     mkdirSync(join(home, '.claude', 'hooks'));
     const emptyUserFile = join(cwd, '.mcp.json');
     writeFileSync(emptyUserFile, '');
-    const stubs = new SandboxStubs();
+    const stubs = new SandboxStubs(null);
     const created = stubs.hold('org:run-1', paths);
     expect(created).not.toContain(settings);
     expect(created).not.toContain(join(home, '.claude', 'hooks'));
@@ -161,7 +161,7 @@ describe('SandboxStubs', () => {
     const cwd = join(base, 'worktree');
     mkdirSync(cwd);
     writeFileSync(join(cwd, '.git'), 'gitdir: /elsewhere\n');
-    const created = new SandboxStubs().hold(
+    const created = new SandboxStubs(null).hold(
       'o:r',
       sandboxStubPaths({ cwd, home: join(base, 'nohome'), writableRoots: [cwd], env: {} }),
     );
@@ -173,7 +173,7 @@ describe('SandboxStubs', () => {
 
   it('keeps a stub until the last run holding it releases it', () => {
     const { paths } = layout();
-    const stubs = new SandboxStubs();
+    const stubs = new SandboxStubs(null);
     const created = stubs.hold('a:run-1', paths);
     expect(stubs.hold('b:run-1', paths)).toEqual([]);
     expect(stubs.release('a:run-1')).toEqual([]);
@@ -184,7 +184,7 @@ describe('SandboxStubs', () => {
 
   it('leaves a stub that was written to or replaced by someone else', () => {
     const { cwd, home, paths } = layout();
-    const stubs = new SandboxStubs();
+    const stubs = new SandboxStubs(null);
     stubs.hold('o:r', paths);
     const written = join(cwd, '.bashrc');
     chmodSync(written, 0o644);
@@ -203,7 +203,7 @@ describe('SandboxStubs', () => {
     const { cwd, home } = layout();
     chmodSync(join(home, '.claude'), 0o555);
     try {
-      const created = new SandboxStubs().hold(
+      const created = new SandboxStubs(null).hold(
         'o:r',
         sandboxStubPaths({ cwd, home, writableRoots: [cwd], env: {} }),
       );
