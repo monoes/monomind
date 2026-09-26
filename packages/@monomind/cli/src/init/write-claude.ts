@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { guardFor } from './file-guard.js';
+import { atomicWriteFile } from './fs-helpers.js';
 import {
   helperFileMode,
   INIT_FALLBACK_HELPERS,
@@ -14,7 +15,6 @@ import {
 import { generateMCPJson, mergeMCPJson } from './mcp-generator.js';
 import { generateSettingsJson } from './settings-generator.js';
 import {
-  atomicWriteFile,
   findSourceClaudeDir,
   findSourceHelpersDir,
   GENERATED_HELPERS,

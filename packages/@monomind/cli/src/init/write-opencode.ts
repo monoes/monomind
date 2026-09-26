@@ -6,6 +6,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { guardFor } from './file-guard.js';
 import {
+  atomicWriteFile,
+  extractFmName,
+  isLikelyUserFile,
+  isSafeConversionTarget,
+  listFilesRecursive,
+  walkMdFiles,
+} from './fs-helpers.js';
+import { previouslyGenerated, recordGenerated, retireGeneratedEntry } from './init-manifest.js';
+import {
   convertAgentMd,
   convertCommandMd,
   convertSkillMd,
@@ -15,17 +24,6 @@ import {
   generateStatusCommand,
   opencodeCommandFilename,
 } from './opencode-generator.js';
-import {
-  atomicWriteFile,
-  extractFmName,
-  isLikelyUserFile,
-  isSafeConversionTarget,
-  listFilesRecursive,
-  previouslyGenerated,
-  recordGenerated,
-  retireGeneratedEntry,
-  walkMdFiles,
-} from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 import { isConvertibleCommand } from './write-kimicode.js';
 

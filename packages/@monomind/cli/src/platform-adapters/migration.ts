@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { readInitManifest } from '../init/shared.js';
+import { readInitManifest } from '../init/init-manifest.js';
 import { mergeManagedBlock, removeManagedMarker } from './merge.js';
 
 export interface LegacySurface {

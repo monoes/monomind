@@ -30,8 +30,9 @@ import * as path from 'node:path';
 import { withoutSkillOwnership } from '../platform-adapters/merge.js';
 import { backup } from '../platform-adapters/mutation.js';
 import type { ManagedBlockForm } from '../platform-adapters/types.js';
+import { atomicWriteFile } from './fs-helpers.js';
+import { readInitManifest, recordManifestHashes } from './init-manifest.js';
 import { mergeGeneratedBlock, readGeneratedBlock } from './managed-block.js';
-import { atomicWriteFile, readInitManifest, recordManifestHashes } from './shared.js';
 import type { InitResult } from './types.js';
 
 export const NEW_VERSION_SUFFIX = '.monomind-new';

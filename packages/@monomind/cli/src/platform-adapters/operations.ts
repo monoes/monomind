@@ -4,7 +4,7 @@ import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { FileGuard } from '../init/file-guard.js';
-import { readInitManifest } from '../init/shared.js';
+import { readInitManifest } from '../init/init-manifest.js';
 import {
   adoptSupersededBlocks,
   type MarkerComment,

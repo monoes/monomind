@@ -11,7 +11,7 @@ import {
   generateCodexHooksConfig,
   generateCodexStatusLineConfig,
 } from './codex-generator.js';
-import { atomicWriteFile } from './shared.js';
+import { atomicWriteFile } from './fs-helpers.js';
 import type { InitOptions, InitResult } from './types.js';
 
 function mergeCodexHooks(existing: string): string {

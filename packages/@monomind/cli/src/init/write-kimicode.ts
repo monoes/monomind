@@ -5,6 +5,14 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  atomicWriteFile,
+  extractFmName,
+  isLikelyUserFile,
+  isSafeConversionTarget,
+  walkMdFiles,
+} from './fs-helpers.js';
+import { previouslyGenerated, recordGenerated, retireGeneratedEntry } from './init-manifest.js';
+import {
   convertKimiAgentMd,
   convertKimiCommandToFlowSkill,
   convertKimiPluginCommandMd,
@@ -17,16 +25,6 @@ import {
   kimiCommandFilename,
   mergeKimiMcpJson,
 } from './kimi-generator.js';
-import {
-  atomicWriteFile,
-  extractFmName,
-  isLikelyUserFile,
-  isSafeConversionTarget,
-  previouslyGenerated,
-  recordGenerated,
-  retireGeneratedEntry,
-  walkMdFiles,
-} from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 /**

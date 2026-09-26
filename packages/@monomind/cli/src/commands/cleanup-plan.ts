@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { readInitManifest } from '../init/shared.js';
+import { readInitManifest } from '../init/init-manifest.js';
 import { safeJsonRemove } from '../platform-adapters/merge.js';
 
 export type CleanupAction = 'remove' | 'strip' | 'skip';

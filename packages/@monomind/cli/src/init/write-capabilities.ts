@@ -21,10 +21,10 @@ import { sessionCommand } from '../commands/session.js';
 import { statusCommand } from '../commands/status.js';
 import { taskCommand } from '../commands/task.js';
 import { HONEST_MONOSWARM_SENTENCE } from './claudemd-generator.js';
+import { atomicWriteFile } from './fs-helpers.js';
 import { WORKER_COUNT, WORKER_ROWS } from './generated-counts.js';
 import {
   _isOptionalPackageResolvable,
-  atomicWriteFile,
   mergeGeneratedBlock,
   subcommandCount,
   workerTableRows,

@@ -14,7 +14,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { retireGeneratedEntry } from '../init/shared.js';
+import { retireGeneratedEntry } from '../init/init-manifest.js';
 import type { InitResult } from '../init/types.js';
 import { detectPlatform } from '../init/types.js';
 
