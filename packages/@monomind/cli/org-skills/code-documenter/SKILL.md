@@ -1,6 +1,6 @@
 ---
 name: code-documenter
-description: "Use when adding docstrings, JSDoc or OpenAPI specs to code, or building doc sites and developer guides, with examples validated by doctest, tsc or Redocly lint. Documents existing code and reports coverage."
+description: "Use when documenting code or an API: docstrings, JSDoc, OpenAPI specs, API reference docs, doc sites, tutorials and developer guides, with examples validated by doctest, tsc or Redocly lint. Documents existing code and reports coverage."
 tags: ["engineering","writing","documentation"]
 tools: ["monograph_query","monograph_context"]
 license: MIT
