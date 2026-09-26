@@ -61,6 +61,10 @@ export interface OrgToolDef {
    *  stripped. Set (a provider tool whose JSON Schema allows
    *  additionalProperties): they are kept and validated against it. */
   catchall?: z.ZodType<any>;
+  /** Reject argument keys `schema` does not list instead of stripping them
+   *  (the built-in org tools). `hints` maps a key callers are known to
+   *  confuse with a real one to the correction the error names. */
+  strict?: { hints?: Record<string, string> };
   handler: (args: Record<string, unknown>) => Promise<{ text: string }>;
 }
 
@@ -256,12 +260,13 @@ export class ClaudeAgentRunner implements AgentRunner {
     // Wrap each OrgToolDef handler ({ text }) into the Claude SDK's
     // { content: [{ type: 'text', text }] } return shape.
     const sdkTools = args.tools.map((t) =>
-      // A catchall tool needs the full object schema (the MCP server strips
-      // unlisted keys from a bare shape); the SDK accepts either at runtime.
+      // A catchall or strict tool needs the full object schema (the MCP
+      // server strips unlisted keys from a bare shape); the SDK accepts either
+      // at runtime.
       tool(
         t.name,
         t.description,
-        (t.catchall ? toolInputSchema(t) : t.schema) as typeof t.schema,
+        (t.catchall || t.strict ? toolInputSchema(t) : t.schema) as typeof t.schema,
         async (input: Record<string, unknown>) => {
           const r = await t.handler(input);
           return { content: [{ type: 'text' as const, text: r.text }] };

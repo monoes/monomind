@@ -18,10 +18,29 @@ import { z } from 'zod';
 import type { AgentRunArgs, OrgToolDef } from './agent-runner.js';
 
 /** The zod object that validates `tool`'s arguments: its shape, keeping
- *  unlisted keys when the tool declares a catchall. */
+ *  unlisted keys when the tool declares a catchall and rejecting them when it
+ *  is strict. */
 export function toolInputSchema(tool: OrgToolDef): z.ZodObject<any> {
-  const o = z.object(tool.schema);
-  return tool.catchall ? o.catchall(tool.catchall) : o;
+  if (tool.catchall) return z.object(tool.schema).catchall(tool.catchall);
+  if (tool.strict) return strictArgs(tool.schema, tool.strict.hints);
+  return z.object(tool.schema);
+}
+
+/** A z.strictObject whose unknown-key error names each key, with `hints[key]`
+ *  for a key callers are known to confuse with a declared one. Its JSON Schema
+ *  carries `additionalProperties: false`, so the model sees the rule too. */
+export function strictArgs<T extends z.ZodRawShape>(
+  shape: T,
+  hints: Record<string, string> = {},
+): z.ZodObject<T, z.core.$strict> {
+  return z.strictObject(shape, {
+    error: (iss) =>
+      iss.code === 'unrecognized_keys'
+        ? `unknown argument ${iss.keys
+            .map((k) => (Object.hasOwn(hints, k) ? `"${k}" (${hints[k]})` : `"${k}"`))
+            .join(', ')} — only declared arguments are accepted`
+        : undefined,
+  });
 }
 
 /** Fenced block the model uses to call a tool (see buildToolProtocol). */

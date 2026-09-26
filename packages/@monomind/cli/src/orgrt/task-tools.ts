@@ -75,6 +75,7 @@ export function orgTaskTool(
       brief: briefArg,
       ...loadoutArg,
     },
+    strict: { hints: { after: 'use `deps` with task ids' } },
     handler: async (args) => {
       let assignee = args.assignee as string;
       let pick: TaskPick | undefined;

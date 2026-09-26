@@ -65,6 +65,7 @@ import {
 } from './session-ledger.js';
 import { roleSkillGuidance } from './skill-library.js';
 import { skillTools } from './skill-tools.js';
+import { strictArgs } from './tool-fence.js';
 import { DEFAULT_CLAUDE_MODEL, VERCEL_PROVIDERS } from './vercel-providers.js';
 
 /**
@@ -1579,7 +1580,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       schema: {
         nodes: z
           .array(
-            z.object({
+            strictArgs({
               name: z.string(),
               type: z.string().optional(),
               description: z.string().optional(),
@@ -1588,7 +1589,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
           .optional(),
         edges: z
           .array(
-            z.object({
+            strictArgs({
               source: z.string(),
               target: z.string(),
               relation: z.string(),
@@ -1596,7 +1597,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             }),
           )
           .optional(),
-        rules: z.array(z.object({ rule: z.string(), context: z.string().optional() })).optional(),
+        rules: z.array(strictArgs({ rule: z.string(), context: z.string().optional() })).optional(),
       },
       handler: async (args) => text(await learn(role.id, args as any)),
     });
@@ -1693,23 +1694,21 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       schema: {
         taskId: z.string(),
         result: z.string().optional(),
-        evidence: z
-          .object({
-            headSha: z.string(),
-            worktree: z.string().optional(),
-            checks: z
-              .array(
-                z.object({
-                  command: z.string(),
-                  exitCode: z.number().int(),
-                  expectExit: z.number().int().optional(),
-                  expectReason: z.string().optional(),
-                  output: z.string().optional(),
-                }),
-              )
-              .default([]),
-          })
-          .optional(),
+        evidence: strictArgs({
+          headSha: z.string(),
+          worktree: z.string().optional(),
+          checks: z
+            .array(
+              strictArgs({
+                command: z.string(),
+                exitCode: z.number().int(),
+                expectExit: z.number().int().optional(),
+                expectReason: z.string().optional(),
+                output: z.string().optional(),
+              }),
+            )
+            .default([]),
+        }).optional(),
       },
       handler: async (args) =>
         text(
@@ -1762,7 +1761,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         'Split a task into parallel children when scope expands. The parent becomes "split"; children inherit its deps; downstream tasks are rewired to depend on all children.',
       schema: {
         parentId: z.string(),
-        children: z.array(z.object({ title: z.string(), assignee: z.string() })).min(1),
+        children: z.array(strictArgs({ title: z.string(), assignee: z.string() })).min(1),
       },
       handler: async (args) =>
         text(
@@ -1829,14 +1828,17 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       schema: {
         tasks: z
           .array(
-            z.object({
-              name: z.string(),
-              title: z.string(),
-              assignee: z.string(),
-              after: z.array(z.string()).default([]),
-              brief: briefArg,
-              ...loadoutArg,
-            }),
+            strictArgs(
+              {
+                name: z.string(),
+                title: z.string(),
+                assignee: z.string(),
+                after: z.array(z.string()).default([]),
+                brief: briefArg,
+                ...loadoutArg,
+              },
+              { deps: 'use `after` with node names' },
+            ),
           )
           .min(1),
       },
@@ -1904,5 +1906,8 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       return text(receipt);
     },
   });
+  // Built-in org tools reject undeclared keys instead of stripping them: a
+  // stripped `deps` on an org_plan_graph node silently dropped every edge.
+  for (const t of tools) t.strict ??= {};
   return tools;
 }
