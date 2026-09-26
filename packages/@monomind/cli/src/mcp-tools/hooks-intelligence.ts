@@ -34,6 +34,7 @@ export const hooksIntelligenceReset: MCPTool = {
       neuralFiles: 0,
     };
     const deletedFiles: string[] = [];
+    const failedFiles: string[] = [];
 
     // Clear intelligence data files if they exist
     const dataFiles = [
@@ -49,7 +50,7 @@ export const hooksIntelligenceReset: MCPTool = {
           cleared.dataFiles++;
           deletedFiles.push(filePath);
         } catch {
-          // Skip files that cannot be deleted
+          failedFiles.push(filePath);
         }
       }
     }
@@ -60,17 +61,17 @@ export const hooksIntelligenceReset: MCPTool = {
       try {
         const files = readdirSync(neuralDir);
         for (const file of files) {
+          const filePath = join(neuralDir, file);
           try {
-            const filePath = join(neuralDir, file);
             unlinkSync(filePath);
             cleared.neuralFiles++;
             deletedFiles.push(filePath);
           } catch {
-            // Skip files that cannot be deleted
+            failedFiles.push(filePath);
           }
         }
       } catch {
-        // Directory read failed
+        failedFiles.push(neuralDir);
       }
     }
 
@@ -79,9 +80,10 @@ export const hooksIntelligenceReset: MCPTool = {
     activeTrajectories.clear();
 
     return {
-      reset: true,
+      reset: failedFiles.length === 0,
       cleared,
       deletedFiles,
+      failedFiles,
       timestamp: new Date().toISOString(),
     };
   },

@@ -283,7 +283,8 @@ export function loadRoutingOutcomes(): RoutingOutcome[] {
   return [];
 }
 
-export function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
+/** Never throws; returns whether the outcomes were written. */
+export function saveRoutingOutcomes(outcomes: RoutingOutcome[]): boolean {
   try {
     const dir = dirname(getRoutingOutcomesPath());
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -292,10 +293,12 @@ export function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
     const tmp = `${getRoutingOutcomesPath()}.tmp`;
     writeFileSync(tmp, JSON.stringify({ outcomes: capped }, null, 2));
     renameSync(tmp, getRoutingOutcomesPath());
+    return true;
   } catch (e) {
     /* non-critical */
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
       console.error('[hooks-embedding] routing-outcomes.json write failed:', e);
+    return false;
   }
 }
 

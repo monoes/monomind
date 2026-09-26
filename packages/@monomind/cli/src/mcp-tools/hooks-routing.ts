@@ -961,8 +961,7 @@ export const hooksPostTask: MCPTool = {
           keywords: outcomeKeywords,
           timestamp: new Date().toISOString(),
         });
-        saveRoutingOutcomes(outcomes);
-        outcomePersisted = true;
+        outcomePersisted = saveRoutingOutcomes(outcomes);
       } catch {
         /* non-critical */
       }
@@ -1363,9 +1362,9 @@ export const hooksPretrain: MCPTool = {
         }
         // Record the entire scan as a completed trajectory
         const steps = patterns.slice(0, 50).map((p) => ({ type: 'action' as const, content: p }));
-        await intel.recordTrajectory(steps, 'success');
+        const recorded = await intel.recordTrajectory(steps, 'success');
         intel.flushPatterns();
-        neuralPatternsLearned = steps.length;
+        if (recorded) neuralPatternsLearned = steps.length;
       } catch (e) {
         /* intelligence not available */
         if (process.env.DEBUG || process.env.MONOMIND_DEBUG)

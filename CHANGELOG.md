@@ -7,6 +7,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 ### Fixed
 
 - **`hooks_model-outcome` reports `recorded: false` when the ledger write fails.** ([Fixes #346](https://github.com/monoes/monomind/issues/346)) `recordModelOutcome` swallowed every error and the tool always returned `recorded: true`, so an unwritable `.monomind/neural/` or a full disk dropped the outcome without anyone knowing. `recordModelOutcome` still never throws, but it now resolves to whether the line was appended, the tool reports that, and `hooks model-outcome` prints a warning instead of "Outcome recorded" when the write failed.
+- **Four more hooks tools stop reporting writes that did not happen.** (Follow-up to [#346](https://github.com/monoes/monomind/issues/346)) `hooks_post-task` set `learningUpdates.outcomePersisted: true` even when writing `.monomind/routing-outcomes.json` failed. `hooks_session-end` and `memory_session-end` reported the session end as persisted when no session with that id had been started, which is every `hooks session-end` run, since the command passes no session id; they now report `persisted: false` / `success: false`. `hooks_intelligence-reset` returned `reset: true` when some learning files could not be deleted; it now returns `reset: false` with a `failedFiles` list, and `hooks intelligence --reset` warns and names them. `hooks_pretrain` counted `neuralPatternsLearned` even when recording the trajectory failed; it now reports 0.
 
 ## [2.16.7] — 2026-09-26
 
