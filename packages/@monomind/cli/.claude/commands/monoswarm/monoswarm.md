@@ -76,7 +76,7 @@ mcp__monomind__swarm_shutdown({ swarmId: "current" })
 
 ## Vote-Based Consensus (Optional)
 
-There is no `npx monomind monoswarm consensus` CLI subcommand — vote/decision
+There is no `consensus` subcommand of `monomind monoswarm` — vote/decision
 functionality is available **exclusively via MCP tools**
 (`mcp__monomind__monoswarm_*`). Invoke the tools directly, or use one of the
 slash commands in this directory, which call the tools for you.
