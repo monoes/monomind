@@ -16,7 +16,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
+import { ClaudeAgentRunner } from '../orgrt/agent-runner.js';
 import { OrgBus } from '../orgrt/bus.js';
 import { Mailbox } from '../orgrt/mailbox.js';
 import { PolicyEngine } from '../orgrt/policy.js';
@@ -76,14 +76,32 @@ function allToolOpts(role: OrgRole): SessionOpts {
   } as unknown as SessionOpts;
 }
 
-/** What the model actually sees of a tool: name, description, input schema. */
-function renderTools(opts: SessionOpts): string {
+/** What the model actually sees of a tool: name, description, input schema —
+ *  the org MCP server's own tools/list, as ClaudeAgentRunner registers it. A
+ *  zod rendering of the shape would miss what the runner changes (strict
+ *  objects) and what the SDK's converter drops (length/number bounds). */
+async function renderTools(opts: SessionOpts): Promise<string> {
+  let server: any;
+  const fakeQuery = ({ options }: any) =>
+    (async function* () {
+      server = options.mcpServers.org;
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+    })();
+  const run = new ClaudeAgentRunner(fakeQuery as any).run({
+    tools: buildOrgTools(opts),
+    prompt: (async function* () {})(),
+    systemPrompt: '',
+    cwd: '/work',
+  } as any);
+  for await (const _ of run) {
+    // drain
+  }
+  const { tools } = await server.instance.server._requestHandlers.get('tools/list')(
+    { method: 'tools/list', params: {} },
+    { signal: new AbortController().signal },
+  );
   return JSON.stringify(
-    buildOrgTools(opts).map((t) => ({
-      name: t.name,
-      description: t.description,
-      schema: z.toJSONSchema(z.object(t.schema as z.ZodRawShape)),
-    })),
+    tools.map((t: any) => ({ name: t.name, description: t.description, schema: t.inputSchema })),
   );
 }
 
@@ -116,7 +134,7 @@ async function capturedSystemPrompt(role: OrgRole, message: string): Promise<str
 }
 
 describe('ADR-O001 D7: an org with no loadout catalog is unchanged', () => {
-  it('buildRolePrompt output is byte-identical to pre-D7', () => {
+  it('buildRolePrompt output is byte-identical to pre-D7', async () => {
     const coordinator = buildRolePrompt(
       boss,
       def,
@@ -134,11 +152,11 @@ describe('ADR-O001 D7: an org with no loadout catalog is unchanged', () => {
     expect(sha(await capturedSystemPrompt(dev, 'task one'))).toBe(SESSION_PROMPT_SHA);
   });
 
-  it('the org tool list — names, order, descriptions, schemas — is byte-identical to pre-D7', () => {
+  it('the org tool list — names, order, descriptions, schemas — is byte-identical to pre-D7', async () => {
     // Tool gating keys off which callbacks are wired, not the role, so the
     // boss and a worker render the same list here.
-    expect(sha(renderTools(allToolOpts(boss)))).toBe(TOOLS_SHA);
-    expect(sha(renderTools(allToolOpts(dev)))).toBe(TOOLS_SHA);
+    expect(sha(await renderTools(allToolOpts(boss)))).toBe(TOOLS_SHA);
+    expect(sha(await renderTools(allToolOpts(dev)))).toBe(TOOLS_SHA);
   });
 });
 
@@ -164,4 +182,9 @@ const SESSION_PROMPT_SHA = '64fc1c260b590557c7321104a37b2457eaf507507c91ca92c59e
 // its description said plainly that nothing external wakes a blocked task (#329).
 // Recaptured when org_task_cancel's description said that the assignee is told
 // to stop and a task-scoped session's process is ended.
-const TOOLS_SHA = 'fc9cb43e7b28d7b5e388f8e43ca797cdfbc1bbedb68ce1b237976474689a5b32';
+// Recaptured when renderTools switched to the org MCP server's own tools/list
+// (the schema actually sent, which the old zod rendering did not match) and
+// built-in org tools became strict (fix/org-tool-strict-args): every schema
+// now carries additionalProperties: false. The old rendering produced the
+// same hash before and after that change; this one does not.
+const TOOLS_SHA = '3118b939ad8130ffe0356267a9e3c2aa8f9833571c75f1acea039e9cc6395a9f';
