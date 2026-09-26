@@ -5,7 +5,7 @@
  * budget_usd could not be raised on a running org: reload ignored it.
  *
  * These drive a real OrgDaemon with a fake SDK whose per-message cost is read
- * from the message text (`cost=<usd>`).
+ * from the message text (`cost=<usd>`), and its input tokens (`tok=<n>`).
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,19 +14,28 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { OrgDaemon, type RunningOrg } from '../../src/orgrt/daemon.js';
 import { dagCreateTask } from '../../src/orgrt/decisions.js';
 
-function writeDef(root: string, devBudgetUsd: number): void {
+function writeOrg(root: string, runConfig: object, roleBudgets: Record<string, object>): void {
   mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+  const role = (id: string, extra: object) => ({
+    id,
+    title: id,
+    type: id === 'boss' ? 'boss' : 'specialist',
+    reports_to: id === 'boss' ? null : 'boss',
+    ...extra,
+  });
   writeFileSync(
     join(root, '.monomind/orgs/o.json'),
     JSON.stringify({
       name: 'o',
       goal: 'g',
-      roles: [
-        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
-        { id: 'dev', title: 'Dev', type: 'specialist', reports_to: 'boss', budget_usd: devBudgetUsd },
-      ],
+      run_config: runConfig,
+      roles: Object.entries(roleBudgets).map(([id, extra]) => role(id, extra)),
     }),
   );
+}
+
+function writeDef(root: string, devBudgetUsd: number): void {
+  writeOrg(root, {}, { boss: {}, dev: { budget_usd: devBudgetUsd } });
 }
 
 let seq = 0;
@@ -37,17 +46,20 @@ const costQuery = ({ prompt }: any) =>
     let total = 0;
     for await (const m of prompt) {
       const text = String(m.message.content);
+      let tok = 0;
       // Coalesced lines arrive joined; a turn-end nudge repeats the task
       // title, so only the dispatch lines cost.
       for (const part of text.split('\n\n')) {
-        if (!part.includes('STILL OPEN')) total += Number(/cost=([\d.]+)/.exec(part)?.[1] ?? 0);
+        if (part.includes('STILL OPEN')) continue;
+        total += Number(/cost=([\d.]+)/.exec(part)?.[1] ?? 0);
+        tok += Number(/tok=(\d+)/.exec(part)?.[1] ?? 0);
       }
       yield { type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } };
       yield {
         type: 'result',
         subtype: 'success',
         session_id: sid,
-        usage: { input_tokens: 1, output_tokens: 1 },
+        usage: { input_tokens: tok || 1, output_tokens: 1 },
         total_cost_usd: total,
       };
     }
@@ -80,9 +92,10 @@ afterEach(async () => {
   daemon = undefined;
 });
 
-async function start(devBudgetUsd: number) {
+async function start(devBudgetUsd: number, write?: (root: string) => void) {
   const root = mkdtempSync(join(tmpdir(), 'budget-closure-'));
-  writeDef(root, devBudgetUsd);
+  if (write) write(root);
+  else writeDef(root, devBudgetUsd);
   daemon = new OrgDaemon(root, { queryFn: costQuery as any, forward: false });
   const running = await daemon.startOrg('o');
   const bossMail = recordBossMail(running);
@@ -172,5 +185,137 @@ describe('#343 — 80% budget_usd warning', () => {
     expect(notices).toHaveLength(1);
     expect(notices[0]).toMatch(/"dev" has spent \$0\.85 of its \$1 budget_usd \(85%\)/);
     expect(running.agents.get('dev')!.mailbox.isClosed).toBe(false);
+  }, 20_000);
+});
+
+/** Roles with their own large budget_tokens, so only the org-wide
+ *  run_config.budget_tokens ceiling can close them. */
+const orgCapped = (orgTokens: number) => (root: string) =>
+  writeOrg(
+    root,
+    { budget_tokens: orgTokens },
+    { boss: { budget_tokens: 50_000 }, dev: { budget_tokens: 50_000 } },
+  );
+
+const orgExhausted = (running: RunningOrg) =>
+  running.busEvents().filter((e) => e.reason === 'org-budget-exhausted').length;
+
+describe('#343 — run_config.budget_tokens hot reload', () => {
+  it('reopens roles the org-wide ceiling closed once raised past org spend, and keeps enforcing it', async () => {
+    const { root, d, running } = await start(0, orgCapped(1000));
+    const first = JSON.parse(dagCreateTask(d, 'o', 'boss', 'first tok=1200', 'dev', []));
+    expect(await waitUntil(() => orgExhausted(running) === 1)).toBe(true);
+    const orgReason = /assignee "dev" closed: org-wide budget_tokens exhausted \(\d+ \/ 1000\)/;
+    // the task dev was working is held too, not left 'running'
+    expect(await waitUntil(() => running.taskDag!.get(first.id)?.status === 'blocked')).toBe(true);
+    expect(running.taskDag!.get(first.id)?.blockedReason).toMatch(orgReason);
+    const second = JSON.parse(dagCreateTask(d, 'o', 'boss', 'second tok=5', 'dev', []));
+    expect(running.taskDag!.get(second.id)?.status).toBe('blocked');
+
+    // Not enough: still closed, the reason carries the new ceiling.
+    orgCapped(1100)(root);
+    expect(d.reloadOrgDef('o').changed).toContain('run_config.budget_tokens');
+    expect(running.agents.get('dev')!.mailbox.isClosed).toBe(true);
+    expect(running.agents.get('boss')!.mailbox.isClosed).toBe(true);
+    expect(running.taskDag!.get(second.id)?.blockedReason).toMatch(/\(\d+ \/ 1100\)/);
+
+    orgCapped(10_000)(root);
+    d.reloadOrgDef('o');
+    const dev = running.agents.get('dev')!;
+    expect(dev.mailbox.isClosed).toBe(false);
+    expect(running.agents.get('boss')!.mailbox.isClosed).toBe(false);
+    // spend carried over: the ceiling applies to the whole run's total
+    expect(dev.policy.budgetedUsage).toBeGreaterThanOrEqual(1201);
+    for (const id of [first.id, second.id]) {
+      expect(running.taskDag!.get(id)?.status).toBe('running');
+      expect(running.taskDag!.get(id)?.blockedReason).toBeUndefined();
+    }
+    expect(running.busEvents().some((e) => e.reason === 'org-budget-reopened')).toBe(true);
+
+    // The limit is re-armed at the new value, not switched off.
+    dagCreateTask(d, 'o', 'boss', 'third tok=9000', 'dev', []);
+    expect(await waitUntil(() => orgExhausted(running) === 2)).toBe(true);
+    expect(await waitUntil(() => running.agents.get('dev')!.mailbox.isClosed)).toBe(true);
+    const last = running.busEvents().filter((e) => e.reason === 'org-budget-exhausted')[1];
+    expect(last.msg).toMatch(/\/10000\)/);
+  }, 20_000);
+});
+
+describe('#343 — even split of run_config.budget_tokens on reload', () => {
+  const split = (orgTokens: number, devTokens?: number) => (root: string) =>
+    writeOrg(
+      root,
+      { budget_tokens: orgTokens },
+      { boss: {}, dev: devTokens == null ? {} : { budget_tokens: devTokens }, qa: {} },
+    );
+
+  it("recomputes live roles' split caps and reopens a role closed on its old share", async () => {
+    const { root, d, running } = await start(0, split(3000));
+    const boss = running.agents.get('boss')!;
+    expect(boss.policy.policy.maxTokens).toBe(1000);
+    dagCreateTask(d, 'o', 'boss', 'big tok=1200', 'dev', []);
+    expect(
+      await waitUntil(() => running.agents.get('dev')?.mailbox.closeReason === 'token-budget'),
+    ).toBe(true);
+
+    split(9000)(root);
+    d.reloadOrgDef('o');
+    expect(boss.policy.policy.maxTokens).toBe(3000);
+    const dev = running.agents.get('dev')!;
+    expect(dev.mailbox.isClosed).toBe(false);
+    expect(dev.policy.policy.maxTokens).toBe(3000);
+
+    // A role taking its own budget_tokens shrinks the others' share.
+    split(9000, 5000)(root);
+    d.reloadOrgDef('o');
+    expect(boss.policy.policy.maxTokens).toBe(2000);
+    expect(running.agents.get('dev')!.policy.policy.maxTokens).toBe(5000);
+  }, 20_000);
+});
+
+describe('#343 — 80% budget_tokens warnings', () => {
+  it("warns the coordinator once when a role passes 80% of its budget_tokens", async () => {
+    const { d, running, bossMail } = await start(0, (root) =>
+      writeOrg(
+        root,
+        { budget_tokens: 1_000_000 },
+        { boss: { budget_tokens: 50_000 }, dev: { budget_tokens: 1000 } },
+      ),
+    );
+    dagCreateTask(d, 'o', 'boss', 'a tok=850', 'dev', []);
+    const warned = () => running.busEvents().filter((e) => e.reason === 'budget-warning');
+    expect(await waitUntil(() => warned().length > 0)).toBe(true);
+    dagCreateTask(d, 'o', 'boss', 'b tok=10', 'dev', []);
+    expect(await waitUntil(() => running.agents.get('dev')!.policy.budgetedUsage >= 862)).toBe(
+      true,
+    );
+    await waitUntil(() => bossMail.some((m) => m.includes('budget_tokens (')), 2000);
+    expect(warned()).toHaveLength(1);
+    expect(warned()[0].data).toMatchObject({ roleId: 'dev', budget: 'budget_tokens' });
+    const notices = bossMail.filter((m) => m.includes('budget_tokens ('));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatch(/"dev" has used 851 of its 1000 budget_tokens \(85%\)/);
+    expect(running.agents.get('dev')!.mailbox.isClosed).toBe(false);
+  }, 20_000);
+
+  it('warns the coordinator once when the org passes 80% of run_config.budget_tokens', async () => {
+    const { d, running, bossMail } = await start(0, orgCapped(1000));
+    dagCreateTask(d, 'o', 'boss', 'a tok=850', 'dev', []);
+    const warned = () =>
+      running
+        .busEvents()
+        .filter((e) => e.reason === 'budget-warning' && e.data?.budget === 'run_config.budget_tokens');
+    expect(await waitUntil(() => warned().length > 0)).toBe(true);
+    dagCreateTask(d, 'o', 'boss', 'b tok=10', 'dev', []);
+    expect(await waitUntil(() => running.agents.get('dev')!.policy.budgetedUsage >= 862)).toBe(
+      true,
+    );
+    await waitUntil(() => bossMail.some((m) => m.includes('run_config.budget_tokens')), 2000);
+    expect(warned()).toHaveLength(1);
+    expect(warned()[0].msg).toMatch(/the org has used \d+ of its 1000 run_config\.budget_tokens \(8\d%\)/);
+    const notices = bossMail.filter((m) => m.includes('run_config.budget_tokens ('));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatch(/the org has used \d+ of its 1000 run_config\.budget_tokens \(8\d%\)/);
+    expect(orgExhausted(running)).toBe(0);
   }, 20_000);
 });

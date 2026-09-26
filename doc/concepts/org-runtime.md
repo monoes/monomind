@@ -256,7 +256,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | Field | Default | Purpose |
 |---|---|---|
 | `max_concurrent_agents` | `4` | How many role sessions run concurrently |
-| `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run, split evenly across roles unless a role sets its own `budget_tokens` |
+| `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run, split evenly across roles unless a role sets its own `budget_tokens`. The coordinator is told once when the run passes 80% of it. Hot-reloadable — see [Budget-closed assignees](#budget-closed-assignees) |
 | `max_turns_per_message` | `100 000` | Agent turns cap per inbound mailbox message. Deliberately huge (`DEFAULT_MAX_TURNS_PER_MESSAGE`, [`types.ts → DEFAULT_MAX_TURNS_PER_MESSAGE`](packages/@monomind/cli/src/orgrt/types.ts#DEFAULT_MAX_TURNS_PER_MESSAGE)) so the ceiling never bricks a long task — set it explicitly, or a role's own `max_turns_per_message`, to impose a real cap |
 | `max_tool_rounds` | `10` | Tool-call rounds per inbound message on the fence-protocol runtimes (every runtime but `claude` and `vercel`, which are bounded by `max_turns_per_message`). A positive integer up to 200 (`MAX_TOOL_ROUNDS_LIMIT`). A role's own `max_tool_rounds` overrides it. What happens at the cap: see the Fence Protocol section |
 | `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` \| `'worktree-per-role'` |
@@ -276,7 +276,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts → finishStop`](packages/@m
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | runtime/vendor default | Model string passed to runner. When unset, `resolveModel()` in [`session.ts`](packages/@monomind/cli/src/orgrt/session.ts) picks the vendor default, then the runtime default — `claude-sonnet-5` (`DEFAULT_CLAUDE_MODEL` in [`vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts)) for the `claude` runtime and when no runtime is set. `/mastermind:createorg` and `monomind org create` always write it explicitly (the latest model for the role's runtime) so a created org doesn't drift when the default changes |
 | `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'` \| `'grok'` \| `'qwen'` \| `'crush'` \| `'copilot'` \| `'pi'` \| `'pi-rpc'` \| `'qwen-rpc'` \| `'hermes'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
-| `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
+| `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins. The coordinator is told once when the role passes 80% of its token cap |
 | `max_turns_per_message` | _(unset)_ | Per-role override of `run_config.max_turns_per_message` — a role doing long build/fix/verify cycles can get more turns without raising the cap for every other role |
 | `max_tool_rounds` | _(unset)_ | Per-role override of `run_config.max_tool_rounds`, for a role that makes many tool calls in reply to one message |
 | `budget_usd` | _(unset)_ | Per-role USD spend cap. Unlike `budget_tokens` there is **no** org-wide even split: unset means no USD enforcement for this role, only token budgets. The coordinator is told once when the role passes 80% of it. Hot-reloadable, like `budget_tokens` — see [Budget-closed assignees](#budget-closed-assignees) |
@@ -859,14 +859,35 @@ instead of an unstarted `ready` task
 `dispatch-recipient-unavailable` audit event says "budget exhausted" rather than "crashed or
 unreachable". The coordinator gets a `[budget]` notice when the role closes, and each task
 dispatched to the closed role afterwards sends its creator (or the coordinator) a
-`[task:<id>] BLOCKED` notice. The coordinator is also told once per run when a role passes 80% of
-its `budget_usd` (`budget-warning` audit event).
+`[task:<id>] BLOCKED` notice. The coordinator is also warned, once per run, when a role passes 80%
+of its `budget_usd` or of its token cap (its own `budget_tokens`, or its even split of
+`run_config.budget_tokens`), and when the whole run passes 80% of `run_config.budget_tokens`. Each
+warning is a `budget-warning` audit event whose `data.budget` names the budget: `budget_usd`,
+`budget_tokens` or `run_config.budget_tokens`.
+
+When the run's total token spend reaches `run_config.budget_tokens`, every open session is closed
+(`org-budget-exhausted` status event), roles not yet spawned stop being spawned, and the closed
+roles' tasks are held the same way, e.g.
+`assignee "dev" closed: org-wide budget_tokens exhausted (1203 / 1000)`.
 
 To recover, raise the role's `budget_usd` / `budget_tokens` in the org definition and run
 `monomind org reload <name>`. The new cap applies to total spend, which is kept. Once the role is
 under it, its session resumes (`role-budget-reopened` audit event) and its held tasks go back to
-`ready` and are dispatched. `org_respawn_role` is not needed for this. A role closed by the
-org-wide `run_config.budget_tokens` ceiling is not reopened by a reload.
+`ready` and are dispatched. `org_respawn_role` is not needed for this.
+
+For the org-wide ceiling, raise `run_config.budget_tokens` and reload. If the run's total spend is
+now under the new value, the roles the ceiling closed resume with their spend kept, unspawned roles
+can be spawned again, their held tasks are dispatched (`org-budget-reopened` audit event), and the
+ceiling stays enforced at the new value. A raise that leaves the ceiling at or below the spend
+keeps them closed and updates the numbers in the held tasks' reason. A role that is also over its own cap
+stays closed until that cap is raised.
+
+A reload recomputes the token cap of every live role that uses the value the definition gives it.
+So a changed `run_config.budget_tokens`, or a role gaining or dropping its own `budget_tokens`,
+moves the even split of the other roles too. A role closed on its old share reopens when its new
+share is above its spend. A role given an explicit budget by `org_respawn_role` keeps it. Adding
+roles in a reload does not by itself move the live roles' shares; the next reload that changes a
+token budget counts them.
 
 #### Cancelled tasks
 

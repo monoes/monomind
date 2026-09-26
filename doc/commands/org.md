@@ -127,7 +127,10 @@ their current work and are simply never re-spawned.
 A new `budget_usd` / `budget_tokens` applies to the role's total spend so far, which is kept. A role
 whose session was closed because it spent its own budget reopens when the reload raises the budget
 above that spend: its session resumes and the tasks held for it are dispatched again. A raise that
-still leaves it at or over the cap keeps it closed. See
+still leaves it at or over the cap keeps it closed. Raising `run_config.budget_tokens` above the
+run's total spend reopens the roles the org-wide ceiling closed, and the ceiling stays enforced at
+the new value. A changed `run_config.budget_tokens` or role `budget_tokens` also recomputes the even
+split for live roles without their own `budget_tokens`. See
 [Budget-closed assignees](../concepts/org-runtime.md#budget-closed-assignees).
 
 ```bash
