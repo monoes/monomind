@@ -34,11 +34,16 @@ const MAX_MODEL_RECORDS = 500;
 const APPROX_BYTES_PER_RECORD = 300;
 
 /** Append a model routing outcome. Opportunistically trims the file to
- *  MAX_MODEL_RECORDS lines to prevent unbounded growth. */
-export async function recordModelOutcome(baseDir: string, rec: ModelOutcomeRecord): Promise<void> {
+ *  MAX_MODEL_RECORDS lines to prevent unbounded growth. Never throws —
+ *  telemetry must never break routing — but resolves to whether the record
+ *  was actually appended, so callers do not report a write that failed. */
+export async function recordModelOutcome(
+  baseDir: string,
+  rec: ModelOutcomeRecord,
+): Promise<boolean> {
+  const path = storePath(baseDir);
   try {
     await fs.mkdir(baseDir, { recursive: true });
-    const path = storePath(baseDir);
     const safeRec: ModelOutcomeRecord = {
       ...rec,
       task: rec.task.slice(0, MAX_FIELD_LEN),
@@ -46,6 +51,10 @@ export async function recordModelOutcome(baseDir: string, rec: ModelOutcomeRecor
       outcome: rec.outcome.slice(0, 32),
     };
     await fs.appendFile(path, `${JSON.stringify(safeRec)}\n`, 'utf8');
+  } catch {
+    return false;
+  }
+  try {
     const fileStat = await fs.stat(path).catch(() => null);
     if (fileStat && fileStat.size > MAX_MODEL_RECORDS * APPROX_BYTES_PER_RECORD) {
       const content = await fs.readFile(path, 'utf8').catch(() => '');
@@ -55,8 +64,9 @@ export async function recordModelOutcome(baseDir: string, rec: ModelOutcomeRecor
       }
     }
   } catch {
-    // Non-fatal — telemetry must never break routing
+    // Non-fatal — the record is already appended; the trim retries next time
   }
+  return true;
 }
 
 /** Read all outcome records (for stats). */

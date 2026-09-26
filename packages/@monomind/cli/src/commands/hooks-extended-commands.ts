@@ -176,7 +176,11 @@ export const modelOutcomeCommand: Command = {
         },
       );
 
-      output.printSuccess(`Outcome recorded for ${model}: ${outcome}`);
+      if (result.recorded) {
+        output.printSuccess(`Outcome recorded for ${model}: ${outcome}`);
+      } else {
+        output.printWarning(`Outcome not recorded for ${model}: the ledger write failed`);
+      }
       if (result.learningUpdate) {
         output.writeln(output.dim(result.learningUpdate));
       }

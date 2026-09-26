@@ -107,9 +107,18 @@ export const intelligenceCommand: Command = {
 
       output.printInfo('Resetting learning state...');
       try {
-        await callMCPTool('hooks_intelligence-reset', {});
-        output.printSuccess('Learning state reset');
-        return { success: true };
+        const result = await callMCPTool<{ reset: boolean; failedFiles: string[] }>(
+          'hooks_intelligence-reset',
+          {},
+        );
+        if (result.reset) {
+          output.printSuccess('Learning state reset');
+        } else {
+          output.printWarning(
+            `Learning state only partly reset — could not delete: ${result.failedFiles.join(', ')}`,
+          );
+        }
+        return { success: true, data: result };
       } catch (error) {
         output.printError(`Reset failed: ${error}`);
         return { success: false, exitCode: 1 };

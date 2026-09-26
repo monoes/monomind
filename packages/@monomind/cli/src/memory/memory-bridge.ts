@@ -2178,29 +2178,31 @@ export async function bridgeSessionEnd(options: {
 
   try {
     const existing = await backend.getByKey('sessions', `session_${options.sessionId}`);
-    if (existing) {
-      let data: any = {};
-      try {
-        data = JSON.parse(existing.content);
-      } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-          console.error(
-            '[memory-bridge] session content failed to parse — ending session with empty prior state:',
-            e,
-          );
-      }
-      await backend.update(existing.id, {
-        content: JSON.stringify({
-          ...data,
-          status: 'ended',
-          endedAt: Date.now(),
-          summary: options.summary,
-          metrics: options.metrics ?? {},
-        }),
-        tags: ['session', 'ended'],
-      });
-      await flushBackend(backend);
+    // Nothing is written for a session that was never started — do not report
+    // that as a recorded session end.
+    if (!existing) return { success: false, error: `no session ${options.sessionId} to end` };
+    let data: any = {};
+    try {
+      data = JSON.parse(existing.content);
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error(
+          '[memory-bridge] session content failed to parse — ending session with empty prior state:',
+          e,
+        );
     }
+    const updated = await backend.update(existing.id, {
+      content: JSON.stringify({
+        ...data,
+        status: 'ended',
+        endedAt: Date.now(),
+        summary: options.summary,
+        metrics: options.metrics ?? {},
+      }),
+      tags: ['session', 'ended'],
+    });
+    if (!updated) return { success: false, error: `session ${options.sessionId} vanished` };
+    await flushBackend(backend);
     return { success: true };
   } catch (e) {
     logBridgeError('bridgeSessionEnd', e);

@@ -34,6 +34,7 @@ export const hooksIntelligenceReset: MCPTool = {
       neuralFiles: 0,
     };
     const deletedFiles: string[] = [];
+    const failedFiles: string[] = [];
 
     // Clear intelligence data files if they exist
     const dataFiles = [
@@ -49,7 +50,7 @@ export const hooksIntelligenceReset: MCPTool = {
           cleared.dataFiles++;
           deletedFiles.push(filePath);
         } catch {
-          // Skip files that cannot be deleted
+          failedFiles.push(filePath);
         }
       }
     }
@@ -60,17 +61,17 @@ export const hooksIntelligenceReset: MCPTool = {
       try {
         const files = readdirSync(neuralDir);
         for (const file of files) {
+          const filePath = join(neuralDir, file);
           try {
-            const filePath = join(neuralDir, file);
             unlinkSync(filePath);
             cleared.neuralFiles++;
             deletedFiles.push(filePath);
           } catch {
-            // Skip files that cannot be deleted
+            failedFiles.push(filePath);
           }
         }
       } catch {
-        // Directory read failed
+        failedFiles.push(neuralDir);
       }
     }
 
@@ -79,9 +80,10 @@ export const hooksIntelligenceReset: MCPTool = {
     activeTrajectories.clear();
 
     return {
-      reset: true,
+      reset: failedFiles.length === 0,
       cleared,
       deletedFiles,
+      failedFiles,
       timestamp: new Date().toISOString(),
     };
   },
@@ -906,7 +908,7 @@ export const hooksModelOutcome: MCPTool = {
     // feed. What we do have: an append-only ledger of routing decisions and their
     // measured outcomes, mirroring route-outcomes.ts. hooks_model-stats reads this
     // back to compute real aggregate statistics.
-    await recordModelOutcome(getModelOutcomesBaseDir(), {
+    const recorded = await recordModelOutcome(getModelOutcomesBaseDir(), {
       ts: Date.now(),
       task: task || '',
       model,
@@ -915,7 +917,7 @@ export const hooksModelOutcome: MCPTool = {
     });
 
     return {
-      recorded: true,
+      recorded,
       task: (task || '').slice(0, 50),
       model,
       outcome,
