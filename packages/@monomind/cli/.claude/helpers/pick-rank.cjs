@@ -14,6 +14,14 @@
  * `pick: low` frontmatter) keeps LOW_PICK_FACTOR of its score, so it surfaces
  * only when the task names it. Equal scores keep catalog order.
  *
+ * The task's head outweighs its modifiers (English only): in "write developer
+ * documentation for the REST API" or "create a new org that monitors
+ * competitors" the words after "for" / "that" say what the work is about, not
+ * what it is, and count MODIFIER_WEIGHT (queryTerms). On the catalog side, a
+ * description opening shared by a large share of the catalog ("Use when an
+ * org role acts as ...") is template and is not indexed, and an id word that
+ * joins two other id words ("createorg") names both.
+ *
  * Exclusions in the task (English only): words the task explicitly
  * rules out do not count ("anything pending rather than release" must not
  * pick release-manager). withoutExclusions() drops each cue and the words in
@@ -51,7 +59,7 @@ var STOPWORDS = new Set(
     'a about above after again against all also am an and any anything are as at be because been before being below ' +
     'between both but by can could did do does doing down during each else etc every everything few for from further had has ' +
     'have having he her here hers him his how i if in into is it its itself just me more most must my no nor ' +
-    'not nothing now of off on once only or other our ours out over own per please same she should so some something such than ' +
+    'new not nothing now of off on once only or other our ours out over own per please same she should so some something such than ' +
     'that the their theirs them then there these they this those through to too under until up upon us very ' +
     'via was we were what when where which while who whom why will with within without would you your yours'
   ).split(' '),
@@ -205,6 +213,41 @@ function queryTokens(text) {
   return tokens(withoutExclusions(text));
 }
 
+// Weight of a word in a modifier of the task's head (see queryTerms).
+var MODIFIER_WEIGHT = 0.5;
+var MODIFIER_ENDS = new Set('and then but also'.split(' '));
+var RELATIVES = new Set('that which who'.split(' '));
+
+/** A task's query terms as a Map of stemmed word -> weight. Words of the
+ *  head (what the task asks for: "write developer documentation", "create a
+ *  new org") weigh 1; words in a modifier of it weigh MODIFIER_WEIGHT: a
+ *  purpose phrase ("for the REST API") after a head word, or a relative
+ *  clause ("that monitors competitors") after a head of two or more words
+ *  ending in a content word ("fix that bug" has no relative clause). A
+ *  modifier ends at a clause break or "and"/"then"/"but"/"also". */
+function queryTerms(text) {
+  var terms = new Map();
+  withoutExclusions(text)
+    .split('. ')
+    .forEach(function (clause) {
+      var ws = words(clause);
+      var head = 0;
+      var inModifier = false;
+      for (var i = 0; i < ws.length; i++) {
+        var w = ws[i];
+        if (inModifier && MODIFIER_ENDS.has(w)) inModifier = false;
+        else if (!inModifier && head > 0 && (w === 'for' || (RELATIVES.has(w) && head > 1 && isContent(ws[i - 1]))))
+          inModifier = true;
+        if (!isContent(w)) continue;
+        if (!inModifier) head++;
+        var t = stem(w);
+        var weight = inModifier ? MODIFIER_WEIGHT : 1;
+        if (!(terms.get(t) >= weight)) terms.set(t, weight);
+      }
+    });
+  return terms;
+}
+
 // A description clause: sentence punctuation, brackets or dashes end it.
 var DOC_CLAUSE_SPLIT = /[.;:!?()[\]{}<>|\n\r\u2013\u2014]+|\s-+\s/;
 var DOC_NOT_FOR = /\b(?:not|never)\s+(?:intended\s+|meant\s+)?for\s+(.+)$|\b(?:do\s+not|don't|dont|never)\s+use\s+(?:it\s+|this\s+)?for\s+(.+)$/;
@@ -253,13 +296,41 @@ function categoryPrefixes(items) {
 
 /** Name/id words that identify the item: the id minus a category prefix (kept
  *  when it is the whole id) plus the name, minus family words. */
-function strongTerms(item, isPrefix) {
+function strongTerms(item, isPrefix, joined) {
   var segments = String(item.id).toLowerCase().split(/[-:_/]/);
   var idPart = segments.length > 1 && isPrefix(item, segments[0]) ? segments.slice(1) : segments;
   var list = words(idPart.join(' ') + ' ' + (item.name || '')).filter(function (w) {
     return isContent(w) && !GENERIC_WORDS.has(w);
   });
+  idPart.forEach(function (seg) {
+    if (joined.has(seg)) list.push.apply(list, joined.get(seg));
+  });
   return new Set(list.map(stem));
+}
+
+// Shortest part of a compound id segment (see compoundSegments).
+var COMPOUND_MIN_PART = 3;
+
+/** Id segments that join two other id segments ("createorg" = "create" +
+ *  "org", "devops" = "dev" + "ops"), mapped to their parts: such an id names
+ *  both words. */
+function compoundSegments(items) {
+  var segs = new Set();
+  items.forEach(function (item) {
+    String(item.id).toLowerCase().split(/[-:_/]/).forEach(function (seg) { segs.add(seg); });
+  });
+  var joined = new Map();
+  segs.forEach(function (seg) {
+    for (var j = COMPOUND_MIN_PART; j <= seg.length - COMPOUND_MIN_PART; j++) {
+      var a = seg.slice(0, j);
+      var b = seg.slice(j);
+      if (segs.has(a) && segs.has(b)) {
+        joined.set(seg, [a, b]);
+        return;
+      }
+    }
+  });
+  return joined;
 }
 
 function termCounts(list) {
@@ -270,14 +341,49 @@ function termCounts(list) {
   return m;
 }
 
+// A description opening of this many words or more, shared by this share of
+// the catalog, is a template ("Use when an org role acts as ..."), not content.
+var TEMPLATE_MIN_WORDS = 4;
+var TEMPLATE_MIN_SHARE = 0.05;
+var TEMPLATE_MAX_WORDS = 8;
+
+/** Each description minus the longest template opening it starts with: words
+ *  that open a large share of the catalog's descriptions say nothing about
+ *  one item, and their document frequency would sink the IDF of those words
+ *  where they do matter ("org" for the org-management skills). */
+function withoutTemplates(items) {
+  var descs = items.map(function (item) { return String(item.description || ''); });
+  var lists = descs.map(function (d) { return d.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []; });
+  var counts = new Map();
+  lists.forEach(function (ws) {
+    for (var n = TEMPLATE_MIN_WORDS; n <= Math.min(TEMPLATE_MAX_WORDS, ws.length - 1); n++) {
+      var key = ws.slice(0, n).join(' ');
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  });
+  var min = Math.max(PREFIX_MIN_SHARED, items.length * TEMPLATE_MIN_SHARE);
+  return descs.map(function (d, i) {
+    var ws = lists[i];
+    for (var n = Math.min(TEMPLATE_MAX_WORDS, ws.length - 1); n >= TEMPLATE_MIN_WORDS; n--) {
+      if ((counts.get(ws.slice(0, n).join(' ')) || 0) < min) continue;
+      var re = /[\p{L}\p{N}]+/gu;
+      for (var k = 0; k < n; k++) re.exec(d);
+      return d.slice(re.lastIndex);
+    }
+    return d;
+  });
+}
+
 /** Per-catalog index: strong/weak term maps, lengths and document frequency. */
 function indexFor(items) {
   var isPrefix = categoryPrefixes(items);
+  var joined = compoundSegments(items);
+  var descriptions = withoutTemplates(items);
   var df = new Map();
   var total = 0;
-  var docs = items.map(function (item) {
-    var strong = strongTerms(item, isPrefix);
-    var ex = docExclusions(item.description);
+  var docs = items.map(function (item, i) {
+    var strong = strongTerms(item, isPrefix, joined);
+    var ex = docExclusions(descriptions[i]);
     var keptList = tokens(ex.kept);
     var own = new Set(keptList);
     // `text` repeats description words (derived keywords): a word only an
@@ -316,16 +422,17 @@ function namesRuledOut(doc, query) {
   });
 }
 
-function scoreDoc(index, doc, query) {
+function scoreDoc(index, doc, query, weights) {
   var score = 0;
   var matched = 0;
   for (var i = 0; i < query.length; i++) {
     var t = query[i];
+    var w = weights.get(t);
     var tf = doc.weak.get(t) || 0;
     var hit = doc.strong.has(t) ? STRONG_WEIGHT : 0;
     if (tf) hit += (tf * (K1 + 1)) / (tf + K1 * (1 - B + (B * doc.len) / index.avg));
     if (hit) {
-      score += idf(index, t) * hit;
+      score += idf(index, t) * hit * w;
       matched++;
     }
   }
@@ -341,9 +448,10 @@ function scoreDoc(index, doc, query) {
  *  overlap). Equal scores keep catalog order. */
 function shortlist(query, items, limit, include) {
   var index = indexFor(items);
-  var q = Array.from(new Set(queryTokens(query)));
+  var weights = queryTerms(query);
+  var q = Array.from(weights.keys());
   var scored = items.map(function (item, i) {
-    return { item: item, index: i, score: scoreDoc(index, index.docs[i], q) };
+    return { item: item, index: i, score: scoreDoc(index, index.docs[i], q, weights) };
   });
   scored.sort(function (a, b) {
     return b.score - a.score || a.index - b.index;
@@ -393,6 +501,7 @@ module.exports = {
   stem: stem,
   tokens: tokens,
   queryTokens: queryTokens,
+  queryTerms: queryTerms,
   withoutExclusions: withoutExclusions,
   docExclusions: docExclusions,
   shortlist: shortlist,
