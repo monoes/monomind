@@ -33,6 +33,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { CWD_STUBS } from './sandbox-stubs.js';
 
 export type GitLevel = 'none' | 'read' | 'commit' | 'push';
 
@@ -75,29 +76,14 @@ const HOOKS = [
 const GUARD_MARKER = 'monomind-git-guard-hook';
 
 /** Zero-byte, read-only placeholder files the SDK sandbox creates in the role's
- *  cwd for its own cwd-relative deny entries (observed with claude-agent-sdk
- *  0.3.226). They are untracked noise in a repository, and a 'commit' role
- *  running `git add -A` would stage them — into a release, for a repo that
- *  ships `.claude/`. Listing them in the role's excludes file hides exactly
- *  these and nothing else: git never ignores a file that is already tracked,
- *  so a repo that really tracks one of these paths is unaffected. */
-const SANDBOX_PLACEHOLDERS = [
-  '.bashrc',
-  '.bash_profile',
-  '.profile',
-  '.zshrc',
-  '.zprofile',
-  '.gitconfig',
-  '.gitmodules',
-  '.ripgreprc',
-  '.idea',
-  '.vscode',
-  '.claude/hooks',
-  '.claude/launch.json',
-  '.claude/loop.md',
-  '.claude/output-styles',
-  '.claude/routines',
-];
+ *  cwd for its own cwd-relative deny entries, which the runtime now creates
+ *  up front and keeps for the whole run (sandbox-stubs.ts). They are untracked
+ *  noise in a repository, and a 'commit' role running `git add -A` would
+ *  stage them — into a release, for a repo that ships `.claude/`. Listing
+ *  them in the role's excludes file hides exactly these and nothing else: git
+ *  never ignores a file that is already tracked, so a repo that really tracks
+ *  one of these paths is unaffected. */
+const SANDBOX_PLACEHOLDERS = CWD_STUBS;
 
 /** Env tokens that authenticate git hosts outside git's own credential system. */
 const TOKEN_VARS = ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'];

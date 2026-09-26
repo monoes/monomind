@@ -19,6 +19,7 @@ import { Mailbox } from './mailbox.js';
 import type { Decision, PolicyEngine, TokenUsage } from './policy.js';
 import { summarizeToolOutput } from './policy.js';
 import { FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
+import { sandboxStubPaths, sandboxStubs } from './sandbox-stubs.js';
 import { StateDetector } from './state-detector.js';
 import {
   linkAbort,
@@ -1071,6 +1072,21 @@ async function runOneSession(
       claudeRuntime: runner instanceof ClaudeAgentRunner,
       runtime: role.runtime ?? opts.def?.runtime,
     });
+    // The sandbox's mount-point stubs, created once and kept until the run
+    // ends, so no other role's process deletes one mid-bind (sandbox-stubs.ts).
+    const osSandbox = gitEnforcement.claudeRestrictions?.sandbox as
+      | { filesystem?: { allowWrite?: string[] } }
+      | undefined;
+    if (osSandbox && process.platform === 'linux')
+      sandboxStubs.hold(
+        `${org}:${opts.run ?? ''}`,
+        sandboxStubPaths({
+          cwd,
+          home: homedir(),
+          writableRoots: osSandbox.filesystem?.allowWrite ?? [],
+          env: process.env,
+        }),
+      );
     // What this session really got, not what the config asked for (policy-git.ts).
     policy.setOsSandboxed(!!gitEnforcement.claudeRestrictions?.sandbox);
     const authorityMask = roleAuthorityMask({
