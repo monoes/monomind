@@ -1,4 +1,4 @@
-# Agent Exec Protocol — v1 (rev 14)
+# Agent Exec Protocol — v1 (rev 15)
 
 - **Status**: Implemented (Phase 0 of the mono-agent delegation plan — see
   `mono-agent:docs/plans/local-agent-monomind-delegation.md`)
@@ -6,6 +6,14 @@
   the Coder mode threat model, the `--access full` guardrails (root refusal, no transitive
   escalation, env hygiene, audit log), what callers own, and residual risks (issue #360).
 - **Revision history**:
+  - rev 15 (2026-09-29): **per-profile web captures** — new capability
+    `knowledge-profile-captures`. A capture envelope whose `meta.json` names a `profile` ingests
+    into `profile:<id>` even when its URL has a query string (earlier builds failed every chunk
+    with `all chunk stores failed`); the other documents in an envelope (`transcript.md`,
+    `summary.md`) are indexed as their own documents and no longer supersede `readable.md`; and
+    `doc search`, `doc cite`, `doc related`, `doc lookup` and `doc list` with
+    `--scope profile:<id>` all read that profile's store. Callers that ingest more than
+    `readable.md` from an envelope check for this capability first. Additive only.
   - rev 14 (2026-09-28): **runtime model lists** (issue #369) — new capability `agent-models`:
     `monomind agent models --runtime <id> --json` (§12) prints the runtime's own model list —
     Claude Code's `/model` picker via the Agent SDK's `supportedModels()` (no prompt sent),
@@ -286,7 +294,7 @@ by swarm management and is NOT reused by this protocol — the installed-only vi
 
 ```
 $ monomind --version --json
-{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-exec-full-access","agent-exec-settings","agent-exec-tool-activity","agent-exec-background-pids","agent-scan","agent-scan-read-only","agent-models","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","org-role-full-access","doctor-json","doctor-read-only","doctor-offline","init-json"]}
+{"v":1,"version":"<x.y.z>","min_caller":"1.0.0","capabilities":["agent-exec","agent-exec-full-access","agent-exec-settings","agent-exec-tool-activity","agent-exec-background-pids","agent-scan","agent-scan-read-only","agent-models","org-json-v1","org-tool-providers","org-decision-attribution","org-endpoint-roles","org-federation","org-idle-deadline","org-role-full-access","doctor-json","doctor-read-only","doctor-offline","init-json","knowledge-profile-captures"]}
 ```
 
 Callers MUST handshake before use and fail with an actionable message (install/upgrade hint)

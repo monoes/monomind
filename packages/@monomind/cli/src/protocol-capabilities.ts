@@ -67,6 +67,11 @@ export const AGENT_PROTOCOL_MIN_CALLER = '1.0.0';
  *    unattended-run gate (`run_config.allow_unattended_full_access`) and
  *    taint checks in `org validate`. `org status --json` gains
  *    `roles_access` (§7.2) for any role that declares it.
+ *  - `knowledge-profile-captures` — a capture envelope naming a `profile`
+ *    ingests into `profile:<id>` (query-string URLs included), its
+ *    `transcript.md`/`summary.md` are their own documents beside
+ *    `readable.md`, and `doc search|cite|related|lookup|list --scope
+ *    profile:<id>` read that store (rev 15)
  */
 export const AGENT_PROTOCOL_CAPABILITIES = [
   'agent-exec',
@@ -88,6 +93,7 @@ export const AGENT_PROTOCOL_CAPABILITIES = [
   'doctor-read-only',
   'doctor-offline',
   'init-json',
+  'knowledge-profile-captures',
 ] as const;
 
 /** The exact handshake object emitted by `monomind --version --json`. */
