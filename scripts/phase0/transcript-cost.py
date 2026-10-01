@@ -3,7 +3,7 @@
 message.id). Usage: transcript-cost.py <trial name>. Prices per MTok:
 input, output, cache read (0.1x input), cache write 5m (1.25x input)."""
 import json, glob, os, re, sys, collections
-PRICE = {'claude-opus-5': (5, 25, 0.5, 6.25), 'claude-sonnet-5': (2, 10, 0.2, 2.5)}
+PRICE = {'claude-opus-5': (5, 25, 0.5, 6.25), 'claude-sonnet-5': (2, 10, 0.2, 2.5), 'claude-haiku-4-5': (1, 5, 0.1, 1.25)}
 roles = ['growth-lead','researcher','content-writer','brand-reviewer','social-publisher','community-manager','outreach-manager','site-seo','analyst']
 name = sys.argv[1]
 d = os.path.expanduser(f'~/.claude/projects/-var-tmp-mm-phase0-trials-{name}-workspace')
