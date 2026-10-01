@@ -26,10 +26,10 @@ import type { SessionOpts } from './session-types.js';
 import {
   addTo,
   emitUsage,
+  newResponseUsage,
   resultBreakdown,
   settleResultTokens,
   totalTokens,
-  turnBreakdown,
 } from './session-usage.js';
 import { StateDetector } from './state-detector.js';
 import { linkAbort } from './task-cancel.js';
@@ -121,6 +121,9 @@ export async function runOneSession(
   // Exists purely so the 'result' branch never re-adds what this branch
   // already added (see there for why it can't just always add).
   let messageTurnTokens: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  // #597: largest usage seen per API response id, so a response split across
+  // several assistant messages is metered once (see newResponseUsage).
+  const responseUsage = new Map<string, TokenUsage>();
   // Abort hook for the runner (AgentRunArgs.signal): the silent-stream
   // abort below used to call iterator.return() only, which queues behind a
   // subprocess runner blocked in `for await (child.stdout)` — the child was
@@ -302,7 +305,7 @@ export async function runOneSession(
         // (~0.1x and ~1.25x input). Omitting them meant the better the cache
         // worked the less the meter saw: on one measured run, 2,765M tokens
         // billed against 8.1M recorded, with input_tokens at 0.0M.
-        const turn = turnBreakdown(m);
+        const turn = newResponseUsage(responseUsage, m);
         const turnTokens = totalTokens(turn);
         if (turnTokens > 0) {
           addTo(messageTurnTokens, turn);

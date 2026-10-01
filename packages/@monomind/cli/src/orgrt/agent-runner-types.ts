@@ -252,6 +252,11 @@ export interface AgentMessage {
    *  tool_activity end then carries `ok:false, denied:true`, as a denial by
    *  claude's canUseTool does. */
   denied?: boolean; // tool_result
+  /** #597: the API response this assistant message belongs to (Claude's
+   *  `message.id`). One response can arrive as several messages repeating
+   *  the same usage, so the meter counts each response once. Unset when the
+   *  runner does not report it. */
+  response_id?: string; // assistant
   input_tokens?: number; // result, assistant (that turn's own usage)
   output_tokens?: number; // result, assistant (that turn's own usage)
   /** ADR-O001 D1: cache tokens are SIBLINGS of input_tokens in the Anthropic

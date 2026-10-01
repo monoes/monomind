@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **The org token meter counts each model response once** ([#597](https://github.com/monoes/monomind/issues/597)). One API response can reach the SDK stream as several assistant messages that share a `message.id` and repeat the same input and cache usage. The live meter added every one of them, so roles were metered at roughly twice their real tokens: `usage` events were inflated and `budget_tokens` caps closed sessions early. The result-time settle only tops the meter up, so it never corrected this. The Claude runner now passes the response id through, and the meter counts only what a message adds over the largest usage already seen for that response. That also takes a response's final output count instead of the placeholder counts on its earlier messages. Subagent responses have their own ids and are still counted. USD costs were not affected.
+
 ## [2.22.0] — 2026-09-30
 
 ### Fixed

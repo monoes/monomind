@@ -407,6 +407,7 @@ export class ClaudeAgentRunner implements AgentRunner {
             session_id,
             text,
             ...(parent ? { parent_tool_use_id: parent } : {}),
+            ...(typeof m.message?.id === 'string' ? { response_id: m.message.id } : {}),
             input_tokens: m.message?.usage?.input_tokens,
             output_tokens: m.message?.usage?.output_tokens,
             // BetaUsage types both cache fields as `number | null`; normalize

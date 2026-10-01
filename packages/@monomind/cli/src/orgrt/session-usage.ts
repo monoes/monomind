@@ -33,6 +33,34 @@ export function turnBreakdown(m: AgentMessage): TokenUsage {
   };
 }
 
+/** #597: an assistant message's usage not yet metered for its API response.
+ *  A response split across several messages repeats its input/cache usage,
+ *  and its earlier messages can carry placeholder output, so each field
+ *  counts only its increase over the largest value already seen for that
+ *  response id. A message without an id is counted as-is. */
+export function newResponseUsage(seen: Map<string, TokenUsage>, m: AgentMessage): TokenUsage {
+  const turn = turnBreakdown(m);
+  if (!m.response_id) return turn;
+  const prev = seen.get(m.response_id);
+  if (!prev) {
+    seen.set(m.response_id, turn);
+    return turn;
+  }
+  const max: TokenUsage = {
+    input: Math.max(prev.input, turn.input),
+    output: Math.max(prev.output, turn.output),
+    cacheRead: Math.max(prev.cacheRead, turn.cacheRead),
+    cacheCreation: Math.max(prev.cacheCreation, turn.cacheCreation),
+  };
+  seen.set(m.response_id, max);
+  return {
+    input: max.input - prev.input,
+    output: max.output - prev.output,
+    cacheRead: max.cacheRead - prev.cacheRead,
+    cacheCreation: max.cacheCreation - prev.cacheCreation,
+  };
+}
+
 /** What a 'result' message says this mailbox message consumed.
  *
  *  When the runner reports `cumulative_tokens` (the Claude SDK's whole-pipeline
