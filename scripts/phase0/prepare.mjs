@@ -7,13 +7,16 @@
 //     captured mono-agent tool lists, and replay fixtures built from the
 //     production runs' recorded automation results. No live calls.
 //
-//   prepare.mjs trial --base <dir> --arm control|treatment --trial <n> --caps <caps.json>
+//   prepare.mjs trial --base <dir> --arm control|treatment --trial <n> --caps <caps.json> [--model <id>]
 //     Builds one isolated trial root from the snapshot: a renamed org with no
 //     schedule, a fresh workspace and memory copy, every production path
 //     redirected into the trial, recording stubs instead of mono-agent
 //     grants, a write deny on the production profile, and the shared
 //     per-role USD caps. Treatment differs from control only in
-//     run_config.session_scope = "task".
+//     run_config.session_scope = "task". --model sets every Claude role's
+//     model (roles on another provider, such as codex or antigravity, keep
+//     theirs), so cheap trials can test the harness and the arms' difference
+//     without production-model prices.
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, chmodSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
@@ -34,6 +37,7 @@ const { values: a } = parseArgs({
     arm: { type: 'string' },
     trial: { type: 'string' },
     caps: { type: 'string' },
+    model: { type: 'string' },
   },
 });
 const need = (k) => {
@@ -135,6 +139,7 @@ function trial() {
   const caps = readJson(need('caps'));
   const manifest = readJson(join(snap, 'manifest.json'));
   const name = `growth-p0-${arm}-${n}`;
+  const model = a.model;
   const root = join(base, 'trials', name);
   if (existsSync(root)) throw new Error(`${root} exists; every trial starts from a fresh root`);
   const workspace = join(root, 'workspace');
@@ -161,6 +166,7 @@ function trial() {
   writeFileSync(calls, '');
   for (const role of def.roles) {
     if (role.id in caps) role.budget_usd = caps[role.id];
+    if (model && !role.provider) role.adapter_config = { ...(role.adapter_config ?? {}), model };
     // Bash can reach anything the sandbox leaves writable, home included; the
     // production profile is never a trial's to write.
     role.policy ??= {};
@@ -192,7 +198,7 @@ function trial() {
   // The only allowed mention of the production profile is the write deny itself.
   if (leaked !== def.roles.length) throw new Error(`production path still referenced ${leaked - def.roles.length} time(s) outside denyWrite`);
   writeJson(join(root, '.monomind/orgs', `${name}.json`), def);
-  writeJson(join(root, 'trial.json'), { name, arm, trial: n, caps, snapshot: manifest, preparedAt: new Date().toISOString() });
+  writeJson(join(root, 'trial.json'), { name, arm, trial: n, caps, model: model ?? null, snapshot: manifest, preparedAt: new Date().toISOString() });
   console.log(root);
 }
 

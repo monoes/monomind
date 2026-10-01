@@ -6,6 +6,7 @@
 // workspace files the trial created or changed against the snapshot.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, relative } from 'node:path';
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
@@ -26,6 +27,41 @@ function files(dir) {
   return out;
 }
 
+/** Largest context any Claude session of the trial reached (input + cache
+ *  read + cache write on one response), from its transcripts. A session at or
+ *  near a model's window (200K on Haiku 4.5) is limited by the model, not by
+ *  session scope, so the report flags it. */
+function contextPeaks(name, limit) {
+  const dir = join(homedir(), '.claude/projects', `-var-tmp-mm-phase0-trials-${name}-workspace`);
+  if (!existsSync(dir)) return { maxContextTokens: null, sessionsNearLimit: [] };
+  const peaks = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.jsonl')) {
+        let peak = 0;
+        for (const l of lines(p)) {
+          let x;
+          try {
+            x = JSON.parse(l);
+          } catch {
+            continue;
+          }
+          const u = x.type === 'assistant' ? x.message?.usage : undefined;
+          if (u) peak = Math.max(peak, (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0));
+        }
+        peaks.push({ session: relative(dir, p), peak });
+      }
+    }
+  };
+  walk(dir);
+  return {
+    maxContextTokens: Math.max(0, ...peaks.map((x) => x.peak)),
+    sessionsNearLimit: peaks.filter((x) => x.peak >= limit * 0.95),
+  };
+}
+
 function report(root) {
   const trial = readJson(join(root, 'trial.json'));
   const orgDir = join(root, '.monomind/orgs', trial.name);
@@ -33,6 +69,7 @@ function report(root) {
   const roles = {};
   const r = (id) => (roles[id] ??= { usd: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, sessions: 0 });
   const counts = { deferrals: 0, crashes: 0, messages: 0, humanQuestions: 0 };
+  const contextLimitCrashes = [];
   let first;
   let last;
   for (const l of lines(join(orgDir, run, 'bus.jsonl'))) {
@@ -50,6 +87,7 @@ function report(root) {
     } else if (e.type === 'audit' && e.reason === 'session-run') r(e.from).sessions++;
     else if (e.reason === 'concurrency-limit') counts.deferrals++;
     else if (e.reason === 'agent-restart' || e.reason === 'agent-fatal') counts.crashes++;
+    if (/contextLimit=true|prompt is too long|context.{0,20}(limit|window)/i.test(e.msg ?? '')) contextLimitCrashes.push(e.from);
     else if (e.type === 'message') counts.messages++;
     else if (e.type === 'question' && !d.requestId) counts.humanQuestions++;
   }
@@ -85,6 +123,8 @@ function report(root) {
       reads: calls.filter((c) => !c.outbound && c.tool !== 'automation_status' && c.tool !== 'automation_output').length,
     },
     workspaceChanges: [...changed, ...deleted].sort(),
+    // Haiku 4.5 has a 200K window; production models have 1M.
+    context: { ...contextPeaks(trial.name, trial.model?.includes('haiku') ? 200_000 : 1_000_000), contextLimitCrashes },
   };
 }
 
