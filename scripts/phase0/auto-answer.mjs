@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Phase 0: answer every open blocking ask_human question with one fixed,
-// arm-neutral reply, identically in both arms. No human is available during a
+// Phase 0: answer every open ask_human question (blocking or not) with one
+// fixed, arm-neutral reply, identically in both arms. No human is available during a
 // trial, and an unanswered blocking question holds the idle watchdog for up to
 // an hour while the trial does nothing.
 // Usage: auto-answer.mjs <trial root> <org name> <cli.js>   (polls every 15s)
@@ -24,13 +24,18 @@ function tick() {
     return; // mid-write; next tick
   }
   for (const q of questions) {
-    if (q.answer !== undefined || q.dismissed || q.blocking === false) continue;
+    // Open as question-state.ts's isOpenQuestion defines it: no answer yet
+    // (stored as null) and not dismissed.
+    if (q.answer != null || q.state === 'dismissed') continue;
     try {
       execFileSync('node', [cli, 'org', 'answer', name, q.questionId, REPLY, '--by', 'phase0-harness'], {
         cwd: root,
         stdio: 'ignore',
       });
-      appendFileSync(log, `${JSON.stringify({ ts: new Date().toISOString(), questionId: q.questionId, role: q.role })}\n`);
+      appendFileSync(
+        log,
+        `${JSON.stringify({ ts: new Date().toISOString(), questionId: q.questionId, role: q.role, blocking: q.blocking !== false })}\n`,
+      );
     } catch {
       /* answered or closed meanwhile; next tick re-reads */
     }
