@@ -29,8 +29,13 @@ cd "$root"
 fingerprint > production-before.sha256
 node "$cli" org sign "$name" --yes > sign.log 2>&1 || { echo "sign failed (see $root/sign.log)"; exit 1; }
 start=$(date +%s)
+# No human answers during a trial: give every blocking question the same fixed
+# reply in both arms (auto-answer.mjs), instead of an hour-long idle hold.
+node "$(dirname "$0")/auto-answer.mjs" "$root" "$name" "$cli" &
+answerer=$!
 timeout --signal=TERM --kill-after=60 "$deadline" node "$cli" org run "$name" --yes --auto-approve Bash,WebFetch,WebSearch,org_complete > run.log 2>&1
 status=$?
+kill "$answerer" 2>/dev/null
 end=$(date +%s)
 fingerprint > production-after.sha256
 if cmp -s production-before.sha256 production-after.sha256; then integrity=clean; else integrity=VOID; fi

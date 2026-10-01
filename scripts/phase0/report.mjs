@@ -117,6 +117,7 @@ function report(root) {
     totalTokens: total.tokens,
     cacheReadShare: total.tokens ? Math.round((1000 * total.cacheRead) / total.tokens) / 10 : null,
     ...counts,
+    autoAnswered: lines(join(root, 'auto-answers.jsonl')).length,
     roles,
     stubCalls: {
       outbound: calls.filter((c) => c.outbound).map((c) => ({ role: c.role, tool: c.tool, input: c.input })),
