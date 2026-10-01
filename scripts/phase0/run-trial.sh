@@ -33,9 +33,11 @@ start=$(date +%s)
 # reply in both arms (auto-answer.mjs), instead of an hour-long idle hold.
 node "$(dirname "$0")/auto-answer.mjs" "$root" "$name" "$cli" &
 answerer=$!
+"$(dirname "$0")/idle-end.sh" "$root" "$name" "$cli" &
+idler=$!
 timeout --signal=TERM --kill-after=60 "$deadline" node "$cli" org run "$name" --yes --auto-approve Bash,WebFetch,WebSearch,org_complete > run.log 2>&1
 status=$?
-kill "$answerer" 2>/dev/null
+kill "$answerer" "$idler" 2>/dev/null
 end=$(date +%s)
 fingerprint > production-after.sha256
 if cmp -s production-before.sha256 production-after.sha256; then integrity=clean; else integrity=VOID; fi
