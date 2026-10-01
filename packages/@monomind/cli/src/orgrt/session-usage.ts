@@ -147,6 +147,15 @@ export function settleResultTokens(
   return message;
 }
 
+/** AgentRunArgs.usdBudget for a session: the role's USD cap minus what it has
+ *  spent, 0 once its mailbox was closed for budget, undefined with no cap. */
+export function sessionUsdBudget(policy: PolicyEngine, mailbox: Mailbox): { left: number } | undefined {
+  if (mailbox.isClosed && isRecoverableCloseReason(mailbox.closeReason)) return { left: 0 };
+  const max = policy.policy.maxUsd;
+  if (max == null) return undefined;
+  return { left: Math.max(0, max - policy.usageUsd) };
+}
+
 /** #550: AgentRunArgs.tokenBudget for a session — what the role may still
  *  spend on the budgeted basis. 0 once its mailbox was closed for budget
  *  (its own cap, budget_usd, or the org-wide ceiling, which closes every

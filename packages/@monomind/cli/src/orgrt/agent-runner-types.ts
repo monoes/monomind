@@ -150,6 +150,11 @@ export interface AgentRunArgs {
    *  undefined = no token budget. Read by runners whose CLI reports usage
    *  only per completed step or exec (runner-usage.ts); others ignore it. */
   tokenBudget?: () => { left: number; max?: number } | undefined;
+  /** The role's USD budget left (policy.maxUsd minus recorded spend); `left`
+   *  is 0 once the session was closed for budget; undefined = no USD cap. The
+   *  Claude runner passes it to the SDK as the query's maxBudgetUsd and starts
+   *  no query when nothing is left. */
+  usdBudget?: () => { left: number } | undefined;
 }
 
 /** Wire `signal` to a child-process kill ladder: SIGTERM on abort, SIGKILL

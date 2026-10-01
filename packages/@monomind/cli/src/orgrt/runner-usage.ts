@@ -126,6 +126,12 @@ export function usageMessage(u: CliUsage, sessionId: string | undefined): AgentM
  *  budget on it instead of counting a failed turn. */
 export const BUDGET_STOP_SUBTYPE = 'error_budget';
 
+/** The Claude SDK's 'result' subtype when a query reaches its maxBudgetUsd
+ *  (set from the role's remaining budget_usd). Also what the Claude runner
+ *  reports when it starts no query because the USD budget is spent. A budget
+ *  stop, not a failed turn. */
+export const USD_STOP_SUBTYPE = 'error_max_budget_usd';
+
 /** Budget share below which a runner will not start another CLI exec. */
 export const PRE_TURN_FLOOR_FRACTION = 0.05;
 

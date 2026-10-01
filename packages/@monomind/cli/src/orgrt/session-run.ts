@@ -16,7 +16,7 @@ import { resolveRoleProvider } from './provider.js';
 import { ensureRoleDeps, roleDepsAudit, waitRoleDeps } from './role-deps.js';
 import { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { effectiveRoleRuntime } from './runner-resolve.js';
-import { BUDGET_STOP_SUBTYPE } from './runner-usage.js'; // #550: a runner's budget stop
+import { BUDGET_STOP_SUBTYPE, USD_STOP_SUBTYPE } from './runner-usage.js'; // #550: a runner's budget stop
 import { type FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
 import { sandboxStubPaths, sandboxStubs } from './sandbox-stubs.js';
 import { beginFullAccessSession, endFullAccessSession } from './session-full-access.js';
@@ -121,6 +121,9 @@ export async function runOneSession(
   // Exists purely so the 'result' branch never re-adds what this branch
   // already added (see there for why it can't just always add).
   let messageTurnTokens: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  // Set when the runner reports a USD budget stop; the SDK then throws as its
+  // CLI exits, which is the end of a budget-closed session, not a crash.
+  let usdStopped = false;
   // #597: largest usage seen per API response id, so a response split across
   // several assistant messages is metered once (see newResponseUsage).
   const responseUsage = new Map<string, TokenUsage>();
@@ -372,7 +375,12 @@ export async function runOneSession(
         if (typeof costDelta === 'number' && Number.isFinite(costDelta))
           policy.addUsageUsd(costDelta);
         emitUsage(bus, role.id, messageTokens, costDelta, m.subtype);
-        if (m.subtype && m.subtype !== 'success' && m.subtype !== BUDGET_STOP_SUBTYPE) {
+        if (
+          m.subtype &&
+          m.subtype !== 'success' &&
+          m.subtype !== BUDGET_STOP_SUBTYPE &&
+          m.subtype !== USD_STOP_SUBTYPE
+        ) {
           if (m.subtype === 'error_max_turns') hitTurnLimit = true;
           bus.emit({
             type: 'audit',
@@ -411,7 +419,8 @@ export async function runOneSession(
           mailbox.close('token-budget');
         }
         // ORG-7: parallel USD-budget enforcement, same pattern as the token check above.
-        if (policy.overBudgetUsd) {
+        if (m.subtype === USD_STOP_SUBTYPE) usdStopped = true;
+        if (policy.overBudgetUsd || m.subtype === USD_STOP_SUBTYPE) {
           bus.emit({
             type: 'status',
             from: role.id,
@@ -431,6 +440,11 @@ export async function runOneSession(
     sessionExitCode = 0;
     return { sessionId, hitTurnLimit };
   } catch (err) {
+    if (usdStopped && mailbox.closeReason === 'usd-budget') {
+      bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
+      sessionExitCode = 0;
+      return { sessionId, hitTurnLimit };
+    }
     sessionExitCode = 1;
     // The turn in flight never got its 'result', so its metered turns (already
     // in policy) have no usage event yet. Cost is only on 'result': unknown.

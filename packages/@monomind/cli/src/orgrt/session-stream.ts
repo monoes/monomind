@@ -21,7 +21,7 @@ import { roleTmpEnv } from './role-tmpdir.js';
 import { gatedCanUseTool } from './session-gate.js';
 import { rolePromptFor } from './session-prompt.js';
 import type { SessionOpts } from './session-types.js';
-import { sessionTokenBudget } from './session-usage.js';
+import { sessionTokenBudget, sessionUsdBudget } from './session-usage.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
  *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
@@ -177,6 +177,7 @@ export function sessionRunArgs(
           },
     signal: abort.signal,
     tokenBudget: () => sessionTokenBudget(policy, mailbox), // #550
+    usdBudget: () => sessionUsdBudget(policy, mailbox),
     // VercelAgentRunner-only fields — ignored by other runners.
     vendor: role.provider?.vendor,
     providerConfig: role.provider,

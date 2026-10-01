@@ -13,6 +13,7 @@ import { coverEveryToolCall, POLICY_HOOK_TIMEOUT_S } from './policy-hook.js';
 import { type DescendantTracker, trackDescendants } from './process-tree.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { toolInputSchema } from './tool-fence.js';
+import { USD_STOP_SUBTYPE } from './runner-usage.js';
 import { toolResultSpillHook } from './tool-spill.js';
 
 export { loadClaudeSdk } from './claude-sdk.js';
@@ -55,6 +56,15 @@ export class ClaudeAgentRunner implements AgentRunner {
   ) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
+    // budget_usd is a hard stop: a role with nothing left starts no query
+    // (session-run closes it for budget on this result), and every query
+    // carries the SDK's own maxBudgetUsd set to what is left, so one long
+    // turn can no longer run past the cap until its result arrives.
+    const usd = args.usdBudget?.();
+    if (usd && usd.left <= 0) {
+      yield { type: 'result', subtype: USD_STOP_SUBTYPE, is_error: true, input_tokens: 0, output_tokens: 0, cost_usd: 0 };
+      return;
+    }
     // #522: with an installed Claude Code, this query() passes it as
     // pathToClaudeCodeExecutable (claude-sdk.ts).
     const { createSdkMcpServer, query, tool } = await this.loadSdk();
@@ -229,6 +239,7 @@ export class ClaudeAgentRunner implements AgentRunner {
         strictMcpConfig: settingsOverrides.strictMcpConfig,
         ...(settingsOverrides.mcpServers ? { mcpServers: settingsOverrides.mcpServers } : {}),
         maxTurns: args.maxTurns,
+        ...(usd ? { maxBudgetUsd: usd.left } : {}),
         // #355: `full` access needs both the permission-mode switch AND the
         // SDK's explicit opt-in (`allowDangerouslySkipPermissions`) it
         // requires for 'bypassPermissions' — see sdk.d.ts's own doc comment
