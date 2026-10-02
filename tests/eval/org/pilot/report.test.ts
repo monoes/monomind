@@ -25,6 +25,7 @@ interface Opts {
   handoff?: { kind: string; ok: boolean; role: string }[];
   closures?: number;
   idle?: boolean;
+  spendStopped?: boolean;
   usd?: number;
   units?: { unit: string; accepted: boolean | null }[];
 }
@@ -76,6 +77,7 @@ function root(o: Opts) {
       seconds: 200,
       inputs: 'clean',
       realState: 'clean',
+      ...(o.spendStopped === undefined ? {} : { spendStopped: o.spendStopped }),
     }),
   );
   if (o.handoff) {
@@ -146,6 +148,15 @@ describe('pilotRow', () => {
       'no org_complete; idle stop',
     );
     expect(pilotRow(root({ n: 1, arm: 'baseline' })).ended).toBe('no org_complete');
+  });
+
+  it('names an org spend stop as how it ended, unless the org completed', () => {
+    const stopped = pilotRow(root({ n: 1, arm: 'baseline', usd: 12.5, spendStopped: true }));
+    expect(stopped).toMatchObject({ spendStopped: true, ended: 'org spend stop ($12.50)' });
+    const done = pilotRow(
+      root({ n: 1, arm: 'baseline', spendStopped: true, complete: 'achieved' }),
+    );
+    expect(done.ended).toBe('org_complete (achieved)');
   });
 });
 

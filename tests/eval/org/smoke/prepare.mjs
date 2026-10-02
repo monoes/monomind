@@ -39,6 +39,15 @@ export async function loadKit(scenario) {
   return import(file);
 }
 
+/** A kit's optional org-wide USD stop for run-trial.sh's spend watcher; undefined when absent. */
+export function orgStopUsdOf(spec) {
+  const v = spec.orgStopUsd;
+  if (v === undefined) return undefined;
+  if (typeof v !== 'number' || !(v > 0))
+    throw new Error(`orgStopUsd must be a positive number, got ${v}`);
+  return v;
+}
+
 export async function buildInputs({ scenario, base }) {
   const kit = await loadKit(scenario);
   const dir = join(resolve(base), 'inputs', scenario);
@@ -86,6 +95,7 @@ export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
     driver: spec.driver ?? null,
     deadlineSeconds: spec.deadlineSeconds,
     allocationUsd: spec.allocationUsd,
+    orgStopUsd: orgStopUsdOf(spec),
     effectiveDiffFromCurrentBest: effectiveDiff(plain, def),
     preparedAt: new Date().toISOString(),
   });

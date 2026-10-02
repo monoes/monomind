@@ -23,7 +23,7 @@ import {
   UNPRICED_ROLE_TOKENS,
 } from './lib.mjs';
 // @ts-expect-error plain .mjs modules
-import { buildInputs, prepareTrial } from './prepare.mjs';
+import { buildInputs, orgStopUsdOf, prepareTrial } from './prepare.mjs';
 
 const def = () => ({
   name: 'x',
@@ -191,5 +191,17 @@ describe('prepare and check, end to end on the self-test kit', () => {
     writeFileSync(join(root, 'workspace/answer.txt'), '42\n');
     expect((await checkTrial(root))[0]).toMatchObject({ accepted: true });
     expect(JSON.parse(readFileSync(join(root, 'units.json'), 'utf8')).contender).toBe('phase2');
+  });
+});
+
+describe('orgStopUsdOf', () => {
+  it('passes a positive number through and is undefined when the kit sets none', () => {
+    expect(orgStopUsdOf({ orgStopUsd: 12 })).toBe(12);
+    expect(orgStopUsdOf({})).toBeUndefined();
+  });
+
+  it('refuses a stop that could never be crossed or is not a number', () => {
+    for (const v of [0, -1, '12', null, Number.NaN])
+      expect(() => orgStopUsdOf({ orgStopUsd: v })).toThrow(/orgStopUsd/);
   });
 });

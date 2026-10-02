@@ -19,6 +19,7 @@ task=$(field x task)
 driver=$(field x driver)
 deadline=${3:-$(field x deadlineSeconds)}
 deadline=${deadline:-3600}
+stopusd=$(field x orgStopUsd)
 mapfile -t guard < <(field x guard)
 
 fingerprint() { for d in "${guard[@]}"; do (cd "$d" && find . -type f -print0 | sort -z | xargs -0 sha256sum); done; }
@@ -36,6 +37,8 @@ node "$here/../trials/auto-answer.mjs" "$root" "$name" "$cli" &
 answerer=$!
 "$here/../trials/idle-end.sh" "$root" "$name" "$cli" &
 idler=$!
+# An org-wide USD stop (trial.json orgStopUsd): writes the org's stopfile once the run's summed usage cost reaches it.
+if [ -n "$stopusd" ]; then node "$here/spend-stop.mjs" "$root" "$name" "$stopusd" > spend-stop.log 2>&1 & spender=$!; fi
 if [ -n "$driver" ]; then node "$driver" "$root" "$name" "$cli" > driver.log 2>&1 & drv=$!; fi
 # SMOKE_RUN_CMD replaces `org run` with a harness's own in-process runner (the document hand-off
 # pilot); it sees SMOKE_ROOT, SMOKE_ORG, SMOKE_TASK and SMOKE_CLI. Everything around it is the same.
@@ -46,13 +49,13 @@ else
   timeout --signal=TERM --kill-after=60 "$deadline" node "$cli" org run "$name" --yes ${task:+--task "$task"} --auto-approve Bash,WebFetch,WebSearch,org_complete > run.log 2>&1
 fi
 status=$?
-kill "$answerer" "$idler" ${drv:-} 2>/dev/null
+kill "$answerer" "$idler" ${drv:-} ${spender:-} 2>/dev/null
 end=$(date +%s)
 fingerprint > guard-after.sha256
 node "$here/env.mjs" fingerprint > real-state-after.json
 node "$here/env.mjs" leaks "$name" "$t0" > real-state-leaks.txt
 if cmp -s guard-before.sha256 guard-after.sha256; then integrity=clean; else integrity=VOID; fi
 if cmp -s real-state-before.json real-state-after.json && [ ! -s real-state-leaks.txt ]; then realstate=clean; else realstate=VOID; fi
-printf '{"name":"%s","exit":%d,"timedOut":%s,"seconds":%d,"inputs":"%s","realState":"%s"}\n' \
-  "$name" "$status" "$([ $status -eq 124 ] && echo true || echo false)" "$((end - start))" "$integrity" "$realstate" | tee result.json
+printf '{"name":"%s","exit":%d,"timedOut":%s,"seconds":%d,"inputs":"%s","realState":"%s","spendStopped":%s}\n' \
+  "$name" "$status" "$([ $status -eq 124 ] && echo true || echo false)" "$((end - start))" "$integrity" "$realstate" "$([ -e spend-stopped.json ] && echo true || echo false)" | tee result.json
 [ "$integrity" = clean ] && [ "$realstate" = clean ]
