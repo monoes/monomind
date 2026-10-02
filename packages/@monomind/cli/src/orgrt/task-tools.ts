@@ -8,6 +8,14 @@
 
 import { z } from 'zod';
 import type { OrgToolDef } from './agent-runner.js';
+import {
+  BRIEF_FIELD_HELP,
+  type BriefFields,
+  briefFieldArgs,
+  checkBrief,
+  contextSurface,
+  withWarnings,
+} from './context-surface.js';
 import type { LoadoutSummary } from './loadouts.js';
 import type { SessionOpts } from './session.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
@@ -60,6 +68,8 @@ export function orgTaskTool(
   if (!createTask) return undefined;
   const catalog = opts.loadoutCatalog?.length ? opts.loadoutCatalog : undefined;
   const text = (t: string): { text: string } => ({ text: t });
+  // Phase 2 opt-in: typed brief fields exist only for an org that adopted a context key.
+  const surface = contextSurface(opts.def);
   return {
     name: 'org_task',
     description:
@@ -67,34 +77,46 @@ export function orgTaskTool(
       (opts.pickAssignee
         ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title and brief.`
         : '') +
-      (catalog ? loadoutHelp(catalog) : ''),
+      (catalog ? loadoutHelp(catalog) : '') +
+      (surface.enabled ? BRIEF_FIELD_HELP : ''),
     schema: {
       title: z.string(),
       assignee: z.string(),
       deps: z.array(z.string()).default([]),
       brief: briefArg,
+      ...(surface.enabled ? briefFieldArgs() : {}),
       ...loadoutArg,
     },
     strict: { hints: { after: 'use `deps` with task ids' } },
     handler: async (args) => {
       let assignee = args.assignee as string;
       let pick: TaskPick | undefined;
+      let brief = args.brief as string | undefined;
+      let warnings: string[] = [];
+      if (surface.enabled) {
+        const checked = checkBrief(surface, args as BriefFields, brief, 'task');
+        if (checked.error) return text(JSON.stringify({ error: checked.error }));
+        ({ brief, warnings } = checked);
+      }
       if (assignee === AUTO_ASSIGNEE && opts.pickAssignee) {
         const picked = autoAssignment(
-          await opts.pickAssignee(args.title as string, args.brief as string | undefined, role.id),
+          await opts.pickAssignee(args.title as string, brief, role.id),
         );
         if ('error' in picked) return text(JSON.stringify({ error: picked.error }));
         ({ assignee, pick } = picked);
       }
       return text(
-        createTask(
-          role.id,
-          args.title as string,
-          assignee,
-          (args.deps as string[]) ?? [],
-          args.loadout as string | undefined,
-          args.brief as string | undefined,
-          ...(pick ? [pick] : []),
+        withWarnings(
+          createTask(
+            role.id,
+            args.title as string,
+            assignee,
+            (args.deps as string[]) ?? [],
+            args.loadout as string | undefined,
+            brief,
+            ...(pick ? [pick] : []),
+          ),
+          warnings,
         ),
       );
     },

@@ -37,9 +37,9 @@ describe('section 7.3 checklist findings', () => {
         expect(f.errors.some((e) => e.includes(key) && e.includes('not yet supported'))).toBe(true);
       });
     }
-    for (const key of ['context', 'budget_usd', 'budget_mode', 'experimental']) {
+    for (const key of ['budget_usd', 'budget_mode', 'experimental']) {
       it(`run_config.${key}`, () => {
-        const f = checklistFindings(org({ run_config: { [key]: key === 'context' ? {} : 1 } }));
+        const f = checklistFindings(org({ run_config: { [key]: 1 } }));
         expect(f.errors.some((e) => e.includes(`run_config.${key}`) && e.includes('not yet supported'))).toBe(true);
       });
     }

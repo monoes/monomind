@@ -23,7 +23,7 @@ export interface ChecklistFindings {
 /** Top-level features that are designed but not built. The runtime would
  *  ignore them silently, so configuring one is an error. */
 const DEFERRED_TOP_LEVEL = ['sections', 'documents', 'loops', 'requires'];
-const DEFERRED_RUN_CONFIG = ['context', 'budget_usd', 'budget_mode', 'experimental'];
+const DEFERRED_RUN_CONFIG = ['budget_usd', 'budget_mode', 'experimental'];
 /** Keys other components read through `.passthrough()` without a schema entry:
  *  mono-agent's display copies, and `max_run`, which `org serve` reads. */
 const PASSTHROUGH_TOP_LEVEL = ['automations', 'autonomy'];

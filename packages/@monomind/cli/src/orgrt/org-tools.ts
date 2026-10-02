@@ -3,6 +3,14 @@
 import { z } from 'zod';
 import type { OrgToolDef } from './agent-runner.js';
 import type { TaskEvidence } from './completion-gate.js';
+import {
+  BRIEF_FIELD_HELP,
+  type BriefFields,
+  briefFieldArgs,
+  checkBrief,
+  contextSurface,
+  withWarnings,
+} from './context-surface.js';
 import { approvalGateOutcome } from './session-gate.js';
 import { resolveSessionScope } from './session-ledger.js';
 import type { SessionOpts } from './session-types.js';
@@ -306,12 +314,14 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
     });
   }
   const planGraph = opts.planGraph;
+  const surface = contextSurface(opts.def);
   if (planGraph) {
     tools.push({
       name: 'org_plan_graph',
       description:
         'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after", and may carry a "brief" with its instructions exactly as org_task does.' +
-        (catalog ? ' Each spec may select a "loadout" exactly as org_task does.' : ''),
+        (catalog ? ' Each spec may select a "loadout" exactly as org_task does.' : '') +
+        (surface.enabled ? BRIEF_FIELD_HELP : ''),
       schema: {
         tasks: z
           .array(
@@ -322,6 +332,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
                 assignee: z.string(),
                 after: z.array(z.string()).default([]),
                 brief: briefArg,
+                ...(surface.enabled ? briefFieldArgs() : {}),
                 ...loadoutArg,
               },
               { deps: 'use `after` with node names' },
@@ -329,20 +340,36 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
           )
           .min(1),
       },
-      handler: async (args) =>
-        text(
-          planGraph(
-            role.id,
-            (args.tasks as {
-              name: string;
-              title: string;
-              assignee: string;
-              after?: string[];
-              loadout?: string;
-              brief?: string;
-            }[]) ?? [],
-          ),
-        ),
+      handler: async (args) => {
+        type Spec = {
+          name: string;
+          title: string;
+          assignee: string;
+          after?: string[];
+          loadout?: string;
+          brief?: string;
+        } & BriefFields;
+        let specs = (args.tasks as Spec[]) ?? [];
+        const warnings: string[] = [];
+        if (surface.enabled) {
+          // One bad task rejects the whole graph: a half-created plan has dangling `after` edges.
+          const errors: string[] = [];
+          specs = specs.map((s) => {
+            const { objective, output, tools: toolsField, boundaries, acceptance, ...rest } = s;
+            const checked = checkBrief(
+              surface,
+              { objective, output, tools: toolsField, boundaries, acceptance },
+              s.brief,
+              `task "${s.name}"`,
+            );
+            if (checked.error) errors.push(checked.error);
+            warnings.push(...checked.warnings);
+            return { ...rest, ...(checked.brief !== undefined ? { brief: checked.brief } : {}) };
+          });
+          if (errors.length) return text(JSON.stringify({ error: errors.join('; ') }));
+        }
+        return text(withWarnings(planGraph(role.id, specs), warnings));
+      },
     });
   }
   tools.push({

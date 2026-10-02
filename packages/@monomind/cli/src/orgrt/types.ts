@@ -114,6 +114,25 @@ export const OrgDefSchema = z
          *  except the coordinator, whose work spans tasks — a role's own
          *  `session_scope` overrides it either way. */
         session_scope: z.enum(['role', 'task']).optional(),
+        /** Org sections spec 6.8, Phase 2: the opt-in surface. Setting any
+         *  key adds the typed brief fields (require_brief), org_note_append and
+         *  notes injection (notes), and the between-turn session rotation
+         *  threshold (session_cap); an org with none keeps its tool list and
+         *  prompt byte for byte. See context-surface.ts. */
+        context: z
+          .object({
+            require_brief: z.boolean().optional(),
+            notes: z.boolean().optional(),
+            session_cap: z
+              .object({
+                tasks: z.number().int().positive().optional(),
+                tokens: z.number().int().positive().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
         /** ADR-O001 D3: end a role's process after this many ms with no mail;
          *  the next message resumes the same model session. Absent = never
          *  (the process parks, as before). Idle residency costs no tokens,
