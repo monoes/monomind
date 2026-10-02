@@ -8,7 +8,9 @@ import {
   type BriefFields,
   briefFieldArgs,
   checkBrief,
+  checkTaskResult,
   contextSurface,
+  TASK_RESULT_HELP,
   withWarnings,
 } from './context-surface.js';
 import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
@@ -184,9 +186,11 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   if (completeTask) {
     tools.push({
       name: 'org_task_done',
-      description: opts.requireTaskEvidence
-        ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha of the work (the HEAD of any worktree of this repository, or any local branch tip), `worktree` naming the worktree you ran in when it is not the org workspace, and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. `evidence` is its own argument next to `taskId` and `result`; evidence written as text inside `result` is not read. A task that correctly changed nothing closes the same way, pinned to the unchanged HEAD it verified. A check passes when its exit code equals `expectExit` (default 0): when the criterion is met by a non-zero exit (a lookup that must find nothing → 1, a timeout that must fire → 124), set `expectExit` instead of appending `|| true`, which erases the exit code, and always say why in a one-line `expectReason` ("404 = branch not protected") — `expectExit` without it is refused. `expectExit` is only for a SINGLE-PURPOSE command: on a test suite or any other aggregate runner (vitest, jest, `pnpm test`, `pnpm -r`, a verify script) it is refused outright, because a suite exit code means "at least one of many things failed" and declaring it expected accepts every other failure too — run the one failing test file on its own and declare `expectExit` on that, or exclude the known failure and record the exclusion in `result`. A task whose job is to REPORT (QA, an audit) closes on commands that prove the report exists and is complete (e.g. `test -s <report file>`); the failures it found are findings — put them in `result` and send them to the coordinator, not in `checks`. If you tested something outside a git worktree (a scratch dir, an installed tarball), pin `headSha`/`worktree` to the worktree the artifact was built from. Evidence pinned to a commit that is no longer the head of that work is stale and will be refused, and a refused completion puts the task back in your queue with the reason — but only up to run_config.max_evidence_attempts refused proofs (default 3; a call with no `evidence` at all is refused without counting), after which the task is recorded as failed and escalated to the boss instead of returned to you. Any downstream tasks whose deps are now all done become ready and are dispatched.'
-        : 'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
+      description:
+        (opts.requireTaskEvidence
+          ? 'Mark a task as completed. This org requires EVIDENCE (run_config.completion_evidence): pass `evidence` with the current commit sha of the work (the HEAD of any worktree of this repository, or any local branch tip), `worktree` naming the worktree you ran in when it is not the org workspace, and one entry per acceptance criterion — the command you actually ran, its real exit code, and its output. `evidence` is its own argument next to `taskId` and `result`; evidence written as text inside `result` is not read. A task that correctly changed nothing closes the same way, pinned to the unchanged HEAD it verified. A check passes when its exit code equals `expectExit` (default 0): when the criterion is met by a non-zero exit (a lookup that must find nothing → 1, a timeout that must fire → 124), set `expectExit` instead of appending `|| true`, which erases the exit code, and always say why in a one-line `expectReason` ("404 = branch not protected") — `expectExit` without it is refused. `expectExit` is only for a SINGLE-PURPOSE command: on a test suite or any other aggregate runner (vitest, jest, `pnpm test`, `pnpm -r`, a verify script) it is refused outright, because a suite exit code means "at least one of many things failed" and declaring it expected accepts every other failure too — run the one failing test file on its own and declare `expectExit` on that, or exclude the known failure and record the exclusion in `result`. A task whose job is to REPORT (QA, an audit) closes on commands that prove the report exists and is complete (e.g. `test -s <report file>`); the failures it found are findings — put them in `result` and send them to the coordinator, not in `checks`. If you tested something outside a git worktree (a scratch dir, an installed tarball), pin `headSha`/`worktree` to the worktree the artifact was built from. Evidence pinned to a commit that is no longer the head of that work is stale and will be refused, and a refused completion puts the task back in your queue with the reason — but only up to run_config.max_evidence_attempts refused proofs (default 3; a call with no `evidence` at all is refused without counting), after which the task is recorded as failed and escalated to the boss instead of returned to you. Any downstream tasks whose deps are now all done become ready and are dispatched.'
+          : 'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.') +
+        (contextSurface(opts.def).enabled ? TASK_RESULT_HELP : ''),
       schema: {
         taskId: z.string(),
         result: z.string().optional(),
@@ -206,15 +210,21 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
             .default([]),
         }).optional(),
       },
-      handler: async (args) =>
-        text(
+      handler: async (args) => {
+        // Phase 2: a delegated task returns a summary, never a transcript (context-surface.ts).
+        const tooLong = contextSurface(opts.def).enabled
+          ? checkTaskResult(args.result as string | undefined)
+          : undefined;
+        if (tooLong) return text(JSON.stringify({ error: tooLong }));
+        return text(
           completeTask(
             role.id,
             args.taskId as string,
             args.result as string | undefined,
             args.evidence as TaskEvidence | undefined,
           ),
-        ),
+        );
+      },
     });
   }
   const requestReview = opts.requestReview;

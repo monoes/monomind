@@ -36,6 +36,18 @@ export function contextSurface(def: Pick<OrgDef, 'run_config'> | undefined): Con
   };
 }
 
+/** The longest `result` a delegated task may return (R20: a summary, never a transcript). */
+export const MAX_TASK_RESULT = 1000;
+
+/** Appended to org_task_done's description for an org on the surface. */
+export const TASK_RESULT_HELP = ` With this org's context surface, \`result\` is a short summary of at most ${MAX_TASK_RESULT.toLocaleString('en-US')} characters plus the ids and file paths of what you produced. Put detail in a file and name its path; never paste your transcript. A longer result is rejected, not truncated, and the task stays open.`;
+
+/** The rejection for an over-long result, or undefined. */
+export function checkTaskResult(result: string | undefined): string | undefined {
+  if (result === undefined || result.length <= MAX_TASK_RESULT) return undefined;
+  return `result is ${result.length} characters, over the ${MAX_TASK_RESULT} allowed; return a short summary with the ids and file paths of what you produced, and put the detail in a file (nothing is truncated; the task is still open)`;
+}
+
 /** The typed brief fields, in the order they are rendered. */
 export const BRIEF_FIELDS = ['objective', 'output', 'tools', 'boundaries', 'acceptance'] as const;
 export type BriefField = (typeof BRIEF_FIELDS)[number];
