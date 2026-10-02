@@ -15,6 +15,7 @@ import { capReached, SessionCounters } from './session-cap.js';
 import type { SessionStartReason } from './session-ledger.js';
 import {
   mailRouteKey,
+  messageTaskIds,
   ROLE_SESSION_KEY,
   resolveSessionScope,
   SessionLedger,
@@ -179,11 +180,6 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
   const sessionCap = contextSurface(opts.def).sessionCap;
   const capActive =
     sessionCap !== undefined && (sessionCap.tasks !== undefined || sessionCap.tokens !== undefined);
-  // The task ids a message brings to a session, for the cap: its route key, if any.
-  const incomingTasks = (message: string): string[] => {
-    const k = mailRouteKey(message, correspondents);
-    return k ? [k] : [];
-  };
   const countersFor = (key: string): SessionCounters =>
     new SessionCounters(opts.bus.dir, opts.role.id, key);
   const doneTasks = (): number => {
@@ -201,7 +197,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
     const hit = capReached(
       c.state,
       sessionCap,
-      next === undefined ? undefined : incomingTasks(next),
+      next === undefined ? undefined : messageTaskIds(next),
     );
     if (!hit) return false;
     const { from, overshoot } = c.rotate(hit, doneTasks());
@@ -311,7 +307,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
             ...(baseStreamOpts ?? {}),
             stopBefore: (next) =>
               baseStreamOpts?.stopBefore?.(next) === true ||
-              capReached(countersFor(sessionKey).state, sessionCap, incomingTasks(next)) !==
+              capReached(countersFor(sessionKey).state, sessionCap, messageTaskIds(next)) !==
                 undefined,
           }
         : baseStreamOpts;
@@ -320,7 +316,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
       sessionOpts = {
         ...sessionOpts,
         sessionCap: {
-          admit: (message) => counters.admit(mailRouteKey(message, correspondents)),
+          admit: (message) => counters.admit(messageTaskIds(message)),
           addTokens: (n) => counters.addTokens(n),
           usageMissing: () => {
             if (counters.noteUsageMissing() === 1)

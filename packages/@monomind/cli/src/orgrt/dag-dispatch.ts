@@ -5,7 +5,7 @@ import { activeRoleCount, type OrgDaemon, type RunningOrg } from './daemon.js';
 import { holdTaskLine, resolveHeld, settleHeld } from './dispatch-hold.js';
 import { taskTag } from './loadouts.js';
 import { deliverQueuedFor } from './scheduler-integration.js';
-import { resolveSessionScope } from './session-ledger.js';
+import { resolveSessionScope, taskKeyOf } from './session-ledger.js';
 import type { OrgTask } from './task-dag.js';
 import { dispatchLine } from './task-provenance.js';
 
@@ -80,7 +80,17 @@ function deliverDispatch(running: RunningOrg, assignee: string, lines: string[])
     for (const line of lines) mailbox.push(line);
     return;
   }
-  mailbox.push(lines.join('\n\n'));
+  mailbox.push(batchOrder(lines).join('\n\n'));
+}
+
+/** One message is routed, and counted against the session cap, by the task tags
+ *  it opens paragraphs with (messageTaskIds), and a mail's body is never read for
+ *  one. A batch therefore puts its task paragraphs first, in arrival order, and
+ *  the mail folded in after them, also in arrival order: whatever order the lines
+ *  were queued in, the same lines give the same message. */
+export function batchOrder(lines: string[]): string[] {
+  const tagged = lines.filter((l) => taskKeyOf(l) !== undefined);
+  return [...tagged, ...lines.filter((l) => taskKeyOf(l) === undefined)];
 }
 
 /** A role can end its turn with its own task still open and nothing notices.

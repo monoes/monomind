@@ -56,10 +56,10 @@ describe('SessionCounters persistence', () => {
   it('counts distinct task ids and de-duplicated tokens, and survives a reload', () => {
     const d = dir();
     const a = new SessionCounters(d, 'w', '_role');
-    a.admit('t1');
-    a.admit('t1');
-    a.admit('t2');
-    a.admit(undefined); // an untagged message: a turn, but no task
+    a.admit(['t1']);
+    a.admit(['t1']);
+    a.admit(['t2']);
+    a.admit([]); // an untagged message: a turn, but no task
     a.addTokens(500);
     a.addTokens(250);
     const b = new SessionCounters(d, 'w', '_role'); // a new process cycle
@@ -74,7 +74,7 @@ describe('SessionCounters persistence', () => {
   it('rotation starts the next generation with empty counters and tracks progress', () => {
     const d = dir();
     const s = new SessionCounters(d, 'w', '_role');
-    s.admit('t1');
+    s.admit(['t1']);
     s.addTokens(900);
     const r = s.rotate({ reason: 'tokens', cap: 800 }, 2);
     expect(r).toMatchObject({ from: { generation: 0, tokens: 900, tasks: ['t1'] }, overshoot: 100 });
@@ -268,7 +268,7 @@ describe('the session cap in the session loop', () => {
   it('checks on session start too: persisted counters at the cap rotate a resumed session before its first turn', async () => {
     const runDir = dir();
     const c = new SessionCounters(runDir, 'w', '_role');
-    c.admit('t1');
+    c.admit(['t1']);
     c.addTokens(500);
     const { queries, events } = await run({ cap: { tokens: 400 }, messages: [msg('t2')], runDir, resume: 'old-sdk-session' });
     expect(queries[0].resume).toBeUndefined(); // the resume was dropped
@@ -329,5 +329,40 @@ describe('the session cap in the session loop', () => {
       turns: [{ tokens: 200 }, { tokens: 100 }],
     });
     expect(tokens.queries).toHaveLength(2);
+  });
+});
+
+describe('the cap counts every task a batched message names', () => {
+  const batch = (...ids: string[]) => ids.map((id) => `[task:${id}] Title ${id}`).join('\n\n');
+
+  it('counts each distinct task id of a batch toward the tasks cap', async () => {
+    const { queries, runDir, events } = await run({
+      cap: { tasks: 3 },
+      messages: [batch('a', 'b', 'c'), batch('d')],
+      turns: [{ tokens: 10 }, { tokens: 10 }],
+    });
+    expect(new SessionCounters(runDir, 'w', '_role').state.tasks).toEqual(['d']); // rotated: the new generation holds only d
+    expect(queries).toHaveLength(2);
+    expect(events.find((e) => e.reason === 'session-rotated')?.data).toMatchObject({ reason: 'tasks', tasks: 3 });
+  });
+
+  it('does not rotate while the distinct ids stay below the cap, and a repeated id counts once', async () => {
+    const { queries, runDir } = await run({
+      cap: { tasks: 4 },
+      messages: [batch('a', 'b'), batch('a', 'b', 'c')],
+      turns: [{ tokens: 10 }, { tokens: 10 }],
+    });
+    expect(queries).toHaveLength(1);
+    expect(new SessionCounters(runDir, 'w', '_role').state.tasks).toEqual(['a', 'b', 'c']);
+  });
+
+  it('rotates for a reminder batched with a new task, since the batch brings a task the generation lacks', async () => {
+    const { queries } = await run({
+      cap: { tasks: 1 },
+      messages: [batch('a'), `[task:a] STILL OPEN — Alpha\n\n[task:b] Beta`],
+      turns: [{ tokens: 10 }, { tokens: 10 }],
+    });
+    expect(queries).toHaveLength(2);
+    expect(queries[1].first).toMatch(/^You are continuing after a session rotation/);
   });
 });

@@ -81,11 +81,38 @@ export function mailRouteKey(
   text: string,
   correspondents: ReadonlyMap<string, string>,
 ): string | undefined {
-  const tagged = taskKeyOf(text);
-  if (tagged) return tagged;
-  const head = /^\[message from ([^\]]+)\] subject: ([^\n]*)/.exec(text);
-  if (!head) return undefined;
-  return /\[task:([^\]\s]+)\]/.exec(head[2])?.[1] ?? correspondents.get(head[1]);
+  // A role-scoped assignee gets dispatches queued together as one message, with
+  // a reminder or same-turn mail folded in (dag-dispatch.ts). One rule routes
+  // it: the first explicit task tag by position, wherever it sits; failing that,
+  // the last correspondence of the first sender.
+  const first = messageTaskIds(text)[0];
+  if (first) return first;
+  const head = HEAD.exec(text);
+  return head ? correspondents.get(head[1]) : undefined;
+}
+
+const HEAD = /^\[message from ([^\]]+)\] subject: ([^\n]*)/;
+
+/** Every task a message names, in order, once each: the leading `[task:<id>]`
+ *  of each dispatch paragraph, and the `[task:<id>]` in a mail's subject line.
+ *  Once a mail's head has been seen, what follows is its body until the next
+ *  mail head, and a body is never read: a quoted tag says nothing about where
+ *  the message belongs. So dispatch paragraphs are read only ahead of any mail,
+ *  which is the order dag-dispatch.ts delivers a batch in. */
+export function messageTaskIds(text: string): string[] {
+  const ids: string[] = [];
+  let inBody = false;
+  for (const part of text.split('\n\n')) {
+    const head = HEAD.exec(part);
+    if (head) inBody = true;
+    const id = head
+      ? /\[task:([^\]\s]+)\]/.exec(head[2])?.[1]
+      : inBody
+        ? undefined
+        : taskKeyOf(part);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
 }
 
 /** 'role' (one session for the role's life — the pre-D3 behaviour) unless the

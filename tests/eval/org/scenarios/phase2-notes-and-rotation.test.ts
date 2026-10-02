@@ -62,7 +62,6 @@ describe('scenario: notes injection, cap rotation and the stall digest', () => {
     await started.poke('boss', START, `${START} Gamma`);
     expect(await started.until(() => worker().some((m) => m.includes('] Gamma')), 10_000)).toBe(true);
     const seen = worker();
-    console.log('DBG', JSON.stringify(seen.map((m) => [m.slice(0, 60), m.slice(-200)])));
     const at = (title: string) => seen.find((m) => m.includes(`] ${title}`))!;
 
     // Generation 0 has no digest; each later generation starts with one, then the notes, then its message.

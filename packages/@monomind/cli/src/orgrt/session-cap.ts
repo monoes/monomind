@@ -125,10 +125,10 @@ export class SessionCounters {
     return s;
   }
 
-  /** A message was admitted; a tagged one adds its task id once. */
-  admit(taskId: string | undefined): void {
+  /** A message was admitted; each task id it names is added once. */
+  admit(taskIds: readonly string[]): void {
     this.update((s) => {
-      if (taskId && !s.tasks.includes(taskId)) s.tasks.push(taskId);
+      for (const id of taskIds) if (!s.tasks.includes(id)) s.tasks.push(id);
     });
   }
 
