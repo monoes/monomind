@@ -53,12 +53,18 @@ const fresh = (): GenerationState => ({
   started_at: Date.now(),
 });
 
-/** Which threshold the generation has reached, if any. */
+/** Which threshold the generation has reached, if any. With `incoming` (the
+ *  task ids the next message carries) the tasks cap fires only for a message
+ *  that brings a task the generation lacks: a reminder about a task already in
+ *  it, or untagged mail, adds no task and so is no reason to rotate. The tokens
+ *  cap does not look at the message. */
 export function capReached(
   s: Pick<GenerationState, 'tasks' | 'tokens'>,
   cap: SessionCap | undefined,
+  incoming?: readonly string[],
 ): { reason: CapReason; value: number; cap: number } | undefined {
-  if (cap?.tasks !== undefined && s.tasks.length >= cap.tasks)
+  const brings = incoming === undefined || incoming.some((id) => !s.tasks.includes(id));
+  if (cap?.tasks !== undefined && s.tasks.length >= cap.tasks && brings)
     return { reason: 'tasks', value: s.tasks.length, cap: cap.tasks };
   if (cap?.tokens !== undefined && s.tokens >= cap.tokens)
     return { reason: 'tokens', value: s.tokens, cap: cap.tokens };

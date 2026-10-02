@@ -39,6 +39,19 @@ describe('capReached', () => {
   });
 });
 
+describe('capReached for an incoming message', () => {
+  const c = (tasks: string[]) => ({ generation: 0, tasks, tokens: 0 }) as never;
+  it('rotates on the tasks cap only when the message brings a task the generation lacks', () => {
+    expect(capReached(c(['a']), { tasks: 1 }, ['a'])).toBeUndefined(); // a reminder for a task already in it
+    expect(capReached(c(['a']), { tasks: 1 }, [])).toBeUndefined(); // untagged mail adds no task
+    expect(capReached(c(['a']), { tasks: 1 }, ['b'])).toMatchObject({ reason: 'tasks' });
+    expect(capReached(c(['a']), { tasks: 1 })).toMatchObject({ reason: 'tasks' }); // no message: the plain check
+  });
+  it('never excuses the tokens cap', () => {
+    expect(capReached({ generation: 0, tasks: ['a'], tokens: 500 } as never, { tokens: 100 }, ['a'])).toMatchObject({ reason: 'tokens' });
+  });
+});
+
 describe('SessionCounters persistence', () => {
   it('counts distinct task ids and de-duplicated tokens, and survives a reload', () => {
     const d = dir();
@@ -288,5 +301,33 @@ describe('the session cap in the session loop', () => {
     expect(queries).toHaveLength(1);
     expect(events.some((e) => e.reason === 'session-rotated')).toBe(false);
     expect(new SessionCounters(runDir, 'w', '_role').state.tokens).toBe(0);
+  });
+
+  it('does not rotate for a STILL OPEN reminder about a task already in the generation', async () => {
+    const reminder = `[task:t1] STILL OPEN — your turn ended and "Alpha" is still assigned to you and not closed.`;
+    const { queries, events, runDir } = await run({
+      cap: { tasks: 1 },
+      messages: [`[task:t1] Alpha\n\nobjective`, reminder],
+      turns: [{ tokens: 100 }, { tokens: 100 }],
+    });
+    expect(queries).toHaveLength(1);
+    expect(queries[0].messages).toHaveLength(2);
+    expect(events.some((e) => e.reason === 'session-rotated')).toBe(false);
+    expect(new SessionCounters(runDir, 'w', '_role').state.tasks).toEqual(['t1']); // not counted twice
+  });
+
+  it('still rotates for a reminder about a different task, and for tokens whatever the message', async () => {
+    const other = await run({
+      cap: { tasks: 1 },
+      messages: [`[task:t1] Alpha`, `[task:t2] STILL OPEN — Beta`],
+      turns: [{ tokens: 100 }, { tokens: 100 }],
+    });
+    expect(other.queries).toHaveLength(2);
+    const tokens = await run({
+      cap: { tokens: 150 },
+      messages: [`[task:t1] Alpha`, `[task:t1] STILL OPEN — Alpha`],
+      turns: [{ tokens: 200 }, { tokens: 100 }],
+    });
+    expect(tokens.queries).toHaveLength(2);
   });
 });

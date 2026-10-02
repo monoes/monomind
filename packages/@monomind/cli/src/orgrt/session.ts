@@ -179,6 +179,11 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
   const sessionCap = contextSurface(opts.def).sessionCap;
   const capActive =
     sessionCap !== undefined && (sessionCap.tasks !== undefined || sessionCap.tokens !== undefined);
+  // The task ids a message brings to a session, for the cap: its route key, if any.
+  const incomingTasks = (message: string): string[] => {
+    const k = mailRouteKey(message, correspondents);
+    return k ? [k] : [];
+  };
   const countersFor = (key: string): SessionCounters =>
     new SessionCounters(opts.bus.dir, opts.role.id, key);
   const doneTasks = (): number => {
@@ -191,9 +196,13 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
     }
   };
   /** Rotate the generation for `key` if its counters are at the cap; true when it did. */
-  const rotateIfCapped = (key: string): boolean => {
+  const rotateIfCapped = (key: string, next?: string): boolean => {
     const c = countersFor(key);
-    const hit = capReached(c.state, sessionCap);
+    const hit = capReached(
+      c.state,
+      sessionCap,
+      next === undefined ? undefined : incomingTasks(next),
+    );
     if (!hit) return false;
     const { from, overshoot } = c.rotate(hit, doneTasks());
     opts.bus.emit({
@@ -237,7 +246,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
       taskKey = mailRouteKey(mailbox.peek() ?? '', correspondents) ?? taskKey;
       const key = taskKey;
       // Past the cap this task's session starts fresh; its history is dropped, the task is not.
-      if (capActive && rotateIfCapped(key)) {
+      if (capActive && rotateIfCapped(key, mailbox.peek())) {
         ledger.drop({ role: opts.role.id, runtime: runtimeKey, taskKey: key });
         droppedBecause.set(key, 'fresh-rotation');
       }
@@ -272,7 +281,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
           ? (droppedBecause.get(taskKey) ?? pick.reason)
           : pick.reason;
     } else {
-      const rotated = capActive && rotateIfCapped(taskKey);
+      const rotated = capActive && rotateIfCapped(taskKey, mailbox.peek());
       if (rotated) resumeSessionId = undefined;
       startReason = rotated ? 'fresh-rotation' : resumeSessionId ? 'resumed' : 'fresh-no-record';
     }
@@ -302,7 +311,8 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
             ...(baseStreamOpts ?? {}),
             stopBefore: (next) =>
               baseStreamOpts?.stopBefore?.(next) === true ||
-              capReached(countersFor(sessionKey).state, sessionCap) !== undefined,
+              capReached(countersFor(sessionKey).state, sessionCap, incomingTasks(next)) !==
+                undefined,
           }
         : baseStreamOpts;
     if (capActive && scope !== 'cold') {
