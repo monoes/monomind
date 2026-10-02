@@ -3,6 +3,7 @@
 // re-exported below where other modules import it from here.
 
 import type { TaskEvidence } from './completion-gate.js';
+import type { TaskReferences } from './packet.js';
 import { capText, EVIDENCE_OUTPUT_CAP } from './review-packet.js';
 import type { OrgTask, OrgTaskStatus, SplitChild } from './task-dag-types.js';
 
@@ -28,6 +29,7 @@ export class TaskDag {
     deps: string[] = [],
     loadout?: string,
     brief?: string,
+    references?: TaskReferences,
   ): OrgTask {
     const id = `task-${++this.counter}`;
     for (const d of deps) {
@@ -42,6 +44,7 @@ export class TaskDag {
       createdAt: Date.now(),
       ...(loadout ? { loadout } : {}),
       ...(brief ? { brief } : {}),
+      ...(references ? { references } : {}),
     };
     this.tasks.set(id, task);
     if (this.hasCycle()) {

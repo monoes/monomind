@@ -8,8 +8,10 @@
  */
 
 import { suggestTaskSkills } from '../decision/picks.js';
+import { contextSurface } from './context-surface.js';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
 import { taskTag } from './loadouts.js';
+import { dispatchParts, recordPacket, renderReferences } from './packet.js';
 import { roleSkillNames } from './skill-library.js';
 import { isTerminalStatus, type OrgTask } from './task-dag.js';
 import type { TaskPick } from './task-match.js';
@@ -47,12 +49,25 @@ export function dispatchLine(
 ): string | Promise<string> {
   // The brief rides the dispatch itself so it arrives with the task however
   // late that is — a separate org_send can miss the coalescing window (decisions.ts).
-  const base = `${taskTag(task)} ${task.title}${task.brief ? `\n\n${task.brief}` : ''}`;
+  const taskLine = `${taskTag(task)} ${task.title}`;
+  const refs = renderReferences(task.references);
+  const base = `${taskLine}${task.brief ? `\n\n${task.brief}` : ''}${refs ? `\n\n${refs}` : ''}`;
+  // Phase 2: an org that adopted the context surface records each packet it dispatches.
+  const record = (text: string, extra: { name: string; text: string }[] = []): string => {
+    if (contextSurface(running.def).enabled)
+      recordPacket(running.bus.dir, {
+        task_id: task.id,
+        role: task.assignee,
+        text,
+        parts: [...dispatchParts(taskLine, task), ...extra],
+      });
+    return text;
+  };
   const role = running.def?.roles.find((r) => r.id === task.assignee);
-  if (!role) return base;
+  if (!role) return record(base);
   const pinned = new Set(role.skills ?? []);
   const pool = roleSkillNames(role, daemon.root).filter((n) => !pinned.has(n));
-  if (pool.length === 0) return base;
+  if (pool.length === 0) return record(base);
   let method: 'jev' | 'keyword' = 'keyword';
   return suggestTaskSkills(task.title, pool, daemon.root, {
     brief: task.brief,
@@ -62,7 +77,7 @@ export function dispatchLine(
     },
   }).then(
     (names) => {
-      if (!names.length) return base;
+      if (!names.length) return record(base);
       task.suggestedSkills = names;
       running.bus.emit({
         type: 'audit',
@@ -71,9 +86,10 @@ export function dispatchLine(
         msg: `task ${task.id}: suggested ${names.join(', ')} (${method})`,
         data: { taskId: task.id, assignee: task.assignee, skills: names, method },
       });
-      return `${base}\nSkills that fit this task (load with org_skill_load): ${names.join(', ')}`;
+      const skills = `Skills that fit this task (load with org_skill_load): ${names.join(', ')}`;
+      return record(`${base}\n${skills}`, [{ name: 'skills', text: skills }]);
     },
-    () => base,
+    () => record(base),
   );
 }
 

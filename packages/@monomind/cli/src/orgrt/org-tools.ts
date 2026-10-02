@@ -11,6 +11,7 @@ import {
   contextSurface,
   withWarnings,
 } from './context-surface.js';
+import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
 import { approvalGateOutcome } from './session-gate.js';
 import { resolveSessionScope } from './session-ledger.js';
 import type { SessionOpts } from './session-types.js';
@@ -321,7 +322,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       description:
         'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after", and may carry a "brief" with its instructions exactly as org_task does.' +
         (catalog ? ' Each spec may select a "loadout" exactly as org_task does.' : '') +
-        (surface.enabled ? BRIEF_FIELD_HELP : ''),
+        (surface.enabled ? BRIEF_FIELD_HELP + REFERENCES_HELP : ''),
       schema: {
         tasks: z
           .array(
@@ -332,7 +333,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
                 assignee: z.string(),
                 after: z.array(z.string()).default([]),
                 brief: briefArg,
-                ...(surface.enabled ? briefFieldArgs() : {}),
+                ...(surface.enabled ? { ...briefFieldArgs(), references: referencesArg } : {}),
                 ...loadoutArg,
               },
               { deps: 'use `after` with node names' },
@@ -348,6 +349,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
           after?: string[];
           loadout?: string;
           brief?: string;
+          references?: TaskReferences;
         } & BriefFields;
         let specs = (args.tasks as Spec[]) ?? [];
         const warnings: string[] = [];
@@ -363,6 +365,14 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
               `task "${s.name}"`,
             );
             if (checked.error) errors.push(checked.error);
+            else {
+              const tooBig = checkPacket({
+                title: s.title,
+                brief: checked.brief,
+                references: s.references,
+              });
+              if (tooBig) errors.push(`task "${s.name}": ${tooBig}`);
+            }
             warnings.push(...checked.warnings);
             return { ...rest, ...(checked.brief !== undefined ? { brief: checked.brief } : {}) };
           });

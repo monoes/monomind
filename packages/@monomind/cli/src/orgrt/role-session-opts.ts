@@ -11,6 +11,7 @@ import * as decisionOps from './decisions.js';
 import { openTaskCount } from './decisions.js';
 import { loadoutCatalog, resolveLoadout } from './loadouts.js';
 import type { Mailbox } from './mailbox.js';
+import type { TaskReferences } from './packet.js';
 import type { PolicyEngine } from './policy.js';
 import * as questionOps from './questions.js';
 import { endTurn, withTrace } from './role-trace.js';
@@ -302,8 +303,9 @@ export function buildRoleSessionOpts(
       loadout?: string,
       brief?: string,
       pick?: TaskPick,
+      references?: TaskReferences,
     ) => {
-      return daemon.dagCreateTask(name, r, title, assignee, deps, loadout, brief, pick);
+      return daemon.dagCreateTask(name, r, title, assignee, deps, loadout, brief, pick, references);
     },
     pickAssignee: resolveAutoAssignee(
       def,

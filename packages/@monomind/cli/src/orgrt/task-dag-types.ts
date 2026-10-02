@@ -66,6 +66,8 @@ export interface OrgTask {
    *  dispatchLine), so it arrives with the task however late that is, and it
    *  rides the checkpoint with the rest of the row. At most MAX_TASK_BRIEF. */
   brief?: string;
+  /** Phase 2 packet: what the assignee should consult (packet.ts). Opt-in. */
+  references?: import('./packet.js').TaskReferences;
   /** ADR-O001 D6: the most recent evidence the assignee submitted with
    *  org_task_done, accepted or refused — what an artifact-only reviewer is
    *  shown. Only the latest: earlier rounds are exactly what D6 withholds.

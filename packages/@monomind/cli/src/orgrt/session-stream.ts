@@ -12,9 +12,11 @@ import {
   claudeBashTimeoutEnv,
   claudeSandboxCwdNote,
 } from './bash-timeout.js';
+import { contextSurface } from './context-surface.js';
 import type { resolveRoleCostTier } from './cost-tier.js';
 import type { StreamOptions } from './mailbox.js';
 import { toolchainRoleEnv } from './operator-toolchain-paths.js';
+import { messageText, observeFirst, recordGeneration } from './packet.js';
 import { resolveProviderEnv, type resolveRoleProvider } from './provider.js';
 import type { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { roleTmpEnv } from './role-tmpdir.js';
@@ -67,8 +69,20 @@ export function sessionRunArgs(
   const fullAccess = resolvedAccess?.access === 'full';
   return {
     tools,
-    // No options = the pre-D3 stream, exactly.
-    prompt: streamOpts ? mailbox.stream('', streamOpts) : mailbox.stream(),
+    // No options = the pre-D3 stream, exactly. An org on the Phase 2 context
+    // surface also records the first message of each fresh SDK session
+    // (packet.ts); a resumed session adds nothing.
+    prompt: ((): AsyncIterable<unknown> => {
+      const raw = streamOpts ? mailbox.stream('', streamOpts) : mailbox.stream();
+      if (resume !== undefined || !contextSurface(opts.def).enabled) return raw;
+      return observeFirst(raw, (m) =>
+        recordGeneration(opts.bus.dir, {
+          role: role.id,
+          task_key: opts.contextKey ?? '_role',
+          first: messageText(m),
+        }),
+      );
+    })() as never,
     systemPrompt: gitEnforcement.claudeRestrictions?.sandbox
       ? `${rolePromptFor(opts)}\n\n${claudeSandboxCwdNote(cwd)}`
       : rolePromptFor(opts),

@@ -17,6 +17,7 @@ import {
   withWarnings,
 } from './context-surface.js';
 import type { LoadoutSummary } from './loadouts.js';
+import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
 import type { SessionOpts } from './session.js';
 import { MAX_TASK_BRIEF } from './task-dag.js';
 import type { RolePick, TaskPick } from './task-match.js';
@@ -78,13 +79,13 @@ export function orgTaskTool(
         ? ` Set assignee to "${AUTO_ASSIGNEE}" to have the role chosen for you from the task title and brief.`
         : '') +
       (catalog ? loadoutHelp(catalog) : '') +
-      (surface.enabled ? BRIEF_FIELD_HELP : ''),
+      (surface.enabled ? BRIEF_FIELD_HELP + REFERENCES_HELP : ''),
     schema: {
       title: z.string(),
       assignee: z.string(),
       deps: z.array(z.string()).default([]),
       brief: briefArg,
-      ...(surface.enabled ? briefFieldArgs() : {}),
+      ...(surface.enabled ? { ...briefFieldArgs(), references: referencesArg } : {}),
       ...loadoutArg,
     },
     strict: { hints: { after: 'use `deps` with task ids' } },
@@ -97,6 +98,12 @@ export function orgTaskTool(
         const checked = checkBrief(surface, args as BriefFields, brief, 'task');
         if (checked.error) return text(JSON.stringify({ error: checked.error }));
         ({ brief, warnings } = checked);
+        const tooBig = checkPacket({
+          title: args.title as string,
+          brief,
+          references: args.references as TaskReferences | undefined,
+        });
+        if (tooBig) return text(JSON.stringify({ error: `task: ${tooBig}` }));
       }
       if (assignee === AUTO_ASSIGNEE && opts.pickAssignee) {
         const picked = autoAssignment(
@@ -105,20 +112,16 @@ export function orgTaskTool(
         if ('error' in picked) return text(JSON.stringify({ error: picked.error }));
         ({ assignee, pick } = picked);
       }
-      return text(
-        withWarnings(
-          createTask(
-            role.id,
-            args.title as string,
-            assignee,
-            (args.deps as string[]) ?? [],
-            args.loadout as string | undefined,
-            brief,
-            ...(pick ? [pick] : []),
-          ),
-          warnings,
-        ),
-      );
+      const refs = args.references as TaskReferences | undefined;
+      const deps = (args.deps as string[]) ?? [];
+      const loadout = args.loadout as string | undefined;
+      // Trailing arguments only when there is something to pass, so a plain task is created exactly as before.
+      const created = refs
+        ? createTask(role.id, args.title as string, assignee, deps, loadout, brief, pick, refs)
+        : pick
+          ? createTask(role.id, args.title as string, assignee, deps, loadout, brief, pick)
+          : createTask(role.id, args.title as string, assignee, deps, loadout, brief);
+      return text(withWarnings(created, warnings));
     },
   };
 }

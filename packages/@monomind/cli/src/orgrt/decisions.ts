@@ -4,6 +4,7 @@ import { blockRecheckMs } from './block-recheck.js';
 import { activeRoleCount, type OrgDaemon } from './daemon.js';
 import { dispatchReadyTasks } from './dag-dispatch.js';
 import { checkLoadoutSelection } from './loadouts.js';
+import type { TaskReferences } from './packet.js';
 import { buildReviewPacket, reviewDiff } from './review-packet.js';
 import { stopCancelledTaskWork } from './task-cancel.js';
 import type { TaskPick } from './task-match.js';
@@ -40,6 +41,7 @@ export function dagCreateTask(
   loadout?: string,
   brief?: string,
   pick?: TaskPick,
+  references?: TaskReferences,
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
@@ -48,7 +50,7 @@ export function dagCreateTask(
   const refusal = checkLoadoutSelection(running.def, loadout);
   if (refusal) return JSON.stringify({ error: refusal });
   try {
-    const task = running.taskDag.add(title, assignee, deps, loadout, brief);
+    const task = running.taskDag.add(title, assignee, deps, loadout, brief, references);
     task.createdBy = role;
     recordTaskPick(running, task, role, pick);
     running.bus.emit({
@@ -91,6 +93,8 @@ export interface PlanTaskSpec {
   loadout?: string;
   /** Instructions sent with the task's dispatch (OrgTask.brief). */
   brief?: string;
+  /** Phase 2 packet references (OrgTask.references). */
+  references?: TaskReferences;
 }
 
 export function dagPlanGraph(
@@ -120,7 +124,14 @@ export function dagPlanGraph(
         const afters = s.after ?? [];
         if (!afters.every((a) => nameToId.has(a) || running.taskDag?.get(a))) continue;
         const depIds = afters.map((a) => nameToId.get(a) ?? a);
-        const task = running.taskDag.add(s.title, s.assignee, depIds, s.loadout, s.brief);
+        const task = running.taskDag.add(
+          s.title,
+          s.assignee,
+          depIds,
+          s.loadout,
+          s.brief,
+          s.references,
+        );
         task.createdBy = role;
         nameToId.set(s.name, task.id);
         created.push({

@@ -8,6 +8,7 @@ import type { TaskEvidence } from './completion-gate.js';
 import type { RoleFence } from './fence.js';
 import type { LoadoutSummary, ResolvedLoadout } from './loadouts.js';
 import type { Mailbox } from './mailbox.js';
+import type { TaskReferences } from './packet.js';
 import type { PolicyEngine } from './policy.js';
 import type { RoleDepsResult } from './role-deps.js';
 import type { SessionLedger } from './session-ledger.js';
@@ -179,6 +180,7 @@ export interface SessionOpts {
     loadout?: string,
     brief?: string,
     pick?: TaskPick,
+    references?: TaskReferences,
   ) => string;
   /** Resolves `assignee: "auto"` on org_task from the title and brief: the
    *  decision model (or, without one, a keyword match over role titles and
