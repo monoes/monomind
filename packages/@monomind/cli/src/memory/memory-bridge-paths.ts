@@ -303,7 +303,13 @@ export function projectDataDir(): string {
       .basename(resolved)
       .replace(/[^a-zA-Z0-9._-]+/g, '-')
       .slice(0, 40) || 'project';
-  return path.join(os.homedir(), '.monomind', 'projects', `${readable}-${hash}`);
+  // MONOMIND_PROJECTS_DIR redirects the parent only (a harness keeping a run's state out of the
+  // real home); the <name>-<hash> leaf, and so the project's identity, is the same either way.
+  const override = process.env.MONOMIND_PROJECTS_DIR;
+  if (override && !path.isAbsolute(override))
+    throw new Error(`MONOMIND_PROJECTS_DIR must be an absolute path, got "${override}"`);
+  const parent = override || path.join(os.homedir(), '.monomind', 'projects');
+  return path.join(parent, `${readable}-${hash}`);
 }
 
 /** Resolve symlinks so the traversal check below can't be bypassed by a link

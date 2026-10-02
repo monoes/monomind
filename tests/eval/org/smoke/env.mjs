@@ -34,7 +34,7 @@ const SKIP = new Set([
 export function prepareTrialHome(root, realHome = homedir()) {
   const state = join(resolve(root), '.state');
   const home = join(state, 'monomind-home');
-  for (const d of [home, join(state, 'broker'), join(state, 'operator')])
+  for (const d of [home, join(state, 'broker'), join(state, 'operator'), join(state, 'projects')])
     mkdirSync(d, { recursive: true, mode: 0o700 });
   for (const name of LINKED) {
     const real = join(realHome, '.monomind', name);
@@ -44,6 +44,8 @@ export function prepareTrialHome(root, realHome = homedir()) {
     MONOMIND_HOME: home,
     MONOMIND_ORGRT_BROKER_DIR: join(state, 'broker'),
     MONOMIND_ORGRT_OPERATOR_DIR: join(state, 'operator'),
+    // the project memory store (memory-bridge-paths.ts projectDataDir) otherwise lands in the real ~/.monomind/projects
+    MONOMIND_PROJECTS_DIR: join(state, 'projects'),
   };
 }
 
