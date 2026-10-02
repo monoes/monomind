@@ -27,7 +27,7 @@ import {
   UNPRICED_ROLE_TOKENS,
 } from './lib.mjs';
 // @ts-expect-error plain .mjs modules
-import { buildInputs, prepareTrial } from './prepare.mjs';
+import { buildInputs, orgStopUsdOf, prepareTrial } from './prepare.mjs';
 
 const def = () => ({
   name: 'x',
@@ -257,5 +257,17 @@ describe('round 2: the single-agent arm, the production profile, and an org-wide
     expect(() => applyCaps(d, { lead: 1, w1: 1, w2: 1 }, 12, { orgStopUsd: 13 })).toThrow(
       /org-wide stop.*allocation/,
     );
+  });
+});
+
+describe('orgStopUsdOf', () => {
+  it('passes a positive number through and is undefined when the kit sets none', () => {
+    expect(orgStopUsdOf({ orgStopUsd: 12 })).toBe(12);
+    expect(orgStopUsdOf({})).toBeUndefined();
+  });
+
+  it('refuses a stop that could never be crossed or is not a number', () => {
+    for (const v of [0, -1, '12', null, Number.NaN])
+      expect(() => orgStopUsdOf({ orgStopUsd: v })).toThrow(/orgStopUsd/);
   });
 });

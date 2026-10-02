@@ -25,6 +25,7 @@ function root(opts: {
   realState?: string;
   runners?: Record<string, { runtime: string; model: string }>;
   timedOut?: boolean;
+  spendStopped?: boolean;
 }) {
   const r = mkdtempSync(join(tmpdir(), 'smoke-report-'));
   const name = `smoke-${opts.scenario}-${opts.contender}-1`;
@@ -58,6 +59,7 @@ function root(opts: {
       seconds: 600,
       inputs: opts.integrity ?? 'clean',
       realState: opts.realState ?? 'clean',
+      ...(opts.spendStopped === undefined ? {} : { spendStopped: opts.spendStopped }),
     }),
   );
   return r;
@@ -133,6 +135,14 @@ describe('trialRow', () => {
     );
     expect(a).toMatchObject({ runners: claude, unpriced: false });
     expect(b).toMatchObject({ runners: mixed, unpriced: true });
+  });
+
+  it('carries spendStopped from result.json, false when absent', () => {
+    const a = trialRow(
+      root({ scenario: 'research-report', contender: 'phase2', units: both, spendStopped: true }),
+    );
+    const b = trialRow(root({ scenario: 'research-report', contender: 'phase2', units: both }));
+    expect([a.spendStopped, b.spendStopped]).toEqual([true, false]);
   });
 
   it('marks a trial that reached the real runtime state void', () => {

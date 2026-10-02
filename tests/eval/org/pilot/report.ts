@@ -73,9 +73,15 @@ export function pilotRow(root: string): PilotRow {
   const idle = bus.some((e) => e.reason === 'idle-stop');
   const ended = complete
     ? `org_complete (${complete.data?.input?.outcome ?? 'unknown'})`
-    : ['no org_complete', closures ? `${closures} budget closure(s)` : '', idle ? 'idle stop' : '']
-        .filter(Boolean)
-        .join('; ');
+    : base.spendStopped
+      ? `org spend stop ($${base.usd.toFixed(2)})`
+      : [
+          'no org_complete',
+          closures ? `${closures} budget closure(s)` : '',
+          idle ? 'idle stop' : '',
+        ]
+          .filter(Boolean)
+          .join('; ');
 
   const handoff: HandoffCounts = {
     publish: { ok: 0, refused: 0 },

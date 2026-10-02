@@ -20,6 +20,8 @@ export interface TrialRow {
   contender: string;
   seconds: number;
   timedOut: boolean;
+  /** The harness's org-wide USD stop (spend-stop.mjs) ended the run. */
+  spendStopped: boolean;
   voided: boolean;
   accepted: Record<string, number>;
   pendingReview: string[];
@@ -80,6 +82,7 @@ export function trialRow(root: string): TrialRow {
     contender: trial.contender,
     seconds: result.seconds ?? 0,
     timedOut: result.timedOut ?? false,
+    spendStopped: result.spendStopped ?? false,
     voided: result.inputs === 'VOID' || result.realState === 'VOID',
     accepted,
     pendingReview: [...new Set(units.filter((u) => u.accepted === null).map((u) => u.unit))],
