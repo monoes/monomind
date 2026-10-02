@@ -16,18 +16,27 @@ const snapshotDir = () => process.env.SMOKE_GROWTH_SNAPSHOT ?? '/var/tmp/mm-phas
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const writeJson = (p, v) => writeFileSync(p, `${JSON.stringify(v, null, 2)}\n`);
 
-/** Per-role USD soft stops for the nine Claude roles (Phase 0's Haiku caps, $3.80 in all); the
- *  two designers run on unpriced runners and are capped by tokens, so their USD entry is 0. */
+/** Per-role USD soft stops for the nine Claude roles; the two designers run on unpriced runners and
+ *  are capped by tokens, so their USD entry is 0. Sum $7.90, inside the $8 planning allocation.
+ *
+ *  Declared change, 2026-10-02 (before the next tier): the Phase 0 Haiku caps ($0.25 to $0.65 per role,
+ *  $3.80 in all) exhausted three roles in the first smoke's current-best trial and six in phase2, and
+ *  phase2's boss ended over budget. The five roles that ran each spent their whole cap ($0.36 to $0.46),
+ *  so their demand is at least that. The new caps are 2.5x to 4x it for those five; the four roles that
+ *  never ran (analyst, community-manager, outreach-manager, social-publisher) get $0.40 each so a role
+ *  the run does call on can finish. Both contenders get the same caps.
+ *  Previous caps: growth-lead 0.44, brand-reviewer 0.36, community-manager 0.65, social-publisher 0.60,
+ *  researcher 0.40, site-seo 0.40, content-writer 0.40, analyst 0.30, outreach-manager 0.25. */
 export const CAPS = {
-  'growth-lead': 0.44,
-  'brand-reviewer': 0.36,
-  'community-manager': 0.65,
-  'social-publisher': 0.6,
-  researcher: 0.4,
-  'site-seo': 0.4,
-  'content-writer': 0.4,
-  analyst: 0.3,
-  'outreach-manager': 0.25,
+  'growth-lead': 1.8,
+  researcher: 1.2,
+  'content-writer': 1.2,
+  'site-seo': 1.1,
+  'brand-reviewer': 1.0,
+  analyst: 0.4,
+  'community-manager': 0.4,
+  'social-publisher': 0.4,
+  'outreach-manager': 0.4,
   'visual-designer-codex': 0,
   'visual-designer-agy': 0,
 };

@@ -15,6 +15,33 @@ import { CAPS, SESSION_CAP } from './kit.mjs';
 const snapshot = process.env.SMOKE_GROWTH_SNAPSHOT ?? '/var/tmp/mm-phase0/snapshot';
 const have = existsSync(join(snapshot, 'manifest.json'));
 
+// Declared change before the next tier (2026-10-02): the Phase 0 USD caps exhausted three roles in
+// current-best and six in phase2 in the first smoke run. The five roles that ran spent their whole
+// cap (0.36 to 0.46 each, so their real demand is higher); caps are now at least 2.5x that, and still
+// sum within the $8 planning allocation.
+describe('growth-like caps', () => {
+  const SPENT_AT_CAP_FIRST_SMOKE: Record<string, number> = {
+    'growth-lead': 0.46,
+    researcher: 0.41,
+    'content-writer': 0.42,
+    'site-seo': 0.44,
+    'brand-reviewer': 0.36,
+  };
+  it('sum within the $8 allocation, with every role capped', () => {
+    expect(
+      Object.values(CAPS as Record<string, number>).reduce((a, b) => a + b, 0),
+    ).toBeLessThanOrEqual(8);
+    for (const r of ['analyst', 'community-manager', 'outreach-manager', 'social-publisher'])
+      expect(CAPS[r]).toBeGreaterThan(0);
+  });
+  it.each(Object.entries(SPENT_AT_CAP_FIRST_SMOKE))(
+    '%s has at least 2.5x what it spent when it ran out',
+    (role, spent) => {
+      expect(CAPS[role]).toBeGreaterThanOrEqual(spent * 2.5);
+    },
+  );
+});
+
 describe.skipIf(!have)('growth-like kit', () => {
   const base = mkdtempSync(join(tmpdir(), 'growth-'));
   let inputs: string;
