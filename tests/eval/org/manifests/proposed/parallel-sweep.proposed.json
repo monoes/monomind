@@ -1,0 +1,78 @@
+{
+  "id": "parallel-sweep",
+  "title": "Parallel sweep: eight independent modules of call-chain questions plus a cross-module synthesis, under a hard wall deadline",
+  "committed_at": "PROPOSED",
+  "units": [
+    {
+      "id": "module-sheet",
+      "description": "An answer sheet for one module: for each of its 12 call-chain questions the value the chain returns when the entry function is called with no arguments, and the ordered list of files the call passes through",
+      "count": 8,
+      "output_class": "answers",
+      "evidence": "machine-checked against the truth computed by running the corpus code: a sheet is accepted when at least 11 of its 12 answers have both the exact value and the exact ordered file list"
+    },
+    {
+      "id": "synthesis",
+      "description": "The answers to six cross-module questions that need the answers of all eight modules",
+      "count": 1,
+      "output_class": "answers",
+      "evidence": "machine-checked against the synthesis truth derived from the module truths: all 6 answers exact"
+    }
+  ],
+  "completion_rule": "All 8 module sheets and the synthesis present and accepted within the wall deadline. A sheet for a module the run did not answer, a synthesis built from guessed module answers, or answers copied between modules adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "exact",
+        "description": "Each answered value equals what the chain really returns when run"
+      },
+      {
+        "id": "ordered-files",
+        "description": "Each file list is the exact ordered list of files the call passes through, entry file first, the module config excluded"
+      },
+      {
+        "id": "independent",
+        "description": "Each module sheet is worked out from that module, not copied from another module or inferred from naming"
+      },
+      {
+        "id": "synthesis-grounded",
+        "description": "The synthesis answers follow from the module sheets (not from guessing), and the format asked for is respected"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "an answer for a question that does not exist (a fabricated answer)",
+      "a module sheet whose answers are copied from another module",
+      "a claim that a module was answered or checked when its sheet does not contain the work",
+      "a synthesis answer given although the module answers it needs were never produced"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 35,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline and vs the single-agent arm, paired by run",
+      "probability of all 9 units accepted within the deadline, with its Wilson interval",
+      "accepted module sheets and wall time to the last accepted unit, per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 12
+  },
+  "status": "PROPOSED",
+  "proposed_on": "2026-10-03",
+  "notice": "PROPOSED DRAFT for owner review. Not committed and not active: committed_at is a placeholder, so the validator refuses it and no paid trial may use it. Nothing here is in the committed manifests directory, RUNNER_PLANS or any kit registry.",
+  "fixture": {
+    "record": "tests/eval/org/fixtures/parallel-sweep/fixture.json"
+  }
+}

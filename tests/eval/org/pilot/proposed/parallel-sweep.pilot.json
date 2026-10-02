@@ -1,0 +1,510 @@
+{
+  "id": "pilot-parallel-sweep",
+  "scenario": "parallel-sweep",
+  "committed_at": "PROPOSED",
+  "status": "PROPOSED",
+  "proposed_on": "2026-10-03",
+  "notice": "PROPOSED DRAFT for owner review. Not committed and not active: committed_at is a placeholder, so the validator refuses it and no paid trial may use it. Nothing here is in the committed manifests directory, RUNNER_PLANS or any kit registry.",
+  "harness_only": true,
+  "sections_serialized": false,
+  "trials_per_arm": 3,
+  "arms": [
+    {
+      "id": "baseline",
+      "description": "Phase 2 without sections or documents: lead, four workers and a synthesiser coordinating by mail and tasks, same task text as treatment"
+    },
+    {
+      "id": "treatment",
+      "description": "The same roles plus the harness's publish/read/decide tools and cross-section org_send refusal: one section per worker pair, the synthesiser consuming module-sheet documents"
+    },
+    {
+      "id": "single",
+      "description": "The Phase 2 configuration with one role alone doing the whole task (all 8 modules and the synthesis) on the same model and the same deadline; no sections and no hand-off tools"
+    }
+  ],
+  "per_run_allocation_usd": 12,
+  "native_children": "disabled",
+  "writer_authority": "each module sheet is written only by the worker that owns the module (single arm: by the one role) and the synthesis only by the synthesiser (single arm: the one role); the corpus is read-only in every arm",
+  "routing": {
+    "sections": {
+      "sweep-a": {
+        "lead": "worker-1",
+        "members": ["worker-2"]
+      },
+      "sweep-b": {
+        "lead": "worker-3",
+        "members": ["worker-4"]
+      },
+      "synthesis": {
+        "lead": "synthesiser",
+        "members": []
+      }
+    }
+  },
+  "contracts": [
+    {
+      "id": "module-sheet-m1",
+      "title": "Answer sheet for module m1",
+      "producer": "worker-1",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m1"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m2",
+      "title": "Answer sheet for module m2",
+      "producer": "worker-1",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m2"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m3",
+      "title": "Answer sheet for module m3",
+      "producer": "worker-2",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m3"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m4",
+      "title": "Answer sheet for module m4",
+      "producer": "worker-2",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m4"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m5",
+      "title": "Answer sheet for module m5",
+      "producer": "worker-3",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m5"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m6",
+      "title": "Answer sheet for module m6",
+      "producer": "worker-3",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m6"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m7",
+      "title": "Answer sheet for module m7",
+      "producer": "worker-4",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m7"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheet-m8",
+      "title": "Answer sheet for module m8",
+      "producer": "worker-4",
+      "consumers": ["synthesiser"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["module", "answers"],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "enum": ["m8"]
+          },
+          "answers": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "required": ["q", "value", "files"],
+              "additionalProperties": false,
+              "properties": {
+                "q": {
+                  "enum": [
+                    "q01",
+                    "q02",
+                    "q03",
+                    "q04",
+                    "q05",
+                    "q06",
+                    "q07",
+                    "q08",
+                    "q09",
+                    "q10",
+                    "q11",
+                    "q12"
+                  ]
+                },
+                "value": {
+                  "type": "integer"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 7,
+                  "items": {
+                    "type": "string",
+                    "minLength": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "failure_taxonomy": "MAST",
+    "record_copy_read_bypasses": true,
+    "label": "harness-only prototype; no document isolation, durable provenance, freshness or recovery guarantees"
+  },
+  "org_stop_usd": 12,
+  "profile": "production",
+  "note": "Draft. The lead is the unsectioned root. Worker ownership: worker-1 m1+m2, worker-2 m3+m4, worker-3 m5+m6, worker-4 m7+m8. The single arm has no sections and no contracts in use; they apply to the treatment arm only."
+}

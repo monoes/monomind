@@ -1,0 +1,101 @@
+{
+  "status": "PROPOSED",
+  "notice": "PROPOSED DRAFT for owner review. Nothing here is approved, committed to the manifests directory, in RUNNER_PLANS or in any kit registry. The org definitions and the smoke kit are not built; that follows approval.",
+  "id": "parallel-sweep-fixture",
+  "scenario": "parallel-sweep",
+  "fixture": {
+    "status": "PROPOSED",
+    "summary": "A deterministic corpus of 8 independent modules (m1..m8), each about 30 small ESM files plus a config, with 12 call-chain questions per module (entry function, 4 to 7 files deep) and 6 cross-module synthesis questions that need all eight modules. Truth is computed by running the code, never asserted. Built to have what growth-like lacks: genuinely independent parallel parts and a synthesis that depends on all of them, so a deadline can make coordination worth its cost.",
+    "build": "node tests/eval/org/fixtures/parallel-sweep/build-corpus.mjs <empty dir> --truth <path outside that dir>/truth.json",
+    "pinned_hash": "4eb27a09666f2df6e3a9a02d1236f07bac63828768fb63f7f57fa8243df1bcf5",
+    "pin_basis": "sha256 over the sorted relative paths and contents of every file the build writes (see fixture.test.ts, which rebuilds twice and checks both this value and the byte-for-byte equality); the default seed is 20261003",
+    "scorer": "node tests/eval/org/fixtures/parallel-sweep/score.mjs <deliverables dir> --truth <truth.json>; <dir>/m1/answers.json .. m8/answers.json and <dir>/synthesis.json",
+    "reference_flows": "tests/eval/org/fixtures/parallel-sweep/hidden/reference/write-answers.mjs --variant complete|partial|wrong",
+    "deliverables": {
+      "module_sheet": "out/<module>/answers.json = {\"module\": \"m1\", \"answers\": [{\"q\": \"q01\", \"value\": <integer>, \"files\": [\"m1/a.mjs\", ...]}, ... 12 entries]}; accepted when at least 11 of 12 answers have the exact value and the exact ordered file list",
+      "synthesis": "out/synthesis.json = {\"answers\": [{\"q\": \"s1\", \"value\": ...}, ... 6 entries]}; accepted when all 6 are exact"
+    },
+    "workload": {
+      "source": "the generator's own computation, asserted in fixture.test.ts",
+      "modules": 8,
+      "files_per_module": "30 source files plus config.mjs",
+      "chain_reads_per_module": 66,
+      "chain_reads_total": 528,
+      "note": "chain reads = the sum of chain lengths, one file read per chain step. Reads of distinct files are fewer (see the weaknesses below)."
+    },
+    "wall_deadline_minutes": 35,
+    "planning_allocation_usd_per_run": 12,
+    "model": "claude-sonnet-5-5 (production profile)",
+    "org_stop_usd": 12,
+    "tasks": {
+      "common": "The directory corpus/ holds eight modules, m1 to m8. Each module directory has a questions.json with 12 questions; a question names an entry function (file and name). For each question give (a) the integer the call chain finally returns when the entry function is called with no arguments, and (b) the ordered list of files whose functions the call executes, from the entry file to the last file, written as corpus-relative paths exactly as in questions.json (for example \"m1/ticket.mjs\"); the module's config.mjs is not part of the list. Answer by reading the code: do not execute any file of corpus/. Comments and names can mislead (near-identical function names, stale defaults, comments about 'the new version'); the code is the truth, and a constant can be overridden in the module's config.mjs. A second set of six cross-module questions is in corpus/synthesis-questions.json; its answers need the answers of all eight modules. Deliverables: out/<module>/answers.json for each module (12 answers each) and out/synthesis.json (6 answers). Everything must be finished within 35 minutes of wall time; sheets and answers not written by then do not count.",
+      "single": "You are the only role. Do the whole task above yourself: all eight modules and the synthesis, writing every deliverable.",
+      "multi_role": "The task above is done by a team. The lead coordinates and does not answer any question itself: it assigns the modules (worker-1: m1 and m2, worker-2: m3 and m4, worker-3: m5 and m6, worker-4: m7 and m8), tells the synthesiser what to wait for, and reports when all nine deliverables exist or the deadline arrives. Each worker answers its own modules from the code and writes out/<module>/answers.json. The synthesiser answers the six cross-module questions from the modules' answer sheets and writes out/synthesis.json; it does not redo the modules' work."
+    },
+    "arms": [
+      {
+        "id": "single",
+        "description": "one role, the whole task, the Phase 2 configuration; no sections, no hand-off tools",
+        "roster": ["solver"],
+        "responsibilities": {
+          "solver": "Answers all 96 module questions and the 6 synthesis questions from the code and writes all nine deliverables within the deadline."
+        }
+      },
+      {
+        "id": "baseline",
+        "description": "Phase 2 without sections: lead, four workers and a synthesiser coordinating by mail and tasks; same task text as treatment",
+        "roster": ["lead", "worker-1", "worker-2", "worker-3", "worker-4", "synthesiser"],
+        "responsibilities": {
+          "lead": "The unsectioned root. Assigns the modules, does not answer questions itself, reports when all nine deliverables exist or the deadline arrives.",
+          "worker-1": "Answers modules m1 and m2 and writes out/m1/answers.json and out/m2/answers.json; tells the synthesiser when each is written.",
+          "worker-2": "Answers modules m3 and m4 and writes their sheets; tells the synthesiser when each is written.",
+          "worker-3": "Answers modules m5 and m6 and writes their sheets; tells the synthesiser when each is written.",
+          "worker-4": "Answers modules m7 and m8 and writes their sheets; tells the synthesiser when each is written.",
+          "synthesiser": "Waits for the eight sheets, answers s1 to s6 from them and writes out/synthesis.json."
+        }
+      },
+      {
+        "id": "treatment",
+        "description": "the same roles with the hand-off prototype: one section per worker pair, the synthesiser consuming module-sheet documents",
+        "roster": ["lead", "worker-1", "worker-2", "worker-3", "worker-4", "synthesiser"],
+        "sections": {
+          "sweep-a": { "lead": "worker-1", "members": ["worker-2"] },
+          "sweep-b": { "lead": "worker-3", "members": ["worker-4"] },
+          "synthesis": { "lead": "synthesiser", "members": [] }
+        },
+        "responsibilities": {
+          "lead": "As in baseline.",
+          "worker-1": "As in baseline, and publishes one module-sheet document per module (module-sheet-m1, module-sheet-m2) after writing the file; the synthesiser consumes them.",
+          "worker-2": "As worker-1 for m3 and m4.",
+          "worker-3": "As worker-1 for m5 and m6.",
+          "worker-4": "As worker-1 for m7 and m8.",
+          "synthesiser": "Reads the eight module-sheet documents (not the workers' mail), answers s1 to s6 from them and writes out/synthesis.json."
+        },
+        "contracts": "pilot/proposed/parallel-sweep.pilot.json (module-sheet-m1 .. module-sheet-m8, producer a worker, consumer synthesiser)"
+      }
+    ],
+    "why_one_agent_cannot": {
+      "status": "A CLAIM TO CALIBRATE WITH A PILOT. NOT MEASURED. Nothing below has been run on a model.",
+      "claim": "Under a hard 35-minute wall deadline a single agent is expected not to finish all nine deliverables, while four workers in parallel plus a synthesiser are expected to.",
+      "argument": [
+        "The work is 8 independent parts of equal size: 66 chain reads each, 528 in total (sum of chain lengths), and a synthesis that needs all eight parts' answers, so it cannot start its real work before the last module is done.",
+        "Serial time is about 528 reads times the seconds per read-and-reason turn; the deadline is 2100 s, so a serial agent meets it only if it averages at most about 4 s per chain read including the reasoning and writing. Four workers carry 132 reads each, so each meets the deadline at up to about 16 s per read, before leaving time for the synthesis.",
+        "The claim therefore holds only if the real rate per read lies between those figures. That rate is the main assumption and is unmeasured: the round 2 single agent on growth-like took 202 to 367 s for a different task and gives no per-read figure.",
+        "Context: reading the whole corpus costs cache reads and time. The corpus is about 18.5k lines (estimated 222k tokens at 12 per line); whether a single agent's context holds it depends on the model's window, which is not assumed here."
+      ],
+      "assumptions_to_calibrate": [
+        "seconds per read turn, serial and in parallel, on claude-sonnet-5-5",
+        "whether a model batches many reads or greps per turn (the biggest threat to the deadline argument)",
+        "whether the deadline is enforced by the harness or only stated in the task",
+        "that the no-execution rule is followed (see weaknesses)",
+        "coordination overhead of the lead and of the hand-off documents, which round 2 showed to be large (treatment cost about 55% more than baseline on growth-like)"
+      ],
+      "weaknesses": [
+        "An agent with a shell can execute the corpus code, get every value at once, and only the file lists remain; the task forbids it but nothing enforces it. A transcript audit or a sandbox without node is needed.",
+        "An agent can read all files of a module in one call, so 'reads' is a count of chain steps, not of tool calls; distinct files are fewer than chain steps (about 25 to 30 of the 31 per module).",
+        "Chain steps are mechanical arithmetic; a strong model may write a small script that parses the imports and statically evaluates the chains, which is tool use, not coordination.",
+        "If the 35-minute deadline is easily met serially, this fixture shows the same thing growth-like did: a single agent is cheaper at equal quality."
+      ]
+    }
+  }
+}
