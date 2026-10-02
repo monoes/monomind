@@ -1,0 +1,70 @@
+{
+  "id": "pilot-dev-feature-qa",
+  "scenario": "dev-feature-qa",
+  "committed_at": "2026-10-02",
+  "harness_only": true,
+  "sections_serialized": false,
+  "trials_per_arm": 3,
+  "arms": [
+    {
+      "id": "baseline",
+      "description": "Phase 2 without sections or documents; coordination by mail and tasks as today"
+    },
+    {
+      "id": "treatment",
+      "description": "The same Phase 2 definition plus the harness's publish/read/decide tools and cross-section org_send refusal"
+    }
+  ],
+  "per_run_allocation_usd": 8,
+  "native_children": "disabled",
+  "writer_authority": "implementer is the only role with write access to the fixture workspace; qa-engineer is read-only and verifies against a tree pinned to the implementer's last published change, identically in both arms",
+  "routing": {
+    "sections": {
+      "dev": { "lead": "implementer", "members": [] },
+      "qa": { "lead": "qa-engineer", "members": [] }
+    }
+  },
+  "contracts": [
+    {
+      "id": "change-summary",
+      "title": "Change summary for QA",
+      "producer": "implementer",
+      "consumers": ["qa-engineer"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["summary", "commit", "tests_added", "commands_run"],
+        "additionalProperties": false,
+        "properties": {
+          "summary": { "type": "string", "minLength": 10 },
+          "commit": { "type": "string", "minLength": 7 },
+          "tests_added": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "commands_run": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "id": "qa-verdict",
+      "title": "QA verdict on a published change",
+      "producer": "qa-engineer",
+      "consumers": ["implementer"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["verdict", "commit", "commands_run", "defects"],
+        "additionalProperties": false,
+        "properties": {
+          "verdict": { "enum": ["pass", "fail"] },
+          "commit": { "type": "string", "minLength": 7 },
+          "commands_run": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "defects": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "failure_taxonomy": "MAST",
+    "record_copy_read_bypasses": true,
+    "label": "harness-only prototype; no document isolation, durable provenance, freshness or recovery guarantees"
+  }
+}

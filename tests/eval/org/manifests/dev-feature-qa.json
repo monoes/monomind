@@ -1,0 +1,71 @@
+{
+  "id": "dev-feature-qa",
+  "title": "Dev feature with QA: one small feature built, tested and independently verified in a pinned fixture repository",
+  "committed_at": "2026-10-02",
+  "units": [
+    {
+      "id": "feature-change",
+      "description": "A code change implementing the one specified feature in the pinned fixture repository, with its own tests",
+      "count": 1,
+      "output_class": "code",
+      "evidence": "the hidden acceptance tests pass on the resulting tree at the pinned fixture commit, the build passes, and the diff touches only the paths the task declares"
+    },
+    {
+      "id": "qa-report",
+      "description": "An independent QA report on that change: what was run, what passed, and every defect found with its disposition",
+      "count": 1,
+      "output_class": "report",
+      "evidence": "every command the report cites reproduces its stated result against the resulting tree; every defect it lists is reproducible or marked unconfirmed"
+    }
+  ],
+  "completion_rule": "Both units present and accepted, and QA's verdict refers to the same tree the change unit produced. A change with no tests, a report that does not name the commands it ran, or a change split across several branches adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "correct",
+        "description": "The hidden acceptance tests for the specified feature pass and no previously passing test fails"
+      },
+      {
+        "id": "scoped",
+        "description": "The diff stays within the declared paths and adds nothing the task did not ask for"
+      },
+      {
+        "id": "tested",
+        "description": "The change adds tests that fail without it and pass with it"
+      },
+      {
+        "id": "verified",
+        "description": "The QA report names each command it ran, states each result, and its verdict matches what those commands show"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "a claim that tests or the build pass when they do not on the resulting tree",
+      "a change to a file the task declares out of bounds, or to the acceptance tests themselves",
+      "a QA verdict of pass on a tree whose build fails"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 60,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline, paired by run",
+      "probability of a fully accepted fixture, with its Wilson interval",
+      "defects found by QA that the author's own tests missed, per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 8
+  }
+}

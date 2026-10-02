@@ -1,0 +1,101 @@
+{
+  "id": "pilot-growth-like",
+  "scenario": "growth-like",
+  "committed_at": "2026-10-02",
+  "harness_only": true,
+  "sections_serialized": false,
+  "trials_per_arm": 3,
+  "arms": [
+    {
+      "id": "baseline",
+      "description": "Phase 2 without sections or documents; coordination by mail and tasks as today"
+    },
+    {
+      "id": "treatment",
+      "description": "The same Phase 2 definition plus the harness's publish/read/decide tools and cross-section org_send refusal"
+    }
+  ],
+  "per_run_allocation_usd": 8,
+  "native_children": "disabled",
+  "writer_authority": "no role writes the shared workspace except through the declared deliverable paths; recording stubs replace every outbound action in both arms",
+  "routing": {
+    "sections": {
+      "research": { "lead": "researcher", "members": ["analyst"] },
+      "content": { "lead": "content-writer", "members": ["brand-reviewer", "site-seo"] },
+      "outreach": {
+        "lead": "outreach-manager",
+        "members": ["community-manager", "social-publisher"]
+      }
+    }
+  },
+  "contracts": [
+    {
+      "id": "research-brief",
+      "title": "Verified research brief",
+      "producer": "researcher",
+      "consumers": ["content-writer", "outreach-manager"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["topic", "verified_claims"],
+        "additionalProperties": false,
+        "properties": {
+          "topic": { "type": "string", "minLength": 3 },
+          "verified_claims": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["claim", "source"],
+              "properties": {
+                "claim": { "type": "string", "minLength": 3 },
+                "source": { "type": "string", "minLength": 3 }
+              }
+            }
+          },
+          "unverified": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "id": "content-draft",
+      "title": "Content draft for brand review",
+      "producer": "content-writer",
+      "consumers": ["brand-reviewer"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["title", "body", "channel"],
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "minLength": 3 },
+          "body": { "type": "string", "minLength": 20 },
+          "channel": { "enum": ["blog", "x-thread", "other"] },
+          "claims": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "id": "listing-packet",
+      "title": "Listing or outreach packet for brand review",
+      "producer": "outreach-manager",
+      "consumers": ["brand-reviewer"],
+      "max_attempts": 3,
+      "schema": {
+        "type": "object",
+        "required": ["target", "copy"],
+        "additionalProperties": false,
+        "properties": {
+          "target": { "type": "string", "minLength": 3 },
+          "copy": { "type": "string", "minLength": 20 },
+          "claims": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "failure_taxonomy": "MAST",
+    "record_copy_read_bypasses": true,
+    "label": "harness-only prototype; no document isolation, durable provenance, freshness or recovery guarantees"
+  }
+}
