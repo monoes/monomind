@@ -69,10 +69,12 @@ export const SONNET = 'claude-sonnet-5-5';
 /** Profiles: `haiku` (the default, for harness checks and every round so far) and `production`, which
  *  puts a scenario's Claude roles on Sonnet where the scenario defines it. Per-role USD caps are scaled
  *  by PRICE_SCALE on the production profile, so a cap keeps the same token room; the org-wide stop is
- *  not scaled. The production factor is an ASSUMPTION (Sonnet priced at about three times Haiku) until
- *  a run's measured costs replace it. */
+ *  not scaled. The factor is MEASURED, not assumed: a probe on 2026-10-02 priced the same tiny call at
+ *  $0.0190 on Haiku 4.5 and $0.0398 on Sonnet 5.5, which matches list prices of $1/$5 per million
+ *  input/output tokens (cache read $0.10, 1-hour cache write $2) for Haiku and exactly twice that for
+ *  Sonnet 5.5 ($2/$10, $0.20, $4). */
 export const PROFILES = ['haiku', 'production'];
-export const PRICE_SCALE = { haiku: 1, production: 3 };
+export const PRICE_SCALE = { haiku: 1, production: 2 };
 
 export const RUNNER_PLANS = {
   'research-report': { workers: CODEX },

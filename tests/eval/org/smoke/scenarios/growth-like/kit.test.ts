@@ -155,7 +155,7 @@ describe.skipIf(!have)('growth-like kit', () => {
     expect(trial.runners['visual-designer-codex']).toMatchObject({ runtime: 'codex' });
     expect(trial.runners['visual-designer-agy']).toMatchObject({ runtime: 'antigravity' });
     expect(org.roles.find((r: any) => r.id === 'researcher').budget_usd).toBeCloseTo(
-      CAPS.researcher * 3,
+      CAPS.researcher * 2,
     );
     expect(trial.allocationUsd).toBe(12);
     expect(OrgDefSchema.parse(org)).toBeTruthy();

@@ -246,7 +246,7 @@ describe('round 2: the single-agent arm, the production profile, and an org-wide
   });
 
   it('scales per-role USD caps by the model price ratio only on the production profile', () => {
-    expect(PRICE_SCALE).toEqual({ haiku: 1, production: 3 });
+    expect(PRICE_SCALE).toEqual({ haiku: 1, production: 2 }); // measured: Sonnet 5.5 lists at twice Haiku 4.5
   });
 
   it('an org-wide stop bounds the run, so role caps may sum above the allocation, but the stop may not exceed it', () => {

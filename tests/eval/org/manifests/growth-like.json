@@ -88,7 +88,7 @@
       "id": "caps-and-stop",
       "date": "2026-10-02",
       "approved_by": "owner",
-      "what": "Per-role USD caps doubled (growth-lead 3.60, researcher 2.40, content-writer 2.40, site-seo 2.20, brand-reviewer 2.00, 0.80 for each of the four roles that did not run); planning allocation $12 per run (was $8); an org-wide stop of $12 per run, enforced by the harness, so the worst case stays bounded when the role caps sum above it. On the production profile the per-role caps are scaled by an assumed price ratio of 3 (Sonnet to Haiku) so a cap keeps its token room, until measured costs replace it.",
+      "what": "Per-role USD caps doubled (growth-lead 3.60, researcher 2.40, content-writer 2.40, site-seo 2.20, brand-reviewer 2.00, 0.80 for each of the four roles that did not run); planning allocation $12 per run (was $8); an org-wide stop of $12 per run, enforced by the harness, so the worst case stays bounded when the role caps sum above it. On the production profile the per-role caps are scaled by the measured price ratio of 2 (Sonnet 5.5 to Haiku 4.5: a probe on 2026-10-02 priced the same call at $0.0398 and $0.0190, matching list prices of $2/$10 and $1/$5 per million tokens) so a cap keeps its token room.",
       "why": "In the one usable pair of pilot round 1 both arms ran roles out of their per-role caps with total spend under the sum of caps.",
       "earlier_result": "round 1 caps (sum $7.90) and the Phase 0 caps stay on record in the growth-like kit"
     },
