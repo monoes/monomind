@@ -96,7 +96,14 @@ export function pack({ roots, out }) {
     mkdirSync(join(dir, 'artifacts'), { recursive: true });
     // Who made the bundle's files must not show in them: scrub what they say and what they are called.
     const orgFile = join(root, '.monomind/orgs', `${trial.name}.json`);
-    const roleIds = existsSync(orgFile) ? readJson(orgFile).roles.map((r) => r.id) : [];
+    // The whole original roster, not only this trial's roles: a one-role arm must scrub the same names as the others.
+    const inputsOrg = join(trial.guard[0], 'org.json');
+    const roleIds = [
+      ...new Set([
+        ...(existsSync(orgFile) ? readJson(orgFile).roles.map((r) => r.id) : []),
+        ...(existsSync(inputsOrg) ? readJson(inputsOrg).roles.map((r) => r.id) : []),
+      ]),
+    ];
     const ctx = { root, names: [trial.name], roleIds };
     const renamed = {};
     for (const f of producedFiles(join(root, 'workspace'), join(trial.guard[0], 'workspace'))) {

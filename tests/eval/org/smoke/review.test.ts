@@ -247,3 +247,32 @@ describe('scrub: nothing in a bundle says which arm, run, role or path produced 
     ]);
   });
 });
+
+describe('scrub uses the whole roster, so every arm reads alike', () => {
+  it("scrubs the role names of the original org as well as the trial's own, so a one-role arm does not stand out", () => {
+    const r = trial(both(true, true), {});
+    writeFileSync(
+      join(r, 'workspace/plan.md'),
+      'Sign-off from the brand-reviewer, then the outreach-manager sends it. growth-lead owns the plan.\n',
+    );
+    const tj = JSON.parse(readFileSync(join(r, 'trial.json'), 'utf8'));
+    // the trial's own org has one role; the inputs hold the original, larger roster
+    mkdirSync(join(r, '.monomind/orgs'), { recursive: true });
+    writeFileSync(
+      join(r, '.monomind/orgs', `${tj.name}.json`),
+      JSON.stringify({ name: tj.name, roles: [{ id: 'growth-lead' }] }),
+    );
+    writeFileSync(
+      join(tj.guard[0], 'org.json'),
+      JSON.stringify({
+        roles: [{ id: 'growth-lead' }, { id: 'brand-reviewer' }, { id: 'outreach-manager' }],
+      }),
+    );
+    const out = join(mkdtempSync(join(tmpdir(), 'bundles-')), 'out');
+    const [id] = pack({ roots: [r], out });
+    const text = readFileSync(join(out, id, 'artifacts/plan.md'), 'utf8');
+    expect(text).toBe(
+      'Sign-off from the <role>, then the <role> sends it. <role> owns the plan.\n',
+    );
+  });
+});
