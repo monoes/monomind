@@ -24,6 +24,8 @@ export interface PilotRow extends TrialRow {
   n: number;
   delegated: boolean;
   tasksCreated: number;
+  /** Tasks a lead put in play with org_plan_graph: logged as dispatched, with no task-created event. */
+  tasksDispatched: number;
   activeWorkers: string[];
   ended: string;
   handoff: HandoffCounts;
@@ -60,8 +62,11 @@ export function pilotRow(root: string): PilotRow {
 
   const complete = bus.find((e) => e.type === 'tool' && String(e.tool).endsWith('org_complete'));
   const leadId: string | undefined =
-    complete?.from ?? bus.find((e) => e.reason === 'task-created')?.from ?? bus[0]?.from;
+    complete?.from ??
+    bus.find((e) => e.reason === 'task-created' || e.reason === 'task-dispatched')?.from ??
+    bus[0]?.from;
   const tasksCreated = bus.filter((e) => e.reason === 'task-created').length;
+  const tasksDispatched = bus.filter((e) => e.reason === 'task-dispatched').length;
   const activeWorkers = [
     ...new Set(
       bus
@@ -103,8 +108,9 @@ export function pilotRow(root: string): PilotRow {
       trial.pilot?.arm ??
       ({ b: 'baseline', t: 'treatment', s: 'single' } as const)[(m?.[2] ?? 'b') as 'b'],
     n: m ? Number(m[1]) : 0,
-    delegated: tasksCreated > 0,
+    delegated: tasksCreated > 0 || tasksDispatched > 0,
     tasksCreated,
+    tasksDispatched,
     activeWorkers,
     ended,
     handoff,
@@ -143,7 +149,7 @@ export function pilotReport(rows: PilotRow[]) {
           if (baseline.delegated !== treatment.delegated) {
             confounded = true;
             reasons.push(
-              `the arms differ on delegation (baseline ${baseline.delegated ? `created ${baseline.tasksCreated} task(s)` : 'did not delegate'}; treatment ${treatment.delegated ? `created ${treatment.tasksCreated} task(s)` : 'did not delegate'})`,
+              `the arms differ on delegation (baseline ${baseline.delegated ? `put ${baseline.tasksCreated + baseline.tasksDispatched} task(s) in play` : 'did not delegate'}; treatment ${treatment.delegated ? `put ${treatment.tasksCreated + treatment.tasksDispatched} task(s) in play` : 'did not delegate'})`,
             );
           }
           if (baseline.voided || treatment.voided) {

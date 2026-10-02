@@ -20,6 +20,7 @@ interface Opts {
   n: number;
   arm: 'baseline' | 'treatment' | 'single';
   tasks?: number; // tasks the lead created
+  dispatched?: number; // tasks dispatched to workers by a plan graph (no `task-created` event)
   workers?: string[]; // roles other than the lead that did something
   complete?: 'achieved' | 'partial' | null;
   handoff?: { kind: string; ok: boolean; role: string }[];
@@ -40,6 +41,9 @@ function root(o: Opts) {
     ev('usage', 'lead', { data: { tokens: 1000, cost_usd: o.usd ?? 0.5, cache_read: 500 } }),
     ...Array.from({ length: o.tasks ?? 0 }, (_, i) =>
       ev('audit', 'lead', { reason: 'task-created', msg: `task ${i}` }),
+    ),
+    ...Array.from({ length: o.dispatched ?? 0 }, (_, i) =>
+      ev('audit', 'lead', { reason: 'task-dispatched', msg: `task ${i}` }),
     ),
     ...(o.workers ?? []).map((w) => ev('tool', w, { tool: 'Bash' })),
     ...(o.complete
@@ -237,5 +241,34 @@ describe('the single-agent arm', () => {
     const rep = pilotReport([single(1, { usd: 2 })]);
     expect(rep.spendUsd).toBeCloseTo(2);
     expect(rep.allocationUsd).toBe(8);
+  });
+});
+
+describe('delegation through a plan graph', () => {
+  it('counts tasks a lead dispatched with org_plan_graph, which log no task-created event, as delegation', () => {
+    const r = pilotRow(
+      root({ n: 1, arm: 'baseline', dispatched: 4, workers: ['a', 'b'], complete: 'achieved' }),
+    );
+    expect(r).toMatchObject({
+      delegated: true,
+      tasksCreated: 0,
+      tasksDispatched: 4,
+      activeWorkers: ['a', 'b'],
+    });
+  });
+
+  it('does not flag a pair confounded when both arms delegated, one by org_task and one by a plan graph', () => {
+    const rep = pilotReport([
+      pilotRow(root({ n: 1, arm: 'baseline', tasks: 3 })),
+      pilotRow(root({ n: 1, arm: 'treatment', dispatched: 5 })),
+    ]);
+    expect(rep.scenarios[0].pairs[0].confounded).toBe(false);
+  });
+
+  it('still calls a lead that did everything itself not delegated', () => {
+    expect(pilotRow(root({ n: 1, arm: 'treatment', complete: 'achieved' }))).toMatchObject({
+      delegated: false,
+      tasksDispatched: 0,
+    });
   });
 });

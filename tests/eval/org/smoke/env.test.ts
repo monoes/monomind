@@ -39,6 +39,7 @@ describe('the trial home', () => {
       'MONOMIND_HOME',
       'MONOMIND_ORGRT_BROKER_DIR',
       'MONOMIND_ORGRT_OPERATOR_DIR',
+      'MONOMIND_ORGRT_STUBS_DIR',
       'MONOMIND_PROJECTS_DIR',
     ]);
   });
