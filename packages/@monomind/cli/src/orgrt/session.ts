@@ -229,6 +229,7 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
     const sessionKey = taskKey;
     const roleTmpdir = tmp.for(sessionKey);
     if (roleTmpdir) sessionOpts = { ...sessionOpts, roleTmpdir };
+    sessionOpts = { ...sessionOpts, contextKey: sessionKey };
     const streamOpts: StreamOptions | undefined =
       scope === 'cold'
         ? { stopBefore: () => true, idleExitMs }

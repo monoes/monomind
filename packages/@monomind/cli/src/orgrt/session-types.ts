@@ -23,6 +23,9 @@ export type DeliverFn = (
 ) => Promise<string>;
 
 export interface SessionOpts {
+  /** The session key (a task id under task scope, `_role` otherwise), recorded
+   *  on each context-log record. Set by the session loop; unset = `_role`. */
+  contextKey?: string;
   org: string;
   role: OrgRole;
   bus: OrgBus;

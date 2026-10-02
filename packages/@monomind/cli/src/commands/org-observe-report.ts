@@ -5,6 +5,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readContextLog, summarizeContextLog } from '../orgrt/context-log.js';
 import { roleTokensNote, type TokenBasis } from '../orgrt/report-budget.js';
 import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
@@ -49,6 +50,35 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   // M2: endpoint roles are automations — they have no row in the role tables.
   const endpointIds = endpointRoleIds(ctx.cwd, name);
   for (const id of endpointIds) delete s.roles[id];
+
+  // --context: per-call context and cache figures from the run's context.jsonl.
+  if (ctx.flags.context === true) {
+    const rows = summarizeContextLog(readContextLog(join(ctx.cwd, ORG_DIR, name, run)));
+    for (const id of endpointIds) {
+      const i = rows.findIndex((r) => r.role === id);
+      if (i >= 0) rows.splice(i, 1);
+    }
+    if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, run, context: rows });
+    if (!rows.length) {
+      log(output.info(`no context log for ${name} / ${run} (a run from before it was kept, or no model calls)`));
+      return { success: true };
+    }
+    const n = (v: number): string => Math.round(v).toLocaleString('en-US');
+    const pct = (v: number): string => `${Math.round(v * 100)}%`;
+    log(output.info(`Context per model call for ${name} / ${run}:`));
+    for (const r of rows) {
+      const start =
+        r.start_write_share === null
+          ? 'no cache at session start'
+          : `session start ${n(r.start_cache_write_tokens)} written / ${n(r.start_cache_read_tokens)} read (${pct(r.start_write_share)} written)`;
+      log(
+        output.info(
+          `  ${r.role.padEnd(22)} ${r.calls} calls, ${r.sessions} session(s) · context mean ${n(r.mean_context_tokens)} / max ${n(r.max_context_tokens)} · cache hit ${pct(r.cache_hit_ratio)} · ${start}`,
+        ),
+      );
+    }
+    return { success: true };
+  }
 
   // Protocol JSON mode (§7.2): the run summary as a bare object. Emitted
   // before the human-only flag modes (mermaid/audit/by-role) — those render

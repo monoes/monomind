@@ -126,6 +126,11 @@ export const reportSubcommand: Command = {
     { name: 'run', description: 'Run id (default: latest)', type: 'string' },
     { name: 'all', description: 'List all recorded runs from history', type: 'boolean' },
     { name: 'by-role', description: 'Show per-role cost breakdown', type: 'boolean' },
+    {
+      name: 'context',
+      description: 'Show per-role context size and prefix cache read vs write per model call',
+      type: 'boolean',
+    },
     { name: 'audit', description: 'Show tool audit trail', type: 'boolean' },
     {
       name: 'tool',

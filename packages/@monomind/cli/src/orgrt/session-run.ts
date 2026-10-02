@@ -30,7 +30,9 @@ import {
   resultBreakdown,
   settleResultTokens,
   totalTokens,
+  turnBreakdown,
 } from './session-usage.js';
+import { appendContextCall } from './context-log.js';
 import { StateDetector } from './state-detector.js';
 import { linkAbort } from './task-cancel.js';
 import type { ToolResultEventData } from './types.js';
@@ -127,6 +129,9 @@ export async function runOneSession(
   // #597: largest usage seen per API response id, so a response split across
   // several assistant messages is metered once (see newResponseUsage).
   const responseUsage = new Map<string, TokenUsage>();
+  // Per-call context logging (context-log.ts): one record per model call.
+  const sessionStartedAt = Date.now();
+  let contextCalls = 0;
   // Abort hook for the runner (AgentRunArgs.signal): the silent-stream
   // abort below used to call iterator.return() only, which queues behind a
   // subprocess runner blocked in `for await (child.stdout)` — the child was
@@ -308,6 +313,30 @@ export async function runOneSession(
         // (~0.1x and ~1.25x input). Omitting them meant the better the cache
         // worked the less the meter saw: on one measured run, 2,765M tokens
         // billed against 8.1M recorded, with input_tokens at 0.0M.
+        // A new response id is a new model call (split messages of one call repeat it).
+        if (!m.response_id || !responseUsage.has(m.response_id)) {
+          const full = turnBreakdown(m);
+          const context = full.input + full.cacheRead + full.cacheCreation;
+          appendContextCall(bus.dir, {
+            ts: Date.now(),
+            role: role.id,
+            task_key: opts.contextKey ?? '_role',
+            ...(m.session_id ?? sessionId ? { session_id: m.session_id ?? sessionId } : {}),
+            resumed: resume !== undefined,
+            call_index: contextCalls,
+            session_age_ms: Date.now() - sessionStartedAt,
+            first_call: contextCalls === 0,
+            parent: Boolean(m.parent_tool_use_id),
+            ...(m.response_id ? { response_id: m.response_id } : {}),
+            context_tokens: context,
+            input: full.input,
+            cache_read: full.cacheRead,
+            cache_creation: full.cacheCreation,
+            output: full.output,
+            cache_hit_ratio: context ? full.cacheRead / context : 0,
+          });
+          contextCalls++;
+        }
         const turn = newResponseUsage(responseUsage, m);
         const turnTokens = totalTokens(turn);
         if (turnTokens > 0) {
