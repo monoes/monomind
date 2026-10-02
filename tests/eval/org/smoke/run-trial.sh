@@ -23,6 +23,7 @@ mapfile -t guard < <(field x guard)
 
 fingerprint() { for d in "${guard[@]}"; do (cd "$d" && find . -type f -print0 | sort -z | xargs -0 sha256sum); done; }
 
+t0=$(date +%s)
 cd "$root"
 # The runtime's own state lives in the trial root (env.mjs); HOME stays real so the
 # runners' logins (claude, codex, ...) keep working. The driver inherits these too.
@@ -42,7 +43,7 @@ kill "$answerer" "$idler" ${drv:-} 2>/dev/null
 end=$(date +%s)
 fingerprint > guard-after.sha256
 node "$here/env.mjs" fingerprint > real-state-after.json
-node "$here/env.mjs" leaks "$name" > real-state-leaks.txt
+node "$here/env.mjs" leaks "$name" "$t0" > real-state-leaks.txt
 if cmp -s guard-before.sha256 guard-after.sha256; then integrity=clean; else integrity=VOID; fi
 if cmp -s real-state-before.json real-state-after.json && [ ! -s real-state-leaks.txt ]; then realstate=clean; else realstate=VOID; fi
 printf '{"name":"%s","exit":%d,"timedOut":%s,"seconds":%d,"inputs":"%s","realState":"%s"}\n' \

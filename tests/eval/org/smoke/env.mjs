@@ -9,7 +9,7 @@
 //
 //   env.mjs prepare <trial root>          prints KEY=VALUE lines to export
 //   env.mjs fingerprint                   prints the real state's directory listing
-//   env.mjs leaks <trial name>            prints files in the real state naming the trial; exit 1 if any
+//   env.mjs leaks <trial name> [epoch s]  prints paths in the real state naming the trial and written since; exit 1 if any
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -59,8 +59,17 @@ export function realStateFingerprint(realHome = homedir()) {
   return out;
 }
 
-/** Files under the real state that mention the trial by name: a trial that reached it. */
-export function leaks(trialName, realHome = homedir()) {
+/** The newest modification time under a path (itself included). */
+function newestMtime(p) {
+  const st = statSync(p);
+  if (!st.isDirectory()) return st.mtimeMs;
+  return Math.max(st.mtimeMs, ...readdirSync(p).map((e) => newestMtime(join(p, e))));
+}
+
+/** Paths under the real state that name the trial, by file name or content, and that were written
+ *  at or after `sinceMs`: a trial that reached it. Anything older, such as the store of an earlier
+ *  dry run that had the same name, is not this trial's. */
+export function leaks(trialName, realHome = homedir(), sinceMs = 0) {
   const base = join(realHome, '.monomind');
   const hits = [];
   const walk = (dir, depth) => {
@@ -68,11 +77,13 @@ export function leaks(trialName, realHome = homedir()) {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, e.name);
       if (dir === base && SKIP.has(e.name)) continue;
-      if (e.name.includes(trialName)) hits.push(p);
-      else if (e.isDirectory()) walk(p, depth + 1);
+      if (e.name.includes(trialName)) {
+        if (newestMtime(p) >= sinceMs) hits.push(p);
+      } else if (e.isDirectory()) walk(p, depth + 1);
       else if (
         e.isFile() &&
         statSync(p).size < 2_000_000 &&
+        statSync(p).mtimeMs >= sinceMs &&
         readFileSync(p, 'utf8').includes(trialName)
       )
         hits.push(p);
@@ -83,12 +94,12 @@ export function leaks(trialName, realHome = homedir()) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [cmd, arg] = process.argv.slice(2);
+  const [cmd, arg, since] = process.argv.slice(2);
   if (cmd === 'prepare')
     for (const [k, v] of Object.entries(prepareTrialHome(arg))) console.log(`${k}=${v}`);
   else if (cmd === 'fingerprint') console.log(JSON.stringify(realStateFingerprint()));
   else if (cmd === 'leaks') {
-    const hits = leaks(arg);
+    const hits = leaks(arg, homedir(), since ? Number(since) * 1000 : 0);
     for (const h of hits) console.log(h);
     process.exit(hits.length ? 1 : 0);
   } else {

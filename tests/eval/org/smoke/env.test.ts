@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -79,5 +80,30 @@ describe('the real-state checks', () => {
       join(real, '.monomind/logs/a.log'),
       join(real, '.monomind/orgrt-broker/smoke-x-phase2-1.json'),
     ]);
+  });
+
+  it('ignores what already named the trial before it started (an earlier dry run with the same name)', () => {
+    const real = fakeHome();
+    const old = join(real, '.monomind/orgrt-broker/smoke-x-phase2-1.json');
+    writeFileSync(old, '{}');
+    utimesSync(old, 1_000, 1_000); // long before
+    const fresh = join(real, '.monomind/logs/new.log');
+    writeFileSync(fresh, 'smoke-x-phase2-1 started');
+    const since = Date.now() - 60_000;
+    expect(leaks('smoke-x-phase2-1', real, since)).toEqual([fresh]);
+    expect(leaks('smoke-x-phase2-1', real)).toHaveLength(2); // with no start time, everything counts
+  });
+
+  it('counts a directory whose contents changed after the start, not only its own timestamp', () => {
+    const real = fakeHome();
+    const dir = join(real, '.monomind/projects/smoke-x-phase2-1-abc');
+    mkdirSync(join(dir, 'lancedb'), { recursive: true });
+    writeFileSync(join(dir, 'origin.json'), '{}');
+    utimesSync(join(dir, 'origin.json'), 1_000, 1_000);
+    utimesSync(join(dir, 'lancedb'), 1_000, 1_000);
+    utimesSync(dir, 1_000, 1_000);
+    expect(leaks('smoke-x-phase2-1', real, Date.now() - 60_000)).toEqual([]);
+    writeFileSync(join(dir, 'lancedb/memory.db'), 'x'); // a store written into it during the trial
+    expect(leaks('smoke-x-phase2-1', real, Date.now() - 60_000)).toEqual([dir]);
   });
 });
