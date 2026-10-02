@@ -32,9 +32,10 @@ export const CAPS = {
   'visual-designer-agy': 0,
 };
 
-/** Phase 0's roles carried 19K-token session prefixes and the role-scoped lead ran long; the cap
- *  is set well above a prefix plus a task's work so only a long run rotates. */
-export const SESSION_CAP = { tokens: 150_000 };
+/** The session cap counts cache reads (every model call re-reads the role's context), and the dry runs
+ *  measured 100-370K counted tokens in one turn of a Haiku or codex role. Phase 0's growth roles carry
+ *  19K-token prefixes and run longer turns, so 1M is about 3-6 such turns before a session rotates. */
+export const SESSION_CAP = { tokens: 1_000_000 };
 
 export const TASK =
   'Produce, in this run, one public-facing content draft (a blog post or X thread), one research ' +

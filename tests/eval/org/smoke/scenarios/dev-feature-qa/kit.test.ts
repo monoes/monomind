@@ -118,7 +118,7 @@ describe('prepare, for both contenders', () => {
       expect(trialJson.task).toContain('parseDuration');
       expect(trialJson.task).toMatch(/QA\.md/);
       if (contender === 'phase2')
-        expect(org.run_config.context.session_cap).toEqual({ tokens: 120_000 });
+        expect(org.run_config.context.session_cap).toEqual({ tokens: 600_000 });
     }
   });
 

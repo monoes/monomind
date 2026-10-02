@@ -104,7 +104,7 @@ describe('prepare, for both contenders', () => {
       expect(trial.task).toMatch(/report\.md/);
       expect(trial.task).toMatch(/ledger\.json/);
       if (contender === 'phase2')
-        expect(org.run_config.context.session_cap).toEqual({ tokens: 60_000 });
+        expect(org.run_config.context.session_cap).toEqual({ tokens: 600_000 });
     },
   );
 });

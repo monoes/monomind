@@ -152,10 +152,12 @@ export async function baseDef() {
     // Sums to the $8 planning allocation; the synthesiser carries the most (it holds the whole debate).
     caps: { lead: 1, advocate: 2, critic: 2, synthesiser: 3 },
     allocationUsd: 8,
-    // Under phase2 a role's session rotates past this many tokens. QUESTION + CONTEXT are about
-    // 2k tokens and the debate is a few short rounds, so 40k lets a role carry it without rotating
-    // early, yet still engages if a role loops, which is what the cap is meant to bound.
-    sessionCap: { tokens: 40_000 },
+    // The session cap counts every token a response carries, cache reads included (session-usage.ts
+    // totalTokens), and a role re-reads its whole context on each model call. The dry runs measured
+    // 100-370K counted tokens in ONE turn of a Haiku lead or a codex role, so a cap of 40-60K rotated a
+    // role on almost every turn and 10-12 times in 10 minutes. 600K is about 2-5 turns of such a role: a
+    // session carries a real stretch of work before it rotates, and a looping role is still bounded.
+    sessionCap: { tokens: 600_000 },
     deadlineSeconds: 2700,
   };
 }

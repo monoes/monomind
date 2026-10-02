@@ -107,11 +107,12 @@ export async function baseDef({ workspace }) {
     // lead 1 + implementer 4 + qa 3: the implementer does the most model work.
     caps: { lead: 1, implementer: 4, 'qa-engineer': 3 },
     allocationUsd: 8,
-    // The fixture (two small files) fits in a few thousand tokens, so one task's
-    // session normally stays far below this. 120k lets a role iterate through
-    // many test rounds before the cap rotates its session, yet bounds a looping
-    // role well under the context window.
-    sessionCap: { tokens: 120_000 },
+    // The session cap counts every token a response carries, cache reads included (session-usage.ts
+    // totalTokens), and a role re-reads its whole context on each model call. The dry runs measured
+    // 100-370K counted tokens in ONE turn of a Haiku lead or a codex role, so a cap of 40-60K rotated a
+    // role on almost every turn and 10-12 times in 10 minutes. 600K is about 2-5 turns of such a role: a
+    // session carries a real stretch of work before it rotates, and a looping role is still bounded.
+    sessionCap: { tokens: 600_000 },
     deadlineSeconds: 3600,
   };
 }

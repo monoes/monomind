@@ -124,10 +124,12 @@ export async function baseDef({ workspace }) {
     task: `Answer the question in QUESTION.md using the snapshot/ directory of the workspace (${workspace}). Produce report.md and ledger.json in that workspace root, in the format QUESTION.md specifies.`,
     caps: CAPS,
     allocationUsd: 8,
-    // A Haiku researcher reading excerpts for two sub-questions processes roughly 20-40k
-    // de-duplicated tokens, so 60000 lets a normal session finish in one generation and
-    // rotates it only when it runs long (re-reading files, wandering into other sub-questions).
-    sessionCap: { tokens: 60_000 },
+    // The session cap counts every token a response carries, cache reads included (session-usage.ts
+    // totalTokens), and a role re-reads its whole context on each model call. The dry runs measured
+    // 100-370K counted tokens in ONE turn of a Haiku lead or a codex role, so a cap of 40-60K rotated a
+    // role on almost every turn and 10-12 times in 10 minutes. 600K is about 2-5 turns of such a role: a
+    // session carries a real stretch of work before it rotates, and a looping role is still bounded.
+    sessionCap: { tokens: 600_000 },
     deadlineSeconds: 2700,
   };
 }
