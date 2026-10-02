@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveRoleCostTier, validateCostTiers } from '../orgrt/cost-tier.js';
+import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { OrgDefSchema } from '../orgrt/types.js';
@@ -386,6 +387,9 @@ export function patchOrgConfig(root, org, patch) {
     );
   const tierProblems = validateCostTiers(parsed.data);
   if (tierProblems.length) throw new ConfigRejected(tierProblems);
+  // Org sections spec 7.3: the shared checklist; advice never blocks a save.
+  const checklistProblems = checklistFindings(parsed.data).errors;
+  if (checklistProblems.length) throw new ConfigRejected(checklistProblems);
   writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`);
   return next;
 }

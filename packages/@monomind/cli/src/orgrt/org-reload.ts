@@ -15,6 +15,7 @@ import {
 import { expandOrgPolicyPathVars, promptVarsFor } from './prompt-vars.js';
 import { computeReplacementBudget } from './role-slot.js';
 import { ORG_DIR, OrgDefSchema } from './types.js';
+import { checklistFindings } from './validate-checklist.js';
 
 export function reloadOrgDef(
   daemon: OrgDaemon,
@@ -47,6 +48,10 @@ export function reloadOrgDef(
   const bp = resolveOrgDefBlueprints(parsedDef, daemon.root, digests);
   if (bp.errors.length) throw new Error(`org ${name}: ${bp.errors.join('; ')}`);
   const newDef = expandOrgPolicyPathVars(bp.def, promptVarsFor(daemon.root));
+  // Org sections spec 6.14: run the checklist on the proposed definition
+  // before applying anything; a failing one leaves the running org as is.
+  const checklist = checklistFindings(newDef);
+  if (checklist.errors.length) throw new Error(`org ${name}: ${checklist.errors.join('; ')}`);
   pinInstructionDigests(newDef, digests); // for roles this reload adds
   const changed: string[] = [];
   const newRoles: string[] = [];

@@ -10,6 +10,7 @@ import { fullAccessTaintFindings } from '../orgrt/access-taint.js';
 import { accessValidationFindings } from '../orgrt/access-validate.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
 import { gitEnforcementFindings } from '../orgrt/role-sandbox.js';
+import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { resolveModel } from '../orgrt/session.js';
 import { buildFromTemplate, ORG_TEMPLATES } from '../orgrt/templates.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
@@ -100,6 +101,10 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
       );
       errors.push(...scopeFindings.errors);
       warnings.push(...scopeFindings.warnings);
+      // Org sections spec 7.3: the shared caveat checklist.
+      const checklist = checklistFindings(def);
+      errors.push(...checklist.errors);
+      warnings.push(...checklist.warnings);
       if (def.name !== stem)
         warnings.push(
           `def.name "${def.name}" differs from filename — the runtime addresses this org as "${stem}"`,
@@ -155,6 +160,13 @@ export const createAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: 'org exists' };
   }
   OrgDefSchema.parse(def); // templates must always produce a runnable config
+  // Org sections spec 7.3: the saved definition gets the same checklist as
+  // `org validate`. A template never configures a deferred feature, so an
+  // error here is a template bug and nothing is written; advice is shown.
+  const checklist = checklistFindings(def);
+  for (const e of checklist.errors) log(output.error(`${name}: ${e}`));
+  if (checklist.errors.length) return { success: false, message: 'template fails the org checklist' };
+  for (const w of checklist.warnings) log(output.warning(`${name}: ${w}`));
 
   // Per-role model — the single most consequential setting the template picked on
   // the user's behalf. Mirror resolveModel() (same helper `org run`'s cost estimate

@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **A shared checklist of org caveats, run wherever an org is saved or started.** `org validate`, `org run`/`org serve` start, `org reload`, `org create`, and the dashboard's config patch, import and create now run the same checks (`orgrt/validate-checklist.ts`). Errors stop the save or start; advice is a warning that never blocks, and a start records its warnings on the run's bus as `checklist-warning`.
+  - **Errors:** a deferred feature in the definition (`sections`, `documents`, `loops`, `requires`, and `run_config.context`, `budget_usd`, `budget_mode`, `experimental`) used to be ignored silently and now fails with "not yet supported".
+  - **Warnings:** an unknown top-level or `run_config` key, which the runtime would ignore; file scopes that do not cover the paths a role's duties name; shell duties with Bash denied; `max_concurrent_agents` below the role count (a finished worker keeps its slot, so roles past the cap wait); no `budget_usd` on any priced role; `budget_usd` on a codex or antigravity role, which reports no USD and is never closed by it; tools (Bash, WebFetch, WebSearch) that wait for a human approval nobody answers, and the same in a scheduled org; role text that tells a role to use `SendMessage`; a dated detail in a role prompt, which breaks the cached prefix; a boss prompt that does not require self-contained briefs; a role with no explicit model.
+
 ### Fixed
 
 - **A role stopped mid-query now reports its cost.** When an org completed or was stopped, every Claude role still working had its query killed outright; the query never sent a result, so its cost was never recorded. A short trial's meter showed $1.46 where its session transcripts put the spend near $5.65, and `budget_usd` closures never saw that spend. The Claude runner now interrupts the query first. The SDK answers with a result carrying the cost so far, which the runtime records like any other turn, as an `interrupted` stop that is not a failed turn and does not count toward the circuit breaker. A query that does not answer within 3 seconds is aborted as before.

@@ -103,7 +103,8 @@ async function startOrgInner(
   taskOverride?: string,
   options?: { resume?: boolean; autoApprove?: string[] },
 ): Promise<RunningOrg> {
-  const { def, run, checkpoint, dir, cwd, worktreePath } = await startSteps.prepareOrgStart(
+  const { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings } =
+    await startSteps.prepareOrgStart(
     daemon,
     name,
     options,
@@ -222,6 +223,9 @@ async function startOrgInner(
     credential: randomUUID(),
   };
   daemon.orgs.set(name, running);
+  // Org sections spec 7.3 advice, so it sits in the run's own record.
+  for (const w of checklistWarnings)
+    bus.emit({ type: 'audit', reason: 'checklist-warning', msg: w });
   // #480: private role TMPDIRs a dead earlier run of this org left behind.
   const staleTmp = sweepStaleRoleTmpdirs({ org: name, root: daemon.root, run });
   if (staleTmp.length > 0)

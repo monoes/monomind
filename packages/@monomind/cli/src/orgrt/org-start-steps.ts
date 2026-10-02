@@ -54,6 +54,8 @@ export async function prepareOrgStart(
   dir: string;
   cwd: string;
   worktreePath: string | undefined;
+  /** Section 7.3 advice for the bus; errors have already stopped the start. */
+  checklistWarnings: string[];
 }> {
   // #301: the PRIMARY fix — the stop-side backstops below (finishStop,
   // process 'exit') can only run for a run that ends through code we
@@ -231,6 +233,13 @@ export async function prepareOrgStart(
   if (skillErrors.length) {
     throw new Error(`org ${name}: ${skillErrors.join('; ')}`);
   }
+  // Org sections spec 7.3: the same checklist `org validate` runs. Errors
+  // stop the start; advice is recorded on the bus below.
+  const { checklistFindings } = await import('./validate-checklist.js');
+  const checklist = checklistFindings(def);
+  if (checklist.errors.length) {
+    throw new Error(`org ${name}: ${checklist.errors.join('; ')}`);
+  }
 
   // Validate per-role providers before spawning anything (fail-fast: a
   // missing env var discovered 10 minutes into a run wastes the entire run).
@@ -271,7 +280,7 @@ export async function prepareOrgStart(
       );
     }
   }
-  return { def, run, checkpoint, dir, cwd, worktreePath };
+  return { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings: checklist.warnings };
 }
 
 export async function createRoleFences(

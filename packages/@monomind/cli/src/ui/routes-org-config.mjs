@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { checklistErrorsForRaw } from '../orgrt/validate-checklist.js';
 import { approvalsOrEmpty } from './routes-org-helpers.mjs';
 
 // Org dashboard routes: org list, import, create, config and activity.
@@ -95,6 +96,13 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
           return;
         }
         const cfg = JSON.parse(body);
+        // Org sections spec 7.3: a deferred feature is refused, not saved.
+        const checklistErrors = checklistErrorsForRaw({ ...cfg, name: orgName });
+        if (checklistErrors.length) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: checklistErrors.join('; ') }));
+          return;
+        }
         const _importQs = new URL(req.url, 'http://localhost').searchParams;
         const dir = path.resolve(_importQs.get('dir') || ctx.projectDir || process.cwd());
         const orgsDir = path.join(dir, '.monomind', 'orgs');
@@ -142,6 +150,12 @@ export async function handleOrgConfigRoutes(req, res, url, corsOrigin, ctx) {
         const cleanCfg = Object.fromEntries(
           Object.entries({ ...cfg, name }).filter(([k]) => !k.startsWith('_')),
         );
+        const checklistErrors = checklistErrorsForRaw(cleanCfg);
+        if (checklistErrors.length) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: checklistErrors.join('; ') }));
+          return;
+        }
         fs.writeFileSync(destFile, JSON.stringify(cleanCfg, null, 2), 'utf8');
         res.writeHead(200, {
           'Content-Type': 'application/json',
