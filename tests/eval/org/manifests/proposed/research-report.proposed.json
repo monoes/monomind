@@ -1,0 +1,80 @@
+{
+  "status": "PROPOSED",
+  "proposed_on": "2026-10-02",
+  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
+  "id": "research-report",
+  "committed_at": "PROPOSED",
+  "title": "Research report with sources: a fixed question about a pinned repository snapshot, answered with checkable citations",
+  "fixture": {
+    "status": "PROPOSED",
+    "snapshot": "the pinned monomind commit named in the trial manifest, read-only, no network",
+    "question": "How does an org session decide when to end and start a fresh one, and what does each path record? Cover: (1) the task-scope boundary, (2) the idle exit, (3) the budget stops, (4) the session cap. Name the file and function behind each claim.",
+    "sub_questions": ["task-scope boundary", "idle exit", "budget stops", "session cap"]
+  },
+  "units": [
+    {
+      "id": "report",
+      "description": "A report answering the fixed question, one section per sub-question, every claim cited as path:line",
+      "count": 1,
+      "output_class": "report",
+      "evidence": "every citation resolves in the snapshot and the quoted text appears at the cited line (machine check); each of the four sub-questions has a section"
+    },
+    {
+      "id": "source-ledger",
+      "description": "A ledger of every citation with the claim it supports and the verbatim quote",
+      "count": 1,
+      "output_class": "ledger",
+      "evidence": "each ledger row's quote is found verbatim at its path:line in the snapshot; row count equals the report's citation count"
+    }
+  ],
+  "completion_rule": "Both units present and accepted, with all four sub-questions covered. A padded ledger, citations repeated to raise the count, or one section answering two sub-questions adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "sourced",
+        "description": "Every substantive claim carries a citation that resolves to the stated line"
+      },
+      {
+        "id": "accurate",
+        "description": "What the report says the cited code does is what it does"
+      },
+      {
+        "id": "complete",
+        "description": "All four sub-questions are answered, including what each path records"
+      },
+      {
+        "id": "concise",
+        "description": "No section is padding; nothing restates another section"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "a citation whose path or line does not exist in the snapshot",
+      "a quote that does not appear at its cited line",
+      "a claim about behaviour the cited code does not have"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 45,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline, paired by run",
+      "probability of a fully accepted fixture, with its Wilson interval",
+      "fabricated or unresolvable citations per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 8
+  }
+}

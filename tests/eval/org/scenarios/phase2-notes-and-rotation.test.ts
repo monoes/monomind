@@ -56,26 +56,39 @@ describe('scenario: notes injection, cap rotation and the stall digest', () => {
     // Each task arrives once the worker has seen the last: Alpha, then Beta (rotation 1), then Gamma (rotation 2).
     // The reminder that follows a turn left open is about a task already in the generation and rotates nothing.
     await started.poke('boss', START, `${START} Alpha`);
-    expect(await started.until(() => worker().some((m) => m.includes('] Alpha')), 10_000)).toBe(true);
+    expect(await started.until(() => worker().some((m) => m.includes('] Alpha')), 10_000)).toBe(
+      true,
+    );
     await started.poke('boss', START, `${START} Beta`);
-    expect(await started.until(() => worker().some((m) => m.includes('] Beta')), 10_000)).toBe(true);
+    expect(await started.until(() => worker().some((m) => m.includes('] Beta')), 10_000)).toBe(
+      true,
+    );
     await started.poke('boss', START, `${START} Gamma`);
-    expect(await started.until(() => worker().some((m) => m.includes('] Gamma')), 10_000)).toBe(true);
+    expect(await started.until(() => worker().some((m) => m.includes('] Gamma')), 10_000)).toBe(
+      true,
+    );
     const seen = worker();
     const at = (title: string) => seen.find((m) => m.includes(`] ${title}`))!;
 
     // Generation 0 has no digest; each later generation starts with one, then the notes, then its message.
     expect(at('Alpha')).not.toMatch(/session rotation/);
-    for (const [title, generation] of [['Beta', 1], ['Gamma', 2]] as const) {
+    for (const [title, generation] of [
+      ['Beta', 1],
+      ['Gamma', 2],
+    ] as const) {
       const m = at(title);
-      expect(m).toMatch(new RegExp(`^You are continuing after a session rotation \\(generation ${generation}\\)`));
+      expect(m).toMatch(
+        new RegExp(`^You are continuing after a session rotation \\(generation ${generation}\\)`),
+      );
       expect(m.indexOf('session rotation')).toBeLessThan(m.indexOf('ALPHA-STATE'));
       expect(m.indexOf('ALPHA-STATE')).toBeLessThan(m.indexOf(`] ${title}`));
     }
     // One rotation without a finished task is not a stall; two in a row are.
     expect(at('Beta')).not.toMatch(/rotations in a row/);
     expect(at('Gamma')).toMatch(/2 rotations in a row finished no task/);
-    expect(new Set(started.sdk.options.get('worker')!.map((o) => o.resume))).toEqual(new Set([undefined]));
+    expect(new Set(started.sdk.options.get('worker')!.map((o) => o.resume))).toEqual(
+      new Set([undefined]),
+    );
 
     // Every rotation is audited with the cap and what crossed it.
     const rotated = started.events.filter(

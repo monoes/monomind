@@ -1,0 +1,87 @@
+{
+  "status": "PROPOSED",
+  "proposed_on": "2026-10-02",
+  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
+  "id": "sparse-dispatch",
+  "committed_at": "PROPOSED",
+  "title": "Sparse dispatch across cache expiry: a long-lived steward answers tickets that arrive in bursts, and rotates",
+  "fixture": {
+    "status": "PROPOSED",
+    "shape": "one steward role with notes on and a session cap that forces at least two rotations; a scripted injector delivers 12 lookup tickets in 4 bursts of 3, with a gap longer than the prompt cache's time to live between bursts",
+    "gap_minutes": 6,
+    "cache_ttl_note": "the cache time to live in force is pinned and logged per trial; the gap must exceed it",
+    "ledger": "a fixed local key-value ledger of 40 entries; each ticket asks for one value by key and the right answer is exact",
+    "cap": {
+      "session_cap": {
+        "tokens": "set so the steward rotates at least twice; the value is fixed in the trial manifest before any run"
+      }
+    }
+  },
+  "units": [
+    {
+      "id": "ticket-answer",
+      "description": "The steward's answer to one ticket",
+      "count": 12,
+      "output_class": "answer",
+      "evidence": "the answer equals the ledger value for the ticket's key exactly (machine check)"
+    },
+    {
+      "id": "handoff-notes",
+      "description": "The steward's notes, with a current-state entry written before each rotation",
+      "count": 1,
+      "output_class": "notes",
+      "evidence": "a current_state entry precedes each recorded rotation in the run's event log, and the first answer after each rotation is correct"
+    }
+  ],
+  "completion_rule": "All 12 tickets answered correctly and the notes unit accepted. A ticket answered twice counts once; an answer after the deadline does not count.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "correct",
+        "description": "Each answer equals the ledger value for its key"
+      },
+      {
+        "id": "continuous",
+        "description": "Answers after a rotation are as correct as those before it, without asking for what the notes or digest already held"
+      },
+      {
+        "id": "economical",
+        "description": "The steward does not re-read the whole ledger for each ticket"
+      },
+      {
+        "id": "responsive",
+        "description": "Every ticket is answered within the deadline"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "an answer that is not in the ledger",
+      "a ticket dropped or never answered",
+      "state lost across a rotation so that a previously answered key is answered wrongly"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 60,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline, paired by run",
+      "probability of a fully accepted fixture, with its Wilson interval",
+      "cache read vs write tokens at each session start",
+      "tokens per answered ticket, before and after the first rotation"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 8
+  }
+}

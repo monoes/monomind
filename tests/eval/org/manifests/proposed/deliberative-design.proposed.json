@@ -1,0 +1,87 @@
+{
+  "status": "PROPOSED",
+  "proposed_on": "2026-10-02",
+  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
+  "id": "deliberative-design",
+  "committed_at": "PROPOSED",
+  "title": "Deliberative design decision: choose among declared options against declared criteria, with recorded objections",
+  "fixture": {
+    "status": "PROPOSED",
+    "question": "Which on-disk format should the eval harness use for a trial's event log: JSONL, SQLite, or a columnar file? Constraints: no new runtime dependency, append-only writes during a run, readable with standard tools after a crash, queries by role and time range for reports.",
+    "mandatory_options": ["JSONL", "SQLite", "columnar file"],
+    "criteria": [
+      "no new dependency",
+      "crash-safe append",
+      "inspectable with standard tools",
+      "query by role and time",
+      "implementation effort"
+    ],
+    "note": "Spec section 9.1 defers deliberative sections; this scenario runs with separate deliberative roles, as today."
+  },
+  "units": [
+    {
+      "id": "decision-record",
+      "description": "A decision record: the options, each criterion scored per option with a one-line reason, the chosen option and why it wins",
+      "count": 1,
+      "output_class": "decision",
+      "evidence": "all three mandatory options and all five criteria are present; every option has a score and reason per criterion; the chosen option has the highest total (machine check)"
+    },
+    {
+      "id": "objection-log",
+      "description": "The objections raised by at least two distinct roles, each with its disposition (accepted, rejected with reason, or deferred)",
+      "count": 1,
+      "output_class": "log",
+      "evidence": "at least two roles are named; every objection has a disposition; each rejected objection has a stated reason"
+    }
+  ],
+  "completion_rule": "Both units present and accepted, and the record's chosen option matches the option the objection log's final disposition leaves standing. Adding options or criteria beyond the declared ones adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "consistent",
+        "description": "The chosen option follows from the record's own scores"
+      },
+      {
+        "id": "complete",
+        "description": "Every mandatory option and criterion is evaluated"
+      },
+      {
+        "id": "contested",
+        "description": "Objections are real (they change a score or are answered on the merits), not agreement restated"
+      },
+      {
+        "id": "grounded",
+        "description": "Claims about each format's behaviour are true"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "a chosen option that contradicts the record's own scoring",
+      "a mandatory option or criterion missing",
+      "a claim about a format that is false and changes a score"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 45,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline, paired by run",
+      "probability of a fully accepted fixture, with its Wilson interval",
+      "objections that changed a score, per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 8
+  }
+}
