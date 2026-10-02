@@ -90,12 +90,12 @@ describe('deliberative-design kit: inputs and definition', () => {
     const parsed = OrgDefSchema.parse(org);
     expect(checklistFindings(parsed).errors).toEqual([]);
     expect(org.roles.length).toBe(4);
-    // The lead is Claude Haiku (priced); the deliberators run on antigravity, capped by tokens.
+    // The lead is Claude Haiku (priced); the deliberators run on codex, capped by tokens.
     for (const r of org.roles)
       if (r.reports_to != null)
         expect([r.runtime, r.adapter_config.model, r.budget_tokens]).toEqual([
-          'antigravity',
-          'gemini-3.8-flash-high',
+          'codex',
+          'gpt-6-astra',
           4_000_000,
         ]);
     expect(

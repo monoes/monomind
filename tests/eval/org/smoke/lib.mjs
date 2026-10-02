@@ -45,7 +45,10 @@ export function applyContender(def, contender, { sessionCap } = {}) {
  *  scenario using them is capped by tokens (UNPRICED_ROLE_TOKENS) and its cost is reported
  *  as incomplete, never as zero.
  *  - research-report: a stronger reader for verbatim citations (codex, the higher model).
- *  - deliberative-design: breadth of reasoning across deliberators (antigravity, the higher flash model).
+ *  - deliberative-design: codex too. It first ran on antigravity (dry run): the advocate's org_send
+ *    carried the whole scoring table in one tool-call fence, the fence was malformed JSON ("Unterminated
+ *    string"), the runtime ignored it, and the org sat silent until the idle watchdog ended it with
+ *    no deliverable. That is the runner's fence parsing, not the question, so it gives no quality read.
  *  - sparse-dispatch: the steward depends on the native notes tool and rotation (Claude, priced).
  *  - dev-feature-qa: read-only QA is enforced through Claude's file and sandbox restrictions, which
  *    the other runners are not verified to honour (Claude, priced). */
@@ -54,7 +57,7 @@ export const CODEX = { runtime: 'codex', model: 'gpt-6-astra' };
 export const AGY = { runtime: 'antigravity', model: 'gemini-3.8-flash-high' };
 export const RUNNER_PLANS = {
   'research-report': { workers: CODEX },
-  'deliberative-design': { workers: AGY },
+  'deliberative-design': { workers: CODEX },
   'sparse-dispatch': { workers: CLAUDE },
   'dev-feature-qa': { workers: CLAUDE },
   // The growth org keeps each role's own runner (two designers run on codex and antigravity);

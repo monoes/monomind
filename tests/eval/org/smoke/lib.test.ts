@@ -80,9 +80,10 @@ describe('model, caps and isolation', () => {
       runtime: 'codex',
       model: 'gpt-6-astra',
     });
+    // not antigravity: its tool-call fences broke on a long org_send in the dry run (see lib.mjs)
     expect(RUNNER_PLANS['deliberative-design'].workers).toEqual({
-      runtime: 'antigravity',
-      model: 'gemini-3.8-flash-high',
+      runtime: 'codex',
+      model: 'gpt-6-astra',
     });
     expect(RUNNER_PLANS['sparse-dispatch'].workers.runtime).toBe('claude');
     expect(RUNNER_PLANS['dev-feature-qa'].workers.runtime).toBe('claude');
