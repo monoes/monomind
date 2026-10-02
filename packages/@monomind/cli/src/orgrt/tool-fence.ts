@@ -204,12 +204,31 @@ function describeZod(schema: z.ZodType<any>): string {
   return desc ? `${kind} — ${desc}` : kind;
 }
 
+/** The name of the stand-in call parseToolCalls returns for a fence it could
+ *  not parse. It is not an org tool: executeToolCall answers it with an error
+ *  telling the role its call did not run and how to send it again, and that
+ *  answer goes back to the role as a tool_result like any other. */
+export const MALFORMED_FENCE_CALL = '__malformed_tool_call';
+
+/** What the role is told for a fence that would not parse. */
+export function malformedFenceResult(error: unknown): string {
+  return (
+    `ERROR: your tool_call block could not be parsed (${String(error)}). Nothing ran, so any send, ` +
+    'save or other action in it did not happen. Send it again as valid JSON: write every newline inside a ' +
+    'string as \\n and every quote as \\", close the fence with ```, and keep the arguments short, ' +
+    'putting long content in a file and passing its path.'
+  );
+}
+
 /** Extract tool_call fences from raw assistant texts. A fence whose JSON
- *  cannot be parsed at all is skipped — but NOT silently: `onMalformed` (when
- *  given) is invoked with the raw fence body and the parse error so callers
- *  can surface it (runners emit it as an assistant note, which session.ts
- *  routes to the org bus and scrollback). A parsed object without a string
- *  `name` is skipped quietly — there is nothing actionable to report. */
+ *  cannot be parsed is not dropped: `onMalformed` (when given) is invoked with
+ *  the raw fence body and the parse error so callers can surface it (runners
+ *  emit it as an assistant note, which session.ts routes to the org bus and
+ *  scrollback), and a MALFORMED_FENCE_CALL stands in for it in the returned
+ *  calls, in its place among the others. Running it returns an error to the
+ *  role, so a role whose send did not parse learns that and can retry instead
+ *  of ending its turn believing the send went. A parsed object without a
+ *  string `name` is skipped quietly — there is nothing actionable to report. */
 export function parseToolCalls(
   rawTexts: string[],
   onMalformed?: (raw: string, error: string) => void,
@@ -238,7 +257,9 @@ export function parseToolCalls(
               : {},
         });
       } catch (err) {
-        onMalformed?.(m[1].trim(), err instanceof Error ? err.message : String(err));
+        const error = err instanceof Error ? err.message : String(err);
+        onMalformed?.(m[1].trim(), error);
+        calls.push({ name: MALFORMED_FENCE_CALL, arguments: { error } });
       }
     }
     // A ```tool_call opener with no closing ``` anywhere after it (the model
@@ -252,10 +273,10 @@ export function parseToolCalls(
     const openerIdx = text.lastIndexOf(OPENER);
     if (openerIdx !== -1 && openerIdx >= lastMatchEnd) {
       const body = text.slice(openerIdx + OPENER.length).replace(/^[ \t]*\n/, '');
-      onMalformed?.(
-        body.trim(),
-        'tool_call fence was truncated (no closing ``` found) — re-issue with shorter arguments',
-      );
+      const error =
+        'tool_call fence was truncated (no closing ``` found) — re-issue with shorter arguments';
+      onMalformed?.(body.trim(), error);
+      calls.push({ name: MALFORMED_FENCE_CALL, arguments: { error } });
     }
   }
   return calls;
@@ -274,6 +295,7 @@ export async function executeToolCall(
   call: ToolCall,
   canUseTool?: (toolName: string, input: Record<string, unknown>) => Promise<unknown>,
 ): Promise<string> {
+  if (call.name === MALFORMED_FENCE_CALL) return malformedFenceResult(call.arguments.error);
   const tool = tools.find((t) => t.name === call.name);
   if (!tool)
     return `ERROR: unknown tool "${call.name}". Available: ${tools.map((t) => t.name).join(', ')}`;

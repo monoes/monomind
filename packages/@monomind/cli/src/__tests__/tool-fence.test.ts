@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { parseToolCalls } from '../orgrt/tool-fence.js';
+import { MALFORMED_FENCE_CALL, parseToolCalls } from '../orgrt/tool-fence.js';
 
 const fence = (body: string) => `\`\`\`tool_call\n${body}\n\`\`\``;
 
@@ -38,11 +38,11 @@ describe('parseToolCalls', () => {
     expect(onMalformed).not.toHaveBeenCalled();
   });
 
-  it('skips a truly malformed fence and reports it via onMalformed', () => {
+  it('reports a truly malformed fence via onMalformed and stands an error call in for it', () => {
     const text = fence('{"name": "org_send", "arguments": {unterminated');
     const onMalformed = vi.fn();
     const calls = parseToolCalls([text], onMalformed);
-    expect(calls).toEqual([]);
+    expect(calls.map((c) => c.name)).toEqual([MALFORMED_FENCE_CALL]); // it runs nothing but is answered
     expect(onMalformed).toHaveBeenCalledTimes(1);
     const [raw, err] = onMalformed.mock.calls[0] as [string, string];
     expect(raw).toContain('org_send');
@@ -98,12 +98,12 @@ describe('parseToolCalls', () => {
   // per-response output limit mid-argument) never matches TOOL_CALL_RE at
   // all, so it used to be silently dropped — no tool executed, no feedback,
   // the model believing its call succeeded.
-  it('reports a truncated fence (no closing ```) via onMalformed and executes nothing', () => {
+  it('reports a truncated fence (no closing ```) via onMalformed and answers it with an error call', () => {
     const text =
       '```tool_call\n{"name": "org_gate", "arguments": {"name": "publish", "description": "a very long description that got cut off mid';
     const onMalformed = vi.fn();
     const calls = parseToolCalls([text], onMalformed);
-    expect(calls).toEqual([]);
+    expect(calls.map((c) => c.name)).toEqual([MALFORMED_FENCE_CALL]);
     expect(onMalformed).toHaveBeenCalledTimes(1);
     const [raw, err] = onMalformed.mock.calls[0] as [string, string];
     expect(raw).toContain('org_gate');
@@ -124,7 +124,7 @@ describe('parseToolCalls', () => {
       '\n```tool_call\n{"name": "org_gate", "arguments": {"description": "cut off mid';
     const onMalformed = vi.fn();
     const calls = parseToolCalls([text], onMalformed);
-    expect(calls.map((c) => c.name)).toEqual(['org_send']);
+    expect(calls.map((c) => c.name)).toEqual(['org_send', MALFORMED_FENCE_CALL]);
     expect(onMalformed).toHaveBeenCalledTimes(1);
     const [raw, err] = onMalformed.mock.calls[0] as [string, string];
     expect(raw).toContain('org_gate');
