@@ -24,10 +24,19 @@
     },
     {
       "id": "handoff-notes",
-      "description": "The steward's notes, with a current-state entry written before each rotation",
+      "description": "The steward's notes, with a note written since the previous rotation",
       "count": 1,
       "output_class": "notes",
-      "evidence": "a current_state entry precedes each recorded rotation in the run's event log, and the first answer after each rotation is correct"
+      "evidence": "a note of either kind, note or current_state, was written since the previous rotation (or since the run started, for the first rotation), and the first answer after each rotation is correct"
+    }
+  ],
+  "declared_changes": [
+    {
+      "date": "2026-10-02",
+      "what": "handoff-notes evidence rule relaxed from \"a current_state entry precedes each recorded rotation\" to \"a note of either kind, note or current_state, was written since the previous rotation (or since the run started, for the first rotation)\"",
+      "why": "in the first smoke run the steward wrote current_state before only some rotations while every first answer after a rotation was correct; the runtime injects the last current_state plus every later note, so a note since the previous rotation is what continuity needs",
+      "approved_by": "owner",
+      "earlier_result": "the first smoke run was judged under the old rule and stays on record"
     }
   ],
   "completion_rule": "All 12 tickets answered correctly and the notes unit accepted. A ticket answered twice counts once; an answer after the deadline does not count.",

@@ -301,7 +301,7 @@ describe('check', () => {
   });
 
   describe('phase2 notes and rotation evidence', () => {
-    it('accepts when each rotation has a fresh current_state before it and the next answer is right', async () => {
+    it('accepts when a current_state entry was written since the previous rotation and the next answer is right', async () => {
       const s = await setup('phase2');
       s.writeBus([ROT(1_250), ROT(1_650)]);
       s.writeNotes(note(1_000, 'current_state', 'T01 done') + note(1_400, 'current_state', 'T05'));
@@ -309,17 +309,51 @@ describe('check', () => {
       expect(u.accepted).toBe(true);
       expect(u.evidence.rotations).toHaveLength(2);
       expect(
-        u.evidence.rotations.every((r: any) => r.currentStateBefore && r.firstAnswerCorrect),
+        u.evidence.rotations.every((r: any) => r.noteSincePrevious && r.firstAnswerCorrect),
       ).toBe(true);
     });
 
-    it('rejects a rotation with no current_state note since the last one', async () => {
+    it('accepts plain note entries before each rotation (the old rule rejected this)', async () => {
       const s = await setup('phase2');
       s.writeBus([ROT(1_250), ROT(1_650)]);
-      s.writeNotes(note(1_000, 'current_state', 'T01 done') + note(1_300, 'note', 'a plain note'));
+      s.writeNotes(note(1_000, 'note', 'T01 done') + note(1_400, 'note', 'T05'));
+      const u = notes(await checkTrial(s.root));
+      expect(u.accepted).toBe(true);
+      expect(u.evidence.currentStateEntries).toBe(0);
+      expect(u.evidence.rotations.map((r: any) => r.notesSincePrevious)).toEqual([1, 1]);
+    });
+
+    it('rejects a rotation with no note since the previous rotation, even if an older note exists', async () => {
+      const s = await setup('phase2');
+      s.writeBus([ROT(1_250), ROT(1_650)]);
+      s.writeNotes(note(1_000, 'current_state', 'T01 done'));
       const u = notes(await checkTrial(s.root));
       expect(u.accepted).toBe(false);
-      expect(u.evidence.rotations[1].currentStateBefore).toBe(false);
+      expect(u.evidence.rotations[0].noteSincePrevious).toBe(true);
+      expect(u.evidence.rotations[1].noteSincePrevious).toBe(false);
+      expect(u.evidence.rotations[1].notesSincePrevious).toBe(0);
+    });
+
+    it('counts a note of either kind written since the previous rotation', async () => {
+      const s = await setup('phase2');
+      s.writeBus([ROT(1_250), ROT(1_650)]);
+      s.writeNotes(
+        note(1_000, 'note', 'a') + note(1_300, 'current_state', 'b') + note(1_400, 'note', 'c'),
+      );
+      const u = notes(await checkTrial(s.root));
+      expect(u.accepted).toBe(true);
+      expect(u.evidence.rotations.map((r: any) => r.notesSincePrevious)).toEqual([1, 2]);
+      expect(u.evidence.currentStateEntries).toBe(1);
+    });
+
+    it('counts notes since the run started for the first rotation', async () => {
+      const s = await setup('phase2');
+      s.writeBus([ROT(1_250), ROT(1_650)]);
+      s.writeNotes(note(1_300, 'note', 'only after the first rotation'));
+      const u = notes(await checkTrial(s.root));
+      expect(u.accepted).toBe(false);
+      expect(u.evidence.rotations[0].noteSincePrevious).toBe(false);
+      expect(u.evidence.rotations[1].noteSincePrevious).toBe(true);
     });
 
     it('rejects a wrong first answer after a rotation, and missing notes', async () => {
