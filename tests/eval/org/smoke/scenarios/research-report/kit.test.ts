@@ -86,8 +86,19 @@ describe('prepare, for both contenders', () => {
       );
       const parsed = OrgDefSchema.parse(org);
       expect(checklistFindings(parsed).errors).toEqual([]);
-      expect(org.roles.every((r: any) => r.adapter_config.model === MODEL)).toBe(true);
-      expect(org.roles.reduce((a: number, r: any) => a + r.budget_usd, 0)).toBeLessThanOrEqual(8);
+      // The root is Claude Haiku (priced); the researchers and verifier run on codex, capped by tokens.
+      for (const r of org.roles)
+        if (r.reports_to == null)
+          expect([r.adapter_config.model, r.runtime]).toEqual([MODEL, undefined]);
+        else
+          expect([r.adapter_config.model, r.runtime, r.budget_tokens]).toEqual([
+            'gpt-6-astra',
+            'codex',
+            500_000,
+          ]);
+      expect(
+        org.roles.reduce((a: number, r: any) => a + (r.budget_usd ?? 0), 0),
+      ).toBeLessThanOrEqual(8);
       const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
       expect(trial).toMatchObject({ allocationUsd: 8, deadlineSeconds: 2700 });
       expect(trial.task).toMatch(/report\.md/);

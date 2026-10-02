@@ -90,7 +90,17 @@ describe('deliberative-design kit: inputs and definition', () => {
     const parsed = OrgDefSchema.parse(org);
     expect(checklistFindings(parsed).errors).toEqual([]);
     expect(org.roles.length).toBe(4);
-    expect(sum(org.roles.map((r: { budget_usd: number }) => r.budget_usd))).toBeLessThanOrEqual(8);
+    // The lead is Claude Haiku (priced); the deliberators run on antigravity, capped by tokens.
+    for (const r of org.roles)
+      if (r.reports_to != null)
+        expect([r.runtime, r.adapter_config.model, r.budget_tokens]).toEqual([
+          'antigravity',
+          'gemini-3.8-flash-high',
+          500_000,
+        ]);
+    expect(
+      sum(org.roles.map((r: { budget_usd?: number }) => r.budget_usd ?? 0)),
+    ).toBeLessThanOrEqual(8);
     expect(org.roles.filter((r: { reports_to: unknown }) => r.reports_to === null)).toHaveLength(1);
   });
 });

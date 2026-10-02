@@ -36,6 +36,10 @@ export interface TrialRow {
   humanQuestions: number;
   budgetClosures: number;
   allocationUsd: number;
+  /** The runner and model each role ran on, from the trial record. */
+  runners: Record<string, { runtime: string; model?: string }>;
+  /** Some role ran on a runner that reports no USD, so `usd` is a lower bound and tokens are the cost. */
+  unpriced: boolean;
   costPerAccepted: { value: number | null; failed: boolean };
 }
 
@@ -76,7 +80,7 @@ export function trialRow(root: string): TrialRow {
     contender: trial.contender,
     seconds: result.seconds ?? 0,
     timedOut: result.timedOut ?? false,
-    voided: result.inputs === 'VOID',
+    voided: result.inputs === 'VOID' || result.realState === 'VOID',
     accepted,
     pendingReview: [...new Set(units.filter((u) => u.accepted === null).map((u) => u.unit))],
     missing: outcome.missing,
@@ -92,6 +96,10 @@ export function trialRow(root: string): TrialRow {
     humanQuestions: m.human_questions,
     budgetClosures: m.budget_closures.usd + m.budget_closures.tokens,
     allocationUsd: trial.allocationUsd ?? 8,
+    runners: trial.runners ?? {},
+    unpriced: Object.values<{ runtime: string }>(trial.runners ?? {}).some(
+      (r) => r.runtime !== 'claude',
+    ),
     costPerAccepted: costPerAcceptedUnit(m.usd_reported, outcome.accepted_units),
   };
 }

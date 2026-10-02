@@ -6,7 +6,9 @@
 # hard deadline with the scenario's task (and its driver, if it has one, beside
 # it), answers blocking questions and gates with one fixed reply, ends a trial
 # whose bus has been silent for 10 minutes, and checks that the immutable inputs
-# are byte-identical afterwards. A trial that changed them is void.
+# are byte-identical afterwards, and that nothing reached the real ~/.monomind
+# (its org, broker and operator directory listings unchanged, no file naming the
+# trial). A trial that changed either is void.
 set -uo pipefail
 root=$(cd "$1" && pwd)
 cli=$2
@@ -22,6 +24,10 @@ mapfile -t guard < <(field x guard)
 fingerprint() { for d in "${guard[@]}"; do (cd "$d" && find . -type f -print0 | sort -z | xargs -0 sha256sum); done; }
 
 cd "$root"
+# The runtime's own state lives in the trial root (env.mjs); HOME stays real so the
+# runners' logins (claude, codex, ...) keep working. The driver inherits these too.
+while IFS= read -r kv; do export "$kv"; done < <(node "$here/env.mjs" prepare "$root")
+node "$here/env.mjs" fingerprint > real-state-before.json
 fingerprint > guard-before.sha256
 node "$cli" org sign "$name" --yes > sign.log 2>&1 || { echo "sign failed (see $root/sign.log)"; exit 1; }
 start=$(date +%s)
@@ -35,7 +41,10 @@ status=$?
 kill "$answerer" "$idler" ${drv:-} 2>/dev/null
 end=$(date +%s)
 fingerprint > guard-after.sha256
+node "$here/env.mjs" fingerprint > real-state-after.json
+node "$here/env.mjs" leaks "$name" > real-state-leaks.txt
 if cmp -s guard-before.sha256 guard-after.sha256; then integrity=clean; else integrity=VOID; fi
-printf '{"name":"%s","exit":%d,"timedOut":%s,"seconds":%d,"inputs":"%s"}\n' \
-  "$name" "$status" "$([ $status -eq 124 ] && echo true || echo false)" "$((end - start))" "$integrity" | tee result.json
-[ "$integrity" = clean ]
+if cmp -s real-state-before.json real-state-after.json && [ ! -s real-state-leaks.txt ]; then realstate=clean; else realstate=VOID; fi
+printf '{"name":"%s","exit":%d,"timedOut":%s,"seconds":%d,"inputs":"%s","realState":"%s"}\n' \
+  "$name" "$status" "$([ $status -eq 124 ] && echo true || echo false)" "$((end - start))" "$integrity" "$realstate" | tee result.json
+[ "$integrity" = clean ] && [ "$realstate" = clean ]

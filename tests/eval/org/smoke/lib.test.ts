@@ -8,13 +8,19 @@ import { checklistFindings } from '../../../../packages/@monomind/cli/src/orgrt/
 import { checkTrial } from './check.mjs';
 // @ts-expect-error plain .mjs modules
 import {
+  AGY,
   applyCaps,
   applyContender,
   applyModel,
+  CODEX,
   CONTENDERS,
   effectiveDiff,
   isolate,
   MODEL,
+  ORG_TOKENS,
+  RUNNER_PLANS,
+  runnersOf,
+  UNPRICED_ROLE_TOKENS,
 } from './lib.mjs';
 // @ts-expect-error plain .mjs modules
 import { buildInputs, prepareTrial } from './prepare.mjs';
@@ -54,21 +60,58 @@ describe('contenders', () => {
 });
 
 describe('model, caps and isolation', () => {
-  it('pins every role to Haiku 4.5 and drops other runtimes and providers', () => {
-    const out = applyModel(def());
+  it('puts the root on Claude Haiku and the workers on the scenario plan, dropping other runtimes and providers', () => {
     expect(MODEL).toBe('claude-haiku-4-5-20251001');
-    expect(out.roles.map((r: any) => [r.adapter_config.model, r.runtime, r.provider])).toEqual([
+    const same = applyModel(def());
+    expect(same.roles.map((r: any) => [r.adapter_config.model, r.runtime, r.provider])).toEqual([
       [MODEL, undefined, undefined],
       [MODEL, undefined, undefined],
     ]);
-    expect(out.roles[0].adapter_config.keep).toBe(1);
+    expect(same.roles[0].adapter_config.keep).toBe(1);
+    const mixed = applyModel(def(), { workers: CODEX });
+    expect(runnersOf(mixed)).toEqual({
+      a: { runtime: 'claude', model: MODEL },
+      b: { runtime: 'codex', model: 'gpt-6-astra' },
+    });
   });
 
-  it('applies per-role caps within the allocation, and refuses an overrun, a missing role or an unknown role', () => {
-    expect(applyCaps(def(), { a: 3, b: 5 }, 8).roles.map((r: any) => r.budget_usd)).toEqual([3, 5]);
-    expect(() => applyCaps(def(), { a: 5, b: 5 }, 8)).toThrow(/over the \$8/);
-    expect(() => applyCaps(def(), { a: 1 }, 8)).toThrow(/role b has no cap/);
-    expect(() => applyCaps(def(), { a: 1, b: 1, c: 1 }, 8)).toThrow(/unknown role c/);
+  it('plans each scenario on one runner for both contenders, with the owner-approved higher models', () => {
+    expect(RUNNER_PLANS['research-report'].workers).toEqual({
+      runtime: 'codex',
+      model: 'gpt-6-astra',
+    });
+    expect(RUNNER_PLANS['deliberative-design'].workers).toEqual({
+      runtime: 'antigravity',
+      model: 'gemini-3.8-flash-high',
+    });
+    expect(RUNNER_PLANS['sparse-dispatch'].workers.runtime).toBe('claude');
+    expect(RUNNER_PLANS['dev-feature-qa'].workers.runtime).toBe('claude');
+  });
+
+  const priced = () => applyModel(def()); // every role on Claude
+
+  it('applies per-role USD caps within the allocation, and refuses an overrun, a missing role or an unknown role', () => {
+    expect(applyCaps(priced(), { a: 3, b: 5 }, 8).roles.map((r: any) => r.budget_usd)).toEqual([
+      3, 5,
+    ]);
+    expect(() => applyCaps(priced(), { a: 5, b: 5 }, 8)).toThrow(/over the \$8/);
+    expect(() => applyCaps(priced(), { a: 1 }, 8)).toThrow(/role b has no cap/);
+    expect(() => applyCaps(priced(), { a: 1, b: 1, c: 1 }, 8)).toThrow(/unknown role c/);
+  });
+
+  it('caps a role on an unpriced runner by tokens, not USD, and fixes the org token cap in every trial', () => {
+    const out = applyCaps(applyModel(def(), { workers: AGY }), { a: 3, b: 5 }, 8);
+    expect(out.roles[0]).toMatchObject({ budget_usd: 3 });
+    expect(out.roles[1].budget_usd).toBeUndefined();
+    expect(out.roles[1].budget_tokens).toBe(UNPRICED_ROLE_TOKENS);
+    expect(out.run_config.budget_tokens).toBe(ORG_TOKENS);
+    expect(applyCaps(priced(), { a: 3, b: 5 }, 8).run_config.budget_tokens).toBe(ORG_TOKENS);
+  });
+
+  it('counts only priced roles against the USD allocation', () => {
+    expect(() =>
+      applyCaps(applyModel(def(), { workers: CODEX }), { a: 3, b: 99 }, 8),
+    ).not.toThrow();
   });
 
   it('isolates: renamed, unscheduled, own workspace, immutable inputs write-denied', () => {
@@ -100,7 +143,10 @@ describe('prepare and check, end to end on the self-test kit', () => {
     expect(trial).toMatchObject({
       name: 'smoke-_selftest-phase2-1',
       contender: 'phase2',
-      model: MODEL,
+      runners: {
+        boss: { runtime: 'claude', model: MODEL },
+        worker: { runtime: 'claude', model: MODEL },
+      },
       task: 'Write answer.txt',
       guard: [inputs],
       deadlineSeconds: 600,

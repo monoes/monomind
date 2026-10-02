@@ -3,9 +3,9 @@
 //
 //   prepare.mjs inputs --scenario <id> --base <dir>
 //     Builds the scenario's immutable inputs once, read-only, under <base>/inputs/<id>.
-//   prepare.mjs trial --scenario <id> --base <dir> --contender current-best|phase2 --trial <n> [--model <id>]
+//   prepare.mjs trial --scenario <id> --base <dir> --contender current-best|phase2 --trial <n>
 //     Builds one isolated trial root: the kit's base definition, the contender's
-//     configuration, the one model, per-role soft caps, a private workspace and
+//     configuration, the scenario's runner plan (lib.mjs RUNNER_PLANS), per-role soft caps, a private workspace and
 //     the guard directories run-trial.sh fingerprints before and after.
 import { chmodSync, cpSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -17,8 +17,9 @@ import {
   applyModel,
   effectiveDiff,
   isolate,
-  MODEL,
   newRoot,
+  RUNNER_PLANS,
+  runnersOf,
   trialName,
   writeJson,
 } from './lib.mjs';
@@ -47,7 +48,7 @@ export async function buildInputs({ scenario, base }) {
   return dir;
 }
 
-export async function prepareTrial({ scenario, base, contender, trial = '1', model = MODEL }) {
+export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
   const kit = await loadKit(scenario);
   base = resolve(base);
   const inputs = join(base, 'inputs', scenario);
@@ -59,13 +60,15 @@ export async function prepareTrial({ scenario, base, contender, trial = '1', mod
   for (const d of [workspace])
     await import('node:child_process').then((c) => c.execFileSync('chmod', ['-R', 'u+w', d]));
   const spec = await kit.baseDef({ inputs, workspace, root });
+  const plan = RUNNER_PLANS[scenario];
+  if (!plan) throw new Error(`no runner plan for scenario "${scenario}"`);
   let def = applyContender(spec.def, contender, { sessionCap: spec.sessionCap });
-  def = applyModel(def, model);
+  def = applyModel(def, plan);
   def = applyCaps(def, spec.caps, spec.allocationUsd);
   def = isolate(def, { name, workspace, denyWrite: [inputs] });
   const plain = isolate(
     applyCaps(
-      applyModel(applyContender(spec.def, 'current-best'), model),
+      applyModel(applyContender(spec.def, 'current-best'), plan),
       spec.caps,
       spec.allocationUsd,
     ),
@@ -77,7 +80,7 @@ export async function prepareTrial({ scenario, base, contender, trial = '1', mod
     scenario,
     contender,
     trial,
-    model,
+    runners: runnersOf(def),
     task: spec.task,
     guard: [inputs],
     driver: spec.driver ?? null,
@@ -98,7 +101,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
       base: { type: 'string' },
       contender: { type: 'string' },
       trial: { type: 'string' },
-      model: { type: 'string' },
     },
   });
   if (!a.scenario || !a.base) throw new Error('--scenario and --base are required');
@@ -106,7 +108,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   else if (cmd === 'trial') console.log(await prepareTrial(a));
   else {
     console.error(
-      'usage: prepare.mjs inputs|trial --scenario <id> --base <dir> [--contender c --trial n --model m]',
+      'usage: prepare.mjs inputs|trial --scenario <id> --base <dir> [--contender c --trial n]',
     );
     process.exit(2);
   }

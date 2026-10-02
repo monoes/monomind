@@ -22,6 +22,8 @@ function root(opts: {
   usd?: number;
   rotations?: number;
   integrity?: string;
+  realState?: string;
+  runners?: Record<string, { runtime: string; model: string }>;
   timedOut?: boolean;
 }) {
   const r = mkdtempSync(join(tmpdir(), 'smoke-report-'));
@@ -38,6 +40,7 @@ function root(opts: {
   writeFileSync(
     join(r, 'trial.json'),
     JSON.stringify({
+      runners: opts.runners,
       name,
       scenario: opts.scenario,
       contender: opts.contender,
@@ -54,6 +57,7 @@ function root(opts: {
       timedOut: opts.timedOut ?? false,
       seconds: 600,
       inputs: opts.integrity ?? 'clean',
+      realState: opts.realState ?? 'clean',
     }),
   );
   return r;
@@ -116,6 +120,27 @@ describe('trialRow', () => {
     const row = trialRow(root({ scenario: 'sparse-dispatch', contender: 'phase2', units }));
     expect(row.accepted['ticket-answer']).toBe(12);
     expect(row.critical).toEqual(['a ticket dropped']);
+  });
+
+  it('records the runner and model each role used, and flags a trial on an unpriced runner', () => {
+    const claude = { lead: { runtime: 'claude', model: 'haiku' } };
+    const mixed = { ...claude, researcher: { runtime: 'codex', model: 'gpt-6-astra' } };
+    const a = trialRow(
+      root({ scenario: 'research-report', contender: 'phase2', units: both, runners: claude }),
+    );
+    const b = trialRow(
+      root({ scenario: 'research-report', contender: 'phase2', units: both, runners: mixed }),
+    );
+    expect(a).toMatchObject({ runners: claude, unpriced: false });
+    expect(b).toMatchObject({ runners: mixed, unpriced: true });
+  });
+
+  it('marks a trial that reached the real runtime state void', () => {
+    expect(
+      trialRow(
+        root({ scenario: 'research-report', contender: 'phase2', units: both, realState: 'VOID' }),
+      ).voided,
+    ).toBe(true);
   });
 
   it('marks a trial whose inputs changed void', () => {

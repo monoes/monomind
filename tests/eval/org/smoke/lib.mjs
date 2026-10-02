@@ -39,29 +39,78 @@ export function applyContender(def, contender, { sessionCap } = {}) {
   return out;
 }
 
-/** Pin every role to the one model, and drop any other runtime or provider. */
-export function applyModel(def, model = MODEL) {
+/** Which runner and model each scenario's worker roles use, identical in both contenders.
+ *  The root role always stays on Claude Haiku: it coordinates through the native org tools
+ *  and is the priced anchor of every run. codex and antigravity report tokens, not USD, so a
+ *  scenario using them is capped by tokens (UNPRICED_ROLE_TOKENS) and its cost is reported
+ *  as incomplete, never as zero.
+ *  - research-report: a stronger reader for verbatim citations (codex, the higher model).
+ *  - deliberative-design: breadth of reasoning across deliberators (antigravity, the higher flash model).
+ *  - sparse-dispatch: the steward depends on the native notes tool and rotation (Claude, priced).
+ *  - dev-feature-qa: read-only QA is enforced through Claude's file and sandbox restrictions, which
+ *    the other runners are not verified to honour (Claude, priced). */
+export const CLAUDE = { runtime: 'claude', model: MODEL };
+export const CODEX = { runtime: 'codex', model: 'gpt-6-astra' };
+export const AGY = { runtime: 'antigravity', model: 'gemini-3.8-flash-high' };
+export const RUNNER_PLANS = {
+  'research-report': { workers: CODEX },
+  'deliberative-design': { workers: AGY },
+  'sparse-dispatch': { workers: CLAUDE },
+  'dev-feature-qa': { workers: CLAUDE },
+  'growth-like': { workers: CLAUDE },
+  _selftest: { workers: CLAUDE },
+};
+
+/** Soft token cap for each role on an unpriced runner, and for the org as a whole. */
+export const UNPRICED_ROLE_TOKENS = 500_000;
+export const ORG_TOKENS = 4_000_000;
+
+const isRoot = (r) => r.reports_to == null;
+export const planFor = (role, plan) => (isRoot(role) ? CLAUDE : plan.workers);
+export const isUnpriced = (runner) => runner.runtime !== 'claude';
+
+/** Pin every role to its scenario's runner and model; the root role is Claude Haiku. */
+export function applyModel(def, plan = { workers: CLAUDE }) {
   const out = structuredClone(def);
   for (const r of out.roles) {
-    r.adapter_config = { ...(r.adapter_config ?? {}), model };
-    delete r.runtime;
+    const p = planFor(r, plan);
+    r.adapter_config = { ...(r.adapter_config ?? {}), model: p.model };
     delete r.provider;
+    if (p.runtime === 'claude') delete r.runtime;
+    else r.runtime = p.runtime;
   }
   return out;
 }
 
-/** Per-role USD soft stops, summing to no more than the scenario's planning allocation. */
+/** The runner and model each role ended up on, for the trial record and the report. */
+export function runnersOf(def) {
+  return Object.fromEntries(
+    def.roles.map((r) => [
+      r.id,
+      { runtime: r.runtime ?? 'claude', model: r.adapter_config?.model },
+    ]),
+  );
+}
+
+/** Soft stops: USD per priced role, summing to no more than the scenario's planning
+ *  allocation; a token cap per role on an unpriced runner (which reports no USD); and one
+ *  org-wide token cap, the same in every trial so no default decides a result. */
 export function applyCaps(def, caps, allocationUsd) {
-  const total = Object.values(caps).reduce((a, b) => a + b, 0);
-  if (total > allocationUsd + 1e-9)
-    throw new Error(`role caps sum to $${total}, over the $${allocationUsd} planning allocation`);
   const out = structuredClone(def);
+  let usd = 0;
   for (const r of out.roles) {
     if (!(r.id in caps)) throw new Error(`role ${r.id} has no cap`);
-    r.budget_usd = caps[r.id];
+    if (isUnpriced({ runtime: r.runtime ?? 'claude' })) r.budget_tokens = UNPRICED_ROLE_TOKENS;
+    else {
+      r.budget_usd = caps[r.id];
+      usd += caps[r.id];
+    }
   }
   for (const id of Object.keys(caps))
     if (!out.roles.some((r) => r.id === id)) throw new Error(`cap for unknown role ${id}`);
+  if (usd > allocationUsd + 1e-9)
+    throw new Error(`role caps sum to $${usd}, over the $${allocationUsd} planning allocation`);
+  out.run_config = { ...(out.run_config ?? {}), budget_tokens: ORG_TOKENS };
   return out;
 }
 
