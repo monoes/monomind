@@ -18,7 +18,8 @@ import { prepareTrial } from '../smoke/prepare.mjs';
 import { type PilotTrial, pilotOrgDef } from './harness.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-export type Arm = 'baseline' | 'treatment';
+export type Arm = 'baseline' | 'treatment' | 'single';
+const SUFFIX: Record<Arm, string> = { baseline: 'b', treatment: 't', single: 's' };
 
 export async function preparePilotTrial(o: {
   scenario: string;
@@ -27,11 +28,15 @@ export async function preparePilotTrial(o: {
   n: number;
 }): Promise<string> {
   const cfg = JSON.parse(readFileSync(join(here, `${o.scenario}.pilot.json`), 'utf8'));
+  if (!cfg.arms.some((a: { id: string }) => a.id === o.arm))
+    throw new Error(`the pilot manifest of ${o.scenario} does not list the arm "${o.arm}"`);
   const root: string = await prepareTrial({
     scenario: o.scenario,
     base: o.base,
-    contender: 'phase2',
-    trial: `p${o.n}${o.arm === 'baseline' ? 'b' : 't'}`,
+    // the single arm is the Phase 2 configuration with the root role alone; the other arms are Phase 2 as is
+    contender: o.arm === 'single' ? 'single' : 'phase2',
+    trial: `p${o.n}${SUFFIX[o.arm]}`,
+    profile: cfg.profile ?? 'haiku',
   });
   const trialFile = join(root, 'trial.json');
   const trial = JSON.parse(readFileSync(trialFile, 'utf8'));

@@ -20,8 +20,26 @@ describe('the committed pilot manifests', () => {
     },
   );
 
-  it('plans 2 scenarios x 3 trials x 2 arms at $8: 12 runs and $96 allocated', () => {
-    expect(pilotPlan(pilots, scenario)).toEqual({ runs: 12, allocation_usd: 96 });
+  it('plans round 2 of growth-like: 3 arms x 3 trials at $12 is 9 runs and $108; the round 1 dev-feature pilot is 6 runs at $8', () => {
+    const [growth, dev] = pilots;
+    expect(pilotPlan([growth], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
+    expect(pilotPlan([dev], scenario)).toEqual({ runs: 6, allocation_usd: 48 });
+  });
+
+  it('growth-like has the third, single-agent arm, the production profile and the $12 org-wide stop, declared', () => {
+    const g = pilots[0];
+    expect(g.arms.map((a: { id: string }) => a.id)).toEqual(['baseline', 'treatment', 'single']);
+    expect(g.profile).toBe('production');
+    expect(g.org_stop_usd).toBe(12);
+    expect(g.per_run_allocation_usd).toBe(12);
+    expect(g.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'lead-coordinates',
+      'caps-and-stop',
+      'single-arm',
+      'production-model',
+    ]);
+    expect(scenario('growth-like').cost.planning_allocation_usd).toBe(12);
+    expect(scenario('growth-like').declared_changes.length).toBeGreaterThan(0);
   });
 
   it('each pilot has a contract that crosses sections, so the hand-off has something to measure', () => {
@@ -55,11 +73,14 @@ describe('validatePilotManifest refuses a pilot that is not a harness-only proto
   it('requires native children disabled, a writer authority and both arms', () => {
     expect(problems((p) => (p.native_children = 'allowed'))).toMatch(/native_children/);
     expect(problems((p) => (p.writer_authority = ''))).toMatch(/writer_authority/);
-    expect(problems((p) => p.arms.pop())).toMatch(/baseline and a treatment/);
+    expect(
+      problems((p) => (p.arms = p.arms.filter((a: { id: string }) => a.id !== 'treatment'))),
+    ).toMatch(/baseline and a treatment/);
+    expect(problems((p) => p.arms.push({ id: 'other' }))).toMatch(/baseline and a treatment/);
   });
 
   it('requires the allocation to match the scenario manifest, and an unknown scenario to be refused', () => {
-    expect(problems((p) => (p.per_run_allocation_usd = 5))).toMatch(/per_run_allocation_usd.*8/);
+    expect(problems((p) => (p.per_run_allocation_usd = 5))).toMatch(/per_run_allocation_usd.*12/);
     expect(problems((p) => (p.scenario = 'nope'))).toMatch(/scenario "nope"/);
   });
 

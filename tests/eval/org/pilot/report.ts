@@ -20,7 +20,7 @@ export interface HandoffCounts {
 }
 
 export interface PilotRow extends TrialRow {
-  arm: 'baseline' | 'treatment';
+  arm: 'baseline' | 'treatment' | 'single';
   n: number;
   delegated: boolean;
   tasksCreated: number;
@@ -55,7 +55,7 @@ function busOf(root: string, name: string): any[] {
 export function pilotRow(root: string): PilotRow {
   const base = trialRow(root);
   const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
-  const m = /-p(\d+)([bt])$/.exec(trial.name);
+  const m = /-p(\d+)([bts])$/.exec(trial.name);
   const bus = busOf(root, trial.name);
 
   const complete = bus.find((e) => e.type === 'tool' && String(e.tool).endsWith('org_complete'));
@@ -99,7 +99,9 @@ export function pilotRow(root: string): PilotRow {
   }
   return {
     ...base,
-    arm: trial.pilot?.arm ?? (m?.[2] === 't' ? 'treatment' : 'baseline'),
+    arm:
+      trial.pilot?.arm ??
+      ({ b: 'baseline', t: 'treatment', s: 'single' } as const)[(m?.[2] ?? 'b') as 'b'],
     n: m ? Number(m[1]) : 0,
     delegated: tasksCreated > 0,
     tasksCreated,
@@ -113,6 +115,8 @@ export interface PairReport {
   n: number;
   baseline?: PilotRow;
   treatment?: PilotRow;
+  /** The single-agent arm of the same trial number, when the scenario has one. It never confounds a pair. */
+  single?: PilotRow;
   /** The arms differ on delegation: nothing can be said about the prototype from this pair. */
   confounded: boolean;
   /** The pair is missing an arm. */
@@ -130,6 +134,7 @@ export function pilotReport(rows: PilotRow[]) {
       .map((n) => {
         const baseline = mine.find((r) => r.n === n && r.arm === 'baseline');
         const treatment = mine.find((r) => r.n === n && r.arm === 'treatment');
+        const single = mine.find((r) => r.n === n && r.arm === 'single');
         const reasons: string[] = [];
         let confounded = false;
         const incomplete = !baseline || !treatment;
@@ -150,6 +155,7 @@ export function pilotReport(rows: PilotRow[]) {
           n,
           baseline,
           treatment,
+          single,
           confounded,
           incomplete,
           treatmentUnused: !!treatment && treatment.handoff.total === 0,
@@ -169,6 +175,7 @@ export function pilotReport(rows: PilotRow[]) {
       incomplete: all.filter((p) => p.incomplete).length,
       usable: all.filter((p) => !p.confounded && !p.incomplete).length,
       treatmentUnused: all.filter((p) => p.treatmentUnused).length,
+      singles: all.filter((p) => p.single).length,
     },
     scenarios,
   };

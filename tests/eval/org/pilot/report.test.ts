@@ -18,7 +18,7 @@ const ev = (type: string, from: string | undefined, extra: Record<string, unknow
 interface Opts {
   scenario?: string;
   n: number;
-  arm: 'baseline' | 'treatment';
+  arm: 'baseline' | 'treatment' | 'single';
   tasks?: number; // tasks the lead created
   workers?: string[]; // roles other than the lead that did something
   complete?: 'achieved' | 'partial' | null;
@@ -33,7 +33,7 @@ interface Opts {
 function root(o: Opts) {
   const r = mkdtempSync(join(tmpdir(), 'pilot-report-'));
   const scenario = o.scenario ?? 'growth-like';
-  const name = `smoke-${scenario}-phase2-p${o.n}${o.arm === 'baseline' ? 'b' : 't'}`;
+  const name = `smoke-${scenario}-phase2-p${o.n}${{ baseline: 'b', treatment: 't', single: 's' }[o.arm]}`;
   const run = join(r, '.monomind/orgs', name, 'run-1');
   mkdirSync(run, { recursive: true });
   const events: unknown[] = [
@@ -199,5 +199,43 @@ describe('pilotReport', () => {
   it('puts a scenario with a single arm in the report as an unpaired trial, not a pair', () => {
     const rep = pilotReport([pilotRow(root({ n: 1, arm: 'baseline' }))]);
     expect(rep.scenarios[0].pairs[0].reasons.join(' ')).toMatch(/missing/);
+  });
+});
+
+describe('the single-agent arm', () => {
+  const single = (n: number, o: Partial<Opts> = {}) =>
+    pilotRow(root({ n, arm: 'single', complete: 'achieved', ...o }));
+
+  it('is a row of its own: arm, trial number, and no delegation to speak of', () => {
+    const r = single(2, { usd: 3 });
+    expect(r).toMatchObject({
+      arm: 'single',
+      n: 2,
+      delegated: false,
+      tasksCreated: 0,
+      activeWorkers: [],
+    });
+  });
+
+  it('sits beside its pair without confounding it, and is counted apart', () => {
+    const rows = [
+      pilotRow(root({ n: 1, arm: 'baseline', tasks: 3 })),
+      pilotRow(root({ n: 1, arm: 'treatment', tasks: 2 })),
+      single(1, { usd: 2 }),
+      single(2),
+    ];
+    const rep = pilotReport(rows);
+    const [p1, p2] = rep.scenarios[0].pairs;
+    expect(p1.single).toMatchObject({ arm: 'single', n: 1 });
+    expect(p1.confounded).toBe(false); // the single arm never makes a pair confounded
+    expect(p2).toMatchObject({ n: 2, incomplete: true });
+    expect(p2.single).toBeDefined();
+    expect(rep.summary).toMatchObject({ singles: 2 });
+  });
+
+  it('counts its spend in the total and its allocation too', () => {
+    const rep = pilotReport([single(1, { usd: 2 })]);
+    expect(rep.spendUsd).toBeCloseTo(2);
+    expect(rep.allocationUsd).toBe(8);
   });
 });

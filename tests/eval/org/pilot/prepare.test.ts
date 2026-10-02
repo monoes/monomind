@@ -79,3 +79,51 @@ describe('dev-feature-qa pilot trials', () => {
     expect(existsSync(t.pilot.dir)).toBe(false); // the store is created by the run, not by preparation
   });
 });
+
+describe('round 2 arms and profile', () => {
+  it("refuses an arm the scenario's pilot manifest does not list", async () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-'));
+    await buildInputs({ scenario: 'dev-feature-qa', base });
+    await expect(
+      preparePilotTrial({ scenario: 'dev-feature-qa', base, arm: 'single', n: 1 }),
+    ).rejects.toThrow(/does not list the arm "single"/);
+  });
+
+  const snapshot = process.env.SMOKE_GROWTH_SNAPSHOT ?? '/var/tmp/mm-phase0/snapshot';
+  describe.skipIf(!existsSync(join(snapshot, 'manifest.json')))('growth-like', () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-growth-'));
+    it('builds the three arms on the production profile: single alone, baseline and treatment with the roles', async () => {
+      await buildInputs({ scenario: 'growth-like', base });
+      const s = org(
+        await preparePilotTrial({ scenario: 'growth-like', base, arm: 'single', n: 1 }),
+      );
+      const b = org(
+        await preparePilotTrial({ scenario: 'growth-like', base, arm: 'baseline', n: 1 }),
+      );
+      const t = org(
+        await preparePilotTrial({ scenario: 'growth-like', base, arm: 'treatment', n: 1 }),
+      );
+      expect([s.t.name, b.t.name, t.t.name]).toEqual([
+        'smoke-growth-like-single-p1s',
+        'smoke-growth-like-phase2-p1b',
+        'smoke-growth-like-phase2-p1t',
+      ]);
+      expect(s.def.roles.map((r: any) => r.id)).toEqual(['growth-lead']);
+      expect(s.def.roles[0].tool_providers).toBeUndefined(); // no prototype, no other role's tools
+      expect(s.t.pilot).toMatchObject({ arm: 'single' });
+      expect(b.def.roles.length).toBeGreaterThan(5);
+      for (const x of [s, b, t]) {
+        expect(x.t.profile).toBe('production');
+        expect(x.t.orgStopUsd).toBe(12);
+        expect(x.t.allocationUsd).toBe(12);
+        expect(x.t.runners['growth-lead'].model).toBe('claude-sonnet-5-5');
+      }
+      expect(s.t.task).toMatch(/only agent in this run/);
+      expect(b.t.task).toMatch(/lead coordinates and does not write deliverables itself/);
+      expect(t.t.task).toBe(b.t.task); // the two role arms get the same task
+      expect(
+        t.def.roles.some((r: any) => r.tool_providers?.some((p: any) => p.name === 'pilot')),
+      ).toBe(true);
+    });
+  });
+});

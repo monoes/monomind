@@ -73,6 +73,40 @@
   },
   "cost": {
     "basis": "estimated-inference",
-    "planning_allocation_usd": 8
-  }
+    "planning_allocation_usd": 12
+  },
+  "declared_changes": [
+    {
+      "id": "lead-coordinates",
+      "date": "2026-10-02",
+      "approved_by": "owner",
+      "what": "The task for every arm with several roles says: the lead coordinates and does not write deliverables itself; each deliverable is produced by the role that owns it and handed to the lead. It also says a deliverable must be new work, not a copy of a file already in the workspace.",
+      "why": "In the document hand-off pilot the lead did the whole job in one arm of 2 of 3 growth-like pairs, which confounded them; the round 1 reviews found deliverables that were copies of existing workspace files.",
+      "earlier_result": "the smoke run and pilot round 1 ran without the rule and stay on record"
+    },
+    {
+      "id": "caps-and-stop",
+      "date": "2026-10-02",
+      "approved_by": "owner",
+      "what": "Per-role USD caps doubled (growth-lead 3.60, researcher 2.40, content-writer 2.40, site-seo 2.20, brand-reviewer 2.00, 0.80 for each of the four roles that did not run); planning allocation $12 per run (was $8); an org-wide stop of $12 per run, enforced by the harness, so the worst case stays bounded when the role caps sum above it. On the production profile the per-role caps are scaled by an assumed price ratio of 3 (Sonnet to Haiku) so a cap keeps its token room, until measured costs replace it.",
+      "why": "In the one usable pair of pilot round 1 both arms ran roles out of their per-role caps with total spend under the sum of caps.",
+      "earlier_result": "round 1 caps (sum $7.90) and the Phase 0 caps stay on record in the growth-like kit"
+    },
+    {
+      "id": "single-arm",
+      "date": "2026-10-02",
+      "approved_by": "owner",
+      "what": "A third arm, 'single': the Phase 2 configuration with the growth lead alone doing the whole task, on the same model, with the same org-wide stop (its one role may spend up to it).",
+      "why": "A lead doing everything alone is the spec's null hypothesis (R18); keeping it as an arm preserves that signal instead of treating delegation luck as noise.",
+      "earlier_result": "none: new arm"
+    },
+    {
+      "id": "production-model",
+      "date": "2026-10-02",
+      "approved_by": "owner",
+      "what": "For the growth-like round the Claude roles run on claude-sonnet-5-5 (the production profile); the designers keep their own codex and antigravity runners; Haiku stays the default for harness checks.",
+      "why": "Haiku fabricated or copied in 16 of 18 growth-like units in round 1, which drowns any arm difference.",
+      "earlier_result": "all earlier growth-like results are Haiku results and stay on record"
+    }
+  ]
 }

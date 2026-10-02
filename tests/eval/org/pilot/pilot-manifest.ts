@@ -32,8 +32,14 @@ export function validatePilotManifest(
   if (!Number.isInteger(raw.trials_per_arm) || raw.trials_per_arm < 1)
     problems.push('trials_per_arm must be a positive integer');
   const arms = Array.isArray(raw.arms) ? raw.arms.map((a: Obj) => a?.id) : [];
-  if (arms.length !== 2 || !arms.includes('baseline') || !arms.includes('treatment'))
-    problems.push('arms must be exactly a baseline and a treatment');
+  // a baseline and a treatment, and optionally the single-agent arm (the null hypothesis, spec R18)
+  if (
+    !arms.includes('baseline') ||
+    !arms.includes('treatment') ||
+    arms.some((a: string) => !['baseline', 'treatment', 'single'].includes(a)) ||
+    new Set(arms).size !== arms.length
+  )
+    problems.push('arms must be a baseline and a treatment, and may add a single-agent arm');
 
   let scenarioManifest: Obj | undefined;
   try {
