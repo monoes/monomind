@@ -52,8 +52,10 @@ export function pilotOrgDef<D extends { roles: Record<string, any>[] }>(
 
 /** The line a sectioned role is given about the prototype: its documents and the one rule on mail. */
 function handoffLine(role: string, trial: PilotTrial): string {
-  const produces = trial.contracts.filter((c) => c.producer === role).map((c) => c.id);
-  const consumes = trial.contracts.filter((c) => c.consumers.includes(role)).map((c) => c.id);
+  const mine = (pick: (c: DocContract) => boolean) => trial.contracts.filter(pick);
+  const describe = (c: DocContract) => `${c.id} (fields: ${JSON.stringify(c.schema)})`;
+  const produces = mine((c) => c.producer === role).map(describe);
+  const consumes = mine((c) => c.consumers.includes(role)).map(describe);
   const parts = ['Hand-offs between sections are documents, not messages.'];
   if (produces.length)
     parts.push(

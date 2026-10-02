@@ -99,6 +99,18 @@ describe('publish', () => {
   });
 });
 
+describe('list', () => {
+  it('shows a role the contract schema of each document it produces or consumes, so it need not guess the fields', () => {
+    const { store } = fresh();
+    expect(store.list('researcher')[0]).toMatchObject({
+      doc: 'brief',
+      role: 'producer',
+      schema: contract.schema,
+    });
+    expect(store.list('writer')[0]).toMatchObject({ role: 'consumer', schema: contract.schema });
+  });
+});
+
 describe('read', () => {
   it('lets the producer and each consumer read, and refuses everyone else', () => {
     const { store } = fresh();

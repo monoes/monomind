@@ -193,6 +193,9 @@ describe('scenario: pilot document hand-off', () => {
     expect(text('writer')).toMatch(/pilot__doc_decide/);
     expect(text('researcher')).toMatch(/other section.*refused/is);
     expect(text('boss')).not.toMatch(/pilot__/); // an unsectioned role is not told about it
+    // the contract's fields are in the line, so a role does not spend its attempts guessing them
+    expect(text('researcher')).toMatch(/"required":\["topic","claims"\]/);
+    expect(text('writer')).toMatch(/"required":\["topic","claims"\]/);
   });
 
   it('refuses an org definition that carries sections or the experimental flag', () => {

@@ -240,6 +240,8 @@ export class HandoffStore {
     doc: string;
     title: string;
     role: 'producer' | 'consumer';
+    /** The contract's fields, so a role does not spend publish attempts guessing them. */
+    schema: Record<string, unknown>;
     latest?: { version: number; status: VersionStatus };
   }[] {
     return this.contracts()
@@ -250,6 +252,7 @@ export class HandoffStore {
           doc: c.id,
           title: c.title,
           role: c.producer === role ? ('producer' as const) : ('consumer' as const),
+          schema: c.schema,
           ...(last ? { latest: { version: last.version, status: last.status } } : {}),
         };
       });
