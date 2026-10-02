@@ -65,14 +65,14 @@ export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
   let def = applyContender(spec.def, contender, { sessionCap: spec.sessionCap });
   def = applyModel(def, plan);
   def = applyCaps(def, spec.caps, spec.allocationUsd);
-  def = isolate(def, { name, workspace, denyWrite: [inputs] });
+  def = isolate(def, { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] });
   const plain = isolate(
     applyCaps(
       applyModel(applyContender(spec.def, 'current-best'), plan),
       spec.caps,
       spec.allocationUsd,
     ),
-    { name, workspace, denyWrite: [inputs] },
+    { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] },
   );
   writeJson(join(root, '.monomind/orgs', `${name}.json`), def);
   writeJson(join(root, 'trial.json'), {
@@ -82,7 +82,7 @@ export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
     trial,
     runners: runnersOf(def),
     task: spec.task,
-    guard: [inputs],
+    guard: [inputs, ...(spec.extraGuard ?? [])],
     driver: spec.driver ?? null,
     deadlineSeconds: spec.deadlineSeconds,
     allocationUsd: spec.allocationUsd,

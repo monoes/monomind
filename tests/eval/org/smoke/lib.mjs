@@ -57,7 +57,9 @@ export const RUNNER_PLANS = {
   'deliberative-design': { workers: AGY },
   'sparse-dispatch': { workers: CLAUDE },
   'dev-feature-qa': { workers: CLAUDE },
-  'growth-like': { workers: CLAUDE },
+  // The growth org keeps each role's own runner (two designers run on codex and antigravity);
+  // only its Claude roles are pinned to Haiku. Identical in both contenders.
+  'growth-like': { native: true },
   _selftest: { workers: CLAUDE },
 };
 
@@ -66,6 +68,8 @@ export const UNPRICED_ROLE_TOKENS = 500_000;
 export const ORG_TOKENS = 4_000_000;
 
 const isRoot = (r) => r.reports_to == null;
+/** A role's runner: an explicit `runtime`, else its `provider.kind`, else Claude. */
+export const runtimeOf = (role) => role.runtime ?? role.provider?.kind ?? 'claude';
 export const planFor = (role, plan) => (isRoot(role) ? CLAUDE : plan.workers);
 export const isUnpriced = (runner) => runner.runtime !== 'claude';
 
@@ -73,7 +77,8 @@ export const isUnpriced = (runner) => runner.runtime !== 'claude';
 export function applyModel(def, plan = { workers: CLAUDE }) {
   const out = structuredClone(def);
   for (const r of out.roles) {
-    const p = planFor(r, plan);
+    if (plan.native && r.provider) continue; // keeps its own runner and model
+    const p = plan.native ? CLAUDE : planFor(r, plan);
     r.adapter_config = { ...(r.adapter_config ?? {}), model: p.model };
     delete r.provider;
     if (p.runtime === 'claude') delete r.runtime;
@@ -85,10 +90,7 @@ export function applyModel(def, plan = { workers: CLAUDE }) {
 /** The runner and model each role ended up on, for the trial record and the report. */
 export function runnersOf(def) {
   return Object.fromEntries(
-    def.roles.map((r) => [
-      r.id,
-      { runtime: r.runtime ?? 'claude', model: r.adapter_config?.model },
-    ]),
+    def.roles.map((r) => [r.id, { runtime: runtimeOf(r), model: r.adapter_config?.model }]),
   );
 }
 
@@ -100,7 +102,7 @@ export function applyCaps(def, caps, allocationUsd) {
   let usd = 0;
   for (const r of out.roles) {
     if (!(r.id in caps)) throw new Error(`role ${r.id} has no cap`);
-    if (isUnpriced({ runtime: r.runtime ?? 'claude' })) r.budget_tokens = UNPRICED_ROLE_TOKENS;
+    if (isUnpriced({ runtime: runtimeOf(r) })) r.budget_tokens = UNPRICED_ROLE_TOKENS;
     else {
       r.budget_usd = caps[r.id];
       usd += caps[r.id];

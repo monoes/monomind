@@ -88,6 +88,18 @@ describe('model, caps and isolation', () => {
     expect(RUNNER_PLANS['dev-feature-qa'].workers.runtime).toBe('claude');
   });
 
+  it("keeps a role's own provider under a native plan and pins only the Claude roles", () => {
+    const d = def();
+    d.roles[1].provider = { kind: 'codex' };
+    d.roles[1].adapter_config = { model: 'gpt-6-astra' };
+    const out = applyModel(d, { native: true });
+    expect(runnersOf(out)).toEqual({
+      a: { runtime: 'claude', model: MODEL },
+      b: { runtime: 'codex', model: 'gpt-6-astra' },
+    });
+    expect(applyCaps(out, { a: 1, b: 0 }, 8).roles[1].budget_tokens).toBe(UNPRICED_ROLE_TOKENS);
+  });
+
   const priced = () => applyModel(def()); // every role on Claude
 
   it('applies per-role USD caps within the allocation, and refuses an overrun, a missing role or an unknown role', () => {
