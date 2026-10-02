@@ -13,7 +13,7 @@ import { coverEveryToolCall, POLICY_HOOK_TIMEOUT_S } from './policy-hook.js';
 import { type DescendantTracker, trackDescendants } from './process-tree.js';
 import { omitAnthropicManagedKeys } from './provider.js';
 import { toolInputSchema } from './tool-fence.js';
-import { USD_STOP_SUBTYPE } from './runner-usage.js';
+import { INTERRUPTED_SUBTYPE, USD_STOP_SUBTYPE } from './runner-usage.js';
 import { toolResultSpillHook } from './tool-spill.js';
 
 export { loadClaudeSdk } from './claude-sdk.js';
@@ -94,8 +94,23 @@ export class ClaudeAgentRunner implements AgentRunner {
     // Forward args.signal to the SDK: aborting its controller stops the
     // in-process agent loop (no further tool calls) and ends the stream.
     const abortController = new AbortController();
+    // An org stop interrupts the query rather than killing it, so the SDK
+    // answers with a result carrying its cost so far; the abort follows once
+    // that result is through, or after the grace period.
+    let interruptQuery: (() => Promise<void>) | undefined;
+    let interrupted = false;
+    let graceTimer: ReturnType<typeof setTimeout> | undefined;
     const unsubscribe = killOnAbort(args.signal, {
-      kill: () => abortController.abort(),
+      kill: () => {
+        if (args.interruptGraceMs === undefined || !interruptQuery || interrupted) {
+          abortController.abort();
+          return;
+        }
+        interrupted = true;
+        interruptQuery().catch(() => abortController.abort());
+        graceTimer = setTimeout(() => abortController.abort(), args.interruptGraceMs);
+        graceTimer.unref?.();
+      },
     });
     // #359: the ladder above only stops the SDK's in-process loop from
     // issuing further turns — it never touches an already-running child
@@ -306,6 +321,18 @@ export class ClaudeAgentRunner implements AgentRunner {
       } as any,
     });
 
+    {
+      const q = stream as { interrupt?: () => Promise<void> };
+      if (typeof q.interrupt === 'function') interruptQuery = () => q.interrupt!();
+      // The signal may have fired before the query existed.
+      if (args.signal?.aborted && args.interruptGraceMs !== undefined && interruptQuery) {
+        interrupted = true;
+        interruptQuery().catch(() => abortController.abort());
+        graceTimer = setTimeout(() => abortController.abort(), args.interruptGraceMs);
+        graceTimer.unref?.();
+      }
+    }
+
     // Per-turn incremental-streaming state (only meaningfully used when
     // streamPartials — see above). blockTexts accumulates each text
     // content-block's own text by index; visibleSoFar is the fence-free
@@ -428,10 +455,16 @@ export class ClaudeAgentRunner implements AgentRunner {
           };
         } else if (m.type === 'result') {
           const cumulative = sumModelUsage(m.modelUsage);
+          // The answer to our interrupt: keep its cost, and stop the query now.
+          const afterInterrupt = interrupted && m.subtype === 'error_during_execution';
+          if (interrupted) {
+            if (graceTimer) clearTimeout(graceTimer);
+            abortController.abort();
+          }
           yield {
             type: 'result',
             session_id,
-            subtype: m.subtype,
+            subtype: afterInterrupt ? INTERRUPTED_SUBTYPE : m.subtype,
             is_error: m.is_error,
             input_tokens: m.usage?.input_tokens ?? 0,
             output_tokens: m.usage?.output_tokens ?? 0,
@@ -475,6 +508,7 @@ export class ClaudeAgentRunner implements AgentRunner {
         // carry no signal session.ts acts on.
       }
     } finally {
+      if (graceTimer) clearTimeout(graceTimer);
       unsubscribe();
       unsubscribeGroup();
       // #359: stop sampling once the turn ends (normally or via abort) —

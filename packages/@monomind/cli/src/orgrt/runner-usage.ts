@@ -132,6 +132,16 @@ export const BUDGET_STOP_SUBTYPE = 'error_budget';
  *  stop, not a failed turn. */
 export const USD_STOP_SUBTYPE = 'error_max_budget_usd';
 
+/** 'result' subtype for a query the runner interrupted because the org was
+ *  stopping. The SDK answers an interrupt with a result that carries the
+ *  cost so far, which the kill it replaces never produced. Not a failed
+ *  turn. */
+export const INTERRUPTED_SUBTYPE = 'interrupted';
+
+/** How long an interrupted query gets to report its cost before it is
+ *  aborted outright. */
+export const INTERRUPT_GRACE_MS = 3000;
+
 /** Budget share below which a runner will not start another CLI exec. */
 export const PRE_TURN_FLOOR_FRACTION = 0.05;
 

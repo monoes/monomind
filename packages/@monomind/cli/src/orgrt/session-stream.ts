@@ -21,6 +21,7 @@ import { roleTmpEnv } from './role-tmpdir.js';
 import { gatedCanUseTool } from './session-gate.js';
 import { rolePromptFor } from './session-prompt.js';
 import type { SessionOpts } from './session-types.js';
+import { INTERRUPT_GRACE_MS } from './runner-usage.js';
 import { sessionTokenBudget, sessionUsdBudget } from './session-usage.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
@@ -178,6 +179,7 @@ export function sessionRunArgs(
     signal: abort.signal,
     tokenBudget: () => sessionTokenBudget(policy, mailbox), // #550
     usdBudget: () => sessionUsdBudget(policy, mailbox),
+    interruptGraceMs: INTERRUPT_GRACE_MS,
     // VercelAgentRunner-only fields — ignored by other runners.
     vendor: role.provider?.vendor,
     providerConfig: role.provider,

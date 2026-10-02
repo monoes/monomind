@@ -155,6 +155,10 @@ export interface AgentRunArgs {
    *  Claude runner passes it to the SDK as the query's maxBudgetUsd and starts
    *  no query when nothing is left. */
   usdBudget?: () => { left: number } | undefined;
+  /** Claude runner, org sessions: when `signal` aborts, interrupt the query
+   *  first so the SDK reports its cost so far, and abort it only after this
+   *  many ms. Unset = abort at once (agent exec, one-shot callers). */
+  interruptGraceMs?: number;
 }
 
 /** Wire `signal` to a child-process kill ladder: SIGTERM on abort, SIGKILL

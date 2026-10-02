@@ -16,7 +16,7 @@ import { resolveRoleProvider } from './provider.js';
 import { ensureRoleDeps, roleDepsAudit, waitRoleDeps } from './role-deps.js';
 import { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { effectiveRoleRuntime } from './runner-resolve.js';
-import { BUDGET_STOP_SUBTYPE, USD_STOP_SUBTYPE } from './runner-usage.js'; // #550: a runner's budget stop
+import { BUDGET_STOP_SUBTYPE, INTERRUPTED_SUBTYPE, USD_STOP_SUBTYPE } from './runner-usage.js'; // #550: a runner's budget stop
 import { type FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
 import { sandboxStubPaths, sandboxStubs } from './sandbox-stubs.js';
 import { beginFullAccessSession, endFullAccessSession } from './session-full-access.js';
@@ -379,7 +379,8 @@ export async function runOneSession(
           m.subtype &&
           m.subtype !== 'success' &&
           m.subtype !== BUDGET_STOP_SUBTYPE &&
-          m.subtype !== USD_STOP_SUBTYPE
+          m.subtype !== USD_STOP_SUBTYPE &&
+          m.subtype !== INTERRUPTED_SUBTYPE
         ) {
           if (m.subtype === 'error_max_turns') hitTurnLimit = true;
           bus.emit({
