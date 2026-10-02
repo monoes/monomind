@@ -13,6 +13,7 @@ import {
   TASK_RESULT_HELP,
   withWarnings,
 } from './context-surface.js';
+import { appendNote, NOTE_APPEND_HELP, readNotes } from './notes.js';
 import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
 import { approvalGateOutcome } from './session-gate.js';
 import { resolveSessionScope } from './session-ledger.js';
@@ -326,6 +327,27 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   }
   const planGraph = opts.planGraph;
   const surface = contextSurface(opts.def);
+  if (surface.notes && opts.orgDir) {
+    const orgDir = opts.orgDir;
+    tools.push({
+      name: 'org_note_append',
+      description: NOTE_APPEND_HELP,
+      schema: { text: z.string(), current_state: z.boolean().optional() },
+      handler: async (args) => {
+        try {
+          appendNote(
+            orgDir,
+            role.id,
+            args.text as string,
+            args.current_state ? 'current_state' : 'note',
+          );
+        } catch (err) {
+          return text(JSON.stringify({ error: (err as Error).message }));
+        }
+        return text(JSON.stringify({ ok: true, entries: readNotes(orgDir, role.id).length }));
+      },
+    });
+  }
   if (planGraph) {
     tools.push({
       name: 'org_plan_graph',

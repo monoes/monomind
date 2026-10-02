@@ -15,8 +15,15 @@ import {
 import { contextSurface } from './context-surface.js';
 import type { resolveRoleCostTier } from './cost-tier.js';
 import type { StreamOptions } from './mailbox.js';
+import { NOTES_BUDGET, readNotes, selectNotes } from './notes.js';
 import { toolchainRoleEnv } from './operator-toolchain-paths.js';
-import { messageText, observeFirst, recordGeneration } from './packet.js';
+import {
+  MAX_PACKET_CHARS,
+  mapFirst,
+  messageText,
+  recordGeneration,
+  withMessageText,
+} from './packet.js';
 import { resolveProviderEnv, type resolveRoleProvider } from './provider.js';
 import type { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { roleTmpEnv } from './role-tmpdir.js';
@@ -71,17 +78,31 @@ export function sessionRunArgs(
     tools,
     // No options = the pre-D3 stream, exactly. An org on the Phase 2 context
     // surface also records the first message of each fresh SDK session
-    // (packet.ts); a resumed session adds nothing.
+    // (packet.ts) and, with notes: true, starts it with the role's notes
+    // (notes.ts); a resumed session is left alone.
     prompt: ((): AsyncIterable<unknown> => {
       const raw = streamOpts ? mailbox.stream('', streamOpts) : mailbox.stream();
-      if (resume !== undefined || !contextSurface(opts.def).enabled) return raw;
-      return observeFirst(raw, (m) =>
+      const surface = contextSurface(opts.def);
+      if (resume !== undefined || !surface.enabled) return raw;
+      return mapFirst(raw, (m) => {
+        const original = messageText(m);
+        let text = original;
+        let notes: { entries: number; omitted: number; block: string } | undefined;
+        if (surface.notes && opts.orgDir) {
+          // The notes share the 12,000-character limit on a first message's variable parts.
+          const room = Math.min(NOTES_BUDGET, MAX_PACKET_CHARS - original.length - 2);
+          const sel = selectNotes(readNotes(opts.orgDir, role.id), room);
+          if (sel.block) text = `${sel.block}\n\n${original}`;
+          notes = { entries: sel.included.length, omitted: sel.omitted, block: sel.block };
+        }
         recordGeneration(opts.bus.dir, {
           role: role.id,
           task_key: opts.contextKey ?? '_role',
-          first: messageText(m),
-        }),
-      );
+          first: text,
+          notes,
+        });
+        return text === original ? m : withMessageText(m, text);
+      });
     })() as never,
     systemPrompt: gitEnforcement.claudeRestrictions?.sandbox
       ? `${rolePromptFor(opts)}\n\n${claudeSandboxCwdNote(cwd)}`

@@ -113,6 +113,10 @@ export interface GenerationRecord {
   chars: number;
   /** The task whose dispatch packet this first message carries. */
   packet_task_id?: string;
+  /** Notes injected ahead of the packet: entries included, entries left out, and the block's hash. */
+  notes_entries?: number;
+  notes_omitted?: number;
+  notes_sha256?: string;
 }
 
 export type PacketLogRecord = PacketRecord | GenerationRecord;
@@ -179,7 +183,13 @@ export function recordPacket(
 /** Record the first message of a fresh SDK session. */
 export function recordGeneration(
   runDir: string,
-  rec: { role: string; task_key: string; first: string; session_id?: string },
+  rec: {
+    role: string;
+    task_key: string;
+    first: string;
+    session_id?: string;
+    notes?: { entries: number; omitted: number; block: string };
+  },
 ): void {
   const log = readPacketLog(runDir);
   const generation = log.filter(
@@ -200,6 +210,13 @@ export function recordGeneration(
     first_message_sha256: sha(rec.first),
     chars: rec.first.length,
     ...(packet ? { packet_task_id: packet.task_id } : {}),
+    ...(rec.notes
+      ? {
+          notes_entries: rec.notes.entries,
+          notes_omitted: rec.notes.omitted,
+          ...(rec.notes.block ? { notes_sha256: sha(rec.notes.block) } : {}),
+        }
+      : {}),
   });
 }
 
@@ -215,11 +232,15 @@ export function messageText(m: unknown): string {
   return '';
 }
 
-/** Pass a message stream through unchanged, reporting its first message once. */
-export function observeFirst<T>(
-  source: AsyncIterable<T>,
-  onFirst: (m: T) => void,
-): AsyncIterable<T> {
+/** A copy of a stream message with its text replaced. */
+export function withMessageText<T>(m: T, text: string): T {
+  if (typeof m === 'string') return text as T;
+  const o = m as { message?: Record<string, unknown> };
+  return o?.message ? ({ ...o, message: { ...o.message, content: text } } as T) : m;
+}
+
+/** Pass a message stream through, letting `fn` replace its first message (once). */
+export function mapFirst<T>(source: AsyncIterable<T>, fn: (m: T) => T): AsyncIterable<T> {
   return {
     [Symbol.asyncIterator]() {
       const it = source[Symbol.asyncIterator]();
@@ -230,9 +251,9 @@ export function observeFirst<T>(
           if (!seen && !r.done) {
             seen = true;
             try {
-              onFirst(r.value);
+              return { done: false as const, value: fn(r.value) };
             } catch {
-              /* recording never changes what the session receives */
+              /* a failing hook never changes what the session receives */
             }
           }
           return r;
