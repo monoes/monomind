@@ -14,7 +14,7 @@ import { PILOT_PREFIX, pilotTools } from './tools.js';
 
 export interface PilotTrial {
   /** The per-trial token the harness minted; `attachPilot` refuses any other. */
-  runToken: string;
+  runId: string;
   /** The trial's own directory; the store and its events log live here. */
   dir: string;
   routing: Routing;
@@ -40,14 +40,37 @@ export function pilotOrgDef<D extends { roles: Record<string, any>[] }>(
     ...def,
     roles: def.roles.map((r) =>
       sectionOf(trial.routing, r.id)
-        ? { ...r, tool_providers: [...(r.tool_providers ?? []), placeholder] }
+        ? {
+            ...r,
+            tool_providers: [...(r.tool_providers ?? []), placeholder],
+            responsibilities: [...(r.responsibilities ?? []), handoffLine(r.id, trial)],
+          }
         : r,
     ),
   };
 }
 
+/** The line a sectioned role is given about the prototype: its documents and the one rule on mail. */
+function handoffLine(role: string, trial: PilotTrial): string {
+  const produces = trial.contracts.filter((c) => c.producer === role).map((c) => c.id);
+  const consumes = trial.contracts.filter((c) => c.consumers.includes(role)).map((c) => c.id);
+  const parts = ['Hand-offs between sections are documents, not messages.'];
+  if (produces.length)
+    parts.push(
+      `You produce: ${produces.join(', ')}. Publish each as a JSON object with ${PILOT_PREFIX}__doc_publish (a document that does not match its contract is refused with the problems named: fix it and publish again), then tell your lead it is published.`,
+    );
+  if (consumes.length)
+    parts.push(
+      `You consume: ${consumes.join(', ')}. Read it with ${PILOT_PREFIX}__doc_read, then ${PILOT_PREFIX}__doc_decide accept or reject (a rejection needs a reason); a document counts as accepted only when every consumer accepts it.`,
+    );
+  parts.push(
+    'A message to a role in another section is refused; raise cross-section needs with your section lead, or hand the work over as a document.',
+  );
+  return parts.join(' ');
+}
+
 export function attachPilot(daemon: OrgDaemon, trial: PilotTrial, token: string): HandoffStore {
-  if (token !== trial.runToken)
+  if (token !== trial.runId)
     throw new Error('pilot tools attach only to the trial that owns this run token');
   const store = new HandoffStore(trial.dir, trial.contracts);
 

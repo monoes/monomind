@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 const trial = (): PilotTrial => ({
-  runToken: TRIAL_ID,
+  runId: TRIAL_ID,
   dir: mkdtempSync(join(tmpdir(), 'pilot-trial-')),
   routing: {
     sections: {
@@ -180,6 +180,19 @@ describe('scenario: pilot document hand-off', () => {
       ]),
     );
     expect(toolNames(sdk, 'boss').some((n) => n.startsWith('pilot__'))).toBe(false);
+  });
+
+  it('tells each sectioned role, in its own responsibilities, what it produces, what it consumes and that cross-section mail is refused', () => {
+    const t = trial();
+    const def = pilotOrgDef(baseDef, t);
+    const text = (id: string) =>
+      (def.roles.find((r: any) => r.id === id) as any).responsibilities?.join('\n') ?? '';
+    expect(text('researcher')).toMatch(/produce.*brief/is);
+    expect(text('researcher')).toMatch(/pilot__doc_publish/);
+    expect(text('writer')).toMatch(/consume.*brief/is);
+    expect(text('writer')).toMatch(/pilot__doc_decide/);
+    expect(text('researcher')).toMatch(/other section.*refused/is);
+    expect(text('boss')).not.toMatch(/pilot__/); // an unsectioned role is not told about it
   });
 
   it('refuses an org definition that carries sections or the experimental flag', () => {

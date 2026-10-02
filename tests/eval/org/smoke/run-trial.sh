@@ -37,7 +37,14 @@ answerer=$!
 "$here/../trials/idle-end.sh" "$root" "$name" "$cli" &
 idler=$!
 if [ -n "$driver" ]; then node "$driver" "$root" "$name" "$cli" > driver.log 2>&1 & drv=$!; fi
-timeout --signal=TERM --kill-after=60 "$deadline" node "$cli" org run "$name" --yes ${task:+--task "$task"} --auto-approve Bash,WebFetch,WebSearch,org_complete > run.log 2>&1
+# SMOKE_RUN_CMD replaces `org run` with a harness's own in-process runner (the document hand-off
+# pilot); it sees SMOKE_ROOT, SMOKE_ORG, SMOKE_TASK and SMOKE_CLI. Everything around it is the same.
+export SMOKE_ROOT="$root" SMOKE_ORG="$name" SMOKE_TASK="$task" SMOKE_CLI="$cli"
+if [ -n "${SMOKE_RUN_CMD:-}" ]; then
+  timeout --signal=TERM --kill-after=60 "$deadline" bash -c "$SMOKE_RUN_CMD" > run.log 2>&1
+else
+  timeout --signal=TERM --kill-after=60 "$deadline" node "$cli" org run "$name" --yes ${task:+--task "$task"} --auto-approve Bash,WebFetch,WebSearch,org_complete > run.log 2>&1
+fi
 status=$?
 kill "$answerer" "$idler" ${drv:-} 2>/dev/null
 end=$(date +%s)
