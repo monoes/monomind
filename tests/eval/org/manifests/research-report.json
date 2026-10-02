@@ -1,12 +1,9 @@
 {
-  "status": "PROPOSED",
-  "proposed_on": "2026-10-02",
-  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
   "id": "research-report",
-  "committed_at": "PROPOSED",
+  "committed_at": "2026-10-02",
   "title": "Research report with sources: a fixed question about a pinned repository snapshot, answered with checkable citations",
   "fixture": {
-    "status": "PROPOSED",
+    "status": "APPROVED 2026-10-02",
     "snapshot": "the pinned monomind commit named in the trial manifest, read-only, no network",
     "question": "How does an org session decide when to end and start a fresh one, and what does each path record? Cover: (1) the task-scope boundary, (2) the idle exit, (3) the budget stops, (4) the session cap. Name the file and function behind each claim.",
     "sub_questions": ["task-scope boundary", "idle exit", "budget stops", "session cap"]

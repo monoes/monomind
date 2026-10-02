@@ -1,12 +1,9 @@
 {
-  "status": "PROPOSED",
-  "proposed_on": "2026-10-02",
-  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
   "id": "deliberative-design",
-  "committed_at": "PROPOSED",
+  "committed_at": "2026-10-02",
   "title": "Deliberative design decision: choose among declared options against declared criteria, with recorded objections",
   "fixture": {
-    "status": "PROPOSED",
+    "status": "APPROVED 2026-10-02",
     "question": "Which on-disk format should the eval harness use for a trial's event log: JSONL, SQLite, or a columnar file? Constraints: no new runtime dependency, append-only writes during a run, readable with standard tools after a crash, queries by role and time range for reports.",
     "mandatory_options": ["JSONL", "SQLite", "columnar file"],
     "criteria": [

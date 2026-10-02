@@ -1,12 +1,9 @@
 {
-  "status": "PROPOSED",
-  "proposed_on": "2026-10-02",
-  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
   "id": "sparse-dispatch",
-  "committed_at": "PROPOSED",
+  "committed_at": "2026-10-02",
   "title": "Sparse dispatch across cache expiry: a long-lived steward answers tickets that arrive in bursts, and rotates",
   "fixture": {
-    "status": "PROPOSED",
+    "status": "APPROVED 2026-10-02",
     "shape": "one steward role with notes on and a session cap that forces at least two rotations; a scripted injector delivers 12 lookup tickets in 4 bursts of 3, with a gap longer than the prompt cache's time to live between bursts",
     "gap_minutes": 6,
     "cache_ttl_note": "the cache time to live in force is pinned and logged per trial; the gap must exceed it",

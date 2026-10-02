@@ -1,4 +1,4 @@
-// The PROPOSED dev-feature-qa fixture (owner review pending): it builds
+// The approved dev-feature-qa fixture: it builds
 // reproducibly to the pinned commit, its own tests pass, the hidden acceptance
 // tests fail on it (so they measure the feature, not nothing), and a reference
 // solution passes both (so the task is solvable and the tests fair).
@@ -17,11 +17,9 @@ const build = (): string => {
 };
 const nodeTest = (cwd: string) =>
   spawnSync('node', ['--test', 'test/*.check.mjs'], { cwd, encoding: 'utf8' });
-const proposed = JSON.parse(
-  readFileSync(join(here, '../../manifests/proposed/dev-feature-qa-fixture.proposed.json'), 'utf8'),
-);
+const proposed = JSON.parse(readFileSync(join(here, 'fixture.json'), 'utf8'));
 
-describe('dev-feature-qa fixture (proposed)', () => {
+describe('dev-feature-qa fixture (approved)', () => {
   it('builds to the pinned commit every time', () => {
     const head = (repo: string) =>
       execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();

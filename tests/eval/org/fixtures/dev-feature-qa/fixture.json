@@ -1,11 +1,9 @@
 {
-  "status": "PROPOSED",
-  "proposed_on": "2026-10-02",
-  "notice": "PROPOSED DRAFT for owner review. Not committed: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it until the owner edits and commits it.",
+  "status": "APPROVED 2026-10-02",
   "id": "dev-feature-qa-fixture",
   "scenario": "dev-feature-qa",
   "fixture": {
-    "status": "PROPOSED",
+    "status": "APPROVED 2026-10-02",
     "summary": "A 12-line duration parser in a throwaway local git repository, small enough that one implementer and one QA role finish within the deadline and the whole fixture fits in a context window.",
     "build": "node tests/eval/org/fixtures/dev-feature-qa/build-fixture.mjs <empty dir>",
     "pinned_commit": "bb1782dbd9b03ed7da22a186622abcc5392796f3",
