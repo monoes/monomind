@@ -62,6 +62,7 @@ export function scrub(text, { root, names = [], roleIds = [], home = homedir() }
   t = t.replace(/\/(?:var\/tmp|tmp)\/[\w./-]*/g, '<path>');
   if (home) t = t.split(home).join('<home>');
   t = t.replace(/\brun-\d{8,14}-[a-z0-9]+/g, '<run>');
+  t = t.replace(/\bpilot__\w+/g, '<tool>'); // the hand-off tools exist in one arm only
   for (const id of roleIds.filter((r) => r.includes('-')).sort((a, b) => b.length - a.length))
     t = t.replace(new RegExp(`(?<![A-Za-z0-9])${esc(id)}(?![A-Za-z0-9])`, 'g'), '<role>');
   const plain = roleIds.filter((r) => !r.includes('-'));

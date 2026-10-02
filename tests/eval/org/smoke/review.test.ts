@@ -276,3 +276,17 @@ describe('scrub uses the whole roster, so every arm reads alike', () => {
     );
   });
 });
+
+describe('scrub hides the hand-off tool names, which would name the arm', () => {
+  it('replaces pilot__ tool names, wherever they appear', () => {
+    const ctx = { root: '/r', names: [], roleIds: [], home: '/home/x' };
+    const t = scrub(
+      'Published with pilot__doc_publish; read via `pilot__doc_read` and pilot__doc_decide.',
+      ctx,
+    );
+    expect(t).toBe('Published with <tool>; read via `<tool>` and <tool>.');
+    expect(scrub('doc_publish is a word in prose and the pilot is a project', ctx)).toBe(
+      'doc_publish is a word in prose and the pilot is a project',
+    );
+  });
+});
