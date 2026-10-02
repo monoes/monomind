@@ -17,41 +17,56 @@ const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const writeJson = (p, v) => writeFileSync(p, `${JSON.stringify(v, null, 2)}\n`);
 
 /** Per-role USD soft stops for the nine Claude roles; the two designers run on unpriced runners and
- *  are capped by tokens, so their USD entry is 0. Sum $7.90, inside the $8 planning allocation.
+ *  are capped by tokens, so their USD entry is 0. On the production profile prepare.mjs scales these by
+ *  the model price ratio (PRICE_SCALE), so a cap keeps the same token room.
  *
- *  Declared change, 2026-10-02 (before the next tier): the Phase 0 Haiku caps ($0.25 to $0.65 per role,
- *  $3.80 in all) exhausted three roles in the first smoke's current-best trial and six in phase2, and
- *  phase2's boss ended over budget. The five roles that ran each spent their whole cap ($0.36 to $0.46),
- *  so their demand is at least that. The new caps are 2.5x to 4x it for those five; the four roles that
- *  never ran (analyst, community-manager, outreach-manager, social-publisher) get $0.40 each so a role
- *  the run does call on can finish. Both contenders get the same caps.
- *  Previous caps: growth-lead 0.44, brand-reviewer 0.36, community-manager 0.65, social-publisher 0.60,
- *  researcher 0.40, site-seo 0.40, content-writer 0.40, analyst 0.30, outreach-manager 0.25. */
+ *  Declared change, 2026-10-02 (round 2, owner decision 2): the caps are doubled. In the pilot's one
+ *  usable pair both arms ran roles out of their caps (5 and 7 closures) with total spend well under the
+ *  sum of caps, so the per-role caps bound, not the total. A single org-wide stop of $12 per run
+ *  (ORG_STOP_USD; the sum of caps may exceed it) keeps the worst case bounded, and the planning
+ *  allocation is $12. Previous caps (round 1, kept on record): growth-lead 1.80, researcher 1.20,
+ *  content-writer 1.20, site-seo 1.10, brand-reviewer 1.00, and 0.40 for each of analyst,
+ *  community-manager, social-publisher, outreach-manager (sum $7.90). The Phase 0 caps before that:
+ *  growth-lead 0.44, brand-reviewer 0.36, community-manager 0.65, social-publisher 0.60, researcher 0.40,
+ *  site-seo 0.40, content-writer 0.40, analyst 0.30, outreach-manager 0.25. */
 export const CAPS = {
-  'growth-lead': 1.8,
-  researcher: 1.2,
-  'content-writer': 1.2,
-  'site-seo': 1.1,
-  'brand-reviewer': 1.0,
-  analyst: 0.4,
-  'community-manager': 0.4,
-  'social-publisher': 0.4,
-  'outreach-manager': 0.4,
+  'growth-lead': 3.6,
+  researcher: 2.4,
+  'content-writer': 2.4,
+  'site-seo': 2.2,
+  'brand-reviewer': 2.0,
+  analyst: 0.8,
+  'community-manager': 0.8,
+  'social-publisher': 0.8,
+  'outreach-manager': 0.8,
   'visual-designer-codex': 0,
   'visual-designer-agy': 0,
 };
+
+export const ALLOCATION_USD = 12;
+export const ORG_STOP_USD = 12;
 
 /** The session cap counts cache reads (every model call re-reads the role's context), and the dry runs
  *  measured 100-370K counted tokens in one turn of a Haiku or codex role. Phase 0's growth roles carry
  *  19K-token prefixes and run longer turns, so 1M is about 3-6 such turns before a session rotates. */
 export const SESSION_CAP = { tokens: 1_000_000 };
 
-export const TASK =
+const TASK_BODY =
   'Produce, in this run, one public-facing content draft (a blog post or X thread), one research ' +
   'deliverable that supports the growth plan, and one listing or outreach packet ready to use. Save them ' +
   'in the workspace as deliverables/content/, deliverables/research/ and deliverables/listing/. Every claim ' +
-  'about the product must be verifiable in the repository archive or marked unverified. Outbound actions ' +
-  'are recorded, not published; nothing may be published without review.';
+  'about the product must be verifiable in the repository archive or marked unverified, and a deliverable ' +
+  'must be new work, not a copy of a file already in the workspace. Outbound actions are recorded, not ' +
+  'published; nothing may be published without review.';
+
+/** Declared change, 2026-10-02 (round 2, owner decision 1): in every arm with several roles the lead
+ *  coordinates and does not write deliverables itself. In the pilot the lead did the whole job in one arm
+ *  of 2 of 3 pairs, which confounded them. The sentence about new work answers the round-1 review finding
+ *  that deliverables were copies of existing workspace files. */
+export const TASK = `${TASK_BODY} The lead coordinates and does not write deliverables itself: each deliverable is produced by the role that owns it and handed over to the lead.`;
+
+/** The single-agent arm (the null hypothesis, spec R18): one role does the whole task alone. */
+export const SOLO_TASK = `${TASK_BODY} You are the only agent in this run: do all of it yourself.`;
 
 export async function buildInputs({ dir }) {
   const snap = snapshotDir();
@@ -73,7 +88,7 @@ function rewrite(v, from, to) {
   return v;
 }
 
-export async function baseDef({ inputs, workspace, root }) {
+export async function baseDef({ inputs, workspace, root, contender }) {
   const manifest = readJson(join(inputs, 'manifest.json'));
   const tools = readJson(join(inputs, 'tools.json'));
   const replay = readJson(join(inputs, 'replay.json'));
@@ -114,9 +129,10 @@ export async function baseDef({ inputs, workspace, root }) {
   }
   return {
     def,
-    task: TASK,
+    task: contender === 'single' ? SOLO_TASK : TASK,
     caps: CAPS,
-    allocationUsd: 8,
+    allocationUsd: ALLOCATION_USD,
+    orgStopUsd: ORG_STOP_USD,
     sessionCap: SESSION_CAP,
     deadlineSeconds: 5400,
     // The production profile is never a trial's to write, and must be byte-identical afterwards.

@@ -18,23 +18,32 @@ export const MODEL = 'claude-haiku-4-5-20251001';
  *  - phase2: current-best plus the Phase 2 surface: required briefs, notes, a session cap. */
 export const CONTENDERS = ['current-best', 'phase2'];
 
+/** The null hypothesis (spec R18), kept as a third arm where a scenario asks for it: the Phase 2
+ *  configuration with one role, the root, doing the whole task alone, on the same model and the same
+ *  org-wide stop. It is not in CONTENDERS, so a smoke run still loops over the two. */
+export const SOLO = 'single';
+
 export const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 export const writeJson = (p, v) => writeFileSync(p, `${JSON.stringify(v, null, 2)}\n`);
 
 /** The contender's run_config on top of a scenario's base definition. `sessionCap`
  *  is the scenario's own value, fixed in its kit before any run. */
 export function applyContender(def, contender, { sessionCap } = {}) {
-  if (!CONTENDERS.includes(contender))
-    throw new Error(`contender must be one of ${CONTENDERS.join(', ')}`);
+  if (![...CONTENDERS, SOLO].includes(contender))
+    throw new Error(`contender must be one of ${[...CONTENDERS, SOLO].join(', ')}`);
   const out = structuredClone(def);
   out.run_config = { ...(out.run_config ?? {}), session_scope: 'task' };
   delete out.run_config.context;
-  if (contender === 'phase2') {
+  if (contender === 'phase2' || contender === SOLO) {
     if (!sessionCap || (sessionCap.tokens === undefined && sessionCap.tasks === undefined))
       throw new Error(
         "the phase2 contender needs the scenario's session cap ({tokens} or {tasks})",
       );
     out.run_config.context = { require_brief: true, notes: true, session_cap: sessionCap };
+  }
+  if (contender === SOLO) {
+    const root = out.roles.find((r) => r.reports_to == null) ?? out.roles[0];
+    out.roles = [root];
   }
   return out;
 }
@@ -55,6 +64,16 @@ export function applyContender(def, contender, { sessionCap } = {}) {
 export const CLAUDE = { runtime: 'claude', model: MODEL };
 export const CODEX = { runtime: 'codex', model: 'gpt-6-astra' };
 export const AGY = { runtime: 'antigravity', model: 'gemini-3.8-flash-high' };
+export const SONNET = 'claude-sonnet-5-5';
+
+/** Profiles: `haiku` (the default, for harness checks and every round so far) and `production`, which
+ *  puts a scenario's Claude roles on Sonnet where the scenario defines it. Per-role USD caps are scaled
+ *  by PRICE_SCALE on the production profile, so a cap keeps the same token room; the org-wide stop is
+ *  not scaled. The production factor is an ASSUMPTION (Sonnet priced at about three times Haiku) until
+ *  a run's measured costs replace it. */
+export const PROFILES = ['haiku', 'production'];
+export const PRICE_SCALE = { haiku: 1, production: 3 };
+
 export const RUNNER_PLANS = {
   'research-report': { workers: CODEX },
   'deliberative-design': { workers: CODEX },
@@ -63,9 +82,17 @@ export const RUNNER_PLANS = {
   'dev-feature-qa-revise': { workers: CLAUDE },
   // The growth org keeps each role's own runner (two designers run on codex and antigravity);
   // only its Claude roles are pinned to Haiku. Identical in both contenders.
-  'growth-like': { native: true },
+  'growth-like': { native: true, production: { native: true, claudeModel: SONNET } },
   _selftest: { workers: CLAUDE },
 };
+
+/** A scenario's runner plan under a profile; scenarios without a production variant are unchanged. */
+export function resolvePlan(scenario, profile = 'haiku') {
+  if (!PROFILES.includes(profile)) throw new Error(`profile must be one of ${PROFILES.join(', ')}`);
+  const plan = RUNNER_PLANS[scenario];
+  if (!plan) throw new Error(`no runner plan for scenario "${scenario}"`);
+  return profile === 'production' && plan.production ? plan.production : plan;
+}
 
 /** Token caps counted on the billable basis (cache reads included), because the runners that report
  *  no USD report tokens, and most of a long session's tokens are cache reads. The codex dry run used
@@ -86,7 +113,9 @@ export function applyModel(def, plan = { workers: CLAUDE }) {
   const out = structuredClone(def);
   for (const r of out.roles) {
     if (plan.native && r.provider) continue; // keeps its own runner and model
-    const p = plan.native ? CLAUDE : planFor(r, plan);
+    const p = plan.native
+      ? { runtime: 'claude', model: plan.claudeModel ?? MODEL }
+      : planFor(r, plan);
     r.adapter_config = { ...(r.adapter_config ?? {}), model: p.model };
     delete r.provider;
     if (p.runtime === 'claude') delete r.runtime;
@@ -102,10 +131,11 @@ export function runnersOf(def) {
   );
 }
 
-/** Soft stops: USD per priced role, summing to no more than the scenario's planning
- *  allocation; a token cap per role on an unpriced runner (which reports no USD); and one
- *  org-wide token cap, the same in every trial so no default decides a result. */
-export function applyCaps(def, caps, allocationUsd) {
+/** Soft stops: USD per priced role, summing to no more than the scenario's planning allocation
+ *  (or, when an org-wide stop of at most the allocation bounds the run, summing to anything: the stop is
+ *  the worst case); a token cap per role on an unpriced runner (which reports no USD); and one org-wide
+ *  token cap, the same in every trial so no default decides a result. */
+export function applyCaps(def, caps, allocationUsd, { orgStopUsd } = {}) {
   const out = structuredClone(def);
   let usd = 0;
   for (const r of out.roles) {
@@ -118,7 +148,11 @@ export function applyCaps(def, caps, allocationUsd) {
   }
   for (const id of Object.keys(caps))
     if (!out.roles.some((r) => r.id === id)) throw new Error(`cap for unknown role ${id}`);
-  if (usd > allocationUsd + 1e-9)
+  if (orgStopUsd !== undefined && orgStopUsd > allocationUsd + 1e-9)
+    throw new Error(
+      `the org-wide stop ($${orgStopUsd}) is over the $${allocationUsd} planning allocation`,
+    );
+  if (orgStopUsd === undefined && usd > allocationUsd + 1e-9)
     throw new Error(`role caps sum to $${usd}, over the $${allocationUsd} planning allocation`);
   out.run_config = {
     ...(out.run_config ?? {}),

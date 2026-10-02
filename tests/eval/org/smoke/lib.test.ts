@@ -18,8 +18,12 @@ import {
   isolate,
   MODEL,
   ORG_TOKENS,
+  PRICE_SCALE,
   RUNNER_PLANS,
+  resolvePlan,
   runnersOf,
+  SOLO,
+  SONNET,
   UNPRICED_ROLE_TOKENS,
 } from './lib.mjs';
 // @ts-expect-error plain .mjs modules
@@ -191,5 +195,67 @@ describe('prepare and check, end to end on the self-test kit', () => {
     writeFileSync(join(root, 'workspace/answer.txt'), '42\n');
     expect((await checkTrial(root))[0]).toMatchObject({ accepted: true });
     expect(JSON.parse(readFileSync(join(root, 'units.json'), 'utf8')).contender).toBe('phase2');
+  });
+});
+
+describe('round 2: the single-agent arm, the production profile, and an org-wide stop', () => {
+  const org = () => ({
+    name: 'x',
+    run_config: { workspace: '/w' },
+    roles: [
+      { id: 'lead', type: 'boss', reports_to: null, tool_providers: [{ name: 'own' }] },
+      { id: 'w1', type: 's', reports_to: 'lead', tool_providers: [{ name: 'other' }] },
+      {
+        id: 'w2',
+        type: 's',
+        reports_to: 'lead',
+        provider: { kind: 'codex' },
+        adapter_config: { model: 'gpt-6-astra' },
+      },
+    ],
+  });
+
+  it('the single arm is the Phase 2 configuration with the root role alone', () => {
+    const phase2 = applyContender(org(), 'phase2', { sessionCap: { tokens: 1000 } });
+    const single = applyContender(org(), SOLO, { sessionCap: { tokens: 1000 } });
+    expect(SOLO).toBe('single');
+    expect(single.roles.map((r: any) => r.id)).toEqual(['lead']);
+    expect(single.run_config).toEqual(phase2.run_config); // same surface, same cap, same scope
+    expect(single.roles[0].tool_providers).toEqual([{ name: 'own' }]); // its own tools, not the other roles'
+    expect(CONTENDERS).not.toContain(SOLO); // a smoke run loops over the two contenders only
+    expect(() => applyContender(org(), SOLO)).toThrow(/session cap/);
+  });
+
+  it('resolves a scenario plan by profile: Haiku by default (harness checks), the production model on request', () => {
+    expect(resolvePlan('growth-like')).toEqual(RUNNER_PLANS['growth-like']);
+    expect(resolvePlan('growth-like', 'haiku')).toEqual(RUNNER_PLANS['growth-like']);
+    expect(resolvePlan('growth-like', 'production')).toEqual({ native: true, claudeModel: SONNET });
+    expect(resolvePlan('sparse-dispatch', 'production')).toEqual(RUNNER_PLANS['sparse-dispatch']); // none defined: unchanged
+    expect(() => resolvePlan('growth-like', 'fast')).toThrow(/profile/);
+    expect(SONNET).toBe('claude-sonnet-5-5');
+  });
+
+  it('the production profile puts every Claude role, the root included, on Sonnet, and leaves other runners alone', () => {
+    const out = applyModel(org(), resolvePlan('growth-like', 'production'));
+    expect(runnersOf(out)).toEqual({
+      lead: { runtime: 'claude', model: SONNET },
+      w1: { runtime: 'claude', model: SONNET },
+      w2: { runtime: 'codex', model: 'gpt-6-astra' },
+    });
+    expect(runnersOf(applyModel(org(), resolvePlan('growth-like'))).lead.model).toBe(MODEL); // the default is unchanged
+  });
+
+  it('scales per-role USD caps by the model price ratio only on the production profile', () => {
+    expect(PRICE_SCALE).toEqual({ haiku: 1, production: 3 });
+  });
+
+  it('an org-wide stop bounds the run, so role caps may sum above the allocation, but the stop may not exceed it', () => {
+    const d = applyModel(org(), { workers: { runtime: 'claude', model: MODEL } });
+    expect(() => applyCaps(d, { lead: 8, w1: 8, w2: 8 }, 12)).toThrow(/over the \$12/); // no stop: the sum rule stands
+    const ok = applyCaps(d, { lead: 8, w1: 8, w2: 8 }, 12, { orgStopUsd: 12 });
+    expect(ok.roles.map((r: any) => r.budget_usd)).toEqual([8, 8, 8]);
+    expect(() => applyCaps(d, { lead: 1, w1: 1, w2: 1 }, 12, { orgStopUsd: 13 })).toThrow(
+      /org-wide stop.*allocation/,
+    );
   });
 });

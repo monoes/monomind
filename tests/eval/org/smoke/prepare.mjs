@@ -18,8 +18,10 @@ import {
   effectiveDiff,
   isolate,
   newRoot,
-  RUNNER_PLANS,
+  PRICE_SCALE,
+  resolvePlan,
   runnersOf,
+  SOLO,
   trialName,
   writeJson,
 } from './lib.mjs';
@@ -48,7 +50,7 @@ export async function buildInputs({ scenario, base }) {
   return dir;
 }
 
-export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
+export async function prepareTrial({ scenario, base, contender, trial = '1', profile = 'haiku' }) {
   const kit = await loadKit(scenario);
   base = resolve(base);
   const inputs = join(base, 'inputs', scenario);
@@ -59,18 +61,25 @@ export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
   cpSync(join(inputs, 'workspace'), workspace, { recursive: true, mode: 0 });
   for (const d of [workspace])
     await import('node:child_process').then((c) => c.execFileSync('chmod', ['-R', 'u+w', d]));
-  const spec = await kit.baseDef({ inputs, workspace, root });
-  const plan = RUNNER_PLANS[scenario];
-  if (!plan) throw new Error(`no runner plan for scenario "${scenario}"`);
+  const spec = await kit.baseDef({ inputs, workspace, root, contender });
+  const plan = resolvePlan(scenario, profile);
   let def = applyContender(spec.def, contender, { sessionCap: spec.sessionCap });
   def = applyModel(def, plan);
-  def = applyCaps(def, spec.caps, spec.allocationUsd);
+  // Per-role USD caps follow the model's price on the production profile; the single arm's one role
+  // may spend up to the org-wide stop (or the allocation), the same ceiling the whole org has.
+  const scale = plan.claudeModel ? PRICE_SCALE[profile] : 1;
+  const caps =
+    contender === SOLO
+      ? { [def.roles[0].id]: spec.orgStopUsd ?? spec.allocationUsd }
+      : Object.fromEntries(Object.entries(spec.caps).map(([r, usd]) => [r, usd * scale]));
+  def = applyCaps(def, caps, spec.allocationUsd, { orgStopUsd: spec.orgStopUsd });
   def = isolate(def, { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] });
   const plain = isolate(
     applyCaps(
       applyModel(applyContender(spec.def, 'current-best'), plan),
-      spec.caps,
+      Object.fromEntries(Object.entries(spec.caps).map(([r, usd]) => [r, usd * scale])),
       spec.allocationUsd,
+      { orgStopUsd: spec.orgStopUsd },
     ),
     { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] },
   );
@@ -80,6 +89,7 @@ export async function prepareTrial({ scenario, base, contender, trial = '1' }) {
     scenario,
     contender,
     trial,
+    profile,
     runners: runnersOf(def),
     task: spec.task,
     guard: [inputs, ...(spec.extraGuard ?? [])],
@@ -101,6 +111,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
       base: { type: 'string' },
       contender: { type: 'string' },
       trial: { type: 'string' },
+      profile: { type: 'string' },
     },
   });
   if (!a.scenario || !a.base) throw new Error('--scenario and --base are required');
@@ -108,7 +119,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   else if (cmd === 'trial') console.log(await prepareTrial(a));
   else {
     console.error(
-      'usage: prepare.mjs inputs|trial --scenario <id> --base <dir> [--contender c --trial n]',
+      'usage: prepare.mjs inputs|trial --scenario <id> --base <dir> [--contender c --trial n --profile haiku|production]',
     );
     process.exit(2);
   }
