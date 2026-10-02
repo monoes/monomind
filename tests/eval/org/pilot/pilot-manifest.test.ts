@@ -8,7 +8,9 @@ import { pilotPlan, validatePilotManifest } from './pilot-manifest.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (p: string) => JSON.parse(readFileSync(join(here, p), 'utf8'));
 const scenario = (id: string) => load(`../manifests/${id}.json`);
-const pilots = ['growth-like', 'dev-feature-qa'].map((id) => load(`${id}.pilot.json`));
+const pilots = ['growth-like', 'dev-feature-qa', 'dev-feature-qa-revise'].map((id) =>
+  load(`${id}.pilot.json`),
+);
 
 describe('the committed pilot manifests', () => {
   it.each(pilots)(
@@ -21,9 +23,10 @@ describe('the committed pilot manifests', () => {
   );
 
   it('plans round 2 of growth-like: 3 arms x 3 trials at $12 is 9 runs and $108; the round 1 dev-feature pilot is 6 runs at $8', () => {
-    const [growth, dev] = pilots;
+    const [growth, dev, revise] = pilots;
     expect(pilotPlan([growth], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     expect(pilotPlan([dev], scenario)).toEqual({ runs: 6, allocation_usd: 48 });
+    expect(pilotPlan([growth, revise], scenario)).toEqual({ runs: 15, allocation_usd: 156 }); // all of round 2
   });
 
   it('growth-like has the third, single-agent arm, the production profile and the $12 org-wide stop, declared', () => {

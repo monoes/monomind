@@ -1,9 +1,9 @@
 {
-  "status": "PROPOSED 2026-10-02: a draft for owner approval, not the active fixture; dev-feature-qa is unchanged",
+  "status": "APPROVED 2026-10-02 by the owner",
   "id": "dev-feature-qa-revise-fixture",
   "scenario": "dev-feature-qa-revise",
   "fixture": {
-    "status": "PROPOSED",
+    "status": "APPROVED 2026-10-02",
     "summary": "The same duration parser as dev-feature-qa, but the draft already contains a defect: its header comment says whitespace inside a duration is an error while the code strips it. The implementer adds the ISO-8601 form; QA, working from a checklist that includes the header comment's rule, finds the defect in the first version and rejects it; the implementer revises and republishes.",
     "build": "node tests/eval/org/fixtures/dev-feature-qa-revise/build-fixture.mjs <empty dir>",
     "pinned_commit": "1f511738b16b44f091b82719173021ceba3b9f78",

@@ -1,4 +1,4 @@
-// PROPOSED (not active) dev-feature-qa-revise fixture: the implementer adds a feature, and QA finds a
+// dev-feature-qa-revise fixture (approved by the owner 2026-10-02): the implementer adds a feature, and QA finds a
 // real defect the draft already had, one its own header comment forbids and the existing tests miss. The
 // honest flow is publish, reject, revise, republish, accept. These tests show the flow cannot skip the
 // reject: the first version passes everything the implementer can see and still fails QA's checks.
@@ -63,10 +63,10 @@ const version = (src: string | undefined) => {
 const WHITESPACE =
   'whitespace inside a duration is an error (the module says so); only the ends are trimmed';
 
-describe('the PROPOSED dev-feature-qa-revise fixture', () => {
-  it('is marked proposed and builds to its pinned commit every time', () => {
+describe('the dev-feature-qa-revise fixture', () => {
+  it('is marked approved and builds to its pinned commit every time', () => {
     expect(JSON.parse(readFileSync(join(here, 'fixture.json'), 'utf8')).status).toMatch(
-      /^PROPOSED/,
+      /^APPROVED 2026-10-02/,
     );
     for (let i = 0; i < 2; i++)
       expect(git(build(), 'rev-parse', 'HEAD')).toBe(fixture.pinned_commit);

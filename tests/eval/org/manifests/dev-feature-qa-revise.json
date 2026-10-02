@@ -1,7 +1,7 @@
 {
   "id": "dev-feature-qa-revise",
   "title": "Dev feature with QA, revised: QA finds a real seeded defect in the first version, and the implementer must revise and republish",
-  "committed_at": "PROPOSED",
+  "committed_at": "2026-10-02",
   "units": [
     {
       "id": "feature-change",
@@ -80,11 +80,11 @@
     "basis": "estimated-inference",
     "planning_allocation_usd": 8
   },
-  "status": "PROPOSED",
-  "proposed_on": "2026-10-02",
-  "notice": "PROPOSED DRAFT for owner review. Not committed and not active: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it. dev-feature-qa.json is unchanged.",
   "fixture": {
     "record": "tests/eval/org/fixtures/dev-feature-qa-revise/fixture.json",
-    "qa_checklist": "tests/eval/org/fixtures/dev-feature-qa-revise/qa-checklist.md"
-  }
+    "qa_checklist": "tests/eval/org/fixtures/dev-feature-qa-revise/qa-checklist.md",
+    "status": "APPROVED 2026-10-02"
+  },
+  "approved_by": "owner",
+  "approved_on": "2026-10-02"
 }
