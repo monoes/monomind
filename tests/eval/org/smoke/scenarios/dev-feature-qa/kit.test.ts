@@ -204,6 +204,44 @@ describe('check', () => {
     expect(units.critical.join('\n')).toMatch(/acceptance/);
   });
 
+  it('has a separate place for new tests, so adding to the existing file is never the natural move', async () => {
+    const { ws } = trial((w) => {
+      rmSync(join(w, 'test/compound.check.mjs'));
+      writeFileSync(
+        join(w, 'test/added/compound.check.mjs'),
+        NEW_TEST.replace('../src/', '../../src/'),
+      ); // one level deeper
+    });
+    expect(existsSync(join(inputs, 'workspace/test/added/README.md'))).toBe(true); // the template carries the place
+    const { byId } = await run(ws);
+    expect(byId['feature-change'].evidence.failures).toEqual([]);
+    expect(byId['feature-change'].accepted).toBe(true);
+  });
+
+  it('still rejects an edit to the existing test file, which the separate place makes unnecessary', async () => {
+    const { ws } = trial((w) => {
+      writeFileSync(
+        join(w, 'test/added/compound.check.mjs'),
+        NEW_TEST.replace('../src/', '../../src/'),
+      ); // one level deeper
+      writeFileSync(
+        join(w, 'test/duration.check.mjs'),
+        `${readFileSync(join(w, 'test/duration.check.mjs'), 'utf8')}\n// more\n`,
+      );
+    });
+    const { byId } = await run(ws);
+    expect(byId['feature-change'].accepted).toBe(false);
+    expect(byId['feature-change'].evidence.failures.join('\n')).toMatch(/out-of-bounds/);
+  });
+
+  it("tells the roles where new tests go, in the task and in the implementer's own brief", async () => {
+    const spec = await baseDef({ inputs, workspace: '/w', root: '/r' });
+    expect(spec.task).toMatch(/test\/added\//);
+    expect(JSON.stringify(spec.def.roles.find((r: any) => r.id === 'implementer'))).toMatch(
+      /test\/added\//,
+    );
+  });
+
   it('rejects a change with no new tests', async () => {
     const { ws } = trial((w) => rmSync(join(w, 'test/compound.check.mjs')));
     const { byId } = await run(ws);

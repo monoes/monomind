@@ -16,7 +16,7 @@ const build = (): string => {
   return out;
 };
 const nodeTest = (cwd: string) =>
-  spawnSync('node', ['--test', 'test/*.check.mjs'], { cwd, encoding: 'utf8' });
+  spawnSync('node', ['--test', 'test/**/*.check.mjs'], { cwd, encoding: 'utf8' });
 const proposed = JSON.parse(readFileSync(join(here, 'fixture.json'), 'utf8'));
 
 describe('dev-feature-qa fixture (approved)', () => {

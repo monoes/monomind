@@ -83,7 +83,7 @@ export async function baseDef({ workspace }) {
           type: 'specialist',
           reports_to: 'lead',
           responsibilities: [
-            'Implement the feature in src/duration.mjs and add tests under test/ (new files only; never edit existing tests or package.json). Run the tests, commit your work in the workspace, and report the commit sha to the lead.',
+            'Implement the feature in src/duration.mjs and add your new tests as new files in test/added/ (named *.check.mjs; never edit the existing tests in test/ or package.json). Run the tests, commit your work in the workspace, and report the commit sha to the lead.',
           ],
           policy: { fileWrite: ['src', 'test'], git: 'commit' },
         },
@@ -120,7 +120,7 @@ export async function baseDef({ workspace }) {
 // ---- check ---------------------------------------------------------------
 
 const runTests = (cwd) => {
-  const r = spawnSync('node', ['--test', 'test/*.check.mjs'], {
+  const r = spawnSync('node', ['--test', 'test/**/*.check.mjs'], {
     cwd,
     env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR ?? tmpdir() },
     encoding: 'utf8',
@@ -212,7 +212,10 @@ export async function check({ workspace, inputs }) {
 
     // (3) new tests added, and the repo's own tests (existing + new) pass.
     const newTests = diff.filter(
-      (d) => d.status === 'A' && /^test\/[^/]+\.check\.mjs$/.test(d.path) && d.path !== ACCEPTANCE,
+      (d) =>
+        d.status === 'A' &&
+        /^test\/(?:added\/)?[^/]+\.check\.mjs$/.test(d.path) &&
+        d.path !== ACCEPTANCE,
     );
     if (!newTests.length) failChange.push('no new test file under test/ (*.check.mjs)');
     const ownRun = runTests(copy);

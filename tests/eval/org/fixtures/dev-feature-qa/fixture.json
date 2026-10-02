@@ -6,13 +6,25 @@
     "status": "APPROVED 2026-10-02",
     "summary": "A 12-line duration parser in a throwaway local git repository, small enough that one implementer and one QA role finish within the deadline and the whole fixture fits in a context window.",
     "build": "node tests/eval/org/fixtures/dev-feature-qa/build-fixture.mjs <empty dir>",
-    "pinned_commit": "bb1782dbd9b03ed7da22a186622abcc5392796f3",
+    "pinned_commit": "ffda0def80940ea2809da5f30b41211465205728",
     "pin_basis": "the build is reproducible (fixed files, author, dates and message), and a test rebuilds it and checks this hash",
-    "task": "Extend parseDuration in src/duration.mjs to accept compound durations written largest unit first (\"1h30m\", \"2m30s\", \"1h1m1s\") and the ISO-8601 time form (\"PT1H30M\", \"PT45S\", \"PT2H\"), keeping every current behaviour. Add tests for what you add. Do not edit existing tests.",
-    "declared_paths": ["src/duration.mjs", "test/"],
-    "out_of_bounds": ["package.json", "existing test files, apart from adding new ones"],
+    "task": "Extend parseDuration in src/duration.mjs to accept compound durations written largest unit first (\"1h30m\", \"2m30s\", \"1h1m1s\") and the ISO-8601 time form (\"PT1H30M\", \"PT45S\", \"PT2H\"), keeping every current behaviour. Add tests for what you add as new files in test/added/ (named *.check.mjs). The files directly in test/ are the existing tests: do not edit them.",
+    "declared_paths": ["src/duration.mjs", "test/added/"],
+    "out_of_bounds": [
+      "package.json",
+      "every file directly in test/ (the existing tests); only new files in test/added/ are allowed there"
+    ],
     "hidden_acceptance": "tests/eval/org/fixtures/dev-feature-qa/hidden/acceptance.check.mjs, copied into test/ by the harness only at verification; never present in a role's workspace",
     "solvability_check": "a reference solution under hidden/reference passes both the repository's tests and the hidden acceptance tests (checked by fixture.test.ts)",
-    "network": "none"
+    "network": "none",
+    "changes": [
+      {
+        "date": "2026-10-02",
+        "what": "Added test/added/ (a README, so git keeps it) as the place for new tests, widened the test glob to test/**/*.check.mjs, and reworded the task and out-of-bounds rule to name that place. The template's test files and the hidden acceptance tests are unchanged.",
+        "why": "In the first smoke run both contenders added their tests to the existing test file, which the checker treats as out of bounds; the template had a single test file and nowhere else to put new tests.",
+        "manifest_unchanged": true,
+        "previous_pinned_commit": "bb1782dbd9b03ed7da22a186622abcc5392796f3"
+      }
+    ]
   }
 }
