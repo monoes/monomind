@@ -20,6 +20,8 @@ interface Opts {
   n: number;
   arm: 'baseline' | 'treatment' | 'single';
   tasks?: number; // tasks the lead created
+  redo?: number; // a redo of an interrupted trial of the same arm and number
+  interrupted?: boolean; // killed mid-run: no result.json
   dispatched?: number; // tasks dispatched to workers by a plan graph (no `task-created` event)
   workers?: string[]; // roles other than the lead that did something
   complete?: 'achieved' | 'partial' | null;
@@ -34,7 +36,7 @@ interface Opts {
 function root(o: Opts) {
   const r = mkdtempSync(join(tmpdir(), 'pilot-report-'));
   const scenario = o.scenario ?? 'growth-like';
-  const name = `smoke-${scenario}-phase2-p${o.n}${{ baseline: 'b', treatment: 't', single: 's' }[o.arm]}`;
+  const name = `smoke-${scenario}-phase2-p${o.n}${{ baseline: 'b', treatment: 't', single: 's' }[o.arm]}${o.redo ? `r${o.redo}` : ''}`;
   const run = join(r, '.monomind/orgs', name, 'run-1');
   mkdirSync(run, { recursive: true });
   const events: unknown[] = [
@@ -72,18 +74,19 @@ function root(o: Opts) {
     }),
   );
   writeFileSync(join(r, 'units.json'), JSON.stringify({ units: o.units ?? [] }));
-  writeFileSync(
-    join(r, 'result.json'),
-    JSON.stringify({
-      name,
-      exit: 0,
-      timedOut: false,
-      seconds: 200,
-      inputs: 'clean',
-      realState: 'clean',
-      ...(o.spendStopped === undefined ? {} : { spendStopped: o.spendStopped }),
-    }),
-  );
+  if (!o.interrupted)
+    writeFileSync(
+      join(r, 'result.json'),
+      JSON.stringify({
+        name,
+        exit: 0,
+        timedOut: false,
+        seconds: 200,
+        inputs: 'clean',
+        realState: 'clean',
+        ...(o.spendStopped === undefined ? {} : { spendStopped: o.spendStopped }),
+      }),
+    );
   if (o.handoff) {
     mkdirSync(join(r, 'pilot-state'));
     writeFileSync(
@@ -270,5 +273,36 @@ describe('delegation through a plan graph', () => {
       delegated: false,
       tasksDispatched: 0,
     });
+  });
+});
+
+describe('a redo of an interrupted trial', () => {
+  it('is read as the same arm and trial number, flagged as a redo', () => {
+    const r = pilotRow(root({ n: 3, arm: 'baseline', redo: 1, tasks: 2, complete: 'achieved' }));
+    expect(r).toMatchObject({ arm: 'baseline', n: 3, redo: 1, interrupted: false });
+  });
+
+  it('reads a trial with no result as interrupted', () => {
+    expect(pilotRow(root({ n: 3, arm: 'baseline', interrupted: true, usd: 7.5 }))).toMatchObject({
+      interrupted: true,
+      usd: 7.5,
+    });
+  });
+
+  it('puts the redo in its pair, lists the interrupted original apart, counts its spend, and does not call the pair confounded', () => {
+    const rep = pilotReport([
+      pilotRow(root({ n: 3, arm: 'baseline', interrupted: true, usd: 7.5, tasks: 2 })),
+      pilotRow(root({ n: 3, arm: 'baseline', redo: 1, usd: 5, tasks: 2 })),
+      pilotRow(root({ n: 3, arm: 'treatment', usd: 8, tasks: 2 })),
+    ]);
+    const [pair] = rep.scenarios[0].pairs;
+    expect(pair.baseline).toMatchObject({ redo: 1, usd: 5 });
+    expect(pair.confounded).toBe(false);
+    expect(pair.reasons.join(' ')).toMatch(/redo of an interrupted trial/);
+    expect(rep.interrupted.map((r: { name: string }) => r.name)).toEqual([
+      'smoke-growth-like-phase2-p3b',
+    ]);
+    expect(rep.spendUsd).toBeCloseTo(20.5); // the interrupted attempt's spend stays in the total
+    expect(rep.summary).toMatchObject({ interrupted: 1, usable: 1 });
   });
 });

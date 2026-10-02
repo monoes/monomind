@@ -25,23 +25,41 @@ say() { printf '%s %s\n' "$(date -Is)" "$*" | tee -a "$log"; }
 spent() { (cd "$repo" && npx tsx "$smoke/report.cli.ts" --json "$base"/trials/* 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).spendUsd)}catch{console.log(0)}})'); }
 export SMOKE_RUN_CMD="cd '$repo' && npx tsx '$here/run-org.ts'"
 
+# One trial: scenario, arm, trial number, redo number (0 = not a redo).
+run_one() {
+  local sc=$1 arm=$2 n=$3 redo=${4:-0} root label
+  label="$sc $arm $n${redo:+ redo $redo}"; [ "$redo" = 0 ] && label="$sc $arm $n"
+  root=$(cd "$repo" && npx tsx "$here/prepare.ts" "$sc" "$base" "$arm" "$n" $([ "$redo" != 0 ] && echo "$redo")) || { say "prepare failed: $label"; exit 3; }
+  say "START $label"
+  bash "$smoke/run-trial.sh" "$root" "$cli" > "$root/run-trial.out" 2>&1
+  node "$smoke/check.mjs" "$root" > "$root/check.out" 2>&1 || say "check failed for $label"
+  say "END $label: $(cat "$root/result.json" 2>/dev/null)"
+  if grep -q VOID "$root/result.json" 2>/dev/null; then say "STOP: a trial was void"; exit 4; fi
+  total=$(spent)
+  say "spend so far: \$$total of \$$allocation"
+  if node -e "process.exit(Number('$total') > Number('$allocation') ? 0 : 1)"; then say "STOP: spend passed the allocation"; exit 5; fi
+}
+
+# PILOT_ONLY="scenario:arm:n:redo,..." runs just those trials, in that order (for finishing a round that
+# was interrupted: a redo is a new trial id, flagged in its record, and the interrupted one stays on record).
+if [ -n "${PILOT_ONLY:-}" ]; then
+  IFS=',' read -ra only <<< "$PILOT_ONLY"
+  for spec in "${only[@]}"; do
+    IFS=':' read -r sc arm n redo <<< "$spec"
+    [ -d "$base/inputs/$sc" ] || { say "no inputs for $sc in $base"; exit 3; }
+    run_one "$sc" "$arm" "$n" "${redo:-0}"
+  done
+  say "DONE"
+  exit 0
+fi
+
 for sc in "${scenarios[@]}"; do
   [ -d "$base/inputs/$sc" ] || node "$smoke/prepare.mjs" inputs --scenario "$sc" --base "$base" >/dev/null || { say "inputs failed for $sc"; exit 3; }
   read -ra arms <<< "$(arms_of "$sc")"
   for n in 1 2 3; do
     k=$(( (n - 1) % ${#arms[@]} ))
     order=("${arms[@]:k}" "${arms[@]:0:k}")
-    for arm in "${order[@]}"; do
-      root=$(cd "$repo" && npx tsx "$here/prepare.ts" "$sc" "$base" "$arm" "$n") || { say "prepare failed: $sc $arm $n"; exit 3; }
-      say "START $sc $arm $n"
-      bash "$smoke/run-trial.sh" "$root" "$cli" > "$root/run-trial.out" 2>&1
-      node "$smoke/check.mjs" "$root" > "$root/check.out" 2>&1 || say "check failed for $sc $arm $n"
-      say "END $sc $arm $n: $(cat "$root/result.json" 2>/dev/null)"
-      if grep -q VOID "$root/result.json" 2>/dev/null; then say "STOP: a trial was void"; exit 4; fi
-      total=$(spent)
-      say "spend so far: \$$total of \$$allocation"
-      if node -e "process.exit(Number('$total') > Number('$allocation') ? 0 : 1)"; then say "STOP: spend passed the allocation"; exit 5; fi
-    done
+    for arm in "${order[@]}"; do run_one "$sc" "$arm" "$n" 0; done
   done
 done
 say "DONE"

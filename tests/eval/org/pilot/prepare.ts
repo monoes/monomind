@@ -26,6 +26,8 @@ export async function preparePilotTrial(o: {
   base: string;
   arm: Arm;
   n: number;
+  /** The nth redo of an interrupted trial of this arm and number: a new trial id, flagged in its record. */
+  redo?: number;
 }): Promise<string> {
   const cfg = JSON.parse(readFileSync(join(here, `${o.scenario}.pilot.json`), 'utf8'));
   if (!cfg.arms.some((a: { id: string }) => a.id === o.arm))
@@ -35,7 +37,7 @@ export async function preparePilotTrial(o: {
     base: o.base,
     // the single arm is the Phase 2 configuration with the root role alone; the other arms are Phase 2 as is
     contender: o.arm === 'single' ? 'single' : 'phase2',
-    trial: `p${o.n}${SUFFIX[o.arm]}`,
+    trial: `p${o.n}${SUFFIX[o.arm]}${o.redo ? `r${o.redo}` : ''}`,
     profile: cfg.profile ?? 'haiku',
   });
   const trialFile = join(root, 'trial.json');
@@ -56,6 +58,7 @@ export async function preparePilotTrial(o: {
   trial.pilot = {
     id: cfg.id,
     arm: o.arm,
+    ...(o.redo ? { redo: o.redo, redoOf: trial.name.replace(/r\d+$/, '') } : {}),
     nativeChildren: cfg.native_children,
     writerAuthority: cfg.writer_authority,
     ...pilot,
@@ -65,6 +68,14 @@ export async function preparePilotTrial(o: {
 }
 
 if (process.argv[1]?.endsWith('pilot/prepare.ts')) {
-  const [scenario, base, arm, n] = process.argv.slice(2);
-  console.log(await preparePilotTrial({ scenario, base, arm: arm as Arm, n: Number(n) }));
+  const [scenario, base, arm, n, redo] = process.argv.slice(2);
+  console.log(
+    await preparePilotTrial({
+      scenario,
+      base,
+      arm: arm as Arm,
+      n: Number(n),
+      ...(redo ? { redo: Number(redo) } : {}),
+    }),
+  );
 }

@@ -22,6 +22,10 @@ export interface HandoffCounts {
 export interface PilotRow extends TrialRow {
   arm: 'baseline' | 'treatment' | 'single';
   n: number;
+  /** The nth redo of an interrupted trial of this arm and number. */
+  redo?: number;
+  /** Killed mid-run: it has no result. Listed apart, never paired; its spend still counts. */
+  interrupted: boolean;
   delegated: boolean;
   tasksCreated: number;
   /** Tasks a lead put in play with org_plan_graph: logged as dispatched, with no task-created event. */
@@ -57,7 +61,7 @@ function busOf(root: string, name: string): any[] {
 export function pilotRow(root: string): PilotRow {
   const base = trialRow(root);
   const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
-  const m = /-p(\d+)([bts])$/.exec(trial.name);
+  const m = /-p(\d+)([bts])(?:r(\d+))?$/.exec(trial.name);
   const bus = busOf(root, trial.name);
 
   const complete = bus.find((e) => e.type === 'tool' && String(e.tool).endsWith('org_complete'));
@@ -108,6 +112,8 @@ export function pilotRow(root: string): PilotRow {
       trial.pilot?.arm ??
       ({ b: 'baseline', t: 'treatment', s: 'single' } as const)[(m?.[2] ?? 'b') as 'b'],
     n: m ? Number(m[1]) : 0,
+    ...(m?.[3] ? { redo: Number(m[3]) } : {}),
+    interrupted: !existsSync(join(root, 'result.json')),
     delegated: tasksCreated > 0 || tasksDispatched > 0,
     tasksCreated,
     tasksDispatched,
@@ -134,7 +140,7 @@ export interface PairReport {
 
 export function pilotReport(rows: PilotRow[]) {
   const scenarios = [...new Set(rows.map((r) => r.scenario))].sort().map((scenario) => {
-    const mine = rows.filter((r) => r.scenario === scenario);
+    const mine = rows.filter((r) => r.scenario === scenario && !r.interrupted);
     const pairs: PairReport[] = [...new Set(mine.map((r) => r.n))]
       .sort((a, b) => a - b)
       .map((n) => {
@@ -157,6 +163,11 @@ export function pilotReport(rows: PilotRow[]) {
             reasons.push('a trial is void (its inputs or the real state changed)');
           }
         }
+        for (const r of [baseline, treatment, single])
+          if (r?.redo)
+            reasons.push(
+              `${r.arm} is a redo of an interrupted trial (${r.name.replace(/r\d+$/, '')}); the interrupted attempt's spend stays in the total`,
+            );
         return {
           n,
           baseline,
@@ -175,7 +186,10 @@ export function pilotReport(rows: PilotRow[]) {
     note: 'Harness-only prototype pilot: exploratory, no intervals, cannot pass or fail the coordination gate. A confounded pair says nothing about the prototype.',
     allocationUsd: rows.reduce((s, r) => s + r.allocationUsd, 0),
     spendUsd: rows.reduce((s, r) => s + r.usd, 0),
+    /** Trials killed mid-run: no result, never paired, spend counted. */
+    interrupted: rows.filter((r) => r.interrupted),
     summary: {
+      interrupted: rows.filter((r) => r.interrupted).length,
       pairs: all.length,
       confounded: all.filter((p) => p.confounded).length,
       incomplete: all.filter((p) => p.incomplete).length,

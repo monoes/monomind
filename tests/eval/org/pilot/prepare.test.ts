@@ -127,3 +127,24 @@ describe('round 2 arms and profile', () => {
     });
   });
 });
+
+describe('a redo trial', () => {
+  it('replaces an interrupted trial under its own id, flagged in the trial record, and the original is untouched', async () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-redo-'));
+    await buildInputs({ scenario: 'dev-feature-qa', base });
+    const first = org(
+      await preparePilotTrial({ scenario: 'dev-feature-qa', base, arm: 'baseline', n: 3 }),
+    );
+    const again = org(
+      await preparePilotTrial({ scenario: 'dev-feature-qa', base, arm: 'baseline', n: 3, redo: 1 }),
+    );
+    expect(first.t.name).toBe('smoke-dev-feature-qa-phase2-p3b');
+    expect(again.t.name).toBe('smoke-dev-feature-qa-phase2-p3br1');
+    expect(again.t.pilot).toMatchObject({
+      arm: 'baseline',
+      redoOf: 'smoke-dev-feature-qa-phase2-p3b',
+      redo: 1,
+    });
+    expect(first.t.pilot.redoOf).toBeUndefined();
+  });
+});

@@ -8,6 +8,8 @@ else {
   console.log(
     `${rep.note}\nspend $${rep.spendUsd.toFixed(2)} of $${rep.allocationUsd} allocated (soft); ${JSON.stringify(rep.summary)}\n`,
   );
+  for (const r of rep.interrupted)
+    console.log(`INTERRUPTED (no result, spend counted): ${r.name}  $${r.usd.toFixed(2)}`);
   for (const s of rep.scenarios) {
     console.log(s.scenario);
     for (const p of s.pairs) {
