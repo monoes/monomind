@@ -1,0 +1,8 @@
+{
+  "name": "duration-revise-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.check.mjs\""
+  }
+}

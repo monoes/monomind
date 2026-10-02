@@ -1,0 +1,30 @@
+{
+  "status": "PROPOSED 2026-10-02: a draft for owner approval, not the active fixture; dev-feature-qa is unchanged",
+  "id": "dev-feature-qa-revise-fixture",
+  "scenario": "dev-feature-qa-revise",
+  "fixture": {
+    "status": "PROPOSED",
+    "summary": "The same duration parser as dev-feature-qa, but the draft already contains a defect: its header comment says whitespace inside a duration is an error while the code strips it. The implementer adds the ISO-8601 form; QA, working from a checklist that includes the header comment's rule, finds the defect in the first version and rejects it; the implementer revises and republishes.",
+    "build": "node tests/eval/org/fixtures/dev-feature-qa-revise/build-fixture.mjs <empty dir>",
+    "pinned_commit": "1f511738b16b44f091b82719173021ceba3b9f78",
+    "pin_basis": "the build is reproducible (fixed files, author, dates and message), and fixture.test.ts rebuilds it and checks this hash",
+    "task": "Add the ISO-8601 time form to parseDuration in src/duration.mjs (\"PT1H30M\", \"PT45S\", \"PT2H\"), keeping every current behaviour. Add tests for what you add as new files in test/added/ (named *.check.mjs); the files directly in test/ are the existing tests, do not edit them. Commit your work and publish a change summary for QA.",
+    "qa_checklist": "tests/eval/org/fixtures/dev-feature-qa-revise/qa-checklist.md, given to the QA role only",
+    "seeded_defect": "src/duration.mjs strips whitespace inside the text, contradicting its own header comment ('Whitespace inside a duration is an error; only the ends of the text are trimmed'). The existing tests do not cover it and the implementer's natural tests for the ISO form do not either.",
+    "expected_flow": [
+      "implementer publishes change-summary v1",
+      "QA verifies that commit with the hidden acceptance tests, which fail on the whitespace rule",
+      "QA rejects v1 with the failing input as the reason, and publishes a qa-verdict of fail",
+      "implementer publishes change-summary v2 with the fix",
+      "QA verifies again, accepts v2, and publishes a qa-verdict of pass"
+    ],
+    "declared_paths": ["src/duration.mjs", "test/added/"],
+    "out_of_bounds": [
+      "package.json",
+      "every file directly in test/ (the existing tests); only new files in test/added/ are allowed there"
+    ],
+    "hidden_acceptance": "tests/eval/org/fixtures/dev-feature-qa-revise/hidden/acceptance.check.mjs, copied into test/ only to verify",
+    "solvability_check": "hidden/reference/v1 (adds the feature, keeps the defect) fails the acceptance tests on the whitespace rule alone; hidden/reference/v2 passes everything; fixture.test.ts checks both, and that the hand-off flow needs a reject and a republish",
+    "network": "none"
+  }
+}

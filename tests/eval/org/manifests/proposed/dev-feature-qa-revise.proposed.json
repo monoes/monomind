@@ -1,0 +1,90 @@
+{
+  "id": "dev-feature-qa-revise",
+  "title": "Dev feature with QA, revised: QA finds a real seeded defect in the first version, and the implementer must revise and republish",
+  "committed_at": "PROPOSED",
+  "units": [
+    {
+      "id": "feature-change",
+      "description": "A code change adding the ISO-8601 time form to the duration parser in the pinned fixture repository, with its own tests in test/added/, in its final revised state",
+      "count": 1,
+      "output_class": "code",
+      "evidence": "the hidden acceptance tests, including the rule that whitespace inside a duration is an error, pass on the final tree at the pinned fixture commit; the diff touches only src/duration.mjs and new files in test/added/"
+    },
+    {
+      "id": "qa-report",
+      "description": "An independent QA report on the final change: what was run, what passed, every defect found with its disposition",
+      "count": 1,
+      "output_class": "report",
+      "evidence": "every command the report cites reproduces its stated result against the tree it names; its verdict matches that tree"
+    },
+    {
+      "id": "defect-found-and-fixed",
+      "description": "The seeded defect is found by QA in the first published version, the version is rejected with the failing input as the reason, and a later version that fixes it is accepted",
+      "count": 1,
+      "output_class": "revision",
+      "evidence": "the first published change is a commit on which the hidden acceptance tests fail on the whitespace rule, a QA verdict of fail on that commit names an input that shows it (for example '1h 30m'), and the final commit passes; in the hand-off arm the document store records a rejected version followed by an accepted one"
+    }
+  ],
+  "completion_rule": "All three units present and accepted, and QA's final verdict refers to the same tree the change unit produced. A first version that already passes QA (so there is nothing to find), QA accepting a version that fails the hidden checks, or a change that edits the existing tests adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "correct",
+        "description": "The hidden acceptance tests pass on the final tree and no previously passing test fails"
+      },
+      {
+        "id": "scoped",
+        "description": "The diff stays within the declared paths and adds nothing the task did not ask for"
+      },
+      {
+        "id": "tested",
+        "description": "The change adds tests that fail without it and pass with it"
+      },
+      {
+        "id": "verified",
+        "description": "The QA report names each command it ran, states each result, and its verdict matches what those commands show"
+      },
+      {
+        "id": "revised",
+        "description": "QA's rejection names the failing input, and the revision addresses exactly that, not a different change"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "a claim that tests or the build pass when they do not on the resulting tree",
+      "a change to a file the task declares out of bounds, or to the acceptance tests themselves",
+      "a QA verdict of pass on a tree whose hidden checks fail",
+      "QA accepting the first version although the whitespace rule fails on it"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 75,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline, paired by run",
+      "probability of a fully accepted fixture, with its Wilson interval",
+      "whether the seeded defect was found in the first version, and how many publish attempts the fix took, per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 8
+  },
+  "status": "PROPOSED",
+  "proposed_on": "2026-10-02",
+  "notice": "PROPOSED DRAFT for owner review. Not committed and not active: committed_at is a placeholder, so the manifest validator refuses it and no paid trial may use it. dev-feature-qa.json is unchanged.",
+  "fixture": {
+    "record": "tests/eval/org/fixtures/dev-feature-qa-revise/fixture.json",
+    "qa_checklist": "tests/eval/org/fixtures/dev-feature-qa-revise/qa-checklist.md"
+  }
+}
