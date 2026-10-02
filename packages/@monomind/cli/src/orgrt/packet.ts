@@ -117,6 +117,9 @@ export interface GenerationRecord {
   notes_entries?: number;
   notes_omitted?: number;
   notes_sha256?: string;
+  /** The rotation this generation began with: its number and the digest's hash. */
+  rotation_generation?: number;
+  rotation_digest_sha256?: string;
 }
 
 export type PacketLogRecord = PacketRecord | GenerationRecord;
@@ -189,6 +192,7 @@ export function recordGeneration(
     first: string;
     session_id?: string;
     notes?: { entries: number; omitted: number; block: string };
+    rotation?: { generation: number; digest: string };
   },
 ): void {
   const log = readPacketLog(runDir);
@@ -217,6 +221,12 @@ export function recordGeneration(
           ...(rec.notes.block ? { notes_sha256: sha(rec.notes.block) } : {}),
         }
       : {}),
+    ...(rec.rotation
+      ? {
+          rotation_generation: rec.rotation.generation,
+          rotation_digest_sha256: sha(rec.rotation.digest),
+        }
+      : {}),
   });
 }
 
@@ -239,24 +249,25 @@ export function withMessageText<T>(m: T, text: string): T {
   return o?.message ? ({ ...o, message: { ...o.message, content: text } } as T) : m;
 }
 
-/** Pass a message stream through, letting `fn` replace its first message (once). */
-export function mapFirst<T>(source: AsyncIterable<T>, fn: (m: T) => T): AsyncIterable<T> {
+/** Pass a message stream through, letting `fn` see (and replace) each message with its position. */
+export function mapStream<T>(
+  source: AsyncIterable<T>,
+  fn: (m: T, index: number) => T,
+): AsyncIterable<T> {
   return {
     [Symbol.asyncIterator]() {
       const it = source[Symbol.asyncIterator]();
-      let seen = false;
+      let index = 0;
       return {
         next: async (...args: [] | [undefined]) => {
           const r = await it.next(...args);
-          if (!seen && !r.done) {
-            seen = true;
-            try {
-              return { done: false as const, value: fn(r.value) };
-            } catch {
-              /* a failing hook never changes what the session receives */
-            }
+          if (r.done) return r;
+          try {
+            return { done: false as const, value: fn(r.value, index++) };
+          } catch {
+            index++;
+            return r; // a failing hook never changes what the session receives
           }
-          return r;
         },
         return: (v?: unknown) =>
           it.return

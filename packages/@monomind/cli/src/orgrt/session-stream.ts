@@ -19,7 +19,7 @@ import { NOTES_BUDGET, readNotes, selectNotes } from './notes.js';
 import { toolchainRoleEnv } from './operator-toolchain-paths.js';
 import {
   MAX_PACKET_CHARS,
-  mapFirst,
+  mapStream,
   messageText,
   recordGeneration,
   withMessageText,
@@ -27,6 +27,7 @@ import {
 import { resolveProviderEnv, type resolveRoleProvider } from './provider.js';
 import type { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { roleTmpEnv } from './role-tmpdir.js';
+import { MAX_DIGEST_CHARS } from './rotation-digest.js';
 import { INTERRUPT_GRACE_MS } from './runner-usage.js';
 import { gatedCanUseTool } from './session-gate.js';
 import { rolePromptFor } from './session-prompt.js';
@@ -83,24 +84,37 @@ export function sessionRunArgs(
     prompt: ((): AsyncIterable<unknown> => {
       const raw = streamOpts ? mailbox.stream('', streamOpts) : mailbox.stream();
       const surface = contextSurface(opts.def);
-      if (resume !== undefined || !surface.enabled) return raw;
-      return mapFirst(raw, (m) => {
+      if (!surface.enabled) return raw;
+      return mapStream(raw, (m, index) => {
         const original = messageText(m);
+        opts.sessionCap?.admit(original);
+        if (index > 0 || resume !== undefined) return m;
+        // A fresh session's first message: the rotation digest (when one is owed),
+        // then the role's notes, then the packet; together within the limit on a
+        // first message's variable parts.
         let text = original;
+        const parts: string[] = [];
+        const rotation = opts.sessionCap?.rotation(
+          Math.max(0, Math.min(MAX_DIGEST_CHARS, MAX_PACKET_CHARS - original.length - 2)),
+        );
+        if (rotation?.digest) parts.push(rotation.digest);
         let notes: { entries: number; omitted: number; block: string } | undefined;
         if (surface.notes && opts.orgDir) {
-          // The notes share the 12,000-character limit on a first message's variable parts.
-          const room = Math.min(NOTES_BUDGET, MAX_PACKET_CHARS - original.length - 2);
+          const used = parts.reduce((n, p) => n + p.length + 2, 0);
+          const room = Math.min(NOTES_BUDGET, MAX_PACKET_CHARS - original.length - 2 - used);
           const sel = selectNotes(readNotes(opts.orgDir, role.id), room);
-          if (sel.block) text = `${sel.block}\n\n${original}`;
+          if (sel.block) parts.push(sel.block);
           notes = { entries: sel.included.length, omitted: sel.omitted, block: sel.block };
         }
+        if (parts.length) text = `${parts.join('\n\n')}\n\n${original}`;
         recordGeneration(opts.bus.dir, {
           role: role.id,
           task_key: opts.contextKey ?? '_role',
           first: text,
           notes,
+          ...(rotation?.digest ? { rotation } : {}),
         });
+        if (rotation) opts.sessionCap?.rotationApplied();
         return text === original ? m : withMessageText(m, text);
       });
     })() as never,

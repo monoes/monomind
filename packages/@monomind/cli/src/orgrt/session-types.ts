@@ -27,6 +27,20 @@ export interface SessionOpts {
   /** The session key (a task id under task scope, `_role` otherwise), recorded
    *  on each context-log record. Set by the session loop; unset = `_role`. */
   contextKey?: string;
+  /** The session cap's hooks for this session (session-cap.ts), built by the
+   *  session loop for an org with `context.session_cap`; unset = no cap. */
+  sessionCap?: {
+    /** A message was admitted to the session (every message, first included). */
+    admit: (message: string) => void;
+    /** De-duplicated main-session tokens of one model call. */
+    addTokens: (n: number) => void;
+    /** A turn ended with no usage reported. */
+    usageMissing: () => void;
+    /** The rotation digest owed to this fresh session's first message, built within `maxChars`. */
+    rotation: (maxChars: number) => { digest: string; generation: number } | undefined;
+    /** The digest went out with the first message. */
+    rotationApplied: () => void;
+  };
   org: string;
   role: OrgRole;
   bus: OrgBus;

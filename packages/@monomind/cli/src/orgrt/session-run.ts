@@ -338,6 +338,8 @@ export async function runOneSession(
           contextCalls++;
         }
         const turn = newResponseUsage(responseUsage, m);
+        // The session cap counts the main session only; a native child has its own history.
+        if (!m.parent_tool_use_id) opts.sessionCap?.addTokens(totalTokens(turn));
         const turnTokens = totalTokens(turn);
         if (turnTokens > 0) {
           addTo(messageTurnTokens, turn);
@@ -386,6 +388,8 @@ export async function runOneSession(
         // so it is converted to a delta here rather than added, exactly as
         // cost is below. A runner that reports no modelUsage falls back to
         // the per-turn `usage` fields, which keep their old semantics.
+        // Missing usage is visible, never counted as zero (session-cap.ts).
+        if (totalTokens(messageTurnTokens) === 0) opts.sessionCap?.usageMissing();
         const resultTokens = resultBreakdown(m, tokenTotals, m.session_id ?? sessionId ?? '');
         const messageTokens = settleResultTokens(policy, resultTokens, messageTurnTokens);
         messageTurnTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };

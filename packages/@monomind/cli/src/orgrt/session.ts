@@ -1,14 +1,17 @@
 // packages/@monomind/cli/src/orgrt/session.ts
 
 import { createHash } from 'node:crypto';
+import { contextSurface } from './context-surface.js';
 import { CumulativeMeter } from './cumulative-meter.js';
 import type { StreamOptions } from './mailbox.js';
 import { Mailbox } from './mailbox.js';
 import { beginPlantWatch } from './planted-paths.js';
 import type { TokenUsage } from './policy.js';
 import { createRoleTmpdir, removeRoleTmpdir, roleTmpBase } from './role-tmpdir.js';
+import { buildRotationDigest } from './rotation-digest.js';
 import { effectiveRoleRuntime } from './runner-resolve.js';
 import { FaultRestarts, ProcessFaultError } from './sandbox-fault.js';
+import { capReached, SessionCounters } from './session-cap.js';
 import type { SessionStartReason } from './session-ledger.js';
 import {
   mailRouteKey,
@@ -171,6 +174,46 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
   // Task scope: which task last wrote to each correspondent, so their
   // untagged reply goes back to that task's session (see mailRouteKey).
   const correspondents = new Map<string, string>();
+  // Org sections spec 6.10 (Phase 2): the session cap, a between-turn rotation
+  // threshold. Active only when context.session_cap sets a threshold.
+  const sessionCap = contextSurface(opts.def).sessionCap;
+  const capActive =
+    sessionCap !== undefined && (sessionCap.tasks !== undefined || sessionCap.tokens !== undefined);
+  const countersFor = (key: string): SessionCounters =>
+    new SessionCounters(opts.bus.dir, opts.role.id, key);
+  const doneTasks = (): number => {
+    try {
+      return (
+        JSON.parse(opts.listTasks?.() ?? '[]') as { assignee?: string; status?: string }[]
+      ).filter((t) => t.assignee === opts.role.id && t.status === 'done').length;
+    } catch {
+      return 0;
+    }
+  };
+  /** Rotate the generation for `key` if its counters are at the cap; true when it did. */
+  const rotateIfCapped = (key: string): boolean => {
+    const c = countersFor(key);
+    const hit = capReached(c.state, sessionCap);
+    if (!hit) return false;
+    const { from, overshoot } = c.rotate(hit, doneTasks());
+    opts.bus.emit({
+      type: 'audit',
+      from: opts.role.id,
+      reason: 'session-rotated',
+      msg: `session for ${key} rotated: ${hit.reason} ${hit.value} reached the cap ${hit.cap}${overshoot ? ` (overshoot ${overshoot})` : ''}`,
+      data: {
+        role: opts.role.id,
+        taskKey: key,
+        generation: c.state.generation,
+        reason: hit.reason,
+        cap: hit.cap,
+        tokens: from.tokens,
+        tasks: from.tasks.length,
+        overshoot,
+      },
+    });
+    return true;
+  };
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
@@ -193,6 +236,11 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
       // session the role is already in.
       taskKey = mailRouteKey(mailbox.peek() ?? '', correspondents) ?? taskKey;
       const key = taskKey;
+      // Past the cap this task's session starts fresh; its history is dropped, the task is not.
+      if (capActive && rotateIfCapped(key)) {
+        ledger.drop({ role: opts.role.id, runtime: runtimeKey, taskKey: key });
+        droppedBecause.set(key, 'fresh-rotation');
+      }
       sessionOpts = {
         ...opts,
         // D7: this task's session is built with this task's loadout.
@@ -224,13 +272,15 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
           ? (droppedBecause.get(taskKey) ?? pick.reason)
           : pick.reason;
     } else {
-      startReason = resumeSessionId ? 'resumed' : 'fresh-no-record';
+      const rotated = capActive && rotateIfCapped(taskKey);
+      if (rotated) resumeSessionId = undefined;
+      startReason = rotated ? 'fresh-rotation' : resumeSessionId ? 'resumed' : 'fresh-no-record';
     }
     const sessionKey = taskKey;
     const roleTmpdir = tmp.for(sessionKey);
     if (roleTmpdir) sessionOpts = { ...sessionOpts, roleTmpdir };
     sessionOpts = { ...sessionOpts, contextKey: sessionKey };
-    const streamOpts: StreamOptions | undefined =
+    const baseStreamOpts: StreamOptions | undefined =
       scope === 'cold'
         ? { stopBefore: () => true, idleExitMs }
         : scope === 'task'
@@ -244,6 +294,74 @@ async function runAgentSessionLoop(opts: SessionOpts, tmp: SessionTmpdirs): Prom
           : idleExitMs !== undefined
             ? { idleExitMs }
             : undefined;
+    // The cap ends the stream between turns, whichever scope and mail path
+    // (tagged, untagged fallback) the next message comes by.
+    const streamOpts: StreamOptions | undefined =
+      capActive && scope !== 'cold'
+        ? {
+            ...(baseStreamOpts ?? {}),
+            stopBefore: (next) =>
+              baseStreamOpts?.stopBefore?.(next) === true ||
+              capReached(countersFor(sessionKey).state, sessionCap) !== undefined,
+          }
+        : baseStreamOpts;
+    if (capActive && scope !== 'cold') {
+      const counters = countersFor(sessionKey);
+      sessionOpts = {
+        ...sessionOpts,
+        sessionCap: {
+          admit: (message) => counters.admit(mailRouteKey(message, correspondents)),
+          addTokens: (n) => counters.addTokens(n),
+          usageMissing: () => {
+            if (counters.noteUsageMissing() === 1)
+              opts.bus.emit({
+                type: 'audit',
+                from: opts.role.id,
+                reason: 'session-cap-usage-missing',
+                msg: `a turn of ${sessionKey} reported no usage; the session cap cannot count it`,
+                data: { role: opts.role.id, taskKey: sessionKey },
+              });
+          },
+          rotation: (maxChars) => {
+            const st = counters.state;
+            const p = st.pending_rotation;
+            if (!p) return undefined;
+            let tasks: { id: string; title: string; assignee: string; status: string }[] = [];
+            try {
+              tasks = JSON.parse(opts.listTasks?.() ?? '[]');
+            } catch {
+              /* a digest without the task list still names the budget */
+            }
+            const pol = opts.policy;
+            return {
+              generation: st.generation,
+              digest:
+                maxChars < 200
+                  ? ''
+                  : buildRotationDigest(
+                      {
+                        role: opts.role.id,
+                        generation: st.generation,
+                        previous: { ...p.previous, cap: sessionCap ?? {}, reason: p.reason },
+                        tasks,
+                        stalled: st.stalled_rotations,
+                        budget: {
+                          usd: pol.usageUsd,
+                          ...(pol.policy.maxUsd !== undefined ? { maxUsd: pol.policy.maxUsd } : {}),
+                          tokens: pol.budgetedUsage,
+                          ...(pol.policy.maxTokens !== undefined
+                            ? { maxTokens: pol.policy.maxTokens }
+                            : {}),
+                        },
+                      },
+                      maxChars,
+                    ),
+            };
+          },
+          rotationApplied: () => counters.clearPendingRotation(),
+        },
+      };
+    }
     const sessionIdBefore = resumeSessionId;
     const startedAt = Date.now();
     const recordRun = (after: string | undefined, error?: string): void => {

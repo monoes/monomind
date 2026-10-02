@@ -34,7 +34,8 @@ export type SessionStartReason =
   | 'fresh-prompt-changed'
   | 'fresh-after-stale-resume'
   | 'fresh-after-turn-limit'
-  | 'fresh-cold';
+  | 'fresh-cold'
+  | 'fresh-rotation';
 
 interface RecordKey {
   role: string;
