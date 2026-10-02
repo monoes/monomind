@@ -12,10 +12,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveRoleCostTier, validateCostTiers } from '../orgrt/cost-tier.js';
-import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { OrgDefSchema } from '../orgrt/types.js';
+import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { hostingDaemon, writeFileAtomic } from './org-hil.mjs';
 
 const orgDir = (root, org) => path.join(root, '.monomind', 'orgs', org);

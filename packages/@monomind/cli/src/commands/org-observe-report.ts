@@ -60,7 +60,11 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     }
     if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, run, context: rows });
     if (!rows.length) {
-      log(output.info(`no context log for ${name} / ${run} (a run from before it was kept, or no model calls)`));
+      log(
+        output.info(
+          `no context log for ${name} / ${run} (a run from before it was kept, or no model calls)`,
+        ),
+      );
       return { success: true };
     }
     const n = (v: number): string => Math.round(v).toLocaleString('en-US');

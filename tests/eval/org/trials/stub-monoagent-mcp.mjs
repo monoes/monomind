@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomUUID } from 'node:crypto';
 // Phase 0 recording stub for a role's mono-agent tool provider (org sections
 // spec, section 9). It serves the exact tool list captured from the real
 // `monoagentcli mcp` grant, so the role's tool surface is unchanged, but it
@@ -9,7 +10,6 @@
 //     the same failure shape production got when nothing was recorded.
 // Usage: stub-monoagent-mcp.mjs <config.json> <calls.jsonl>
 import { appendFileSync, readFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 
 const [configPath, logPath] = process.argv.slice(2);
@@ -28,14 +28,19 @@ const role = process.env.MONOMIND_ORG_ROLE ?? '';
 const record = (entry) =>
   appendFileSync(logPath, `${JSON.stringify({ ts: new Date().toISOString(), role, ...entry })}\n`);
 const send = (msg) => process.stdout.write(`${JSON.stringify(msg)}\n`);
-const text = (s, isError = false) => ({ content: [{ type: 'text', text: s }], ...(isError ? { isError } : {}) });
+const text = (s, isError = false) => ({
+  content: [{ type: 'text', text: s }],
+  ...(isError ? { isError } : {}),
+});
 const runText = (o) => JSON.stringify(o, null, 2);
 
 function call(name, args) {
   if (name === 'automation_status' || name === 'automation_output') {
     const id = String(args?.execution_id ?? '');
     record({ tool: name, input: args });
-    return text(runs.get(id) ?? runText({ error: `unknown execution_id "${id}"`, status: 'failed' }));
+    return text(
+      runs.get(id) ?? runText({ error: `unknown execution_id "${id}"`, status: 'failed' }),
+    );
   }
   const execution_id = randomUUID();
   if (outbound.has(name)) {
@@ -79,6 +84,10 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     case 'ping':
       return reply({});
     default:
-      return send({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: `method not found: ${msg.method}` } });
+      return send({
+        jsonrpc: '2.0',
+        id: msg.id,
+        error: { code: -32601, message: `method not found: ${msg.method}` },
+      });
   }
 });

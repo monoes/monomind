@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 // Phase 0 trial preparation (org sections spec, section 9, step 0).
 //
 //   prepare.mjs snapshot --source <profile root> --org <name> --tools <dir> --repo <git checkout> --base <dir>
@@ -17,8 +18,16 @@
 //     model (roles on another provider, such as codex or antigravity, keep
 //     theirs), so cheap trials can test the harness and the arms' difference
 //     without production-model prices.
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, chmodSync, statSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -61,7 +70,9 @@ function makeReadOnly(dir) {
  *  gets the stub's failure result, which is what production saw. */
 function buildReplay(orgDir) {
   const replay = {};
-  for (const run of readdirSync(orgDir).filter((d) => d.startsWith('run-')).sort()) {
+  for (const run of readdirSync(orgDir)
+    .filter((d) => d.startsWith('run-'))
+    .sort()) {
     const bus = join(orgDir, run, 'bus.jsonl');
     if (!existsSync(bus)) continue;
     for (const line of readFileSync(bus, 'utf8').split('\n')) {
@@ -93,7 +104,8 @@ function snapshot() {
   const base = need('base');
   const org = a.org ?? 'monomind-growth';
   const snap = join(base, 'snapshot');
-  if (existsSync(snap)) throw new Error(`${snap} exists; snapshots are immutable, use a new --base`);
+  if (existsSync(snap))
+    throw new Error(`${snap} exists; snapshots are immutable, use a new --base`);
   mkdirSync(snap, { recursive: true });
   const def = readJson(join(source, '.monomind/orgs', `${org}.json`));
   writeJson(join(snap, 'org.json'), def);
@@ -119,14 +131,17 @@ function snapshot() {
     replayCounts: Object.fromEntries(Object.entries(replay).map(([k, v]) => [k, v.length])),
   });
   makeReadOnly(snap);
-  console.log(`snapshot at ${snap} (repo ${sha.slice(0, 9)}; replay ${JSON.stringify(Object.keys(replay))})`);
+  console.log(
+    `snapshot at ${snap} (repo ${sha.slice(0, 9)}; replay ${JSON.stringify(Object.keys(replay))})`,
+  );
 }
 
 /** Replace every occurrence of `from` in every string of a JSON value. */
 function rewrite(v, from, to) {
   if (typeof v === 'string') return v.split(from).join(to);
   if (Array.isArray(v)) return v.map((x) => rewrite(x, from, to));
-  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rewrite(x, from, to)]));
+  if (v && typeof v === 'object')
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rewrite(x, from, to)]));
   return v;
 }
 
@@ -134,7 +149,8 @@ function trial() {
   const base = need('base');
   const snap = join(base, 'snapshot');
   const arm = a.arm;
-  if (arm !== 'control' && arm !== 'treatment') throw new Error('--arm must be control or treatment');
+  if (arm !== 'control' && arm !== 'treatment')
+    throw new Error('--arm must be control or treatment');
   const n = a.trial ?? '1';
   const caps = readJson(need('caps'));
   const manifest = readJson(join(snap, 'manifest.json'));
@@ -175,11 +191,14 @@ function trial() {
       denyWrite: [...(role.policy.sandbox?.denyWrite ?? []), manifest.source],
     };
     for (const tp of role.tool_providers ?? []) {
-      if (tp.name !== 'monoagent') throw new Error(`role ${role.id}: unexpected tool provider ${tp.name}`);
+      if (tp.name !== 'monoagent')
+        throw new Error(`role ${role.id}: unexpected tool provider ${tp.name}`);
       const captured = tools[role.id];
       if (!captured) throw new Error(`role ${role.id}: no captured tool list`);
       const autos = role.automations ?? [];
-      const outbound = autos.filter((x) => x.tier === 'irreversible' && x.wait === false).map((x) => `automation_${x.alias}`);
+      const outbound = autos
+        .filter((x) => x.tier === 'irreversible' && x.wait === false)
+        .map((x) => `automation_${x.alias}`);
       const config = {
         initialize: captured.initialize,
         tools: captured.tools,
@@ -194,11 +213,24 @@ function trial() {
       delete tp.env;
     }
   }
-  const leaked = JSON.stringify(def).includes(manifest.source) ? JSON.stringify(def).split(manifest.source).length - 1 : 0;
+  const leaked = JSON.stringify(def).includes(manifest.source)
+    ? JSON.stringify(def).split(manifest.source).length - 1
+    : 0;
   // The only allowed mention of the production profile is the write deny itself.
-  if (leaked !== def.roles.length) throw new Error(`production path still referenced ${leaked - def.roles.length} time(s) outside denyWrite`);
+  if (leaked !== def.roles.length)
+    throw new Error(
+      `production path still referenced ${leaked - def.roles.length} time(s) outside denyWrite`,
+    );
   writeJson(join(root, '.monomind/orgs', `${name}.json`), def);
-  writeJson(join(root, 'trial.json'), { name, arm, trial: n, caps, model: model ?? null, snapshot: manifest, preparedAt: new Date().toISOString() });
+  writeJson(join(root, 'trial.json'), {
+    name,
+    arm,
+    trial: n,
+    caps,
+    model: model ?? null,
+    snapshot: manifest,
+    preparedAt: new Date().toISOString(),
+  });
   console.log(root);
 }
 

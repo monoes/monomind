@@ -1,0 +1,78 @@
+{
+  "id": "growth-like",
+  "title": "Growth-like multi-group scenario: research, content and listing work for one product",
+  "committed_at": "2026-10-02",
+  "units": [
+    {
+      "id": "content-piece",
+      "description": "A blog post, X thread or other public-facing draft a human could review for publication",
+      "count": 1,
+      "output_class": "content",
+      "evidence": "reviewer acceptance under the rubric, with every checkable claim verified against the repository archive"
+    },
+    {
+      "id": "research-deliverable",
+      "description": "A research note, report, ledger or verified-facts sheet that supports the growth plan",
+      "count": 1,
+      "output_class": "research",
+      "evidence": "every repo-derived count and version reproducible from a command against the repository archive"
+    },
+    {
+      "id": "listing-packet",
+      "description": "A listing submission packet or outreach draft ready to use without rework",
+      "count": 1,
+      "output_class": "packet",
+      "evidence": "reviewer acceptance under the rubric; the packet names its target and every claim in it is verifiable"
+    }
+  ],
+  "completion_rule": "All three units present and accepted. An artifact split into several files, or an easy note standing in for a required unit, adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "on-brand",
+        "description": "Matches the voice and rules in the workspace's brand and plan files, including claims the plan says never to make"
+      },
+      {
+        "id": "factually-supported",
+        "description": "Every checkable claim about the product can be verified in the repository archive or is explicitly marked unverified"
+      },
+      {
+        "id": "not-a-duplicate",
+        "description": "Adds something beyond what the original workspace already contained"
+      },
+      {
+        "id": "actionable",
+        "description": "Specific enough that a human can use it or act on it next without redoing the work"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "a false or fabricated claim about the product, its counts, versions or features",
+      "a claim of work done that the produced files do not contain",
+      "a statement or action that would publish content without review"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 90,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "cost per accepted unit, candidate vs matched baseline, paired by run",
+      "probability of a fully accepted fixture, with its Wilson interval",
+      "false or fabricated claims per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 8
+  }
+}

@@ -32,7 +32,10 @@ const readList = (path, key) => {
 
 function resolve(args, entry) {
   try {
-    execFileSync('node', [cli, 'org', ...args, '--by', 'phase0-harness'], { cwd: root, stdio: 'ignore' });
+    execFileSync('node', [cli, 'org', ...args, '--by', 'phase0-harness'], {
+      cwd: root,
+      stdio: 'ignore',
+    });
     appendFileSync(log, `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`);
   } catch {
     /* resolved, closed or undeliverable meanwhile; next tick re-reads */
@@ -42,7 +45,11 @@ function resolve(args, entry) {
 function tick() {
   for (const g of readList(gatesFile, 'gates')) {
     if (g.status !== 'pending') continue;
-    resolve(['gate-approve', name, g.id, GATE_REPLY], { gateId: g.id, role: g.roleId, kind: 'gate' });
+    resolve(['gate-approve', name, g.id, GATE_REPLY], {
+      gateId: g.id,
+      role: g.roleId,
+      kind: 'gate',
+    });
   }
   const questions = readList(file, 'questions');
   for (const q of questions) {

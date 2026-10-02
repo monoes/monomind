@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import type { AgentRunner } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import { ensureAuthorityDirs } from './authority-mask.js';
+import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
 import type { StreamOptions } from './mailbox.js';
@@ -32,7 +33,6 @@ import {
   totalTokens,
   turnBreakdown,
 } from './session-usage.js';
-import { appendContextCall } from './context-log.js';
 import { StateDetector } from './state-detector.js';
 import { linkAbort } from './task-cancel.js';
 import type { ToolResultEventData } from './types.js';
@@ -321,7 +321,7 @@ export async function runOneSession(
             ts: Date.now(),
             role: role.id,
             task_key: opts.contextKey ?? '_role',
-            ...(m.session_id ?? sessionId ? { session_id: m.session_id ?? sessionId } : {}),
+            ...((m.session_id ?? sessionId) ? { session_id: m.session_id ?? sessionId } : {}),
             resumed: resume !== undefined,
             call_index: contextCalls,
             session_age_ms: Date.now() - sessionStartedAt,

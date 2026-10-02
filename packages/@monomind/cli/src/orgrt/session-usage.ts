@@ -149,7 +149,10 @@ export function settleResultTokens(
 
 /** AgentRunArgs.usdBudget for a session: the role's USD cap minus what it has
  *  spent, 0 once its mailbox was closed for budget, undefined with no cap. */
-export function sessionUsdBudget(policy: PolicyEngine, mailbox: Mailbox): { left: number } | undefined {
+export function sessionUsdBudget(
+  policy: PolicyEngine,
+  mailbox: Mailbox,
+): { left: number } | undefined {
   if (mailbox.isClosed && isRecoverableCloseReason(mailbox.closeReason)) return { left: 0 };
   const max = policy.policy.maxUsd;
   if (max == null) return undefined;

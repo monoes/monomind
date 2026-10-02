@@ -18,10 +18,10 @@ import { toolchainRoleEnv } from './operator-toolchain-paths.js';
 import { resolveProviderEnv, type resolveRoleProvider } from './provider.js';
 import type { resolveRoleGitEnforcement, roleAuthorityMask } from './role-sandbox.js';
 import { roleTmpEnv } from './role-tmpdir.js';
+import { INTERRUPT_GRACE_MS } from './runner-usage.js';
 import { gatedCanUseTool } from './session-gate.js';
 import { rolePromptFor } from './session-prompt.js';
 import type { SessionOpts } from './session-types.js';
-import { INTERRUPT_GRACE_MS } from './runner-usage.js';
 import { sessionTokenBudget, sessionUsdBudget } from './session-usage.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.

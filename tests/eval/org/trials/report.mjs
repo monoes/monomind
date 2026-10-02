@@ -5,7 +5,7 @@
 // starts, concurrency deferrals, crashes, recorded stub calls, and the
 // workspace files the trial created or changed against the snapshot.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative } from 'node:path';
 
@@ -20,7 +20,8 @@ function files(dir) {
       if (d === dir && e.name.startsWith('.')) continue;
       const p = join(d, e.name);
       if (e.isDirectory()) walk(p);
-      else if (e.isFile()) out.set(relative(dir, p), createHash('sha256').update(readFileSync(p)).digest('hex'));
+      else if (e.isFile())
+        out.set(relative(dir, p), createHash('sha256').update(readFileSync(p)).digest('hex'));
     }
   };
   walk(dir);
@@ -49,7 +50,13 @@ function contextPeaks(name, limit) {
             continue;
           }
           const u = x.type === 'assistant' ? x.message?.usage : undefined;
-          if (u) peak = Math.max(peak, (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0));
+          if (u)
+            peak = Math.max(
+              peak,
+              (u.input_tokens ?? 0) +
+                (u.cache_read_input_tokens ?? 0) +
+                (u.cache_creation_input_tokens ?? 0),
+            );
         }
         peaks.push({ session: relative(dir, p), peak });
       }
@@ -65,9 +72,13 @@ function contextPeaks(name, limit) {
 function report(root) {
   const trial = readJson(join(root, 'trial.json'));
   const orgDir = join(root, '.monomind/orgs', trial.name);
-  const run = readdirSync(orgDir).filter((d) => d.startsWith('run-')).sort().at(-1);
+  const run = readdirSync(orgDir)
+    .filter((d) => d.startsWith('run-'))
+    .sort()
+    .at(-1);
   const roles = {};
-  const r = (id) => (roles[id] ??= { usd: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, sessions: 0 });
+  const r = (id) =>
+    (roles[id] ??= { usd: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, sessions: 0 });
   const counts = { deferrals: 0, crashes: 0, messages: 0, humanQuestions: 0 };
   const contextLimitCrashes = [];
   let first;
@@ -87,15 +98,20 @@ function report(root) {
     } else if (e.type === 'audit' && e.reason === 'session-run') r(e.from).sessions++;
     else if (e.reason === 'concurrency-limit') counts.deferrals++;
     else if (e.reason === 'agent-restart' || e.reason === 'agent-fatal') counts.crashes++;
-    if (/contextLimit=true|prompt is too long|context.{0,20}(limit|window)/i.test(e.msg ?? '')) contextLimitCrashes.push(e.from);
+    if (/contextLimit=true|prompt is too long|context.{0,20}(limit|window)/i.test(e.msg ?? ''))
+      contextLimitCrashes.push(e.from);
     else if (e.type === 'message') counts.messages++;
     else if (e.type === 'question' && !d.requestId) counts.humanQuestions++;
   }
-  const history = lines(join(orgDir, 'history.jsonl')).map((l) => JSON.parse(l)).find((h) => h.run === run);
+  const history = lines(join(orgDir, 'history.jsonl'))
+    .map((l) => JSON.parse(l))
+    .find((h) => h.run === run);
   const calls = lines(join(root, 'stub-calls.jsonl')).map((l) => JSON.parse(l));
   const before = files(join(root, '..', '..', 'snapshot', 'workspace'));
   const after = files(join(root, 'workspace'));
-  const changed = [...after].filter(([p, h]) => before.get(p) !== h).map(([p]) => (before.has(p) ? `M ${p}` : `A ${p}`));
+  const changed = [...after]
+    .filter(([p, h]) => before.get(p) !== h)
+    .map(([p]) => (before.has(p) ? `M ${p}` : `A ${p}`));
   const deleted = [...before.keys()].filter((p) => !after.has(p)).map((p) => `D ${p}`);
   const total = Object.values(roles).reduce(
     (t, x) => ({
@@ -117,21 +133,32 @@ function report(root) {
     totalTokens: total.tokens,
     cacheReadShare: total.tokens ? Math.round((1000 * total.cacheRead) / total.tokens) / 10 : null,
     ...counts,
-    autoAnswered: lines(join(root, 'auto-answers.jsonl')).map((l) => JSON.parse(l)).filter((x) => x.kind !== 'gate').length,
+    autoAnswered: lines(join(root, 'auto-answers.jsonl'))
+      .map((l) => JSON.parse(l))
+      .filter((x) => x.kind !== 'gate').length,
     gates: (() => {
       const f = join(orgDir, 'gates.json');
       return existsSync(f) ? (readJson(f).gates ?? []).length : 0;
     })(),
-    gatesAutoApproved: lines(join(root, 'auto-answers.jsonl')).map((l) => JSON.parse(l)).filter((x) => x.kind === 'gate').length,
+    gatesAutoApproved: lines(join(root, 'auto-answers.jsonl'))
+      .map((l) => JSON.parse(l))
+      .filter((x) => x.kind === 'gate').length,
     idleEnded: existsSync(join(root, 'idle-ended.json')),
     roles,
     stubCalls: {
-      outbound: calls.filter((c) => c.outbound).map((c) => ({ role: c.role, tool: c.tool, input: c.input })),
-      reads: calls.filter((c) => !c.outbound && c.tool !== 'automation_status' && c.tool !== 'automation_output').length,
+      outbound: calls
+        .filter((c) => c.outbound)
+        .map((c) => ({ role: c.role, tool: c.tool, input: c.input })),
+      reads: calls.filter(
+        (c) => !c.outbound && c.tool !== 'automation_status' && c.tool !== 'automation_output',
+      ).length,
     },
     workspaceChanges: [...changed, ...deleted].sort(),
     // Haiku 4.5 has a 200K window; production models have 1M.
-    context: { ...contextPeaks(trial.name, trial.model?.includes('haiku') ? 200_000 : 1_000_000), contextLimitCrashes },
+    context: {
+      ...contextPeaks(trial.name, trial.model?.includes('haiku') ? 200_000 : 1_000_000),
+      contextLimitCrashes,
+    },
   };
 }
 

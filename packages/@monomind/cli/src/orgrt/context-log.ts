@@ -115,7 +115,8 @@ export function summarizeContextLog(records: ContextCallRecord[]): RoleContextSu
       cache_hit_ratio: total ? read / total : 0,
       start_cache_read_tokens: startRead,
       start_cache_write_tokens: startWrite,
-      start_write_share: starts.length && startRead + startWrite ? startWrite / (startRead + startWrite) : null,
+      start_write_share:
+        starts.length && startRead + startWrite ? startWrite / (startRead + startWrite) : null,
     };
   });
 }

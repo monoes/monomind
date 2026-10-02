@@ -10,10 +10,10 @@ import { fullAccessTaintFindings } from '../orgrt/access-taint.js';
 import { accessValidationFindings } from '../orgrt/access-validate.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
 import { gitEnforcementFindings } from '../orgrt/role-sandbox.js';
-import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { resolveModel } from '../orgrt/session.js';
 import { buildFromTemplate, ORG_TEMPLATES } from '../orgrt/templates.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
+import { checklistFindings } from '../orgrt/validate-checklist.js';
 import { output } from '../output.js';
 import type { CommandContext, CommandResult } from '../types.js';
 import { listOrgConfigFiles, validateOrgName } from './org-control.js';
@@ -165,7 +165,8 @@ export const createAction = async (ctx: CommandContext, name: string): Promise<C
   // error here is a template bug and nothing is written; advice is shown.
   const checklist = checklistFindings(def);
   for (const e of checklist.errors) log(output.error(`${name}: ${e}`));
-  if (checklist.errors.length) return { success: false, message: 'template fails the org checklist' };
+  if (checklist.errors.length)
+    return { success: false, message: 'template fails the org checklist' };
   for (const w of checklist.warnings) log(output.warning(`${name}: ${w}`));
 
   // Per-role model — the single most consequential setting the template picked on
