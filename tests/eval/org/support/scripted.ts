@@ -24,10 +24,14 @@ export interface ScriptedTurn {
   cost?: number;
   /** After reporting the result, the process dies with this error. */
   crash?: string;
+  /** Org tools the role calls during this turn, in order, through the same
+   *  handlers the real SDK server would run; results land in `toolResults`. */
+  tools?: { name: string; args: Record<string, unknown> }[];
 }
 
-/** What a role does for its nth mailbox message (0-based). Unlisted turns are free and instant. */
-export type Script = (role: string, turn: number) => ScriptedTurn;
+/** What a role does for its nth mailbox message (0-based; `message` is that
+ *  message's text). Unlisted turns are free and instant. */
+export type Script = (role: string, turn: number, message: string) => ScriptedTurn;
 
 export interface ScriptedSdk {
   queryFn: never;
@@ -35,11 +39,17 @@ export interface ScriptedSdk {
   options: Map<string, Record<string, any>[]>;
   /** Mailbox messages each role processed. */
   turns: Map<string, number>;
+  /** Every message each role received, in order, as the SDK saw it. */
+  messages: Map<string, string[]>;
+  /** What each tool a script called answered. */
+  toolResults: { role: string; name: string; text: string; json: any }[];
 }
 
 export function scriptedSdk(script: Script): ScriptedSdk {
   const options = new Map<string, Record<string, any>[]>();
   const turns = new Map<string, number>();
+  const messages = new Map<string, string[]>();
+  const toolResults: ScriptedSdk['toolResults'] = [];
   const queryFn = (({
     prompt,
     options: o,
@@ -52,10 +62,27 @@ export function scriptedSdk(script: Script): ScriptedSdk {
     // Cost is cumulative per query() process, as the SDK reports it.
     let cumulative = 0;
     return (async function* () {
-      for await (const _message of prompt) {
+      for await (const message of prompt) {
         const n = turns.get(role) ?? 0;
         turns.set(role, n + 1);
-        const turn = script(role, n);
+        const text = String(
+          (message as { message?: { content?: unknown } }).message?.content ?? '',
+        );
+        messages.set(role, [...(messages.get(role) ?? []), text]);
+        const turn = script(role, n, text);
+        for (const call of turn.tools ?? []) {
+          const registered = o.mcpServers?.org?.instance?._registeredTools?.[call.name];
+          if (!registered) throw new Error(`scripted ${role}: no org tool ${call.name}`);
+          const r = await registered.handler(call.args, {});
+          const out = String(r?.content?.[0]?.text ?? '');
+          let json: unknown;
+          try {
+            json = JSON.parse(out);
+          } catch {
+            json = undefined;
+          }
+          toolResults.push({ role, name: call.name, text: out, json });
+        }
         for (const c of turn.calls ?? [])
           yield {
             type: 'assistant',
@@ -84,7 +111,7 @@ export function scriptedSdk(script: Script): ScriptedSdk {
       }
     })();
   }) as never;
-  return { queryFn, options, turns };
+  return { queryFn, options, turns, messages, toolResults };
 }
 
 /** A project root holding one org definition, ready for an OrgDaemon. Scenario
