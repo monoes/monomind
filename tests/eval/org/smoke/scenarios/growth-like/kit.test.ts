@@ -10,36 +10,50 @@ import { checkTrial } from '../../check.mjs';
 // @ts-expect-error plain .mjs modules
 import { buildInputs, prepareTrial } from '../../prepare.mjs';
 // @ts-expect-error plain .mjs modules
-import { CAPS, SESSION_CAP } from './kit.mjs';
+import { ALLOCATION_USD, CAPS, ORG_STOP_USD, SESSION_CAP, SOLO_TASK, TASK } from './kit.mjs';
 
 const snapshot = process.env.SMOKE_GROWTH_SNAPSHOT ?? '/var/tmp/mm-phase0/snapshot';
 const have = existsSync(join(snapshot, 'manifest.json'));
 
-// Declared change before the next tier (2026-10-02): the Phase 0 USD caps exhausted three roles in
-// current-best and six in phase2 in the first smoke run. The five roles that ran spent their whole
-// cap (0.36 to 0.46 each, so their real demand is higher); caps are now at least 2.5x that, and still
-// sum within the $8 planning allocation.
+// Declared change, round 2 (2026-10-02, owner decision 2): the per-role caps are doubled, the planning
+// allocation is $12 per run, and an org-wide stop of $12 bounds the worst case, so the role caps may sum
+// above it. Round 1's caps ($7.90 in all) stay on record in kit.mjs.
 describe('growth-like caps', () => {
-  const SPENT_AT_CAP_FIRST_SMOKE: Record<string, number> = {
-    'growth-lead': 0.46,
-    researcher: 0.41,
-    'content-writer': 0.42,
-    'site-seo': 0.44,
-    'brand-reviewer': 0.36,
+  const ROUND_1: Record<string, number> = {
+    'growth-lead': 1.8,
+    researcher: 1.2,
+    'content-writer': 1.2,
+    'site-seo': 1.1,
+    'brand-reviewer': 1.0,
+    analyst: 0.4,
+    'community-manager': 0.4,
+    'social-publisher': 0.4,
+    'outreach-manager': 0.4,
   };
-  it('sum within the $8 allocation, with every role capped', () => {
+  it.each(Object.entries(ROUND_1))('%s has twice its round 1 cap', (role, was) => {
+    expect(CAPS[role]).toBeCloseTo(was * 2);
+  });
+  it('has an org-wide stop at the allocation, which the role caps are allowed to exceed', () => {
+    expect(ALLOCATION_USD).toBe(12);
+    expect(ORG_STOP_USD).toBe(12);
     expect(
       Object.values(CAPS as Record<string, number>).reduce((a, b) => a + b, 0),
-    ).toBeLessThanOrEqual(8);
-    for (const r of ['analyst', 'community-manager', 'outreach-manager', 'social-publisher'])
-      expect(CAPS[r]).toBeGreaterThan(0);
+    ).toBeGreaterThan(ORG_STOP_USD);
   });
-  it.each(Object.entries(SPENT_AT_CAP_FIRST_SMOKE))(
-    '%s has at least 2.5x what it spent when it ran out',
-    (role, spent) => {
-      expect(CAPS[role]).toBeGreaterThanOrEqual(spent * 2.5);
-    },
-  );
+});
+
+describe('growth-like tasks', () => {
+  it('tells every multi-role arm that the lead coordinates and does not write deliverables, and asks for new work', () => {
+    expect(TASK).toMatch(/lead coordinates and does not write deliverables itself/);
+    expect(TASK).toMatch(/new work, not a copy of a file already in the workspace/);
+  });
+  it('tells the single agent it is alone, with the same deliverables, and no coordination rule', () => {
+    expect(SOLO_TASK).toMatch(/only agent in this run: do all of it yourself/);
+    expect(SOLO_TASK).not.toMatch(/lead coordinates/);
+    expect(SOLO_TASK).toMatch(
+      /deliverables\/content\/, deliverables\/research\/ and deliverables\/listing\//,
+    );
+  });
 });
 
 describe.skipIf(!have)('growth-like kit', () => {
@@ -96,6 +110,73 @@ describe.skipIf(!have)('growth-like kit', () => {
       );
     },
   );
+
+  it('the single arm is the Phase 2 configuration with the growth lead alone, capped at the org-wide stop', async () => {
+    const root = await prepareTrial({
+      scenario: 'growth-like',
+      base,
+      contender: 'single',
+      trial: '1',
+    });
+    const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
+    const org = JSON.parse(
+      readFileSync(join(root, '.monomind/orgs', `${trial.name}.json`), 'utf8'),
+    );
+    expect(OrgDefSchema.parse(org)).toBeTruthy();
+    expect(checklistFindings(OrgDefSchema.parse(org)).errors).toEqual([]);
+    expect(org.roles.map((r: any) => r.id)).toEqual(['growth-lead']);
+    expect(org.roles[0].budget_usd).toBe(ORG_STOP_USD);
+    expect(org.run_config.context).toEqual({
+      require_brief: true,
+      notes: true,
+      session_cap: SESSION_CAP,
+    });
+    expect(trial.task).toBe(SOLO_TASK);
+    expect(trial.runners).toEqual({
+      'growth-lead': { runtime: 'claude', model: 'claude-haiku-4-5-20251001' },
+    }); // same model as the others, by default
+  });
+
+  it('the production profile puts the Claude roles on Sonnet, scales the USD caps by the price ratio, keeps the designers', async () => {
+    const root = await prepareTrial({
+      scenario: 'growth-like',
+      base,
+      contender: 'phase2',
+      trial: '3',
+      profile: 'production',
+    });
+    const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
+    const org = JSON.parse(
+      readFileSync(join(root, '.monomind/orgs', `${trial.name}.json`), 'utf8'),
+    );
+    expect(trial.profile).toBe('production');
+    expect(trial.runners['growth-lead']).toEqual({ runtime: 'claude', model: 'claude-sonnet-5-5' });
+    expect(trial.runners.researcher).toEqual({ runtime: 'claude', model: 'claude-sonnet-5-5' });
+    expect(trial.runners['visual-designer-codex']).toMatchObject({ runtime: 'codex' });
+    expect(trial.runners['visual-designer-agy']).toMatchObject({ runtime: 'antigravity' });
+    expect(org.roles.find((r: any) => r.id === 'researcher').budget_usd).toBeCloseTo(
+      CAPS.researcher * 3,
+    );
+    expect(trial.allocationUsd).toBe(12);
+    expect(OrgDefSchema.parse(org)).toBeTruthy();
+    expect(checklistFindings(OrgDefSchema.parse(org)).errors).toEqual([]);
+  });
+
+  it('keeps Haiku and the unscaled caps when no profile is given (harness checks)', async () => {
+    const root = await prepareTrial({
+      scenario: 'growth-like',
+      base,
+      contender: 'phase2',
+      trial: '4',
+    });
+    const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
+    const org = JSON.parse(
+      readFileSync(join(root, '.monomind/orgs', `${trial.name}.json`), 'utf8'),
+    );
+    expect(trial.profile).toBe('haiku');
+    expect(trial.runners.researcher.model).toBe('claude-haiku-4-5-20251001');
+    expect(org.roles.find((r: any) => r.id === 'researcher').budget_usd).toBe(CAPS.researcher);
+  });
 
   it('hands deliverable directories to review and rejects a unit with nothing saved', async () => {
     const root = await prepareTrial({
