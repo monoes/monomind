@@ -120,6 +120,19 @@ describe('check', () => {
     expect(led.evidence).toMatchObject({ rows: 4, reportCitations: 4 });
   });
 
+  it('treats a leading snapshot/ on a ledger or report path as the same file (found in the codex dry run)', async () => {
+    const rs = rows();
+    const prefixed = rs.map((r) => ({ ...r, path: `snapshot/${r.path}` }));
+    const withPrefixLedger = await run(workspace(report(rs), prefixed));
+    expect(withPrefixLedger.led).toMatchObject({ accepted: true, critical: [] });
+    const bothPrefixed = await run(workspace(report(prefixed), prefixed));
+    expect(bothPrefixed.rep.accepted).toBe(true);
+    expect(bothPrefixed.led.accepted).toBe(true);
+    // ...and a wrong line under the prefix is still wrong
+    const bad = prefixed.map((r, i) => (i === 0 ? { ...r, line: r.line + 1 } : r));
+    expect((await run(workspace(report(rs), bad))).led.accepted).toBe(false);
+  });
+
   it('tolerates surrounding whitespace in a quote, and a quote that is part of the line', async () => {
     const rs = rows();
     rs[0].quote = `  ${rs[0].quote.slice(0, 12)}  `;

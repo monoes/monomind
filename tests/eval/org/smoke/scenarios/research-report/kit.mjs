@@ -140,8 +140,13 @@ const norm = (s) =>
 const CITE_G = /(?<![\w./-])((?:[\w.-]+\/)*[\w.-]+\.ts):(\d+)\b/g;
 const CITE_ONE = /(?<![\w./-])((?:[\w.-]+\/)*[\w.-]+\.ts):(\d+)\b/;
 
+/** A citation path as the snapshot knows it: a leading `snapshot/` (or `./snapshot/`) names the same
+ *  file, and models writing the ledger often include it, so it never decides a citation either way. */
+const bare = (path) => path.replace(/^(?:\.\/)?snapshot\//, '');
+
 /** Look up path:line inside the snapshot; returns {text} or {error}. */
 function resolveLine(snapshot, path, line) {
+  path = bare(path);
   const abs = resolve(snapshot, path);
   if (!abs.startsWith(snapshot + sep) || !existsSync(abs)) return { error: `no such file ${path}` };
   const lines = readFileSync(abs, 'utf8').split('\n');
@@ -187,7 +192,8 @@ function checkReport(md, snapshot) {
       failures.push(`one heading answers two sub-questions: "${s.title}" (${named.join(' + ')})`);
   }
   const keys = new Map();
-  for (const m of md.matchAll(CITE_G)) keys.set(`${m[1]}:${Number(m[2])}`, [m[1], Number(m[2])]);
+  for (const m of md.matchAll(CITE_G))
+    keys.set(`${bare(m[1])}:${Number(m[2])}`, [bare(m[1]), Number(m[2])]);
   for (const [key, [p, l]] of keys) {
     const r = resolveLine(snapshot, p, l);
     if (r.error) {
@@ -220,7 +226,7 @@ function checkLedger(raw, snapshot, reportCount) {
       typeof row.claim === 'string' &&
       row.claim.trim() !== '';
     if (!ok) return failures.push(`${at} lacks path, integer line, quote or claim`);
-    const key = `${row.path}:${row.line}`;
+    const key = `${bare(row.path)}:${row.line}`;
     if (seen.has(key)) failures.push(`${at} repeats ${key}`);
     seen.add(key);
     const r = resolveLine(snapshot, row.path, row.line);
