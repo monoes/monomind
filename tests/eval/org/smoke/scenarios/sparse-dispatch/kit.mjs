@@ -250,9 +250,8 @@ function handoffNotes({ contender, orgDir, rows, matches, totalAnswersCorrect })
   const timed = rows.filter((r) => Number.isFinite(r.at)).sort((a, b) => a.at - b.at);
   const per = rotations.map((rot, k) => {
     const prev = k === 0 ? 0 : rotations[k - 1].ts;
-    const currentStateBefore = notes.some(
-      (n) => n.kind === 'current_state' && n.atMs > prev && n.atMs <= rot.ts,
-    );
+    // A note of either kind counts: the runtime injects the last current_state plus every later note.
+    const notesSincePrevious = notes.filter((n) => n.atMs > prev && n.atMs <= rot.ts).length;
     // Without answer times the order cannot be placed against a rotation: fall back to every answer being right.
     const first = timed.find((r) => r.at > rot.ts);
     const firstAnswerCorrect = timed.length
@@ -261,14 +260,15 @@ function handoffNotes({ contender, orgDir, rows, matches, totalAnswersCorrect })
     return {
       rotatedAt: rot.ts,
       generation: rot.data?.generation,
-      currentStateBefore,
+      noteSincePrevious: notesSincePrevious > 0,
+      notesSincePrevious,
       firstAnswerTicket: first?.ticket ?? null,
       firstAnswerCorrect,
     };
   });
   return {
     unit: 'handoff-notes',
-    accepted: per.every((r) => r.currentStateBefore && r.firstAnswerCorrect),
+    accepted: per.every((r) => r.noteSincePrevious && r.firstAnswerCorrect),
     evidence: {
       rotationsRecorded: rotations.length,
       rotations: per,
