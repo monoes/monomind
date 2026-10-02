@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run one prepared Phase 0 trial (scripts/phase0/prepare.mjs trial ...).
+# Run one prepared Phase 0 trial (tests/eval/org/trials/prepare.mjs trial ...).
 # Usage: run-trial.sh <trial root> <cli.js> [deadline seconds, default 5400]
 #
 # Production approvals are resolved by mono-agent's decision service, which
