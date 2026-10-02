@@ -13,6 +13,7 @@
 //     failure; a unit the machine accepted but flagged needsReview is accepted only if both agree.
 import { createHash, randomBytes } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,6 +46,35 @@ export function producedFiles(workspace, inputsWorkspace) {
     .filter((f) => !f.startsWith('snapshot/') && !f.split('/').some((s) => s.startsWith('.')));
 }
 
+const TEXT_EXT = /\.(md|txt|json|jsonl|sh|mjs|js|ts|yml|yaml|csv|html|toml)$/i;
+const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Labels under which a plain role id names who wrote something (front matter, bylines, assignments). */
+const LABEL =
+  /\b(author|owner|assignee|assigned[ _-]?to|role|from|to|produced[ _-]?by|created[ _-]?by|written[ _-]?by|reviewer)(\**\s*[:=]\s*\**)\s*/i;
+
+/** Text with what identifies the producer removed: the trial's path, other scratch and home paths, the
+ *  org and trial names, run ids, hyphenated role ids, and plain role ids where they label an author. Prose
+ *  that merely uses a role's word ("a researcher would check this") is content and stays. */
+export function scrub(text, { root, names = [], roleIds = [], home = homedir() }) {
+  let t = text;
+  if (root) t = t.split(root).join('<trial>');
+  for (const n of [...names].sort((a, b) => b.length - a.length)) t = t.split(n).join('<org>');
+  t = t.replace(/\/(?:var\/tmp|tmp)\/[\w./-]*/g, '<path>');
+  if (home) t = t.split(home).join('<home>');
+  t = t.replace(/\brun-\d{8,14}-[a-z0-9]+/g, '<run>');
+  for (const id of roleIds.filter((r) => r.includes('-')).sort((a, b) => b.length - a.length))
+    t = t.replace(new RegExp(`(?<![A-Za-z0-9])${esc(id)}(?![A-Za-z0-9])`, 'g'), '<role>');
+  const plain = roleIds.filter((r) => !r.includes('-'));
+  if (plain.length) {
+    const ids = plain.map(esc).join('|');
+    t = t.replace(
+      new RegExp(`${LABEL.source}(${ids})\\b`, 'gi'),
+      (_m, label, sep) => `${label}${sep}<role>`,
+    );
+  }
+  return t;
+}
+
 const needsReview = (u) => u.accepted === null || u.evidence?.needsReview === true;
 
 export function pack({ roots, out }) {
@@ -64,9 +94,19 @@ export function pack({ roots, out }) {
     ids.add(id);
     const dir = join(out, id);
     mkdirSync(join(dir, 'artifacts'), { recursive: true });
+    // Who made the bundle's files must not show in them: scrub what they say and what they are called.
+    const orgFile = join(root, '.monomind/orgs', `${trial.name}.json`);
+    const roleIds = existsSync(orgFile) ? readJson(orgFile).roles.map((r) => r.id) : [];
+    const ctx = { root, names: [trial.name], roleIds };
+    const renamed = {};
     for (const f of producedFiles(join(root, 'workspace'), join(trial.guard[0], 'workspace'))) {
-      mkdirSync(dirname(join(dir, 'artifacts', f)), { recursive: true });
-      cpSync(join(root, 'workspace', f), join(dir, 'artifacts', f));
+      const to = scrub(f, ctx);
+      if (to !== f) renamed[to] = f;
+      mkdirSync(dirname(join(dir, 'artifacts', to)), { recursive: true });
+      const from = join(root, 'workspace', f);
+      if (TEXT_EXT.test(f))
+        writeFileSync(join(dir, 'artifacts', to), scrub(readFileSync(from, 'utf8'), ctx));
+      else cpSync(from, join(dir, 'artifacts', to));
     }
     const wanted = manifest.units.filter((u) => pending.includes(u.id));
     const template = {
@@ -105,7 +145,12 @@ export function pack({ roots, out }) {
         '',
       ].join('\n'),
     );
-    key[id] = { root, scenario: trial.scenario, units: pending };
+    key[id] = {
+      root,
+      scenario: trial.scenario,
+      units: pending,
+      ...(Object.keys(renamed).length ? { renamed } : {}),
+    };
   }
   writeJson(join(out, 'key.json'), key);
   return Object.keys(key);

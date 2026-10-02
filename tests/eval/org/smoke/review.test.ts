@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs module
-import { apply, pack, producedFiles } from './review.mjs';
+import { apply, pack, producedFiles, scrub } from './review.mjs';
 
 const w = (p: string, text: string) => {
   mkdirSync(join(p, '..'), { recursive: true });
@@ -156,5 +156,94 @@ describe('apply', () => {
   it('refuses an unanswered criterion', () => {
     const { out } = setup(both(null, null));
     expect(() => apply({ out })).toThrow(/unanswered criterion/);
+  });
+});
+
+describe('scrub: nothing in a bundle says which arm, run, role or path produced it', () => {
+  const ctx = {
+    root: '/var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t',
+    names: ['smoke-growth-like-phase2-p2t'],
+    roleIds: ['growth-lead', 'researcher', 'content-writer', 'analyst'],
+    home: '/home/monoes',
+  };
+
+  it('replaces the trial path, any other path in the scratch or home areas, the org name and run ids', () => {
+    const t = scrub(
+      'cd /var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t/workspace && ls /var/tmp/mm-pilot-p1/inputs/x /home/monoes/.monomind\n' +
+        'org smoke-growth-like-phase2-p2t run run-20261002133341-b259 ended',
+      ctx,
+    );
+    for (const secret of [
+      '/var/tmp',
+      'mm-pilot',
+      'smoke-growth',
+      'phase2',
+      'p2t',
+      '/home/monoes',
+      'run-2026',
+    ])
+      expect(t).not.toContain(secret);
+    expect(t).toContain('<trial>/workspace');
+  });
+
+  it('replaces hyphenated role ids anywhere, and plain role ids only where they label an author', () => {
+    const t = scrub(
+      'author: researcher\nOwner: **analyst**\n**Assignee:** growth-lead\n' +
+        'The content-writer drafted it. A researcher in the field would check this; the analyst view is that it is fine.',
+      ctx,
+    );
+    expect(t).toMatch(/^author: <role>$/m);
+    expect(t).toMatch(/^Owner: \*\*<role>\*\*$/m);
+    expect(t).not.toContain('growth-lead');
+    expect(t).not.toContain('content-writer');
+    // ordinary prose that happens to use the word survives: it is content, not identity
+    expect(t).toContain(
+      'A researcher in the field would check this; the analyst view is that it is fine.',
+    );
+  });
+
+  it('leaves everything else exactly as it was', () => {
+    const body = '# monomind 2.22\n\nInstall with `npx monomind init`. 83 agents, 82 skills.\n';
+    expect(scrub(body, ctx)).toBe(body);
+  });
+
+  it('is applied to what pack writes: file contents and file names, with the original names kept only in the key', () => {
+    const r = trial(both(true, true), {});
+    const orgName = 'smoke-research-report-phase2-t1';
+    writeFileSync(
+      join(r, 'workspace/notes-by-content-writer.md'),
+      `produced in ${r}/workspace by run run-20261002133341-b259\nauthor: researcher\n`,
+    );
+    const trialJson = JSON.parse(readFileSync(join(r, 'trial.json'), 'utf8'));
+    mkdirSync(join(r, '.monomind/orgs'), { recursive: true });
+    writeFileSync(
+      join(r, '.monomind/orgs', `${trialJson.name}.json`),
+      JSON.stringify({
+        name: trialJson.name,
+        roles: [{ id: 'content-writer' }, { id: 'researcher' }],
+      }),
+    );
+    const out = join(mkdtempSync(join(tmpdir(), 'bundles-')), 'out');
+    const [id] = pack({ roots: [r], out });
+    const files = readdirSync(join(out, id, 'artifacts'));
+    expect(files.some((f: string) => f.includes('content-writer'))).toBe(false);
+    const scrubbed = files.find((f: string) => f.startsWith('notes-by-'))!;
+    const text = readFileSync(join(out, id, 'artifacts', scrubbed), 'utf8');
+    expect(text).not.toContain(r);
+    expect(text).not.toContain('run-2026');
+    expect(text).toContain('author: <role>');
+    const key = JSON.parse(readFileSync(join(out, 'key.json'), 'utf8'))[id];
+    expect(key.renamed).toMatchObject({ [scrubbed]: 'notes-by-content-writer.md' });
+    expect(orgName).toBeTruthy();
+  });
+
+  it('copies a binary file untouched', () => {
+    const r = trial(both(true, true), {});
+    writeFileSync(join(r, 'workspace/img.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]));
+    const out = join(mkdtempSync(join(tmpdir(), 'bundles-')), 'out');
+    const [id] = pack({ roots: [r], out });
+    expect([...readFileSync(join(out, id, 'artifacts/img.png'))]).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x00, 0xff,
+    ]);
   });
 });
