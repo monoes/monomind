@@ -87,6 +87,7 @@ describe('model, caps and isolation', () => {
     });
     expect(RUNNER_PLANS['sparse-dispatch'].workers.runtime).toBe('claude');
     expect(RUNNER_PLANS['dev-feature-qa'].workers.runtime).toBe('claude');
+    expect(RUNNER_PLANS['dev-feature-qa-revise'].workers.runtime).toBe('claude');
   });
 
   it("keeps a role's own provider under a native plan and pins only the Claude roles", () => {
