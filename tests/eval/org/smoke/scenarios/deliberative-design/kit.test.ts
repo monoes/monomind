@@ -96,7 +96,7 @@ describe('deliberative-design kit: inputs and definition', () => {
         expect([r.runtime, r.adapter_config.model, r.budget_tokens]).toEqual([
           'antigravity',
           'gemini-3.8-flash-high',
-          500_000,
+          4_000_000,
         ]);
     expect(
       sum(org.roles.map((r: { budget_usd?: number }) => r.budget_usd ?? 0)),

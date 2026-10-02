@@ -100,6 +100,11 @@ describe('model, caps and isolation', () => {
     expect(applyCaps(out, { a: 1, b: 0 }, 8).roles[1].budget_tokens).toBe(UNPRICED_ROLE_TOKENS);
   });
 
+  it('sizes the caps from the codex dry run: a role cap about 2.5x its busiest codex role, counting cache reads', () => {
+    expect(UNPRICED_ROLE_TOKENS).toBe(4_000_000);
+    expect(ORG_TOKENS).toBe(60_000_000);
+  });
+
   const priced = () => applyModel(def()); // every role on Claude
 
   it('applies per-role USD caps within the allocation, and refuses an overrun, a missing role or an unknown role', () => {
@@ -117,6 +122,7 @@ describe('model, caps and isolation', () => {
     expect(out.roles[1].budget_usd).toBeUndefined();
     expect(out.roles[1].budget_tokens).toBe(UNPRICED_ROLE_TOKENS);
     expect(out.run_config.budget_tokens).toBe(ORG_TOKENS);
+    expect(out.run_config.budget_tokens_basis).toBe('billable'); // cache reads count: the cap binds on total tokens
     expect(applyCaps(priced(), { a: 3, b: 5 }, 8).run_config.budget_tokens).toBe(ORG_TOKENS);
   });
 

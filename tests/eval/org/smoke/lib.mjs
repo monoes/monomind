@@ -63,9 +63,13 @@ export const RUNNER_PLANS = {
   _selftest: { workers: CLAUDE },
 };
 
-/** Soft token cap for each role on an unpriced runner, and for the org as a whole. */
-export const UNPRICED_ROLE_TOKENS = 500_000;
-export const ORG_TOKENS = 4_000_000;
+/** Token caps counted on the billable basis (cache reads included), because the runners that report
+ *  no USD report tokens, and most of a long session's tokens are cache reads. The codex dry run used
+ *  11.9M tokens of which 9.5M was the Claude lead's cache reads: caps counting only uncached tokens
+ *  (0.5M there) bound nothing. Sized from that run: the busiest codex role used 1.6M, so 4M per
+ *  unpriced role stops a runaway at about 2.5x; the org ceiling covers a Claude root's cache reads too. */
+export const UNPRICED_ROLE_TOKENS = 4_000_000;
+export const ORG_TOKENS = 60_000_000;
 
 const isRoot = (r) => r.reports_to == null;
 /** A role's runner: an explicit `runtime`, else its `provider.kind`, else Claude. */
@@ -112,7 +116,11 @@ export function applyCaps(def, caps, allocationUsd) {
     if (!out.roles.some((r) => r.id === id)) throw new Error(`cap for unknown role ${id}`);
   if (usd > allocationUsd + 1e-9)
     throw new Error(`role caps sum to $${usd}, over the $${allocationUsd} planning allocation`);
-  out.run_config = { ...(out.run_config ?? {}), budget_tokens: ORG_TOKENS };
+  out.run_config = {
+    ...(out.run_config ?? {}),
+    budget_tokens: ORG_TOKENS,
+    budget_tokens_basis: 'billable',
+  };
   return out;
 }
 

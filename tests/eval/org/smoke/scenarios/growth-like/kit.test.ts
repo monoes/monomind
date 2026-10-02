@@ -60,7 +60,7 @@ describe.skipIf(!have)('growth-like kit', () => {
       });
       expect(org.roles.find((r: any) => r.id === 'researcher').budget_usd).toBe(CAPS.researcher);
       expect(org.roles.find((r: any) => r.id === 'visual-designer-codex').budget_tokens).toBe(
-        500_000,
+        4_000_000,
       );
       expect(org.run_config.context).toEqual(
         contender === 'phase2'

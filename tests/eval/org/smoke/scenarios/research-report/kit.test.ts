@@ -94,7 +94,7 @@ describe('prepare, for both contenders', () => {
           expect([r.adapter_config.model, r.runtime, r.budget_tokens]).toEqual([
             'gpt-6-astra',
             'codex',
-            500_000,
+            4_000_000,
           ]);
       expect(
         org.roles.reduce((a: number, r: any) => a + (r.budget_usd ?? 0), 0),
