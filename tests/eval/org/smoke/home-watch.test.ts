@@ -136,6 +136,7 @@ describe('homeOffenders', () => {
     const h = fakeHome();
     symlinkSync('/a', join(h, 'link'));
     writeFileSync(join(h, 'same-size'), 'aaaa');
+    await later(); // born clearly before the snapshot, or a coarse fs clock reads it as 'replaced'
     const before = snap(h);
     await later();
     writeFileSync(join(h, 'notes'), 'now longer');
