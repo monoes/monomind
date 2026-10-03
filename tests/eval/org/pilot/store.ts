@@ -15,6 +15,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { assertSupportedChecks, type Check, type CheckResult, runChecks } from './checks.js';
+import { assertDeliverables, type Deliverable, deliverableMismatches } from './deliverables.js';
+import { type RelayReason, rejectionMessage, type StoreOptions, sendRelay } from './relay.js';
 import { assertSupportedSchema, checkAgainstSchema } from './schema.js';
 
 /** A published document may not exceed this many characters of JSON. */
@@ -29,7 +32,18 @@ export interface DocContract {
   /** Publish attempts allowed for this document, schema failures included. */
   max_attempts: number;
   schema: Record<string, unknown>;
+  /** Characters of JSON a version may hold, instead of MAX_DOC_CHARS (a document carrying evidence is longer). */
+  max_chars?: number;
+  /** Files in the producer's workspace each part of a document must equal (variant v2). A publish that
+   *  disagrees with them is refused, and an accept is refused if a file changed since the publish. */
+  deliverables?: Deliverable[];
+  /** Consistency refusals allowed per document, separate from `max_attempts`; default 5. */
+  max_refusals?: number;
+  /** Checks `pilot__doc_check` runs over a version for its consumer (variant v2); see checks.ts. */
+  checks?: Check[];
 }
+
+export const DEFAULT_MAX_REFUSALS = 5;
 
 export type VersionStatus = 'pending' | 'accepted' | 'rejected' | 'superseded';
 
@@ -38,12 +52,16 @@ export interface DocVersion {
   at: string;
   by: string;
   content: unknown;
+  /** A short note the producer attached to the publish (it is not part of the content). */
+  note?: string;
   status: VersionStatus;
   decisions: Record<string, { decision: 'accept' | 'reject'; reason?: string; at: string }>;
 }
 
 interface State {
   attempts: Record<string, number>;
+  /** Publishes refused for disagreeing with a deliverable file, per document (not publish attempts). */
+  refusals?: Record<string, number>;
   versions: Record<string, DocVersion[]>;
   /** Documents whose first accepted publish a fault injector changed (once per document). */
   injected?: Record<string, { version: number; class: string }>;
@@ -62,13 +80,15 @@ export interface PublishInjector {
 }
 
 export interface PilotEvent {
-  kind: 'publish' | 'read' | 'decide' | 'send-refused' | 'fault';
+  kind: 'publish' | 'read' | 'decide' | 'send-refused' | 'fault' | 'check' | 'relay';
   at: string;
   ok: boolean;
   role: string;
   doc?: string;
   version?: number;
   detail?: string;
+  /** The deliverable file(s) a consistency refusal names. */
+  file?: string;
 }
 
 type Fail = { ok: false; error: string; problems?: string[] };
@@ -84,11 +104,18 @@ export class HandoffStore {
     contracts: DocContract[],
     private readonly now: () => Date = () => new Date(),
     private readonly injector?: PublishInjector,
+    private readonly opts: StoreOptions = {},
   ) {
     for (const c of contracts) {
       if (c.consumers.length === 0)
         throw new Error(`contract ${c.id}: at least one consumer is required`);
       assertSupportedSchema(c.schema, `contract ${c.id} $`);
+      if (c.checks) assertSupportedChecks(c.checks, `contract ${c.id} checks`);
+      if (c.deliverables) {
+        assertDeliverables(c.deliverables, `contract ${c.id} deliverables`);
+        if (!opts.workspace)
+          throw new Error(`contract ${c.id}: deliverables need the store's workspace option`);
+      }
       this.byId.set(c.id, c);
     }
     mkdirSync(dir, { recursive: true });
@@ -131,8 +158,9 @@ export class HandoffStore {
     e: T,
     error: string,
     problems?: string[],
+    detailPrefix = '',
   ): Fail {
-    this.record({ ...e, ok: false, detail: error });
+    this.record({ ...e, ok: false, detail: `${detailPrefix}${error}` });
     return { ok: false, error, ...(problems ? { problems } : {}) };
   }
 
@@ -140,6 +168,7 @@ export class HandoffStore {
     role: string,
     doc: string,
     content: unknown,
+    note?: string,
   ): { ok: true; version: number; status: VersionStatus } | Fail {
     const ev = { kind: 'publish' as const, role, doc };
     const c = this.byId.get(doc);
@@ -151,22 +180,48 @@ export class HandoffStore {
         ev,
         `${c.max_attempts} publish attempts for "${doc}" are used; report the blocker to your lead instead of publishing again`,
       );
-    this.state.attempts[doc] = this.attempts(doc) + 1;
+    const maxRefusals = c.max_refusals ?? DEFAULT_MAX_REFUSALS;
+    if (c.deliverables && this.refusals(doc) >= maxRefusals)
+      return this.fail(
+        ev,
+        `${maxRefusals} publishes of "${doc}" were refused for disagreeing with your files; report the blocker to your lead instead of publishing again`,
+      );
+    const limit = c.max_chars ?? MAX_DOC_CHARS;
     const size = JSON.stringify(content ?? null).length;
     const problems =
-      size > MAX_DOC_CHARS
-        ? [`$: ${size} characters, over the ${MAX_DOC_CHARS} limit`]
+      size > limit
+        ? [`$: ${size} characters, over the ${limit} limit`]
         : checkAgainstSchema(c.schema, content);
     if (problems.length) {
+      this.state.attempts[doc] = this.attempts(doc) + 1;
       this.save();
       return this.fail(
         ev,
-        size > MAX_DOC_CHARS
-          ? problems[0]
-          : `"${doc}" does not match its contract: ${problems.join('; ')}`,
+        size > limit ? problems[0] : `"${doc}" does not match its contract: ${problems.join('; ')}`,
         problems,
       );
     }
+    // consistency with the producer's own files, on what the producer sent (never on an injected copy)
+    if (c.deliverables) {
+      const bad = deliverableMismatches(this.opts.workspace as string, c.deliverables, content);
+      if (bad.length) {
+        this.state.refusals = { ...this.state.refusals, [doc]: this.refusals(doc) + 1 };
+        this.save();
+        const left = maxRefusals - this.refusals(doc);
+        return this.fail(
+          { ...ev, file: bad.map((b) => b.file).join(', ') },
+          `"${doc}" disagrees with your deliverable files, so it was not published: ${bad
+            .slice(0, 4)
+            .map((b) => b.problem)
+            .join(
+              '; ',
+            )}. Fix the file or the document so they agree, then publish again (this refusal does not use a publish attempt; ${left} such refusal${left === 1 ? '' : 's'} left)`,
+          bad.map((b) => b.problem),
+          'consistency: ',
+        );
+      }
+    }
+    this.state.attempts[doc] = this.attempts(doc) + 1;
     const versions = (this.state.versions[doc] ??= []);
     for (const v of versions) if (v.status === 'pending') v.status = 'superseded';
     const version = versions.length + 1;
@@ -175,11 +230,13 @@ export class HandoffStore {
       (this.state.injected ??= {})[doc] = { version, class: fault.record.class };
       (this.state.originals ??= {})[`${doc}#${version}`] = content;
     }
+    const cleanNote = note?.trim() ? note.trim().slice(0, 400) : undefined;
     versions.push({
       version,
       at: this.now().toISOString(),
       by: role,
       content: fault ? fault.content : content,
+      ...(cleanNote ? { note: cleanNote } : {}),
       status: 'pending',
       decisions: {},
     });
@@ -196,6 +253,10 @@ export class HandoffStore {
         detail: JSON.stringify(fault.record),
       });
     return { ok: true, version, status: 'pending' };
+  }
+
+  refusals(doc: string): number {
+    return this.state.refusals?.[doc] ?? 0;
   }
 
   read(
@@ -253,12 +314,115 @@ export class HandoffStore {
     if (v.status !== 'pending') return this.fail(ev, `version ${version} is already ${v.status}`);
     if (decision === 'reject' && !reason?.trim())
       return this.fail(ev, 'a rejection needs a reason');
+    // an accepted document must certify the files as they are now: compare them with what the producer
+    // sent (the original when the injector changed the copy a consumer reads)
+    if (decision === 'accept' && c.deliverables) {
+      const sent = this.state.originals?.[`${doc}#${version}`] ?? v.content;
+      const bad = deliverableMismatches(this.opts.workspace as string, c.deliverables, sent);
+      if (bad.length) {
+        const why = bad.map((b) => b.problem).join('; ');
+        this.relay(
+          c,
+          version,
+          'deliverable-changed',
+          `Version ${version} of "${doc}" could not be accepted because your deliverable files changed after you published it: ${why}. Publish a corrected version so the document and the files agree.`,
+          role,
+        );
+        return this.fail(
+          { ...ev, file: bad.map((b) => b.file).join(', ') },
+          `version ${version} cannot be accepted: the producer's deliverable files changed after it was published (${why}). The producer has been told to publish a corrected version; decide on that one`,
+          undefined,
+          'consistency: ',
+        );
+      }
+    }
     v.decisions[role] = { decision, ...(reason ? { reason } : {}), at: this.now().toISOString() };
     if (decision === 'reject') v.status = 'rejected';
     else if (c.consumers.every((x) => v.decisions[x]?.decision === 'accept')) v.status = 'accepted';
     this.save();
     this.record({ ...ev, ok: true, detail: decision });
+    if (decision === 'reject') this.relayRejection(c, version, role, reason as string);
     return { ok: true, status: v.status, waiting_on: this.waitingOn(c, v) };
+  }
+
+  /** Tells the producer, directly, that a consumer rejected a version, and what to do; the lead gets a short copy. */
+  private relayRejection(c: DocContract, version: number, by: string, reason: string): void {
+    const m = rejectionMessage(c, version, by, reason, this.attempts(c.id));
+    this.relay(c, version, 'rejected', m.body, by, m.copy);
+  }
+
+  private relay(
+    c: DocContract,
+    version: number,
+    reason: RelayReason,
+    body: string,
+    by: string,
+    copy?: string,
+  ): void {
+    sendRelay(this.opts, (e) => this.record(e), c, version, reason, body, by, copy);
+  }
+
+  /** True when the store was built with a producer relay (variant v2). */
+  relayEnabled(): boolean {
+    return this.opts.relay !== undefined;
+  }
+
+  /** The checks a role may run: the documents it produces or consumes whose contract declares any. */
+  hasChecks(role: string): boolean {
+    return this.contracts().some(
+      (c) => c.checks?.length && (c.producer === role || c.consumers.includes(role)),
+    );
+  }
+
+  /** Runs a document's declared checks over a version (the one `read` returns by default, or the one named). */
+  check(
+    role: string,
+    doc: string,
+    version?: number,
+  ):
+    | ({ ok: true; doc: string; version: number; status: VersionStatus } & Omit<
+        CheckResult,
+        'by_check'
+      > & {
+          passed: number;
+          note: string;
+        })
+    | Fail {
+    const ev = { kind: 'check' as const, role, doc };
+    const c = this.byId.get(doc);
+    if (!c) return this.fail(ev, `unknown document "${doc}"`);
+    if (role !== c.producer && !c.consumers.includes(role))
+      return this.fail(ev, `${role} is not a producer or consumer of "${doc}"`);
+    if (!c.checks?.length) return this.fail(ev, `"${doc}" declares no checks`);
+    const versions = this.state.versions[doc] ?? [];
+    if (versions.length === 0) return this.fail(ev, `no version of "${doc}" has been published`);
+    const found =
+      version !== undefined
+        ? versions.find((v) => v.version === version)
+        : ([...versions].reverse().find((v) => v.status === 'accepted') ??
+          versions[versions.length - 1]);
+    if (!found) return this.fail(ev, `no version ${version} of "${doc}"`);
+    const r = runChecks(c.checks, found.content);
+    this.record({
+      ...ev,
+      ok: true,
+      version: found.version,
+      detail: JSON.stringify({
+        answers: r.answers,
+        flagged: r.flagged.length + r.doc_level.length,
+        by_check: r.by_check,
+      }),
+    });
+    const { by_check: _by, ...rest } = r;
+    return {
+      ok: true,
+      doc,
+      version: found.version,
+      status: found.status,
+      ...rest,
+      passed: r.answers - r.flagged.length,
+      note: 'Answers not listed under flagged pass every check. The checks only test the document against itself (its evidence): they do not prove it right, so spot-check what you rely on against the code.',
+    };
   }
 
   private waitingOn(c: DocContract, v: DocVersion): string[] {
@@ -283,6 +447,9 @@ export class HandoffStore {
           title: c.title,
           role: c.producer === role ? ('producer' as const) : ('consumer' as const),
           schema: c.schema,
+          ...(c.producer === role && c.deliverables
+            ? { files_must_match: c.deliverables.map((d) => d.file) }
+            : {}),
           ...(last ? { latest: { version: last.version, status: last.status } } : {}),
         };
       });

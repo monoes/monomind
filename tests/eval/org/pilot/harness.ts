@@ -22,7 +22,14 @@ export interface PilotTrial {
   contracts: DocContract[];
   /** Harness-seeded faults for the published documents (parallel-sweep-3's treatment arm); absent elsewhere. */
   faults?: FaultPlan;
+  /** Variant v2 (parallel-sweep-3): the producers' workspace, for the contracts' deliverable files. */
+  workspace?: string;
+  /** Variant v2: the producer relay is on; each rejection also gets a short copy to these roles. */
+  relay?: { copy_to: string[] };
 }
+
+/** The sender of a relay message: not a role, so no section applies to it (the refusal still covers every role). */
+export const RELAY_SENDER = 'pilot-relay';
 
 /** The org definition a pilot trial runs: each sectioned role carries a placeholder tool
  *  provider, so the session asks the provider hook (which the harness answers) for tools.
@@ -60,13 +67,14 @@ function handoffLine(role: string, trial: PilotTrial): string {
   const produces = mine((c) => c.producer === role).map(describe);
   const consumes = mine((c) => c.consumers.includes(role)).map(describe);
   const parts = ['Hand-offs between sections are documents, not messages.'];
+  const v2 = trial.relay !== undefined;
   if (produces.length)
     parts.push(
-      `You produce: ${produces.join(', ')}. Publish each as a JSON object with ${PILOT_PREFIX}__doc_publish (a document that does not match its contract is refused with the problems named: fix it and publish again), then tell your lead it is published.`,
+      `You produce: ${produces.join(', ')}. Publish each as a JSON object with ${PILOT_PREFIX}__doc_publish (a document that does not match its contract${v2 ? ' or disagrees with your deliverable files' : ''} is refused with the problems named: fix it and publish again), then tell your lead it is published.${v2 ? ' When a consumer rejects a version, a message from pilot-relay tells you directly (document, version, reason, attempts left): fix the underlying files and publish a corrected version; your lead is not asked to relay it.' : ''}`,
     );
   if (consumes.length)
     parts.push(
-      `You consume: ${consumes.join(', ')}. Read it with ${PILOT_PREFIX}__doc_read, then ${PILOT_PREFIX}__doc_decide accept or reject (a rejection needs a reason); a document counts as accepted only when every consumer accepts it.`,
+      `You consume: ${consumes.join(', ')}. Read it with ${PILOT_PREFIX}__doc_read, ${v2 ? `run ${PILOT_PREFIX}__doc_check on it (a necessary check against the document's own evidence, not a sufficient one: spot-check what you rely on against the code), then ` : 'then '}${PILOT_PREFIX}__doc_decide accept or reject (a rejection needs a reason); a document counts as accepted only when every consumer accepts it.${v2 ? ' A rejection is delivered to the producer directly by the relay: you need not ask the lead to relay it.' : ''}`,
     );
   parts.push(
     'A message to a role in another section is refused; raise cross-section needs with your section lead, or hand the work over as a document.',
@@ -82,6 +90,17 @@ export function attachPilot(daemon: OrgDaemon, trial: PilotTrial, token: string)
     trial.contracts,
     undefined,
     trial.faults ? faultInjector(trial.faults) : undefined,
+    {
+      ...(trial.workspace ? { workspace: trial.workspace } : {}),
+      ...(trial.relay
+        ? {
+            copyTo: trial.relay.copy_to,
+            // the daemon's deliver at call time: the wrapped one below, so its refusal path is the one used
+            relay: (m) =>
+              daemon.deliver([...daemon.orgs.keys()][0], RELAY_SENDER, m.to, m.subject, m.body),
+          }
+        : {}),
+    },
   );
 
   const hub = daemon.toolProviders as unknown as {
