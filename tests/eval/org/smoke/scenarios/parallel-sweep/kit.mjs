@@ -55,6 +55,10 @@ export const DEADLINE_SECONDS = fixture.wall_deadline_minutes * 60;
  *  worker normally finishes its two modules in one session, and a looping role is still bounded. An
  *  assumption to calibrate in the pilot, not a measurement. */
 export const SESSION_CAP = { tokens: 8_000_000 };
+/** The single role carries the work of four workers (all eight modules and the synthesis), so it gets four
+ *  times the room: the cap is a safety valve, and rotating the one role at the workers' size would make the
+ *  null hypothesis re-read the corpus for no reason but the cap. */
+export const SOLO_SESSION_CAP = { tokens: 4 * SESSION_CAP.tokens };
 
 const COMMON = fixture.tasks.common;
 export const TASK = `${COMMON} ${fixture.tasks.multi_role}`;
@@ -97,7 +101,7 @@ export async function baseDef({ inputs, workspace, contender }) {
     task: contender === 'single' ? SOLO_TASK : TASK,
     allocationUsd: ALLOCATION_USD,
     orgStopUsd: ORG_STOP_USD,
-    sessionCap: SESSION_CAP,
+    sessionCap: contender === 'single' ? SOLO_SESSION_CAP : SESSION_CAP,
     deadlineSeconds: DEADLINE_SECONDS,
     noExec: true,
     // The answers are hidden from every role's shell, and so is the fixture's own directory (its scorer

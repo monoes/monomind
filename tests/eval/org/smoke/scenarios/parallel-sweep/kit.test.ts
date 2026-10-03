@@ -44,6 +44,7 @@ import {
   OWNS,
   SESSION_CAP,
   SOLO_CAPS,
+  SOLO_SESSION_CAP,
   SOLO_TASK,
   TASK,
 } from './kit.mjs';
@@ -123,6 +124,7 @@ describe('the task text and the plan', () => {
     expect(ALLOCATION_USD).toBe(record.fixture.planning_allocation_usd_per_run);
     expect(ORG_STOP_USD).toBe(record.fixture.org_stop_usd);
     expect(SESSION_CAP.tokens).toBeGreaterThan(0);
+    expect(SOLO_SESSION_CAP.tokens).toBe(4 * SESSION_CAP.tokens);
   });
 });
 
@@ -167,7 +169,9 @@ describe('the three arms, prepared as the pilot prepares them', () => {
       expect(x.t.allocationUsd).toBe(12);
       expect(x.t.orgStopUsd).toBe(12);
       expect(x.t.profile).toBe('production');
-      expect(x.def.run_config.context.session_cap).toEqual(SESSION_CAP);
+      expect(x.def.run_config.context.session_cap).toEqual(
+        x === s ? SOLO_SESSION_CAP : SESSION_CAP,
+      );
       for (const r of Object.values(x.t.runners))
         expect(r).toEqual({ runtime: 'claude', model: 'claude-sonnet-5-5' });
     }
