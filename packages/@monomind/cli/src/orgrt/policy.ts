@@ -5,6 +5,7 @@
 import { homedir } from 'node:os';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
+import { execDenyViolation } from './exec-deny.js';
 import { fileToolDenied, isDashboardCredential } from './file-roots.js';
 import { isOperatorProtected } from './operator-protected-paths.js';
 import { isAuthorityFile } from './org-authority-files.js';
@@ -340,6 +341,8 @@ export class PolicyEngine {
       const gitLevel = this.policy.git ?? 'read';
       const gitDenied = checkGitPolicy(cmd, gitLevel, { osSandboxed: this.osSandboxed });
       if (gitDenied) return deny(gitDenied);
+      const execDenied = execDenyViolation(cmd, this.policy.sandbox?.denyExec);
+      if (execDenied) return deny(execDenied);
     }
 
     if (WEB_TOOLS.has(tool) && this.policy.webAllow !== undefined) {

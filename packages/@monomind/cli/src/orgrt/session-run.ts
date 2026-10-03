@@ -8,6 +8,7 @@ import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
+import { roleExecMask } from './exec-deny.js';
 import type { StreamOptions } from './mailbox.js';
 import { ensureOperatorProtectedPaths } from './operator-protected-paths.js';
 import { buildOrgTools } from './org-tools.js';
@@ -210,16 +211,23 @@ export async function runOneSession(
     const authorityMask =
       resolvedAccess.access === 'full'
         ? undefined
-        : roleAuthorityMask({
+        : roleExecMask({
             bus,
             roleId: role.id,
-            inSdkSandbox: !!gitEnforcement.claudeRestrictions?.sandbox,
-            // vercel runs in-process with no shell; its file tools go through the policy engine.
-            inProcess: runtimeKey === 'vercel',
-            cwd,
-            orgRoot: opts.orgRoot,
-            fileWrite: role.policy?.fileWrite,
-            allowWrite: role.policy?.sandbox?.allowWrite,
+            denyExec: role.policy?.sandbox?.denyExec,
+            home: homedir(),
+            env: process.env,
+            authorityMask: roleAuthorityMask({
+              bus,
+              roleId: role.id,
+              inSdkSandbox: !!gitEnforcement.claudeRestrictions?.sandbox,
+              // vercel runs in-process with no shell; its file tools go through the policy engine.
+              inProcess: runtimeKey === 'vercel',
+              cwd,
+              orgRoot: opts.orgRoot,
+              fileWrite: role.policy?.fileWrite,
+              allowWrite: role.policy?.sandbox?.allowWrite,
+            }),
           });
     const stream = runner.run(
       sessionRunArgs(opts, {

@@ -153,6 +153,10 @@ export const RolePolicySchema = z
         deniedDomains: z.array(z.string()).optional(),
         allowWrite: z.array(z.string()).optional(),
         denyWrite: z.array(z.string()).optional(),
+        /** Programs the role must not be able to run (names, `*` globs, absolute paths): masked
+         *  in a bubblewrap layer around the role's process tree and refused in its Bash commands
+         *  (exec-deny.ts). Fails closed without bubblewrap. */
+        denyExec: z.array(z.string()).optional(),
         allowUnixSockets: z.boolean().optional(),
       })
       .strict()
