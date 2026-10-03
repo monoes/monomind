@@ -937,6 +937,14 @@
       "what": "Stage 2 of parallel-sweep-2 (baseline x1, then treatment x1, at the committed 600 s design, org stop $30 a run, stage 2 soft cap as in staged_plan) is run although the stage 1 single trial landed in the inconclusive band (29 of 33 units at 600 s). Entered through PILOT_OWNER_DECISION with the text 'stage2-after-inconclusive-stage1: the lead runs stage 2 at the committed 600 s design, because the team arms are the missing measurement' (not the phrase single-480). Run with PILOT_ONLY=parallel-sweep-2:baseline:1:0 and then PILOT_ONLY=parallel-sweep-2:treatment:1:0, one trial at a time. Thresholds, deadline, corpus, rosters and task text are unchanged; no stage 3.",
       "why": "Stage 1 was inconclusive (29 of 33 at 600 s, $3.76) and the owner-approved 480 s single variant delivered 0 of 33 because the role gave up at 54 s ('infeasible ... no way to run code'), which does not measure the deadline. The team arms are the missing measurement: the proposal predicts they deliver 31 to 33 units in 280 to 560 s, where single got 29 in 596 s. The owner's standing instruction is that the lead takes its recommended option and continues without asking.",
       "earlier_result": "none rewritten: the stage 1 result (29 of 33 at 600 s) and the 480 s variant trial (0 of 33, self-abandonment at 54 s) stay on record; thresholds and the 600 s design are unchanged; this is one trial per team arm, exploratory"
+    },
+    {
+      "id": "process-cap-lifted-rerun",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction to take the recommended option",
+      "what": "Rerun of stage 2 (baseline x1, then treatment x1, one at a time) at the committed 600 s design and caps, as flagged redo trials (PILOT_ONLY=parallel-sweep-2:baseline:1:1 and parallel-sweep-2:treatment:1:1, ids p1br1 and p1tr1) with MONOMIND_MAX_SDK_PROCS=40 in the run environment (the governor reads it first; 3 matching processes per role x 10 roles = 30 < 40). Entered through PILOT_OWNER_DECISION naming process-cap-lifted-rerun. No runtime code, thresholds, deadline, corpus, rosters or task text change; no stage 3.",
+      "why": "The stage 2 trials p1b and p1t were capped by the resource governor, whose pgrep -f 'claude-agent-sdk.*--output-format' count matches 3 processes per role (two bwrap wrappers and the SDK binary): lead plus 7 workers reached 24 of 22, so worker-8 and the synthesiser never started in either arm. Those trials are not the measurement of the 10-role design.",
+      "earlier_result": "none rewritten: p1b (26 of 33, $12.78) and p1t (28 of 33, $12.82) stay on record as capped trials and are not overwritten; the reruns have their own flagged ids; approved_by lead under the owner's standing instruction"
     }
   ]
 }
