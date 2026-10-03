@@ -140,6 +140,7 @@ describe('homeOffenders', () => {
     await later();
     writeFileSync(join(h, 'notes'), 'now longer');
     writeFileSync(join(h, 'same-size'), 'bbbb'); // same size, new mtime
+    utimesSync(join(h, 'same-size'), new Date(), new Date(Date.now() + 5000)); // explicit, not clock-granularity dependent
     utimesSync(join(h, '.bashrc'), new Date(), new Date(Date.now() + 5000));
     rmSync(join(h, 'link'));
     symlinkSync('/b', join(h, 'link'));
