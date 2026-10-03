@@ -11,12 +11,13 @@ const scenarios = [
   'dev-feature-qa-revise',
   'deliberative-design',
   'growth-like',
+  'parallel-sweep',
   'research-report',
   'sparse-dispatch',
 ];
 
 describe('committed scenario manifests', () => {
-  it('are exactly the six scenarios', () => {
+  it('are exactly the seven scenarios', () => {
     expect(
       readdirSync(here)
         .filter((f) => f.endsWith('.json'))
@@ -46,5 +47,33 @@ describe('committed scenario manifests', () => {
     );
     expect(fixture.status).toMatch(/^APPROVED 2026-10-02/);
     expect(fixture.fixture.status).toMatch(/^APPROVED 2026-10-02/);
+  });
+
+  it('parallel-sweep (approved by the owner 2026-10-03) has the module-sheet and synthesis units, the standard margin and the $12 allocation, and records the no-node sandbox', () => {
+    const m = JSON.parse(readFileSync(join(here, 'parallel-sweep.json'), 'utf8'));
+    expect(m.units.map((u: { id: string; count: number }) => [u.id, u.count])).toEqual([
+      ['module-sheet', 8],
+      ['synthesis', 1],
+    ]);
+    expect(m.rubric.non_inferiority_margin).toBe(0.1);
+    expect(m.rubric.min_quality).toBe(0.75);
+    expect(m.cost).toEqual({ basis: 'estimated-inference', planning_allocation_usd: 12 });
+    expect(m.qualification.deadline_minutes).toBe(35);
+    expect(m.rubric.critical_failures.join(' ')).toMatch(/fabricated/);
+    expect(m.rubric.critical_failures.join(' ')).toMatch(/copied from another module/);
+    expect(m.committed_at).toBe('2026-10-03');
+    expect(m.proposed_on).toBeUndefined();
+    expect(m.notice).toBeUndefined();
+    expect(m.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'owner-approval',
+      'no-node-sandbox',
+    ]);
+    expect(m.declared_changes[1].what).toMatch(/denyExec/);
+    const fixture = JSON.parse(
+      readFileSync(join(here, '../fixtures/parallel-sweep/fixture.json'), 'utf8'),
+    );
+    expect(fixture.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(fixture.fixture.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(fixture.notice).toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
 {
   "id": "parallel-sweep",
   "title": "Parallel sweep: eight independent modules of call-chain questions plus a cross-module synthesis, under a hard wall deadline",
-  "committed_at": "PROPOSED",
+  "committed_at": "2026-10-03",
   "units": [
     {
       "id": "module-sheet",
@@ -69,10 +69,25 @@
     "basis": "estimated-inference",
     "planning_allocation_usd": 12
   },
-  "status": "PROPOSED",
-  "proposed_on": "2026-10-03",
-  "notice": "PROPOSED DRAFT for owner review. Not committed and not active: committed_at is a placeholder, so the validator refuses it and no paid trial may use it. Nothing here is in the committed manifests directory, RUNNER_PLANS or any kit registry.",
   "fixture": {
     "record": "tests/eval/org/fixtures/parallel-sweep/fixture.json"
-  }
+  },
+  "declared_changes": [
+    {
+      "id": "owner-approval",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "The parallel-sweep draft (8 independent modules plus a cross-module synthesis under a 35-minute deadline, $12 a run, three arms single, baseline and treatment) is approved as drafted and committed.",
+      "why": "growth-like has no independent parallel parts and no synthesis that depends on all of them, so a deadline cannot make coordination worth its cost there; this fixture is built to have both.",
+      "earlier_result": "none: new scenario; the PROPOSED draft (commit adacd44c4) is superseded by this manifest"
+    },
+    {
+      "id": "no-node-sandbox",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "Every role in all three arms (single, baseline, treatment; the lead and the synthesiser included) runs with no node and no code-execution tool: policy.sandbox.denyExec masks node, nodejs, deno, bun, npm, npx, pnpm, yarn, corepack, tsx, python*, perl, ruby, php, lua*, tclsh, java, go, gcc and the like (and the browsers and busybox) by real path in a bubblewrap layer around the role (mode required: a role does not start without it), policy.allowTools admits only Bash, Read, Write, Edit, MultiEdit, Glob and Grep, and Bash network is limited to localhost. The hidden truth file and the fixture directory are hidden from every role with policy.sandbox.denyRead.",
+      "why": "The first draft only forbade running the corpus code in the task text; an agent with node could get every value in one call, which is a hole that would be detected at best. Denying it makes the cheating impossible instead.",
+      "earlier_result": "none: nothing ran on a model under the draft"
+    }
+  ]
 }

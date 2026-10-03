@@ -1,4 +1,4 @@
-// parallel-sweep fixture (PROPOSED draft): a corpus with eight independent parts and a synthesis that needs
+// parallel-sweep fixture (approved 2026-10-03): a corpus with eight independent parts and a synthesis that needs
 // all of them. These tests show the corpus is reproducible, that the truth is what the code really returns,
 // that the scorer accepts the complete reference and rejects each degraded one for the right reason, that
 // the synthesis cannot be answered from fewer than all eight modules, and what the workload is.
@@ -19,7 +19,7 @@ import { MODULE_IDS, deriveSynthesis } from './synthesis.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const record = JSON.parse(readFileSync(join(here, 'fixture.json'), 'utf8'));
 const pilot = JSON.parse(
-  readFileSync(join(here, '../../pilot/proposed/parallel-sweep.pilot.json'), 'utf8'),
+  readFileSync(join(here, '../../pilot/parallel-sweep.pilot.json'), 'utf8'),
 );
 
 const walk = (dir: string, rel = ''): string[] =>
@@ -377,9 +377,21 @@ describe('the workload, computed by the generator, shows the parallelism', () =>
 });
 
 describe('the fixture record', () => {
-  it('is a PROPOSED draft with the deadline, allocation, three arms and an unmeasured claim', () => {
-    expect(record.status).toBe('PROPOSED');
-    expect(record.fixture.status).toBe('PROPOSED');
+  it('is approved, names the no-node sandbox in its text and weaknesses, and keeps the other holes stated', () => {
+    expect(record.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(record.fixture.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(record.notice).toBeUndefined();
+    expect(record.fixture.tasks.common).toMatch(/no node or other interpreter is available to any role/);
+    expect(record.fixture.tasks.common).not.toMatch(/do not execute any file/);
+    expect(record.fixture.sandbox.mechanism).toMatch(/denyExec/);
+    const w = record.fixture.why_one_agent_cannot.weaknesses as string[];
+    expect(w[0]).toMatch(/^CLOSED by enforcement/);
+    expect(w.slice(1).every((x) => x.startsWith('REMAINS'))).toBe(true);
+    expect(w.join(' ')).toMatch(/python and every other interpreter are denied too/i);
+    expect(w.join(' ')).toMatch(/statically/);
+  });
+
+  it('has the deadline, allocation, three arms and an unmeasured claim', () => {
     expect(record.fixture.wall_deadline_minutes).toBe(35);
     expect(record.fixture.planning_allocation_usd_per_run).toBe(12);
     expect(record.fixture.org_stop_usd).toBe(12);

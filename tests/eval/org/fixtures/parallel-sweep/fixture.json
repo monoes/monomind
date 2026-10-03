@@ -1,10 +1,9 @@
 {
-  "status": "PROPOSED",
-  "notice": "PROPOSED DRAFT for owner review. Nothing here is approved, committed to the manifests directory, in RUNNER_PLANS or in any kit registry. The org definitions and the smoke kit are not built; that follows approval.",
+  "status": "APPROVED 2026-10-03 by the owner",
   "id": "parallel-sweep-fixture",
   "scenario": "parallel-sweep",
   "fixture": {
-    "status": "PROPOSED",
+    "status": "APPROVED 2026-10-03",
     "summary": "A deterministic corpus of 8 independent modules (m1..m8), each about 30 small ESM files plus a config, with 12 call-chain questions per module (entry function, 4 to 7 files deep) and 6 cross-module synthesis questions that need all eight modules. Truth is computed by running the code, never asserted. Built to have what growth-like lacks: genuinely independent parallel parts and a synthesis that depends on all of them, so a deadline can make coordination worth its cost.",
     "build": "node tests/eval/org/fixtures/parallel-sweep/build-corpus.mjs <empty dir> --truth <path outside that dir>/truth.json",
     "pinned_hash": "4eb27a09666f2df6e3a9a02d1236f07bac63828768fb63f7f57fa8243df1bcf5",
@@ -28,7 +27,7 @@
     "model": "claude-sonnet-5-5 (production profile)",
     "org_stop_usd": 12,
     "tasks": {
-      "common": "The directory corpus/ holds eight modules, m1 to m8. Each module directory has a questions.json with 12 questions; a question names an entry function (file and name). For each question give (a) the integer the call chain finally returns when the entry function is called with no arguments, and (b) the ordered list of files whose functions the call executes, from the entry file to the last file, written as corpus-relative paths exactly as in questions.json (for example \"m1/ticket.mjs\"); the module's config.mjs is not part of the list. Answer by reading the code: do not execute any file of corpus/. Comments and names can mislead (near-identical function names, stale defaults, comments about 'the new version'); the code is the truth, and a constant can be overridden in the module's config.mjs. A second set of six cross-module questions is in corpus/synthesis-questions.json; its answers need the answers of all eight modules. Deliverables: out/<module>/answers.json for each module (12 answers each) and out/synthesis.json (6 answers). Everything must be finished within 35 minutes of wall time; sheets and answers not written by then do not count.",
+      "common": "The directory corpus/ holds eight modules, m1 to m8. Each module directory has a questions.json with 12 questions; a question names an entry function (file and name). For each question give (a) the integer the call chain finally returns when the entry function is called with no arguments, and (b) the ordered list of files whose functions the call executes, from the entry file to the last file, written as corpus-relative paths exactly as in questions.json (for example \"m1/ticket.mjs\"); the module's config.mjs is not part of the list. Answer by reading the code: nothing in this run can execute it (no node or other interpreter is available to any role, and no code-execution tool), so do not try. Comments and names can mislead (near-identical function names, stale defaults, comments about 'the new version'); the code is the truth, and a constant can be overridden in the module's config.mjs. A second set of six cross-module questions is in corpus/synthesis-questions.json; its answers need the answers of all eight modules. Deliverables: out/<module>/answers.json for each module (12 answers each) and out/synthesis.json (6 answers). Everything must be finished within 35 minutes of wall time; sheets and answers not written by then do not count.",
       "single": "You are the only role. Do the whole task above yourself: all eight modules and the synthesis, writing every deliverable.",
       "multi_role": "The task above is done by a team. The lead coordinates and does not answer any question itself: it assigns the modules (worker-1: m1 and m2, worker-2: m3 and m4, worker-3: m5 and m6, worker-4: m7 and m8), tells the synthesiser what to wait for, and reports when all nine deliverables exist or the deadline arrives. Each worker answers its own modules from the code and writes out/<module>/answers.json. The synthesiser answers the six cross-module questions from the modules' answer sheets and writes out/synthesis.json; it does not redo the modules' work."
     },
@@ -36,7 +35,9 @@
       {
         "id": "single",
         "description": "one role, the whole task, the Phase 2 configuration; no sections, no hand-off tools",
-        "roster": ["solver"],
+        "roster": [
+          "solver"
+        ],
         "responsibilities": {
           "solver": "Answers all 96 module questions and the 6 synthesis questions from the code and writes all nine deliverables within the deadline."
         }
@@ -44,7 +45,14 @@
       {
         "id": "baseline",
         "description": "Phase 2 without sections: lead, four workers and a synthesiser coordinating by mail and tasks; same task text as treatment",
-        "roster": ["lead", "worker-1", "worker-2", "worker-3", "worker-4", "synthesiser"],
+        "roster": [
+          "lead",
+          "worker-1",
+          "worker-2",
+          "worker-3",
+          "worker-4",
+          "synthesiser"
+        ],
         "responsibilities": {
           "lead": "The unsectioned root. Assigns the modules, does not answer questions itself, reports when all nine deliverables exist or the deadline arrives.",
           "worker-1": "Answers modules m1 and m2 and writes out/m1/answers.json and out/m2/answers.json; tells the synthesiser when each is written.",
@@ -57,11 +65,31 @@
       {
         "id": "treatment",
         "description": "the same roles with the hand-off prototype: one section per worker pair, the synthesiser consuming module-sheet documents",
-        "roster": ["lead", "worker-1", "worker-2", "worker-3", "worker-4", "synthesiser"],
+        "roster": [
+          "lead",
+          "worker-1",
+          "worker-2",
+          "worker-3",
+          "worker-4",
+          "synthesiser"
+        ],
         "sections": {
-          "sweep-a": { "lead": "worker-1", "members": ["worker-2"] },
-          "sweep-b": { "lead": "worker-3", "members": ["worker-4"] },
-          "synthesis": { "lead": "synthesiser", "members": [] }
+          "sweep-a": {
+            "lead": "worker-1",
+            "members": [
+              "worker-2"
+            ]
+          },
+          "sweep-b": {
+            "lead": "worker-3",
+            "members": [
+              "worker-4"
+            ]
+          },
+          "synthesis": {
+            "lead": "synthesiser",
+            "members": []
+          }
         },
         "responsibilities": {
           "lead": "As in baseline.",
@@ -71,7 +99,7 @@
           "worker-4": "As worker-1 for m7 and m8.",
           "synthesiser": "Reads the eight module-sheet documents (not the workers' mail), answers s1 to s6 from them and writes out/synthesis.json."
         },
-        "contracts": "pilot/proposed/parallel-sweep.pilot.json (module-sheet-m1 .. module-sheet-m8, producer a worker, consumer synthesiser)"
+        "contracts": "pilot/parallel-sweep.pilot.json (module-sheet-m1 .. module-sheet-m8, producer a worker, consumer synthesiser)"
       }
     ],
     "why_one_agent_cannot": {
@@ -86,16 +114,25 @@
       "assumptions_to_calibrate": [
         "seconds per read turn, serial and in parallel, on claude-sonnet-5-5",
         "whether a model batches many reads or greps per turn (the biggest threat to the deadline argument)",
-        "whether the deadline is enforced by the harness or only stated in the task",
-        "that the no-execution rule is followed (see weaknesses)",
+        "the deadline is enforced by the harness (run-trial.sh ends the run at deadlineSeconds 2100, files written later do not exist); what remains to calibrate is how close each arm gets to it",
+        "that the sandbox holds on a real run (the first trial shows whether any role hit a denied program and how it reacted)",
         "coordination overhead of the lead and of the hand-off documents, which round 2 showed to be large (treatment cost about 55% more than baseline on growth-like)"
       ],
       "weaknesses": [
-        "An agent with a shell can execute the corpus code, get every value at once, and only the file lists remain; the task forbids it but nothing enforces it. A transcript audit or a sandbox without node is needed.",
-        "An agent can read all files of a module in one call, so 'reads' is a count of chain steps, not of tool calls; distinct files are fewer than chain steps (about 25 to 30 of the 31 per module).",
-        "Chain steps are mechanical arithmetic; a strong model may write a small script that parses the imports and statically evaluates the chains, which is tool use, not coordination.",
-        "If the 35-minute deadline is easily met serially, this fixture shows the same thing growth-like did: a single agent is cheaper at equal quality."
+        "CLOSED by enforcement (2026-10-03): the hole of an agent with a shell executing the corpus code to get every value at once. No role of any arm can run node, deno, bun, python, perl and the like, or copy and run a binary (see the sandbox record above); nothing relies on a transcript audit any more.",
+        "REMAINS: an agent can read all files of a module in one call, so \"reads\" is a count of chain steps, not of tool calls; distinct files are fewer than chain steps (about 25 to 30 of the 31 per module).",
+        "REMAINS: chain steps are mechanical arithmetic; a strong model may write a script in a language that stays available (bash, awk, sed: the role's shell is needed by the runtime, so it is not denied) that parses the imports and statically evaluates the chains, or may simply reason about the code statically. That is tool use or reasoning, not coordination, and it is not prevented. Python and every other interpreter are denied too, which removes the easy route, not the hard one.",
+        "REMAINS: if the 35-minute deadline is easily met serially, this fixture shows the same thing growth-like did: a single agent is cheaper at equal quality.",
+        "REMAINS: the binary denial is a list, not a proof. A program with an engine built in under a name no pattern matches, or one this machine's resolver does not find, is not masked. It was tested against the real bubblewrap here with the machine's own node, python3 and perl, not against every possible binary.",
+        "REMAINS: the Claude role's own SDK sandbox (nested inside the denial layer) and the localhost-only network limit were not exercised without a model call; the denial layer was tested through a nested bubblewrap built like the SDK's, the network limit is configuration only until the first trial."
       ]
+    },
+    "sandbox": {
+      "status": "APPROVED 2026-10-03: the no-node sandbox, enforced for every role of every arm",
+      "decision": "Owner decision 2026-10-03: deny node and any code-execution tool to every role in all three arms (single, baseline, treatment), so that running the corpus is impossible rather than only detected.",
+      "mechanism": "policy.sandbox.denyExec (runtime change, opt-in, packages/@monomind/cli/src/orgrt/exec-deny.ts): the role's whole process tree is launched inside a bubblewrap layer in which every matching binary (by real path: PATH entries, system bin directories, version-manager trees) is replaced by /dev/null, with its own pid namespace; the role does not start without bubblewrap (sandbox mode required). Bash commands naming a denied program are also refused by the PolicyEngine. policy.allowTools admits only Bash, Read, Write, Edit, MultiEdit, Glob and Grep (NotebookEdit, REPL-style tools, MCP tools, WebFetch, WebSearch, Skill and native children are refused at the permission gate); Bash network is limited to localhost; the hidden truth file and the fixture directory are hidden from every role (policy.sandbox.denyRead).",
+      "denied_programs": "see tests/eval/org/smoke/no-exec.mjs (DENY_EXEC)",
+      "applied_in": "smoke/prepare.mjs for a kit that sets noExec: every role of the def, before the arms diverge; survives pilotOrgDef and attachPilot (tested)"
     }
   }
 }

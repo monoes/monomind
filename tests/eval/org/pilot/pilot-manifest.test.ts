@@ -8,8 +8,8 @@ import { pilotPlan, validatePilotManifest } from './pilot-manifest.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (p: string) => JSON.parse(readFileSync(join(here, p), 'utf8'));
 const scenario = (id: string) => load(`../manifests/${id}.json`);
-const pilots = ['growth-like', 'dev-feature-qa', 'dev-feature-qa-revise'].map((id) =>
-  load(`${id}.pilot.json`),
+const pilots = ['growth-like', 'dev-feature-qa', 'dev-feature-qa-revise', 'parallel-sweep'].map(
+  (id) => load(`${id}.pilot.json`),
 );
 
 describe('the committed pilot manifests', () => {
@@ -23,7 +23,8 @@ describe('the committed pilot manifests', () => {
   );
 
   it('plans round 2 of growth-like: 3 arms x 3 trials at $12 is 9 runs and $108; the round 1 dev-feature pilot is 6 runs at $8', () => {
-    const [growth, dev, revise] = pilots;
+    const [growth, dev, revise, sweep] = pilots;
+    expect(pilotPlan([sweep], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     expect(pilotPlan([growth], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     expect(pilotPlan([dev], scenario)).toEqual({ runs: 6, allocation_usd: 48 });
     expect(pilotPlan([growth, revise], scenario)).toEqual({ runs: 15, allocation_usd: 156 }); // all of round 2
@@ -43,6 +44,25 @@ describe('the committed pilot manifests', () => {
     ]);
     expect(scenario('growth-like').cost.planning_allocation_usd).toBe(12);
     expect(scenario('growth-like').declared_changes.length).toBeGreaterThan(0);
+  });
+
+  it('parallel-sweep: arms, 3 trials, production profile, $12 stop and allocation, native children disabled, 8 module-sheet contracts, the no-node sandbox declared', () => {
+    const p = pilots[3];
+    expect(p.arms.map((a: { id: string }) => a.id)).toEqual(['baseline', 'treatment', 'single']);
+    expect(p.trials_per_arm).toBe(3);
+    expect(p.harness_only).toBe(true);
+    expect(p.native_children).toBe('disabled');
+    expect(p.profile).toBe('production');
+    expect(p.org_stop_usd).toBe(12);
+    expect(p.per_run_allocation_usd).toBe(12);
+    expect(p.contracts).toHaveLength(8);
+    expect(p.status).toBeUndefined();
+    expect(p.notice).toBeUndefined();
+    expect(p.committed_at).toBe('2026-10-03');
+    expect(p.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'owner-approval',
+      'no-node-sandbox',
+    ]);
   });
 
   it('each pilot has a contract that crosses sections, so the hand-off has something to measure', () => {
