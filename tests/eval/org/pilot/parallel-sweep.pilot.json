@@ -528,6 +528,14 @@
       "what": "The task text given to every role of all three arms (single, baseline, treatment) now states the exact JSON shape of out/<module>/answers.json ({module, answers:[{q, value (integer), files (ordered corpus-relative paths with extension)}]}, the 12 ids q01 to q12) and of out/synthesis.json ({answers:[{q, value}]}, the ids s1 to s6), with a made-up worked example (m99/q99/s99, fake values), and the worker and synthesiser duties point at it. The treatment arm's hand-off contract schemas are unchanged and agree with the text.",
       "why": "The first paid trial (single-1, 2.15 USD, void) showed the task text omitted the JSON shape, so the scorer rejected correct work (bare arrays with an extra answer key scored 0 of 8 and 0 of 1 although a lenient re-score gave 8 of 8 and 6 of 6). Fixed inside the approved pilot; applies to all three arms; no change to the design, deadline, corpus or caps, roster or scoring.",
       "earlier_result": "the void trial stays on record and its results are not used"
+    },
+    {
+      "id": "home-write-deny",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "Every role of all three arms (single, baseline, treatment) now runs with its real $HOME write-protected (policy.sandbox.homeWriteAllow, runtime change, opt-in, packages/@monomind/cli/src/orgrt/home-write-deny.ts): inside the no-node bubblewrap layer the home is seen through a throwaway tmpfs overlay, so a write anywhere in it (a new file, mkdir, ln, cp, a rename, a delete, a change to an existing file) works inside the role's own view, is gone when the layer ends, and never reaches the real home; only ~/.claude, ~/.codex and ~/.gemini (the claude, codex and agy logins, sessions and state) are the real, writable paths. Reads of the whole home still work. The kit's real-state check (smoke/run-trial.sh, env.mjs, home-watch.mjs) now also lists the real home's top level before and after every trial and voids the trial, naming each offender with its birth and modification time, when an entry outside a small documented ignore list is created, replaced, changed or removed.",
+      "why": "The first trio of paid trials showed a role inside the no-node sandbox creating ~/f7.sh in the real home (the layer is --dev-bind / / and the SDK sandbox allows writing the home), and the real-state check, which compared only ~/.monomind listings and files naming the trial, reported clean and missed it. The owner ordered the gap closed now. Applies to every arm; no change to the design, deadline, corpus, caps, roster, task text or scoring.",
+      "earlier_result": "the earlier trials stay on record: the trial in which a role created ~/f7.sh and the trials before the write-deny are not rewritten or re-scored"
     }
   ]
 }

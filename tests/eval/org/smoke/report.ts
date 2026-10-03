@@ -23,6 +23,8 @@ export interface TrialRow {
   /** The harness's org-wide USD stop (spend-stop.mjs) ended the run. */
   spendStopped: boolean;
   voided: boolean;
+  /** Why it is void, from the trial's own files: what changed in the inputs or the real state (empty when not void). */
+  voidReasons: string[];
   accepted: Record<string, number>;
   pendingReview: string[];
   missing: string[];
@@ -55,6 +57,31 @@ function latestRun(root: string, name: string): string {
   return runs.length ? join(dir, runs[runs.length - 1]) : dir;
 }
 
+const lines = (p: string): string[] =>
+  existsSync(p)
+    ? readFileSync(p, 'utf8')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+    : [];
+
+/** What made a trial void, in words: run-trial.sh's result plus the files it left beside it. */
+export function voidReasons(
+  root: string,
+  result: { inputs?: string; realState?: string },
+): string[] {
+  const out: string[] = [];
+  if (result.inputs === 'VOID')
+    out.push('the immutable inputs changed (guard-before.sha256 differs from guard-after.sha256)');
+  if (result.realState === 'VOID') {
+    for (const l of lines(join(root, 'real-state-home.txt'))) out.push(`real home: ${l}`);
+    for (const l of lines(join(root, 'real-state-leaks.txt'))) out.push(`real ~/.monomind: ${l}`);
+    if (!out.some((r) => r.startsWith('real ')))
+      out.push('the real ~/.monomind org, broker or operator listing changed (real-state-*.json)');
+  }
+  return out;
+}
+
 export function trialRow(root: string): TrialRow {
   const trial = json(join(root, 'trial.json'));
   const manifest = manifestFor(trial.scenario);
@@ -84,6 +111,7 @@ export function trialRow(root: string): TrialRow {
     timedOut: result.timedOut ?? false,
     spendStopped: result.spendStopped ?? false,
     voided: result.inputs === 'VOID' || result.realState === 'VOID',
+    voidReasons: voidReasons(root, result),
     accepted,
     pendingReview: [...new Set(units.filter((u) => u.accepted === null).map((u) => u.unit))],
     missing: outcome.missing,
@@ -114,7 +142,12 @@ export function smokeReport(rows: TrialRow[]) {
     const regressions: string[] = [];
     if (!cb || !p2) regressions.push('missing a contender: nothing to compare');
     else if (cb.voided || p2.voided)
-      regressions.push('a trial is void (its inputs changed): nothing to compare');
+      regressions.push(
+        `a trial is void (its inputs or the real state changed): nothing to compare. ${[cb, p2]
+          .filter((r) => r.voided)
+          .map((r) => `${r.name}: ${r.voidReasons.join('; ')}`)
+          .join(' | ')}`,
+      );
     else {
       const units = (r: TrialRow) => Object.values(r.accepted).reduce((a, b) => a + b, 0);
       if (units(p2) < units(cb))

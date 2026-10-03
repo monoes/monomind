@@ -168,7 +168,12 @@ export function pilotReport(rows: PilotRow[]) {
           }
           if (baseline.voided || treatment.voided) {
             confounded = true;
-            reasons.push('a trial is void (its inputs or the real state changed)');
+            reasons.push(
+              `a trial is void (its inputs or the real state changed): ${[baseline, treatment]
+                .filter((r) => r.voided)
+                .map((r) => `${r.name}: ${r.voidReasons.join('; ')}`)
+                .join(' | ')}`,
+            );
           }
         }
         for (const r of [baseline, treatment, single])

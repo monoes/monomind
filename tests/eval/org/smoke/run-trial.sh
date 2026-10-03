@@ -8,7 +8,9 @@
 # whose bus has been silent for 10 minutes, and checks that the immutable inputs
 # are byte-identical afterwards, and that nothing reached the real ~/.monomind
 # (its org, broker and operator directory listings unchanged, no file naming the
-# trial). A trial that changed either is void.
+# trial) and that the real $HOME's top level has no new, replaced, changed or removed entry
+# outside the documented ignore list (home-watch.mjs: this is what would have caught a role
+# writing ~/f7.sh). A trial that changed any of them is void.
 set -uo pipefail
 root=$(cd "$1" && pwd)
 cli=$2
@@ -30,6 +32,7 @@ cd "$root"
 # runners' logins (claude, codex, ...) keep working. The driver inherits these too.
 while IFS= read -r kv; do export "$kv"; done < <(node "$here/env.mjs" prepare "$root")
 node "$here/env.mjs" fingerprint > real-state-before.json
+node "$here/env.mjs" home-snapshot > real-home-before.json
 fingerprint > guard-before.sha256
 node "$cli" org sign "$name" --yes > sign.log 2>&1 || { echo "sign failed (see $root/sign.log)"; exit 1; }
 start=$(date +%s)
@@ -54,8 +57,9 @@ end=$(date +%s)
 fingerprint > guard-after.sha256
 node "$here/env.mjs" fingerprint > real-state-after.json
 node "$here/env.mjs" leaks "$name" "$t0" > real-state-leaks.txt
+node "$here/env.mjs" home-check real-home-before.json > real-state-home.txt 2> real-state-home.note
 if cmp -s guard-before.sha256 guard-after.sha256; then integrity=clean; else integrity=VOID; fi
-if cmp -s real-state-before.json real-state-after.json && [ ! -s real-state-leaks.txt ]; then realstate=clean; else realstate=VOID; fi
+if cmp -s real-state-before.json real-state-after.json && [ ! -s real-state-leaks.txt ] && [ ! -s real-state-home.txt ]; then realstate=clean; else realstate=VOID; fi
 printf '{"name":"%s","exit":%d,"timedOut":%s,"seconds":%d,"inputs":"%s","realState":"%s","spendStopped":%s}\n' \
   "$name" "$status" "$([ $status -eq 124 ] && echo true || echo false)" "$((end - start))" "$integrity" "$realstate" "$([ -e spend-stopped.json ] && echo true || echo false)" | tee result.json
 [ "$integrity" = clean ] && [ "$realstate" = clean ]

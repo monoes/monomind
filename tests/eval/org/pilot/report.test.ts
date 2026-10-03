@@ -32,6 +32,8 @@ interface Opts {
   usd?: number;
   units?: { unit: string; accepted: boolean | null }[];
   profile?: 'production'; // a per-trial profile override (trial id carries an S marker)
+  /** The trial's real-state check found these (real-state-home.txt lines): the trial is void. */
+  homeOffenders?: string[];
 }
 
 function root(o: Opts) {
@@ -85,10 +87,12 @@ function root(o: Opts) {
         timedOut: false,
         seconds: 200,
         inputs: 'clean',
-        realState: 'clean',
+        realState: o.homeOffenders ? 'VOID' : 'clean',
         ...(o.spendStopped === undefined ? {} : { spendStopped: o.spendStopped }),
       }),
     );
+  if (o.homeOffenders)
+    writeFileSync(join(r, 'real-state-home.txt'), `${o.homeOffenders.join('\n')}\n`);
   if (o.handoff) {
     mkdirSync(join(r, 'pilot-state'));
     writeFileSync(
@@ -208,6 +212,29 @@ describe('pilotReport', () => {
   it('puts a scenario with a single arm in the report as an unpaired trial, not a pair', () => {
     const rep = pilotReport([pilotRow(root({ n: 1, arm: 'baseline' }))]);
     expect(rep.scenarios[0].pairs[0].reasons.join(' ')).toMatch(/missing/);
+  });
+});
+
+describe('a void trial', () => {
+  it('is shown with the reason: the offending real-home entry, by name, with its birth time', () => {
+    const rep = pilotReport([
+      pilotRow(root({ n: 1, arm: 'baseline', tasks: 2, complete: 'achieved' })),
+      pilotRow(
+        root({
+          n: 1,
+          arm: 'treatment',
+          tasks: 2,
+          complete: 'achieved',
+          homeOffenders: ['created  /home/u/f7.sh (file) size=0 birth=2026-10-03T16:40:12.000Z'],
+        }),
+      ),
+    ]);
+    const pair = rep.scenarios[0].pairs[0];
+    expect(pair.confounded).toBe(true);
+    expect(pair.reasons.join('\n')).toMatch(
+      /a trial is void .*: .*real home: created {2}\/home\/u\/f7\.sh .*birth=2026-10-03T16:40:12/,
+    );
+    expect(pair.reasons.join('\n')).toContain('p1t'); // which trial
   });
 });
 

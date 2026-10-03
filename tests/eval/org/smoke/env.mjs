@@ -10,10 +10,14 @@
 //   env.mjs prepare <trial root>          prints KEY=VALUE lines to export
 //   env.mjs fingerprint                   prints the real state's directory listing
 //   env.mjs leaks <trial name> [epoch s]  prints paths in the real state naming the trial and written since; exit 1 if any
+//   env.mjs home-snapshot                 prints a listing of the real $HOME's top level (home-watch.mjs)
+//   env.mjs home-check <snapshot file>    prints each top-level entry of ~ created, replaced, changed or removed since
+//                                         that snapshot and not on the ignore list; exit 1 if any (notes go to stderr)
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homeReport, homeSnapshot } from './home-watch.mjs';
 
 /** Read-only pieces of the real MONOMIND_HOME the runtime needs: the optional SDK installs
  *  and the skill library. Linked, never copied, and never written by a trial. */
@@ -107,12 +111,28 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (cmd === 'prepare')
     for (const [k, v] of Object.entries(prepareTrialHome(arg))) console.log(`${k}=${v}`);
   else if (cmd === 'fingerprint') console.log(JSON.stringify(realStateFingerprint()));
-  else if (cmd === 'leaks') {
+  else if (cmd === 'home-snapshot') console.log(JSON.stringify(homeSnapshot()));
+  else if (cmd === 'home-check') {
+    let before;
+    try {
+      before = JSON.parse(readFileSync(arg, 'utf8'));
+    } catch (e) {
+      // no usable before-listing: nothing can be shown clean
+      console.log(`no usable listing of ${homedir()} from before the trial (${arg}: ${e.message})`);
+      process.exit(1);
+    }
+    const { lines, notes } = homeReport(before, homeSnapshot());
+    for (const l of lines) console.log(l);
+    for (const n of notes) console.error(n);
+    process.exit(lines.length ? 1 : 0);
+  } else if (cmd === 'leaks') {
     const hits = leaks(arg, homedir(), since ? Number(since) * 1000 : 0);
     for (const h of hits) console.log(h);
     process.exit(hits.length ? 1 : 0);
   } else {
-    console.error('usage: env.mjs prepare <root> | fingerprint | leaks <trial name>');
+    console.error(
+      'usage: env.mjs prepare <root> | fingerprint | leaks <trial name> | home-snapshot | home-check <snapshot>',
+    );
     process.exit(2);
   }
 }

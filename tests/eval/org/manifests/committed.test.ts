@@ -68,8 +68,15 @@ describe('committed scenario manifests', () => {
       'owner-approval',
       'no-node-sandbox',
       'task-text-sheet-shape',
+      'home-write-deny',
     ]);
     expect(m.declared_changes[1].what).toMatch(/denyExec/);
+    const home = m.declared_changes[3];
+    expect(home).toMatchObject({ date: '2026-10-03', approved_by: 'owner' });
+    expect(home.what).toMatch(/homeWriteAllow/);
+    expect(home.what).toMatch(/every arm|all three arms/);
+    expect(home.why).toMatch(/f7\.sh/);
+    expect(home.earlier_result).toMatch(/stay on record/);
     const fixture = JSON.parse(
       readFileSync(join(here, '../fixtures/parallel-sweep/fixture.json'), 'utf8'),
     );

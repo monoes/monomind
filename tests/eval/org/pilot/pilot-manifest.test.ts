@@ -84,6 +84,7 @@ describe('the committed pilot manifests', () => {
       'owner-approval',
       'no-node-sandbox',
       'task-text-sheet-shape',
+      'home-write-deny',
     ]);
   });
 
