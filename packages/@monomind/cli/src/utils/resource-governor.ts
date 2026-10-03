@@ -62,24 +62,37 @@ export function getAvailableMemBytes(): number {
   return freemem();
 }
 
+/** Programs that only launch or wrap the SDK: the bwrap layers (exec-deny,
+ *  home-write-deny, the SDK's own sandbox) and shells. Their command lines carry
+ *  the SDK path and `--output-format` after ` -- `, but they are not sessions. */
+const SESSION_WRAPPER_RE = /^(bwrap|sh|bash|zsh|dash)$/;
+
+/**
+ * Number of live SDK sessions in a process table. Each role session is the SDK
+ * process itself; the wrappers around it repeat its command line and are skipped,
+ * so a role under any number of bwrap layers counts once. Pure — the table is an input.
+ */
+export function countSdkSessions(table: ProcEntry[]): number {
+  return table.filter((p) => {
+    if (!SDK_CMD_RE.test(p.cmd)) return false;
+    const first = p.cmd.split(/\s+/).find(Boolean) ?? '';
+    return !SESSION_WRAPPER_RE.test(baseName(first));
+  }).length;
+}
+
 export function countSdkProcesses(): number {
-  // pgrep doesn't exist on native Windows — every call would fail (and, since
-  // execSync inherits stderr by default, print "'pgrep' is not recognized..."
+  // ps doesn't exist on native Windows — every call would fail (and, since
+  // execSync inherits stderr by default, print "'ps' is not recognized..."
   // to the console on every lazy role spawn that hits this check). The
   // concurrency cap it feeds just isn't enforceable there; treat as unknown.
   if (platform() === 'win32') return 0;
   try {
-    // Match only actual SDK agent binaries (have --output-format in argv),
-    // not processes that merely reference the SDK package path.
-    const out = execSync('pgrep -f "claude-agent-sdk.*--output-format"', {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    return out.trim().split('\n').filter(Boolean).length;
+    // The whole machine's table (other orgs' sessions count), judged per process
+    // by what it runs, not by a substring of its command line.
+    return countSdkSessions((platform() === 'linux' ? readProcTable() : null) ?? readPsTable());
   } catch {
     return 0;
-  } // pgrep exits 1 when no matches
+  }
 }
 
 export interface ResourceCheck {

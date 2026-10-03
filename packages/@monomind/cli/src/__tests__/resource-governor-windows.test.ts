@@ -42,15 +42,18 @@ describe('resource-governor — Windows never shells out to pgrep/ps', () => {
     expect(execSyncMock).not.toHaveBeenCalled();
   });
 
-  it('countSdkProcesses() on linux still calls execSync (pgrep) with stderr silenced', async () => {
-    platformMock = vi.fn(() => 'linux');
-    execSyncMock.mockReturnValue('123\n456\n');
+  it('countSdkProcesses() on macOS still calls execSync (ps) with stderr silenced', async () => {
+    platformMock = vi.fn(() => 'darwin');
+    execSyncMock.mockReturnValue(
+      '123 1 123 /x/claude-agent-sdk/claude --output-format stream-json\n' +
+        '456 1 456 /x/claude-agent-sdk/claude --output-format stream-json\n',
+    );
     const { countSdkProcesses } = await import('../utils/resource-governor.js');
     const result = countSdkProcesses();
     expect(result).toBe(2);
     expect(execSyncMock).toHaveBeenCalledTimes(1);
     const [cmd, opts] = execSyncMock.mock.calls[0] as [string, { stdio?: unknown[] }];
-    expect(cmd).toContain('pgrep');
+    expect(cmd).toContain('ps ');
     expect(opts.stdio).toEqual(['ignore', 'pipe', 'ignore']);
   });
 });
