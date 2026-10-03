@@ -21,6 +21,10 @@ export async function checkTrial(root) {
     scenario: trial.scenario,
     contender: trial.contender,
     units,
+    // a kit that counts delivered units (parallel-sweep-2) also leaves its count and summary on the array
+    ...(units.delivered === undefined
+      ? {}
+      : { delivered: units.delivered, total: units.total, summary: units.summary }),
   });
   return units;
 }

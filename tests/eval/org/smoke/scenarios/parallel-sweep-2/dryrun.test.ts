@@ -1,4 +1,4 @@
-// A dry run of every arm through the REAL org daemon with a scripted stand-in for the SDK's query(): no model,
+// parallel-sweep-2 (32 modules, 10 roles in the team arms). A dry run of every arm through the REAL org daemon with a scripted stand-in for the SDK's query(): no model,
 // no spend. It shows that what prepare writes reaches each role's session the way the runtime builds it: the
 // options each role's query() receives carry the sandbox with a localhost-only network, and the process
 // launcher the runtime hands the SDK (spawnClaudeCodeProcess) runs a command inside the denial layer, so
@@ -15,7 +15,7 @@ import { setOrgSignatureEnforcement } from '../../../../../../packages/@monomind
 import { preparePilotTrial } from '../../../pilot/prepare.js';
 import { runOrg } from '../../../pilot/run-org.js';
 import { scriptedSdk } from '../../../support/scripted.js';
-import { HOME_WRITE_ALLOW } from '../../no-exec.mjs';
+import { DENY_EXEC, HOME_WRITE_ALLOW } from '../../no-exec.mjs';
 import { buildInputs as buildBase } from '../../prepare.mjs';
 import { id } from './kit.mjs';
 
@@ -102,13 +102,17 @@ describe.runIf(authorityMaskAvailability().available)(
       async (arm) => {
         const { sdk, roles, def } = await dryRun(arm);
         expect([...sdk.options.keys()].sort()).toEqual([...roles].sort()); // every role really started
+        expect(roles).toHaveLength(arm === 'single' ? 1 : 10);
+        if (arm !== 'single')
+          expect(def.run_config.max_concurrent_agents).toBeGreaterThanOrEqual(10);
         const probe = join(tmp, 'probe.mjs');
         spawnSync('sh', ['-c', `echo 'console.log("PROGRAM-RAN")' > '${probe}'`]);
         for (const role of roles) {
           const o = sdk.options.get(role)![0];
-          expect(def.roles.find((r: any) => r.id === role).policy.sandbox.homeWriteAllow).toEqual(
-            HOME_WRITE_ALLOW,
-          );
+          // the signed policy of every role of every arm: the denial and the home write-deny
+          const policy = def.roles.find((r: any) => r.id === role).policy;
+          expect(policy.sandbox.homeWriteAllow).toEqual(HOME_WRITE_ALLOW);
+          expect(policy.sandbox.denyExec).toEqual(DENY_EXEC);
           expect(o.sandbox?.enabled).toBe(true);
           expect(o.sandbox.network.allowedDomains).toEqual(['localhost']);
           expect(o.sandbox.network.strictAllowlist).toBe(true);
@@ -133,7 +137,8 @@ describe.runIf(authorityMaskAvailability().available)(
           // (not a before/after listing of the whole home: the suite's isolated home is shared with tests running in
           // parallel, which add entries of their own; only the names this probe writes may not appear)
           const after = readdirSync(home);
-          for (const name of [`f7-${role}.sh`, `f7b-${role}.sh`, 'touched', 'dir']) expect(after).not.toContain(name);
+          for (const name of [`f7-${role}.sh`, `f7b-${role}.sh`, 'touched', 'dir'])
+            expect(after).not.toContain(name);
           // the permission gate with this role's policy
           const gate = (tool: string, input: object) =>
             o.canUseTool(tool, input, { toolUseID: 'x' });

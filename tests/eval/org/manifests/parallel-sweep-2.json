@@ -1,0 +1,125 @@
+{
+  "id": "parallel-sweep-2",
+  "title": "Parallel sweep 2: thirty-two independent modules of call-chain questions plus a cross-module synthesis, under a hard 600 second wall deadline",
+  "committed_at": "2026-10-03",
+  "units": [
+    {
+      "id": "module-sheet",
+      "description": "An answer sheet for one module: for each of its 12 call-chain questions the value the chain returns when the entry function is called with no arguments, and the ordered list of files the call passes through",
+      "count": 32,
+      "output_class": "answers",
+      "evidence": "machine-checked against the truth computed by running the corpus code: a sheet is accepted when at least 11 of its 12 answers have both the exact value and the exact ordered file list; sheets with 12 of 12 are also counted, as a secondary accuracy metric"
+    },
+    {
+      "id": "synthesis",
+      "description": "The answers to six cross-module questions that need the answers of the modules",
+      "count": 1,
+      "output_class": "answers",
+      "evidence": "machine-checked against the synthesis truth derived from the module truths: all 6 answers exact"
+    }
+  ],
+  "completion_rule": "All 32 module sheets and the synthesis present and accepted within the 600 second wall deadline. The score is computed from the files present when the run ends (the trial is cut at the deadline): a unit not written by then is not delivered. A sheet for a module the run did not answer, a synthesis built from guessed module answers, or answers copied between modules adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "exact",
+        "description": "Each answered value equals what the chain really returns when run"
+      },
+      {
+        "id": "ordered-files",
+        "description": "Each file list is the exact ordered list of files the call passes through, entry file first, the module config excluded"
+      },
+      {
+        "id": "independent",
+        "description": "Each module sheet is worked out from that module, not copied from another module or inferred from naming"
+      },
+      {
+        "id": "synthesis-grounded",
+        "description": "The synthesis answers follow from the module sheets (not from guessing), and the format asked for is respected"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "an answer for a question that does not exist (a fabricated answer)",
+      "a module sheet whose answers are copied from another module",
+      "a claim that a module was answered or checked when its sheet does not contain the work",
+      "a synthesis answer given although the module answers it needs were never produced"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 10,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "units accepted by the deadline, of 33, single vs the team arms, per run",
+      "cost per accepted unit, candidate vs matched baseline and vs the single-agent arm, paired by run",
+      "wall time to the last accepted unit, and sheets at 12 of 12 (secondary accuracy), per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 30
+  },
+  "fixture": {
+    "record": "tests/eval/org/fixtures/parallel-sweep-2/fixture.json"
+  },
+  "declared_changes": [
+    {
+      "id": "owner-approval",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "The staged harder-fixture plan proposed in docs/mastermind/pilot/2026-10-04-parallel-sweep-trio-report.md (32 modules, 8 workers with 4 modules each, a 600 second deadline, 33 units, three arms single, baseline and treatment, $30 a run) is approved as a new scenario next to parallel-sweep, built unpaid and test-first, and committed with these manifests as approved.",
+      "why": "The parallel-sweep trio showed the 2100 s deadline did not bind in any arm (269 to 304 s), so more trials of that design would not test coordination; a 4x corpus under a 600 s deadline is the combination expected to make a single agent run out of time while parallelism pays.",
+      "earlier_result": "none rewritten: parallel-sweep, its pinned hash and its trio results stay as they are"
+    },
+    {
+      "id": "staged-plan-and-stop-rule",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "The team arms (baseline, treatment) are run only if the single agent misses: stage 1 is single x1; if it delivers 30 or more of the 33 units by the deadline the pilot stops and records that this design does not need a team; 25 or fewer goes to stage 2 (baseline x1 and treatment x1); 26 to 29 is inconclusive, reported and not auto-continued. Further trials need a new owner approval. Recorded in pilot/parallel-sweep-2.pilot.json (staged_plan, stop_rule) and enforced by pilot/stage-gate.mjs.",
+      "why": "Keeps spend small until the key assumption (the deadline binds the single agent) is measured.",
+      "earlier_result": "none: new scenario"
+    },
+    {
+      "id": "harness-dollars",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "Every USD figure (the $30 planning allocation and org stop, caps, stage soft caps) is in harness dollars, measured at 1.5x the Sonnet 5.5 list rates; the owner is to reconcile with the invoice. Recorded as cost_units_note in the fixture record.",
+      "why": "An open question raised after the trio, recorded instead of assumed either way.",
+      "earlier_result": "none rewritten"
+    },
+    {
+      "id": "no-node-sandbox",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "Carried over from parallel-sweep: every role in all three arms (the lead and the synthesiser included) runs with no node and no code-execution tool (policy.sandbox.denyExec by real path in a bubblewrap layer, mode required; policy.allowTools only Bash, Read, Write, Edit, MultiEdit, Glob and Grep; Bash network limited to localhost), and the hidden truth file and both fixture directories are hidden from every role with policy.sandbox.denyRead.",
+      "why": "Running the corpus code would be one call for every value; denying it makes that impossible instead of detected.",
+      "earlier_result": "carried over from parallel-sweep, whose trio ran under it"
+    },
+    {
+      "id": "home-write-deny",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "Carried over from parallel-sweep: every role of all three arms runs with its real $HOME write-protected (policy.sandbox.homeWriteAllow: only ~/.claude, ~/.codex and ~/.gemini are real, writable paths), and the kit's real-state check lists the real home's top level before and after every trial and voids the trial on a stray entry.",
+      "why": "A role in the first parallel-sweep trio created ~/f7.sh in the real home; the owner ordered the gap closed.",
+      "earlier_result": "carried over from parallel-sweep"
+    },
+    {
+      "id": "task-text-sheet-shape",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "Carried over from parallel-sweep: the task text of all three arms states the exact JSON shape of out/<module>/answers.json and out/synthesis.json with a made-up worked example (m99/q99/s99), adapted here to m1..m32 and the 600 second deadline.",
+      "why": "The first paid parallel-sweep trial was void because the shape was missing from the task text.",
+      "earlier_result": "carried over from parallel-sweep"
+    }
+  ]
+}

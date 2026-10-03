@@ -92,6 +92,8 @@ export const RUNNER_PLANS = {
   // Every role is a Claude role (the kit builds its own definition, no snapshot); native like growth-like so
   // the production profile pins them all to Sonnet and scales the caps by the price ratio.
   'parallel-sweep': { native: true, production: { native: true, claudeModel: SONNET } },
+  // The harder sibling (32 modules, 600 s): the same native production plan, every role Sonnet 5.5.
+  'parallel-sweep-2': { native: true, production: { native: true, claudeModel: SONNET } },
   _selftest: { workers: CLAUDE },
 };
 

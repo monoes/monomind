@@ -8,7 +8,13 @@ import { pilotPlan, validatePilotManifest } from './pilot-manifest.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (p: string) => JSON.parse(readFileSync(join(here, p), 'utf8'));
 const scenario = (id: string) => load(`../manifests/${id}.json`);
-const pilots = ['growth-like', 'dev-feature-qa', 'dev-feature-qa-revise', 'parallel-sweep'].map(
+const pilots = [
+  'growth-like',
+  'dev-feature-qa',
+  'dev-feature-qa-revise',
+  'parallel-sweep',
+  'parallel-sweep-2',
+].map(
   (id) => load(`${id}.pilot.json`),
 );
 
@@ -23,8 +29,10 @@ describe('the committed pilot manifests', () => {
   );
 
   it('plans round 2 of growth-like: 3 arms x 3 trials at $12 is 9 runs and $108; the round 1 dev-feature pilot is 6 runs at $8', () => {
-    const [growth, dev, revise, sweep] = pilots;
+    const [growth, dev, revise, sweep, sweep2] = pilots;
     expect(pilotPlan([sweep], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
+    // parallel-sweep-2 at the ceiling of 3 trials per arm is 9 runs and $270 planned; the staged plan starts with 1 run
+    expect(pilotPlan([sweep2], scenario)).toEqual({ runs: 9, allocation_usd: 270 });
     expect(pilotPlan([growth], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     expect(pilotPlan([dev], scenario)).toEqual({ runs: 6, allocation_usd: 48 });
     // revise has gained the single arm (2026-10-03): 3 arms x 3 trials at $8 is 9 runs and $72 planned
@@ -87,6 +95,38 @@ describe('the committed pilot manifests', () => {
       'home-write-deny',
       'stopped-after-first-trio',
     ]);
+  });
+
+  it('parallel-sweep-2: three arms, production profile, $30 stop and allocation, 8 per-worker contracts, committed as approved with the staged plan and the carried safety changes', () => {
+    const p = pilots[4];
+    expect(p.arms.map((a: { id: string }) => a.id)).toEqual(['single', 'baseline', 'treatment']);
+    expect(p.harness_only).toBe(true);
+    expect(p.sections_serialized).toBe(false);
+    expect(p.native_children).toBe('disabled');
+    expect(p.profile).toBe('production');
+    expect(p.org_stop_usd).toBe(30);
+    expect(p.per_run_allocation_usd).toBe(30);
+    expect(p.deadline_seconds).toBe(600);
+    expect(p.contracts.map((c: { id: string }) => c.id)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8].map((k) => `module-sheets-w${k}`),
+    );
+    expect(p.status).toBeUndefined();
+    expect(p.notice).toBeUndefined();
+    expect(JSON.stringify(p)).not.toMatch(/PROPOSED/);
+    expect(p.committed_at).toBe('2026-10-03');
+    expect(p.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'owner-approval',
+      'staged-plan',
+      'harness-dollars',
+      'no-node-sandbox',
+      'home-write-deny',
+      'task-text-sheet-shape',
+    ]);
+    expect(p.declared_changes[0].what).toMatch(/approved as proposed/);
+    expect(p.declared_changes[2].what).toMatch(/1\.5x/);
+    expect(p.staged_plan.stages).toHaveLength(3);
+    expect(p.stop_rule.thresholds.stop_at_or_above).toBe(30);
+    expect(Object.keys(p.routing.sections)).toHaveLength(5);
   });
 
   it('each pilot has a contract that crosses sections, so the hand-off has something to measure', () => {

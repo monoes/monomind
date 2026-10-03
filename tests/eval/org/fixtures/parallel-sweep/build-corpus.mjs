@@ -1,6 +1,7 @@
-// Builds the parallel-sweep corpus reproducibly: 8 modules (m1..m8) of ~30 small ESM files each, with 12
-// call-chain questions per module. Usage:
-//   node build-corpus.mjs <empty out dir> --truth <path to truth.json> [--seed N]
+// Builds the parallel-sweep corpus reproducibly: N modules (m1..mN, default 8; parallel-sweep-2 uses 32) of ~30
+// small ESM files each, with 12 call-chain questions per module. Usage:
+//   node build-corpus.mjs <empty out dir> --truth <path to truth.json> [--seed N] [--modules N]
+// The default build (N=8) is the pinned parallel-sweep corpus and must stay byte-identical.
 // The corpus holds no answers and no chain listing; truth.json is written OUTSIDE it. The truth is
 // computed, not asserted: every entry function is imported and called in a child node process, and only
 // the chain (the ordered files) comes from generation metadata. Node builtins only, no network.
@@ -8,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MODULE_IDS, SYNTHESIS_QUESTIONS, deriveSynthesis, isUnambiguous } from './synthesis.mjs';
+import { deriveSynthesis, isUnambiguous, moduleIds, synthesisQuestions } from './synthesis.mjs';
 
 const FILES_PER_MODULE = 30;
 const QUESTIONS_PER_MODULE = 12;
@@ -368,7 +369,7 @@ function runChains(root, mod) {
   return JSON.parse(r.stdout);
 }
 
-function writeAll(out, mods) {
+function writeAll(out, mods, n) {
   for (const m of mods)
     for (const f of m.rendered) {
       const p = join(out, f.path);
@@ -377,15 +378,16 @@ function writeAll(out, mods) {
     }
   writeFileSync(
     join(out, 'synthesis-questions.json'),
-    `${JSON.stringify(SYNTHESIS_QUESTIONS, null, 2)}\n`,
+    `${JSON.stringify(synthesisQuestions(n), null, 2)}\n`,
   );
 }
 
-function attempt(out, seed) {
+function attempt(out, seed, n) {
   const g = makeRng(seed);
+  const ids = moduleIds(n);
   // chain lengths: the same multiset in every module; q01 forced to 7 in one module and <= 6 elsewhere
-  const longModule = g.int(1, MODULE_IDS.length);
-  const mods = MODULE_IDS.map((_, i) => {
+  const longModule = g.int(1, ids.length);
+  const mods = ids.map((_, i) => {
     let lens = g.shuffle(CHAIN_LENGTHS);
     const want = i + 1 === longModule ? 7 : g.pick([4, 5, 6]);
     const j = lens.indexOf(want);
@@ -394,7 +396,7 @@ function attempt(out, seed) {
   });
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  writeAll(out, mods);
+  writeAll(out, mods, n);
   const truthModules = {};
   for (const m of mods) {
     const values = runChains(out, m);
@@ -409,7 +411,7 @@ function attempt(out, seed) {
       };
     }
   }
-  if (!isUnambiguous(truthModules)) return null;
+  if (!isUnambiguous(truthModules, n)) return null;
   return { mods, truthModules };
 }
 
@@ -446,10 +448,12 @@ function metrics(out, mods, truthModules) {
 function main() {
   const args = process.argv.slice(2);
   const flag = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
-  const outArg = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--truth' && args[i - 1] !== '--seed');
+  const outArg = args.find((a, i) => !a.startsWith('--') && !['--truth', '--seed', '--modules'].includes(args[i - 1]));
   const truthPath = flag('--truth');
   if (!outArg || !truthPath)
-    throw new Error('usage: node build-corpus.mjs <empty out dir> --truth <truth.json path> [--seed N]');
+    throw new Error('usage: node build-corpus.mjs <empty out dir> --truth <truth.json path> [--seed N] [--modules N]');
+  const n = Number(flag('--modules') ?? 8);
+  if (!Number.isInteger(n) || n < 4 || n > 99) throw new Error('--modules must be an integer from 4 to 99');
   const out = resolve(outArg);
   if (existsSync(out) && readdirSync(out).length > 0) throw new Error(`${out} is not empty`);
   const truth = resolve(truthPath);
@@ -457,9 +461,10 @@ function main() {
     throw new Error('--truth must be outside the corpus directory');
   const seed = Number(flag('--seed') ?? DEFAULT_SEED);
   for (let i = 0; i < 50; i++) {
-    const res = attempt(out, seed + i);
+    const res = attempt(out, seed + i, n);
     if (!res) continue;
-    const synthesis = deriveSynthesis(res.truthModules);
+    const synthesis = deriveSynthesis(res.truthModules, { n });
+    const questions = synthesisQuestions(n);
     mkdirSync(dirname(truth), { recursive: true });
     writeFileSync(
       truth,
@@ -468,7 +473,7 @@ function main() {
           seed: seed + i,
           modules: res.truthModules,
           synthesis: Object.fromEntries(
-            SYNTHESIS_QUESTIONS.map((q) => [q.q, { question: q.text, value: synthesis[q.q] }]),
+            questions.map((q) => [q.q, { question: q.text, value: synthesis[q.q] }]),
           ),
           metrics: metrics(out, res.mods, res.truthModules),
         },

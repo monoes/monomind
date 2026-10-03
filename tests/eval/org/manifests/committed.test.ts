@@ -12,12 +12,13 @@ const scenarios = [
   'deliberative-design',
   'growth-like',
   'parallel-sweep',
+  'parallel-sweep-2',
   'research-report',
   'sparse-dispatch',
 ];
 
 describe('committed scenario manifests', () => {
-  it('are exactly the seven scenarios', () => {
+  it('are exactly the eight scenarios', () => {
     expect(
       readdirSync(here)
         .filter((f) => f.endsWith('.json'))
@@ -82,6 +83,45 @@ describe('committed scenario manifests', () => {
     expect(m.declared_changes[4].what).toMatch(/remaining 6/);
     const fixture = JSON.parse(
       readFileSync(join(here, '../fixtures/parallel-sweep/fixture.json'), 'utf8'),
+    );
+    expect(fixture.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(fixture.fixture.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(fixture.notice).toBeUndefined();
+  });
+
+  it('parallel-sweep-2 (approved by the owner, staged plan) has 32 sheets and the synthesis (33 units), the $30 allocation, the 10 minute deadline, no draft marker, and records the staged plan, the harness dollars and the carried safety changes', () => {
+    const m = JSON.parse(readFileSync(join(here, 'parallel-sweep-2.json'), 'utf8'));
+    expect(m.units.map((u: { id: string; count: number }) => [u.id, u.count])).toEqual([
+      ['module-sheet', 32],
+      ['synthesis', 1],
+    ]);
+    expect(m.units[0].evidence).toMatch(/11 of its 12/);
+    expect(m.units[0].evidence).toMatch(/12 of 12/);
+    expect(m.rubric.non_inferiority_margin).toBe(0.1);
+    expect(m.cost).toEqual({ basis: 'estimated-inference', planning_allocation_usd: 30 });
+    expect(m.qualification.deadline_minutes).toBe(10);
+    expect(m.completion_rule).toMatch(/files present when the run ends/);
+    expect(m.rubric.critical_failures.join(' ')).toMatch(/fabricated/);
+    expect(m.rubric.critical_failures.join(' ')).toMatch(/copied from another module/);
+    expect(m.committed_at).toBe('2026-10-03');
+    expect(m.proposed_on).toBeUndefined();
+    expect(m.notice).toBeUndefined();
+    expect(JSON.stringify(m)).not.toMatch(/PROPOSED/);
+    expect(m.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'owner-approval',
+      'staged-plan-and-stop-rule',
+      'harness-dollars',
+      'no-node-sandbox',
+      'home-write-deny',
+      'task-text-sheet-shape',
+    ]);
+    for (const c of m.declared_changes) expect(c).toMatchObject({ date: '2026-10-03', approved_by: 'owner' });
+    expect(m.declared_changes[1].what).toMatch(/only if the single agent misses/);
+    expect(m.declared_changes[2].what).toMatch(/1\.5x the Sonnet 5\.5 list rates/);
+    expect(m.declared_changes[3].what).toMatch(/denyExec/);
+    expect(m.declared_changes[4].what).toMatch(/homeWriteAllow/);
+    const fixture = JSON.parse(
+      readFileSync(join(here, '../fixtures/parallel-sweep-2/fixture.json'), 'utf8'),
     );
     expect(fixture.status).toMatch(/^APPROVED 2026-10-03/);
     expect(fixture.fixture.status).toMatch(/^APPROVED 2026-10-03/);

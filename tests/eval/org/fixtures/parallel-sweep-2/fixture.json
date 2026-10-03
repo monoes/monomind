@@ -1,0 +1,176 @@
+{
+  "status": "APPROVED 2026-10-03 by the owner (staged plan)",
+  "id": "parallel-sweep-2-fixture",
+  "scenario": "parallel-sweep-2",
+  "fixture": {
+    "status": "APPROVED 2026-10-03",
+    "summary": "A harder sibling of parallel-sweep: a deterministic corpus of 32 independent modules (m1..m32), each about 30 small ESM files plus a config, with 12 call-chain questions per module (entry function, 4 to 7 files deep, the same chain lengths and templates as parallel-sweep) and 6 cross-module synthesis questions that need the module answers (33 units: 32 sheets and the synthesis). Truth is computed by running the code, never asserted. Built so that, under a 600 s deadline, one agent working serially is expected to run out of time while eight workers with four modules each plus a synthesiser are expected to finish: parallelism pays only when the single agent's serial total exceeds the deadline.",
+    "build": "node tests/eval/org/fixtures/parallel-sweep/build-corpus.mjs <empty dir> --truth <path outside that dir>/truth.json --modules 32 (the generator is shared with parallel-sweep, whose default build N=8 stays byte-identical)",
+    "pinned_hash": "15cc5bf9193966a8729dbc9c540a663c9becf5128026f1c7e72074fa7365a0e4",
+    "pin_basis": "sha256 over the sorted relative paths and contents of every file the N=32 build writes (see fixture.test.ts, which rebuilds twice and checks both this value and the byte-for-byte equality); the default seed is 20261003, which gave an unambiguous synthesis on the first attempt",
+    "scorer": "node tests/eval/org/fixtures/parallel-sweep-2/score.mjs <deliverables dir> --truth <truth.json>; <dir>/m1/answers.json .. m32/answers.json and <dir>/synthesis.json. The score is computed from the files present when the run ends: a trial is cut at the deadline and a unit whose file was not written by then counts as not delivered.",
+    "reference_flows": "tests/eval/org/fixtures/parallel-sweep-2/hidden/reference/write-answers.mjs --variant complete|partial|wrong (partial = the first 26 modules and no synthesis)",
+    "deliverables": {
+      "module_sheet": "out/<module>/answers.json = {\"module\": \"m1\", \"answers\": [{\"q\": \"q01\", \"value\": <integer>, \"files\": [\"m1/a.mjs\", ...]}, ... 12 entries]}; accepted when at least 11 of 12 answers have the exact value and the exact ordered file list (the unit rule); sheets with 12 of 12 are counted too, as a secondary accuracy metric (evidence.exact)",
+      "synthesis": "out/synthesis.json = {\"answers\": [{\"q\": \"s1\", \"value\": ...}, ... 6 entries]}; accepted when all 6 are exact",
+      "treatment_hand_off": "treatment arm only, in addition to the files above (the files are what is scored): each worker publishes one document module-sheets-w<k> = {\"worker\": \"worker-k\", \"sheets\": [{\"module\": \"m..\", \"answers\": [...]}, ... 4 sheets]}, each sheet exactly the content of that module's out/<module>/answers.json"
+    },
+    "workload": {
+      "source": "the generator's own computation, asserted in fixture.test.ts",
+      "modules": 32,
+      "files_per_module": "30 source files plus config.mjs",
+      "source_files": 992,
+      "corpus_files": 1025,
+      "lines": 73232,
+      "estimated_tokens": 878784,
+      "chain_reads_per_module": 66,
+      "min_chain_reads_per_module": 66,
+      "chain_reads_total": 2112,
+      "min_chain_reads_total": 2112,
+      "note": "chain reads = the sum of chain lengths, one file read per chain step; every module has the same multiset of chain lengths, so the minimum per module equals the maximum. Reads of distinct files are fewer (about 25 to 30 of the 31 per module). Estimated tokens use 12 per line, as in parallel-sweep."
+    },
+    "wall_deadline_minutes": 10,
+    "planning_allocation_usd_per_run": 30,
+    "model": "claude-sonnet-5-5 (production profile)",
+    "org_stop_usd": 30,
+    "tasks": {
+      "common": "The directory corpus/ holds thirty-two modules, m1 to m32. Each module directory has a questions.json with 12 questions; a question names an entry function (file and name). For each question give (a) the integer the call chain finally returns when the entry function is called with no arguments, and (b) the ordered list of files whose functions the call executes, from the entry file to the last file, written as corpus-relative paths exactly as in questions.json (for example \"m1/ticket.mjs\"); the module's config.mjs is not part of the list. Answer by reading the code: nothing in this run can execute it (no node or other interpreter is available to any role, and no code-execution tool), so do not try. Comments and names can mislead (near-identical function names, stale defaults, comments about 'the new version'); the code is the truth, and a constant can be overridden in the module's config.mjs. A second set of six cross-module questions is in corpus/synthesis-questions.json; its answers need the answers of the modules. Deliverables: out/<module>/answers.json for each of the thirty-two modules and out/synthesis.json, each one JSON object (not a bare list) with no other keys than the ones shown. A module sheet is {\"module\":\"m1\",\"answers\":[{\"q\":\"q01\",\"value\":<integer>,\"files\":[\"m1/a.mjs\", ...]}, ...]} with exactly the 12 question ids q01 to q12 of that module, one entry each; value is an integer and files is a list of strings (the ordered corpus-relative paths with their extension, as in questions.json, config.mjs left out). The synthesis is {\"answers\":[{\"q\":\"s1\",\"value\":...}, ...]} with the six ids s1 to s6, one entry each and no files key; value has the form the question asks for (a module id string, an integer, or a list of strings). Worked example with made-up data, not a real answer: {\"module\":\"m99\",\"answers\":[{\"q\":\"q99\",\"value\":12345,\"files\":[\"m99/x.mjs\",\"m99/y.mjs\"]}]} and {\"answers\":[{\"q\":\"s99\",\"value\":\"m0\"}]}. Everything must be finished within 600 seconds (ten minutes) of wall time: the run is cut at that moment and only the files already written count, so write each module's sheet as soon as that module is done; sheets and answers not written by then do not count.",
+      "single": "You are the only role. Do the whole task above yourself: all thirty-two modules and the synthesis, writing every deliverable.",
+      "multi_role": "The task above is done by a team. The lead coordinates and does not answer any question itself: it assigns the modules (worker-1: m1 to m4, worker-2: m5 to m8, worker-3: m9 to m12, worker-4: m13 to m16, worker-5: m17 to m20, worker-6: m21 to m24, worker-7: m25 to m28, worker-8: m29 to m32), tells the synthesiser what to wait for, and reports when all thirty-three deliverables exist or the deadline arrives. Each worker answers its own four modules from the code and writes out/<module>/answers.json for each of them, one file per module, as soon as that module is done. The synthesiser answers the six cross-module questions from the modules' answer sheets and writes out/synthesis.json; it does not redo the modules' work."
+    },
+    "arms": [
+      {
+        "id": "single",
+        "description": "one role, the whole task, the Phase 2 configuration; no sections, no hand-off tools; the same 600 s deadline",
+        "roster": [
+          "solver"
+        ],
+        "responsibilities": {
+          "solver": "Answers all 384 module questions and the 6 synthesis questions from the code and writes all 33 deliverables, in the shape given in the task text, within the deadline; each sheet as soon as its module is done."
+        }
+      },
+      {
+        "id": "baseline",
+        "description": "Phase 2 without sections: lead, eight workers with four modules each and a synthesiser coordinating by mail and tasks; same task text as treatment",
+        "roster": [
+          "lead",
+          "worker-1",
+          "worker-2",
+          "worker-3",
+          "worker-4",
+          "worker-5",
+          "worker-6",
+          "worker-7",
+          "worker-8",
+          "synthesiser"
+        ],
+        "responsibilities": {
+          "lead": "The unsectioned root. Assigns the modules, does not answer questions itself, writes nothing, reports when all 33 deliverables exist or the deadline arrives.",
+          "worker-1": "Answers modules m1 to m4 and writes out/m1/answers.json .. out/m4/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-2": "Answers modules m5 to m8 and writes out/m5/answers.json .. out/m8/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-3": "Answers modules m9 to m12 and writes out/m9/answers.json .. out/m12/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-4": "Answers modules m13 to m16 and writes out/m13/answers.json .. out/m16/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-5": "Answers modules m17 to m20 and writes out/m17/answers.json .. out/m20/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-6": "Answers modules m21 to m24 and writes out/m21/answers.json .. out/m24/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-7": "Answers modules m25 to m28 and writes out/m25/answers.json .. out/m28/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-8": "Answers modules m29 to m32 and writes out/m29/answers.json .. out/m32/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "synthesiser": "Waits for the 32 sheets, answers s1 to s6 from them and writes out/synthesis.json in the synthesis shape given in the task text."
+        }
+      },
+      {
+        "id": "treatment",
+        "description": "the same roles with the hand-off prototype: one section per worker pair (four of them) and the synthesis section, one contract per worker holding its four sheets, the synthesiser consuming them",
+        "roster": [
+          "lead",
+          "worker-1",
+          "worker-2",
+          "worker-3",
+          "worker-4",
+          "worker-5",
+          "worker-6",
+          "worker-7",
+          "worker-8",
+          "synthesiser"
+        ],
+        "sections": {
+          "sweep-a": {
+            "lead": "worker-1",
+            "members": [
+              "worker-2"
+            ]
+          },
+          "sweep-b": {
+            "lead": "worker-3",
+            "members": [
+              "worker-4"
+            ]
+          },
+          "sweep-c": {
+            "lead": "worker-5",
+            "members": [
+              "worker-6"
+            ]
+          },
+          "sweep-d": {
+            "lead": "worker-7",
+            "members": [
+              "worker-8"
+            ]
+          },
+          "synthesis": {
+            "lead": "synthesiser",
+            "members": []
+          }
+        },
+        "responsibilities": {
+          "lead": "As in baseline.",
+          "worker-1": "As in baseline, and after writing its four files publishes one document module-sheets-w1 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-2": "As in baseline, and after writing its four files publishes one document module-sheets-w2 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-3": "As in baseline, and after writing its four files publishes one document module-sheets-w3 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-4": "As in baseline, and after writing its four files publishes one document module-sheets-w4 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-5": "As in baseline, and after writing its four files publishes one document module-sheets-w5 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-6": "As in baseline, and after writing its four files publishes one document module-sheets-w6 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-7": "As in baseline, and after writing its four files publishes one document module-sheets-w7 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "worker-8": "As in baseline, and after writing its four files publishes one document module-sheets-w8 holding the four sheets (the same content as the files, which remain the scored deliverables); the synthesiser consumes the eight documents.",
+          "synthesiser": "Reads the eight module-sheets documents (not the workers' mail), answers s1 to s6 from them and writes out/synthesis.json in the synthesis shape given in the task text."
+        },
+        "contracts": "pilot/parallel-sweep-2.pilot.json (module-sheets-w1 .. module-sheets-w8, producer a worker, consumer synthesiser)"
+      }
+    ],
+    "why_one_agent_cannot": {
+      "status": "A CLAIM TO CALIBRATE WITH A PILOT. NOT MEASURED. Nothing below has been run on a model; the numbers are extrapolated from the parallel-sweep trio (n=1 per arm).",
+      "claim": "Under a 600 s wall deadline a single agent is expected to deliver about 22 to 31 of the 33 units (point estimate about 26, no synthesis), while eight workers plus a synthesiser are expected to deliver all 33, the last sheet at about 250 to 530 s.",
+      "argument": [
+        "In the trio the single agent needed 100 to 140 s to set up (a static evaluator written in bash or awk) and then 16 to 21 s per module; 32 modules therefore need about 620 to 810 s (point estimate about 700 s) against the 600 s deadline.",
+        "Workers were slower per module (first sheet at 95 to 146 s, then 47 to 129 s each); with four modules each, the last sheet lands at about 250 to 530 s and the synthesis 15 to 30 s later: inside the deadline, with the slow end within about 40 s of it.",
+        "The window is narrow: a single agent a little faster than the trio's, or a worker a little slower, flips the result. Stage 1 of the staged plan measures the single side before any team arm is paid for."
+      ],
+      "assumptions_to_calibrate": [
+        "the single agent's per-module rate with a 4x larger corpus (about 73k lines, 879k estimated tokens): its context may be auto-compacted, which changes its speed in either direction",
+        "that eight workers starting together are not slowed by the runtime (max_concurrent_agents is 10 so that none queues)",
+        "the deadline is enforced by the harness (run-trial.sh ends the run at deadlineSeconds 600 with a TERM, KILL after a further 60 s); files written later do not count",
+        "the cost per module of the team arms ($0.72 to $0.79 plus about $1 fixed) against the $30 org stop"
+      ],
+      "weaknesses": [
+        "CLOSED by enforcement (2026-10-03): the hole of an agent with a shell executing the corpus code to get every value at once. No role of any arm can run node, deno, bun, python, perl and the like, or copy and run a binary; nothing relies on a transcript audit.",
+        "REMAINS: an agent can read all files of a module in one call, so \"reads\" is a count of chain steps, not of tool calls; distinct files are fewer than chain steps.",
+        "REMAINS: chain steps are mechanical arithmetic; a strong model may write a script in a language that stays available (bash, awk, sed) that statically evaluates the chains, as every role did in the trio. That is tool use, not coordination, and it is not prevented. Python and every other interpreter are denied too, which removes the easy route, not the hard one.",
+        "REMAINS: the corpus is still mechanical code reading, so the synthesis-from-unchecked-sheets weakness stays: more modules means more chances for one wrong sheet value to break a synthesis answer in any arm.",
+        "REMAINS: the single agent's evaluator may make it faster than estimated (0.52 s per chain read in the redo); 32 modules at 16 s with 100 s of setup need only about 610 s, so a slightly faster agent comes within seconds of the deadline or finishes. This is the main risk.",
+        "REMAINS: the binary denial is a list, not a proof (see parallel-sweep's record).",
+        "REMAINS: the trial is cut by timeout --signal=TERM --kill-after=60, so a role that ignores the TERM could write files for up to 60 s past the deadline; the scorer reads the files present when the run ends and does not look at modification times."
+      ]
+    },
+    "sandbox": {
+      "status": "APPROVED 2026-10-03 (carried over from parallel-sweep): the no-node sandbox and the home write-deny, enforced for every role of every arm",
+      "decision": "Owner decision 2026-10-03: deny node and any code-execution tool to every role in all three arms (single, baseline, treatment), so that running the corpus is impossible rather than only detected.",
+      "mechanism": "policy.sandbox.denyExec (runtime change, opt-in, packages/@monomind/cli/src/orgrt/exec-deny.ts): the role's whole process tree is launched inside a bubblewrap layer in which every matching binary (by real path: PATH entries, system bin directories, version-manager trees) is replaced by /dev/null, with its own pid namespace; the role does not start without bubblewrap (sandbox mode required). Bash commands naming a denied program are also refused by the PolicyEngine. policy.allowTools admits only Bash, Read, Write, Edit, MultiEdit, Glob and Grep (NotebookEdit, REPL-style tools, MCP tools, WebFetch, WebSearch, Skill and native children are refused at the permission gate); Bash network is limited to localhost; the hidden truth file and the fixture directory are hidden from every role (policy.sandbox.denyRead).",
+      "denied_programs": "see tests/eval/org/smoke/no-exec.mjs (DENY_EXEC)",
+      "applied_in": "smoke/prepare.mjs for a kit that sets noExec: every role of the def, before the arms diverge; survives pilotOrgDef and attachPilot (tested)",
+      "home_write_deny": "policy.sandbox.homeWriteAllow on every role of every arm (smoke/no-exec.mjs HOME_WRITE_ALLOW): the real $HOME is seen through a throwaway overlay, only ~/.claude, ~/.codex and ~/.gemini are writable"
+    },
+    "wall_deadline_seconds": 600,
+    "staged_plan": "recorded in pilot/parallel-sweep-2.pilot.json (staged_plan, stop_rule)"
+  },
+  "cost_units_note": "Harness dollars (every USD figure in this record, the caps, the org stop and the soft stage caps) are measured by the harness at 1.5x the Sonnet 5.5 list rates ($2/$10 per million input/output tokens, $0.20 cache read, $4 1-hour cache write). The owner is to reconcile harness dollars with the invoice before any figure here is read as money actually spent."
+}

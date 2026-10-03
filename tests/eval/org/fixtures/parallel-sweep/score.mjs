@@ -3,12 +3,11 @@
 //   scoreSynthesis(answers, truth)         synthesis {answers:[{q, value}]}
 //   checkDeliverables(dir, truth)          {units:[{unit, accepted, evidence:{failures}}], critical:[...]}
 // CLI: node score.mjs <deliverables dir> --truth <truth.json>
-//   <dir>/m1/answers.json .. <dir>/m8/answers.json and <dir>/synthesis.json
+//   <dir>/<module>/answers.json for every module in the truth (m1..m8, or m1..m32 for parallel-sweep-2) and <dir>/synthesis.json
 // Evidence names the question and what is wrong, never the expected value.
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MODULE_IDS } from './synthesis.mjs';
 
 export const MODULE_ACCEPT_AT = 11;
 
@@ -92,10 +91,10 @@ export function checkDeliverables(dir, truth) {
   const units = [];
   const critical = [];
   const sheets = {};
-  for (const m of MODULE_IDS) {
+  for (const m of Object.keys(truth.modules)) {
     const r = readJson(join(dir, m, 'answers.json'));
     if (r.error) {
-      units.push({ unit: 'module-sheet', module: m, accepted: false, evidence: { failures: [`${m}: ${r.error}`] } });
+      units.push({ unit: 'module-sheet', module: m, accepted: false, evidence: { exact: false, failures: [`${m}: ${r.error}`] } });
       continue;
     }
     sheets[m] = r.value;
@@ -105,7 +104,8 @@ export function checkDeliverables(dir, truth) {
       unit: 'module-sheet',
       module: m,
       accepted: s.accepted,
-      evidence: { correct: s.correct, total: s.total, failures: s.failures },
+      // `exact`: 12 of 12, the stricter secondary accuracy metric (the unit rule stays 11 of 12)
+      evidence: { correct: s.correct, total: s.total, exact: s.correct === s.total, failures: s.failures },
     });
   }
   // an answer list copied from another module's sheet
