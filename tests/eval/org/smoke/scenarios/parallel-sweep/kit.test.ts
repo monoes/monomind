@@ -26,6 +26,7 @@ import {
 } from '../../../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
 import { OrgBus } from '../../../../../../packages/@monomind/cli/src/orgrt/bus.js';
 import { roleExecMask } from '../../../../../../packages/@monomind/cli/src/orgrt/exec-deny.js';
+import { homeLayerAvailability } from '../../../../../../packages/@monomind/cli/src/orgrt/home-write-deny.js';
 import { OrgDefSchema } from '../../../../../../packages/@monomind/cli/src/orgrt/types.js';
 import { checklistFindings } from '../../../../../../packages/@monomind/cli/src/orgrt/validate-checklist.js';
 import { referenceDeliverables } from '../../../fixtures/parallel-sweep/hidden/reference/write-answers.mjs';
@@ -314,16 +315,72 @@ const asRole = (def, roleId: string, cmd: string, home: string) => {
     authorityMask: undefined,
     denyExec: r.policy.sandbox.denyExec,
     denyRead: r.policy.sandbox.denyRead,
+    homeWriteAllow: r.policy.sandbox.homeWriteAllow,
+    writableRoots: [def.run_config.workspace],
     home,
     env: process.env,
   });
   const [bin, args] = maskedCommand(mask, 'sh', ['-c', cmd]);
-  return spawnSync(bin, args, { cwd: def.run_config.workspace, encoding: 'utf8', timeout: 30_000 });
+  return spawnSync(bin, args, {
+    cwd: def.run_config.workspace,
+    encoding: 'utf8',
+    timeout: 30_000,
+    env: { ...process.env, HOME: home },
+  });
 };
 const which = (b: string) => {
   const r = spawnSync('sh', ['-c', `command -v ${b}`], { encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : undefined;
 };
+
+describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().available)(
+  'a role cannot change the home (real bubblewrap, every role of every arm)',
+  () => {
+    const arms: Array<[Arm, string]> = [
+      ['single', 'solver'],
+      ['baseline', 'lead'],
+      ['baseline', 'worker-1'],
+      ['baseline', 'worker-4'],
+      ['baseline', 'synthesiser'],
+      ['treatment', 'lead'],
+      ['treatment', 'worker-2'],
+      ['treatment', 'worker-3'],
+      ['treatment', 'synthesiser'],
+    ];
+    it.each(arms)(
+      '%s / %s: ~/f7.sh and every other way of writing in ~ never reach it',
+      async (arm, roleId) => {
+        const { def } = await prep(arm, 1);
+        const home = scratch('sweep-home-');
+        for (const d of ['.claude', '.codex', '.gemini', 'Documents'])
+          mkdirSync(join(home, d), { recursive: true });
+        writeFileSync(join(home, '.bashrc'), '# rc\n');
+        const top = () => readdirSync(home).sort().join(',');
+        const before = top();
+        const ws = def.run_config.workspace;
+        const attempts = [
+          'echo x > ~/f7.sh',
+          'cd "$TMPDIR" && cat > ~/f7.sh <<EOF\necho hi\nEOF',
+          'touch ~/x; mkdir ~/d; ln -s /etc/hostname ~/l; cp ~/.bashrc ~/c; mv ~/.bashrc ~/.bashrc.old; rmdir ~/Documents',
+          'echo {} > ~/.claude.json.tmp.1.abc; mv ~/.claude.json.tmp.1.abc ~/.claude.json',
+        ];
+        for (const cmd of attempts) asRole(def, roleId, cmd, home);
+        expect(top()).toBe(before);
+        expect(readFileSync(join(home, '.bashrc'), 'utf8')).toBe('# rc\n');
+        expect(existsSync(join(home, 'f7.sh'))).toBe(false);
+        // control: the runner's own directory and the role's workspace are really writable
+        asRole(
+          def,
+          roleId,
+          `echo s > ~/.codex/session.jsonl; echo w > '${ws}/out/home-probe.txt'`,
+          home,
+        );
+        expect(readFileSync(join(home, '.codex/session.jsonl'), 'utf8')).toBe('s\n');
+        expect(readFileSync(join(ws, 'out/home-probe.txt'), 'utf8')).toBe('w\n');
+      },
+    );
+  },
+);
 
 describe.runIf(authorityMaskAvailability().available)(
   'a role cannot run the code (real bubblewrap, every role of every arm)',

@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/session-run.ts
 // Extracted from session.ts — one bounded runner session for a role (runOneSession).
 
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import type { AgentRunner } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import { ensureAuthorityDirs } from './authority-mask.js';
@@ -216,6 +216,14 @@ export async function runOneSession(
             roleId: role.id,
             denyExec: role.policy?.sandbox?.denyExec,
             denyRead: role.policy?.sandbox?.denyRead,
+            homeWriteAllow: role.policy?.sandbox?.homeWriteAllow,
+            writableRoots: [
+              cwd,
+              opts.orgRoot,
+              tmpdir(),
+              process.env.TMPDIR,
+              ...(role.policy?.sandbox?.allowWrite ?? []),
+            ],
             home: homedir(),
             env: process.env,
             authorityMask: roleAuthorityMask({

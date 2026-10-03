@@ -160,6 +160,12 @@ export const RolePolicySchema = z
         /** Existing files and directories the role's shell cannot read (they appear empty), by the
          *  same bubblewrap layer; absolute paths. Fails closed without bubblewrap. */
         denyRead: z.array(z.string()).optional(),
+        /** Set (even empty) to make the real $HOME unwritable for the role's process tree apart
+         *  from these subpaths (relative to the home, or absolute): the home is seen through a
+         *  throwaway overlay, so a write elsewhere never reaches it (home-write-deny.ts). The
+         *  runners' own login and state directories belong here. Fails closed without a
+         *  bubblewrap that can mount an overlay. */
+        homeWriteAllow: z.array(z.string()).optional(),
         allowUnixSockets: z.boolean().optional(),
       })
       .strict()

@@ -82,6 +82,14 @@ export const DENY_EXEC = [
   'firefox*',
 ];
 
+/** The only paths under the real $HOME a role's process tree can really write (policy.sandbox.homeWriteAllow,
+ *  runtime home-write-deny.ts): the runners' own login and state directories, where the claude, codex and agy CLIs
+ *  keep credentials, sessions and logs (`~/.claude`, `~/.codex`, `~/.gemini`). Everything else under the home,
+ *  `~/.claude.json` and its `.claude.json.tmp.*` temp files included, is seen through a throwaway overlay: writes
+ *  work inside the role's own view and never reach the real home (decided 2026-10-03 after a role created
+ *  `~/f7.sh`). Exact names: a trial that needs another one is a design change, not an edit here. */
+export const HOME_WRITE_ALLOW = ['.claude', '.codex', '.gemini'];
+
 /** The only tools a role may call: files, shell, search. Everything else (NotebookEdit, REPL-style tools,
  *  MCP tools that run code, WebFetch, native children) is refused at the permission gate, except the org's
  *  own tools and a tool provider's (the runtime exempts those from allowTools). */
@@ -128,6 +136,7 @@ export function applyNoExec(def, { denyRead = [] } = {}) {
       allowedDomains: ['localhost'],
       denyExec: [...DENY_EXEC],
       denyRead: uniq([...(p.sandbox?.denyRead ?? []), ...denyRead]),
+      homeWriteAllow: [...HOME_WRITE_ALLOW],
     };
   }
   return out;
@@ -142,6 +151,10 @@ export function noExecProblems(def) {
     const miss = DENY_EXEC.filter((x) => !(s.denyExec ?? []).includes(x));
     if (!s.denyExec) problems.push(`role ${r.id}: no policy.sandbox.denyExec`);
     else if (miss.length) problems.push(`role ${r.id}: denyExec lacks ${miss.join(', ')}`);
+    if (JSON.stringify(s.homeWriteAllow) !== JSON.stringify(HOME_WRITE_ALLOW))
+      problems.push(
+        `role ${r.id}: homeWriteAllow is ${JSON.stringify(s.homeWriteAllow ?? null)}, not ${JSON.stringify(HOME_WRITE_ALLOW)}: the real home is not write-protected as declared`,
+      );
     if (s.mode !== 'required')
       problems.push(`role ${r.id}: sandbox mode is ${s.mode ?? 'unset'}, not required`);
     if (JSON.stringify(s.allowedDomains) !== '["localhost"]')

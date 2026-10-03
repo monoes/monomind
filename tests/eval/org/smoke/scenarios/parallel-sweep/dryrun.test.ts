@@ -6,7 +6,7 @@
 // naming a denied program. The role's own launch path, not a re-implementation of it.
 // @ts-nocheck: plain .mjs modules
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -15,6 +15,7 @@ import { setOrgSignatureEnforcement } from '../../../../../../packages/@monomind
 import { preparePilotTrial } from '../../../pilot/prepare.js';
 import { runOrg } from '../../../pilot/run-org.js';
 import { scriptedSdk } from '../../../support/scripted.js';
+import { HOME_WRITE_ALLOW } from '../../no-exec.mjs';
 import { buildInputs as buildBase } from '../../prepare.mjs';
 import { id } from './kit.mjs';
 
@@ -74,7 +75,8 @@ async function dryRun(arm: 'single' | 'baseline' | 'treatment') {
     queryFn: sdk.queryFn,
     pollMs: 50,
   });
-  return { sdk, roles, t };
+  const def = JSON.parse(readFileSync(join(root, '.monomind/orgs', `${t.name}.json`), 'utf8'));
+  return { sdk, roles, t, def };
 }
 
 /** Run `cmd` as the SDK's own launcher runs the role's process, and return what it printed. */
@@ -98,12 +100,15 @@ describe.runIf(authorityMaskAvailability().available)(
     it.each(['single', 'baseline', 'treatment'] as const)(
       "%s: every role's session carries the sandbox, the gate and the denial layer",
       async (arm) => {
-        const { sdk, roles } = await dryRun(arm);
+        const { sdk, roles, def } = await dryRun(arm);
         expect([...sdk.options.keys()].sort()).toEqual([...roles].sort()); // every role really started
         const probe = join(tmp, 'probe.mjs');
         spawnSync('sh', ['-c', `echo 'console.log("PROGRAM-RAN")' > '${probe}'`]);
         for (const role of roles) {
           const o = sdk.options.get(role)![0];
+          expect(def.roles.find((r: any) => r.id === role).policy.sandbox.homeWriteAllow).toEqual(
+            HOME_WRITE_ALLOW,
+          );
           expect(o.sandbox?.enabled).toBe(true);
           expect(o.sandbox.network.allowedDomains).toEqual(['localhost']);
           expect(o.sandbox.network.strictAllowlist).toBe(true);
@@ -116,6 +121,17 @@ describe.runIf(authorityMaskAvailability().available)(
           );
           expect(ran).not.toContain('PROGRAM-RAN');
           expect(ran).toContain('alive'); // the launcher itself works
+          // the home write-deny (owner order 2026-10-03, after a role created ~/f7.sh): the role's signed
+          // policy carries it, and the launcher's layer keeps every write out of the home
+          expect(o.sandbox.filesystem.allowWrite).toContain(process.env.HOME); // the SDK sandbox alone would allow it
+          const home = process.env.HOME as string;
+          const topBefore = readdirSync(home).sort();
+          const wrote = await launch(
+            o,
+            `echo x > ~/f7-${role}.sh; cat > ~/f7b-${role}.sh <<EOF\nhi\nEOF\ntouch ~/touched; mkdir ~/dir; echo alive`,
+          );
+          expect(wrote).toContain('alive');
+          expect(readdirSync(home).sort()).toEqual(topBefore);
           // the permission gate with this role's policy
           const gate = (tool: string, input: object) =>
             o.canUseTool(tool, input, { toolUseID: 'x' });

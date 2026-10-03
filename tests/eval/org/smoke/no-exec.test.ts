@@ -9,7 +9,14 @@ import { describe, expect, it } from 'vitest';
 import { OrgBus } from '../../../../packages/@monomind/cli/src/orgrt/bus.js';
 import { PolicyEngine } from '../../../../packages/@monomind/cli/src/orgrt/policy.js';
 import { RolePolicySchema } from '../../../../packages/@monomind/cli/src/orgrt/types-policy.js';
-import { ALLOW_TOOLS, applyNoExec, DENY_EXEC, DENY_TOOLS, noExecProblems } from './no-exec.mjs';
+import {
+  ALLOW_TOOLS,
+  applyNoExec,
+  DENY_EXEC,
+  DENY_TOOLS,
+  HOME_WRITE_ALLOW,
+  noExecProblems,
+} from './no-exec.mjs';
 
 const scratch = (p: string) => realpathSync(mkdtempSync(join(tmpdir(), p)));
 const def = () => ({
@@ -65,6 +72,7 @@ describe('applyNoExec', () => {
       expect(r.policy.sandbox.denyExec).toEqual(DENY_EXEC);
       expect(r.policy.sandbox.denyRead).toEqual(['/i/truth.json']);
       expect(r.policy.sandbox.mode).toBe('required');
+      expect(r.policy.sandbox.homeWriteAllow).toEqual(HOME_WRITE_ALLOW);
       expect(r.policy.sandbox.allowedDomains).toEqual(['localhost']);
       expect(r.policy.allowTools).toEqual(ALLOW_TOOLS);
       expect(r.policy.denyTools).toEqual(expect.arrayContaining(DENY_TOOLS));
@@ -89,6 +97,15 @@ describe('applyNoExec', () => {
     expect(p).toMatch(/role b: no policy.sandbox.denyExec/);
     expect(p).toMatch(/role a: allowTools admits NotebookEdit/);
     expect(p).toMatch(/role a: sandbox mode is auto/);
+  });
+  it('the home write-deny is on every role, with exactly the documented allowlist', () => {
+    expect(HOME_WRITE_ALLOW).toEqual(['.claude', '.codex', '.gemini']);
+    const bad = structuredClone(out);
+    delete bad.roles[0].policy.sandbox.homeWriteAllow;
+    bad.roles[1].policy.sandbox.homeWriteAllow = ['.claude', '.ssh'];
+    const p = noExecProblems(bad).join('\n');
+    expect(p).toMatch(/role a: homeWriteAllow is null/);
+    expect(p).toMatch(/role b: homeWriteAllow is \["\.claude","\.ssh"\]/);
   });
 });
 

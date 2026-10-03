@@ -31,6 +31,7 @@ import { lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, delimiter, join } from 'node:path';
 import { authorityMaskAvailability } from './authority-mask.js';
 import type { OrgBus } from './bus.js';
+import { homeLayerAvailability, homeWriteLayer } from './home-write-deny.js';
 import { shellSegments } from './shell-scan.js';
 
 const SYSTEM_DIRS = [
@@ -178,23 +179,29 @@ export function denyExecMask(patterns: string[], ctx: DenyExecCtx): string[] {
 }
 
 /** The mask a session launches its runner in: `authorityMask` (undefined when the role has none)
- *  plus the denyExec layer. Unchanged without `denyExec`. Throws when the role asks for denial and
- *  bubblewrap cannot run: a role must not start with the program reachable. */
+ *  plus the denyExec layer and the home write-deny layer (home-write-deny.ts). Unchanged without
+ *  `denyExec`, `denyRead` or `homeWriteAllow`. Throws when the role asks for one of them and
+ *  bubblewrap cannot do it: a role must not start with the program reachable or the home open. */
 export function roleExecMask(args: {
   bus: OrgBus;
   roleId: string;
   authorityMask: string[] | undefined;
   denyExec?: string[];
   denyRead?: string[];
+  /** `policy.sandbox.homeWriteAllow`: set (even empty) to make the real home unwritable apart from these. */
+  homeWriteAllow?: string[];
+  /** Paths that must stay writable if they are under the home (cwd, org root, allowWrite, tmp). */
+  writableRoots?: Array<string | undefined>;
   home: string;
   env: NodeJS.ProcessEnv;
   availability?: { available: boolean; reason?: string };
+  homeAvailability?: { available: boolean; reason?: string };
 }): string[] | undefined {
-  if (!args.denyExec?.length && !args.denyRead?.length) return args.authorityMask;
+  const homeWrite = args.homeWriteAllow !== undefined;
+  if (!args.denyExec?.length && !args.denyRead?.length && !homeWrite) return args.authorityMask;
   const availability = args.availability ?? authorityMaskAvailability();
-  if (!availability.available) {
-    const key = args.denyExec?.length ? 'denyExec' : 'denyRead';
-    const msg = `policy.sandbox.${key} is set for role ${args.roleId} but bubblewrap cannot run (${availability.reason}): refusing to start it with ${[...(args.denyExec ?? []), ...(args.denyRead ?? [])].join(', ')} reachable`;
+  const refuse = (key: string, reason: string | undefined, listed: string[]): never => {
+    const msg = `policy.sandbox.${key} is set for role ${args.roleId} but bubblewrap cannot do it (${reason}): refusing to start it with ${listed.join(', ')} reachable`;
     args.bus.emit({
       type: 'audit',
       from: args.roleId,
@@ -203,9 +210,36 @@ export function roleExecMask(args: {
       data: {},
     });
     throw new Error(msg);
+  };
+  if (!availability.available) {
+    const key = args.denyExec?.length
+      ? 'denyExec'
+      : args.denyRead?.length
+        ? 'denyRead'
+        : 'homeWriteAllow';
+    refuse(key, availability.reason, [
+      ...(args.denyExec ?? []),
+      ...(args.denyRead ?? []),
+      ...(homeWrite ? ['the real home (writable)'] : []),
+    ]);
+  }
+  let head = args.authorityMask ?? ['--dev-bind', '/', '/'];
+  if (homeWrite) {
+    const h = args.homeAvailability ?? homeLayerAvailability();
+    if (!h.available) refuse('homeWriteAllow', h.reason, ['the real home (writable)']);
+    if (head.slice(0, 3).join(' ') !== '--dev-bind / /')
+      throw new Error(`policy.sandbox.homeWriteAllow: unexpected mask for role ${args.roleId}`);
+    const layer = homeWriteLayer({
+      home: args.home,
+      env: args.env,
+      allow: args.homeWriteAllow ?? [],
+      writable: args.writableRoots,
+    });
+    // first, right after the root bind: every bind of the mask below goes on top of the overlay
+    head = [...head.slice(0, 3), ...layer, ...head.slice(3)];
   }
   const paths = resolveDenyExec(args.denyExec ?? [], { home: args.home, env: args.env });
-  return [...(args.authorityMask ?? ['--dev-bind', '/', '/']), ...maskTail(paths, args.denyRead)];
+  return [...head, ...maskTail(paths, args.denyRead)];
 }
 
 // ---- the command check ----------------------------------------------------
