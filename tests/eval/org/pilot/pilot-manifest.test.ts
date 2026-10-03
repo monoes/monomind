@@ -122,6 +122,7 @@ describe('the committed pilot manifests', () => {
       'home-write-deny',
       'task-text-sheet-shape',
       'single-deadline-480-variant',
+      'stage2-after-inconclusive-stage1',
     ]);
     const v480 = p.declared_changes[6];
     expect(v480).toMatchObject({ date: '2026-10-04', approved_by: 'owner' });
@@ -130,6 +131,9 @@ describe('the committed pilot manifests', () => {
     expect(v480.what).toMatch(/30 or more units stop/);
     expect(v480.why).toMatch(/29 of 33/);
     expect(v480.earlier_result).toMatch(/600 s design is not changed/);
+    expect(p.declared_changes[7]).toMatchObject({ date: '2026-10-04' });
+    expect(p.declared_changes[7].what).toMatch(/600 s design/);
+    expect(p.declared_changes[7].earlier_result).toMatch(/thresholds and the 600 s design are unchanged/);
     expect(p.declared_changes[0].what).toMatch(/approved as proposed/);
     expect(p.declared_changes[2].what).toMatch(/1\.5x/);
     expect(p.staged_plan.stages).toHaveLength(3);

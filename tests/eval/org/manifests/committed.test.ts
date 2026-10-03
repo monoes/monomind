@@ -115,12 +115,16 @@ describe('committed scenario manifests', () => {
       'home-write-deny',
       'task-text-sheet-shape',
       'single-deadline-480-variant',
+      'stage2-after-inconclusive-stage1',
     ]);
     for (const c of m.declared_changes.slice(0, 6))
       expect(c).toMatchObject({ date: '2026-10-03', approved_by: 'owner' });
     expect(m.declared_changes[6]).toMatchObject({ date: '2026-10-04', approved_by: 'owner' });
     expect(m.declared_changes[6].what).toMatch(/480 s/);
     expect(m.declared_changes[6].what).toMatch(/single arm only/);
+    expect(m.declared_changes[7]).toMatchObject({ date: '2026-10-04' });
+    expect(m.declared_changes[7].what).toMatch(/PILOT_OWNER_DECISION/);
+    expect(m.declared_changes[7].earlier_result).toMatch(/0 of 33/);
     expect(m.declared_changes[1].what).toMatch(/only if the single agent misses/);
     expect(m.declared_changes[2].what).toMatch(/1\.5x the Sonnet 5\.5 list rates/);
     expect(m.declared_changes[3].what).toMatch(/denyExec/);
