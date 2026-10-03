@@ -104,11 +104,7 @@ async function startOrgInner(
   options?: { resume?: boolean; autoApprove?: string[] },
 ): Promise<RunningOrg> {
   const { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings } =
-    await startSteps.prepareOrgStart(
-    daemon,
-    name,
-    options,
-  );
+    await startSteps.prepareOrgStart(daemon, name, options);
   const bus = new OrgBus(name, run, dir);
   // Lightweight in-memory tail for busEvents() (test-loop, /api/history).
   // Full events (including Write content snapshots) live on disk in bus.jsonl;
@@ -141,8 +137,7 @@ async function startOrgInner(
     // The watchdog's own events must not count as org activity, or a hung
     // boss would never trip the "nudge produced no activity" stop and a
     // silent role would clear its own no-progress alarm.
-    const selfEmitted =
-      e.reason === 'idle-nudge' || e.reason === 'no-progress' || e.reason === 'hold-expired';
+    const selfEmitted = /^(idle-nudge|no-progress|hold-expired|lead-watch)$/.test(e.reason ?? '');
     if (!selfEmitted) lastActivity = Date.now();
     if (e.type === 'tool') lastToolActivity = Date.now();
     if (e.from && !selfEmitted) {

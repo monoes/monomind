@@ -63,6 +63,8 @@ async function finishStop(
   // silent.
   const cleanup = (org as RunningOrg & { _crashCleanup?: () => void })._crashCleanup;
   if (cleanup) process.removeListener('exit', cleanup);
+  daemon.leadWatches.get(name)?.();
+  daemon.leadWatches.delete(name);
   const wd = daemon.watchdogs.get(name);
   if (wd) {
     clearInterval(wd);

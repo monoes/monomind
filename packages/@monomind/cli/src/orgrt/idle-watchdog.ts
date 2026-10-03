@@ -15,9 +15,11 @@ import {
   type WaitHold,
   writeIdleRecord,
 } from './idle-deadline.js';
+import { startLeadWatch } from './lead-watch.js';
 import { taskTag } from './loadouts.js';
 import * as questionOps from './questions.js';
 import type { OrgRole } from './types.js';
+import { WriteLedger } from './write-ledger.js';
 
 /** Idle watchdog's per-tick recovery check: given the previous nudge timestamp,
  *  the cumulative nudge count, and the timestamp of the most recent real tool
@@ -70,6 +72,16 @@ export function startIdleWatchdog(
 ): void {
   const { def, bus, run } = running;
   const { roleActivity, noProgressAlarmed } = activity;
+  // Two runtime watches that need the same bus and activity map: write
+  // verification (run_config.verify_writes, default on) and the lead watch
+  // (run_config.lead_watch, default on). Neither depends on idle_minutes.
+  if (def.run_config.verify_writes !== false) {
+    const ledger = new WriteLedger(() => [running.workdir ?? daemon.root, daemon.root]);
+    running.writeLedger = ledger;
+    bus.subscribe((e) => ledger.observe(e));
+  }
+  const stopLeadWatch = startLeadWatch(daemon, name, running, roleActivity);
+  if (stopLeadWatch) daemon.leadWatches.set(name, stopLeadWatch);
   // Idle watchdog: a hung tool call (or a run that quietly finished without
   // org_complete) produces no bus events, and every agent just waits. After
   // idle_minutes of silence, nudge the boss to complete or reassign; if the

@@ -104,6 +104,10 @@ export function buildRolePrompt(
     `The user's documents (notes, handbooks, specs) are searchable with knowledge_search - ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
     `Your $TMPDIR is private to this session: the org runtime gives every role (every task session, under task scope) its own subdirectory and removes it when the session or task ends, so a bare \`mktemp\` lands there. Never run a cleanup glob (e.g. \`rm -rf tmp.*\`) in a directory other roles also use; delete only the paths you created, by exact name.`,
+    `After writing a deliverable file, verify it exists with the expected content (ls -l, or Read it) before you report it done. A refused or failed write is a blocker, not a success: report it as blocked to ${isCoordinator ? 'the human or in your org_complete summary' : 'your lead'}, naming the path and the error, instead of saying "written". The runtime refuses a completion that follows a failed write whose file is not on disk.`,
+    isCoordinator
+      ? `If the runtime tells you a role never started or has gone silent, do not just wait: reassign its unfinished work to an idle role (create the task for that role with org_task and org_task_cancel the old one) or take it over yourself. Before org_complete, verify every worker's deliverable files exist (ls -l); a deliverable that was not written makes the outcome "partial", not "achieved".`
+      : '',
     isCoordinator
       ? `When the org's goal for this run is achieved (or clearly can't be): first call org_learn ONCE with the durable knowledge this run produced, then call org_complete exactly once with the outcome and a concise summary. Then end your turn.`
       : `When your current work is complete and no reply is needed, end your turn without further tool calls.`,

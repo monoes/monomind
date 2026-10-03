@@ -218,6 +218,18 @@ export function buildRoleSessionOpts(
             const blockingQuestions = questionOps.pendingBlockingQuestions(daemon.root, name);
             const pendingHumanWaits =
               daemon.listGates(name, 'pending').length + blockingQuestions.length;
+            const unwritten =
+              outcome === 'achieved' ? running.writeLedger?.checkRunAchieved(summary) : null;
+            if (unwritten) {
+              bus.emit({
+                type: 'audit',
+                from: r,
+                reason: 'org-complete-refused',
+                msg: unwritten,
+                data: { outcome },
+              });
+              return unwritten;
+            }
             return resolveOrgComplete(bus, r, outcome, summary, blocker, blockerDetail, {
               mode: def.run_config.completion ?? 'boss',
               maxBudgetFraction,

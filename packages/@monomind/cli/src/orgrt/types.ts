@@ -74,6 +74,23 @@ export const OrgDefSchema = z
         max_tool_rounds: z.number().int().positive().max(MAX_TOOL_ROUNDS_LIMIT).optional(),
         /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
         idle_minutes: z.number().nonnegative().optional(),
+        /** Refuse a completion (org_task_done, or an `achieved` org_complete)
+         *  that follows a demonstrated failed Write/Edit whose file is still
+         *  missing or empty (write-ledger.ts). Default true; false opts out. */
+        verify_writes: z.boolean().optional(),
+        /** Tell the lead (via its mailbox) when a role holding an open task has
+         *  not started a session (`not_started_s`, default 90) or has produced
+         *  no bus event (`silent_s`, default 180). Seconds, fractions allowed.
+         *  Default on; `false` disables (lead-watch.ts). */
+        lead_watch: z
+          .union([
+            z.literal(false),
+            z.object({
+              not_started_s: z.number().positive().optional(),
+              silent_s: z.number().positive().optional(),
+            }),
+          ])
+          .optional(),
         /** #329: how often (minutes, fractions allowed) the assignee of a
          *  task blocked with org_task_block is woken to re-check it, until its
          *  deadline or close. Nothing external wakes a blocked task, so a

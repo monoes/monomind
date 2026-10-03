@@ -161,12 +161,14 @@ describe('ADR-O001 D7: an org with no loadout catalog is unchanged', () => {
 });
 
 // Captured against 8546057f7 (pre-D7). Recaptured (with SESSION_PROMPT_SHA)
-// when every role prompt gained the private-TMPDIR line (#480).
-const COORDINATOR_PROMPT_SHA = '18f35e9a9104b0492787e2e8dcf5cd6462727d11992f1bbd462c775850078d2c';
-const WORKER_PROMPT_SHA = 'ac32b47114e44c7fe84c39ddfede2278178d091e0774abce3cff63df7a97730e';
+// when every role prompt gained the private-TMPDIR line (#480). Recaptured
+// again when every role prompt gained the verify-your-deliverable paragraph
+// (and the lead's reassign-and-verify line): one cache miss per org on upgrade.
+const COORDINATOR_PROMPT_SHA = '2dca5a246daf468b94661266050615aeff68656e6520c8f965ed002b993b60bd';
+const WORKER_PROMPT_SHA = '69aaf97fabf2bd5cb8f45c989e6bf6c249e733fb860286bb8c923a44320d2159';
 // Recaptured when role guidance stopped being keyed off ui.icon: the fixture's
 // dev role no longer carries archetype text, so its prompt has none.
-const SESSION_PROMPT_SHA = '57b9b5b5e005d51bb4c3785fec1e2d3c4692f8e2be0186b6986ff21d921ca24d';
+const SESSION_PROMPT_SHA = '0c97dc446650c37c3a943c7de1a0411f4dc13172d6d372769f10e9358553c567';
 // Recaptured when org_task_done's evidence gained an optional `worktree`
 // (evidence may be pinned to any local worktree or branch head).
 // Recaptured when each evidence check gained an optional `expectExit` (a
@@ -188,4 +190,6 @@ const SESSION_PROMPT_SHA = '57b9b5b5e005d51bb4c3785fec1e2d3c4692f8e2be0186b6986f
 // built-in org tools became strict (fix/org-tool-strict-args): every schema
 // now carries additionalProperties: false. The old rendering produced the
 // same hash before and after that change; this one does not.
-const TOOLS_SHA = '3118b939ad8130ffe0356267a9e3c2aa8f9833571c75f1acea039e9cc6395a9f';
+// Recaptured when org_task_done and org_complete said that a completion after a
+// failed write whose file is not on disk is refused (write-ledger.ts).
+const TOOLS_SHA = '7cae1840bb9bc40401d47eed463209325c9a94b0fe33fa93a36ec25d7ca63aa9';

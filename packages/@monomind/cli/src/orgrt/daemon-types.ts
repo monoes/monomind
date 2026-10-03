@@ -15,6 +15,7 @@ import type { TaskProcesses } from './task-cancel.js';
 import type { TaskDag } from './task-dag.js';
 import type { ChainTrace } from './tool-providers.js';
 import type { BusEvent, DecisionGate, OrgDef, OrgRole } from './types.js';
+import type { WriteLedger } from './write-ledger.js';
 
 /** The parameters of an extracted `fn(daemon, ...rest)` helper after its
  *  daemon argument — lets OrgDaemon's forwarding methods mirror the helper's
@@ -172,6 +173,8 @@ export interface RunningOrg {
    *  `this.orgs`. Read by the role loop so a planned stop is logged with one stable
    *  wording instead of whichever abort string the SDK produced. */
   closedBy?: string;
+  /** Failed Write/Edit calls per role, for completion gating (write-ledger.ts). */
+  writeLedger?: WriteLedger;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running

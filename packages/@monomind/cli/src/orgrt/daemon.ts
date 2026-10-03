@@ -54,6 +54,7 @@ export class OrgDaemon {
   /** @internal */ leases = new Map<string, BrokerLease>();
   /** @internal */ forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
   /** @internal */ watchdogs = new Map<string, ReturnType<typeof setInterval>>();
+  /** @internal */ leadWatches = new Map<string, () => void>();
   /** @internal */ stopping = new Map<string, Promise<void>>();
   /** @internal Bug 2 (TOCTOU race): names currently reserved by an in-flight
    *  startOrg() call, from the synchronous existence check through

@@ -151,6 +151,19 @@ export function dagCompleteTask(
                 : 'You have no open task — if this work belongs to a new one, ask for it to be created rather than re-closing a finished task.'),
     });
   }
+  // Write verification (write-ledger.ts): a completion over a demonstrably
+  // failed write whose file is not on disk goes back to the role.
+  const unwritten = task ? running.writeLedger?.checkTaskDone(role, result) : null;
+  if (unwritten) {
+    running.bus.emit({
+      type: 'audit',
+      from: role,
+      reason: 'write-unverified-refused',
+      msg: `task ${taskId} not closed: ${unwritten}`,
+      data: { taskId },
+    });
+    return JSON.stringify({ error: unwritten });
+  }
   // ADR-O001 D6: keep the latest evidence the ASSIGNEE submitted, accepted or
   // not — it is what an artifact-only reviewer is shown. Another role's
   // evidence is not recorded: it would let a non-assignee plant the reviewer's
