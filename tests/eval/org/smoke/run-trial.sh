@@ -53,6 +53,9 @@ else
 fi
 status=$?
 kill "$answerer" "$idler" ${drv:-} ${spender:-} 2>/dev/null
+# A trial ended by SIGKILL (timeout --kill-after) runs no handler and leaves the runtime's sandbox stubs (an empty ~/.mcp.json
+# after p1t): reclaim them from the trial's own ledger now that the org process is gone, before the real home is compared.
+node "$here/stubs-reclaim.mjs" "$root" "$cli" > stubs-reclaim.log 2>&1 || true
 end=$(date +%s)
 fingerprint > guard-after.sha256
 node "$here/env.mjs" fingerprint > real-state-after.json

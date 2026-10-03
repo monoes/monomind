@@ -145,9 +145,34 @@ export class SandboxStubs {
       if (!this.exitHook) {
         this.exitHook = true;
         process.on('exit', () => this.releaseAll());
+        this.releaseOnSignals();
       }
     }
     return created;
+  }
+
+  /**
+   * A signal kills a process without running its 'exit' handlers, so a trial
+   * ended by `timeout` (SIGTERM at the deadline) left ~/.mcp.json behind
+   * (parallel-sweep-3 p1t). On SIGTERM/SIGINT this releases what the process
+   * holds (synchronous and idempotent, so it cannot hang or double-remove) and,
+   * when nothing else in the process handles the signal, lets it take its
+   * default course again. A process with a handler of its own (`org run`'s
+   * wait loop, `org serve`) keeps its graceful shutdown, which stops the orgs
+   * and releases again as a no-op. Prepended so it runs before once-listeners
+   * remove themselves from the count. SIGKILL cannot be handled: the ledger
+   * reclaim covers it.
+   */
+  private releaseOnSignals(): void {
+    for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+      const onSignal = (): void => {
+        this.releaseAll();
+        if (process.listenerCount(sig) > 1) return;
+        process.removeListener(sig, onSignal);
+        process.kill(process.pid, sig);
+      };
+      process.prependListener(sig, onSignal);
+    }
   }
 
   /**
