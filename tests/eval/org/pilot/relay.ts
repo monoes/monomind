@@ -23,6 +23,9 @@ export interface StoreOptions {
   relay?: (m: RelayMessage) => string | Promise<string | undefined> | undefined;
   /** Roles that get a short copy of every relay message, so the lead can follow along. */
   copyTo?: string[];
+  /** Variant v2 only (needs `relay`): each declared consumer gets one message per publish and one when every
+   *  document it consumes has a version (notice.ts). Off by default, so v1 behaves as committed. */
+  consumerNotice?: boolean;
 }
 
 /** The text a producer gets for a rejection: document, version, contract, reason, attempts left, what to do. */

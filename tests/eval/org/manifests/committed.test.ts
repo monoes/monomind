@@ -168,6 +168,7 @@ describe('committed scenario manifests', () => {
       'natural-errors-in-injected-versions',
       'synth-cap-resized',
       'handoff-relay-consistency-check',
+      'consumer-publish-notice',
     ]);
     for (const c of m.declared_changes) {
       expect(c).toMatchObject({ date: '2026-10-04' });

@@ -126,14 +126,26 @@ describe('v2 through the real daemon, scripted', () => {
       const got = (role: string) =>
         (sdk.messages.get(role) ?? []).filter((m) => m.includes('module-sheets-w1'));
       expect(
-        await waitUntil(() => got('worker-1').length >= 1 && got('lead').length >= 1, 8000),
+        await waitUntil(
+          () =>
+            got('worker-1').length >= 1 &&
+            got('lead').length >= 1 &&
+            got('synthesiser').length >= 1,
+          8000,
+        ),
       ).toBe(true);
       expect(got('worker-1')).toHaveLength(1);
       expect(got('worker-1')[0]).toMatch(
         /rejected version 1 of document "module-sheets-w1".*m2 q04 value does not match the code.*1 of 4 used, 3 left/,
       );
       expect(got('lead')[0]).toMatch(/worker-1 was notified directly/);
-      expect(got('synthesiser')).toEqual([]);
+      // the synthesiser's one message is the publish notice (declared change consumer-publish-notice): no reason, no fault
+      expect(got('synthesiser')).toHaveLength(1);
+      expect(got('synthesiser')[0]).toMatch(
+        /worker-1 published version 1 of document "module-sheets-w1"/,
+      );
+      expect(got('synthesiser')[0]).not.toMatch(/rejected|m2 q04/);
+      expect(got('lead')).toHaveLength(1);
       expect(await daemon.deliver(t.name, 'worker-1', 'synthesiser', 's', 'hello')).toMatch(
         /^Refused: worker-1 \(section sweep-a\) cannot message synthesiser/,
       );

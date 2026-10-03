@@ -77,7 +77,10 @@ export const writeFiles = (root: string) => {
   }
 };
 
-export function trial(faultSeed: number | null, o: { relay?: boolean; contracts?: any[] } = {}) {
+export function trial(
+  faultSeed: number | null,
+  o: { relay?: boolean; contracts?: any[]; notice?: boolean } = {},
+) {
   const root = mkdtempSync(join(S.tmp, 't-'));
   writeFiles(root);
   const sent: { to: string; subject: string; body: string }[] = [];
@@ -97,6 +100,7 @@ export function trial(faultSeed: number | null, o: { relay?: boolean; contracts?
               return undefined;
             },
             copyTo: ['lead'],
+            ...(o.notice ? { consumerNotice: true } : {}),
           }),
     },
   );

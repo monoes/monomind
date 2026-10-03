@@ -74,7 +74,7 @@ function handoffLine(role: string, trial: PilotTrial): string {
     );
   if (consumes.length)
     parts.push(
-      `You consume: ${consumes.join(', ')}. Read it with ${PILOT_PREFIX}__doc_read, ${v2 ? `run ${PILOT_PREFIX}__doc_check on it (a necessary check against the document's own evidence, not a sufficient one: spot-check what you rely on against the code), then ` : 'then '}${PILOT_PREFIX}__doc_decide accept or reject (a rejection needs a reason); a document counts as accepted only when every consumer accepts it.${v2 ? ' A rejection is delivered to the producer directly by the relay: you need not ask the lead to relay it.' : ''}`,
+      `You consume: ${consumes.join(', ')}. Read it with ${PILOT_PREFIX}__doc_read, ${v2 ? `run ${PILOT_PREFIX}__doc_check on it (a necessary check against the document's own evidence, not a sufficient one: spot-check what you rely on against the code), then ` : 'then '}${PILOT_PREFIX}__doc_decide accept or reject (a rejection needs a reason); a document counts as accepted only when every consumer accepts it.${v2 ? ' A rejection is delivered to the producer directly by the relay: you need not ask the lead to relay it. You are notified by a message from pilot-relay each time one of these documents is published (and once when all of them are available), so you need not poll: when a notice arrives, read, check and decide that document.' : ''}`,
     );
   parts.push(
     'A message to a role in another section is refused; raise cross-section needs with your section lead, or hand the work over as a document.',
@@ -95,6 +95,7 @@ export function attachPilot(daemon: OrgDaemon, trial: PilotTrial, token: string)
       ...(trial.relay
         ? {
             copyTo: trial.relay.copy_to,
+            consumerNotice: true,
             // the daemon's deliver at call time: the wrapped one below, so its refusal path is the one used
             relay: (m) =>
               daemon.deliver([...daemon.orgs.keys()][0], RELAY_SENDER, m.to, m.subject, m.body),

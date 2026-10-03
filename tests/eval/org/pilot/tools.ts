@@ -36,7 +36,7 @@ export function pilotTools(store: HandoffStore, role: string): OrgToolDef[] {
     t(
       'doc_publish',
       relayed
-        ? 'Publish a document you produce, as a JSON object that matches its contract. The publish is refused, with every problem named, if it does not match its contract or if it disagrees with your deliverable files; a revision replaces your earlier pending version. Consumers are not notified of a publish: tell your lead once it is published. When a consumer rejects a version you are told directly. Optional note: a short remark that stays with the version (for example why you republished unchanged content).'
+        ? `Publish a document you produce, as a JSON object that matches its contract. The publish is refused, with every problem named, if it does not match its contract or if it disagrees with your deliverable files; a revision replaces your earlier pending version. ${store.noticeEnabled() ? 'The consumer is notified of every publish by the harness; still tell your lead once it is published.' : 'Consumers are not notified of a publish: tell your lead once it is published.'} When a consumer rejects a version you are told directly. Optional note: a short remark that stays with the version (for example why you republished unchanged content).`
         : 'Publish a document you produce, as a JSON object that matches its contract. The publish is refused, with every problem named, if it does not match; refused attempts count against a cap. A revision replaces your earlier pending version. Consumers are not notified: tell your lead once it is published.',
       {
         doc_id: z.string(),

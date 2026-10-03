@@ -17,6 +17,7 @@ import {
 import { join } from 'node:path';
 import { assertSupportedChecks, type Check, type CheckResult, runChecks } from './checks.js';
 import { assertDeliverables, type Deliverable, deliverableMismatches } from './deliverables.js';
+import { allAvailableNotice, publishedNotice, sendNotice } from './notice.js';
 import { type RelayReason, rejectionMessage, type StoreOptions, sendRelay } from './relay.js';
 import { assertSupportedSchema, checkAgainstSchema } from './schema.js';
 
@@ -67,6 +68,8 @@ interface State {
   injected?: Record<string, { version: number; class: string }>;
   /** What the producer sent, by "doc#version", for the versions the injector changed; only the metrics read it (doc_read returns versions, never this). */
   originals?: Record<string, unknown>;
+  /** Consumers that were told every document they consume is available (once each). */
+  allNotified?: string[];
 }
 
 /** A harness-side hook that may change a document's content at its first successful publish, so the
@@ -80,7 +83,7 @@ export interface PublishInjector {
 }
 
 export interface PilotEvent {
-  kind: 'publish' | 'read' | 'decide' | 'send-refused' | 'fault' | 'check' | 'relay';
+  kind: 'publish' | 'read' | 'decide' | 'send-refused' | 'fault' | 'check' | 'relay' | 'notice';
   at: string;
   ok: boolean;
   role: string;
@@ -230,6 +233,7 @@ export class HandoffStore {
       (this.state.injected ??= {})[doc] = { version, class: fault.record.class };
       (this.state.originals ??= {})[`${doc}#${version}`] = content;
     }
+    const earlier = versions.slice();
     const cleanNote = note?.trim() ? note.trim().slice(0, 400) : undefined;
     versions.push({
       version,
@@ -252,7 +256,26 @@ export class HandoffStore {
         ok: true,
         detail: JSON.stringify(fault.record),
       });
+    this.noticeConsumers(c, version, earlier);
     return { ok: true, version, status: 'pending' };
+  }
+
+  /** Variant v2: tells each consumer of `c` that `version` is ready, and, once per consumer, that all its documents are. */
+  private noticeConsumers(c: DocContract, version: number, earlier: DocVersion[]): void {
+    const { relay } = this.opts;
+    if (!this.opts.consumerNotice || !relay) return;
+    const record = (e: Omit<PilotEvent, 'at'>) => this.record(e);
+    for (const consumer of c.consumers) {
+      sendNotice(relay, record, c.id, version, publishedNotice(c, version, consumer, earlier));
+      const mine = this.contracts().filter((x) => x.consumers.includes(consumer));
+      const latest = mine.map((x) => this.state.versions[x.id]?.length ?? 0);
+      if (latest.every((n) => n > 0) && !this.state.allNotified?.includes(consumer)) {
+        (this.state.allNotified ??= []).push(consumer);
+        this.save();
+        const docs = mine.map((x, i) => ({ c: x, latest: latest[i] }));
+        sendNotice(relay, record, c.id, version, allAvailableNotice(consumer, docs));
+      }
+    }
   }
 
   refusals(doc: string): number {
@@ -365,6 +388,11 @@ export class HandoffStore {
   /** True when the store was built with a producer relay (variant v2). */
   relayEnabled(): boolean {
     return this.opts.relay !== undefined;
+  }
+
+  /** True when each publish notifies the document's consumers (variant v2). */
+  noticeEnabled(): boolean {
+    return this.opts.consumerNotice === true && this.opts.relay !== undefined;
   }
 
   /** The checks a role may run: the documents it produces or consumes whose contract declares any. */

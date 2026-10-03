@@ -142,6 +142,7 @@ describe('the producer relay', () => {
     store.decide('synthesiser', 'module-sheets-w1', 1, 'reject', 'm1 q01 is wrong');
     await new Promise((r) => setTimeout(r, 20));
     expect(delivered.slice(1).map((a) => [a[0], a[1], a[2]])).toEqual([
+      ['org', RELAY_SENDER, 'synthesiser'], // the publish notice (consumer-publish-notice)
       ['org', RELAY_SENDER, 'worker-1'],
       ['org', RELAY_SENDER, 'lead'],
     ]);

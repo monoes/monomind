@@ -181,6 +181,7 @@ describe('the committed pilot manifests', () => {
       'natural-errors-in-injected-versions',
       'synth-cap-resized',
       'handoff-relay-consistency-check',
+      'consumer-publish-notice',
     ]);
     for (const c of p.declared_changes)
       expect(c.approved_by).toMatch(/^lead, under the owner's standing instruction/);

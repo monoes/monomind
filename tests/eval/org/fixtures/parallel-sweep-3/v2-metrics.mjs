@@ -36,6 +36,8 @@ export function v2Metrics(events, faultEvents, consumer) {
   const refusedAccept = events.filter((e) => e.kind === 'decide' && !e.ok && consistency(e));
   const relays = events.filter((e) => e.kind === 'relay').map((e) => ({ e, d: parse(e.detail) }));
   const sent = relays.filter(({ e }) => e.ok);
+  const notices = events.filter((e) => e.kind === 'notice').map((e) => ({ e, d: parse(e.detail) }));
+  const noticesSent = notices.filter(({ e }) => e.ok);
   return {
     doc_check: {
       calls: okChecks.length,
@@ -74,6 +76,13 @@ export function v2Metrics(events, faultEvents, consumer) {
             sent.filter(({ d }) => d.reason === r && d.to_kind === 'producer').length,
           ]),
       ),
+    },
+    /** The notices the harness sent to consumers on a publish (declared change consumer-publish-notice); 0 in v1 and in the committed v2 runs. */
+    consumer_notices: {
+      sent: noticesSent.length,
+      failed: notices.length - noticesSent.length,
+      published: noticesSent.filter(({ d }) => d.kind === 'published').length,
+      all_available: noticesSent.filter(({ d }) => d.kind === 'all-available').length,
     },
     /** Per fault: flagged by doc_check (null when never checked). */
     fault_flags: Object.fromEntries(
