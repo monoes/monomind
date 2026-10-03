@@ -128,6 +128,74 @@ describe('round 2 arms and profile', () => {
   });
 });
 
+describe('dev-feature-qa-revise: the single arm and a per-trial Sonnet profile', () => {
+  it('builds single, baseline and treatment on Haiku by default, and on Sonnet with an S marker in the id when asked', async () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-revise-'));
+    await buildInputs({ scenario: 'dev-feature-qa-revise', base });
+    const make = async (arm: 'baseline' | 'treatment' | 'single', profile?: string) =>
+      org(
+        await preparePilotTrial({
+          scenario: 'dev-feature-qa-revise',
+          base,
+          arm,
+          n: 1,
+          ...(profile ? { profile } : {}),
+        }),
+      );
+    const hs = await make('single');
+    const hb = await make('baseline');
+    const ps = await make('single', 'production');
+    const pb = await make('baseline', 'production');
+    const pt = await make('treatment', 'production');
+    expect([hs, hb, ps, pb, pt].map((x) => x.t.name)).toEqual([
+      'smoke-dev-feature-qa-revise-single-p1s',
+      'smoke-dev-feature-qa-revise-phase2-p1b',
+      'smoke-dev-feature-qa-revise-single-p1sS',
+      'smoke-dev-feature-qa-revise-phase2-p1bS',
+      'smoke-dev-feature-qa-revise-phase2-p1tS',
+    ]);
+    expect(hs.def.roles.map((r: any) => r.id)).toEqual(['lead']);
+    expect(hs.t.pilot).toMatchObject({ arm: 'single' });
+    expect(hs.t.profile).toBe('haiku');
+    expect(hs.def.roles[0].tool_providers).toBeUndefined(); // no prototype
+    for (const x of [ps, pb, pt]) {
+      expect(x.t.profile).toBe('production');
+      expect(Object.values(x.t.runners).every((r: any) => r.model === 'claude-sonnet-5-5')).toBe(
+        true,
+      );
+    }
+    expect(pb.def.roles.map((r: any) => r.budget_usd)).toEqual([2, 8, 6]);
+    expect(hb.def.roles.map((r: any) => r.budget_usd)).toEqual([1, 4, 3]);
+    expect(pt.t.orgStopUsd).toBe(4);
+    expect(pt.t.task).toBe(pb.t.task);
+    expect(hs.t.task).toMatch(/only agent in this run/);
+  });
+
+  it('refuses a profile the pilot manifest does not list, and a non-default profile on a pilot that lists none', async () => {
+    const base = mkdtempSync(join(tmpdir(), 'pilot-revise-'));
+    await buildInputs({ scenario: 'dev-feature-qa-revise', base });
+    await expect(
+      preparePilotTrial({
+        scenario: 'dev-feature-qa-revise',
+        base,
+        arm: 'baseline',
+        n: 1,
+        profile: 'fast',
+      }),
+    ).rejects.toThrow(/does not list the profile "fast"/);
+    await buildInputs({ scenario: 'dev-feature-qa', base });
+    await expect(
+      preparePilotTrial({
+        scenario: 'dev-feature-qa',
+        base,
+        arm: 'baseline',
+        n: 1,
+        profile: 'production',
+      }),
+    ).rejects.toThrow(/does not list the profile "production"/);
+  });
+});
+
 describe('a redo trial', () => {
   it('replaces an interrupted trial under its own id, flagged in the trial record, and the original is untouched', async () => {
     const base = mkdtempSync(join(tmpdir(), 'pilot-redo-'));

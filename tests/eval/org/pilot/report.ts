@@ -21,6 +21,8 @@ export interface HandoffCounts {
 
 export interface PilotRow extends TrialRow {
   arm: 'baseline' | 'treatment' | 'single';
+  /** The trial's profile (haiku by default); trials on different profiles are never paired. */
+  profile: string;
   n: number;
   /** The nth redo of an interrupted trial of this arm and number. */
   redo?: number;
@@ -61,7 +63,8 @@ function busOf(root: string, name: string): any[] {
 export function pilotRow(root: string): PilotRow {
   const base = trialRow(root);
   const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
-  const m = /-p(\d+)([bts])(?:r(\d+))?$/.exec(trial.name);
+  // p<n><arm>[S][r<redo>]: S marks a per-trial profile override (the production profile on a Haiku-default pilot)
+  const m = /-p(\d+)([bts])S?(?:r(\d+))?$/.exec(trial.name);
   const bus = busOf(root, trial.name);
 
   const complete = bus.find((e) => e.type === 'tool' && String(e.tool).endsWith('org_complete'));
@@ -111,6 +114,7 @@ export function pilotRow(root: string): PilotRow {
     arm:
       trial.pilot?.arm ??
       ({ b: 'baseline', t: 'treatment', s: 'single' } as const)[(m?.[2] ?? 'b') as 'b'],
+    profile: trial.profile ?? 'haiku',
     n: m ? Number(m[1]) : 0,
     ...(m?.[3] ? { redo: Number(m[3]) } : {}),
     interrupted: !existsSync(join(root, 'result.json')),
@@ -139,8 +143,12 @@ export interface PairReport {
 }
 
 export function pilotReport(rows: PilotRow[]) {
-  const scenarios = [...new Set(rows.map((r) => r.scenario))].sort().map((scenario) => {
-    const mine = rows.filter((r) => r.scenario === scenario && !r.interrupted);
+  const groups = [...new Set(rows.map((r) => `${r.scenario}\u0000${r.profile}`))].sort();
+  const scenarios = groups.map((group) => {
+    const [scenario, profile] = group.split('\u0000');
+    const mine = rows.filter(
+      (r) => r.scenario === scenario && r.profile === profile && !r.interrupted,
+    );
     const pairs: PairReport[] = [...new Set(mine.map((r) => r.n))]
       .sort((a, b) => a - b)
       .map((n) => {
@@ -179,7 +187,7 @@ export function pilotReport(rows: PilotRow[]) {
           reasons,
         };
       });
-    return { scenario, pairs };
+    return { scenario, profile, pairs };
   });
   const all = scenarios.flatMap((s) => s.pairs);
   return {

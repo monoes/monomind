@@ -28,17 +28,24 @@ export async function preparePilotTrial(o: {
   n: number;
   /** The nth redo of an interrupted trial of this arm and number: a new trial id, flagged in its record. */
   redo?: number;
+  /** A per-trial profile, which the pilot manifest must list in `profiles`; its default is `profile`.
+   *  A trial on a non-default profile carries an S marker in its id (p1bS), so ids stay unique. */
+  profile?: string;
 }): Promise<string> {
   const cfg = JSON.parse(readFileSync(join(here, `${o.scenario}.pilot.json`), 'utf8'));
   if (!cfg.arms.some((a: { id: string }) => a.id === o.arm))
     throw new Error(`the pilot manifest of ${o.scenario} does not list the arm "${o.arm}"`);
+  const defaultProfile: string = cfg.profile ?? 'haiku';
+  const profile = o.profile ?? defaultProfile;
+  if (profile !== defaultProfile && !(cfg.profiles ?? []).includes(profile))
+    throw new Error(`the pilot manifest of ${o.scenario} does not list the profile "${profile}"`);
   const root: string = await prepareTrial({
     scenario: o.scenario,
     base: o.base,
     // the single arm is the Phase 2 configuration with the root role alone; the other arms are Phase 2 as is
     contender: o.arm === 'single' ? 'single' : 'phase2',
-    trial: `p${o.n}${SUFFIX[o.arm]}${o.redo ? `r${o.redo}` : ''}`,
-    profile: cfg.profile ?? 'haiku',
+    trial: `p${o.n}${SUFFIX[o.arm]}${profile === defaultProfile ? '' : 'S'}${o.redo ? `r${o.redo}` : ''}`,
+    profile,
   });
   const trialFile = join(root, 'trial.json');
   const trial = JSON.parse(readFileSync(trialFile, 'utf8'));
@@ -68,14 +75,15 @@ export async function preparePilotTrial(o: {
 }
 
 if (process.argv[1]?.endsWith('pilot/prepare.ts')) {
-  const [scenario, base, arm, n, redo] = process.argv.slice(2);
+  const [scenario, base, arm, n, redo, profile] = process.argv.slice(2);
   console.log(
     await preparePilotTrial({
       scenario,
       base,
       arm: arm as Arm,
       n: Number(n),
-      ...(redo ? { redo: Number(redo) } : {}),
+      ...(Number(redo) ? { redo: Number(redo) } : {}),
+      ...(profile ? { profile } : {}),
     }),
   );
 }

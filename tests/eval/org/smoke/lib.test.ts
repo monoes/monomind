@@ -231,6 +231,11 @@ describe('round 2: the single-agent arm, the production profile, and an org-wide
     expect(resolvePlan('growth-like', 'haiku')).toEqual(RUNNER_PLANS['growth-like']);
     expect(resolvePlan('growth-like', 'production')).toEqual({ native: true, claudeModel: SONNET });
     expect(resolvePlan('sparse-dispatch', 'production')).toEqual(RUNNER_PLANS['sparse-dispatch']); // none defined: unchanged
+    expect(resolvePlan('dev-feature-qa-revise').workers.model).toBe(MODEL); // Haiku stays the default
+    expect(resolvePlan('dev-feature-qa-revise', 'production')).toEqual({
+      native: true,
+      claudeModel: SONNET,
+    });
     expect(() => resolvePlan('growth-like', 'fast')).toThrow(/profile/);
     expect(SONNET).toBe('claude-sonnet-5-5');
   });

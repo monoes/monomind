@@ -11,7 +11,7 @@ else {
   for (const r of rep.interrupted)
     console.log(`INTERRUPTED (no result, spend counted): ${r.name}  $${r.usd.toFixed(2)}`);
   for (const s of rep.scenarios) {
-    console.log(s.scenario);
+    console.log(`${s.scenario} (${s.profile})`);
     for (const p of s.pairs) {
       const f = (r?: (typeof p)['baseline']) =>
         r

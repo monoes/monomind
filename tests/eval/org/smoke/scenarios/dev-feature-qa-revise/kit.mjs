@@ -65,13 +65,25 @@ Roles: the lead splits the work; the implementer builds the feature and commits 
 
 Revision: if QA's verdict on a commit is fail, QA reports the failing input to the implementer, the implementer revises and commits again, and QA verifies the new commit. QA.md records the verdict for every commit QA checked, one "Commit: <sha>" line followed by its "Verdict:" line per commit, the last block being the final one (the implementer's last commit).`;
 
-export async function baseDef({ workspace }) {
+/** Declared change, 2026-10-03 (owner decision): the single-agent arm (the null hypothesis, spec R18).
+ *  The same deliverables and the same QA.md contract as TASK; one agent implements, verifies and revises. */
+export const SOLO_TASK = `${fixture.task}
+
+You are the only agent in this run: implement the feature, commit it in the workspace, then verify your own commit the way an independent QA would, and revise it yourself if the verification fails. Write your verification report to QA.md in the workspace with: a "Commit: <full sha of your final commit>" line, every command you ran (in backticks, each with its result), every defect found, and a final "Verdict: pass" or "Verdict: fail" line that matches what the commands showed. Do not change any source or test file after verifying a commit without verifying the new commit.
+
+Revision: if your verdict on a commit is fail, fix exactly that in a new commit (never rewrite history) and verify the new commit. QA.md records the verdict for every commit you checked, one "Commit: <sha>" line followed by its "Verdict:" line per commit, the last block being the final one (your last commit).`;
+
+/** Org-wide USD stop (run-trial.sh's spend watcher), the same in every arm and profile. Declared change,
+ *  2026-10-03: the production profile doubles the per-role caps (sum $16), so the stop bounds one run. */
+export const ORG_STOP_USD = 4;
+
+export async function baseDef({ workspace, contender }) {
   // QA may write only its report: source, tests, package.json and .git are
   // read-only to its shell (sandbox.denyWrite) and to its file tools (fileWrite).
   const qaReadOnly = ['src', 'test', 'package.json', '.git'].map((p) => join(workspace, p));
   // The checklist goes into QA's own brief only: it is not in the workspace.
   const checklist = readFileSync(join(fixtureDir, 'qa-checklist.md'), 'utf8').trim();
-  return {
+  const spec = {
     def: {
       name: id,
       goal: 'Ship one small, tested feature in the fixture repository, have it independently verified, and revise it if QA rejects it.',
@@ -117,6 +129,7 @@ export async function baseDef({ workspace }) {
     // lead 1 + implementer 4 + qa 3: the implementer does the most model work.
     caps: { lead: 1, implementer: 4, 'qa-engineer': 3 },
     allocationUsd: 8,
+    orgStopUsd: ORG_STOP_USD,
     // The session cap counts every token a response carries, cache reads included (session-usage.ts
     // totalTokens), and a role re-reads its whole context on each model call. The dry runs measured
     // 100-370K counted tokens in ONE turn of a Haiku lead or a codex role, so a cap of 40-60K rotated a
@@ -125,6 +138,28 @@ export async function baseDef({ workspace }) {
     sessionCap: { tokens: 600_000 },
     deadlineSeconds: 4500,
   };
+  if (contender === 'single') {
+    // One root role with the implementer's write access plus QA.md, and QA's checklist in its own brief.
+    const [implement] = spec.def.roles.find((r) => r.id === 'implementer').responsibilities;
+    const [, checklistBrief] = spec.def.roles.find((r) => r.id === 'qa-engineer').responsibilities;
+    spec.def.roles = [
+      {
+        id: 'lead',
+        title: 'Lead',
+        type: 'boss',
+        reports_to: null,
+        responsibilities: [
+          implement,
+          'Then verify your own commit independently, as a QA would: read the diff, run the repository tests and your own probes, and write QA.md (per commit: a Commit line, each command run with its result, defects, a Verdict line; the last block is for your final commit). If the verdict is fail, revise in a new commit and verify that one.',
+          checklistBrief,
+        ],
+        policy: { fileWrite: ['src', 'test', REPORT], git: 'commit' },
+      },
+    ];
+    spec.task = SOLO_TASK;
+    spec.caps = { lead: ORG_STOP_USD }; // prepare.mjs caps the one role at the org-wide stop
+  }
+  return spec;
 }
 
 // ---- check ---------------------------------------------------------------

@@ -13,6 +13,10 @@
     {
       "id": "treatment",
       "description": "The same Phase 2 definition plus the harness's publish/read/decide tools and cross-section org_send refusal"
+    },
+    {
+      "id": "single",
+      "description": "The Phase 2 configuration with one role alone: it implements, verifies its own commit against the same QA checklist, writes QA.md and revises, on the same model, with the same caps stop and deadline"
     }
   ],
   "per_run_allocation_usd": 8,
@@ -107,6 +111,34 @@
     "record_copy_read_bypasses": true,
     "label": "harness-only prototype; no document isolation, durable provenance, freshness or recovery guarantees"
   },
+  "org_stop_usd": 4,
   "profile": "haiku",
-  "note": "Round 2. The scenario's seeded defect (inner whitespace accepted, against the module's own header comment) is found by QA in the first version and the implementer revises; the treatment arm's hand-off documents record a rejected change-summary followed by an accepted one."
+  "profiles": ["haiku", "production"],
+  "note": "Round 2. The scenario's seeded defect (inner whitespace accepted, against the module's own header comment) is found by QA in the first version and the implementer revises; the treatment arm's hand-off documents record a rejected change-summary followed by an accepted one.",
+  "declared_changes": [
+    {
+      "id": "single-arm",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "A third arm, 'single': the Phase 2 configuration with one root role alone, which has the implementer's write access (src, test, QA.md, commit), QA's checklist in its own brief, the same deliverables and the same QA.md contract, on the same model.",
+      "why": "Round 2 found the seeded defect in 2 of 3 treatment trials and 0 of 3 baseline trials; a lone agent is the null hypothesis (R18) against which that signal has to be read. The single arm shares one context between implementing and verifying, so it may find the planted defect for free.",
+      "earlier_result": "none: new arm; the round 2 Haiku baseline and treatment results stay on record"
+    },
+    {
+      "id": "sonnet-profile",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "A per-trial profile: trials may run on the production profile (every role on claude-sonnet-5-5, per-role caps scaled by the measured price ratio of 2: lead 2, implementer 8, qa-engineer 6), selected per trial and marked S in the trial id (p1bS). Haiku stays the default profile.",
+      "why": "Haiku accepted the feature in only 1 of 3 trials per arm; whether the defect signal holds at the production model level is the open question.",
+      "earlier_result": "all earlier revise results are Haiku results and stay on record"
+    },
+    {
+      "id": "org-stop",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "An org-wide stop of $4 per run, enforced by the harness in every arm and on both profiles (round 2 Haiku runs cost at most $1.49), so the worst case stays bounded when the Sonnet caps sum to $16; the single arm's one role may spend up to it.",
+      "why": "The scaled Sonnet caps sum above the $8 planning allocation, and the owner's allowance for this check is about $10 to $20.",
+      "earlier_result": "round 2 Haiku trials ran without a stop; none of them reached $4"
+    }
+  ]
 }

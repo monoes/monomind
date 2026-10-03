@@ -31,12 +31,13 @@ interface Opts {
   spendStopped?: boolean;
   usd?: number;
   units?: { unit: string; accepted: boolean | null }[];
+  profile?: 'production'; // a per-trial profile override (trial id carries an S marker)
 }
 
 function root(o: Opts) {
   const r = mkdtempSync(join(tmpdir(), 'pilot-report-'));
   const scenario = o.scenario ?? 'growth-like';
-  const name = `smoke-${scenario}-phase2-p${o.n}${{ baseline: 'b', treatment: 't', single: 's' }[o.arm]}${o.redo ? `r${o.redo}` : ''}`;
+  const name = `smoke-${scenario}-phase2-p${o.n}${{ baseline: 'b', treatment: 't', single: 's' }[o.arm]}${o.profile ? 'S' : ''}${o.redo ? `r${o.redo}` : ''}`;
   const run = join(r, '.monomind/orgs', name, 'run-1');
   mkdirSync(run, { recursive: true });
   const events: unknown[] = [
@@ -70,6 +71,7 @@ function root(o: Opts) {
       contender: 'phase2',
       allocationUsd: 8,
       runners: {},
+      ...(o.profile ? { profile: o.profile } : {}),
       pilot: { arm: o.arm, id: 'x' },
     }),
   );
@@ -304,5 +306,33 @@ describe('a redo of an interrupted trial', () => {
     ]);
     expect(rep.spendUsd).toBeCloseTo(20.5); // the interrupted attempt's spend stays in the total
     expect(rep.summary).toMatchObject({ interrupted: 1, usable: 1 });
+  });
+});
+
+describe('trials of one scenario on two profiles', () => {
+  it('reads the profile (Haiku when the record has none) and the S marker as the same arm and number', () => {
+    expect(pilotRow(root({ n: 2, arm: 'single', tasks: 0 }))).toMatchObject({ profile: 'haiku' });
+    expect(
+      pilotRow(root({ n: 2, arm: 'treatment', profile: 'production', tasks: 2 })),
+    ).toMatchObject({ arm: 'treatment', n: 2, profile: 'production' });
+  });
+
+  it('never pairs trials across profiles: one group per scenario and profile', () => {
+    const sc = 'dev-feature-qa-revise';
+    const rep = pilotReport([
+      pilotRow(root({ scenario: sc, n: 1, arm: 'single', usd: 0.2 })),
+      pilotRow(root({ scenario: sc, n: 1, arm: 'baseline', profile: 'production', tasks: 2 })),
+      pilotRow(root({ scenario: sc, n: 1, arm: 'treatment', profile: 'production', tasks: 2 })),
+      pilotRow(root({ scenario: sc, n: 1, arm: 'single', profile: 'production', usd: 0.5 })),
+    ]);
+    expect(rep.scenarios.map((s: any) => [s.scenario, s.profile])).toEqual([
+      [sc, 'haiku'],
+      [sc, 'production'],
+    ]);
+    const [haiku, prod] = rep.scenarios;
+    expect(haiku.pairs[0].single?.usd).toBe(0.2);
+    expect(haiku.pairs[0].baseline).toBeUndefined();
+    expect(prod.pairs[0].single?.usd).toBe(0.5);
+    expect(prod.pairs[0].baseline).toBeDefined();
   });
 });

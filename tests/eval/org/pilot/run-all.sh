@@ -25,11 +25,12 @@ say() { printf '%s %s\n' "$(date -Is)" "$*" | tee -a "$log"; }
 spent() { (cd "$repo" && npx tsx "$smoke/report.cli.ts" --json "$base"/trials/* 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).spendUsd)}catch{console.log(0)}})'); }
 export SMOKE_RUN_CMD="cd '$repo' && npx tsx '$here/run-org.ts'"
 
-# One trial: scenario, arm, trial number, redo number (0 = not a redo).
+# One trial: scenario, arm, trial number, redo number (0 = not a redo), profile (default: the manifest's).
 run_one() {
-  local sc=$1 arm=$2 n=$3 redo=${4:-0} root label
+  local sc=$1 arm=$2 n=$3 redo=${4:-0} profile=${5:-} root label
   label="$sc $arm $n${redo:+ redo $redo}"; [ "$redo" = 0 ] && label="$sc $arm $n"
-  root=$(cd "$repo" && npx tsx "$here/prepare.ts" "$sc" "$base" "$arm" "$n" $([ "$redo" != 0 ] && echo "$redo")) || { say "prepare failed: $label"; exit 3; }
+  [ -n "$profile" ] && label="$label [$profile]"
+  root=$(cd "$repo" && npx tsx "$here/prepare.ts" "$sc" "$base" "$arm" "$n" "$redo" $profile) || { say "prepare failed: $label"; exit 3; }
   say "START $label"
   bash "$smoke/run-trial.sh" "$root" "$cli" > "$root/run-trial.out" 2>&1
   node "$smoke/check.mjs" "$root" > "$root/check.out" 2>&1 || say "check failed for $label"
@@ -40,14 +41,15 @@ run_one() {
   if node -e "process.exit(Number('$total') > Number('$allocation') ? 0 : 1)"; then say "STOP: spend passed the allocation"; exit 5; fi
 }
 
-# PILOT_ONLY="scenario:arm:n:redo,..." runs just those trials, in that order (for finishing a round that
-# was interrupted: a redo is a new trial id, flagged in its record, and the interrupted one stays on record).
+# PILOT_ONLY="scenario:arm:n:redo:profile,..." runs just those trials, in that order (for finishing a round
+# that was interrupted: a redo is a new trial id, flagged in its record, and the interrupted one stays on
+# record; redo 0 = not a redo; profile is one the pilot manifest lists, e.g. production, and marks the id).
 if [ -n "${PILOT_ONLY:-}" ]; then
   IFS=',' read -ra only <<< "$PILOT_ONLY"
   for spec in "${only[@]}"; do
-    IFS=':' read -r sc arm n redo <<< "$spec"
+    IFS=':' read -r sc arm n redo profile <<< "$spec"
     [ -d "$base/inputs/$sc" ] || { say "no inputs for $sc in $base"; exit 3; }
-    run_one "$sc" "$arm" "$n" "${redo:-0}"
+    run_one "$sc" "$arm" "$n" "${redo:-0}" "${profile:-}"
   done
   say "DONE"
   exit 0

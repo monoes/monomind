@@ -27,7 +27,28 @@ describe('the committed pilot manifests', () => {
     expect(pilotPlan([sweep], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     expect(pilotPlan([growth], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     expect(pilotPlan([dev], scenario)).toEqual({ runs: 6, allocation_usd: 48 });
-    expect(pilotPlan([growth, revise], scenario)).toEqual({ runs: 15, allocation_usd: 156 }); // all of round 2
+    // revise has gained the single arm (2026-10-03): 3 arms x 3 trials at $8 is 9 runs and $72 planned
+    expect(pilotPlan([revise], scenario)).toEqual({ runs: 9, allocation_usd: 72 });
+    expect(pilotPlan([growth, revise], scenario)).toEqual({ runs: 18, allocation_usd: 180 });
+  });
+
+  it('dev-feature-qa-revise declares its single arm, the Sonnet profile and the $4 org-wide stop, and keeps Haiku as the default', () => {
+    const r = pilots[2];
+    expect(r.arms.map((a: { id: string }) => a.id)).toEqual(['baseline', 'treatment', 'single']);
+    expect(r.profile).toBe('haiku');
+    expect(r.profiles).toEqual(['haiku', 'production']);
+    expect(r.org_stop_usd).toBe(4);
+    expect(r.org_stop_usd).toBeLessThanOrEqual(r.per_run_allocation_usd);
+    expect(r.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'single-arm',
+      'sonnet-profile',
+      'org-stop',
+    ]);
+    for (const c of r.declared_changes) {
+      expect(c).toMatchObject({ date: '2026-10-03', approved_by: 'owner' });
+      expect(c.earlier_result).toBeTruthy();
+    }
+    expect(r.trials_per_arm).toBe(3); // earlier fields kept
   });
 
   it('growth-like has the third, single-agent arm, the production profile and the $12 org-wide stop, declared', () => {

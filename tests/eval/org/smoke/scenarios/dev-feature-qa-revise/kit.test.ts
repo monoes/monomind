@@ -19,7 +19,7 @@ import { CONTENDERS } from '../../lib.mjs';
 // @ts-expect-error plain .mjs modules
 import { buildInputs as buildBase, prepareTrial } from '../../prepare.mjs';
 // @ts-expect-error plain .mjs modules
-import { baseDef, buildInputs, check, id, parseReport } from './kit.mjs';
+import { baseDef, buildInputs, check, id, ORG_STOP_USD, parseReport, SOLO_TASK } from './kit.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(here, '../../../fixtures/dev-feature-qa-revise');
@@ -144,6 +144,75 @@ describe('prepare, for both contenders', () => {
       '/w/.git',
     ]);
     expect(role('implementer')).toMatchObject({ fileWrite: ['src', 'test'], git: 'commit' });
+  });
+});
+
+describe('the single-agent arm and the production profile (declared change, 2026-10-03)', () => {
+  const orgOf = async (contender: string, profile?: string) => {
+    const base = mkdtempSync(join(tmp, 'solo-'));
+    await buildBase({ scenario: id, base });
+    const root = await prepareTrial({ scenario: id, base, contender, trial: 'p1x', profile });
+    const trialJson = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
+    const file = join(root, `.monomind/orgs/${trialJson.name}.json`);
+    return { org: JSON.parse(readFileSync(file, 'utf8')), trialJson };
+  };
+
+  it("is one role that implements, verifies and revises alone, with the implementer's tools, QA.md and the same checklist", async () => {
+    const { org, trialJson } = await orgOf('single');
+    const parsed = OrgDefSchema.parse(org);
+    expect(org.roles.map((r: any) => r.id)).toEqual(['lead']);
+    const [role] = org.roles;
+    expect(role.reports_to).toBeNull();
+    expect(role.policy).toMatchObject({ fileWrite: ['src', 'test', 'QA.md'], git: 'commit' });
+    const spec = await baseDef({ inputs, workspace: '/w', root: '/r' });
+    const checklist = spec.def.roles.find((r: any) => r.id === 'qa-engineer').responsibilities[1];
+    expect(role.responsibilities).toContain(checklist); // the identical checklist text
+    const text = role.responsibilities.join('\n');
+    expect(text).toMatch(/src\/duration\.mjs/);
+    expect(text).toMatch(/QA\.md/);
+    expect(checklistFindings(parsed).errors).toEqual([]);
+    expect(trialJson.task).toBe(SOLO_TASK);
+  });
+
+  it('gives the same deliverables, caps, stop and session cap as the other arms', async () => {
+    const solo = await orgOf('single');
+    const phase2 = await orgOf('phase2');
+    const spec = await baseDef({ inputs, workspace: '/w', root: '/r' });
+    expect(SOLO_TASK).toContain(spec.task.split('\n\nRoles:')[0]);
+    expect(SOLO_TASK).toMatch(/only agent in this run/);
+    expect(SOLO_TASK).not.toMatch(/the lead splits/);
+    expect(SOLO_TASK).toMatch(/QA\.md/);
+    expect(SOLO_TASK).toMatch(/Commit: <sha>/);
+    expect(SOLO_TASK).toMatch(/Verdict: pass/);
+    expect(solo.trialJson).toMatchObject({
+      allocationUsd: 8,
+      orgStopUsd: ORG_STOP_USD,
+      deadlineSeconds: phase2.trialJson.deadlineSeconds,
+    });
+    expect(phase2.trialJson.orgStopUsd).toBe(ORG_STOP_USD);
+    expect(ORG_STOP_USD).toBeLessThanOrEqual(8);
+    expect(solo.org.roles[0].budget_usd).toBe(ORG_STOP_USD);
+    expect(solo.org.run_config.context).toEqual(phase2.org.run_config.context);
+  });
+
+  it('keeps Haiku and unscaled caps by default; the production profile puts every role on Sonnet with caps doubled', async () => {
+    const h = await orgOf('phase2');
+    expect(h.trialJson.profile).toBe('haiku');
+    expect(h.org.roles.map((r: any) => [r.budget_usd, r.adapter_config.model])).toEqual([
+      [1, 'claude-haiku-4-5-20251001'],
+      [4, 'claude-haiku-4-5-20251001'],
+      [3, 'claude-haiku-4-5-20251001'],
+    ]);
+    for (const contender of ['phase2', 'single']) {
+      const p = await orgOf(contender, 'production');
+      expect(p.trialJson.profile).toBe('production');
+      expect(p.org.roles.every((r: any) => r.adapter_config.model === 'claude-sonnet-5-5')).toBe(
+        true,
+      );
+      expect(p.org.roles.map((r: any) => r.budget_usd)).toEqual(
+        contender === 'phase2' ? [2, 8, 6] : [ORG_STOP_USD],
+      );
+    }
   });
 });
 

@@ -81,7 +81,11 @@ export const RUNNER_PLANS = {
   'deliberative-design': { workers: CODEX },
   'sparse-dispatch': { workers: CLAUDE },
   'dev-feature-qa': { workers: CLAUDE },
-  'dev-feature-qa-revise': { workers: CLAUDE },
+  // Haiku by default (rounds so far); the production profile puts all three roles on Sonnet (2026-10-03).
+  'dev-feature-qa-revise': {
+    workers: CLAUDE,
+    production: { native: true, claudeModel: SONNET },
+  },
   // The growth org keeps each role's own runner (two designers run on codex and antigravity);
   // only its Claude roles are pinned to Haiku. Identical in both contenders.
   'growth-like': { native: true, production: { native: true, claudeModel: SONNET } },
