@@ -85,6 +85,7 @@ describe('the committed pilot manifests', () => {
       'no-node-sandbox',
       'task-text-sheet-shape',
       'home-write-deny',
+      'stopped-after-first-trio',
     ]);
   });
 

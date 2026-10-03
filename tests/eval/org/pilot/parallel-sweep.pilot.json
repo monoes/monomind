@@ -536,6 +536,14 @@
       "what": "Every role of all three arms (single, baseline, treatment) now runs with its real $HOME write-protected (policy.sandbox.homeWriteAllow, runtime change, opt-in, packages/@monomind/cli/src/orgrt/home-write-deny.ts): inside the no-node bubblewrap layer the home is seen through a throwaway tmpfs overlay, so a write anywhere in it (a new file, mkdir, ln, cp, a rename, a delete, a change to an existing file) works inside the role's own view, is gone when the layer ends, and never reaches the real home; only ~/.claude, ~/.codex and ~/.gemini (the claude, codex and agy logins, sessions and state) are the real, writable paths. Reads of the whole home still work. The kit's real-state check (smoke/run-trial.sh, env.mjs, home-watch.mjs) now also lists the real home's top level before and after every trial and voids the trial, naming each offender with its birth and modification time, when an entry outside a small documented ignore list is created, replaced, changed or removed.",
       "why": "The first trio of paid trials showed a role inside the no-node sandbox creating ~/f7.sh in the real home (the layer is --dev-bind / / and the SDK sandbox allows writing the home), and the real-state check, which compared only ~/.monomind listings and files naming the trial, reported clean and missed it. The owner ordered the gap closed now. Applies to every arm; no change to the design, deadline, corpus, caps, roster, task text or scoring.",
       "earlier_result": "the earlier trials stay on record: the trial in which a role created ~/f7.sh and the trials before the write-deny are not rewritten or re-scored"
+    },
+    {
+      "id": "stopped-after-first-trio",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "The parallel-sweep pilot is stopped after the first trio of valid trials (single redo p1sr1, baseline p1b, treatment p1t, each one trial on Sonnet 5.5 with the 35-minute deadline) and the remaining 6 of the 9 planned trials (single, baseline and treatment trials 2 and 3) are not run. The results of the first trio are the recorded result of this scenario's pilot. The void single trial p1s stays on record and is not used.",
+      "why": "Owner decision: stop the parallel-sweep fixture after the first trio and do not run the remaining 6. The trio spent 17.62 USD of the 85 USD soft cap; the 2100 s deadline did not bind in any arm (269 to 304 s), so more trials of this design would not test coordination. A harder fixture is proposed for owner approval in docs/mastermind/pilot/2026-10-04-parallel-sweep-trio-report.md before any build or spend.",
+      "earlier_result": "none rewritten: the trio's results are reported as measured, n=1 per valid arm, no intervals; planned trials_per_arm of 3 was not reached by owner decision"
     }
   ]
 }
