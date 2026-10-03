@@ -155,13 +155,20 @@ export function resolveDenyExec(patterns: string[], ctx: DenyExecCtx): string[] 
   return [...out];
 }
 
-/** bubblewrap arguments, to follow an existing mask's or `--dev-bind / /`. */
-function maskTail(paths: string[]): string[] {
+/** bubblewrap arguments, to follow an existing mask's or `--dev-bind / /`. `hide` (policy.sandbox
+ *  denyRead): an existing file reads as empty, an existing directory as an empty one. */
+function maskTail(paths: string[], hide: string[] = []): string[] {
+  const hidden = hide.flatMap((p) => {
+    const r = real(p);
+    if (!r) return [];
+    return isFile(r) ? ['--ro-bind', '/dev/null', r] : ['--tmpfs', r];
+  });
   return [
     '--unshare-pid',
     '--proc',
     '/proc',
     ...paths.flatMap((p) => ['--ro-bind', '/dev/null', p]),
+    ...hidden,
   ];
 }
 
@@ -178,14 +185,16 @@ export function roleExecMask(args: {
   roleId: string;
   authorityMask: string[] | undefined;
   denyExec?: string[];
+  denyRead?: string[];
   home: string;
   env: NodeJS.ProcessEnv;
   availability?: { available: boolean; reason?: string };
 }): string[] | undefined {
-  if (!args.denyExec?.length) return args.authorityMask;
+  if (!args.denyExec?.length && !args.denyRead?.length) return args.authorityMask;
   const availability = args.availability ?? authorityMaskAvailability();
   if (!availability.available) {
-    const msg = `policy.sandbox.denyExec is set for role ${args.roleId} but bubblewrap cannot run (${availability.reason}): refusing to start it with ${args.denyExec.join(', ')} reachable`;
+    const key = args.denyExec?.length ? 'denyExec' : 'denyRead';
+    const msg = `policy.sandbox.${key} is set for role ${args.roleId} but bubblewrap cannot run (${availability.reason}): refusing to start it with ${[...(args.denyExec ?? []), ...(args.denyRead ?? [])].join(', ')} reachable`;
     args.bus.emit({
       type: 'audit',
       from: args.roleId,
@@ -195,8 +204,8 @@ export function roleExecMask(args: {
     });
     throw new Error(msg);
   }
-  const paths = resolveDenyExec(args.denyExec, { home: args.home, env: args.env });
-  return [...(args.authorityMask ?? ['--dev-bind', '/', '/']), ...maskTail(paths)];
+  const paths = resolveDenyExec(args.denyExec ?? [], { home: args.home, env: args.env });
+  return [...(args.authorityMask ?? ['--dev-bind', '/', '/']), ...maskTail(paths, args.denyRead)];
 }
 
 // ---- the command check ----------------------------------------------------

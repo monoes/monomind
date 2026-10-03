@@ -32,6 +32,7 @@ export interface RoleSandboxPolicy {
   allowWrite?: string[];
   denyWrite?: string[];
   denyExec?: string[];
+  denyRead?: string[];
   allowUnixSockets?: boolean;
 }
 

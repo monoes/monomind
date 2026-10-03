@@ -340,3 +340,58 @@ describe.runIf(authorityMaskAvailability().available)(
     }
   },
 );
+
+describe('denyRead (files and directories the role cannot read)', () => {
+  const bus = () => new OrgBus('o', 'r', scratch('xd-bus-'));
+  it('is part of the same layer, applies alone, and fails closed likewise', () => {
+    const d = scratch('xd-dr-');
+    writeFileSync(join(d, 'truth.json'), 'SECRET');
+    const out = roleExecMask({
+      bus: bus(),
+      roleId: 'w',
+      authorityMask: undefined,
+      denyRead: [join(d, 'truth.json'), join(d, 'missing')],
+      home: d,
+      env: { PATH: '' },
+      availability: { available: true },
+    }) as string[];
+    expect(out).toEqual(expect.arrayContaining(['--ro-bind', '/dev/null', join(d, 'truth.json')]));
+    expect(out.join(' ')).not.toContain('missing');
+    expect(() =>
+      roleExecMask({
+        bus: bus(),
+        roleId: 'w',
+        authorityMask: undefined,
+        denyRead: [d],
+        home: d,
+        env: {},
+        availability: { available: false, reason: 'no bwrap' },
+      }),
+    ).toThrow(/denyRead.*no bwrap/);
+  });
+  it.runIf(authorityMaskAvailability().available)(
+    'a masked role reads an empty file and an empty directory (real bwrap)',
+    () => {
+      const d = scratch('xd-dr2-');
+      mkdirSync(join(d, 'hidden'));
+      writeFileSync(join(d, 'hidden/a.json'), 'SECRET-DIR');
+      writeFileSync(join(d, 'truth.json'), 'SECRET-FILE');
+      writeFileSync(join(d, 'open.txt'), 'VISIBLE');
+      const mask = roleExecMask({
+        bus: bus(),
+        roleId: 'w',
+        authorityMask: undefined,
+        denyRead: [join(d, 'truth.json'), join(d, 'hidden')],
+        home: d,
+        env: { PATH: '' },
+      }) as string[];
+      const [bin, args] = maskedCommand(mask, 'sh', [
+        '-c',
+        `cat '${d}/truth.json' '${d}/hidden/a.json' 2>&1; ls '${d}/hidden'; cat '${d}/open.txt'; grep -r SECRET '${d}' 2>&1 | head -3`,
+      ]);
+      const r = spawnSync(bin, args, { encoding: 'utf8' });
+      expect(r.stdout).not.toContain('SECRET');
+      expect(r.stdout).toContain('VISIBLE');
+    },
+  );
+});

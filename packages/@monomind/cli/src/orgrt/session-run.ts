@@ -215,6 +215,7 @@ export async function runOneSession(
             bus,
             roleId: role.id,
             denyExec: role.policy?.sandbox?.denyExec,
+            denyRead: role.policy?.sandbox?.denyRead,
             home: homedir(),
             env: process.env,
             authorityMask: roleAuthorityMask({

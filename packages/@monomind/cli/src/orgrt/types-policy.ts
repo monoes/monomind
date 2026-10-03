@@ -157,6 +157,9 @@ export const RolePolicySchema = z
          *  in a bubblewrap layer around the role's process tree and refused in its Bash commands
          *  (exec-deny.ts). Fails closed without bubblewrap. */
         denyExec: z.array(z.string()).optional(),
+        /** Existing files and directories the role's shell cannot read (they appear empty), by the
+         *  same bubblewrap layer; absolute paths. Fails closed without bubblewrap. */
+        denyRead: z.array(z.string()).optional(),
         allowUnixSockets: z.boolean().optional(),
       })
       .strict()
