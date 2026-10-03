@@ -145,6 +145,14 @@
       "what": "The hand-off metrics reported a document's natural_errors only for versions the injector had not changed, so a producer's own error in a faulted document was invisible. HandoffStore now keeps what the producer sent for each version the injector changed (state.originals, by doc#version; doc_read never returns it), and handoff-metrics.mjs computes natural_errors from that original. Nothing a role sees, no fault class, no seed and no scoring changes.",
       "why": "In the p1t trial worker-1's on-disk sheets and its own doc_publish input listed every chain leaf-first instead of entry-first (a natural producer error, 0 of 12 per module); its document was a faulted one, so the harness reported no natural errors for w1. The injector never touches the producer's files, so the faulted document was wrong with or without the files-order fault.",
       "earlier_result": "the p1t result stays on record as measured (25 of 33 units, 1 of 4 faults caught) with this caveat: the files-order fault in w1 was confounded with the producer's own ordering error, so that fault's 'missed' outcome is not a clean measure"
+    },
+    {
+      "id": "synth-cap-resized",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (lead decision; design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The synthesiser's caps are resized in both arms: budget_usd $3.0 to $5.0 (CAPS.synthesiser 1.5 to 2.5 in Haiku-price units, scaled by 2 on the production profile) and an explicit budget_tokens of 12,000,000 (SYNTHESISER_TOKENS in the kit). The org stop and planning allocation stay $34: the role caps now sum to 8 x 3.4 + 1.4 + 5.0 = $33.6, under it. Deadline, faults, roster, workers' and lead's USD caps are unchanged. With its own budget_tokens the runtime splits the rest of the org's 60 M over the other nine roles, 5.33 M each.",
+      "why": "In p1t the synthesiser had no budget_tokens of its own, so it got the even split of the org's 60 M over 10 roles (6 M) and was closed at 444 s with 6.16 M used ($2.84, 81 % of its $3 cap, mostly cache reads, about 16.6 K tokens/s and $0.0063/s while active), before it had decided the last document or written the final synthesis. The whole 720 s deadline at that rate is about 11.8 M tokens and $4.5, so 12 M and $5.0 keep the cap from binding before the clock. Other roles at stage 1: workers 1.8 to 3.6 M tokens and $1.4 to $2.4, lead 1.4 M and $0.82; the org used 25.5 M of its 60 M. The baseline arm shares the numbers; its synthesiser aggregates files and uses far less.",
+      "earlier_result": "the p1t result stays on record as measured (the synthesiser's token budget closed it at 444 s and the take-over was refused by policy), with the caveat that the cap, not the decision loop, ended its work"
     }
   ]
 }

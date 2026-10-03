@@ -33,7 +33,7 @@ import { checklistFindings } from '../../../../../../packages/@monomind/cli/src/
 import { FAULT_CLASSES, planFaults } from '../../../pilot/fault-injection.js';
 import { pilotOrgDef } from '../../../pilot/harness.js';
 import { preparePilotTrial } from '../../../pilot/prepare.js';
-import { PRICE_SCALE, RUNNER_PLANS, resolvePlan } from '../../lib.mjs';
+import { ORG_TOKENS, PRICE_SCALE, RUNNER_PLANS, resolvePlan } from '../../lib.mjs';
 import { HOME_WRITE_ALLOW, noExecProblems } from '../../no-exec.mjs';
 import { buildInputs as buildBase } from '../../prepare.mjs';
 import * as sweep2 from '../parallel-sweep-2/kit.mjs';
@@ -48,6 +48,7 @@ import {
   ORG_STOP_USD,
   OWNS,
   SESSION_CAP,
+  SYNTHESISER_TOKENS,
   TASK,
   TASK_DOCUMENTS,
 } from './kit.mjs';
@@ -162,11 +163,29 @@ describe('the text, the plan and the constants', () => {
     for (const w of ROSTER.filter((r) => r.startsWith('worker')))
       expect(CAPS[w]).toBe(sweep2.CAPS[w]);
     expect(CAPS.lead * scale).toBeCloseTo(1.4, 6);
-    expect(CAPS.synthesiser * scale).toBeCloseTo(3.0, 6);
+    expect(CAPS.synthesiser * scale).toBeCloseTo(5.0, 6);
     expect(CAPS.synthesiser).toBeGreaterThan(sweep2.CAPS.synthesiser);
     const sum = Object.values(CAPS).reduce((a, x) => a + x, 0) * scale;
-    expect(sum).toBeCloseTo(31.6, 6); // 8 x 3.4 + 1.4 + 3.0
+    expect(sum).toBeCloseTo(33.6, 6); // 8 x 3.4 + 1.4 + 5.0
     expect(sum).toBeLessThanOrEqual(ORG_STOP_USD);
+  });
+
+  // p1t (stage 1): the synthesiser had no budget_tokens of its own, so it got the even split of the org's 60 M over
+  // 10 roles (6 M) and was closed at 444 s with 6.16 M used ($2.84, 81 % of its $3), 5.0 M of it in one long turn of
+  // cache reads, before it decided w4 or wrote the final synthesis; rate about 16.6 K tokens/s and $0.0063/s while
+  // active, so a full 720 s deadline is about 12 M tokens and $4.5. Workers measured 1.8 to 3.6 M, the lead 1.4 M.
+  it("the synthesiser has its own token budget sized to the whole deadline at the measured rate; the others' even split keeps headroom over what they used", async () => {
+    expect(SYNTHESISER_TOKENS).toBe(12_000_000);
+    expect(SYNTHESISER_TOKENS).toBeGreaterThanOrEqual(1.9 * 6_162_663); // the measured use, with headroom
+    const stage1Max = 3_618_229; // worker-1, the largest of the other nine
+    const split = (ORG_TOKENS - SYNTHESISER_TOKENS) / 9; // what the runtime gives each role without a budget_tokens
+    expect(split).toBeGreaterThanOrEqual(1.4 * stage1Max);
+    for (const arm of ['baseline', 'treatment'] as Arm[]) {
+      const x = await prep(arm, 1);
+      for (const r of x.def.roles)
+        expect(r.budget_tokens).toBe(r.id === 'synthesiser' ? SYNTHESISER_TOKENS : undefined);
+      expect(x.def.run_config.budget_tokens).toBe(ORG_TOKENS);
+    }
   });
 
   it('at least 10 roles may run at once', () => {

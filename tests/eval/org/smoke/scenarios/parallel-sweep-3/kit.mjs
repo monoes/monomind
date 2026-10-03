@@ -32,15 +32,25 @@ export const { MODULE_COUNT, MODULES, UNIT_COUNT, OWNS, SESSION_CAP } = sweep2;
 const sweep2Check = sweep2.check;
 
 /** Per-role USD soft stops, in Haiku-price units (prepare.mjs scales them by 2 on the production profile).
- *  Workers are parallel-sweep-2's (1.7 = $3.4 harness, observed $1.3 to $3.0). The lead relays rejections:
- *  0.7 ($1.4, sweep-2 rerun $0.4 to $0.9). The synthesiser reads eight documents, spot-checks against the code,
- *  decides, re-reads corrections: 1.5 ($3.0), against $0.4 when it only aggregated files. Sum on production:
- *  8 x 3.4 + 1.4 + 3.0 = $31.6, under the $34 org stop, so the stop is a backstop, not the usual limiter. */
+ *  Workers are parallel-sweep-2's (1.7 = $3.4 harness, observed $1.3 to $3.0; p1t $1.4 to $2.4). The lead relays
+ *  rejections: 0.7 ($1.4; sweep-2 rerun $0.4 to $0.9, p1t $0.82). The synthesiser reads eight documents,
+ *  spot-checks against the code, decides, re-reads corrections: 2.5 ($5.0). p1t measured $2.84 in 448 s (the first
+ *  cap, $3.0, would have closed it at about 475 s), about $0.0063/s while active, so the whole 720 s deadline is
+ *  about $4.5; the cap is that plus about 10 %. Sum on production: 8 x 3.4 + 1.4 + 5.0 = $33.6, under the $34 org
+ *  stop (kept: 34 is the planning allocation), so the stop stays a backstop, not the usual limiter. */
 export const CAPS = {
   lead: 0.7,
   ...Object.fromEntries(Object.keys(OWNS).map((w) => [w, 1.7])),
-  synthesiser: 1.5,
+  synthesiser: 2.5,
 };
+
+/** The synthesiser's own token budget. Without one a role gets the even split of the org's 60 M budget_tokens over
+ *  the 10 roles (6 M), and the synthesiser was closed on it at 444 s of p1t (6.16 M used, mostly cache reads, about
+ *  16.6 K tokens/s; 4.94 M of it after seven reads and a spot-trace) before it decided the last document. 12 M is
+ *  the whole deadline at that rate (about 11.8 M) and 1.9x what it had used when closed. The runtime then splits
+ *  the remaining 48 M over the other nine roles: 5.33 M each, 1.47x worker-1's 3.62 M, the largest of them. The
+ *  org-wide 60 M is untouched (stage 1 used 25.5 M of it). */
+export const SYNTHESISER_TOKENS = 12_000_000;
 
 export const ALLOCATION_USD = fixture.planning_allocation_usd_per_run;
 export const ORG_STOP_USD = fixture.org_stop_usd;
@@ -96,15 +106,18 @@ export async function baseDef({ inputs, workspace, root, contender, arm }) {
         sandbox: { denyWrite: [corpus, ...MODULES.filter((m) => !mods.includes(m)).map(outOf)] },
       }),
     ),
-    role('synthesiser', 'Synthesiser', 'specialist', 'lead', resp.synthesiser, {
-      fileWrite: ['out/synthesis.json'],
-      git: 'read',
-      sandbox: {
-        denyWrite: [corpus, ...MODULES.map(outOf)],
-        // the hand-off layer is its only path to the sheets (the module directories read as empty)
-        ...(treatment ? { denyRead: MODULES.map(outOf) } : {}),
-      },
-    }),
+    {
+      ...role('synthesiser', 'Synthesiser', 'specialist', 'lead', resp.synthesiser, {
+        fileWrite: ['out/synthesis.json'],
+        git: 'read',
+        sandbox: {
+          denyWrite: [corpus, ...MODULES.map(outOf)],
+          // the hand-off layer is its only path to the sheets (the module directories read as empty)
+          ...(treatment ? { denyRead: MODULES.map(outOf) } : {}),
+        },
+      }),
+      budget_tokens: SYNTHESISER_TOKENS,
+    },
   ];
   return {
     task: treatment ? TASK_DOCUMENTS : TASK,

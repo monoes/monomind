@@ -179,6 +179,7 @@ describe('the committed pilot manifests', () => {
       'no-node-sandbox',
       'home-write-deny',
       'natural-errors-in-injected-versions',
+      'synth-cap-resized',
     ]);
     for (const c of p.declared_changes)
       expect(c.approved_by).toMatch(/^lead, under the owner's standing instruction/);
