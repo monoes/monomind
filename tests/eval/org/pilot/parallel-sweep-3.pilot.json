@@ -952,6 +952,14 @@
       "what": "Carried over from parallel-sweep-2: every role of both arms runs with its real $HOME write-protected (policy.sandbox.homeWriteAllow: only ~/.claude, ~/.codex and ~/.gemini are real, writable paths), and the kit's real-state check voids a trial on a stray entry in the home.",
       "why": "A role in the first parallel-sweep trio created ~/f7.sh in the real home.",
       "earlier_result": "carried over from parallel-sweep-2"
+    },
+    {
+      "id": "natural-errors-in-injected-versions",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (lead decision; design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The hand-off metrics reported a document's natural_errors only for versions the injector had not changed, so a producer's own error in a faulted document was invisible. HandoffStore now keeps what the producer sent for each version the injector changed (state.originals, by doc#version; doc_read never returns it), and handoff-metrics.mjs computes natural_errors from that original. Nothing a role sees, no fault class, no seed and no scoring changes.",
+      "why": "In the p1t trial worker-1's on-disk sheets and its own doc_publish input listed every chain leaf-first instead of entry-first (a natural producer error, 0 of 12 per module); its document was a faulted one, so the harness reported no natural errors for w1. The injector never touches the producer's files, so the faulted document was wrong with or without the files-order fault.",
+      "earlier_result": "the p1t result stays on record as measured (25 of 33 units, 1 of 4 faults caught) with this caveat: the files-order fault in w1 was confounded with the producer's own ordering error, so that fault's 'missed' outcome is not a clean measure"
     }
   ]
 }

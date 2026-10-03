@@ -47,6 +47,8 @@ interface State {
   versions: Record<string, DocVersion[]>;
   /** Documents whose first accepted publish a fault injector changed (once per document). */
   injected?: Record<string, { version: number; class: string }>;
+  /** What the producer sent, by "doc#version", for the versions the injector changed; only the metrics read it (doc_read returns versions, never this). */
+  originals?: Record<string, unknown>;
 }
 
 /** A harness-side hook that may change a document's content at its first successful publish, so the
@@ -169,7 +171,10 @@ export class HandoffStore {
     for (const v of versions) if (v.status === 'pending') v.status = 'superseded';
     const version = versions.length + 1;
     const fault = this.state.injected?.[doc] ? undefined : this.injector?.apply(doc, content);
-    if (fault) (this.state.injected ??= {})[doc] = { version, class: fault.record.class };
+    if (fault) {
+      (this.state.injected ??= {})[doc] = { version, class: fault.record.class };
+      (this.state.originals ??= {})[`${doc}#${version}`] = content;
+    }
     versions.push({
       version,
       at: this.now().toISOString(),

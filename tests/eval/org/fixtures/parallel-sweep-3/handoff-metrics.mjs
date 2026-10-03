@@ -188,7 +188,7 @@ export function handoffMetrics({ root, truth }) {
       final_accepted_correct: final ? docCorrect(final.content, truth) : null,
       final_accepted_corrupted: final ? injected.has(`${doc}#${final.version}`) : null,
       natural_errors: versions
-        .filter((v) => !injected.has(`${doc}#${v.version}`) && !docCorrect(v.content, truth))
+        .filter((v) => !docCorrect(state.originals?.[`${doc}#${v.version}`] ?? v.content, truth))
         .map((v) => v.version),
     };
     for (const v of versions) {

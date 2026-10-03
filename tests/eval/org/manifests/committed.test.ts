@@ -165,6 +165,7 @@ describe('committed scenario manifests', () => {
       'harness-dollars',
       'no-node-sandbox',
       'home-write-deny',
+      'natural-errors-in-injected-versions',
     ]);
     for (const c of m.declared_changes) {
       expect(c).toMatchObject({ date: '2026-10-04' });

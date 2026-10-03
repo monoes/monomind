@@ -178,6 +178,7 @@ describe('the committed pilot manifests', () => {
       'harness-dollars',
       'no-node-sandbox',
       'home-write-deny',
+      'natural-errors-in-injected-versions',
     ]);
     for (const c of p.declared_changes)
       expect(c.approved_by).toMatch(/^lead, under the owner's standing instruction/);

@@ -291,6 +291,26 @@ describe('a synthesiser that rejects a clean document, and one whose producers e
     expect(m.docs[other].natural_errors).toEqual([2]);
   });
 
+  it("reports a producer's own error in a version the injector also changed (p1t: worker-1 listed every chain leaf-first and the fault hid it)", async () => {
+    const t = trial(20261004);
+    const faulted = t.plan!.faults.map((f) => f.doc);
+    for (const doc of DOCS) {
+      const c = correctDoc(doc);
+      // the producer's own mistake, in a question no fault class touches (q06), made before the harness changes the document
+      if (faulted.includes(doc))
+        c.sheets[3].answers[5].files = [...c.sheets[3].answers[5].files].reverse();
+      await t.as(worker(doc))('doc_publish', { doc_id: doc, content: c });
+    }
+    const m = handoffMetrics({ root: t.root, truth });
+    for (const doc of faulted) expect(m.docs[doc].natural_errors).toEqual([1]);
+    for (const doc of DOCS.filter((d) => !faulted.includes(d)))
+      expect(m.docs[doc].natural_errors).toEqual([]);
+    expect(m.injected).toBe(4);
+    // the consumer's read still shows the corrupted version only, never what the producer sent
+    const r = await t.as('synthesiser')('doc_read', { doc_id: faulted[0] });
+    expect(JSON.stringify(r)).not.toMatch(/original/);
+  });
+
   it('counts an accept of a natural error as accepted_natural_errors, not as a missed fault', async () => {
     const t = trial(null);
     for (const doc of DOCS) {
