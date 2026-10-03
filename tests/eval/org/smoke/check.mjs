@@ -25,6 +25,8 @@ export async function checkTrial(root) {
     ...(units.delivered === undefined
       ? {}
       : { delivered: units.delivered, total: units.total, summary: units.summary }),
+    // a kit that measures a hand-off (parallel-sweep-3) leaves its decision metrics on the array too
+    ...(units.handoff === undefined ? {} : { handoff: units.handoff }),
   });
   return units;
 }

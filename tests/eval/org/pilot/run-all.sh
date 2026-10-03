@@ -4,8 +4,9 @@
 # a single-agent arm where the manifest lists one. Round 1: growth-like and dev-feature-qa, 2 arms each,
 # $8 a run. Round 2: growth-like alone with 3 arms at $12 a run (the manifest's declared changes).
 # Usage: pilot/run-all.sh <base dir> <cli.js> [scenario ...]   (default: growth-like dev-feature-qa)
-# A scenario whose pilot manifest has a staged_plan (parallel-sweep-2) is run stage by stage with PILOT_ONLY; pilot/stage-gate.mjs
+# A scenario whose pilot manifest has a staged_plan (parallel-sweep-2, parallel-sweep-3) is run stage by stage with PILOT_ONLY; pilot/stage-gate.mjs
 # refuses a trial whose stage gate is not met, and PILOT_ALLOCATION_USD sets the stage's soft cap (see the manifest).
+# parallel-sweep-3 (hand-off decisions): PILOT_ONLY=parallel-sweep-3:treatment:1:0 first; stage 2 only if its synthesiser read a document.
 #
 # The arms of a trial number run back to back, the order rotating with the trial number (a Latin square). After every
 # trial it runs the machine checks and stops without starting another if the trial was void (inputs

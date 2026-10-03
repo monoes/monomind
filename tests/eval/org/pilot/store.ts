@@ -45,10 +45,22 @@ export interface DocVersion {
 interface State {
   attempts: Record<string, number>;
   versions: Record<string, DocVersion[]>;
+  /** Documents whose first accepted publish a fault injector changed (once per document). */
+  injected?: Record<string, { version: number; class: string }>;
+}
+
+/** A harness-side hook that may change a document's content at its first successful publish, so the
+ *  version a consumer reads differs from what the producer sent. One scenario's treatment arm uses it
+ *  (fault-injection.ts); the store applies it at most once per document and records it. */
+export interface PublishInjector {
+  apply(
+    doc: string,
+    content: unknown,
+  ): { content: unknown; record: { class: string; [k: string]: unknown } } | undefined;
 }
 
 export interface PilotEvent {
-  kind: 'publish' | 'read' | 'decide' | 'send-refused';
+  kind: 'publish' | 'read' | 'decide' | 'send-refused' | 'fault';
   at: string;
   ok: boolean;
   role: string;
@@ -69,6 +81,7 @@ export class HandoffStore {
     dir: string,
     contracts: DocContract[],
     private readonly now: () => Date = () => new Date(),
+    private readonly injector?: PublishInjector,
   ) {
     for (const c of contracts) {
       if (c.consumers.length === 0)
@@ -155,16 +168,28 @@ export class HandoffStore {
     const versions = (this.state.versions[doc] ??= []);
     for (const v of versions) if (v.status === 'pending') v.status = 'superseded';
     const version = versions.length + 1;
+    const fault = this.state.injected?.[doc] ? undefined : this.injector?.apply(doc, content);
+    if (fault) (this.state.injected ??= {})[doc] = { version, class: fault.record.class };
     versions.push({
       version,
       at: this.now().toISOString(),
       by: role,
-      content,
+      content: fault ? fault.content : content,
       status: 'pending',
       decisions: {},
     });
     this.save();
     this.record({ ...ev, ok: true, version });
+    // the harness's own record of what it changed; events are not a tool, so no role reads it
+    if (fault)
+      this.record({
+        kind: 'fault',
+        role: 'harness',
+        doc,
+        version,
+        ok: true,
+        detail: JSON.stringify(fault.record),
+      });
     return { ok: true, version, status: 'pending' };
   }
 

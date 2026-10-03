@@ -35,6 +35,12 @@ export interface PilotRow extends TrialRow {
   activeWorkers: string[];
   ended: string;
   handoff: HandoffCounts;
+  /** Hand-off calls per role (publish, read, decide), accepted or refused: the documents each consumer read and decided. */
+  handoffByRole: Record<string, Partial<Record<'publish' | 'read' | 'decide', { ok: number; refused: number }>>>;
+  /** The decision measures a kit with a hand-off check leaves in units.json under `handoff` (parallel-sweep-3,
+   *  treatment): faults injected, caught, missed, false rejects, republish cycles, final accepted documents, whether
+   *  the synthesis used a corrupted document, time to the synthesis, cost split. Absent for every other trial. */
+  decisions?: Record<string, any>;
 }
 
 const jsonLines = (p: string): any[] =>
@@ -102,13 +108,18 @@ export function pilotRow(root: string): PilotRow {
     sendRefused: 0,
     total: 0,
   };
+  const handoffByRole: PilotRow['handoffByRole'] = {};
   for (const e of jsonLines(join(root, 'pilot-state/pilot-events.jsonl'))) {
     if (e.kind === 'send-refused') handoff.sendRefused++;
     else if (e.kind === 'publish' || e.kind === 'read' || e.kind === 'decide') {
       handoff[e.kind as 'publish'][e.ok ? 'ok' : 'refused']++;
       handoff.total++;
+      const mine = ((handoffByRole[e.role] ??= {})[e.kind as 'publish'] ??= { ok: 0, refused: 0 });
+      mine[e.ok ? 'ok' : 'refused']++;
     }
   }
+  const unitsFile = join(root, 'units.json');
+  const decisions = existsSync(unitsFile) ? JSON.parse(readFileSync(unitsFile, 'utf8')).handoff : undefined;
   return {
     ...base,
     arm:
@@ -124,6 +135,8 @@ export function pilotRow(root: string): PilotRow {
     activeWorkers,
     ended,
     handoff,
+    handoffByRole,
+    ...(decisions?.present ? { decisions } : {}),
   };
 }
 

@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error plain .mjs module
 import { prepareTrial } from '../smoke/prepare.mjs';
+import { planFaults } from './fault-injection.js';
 import { type PilotTrial, pilotOrgDef } from './harness.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -54,6 +55,7 @@ export async function preparePilotTrial(o: {
     base: o.base,
     // the single arm is the Phase 2 configuration with the root role alone; the other arms are Phase 2 as is
     contender: o.arm === 'single' ? 'single' : 'phase2',
+    arm: o.arm, // a kit may shape its roles by arm (parallel-sweep-3); the other kits ignore it
     trial: `p${o.n}${SUFFIX[o.arm]}${profile === defaultProfile ? '' : 'S'}${o.redo ? `r${o.redo}` : ''}${variant ? `-${variant.id}` : ''}`,
     profile,
     ...(variant ? { deadlineSeconds: variant.deadline_seconds } : {}),
@@ -65,6 +67,17 @@ export async function preparePilotTrial(o: {
     dir: join(root, 'pilot-state'),
     routing: cfg.routing,
     contracts: cfg.contracts,
+    // harness-seeded faults: only a manifest that sets fault_injection, only its treatment arm; the seed is
+    // the manifest's seed_base plus the trial number, so a redo of trial n gets the plan trial n had
+    ...(o.arm === 'treatment' && cfg.fault_injection
+      ? {
+          faults: planFaults(
+            cfg.fault_injection.seed_base + o.n,
+            cfg.contracts.map((c: { id: string }) => c.id),
+            cfg.fault_injection.classes,
+          ),
+        }
+      : {}),
   };
   if (o.arm === 'treatment') {
     const orgFile = join(root, '.monomind/orgs', `${trial.name}.json`);

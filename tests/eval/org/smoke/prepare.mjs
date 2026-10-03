@@ -74,7 +74,7 @@ function retime(text, from, to) {
   return out;
 }
 
-export async function prepareTrial({ scenario, base, contender, trial = '1', profile = 'haiku', deadlineSeconds }) {
+export async function prepareTrial({ scenario, base, contender, trial = '1', profile = 'haiku', deadlineSeconds, arm }) {
   const kit = await loadKit(scenario);
   base = resolve(base);
   const inputs = join(base, 'inputs', scenario);
@@ -85,7 +85,7 @@ export async function prepareTrial({ scenario, base, contender, trial = '1', pro
   cpSync(join(inputs, 'workspace'), workspace, { recursive: true, mode: 0 });
   for (const d of [workspace])
     await import('node:child_process').then((c) => c.execFileSync('chmod', ['-R', 'u+w', d]));
-  const spec = await kit.baseDef({ inputs, workspace, root, contender });
+  const spec = await kit.baseDef({ inputs, workspace, root, contender, arm });
   if (deadlineSeconds && deadlineSeconds !== spec.deadlineSeconds) {
     const from = spec.deadlineSeconds;
     spec.task = retime(spec.task, from, deadlineSeconds);

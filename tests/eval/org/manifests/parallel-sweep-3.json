@@ -1,0 +1,142 @@
+{
+  "id": "parallel-sweep-3",
+  "title": "Parallel sweep 3: the parallel-sweep-2 workload (32 modules, 33 units) where the synthesiser must read and decide on the published module documents, under a hard 720 second wall deadline",
+  "committed_at": "2026-10-04",
+  "units": [
+    {
+      "id": "module-sheet",
+      "description": "An answer sheet for one module: for each of its 12 call-chain questions the value the chain returns when the entry function is called with no arguments, and the ordered list of files the call passes through",
+      "count": 32,
+      "output_class": "answers",
+      "evidence": "machine-checked against the truth computed by running the corpus code: a sheet is accepted when at least 11 of its 12 answers have both the exact value and the exact ordered file list; sheets with 12 of 12 are also counted, as a secondary accuracy metric; in the treatment arm the sheets the synthesiser reads are the published documents, a harness-seeded subset of which is corrupted at publish while the workers' files stay correct"
+    },
+    {
+      "id": "synthesis",
+      "description": "The answers to six cross-module questions that need the answers of the modules",
+      "count": 1,
+      "output_class": "answers",
+      "evidence": "machine-checked against the synthesis truth derived from the module truths: all 6 answers exact"
+    }
+  ],
+  "completion_rule": "All 32 module sheets and the synthesis present and accepted within the 720 second wall deadline. The score is computed from the files present when the run ends (the trial is cut at the deadline): a unit not written by then is not delivered. A sheet for a module the run did not answer, a synthesis built from guessed module answers, or answers copied between modules adds nothing.",
+  "rubric": {
+    "criteria": [
+      {
+        "id": "exact",
+        "description": "Each answered value equals what the chain really returns when run"
+      },
+      {
+        "id": "ordered-files",
+        "description": "Each file list is the exact ordered list of files the call passes through, entry file first, the module config excluded"
+      },
+      {
+        "id": "independent",
+        "description": "Each module sheet is worked out from that module, not copied from another module or inferred from naming"
+      },
+      {
+        "id": "synthesis-grounded",
+        "description": "The synthesis answers follow from the module sheets (not from guessing), and the format asked for is respected"
+      }
+    ],
+    "min_quality": 0.75,
+    "critical_failures": [
+      "an answer for a question that does not exist (a fabricated answer)",
+      "a module sheet whose answers are copied from another module",
+      "a claim that a module was answered or checked when its sheet does not contain the work",
+      "a synthesis answer given although the module answers it needs were never produced",
+      "a document the synthesiser accepted or used although the code shows it is wrong, when the task text tells it to check"
+    ],
+    "non_inferiority_margin": 0.1
+  },
+  "qualification": {
+    "min_fixture_success_probability": 0.6,
+    "max_human_interventions": 1,
+    "deadline_minutes": 12,
+    "allowed_recovery": [
+      "automatic restart of a crashed role within the runtime's retry limits",
+      "one operator answer to a blocking question, recorded as an intervention"
+    ]
+  },
+  "analysis": {
+    "confidence": 0.95,
+    "primary_comparisons": [
+      "treatment arm only (the baseline has no faults, so the decision measures are a mechanism measurement, not a comparison): documents read and decided per consumer, faults caught, missed and false rejects against the injected-fault record, republish cycles",
+      "units accepted by the deadline, of 33, and sheets at 12 of 12 (secondary accuracy), per run; whether the final synthesis used a corrupted document",
+      "wall time to the synthesis file, and cost split by role (cost per accepted unit), treatment vs the no-fault baseline control, per run"
+    ],
+    "sampling_unit": "complete-run"
+  },
+  "cost": {
+    "basis": "estimated-inference",
+    "planning_allocation_usd": 34
+  },
+  "fixture": {
+    "record": "tests/eval/org/fixtures/parallel-sweep-3/fixture.json"
+  },
+  "declared_changes": [
+    {
+      "id": "handoff-decision-variant",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "A new scenario, parallel-sweep-3, next to parallel-sweep-2: the same 32-module, 8-worker, 33-unit workload (same corpus generator and seed, truth, scorer, roster, per-worker caps, no-node sandbox and home write-deny) reshaped so that the synthesiser must read and decide on the published module documents, built unpaid and test-first. Fixture record: tests/eval/org/fixtures/parallel-sweep-3/fixture.json.",
+      "why": "The parallel-sweep-2 stage 2 rerun ran only the write side of the hand-off layer (eight doc_publish, zero doc_read, doc_decide or doc_list): the synthesiser aggregated the workers' sheet files with jq, so the layer itself, the read and the decision, was never measured.",
+      "earlier_result": "none rewritten: parallel-sweep and parallel-sweep-2, their pinned hashes, manifests and results stay as they are"
+    },
+    {
+      "id": "hand-off-only-path",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Treatment arm: the synthesiser cannot read out/m1 .. out/m32 (policy.sandbox.denyRead, the bubblewrap layer that already hides the truth) and receives the module sheets only through pilot__doc_read; it must call pilot__doc_decide (accept, or reject with a reason) on each document before using it, and keeps read access to corpus/ so it can check a claim against the code. The trial's pilot-state/ and trial.json and the tests/eval/org tree are hidden from every role so no role can read the fault plan or the injector. The task text tells it the documents may contain errors and what a decision means, not which documents are corrupted.",
+      "why": "Makes the hand-off channel the only path, so a run cannot bypass it by aggregating files.",
+      "earlier_result": "the sweep-2 treatment rerun (33 of 33 in 297 s, no read or decide calls) stays on record"
+    },
+    {
+      "id": "fault-injection",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The pilot harness gains a deterministic, seeded fault hook (pilot/fault-injection.ts, applied by HandoffStore.publish through a PublishInjector, set only by a pilot manifest's fault_injection and only in that scenario's treatment arm): 4 of the 8 worker documents are changed at their first successful publish, one class each (a wrong q05 value, a wrong q07 value, reversed files lists, a sheet replaced by a copy of another module's), each only once; the producer's own files in out/ stay correct, so a republished document is correct. Every change is recorded in the store's event log as a `fault` event, from which the report counts faults caught, missed and false rejects. Seed: seed_base 20261003 plus the trial number.",
+      "why": "Makes the decisions matter and their quality measurable. The faults are harness-injected, so this measures the decision path, not natural errors.",
+      "earlier_result": "no other scenario or arm sets fault_injection; every existing pilot trial is unchanged"
+    },
+    {
+      "id": "deadline-720",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The wall deadline of this scenario is 720 s (twelve minutes), not 600 s, in both arms; the per-run planning allocation and org stop are $34 (harness dollars) because the synthesiser and lead caps rise (synthesiser $3.0, lead $1.4 at the production profile).",
+      "why": "The sweep-2 treatment rerun ended at 297 s with the last document at about 275 s; reads, spot checks, a relayed rejection, a republish and a second decision add an estimated 150 to 300 s, and at 600 s a late republish would be cut by the deadline so that the trial measured the clock, not the decisions.",
+      "earlier_result": "parallel-sweep-2 keeps its 600 s design; its times are comparable only indicatively"
+    },
+    {
+      "id": "baseline-no-faults-control",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The baseline arm is the sweep-2 baseline at 720 s with no fault injection: the synthesiser reads the workers' sheet files. It is a control for cost, time and delivery. The single arm is dropped (it does not use the hand-off layer and was measured in sweep-2).",
+      "why": "A symmetric file-side fault (mutating the workers' out/ files) would corrupt the scored deliverables, race with the workers' own writes inside a live sandbox and change what is scored; it is not defensible. So every decision measure (catch rate, false rejects, republish cycles) is treatment-only: a mechanism measurement, not a comparison.",
+      "earlier_result": "the sweep-2 baseline rerun (29 of 33, $18.17) stays on record"
+    },
+    {
+      "id": "harness-dollars",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Carried over from parallel-sweep-2: every USD figure is in harness dollars (1.5x the Sonnet 5.5 list rates); the owner is to reconcile with the invoice. Recorded as cost_units_note in the fixture record.",
+      "why": "An open question, recorded instead of assumed either way.",
+      "earlier_result": "carried over from parallel-sweep-2"
+    },
+    {
+      "id": "no-node-sandbox",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Carried over from parallel-sweep-2: every role of both arms runs with no node and no code-execution tool (policy.sandbox.denyExec, allowTools limited to Bash, Read, Write, Edit, MultiEdit, Glob and Grep, Bash network limited to localhost); verification by the synthesiser is therefore by reading code.",
+      "why": "Running the corpus code would be one call for every value.",
+      "earlier_result": "carried over from parallel-sweep-2"
+    },
+    {
+      "id": "home-write-deny",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Carried over from parallel-sweep-2: every role of both arms runs with its real $HOME write-protected (policy.sandbox.homeWriteAllow: only ~/.claude, ~/.codex and ~/.gemini are real, writable paths), and the kit's real-state check voids a trial on a stray entry in the home.",
+      "why": "A role in the first parallel-sweep trio created ~/f7.sh in the real home.",
+      "earlier_result": "carried over from parallel-sweep-2"
+    }
+  ]
+}

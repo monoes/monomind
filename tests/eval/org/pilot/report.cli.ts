@@ -20,6 +20,12 @@ else {
       console.log(
         `  pair ${p.n}${p.confounded ? '  CONFOUNDED' : ''}${p.treatmentUnused ? '  (treatment never used the tools)' : ''}\n    baseline   ${f(p.baseline)}\n    treatment  ${f(p.treatment)}${p.single ? `\n    single     ${f(p.single)}` : ''}${p.reasons.length ? `\n    ${p.reasons.join('; ')}` : ''}`,
       );
+      // a hand-off decision trial (parallel-sweep-3): the injected-fault record against the consumer's decisions
+      const d = p.treatment?.decisions;
+      if (d)
+        console.log(
+          `    decisions  faults ${d.injected}: caught ${d.caught} (plausible reason ${d.caught_plausible_reason}), missed ${d.missed}, undecided ${d.undecided}; false rejects ${d.false_rejects}; republish cycles ${d.republish_cycles}; final accepted docs ${d.final_accepted_docs}/8, correct ${d.final_accepted_correct}, corrupted ${d.final_accepted_corrupted}; synthesis ${d.synthesis_exact ? 'exact' : 'not exact'}, used a corrupted document ${d.synthesis_used_corrupted}; synthesis file at ${d.seconds.synthesis_file} s; cost workers/lead/synthesiser ${d.cost_usd.workers}/${d.cost_usd.lead}/${d.cost_usd.synthesiser}`,
+        );
     }
     console.log();
   }

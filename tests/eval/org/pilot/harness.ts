@@ -8,6 +8,7 @@
 // instance: it gives each sectioned role the pilot tools through the tool
 // provider hook, and it refuses a cross-section org_send before it is queued.
 import type { OrgDaemon } from '../../../../packages/@monomind/cli/src/orgrt/daemon.js';
+import { type FaultPlan, faultInjector } from './fault-injection.js';
 import { crossSectionRefusal, type Routing, sectionOf } from './routing.js';
 import { type DocContract, HandoffStore } from './store.js';
 import { PILOT_PREFIX, pilotTools } from './tools.js';
@@ -19,6 +20,8 @@ export interface PilotTrial {
   dir: string;
   routing: Routing;
   contracts: DocContract[];
+  /** Harness-seeded faults for the published documents (parallel-sweep-3's treatment arm); absent elsewhere. */
+  faults?: FaultPlan;
 }
 
 /** The org definition a pilot trial runs: each sectioned role carries a placeholder tool
@@ -74,7 +77,12 @@ function handoffLine(role: string, trial: PilotTrial): string {
 export function attachPilot(daemon: OrgDaemon, trial: PilotTrial, token: string): HandoffStore {
   if (token !== trial.runId)
     throw new Error('pilot tools attach only to the trial that owns this run token');
-  const store = new HandoffStore(trial.dir, trial.contracts);
+  const store = new HandoffStore(
+    trial.dir,
+    trial.contracts,
+    undefined,
+    trial.faults ? faultInjector(trial.faults) : undefined,
+  );
 
   const hub = daemon.toolProviders as unknown as {
     buildRoleTools: (o: { ctx: { role: string } }) => Promise<unknown>;

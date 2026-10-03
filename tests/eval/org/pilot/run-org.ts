@@ -87,6 +87,7 @@ if (process.argv[1]?.endsWith('run-org.ts')) {
           dir: trial.pilot.dir,
           routing: trial.pilot.routing,
           contracts: trial.pilot.contracts,
+          ...(trial.pilot.faults ? { faults: trial.pilot.faults } : {}),
         }
       : undefined;
   const { stoppedManually } = await runOrg({ root, name, task: process.env.SMOKE_TASK, pilot });

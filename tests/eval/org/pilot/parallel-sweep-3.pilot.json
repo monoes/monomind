@@ -1,0 +1,957 @@
+{
+  "id": "pilot-parallel-sweep-3",
+  "scenario": "parallel-sweep-3",
+  "committed_at": "2026-10-04",
+  "harness_only": true,
+  "sections_serialized": false,
+  "trials_per_arm": 2,
+  "arms": [
+    {
+      "id": "baseline",
+      "description": "Control, no faults: the parallel-sweep-2 baseline at 720 s (lead, eight workers with four modules each, a synthesiser that reads the sheet files); cost, time and delivery only"
+    },
+    {
+      "id": "treatment",
+      "description": "The hand-off layer as the only path: the synthesiser cannot read out/<module>/, reads the eight published documents, decides accept or reject on each before use, with four harness-seeded faults (one class each) injected at first publish; rejections are relayed synthesiser to lead to worker"
+    }
+  ],
+  "per_run_allocation_usd": 34,
+  "native_children": "disabled",
+  "writer_authority": "each module sheet is written only by the worker that owns the module and the synthesis only by the synthesiser; the corpus is read-only in both arms; in the treatment arm each worker also publishes its four sheets as one document (module-sheets-w<k>), the files being what is scored and the documents being what the synthesiser reads; only the harness's injector changes a published document",
+  "org_stop_usd": 34,
+  "profile": "production",
+  "deadline_seconds": 720,
+  "routing": {
+    "sections": {
+      "sweep-a": {
+        "lead": "worker-1",
+        "members": [
+          "worker-2"
+        ]
+      },
+      "sweep-b": {
+        "lead": "worker-3",
+        "members": [
+          "worker-4"
+        ]
+      },
+      "sweep-c": {
+        "lead": "worker-5",
+        "members": [
+          "worker-6"
+        ]
+      },
+      "sweep-d": {
+        "lead": "worker-7",
+        "members": [
+          "worker-8"
+        ]
+      },
+      "synthesis": {
+        "lead": "synthesiser",
+        "members": []
+      }
+    }
+  },
+  "contracts": [
+    {
+      "id": "module-sheets-w1",
+      "title": "Answer sheets of worker-1's four modules (m1 to m4)",
+      "producer": "worker-1",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-1"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w2",
+      "title": "Answer sheets of worker-2's four modules (m5 to m8)",
+      "producer": "worker-2",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-2"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m5",
+                    "m6",
+                    "m7",
+                    "m8"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w3",
+      "title": "Answer sheets of worker-3's four modules (m9 to m12)",
+      "producer": "worker-3",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-3"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m9",
+                    "m10",
+                    "m11",
+                    "m12"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w4",
+      "title": "Answer sheets of worker-4's four modules (m13 to m16)",
+      "producer": "worker-4",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-4"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m13",
+                    "m14",
+                    "m15",
+                    "m16"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w5",
+      "title": "Answer sheets of worker-5's four modules (m17 to m20)",
+      "producer": "worker-5",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-5"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m17",
+                    "m18",
+                    "m19",
+                    "m20"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w6",
+      "title": "Answer sheets of worker-6's four modules (m21 to m24)",
+      "producer": "worker-6",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-6"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m21",
+                    "m22",
+                    "m23",
+                    "m24"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w7",
+      "title": "Answer sheets of worker-7's four modules (m25 to m28)",
+      "producer": "worker-7",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-7"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m25",
+                    "m26",
+                    "m27",
+                    "m28"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "module-sheets-w8",
+      "title": "Answer sheets of worker-8's four modules (m29 to m32)",
+      "producer": "worker-8",
+      "consumers": [
+        "synthesiser"
+      ],
+      "max_attempts": 4,
+      "schema": {
+        "type": "object",
+        "required": [
+          "worker",
+          "sheets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": [
+              "worker-8"
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "module",
+                "answers"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": [
+                    "m29",
+                    "m30",
+                    "m31",
+                    "m32"
+                  ]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "q",
+                      "value",
+                      "files"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "fault_injection": {
+    "seed_base": 20261003,
+    "seed_rule": "seed_base plus the trial number",
+    "documents": 4,
+    "classes": [
+      "wrong-value-q05",
+      "wrong-value-q07",
+      "files-order",
+      "duplicate-sheet"
+    ],
+    "scope": "treatment arm of this scenario only; each document is changed once, at its first successful publish; the change is recorded as a fault event in the store's event log"
+  },
+  "staged_plan": {
+    "status": "APPROVED 2026-10-04 by the lead, under the owner's standing instruction: stage 1 only is started; stage 2 starts only if the stage 1 mechanism gate passed",
+    "basis": "docs/mastermind/pilot/2026-10-04-parallel-sweep-3-design.md; all USD in harness dollars (1.5x the Sonnet 5.5 list rates, to be reconciled by the owner)",
+    "gate_kind": "handoff-read",
+    "units_total": 33,
+    "pilot_soft_cap_usd": 80,
+    "stages": [
+      {
+        "stage": 1,
+        "trials": [
+          {
+            "arm": "treatment",
+            "n": 1
+          }
+        ],
+        "low_usd": 14,
+        "expected_usd": 18,
+        "high_usd": 23,
+        "soft_cap_usd": 25,
+        "run": "node smoke/prepare.mjs inputs --scenario parallel-sweep-3 --base <base>; PILOT_ALLOCATION_USD=25 PILOT_ONLY=parallel-sweep-3:treatment:1:0 pilot/run-all.sh <base> <cli.js>",
+        "measures": "whether the synthesiser reads and decides on the published documents at all (the mechanism gate), and the first read of faults caught and missed",
+        "gate": "always runs first"
+      },
+      {
+        "stage": 2,
+        "trials": [
+          {
+            "arm": "treatment",
+            "trial_number": 2
+          },
+          {
+            "arm": "baseline",
+            "trial_number": 1,
+            "optional": "a no-fault control for cost, time and delivery; the sweep-2 baseline rerun already is one at 600 s; dropping it saves about $16"
+          }
+        ],
+        "low_usd": 27,
+        "expected_usd": 34,
+        "high_usd": 45,
+        "soft_cap_usd": 55,
+        "cumulative_soft_cap_usd": 80,
+        "run": "PILOT_ALLOCATION_USD=80 PILOT_ONLY=parallel-sweep-3:treatment:2:0,parallel-sweep-3:baseline:1:0 pilot/run-all.sh <base> <cli.js> (the same <base>; pilot/stage-gate.mjs refuses it unless the stage 1 gate passed)",
+        "gate": "only if, in the stage 1 treatment trial, the synthesiser made at least one successful pilot__doc_read call",
+        "measures": "a second fault placement (a different seed), the decision measures at n=2, and the cost and time of the control"
+      },
+      {
+        "stage": 3,
+        "trials": [
+          {
+            "arm": "treatment",
+            "trial_number": 3
+          },
+          {
+            "arm": "baseline",
+            "trial_number": 2
+          }
+        ],
+        "note": "not planned; a further owner approval; nothing in stage 3 starts without it",
+        "gate": "PILOT_STAGE3_APPROVED=yes"
+      }
+    ],
+    "estimate_total_usd": {
+      "low_usd": 41,
+      "expected_usd": 52,
+      "high_usd": 68
+    },
+    "estimate_cheapest_pilot_usd": {
+      "what": "stage 1 plus the second treatment trial only (no baseline control)",
+      "low_usd": 28,
+      "expected_usd": 36,
+      "high_usd": 46
+    },
+    "estimate_basis": "harness dollars from the parallel-sweep-2 rerun (treatment 14.13 with the synthesiser at 0.40 and the lead at 0.43; baseline 18.17); the synthesiser is estimated at 1.2 / 2.4 / 3.0 (its cap) for about 50 to 70 turns on a growing context plus spot checks, the lead at 0.5 / 0.8 / 1.4 for the relays, and four republishes at about 0.25 each"
+  },
+  "stop_rule": {
+    "mechanism_gate": "After the first treatment trial: if the synthesiser made 0 successful pilot__doc_read calls, the mechanism failed: stop and report; no further trial starts (stage-gate.mjs refuses stage 2 and stage 3). A trial in which the synthesiser never started counts as 0 reads.",
+    "not_a_gate": "Reads with 0 decides, or 0 faults caught, do not stop the pilot; they are the result and are reported to the lead.",
+    "per_trial_stop": "the org-wide $34 spend stop (spend-stop.mjs), the 720 s deadline, or the lead's org_complete, whichever comes first",
+    "soft_caps": "stage 1 25 USD, the pilot 80 USD (run-all.sh stops without starting another trial once the spend so far passes PILOT_ALLOCATION_USD); the owner's plan line is about 150 USD",
+    "thresholds": {
+      "stage1_min_synthesiser_doc_reads": 1,
+      "spend_flag_per_trial_usd": 23,
+      "spend_flag_basis": "the high estimate of a treatment trial; a trial above it is reported before another starts",
+      "of_units": 33
+    },
+    "predictions": [
+      "The synthesiser reads all eight documents and decides on all eight (the gate asks only for one read). Not tested before.",
+      "It catches the cheap classes (reversed files lists, a copied sheet) at a higher rate than the wrong values, which need a hand trace of a call chain.",
+      "At least one of two treatment trials delivers 31 or more of the 33 units, with the synthesis file written between 400 and 650 s."
+    ],
+    "unit": "units accepted by the 720 s deadline, of 33; the decision measures are in units.json under handoff",
+    "exploratory": "harness-only prototype, exploratory, n=2 at most per arm, no intervals; it cannot pass or fail the coordination gate or qualify defaults"
+  },
+  "declared_changes": [
+    {
+      "id": "handoff-decision-variant",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "A new scenario, parallel-sweep-3, next to parallel-sweep-2: the same 32-module, 8-worker, 33-unit workload (same corpus generator and seed, truth, scorer, roster, per-worker caps, no-node sandbox and home write-deny) reshaped so that the synthesiser must read and decide on the published module documents, built unpaid and test-first. Fixture record: tests/eval/org/fixtures/parallel-sweep-3/fixture.json.",
+      "why": "The parallel-sweep-2 stage 2 rerun ran only the write side of the hand-off layer (eight doc_publish, zero doc_read, doc_decide or doc_list): the synthesiser aggregated the workers' sheet files with jq, so the layer itself, the read and the decision, was never measured.",
+      "earlier_result": "none rewritten: parallel-sweep and parallel-sweep-2, their pinned hashes, manifests and results stay as they are"
+    },
+    {
+      "id": "hand-off-only-path",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Treatment arm: the synthesiser cannot read out/m1 .. out/m32 (policy.sandbox.denyRead, the bubblewrap layer that already hides the truth) and receives the module sheets only through pilot__doc_read; it must call pilot__doc_decide (accept, or reject with a reason) on each document before using it, and keeps read access to corpus/ so it can check a claim against the code. The trial's pilot-state/ and trial.json and the tests/eval/org tree are hidden from every role so no role can read the fault plan or the injector. The task text tells it the documents may contain errors and what a decision means, not which documents are corrupted.",
+      "why": "Makes the hand-off channel the only path, so a run cannot bypass it by aggregating files.",
+      "earlier_result": "the sweep-2 treatment rerun (33 of 33 in 297 s, no read or decide calls) stays on record"
+    },
+    {
+      "id": "fault-injection",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The pilot harness gains a deterministic, seeded fault hook (pilot/fault-injection.ts, applied by HandoffStore.publish through a PublishInjector, set only by a pilot manifest's fault_injection and only in that scenario's treatment arm): 4 of the 8 worker documents are changed at their first successful publish, one class each (a wrong q05 value, a wrong q07 value, reversed files lists, a sheet replaced by a copy of another module's), each only once; the producer's own files in out/ stay correct, so a republished document is correct. Every change is recorded in the store's event log as a `fault` event, from which the report counts faults caught, missed and false rejects. Seed: seed_base 20261003 plus the trial number.",
+      "why": "Makes the decisions matter and their quality measurable. The faults are harness-injected, so this measures the decision path, not natural errors.",
+      "earlier_result": "no other scenario or arm sets fault_injection; every existing pilot trial is unchanged"
+    },
+    {
+      "id": "deadline-720",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The wall deadline of this scenario is 720 s (twelve minutes), not 600 s, in both arms; the per-run planning allocation and org stop are $34 (harness dollars) because the synthesiser and lead caps rise (synthesiser $3.0, lead $1.4 at the production profile).",
+      "why": "The sweep-2 treatment rerun ended at 297 s with the last document at about 275 s; reads, spot checks, a relayed rejection, a republish and a second decision add an estimated 150 to 300 s, and at 600 s a late republish would be cut by the deadline so that the trial measured the clock, not the decisions.",
+      "earlier_result": "parallel-sweep-2 keeps its 600 s design; its times are comparable only indicatively"
+    },
+    {
+      "id": "baseline-no-faults-control",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "The baseline arm is the sweep-2 baseline at 720 s with no fault injection: the synthesiser reads the workers' sheet files. It is a control for cost, time and delivery. The single arm is dropped (it does not use the hand-off layer and was measured in sweep-2).",
+      "why": "A symmetric file-side fault (mutating the workers' out/ files) would corrupt the scored deliverables, race with the workers' own writes inside a live sandbox and change what is scored; it is not defensible. So every decision measure (catch rate, false rejects, republish cycles) is treatment-only: a mechanism measurement, not a comparison.",
+      "earlier_result": "the sweep-2 baseline rerun (29 of 33, $18.17) stays on record"
+    },
+    {
+      "id": "harness-dollars",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Carried over from parallel-sweep-2: every USD figure is in harness dollars (1.5x the Sonnet 5.5 list rates); the owner is to reconcile with the invoice. Recorded as cost_units_note in the fixture record.",
+      "why": "An open question, recorded instead of assumed either way.",
+      "earlier_result": "carried over from parallel-sweep-2"
+    },
+    {
+      "id": "no-node-sandbox",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Carried over from parallel-sweep-2: every role of both arms runs with no node and no code-execution tool (policy.sandbox.denyExec, allowTools limited to Bash, Read, Write, Edit, MultiEdit, Glob and Grep, Bash network limited to localhost); verification by the synthesiser is therefore by reading code.",
+      "why": "Running the corpus code would be one call for every value.",
+      "earlier_result": "carried over from parallel-sweep-2"
+    },
+    {
+      "id": "home-write-deny",
+      "date": "2026-10-04",
+      "approved_by": "lead, under the owner's standing instruction (design the next fixture variant where the synthesiser reads and decides on the published module documents; pick its pilot and run it if within plan, under about $150)",
+      "what": "Carried over from parallel-sweep-2: every role of both arms runs with its real $HOME write-protected (policy.sandbox.homeWriteAllow: only ~/.claude, ~/.codex and ~/.gemini are real, writable paths), and the kit's real-state check voids a trial on a stray entry in the home.",
+      "why": "A role in the first parallel-sweep trio created ~/f7.sh in the real home.",
+      "earlier_result": "carried over from parallel-sweep-2"
+    }
+  ]
+}

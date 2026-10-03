@@ -1,0 +1,188 @@
+{
+  "status": "APPROVED 2026-10-04 by the lead, under the owner's standing instruction (design the next fixture variant where the synthesiser must read and decide on the published documents)",
+  "id": "parallel-sweep-3-fixture",
+  "scenario": "parallel-sweep-3",
+  "fixture": {
+    "status": "APPROVED 2026-10-04",
+    "summary": "The parallel-sweep-2 workload (32 modules, 8 workers with 4 modules each, a lead, a synthesiser, 33 units, the same corpus, truth, scorer, roster, per-worker caps, no-node sandbox and home write-deny) reshaped so that the synthesiser MUST read and decide on the published module documents: in the treatment arm it has no access to the workers' out/ files, receives the sheets only through the hand-off layer (pilot__doc_read), and must call pilot__doc_decide on each document before using it. The harness corrupts four of the eight documents at their first publish (a different fault class each, chosen by seed), so the quality of the decisions is measurable: faults caught, missed, false rejects, republish cycles, and whether the final synthesis used a corrupted document. The producers' own files stay correct and are what the scorer reads.",
+    "reuses": {
+      "generator": "tests/eval/org/fixtures/parallel-sweep/build-corpus.mjs --modules 32 (default seed 20261003), through the parallel-sweep-2 kit's buildInputs",
+      "scorer": "tests/eval/org/fixtures/parallel-sweep-2/score.mjs (re-exported by ./score.mjs; unchanged)",
+      "pinned_hash": "the parallel-sweep-2 corpus, byte for byte: the same pinned hash; no pinned hash of parallel-sweep or parallel-sweep-2 changes"
+    },
+    "build": "node tests/eval/org/fixtures/parallel-sweep/build-corpus.mjs <empty dir> --truth <path outside that dir>/truth.json --modules 32",
+    "pinned_hash": "15cc5bf9193966a8729dbc9c540a663c9becf5128026f1c7e72074fa7365a0e4",
+    "pin_basis": "sha256 over the sorted relative paths and contents of every file the N=32 build writes (see fixture.test.ts, which rebuilds twice and checks both this value and the byte-for-byte equality); the default seed is 20261003, which gave an unambiguous synthesis on the first attempt",
+    "scorer": "node tests/eval/org/fixtures/parallel-sweep-3/score.mjs <deliverables dir> --truth <truth.json> (the parallel-sweep-2 scorer); the hand-off measures come from handoff-metrics.mjs (check() leaves them in units.json under `handoff`)",
+    "deliverables": {
+      "module_sheet": "out/<module>/answers.json = {\"module\": \"m1\", \"answers\": [{\"q\": \"q01\", \"value\": <integer>, \"files\": [\"m1/a.mjs\", ...]}, ... 12 entries]}; accepted when at least 11 of 12 answers have the exact value and the exact ordered file list (the unit rule); sheets with 12 of 12 are counted too, as a secondary accuracy metric (evidence.exact)",
+      "synthesis": "out/synthesis.json = {\"answers\": [{\"q\": \"s1\", \"value\": ...}, ... 6 entries]}; accepted when all 6 are exact",
+      "treatment_hand_off": "treatment arm: each worker publishes one document module-sheets-w<k> = {\"worker\": \"worker-k\", \"sheets\": [{\"module\": \"m..\", \"answers\": [...]}, ... 4 sheets]}, each sheet the content of that module's file. The synthesiser reads the eight documents and decides accept or reject on each version. The files remain the scored deliverables; the documents are what the synthesiser reads and the fault injector changes."
+    },
+    "hand_off_design": {
+      "only_path": "treatment: the synthesiser and nothing else cannot read out/m1 .. out/m32 (policy.sandbox.denyRead on those 32 directories, the same bubblewrap layer that hides the truth); it keeps read access to corpus/ and can write only out/synthesis.json. It also cannot read the trial's pilot-state/ (the store and the harness's event log), trial.json (the fault plan) or the tests/eval/org tree (manifests, injector source).",
+      "decision_semantics": "doc_decide accept or reject (a reason is mandatory for a reject); a rejected version stays rejected and is superseded by the producer's next publish; a document counts as accepted only when the synthesiser (the only consumer) accepts a version. The producer is NOT notified by the store (store.ts); the task text routes the rejection through the lead (synthesiser to lead to worker), which is allowed (the lead is in no section). Attempts: 4 per document (the contract's max_attempts, schema failures included).",
+      "consumer_told": "the task text says the documents may contain errors, that the code in corpus/ is the truth, that a decision per document is required before use, and what accept and reject mean; it does not say which documents are corrupted, nor how many, nor which kinds of error."
+    },
+    "fault_injection": {
+      "where": "tests/eval/org/pilot/fault-injection.ts (planFaults, faultInjector) applied by HandoffStore.publish through the PublishInjector hook; set by the pilot manifest's fault_injection and only in the treatment arm of this scenario; every other scenario and arm is unchanged.",
+      "seed": "seed_base 20261003 plus the trial number (trial 1 and trial 2 get different, reproducible placements); a redo of trial n gets the plan trial n had",
+      "documents": "4 of the 8 worker documents, chosen by the seed, one fault class each",
+      "classes": {
+        "wrong-value-q05": "the first sheet's q05 value is changed by +3..19; it feeds s5 (the sum of all q05 values), so a synthesis built from it is wrong. Detectable only by tracing that chain in the code by hand (hard).",
+        "wrong-value-q07": "the q07 value of the document's first module in the s2 subset (m2, m5, m8, ...) is changed by +3..19; it feeds s2. Detectable only by tracing the chain (hard).",
+        "files-order": "the files lists of q01 and q02 in the first sheet are reversed: the first file is no longer the entry file that questions.json names (cheap to see with the entry file in hand). It changes no synthesis answer (s3 uses the list length only), so it shows in the decision, not in the synthesis.",
+        "duplicate-sheet": "the second sheet's answers are replaced by a copy of the first sheet's (a copy across modules, which the scorer flags as critical in files): the file paths name the wrong module (cheap to see)."
+      },
+      "once": "each document is changed at its first successful publish only; a republished version is the producer's own content, so a rejected-and-republished document comes back correct",
+      "record": "every change is appended to pilot-events.jsonl as a `fault` event (document, version, class, module, questions, what changed, content hashes before and after); the event log is outside every role's view"
+    },
+    "measures": {
+      "per_trial": [
+        "documents read and decided per role (and distinct documents), refused calls included",
+        "faults injected, caught (the synthesiser rejected the corrupted version, with a reason), caught with a plausible reason (a keyword and id heuristic, reasons listed verbatim), missed (accepted), undecided (superseded or never decided)",
+        "false rejects (a reject of a version that equals the truth) and rejects of versions with a natural error",
+        "republish cycles (publishes beyond the first), per document and in total",
+        "final accepted version per document: accepted at all, correct (all four sheets exact against the truth), corrupted",
+        "whether the synthesis used a corrupted document (its answer equals what that fault alone would produce, and differs from the truth), whether any document was used without a decision at the time the synthesis was written",
+        "units delivered of 33, sheets exact (12 of 12) and the synthesis exact; time to the synthesis file, to the first read and the last decision; the cost split by role"
+      ],
+      "stop_gate": "the first treatment trial: if the synthesiser makes 0 pilot__doc_read calls, the mechanism failed: stop and report (pilot/stage-gate.mjs)"
+    },
+    "wall_deadline_seconds": 720,
+    "wall_deadline_minutes": 12,
+    "wall_deadline_why": "The parallel-sweep-2 treatment rerun finished at 297 s with the workers done at about 275 s. The decision loop adds, after the last document lands: reading eight documents, spot checks against the code, decisions, one rejection relayed synthesiser to lead to worker, a republish, a second read and decision, then the synthesis: an estimated 150 to 300 s. 600 s would leave a tail in which a late republish is cut by the deadline, and the trial would then measure the deadline, not the decisions. 720 s keeps the same workload with about two extra minutes; the task text asks the synthesiser to stop waiting for a correction at 660 s.",
+    "planning_allocation_usd_per_run": 34,
+    "org_stop_usd": 34,
+    "model": "claude-sonnet-5-5 (production profile)",
+    "workload": {
+      "source": "the generator's own computation, asserted in fixture.test.ts",
+      "modules": 32,
+      "files_per_module": "30 source files plus config.mjs",
+      "source_files": 992,
+      "corpus_files": 1025,
+      "lines": 73232,
+      "estimated_tokens": 878784,
+      "chain_reads_per_module": 66,
+      "min_chain_reads_per_module": 66,
+      "chain_reads_total": 2112,
+      "min_chain_reads_total": 2112,
+      "note": "chain reads = the sum of chain lengths, one file read per chain step; every module has the same multiset of chain lengths, so the minimum per module equals the maximum. Reads of distinct files are fewer (about 25 to 30 of the 31 per module). Estimated tokens use 12 per line, as in parallel-sweep."
+    },
+    "sandbox": {
+      "status": "carried over from parallel-sweep-2 unchanged for every role of both arms: no node and no code-execution tool (policy.sandbox.denyExec), Bash network limited to localhost, the real $HOME write-protected (homeWriteAllow), the truth and the fixture directories hidden (denyRead). Added here for every role: the eval tree and the trial's own record are hidden, so no role can read the fault plan or the injector (denyRead on tests/eval/org, on the pilot design notes, and in the treatment arm on the trial's pilot-state/ and trial.json). Added for the synthesiser in the treatment arm: out/m1 .. out/m32 hidden."
+    },
+    "tasks": {
+      "common": "The directory corpus/ holds thirty-two modules, m1 to m32. Each module directory has a questions.json with 12 questions; a question names an entry function (file and name). For each question give (a) the integer the call chain finally returns when the entry function is called with no arguments, and (b) the ordered list of files whose functions the call executes, from the entry file to the last file, written as corpus-relative paths exactly as in questions.json (for example \"m1/ticket.mjs\"); the module's config.mjs is not part of the list. Answer by reading the code: nothing in this run can execute it (no node or other interpreter is available to any role, and no code-execution tool), so do not try. Comments and names can mislead (near-identical function names, stale defaults, comments about 'the new version'); the code is the truth, and a constant can be overridden in the module's config.mjs. A second set of six cross-module questions is in corpus/synthesis-questions.json; its answers need the answers of the modules. Deliverables: out/<module>/answers.json for each of the thirty-two modules and out/synthesis.json, each one JSON object (not a bare list) with no other keys than the ones shown. A module sheet is {\"module\":\"m1\",\"answers\":[{\"q\":\"q01\",\"value\":<integer>,\"files\":[\"m1/a.mjs\", ...]}, ...]} with exactly the 12 question ids q01 to q12 of that module, one entry each; value is an integer and files is a list of strings (the ordered corpus-relative paths with their extension, as in questions.json, config.mjs left out). The synthesis is {\"answers\":[{\"q\":\"s1\",\"value\":...}, ...]} with the six ids s1 to s6, one entry each and no files key; value has the form the question asks for (a module id string, an integer, or a list of strings). Worked example with made-up data, not a real answer: {\"module\":\"m99\",\"answers\":[{\"q\":\"q99\",\"value\":12345,\"files\":[\"m99/x.mjs\",\"m99/y.mjs\"]}]} and {\"answers\":[{\"q\":\"s99\",\"value\":\"m0\"}]}. Everything must be finished within 720 seconds (twelve minutes) of wall time: the run is cut at that moment and only the files already written count, so write each module's sheet as soon as that module is done; sheets and answers not written by then do not count.",
+      "multi_role": "The task above is done by a team. The lead coordinates and does not answer any question itself: it assigns the modules (worker-1: m1 to m4, worker-2: m5 to m8, worker-3: m9 to m12, worker-4: m13 to m16, worker-5: m17 to m20, worker-6: m21 to m24, worker-7: m25 to m28, worker-8: m29 to m32), tells the synthesiser what to wait for, and reports when all thirty-three deliverables exist or the deadline arrives. Each worker answers its own four modules from the code and writes out/<module>/answers.json for each of them, one file per module, as soon as that module is done. The synthesiser answers the six cross-module questions from the modules' answer sheets and writes out/synthesis.json; it does not redo the modules' work.",
+      "multi_role_documents": "The task above is done by a team. The lead coordinates and does not answer any question itself: it assigns the modules (worker-1: m1 to m4, worker-2: m5 to m8, worker-3: m9 to m12, worker-4: m13 to m16, worker-5: m17 to m20, worker-6: m21 to m24, worker-7: m25 to m28, worker-8: m29 to m32), tells the synthesiser what to wait for, relays any rejection (see below) to the producing worker, and reports when all thirty-three deliverables exist or the deadline arrives; it does not complete the run before the synthesiser has written out/synthesis.json. Each worker answers its own four modules from the code, writes out/<module>/answers.json for each of them as soon as that module is done, then publishes one document module-sheets-w<k> with pilot__doc_publish holding its four sheets, each exactly the content of that module's file, and tells the lead it is published. Hand-offs between the workers and the synthesiser are documents: the synthesiser cannot read the workers' out/ directories and receives the module sheets only by reading the eight documents with pilot__doc_read. The documents may contain errors, whatever their origin; the code in corpus/ is the truth (the synthesiser can read it, and each module's questions.json names every question's entry function and file). Before it uses a document, the synthesiser must call pilot__doc_decide for it: accept, when the sheets are right as far as it can tell, or reject, with a reason that names what is wrong (a rejection without a reason is refused). It uses only accepted documents in the synthesis and derives no answer from a document it has not accepted. A rejected document goes back to its producer, who is not notified automatically: the synthesiser tells the lead which document it rejected and why, the lead tells the producing worker, and the worker publishes a corrected version from its own sheet files; the synthesiser then reads the new version and decides on it. A document may be published at most four times. The synthesiser answers the six cross-module questions from the accepted documents and writes out/synthesis.json; it does not redo the modules' work. If a corrected version has not arrived 660 seconds after the start, it answers from what it has accepted and tells the lead so."
+    },
+    "why": "The parallel-sweep-2 stage 2 rerun delivered 33 of 33 in 297 s with the hand-off layer, but only its write side ran: eight doc_publish calls, no refusals, and zero doc_read, doc_decide or doc_list. The synthesiser aggregated the workers' sheet files with jq. So the layer itself, the read and the decision, was never measured. This variant removes the bypass (the files are hidden from the synthesiser in the treatment arm) and makes the decision matter (corrupted documents that a careless accept would carry into the synthesis), so a run says whether a model consumer actually reads, checks and rejects, and what that costs in time and money.",
+    "weaknesses": [
+      "Faults are harness-injected, so this measures the decision path, not natural errors: how often producers err by themselves is not measured here (the sheets in the rerun were 29 of 32 at 12 of 12).",
+      "No treatment-versus-baseline comparison of decision quality is possible: the baseline has no faults. A file-side equivalent (mutating the workers' out/ files) would corrupt the scored deliverables, race with the workers' writes in a live sandbox and change what is scored; it was rejected as not defensible. The baseline is a no-fault control, so the treatment-versus-baseline comparison is about cost, time and delivery only, and every decision measure (catch rate, false rejects, republish cycles) is treatment-only: a mechanism measurement, not a comparison.",
+      "Two of the four fault classes (the wrong values) can only be caught by tracing a call chain by hand in a sandbox with no interpreter; a low catch rate there measures verification effort under a $1.5 (harness $3) synthesiser budget and a 720 s clock as much as judgement. The two cheap classes (files order, duplicate sheet) show whether it checks at all.",
+      "n is 2 treatment trials with different fault placements; fault class and placement are confounded in each trial, and no interval is stated. Exploratory, cannot qualify defaults.",
+      "The task text primes the synthesiser to expect errors and names the check (the code is the truth). A consumer that is not primed would probably accept more. The measure is the decision quality of a warned consumer, an upper bound on an unwarned one.",
+      "The store does not notify a producer of a rejection (spec: consumers are not notified). The loop synthesiser to lead to worker depends on the lead relaying; a failure there is a coordination failure, shown as a rejected document with no republish, and is reported apart from the decision itself.",
+      "The lead and the workers can still read out/ and could pass sheet contents to the synthesiser by mail (the lead is in no section, so its sends are not refused). The task text forbids forwarding sheet content but the harness does not block it; the synthesiser's mail is available for review.",
+      "The files-order fault changes no synthesis answer, so \"the synthesis used it\" cannot be observed for that class; it is measured through the decision and the final accepted version.",
+      "The plausible-reason test is a keyword and id heuristic; the reasons are listed verbatim so a reader can judge them.",
+      "Each fault is injected once, at the first publish; the loop is tested for one cycle per document, not for a persistently wrong producer.",
+      "The 720 s deadline differs from parallel-sweep-2's 600 s, so times and units against the sweep-2 rows are indicative only.",
+      "Everything not run on a model is unverified: that the synthesiser calls pilot__doc_read, that a sandboxed role really sees empty out/ directories through the SDK's file tools (tested with real bubblewrap on the shell and the launcher, not on a live Read call), and the cost estimate."
+    ],
+    "cost_units_note": "Harness dollars (every USD figure in this record, the caps, the org stop and the soft stage caps) are measured by the harness at 1.5x the Sonnet 5.5 list rates ($2/$10 per million input/output tokens, $0.20 cache read, $4 1-hour cache write). The owner is to reconcile harness dollars with the invoice before any figure here is read as money actually spent.",
+    "arms": [
+      {
+        "id": "baseline",
+        "description": "The parallel-sweep-2 baseline at the 720 s deadline, with NO fault injection (a control): lead, eight workers with four modules each and a synthesiser coordinating by mail and tasks; the synthesiser reads the workers' sheet files. Cost, time and delivery only; no decision measure.",
+        "roster": [
+          "lead",
+          "worker-1",
+          "worker-2",
+          "worker-3",
+          "worker-4",
+          "worker-5",
+          "worker-6",
+          "worker-7",
+          "worker-8",
+          "synthesiser"
+        ],
+        "responsibilities": {
+          "lead": "The unsectioned root. Assigns the modules, does not answer questions itself, writes nothing, reports when all 33 deliverables exist or the deadline arrives.",
+          "worker-1": "Answers modules m1 to m4 and writes out/m1/answers.json .. out/m4/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-2": "Answers modules m5 to m8 and writes out/m5/answers.json .. out/m8/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-3": "Answers modules m9 to m12 and writes out/m9/answers.json .. out/m12/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-4": "Answers modules m13 to m16 and writes out/m13/answers.json .. out/m16/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-5": "Answers modules m17 to m20 and writes out/m17/answers.json .. out/m20/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-6": "Answers modules m21 to m24 and writes out/m21/answers.json .. out/m24/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-7": "Answers modules m25 to m28 and writes out/m25/answers.json .. out/m28/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "worker-8": "Answers modules m29 to m32 and writes out/m29/answers.json .. out/m32/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; tells the synthesiser when each is written.",
+          "synthesiser": "Waits for the 32 sheets, answers s1 to s6 from them and writes out/synthesis.json in the synthesis shape given in the task text."
+        }
+      },
+      {
+        "id": "treatment",
+        "description": "The same roles with the hand-off layer as the only path and four harness-seeded faults: one section per worker pair and the synthesis section, one contract per worker, the synthesiser the only consumer, with out/ hidden from it, deciding on every document before use.",
+        "roster": [
+          "lead",
+          "worker-1",
+          "worker-2",
+          "worker-3",
+          "worker-4",
+          "worker-5",
+          "worker-6",
+          "worker-7",
+          "worker-8",
+          "synthesiser"
+        ],
+        "sections": {
+          "sweep-a": {
+            "lead": "worker-1",
+            "members": [
+              "worker-2"
+            ]
+          },
+          "sweep-b": {
+            "lead": "worker-3",
+            "members": [
+              "worker-4"
+            ]
+          },
+          "sweep-c": {
+            "lead": "worker-5",
+            "members": [
+              "worker-6"
+            ]
+          },
+          "sweep-d": {
+            "lead": "worker-7",
+            "members": [
+              "worker-8"
+            ]
+          },
+          "synthesis": {
+            "lead": "synthesiser",
+            "members": []
+          }
+        },
+        "responsibilities": {
+          "lead": "The unsectioned root. Assigns the modules, does not answer questions itself, writes nothing, forwards no sheet content, relays the synthesiser's rejections (document and reason) to the producing worker, does not complete the run before out/synthesis.json is written, and reports when all 33 deliverables exist or the deadline arrives.",
+          "worker-1": "Answers modules m1 to m4 and writes out/m1/answers.json .. out/m4/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w1 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-2": "Answers modules m5 to m8 and writes out/m5/answers.json .. out/m8/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w2 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-3": "Answers modules m9 to m12 and writes out/m9/answers.json .. out/m12/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w3 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-4": "Answers modules m13 to m16 and writes out/m13/answers.json .. out/m16/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w4 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-5": "Answers modules m17 to m20 and writes out/m17/answers.json .. out/m20/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w5 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-6": "Answers modules m21 to m24 and writes out/m21/answers.json .. out/m24/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w6 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-7": "Answers modules m25 to m28 and writes out/m25/answers.json .. out/m28/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w7 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "worker-8": "Answers modules m29 to m32 and writes out/m29/answers.json .. out/m32/answers.json, one file per module as soon as that module is done, each in the module-sheet shape given in the task text; then publishes one document module-sheets-w8 with pilot__doc_publish holding the four sheets (the same content as the files, which remain the scored deliverables) and tells the lead; when the lead relays a rejection, publishes a corrected version built from its own files.",
+          "synthesiser": "Cannot read out/<module>/ (hidden); reads the eight module-sheets documents with pilot__doc_read, checks what it relies on against the code in corpus/, decides accept or reject (with a reason) on every document before using it, tells the lead which documents it rejected and why, reads and decides on each corrected version, then answers s1 to s6 from the accepted documents only and writes out/synthesis.json in the synthesis shape given in the task text."
+        },
+        "contracts": "pilot/parallel-sweep-3.pilot.json (module-sheets-w1 .. module-sheets-w8, producer a worker, consumer synthesiser, max_attempts 4)",
+        "fault_injection": "pilot/parallel-sweep-3.pilot.json (fault_injection)"
+      }
+    ]
+  },
+  "cost_units_note": "Harness dollars (every USD figure in this record, the caps, the org stop and the soft stage caps) are measured by the harness at 1.5x the Sonnet 5.5 list rates ($2/$10 per million input/output tokens, $0.20 cache read, $4 1-hour cache write). The owner is to reconcile harness dollars with the invoice before any figure here is read as money actually spent."
+}

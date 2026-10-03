@@ -14,6 +14,7 @@ const pilots = [
   'dev-feature-qa-revise',
   'parallel-sweep',
   'parallel-sweep-2',
+  'parallel-sweep-3',
 ].map(
   (id) => load(`${id}.pilot.json`),
 );
@@ -29,7 +30,9 @@ describe('the committed pilot manifests', () => {
   );
 
   it('plans round 2 of growth-like: 3 arms x 3 trials at $12 is 9 runs and $108; the round 1 dev-feature pilot is 6 runs at $8', () => {
-    const [growth, dev, revise, sweep, sweep2] = pilots;
+    const [growth, dev, revise, sweep, sweep2, sweep3] = pilots;
+    // parallel-sweep-3: baseline and treatment x 2 trials at $34 is 4 runs and $136 at the ceiling; the staged plan runs 1, then 2 or 3
+    expect(pilotPlan([sweep3], scenario)).toEqual({ runs: 4, allocation_usd: 136 });
     expect(pilotPlan([sweep], scenario)).toEqual({ runs: 9, allocation_usd: 108 });
     // parallel-sweep-2 at the ceiling of 3 trials per arm is 9 runs and $270 planned; the staged plan starts with 1 run
     expect(pilotPlan([sweep2], scenario)).toEqual({ runs: 9, allocation_usd: 270 });
@@ -142,6 +145,69 @@ describe('the committed pilot manifests', () => {
     expect(p.staged_plan.stages).toHaveLength(3);
     expect(p.stop_rule.thresholds.stop_at_or_above).toBe(30);
     expect(Object.keys(p.routing.sections)).toHaveLength(5);
+  });
+
+  it('parallel-sweep-3: baseline control and treatment (no single arm), 720 s, $34, 8 contracts with 4 attempts, the fault plan, the staged plan with its mechanism gate and the cost estimate, committed as approved by the lead', () => {
+    const p = pilots[5];
+    expect(p.arms.map((a: { id: string }) => a.id)).toEqual(['baseline', 'treatment']);
+    expect(p.harness_only).toBe(true);
+    expect(p.sections_serialized).toBe(false);
+    expect(p.native_children).toBe('disabled');
+    expect(p.profile).toBe('production');
+    expect([p.deadline_seconds, p.org_stop_usd, p.per_run_allocation_usd, p.trials_per_arm]).toEqual([720, 34, 34, 2]);
+    expect(p.contracts.map((c: { id: string }) => c.id)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8].map((k) => `module-sheets-w${k}`),
+    );
+    for (const c of p.contracts) expect([c.max_attempts, c.consumers]).toEqual([4, ['synthesiser']]);
+    expect(p.fault_injection).toEqual({
+      seed_base: 20261003,
+      seed_rule: 'seed_base plus the trial number',
+      documents: 4,
+      classes: ['wrong-value-q05', 'wrong-value-q07', 'files-order', 'duplicate-sheet'],
+      scope: expect.stringMatching(/treatment arm of this scenario only; each document is changed once/),
+    });
+    expect(p.status).toBeUndefined();
+    expect(JSON.stringify(p)).not.toMatch(/PROPOSED/);
+    expect(p.committed_at).toBe('2026-10-04');
+    expect(p.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'handoff-decision-variant',
+      'hand-off-only-path',
+      'fault-injection',
+      'deadline-720',
+      'baseline-no-faults-control',
+      'harness-dollars',
+      'no-node-sandbox',
+      'home-write-deny',
+    ]);
+    for (const c of p.declared_changes)
+      expect(c.approved_by).toMatch(/^lead, under the owner's standing instruction/);
+    // the staged plan: stage 1 is one treatment trial with the mechanism gate; stage 2 only past it
+    const s = p.staged_plan;
+    expect(s.gate_kind).toBe('handoff-read');
+    expect(s.stages.map((x: any) => x.stage)).toEqual([1, 2, 3]);
+    expect(s.stages[0].trials).toEqual([{ arm: 'treatment', n: 1 }]);
+    expect(s.stages[0].gate).toMatch(/always runs first/);
+    expect(s.stages[1].gate).toMatch(/at least one successful pilot__doc_read/);
+    expect(s.stages[2].gate).toBe('PILOT_STAGE3_APPROVED=yes');
+    expect(p.stop_rule.mechanism_gate).toMatch(/0 successful pilot__doc_read calls/);
+    expect(p.stop_rule.thresholds).toMatchObject({ stage1_min_synthesiser_doc_reads: 1, of_units: 33 });
+    expect(p.stop_rule.predictions).toHaveLength(3);
+    // cost estimate: low <= expected <= high everywhere, stages add up to the pilot, under the owner's 150 line
+    const est = (x: any) => [x.low_usd, x.expected_usd, x.high_usd];
+    for (const x of [s.stages[0], s.stages[1], s.estimate_total_usd, s.estimate_cheapest_pilot_usd]) {
+      const [lo, mid, hi] = est(x);
+      expect(lo).toBeLessThanOrEqual(mid);
+      expect(mid).toBeLessThanOrEqual(hi);
+    }
+    for (let i = 0; i < 3; i++)
+      expect(est(s.stages[0])[i] + est(s.stages[1])[i]).toBe(est(s.estimate_total_usd)[i]);
+    expect(s.estimate_total_usd.high_usd).toBeLessThan(150);
+    expect(s.pilot_soft_cap_usd).toBeGreaterThanOrEqual(s.estimate_total_usd.high_usd);
+    expect(s.stages[0].soft_cap_usd).toBeGreaterThanOrEqual(s.stages[0].high_usd);
+    expect(s.stages[1].cumulative_soft_cap_usd).toBe(s.pilot_soft_cap_usd);
+    expect(s.estimate_cheapest_pilot_usd.expected_usd).toBeLessThan(s.estimate_total_usd.expected_usd);
+    expect(p.stop_rule.thresholds.spend_flag_per_trial_usd).toBe(s.stages[0].high_usd);
+    expect(JSON.stringify(s)).toMatch(/harness dollars/);
   });
 
   it('each pilot has a contract that crosses sections, so the hand-off has something to measure', () => {

@@ -13,12 +13,13 @@ const scenarios = [
   'growth-like',
   'parallel-sweep',
   'parallel-sweep-2',
+  'parallel-sweep-3',
   'research-report',
   'sparse-dispatch',
 ];
 
 describe('committed scenario manifests', () => {
-  it('are exactly the eight scenarios', () => {
+  it('are exactly the nine scenarios', () => {
     expect(
       readdirSync(here)
         .filter((f) => f.endsWith('.json'))
@@ -137,6 +138,46 @@ describe('committed scenario manifests', () => {
     );
     expect(fixture.status).toMatch(/^APPROVED 2026-10-03/);
     expect(fixture.fixture.status).toMatch(/^APPROVED 2026-10-03/);
+    expect(fixture.notice).toBeUndefined();
+  });
+
+  it('parallel-sweep-3 (approved by the lead under the owner\'s standing instruction) keeps the 33 units, moves to the 720 s deadline and the $34 allocation, and records the hand-off decision design', () => {
+    const m = JSON.parse(readFileSync(join(here, 'parallel-sweep-3.json'), 'utf8'));
+    expect(m.units.map((u: { id: string; count: number }) => [u.id, u.count])).toEqual([
+      ['module-sheet', 32],
+      ['synthesis', 1],
+    ]);
+    expect(m.cost).toEqual({ basis: 'estimated-inference', planning_allocation_usd: 34 });
+    expect(m.qualification.deadline_minutes).toBe(12);
+    expect(m.completion_rule).toMatch(/720 second wall deadline/);
+    expect(m.completion_rule).not.toMatch(/600/);
+    expect(m.rubric.non_inferiority_margin).toBe(0.1);
+    expect(m.committed_at).toBe('2026-10-04');
+    expect(m.notice).toBeUndefined();
+    expect(JSON.stringify(m)).not.toMatch(/PROPOSED/);
+    expect(m.analysis.primary_comparisons[0]).toMatch(/mechanism measurement, not a comparison/);
+    expect(m.declared_changes.map((c: { id: string }) => c.id)).toEqual([
+      'handoff-decision-variant',
+      'hand-off-only-path',
+      'fault-injection',
+      'deadline-720',
+      'baseline-no-faults-control',
+      'harness-dollars',
+      'no-node-sandbox',
+      'home-write-deny',
+    ]);
+    for (const c of m.declared_changes) {
+      expect(c).toMatchObject({ date: '2026-10-04' });
+      expect(c.approved_by).toMatch(/^lead, under the owner's standing instruction/);
+      expect(c.earlier_result).toBeTruthy();
+    }
+    expect(m.declared_changes[2].why).toMatch(/harness-injected, so this measures the decision path, not natural errors/);
+    expect(m.declared_changes[4].why).toMatch(/mechanism measurement, not a comparison/);
+    expect(m.declared_changes[4].what).toMatch(/single arm is dropped/);
+    const fixture = JSON.parse(
+      readFileSync(join(here, '../fixtures/parallel-sweep-3/fixture.json'), 'utf8'),
+    );
+    expect(fixture.status).toMatch(/^APPROVED 2026-10-04/);
     expect(fixture.notice).toBeUndefined();
   });
 });
