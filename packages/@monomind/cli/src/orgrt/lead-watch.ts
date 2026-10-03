@@ -16,6 +16,15 @@
  * for another role, or messages the role (acknowledges) is not reminded again
  * about those tasks.
  *
+ * Work handed out by org_send message instead of org_task (the sweep orgs)
+ * counts too: a lead (or reports_to) message to a role that is an actionable
+ * assignment (not an acknowledgement, see `isActionableAssignment`) is open work
+ * for that role from the moment it was sent, with the same not-started and
+ * silent clocks, episodes, backoff and cap. It ends when the role messages
+ * anyone after it (a reply or a report), when the lead messages the role after
+ * a notice (acknowledge), or when it is reassigned. A role hung in one long
+ * Bash call emits no events and is exactly the silent case.
+ *
  * Config: run_config.lead_watch = { not_started_s?: 90, silent_s?: 180 };
  * `false` turns it off. The decision is a pure function of a snapshot
  * (`LeadWatch.tick`), so it is table-testable without a daemon.
@@ -51,8 +60,10 @@ export function leadWatchConfig(run: {
 export interface WatchedTask {
   id: string;
   title: string;
-  /** When it was dispatched (status 'running'). */
+  /** When it was dispatched (status 'running'), or when the assignment message was sent. */
   since: number;
+  /** An assignment sent by org_send rather than an org_task. */
+  via?: 'message';
 }
 
 export interface RoleSnapshot {
@@ -88,16 +99,54 @@ function span(ms: number): string {
   return ms < 120_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`;
 }
 
+const ACK_WORD =
+  '(?:hi|hello|hey|ok|okay|thanks?|thank you|got it|noted|ack|acknowledged|received|understood|roger|will do|great|good|done|perfect|nice)';
+const ACK_ONLY = new RegExp(`^(?:${ACK_WORD}\\b[\\s.!,:;-]*)+$`, 'i');
+
+/** A message that hands work over: not empty and not a bare acknowledgement or thanks. */
+export function isActionableAssignment(
+  _subject: string | undefined,
+  body: string | undefined,
+): boolean {
+  const text = (body ?? '').replace(/^\[trace [^\]]*\]\s*/, '').trim();
+  return text.split(/\s+/).length >= 2 && !ACK_ONLY.test(text);
+}
+
 export class LeadWatch {
   private episodes = new Map<string, Episode>();
+  /** Assignment messages not yet answered, by role. */
+  private msgWork = new Map<string, WatchedTask[]>();
   /** Tasks the lead has dealt with or acknowledged: never mentioned again. */
   private settled = new Set<string>();
 
   constructor(private cfg: LeadWatchConfig) {}
 
-  /** The lead messaged `role`: acknowledge every task it was told about. */
-  acknowledge(role: string): void {
-    for (const id of this.episodes.get(role)?.told ?? []) this.settled.add(id);
+  /** The lead messaged `role`: acknowledge every task it was told about. True when there was one. */
+  acknowledge(role: string): boolean {
+    let any = false;
+    for (const id of this.episodes.get(role)?.told ?? []) {
+      if (!this.settled.has(id)) any = true;
+      this.settled.add(id);
+    }
+    return any;
+  }
+
+  /** The lead sent `role` an assignment by message. */
+  messageAssigned(role: string, work: WatchedTask): void {
+    const list = this.msgWork.get(role) ?? [];
+    if (list.some((w) => w.id === work.id)) return; // the same message seen twice
+    list.push({ ...work, via: 'message' });
+    this.msgWork.set(role, list);
+  }
+
+  /** `role` messaged someone after its assignment (a reply or a report): that work is answered. */
+  messageReplied(role: string): void {
+    this.msgWork.delete(role);
+  }
+
+  /** Roles that hold unanswered assignment messages. */
+  messageRoles(): string[] {
+    return [...this.msgWork.keys()];
   }
 
   /** A task was re-created for another role: its twin is settled. */
@@ -109,7 +158,9 @@ export class LeadWatch {
     const out: Notice[] = [];
     const seen = new Set<string>();
     for (const r of roles) {
-      const open = r.openTasks.filter((t) => !this.settled.has(t.id));
+      const open = [...r.openTasks, ...(this.msgWork.get(r.id) ?? [])].filter(
+        (t) => !this.settled.has(t.id),
+      );
       if (!r.lead || open.length === 0 || (r.started && r.waiting)) continue;
       const first = Math.min(...open.map((t) => t.since));
       const kind: Notice['kind'] = r.started ? 'silent' : 'not-started';
@@ -148,7 +199,11 @@ function noticeText(
   ms: number,
   n: number,
 ): string {
-  const ids = open.map((t) => `${t.id} ("${t.title}")`).join(', ');
+  const ids = open
+    .map((t) =>
+      t.via === 'message' ? `the work from your message "${t.title}"` : `${t.id} ("${t.title}")`,
+    )
+    .join(', ');
   const what =
     kind === 'not-started'
       ? `has not started: it was assigned ${ids} ${span(ms)} ago and has no running session (queued or deferred by the resource governor, or it crashed at start)`
@@ -156,7 +211,7 @@ function noticeText(
   return (
     `[watch] Role "${role}" ${what}. Options: (1) wait; ` +
     `(2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); ` +
-    `(3) acknowledge: org_send to "${role}" and you will not be reminded again about these tasks. ` +
+    `(3) acknowledge: org_send to "${role}" and you will not be reminded again about this work. ` +
     `${n >= MAX_NOTICES ? 'This is the last notice for this episode.' : 'If nothing changes you get one more reminder after a longer gap.'}`
   );
 }
@@ -169,6 +224,7 @@ function snapshot(
   roleActivity: Map<string, number>,
   firstSeen: Map<string, number>,
   now: number,
+  messageRoles: string[] = [],
 ): RoleSnapshot[] {
   const isStarted = (id: string): boolean =>
     running.agents.get(id)?.status === 'running' && !running.respawning.has(id);
@@ -186,6 +242,7 @@ function snapshot(
     list.push({ id: t.id, title: t.title, since });
     byRole.set(t.assignee, list);
   }
+  for (const id of messageRoles) if (!byRole.has(id)) byRole.set(id, []);
   const waitingHuman =
     daemon.listGates(name, 'pending').length > 0 ||
     (daemon.approvals.get(name) ?? []).some((a) => a.approved === null) ||
@@ -220,8 +277,24 @@ export function startLeadWatch(
   if (!cfg) return undefined;
   const watch = new LeadWatch(cfg);
   const { bus } = running;
+  const leadOf = (id: string): string =>
+    running.def.roles.find((r) => r.id === id)?.reports_to ?? running.bossRoleId;
   bus.subscribe((e: BusEvent) => {
-    if (e.type === 'message' && e.from === running.bossRoleId && e.to) watch.acknowledge(e.to);
+    // 'message-queued': the same message when the recipient has no session yet (cross-org-deliver.ts).
+    if (e.type !== 'message' && !(e.type === 'audit' && e.reason === 'message-queued')) return;
+    // An answer: a role that messages anyone after its assignment has reported on it.
+    if (e.from) watch.messageReplied(e.from);
+    if (e.from !== running.bossRoleId && !(e.to && e.from === leadOf(e.to))) return;
+    if (!e.to || e.to === running.bossRoleId || !running.def.roles.some((r) => r.id === e.to))
+      return;
+    // The lead reacting to a notice acknowledges it; otherwise an actionable message is new work.
+    if (watch.acknowledge(e.to)) return;
+    if (isActionableAssignment(e.subject, e.msg))
+      watch.messageAssigned(e.to, {
+        id: String(e.data?.messageId ?? e.id),
+        title: e.subject ?? 'message',
+        since: e.ts ?? Date.now(),
+      });
   });
   const known = new Set<string>();
   const firstSeen = new Map<string, number>();
@@ -248,7 +321,7 @@ export function startLeadWatch(
       if (twin) watch.reassigned(twin.id);
     }
     for (const n of watch.tick(
-      snapshot(daemon, name, running, roleActivity, firstSeen, now),
+      snapshot(daemon, name, running, roleActivity, firstSeen, now, watch.messageRoles()),
       now,
     )) {
       const lead = running.agents.get(n.lead);
@@ -257,7 +330,7 @@ export function startLeadWatch(
       bus.emit({
         type: 'audit',
         reason: 'lead-watch',
-        msg: `told "${n.lead}": role "${n.role}" ${n.kind === 'silent' ? 'is silent' : 'never started'} with open task(s) ${n.taskIds.join(', ')}`,
+        msg: `told "${n.lead}": role "${n.role}" ${n.kind === 'silent' ? 'is silent' : 'never started'} with open work ${n.taskIds.join(', ')}`,
         data: { role: n.role, kind: n.kind, taskIds: n.taskIds },
       });
     }

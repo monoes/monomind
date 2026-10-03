@@ -34,7 +34,9 @@ vi.mock('../../src/utils/resource-governor.js', () => ({
 
 const { OrgDaemon } = await import('../../src/orgrt/daemon.js');
 const { dagCreateTask } = await import('../../src/orgrt/decisions.js');
-const { LeadWatch, MAX_NOTICES, leadWatchConfig } = await import('../../src/orgrt/lead-watch.js');
+const { LeadWatch, MAX_NOTICES, leadWatchConfig, isActionableAssignment } = await import(
+  '../../src/orgrt/lead-watch.js'
+);
 type RoleSnapshot = import('../../src/orgrt/lead-watch.js').RoleSnapshot;
 
 const TMP = process.env.TMPDIR ?? '/var/tmp';
@@ -137,6 +139,90 @@ describe('LeadWatch (pure)', () => {
   });
 });
 
+// Work handed out by org_send message, not by org_task (the sweep orgs): p1t worker-2 hung in one long Bash call at 143 s,
+// held no task object, and the watch had nothing to watch.
+describe('LeadWatch (pure), message-assigned work', () => {
+  const msg = (since = 10_000) => ({ id: 'msg-1', title: 'Assignment: m5-m8', since, via: 'message' as const });
+  const w2 = (over: Partial<RoleSnapshot> = {}) => role({ id: 'worker-2', openTasks: [], ...over });
+
+  it('B1m: a role that was messaged an assignment and never started is reported once, naming the message', () => {
+    const w = new LeadWatch(CFG);
+    w.messageAssigned('worker-2', msg());
+    expect(w.tick([w2()], 99_000)).toEqual([]); // 89 s since the message
+    const [n] = w.tick([w2()], 101_000);
+    expect(n).toMatchObject({ lead: 'lead', role: 'worker-2', kind: 'not-started', taskIds: ['msg-1'] });
+    expect(n.text).toContain('Assignment: m5-m8');
+    expect(n.text).toContain('91s');
+    expect(w.tick([w2()], 102_000)).toEqual([]); // once
+  });
+
+  it('B2m: a started role that goes silent after its message (hung in one Bash call) is reported 180 s after its last event, with the same backoff and cap', () => {
+    const w = new LeadWatch(CFG);
+    w.messageAssigned('worker-2', msg());
+    const hung = w2({ started: true, lastActivity: 143_000 });
+    expect(w.tick([hung], 322_000)).toEqual([]);
+    const [n] = w.tick([hung], 324_000);
+    expect(n.kind).toBe('silent');
+    expect(n.text).toContain('Assignment: m5-m8');
+    expect(w.tick([hung], 400_000)).toEqual([]);
+    expect(w.tick([hung], 324_000 + 2 * 180_000 + 1_000)).toHaveLength(1);
+    expect(w.tick([hung], 324_000 + 2 * 180_000 + 1_000 + 4 * 180_000 + 1_000)).toHaveLength(1);
+    expect(w.tick([hung], 1e9)).toEqual([]); // MAX_NOTICES
+  });
+
+  it('B2m: before its first event the silence runs from the message', () => {
+    const w = new LeadWatch(CFG);
+    w.messageAssigned('worker-2', msg(50_000));
+    expect(w.tick([w2({ started: true, lastActivity: 0 })], 229_000)).toEqual([]);
+    expect(w.tick([w2({ started: true, lastActivity: 0 })], 231_000)).toHaveLength(1);
+  });
+
+  it('B3m: a progressing role, a role with no message work, a human wait and a lead-less role are never reported', () => {
+    const w = new LeadWatch(CFG);
+    w.messageAssigned('worker-2', msg());
+    expect(w.tick([w2({ started: true, lastActivity: 1e9 - 10_000 })], 1e9)).toEqual([]);
+    expect(w.tick([w2({ started: true, lastActivity: 0, waiting: true })], 1e9)).toEqual([]);
+    expect(w.tick([w2({ lead: undefined })], 1e9)).toEqual([]);
+    expect(new LeadWatch(CFG).tick([w2({ started: true, lastActivity: 0 })], 1e9)).toEqual([]); // nothing assigned
+  });
+
+  it('B4m: a reply from the role, the lead acknowledging after a notice, or a reassignment ends it; a new assignment starts it again', () => {
+    const replied = new LeadWatch(CFG);
+    replied.messageAssigned('worker-2', msg());
+    replied.messageReplied('worker-2'); // the role told its lead it is done
+    expect(replied.tick([w2({ started: true, lastActivity: 20_000 })], 1e9)).toEqual([]);
+    replied.messageAssigned('worker-2', { ...msg(2e9), id: 'msg-2' });
+    expect(replied.tick([w2({ started: true, lastActivity: 2e9 })], 2e9 + 181_000)).toHaveLength(1);
+
+    const acked = new LeadWatch(CFG);
+    acked.messageAssigned('worker-2', msg());
+    expect(acked.tick([w2({ started: true, lastActivity: 0 })], 200_000)).toHaveLength(1);
+    expect(acked.acknowledge('worker-2')).toBe(true);
+    expect(acked.tick([w2({ started: true, lastActivity: 0 })], 1e9)).toEqual([]);
+    expect(acked.acknowledge('worker-2')).toBe(false); // nothing left to acknowledge
+
+    const reassigned = new LeadWatch(CFG);
+    reassigned.messageAssigned('worker-2', msg());
+    expect(reassigned.tick([w2()], 101_000)).toHaveLength(1);
+    reassigned.reassigned('msg-1');
+    expect(reassigned.tick([w2()], 1e9)).toEqual([]);
+  });
+
+  it('a message and an open task of the same role are reported together, once', () => {
+    const w = new LeadWatch(CFG);
+    w.messageAssigned('worker-2', msg(0));
+    const [n] = w.tick([w2({ openTasks: [{ id: 'task-9', title: 'x', since: 0 }] })], 91_000);
+    expect(n.taskIds.sort()).toEqual(['msg-1', 'task-9']);
+  });
+
+  it('isActionableAssignment: an acknowledgement or a bare thanks is not an assignment, a real instruction is', () => {
+    expect(isActionableAssignment('Assignment: m5-m8', 'Answer modules m5 to m8 from the code in corpus/. Write out/<module>/answers.json.')).toBe(true);
+    expect(isActionableAssignment('Publish now', 'Publish module-sheets-w2 now with whatever you have.')).toBe(true);
+    for (const body of ['ok', 'Ok, will do', 'hello', 'Thanks!', 'Got it, thanks', 'noted', 'Acknowledged.', 'received', 'ack', ''])
+      expect(isActionableAssignment('Re: done', body)).toBe(false);
+  });
+});
+
 const echoQuery = ({ prompt }: any) =>
   (async function* () {
     for await (const m of prompt) {
@@ -232,4 +318,61 @@ describe('lead watch (daemon, scripted)', () => {
     expect(off.notices()).toHaveLength(0);
     await off.d.stopAll();
   }, 20_000);
+});
+
+describe('lead watch (daemon, scripted), message-assigned work', () => {
+  const assign = (t: any, to = 'coder') =>
+    t.d.deliver('alpha', 'boss', to, 'Assignment: m5-m8', 'Answer modules m5 to m8 from the code in corpus/ and publish when done.');
+
+  it('B1m: a role that was messaged an assignment but cannot start triggers one lead message; B4m: the lead acknowledging stops it', async () => {
+    resourcesOk = false;
+    const t = await boot({ max_concurrent_agents: 1, lead_watch: { not_started_s: 0.3, silent_s: 600 } });
+    void assign(t);
+    expect(await t.waitFor(() => t.notices().length >= 1)).toBe(true);
+    expect(t.notices()[0].data).toMatchObject({ role: 'coder', kind: 'not-started' });
+    expect(t.running.busEvents().some((e) => e.from === 'boss' && /\[watch\] Role "coder".*Assignment: m5-m8/.test(e.msg ?? ''))).toBe(true);
+    await t.sleep(250);
+    expect(t.notices()).toHaveLength(1);
+    void t.d.deliver('alpha', 'boss', 'coder', 'Status', 'Please send me a status line when you can.'); // the lead's reaction to the notice
+    await t.sleep(1500);
+    expect(t.notices()).toHaveLength(1);
+    await t.d.stopAll();
+    resourcesOk = true;
+  }, 20_000);
+
+  it('B2m: a started role that goes silent after its assignment message is reported once; lead_watch:false opts out', async () => {
+    resourcesOk = true;
+    const t = await boot({ lead_watch: { not_started_s: 60, silent_s: 0.4 } });
+    await assign(t);
+    expect(await t.waitFor(() => t.notices().length >= 1)).toBe(true);
+    expect(t.notices()[0].data).toMatchObject({ role: 'coder', kind: 'silent' });
+    await t.sleep(300);
+    expect(t.notices()).toHaveLength(1);
+    await t.d.stopAll();
+
+    const off = await boot({ lead_watch: false });
+    await assign(off);
+    await off.sleep(800);
+    expect(off.notices()).toHaveLength(0);
+    await off.d.stopAll();
+  }, 20_000);
+
+  it('B3m: a role that keeps emitting, one that reported back to its lead, and the lead itself are never reported', async () => {
+    resourcesOk = true;
+    const t = await boot({ lead_watch: { not_started_s: 0.3, silent_s: 0.3 } });
+    await assign(t, 'coder');
+    for (let i = 0; i < 6; i++) {
+      t.running.bus.emit({ type: 'tool', from: 'coder', tool: 'Bash', decision: 'allow', data: { input: { command: 'ls' } } });
+      await t.sleep(120);
+    }
+    expect(t.notices()).toHaveLength(0);
+    await assign(t, 'idle');
+    await t.d.deliver('alpha', 'idle', 'boss', 'Done', 'Finished modules m5 to m8, published.'); // its reply
+    await t.sleep(1200);
+    expect(t.notices().filter((e) => e.data?.role === 'idle')).toHaveLength(0);
+    await t.d.deliver('alpha', 'idle', 'boss', 'Hello', 'A message to the lead is not an assignment for the lead.');
+    await t.sleep(1000);
+    expect(t.notices().filter((e) => e.data?.role === 'boss')).toHaveLength(0);
+    await t.d.stopAll();
+  }, 25_000);
 });

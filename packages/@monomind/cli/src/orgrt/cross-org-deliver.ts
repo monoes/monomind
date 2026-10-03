@@ -28,6 +28,20 @@ export async function deliver(
   } = resolveAddress(fromOrg, to);
   const targetOrg = daemon.orgs.get(targetOrgName);
   const src = daemon.orgs.get(fromOrg);
+  // A message queued for a role that has no session yet leaves no 'message' event (it is delivered at the spawn);
+  // the lead watch needs to know it was sent, so say so once it is safely queued (lead-watch.ts).
+  const noteQueued = (): void => {
+    if (cross) return;
+    src?.bus.emit({
+      type: 'audit',
+      from: fromRole,
+      to: targetRole,
+      subject,
+      msg: body.slice(0, 500),
+      reason: 'message-queued',
+      data: { messageId },
+    });
+  };
   // ADR-O001 D6: an artifact-only reviewer takes runtime-built packets only.
   // Another agent's mail is exactly the doer's framing D6 keeps out, so it is
   // refused with the way to get a review instead. The human is not an agent.
@@ -101,6 +115,7 @@ export async function deliver(
         });
         return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
       }
+      noteQueued();
       daemon.scheduleConcurrencyDeferredSpawn(targetOrgName, targetOrg, role, targetOrg.spawnRole!);
       return `queued for ${toQualified} (role starting — waiting for a concurrency slot)`;
     }
@@ -137,6 +152,7 @@ export async function deliver(
           });
           return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
         }
+        noteQueued();
         daemon.scheduleDeferredSpawn(targetOrgName, targetOrg, role, targetOrg.spawnRole!);
         return `queued for ${toQualified} (role starting — waiting for resources)`;
       }
@@ -218,6 +234,7 @@ export async function deliver(
         });
         return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
       }
+      noteQueued();
       const slot = targetOrg.deferredSpawns?.get(targetRole)?.gate === 'concurrency';
       return `queued for ${toQualified} (role starting — waiting for ${slot ? 'a concurrency slot' : 'resources'})`;
     }
