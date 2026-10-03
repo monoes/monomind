@@ -7,6 +7,9 @@
 # A scenario whose pilot manifest has a staged_plan (parallel-sweep-2, parallel-sweep-3) is run stage by stage with PILOT_ONLY; pilot/stage-gate.mjs
 # refuses a trial whose stage gate is not met, and PILOT_ALLOCATION_USD sets the stage's soft cap (see the manifest).
 # parallel-sweep-3 (hand-off decisions): PILOT_ONLY=parallel-sweep-3:treatment:1:0 first; stage 2 only if its synthesiser read a document.
+# parallel-sweep-3 variant v2 (relay, consistency, doc_check; declared change handoff-relay-consistency-check): stage 1 is
+#   PILOT_OWNER_DECISION=handoff-relay-consistency-check PILOT_ONLY=parallel-sweep-3:treatment:1:0::v2
+# (trial id p1t-v2); v2 x2 only if that trial's synthesiser made a doc_read and a doc_check call (stage-gate.mjs).
 #
 # The arms of a trial number run back to back, the order rotating with the trial number (a Latin square). After every
 # trial it runs the machine checks and stops without starting another if the trial was void (inputs

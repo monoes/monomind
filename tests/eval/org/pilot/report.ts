@@ -17,6 +17,10 @@ export interface HandoffCounts {
   sendRefused: number;
   /** publish + read + decide attempts, accepted or refused. */
   total: number;
+  /** pilot__doc_check calls (variant v2 only; not part of `total`). */
+  check?: { ok: number; refused: number };
+  /** Messages the producer relay sent (to the producer and the lead's copy; variant v2 only). */
+  relays?: number;
 }
 
 export interface PilotRow extends TrialRow {
@@ -24,6 +28,8 @@ export interface PilotRow extends TrialRow {
   /** The trial's profile (haiku by default); trials on different profiles are never paired. */
   profile: string;
   n: number;
+  /** The declared variant of the arm this trial ran (parallel-sweep-3's v2), which is never paired with the plain arm. */
+  variant?: string;
   /** The nth redo of an interrupted trial of this arm and number. */
   redo?: number;
   /** Killed mid-run: it has no result. Listed apart, never paired; its spend still counts. */
@@ -36,7 +42,10 @@ export interface PilotRow extends TrialRow {
   ended: string;
   handoff: HandoffCounts;
   /** Hand-off calls per role (publish, read, decide), accepted or refused: the documents each consumer read and decided. */
-  handoffByRole: Record<string, Partial<Record<'publish' | 'read' | 'decide', { ok: number; refused: number }>>>;
+  handoffByRole: Record<
+    string,
+    Partial<Record<'publish' | 'read' | 'decide', { ok: number; refused: number }>>
+  >;
   /** The decision measures a kit with a hand-off check leaves in units.json under `handoff` (parallel-sweep-3,
    *  treatment): faults injected, caught, missed, false rejects, republish cycles, final accepted documents, whether
    *  the synthesis used a corrupted document, time to the synthesis, cost split. Absent for every other trial. */
@@ -70,7 +79,7 @@ export function pilotRow(root: string): PilotRow {
   const base = trialRow(root);
   const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
   // p<n><arm>[S][r<redo>]: S marks a per-trial profile override (the production profile on a Haiku-default pilot)
-  const m = /-p(\d+)([bts])S?(?:r(\d+))?$/.exec(trial.name);
+  const m = /-p(\d+)([bts])S?(?:r(\d+))?(?:-[a-z0-9]+)?$/.exec(trial.name);
   const bus = busOf(root, trial.name);
 
   const complete = bus.find((e) => e.type === 'tool' && String(e.tool).endsWith('org_complete'));
@@ -116,10 +125,15 @@ export function pilotRow(root: string): PilotRow {
       handoff.total++;
       const mine = ((handoffByRole[e.role] ??= {})[e.kind as 'publish'] ??= { ok: 0, refused: 0 });
       mine[e.ok ? 'ok' : 'refused']++;
-    }
+    } else if (e.kind === 'check') {
+      // variant v2: doc_check calls, counted apart from the three original tools so v1 totals do not move
+      (handoff.check ??= { ok: 0, refused: 0 })[e.ok ? 'ok' : 'refused']++;
+    } else if (e.kind === 'relay' && e.ok) handoff.relays = (handoff.relays ?? 0) + 1;
   }
   const unitsFile = join(root, 'units.json');
-  const decisions = existsSync(unitsFile) ? JSON.parse(readFileSync(unitsFile, 'utf8')).handoff : undefined;
+  const decisions = existsSync(unitsFile)
+    ? JSON.parse(readFileSync(unitsFile, 'utf8')).handoff
+    : undefined;
   return {
     ...base,
     arm:
@@ -127,6 +141,7 @@ export function pilotRow(root: string): PilotRow {
       ({ b: 'baseline', t: 'treatment', s: 'single' } as const)[(m?.[2] ?? 'b') as 'b'],
     profile: trial.profile ?? 'haiku',
     n: m ? Number(m[1]) : 0,
+    ...(trial.pilot?.variant?.id ? { variant: trial.pilot.variant.id } : {}),
     ...(m?.[3] ? { redo: Number(m[3]) } : {}),
     interrupted: !existsSync(join(root, 'result.json')),
     delegated: tasksCreated > 0 || tasksDispatched > 0,
@@ -144,6 +159,8 @@ export interface PairReport {
   n: number;
   baseline?: PilotRow;
   treatment?: PilotRow;
+  /** The v2 variant of the treatment arm of this trial number (its own measures; never part of the pair). */
+  treatmentV2?: PilotRow;
   /** The single-agent arm of the same trial number, when the scenario has one. It never confounds a pair. */
   single?: PilotRow;
   /** The arms differ on delegation: nothing can be said about the prototype from this pair. */
@@ -166,12 +183,20 @@ export function pilotReport(rows: PilotRow[]) {
       .sort((a, b) => a - b)
       .map((n) => {
         const baseline = mine.find((r) => r.n === n && r.arm === 'baseline');
-        const treatment = mine.find((r) => r.n === n && r.arm === 'treatment');
+        const treatment = mine.find((r) => r.n === n && r.arm === 'treatment' && !r.variant);
+        const treatmentV2 = mine.find(
+          (r) => r.n === n && r.arm === 'treatment' && r.variant === 'v2',
+        );
         const single = mine.find((r) => r.n === n && r.arm === 'single');
         const reasons: string[] = [];
         let confounded = false;
         const incomplete = !baseline || !treatment;
-        if (incomplete) reasons.push(`missing the ${baseline ? 'treatment' : 'baseline'} trial`);
+        if (incomplete && !(treatmentV2 && !treatment && !baseline))
+          reasons.push(`missing the ${baseline ? 'treatment' : 'baseline'} trial`);
+        else if (incomplete)
+          reasons.push(
+            'a variant trial only (v2): no baseline or plain treatment trial of this number',
+          );
         if (baseline && treatment) {
           if (baseline.delegated !== treatment.delegated) {
             confounded = true;
@@ -198,6 +223,7 @@ export function pilotReport(rows: PilotRow[]) {
           n,
           baseline,
           treatment,
+          ...(treatmentV2 ? { treatmentV2 } : {}),
           single,
           confounded,
           incomplete,

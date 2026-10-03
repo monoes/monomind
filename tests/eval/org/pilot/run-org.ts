@@ -76,20 +76,27 @@ export async function runOrg(o: RunOrgOptions): Promise<{ stoppedManually: boole
   }
 }
 
+/** The prototype's trial from a prepared trial record (trial.json): the treatment arm, plain or a variant; none otherwise. */
+export function pilotOfRecord(trial: Record<string, any>): PilotTrial | undefined {
+  return trial.pilot?.arm === 'treatment'
+    ? {
+        runId: trial.pilot.runId,
+        dir: trial.pilot.dir,
+        routing: trial.pilot.routing,
+        contracts: trial.pilot.contracts,
+        ...(trial.pilot.faults ? { faults: trial.pilot.faults } : {}),
+        ...(trial.pilot.relay
+          ? { relay: trial.pilot.relay, workspace: trial.pilot.workspace }
+          : {}),
+      }
+    : undefined;
+}
+
 if (process.argv[1]?.endsWith('run-org.ts')) {
   const root = process.env.SMOKE_ROOT as string;
   const name = process.env.SMOKE_ORG as string;
   const trial = JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8'));
-  const pilot: PilotTrial | undefined =
-    trial.pilot?.arm === 'treatment'
-      ? {
-          runId: trial.pilot.runId,
-          dir: trial.pilot.dir,
-          routing: trial.pilot.routing,
-          contracts: trial.pilot.contracts,
-          ...(trial.pilot.faults ? { faults: trial.pilot.faults } : {}),
-        }
-      : undefined;
+  const pilot = pilotOfRecord(trial);
   const { stoppedManually } = await runOrg({ root, name, task: process.env.SMOKE_TASK, pilot });
   console.log(`org ${name} ended${stoppedManually ? ' (stopped)' : ''}`);
   process.exit(0);

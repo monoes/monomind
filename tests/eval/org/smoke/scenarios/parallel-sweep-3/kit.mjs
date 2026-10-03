@@ -61,6 +61,9 @@ export const MAX_CONCURRENT_AGENTS = 10;
 /** The baseline's task text (no hand-off layer) and the treatment's (documents, decisions, the lead's relay). */
 export const TASK = `${fixture.tasks.common} ${fixture.tasks.multi_role}`;
 export const TASK_DOCUMENTS = `${fixture.tasks.common} ${fixture.tasks.multi_role_documents}`;
+/** The treatment variant v2 (declared change handoff-relay-consistency-check): the producer is notified directly,
+ *  documents carry evidence and must agree with the out/ files, and the synthesiser has pilot__doc_check. */
+export const TASK_DOCUMENTS_V2 = `${fixture.tasks.common} ${fixture.tasks.multi_role_documents_v2}`;
 
 /** The same corpus and truth as parallel-sweep-2 (its kit builds them), recorded under this scenario's id. */
 export async function buildInputs({ dir }) {
@@ -75,7 +78,7 @@ function role(roleId, title, type, reports_to, duty, policy) {
   return { id: roleId, title, type, reports_to, responsibilities: [duty, LAYOUT], policy };
 }
 
-export async function baseDef({ inputs, workspace, root, contender, arm }) {
+export async function baseDef({ inputs, workspace, root, contender, arm, variant }) {
   if (contender === 'single')
     throw new Error('parallel-sweep-3 has no single arm (measured in parallel-sweep-2)');
   if (workspace.startsWith(`${EVAL_DIR}/`))
@@ -85,7 +88,12 @@ export async function baseDef({ inputs, workspace, root, contender, arm }) {
   const outOf = (m) => join(workspace, 'out', m);
   const goal =
     'Answer 32 modules of call-chain questions by reading code, and the six cross-module questions, before the 720 s deadline; each sheet as soon as its module is done.';
-  const resp = ARM(treatment ? 'treatment' : 'baseline').responsibilities;
+  const v2 = treatment && variant === 'v2';
+  if (variant && !v2)
+    throw new Error(`parallel-sweep-3 declares no variant "${variant}" for the ${arm} arm`);
+  const resp = v2
+    ? fixture.variants.v2.responsibilities
+    : ARM(treatment ? 'treatment' : 'baseline').responsibilities;
   const hideFromAll = [
     join(inputs, 'truth.json'),
     EVAL_DIR,
@@ -120,7 +128,7 @@ export async function baseDef({ inputs, workspace, root, contender, arm }) {
     },
   ];
   return {
-    task: treatment ? TASK_DOCUMENTS : TASK,
+    task: v2 ? TASK_DOCUMENTS_V2 : treatment ? TASK_DOCUMENTS : TASK,
     allocationUsd: ALLOCATION_USD,
     orgStopUsd: ORG_STOP_USD,
     sessionCap: SESSION_CAP,

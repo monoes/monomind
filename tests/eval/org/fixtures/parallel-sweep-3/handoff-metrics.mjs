@@ -12,6 +12,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { deriveSynthesis } from '../parallel-sweep/synthesis.mjs';
+import { v2Metrics } from './v2-metrics.mjs';
 
 export const CONSUMER = 'synthesiser';
 const N = 32;
@@ -236,6 +237,7 @@ export function handoffMetrics({ root, truth }) {
     rejects_of_natural_errors: naturalRejects,
     accepted_natural_errors: acceptedNatural,
     faults,
+    v2: v2Metrics(events, faultEvents, CONSUMER),
     calls,
     docs_read: Object.fromEntries(Object.entries(docsRead).map(([r, s]) => [r, [...s].sort()])),
     docs_decided: Object.fromEntries(

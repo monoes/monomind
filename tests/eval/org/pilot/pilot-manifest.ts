@@ -4,6 +4,7 @@
 // document contracts and the retained trial controls, committed before any
 // paid trial. It points at one of section 10's fixed scenario manifests rather
 // than copying it, so the pilot cannot loosen the scenario's rubric or floors.
+import { assertContractTemplate } from './contract-template.js';
 import { assertSupportedSchema } from './schema.js';
 
 type Obj = Record<string, any>;
@@ -99,6 +100,26 @@ export function validatePilotManifest(
     } catch (e) {
       problems.push((e as Error).message);
     }
+  }
+  // a declared variant that changes the contracts (parallel-sweep-3's v2): its template must load, its relay must name roles
+  for (const v of Array.isArray(raw.variants) ? raw.variants : []) {
+    if (!isObj(v)) continue;
+    if (!arms.includes(v.arm))
+      problems.push(`variant ${v.id}: arm "${v.arm}" is not an arm of this pilot`);
+    if (v.contract_template !== undefined)
+      try {
+        assertContractTemplate(v.contract_template, `variant ${v.id} contract_template`);
+      } catch (e) {
+        problems.push((e as Error).message);
+      }
+    if (
+      v.relay !== undefined &&
+      !(
+        Array.isArray(v.relay?.copy_to) &&
+        v.relay.copy_to.every((r: unknown) => typeof r === 'string')
+      )
+    )
+      problems.push(`variant ${v.id}: relay.copy_to must be a list of roles`);
   }
   if (ids.size === 0) problems.push('at least one contract is required');
   else if (!crosses)

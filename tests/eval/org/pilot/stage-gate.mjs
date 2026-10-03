@@ -20,9 +20,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 /** {allowed, reason} for one trial. `delivered`: the stage 1 single trial's count, or undefined if none yet.
  *  `variant`: a declared variant of the manifest's `variants` (single x1 only), allowed only when
  *  PILOT_OWNER_DECISION names its owner_decision_phrase. */
-export function decide({ pilot, arm, n, delivered, reads, variant, env = {} }) {
+export function decide({ pilot, arm, n, delivered, reads, checks, variant, env = {} }) {
   if (!pilot.staged_plan) return { allowed: true, reason: 'no staged plan' };
-  if (pilot.staged_plan.gate_kind === 'handoff-read') return decideHandoffRead({ pilot, arm, n, reads, variant, env });
+  if (pilot.staged_plan.gate_kind === 'handoff-read')
+    return decideHandoffRead({ pilot, arm, n, reads, checks, variant, env });
   if (variant) {
     const v = (pilot.variants ?? []).find((x) => x.id === variant);
     if (!v) return { allowed: false, reason: `the pilot manifest does not list the variant "${variant}"` };
@@ -80,8 +81,8 @@ export function decide({ pilot, arm, n, delivered, reads, variant, env = {} }) {
  *  synthesiser made at least stop_rule.thresholds.stage1_min_synthesiser_doc_reads successful doc_read calls (else the
  *  mechanism failed: stop and report); stage 3 = anything else, a further owner approval. `reads`: that count, or
  *  undefined when no finished stage 1 trial exists. */
-function decideHandoffRead({ pilot, arm, n, reads, variant, env }) {
-  if (variant) return { allowed: false, reason: `this pilot declares no variants; "${variant}" is refused` };
+function decideHandoffRead({ pilot, arm, n, reads, checks, variant, env }) {
+  if (variant) return decideHandoffVariant({ pilot, arm, n, reads, checks, variant, env });
   const need = pilot.stop_rule.thresholds.stage1_min_synthesiser_doc_reads;
   if (arm === 'treatment' && n === 1)
     return { allowed: true, reason: 'stage 1 (treatment x1, the mechanism gate) always runs first' };
@@ -100,13 +101,48 @@ function decideHandoffRead({ pilot, arm, n, reads, variant, env }) {
   return { allowed: true, reason: `stage 2: the synthesiser made ${reads} successful doc_read calls in the stage 1 treatment trial (gate: ${need})` };
 }
 
+/** A declared variant of a 'handoff-read' pilot (parallel-sweep-3's v2): treatment only, and only with PILOT_OWNER_DECISION
+ *  naming its owner_decision_phrase. Stage 1 = the variant x1. The variant x2 is allowed only when, in the variant's
+ *  stage 1 trial, the synthesiser made at least the thresholds' successful doc_read and doc_check calls (reads and checks:
+ *  those counts, undefined when no finished variant stage 1 trial exists); any other number needs PILOT_STAGE3_APPROVED. */
+function decideHandoffVariant({ pilot, arm, n, reads, checks, variant, env }) {
+  const v = (pilot.variants ?? []).find((x) => x.id === variant);
+  if (!v) return { allowed: false, reason: `this pilot does not list the variant "${variant}"` };
+  if (arm !== v.arm) return { allowed: false, reason: `variant ${variant} is the ${v.arm} arm only, not ${arm}` };
+  if (!String(env.PILOT_OWNER_DECISION ?? '').includes(v.owner_decision_phrase))
+    return { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming "${v.owner_decision_phrase}"; none is recorded` };
+  const t = v.staged_plan.stage_1_thresholds;
+  if (n === 1) return { allowed: true, reason: `variant ${variant} stage 1 (${v.arm} x1, the mechanism gates: doc_read and doc_check): owner decision recorded: ${env.PILOT_OWNER_DECISION}` };
+  if (n !== 2)
+    return env.PILOT_STAGE3_APPROVED === 'yes'
+      ? { allowed: true, reason: `variant ${variant} stage 3, further owner approval given` }
+      : { allowed: false, reason: `variant ${variant} x${n} needs a further owner approval (PILOT_STAGE3_APPROVED=yes); none is recorded` };
+  if (reads === undefined)
+    return { allowed: false, reason: `variant ${variant} stage 2 needs the stage 1 variant trial first (no finished trial p1t-${variant} found)` };
+  if (reads < t.min_synthesiser_doc_reads)
+    return { allowed: false, reason: `STOP: the synthesiser made ${reads} successful doc_read calls in the stage 1 variant trial (the gate needs ${t.min_synthesiser_doc_reads}): the mechanism failed; report it and run no further trial` };
+  if ((checks ?? 0) < t.min_synthesiser_doc_checks)
+    return { allowed: false, reason: `STOP: the synthesiser made ${checks ?? 0} successful doc_check calls in the stage 1 variant trial (the gate needs ${t.min_synthesiser_doc_checks}): the verification aid was not used; report it and run no further trial` };
+  return { allowed: true, reason: `variant ${variant} stage 2: the synthesiser made ${reads} doc_read and ${checks} doc_check calls in the stage 1 variant trial (gates: ${t.min_synthesiser_doc_reads} and ${t.min_synthesiser_doc_checks})` };
+}
+
 /** The synthesiser's successful doc_read calls in the stage 1 treatment trial of <base>/trials (the last of p1t, p1tr1, ...
  *  that has a result.json; a trial that never reached the hand-off store counts 0), or undefined when there is none. */
-export function stageOneReads(base, scenario) {
+export function stageOneReads(base, scenario, variant) {
+  return stageOneCalls(base, scenario, 'read', variant);
+}
+
+/** The same for the synthesiser's successful doc_check calls (variant v2 only: a plain treatment trial has none). */
+export function stageOneChecks(base, scenario, variant) {
+  return stageOneCalls(base, scenario, 'check', variant);
+}
+
+function stageOneCalls(base, scenario, kind, variant) {
   const dir = join(base, 'trials');
   if (!existsSync(dir)) return undefined;
+  const suffix = variant ? `-${variant}` : '';
   const names = readdirSync(dir)
-    .filter((d) => new RegExp(`^smoke-${scenario}-phase2-p1t(r\\d+)?$`).test(d))
+    .filter((d) => new RegExp(`^smoke-${scenario}-phase2-p1t(r\\d+)?${suffix}$`).test(d))
     .filter((d) => existsSync(join(dir, d, 'result.json')))
     .sort();
   if (names.length === 0) return undefined;
@@ -122,7 +158,7 @@ export function stageOneReads(base, scenario) {
         return [];
       }
     })
-    .filter((e) => e.kind === 'read' && e.ok && e.role === 'synthesiser').length;
+    .filter((e) => e.kind === kind && e.ok && e.role === 'synthesiser').length;
 }
 
 /** The delivered count of the stage 1 single trial under <base>/trials (the last of p1s, p1sr1, ... that has one;
@@ -151,7 +187,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     arm,
     n: Number(n),
     delivered: stageOneDelivered(base, scenario),
-    reads: stageOneReads(base, scenario),
+    reads: stageOneReads(base, scenario, variant || undefined),
+    checks: stageOneChecks(base, scenario, variant || undefined),
     variant: variant || undefined,
     env: process.env,
   });
