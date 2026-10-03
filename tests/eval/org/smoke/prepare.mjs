@@ -25,6 +25,7 @@ import {
   trialName,
   writeJson,
 } from './lib.mjs';
+import { applyNoExec, noExecProblems } from './no-exec.mjs';
 
 function makeReadOnly(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -82,13 +83,21 @@ export async function prepareTrial({ scenario, base, contender, trial = '1', pro
       ? { [def.roles[0].id]: spec.orgStopUsd ?? spec.allocationUsd }
       : Object.fromEntries(Object.entries(spec.caps).map(([r, usd]) => [r, usd * scale]));
   def = applyCaps(def, caps, spec.allocationUsd, { orgStopUsd: spec.orgStopUsd });
-  def = isolate(def, { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] });
+  // A kit that sets noExec gets the no-code-execution denial on every role of every arm.
+  const noExec = (d) => (spec.noExec ? applyNoExec(d, { denyRead: spec.denyRead }) : d);
+  def = isolate(noExec(def), { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] });
+  if (spec.noExec) {
+    const problems = noExecProblems(def);
+    if (problems.length) throw new Error(`no-exec denial incomplete: ${problems.join('; ')}`);
+  }
   const plain = isolate(
-    applyCaps(
-      applyModel(applyContender(spec.def, 'current-best'), plan),
-      Object.fromEntries(Object.entries(spec.caps).map(([r, usd]) => [r, usd * scale])),
-      spec.allocationUsd,
-      { orgStopUsd: spec.orgStopUsd },
+    noExec(
+      applyCaps(
+        applyModel(applyContender(spec.def, 'current-best'), plan),
+        Object.fromEntries(Object.entries(spec.caps).map(([r, usd]) => [r, usd * scale])),
+        spec.allocationUsd,
+        { orgStopUsd: spec.orgStopUsd },
+      ),
     ),
     { name, workspace, denyWrite: [inputs, ...(spec.denyWrite ?? [])] },
   );
@@ -103,6 +112,7 @@ export async function prepareTrial({ scenario, base, contender, trial = '1', pro
     task: spec.task,
     guard: [inputs, ...(spec.extraGuard ?? [])],
     driver: spec.driver ?? null,
+    noExec: spec.noExec ? true : undefined,
     deadlineSeconds: spec.deadlineSeconds,
     allocationUsd: spec.allocationUsd,
     orgStopUsd: orgStopUsdOf(spec),

@@ -85,6 +85,9 @@ export const RUNNER_PLANS = {
   // The growth org keeps each role's own runner (two designers run on codex and antigravity);
   // only its Claude roles are pinned to Haiku. Identical in both contenders.
   'growth-like': { native: true, production: { native: true, claudeModel: SONNET } },
+  // Every role is a Claude role (the kit builds its own definition, no snapshot); native like growth-like so
+  // the production profile pins them all to Sonnet and scales the caps by the price ratio.
+  'parallel-sweep': { native: true, production: { native: true, claudeModel: SONNET } },
   _selftest: { workers: CLAUDE },
 };
 
