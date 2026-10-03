@@ -151,3 +151,61 @@ describe('run-all.sh (dry: nothing is prepared or run)', () => {
     expect(() => readFileSync(join(base, 'trials'))).toThrow(); // nothing was prepared
   });
 });
+
+describe('the declared single-arm 480 s variant (single-480)', () => {
+  const v = (arm: string, n: number, variant: string | undefined, env = {}, delivered?: number) =>
+    decide({ pilot, arm, n, variant, delivered, env });
+  it('is listed in the manifest as a single-arm variant with the owner-decision phrase single-480', () => {
+    expect(pilot.variants).toEqual([
+      {
+        id: 'd480',
+        arm: 'single',
+        deadline_seconds: 480,
+        owner_decision_phrase: 'single-480',
+        declared_change: 'single-deadline-480-variant',
+      },
+    ]);
+    expect(pilot.deadline_seconds).toBe(600);
+  });
+  it('runs only when PILOT_OWNER_DECISION names it, whatever stage 1 delivered', () => {
+    expect(v('single', 1, 'd480', {}, 29)).toMatchObject({ allowed: false });
+    expect(v('single', 1, 'd480', {}, 29).reason).toMatch(/single-480/);
+    expect(v('single', 1, 'd480', { PILOT_OWNER_DECISION: 'run the team arms' }, 29).allowed).toBe(false);
+    const ok = v('single', 1, 'd480', { PILOT_OWNER_DECISION: 'owner: option 2, single-480' }, 29);
+    expect(ok.allowed).toBe(true);
+    expect(ok.reason).toMatch(/declared variant d480/);
+  });
+  it('refuses an unlisted variant, a team arm, and any trial beyond single x1, even with the decision', () => {
+    const env = { PILOT_OWNER_DECISION: 'single-480', PILOT_STAGE3_APPROVED: 'yes' };
+    expect(v('single', 1, 'zzz', env, 29).allowed).toBe(false);
+    for (const arm of ['baseline', 'treatment']) expect(v(arm, 1, 'd480', env, 24).allowed).toBe(false);
+    expect(v('single', 2, 'd480', env, 29).allowed).toBe(false);
+  });
+  it('does not change the plain gate: no variant, same results; and stage 2 or 3 stays refused without their own approval', () => {
+    const env = { PILOT_OWNER_DECISION: 'single-480' };
+    expect(v('single', 1, undefined, {}).allowed).toBe(true);
+    expect(v('single', 2, undefined, env, 24).allowed).toBe(false);
+    expect(v('baseline', 1, undefined, {}, 29).allowed).toBe(false);
+  });
+  it('the variant trial never counts as the stage 1 result', () => {
+    const base = scratch();
+    const write = (id: string, delivered: number) => {
+      const dir = join(base, 'trials', id);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'units.json'), JSON.stringify({ delivered }));
+    };
+    write('smoke-parallel-sweep-2-single-p1s', 29);
+    write('smoke-parallel-sweep-2-single-p1s-d480', 22);
+    expect(stageOneDelivered(base, 'parallel-sweep-2')).toBe(29);
+  });
+  it('the CLI passes the variant through', () => {
+    const base = scratch();
+    const run = (env: Record<string, string>) =>
+      spawnSync('node', [join(here, 'stage-gate.mjs'), 'parallel-sweep-2', base, 'single', '1', 'd480'], {
+        env: { ...process.env, PILOT_OWNER_DECISION: '', ...env },
+        encoding: 'utf8',
+      });
+    expect(run({}).status).toBe(1);
+    expect(run({ PILOT_OWNER_DECISION: 'single-480' }).status).toBe(0);
+  });
+});

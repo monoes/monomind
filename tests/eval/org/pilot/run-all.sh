@@ -27,15 +27,17 @@ say() { printf '%s %s\n' "$(date -Is)" "$*" | tee -a "$log"; }
 spent() { (cd "$repo" && npx tsx "$smoke/report.cli.ts" --json "$base"/trials/* 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).spendUsd)}catch{console.log(0)}})'); }
 export SMOKE_RUN_CMD="cd '$repo' && npx tsx '$here/run-org.ts'"
 
-# One trial: scenario, arm, trial number, redo number (0 = not a redo), profile (default: the manifest's).
+# One trial: scenario, arm, trial number, redo number (0 = not a redo), profile (default: the manifest's), variant
+# (a declared variant the pilot manifest lists, e.g. d480: single x1 only, needs PILOT_OWNER_DECISION naming it).
 run_one() {
-  local sc=$1 arm=$2 n=$3 redo=${4:-0} profile=${5:-} root label
+  local sc=$1 arm=$2 n=$3 redo=${4:-0} profile=${5:-} variant=${6:-} root label
   label="$sc $arm $n${redo:+ redo $redo}"; [ "$redo" = 0 ] && label="$sc $arm $n"
   [ -n "$profile" ] && label="$label [$profile]"
+  [ -n "$variant" ] && label="$label {$variant}"
   # a pilot with a staged_plan (parallel-sweep-2) lets a trial start only when its stage's gate is met
-  gate=$(node "$here/stage-gate.mjs" "$sc" "$base" "$arm" "$n") || { say "GATE refused: $label: $gate"; exit 6; }
+  gate=$(node "$here/stage-gate.mjs" "$sc" "$base" "$arm" "$n" "$variant") || { say "GATE refused: $label: $gate"; exit 6; }
   say "gate: $label: $gate"
-  root=$(cd "$repo" && npx tsx "$here/prepare.ts" "$sc" "$base" "$arm" "$n" "$redo" $profile) || { say "prepare failed: $label"; exit 3; }
+  root=$(cd "$repo" && npx tsx "$here/prepare.ts" "$sc" "$base" "$arm" "$n" "$redo" "$profile" "$variant") || { say "prepare failed: $label"; exit 3; }
   say "START $label"
   bash "$smoke/run-trial.sh" "$root" "$cli" > "$root/run-trial.out" 2>&1
   node "$smoke/check.mjs" "$root" > "$root/check.out" 2>&1 || say "check failed for $label"
@@ -46,15 +48,16 @@ run_one() {
   if node -e "process.exit(Number('$total') > Number('$allocation') ? 0 : 1)"; then say "STOP: spend passed the allocation"; exit 5; fi
 }
 
-# PILOT_ONLY="scenario:arm:n:redo:profile,..." runs just those trials, in that order (for finishing a round
+# PILOT_ONLY="scenario:arm:n:redo:profile:variant,..." runs just those trials, in that order (for finishing a round
 # that was interrupted: a redo is a new trial id, flagged in its record, and the interrupted one stays on
-# record; redo 0 = not a redo; profile is one the pilot manifest lists, e.g. production, and marks the id).
+# record; redo 0 = not a redo; profile is one the pilot manifest lists, e.g. production, and marks the id; variant is a declared variant such as d480, which marks the id too:
+# parallel-sweep-2:single:1:0::d480).
 if [ -n "${PILOT_ONLY:-}" ]; then
   IFS=',' read -ra only <<< "$PILOT_ONLY"
   for spec in "${only[@]}"; do
-    IFS=':' read -r sc arm n redo profile <<< "$spec"
+    IFS=':' read -r sc arm n redo profile variant <<< "$spec"
     [ -d "$base/inputs/$sc" ] || { say "no inputs for $sc in $base"; exit 3; }
-    run_one "$sc" "$arm" "$n" "${redo:-0}" "${profile:-}"
+    run_one "$sc" "$arm" "$n" "${redo:-0}" "${profile:-}" "${variant:-}"
   done
   say "DONE"
   exit 0

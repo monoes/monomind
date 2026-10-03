@@ -31,6 +31,9 @@ export async function preparePilotTrial(o: {
   /** A per-trial profile, which the pilot manifest must list in `profiles`; its default is `profile`.
    *  A trial on a non-default profile carries an S marker in its id (p1bS), so ids stay unique. */
   profile?: string;
+  /** A declared variant the pilot manifest lists in `variants` (single arm only): its deadline replaces the
+   *  design's, in the record and in the task text, and its id marks the trial id (p1s-d480). */
+  variant?: string;
 }): Promise<string> {
   const cfg = JSON.parse(readFileSync(join(here, `${o.scenario}.pilot.json`), 'utf8'));
   if (!cfg.arms.some((a: { id: string }) => a.id === o.arm))
@@ -39,13 +42,21 @@ export async function preparePilotTrial(o: {
   const profile = o.profile ?? defaultProfile;
   if (profile !== defaultProfile && !(cfg.profiles ?? []).includes(profile))
     throw new Error(`the pilot manifest of ${o.scenario} does not list the profile "${profile}"`);
+  const variant = o.variant
+    ? (cfg.variants ?? []).find((v: { id: string }) => v.id === o.variant)
+    : undefined;
+  if (o.variant && !variant)
+    throw new Error(`the pilot manifest of ${o.scenario} does not list the variant "${o.variant}"`);
+  if (variant && o.arm !== variant.arm)
+    throw new Error(`variant ${variant.id} is the ${variant.arm} arm only, not ${o.arm}`);
   const root: string = await prepareTrial({
     scenario: o.scenario,
     base: o.base,
     // the single arm is the Phase 2 configuration with the root role alone; the other arms are Phase 2 as is
     contender: o.arm === 'single' ? 'single' : 'phase2',
-    trial: `p${o.n}${SUFFIX[o.arm]}${profile === defaultProfile ? '' : 'S'}${o.redo ? `r${o.redo}` : ''}`,
+    trial: `p${o.n}${SUFFIX[o.arm]}${profile === defaultProfile ? '' : 'S'}${o.redo ? `r${o.redo}` : ''}${variant ? `-${variant.id}` : ''}`,
     profile,
+    ...(variant ? { deadlineSeconds: variant.deadline_seconds } : {}),
   });
   const trialFile = join(root, 'trial.json');
   const trial = JSON.parse(readFileSync(trialFile, 'utf8'));
@@ -65,6 +76,16 @@ export async function preparePilotTrial(o: {
   trial.pilot = {
     id: cfg.id,
     arm: o.arm,
+    ...(variant
+      ? {
+          variant: {
+            id: variant.id,
+            deadlineSeconds: variant.deadline_seconds,
+            declaredChange: variant.declared_change,
+            ownerApproved: true,
+          },
+        }
+      : {}),
     ...(o.redo ? { redo: o.redo, redoOf: trial.name.replace(/r\d+$/, '') } : {}),
     nativeChildren: cfg.native_children,
     writerAuthority: cfg.writer_authority,
@@ -75,7 +96,7 @@ export async function preparePilotTrial(o: {
 }
 
 if (process.argv[1]?.endsWith('pilot/prepare.ts')) {
-  const [scenario, base, arm, n, redo, profile] = process.argv.slice(2);
+  const [scenario, base, arm, n, redo, profile, variant] = process.argv.slice(2);
   console.log(
     await preparePilotTrial({
       scenario,
@@ -84,6 +105,7 @@ if (process.argv[1]?.endsWith('pilot/prepare.ts')) {
       n: Number(n),
       ...(Number(redo) ? { redo: Number(redo) } : {}),
       ...(profile ? { profile } : {}),
+      ...(variant ? { variant } : {}),
     }),
   );
 }

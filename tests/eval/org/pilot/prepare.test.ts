@@ -216,3 +216,59 @@ describe('a redo trial', () => {
     expect(first.t.pilot.redoOf).toBeUndefined();
   });
 });
+
+describe('parallel-sweep-2: the declared single-arm 480 s variant (owner-approved)', () => {
+  const base = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'pilot-sweep2-'));
+  const everything = (root: string) => {
+    const { t, def } = org(root);
+    return `${t.task}\n${JSON.stringify(def)}`;
+  };
+  it('leaves the default prepare output at 600 s in the record, the task and the org definition', async () => {
+    await buildInputs({ scenario: 'parallel-sweep-2', base });
+    const root = await preparePilotTrial({ scenario: 'parallel-sweep-2', base, arm: 'single', n: 1 });
+    const { t } = org(root);
+    expect(t.name).toBe('smoke-parallel-sweep-2-single-p1s');
+    expect(t.deadlineSeconds).toBe(600);
+    expect(t.task).toMatch(/600 seconds \(ten minutes\) of wall time/);
+    expect(everything(root)).toMatch(/before the 600 s deadline/);
+    expect(t.pilot.variant).toBeUndefined();
+  });
+  it('sets 480 s and says eight minutes, with no leftover 600 or ten minutes, and marks the id and the record as a declared variant', async () => {
+    const root = await preparePilotTrial({
+      scenario: 'parallel-sweep-2',
+      base,
+      arm: 'single',
+      n: 1,
+      variant: 'd480',
+    });
+    const { t } = org(root);
+    expect(t.name).toBe('smoke-parallel-sweep-2-single-p1s-d480');
+    expect(t.deadlineSeconds).toBe(480);
+    expect(t.task).toMatch(/480 seconds \(eight minutes\) of wall time/);
+    const all = everything(root);
+    expect(all).toMatch(/before the 480 s deadline/);
+    expect(all).not.toMatch(/\b600\b/);
+    expect(all).not.toMatch(/ten minutes/);
+    expect(t.pilot).toMatchObject({
+      arm: 'single',
+      variant: {
+        id: 'd480',
+        deadlineSeconds: 480,
+        declaredChange: 'single-deadline-480-variant',
+        ownerApproved: true,
+      },
+    });
+  });
+  it('is single-arm only, and an unlisted variant is refused', async () => {
+    for (const arm of ['baseline', 'treatment'] as const)
+      await expect(
+        preparePilotTrial({ scenario: 'parallel-sweep-2', base, arm, n: 1, variant: 'd480' }),
+      ).rejects.toThrow(/single arm only/);
+    await expect(
+      preparePilotTrial({ scenario: 'parallel-sweep-2', base, arm: 'single', n: 1, variant: 'x' }),
+    ).rejects.toThrow(/does not list the variant "x"/);
+    await expect(
+      preparePilotTrial({ scenario: 'dev-feature-qa', base, arm: 'baseline', n: 1, variant: 'd480' }),
+    ).rejects.toThrow(/does not list the variant/);
+  });
+});

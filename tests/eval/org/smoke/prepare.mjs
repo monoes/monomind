@@ -60,7 +60,21 @@ export async function buildInputs({ scenario, base }) {
   return dir;
 }
 
-export async function prepareTrial({ scenario, base, contender, trial = '1', profile = 'haiku' }) {
+/** A declared deadline variant: the kit's deadline replaced by `seconds`, in the wording the role reads too
+ *  ("600 seconds (ten minutes)", "600 s"); refuses a text that still names the old deadline afterwards. */
+const MINUTE_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+function retime(text, from, to) {
+  const min = to / 60;
+  const words = Number.isInteger(min) ? (MINUTE_WORDS[min] ?? String(min)) : null;
+  if (!words) throw new Error(`a deadline of ${to} s is not a whole number of minutes`);
+  const out = text
+    .replace(new RegExp(`\\b${from} seconds \\(\\w+ minutes\\)`, 'g'), `${to} seconds (${words} minutes)`)
+    .replace(new RegExp(`\\b${from} s\\b`, 'g'), `${to} s`);
+  if (new RegExp(`\\b${from}\\b`).test(out)) throw new Error(`the text still names ${from} after the retime`);
+  return out;
+}
+
+export async function prepareTrial({ scenario, base, contender, trial = '1', profile = 'haiku', deadlineSeconds }) {
   const kit = await loadKit(scenario);
   base = resolve(base);
   const inputs = join(base, 'inputs', scenario);
@@ -72,6 +86,12 @@ export async function prepareTrial({ scenario, base, contender, trial = '1', pro
   for (const d of [workspace])
     await import('node:child_process').then((c) => c.execFileSync('chmod', ['-R', 'u+w', d]));
   const spec = await kit.baseDef({ inputs, workspace, root, contender });
+  if (deadlineSeconds && deadlineSeconds !== spec.deadlineSeconds) {
+    const from = spec.deadlineSeconds;
+    spec.task = retime(spec.task, from, deadlineSeconds);
+    spec.def = { ...spec.def, goal: retime(spec.def.goal, from, deadlineSeconds) };
+    spec.deadlineSeconds = deadlineSeconds;
+  }
   const plan = resolvePlan(scenario, profile);
   let def = applyContender(spec.def, contender, { sessionCap: spec.sessionCap });
   def = applyModel(def, plan);
