@@ -83,6 +83,7 @@ describe('the committed pilot manifests', () => {
     expect(p.declared_changes.map((c: { id: string }) => c.id)).toEqual([
       'owner-approval',
       'no-node-sandbox',
+      'task-text-sheet-shape',
     ]);
   });
 

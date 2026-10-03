@@ -495,3 +495,109 @@ describe('check', () => {
     expect(u[1].accepted).toBe(false);
   });
 });
+
+describe('the deliverable shapes are in the text every role receives', () => {
+  const roleTexts = async (arm: Arm) => {
+    const { t, def } = await prep(arm, 1);
+    return def.roles.map((r) => ({
+      id: r.id as string,
+      text: `${t.task}\n${(r.responsibilities ?? []).join('\n')}`,
+      resp: (r.responsibilities ?? []).join('\n') as string,
+    }));
+  };
+  const SHAPE = [
+    /answers\.json/,
+    /synthesis\.json/,
+    /"module"/,
+    /"answers"/,
+    /"q"/,
+    /"value"/,
+    /"files"/,
+  ];
+
+  for (const arm of ['single', 'baseline', 'treatment'] as Arm[])
+    it(`${arm}: every role's text carries the module-sheet and synthesis shapes and a worked example`, async () => {
+      for (const { id: roleId, text } of await roleTexts(arm)) {
+        for (const re of SHAPE) expect(text, `${arm}/${roleId} ${re}`).toMatch(re);
+        expect(text).toMatch(/q01.*q12/);
+        expect(text).toMatch(/s1.*s6/);
+        expect(text).toMatch(/"q99"/);
+        expect(text).toMatch(/no other keys/);
+      }
+    });
+
+  it('baseline and treatment workers and the synthesiser are pointed at the shape in their own duty', async () => {
+    for (const arm of ['baseline', 'treatment'] as Arm[])
+      for (const { id: roleId, resp } of await roleTexts(arm))
+        if (roleId.startsWith('worker') || roleId === 'synthesiser')
+          expect(resp, `${arm}/${roleId}`).toMatch(/shape given in the task text/);
+  });
+
+  it('the worked example uses a made-up module and question and a fake value', () => {
+    expect(TASK).toMatch(/"module":"m99"/);
+    expect(TASK).toMatch(/"q":"q99","value":12345/);
+    const truth = JSON.parse(readFileSync(join(inputs(), 'truth.json'), 'utf8'));
+    expect(truth.modules.m99).toBeUndefined();
+    const values = Object.values(truth.modules).flatMap((m: any) =>
+      Object.values(m).map((x: any) => x.value),
+    );
+    expect(values).not.toContain(12345);
+  });
+
+  it('the text agrees with the treatment contracts (same keys, no extra keys, integer value)', () => {
+    const pilot = JSON.parse(
+      readFileSync(join(here, '../../../pilot/parallel-sweep.pilot.json'), 'utf8'),
+    );
+    for (const c of pilot.contracts) {
+      expect(c.schema.required).toEqual(['module', 'answers']);
+      expect(c.schema.properties.answers.items.required).toEqual(['q', 'value', 'files']);
+      expect(c.schema.properties.answers.items.properties.value.type).toBe('integer');
+      expect(c.schema.additionalProperties).toBe(false);
+    }
+    expect(TASK).toMatch(/value is an integer/);
+    expect(TASK).toMatch(/files is a list of strings/);
+  });
+
+  describe("a sheet written per the text is accepted by the scorer, the failed trial's form is not", () => {
+    const load = async () => {
+      const { scoreModule, scoreSynthesis } = await import(join(fixtureDir, 'score.mjs'));
+      const truth = JSON.parse(readFileSync(join(inputs(), 'truth.json'), 'utf8'));
+      return { scoreModule, scoreSynthesis, truth };
+    };
+    it('{module, answers:[{q, value, files}]} and {answers:[{q, value}]} with real values are accepted', async () => {
+      const { scoreModule, scoreSynthesis, truth } = await load();
+      const sheet = {
+        module: 'm1',
+        answers: Object.entries(truth.modules.m1).map(([q, x]: [string, any]) => ({
+          q,
+          value: x.value,
+          files: x.files,
+        })),
+      };
+      expect(sheet.answers).toHaveLength(12);
+      expect(scoreModule(sheet, truth, 'm1')).toMatchObject({ accepted: true, correct: 12 });
+      const syn = {
+        answers: Object.entries(truth.synthesis).map(([q, x]: [string, any]) => ({
+          q,
+          value: x.value,
+        })),
+      };
+      expect(syn.answers.map((a) => a.q)).toEqual(['s1', 's2', 's3', 's4', 's5', 's6']);
+      expect(scoreSynthesis(syn, truth)).toMatchObject({ accepted: true, correct: 6 });
+    });
+    it('a bare array is rejected', async () => {
+      const { scoreModule, scoreSynthesis, truth } = await load();
+      const bare = Object.entries(truth.modules.m1).map(([q, x]: [string, any]) => ({
+        q,
+        answer: x.value,
+        files: x.files,
+      }));
+      expect(scoreModule(bare, truth, 'm1').accepted).toBe(false);
+      const bareSyn = Object.entries(truth.synthesis).map(([q, x]: [string, any]) => ({
+        q,
+        value: x.value,
+      }));
+      expect(scoreSynthesis(bareSyn, truth).accepted).toBe(false);
+    });
+  });
+});

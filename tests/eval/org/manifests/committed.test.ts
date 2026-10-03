@@ -67,6 +67,7 @@ describe('committed scenario manifests', () => {
     expect(m.declared_changes.map((c: { id: string }) => c.id)).toEqual([
       'owner-approval',
       'no-node-sandbox',
+      'task-text-sheet-shape',
     ]);
     expect(m.declared_changes[1].what).toMatch(/denyExec/);
     const fixture = JSON.parse(

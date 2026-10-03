@@ -88,6 +88,14 @@
       "what": "Every role in all three arms (single, baseline, treatment; the lead and the synthesiser included) runs with no node and no code-execution tool: policy.sandbox.denyExec masks node, nodejs, deno, bun, npm, npx, pnpm, yarn, corepack, tsx, python*, perl, ruby, php, lua*, tclsh, java, go, gcc and the like (and the browsers and busybox) by real path in a bubblewrap layer around the role (mode required: a role does not start without it), policy.allowTools admits only Bash, Read, Write, Edit, MultiEdit, Glob and Grep, and Bash network is limited to localhost. The hidden truth file and the fixture directory are hidden from every role with policy.sandbox.denyRead.",
       "why": "The first draft only forbade running the corpus code in the task text; an agent with node could get every value in one call, which is a hole that would be detected at best. Denying it makes the cheating impossible instead.",
       "earlier_result": "none: nothing ran on a model under the draft"
+    },
+    {
+      "id": "task-text-sheet-shape",
+      "date": "2026-10-03",
+      "approved_by": "owner",
+      "what": "The task text given to every role of all three arms (single, baseline, treatment) now states the exact JSON shape of out/<module>/answers.json ({module, answers:[{q, value (integer), files (ordered corpus-relative paths with extension)}]}, the 12 ids q01 to q12) and of out/synthesis.json ({answers:[{q, value}]}, the ids s1 to s6), with a made-up worked example (m99/q99/s99, fake values), and the worker and synthesiser duties point at it. The treatment arm's hand-off contract schemas are unchanged and agree with the text.",
+      "why": "The first paid trial (single-1, 2.15 USD, void) showed the task text omitted the JSON shape, so the scorer rejected correct work (bare arrays with an extra answer key scored 0 of 8 and 0 of 1 although a lenient re-score gave 8 of 8 and 6 of 6). Fixed inside the approved pilot; applies to all three arms; no change to the design, deadline, corpus or caps, roster or scoring.",
+      "earlier_result": "the void trial stays on record and its results are not used"
     }
   ]
 }
