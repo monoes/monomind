@@ -6,6 +6,7 @@ import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { reopenBudgetClosedRoles, rolesOnDefTokenCaps } from './budget-closure.js';
 import type { OrgDaemon } from './daemon.js';
 import { reloadLoopRounds } from './documents/loop-run.js';
+import { reloadRefusalText, structuralReloadChanges } from './documents/reload-guard.js';
 import { reloadReworkCaps } from './documents/rework.js';
 import { sectionRoleCap, syncSectionBudgets } from './documents/section-budget-wire.js';
 import { effectiveRolePolicy } from './effective-role-policy.js';
@@ -56,6 +57,18 @@ export function reloadOrgDef(
   // before applying anything; a failing one leaves the running org as is.
   const checklist = checklistFindings(newDef);
   if (checklist.errors.length) throw new Error(`org ${name}: ${checklist.errors.join('; ')}`);
+  // P4.10: a structural change of the sections surface is not reloadable; refuse the whole file, apply nothing.
+  const structural = structuralReloadChanges(running.def, newDef);
+  if (structural.length) {
+    const msg = reloadRefusalText(name, structural);
+    running.bus.emit({
+      type: 'audit',
+      reason: 'hot-reload-refused',
+      msg,
+      data: { reason: 'structural', changes: structural.map((c) => ({ code: c.code, path: c.path })) },
+    });
+    throw new Error(msg);
+  }
   pinInstructionDigests(newDef, digests); // for roles this reload adds
   const changed: string[] = [];
   const newRoles: string[] = [];

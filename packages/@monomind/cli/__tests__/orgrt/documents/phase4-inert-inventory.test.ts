@@ -112,6 +112,10 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/rework-daemon.test.ts`]: { max_rework_rounds: 1 },
   [`${P}/documents/rework-guard.test.ts`]: { max_rework_rounds: 4 },
   [`${P}/documents/rework.test.ts`]: { max_rework_rounds: 11 },
+  // P4.10 reload guard: the classifier table names the structural keys (`writes`, `parallelism`, `loops`) and the live one
+  // (`max_rework_rounds`); the daemon test reloads them on a running org.
+  [`${P}/documents/reload-guard.test.ts`]: { loops: 2, max_rework_rounds: 1, parallelism: 1, writes: 5 },
+  [`${P}/documents/reload-guard-daemon.test.ts`]: { max_rework_rounds: 2, writes: 2 },
   // P4.8 loops wired: the dev and QA loop definition (`loops` set by the shared fixture) and the definition matrix that mutates it.
   [`${P}/support/loop-defs.ts`]: { loops: 1 },
   [`${P}/documents/loops-definition.test.ts`]: { loops: 2 },
