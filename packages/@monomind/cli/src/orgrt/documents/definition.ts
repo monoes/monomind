@@ -11,6 +11,7 @@ import { completionFindings } from './completion-accessor.js';
 import { checkDocuments } from './definition-documents.js';
 import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
+import { leadRulesFindings } from './lead-rules.js';
 
 const SECTION_FIELDS = [
   'lead',
@@ -270,5 +271,6 @@ export function sectionsDefinitionFindings(def: OrgDef): Findings {
   const sections = raw.sections as Record<string, unknown>;
   checkSections(def, sections, docTypes, f);
   checkRoles(def, f);
+  leadRulesFindings(def, f);
   return f;
 }

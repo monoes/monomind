@@ -6,7 +6,7 @@
 // or (b) the notice was delivered and no decision maker read the version. While a notice is merely pending
 // (undelivered, or failing and still being retried) the watch is silent, as 6.2 (f) says ("no pending notice"):
 // the retry is the remedy, and the clock of (b) starts at the delivery (P3.16a, open item 23).
-// The watch tells the LEAD (the consumer's reports_to, else the root) once per episode, with the doubling gap
+// The watch tells the LEAD (the consumer's section lead, else its reports_to, else the root) once per episode, with the doubling gap
 // and the cap of the existing lead-watch; it never writes to the consumer itself (that is the notice engine's job).
 //
 // This file only decides: it takes a snapshot and returns the notices to send, so it is table-testable without

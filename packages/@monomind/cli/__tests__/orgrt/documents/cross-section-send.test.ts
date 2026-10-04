@@ -20,6 +20,7 @@ import { sectionsRaw } from '../support/sections-defs.js';
 // `observer` reports to boss and is in no section.
 const def = (): any =>
   sectionsRaw((raw) => {
+    raw.run_config.max_concurrent_agents = 6; // P4.9: six agent roles must fit
     raw.roles.push({
       id: 'observer',
       title: 'observer',
@@ -99,7 +100,7 @@ describe('crossSectionRefusal matrix (sections org)', () => {
 
   it('has the exact refusal text, naming the rule and the legitimate routes', () => {
     expect(refusalOf('researcher', 'coder')).toBe(
-      'REFUSED: researcher (section research) cannot message coder (section development). Sections hand work over through documents: publish it with org_doc_publish, or ask your section lead to raise it with the other lead; the root can reach any section.',
+      'REFUSED: researcher (section research) cannot message coder (section development). Sections hand work over through documents: publish it with org_doc_publish, or raise it with the root, who can reach any section.',
     );
   });
 });

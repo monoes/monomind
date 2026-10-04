@@ -13,6 +13,7 @@ import {
   TASK_RESULT_HELP,
   withWarnings,
 } from './context-surface.js';
+import { taskAssignmentRefusal } from './documents/lead-rules.js';
 import { documentTools } from './documents/tools-core.js';
 import { appendNote, NOTE_APPEND_HELP, readNotes } from './notes.js';
 import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
@@ -412,6 +413,12 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
           });
           if (errors.length) return text(JSON.stringify({ error: errors.join('; ') }));
         }
+        // Org sections (plan P4.9): one cross-section assignee refuses the whole graph, like a bad brief.
+        const sectionsDef = opts.documents ? opts.def : undefined;
+        const refused = sectionsDef
+          ? specs.map((x) => taskAssignmentRefusal(sectionsDef, role.id, x.assignee)).find(Boolean)
+          : undefined;
+        if (refused) return text(JSON.stringify({ error: refused }));
         return text(withWarnings(planGraph(role.id, specs), warnings));
       },
     });

@@ -20,6 +20,7 @@ export function validSectionsRaw(): Record<string, any> {
     requires: { sections: 1 },
     run_config: {
       idle_minutes: 0,
+      max_concurrent_agents: 5, // P4.9: the roster of five must fit (the default cap of 4 is a validate error on this surface)
       experimental: 'eval',
       completion: { mode: 'dag', protocol: 'sections-v1' },
     },

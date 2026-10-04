@@ -15,6 +15,7 @@ import type { RunningOrg } from '../daemon-types.js';
 import * as questionOps from '../questions.js';
 import { RUNTIME_SENDER } from './deliver.js';
 import { EventLog, parseLog } from './events.js';
+import { leadFor } from './lead-rules.js';
 import type { DocumentsRuntime } from './runtime.js';
 import { type UnreadVersion, UnreadWatch, unreadIntervalMs } from './unread-watch.js';
 
@@ -67,7 +68,7 @@ export function startUnreadWatch(
   };
   const leadOf = (role: string): string | undefined => {
     if (role === boss) return undefined;
-    const parent = running.def.roles.find((r) => r.id === role)?.reports_to ?? boss;
+    const parent = leadFor(running.def, role, boss);
     const lead = running.agents.has(parent) ? parent : boss;
     return lead !== role && live(lead) ? lead : undefined;
   };

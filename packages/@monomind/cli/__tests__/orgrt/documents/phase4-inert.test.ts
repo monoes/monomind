@@ -225,19 +225,24 @@ describe('phase4 inert: keys accepted today that Phase 4 gives effect or finding
     expect(f.errors).toEqual([]);
   });
 
-  // EDITED BY P4.9: the capacity error. The default max_concurrent_agents is 4 and the roster below has five agent roles:
-  // today that is the generic "#3" warning, never an error.
-  it('a roster above max_concurrent_agents is accepted today (a warning only)', () => {
+  // EDITED BY P4.9: the capacity error. The default max_concurrent_agents is 4; a sections org with more agent roles
+  // than the cap is now an ERROR (the shared fixture sets 5 for its five roles). Full rules: lead-rules-definition.test.ts.
+  it('a roster above max_concurrent_agents is an error on the surface (P4.9)', () => {
     expect(baseline.errors).toEqual([]);
-    expect(baseline.warnings.some((w) => w.startsWith('#3 run_config.max_concurrent_agents is 4 but the org has 5 roles'))).toBe(true);
-    expect(on((r) => (r.run_config.max_concurrent_agents = 1)).errors).toEqual([]);
+    const f = on((r) => delete r.run_config.max_concurrent_agents);
+    expect(f.errors).toHaveLength(1);
+    expect(f.errors[0]).toMatch(/^run_config\.max_concurrent_agents: 4 is below the 5 agent roles/);
+    expect(on((r) => (r.run_config.max_concurrent_agents = 1)).errors).toHaveLength(1);
   });
 
   // EDITED BY P4.9: the reports_to warning.
-  it('a member whose reports_to is not its section lead gets no finding today', () => {
+  it('a member whose reports_to is not its section lead gets a warning, not an error (P4.9)', () => {
     const f = on((r) => (r.roles.find((x: Raw) => x.id === 'coder').reports_to = 'boss'));
     expect(f.errors).toEqual([]);
-    expect(f.warnings).toEqual(baseline.warnings);
+    expect(f.warnings).toEqual([
+      expect.stringMatching(/^roles\.coder\.reports_to: "coder" is in section "development" but reports to "boss", not its section lead "dev-lead"/),
+      ...baseline.warnings,
+    ]);
   });
 
   it('parallelism.max_parallel is accepted and has no finding', () => {

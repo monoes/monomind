@@ -28,7 +28,7 @@ describe('cross-section org_send inside the live loop', () => {
     await runner.toolsOf(d, name, 'worker-2');
     const syn = await runner.toolsOf(d, name, 'synthesiser');
     const refusal = (from: string, fromSection: string, to: string, toSection: string) =>
-      `REFUSED: ${from} (section ${fromSection}) cannot message ${to} (section ${toSection}). Sections hand work over through documents: publish it with org_doc_publish, or ask your section lead to raise it with the other lead; the root can reach any section.`;
+      `REFUSED: ${from} (section ${fromSection}) cannot message ${to} (section ${toSection}). Sections hand work over through documents: publish it with org_doc_publish, or raise it with the root, who can reach any section.`;
     expect(await send(w1, 'worker-2')).toBe(refusal('worker-1', 'sweep-1', 'worker-2', 'sweep-2'));
     expect(await send(w1, 'synthesiser')).toBe(refusal('worker-1', 'sweep-1', 'synthesiser', 'synthesis'));
     expect(await send(syn, 'worker-1')).toBe(refusal('synthesiser', 'synthesis', 'worker-1', 'sweep-1'));

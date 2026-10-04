@@ -16,6 +16,7 @@ import {
   contextSurface,
   withWarnings,
 } from './context-surface.js';
+import { taskAssignmentRefusal } from './documents/lead-rules.js';
 import type { LoadoutSummary } from './loadouts.js';
 import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
 import type { SessionOpts } from './session.js';
@@ -112,6 +113,9 @@ export function orgTaskTool(
         if ('error' in picked) return text(JSON.stringify({ error: picked.error }));
         ({ assignee, pick } = picked);
       }
+      // Org sections (plan P4.9): only a session with a documents host; no other org is asked.
+      const refused = opts.documents && opts.def && taskAssignmentRefusal(opts.def, role.id, assignee);
+      if (refused) return text(JSON.stringify({ error: refused }));
       const refs = args.references as TaskReferences | undefined;
       const deps = (args.deps as string[]) ?? [];
       const loadout = args.loadout as string | undefined;

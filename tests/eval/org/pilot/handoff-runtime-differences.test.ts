@@ -140,8 +140,9 @@ export const DIFFERENCES = [
     harness:
       'cross-section send: "Refused: ... pilot__doc_publish"; recorded as a send-refused store event',
     runtime:
-      'cross-section send: "REFUSED: ... org_doc_publish; the root can reach any section"; audited on the bus as cross-section-refused',
-    reason: 'tool names and the root sentence; the allow/refuse decisions are equal (parity test)',
+      'cross-section send: "REFUSED: ... org_doc_publish, or raise it with the root, who can reach any section"; audited on the bus as cross-section-refused',
+    reason:
+      'tool names, and the root sentence: the harness keeps the measured text that points at a lead-to-lead path, the runtime text no longer does (open item 25, P4.9); the allow/refuse decisions are equal (parity test)',
   },
 ];
 
@@ -374,7 +375,7 @@ describe('differences that need their own small scenario', () => {
     ).text;
     const hText = crossSectionRefusal(miniRouting(), 'worker-1', 'worker-3');
     expect(hText).toMatch(/^Refused: .*pilot__doc_publish/);
-    expect(text).toMatch(/^REFUSED: .*org_doc_publish.*the root can reach any section/);
+    expect(text).toMatch(/^REFUSED: .*org_doc_publish.*raise it with the root, who can reach any section/);
     expect(running.busEvents().filter((e) => e.reason === 'cross-section-refused')).toHaveLength(1);
     prove('refusal-text');
   }, 60000);

@@ -32,6 +32,7 @@
 import type { OrgDaemon } from './daemon.js';
 import type { RunningOrg } from './daemon-types.js';
 import { type AwaitFacts, awaitFacts, awaitingDocuments } from './documents/awaiting.js';
+import { leadFor } from './documents/lead-rules.js';
 import * as questionOps from './questions.js';
 import { isTerminalStatus } from './task-dag.js';
 import type { BusEvent } from './types.js';
@@ -256,7 +257,7 @@ function snapshot(
     awaitingDocuments(id, (facts ??= awaitFacts(running.documents as NonNullable<typeof running.documents>)));
   return [...byRole].flatMap(([id, openTasks]) => {
     if (id === boss) return [];
-    const parent = running.def.roles.find((r) => r.id === id)?.reports_to ?? boss;
+    const parent = leadFor(running.def, id, boss);
     const leadRt = running.agents.get(parent) ?? running.agents.get(boss);
     const lead = running.agents.get(parent) ? parent : boss;
     return [
@@ -284,8 +285,7 @@ export function startLeadWatch(
   if (!cfg) return undefined;
   const watch = new LeadWatch(cfg);
   const { bus } = running;
-  const leadOf = (id: string): string =>
-    running.def.roles.find((r) => r.id === id)?.reports_to ?? running.bossRoleId;
+  const leadOf = (id: string): string => leadFor(running.def, id, running.bossRoleId);
   bus.subscribe((e: BusEvent) => {
     // 'message-queued': the same message when the recipient has no session yet (cross-org-deliver.ts).
     if (e.type !== 'message' && !(e.type === 'audit' && e.reason === 'message-queued')) return;

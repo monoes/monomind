@@ -57,7 +57,7 @@ export function crossSectionRefusalText(
   to: string,
   toSection: string,
 ): string {
-  return `REFUSED: ${from} (section ${fromSection}) cannot message ${to} (section ${toSection}). Sections hand work over through documents: publish it with org_doc_publish, or ask your section lead to raise it with the other lead; the root can reach any section.`;
+  return `REFUSED: ${from} (section ${fromSection}) cannot message ${to} (section ${toSection}). Sections hand work over through documents: publish it with org_doc_publish, or raise it with the root, who can reach any section.`;
 }
 
 /** Why a message must not go from `from` to `to`, or undefined when it may. */
