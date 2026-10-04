@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveRoleCostTier, validateCostTiers } from '../orgrt/cost-tier.js';
+import { completionDisplay, patchCompletion } from '../orgrt/documents/completion-accessor.js';
 import { readIdleStatus } from '../orgrt/idle-deadline.js';
 import { recordedPidLiveness } from '../orgrt/run-liveness.js';
 import { OrgDefSchema } from '../orgrt/types.js';
@@ -289,7 +290,7 @@ export async function runtimeView(root, org) {
     updated: runtime?.updated ?? null,
     idle: isLive && run ? readIdleStatus(root, org, run) : null,
     settings: {
-      completion: rc.completion ?? 'boss',
+      completion: completionDisplay(rc),
       completion_evidence: !!rc.completion_evidence,
       max_evidence_attempts: rc.max_evidence_attempts ?? 3,
       idle_minutes: rc.idle_minutes ?? 10,
@@ -367,7 +368,15 @@ export function patchOrgConfig(root, org, patch) {
         problems.push(`run_config.${k} is not editable here`);
         continue;
       }
-      if (v === null) delete rc[k];
+      if (k === 'completion') {
+        const c = patchCompletion(rc, v);
+        if (!c.ok) {
+          problems.push(c.problem);
+          continue;
+        }
+        if (c.value === null) delete rc[k];
+        else rc[k] = c.value;
+      } else if (v === null) delete rc[k];
       else rc[k] = v;
     }
     next.run_config = rc;

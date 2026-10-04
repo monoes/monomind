@@ -7,6 +7,7 @@
  * findings. Every message names the path it is about and a remedy.
  */
 import type { OrgDef } from '../types.js';
+import { completionFindings } from './completion-accessor.js';
 import { checkDocuments } from './definition-documents.js';
 import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
@@ -62,15 +63,7 @@ function checkSurfaceKeys(def: OrgDef, f: Findings): void {
     f.errors.push(
       `run_config.experimental: a sections org must set "eval" until the release build qualifies — got ${describe(rc.experimental)}`,
     );
-  const c = rc.completion;
-  if (!isObject(c))
-    f.errors.push(
-      `run_config.completion: a sections org must set {"mode": "boss"|"dag", "protocol": "sections-v1"} (the version-skew discriminator) — got ${describe(c)}`,
-    );
-  else if (c.protocol !== 'sections-v1')
-    f.errors.push(
-      `run_config.completion.protocol: must be "sections-v1" — got ${describe(c.protocol)}; this runtime supports no other protocol`,
-    );
+  f.errors.push(...completionFindings(rc, describe));
   if (def.schedule !== null && def.schedule !== undefined)
     f.errors.push(
       'schedule: not yet supported: recurring section orgs need document carry-forward — remove schedule (a section org runs once, or is resumed by hand)',

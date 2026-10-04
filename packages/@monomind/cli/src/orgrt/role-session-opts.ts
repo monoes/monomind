@@ -9,6 +9,7 @@ import type { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import * as decisionOps from './decisions.js';
 import { openTaskCount } from './decisions.js';
+import { completionMode } from './documents/completion-accessor.js';
 import { loadoutCatalog, resolveLoadout } from './loadouts.js';
 import type { Mailbox } from './mailbox.js';
 import type { TaskReferences } from './packet.js';
@@ -231,11 +232,7 @@ export function buildRoleSessionOpts(
               return unwritten;
             }
             return resolveOrgComplete(bus, r, outcome, summary, blocker, blockerDetail, {
-              // P3.1: a sections org carries {mode, protocol}; P3.2 replaces this with the accessor.
-              mode:
-                typeof def.run_config.completion === 'object'
-                  ? def.run_config.completion.mode
-                  : (def.run_config.completion ?? 'boss'),
+              mode: completionMode(def.run_config),
               maxBudgetFraction,
               pendingHumanWaits,
               // #564: the boss's own and every other role's blocking questions.

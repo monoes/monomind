@@ -8369,7 +8369,7 @@ function v2RenderOrgConfig() {
       + fld('Max concurrent agents', inp('oc-max-agents', rc.max_concurrent_agents ?? '', 'number', 'min="1" placeholder="4"'))
       + fld('Max turns per message', inp('oc-max-turns', rc.max_turns_per_message ?? '', 'number', 'min="1"')))
     + sec('COMPLETION',
-      fld('org_complete gate', sel('oc-completion', [['', 'boss (default)'], ['boss', 'boss — partial needs a real blocker'], ['dag', 'dag — also refuse while tasks are runnable']], rc.completion ?? ''))
+      fld('org_complete gate', sel('oc-completion', [['', 'boss (default)'], ['boss', 'boss — partial needs a real blocker'], ['dag', 'dag — also refuse while tasks are runnable']], (rc.completion && typeof rc.completion === 'object' ? rc.completion.mode : rc.completion) ?? ''))
       + fld('Evidence gate on org_task_done', sel('oc-evidence', [['false', 'off'], ['true', 'on — commands + exit codes pinned to HEAD']], String(!!rc.completion_evidence)))
       + fld('Escalate after N evidence refusals', inp('oc-evidence-max', rc.max_evidence_attempts ?? '', 'number', 'min="1" placeholder="3"'), 'Then the task is failed and handed to the boss.'))
     + sec('SESSIONS & WATCHDOG',

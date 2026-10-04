@@ -11,6 +11,7 @@
  * Each message names its checklist item (`#N`) and a remedy.
  */
 import { effectiveRoleRuntime } from './runner-specs.js';
+import { completionIsObject } from './documents/completion-accessor.js';
 import { sectionsDefinitionFindings } from './documents/definition.js';
 import { sectionsSurface } from './documents/surface.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
@@ -98,7 +99,7 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
     if (k in rc && !(sectionsOn && RELAXED_RUN_CONFIG.includes(k)))
       errors.push(`run_config.${k} is not yet supported — remove it`);
   // A completion object ({mode, protocol}) belongs to a sections org alone.
-  if (typeof rc.completion === 'object' && rc.completion !== null && !sectionsOn)
+  if (completionIsObject(rc) && !sectionsOn)
     errors.push(
       'run_config.completion as an object is only supported with a top-level "sections" — use "boss" or "dag"',
     );
