@@ -97,6 +97,11 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/sections-off-golden.test.ts`]: { loops: 2 },
   // `loops` through a project file on disk, sections off.
   [`${P}/validate-checklist-paths.test.ts`]: { loops: 1 },
+  // P4.2 writer core (pure): definitions that declare `writes` (and one `parallelism`) to test the single-writer rules.
+  [`${P}/documents/writer-policy-engine.test.ts`]: { writes: 1 },
+  [`${P}/documents/writer-policy.test.ts`]: { parallelism: 1, writes: 14 },
+  [`${P}/documents/writer-property.test.ts`]: { writes: 4 },
+  [`${P}/support/writer-defs.ts`]: { writes: 1 },
 };
 
 describe('phase4 inert: fixture inventory', () => {

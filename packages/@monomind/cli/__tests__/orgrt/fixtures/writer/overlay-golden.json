@@ -1,0 +1,175 @@
+{
+  "repo": {
+    "overlays": {
+      "boss": {
+        "role": "boss",
+        "standing": "root",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "."
+          ]
+        }
+      },
+      "dev": {
+        "role": "dev",
+        "standing": "writing-section-lead",
+        "section": "build",
+        "fileWrite": [
+          "src/app/**"
+        ]
+      },
+      "qa-lead": {
+        "role": "qa-lead",
+        "standing": "other-section-lead",
+        "section": "review",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "build",
+            "."
+          ],
+          "allowWrite": [
+            "/tmp/scratch"
+          ]
+        },
+        "git": "read"
+      },
+      "qa": {
+        "role": "qa",
+        "standing": "other-section-member",
+        "section": "review",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "."
+          ]
+        }
+      },
+      "stray": {
+        "role": "stray",
+        "standing": "unsectioned",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "."
+          ]
+        }
+      }
+    },
+    "preflight": {
+      "codes": [
+        "error writer-scope-uncovered roles.dev.policy.fileWrite",
+        "error writer-readonly-grant roles.qa-lead.policy.sandbox.allowWrite",
+        "error writer-readonly-grant roles.qa-lead.policy.fileWrite",
+        "warning writer-sandbox-mode-overridden roles.qa-lead.policy.sandbox.mode",
+        "error writer-readonly-git roles.qa-lead.policy.git"
+      ],
+      "errors": [
+        "roles.dev.policy.fileWrite: lib/** not covered by the section's writes (src/**, docs/**) — narrow the entry to a path inside writes, or remove it (the role then gets writes itself)",
+        "roles.qa-lead.policy.sandbox.allowWrite: ., src/gen would let a read-only role change the shared workspace — remove it (only the writing section's role may write the workspace)",
+        "roles.qa-lead.policy.fileWrite: reports/** would let a read-only role change the shared workspace — remove it (only the writing section's role may write the workspace)",
+        "roles.qa-lead.policy.git: \"commit\" lets a read-only role change the repository — set \"read\" or remove it (only the writing section's role may write the workspace)"
+      ],
+      "warnings": [
+        "roles.qa-lead.policy.sandbox.mode: \"off\" is replaced by \"required\" for a read-only role — set \"required\" or remove it"
+      ],
+      "writers": {
+        "repo": [
+          "dev"
+        ]
+      }
+    }
+  },
+  "absolute": {
+    "overlays": {
+      "boss": {
+        "role": "boss",
+        "standing": "root",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "/work/ws"
+          ]
+        }
+      },
+      "dev": {
+        "role": "dev",
+        "standing": "writing-section-lead",
+        "section": "build",
+        "fileWrite": [
+          "src/app/**"
+        ]
+      },
+      "qa-lead": {
+        "role": "qa-lead",
+        "standing": "other-section-lead",
+        "section": "review",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "build",
+            "/work/ws"
+          ],
+          "allowWrite": [
+            "/tmp/scratch",
+            "src/gen"
+          ]
+        },
+        "git": "read"
+      },
+      "qa": {
+        "role": "qa",
+        "standing": "other-section-member",
+        "section": "review",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "/work/ws"
+          ]
+        }
+      },
+      "stray": {
+        "role": "stray",
+        "standing": "unsectioned",
+        "fileWrite": [],
+        "sandbox": {
+          "mode": "required",
+          "denyWrite": [
+            "."
+          ]
+        }
+      }
+    },
+    "preflight": {
+      "codes": [
+        "error writer-scope-uncovered roles.dev.policy.fileWrite",
+        "error writer-readonly-grant roles.qa-lead.policy.sandbox.allowWrite",
+        "error writer-readonly-grant roles.qa-lead.policy.fileWrite",
+        "warning writer-sandbox-mode-overridden roles.qa-lead.policy.sandbox.mode",
+        "error writer-readonly-git roles.qa-lead.policy.git"
+      ],
+      "errors": [
+        "roles.dev.policy.fileWrite: lib/** not covered by the section's writes (src/**, docs/**) — narrow the entry to a path inside writes, or remove it (the role then gets writes itself)",
+        "roles.qa-lead.policy.sandbox.allowWrite: . would let a read-only role change the shared workspace — remove it (only the writing section's role may write the workspace)",
+        "roles.qa-lead.policy.fileWrite: reports/** would let a read-only role change the shared workspace — remove it (only the writing section's role may write the workspace)",
+        "roles.qa-lead.policy.git: \"commit\" lets a read-only role change the repository — set \"read\" or remove it (only the writing section's role may write the workspace)"
+      ],
+      "warnings": [
+        "roles.qa-lead.policy.sandbox.mode: \"off\" is replaced by \"required\" for a read-only role — set \"required\" or remove it"
+      ],
+      "writers": {
+        "path:/work/ws": [
+          "dev"
+        ]
+      }
+    }
+  }
+}
