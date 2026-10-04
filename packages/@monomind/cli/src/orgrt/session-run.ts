@@ -121,6 +121,9 @@ export async function runOneSession(
   // Exists purely so the 'result' branch never re-adds what this branch
   // already added (see there for why it can't just always add).
   let messageTurnTokens: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  // #597: content blocks (including subagents) repeat one response's usage.
+  // Keep text/tool handling intact, but meter each response only once.
+  const meteredResponses = new Set<string>();
   // Abort hook for the runner (AgentRunArgs.signal): the silent-stream
   // abort below used to call iterator.return() only, which queues behind a
   // subprocess runner blocked in `for await (child.stdout)` — the child was
@@ -304,7 +307,8 @@ export async function runOneSession(
         // billed against 8.1M recorded, with input_tokens at 0.0M.
         const turn = turnBreakdown(m);
         const turnTokens = totalTokens(turn);
-        if (turnTokens > 0) {
+        if (turnTokens > 0 && (!m.message_id || !meteredResponses.has(m.message_id))) {
+          if (m.message_id) meteredResponses.add(m.message_id);
           addTo(messageTurnTokens, turn);
           policy.addTokenUsage(turn);
           if (policy.overBudget) {
@@ -354,6 +358,7 @@ export async function runOneSession(
         const resultTokens = resultBreakdown(m, tokenTotals, m.session_id ?? sessionId ?? '');
         const messageTokens = settleResultTokens(policy, resultTokens, messageTurnTokens);
         messageTurnTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+        meteredResponses.clear();
         // Convert the SDK's cumulative total_cost_usd into a per-result
         // delta before emitting - downstream sums usage events. A new session
         // id counts in full; a same-process dip (rounding, a provider-side

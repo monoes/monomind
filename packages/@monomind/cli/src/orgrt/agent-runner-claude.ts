@@ -405,6 +405,7 @@ export class ClaudeAgentRunner implements AgentRunner {
           yield {
             type: 'assistant',
             session_id,
+            message_id: m.message?.id,
             text,
             ...(parent ? { parent_tool_use_id: parent } : {}),
             input_tokens: m.message?.usage?.input_tokens,

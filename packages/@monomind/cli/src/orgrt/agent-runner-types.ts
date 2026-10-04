@@ -224,6 +224,8 @@ export function killOnAbort(
 export interface AgentMessage {
   type: 'assistant' | 'result' | 'tool_use' | 'tool_result' | 'status' | 'subagent';
   session_id?: string;
+  /** API response ID shared by assistant content blocks with the same usage. */
+  message_id?: string;
   text?: string; // assistant (prose) / tool_use (short progress label) / tool_result (body)
   phase?: 'initializing' | 'ready'; // status only
   mcp_servers?: { name: string; status: string }[]; // status(phase:'ready') only
