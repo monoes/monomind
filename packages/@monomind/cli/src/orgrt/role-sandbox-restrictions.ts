@@ -167,6 +167,8 @@ export function buildClaudeRestrictions(
     tmp?: string;
     env?: NodeJS.ProcessEnv;
     platform?: NodeJS.Platform;
+    /** Directories this role may not read (GA row R3: other roles' mail digests). */
+    denyReadDirs?: string[];
     /** Linux: holds the sandbox's mount-point stubs for these writable roots
      *  (sandbox-stubs.ts) and returns the stub paths still not in place. */
     holdStubs?: (writableRoots: string[]) => string[];
@@ -209,6 +211,7 @@ export function buildClaudeRestrictions(
     ]),
     ...authorityDirs(home, env).flatMap((d) => [rule('Read', `${d}/**`), rule('Edit', `${d}/**`)]),
     ...roleDenyWrite.flatMap((d) => [rule('Edit', d), rule('Edit', `${d}/**`)]),
+    ...(ctx.denyReadDirs ?? []).flatMap((d) => [rule('Read', d), rule('Read', `${d}/**`)]),
     ...operatorPaths.flatMap((d) => [rule('Edit', d), rule('Edit', `${d}/**`)]),
     // Authority files: the org definitions, the decision files and the
     // daemon's state (authority-mask.ts, #498). policy.ts's isAuthorityFile
@@ -310,6 +313,7 @@ export function buildClaudeRestrictions(
         ...(unixSockets ? agentSocketPaths(home, env, tmp) : []),
         ...dashboardCredentialPaths([ctx.cwd, ctx.orgRoot]),
         ...authorityDirs(home, env),
+        ...(ctx.denyReadDirs ?? []),
       ]),
     },
     credentials: {

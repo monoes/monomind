@@ -8,6 +8,7 @@ import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
+import { ensureMailDirs, otherMailDirs } from './documents/mail-isolation.js';
 import { effectiveRole } from './effective-role-policy.js';
 import { roleExecMask } from './exec-deny.js';
 import type { StreamOptions } from './mailbox.js';
@@ -182,6 +183,9 @@ export async function runOneSession(
     // resolveRoleGitEnforcement/roleAuthorityMask at all, regardless of its
     // own (irrelevant) policy.git value. Every other role's enforcement is
     // built exactly as before this issue.
+    // GA row R3: a sections org's other roles' mail digests are unreadable here.
+    if (opts.orgDir) ensureMailDirs(opts.def, opts.orgDir);
+    const mailDeny = opts.orgDir ? otherMailDirs(opts.def, opts.orgDir, role.id) : [];
     const gitEnforcement =
       resolvedAccess.access === 'full'
         ? { env: {} as Record<string, string> }
@@ -191,6 +195,7 @@ export async function runOneSession(
             cwd,
             orgRoot: opts.orgRoot,
             orgDir: opts.orgDir,
+            denyReadDirs: mailDeny,
             run: opts.run,
             bus,
             claudeRuntime: runner instanceof ClaudeAgentRunner,
@@ -228,7 +233,7 @@ export async function runOneSession(
             bus,
             roleId: role.id,
             denyExec: role.policy?.sandbox?.denyExec,
-            denyRead: role.policy?.sandbox?.denyRead,
+            denyRead: [...(role.policy?.sandbox?.denyRead ?? []), ...mailDeny],
             homeWriteAllow: role.policy?.sandbox?.homeWriteAllow,
             writableRoots: [
               cwd,
