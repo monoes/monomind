@@ -30,6 +30,7 @@ describe('the loops core is imported only by its wiring (P4.3, P4.8)', () => {
       .filter((f) => f !== join(documents, 'rework.ts')) // EDITED BY P4.7: the rework cap uses loop-rounds.ts
       // EDITED BY P4.8: the three files that wire loops.ts (definition findings, round enforcement, the loop-type check at open)
       .filter((f) => !['definition.ts', 'loop-run.ts', 'runtime.ts'].some((n) => f === join(documents, n)))
+      .filter((f) => f !== join(documents, 'guidance-phase4.ts')) // EDITED BY P4.11: the role text reads the declared loops and the caps
       .filter((f) => importsOf(f).some((t) => targets.includes(t)))
       .map((f) => relative(src, f));
     expect(bad).toEqual([]);

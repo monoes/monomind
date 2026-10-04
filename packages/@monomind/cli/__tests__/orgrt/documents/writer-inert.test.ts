@@ -13,6 +13,7 @@ const WRITER_FILES = ['writer-paths', 'writer-text', 'writer-overlay', 'writer-p
 /** Files outside the writer files that may import them (P4.4: the wiring; documents/index.ts gets no re-export). */
 const ALLOWED_IMPORTERS: string[] = [
   'orgrt/documents/definition-writes.ts',
+  'orgrt/documents/guidance-phase4.ts', // EDITED BY P4.11: the role text names the writing section and its globs
   'orgrt/documents/writer-view.ts',
   'orgrt/effective-role-policy.ts',
   'orgrt/writer-boundary.ts',

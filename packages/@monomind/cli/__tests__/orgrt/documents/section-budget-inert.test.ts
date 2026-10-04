@@ -16,6 +16,7 @@ const FILES = ['section-budget', 'section-budget-findings', 'section-budget-stat
 const ALLOWED_IMPORTERS: string[] = [
   join('orgrt', 'documents', 'section-budget-wire.ts'),
   join('orgrt', 'documents', 'section-budget-report.ts'),
+  join('orgrt', 'documents', 'guidance-phase4.ts'), // EDITED BY P4.11: the role text reads the allocation
 ];
 
 const walk = (dir: string): string[] =>
