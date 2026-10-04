@@ -114,6 +114,7 @@ export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Ref
     const r = g.decide?.({
       type: d.type,
       role: req.role,
+      producer: read.by,
       doc: d.id,
       version: v.version,
       consumer,

@@ -26,6 +26,7 @@ const FIELDS = new Set([
   'type', 'schema', 'evidence', 'checks', 'deliverable_files', 'acceptance', 'visibility', 'on_stale',
   'gates', 'max_publish_attempts', 'max_consistency_refusals', 'max_bytes',
 ]);
+const COMPARE_PATH = /^[A-Za-z0-9_-]+(\[\])?(\.[A-Za-z0-9_-]+(\[\])?)*$/;
 const KINDS = ['command', 'diff', 'document', 'source'];
 const VERIFY: Record<string, string | undefined> = { command: 'reported', source: 'cited' };
 
@@ -68,6 +69,8 @@ function deliverableProblems(list: unknown, bad: (at: string, m: string, r?: str
       bad(at, 'select takes only array, key and value');
     if (!Array.isArray(d.compare) || !d.compare.length || d.compare.some((c) => typeof c !== 'string' || !c))
       bad(at, 'compare needs at least one field path (strings)');
+    else if (d.compare.some((c) => !COMPARE_PATH.test(c as string)))
+      bad(at, 'compare paths are dotted field names, with [] after a list field ("module", "answers[].q")');
   });
 }
 

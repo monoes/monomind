@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import type { OrgDef } from '../types.js';
 import { DocAccess, sectionRoster } from './access.js';
 import { contractRevision } from './contract.js';
+import { deliverableGuard } from './deliverable-guards.js';
 import { createHost, type DocumentToolHost } from './host.js';
 import { DocumentStore } from './store.js';
 import type { TypeBinding } from './store-types.js';
@@ -85,6 +86,15 @@ export class DocumentsRuntime {
     def: OrgDef,
   ) {
     this.access = new DocAccess(def, bindings);
+    // Deliverable consistency (P3.10): only contracts that declare `deliverable_files` are ever checked.
+    if (bindings.some((b) => b.contract.deliverable_files?.length))
+      store.addGuard(deliverableGuard({ workspaceOf: (role) => this.workspaceOf?.(role) }));
+  }
+
+  /** Where a producing role's own files are; bound by the org start, which knows the workspace mode. */
+  private workspaceOf?: (role: string) => string | undefined;
+  bindWorkspaces(f: (role: string) => string | undefined): void {
+    this.workspaceOf = f;
   }
 
   get closed(): boolean {

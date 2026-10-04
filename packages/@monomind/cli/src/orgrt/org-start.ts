@@ -11,6 +11,7 @@ import type { RoleCheckpoint } from './checkpoint.js';
 import type { OrgDaemon } from './daemon.js';
 import type { RunningOrg } from './daemon-types.js';
 import * as decisionOps from './decisions.js';
+import { bindRoleWorkspaces } from './documents/deliverable-guards.js';
 import { agentRoles, isEndpointRole } from './endpoint-roles.js';
 import { attachForwarder } from './forwarder.js';
 import * as idleWatchdog from './idle-watchdog.js';
@@ -219,6 +220,7 @@ async function startOrgInner(
     ...(documents ? { documents } : {}),
   };
   daemon.orgs.set(name, running);
+  if (documents) bindRoleWorkspaces(documents, daemon, name, running, cwd); // P3.10
   // Org sections spec 7.3 advice, so it sits in the run's own record.
   for (const w of checklistWarnings)
     bus.emit({ type: 'audit', reason: 'checklist-warning', msg: w });

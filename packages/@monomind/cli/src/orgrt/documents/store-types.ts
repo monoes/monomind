@@ -293,11 +293,14 @@ export interface PublishGuardContext {
 export interface DecideGuardContext {
   type: string;
   role: string;
+  /** The role that published this version (the one whose deliverable files a guard may compare). */
+  producer: string;
   doc: string;
   version: number;
   consumer: string;
   decision: 'accept' | 'reject';
   contract: DocContract;
+  /** The committed body: what the producer sent. */
   body: unknown;
 }
 

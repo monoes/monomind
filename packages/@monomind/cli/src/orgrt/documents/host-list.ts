@@ -103,6 +103,9 @@ function typesView(
         ...(withSchema ? { schema: c.contract.schema } : { schema_omitted: true }),
         evidence_required: c.contract.evidence,
         max_bytes: c.contract.max_bytes,
+        ...(c.contract.deliverable_files.length
+          ? { files_must_match: c.contract.deliverable_files.map((d) => d.file) }
+          : {}),
         attempts_left: store.attempts(name)?.left,
       };
     });
