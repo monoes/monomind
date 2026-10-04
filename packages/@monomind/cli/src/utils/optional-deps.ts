@@ -85,7 +85,7 @@ interface OptionalDependencySpec {
 
 export const OPTIONAL_DEPENDENCIES = {
   '@anthropic-ai/claude-agent-sdk': {
-    version: '0.3.226',
+    version: '0.3.289',
     size: 'about 300 MB, nearly all of it the native Claude binary',
     feature: 'The Claude runtime (Claude org roles, `agent exec --runtime claude`)',
   },

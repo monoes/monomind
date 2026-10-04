@@ -67,7 +67,7 @@ import { withPinnedExecutable } from './claude-sdk-pin.js';
 export const CLAUDE_PATH_ENV = 'MONOMIND_CLAUDE_PATH';
 /** The Claude Code version bundled with the pinned SDK (its manifest.json);
  *  claude-sdk.test.ts checks it against the installed SDK. */
-export const SDK_BUNDLED_CLAUDE_VERSION = '2.1.226';
+export const SDK_BUNDLED_CLAUDE_VERSION = '2.1.289';
 const SDK = '@anthropic-ai/claude-agent-sdk';
 const VERSION_TIMEOUT_MS = 5_000;
 

@@ -1,0 +1,57 @@
+name: Claude SDK refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '35 7 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: claude-sdk-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Verify newest SDK tarballs and regenerate pins
+        run: node scripts/claude-sdk-maintenance.mjs --update
+      - name: Refresh workspace lockfile
+        run: pnpm install --lockfile-only --ignore-scripts
+      - name: Install test tools without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Format regenerated pin data
+        run: pnpm exec biome format --write packages/@monomind/cli/src/utils/optional-deps-locks.ts
+      - name: Verify dependency lock and executable pin consistency
+        run: |
+          pnpm exec vitest run tests/scripts/claude-sdk-maintenance.test.mjs
+          pnpm --filter @monoes/monomindcli exec vitest run src/__tests__/optional-deps-pins.test.ts src/__tests__/optional-deps.test.ts
+      - name: Open a reviewed update PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/claude-sdk-refresh
+          commit-message: 'chore(claude): refresh reviewed SDK and executable pins'
+          title: 'chore(claude): refresh reviewed SDK and executable pins'
+          add-paths: |
+            packages/@monomind/cli/package.json
+            packages/@monomind/cli/src/utils/optional-deps.ts
+            packages/@monomind/cli/src/utils/optional-deps-locks.ts
+            packages/@monomind/cli/src/orgrt/claude-sdk.ts
+            pnpm-lock.yaml
+          body: |
+            Refresh the SDK to npm's latest stable release so the bundled Claude model picker includes new models.
+
+            The refresh verifies npm tarball integrity before computing SDK and platform executable SHA-256 hashes, reads the bundled Claude version from the verified Linux executable, and regenerates both dependency lockfiles. Pin consistency tests passed.
+
+            Review the upstream release and resulting hashes before merging. This workflow never merges or publishes automatically.
