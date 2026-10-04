@@ -130,6 +130,11 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/e2e-phase4/reload-guard.e2e.test.ts`]: { max_rework_rounds: 2, writes: 2 },
   [`${P}/documents/e2e-phase4/rework.e2e.test.ts`]: { max_rework_rounds: 1 },
   [`${P}/documents/e2e-phase4/writer.e2e.test.ts`]: { writes: 4 },
+  // P4.13 eval-tree parity: the runtime switch copies a variant's optional phase4 block (writes, max_rework_rounds, loops)
+  // into the generated definition; its tests declare a synthetic variant (no committed manifest does) and name the keys.
+  ['tests/eval/org/pilot/runtime-def.ts']: { loops: 2 },
+  ['tests/eval/org/pilot/runtime-def-phase4.test.ts']: { loops: 5, max_rework_rounds: 4, writes: 2 },
+  ['tests/eval/org/pilot/handoff-runtime-differences.test.ts']: { max_rework_rounds: 1 },
 };
 
 describe('phase4 inert: fixture inventory', () => {
