@@ -20,6 +20,7 @@ import {
 import * as crossOrg from './cross-org.js';
 import type { OrgDaemon } from './daemon.js';
 import { activeRoleCount, type RunningOrg } from './daemon-types.js';
+import { RUNTIME_SENDER } from './documents/deliver.js';
 import { assertEvalGate } from './documents/eval-gate.js';
 import { type DocumentsRuntime, openDocumentsRuntime } from './documents/runtime.js';
 import {
@@ -420,4 +421,19 @@ export async function startInboxAndDrain(
   }
   if (queued.length)
     bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
+}
+
+/** Org sections (plan P3.8): attach the document runtime's notice engine to this org's real deliver path. It
+ *  sends the publication notices, and on a resume re-sends what was never delivered or never acted on. An org
+ *  without the sections surface has no documents runtime, so nothing happens. */
+export function startDocumentNotices(daemon: OrgDaemon, name: string, running: RunningOrg): void {
+  running.documents?.notices?.start({
+    deliver: (to, subject, body) => daemon.deliver(name, RUNTIME_SENDER, to, subject, body),
+    queued: (to, subject) =>
+      !!running.agents
+        .get(to)
+        ?.mailbox.serialize()
+        .queue.some((m) => m.includes(`subject: ${subject}\n`)),
+    emit: (e) => running.bus.emit({ type: 'audit', from: RUNTIME_SENDER, ...e }),
+  });
 }

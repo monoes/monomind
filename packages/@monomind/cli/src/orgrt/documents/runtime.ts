@@ -14,6 +14,7 @@ import { DocAccess, sectionRoster } from './access.js';
 import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
 import { createHost, type DocumentToolHost } from './host.js';
+import { NoticeEngine } from './notices.js';
 import { DocumentStore } from './store.js';
 import type { TypeBinding } from './store-types.js';
 import { sectionsSurface } from './surface.js';
@@ -76,6 +77,8 @@ export function bindingsFromDef(def: OrgDef): TypeBinding[] {
 
 export class DocumentsRuntime {
   readonly access: DocAccess;
+  /** Publication notices (P3.8); attached to the daemon's deliver path at org start. */
+  notices?: NoticeEngine;
   private isClosed = false;
 
   constructor(
@@ -113,6 +116,7 @@ export class DocumentsRuntime {
   close(): void {
     if (this.isClosed) return;
     this.isClosed = true;
+    this.notices?.close();
     try {
       this.store.snapshot();
     } catch {
@@ -144,5 +148,7 @@ export function openDocumentsRuntime(o: OpenOptions): DocumentsRuntime | undefin
   const dir = join(o.orgDir, 'docs', o.run);
   mkdirSync(dir, { recursive: true });
   const store = new DocumentStore({ dir, run: o.run, bindings, ...(o.now ? { now: o.now } : {}) });
-  return new DocumentsRuntime(dir, o.run, store, bindings, o.def);
+  const runtime = new DocumentsRuntime(dir, o.run, store, bindings, o.def);
+  runtime.notices = new NoticeEngine({ dir, store, ...(o.now ? { now: o.now } : {}) });
+  return runtime;
 }

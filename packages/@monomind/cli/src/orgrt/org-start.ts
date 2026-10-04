@@ -492,6 +492,7 @@ async function startOrgInner(
   });
 
   await startSteps.startInboxAndDrain(daemon, name, running);
+  startSteps.startDocumentNotices(daemon, name, running);
 
   return running;
 }
