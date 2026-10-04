@@ -2,7 +2,7 @@
 // P4.5: the per-section budget report. A real OrgDaemon with a scripted runner that reports a USD cost per
 // message (no model): spend by section and root reserve, allocation, fraction and state from `allocationStatus`;
 // a replaced incarnation counts once (live + retired); `org report` prints the same table from the run's bus; a
-// section over its allocation is `closed` in the report and nothing is closed. Sections-off orgs print nothing new.
+// section over its allocation is `closed` in the report (EDITED BY P4.6: and soft-closed). Sections-off orgs print nothing new.
 import { rmSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { reportAction } from '../../../src/commands/org-observe-report.js';
@@ -53,7 +53,7 @@ describe('the live report of a running org', () => {
     expect(st.problems).toEqual([]);
   });
 
-  it('a section at 80 percent warns, and one over its allocation is reported closed with nothing closed', async () => {
+  it('a section over its allocation is reported closed, and (P4.6) it is soft-closed: its roles close, the rest stays open', async () => {
     // a role may overshoot its cap by a turn: the researcher cap is 20, and it reports 22 in one turn
     const { s, running } = await run();
     await spend(s, running, 'researcher', 22, 22);
@@ -61,10 +61,12 @@ describe('the live report of a running org', () => {
     const st = liveSectionBudgetStatus(running)!;
     expect(section(st, 'research')).toMatchObject({ spentUsd: 30, state: 'closed' });
     expect(section(st, 'development')).toMatchObject({ spentUsd: 0, state: 'ok' });
-    // P4.5 only reports: the section as such closes nothing (the researcher's own cap of 20 is a role stop;
-    // its lead, under its own cap, stays open, and so does the rest of the org)
-    expect(running.agents.get('research-lead')!.mailbox.isClosed).toBe(false);
+    // EDITED BY P4.6 (was: "P4.5 only reports ... nothing is closed"): the section closes its own roles, as a soft
+    // stop; the other section and the rest of the org stay open
+    expect(running.agents.get('research-lead')!.mailbox.isClosed).toBe(true);
+    expect(running.agents.get('research-lead')!.mailbox.closeReason).toBe('usd-budget');
     expect(running.agents.get('coder')!.mailbox.isClosed).toBe(false);
+    expect(running.agents.get('boss')!.mailbox.isClosed).toBe(false);
     expect(running.orgBudgetClosed).toBeUndefined();
   });
 

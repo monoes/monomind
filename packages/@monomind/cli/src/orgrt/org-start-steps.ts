@@ -23,6 +23,7 @@ import { activeRoleCount, type RunningOrg } from './daemon-types.js';
 import { RUNTIME_SENDER } from './documents/deliver.js';
 import { assertEvalGate } from './documents/eval-gate.js';
 import { type DocumentsRuntime, openDocumentsRuntime } from './documents/runtime.js';
+import { bindSectionBudget } from './documents/section-budget-run.js';
 import {
   agentRoles,
   isEndpointRole,
@@ -436,4 +437,5 @@ export function startDocumentNotices(daemon: OrgDaemon, name: string, running: R
         .queue.some((m) => m.includes(`subject: ${subject}\n`)),
     emit: (e) => running.bus.emit({ type: 'audit', from: RUNTIME_SENDER, ...e }),
   });
+  bindSectionBudget(daemon, name, running); // P4.6: section budget notices and soft closure
 }

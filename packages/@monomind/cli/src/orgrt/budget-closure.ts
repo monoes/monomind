@@ -14,6 +14,11 @@
 import { captureCheckpoint } from './checkpoint.js';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
 import { dispatchReadyTasks, queueDispatch } from './decisions.js';
+import {
+  reopenSectionClosures,
+  sectionClosureDetail,
+  sectionClosureRemedy,
+} from './documents/section-budget-run.js';
 import { taskTag } from './loadouts.js';
 import { isRecoverableCloseReason } from './mailbox.js';
 import type { PolicyEngine } from './policy.js';
@@ -59,6 +64,8 @@ export { orgDetail as orgCeilingDetail };
  *  A role closed by the org-wide run_config.budget_tokens ceiling carries the
  *  same close reason without being over its own caps. */
 export function budgetClosureDetail(running: RunningOrg, roleId: string): string | undefined {
+  const section = sectionClosureDetail(running, roleId); // P4.6: its section, the reserve or the org is at its USD allocation
+  if (section) return section;
   const rt = running.agents.get(roleId);
   // #552: a role the ceiling kept from spawning (pending or deferred then).
   if (!rt)
@@ -81,6 +88,8 @@ const ORG_REMEDY =
   "Raise run_config.budget_tokens in the org definition and hot-reload it (`monomind org reload`) — the closed roles reopen with the run's spend so far kept.";
 
 const remedy = (running: RunningOrg, roleId: string): string => {
+  const section = sectionClosureRemedy(running, roleId);
+  if (section) return section;
   const rt = running.agents.get(roleId);
   return running.orgBudgetClosed &&
     (rt ? running.orgBudgetClosed.has(roleId) && !exhaustedDetail(rt.policy) : true)
@@ -136,7 +145,7 @@ function holdOpenTasks(running: RunningOrg, roleId: string, detail: string): Org
 }
 
 /** Re-word `roleId`'s budget-held tasks with the current numbers. */
-function refreshHolds(running: RunningOrg, roleId: string): void {
+export function refreshHolds(running: RunningOrg, roleId: string): void {
   const detail = budgetClosureDetail(running, roleId);
   if (!detail) return;
   for (const t of running.taskDag?.all() ?? []) {
@@ -374,7 +383,7 @@ function reapplyDefTokenCaps(running: RunningOrg, onDef: Set<string>): void {
 /** Resume `roleId` the way a checkpoint resume does (a budget close is
  *  recoverable, so the new mailbox opens), one generation on, with its spend
  *  kept. False when it could not be spawned; the closed runtime stays. */
-function respawnFromCheckpoint(running: RunningOrg, roleId: string): boolean {
+export function respawnFromCheckpoint(running: RunningOrg, roleId: string): boolean {
   const rt = running.agents.get(roleId);
   const role = running.def.roles.find((r) => r.id === roleId);
   if (!rt || !role || !running.spawnRole) return false;
@@ -450,6 +459,7 @@ export function reopenBudgetClosedRoles(
   reapplyDefTokenCaps(running, onDef);
   const wasOrgClosed = running.orgBudgetClosed !== undefined;
   const reopened = reopenOrgBudgetClosedRoles(running);
+  reopened.push(...reopenSectionClosures(running)); // P4.6
   // Tasks held for roles the ceiling kept from spawning go out (and spawn them).
   const orgReopened = wasOrgClosed && running.orgBudgetClosed === undefined;
   for (const roleId of [...(running.budgetClosed ?? [])]) {

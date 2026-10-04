@@ -3,6 +3,7 @@
 import { blockRecheckMs } from './block-recheck.js';
 import { activeRoleCount, type OrgDaemon } from './daemon.js';
 import { dispatchReadyTasks } from './dag-dispatch.js';
+import { closedAssignmentRefusal } from './documents/section-budget-run.js';
 import { checkLoadoutSelection } from './loadouts.js';
 import type { TaskReferences } from './packet.js';
 import { buildReviewPacket, reviewDiff } from './review-packet.js';
@@ -49,6 +50,8 @@ export function dagCreateTask(
   // before a task row exists, so no task can carry an unresolvable loadout.
   const refusal = checkLoadoutSelection(running.def, loadout);
   if (refusal) return JSON.stringify({ error: refusal });
+  const closed = closedAssignmentRefusal(running, assignee); // P4.6: its section is at its USD allocation
+  if (closed) return JSON.stringify({ error: closed });
   try {
     const task = running.taskDag.add(title, assignee, deps, loadout, brief, references);
     task.createdBy = role;
@@ -110,6 +113,8 @@ export function dagPlanGraph(
   for (const s of specs) {
     const refusal = checkLoadoutSelection(running.def, s.loadout);
     if (refusal) return JSON.stringify({ error: `spec "${s.name}": ${refusal}` });
+    const closed = closedAssignmentRefusal(running, s.assignee); // P4.6
+    if (closed) return JSON.stringify({ error: `spec "${s.name}": ${closed}` });
   }
   try {
     const nameToId = new Map<string, string>();
@@ -175,6 +180,10 @@ export function dagSplitTask(
 ): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  for (const c of children) {
+    const closed = closedAssignmentRefusal(running, c.assignee); // P4.6
+    if (closed) return JSON.stringify({ error: closed });
+  }
   try {
     const created = running.taskDag.split(parentId, children);
     running.bus.emit({

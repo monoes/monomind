@@ -6,6 +6,7 @@ import type { AgentRunner } from './agent-runner.js';
 import type { OrgBus } from './bus.js';
 import type { RoleCheckpoint } from './checkpoint.js';
 import type { DocumentsRuntime } from './documents/runtime.js';
+import type { SectionBudgetState } from './documents/section-budget-run.js';
 import { agentRoles, type EndpointWait } from './endpoint-roles.js';
 import type { RoleFence } from './fence.js';
 import type { Mailbox } from './mailbox.js';
@@ -178,6 +179,9 @@ export interface RunningOrg {
   writeLedger?: WriteLedger;
   /** Org sections (plan P3.6): this run's documents runtime. Absent unless the org is on the sections surface. */
   documents?: DocumentsRuntime;
+  /** Org sections (plan P4.6): the section budget notices and the scopes soft-closed at their USD allocation.
+   *  Absent unless the run has a documents runtime. */
+  sectionBudget?: SectionBudgetState;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running
