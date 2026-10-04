@@ -14,6 +14,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { phrasesOf, resolveVariant } from './runtime-switch.mjs';
+import { trialView } from './runtime-view.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -25,13 +27,13 @@ export function decide({ pilot, arm, n, delivered, reads, checks, variant, env =
   if (pilot.staged_plan.gate_kind === 'handoff-read')
     return decideHandoffRead({ pilot, arm, n, reads, checks, variant, env });
   if (variant) {
-    const v = (pilot.variants ?? []).find((x) => x.id === variant);
+    const v = resolveVariant(pilot, variant)?.variant;
     if (!v) return { allowed: false, reason: `the pilot manifest does not list the variant "${variant}"` };
     if (arm !== v.arm || n !== 1)
       return { allowed: false, reason: `variant ${variant} is ${v.arm} x1 only, not ${arm} x${n}` };
-    return String(env.PILOT_OWNER_DECISION ?? '').includes(v.owner_decision_phrase)
+    return phrasesOf(v).every((p) => String(env.PILOT_OWNER_DECISION ?? '').includes(p))
       ? { allowed: true, reason: `declared variant ${variant} (${v.deadline_seconds} s, ${v.arm} x1): owner decision recorded: ${env.PILOT_OWNER_DECISION}` }
-      : { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming "${v.owner_decision_phrase}"; none is recorded` };
+      : { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming ${phrasesOf(v).map((p) => `"${p}"`).join(' and ')}; none is recorded` };
   }
   const t = pilot.stop_rule.thresholds;
   const stage =
@@ -106,11 +108,11 @@ function decideHandoffRead({ pilot, arm, n, reads, checks, variant, env }) {
  *  stage 1 trial, the synthesiser made at least the thresholds' successful doc_read and doc_check calls (reads and checks:
  *  those counts, undefined when no finished variant stage 1 trial exists); any other number needs PILOT_STAGE3_APPROVED. */
 function decideHandoffVariant({ pilot, arm, n, reads, checks, variant, env }) {
-  const v = (pilot.variants ?? []).find((x) => x.id === variant);
+  const v = resolveVariant(pilot, variant)?.variant;
   if (!v) return { allowed: false, reason: `this pilot does not list the variant "${variant}"` };
   if (arm !== v.arm) return { allowed: false, reason: `variant ${variant} is the ${v.arm} arm only, not ${arm}` };
-  if (!String(env.PILOT_OWNER_DECISION ?? '').includes(v.owner_decision_phrase))
-    return { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming "${v.owner_decision_phrase}"; none is recorded` };
+  if (!phrasesOf(v).every((p) => String(env.PILOT_OWNER_DECISION ?? '').includes(p)))
+    return { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming ${phrasesOf(v).map((p) => `"${p}"`).join(' and ')}; none is recorded` };
   const t = v.staged_plan.stage_1_thresholds;
   if (n === 1) return { allowed: true, reason: `variant ${variant} stage 1 (${v.arm} x1, the mechanism gates: doc_read and doc_check): owner decision recorded: ${env.PILOT_OWNER_DECISION}` };
   if (n !== 2)
@@ -146,19 +148,10 @@ function stageOneCalls(base, scenario, kind, variant) {
     .filter((d) => existsSync(join(dir, d, 'result.json')))
     .sort();
   if (names.length === 0) return undefined;
-  const events = join(dir, names.at(-1), 'pilot-state', 'pilot-events.jsonl');
-  if (!existsSync(events)) return 0;
-  return readFileSync(events, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .flatMap((l) => {
-      try {
-        return [JSON.parse(l)];
-      } catch {
-        return [];
-      }
-    })
-    .filter((e) => e.kind === kind && e.ok && e.role === 'synthesiser').length;
+  // the records of whichever hand-off layer ran the trial (the harness store, or the runtime's under the switch)
+  return trialView(join(dir, names.at(-1))).events.filter(
+    (e) => e.kind === kind && e.ok && e.role === 'synthesiser',
+  ).length;
 }
 
 /** The delivered count of the stage 1 single trial under <base>/trials (the last of p1s, p1sr1, ... that has one;

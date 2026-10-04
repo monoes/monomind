@@ -10,6 +10,11 @@
 # parallel-sweep-3 variant v2 (relay, consistency, doc_check; declared change handoff-relay-consistency-check): stage 1 is
 #   PILOT_OWNER_DECISION=handoff-relay-consistency-check PILOT_ONLY=parallel-sweep-3:treatment:1:0::v2
 # (trial id p1t-v2); v2 x2 only if that trial's synthesiser made a doc_read and a doc_check call (stage-gate.mjs).
+# The runtime switch (P3.15, default OFF): the same variant id with the suffix r (::v2r) runs it on the REAL runtime document
+# tools (a sections definition started through the eval gate, no harness store, no fault injector), trial id p1t-v2r; the owner
+# decision must name both phrases:
+#   PILOT_OWNER_DECISION="handoff-relay-consistency-check handoff-runtime-port" PILOT_ONLY=parallel-sweep-3:treatment:1:0::v2r
+# (runtime-switch.mjs, runtime-def.ts; notes: docs/mastermind/pilot/2026-10-04-phase3-runtime-port-notes.md).
 #
 # The arms of a trial number run back to back, the order rotating with the trial number (a Latin square). After every
 # trial it runs the machine checks and stops without starting another if the trial was void (inputs

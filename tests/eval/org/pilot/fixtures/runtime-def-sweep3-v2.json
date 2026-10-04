@@ -1,0 +1,1301 @@
+{
+  "name": "parallel-sweep-3",
+  "goal": "sweep",
+  "run_config": {
+    "max_concurrent_agents": 10,
+    "experimental": "eval",
+    "completion": {
+      "mode": "boss",
+      "protocol": "sections-v1"
+    }
+  },
+  "roles": [
+    {
+      "id": "lead",
+      "title": "lead",
+      "type": "boss",
+      "reports_to": null,
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-1",
+      "title": "worker-1",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-2",
+      "title": "worker-2",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-3",
+      "title": "worker-3",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-4",
+      "title": "worker-4",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-5",
+      "title": "worker-5",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-6",
+      "title": "worker-6",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-7",
+      "title": "worker-7",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "worker-8",
+      "title": "worker-8",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["do the work"]
+    },
+    {
+      "id": "synthesiser",
+      "title": "synthesiser",
+      "type": "specialist",
+      "reports_to": "lead",
+      "responsibilities": ["reads the eight documents with org_doc_read; notified by org-docs"]
+    }
+  ],
+  "requires": {
+    "sections": 1
+  },
+  "sections": {
+    "sweep-a": {
+      "lead": "worker-1",
+      "members": ["worker-1", "worker-2"],
+      "publishes": ["module-sheets-w1", "module-sheets-w2"]
+    },
+    "sweep-b": {
+      "lead": "worker-3",
+      "members": ["worker-3", "worker-4"],
+      "publishes": ["module-sheets-w3", "module-sheets-w4"]
+    },
+    "sweep-c": {
+      "lead": "worker-5",
+      "members": ["worker-5", "worker-6"],
+      "publishes": ["module-sheets-w5", "module-sheets-w6"]
+    },
+    "sweep-d": {
+      "lead": "worker-7",
+      "members": ["worker-7", "worker-8"],
+      "publishes": ["module-sheets-w7", "module-sheets-w8"]
+    },
+    "synthesis": {
+      "lead": "synthesiser",
+      "members": ["synthesiser"],
+      "consumes": [
+        "module-sheets-w1",
+        "module-sheets-w2",
+        "module-sheets-w3",
+        "module-sheets-w4",
+        "module-sheets-w5",
+        "module-sheets-w6",
+        "module-sheets-w7",
+        "module-sheets-w8"
+      ]
+    }
+  },
+  "documents": {
+    "module-sheets-w1": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-1"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m1", "m2", "m3", "m4"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m1/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m1"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m2/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m2"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m3/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m3"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m4/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m4"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w2": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-2"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m5", "m6", "m7", "m8"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m5/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m5"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m6/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m6"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m7/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m7"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m8/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m8"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w3": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-3"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m9", "m10", "m11", "m12"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m9/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m9"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m10/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m10"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m11/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m11"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m12/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m12"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w4": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-4"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m13", "m14", "m15", "m16"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m13/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m13"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m14/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m14"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m15/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m15"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m16/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m16"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w5": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-5"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m17", "m18", "m19", "m20"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m17/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m17"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m18/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m18"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m19/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m19"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m20/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m20"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w6": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-6"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m21", "m22", "m23", "m24"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m21/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m21"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m22/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m22"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m23/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m23"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m24/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m24"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w7": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-7"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m25", "m26", "m27", "m28"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m25/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m25"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m26/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m26"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m27/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m27"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m28/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m28"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    },
+    "module-sheets-w8": {
+      "schema": {
+        "type": "object",
+        "required": ["worker", "sheets"],
+        "additionalProperties": false,
+        "properties": {
+          "worker": {
+            "enum": ["worker-8"]
+          },
+          "sheets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["module", "answers"],
+              "additionalProperties": false,
+              "properties": {
+                "module": {
+                  "enum": ["m29", "m30", "m31", "m32"]
+                },
+                "answers": {
+                  "type": "array",
+                  "minItems": 12,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "object",
+                    "required": ["q", "value", "files", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "q": {
+                        "enum": [
+                          "q01",
+                          "q02",
+                          "q03",
+                          "q04",
+                          "q05",
+                          "q06",
+                          "q07",
+                          "q08",
+                          "q09",
+                          "q10",
+                          "q11",
+                          "q12"
+                        ]
+                      },
+                      "value": {
+                        "type": "integer"
+                      },
+                      "files": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "string",
+                          "minLength": 3
+                        }
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 7,
+                        "items": {
+                          "type": "object",
+                          "required": ["file", "in", "out"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 3
+                            },
+                            "in": {
+                              "type": "integer"
+                            },
+                            "out": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checks": [
+        {
+          "type": "value_type",
+          "is": "integer"
+        },
+        {
+          "type": "files_match_evidence"
+        },
+        {
+          "type": "value_matches_chain"
+        },
+        {
+          "type": "files_in_module"
+        },
+        {
+          "type": "unique_across_sheets"
+        }
+      ],
+      "max_publish_attempts": 4,
+      "max_consistency_refusals": 5,
+      "deliverable_files": [
+        {
+          "file": "out/m29/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m29"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m30/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m30"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m31/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m31"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        },
+        {
+          "file": "out/m32/answers.json",
+          "select": {
+            "array": "sheets",
+            "key": "module",
+            "value": "m32"
+          },
+          "compare": ["module", "answers[].q", "answers[].value", "answers[].files"]
+        }
+      ]
+    }
+  }
+}

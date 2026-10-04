@@ -26,6 +26,10 @@ export interface PilotTrial {
   workspace?: string;
   /** Variant v2: the producer relay is on; each rejection also gets a short copy to these roles. */
   relay?: { copy_to: string[] };
+  /** Which hand-off layer the trial runs on. Absent or "harness": this file's prototype (the default, and the
+   *  only one the committed pilots used). "runtime": the real `orgrt/documents` tools, started through the eval
+   *  gate with a sections definition (runtime-def.ts); nothing in this file attaches to such a trial. */
+  handoff?: 'harness' | 'runtime';
 }
 
 /** The sender of a relay message: not a role, so no section applies to it (the refusal still covers every role). */
@@ -39,6 +43,10 @@ export function pilotOrgDef<D extends { roles: Record<string, any>[] }>(
   trial: PilotTrial,
 ): D {
   const d = def as unknown as Record<string, any>;
+  if (trial.handoff === 'runtime')
+    throw new Error(
+      'a runtime hand-off trial runs a sections definition (runtime-def.ts), not the placeholder',
+    );
   if ('sections' in d)
     throw new Error(
       'a pilot org definition must not carry sections:; the routing map lives in the trial manifest',
@@ -85,6 +93,10 @@ function handoffLine(role: string, trial: PilotTrial): string {
 export function attachPilot(daemon: OrgDaemon, trial: PilotTrial, token: string): HandoffStore {
   if (token !== trial.runId)
     throw new Error('pilot tools attach only to the trial that owns this run token');
+  if (trial.handoff === 'runtime')
+    throw new Error(
+      'a runtime hand-off trial uses the runtime document tools: nothing is attached',
+    );
   const store = new HandoffStore(
     trial.dir,
     trial.contracts,

@@ -11,6 +11,7 @@
 //   natural reject a reject of an uncorrupted version that has an error of the producer's own
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { trialView } from '../../pilot/runtime-view.mjs';
 import { deriveSynthesis } from '../parallel-sweep/synthesis.mjs';
 import { v2Metrics } from './v2-metrics.mjs';
 
@@ -102,11 +103,16 @@ const tally = () => ({ ok: 0, refused: 0 });
 
 /** The hand-off measures of one trial root; `{ present: false }` when the trial has no hand-off store (baseline). */
 export function handoffMetrics({ root, truth }) {
-  const stateDir = join(root, 'pilot-state');
-  const events = lines(join(stateDir, 'pilot-events.jsonl'));
-  if (events.length === 0 && !existsSync(join(stateDir, 'pilot-store.json')))
+  // The records of whichever hand-off layer ran: the harness store (the default) or the runtime's (the runtime switch).
+  const view = trialView(root);
+  if (
+    view.source === 'none' ||
+    (view.source === 'harness' &&
+      view.events.length === 0 &&
+      Object.keys(view.state.versions ?? {}).length === 0)
+  )
     return { present: false };
-  const state = readJson(join(stateDir, 'pilot-store.json')) ?? { versions: {} };
+  const { events, state } = view;
   const bus = busOf(root);
   const t0 = bus.find((e) => typeof e.ts === 'number')?.ts;
   const secs = (iso) =>
@@ -226,7 +232,7 @@ export function handoffMetrics({ root, truth }) {
   const round = (x) => Math.round(x * 1000) / 1000;
 
   const caught = faults.filter((f) => f.outcome === 'caught');
-  return {
+  return annotate(view, {
     present: true,
     injected: faults.length,
     caught: caught.length,
@@ -273,5 +279,40 @@ export function handoffMetrics({ root, truth }) {
       synthesiser: round(sum((r) => r === CONSUMER)),
       total: round(sum(() => true)),
     },
+  });
+}
+
+/** The layer that produced these records is named in the metrics; a runtime trial has no harness fault record (the runtime
+ *  has no injector), so every measure that needs one is null ("n/a"), never zero, unless a test-only fault record was supplied. */
+function annotate(view, m) {
+  if (view.source !== 'runtime') return m;
+  const out = { ...m, handoff_layer: 'runtime' };
+  if (view.faultRecord) return out;
+  const na = [
+    'injected',
+    'caught',
+    'caught_plausible_reason',
+    'missed',
+    'undecided',
+    'republished_after_reject',
+    'final_accepted_corrupted',
+    'synthesis_used_corrupted',
+    'synthesis_used_rejected',
+  ];
+  for (const k of na) out[k] = null;
+  out.faults = [];
+  out.fault_record = 'n/a: the runtime has no fault injector';
+  out.v2 = {
+    ...out.v2,
+    doc_check: {
+      ...out.v2.doc_check,
+      faults_flagged: null,
+      faults_checked_unflagged: null,
+      faults_never_checked: null,
+    },
   };
+  out.docs = Object.fromEntries(
+    Object.entries(out.docs).map(([d, x]) => [d, { ...x, final_accepted_corrupted: null }]),
+  );
+  return out;
 }

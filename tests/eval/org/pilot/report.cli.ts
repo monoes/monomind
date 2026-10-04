@@ -26,6 +26,18 @@ else {
         console.log(
           `    treatment v2  ${f(v2)}  doc_check ${v2.handoff.check?.ok ?? 0}/${v2.handoff.check?.refused ?? 0}  relays ${v2.handoff.relays ?? 0}`,
         );
+      // the same variant on the runtime document tools (the `v2r` switch): the faults are n/a, the runtime has no injector
+      const v2r = p.treatmentV2r;
+      if (v2r) {
+        console.log(
+          `    treatment v2r (runtime tools)  ${f(v2r)}  doc_check ${v2r.handoff.check?.ok ?? 0}/${v2r.handoff.check?.refused ?? 0}  relays ${v2r.handoff.relays ?? 0}`,
+        );
+        const d = v2r.decisions;
+        if (d)
+          console.log(
+            `    v2r decisions  faults n/a (no injector); false rejects ${d.false_rejects}; republish cycles ${d.republish_cycles}; final accepted docs ${d.final_accepted_docs}/8, correct ${d.final_accepted_correct}; synthesis ${d.synthesis_exact ? 'exact' : 'not exact'}; doc_check calls ${d.v2.doc_check.calls}; consistency refusals at publish ${d.v2.consistency_refusals_at_publish.count}; accepts refused for a changed file ${d.v2.accepts_refused_changed_deliverable.count}; relay messages to producers ${d.v2.producer_relay.sent_to_producer}, lead copies ${d.v2.producer_relay.copies_to_lead}; docs read by role ${JSON.stringify(d.docs_read)}; docs decided by role ${JSON.stringify(d.docs_decided)}`,
+          );
+      }
       const d = p.treatment?.decisions;
       if (d)
         console.log(

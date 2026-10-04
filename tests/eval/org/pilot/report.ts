@@ -9,6 +9,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type TrialRow, trialRow } from '../smoke/report.js';
+// @ts-expect-error plain .mjs module
+import { trialView } from './runtime-view.mjs';
 
 export interface HandoffCounts {
   publish: { ok: number; refused: number };
@@ -32,6 +34,9 @@ export interface PilotRow extends TrialRow {
   variant?: string;
   /** The nth redo of an interrupted trial of this arm and number. */
   redo?: number;
+  /** Set on a trial the runtime switch ran (the real document tools, not the harness store): its hand-off counts are
+   *  read from the runtime's records (runtime-view.mjs), and it has no harness fault record. */
+  handoffLayer?: 'runtime';
   /** Killed mid-run: it has no result. Listed apart, never paired; its spend still counts. */
   interrupted: boolean;
   delegated: boolean;
@@ -118,7 +123,8 @@ export function pilotRow(root: string): PilotRow {
     total: 0,
   };
   const handoffByRole: PilotRow['handoffByRole'] = {};
-  for (const e of jsonLines(join(root, 'pilot-state/pilot-events.jsonl'))) {
+  const view = trialView(root);
+  for (const e of view.events as any[]) {
     if (e.kind === 'send-refused') handoff.sendRefused++;
     else if (e.kind === 'publish' || e.kind === 'read' || e.kind === 'decide') {
       handoff[e.kind as 'publish'][e.ok ? 'ok' : 'refused']++;
@@ -142,6 +148,7 @@ export function pilotRow(root: string): PilotRow {
     profile: trial.profile ?? 'haiku',
     n: m ? Number(m[1]) : 0,
     ...(trial.pilot?.variant?.id ? { variant: trial.pilot.variant.id } : {}),
+    ...(view.source === 'runtime' ? { handoffLayer: 'runtime' as const } : {}),
     ...(m?.[3] ? { redo: Number(m[3]) } : {}),
     interrupted: !existsSync(join(root, 'result.json')),
     delegated: tasksCreated > 0 || tasksDispatched > 0,
@@ -161,6 +168,8 @@ export interface PairReport {
   treatment?: PilotRow;
   /** The v2 variant of the treatment arm of this trial number (its own measures; never part of the pair). */
   treatmentV2?: PilotRow;
+  /** The same variant run on the runtime document tools (the `v2r` switch): its own measures, never part of the pair. */
+  treatmentV2r?: PilotRow;
   /** The single-agent arm of the same trial number, when the scenario has one. It never confounds a pair. */
   single?: PilotRow;
   /** The arms differ on delegation: nothing can be said about the prototype from this pair. */
@@ -187,15 +196,19 @@ export function pilotReport(rows: PilotRow[]) {
         const treatmentV2 = mine.find(
           (r) => r.n === n && r.arm === 'treatment' && r.variant === 'v2',
         );
+        const treatmentV2r = mine.find(
+          (r) => r.n === n && r.arm === 'treatment' && r.variant === 'v2r',
+        );
         const single = mine.find((r) => r.n === n && r.arm === 'single');
         const reasons: string[] = [];
         let confounded = false;
         const incomplete = !baseline || !treatment;
-        if (incomplete && !(treatmentV2 && !treatment && !baseline))
+        const variantOnly = treatmentV2 ?? treatmentV2r;
+        if (incomplete && !(variantOnly && !treatment && !baseline))
           reasons.push(`missing the ${baseline ? 'treatment' : 'baseline'} trial`);
         else if (incomplete)
           reasons.push(
-            'a variant trial only (v2): no baseline or plain treatment trial of this number',
+            `a variant trial only (${variantOnly?.variant}): no baseline or plain treatment trial of this number`,
           );
         if (baseline && treatment) {
           if (baseline.delegated !== treatment.delegated) {
@@ -224,6 +237,7 @@ export function pilotReport(rows: PilotRow[]) {
           baseline,
           treatment,
           ...(treatmentV2 ? { treatmentV2 } : {}),
+          ...(treatmentV2r ? { treatmentV2r } : {}),
           single,
           confounded,
           incomplete,

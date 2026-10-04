@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { loadClaudeSdk } from '../../../../packages/@monomind/cli/src/orgrt/agent-runner-claude.js';
 import { OrgDaemon } from '../../../../packages/@monomind/cli/src/orgrt/daemon.js';
 import { evalGateFor } from '../../../../packages/@monomind/cli/src/orgrt/documents/eval-gate.js';
+import { sectionsSurface } from '../../../../packages/@monomind/cli/src/orgrt/documents/surface.js';
 import { startOrgServer } from '../../../../packages/@monomind/cli/src/orgrt/server.js';
 import { attachPilot, type PilotTrial } from './harness.js';
 
@@ -62,7 +63,14 @@ export async function runOrg(o: RunOrgOptions): Promise<{ stoppedManually: boole
     crossProcess: true,
     queryFn: withoutNativeChildren(query),
   });
-  if (o.pilot) attachPilot(daemon, o.pilot, o.pilot.runId);
+  // the runtime switch (handoff "runtime"): the definition is a sections one and the runtime's own document tools serve it,
+  // so nothing is attached; a runtime trial whose definition is not on the sections surface is a misconfiguration
+  const runtimeHandoff = o.pilot?.handoff === 'runtime';
+  if (runtimeHandoff && !sectionsSurface(readOrgDef(o.root, o.name)).enabled)
+    throw new Error(
+      `trial ${o.name} is a runtime hand-off trial but its definition has no sections`,
+    );
+  if (o.pilot && !runtimeHandoff) attachPilot(daemon, o.pilot, o.pilot.runId);
   const srv = await startOrgServer(daemon, 0);
   daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.operatorCredential);
   try {
@@ -95,6 +103,7 @@ export function pilotOfRecord(trial: Record<string, any>): PilotTrial | undefine
         dir: trial.pilot.dir,
         routing: trial.pilot.routing,
         contracts: trial.pilot.contracts,
+        ...(trial.pilot.handoff === 'runtime' ? { handoff: 'runtime' as const } : {}),
         ...(trial.pilot.faults ? { faults: trial.pilot.faults } : {}),
         ...(trial.pilot.relay
           ? { relay: trial.pilot.relay, workspace: trial.pilot.workspace }
