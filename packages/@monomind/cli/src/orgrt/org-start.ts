@@ -103,7 +103,7 @@ async function startOrgInner(
   taskOverride?: string,
   options?: { resume?: boolean; autoApprove?: string[]; evalGate?: boolean },
 ): Promise<RunningOrg> {
-  const { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings } =
+  const { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings, documents } =
     await startSteps.prepareOrgStart(daemon, name, options);
   const bus = new OrgBus(name, run, dir);
   // Lightweight in-memory tail for busEvents() (test-loop, /api/history).
@@ -216,6 +216,7 @@ async function startOrgInner(
     busEvents: () => [...collected],
     workdir: cwd,
     credential: randomUUID(),
+    ...(documents ? { documents } : {}),
   };
   daemon.orgs.set(name, running);
   // Org sections spec 7.3 advice, so it sits in the run's own record.

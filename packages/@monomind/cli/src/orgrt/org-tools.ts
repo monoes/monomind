@@ -13,6 +13,7 @@ import {
   TASK_RESULT_HELP,
   withWarnings,
 } from './context-surface.js';
+import { documentTools } from './documents/tools-core.js';
 import { appendNote, NOTE_APPEND_HELP, readNotes } from './notes.js';
 import { checkPacket, REFERENCES_HELP, referencesArg, type TaskReferences } from './packet.js';
 import { approvalGateOutcome } from './session-gate.js';
@@ -462,6 +463,8 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       return text(receipt);
     },
   });
+  // Org sections (plan P3.6): last, so every existing tool keeps its place in the list.
+  if (opts.documents) tools.push(...documentTools(opts.documents));
   // Built-in org tools reject undeclared keys instead of stripping them: a
   // stripped `deps` on an org_plan_graph node silently dropped every edge.
   for (const t of tools) t.strict ??= {};

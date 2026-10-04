@@ -359,6 +359,8 @@ export function buildRoleSessionOpts(
     planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
       return daemon.dagPlanGraph(name, r, specs);
     },
+    // Org sections (plan P3.6): this role's document tool host, only when the run has a documents runtime.
+    ...(running.documents ? { documents: running.documents.forRole(role.id) } : {}),
     queryFn: daemon.opts.queryFn,
     // Runner resolution: explicit opts.runner > role `runtime` field >
     // org def `runtime` field > MONOMIND_RUNTIME env (opencode/kimicode) >

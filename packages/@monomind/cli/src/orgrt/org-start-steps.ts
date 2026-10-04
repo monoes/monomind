@@ -21,6 +21,7 @@ import * as crossOrg from './cross-org.js';
 import type { OrgDaemon } from './daemon.js';
 import { activeRoleCount, type RunningOrg } from './daemon-types.js';
 import { assertEvalGate } from './documents/eval-gate.js';
+import { type DocumentsRuntime, openDocumentsRuntime } from './documents/runtime.js';
 import {
   agentRoles,
   isEndpointRole,
@@ -57,6 +58,8 @@ export async function prepareOrgStart(
   worktreePath: string | undefined;
   /** Section 7.3 advice for the bus; errors have already stopped the start. */
   checklistWarnings: string[];
+  /** Org sections (plan P3.6): the run's documents runtime; undefined off the sections surface. */
+  documents: DocumentsRuntime | undefined;
 }> {
   // #301: the PRIMARY fix — the stop-side backstops below (finishStop,
   // process 'exit') can only run for a run that ends through code we
@@ -283,7 +286,18 @@ export async function prepareOrgStart(
       );
     }
   }
-  return { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings: checklist.warnings };
+  // Org sections (plan P3.6): opened last, so a start that fails above leaves no docs directory behind.
+  const documents = openDocumentsRuntime({ def, orgDir: join(daemon.root, ORG_DIR, name), run });
+  return {
+    def,
+    run,
+    checkpoint,
+    dir,
+    cwd,
+    worktreePath,
+    checklistWarnings: checklist.warnings,
+    documents,
+  };
 }
 
 export async function createRoleFences(

@@ -5,6 +5,7 @@ import type { query } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentRunner } from './agent-runner.js';
 import type { OrgBus } from './bus.js';
 import type { RoleCheckpoint } from './checkpoint.js';
+import type { DocumentsRuntime } from './documents/runtime.js';
 import { agentRoles, type EndpointWait } from './endpoint-roles.js';
 import type { RoleFence } from './fence.js';
 import type { Mailbox } from './mailbox.js';
@@ -175,6 +176,8 @@ export interface RunningOrg {
   closedBy?: string;
   /** Failed Write/Edit calls per role, for completion gating (write-ledger.ts). */
   writeLedger?: WriteLedger;
+  /** Org sections (plan P3.6): this run's documents runtime. Absent unless the org is on the sections surface. */
+  documents?: DocumentsRuntime;
 }
 
 /** Bug 4: number of roles for this org that are actually spawned and running

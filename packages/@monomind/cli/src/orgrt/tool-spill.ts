@@ -144,6 +144,9 @@ export function spillToolResult(
   toolUseId: string,
   response: unknown,
 ): SpilledToolResult | undefined {
+  // Org sections (plan P3.6): document results are already bounded and paged by the tool, so they are never
+  // spilled. Only these four tools carry the prefix, so every other result is untouched.
+  if (/(^|__)org_doc_[a-z]+$/.test(toolName)) return undefined;
   const leaves: Leaf[] = [];
   collect(response, '', leaves);
   const total = leaves.reduce((n, l) => n + l.value.length, 0);

@@ -5,6 +5,7 @@ import type { AgentRunner, OrgToolDef } from './agent-runner.js';
 import type { ApprovalVerdict } from './approval-decider.js';
 import type { OrgBus } from './bus.js';
 import type { TaskEvidence } from './completion-gate.js';
+import type { DocumentToolHost } from './documents/host.js';
 import type { RoleFence } from './fence.js';
 import type { LoadoutSummary, ResolvedLoadout } from './loadouts.js';
 import type { Mailbox } from './mailbox.js';
@@ -205,6 +206,9 @@ export interface SessionOpts {
   /** Called after org_skill_load served one of the role's skills, so the
    *  daemon can record it against a task that suggested it. */
   onSkillLoad?: (role: string, name: string) => void;
+  /** Org sections (plan P3.6): this role's document tool host. Set only for a run whose org is on the
+   *  sections surface; unset, no `org_doc_*` tool exists and the tool list is byte-identical to before. */
+  documents?: DocumentToolHost;
   /** ADR-O001 D7: the org's loadout catalog. Set only when the org declares
    *  one; it adds the optional `loadout` argument to org_task/org_plan_graph.
    *  Unset, those tools are byte-identical to before (same gating idea as

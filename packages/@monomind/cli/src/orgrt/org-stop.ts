@@ -250,6 +250,7 @@ async function finishStop(
     daemon.recallUsage.delete(name);
     daemon.orgLearnedRuns.delete(`${name}:${org.run}`);
   }
+  org.documents?.close(); // org sections (plan P3.6): no document call after this point writes
   // flush() only awaits a snapshot of writes queued at call time (see its
   // own doc comment) — it has no visibility into a session that crashes
   // after the abort signal above but before this function returns. Seal

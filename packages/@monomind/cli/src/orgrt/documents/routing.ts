@@ -41,12 +41,14 @@ export function sectionOf(def: Pick<DefLike, 'sections'>, role: string): string 
   return undefined;
 }
 
-const isRoot = (def: DefLike, id: string): boolean => {
-  const root =
+/** The root role: the boss, else the role that reports to no one (the root is in no section and reads everything). */
+export const rootRoleId = (def: Pick<DefLike, 'roles'>): string | undefined =>
+  (
     def.roles.find((r) => r.type === 'boss') ??
-    def.roles.find((r) => r.reports_to === null || r.reports_to === undefined);
-  return root?.id === id;
-};
+    def.roles.find((r) => r.reports_to === null || r.reports_to === undefined)
+  )?.id;
+
+const isRoot = (def: DefLike, id: string): boolean => rootRoleId(def) === id;
 
 /** The refusal text, as the org_send tool result. */
 export function crossSectionRefusalText(
