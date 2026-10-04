@@ -1,3 +1,4 @@
+import { claudePathOption } from '../orgrt/claude-selection.js';
 // packages/@monomind/cli/src/commands/org-subcommands-runtime.ts
 //
 // `monomind org` runtime subcommands: run, stop, pause, resume, reload,
@@ -60,6 +61,7 @@ export const runSubcommand: Command = {
   name: 'run',
   description: 'Start an org (foreground daemon)',
   options: [
+    claudePathOption,
     { name: 'task', description: 'Override the org goal for this run', type: 'string' },
     {
       name: 'resume',
@@ -145,6 +147,7 @@ export const serveSubcommand: Command = {
   name: 'serve',
   description: 'Start the daemon server only (hosts scheduled orgs)',
   options: [
+    claudePathOption,
     {
       name: 'cross-process',
       description:

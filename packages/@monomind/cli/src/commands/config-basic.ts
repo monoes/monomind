@@ -1,3 +1,4 @@
+import { operatorClaudePath, setOperatorClaudePath } from '../orgrt/claude-selection.js';
 import { output } from '../output.js';
 import { configManager, parseConfigValue } from '../services/config-file-manager.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -117,7 +118,7 @@ export const getCommand: Command = {
       }
     }
 
-    const value = configManager.get(ctx.cwd, key);
+    const value = key === 'claude.path' ? operatorClaudePath() : configManager.get(ctx.cwd, key);
 
     if (value === undefined) {
       output.printError(`Configuration key not found: ${key}`);
@@ -188,7 +189,10 @@ export const setCommand: Command = {
 
     try {
       const parsedValue = parseConfigValue(value);
-      configManager.set(ctx.cwd, key, parsedValue);
+      if (key === 'claude.path') {
+        if (typeof parsedValue !== 'string') throw new Error('claude.path must be a string');
+        setOperatorClaudePath(parsedValue);
+      } else configManager.set(ctx.cwd, key, parsedValue);
       output.writeln(`Set ${key} = ${value}`);
       return { success: true };
     } catch (err: unknown) {

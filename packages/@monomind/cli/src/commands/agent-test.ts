@@ -1,3 +1,4 @@
+import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection.js';
 // packages/@monomind/cli/src/commands/agent-test.ts
 /**
  * `monomind agent test <runtime> [--model M] [--timeout 60s] [--json]` —
@@ -35,6 +36,7 @@ export async function runAgentTestCommand(
   ctx: CommandContext,
   seams: Partial<AgentTestOptions> = {},
 ): Promise<number> {
+  applyClaudePathFlag(ctx.flags);
   const runtime = ctx.args[0];
   if (!runtime) {
     process.stderr.write(
@@ -84,6 +86,7 @@ export const testCommand: Command = {
   description:
     'Smoke-test a runtime (and model) with one tiny turn; --json for a structured result',
   options: [
+    claudePathOption,
     {
       name: 'model',
       short: 'm',

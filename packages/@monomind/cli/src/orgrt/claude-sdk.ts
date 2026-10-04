@@ -63,6 +63,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { type EnsureOptions, ensureOptionalDependency } from '../utils/optional-deps.js';
 import { withPinnedExecutable } from './claude-sdk-pin.js';
+import { selectClaudePath } from './claude-selection.js';
 
 export const CLAUDE_PATH_ENV = 'MONOMIND_CLAUDE_PATH';
 /** The Claude Code version bundled with the pinned SDK (its manifest.json);
@@ -107,11 +108,12 @@ export interface InstalledClaude {
 interface Candidate {
   path: string;
   explicit: boolean;
+  source?: string;
 }
 
-const explicitPath = (env: NodeJS.ProcessEnv): string | undefined => {
-  const v = env[CLAUDE_PATH_ENV]?.trim();
-  return v && v !== 'bundled' ? v : undefined;
+const explicitPath = (env: NodeJS.ProcessEnv, home: string): string | undefined => {
+  const selected = selectClaudePath(env, home);
+  return selected && selected.path !== 'bundled' ? selected.path : undefined;
 };
 
 /** Where to look, in order; empty when detection is off. */
@@ -120,9 +122,16 @@ export function claudeCandidates(
   home: string,
   platform: NodeJS.Platform,
 ): Candidate[] {
-  if (env[CLAUDE_PATH_ENV]?.trim() === 'bundled') return [];
-  const explicit = explicitPath(env);
-  if (explicit) return [{ path: explicit, explicit: true }];
+  const selected = selectClaudePath(env, home);
+  if (selected?.path === 'bundled') return [];
+  if (selected)
+    return [
+      {
+        path: selected.path,
+        explicit: true,
+        ...(selected.source !== CLAUDE_PATH_ENV ? { source: selected.source } : {}),
+      },
+    ];
   const bin = platform === 'win32' ? 'claude.exe' : 'claude';
   // Relative PATH entries depend on the cwd; skip them.
   const onPath = (env.PATH ?? '')
@@ -216,7 +225,7 @@ async function checkCandidate(c: Candidate, probe: ClaudeProbe): Promise<Checked
       const exposed = notSystemInstalled(real, probe);
       if (exposed)
         probe.log(
-          `${CLAUDE_PATH_ENV}: ${real} is not a system install (${exposed}), so org roles can ` +
+          `${c.source ?? CLAUDE_PATH_ENV}: ${real} is not a system install (${exposed}), so org roles can ` +
             'replace it where they are not sandboxed; the Claude sandbox, the bwrap mask and the ' +
             'file tools keep it read-only for roles.',
         );
@@ -243,22 +252,34 @@ async function checkCandidate(c: Candidate, probe: ClaudeProbe): Promise<Checked
 /** Finds the Claude Code to use (see the file header). */
 export async function findInstalledClaude(probe: ClaudeProbe): Promise<InstalledClaude> {
   const skipped: string[] = [];
-  const claude_code: ClaudeCodeInfo = { used: 'bundled', version: SDK_BUNDLED_CLAUDE_VERSION, skipped: [] };
+  const claude_code: ClaudeCodeInfo = {
+    used: 'bundled',
+    version: SDK_BUNDLED_CLAUDE_VERSION,
+    skipped: [],
+  };
   for (const c of claudeCandidates(probe.env, probe.home, probe.platform)) {
     const r = await checkCandidate(c, probe);
-    if ('real' in r) return { path: r.real, skipped, claude_code: { ...claude_code, used: r.real, version: r.version } };
+    if ('real' in r)
+      return {
+        path: r.real,
+        skipped,
+        claude_code: { ...claude_code, used: r.real, version: r.version },
+      };
     if (!r.missing || c.explicit) {
       let version: string | undefined;
       try {
         const real = probe.realpath(c.path);
         // Filename metadata only: never execute a binary refused by the trust checks.
-        if (basename(dirname(real)) === 'versions' && /^\d+\.\d+\.\d+$/.test(basename(real))) version = basename(real);
-      } catch { /* Missing candidates have no metadata. */ }
+        if (basename(dirname(real)) === 'versions' && /^\d+\.\d+\.\d+$/.test(basename(real)))
+          version = basename(real);
+      } catch {
+        /* Missing candidates have no metadata. */
+      }
       claude_code.skipped.push({ path: c.path, ...(version ? { version } : {}), reason: r.why });
     }
     if (c.explicit) {
       probe.log(
-        `${CLAUDE_PATH_ENV}=${c.path} is not used: ${r.why}. ` +
+        `${c.source ?? CLAUDE_PATH_ENV}=${c.path} is not used: ${r.why}. ` +
           "Using the Claude Agent SDK's bundled Claude Code.",
       );
       return { skipped, claude_code };
@@ -280,7 +301,7 @@ export function protectedClaudeBinary(
   env: NodeJS.ProcessEnv,
   home: string,
 ): { file: string; dirs: string[] } | undefined {
-  const p = explicitPath(env);
+  const p = explicitPath(env, home);
   if (!p || !isAbsolute(p)) return undefined;
   let file: string;
   let stop: string;
@@ -375,6 +396,7 @@ export type ClaudeSdk = Pick<
 };
 
 let claudeSdk: Promise<ClaudeSdk> | undefined;
+let claudeSdkSelection: string | undefined;
 
 /** `query` with `pathToClaudeCodeExecutable` always set to `executable`.
  *  The SDK was installed without its own binary, so there is nothing to
@@ -408,9 +430,15 @@ export function queryWithExecutable(
 export const loadClaudeSdk = (
   probe?: ClaudeProbe,
   { requested = false }: { requested?: boolean } = {},
-): Promise<ClaudeSdk> =>
-  (claudeSdk ??= (async () => {
-    const found = await findInstalledClaude(probe ?? defaultClaudeProbe());
+): Promise<ClaudeSdk> => {
+  const actual = probe ?? defaultClaudeProbe();
+  const selection = JSON.stringify(selectClaudePath(actual.env, actual.home));
+  if (selection !== claudeSdkSelection) {
+    claudeSdk = undefined;
+    claudeSdkSelection = selection;
+  }
+  return (claudeSdk ??= (async () => {
+    const found = await findInstalledClaude(actual);
     const sdk = await ensureOptionalDependency<ClaudeSdk>(SDK, {
       ...sdkLoadOptions(found),
       ...(requested ? { requested } : {}),
@@ -419,7 +447,11 @@ export const loadClaudeSdk = (
     // #526: the SDK's own binary, pinned by hash, is passed to and rechecked
     // at every query (claude-sdk-pin.ts). An installed Claude Code below is
     // not ours to pin: #522's checks above cover it.
-    if (!found.path) return { ...withPinnedExecutable({ createSdkMcpServer, query, tool }), claude_code: found.claude_code };
+    if (!found.path)
+      return {
+        ...withPinnedExecutable({ createSdkMcpServer, query, tool }),
+        claude_code: found.claude_code,
+      };
     return {
       createSdkMcpServer,
       tool,
@@ -431,16 +463,37 @@ export const loadClaudeSdk = (
     claudeSdk = undefined;
     throw err;
   }));
+};
 
 /** Runtime selection only; does not install or load the SDK. */
-export async function claudeCodeInfo(env: NodeJS.ProcessEnv = process.env): Promise<ClaudeCodeInfo> {
+export async function claudeCodeInfo(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<ClaudeCodeInfo> {
   return (await findInstalledClaude(defaultClaudeProbe(env))).claude_code;
 }
 
 let skipNotePrinted = false;
 /** Human diagnostic once per process, including when the SDK is already installed. */
 export function reportClaudeSkip(info: ClaudeCodeInfo): void {
-  if (skipNotePrinted || !info.skipped.some((s) => s.version && compatibleClaudeVersion(`${s.version} (Claude Code)`).ok && s.version !== info.version)) return;
+  if (
+    skipNotePrinted ||
+    !info.skipped.some(
+      (s) =>
+        s.version &&
+        compatibleClaudeVersion(`${s.version} (Claude Code)`).ok &&
+        s.version
+          .split('.')
+          .map(Number)
+          .some(
+            (v, i, parts) =>
+              v > Number(info.version.split('.')[i]) &&
+              parts.slice(0, i).every((p, j) => p === Number(info.version.split('.')[j])),
+          ),
+    )
+  )
+    return;
   skipNotePrinted = true;
-  process.stderr.write(`[monomind] Using Claude Code ${info.used} (${info.version}); an installed Claude Code was skipped: ${info.skipped.map((s) => `${s.path}${s.version ? ` (${s.version})` : ''}: ${s.reason}`).join('; ')}. Set ${CLAUDE_PATH_ENV} to opt in to an installed binary.\n`);
+  process.stderr.write(
+    `[monomind] Using Claude Code ${info.used} (${info.version}); an installed Claude Code was skipped: ${info.skipped.map((s) => `${s.path}${s.version ? ` (${s.version})` : ''}: ${s.reason}`).join('; ')}. Set ${CLAUDE_PATH_ENV} to opt in to an installed binary.\n`,
+  );
 }

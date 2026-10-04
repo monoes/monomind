@@ -1393,3 +1393,14 @@ installation metadata when available; rejected binaries are never executed to
 obtain them. `doctor -c claude-runtime --json` reports the same selection without
 installing the SDK. Human scan/models commands report a skipped newer native
 install once per process, even when the SDK is already installed.
+
+Operator Claude selection (#596): `--claude-path <absolute-file|bundled>` is
+accepted by agent models, scan, exec, test, and org run/serve. Selection precedence
+is flag, `MONOMIND_CLAUDE_PATH`, `claude.path` in `~/.monomind/config.json`, then
+secure automatic discovery. Set the home setting with `monomind config set
+claude.path /absolute/path/to/claude`; project config and `MONOMIND_CONFIG` never
+supply this setting. `bundled` disables detection. Existing native-binary,
+ownership, executable and version checks apply to every explicit source, and
+org role protection follows the selected real path. Refusals identify the source.
+An org run cannot override an already running serve daemon: start that daemon
+with its chosen path. No credential changes are required.

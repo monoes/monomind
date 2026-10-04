@@ -180,7 +180,7 @@ export async function scanInstalled(opts: ScanOptions = {}): Promise<{
             ? { version: null, source: 'not-probed' as const }
             : await detectVersion(spec.id, binPath, opts);
       return {
-        ...(spec.id === 'claude' ? { claude_code: await claudeCodeInfo(env) } : {}),
+        ...(spec.id === 'claude' && !opts.skipVersionProbe ? { claude_code: await claudeCodeInfo(env) } : {}),
         id: spec.id,
         installed: binPath !== null,
         binary: binPath,

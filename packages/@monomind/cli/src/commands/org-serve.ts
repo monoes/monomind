@@ -1,3 +1,4 @@
+import { applyClaudePathFlag } from '../orgrt/claude-selection.js';
 // packages/@monomind/cli/src/commands/org-serve.ts
 //
 // `monomind org serve | supervisor` — the long-running daemon that hosts
@@ -153,6 +154,7 @@ WantedBy=default.target
 };
 
 export const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  applyClaudePathFlag(ctx.flags);
   // Mutual exclusion: refuse to start a second `org serve` for this project
   // root. Checked before anything else so a refusal never opens a port,
   // registers a broker lease, or starts a scheduled org that a live daemon
