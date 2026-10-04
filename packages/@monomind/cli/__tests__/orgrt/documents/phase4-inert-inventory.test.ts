@@ -86,6 +86,10 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   // The mutation cases of the P3.1 definition check (a writer pair, a bad writes value, a zero rework cap, max_depth, max_parallel).
   // P4.4 and P4.7 add their own test files here; they do not re-pin this one unless a message it checks changes.
   [`${P}/documents/definition.test.ts`]: { max_rework_rounds: 2, parallelism: 2, writes: 4 },
+  // P4.3 (pure loops core): `loops` in literal definition fragments given to loopProblems, and the cap key in capsFromDef cases.
+  // Neither feeds validate or a run: nothing imports the loops files yet. P4.8 does not re-pin these.
+  [`${P}/documents/loops-rounds.test.ts`]: { max_rework_rounds: 5 },
+  [`${P}/documents/loops.test.ts`]: { loops: 3 },
   // `loops` as a refused key: surface on, checklist.
   [`${P}/documents/validate-checklist-sections.test.ts`]: { loops: 2 },
   // `loops` as a refused key: the sections-off checklist golden (a variant named "loops", frozen) and its test.
