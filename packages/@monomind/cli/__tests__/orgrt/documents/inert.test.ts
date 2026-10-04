@@ -13,8 +13,7 @@ const walk = (dir: string): string[] =>
   );
 
 describe('orgrt/documents is inert (P3.4): the dialect modules are not imported outside it yet', () => {
-  it('only the P3.1 surface files refer to the documents directory, and none imports a P3.4 dialect module', () => {
-    const p31 = new Set(['orgrt/validate-checklist.ts', 'orgrt/types-sections.ts', 'orgrt/types.ts']);
+  it('no file outside documents/ imports a P3.4 dialect module (other documents/ files are imported by the pieces that need them)', () => {
     const p34 = ['errors', 'json', 'schema-dialect', 'schema-ref', 'checks', 'canonical', 'contract', 'types'].map((n) =>
       join(documents, n),
     );
@@ -27,7 +26,6 @@ describe('orgrt/documents is inert (P3.4): the dialect modules are not imported 
         })),
       )
       .filter((r) => r.target === documents || r.target.startsWith(documents + sep));
-    expect(refs.filter((r) => !p31.has(r.file)).map((r) => r.file)).toEqual([]);
     expect(refs.filter((r) => p34.includes(r.target)).map((r) => `${r.file} -> ${r.target}`)).toEqual([]);
   });
 
