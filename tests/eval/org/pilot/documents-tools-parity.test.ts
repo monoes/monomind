@@ -135,6 +135,7 @@ describe('the sweep-3 flow through the tools: publish -> read -> reject -> repub
       p: { ok: false },
       r: { ok: false },
     });
+    await s.read('synthesiser', docs[1], 2); // the runtime refuses a decision before the version was read (P3.16b)
     const acc = await s.decide('synthesiser', docs[1], 2, 'accept');
     same(acc);
     expect(acc.r.status).toBe('accepted');
@@ -211,6 +212,16 @@ describe('intentional differences from the prototype (spec 13.1.2, 6.1)', () => 
     expect(typeof bad.p.error).toBe('string');
     expect(typeof bad.r.error).toBe('string');
     expect(bad.r.remedy.length).toBeGreaterThan(10);
+  });
+
+  it('the runtime refuses a decision on a version the decider has not read (every part of it); the prototype accepted it (P3.16b)', async () => {
+    const s = pair();
+    await s.publish('worker-1', V1[0].id, docOf(1));
+    const x = await s.decide('synthesiser', V1[0].id, 1, 'accept');
+    expect(x.p.ok).toBe(true);
+    expect(x.r).toMatchObject({ ok: false, code: 'UNREAD_PARTS', unread_parts: [1] });
+    await s.read('synthesiser', V1[0].id);
+    expect((await s.decide('synthesiser', V1[0].id, 1, 'accept')).r.ok).toBe(true);
   });
 
   it('the runtime bounds a result to 8,000 characters and pages the rest; the prototype returned the whole document', async () => {

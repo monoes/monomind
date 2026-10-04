@@ -293,10 +293,11 @@ describe("runOrg on the runtime switch: the kit's ten roles in the real daemon, 
         for (const m of message.matchAll(/document ready: (\S+) v(\d+)/g)) {
           const [, id, v] = m;
           const bad = id === 'module-sheets-w1-1' && v === '1';
-          tools.push(
-            { name: 'org_doc_read', args: { id, version: Number(v) } },
-            { name: 'org_doc_check', args: { id, version: Number(v) } },
-          );
+          // org_doc_decide needs every part read (P3.16b); a sheet is four parts, and a part past the last is refused harmlessly
+          tools.push({ name: 'org_doc_read', args: { id, version: Number(v) } });
+          for (let part = 2; part <= 6; part++)
+            tools.push({ name: 'org_doc_read', args: { id, version: Number(v), part } });
+          tools.push({ name: 'org_doc_check', args: { id, version: Number(v) } });
           tools.push({
             name: 'org_doc_decide',
             args: {
