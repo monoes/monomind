@@ -10,12 +10,14 @@
  * configured fails with "not yet supported" rather than being ignored.
  * Each message names its checklist item (`#N`) and a remedy.
  */
-import { effectiveRoleRuntime } from './runner-specs.js';
+
 import { completionIsObject } from './documents/completion-accessor.js';
 import { sectionsDefinitionFindings } from './documents/definition.js';
 import { BUDGET_REFUSED_RUN_CONFIG_KEYS } from './documents/section-budget-wire.js';
 import { sectionsSurface } from './documents/surface.js';
+import { effectiveRoleRuntime } from './runner-specs.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
+import { selectionWarnings } from './validate-selection.js';
 
 type OrgRole = OrgDef['roles'][number];
 
@@ -224,6 +226,9 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
     warnings.push(
       `#8 boss role "${boss.id}": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else`,
     );
+
+  // #19 to #21 structure that the measured results say fits the work badly.
+  warnings.push(...selectionWarnings(def, sectionsOn));
 
   return { errors, warnings };
 }

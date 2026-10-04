@@ -10,7 +10,7 @@ description: Define and save an autonomous agent organization (Org Runtime) — 
 
 An org is a named, persistent agent team, run by the Org Runtime daemon — not a one-shot Mastermind run and not a Task-tool-spawned boss. Once created, every role in the config starts as its own live agent session the moment you run the org; roles message each other directly (no shared task board) and the org keeps running until stopped.
 
-Use orgs when the work is ongoing, not single-shot. A content team that ships 10 posts a month. A research squad that runs competitive scans weekly. A dev team with a permanent backlog.
+Use orgs when the work is ongoing, or when independent parts must beat a deadline. Small or sequential one-off work is better served by a single agent session: `mastermind-createorg` picks the structure from the measured results and says so when an org is not warranted. The skill owns that guidance; this command only parses options and dispatches to it.
 
 **What you provide:**
 - A goal — what should this org continuously accomplish?

@@ -9,7 +9,7 @@ default_mode: confirm
 
 This skill is invoked by `mastermind:createorg` or directly via `/mastermind:createorg`.
 
-The Org Runtime (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Task-tool-spawned boss agent. Every role in the config becomes a live SDK agent session (`@anthropic-ai/claude-agent-sdk` `query()`) the moment the org starts — there is no task board, no per-role generated `.claude/agents/*.md` file, and no communication-topology array. Roles address each other directly with the `org_send` tool using their `id` (or `<org>:<id>` cross-org). This skill's only job is to produce a config that validates against `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`).
+The Org Runtime (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Task-tool-spawned boss agent. Every role in the config becomes a live SDK agent session (`@anthropic-ai/claude-agent-sdk` `query()`) the moment the org starts — there is no task board, no per-role generated `.claude/agents/*.md` file, and no communication-topology array. Roles address each other directly with the `org_send` tool using their `id` (or `<org>:<id>` cross-org). This skill's only job is to produce a config that validates against `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`), with a structure that fits the work (Step 1b).
 
 ---
 
@@ -46,6 +46,23 @@ If `org_name` is not provided, extract the most prominent product/team noun from
 Reject any `org_name` that does not match `^[a-z0-9][a-z0-9-]{0,63}$` (the CLI's own `ORG_NAME_RE` in `org.ts` is slightly looser — `^[a-z0-9][a-z0-9_-]*$/i` — but this skill's stricter slug is always a valid subset).
 
 ---
+
+## Step 1b — Choose the structure (before deriving roles)
+
+Pick the structure from the work, then derive roles for it. The evidence below is harness-only and exploratory (one to three trials per cell, Sonnet 5.5, mechanical code-reading fixtures, harness dollars): it argues for a default and for a burden of proof, it is not a guarantee. Say so when you cite it.
+
+| The work | Structure | Measured reason |
+|---|---|---|
+| Small, or a sequential stream one capable agent can hold (a content calendar, a research note, a feature with a few steps) | **A single agent session. Do not create an org.** If the user still wants an org, make it one boss and one worker, no review layer | Growth-like: the single role cleared the same bar (27 of 27) at 3.5x to 5.5x lower cost. Eight independent modules with no binding deadline: one agent matched the teams at about a quarter of the cost. Revise fixture: one agent at about 30% of the role arms' cost. Nothing measured has beaten one agent where the deadline did not bind |
+| Many independent parts and a **deadline the single agent's serial time exceeds** | **A parallel team**: one boss and one worker per stream, each worker writing only its own files, plus a synthesiser when results must be combined. Set `run_config.max_run` and `max_concurrent_agents` to the roster size | 32 independent sheets in 600 s: the team finished 33 of 33 in 297 s, the single agent 29 of 33 in 596 s, at 3.8x to 4.8x the cost; a team without the deadline cost that multiple for nothing. Estimate the serial time first: setup about 190 s plus 14 to 30 s per part in that fixture |
+| **Correctness of the hand-offs matters** (a wrong value in one worker's output reaches the combined result and nobody downstream re-derives it) | **Sections with typed documents**: a contract per hand-off with per-answer evidence and `checks`, the runtime notifying each declared consumer on every publish (and the producer on a rejection), the consumer running `org_doc_check` before it decides, a bounded rework loop | With per-answer evidence, `doc_check` and the publish notice, a consumer caught 8 of 8 injected inconsistencies (including the wrong values that 0 of 4 caught before) and producers republished 12 of 12 times; without the notice an idle consumer read nothing and 230 s of the deadline were lost. It cost $2 to $8 more per trial, used up deadline margin, and 4 natural errors that agreed with their own evidence passed unflagged |
+
+**Sections are experimental and eval-only on this release.** `org validate` accepts a `sections:` org only with `run_config.experimental: "eval"`, which only the evaluation harness may set. Never write `sections:`, `documents:` or `requires:` into an operator's org. For the third row, propose the no-section alternative and say that sections are the measured target structure but not yet available: task-scoped workers with a boss, a dedicated reviewer role whose duty is to re-derive a sample of each worker's values from the source and send rejections back with the reason, required self-contained briefs, and an explicit "acceptance means the reviewer checked, not that the worker said done" rule in the boss prompt. Do not claim the measured catch rate for that alternative: it was not measured.
+
+Rules that follow from the results:
+- Recommend a team only with a stated deadline and independent parts. Otherwise recommend the single agent and say why in one line. Adding roles never justifies sections by itself.
+- State what the evidence does not cover: natural errors that agree with their own evidence were not caught by any check; one trial per arm; the injected faults were detectable by construction.
+- An explicit `roles_desc` from the user stays authoritative (Step 2). Still tell them, in the plan, which row applies and what the checklist warns (items 19 to 21 of `org validate`: a chain of roles, a parallel team with no deadline, a document type with no checks). Warnings are advice; never block on them.
 
 ## Step 2 — Ingest Roles
 
@@ -215,6 +232,11 @@ MODELS  ← review this first
   the latest model for its runtime unless you asked for another. To put a
   role on a different model, say so now (e.g. "put content-writer on
   claude-opus-5").
+
+STRUCTURE  (Step 1b)
+────────────────────────────────────────────────────
+  Row chosen: <single agent | parallel team (deadline: <x>) | hand-off review (no-section alternative)>
+  Why: <one line from the measured table>   Not covered: <what the evidence does not show>
 
 ROLES  (N roles — exactly one boss, every reports_to resolves to a real role id)
 ─────
