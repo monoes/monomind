@@ -8,6 +8,7 @@ import { type RoleCheckpoint, restoredRoleStatus, restoreMailboxQueue } from './
 import { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import { ScrollbackBuffer } from './daemon-types.js';
+import { sectionRoleCap } from './documents/section-budget-wire.js';
 import { fileToolRoots } from './file-roots.js';
 import { resolveLoadout, sessionLoadoutFor } from './loadouts.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
@@ -95,6 +96,7 @@ export function spawnRoleIncarnation(
   ) {
     mailbox.close(roleCheckpoint.mailboxCloseReason);
   }
+  const sectionCap = sectionRoleCap(def, role.id); // P4.5: the one resolver, only with section budgets
   const policy = new PolicyEngine(
     role.id,
     {
@@ -106,6 +108,7 @@ export function spawnRoleIncarnation(
       maxTokensBasis: def.run_config.budget_tokens_basis ?? 'uncached',
       maxUsd: role.budget_usd,
       ...(role.policy ?? {}),
+      ...(sectionCap !== undefined ? { maxUsd: sectionCap } : {}),
     },
     bus,
     roleCwd,

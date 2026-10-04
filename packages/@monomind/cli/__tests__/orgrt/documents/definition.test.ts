@@ -89,7 +89,7 @@ const sectionCases: Case[] = [
   ['writes not a list of strings', (r) => (r.sections.research.writes = [1]), 'sections.research.writes: must be a list of repository paths'],
   ['deliberative mode', (r) => (r.sections.research.mode = 'deliberative'), 'sections.research.mode: "deliberative" is not yet supported'],
   ['direct requests', (r) => (r.sections.research.requests = 'direct'), 'sections.research.requests: "direct" is not yet supported'],
-  ['section budget', (r) => (r.sections.research.budget = { usd: 5 }), 'sections.research.budget: not yet supported'],
+  ['section budget that is not {usd}', (r) => (r.sections.research.budget = 5), 'sections.research.budget: must be {"usd": a positive number}'],
   ['rework rounds zero', (r) => (r.sections.research.max_rework_rounds = 0), 'max_rework_rounds: must be a positive integer'],
   ['max_depth', (r) => (r.sections.research.parallelism = { max_depth: 2 }), 'parallelism.max_depth: not yet supported'],
   ['max_parallel zero', (r) => (r.sections.research.parallelism = { max_parallel: 0 }), 'parallelism.max_parallel: must be a positive integer'],

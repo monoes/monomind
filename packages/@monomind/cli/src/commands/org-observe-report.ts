@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readContextLog, summarizeContextLog } from '../orgrt/context-log.js';
+import { sectionBudgetReportLines } from '../orgrt/documents/section-budget-report.js';
 import { roleTokensNote, type TokenBasis } from '../orgrt/report-budget.js';
 import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
@@ -235,6 +236,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   let perRoleBudget: number | null = null;
   let basis: TokenBasis = 'uncached';
   const roleCeiling = new Map<string, number>();
+  let sectionBudgetLines: string[] = [];
   try {
     const def = OrgDefSchema.parse(
       JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')),
@@ -244,6 +246,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
       (def.run_config.budget_tokens ?? 1_000_000) / Math.max(1, sessionRoles.length),
     );
     basis = def.run_config.budget_tokens_basis ?? 'uncached';
+    sectionBudgetLines = sectionBudgetReportLines(def as never, s.roles);
     for (const r of sessionRoles) {
       const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
       roleCeiling.set(r.id, max ?? r.budget_tokens ?? perRoleBudget);
@@ -295,6 +298,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
       ),
     );
   }
+  for (const line of sectionBudgetLines) log(output.info(line));
   if (s.assets.length) {
     log(output.info(`  Assets (${s.assets.length}):`));
     for (const a of s.assets.slice(0, 20)) log(output.info(`    📄 ${a}`));

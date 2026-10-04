@@ -74,8 +74,6 @@ describe('surface on: the four keys are accepted, nothing else is relaxed', () =
 
   it.each([
     ['loops', (r: Record<string, any>) => (r.loops = []), TOP('loops')],
-    ['run_config.budget_usd', (r: Record<string, any>) => (r.run_config.budget_usd = 5), RC('budget_usd')],
-    ['run_config.budget_mode', (r: Record<string, any>) => (r.run_config.budget_mode = 'soft'), RC('budget_mode')],
   ])('%s is still refused', (_n, patch, message) => {
     expect(on(patch).errors).toEqual([message]);
   });

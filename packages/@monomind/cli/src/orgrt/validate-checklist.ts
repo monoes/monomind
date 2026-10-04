@@ -13,6 +13,7 @@
 import { effectiveRoleRuntime } from './runner-specs.js';
 import { completionIsObject } from './documents/completion-accessor.js';
 import { sectionsDefinitionFindings } from './documents/definition.js';
+import { BUDGET_REFUSED_RUN_CONFIG_KEYS } from './documents/section-budget-wire.js';
 import { sectionsSurface } from './documents/surface.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 
@@ -31,11 +32,11 @@ const DEFERRED_RUN_CONFIG = ['budget_usd', 'budget_mode', 'experimental'];
  *  mono-agent's display copies, and `max_run`, which `org serve` reads. */
 const PASSTHROUGH_TOP_LEVEL = ['automations', 'autonomy'];
 const PASSTHROUGH_RUN_CONFIG = ['max_run'];
-/** The only deferred keys the sections surface relaxes (13.1.3, P3.1), and only
- *  while `sectionsSurface(def).enabled`. `loops`, `budget_usd` and `budget_mode`
- *  stay refused either way. */
+/** The only deferred keys the sections surface relaxes (13.1.3, P3.1; `budget_usd` and
+ *  `budget_mode` by P4.5), and only while `sectionsSurface(def).enabled`. `loops`
+ *  stays refused either way. */
 const RELAXED_TOP_LEVEL = ['sections', 'documents', 'requires'];
-const RELAXED_RUN_CONFIG = ['experimental'];
+const RELAXED_RUN_CONFIG = ['experimental', 'budget_usd', 'budget_mode'];
 
 /** Runtimes whose runners report tokens but no USD cost (spec A27, verified
  *  for these two), so `budget_usd` cannot close a role on them. */
@@ -120,7 +121,8 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
     if (
       !KNOWN_RUN_CONFIG.has(k) &&
       !DEFERRED_RUN_CONFIG.includes(k) &&
-      !PASSTHROUGH_RUN_CONFIG.includes(k)
+      !PASSTHROUGH_RUN_CONFIG.includes(k) &&
+      !(sectionsOn && BUDGET_REFUSED_RUN_CONFIG_KEYS.includes(k)) // refused by the budget findings instead
     )
       warnings.push(`unknown run_config.${k} is ignored by the runtime — check the spelling`);
 

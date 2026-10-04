@@ -1,7 +1,9 @@
 // packages/@monomind/cli/__tests__/orgrt/documents/section-budget-inert.test.ts
-// P4.1: the section budget core is inert. Nothing outside the three new files imports them (the allowlist is
-// empty: the plan names no re-export), and they import only each other, `import type`s and node builtins, so
-// they cannot reach the daemon, a clock, the environment or the filesystem.
+// P4.1: the section budget core is inert. Nothing outside the three new files imports them (the plan names no
+// re-export), and they import only each other, `import type`s and node builtins, so they cannot reach the
+// daemon, a clock, the environment or the filesystem.
+// EDITED BY P4.5: the allowlist names the two wiring modules (the only importers; the daemon, the checklist and
+// the report import those, never the core), so a third importer still shows.
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,8 +12,11 @@ import { describe, expect, it } from 'vitest';
 const src = resolve(dirname(fileURLToPath(import.meta.url)), '../../../src');
 const documents = join(src, 'orgrt', 'documents');
 const FILES = ['section-budget', 'section-budget-findings', 'section-budget-status'];
-/** Files outside the three allowed to import them: none. */
-const ALLOWED_IMPORTERS: string[] = [];
+/** Files outside the three allowed to import them: the two P4.5 wiring modules. */
+const ALLOWED_IMPORTERS: string[] = [
+  join('orgrt', 'documents', 'section-budget-wire.ts'),
+  join('orgrt', 'documents', 'section-budget-report.ts'),
+];
 
 const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>

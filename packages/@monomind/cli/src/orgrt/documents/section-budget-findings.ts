@@ -56,7 +56,7 @@ export const findingText = (f: BudgetFinding): string => `${f.path}: ${f.message
 export const UNPRICED_RUNNERS: readonly string[] = ['codex', 'antigravity'];
 
 /** Settings of the budget machinery that stays deferred (Appendix D); configured, they fail validate. */
-const DEFERRED_KEYS = ['max_turn_usd', 'allow_unbounded_turn', 'slice_cap', 'slice_floor'] as const;
+export const DEFERRED_KEYS = ['max_turn_usd', 'allow_unbounded_turn', 'slice_cap', 'slice_floor'] as const;
 
 const usd = (n: number): string => `$${roundUsd(n)}`;
 const describe = (v: unknown): string => JSON.stringify(v) ?? 'nothing';

@@ -12,6 +12,7 @@ import { checkDocuments } from './definition-documents.js';
 import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
 import { leadRulesFindings } from './lead-rules.js';
+import { sectionBudgetChecklist } from './section-budget-wire.js';
 
 const SECTION_FIELDS = [
   'lead',
@@ -202,10 +203,6 @@ function checkSections(
           ? `${at}.requests: "direct" is not yet supported — use "via-lead" or remove it`
           : `${at}.requests: must be "via-lead" — got ${describe(sec.requests)}`,
       );
-    if (sec.budget !== undefined)
-      f.errors.push(
-        `${at}.budget: not yet supported (section budgets need run_config.budget_usd, which is not built) — remove it`,
-      );
     if (
       sec.max_rework_rounds !== undefined &&
       !(Number.isInteger(sec.max_rework_rounds) && (sec.max_rework_rounds as number) > 0)
@@ -272,5 +269,8 @@ export function sectionsDefinitionFindings(def: OrgDef): Findings {
   checkSections(def, sections, docTypes, f);
   checkRoles(def, f);
   leadRulesFindings(def, f);
+  const budget = sectionBudgetChecklist(def); // P4.5: shape, partition and org budget
+  f.errors.push(...budget.errors);
+  f.warnings.push(...budget.warnings);
   return f;
 }

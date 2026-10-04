@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { reopenBudgetClosedRoles, rolesOnDefTokenCaps } from './budget-closure.js';
 import type { OrgDaemon } from './daemon.js';
+import { sectionRoleCap, syncSectionBudgets } from './documents/section-budget-wire.js';
 import { isEndpointRole } from './endpoint-roles.js';
 import {
   assertOrgDefSigned,
@@ -72,6 +73,8 @@ export function reloadOrgDef(
     }
   }
 
+  changed.push(...syncSectionBudgets(running.def, newDef)); // P4.5: allocations first, for the caps below
+
   // M1 (C-37): apply changes to EXISTING roles' tool_providers, endpoint,
   // kind and policy. Fields are replaced on the live role object (sessions
   // read tool_providers at their next start, checkApproval reads policy
@@ -109,7 +112,7 @@ export function reloadOrgDef(
       if (field === 'budget_usd' || field === 'budget_tokens')
         running.agents.get(next.id)?.policy.setBudgetCaps({
           maxTokens: live.policy?.maxTokens ?? computeReplacementBudget(running.def, next.id),
-          maxUsd: live.policy?.maxUsd ?? live.budget_usd,
+          maxUsd: sectionRoleCap(newDef, next.id) ?? live.policy?.maxUsd ?? live.budget_usd,
         });
       changed.push(`role:${next.id}:${field}`);
     }

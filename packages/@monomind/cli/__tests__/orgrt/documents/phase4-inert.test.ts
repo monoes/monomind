@@ -35,8 +35,6 @@ const plain = VARIANTS[0].raw as Raw;
 
 const TOP = (k: string) => `"${k}" is not yet supported (org sections are designed, not built) — remove it`;
 const RC = (k: string) => `run_config.${k} is not yet supported — remove it`;
-const SECTION_BUDGET = (s: string) =>
-  `sections.${s}.budget: not yet supported (section budgets need run_config.budget_usd, which is not built) — remove it`;
 
 /** A plain (sections-off) org with extra top-level and run_config keys. */
 const off = (top: Raw = {}, runConfig: Raw = {}) =>
@@ -115,40 +113,59 @@ describe('phase4 inert: on-surface refusals of the Phase 4 keys are unchanged to
     expect(on((r) => (r.loops = loops)).errors).toEqual([TOP('loops')]);
   });
 
-  // EDITED BY P4.5: run_config.budget_usd, run_config.budget_mode.
+  // EDITED BY P4.5 (run_config.budget_usd, run_config.budget_mode, sections.<s>.budget and the deferred keys of
+  // 6.9): the keys are relaxed on the surface, and the P4.1 findings answer for them. The full matrix is in
+  // section-budget-definition.test.ts; this block keeps the pins that changed.
+  const MODE_STRICT =
+    'run_config.budget_mode: "strict" is not yet supported: only "soft" (individual role closures) is built — set "soft" or remove run_config.budget_mode';
+  const DEFERRED = (k: string) =>
+    `run_config.${k}: ${k} is not yet supported (reservations and slices ship only after a measured run shows material overspend) — remove run_config.${k}`;
+  const starts = (errors: string[], prefix: string) => errors.some((e) => e.startsWith(prefix));
+
   it.each([
-    ['budget_usd', { budget_usd: 5 }, [RC('budget_usd')]],
-    ['budget_mode soft', { budget_mode: 'soft' }, [RC('budget_mode')]],
-    ['budget_mode strict', { budget_mode: 'strict' }, [RC('budget_mode')]],
-    ['both', { budget_usd: 5, budget_mode: 'soft' }, [RC('budget_usd'), RC('budget_mode')]],
-  ])('run_config %s is still refused', (_n, rc, errors) => {
-    expect(on((r) => Object.assign(r.run_config, rc)).errors).toEqual(errors);
+    ['budget_usd', { budget_usd: 5 }],
+    ['budget_mode soft', { budget_mode: 'soft' }],
+    ['both', { budget_usd: 5, budget_mode: 'soft' }],
+  ])('run_config %s is accepted on the surface (P4.5)', (_n, rc) => {
+    const f = on((r) => Object.assign(r.run_config, rc));
+    expect(f.errors).toEqual([]);
+    expect(f.warnings).toEqual(baseline.warnings);
   });
 
-  // EDITED BY P4.5: sections.<s>.budget.
-  it.each([
-    ['{usd: 5}', { usd: 5 }],
-    ['a number', 5],
-    ['an empty object', {}],
-    ['a string', 'five'],
-  ])('sections.research.budget as %s is still refused with the build-order text', (_n, budget) => {
-    expect(on((r) => (r.sections.research.budget = budget)).errors).toEqual([SECTION_BUDGET('research')]);
+  it('run_config budget_mode strict is refused with the core text (P4.5)', () => {
+    expect(on((r) => Object.assign(r.run_config, { budget_mode: 'strict' })).errors).toEqual([MODE_STRICT]);
   });
 
-  it('a section budget together with run_config.budget_usd gives both refusals, run_config first', () => {
+  it.each([
+    ['{usd: 5}', { usd: 5 }, 'run_config.budget_usd: sections allocate USD but run_config.budget_usd is not set'],
+    ['a number', 5, 'sections.research.budget: must be {"usd": a positive number} — got 5'],
+    ['an empty object', {}, 'sections.research.budget: must be {"usd": a positive number} — got {}'],
+    ['a string', 'five', 'sections.research.budget: must be {"usd": a positive number} — got "five"'],
+  ])('sections.research.budget as %s is checked by the budget findings, not refused as unbuilt (P4.5)', (_n, budget, first) => {
+    const errors = on((r) => (r.sections.research.budget = budget)).errors;
+    expect(starts(errors, first)).toBe(true);
+    expect(errors.join('\n')).not.toContain('which is not built');
+  });
+
+  it('allocations that use the whole org budget leave no root reserve (P4.5)', () => {
     const f = on((r) => {
       r.run_config.budget_usd = 10;
       r.sections.research.budget = { usd: 5 };
       r.sections.development.budget = { usd: 5 };
     });
-    expect(f.errors).toEqual([RC('budget_usd'), SECTION_BUDGET('research'), SECTION_BUDGET('development')]);
+    expect(starts(f.errors, 'run_config.budget_usd: the allocations ($10) use the whole org budget')).toBe(true);
   });
 
-  // EDITED BY P4.5: the deferred keys of 6.9 are unknown run_config keys today (a warning, not an error).
-  it.each(['max_turn_usd', 'allow_unbounded_turn', 'budget_slice'])('run_config.%s is only an unknown-key warning today', (k) => {
+  it.each(['max_turn_usd', 'allow_unbounded_turn'])('run_config.%s is refused with the core text and no unknown-key warning (P4.5)', (k) => {
     const f = on((r) => (r.run_config[k] = k === 'allow_unbounded_turn' ? true : 1));
+    expect(f.errors).toEqual([DEFERRED(k)]);
+    expect(f.warnings).toEqual(baseline.warnings);
+  });
+
+  it('run_config.budget_slice is still only an unknown-key warning', () => {
+    const f = on((r) => (r.run_config.budget_slice = 1));
     expect(f.errors).toEqual([]);
-    expect(f.warnings).toEqual([`unknown run_config.${k} is ignored by the runtime — check the spelling`, ...baseline.warnings]);
+    expect(f.warnings).toEqual([`unknown run_config.budget_slice is ignored by the runtime — check the spelling`, ...baseline.warnings]);
   });
 
   // The refusals Phase 4 leaves as they are (NOT edited by any Phase 4 piece, except the writers text by P4.4 if it rewords it).
