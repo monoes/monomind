@@ -25,12 +25,14 @@ import {
   deriveNotices,
   KIND_CHANGED,
   KIND_EXHAUSTED,
+  KIND_LOOP_EXHAUSTED,
   KIND_PUBLISHED,
   KIND_REJECTED,
   type Notice,
   type TypeInfo,
 } from './notice.js';
 import { NoticeJournal } from './notice-journal.js';
+import { deriveLoopNotices, type LoopEscalation } from './loop-run.js';
 import { deriveReworkNotices, frozenThreads, type ReworkEscalation } from './rework.js';
 import { type CopyTo, changedRelays, deriveRelays, type RelayFact, relayFacts } from './relay.js';
 import type { DocumentStore } from './store.js';
@@ -85,6 +87,7 @@ export class NoticeEngine {
   private readonly now: () => Date;
   private derived: Notice[] | undefined;
   private rework: ReworkEscalation | undefined;
+  private loops: LoopEscalation | undefined;
   private capsKey = '';
   private sink: NoticeSink | undefined;
   private enabled = true;
@@ -111,6 +114,13 @@ export class NoticeEngine {
    *  root and the leads one notice. The caps are read at every derivation, so a reload moves them. */
   useRework(esc: ReworkEscalation): void {
     this.rework = esc;
+    this.derived = undefined;
+  }
+
+  /** Turn on the declared-loop enforcement (P4.8): a loop that reached its max_rounds owes the root and the leads one
+   *  notice. The loops are read at every derivation, so a reload that moves max_rounds moves the obligation. */
+  useLoops(esc: LoopEscalation): void {
+    this.loops = esc;
     this.derived = undefined;
   }
 
@@ -151,7 +161,8 @@ export class NoticeEngine {
 
   /** Every notice and relay the committed log (and the journalled refused accepts) oblige, in order. */
   notices(): Notice[] {
-    const key = this.rework ? JSON.stringify(this.rework.caps()) : '';
+    const key =
+      this.rework || this.loops ? JSON.stringify([this.rework?.caps(), this.loops?.loops()]) : '';
     if (key !== this.capsKey) {
       this.capsKey = key;
       this.derived = undefined;
@@ -168,7 +179,10 @@ export class NoticeEngine {
       this.opts.copyTo,
       this.rework?.caps(),
     );
-    const spent = this.rework ? deriveReworkNotices(this.events, this.rework) : [];
+    const spent = [
+      ...(this.rework ? deriveReworkNotices(this.events, this.rework) : []),
+      ...(this.loops ? deriveLoopNotices(this.events, this.loops) : []),
+    ];
     const owed: Notice[] = this.journal.owed().map((o) => ({
       key: o.key,
       kind: o.kind as Notice['kind'],
@@ -321,6 +335,13 @@ export class NoticeEngine {
       return (
         !!this.rework &&
         frozenThreads(this.opts.store.state, this.rework.caps(), n.doc).length > 0 &&
+        !this.events.some(
+          (e) => (e.type === 'read' || e.type === 'decided') && e.by === n.to && e.doc === n.doc && e.seq > n.seq,
+        )
+      );
+    if (n.kind === KIND_LOOP_EXHAUSTED)
+      return (
+        !!this.loops?.standing(n.doc) &&
         !this.events.some(
           (e) => (e.type === 'read' || e.type === 'decided') && e.by === n.to && e.doc === n.doc && e.seq > n.seq,
         )

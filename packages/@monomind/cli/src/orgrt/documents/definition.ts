@@ -13,6 +13,7 @@ import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
 import { writerDefinitionFindings } from './definition-writes.js';
 import { leadRulesFindings } from './lead-rules.js';
+import { loopFindings } from './loops.js';
 import { sectionBudgetChecklist } from './section-budget-wire.js';
 
 const SECTION_FIELDS = [
@@ -274,5 +275,8 @@ export function sectionsDefinitionFindings(def: OrgDef): Findings {
   f.errors.push(...budget.errors);
   f.warnings.push(...budget.warnings);
   writerDefinitionFindings(def, f);
+  const loops = loopFindings(raw, ['CYCLE_SELF_EDGE']); // P4.8: a self-edge is already an error above
+  f.errors.push(...loops.errors);
+  f.warnings.push(...loops.warnings);
   return f;
 }

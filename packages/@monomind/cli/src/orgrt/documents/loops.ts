@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/documents/loops.ts
 /**
- * Org sections spec 6.15 and plan P4.3 (pure, inert: nothing imports this file yet; P4.8 wires it).
+ * Org sections spec 6.15 and plan P4.3 (pure; P4.8 wires it: definition.ts takes `loopFindings`, loop-run.ts and runtime.ts take `declaredLoops` and the round rules).
  *
  * The section graph, the cycle check and the validation of the `loops` key:
  *  - `sectionGraph(def)`: one edge per (producing section, consuming section, type), from `publishes` and `consumes`.
@@ -302,9 +302,9 @@ export function loopProblems(def: LoopsInput): LoopProblem[] {
 const render = (p: LoopProblem): string => `${p.path}: ${p.message} — ${p.remedy}`;
 
 /** `loopProblems` as the `{errors, warnings}` strings of the definition check (path, message, remedy). */
-export function loopFindings(def: LoopsInput): Findings {
+export function loopFindings(def: LoopsInput, skip: readonly LoopCode[] = []): Findings {
   const f: Findings = { errors: [], warnings: [] };
-  for (const p of loopProblems(def)) (p.severity === 'error' ? f.errors : f.warnings).push(render(p));
+  for (const p of loopProblems(def).filter((x) => !skip.includes(x.code))) (p.severity === 'error' ? f.errors : f.warnings).push(render(p));
   return f;
 }
 

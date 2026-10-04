@@ -104,13 +104,22 @@ describe('phase4 inert: on-surface refusals of the Phase 4 keys are unchanged to
     expect(baseline.errors).toEqual([]);
   });
 
-  // EDITED BY P4.8: loops.
-  it.each([
-    ['an empty list', []],
-    ['a declared loop', [{ between: ['research', 'development'], types: ['findings'], max_rounds: 2 }]],
-    ['an object', {}],
-  ])('top-level loops as %s is still refused', (_n, loops) => {
-    expect(on((r) => (r.loops = loops)).errors).toEqual([TOP('loops')]);
+  // EDITED BY P4.8: loops are relaxed on the surface (the sections-off refusals above are untouched). The full
+  // matrix is in loops-definition.test.ts; the three values this block pinned keep a pin, with their new answer.
+  it('top-level loops as an empty list is accepted on the surface', () => {
+    const f = on((r) => (r.loops = []));
+    expect(f.errors).toEqual([]);
+    expect(f.warnings).toEqual(baseline.warnings);
+  });
+
+  it('a declared loop that closes no cycle is accepted with the LOOP_NO_CYCLE warning', () => {
+    const f = on((r) => (r.loops = [{ between: ['research', 'development'], types: ['findings'], max_rounds: 2 }]));
+    expect(f.errors).toEqual([]);
+    expect(f.warnings).toEqual([expect.stringMatching(/^loops\[0\]: .* do not form a cycle of document hand-offs/), ...baseline.warnings]);
+  });
+
+  it('top-level loops as an object is an error that says it must be a list', () => {
+    expect(on((r) => (r.loops = {})).errors).toEqual([expect.stringMatching(/^loops: must be a list of /)]);
   });
 
   // EDITED BY P4.5 (run_config.budget_usd, run_config.budget_mode, sections.<s>.budget and the deferred keys of
@@ -256,14 +265,16 @@ describe('phase4 inert: keys accepted today that Phase 4 gives effect or finding
     expect(f.warnings).toEqual(baseline.warnings);
   });
 
-  // EDITED BY P4.8: an undeclared cycle becomes an error.
-  it('a two-section cycle (research publishes findings, development publishes plans back) validates today', () => {
+  // EDITED BY P4.8: an undeclared cycle becomes an error (before: it validated).
+  it('a two-section cycle (research publishes findings, development publishes plans back) is an error naming both sections', () => {
     const f = on((r) => {
       r.documents.plans = { schema: { type: 'object', required: ['summary'] }, evidence: [{ kind: 'source', verify: 'cited' }] };
       r.sections.development.publishes = ['plans'];
       r.sections.research.consumes = ['plans'];
     });
-    expect(f.errors).toEqual([]);
+    expect(f.errors).toEqual([
+      expect.stringMatching(/^sections\.development, sections\.research: sections "development", "research" hand documents around a cycle .* no loop declares it/),
+    ]);
   });
 
   // EDITED BY P4.9: the capacity error. The default max_concurrent_agents is 4; a sections org with more agent roles

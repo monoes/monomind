@@ -33,9 +33,8 @@ const DEFERRED_RUN_CONFIG = ['budget_usd', 'budget_mode', 'experimental'];
 const PASSTHROUGH_TOP_LEVEL = ['automations', 'autonomy'];
 const PASSTHROUGH_RUN_CONFIG = ['max_run'];
 /** The only deferred keys the sections surface relaxes (13.1.3, P3.1; `budget_usd` and
- *  `budget_mode` by P4.5), and only while `sectionsSurface(def).enabled`. `loops`
- *  stays refused either way. */
-const RELAXED_TOP_LEVEL = ['sections', 'documents', 'requires'];
+ *  `budget_mode` by P4.5, `loops` by P4.8), and only while `sectionsSurface(def).enabled`. */
+const RELAXED_TOP_LEVEL = ['sections', 'documents', 'requires', 'loops'];
 const RELAXED_RUN_CONFIG = ['experimental', 'budget_usd', 'budget_mode'];
 
 /** Runtimes whose runners report tokens but no USD cost (spec A27, verified

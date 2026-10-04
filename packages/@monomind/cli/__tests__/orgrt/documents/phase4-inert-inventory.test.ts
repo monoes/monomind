@@ -112,6 +112,9 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/rework-daemon.test.ts`]: { max_rework_rounds: 1 },
   [`${P}/documents/rework-guard.test.ts`]: { max_rework_rounds: 4 },
   [`${P}/documents/rework.test.ts`]: { max_rework_rounds: 11 },
+  // P4.8 loops wired: the dev and QA loop definition (`loops` set by the shared fixture) and the definition matrix that mutates it.
+  [`${P}/support/loop-defs.ts`]: { loops: 1 },
+  [`${P}/documents/loops-definition.test.ts`]: { loops: 2 },
 };
 
 describe('phase4 inert: fixture inventory', () => {

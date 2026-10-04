@@ -17,6 +17,8 @@ import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
 import { capsFromDef, reworkFacts, rootMayDecide, type ReworkFact } from './rework.js';
 import { reworkGuard } from './rework-guard.js';
+import { LoopRun, type LoopFact } from './loop-run.js';
+import { declaredLoops } from './loops.js';
 import { createHost, type DocumentToolHost } from './host.js';
 import { NoticeEngine } from './notices.js';
 import { rootRoleId } from './routing.js';
@@ -90,6 +92,7 @@ export class DocumentsRuntime {
   readonly reads: PartJournal;
   private isClosed = false;
   private reworkOn = false;
+  private loopRun: LoopRun | undefined;
   private readonly def: OrgDef;
 
   constructor(
@@ -142,6 +145,23 @@ export class DocumentsRuntime {
     });
   }
 
+  /**
+   * Declared-loop enforcement (P4.8), installed once and only when the definition declares a loop: the return guard
+   * on the store and the exhaustion notice. The loops are read from the live definition every time.
+   */
+  enableLoops(): void {
+    if (this.loopRun) return;
+    const root = rootRoleId(this.def);
+    this.loopRun = new LoopRun({ def: this.def, store: this.store, root, leadOf: (s) => leadOf(this.def, s) });
+    this.store.addGuard(this.loopRun.guard());
+    this.notices?.useLoops(this.loopRun.escalation());
+  }
+
+  /** The loop lineages, their rounds and whether each is spent or frozen (a pure function of the store and the live loops). */
+  loopReport(): LoopFact[] {
+    return this.loopRun?.report() ?? [];
+  }
+
   /** The review threads and whether each is frozen (a pure function of the store and the live caps). */
   reworkReport(): ReworkFact[] {
     return this.reworkOn ? reworkFacts(this.store.state, capsFromDef(this.def)) : [];
@@ -162,7 +182,8 @@ export class DocumentsRuntime {
         checks: this.checks,
         reads: this.reads,
         rootMayDecide: (doc, version) =>
-          this.reworkOn ? rootMayDecide(this.store.state, capsFromDef(this.def), doc, version) : undefined,
+          (this.reworkOn ? rootMayDecide(this.store.state, capsFromDef(this.def), doc, version) : undefined) ??
+          this.loopRun?.mayDecide(doc, version),
       },
       role,
     );
@@ -213,5 +234,6 @@ export function openDocumentsRuntime(o: OpenOptions): DocumentsRuntime | undefin
   };
   runtime.notices = new NoticeEngine({ dir, store, copyTo, ...(o.now ? { now: o.now } : {}) });
   if (Object.keys(capsFromDef(o.def)).length > 0) runtime.enableRework(); // P4.7: only when a section sets a cap
+  if (declaredLoops(o.def).length > 0) runtime.enableLoops(); // P4.8: only when the definition declares a loop
   return runtime;
 }

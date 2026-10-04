@@ -173,6 +173,7 @@ export function doPublish(ctx: StoreCtx, req: PublishRequest): PublishReceipt | 
       body: req.body,
       doc: doc?.id,
       version,
+      ...(req.inputs !== undefined ? { inputs: req.inputs } : {}),
     });
     if (!r) continue;
     const pv = r.problems?.map((m) => ({ code: r.code, path: '$', message: m }));

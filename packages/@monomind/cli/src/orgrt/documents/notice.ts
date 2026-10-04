@@ -22,12 +22,15 @@ export const KIND_REJECTED = 'rejected';
 export const KIND_CHANGED = 'deliverable-changed';
 /** A review cycle that reached its max_rework_rounds (P4.7, rework.ts): to the root and the leads involved. */
 export const KIND_EXHAUSTED = 'rework-exhausted';
+/** A declared loop that reached its max_rounds (P4.8, loop-run.ts): to the root and the leads of the loop's sections. */
+export const KIND_LOOP_EXHAUSTED = 'loop-exhausted';
 export type NoticeKind =
   | typeof KIND_PUBLISHED
   | typeof KIND_ALL_AVAILABLE
   | typeof KIND_REJECTED
   | typeof KIND_CHANGED
-  | typeof KIND_EXHAUSTED;
+  | typeof KIND_EXHAUSTED
+  | typeof KIND_LOOP_EXHAUSTED;
 
 /** One thing a decision maker must be told. `key` is stable across restarts: it names the obligation. */
 export interface Notice {

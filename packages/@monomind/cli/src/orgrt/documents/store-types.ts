@@ -290,6 +290,8 @@ export interface PublishGuardContext {
   /** The document being revised, when this is a revision. */
   doc?: string;
   version: number;
+  /** The `inputs` references the publish carries (P4.8: a loop guard tells a return from a first round). */
+  inputs?: readonly string[];
 }
 
 export interface DecideGuardContext {

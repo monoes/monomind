@@ -72,10 +72,9 @@ describe('surface on: the four keys are accepted, nothing else is relaxed', () =
     expect(checklistErrorsForRaw(sectionsRaw())).toEqual([]);
   });
 
-  it.each([
-    ['loops', (r: Record<string, any>) => (r.loops = []), TOP('loops')],
-  ])('%s is still refused', (_n, patch, message) => {
-    expect(on(patch).errors).toEqual([message]);
+  // EDITED BY P4.8: `loops` is relaxed on the surface (the surface-off refusal is pinned above, unchanged).
+  it('loops is accepted on the surface', () => {
+    expect(on((r) => (r.loops = [])).errors).toEqual([]);
   });
 
   it('the relaxed keys are not reported as not yet supported', () => {

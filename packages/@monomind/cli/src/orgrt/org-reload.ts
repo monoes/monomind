@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { reopenBudgetClosedRoles, rolesOnDefTokenCaps } from './budget-closure.js';
 import type { OrgDaemon } from './daemon.js';
+import { reloadLoopRounds } from './documents/loop-run.js';
 import { reloadReworkCaps } from './documents/rework.js';
 import { sectionRoleCap, syncSectionBudgets } from './documents/section-budget-wire.js';
 import { effectiveRolePolicy } from './effective-role-policy.js';
@@ -77,6 +78,7 @@ export function reloadOrgDef(
 
   changed.push(...syncSectionBudgets(running.def, newDef)); // P4.5: allocations first, for the caps below
   changed.push(...reloadReworkCaps(running.def, newDef, running.documents)); // P4.7: max_rework_rounds
+  changed.push(...reloadLoopRounds(running.def, newDef, running.documents)); // P4.8: loops[].max_rounds
 
   // M1 (C-37): apply changes to EXISTING roles' tool_providers, endpoint,
   // kind and policy. Fields are replaced on the live role object (sessions
