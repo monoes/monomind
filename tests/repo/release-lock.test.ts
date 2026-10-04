@@ -234,6 +234,25 @@ describe('release-lock', () => {
       expect(r.out).toMatch(/in progress by run run-A/);
     });
 
+    it('is stale once its own bus log records org-stopped, even after another run overwrote runtime.json', () => {
+      // run-20261004195437-tzfx: stopped by hand, then a second run started and
+      // replaced runtime.json (so the file no longer said how run A ended). The
+      // holder's pid is invisible from its sandbox, so no other evidence existed
+      // until the 30 min heartbeat limit.
+      const t = setup();
+      const p = liveProcess();
+      const s = orgState(t, 'run-A', 'running', p.pid as number);
+      expect(t.run(t.repo, 'acquire', '--runtime', s.runtime).status).toBe(0);
+      writeFileSync(
+        s.bus,
+        `{"type":"status","msg":"org started"}\n{"type":"status","reason":"org-stopped","msg":"org stopped"}\n`,
+      );
+      orgState(t, 'run-B', 'running', p.pid as number);
+      const r = t.run(t.repo, 'acquire', '--runtime', s.runtime);
+      expect(r.status).toBe(0);
+      expect(r.out).toMatch(/run-A \(its run ended: org-stopped\)/);
+    });
+
     it('is stale when the run bus log has been quiet longer than the heartbeat limit', () => {
       const t = setup();
       const p = liveProcess();
