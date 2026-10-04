@@ -90,7 +90,14 @@ export interface ClaudeProbe {
   log: (line: string) => void;
 }
 
+export interface ClaudeCodeInfo {
+  used: string;
+  version: string;
+  skipped: Array<{ path: string; version?: string; reason: string }>;
+}
+
 export interface InstalledClaude {
+  claude_code: ClaudeCodeInfo;
   /** Real path of the binary to use; undefined means the SDK's own. */
   path?: string;
   /** Binaries found but not used, with the reason. */
@@ -183,7 +190,7 @@ function badExplicitBinary(real: string, probe: ClaudeProbe): string | undefined
   return undefined;
 }
 
-type Checked = { real: string } | { why: string; missing?: boolean };
+type Checked = { real: string; version: string } | { why: string; missing?: boolean };
 
 async function checkCandidate(c: Candidate, probe: ClaudeProbe): Promise<Checked> {
   if (!isAbsolute(c.path)) return { why: 'it is not an absolute path' };
@@ -193,6 +200,7 @@ async function checkCandidate(c: Candidate, probe: ClaudeProbe): Promise<Checked
   } catch {
     return { why: 'it does not exist', missing: true };
   }
+  let version: string | undefined;
   try {
     if (!probe.stat(real).isFile()) return { why: `${real} is not a file` };
     if (!looksLikeClaude(real))
@@ -217,6 +225,7 @@ async function checkCandidate(c: Candidate, probe: ClaudeProbe): Promise<Checked
       if (bad) return { why: bad };
     }
     const v = compatibleClaudeVersion(await probe.version(real));
+    version = v.version;
     if (!v.ok) {
       const [major] = SDK_BUNDLED_CLAUDE_VERSION.split('.');
       return {
@@ -228,25 +237,35 @@ async function checkCandidate(c: Candidate, probe: ClaudeProbe): Promise<Checked
   } catch (e) {
     return { why: `checking ${real} failed: ${(e as Error).message}` };
   }
-  return { real };
+  return { real, version: version! };
 }
 
 /** Finds the Claude Code to use (see the file header). */
 export async function findInstalledClaude(probe: ClaudeProbe): Promise<InstalledClaude> {
   const skipped: string[] = [];
+  const claude_code: ClaudeCodeInfo = { used: 'bundled', version: SDK_BUNDLED_CLAUDE_VERSION, skipped: [] };
   for (const c of claudeCandidates(probe.env, probe.home, probe.platform)) {
     const r = await checkCandidate(c, probe);
-    if ('real' in r) return { path: r.real, skipped };
+    if ('real' in r) return { path: r.real, skipped, claude_code: { ...claude_code, used: r.real, version: r.version } };
+    if (!r.missing || c.explicit) {
+      let version: string | undefined;
+      try {
+        const real = probe.realpath(c.path);
+        // Filename metadata only: never execute a binary refused by the trust checks.
+        if (basename(dirname(real)) === 'versions' && /^\d+\.\d+\.\d+$/.test(basename(real))) version = basename(real);
+      } catch { /* Missing candidates have no metadata. */ }
+      claude_code.skipped.push({ path: c.path, ...(version ? { version } : {}), reason: r.why });
+    }
     if (c.explicit) {
       probe.log(
         `${CLAUDE_PATH_ENV}=${c.path} is not used: ${r.why}. ` +
           "Using the Claude Agent SDK's bundled Claude Code.",
       );
-      return { skipped };
+      return { skipped, claude_code };
     }
     if (!r.missing) skipped.push(`${c.path}: ${r.why}`);
   }
-  return { skipped };
+  return { skipped, claude_code };
 }
 
 /**
@@ -335,7 +354,7 @@ export const defaultClaudeProbe = (env: NodeJS.ProcessEnv = process.env): Claude
 };
 
 /** How to load the SDK given what `findInstalledClaude` found. */
-export function sdkLoadOptions(found: InstalledClaude): EnsureOptions {
+export function sdkLoadOptions(found: Pick<InstalledClaude, 'path' | 'skipped'>): EnsureOptions {
   if (found.path) return { withoutSdkBinary: true };
   if (!found.skipped.length) return {};
   return {
@@ -352,6 +371,7 @@ export type ClaudeSdk = Pick<
   /** Set when an installed Claude Code is used; `query` then always passes
    *  it as `pathToClaudeCodeExecutable`. */
   executable?: string;
+  claude_code?: ClaudeCodeInfo;
 };
 
 let claudeSdk: Promise<ClaudeSdk> | undefined;
@@ -399,14 +419,28 @@ export const loadClaudeSdk = (
     // #526: the SDK's own binary, pinned by hash, is passed to and rechecked
     // at every query (claude-sdk-pin.ts). An installed Claude Code below is
     // not ours to pin: #522's checks above cover it.
-    if (!found.path) return withPinnedExecutable({ createSdkMcpServer, query, tool });
+    if (!found.path) return { ...withPinnedExecutable({ createSdkMcpServer, query, tool }), claude_code: found.claude_code };
     return {
       createSdkMcpServer,
       tool,
       query: queryWithExecutable(query, found.path),
       executable: found.path,
+      claude_code: found.claude_code,
     };
   })().catch((err) => {
     claudeSdk = undefined;
     throw err;
   }));
+
+/** Runtime selection only; does not install or load the SDK. */
+export async function claudeCodeInfo(env: NodeJS.ProcessEnv = process.env): Promise<ClaudeCodeInfo> {
+  return (await findInstalledClaude(defaultClaudeProbe(env))).claude_code;
+}
+
+let skipNotePrinted = false;
+/** Human diagnostic once per process, including when the SDK is already installed. */
+export function reportClaudeSkip(info: ClaudeCodeInfo): void {
+  if (skipNotePrinted || !info.skipped.some((s) => s.version && compatibleClaudeVersion(`${s.version} (Claude Code)`).ok && s.version !== info.version)) return;
+  skipNotePrinted = true;
+  process.stderr.write(`[monomind] Using Claude Code ${info.used} (${info.version}); an installed Claude Code was skipped: ${info.skipped.map((s) => `${s.path}${s.version ? ` (${s.version})` : ''}: ${s.reason}`).join('; ')}. Set ${CLAUDE_PATH_ENV} to opt in to an installed binary.\n`);
+}

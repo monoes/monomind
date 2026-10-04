@@ -12,6 +12,7 @@
 
 import * as fs from 'node:fs';
 import { delimiter, join } from 'node:path';
+import { claudeCodeInfo, type ClaudeCodeInfo } from './claude-sdk.js';
 import type { AgentRunner } from './agent-runner.js';
 import { type RuntimeKind, resolveRunner } from './daemon.js';
 import { accessModes, callerToolsWithFullAccess, RUNNER_ACCESS } from './runner-access.js';
@@ -67,6 +68,7 @@ export async function resolveExecRunner(id: string): Promise<AgentRunner | null>
 // ─── scan (doc/agent-exec-protocol.md §6) ───────────────────────────────────
 
 export interface ScanEntry {
+  claude_code?: ClaudeCodeInfo;
   id: string;
   installed: boolean;
   binary: string | null;
@@ -178,6 +180,7 @@ export async function scanInstalled(opts: ScanOptions = {}): Promise<{
             ? { version: null, source: 'not-probed' as const }
             : await detectVersion(spec.id, binPath, opts);
       return {
+        ...(spec.id === 'claude' ? { claude_code: await claudeCodeInfo(env) } : {}),
         id: spec.id,
         installed: binPath !== null,
         binary: binPath,

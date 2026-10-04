@@ -15,6 +15,7 @@ import { resolve } from 'node:path';
 import { runAgentExec, type ToolSpec } from '../orgrt/agent-exec.js';
 import { parseSettingsFlag } from '../orgrt/agent-exec-settings.js';
 import { ORG_EFFORT_LEVELS, type OrgEffortLevel } from '../orgrt/cost-tier.js';
+import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { scanInstalled } from '../orgrt/runner-registry.js';
 import { SANDBOX_FALLBACKS, SANDBOX_MODES, type SandboxMode } from '../orgrt/runner-sandbox.js';
 import { output } from '../output.js';
@@ -443,6 +444,8 @@ export const scanCommand: Command = {
     }
 
     output.writeln();
+    const claude = agents.find((a) => a.id === 'claude')?.claude_code;
+    if (claude) reportClaudeSkip(claude);
     output.writeln(output.bold('Agent Runtimes'));
     output.writeln();
     output.printTable({

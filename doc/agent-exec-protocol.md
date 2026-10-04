@@ -1384,3 +1384,12 @@ recognized as a known model", OpenAI's "does not exist", Gemini's `models/… is
 plan gates — even when the provider answered 403. The classifier is
 `orgrt/agent-error-classify.ts`. Without `--json` the command prints one line, such as
 `codex/gpt-5.5: ok — "ok" in 1430ms, first 812ms, 12→1 tokens, $0.0001`.
+
+Claude runtime selection diagnostics (#595): the Claude entry in `agent scan
+--json` and `agent models --runtime claude --json` include `claude_code` with
+`used` (the accepted binary's real path or `bundled`), `version`, and `skipped`
+entries (`path`, optional `version`, `reason`). Skipped versions come from
+installation metadata when available; rejected binaries are never executed to
+obtain them. `doctor -c claude-runtime --json` reports the same selection without
+installing the SDK. Human scan/models commands report a skipped newer native
+install once per process, even when the SDK is already installed.

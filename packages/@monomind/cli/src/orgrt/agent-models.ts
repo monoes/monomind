@@ -16,7 +16,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { loadClaudeSdk } from './claude-sdk.js';
+import { claudeCodeInfo, type ClaudeCodeInfo, loadClaudeSdk } from './claude-sdk.js';
 import { DSH_MODELS } from './dsh-runner-models.js';
 import { locateBinary, resolveBinary, runnerSpec } from './runner-registry.js';
 
@@ -48,6 +48,7 @@ export interface ModelsResult {
   /** true: a static list monomind ships for a runtime with no listing
    *  command (dsh), not one the runtime printed. */
   curated?: boolean;
+  claude_code?: ClaudeCodeInfo;
   models: AgentModel[];
   error?: { code: 'unknown-runtime' | 'missing-binary' | 'list-failed'; message: string };
 }
@@ -234,7 +235,7 @@ export async function listRuntimeModels(
   try {
     if (runtime === 'claude') {
       const list = await (opts.listClaude ?? listClaudeViaSdk)(timeoutMs);
-      return { ...base, supported: true, models: parseClaudeModels(list) };
+      return { ...base, supported: true, models: parseClaudeModels(list), ...(opts.listClaude ? {} : { claude_code: (await loadClaudeSdk()).claude_code ?? await claudeCodeInfo(env) }) };
     }
     const bin = resolveBinary(spec, env);
     const binPath = bin ? locateBinary(bin, env) : null;

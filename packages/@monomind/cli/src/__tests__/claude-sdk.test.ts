@@ -164,7 +164,7 @@ describe('findInstalledClaude', () => {
       '/usr/lib/claude/bin/claude': rootBin(),
       [`${HOME}/.local/bin/claude`]: rootBin(),
     });
-    expect(await findInstalledClaude(probe)).toEqual({
+    expect(await findInstalledClaude(probe)).toMatchObject({
       path: '/usr/lib/claude/bin/claude',
       skipped: [],
     });
@@ -263,7 +263,7 @@ describe('findInstalledClaude', () => {
 
   it('falls back to the bundled binary when nothing is installed', async () => {
     const { probe, version } = fakeProbe({});
-    expect(await findInstalledClaude(probe)).toEqual({ skipped: [] });
+    expect(await findInstalledClaude(probe)).toMatchObject({ skipped: [] });
     expect(version).not.toHaveBeenCalled();
   });
 
@@ -411,5 +411,26 @@ describe('queryWithExecutable (#522 review, minor 5)', () => {
     expect(existsSync(gone)).toBe(false);
     const q = queryWithExecutable(vi.fn() as never, gone);
     expect(() => q({ prompt: 'hi' })).toThrow(/no longer exists .*looks for Claude Code again/);
+  });
+});
+
+describe('Claude runtime diagnostics (#595)', () => {
+  it('reports the selected version and real path', async () => {
+    const { probe } = fakeProbe({ '/usr/bin/claude': rootBin(SDK_BUNDLED_CLAUDE_VERSION) });
+    expect((await findInstalledClaude(probe)).claude_code).toEqual({
+      used: '/usr/bin/claude', version: SDK_BUNDLED_CLAUDE_VERSION, skipped: [],
+    });
+  });
+  it('reports skipped native installs without executing a role-writable binary', async () => {
+    const native = `${HOME}/.local/share/claude/versions/2.1.999`;
+    const { probe, version } = fakeProbe({
+      [`${HOME}/.local/bin/claude`]: { uid: ME, mode: 0o755, to: native },
+      [native]: userBin('2.1.999'),
+    });
+    const found = await findInstalledClaude(probe);
+    expect(found.claude_code).toMatchObject({ used: 'bundled', version: SDK_BUNDLED_CLAUDE_VERSION,
+      skipped: [{ path: `${HOME}/.local/bin/claude`, version: '2.1.999', reason: expect.stringContaining('org roles can write') }],
+    });
+    expect(version).not.toHaveBeenCalled();
   });
 });

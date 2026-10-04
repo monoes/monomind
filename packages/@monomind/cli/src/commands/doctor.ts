@@ -15,6 +15,7 @@ import type { HealthCheck } from './doctor-env-checks.js';
 import {
   checkBuildTools,
   checkClaudeCode,
+  checkClaudeRuntime,
   checkCrashReporting,
   checkDiskSpace,
   checkGit,
@@ -215,6 +216,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     ['node', checkNodeVersion],
     ['npm', checkNpmVersion],
     ['claude', checkClaudeCode],
+    ['claude-runtime', checkClaudeRuntime],
     ['config', checkConfigFile],
     ['project-root', checkProjectRoot],
     ['memory', checkMemoryDatabase],
@@ -268,6 +270,7 @@ async function runDoctor(ctx: CommandContext, json: boolean): Promise<CommandRes
     node: checkNodeVersion,
     npm: checkNpmVersion,
     claude: checkClaudeCode,
+    'claude-runtime': checkClaudeRuntime,
     config: checkConfigFile,
     'project-root': checkProjectRoot,
     memory: checkMemoryDatabase,

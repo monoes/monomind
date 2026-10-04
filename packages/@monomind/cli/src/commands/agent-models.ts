@@ -3,6 +3,7 @@
  * `agent-models`) — the runtime's own model list. See orgrt/agent-models.ts.
  */
 
+import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { listRuntimeModels } from '../orgrt/agent-models.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -34,6 +35,7 @@ export const modelsCommand: Command = {
       output.printJson(result);
       return { success: exitCode === 0, exitCode, data: result };
     }
+    if (result.claude_code) reportClaudeSkip(result.claude_code);
     if (result.error) {
       output.printError(result.error.message);
       return { success: false, exitCode };
