@@ -2,8 +2,10 @@
 //
 // The pure decision of the unread-document watch (org sections spec 6.2 (f), R24, plan P3.13). A document
 // version that was published for a consuming section's decision makers is a coordination failure when, within a
-// bounded interval, either (a) the runtime could not deliver its publication notice (undelivered, failing, or
-// given up: the runtime's own failure) or (b) the notice was delivered and no decision maker read the version.
+// bounded interval, either (a) the runtime GAVE UP delivering its publication notice (the runtime's own failure)
+// or (b) the notice was delivered and no decision maker read the version. While a notice is merely pending
+// (undelivered, or failing and still being retried) the watch is silent, as 6.2 (f) says ("no pending notice"):
+// the retry is the remedy, and the clock of (b) starts at the delivery (P3.16a, open item 23).
 // The watch tells the LEAD (the consumer's reports_to, else the root) once per episode, with the doubling gap
 // and the cap of the existing lead-watch; it never writes to the consumer itself (that is the notice engine's job).
 //
@@ -47,7 +49,7 @@ export interface UnreadVersion {
   deciders: UnreadDecider[];
 }
 
-export type UnreadCause = 'notice-undelivered' | 'not-read';
+export type UnreadCause = 'notice-gave-up' | 'not-read';
 
 export interface UnreadNotice {
   /** The episode: one per version and lead. */
@@ -78,9 +80,7 @@ const attempts = (n: number): string => `${n} failed ${n === 1 ? 'attempt' : 'at
 
 function state(d: UnreadDecider): string {
   if (d.notice === 'delivered') return `${d.role} (told, no org_doc_read)`;
-  return d.notice === 'exhausted'
-    ? `${d.role} (the runtime gave up delivering its notice after ${attempts(d.failures)})`
-    : `${d.role} (the runtime has not been able to deliver its notice${d.failures ? `: ${attempts(d.failures)}, still retrying` : ' yet'})`;
+  return `${d.role} (the runtime gave up delivering its notice after ${attempts(d.failures)})`;
 }
 
 function text(v: UnreadVersion, who: UnreadDecider[], ageMs: number, n: number): string {
@@ -116,7 +116,7 @@ export class UnreadWatch {
       if (!v.open) continue;
       const byLead = new Map<string, UnreadDecider[]>();
       for (const d of v.deciders)
-        if (!d.done) byLead.set(d.lead ?? '', [...(byLead.get(d.lead ?? '') ?? []), d]);
+        if (!d.done && d.notice !== 'pending') byLead.set(d.lead ?? '', [...(byLead.get(d.lead ?? '') ?? []), d]);
       for (const [lead, who] of byLead) {
         const key = `${v.doc}@v${v.version}>${lead}`;
         live.add(key);
@@ -136,7 +136,7 @@ export class UnreadWatch {
           type: v.type,
           producer: v.producer,
           unread: who.map((d) => d.role),
-          cause: overdue.some((d) => d.notice !== 'delivered') ? 'notice-undelivered' : 'not-read',
+          cause: overdue.some((d) => d.notice === 'exhausted') ? 'notice-gave-up' : 'not-read',
           n: ep.n,
           ageMs,
           text: text(v, who, ageMs, ep.n),

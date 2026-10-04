@@ -107,21 +107,53 @@ describe('UnreadWatch: delivered, not read (b)', () => {
   });
 });
 
-describe('UnreadWatch: notice not delivered (a)', () => {
-  it('a pending notice that is still undelivered at the interval is the runtime failure, naming the attempts', () => {
+describe('UnreadWatch: notice not delivered (a), spec 6.2 (f): silent while a notice is pending', () => {
+  it('a pending notice (undelivered, or failing and still being retried) is silent at any age', () => {
     const w = new UnreadWatch(I);
-    const v = version({ deciders: [decider({ notice: 'pending', failures: 2 })] });
-    const [n] = w.tick([v], I, false);
-    expect(n.cause).toBe('notice-undelivered');
-    expect(n.text).toContain('dev-lead (the runtime has not been able to deliver its notice: 2 failed attempts, still retrying)');
+    const fresh = version({ deciders: [decider({ notice: 'pending' })] });
+    const retrying = version({ doc: 'findings-2', deciders: [decider({ notice: 'pending', failures: 4 })] });
+    expect(w.tick([fresh, retrying], I, false)).toEqual([]);
+    expect(w.tick([fresh, retrying], 50 * I, false)).toEqual([]);
   });
 
-  it('a notice with no attempt yet, and one the runtime gave up on, read accordingly', () => {
-    const fresh = new UnreadWatch(I).tick([version({ deciders: [decider({ notice: 'pending' })] })], I, false)[0];
-    expect(fresh.text).toContain('dev-lead (the runtime has not been able to deliver its notice yet)');
-    const gaveUp = new UnreadWatch(I).tick([version({ deciders: [decider({ notice: 'exhausted', failures: 5 })] })], I, false)[0];
-    expect(gaveUp.cause).toBe('notice-undelivered');
-    expect(gaveUp.text).toContain('the runtime gave up delivering its notice after 5 failed attempts');
+  it('a pending notice spends no episode: delivery later starts the clock from the delivery', () => {
+    const w = new UnreadWatch(I);
+    expect(w.tick([version({ deciders: [decider({ notice: 'pending' })] })], 9 * I, false)).toEqual([]);
+    const delivered = version({ deciders: [decider({ since: 9 * I })] });
+    expect(w.tick([delivered], 9 * I + I - 1, false)).toEqual([]);
+    const [n] = w.tick([delivered], 10 * I, false);
+    expect(n).toMatchObject({ cause: 'not-read', n: 1 });
+  });
+
+  it('a notice the runtime gave up delivering is no longer pending: it is surfaced, as its own cause', () => {
+    const w = new UnreadWatch(I);
+    const v = version({ deciders: [decider({ notice: 'exhausted', failures: 5 })] });
+    const [n] = w.tick([v], I, false);
+    expect(n.cause).toBe('notice-gave-up');
+    expect(n.text).toContain('dev-lead (the runtime gave up delivering its notice after 5 failed attempts)');
+    expect(w.tick([v], I + 1, false)).toEqual([]); // once per episode, the same backoff
+  });
+
+  it('a notice that was pending and then given up surfaces at the interval from publication', () => {
+    const w = new UnreadWatch(I);
+    expect(w.tick([version({ deciders: [decider({ notice: 'pending', failures: 4 })] })], 2 * I, false)).toEqual([]);
+    const [n] = w.tick([version({ deciders: [decider({ notice: 'exhausted', failures: 5 })] })], 2 * I + 1, false);
+    expect(n.cause).toBe('notice-gave-up');
+  });
+
+  it('beside a pending notice, only the consumers that were told and did not read (or whose notice was given up) are named', () => {
+    const w = new UnreadWatch(I);
+    const v = version({
+      deciders: [
+        decider({ role: 'dev-lead', notice: 'pending' }),
+        decider({ role: 'qa-lead' }),
+        decider({ role: 'ops-lead', notice: 'exhausted', failures: 5 }),
+      ],
+    });
+    const [n] = w.tick([v], I, false);
+    expect(n.unread).toEqual(['qa-lead', 'ops-lead']);
+    expect(n.cause).toBe('notice-gave-up');
+    expect(n.text).not.toContain('dev-lead');
   });
 
   it('a read ends it even though the notice never arrived', () => {

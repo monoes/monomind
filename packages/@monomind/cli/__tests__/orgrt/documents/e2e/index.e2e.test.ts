@@ -14,7 +14,7 @@
 //      consistency.e2e.test.ts: "a publish disagreeing with the files is refused and counted as a consistency refusal; the producer fixes the file and republishes"
 //      consistency.e2e.test.ts: "an accept refused after the producer changed a file triggers the changed-deliverable relay; the republish supersedes and is accepted"
 //  P3.14 (D) a document published and never read raises the lead-watch event
-//      r24.e2e.test.ts: "regression: the same script with the notices off deadlocks, the unread-watch tells the lead, and enabling delivery completes the run"
+//      r24.e2e.test.ts: "regression: the same script with the notices off deadlocks, the unread-watch stays silent while the notices are pending (6.2 (f)), and enabling delivery completes the run"
 //      full-queue.e2e.test.ts: "is reported by the unread watch and sent again by the next start, then the consumer decides it"
 //  P3.14 (E) a sections-off org in the same daemon is untouched (bus, files, mailbox, prompts, tools)
 //      gate-parity.e2e.test.ts: "has no docs directory, no org_doc_* tool, no notice, no runtime sender and no new bus reason"
@@ -47,8 +47,10 @@
 //  (consistency, "an accept refused after the producer changed a file ..."; sweep-loop trail); the completeness notice is sent once
 //  (r24, sweep-loop); the notice carries no fault or seed field (sweep-loop, "no fault-record information ..."); a full consumer queue
 //  does not lose the notice for good (full-queue: the bounded mailbox evicts it, the watch tells the lead, the next start sends it
-//  again); 6.2(f) raises a lead event for a document nobody reads (r24, full-queue). DEVIATION recorded by P3.13: the watch also raises
-//  for a notice the runtime could not deliver, labelled cause "notice-undelivered", instead of staying silent while a notice is pending.
+//  again); 6.2(f) raises a lead event for a document nobody reads (r24, full-queue). P3.13 first raised also for a notice the runtime could not
+//  deliver (cause "notice-undelivered"); P3.16a (open item 23, owner decision) aligned it with 6.2 (f): silent while a notice is pending
+//  (undelivered, or failing and still being retried; r24, unread-watch tests), and surfaced, as cause "notice-gave-up", only when the
+//  runtime gave up delivering it (unread-watch-daemon test).
 //
 // DEFERRED BY 9.1, NOT TESTED HERE (no test in this suite or in Phase 3 covers them; the build did not implement them):
 //  - provenance before exposure          - freshness (on_stale)               - review grants (publish-time read grants, gates)
@@ -68,7 +70,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const MAPPED: Record<string, string[]> = {
   'r24.e2e.test.ts': [
     'briefed before any document exists and ending its turn, it reads, checks and decides every document, woken by notices alone',
-    'regression: the same script with the notices off deadlocks, the unread-watch tells the lead, and enabling delivery completes the run',
+    'regression: the same script with the notices off deadlocks, the unread-watch stays silent while the notices are pending (6.2 (f)), and enabling delivery completes the run',
   ],
   'sweep-loop.e2e.test.ts': [
     'check, reject with reasons, relay, republish, accept, synthesise from the accepted versions',

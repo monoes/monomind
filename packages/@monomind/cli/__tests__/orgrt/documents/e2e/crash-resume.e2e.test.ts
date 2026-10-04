@@ -84,14 +84,14 @@ describe('crash and resume mid-scenario', () => {
   it('the unread watch is seeded from the bus history on resume: the episode count carries over', async () => {
     const r1 = new Scripted();
     const first = await world.start(miniOrg({ unreadS: 0.4 }), { runner: r1 });
-    first.docs.notices!.setEnabledForTest(false); // the consumer is never told, so nobody reads
+    // the consumer is told (the notice is delivered) and never reads
     await r1.toolsOf(first.d, first.name, 'synthesiser');
     const w1 = await r1.toolsOf(first.d, first.name, 'worker-1');
     writeFiles(world.root, honest(W1));
     expect(await call(w1, 'org_doc_publish', { type: W1, body: honest(W1) })).toMatchObject({ ok: true });
     const unread = (r: typeof first) => r.running.busEvents().filter((e) => e.reason === 'doc-unread');
     expect(await waitFor(() => unread(first).length === 1)).toBe(true);
-    expect(unread(first)[0].data).toMatchObject({ key: `${idOf(W1)}@v1>lead`, n: 1, cause: 'notice-undelivered' });
+    expect(unread(first)[0].data).toMatchObject({ key: `${idOf(W1)}@v1>lead`, n: 1, cause: 'not-read' });
     await first.d.stopOrg(first.name);
     // the second process sends the committed notice, the consumer still does not read: the same episode goes on at n 2
     const again = await world.start(miniOrg({ unreadS: 0.4 }), { runner: new Scripted(), resume: true });

@@ -1,7 +1,7 @@
 // P3.14 scenario 1, the R24 acceptance (spec section 11) on the miniature sweep org through a real OrgDaemon: a
 // consumer briefed before any document exists, which ends its turn, is woken ONLY by the runtime's messages and
 // completes read -> check -> decide for every document; with the notices disabled (the internal test switch) the
-// same script deadlocks, nothing is read or decided, and the unread-watch tells the lead; the committed notices
+// same script deadlocks, nothing is read or decided, and the unread-watch stays silent while the notices are pending (6.2 (f)); the committed notices
 // were never lost, so enabling delivery again completes the run.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -53,7 +53,7 @@ describe('R24 in the daemon: an idle consumer woken only by messages', () => {
     expect(jsonl(join(docs.dir, 'notices.jsonl')).every((j) => j.t === 'delivered')).toBe(true);
   });
 
-  it('regression: the same script with the notices off deadlocks, the unread-watch tells the lead, and enabling delivery completes the run', async () => {
+  it('regression: the same script with the notices off deadlocks, the unread-watch stays silent while the notices are pending (6.2 (f)), and enabling delivery completes the run', async () => {
     const runner = new Scripted();
     const { d, name, docs, running } = await world.start(miniOrg({ unreadS: 0.4 }), { runner });
     const cast = new Cast(world.root).bind(() => docs.store).install(runner);
@@ -61,16 +61,15 @@ describe('R24 in the daemon: an idle consumer woken only by messages', () => {
     await runner.toolsOf(d, name, 'synthesiser', 'brief: sheets will come, process each when it is published');
     await Cast.assign(d, name);
     const unread = () => running.busEvents().filter((e) => e.reason === 'doc-unread');
-    expect(await waitFor(() => unread().length === 3)).toBe(true);
+    await new Promise((r) => setTimeout(r, 1600)); // four intervals
     // the consumer was never woken: nothing read, nothing decided, nothing synthesised
     expect(runner.subjects('synthesiser')).toEqual(['brief: sheets will come, process each when it is published']);
     expect(docs.store.list().every((x) => x.head.status === 'pending')).toBe(true);
     expect(cast.calls.filter((c) => c.role === 'synthesiser')).toEqual([]);
     expect(docs.notices!.pending().length).toBeGreaterThan(0);
-    // one lead event per published document, naming the consumer and the cause; the lead (root) got the notices
-    expect(unread().map((e) => e.data?.doc).sort()).toEqual(MINI_DOCS.map((t) => idOf(t)).sort());
-    for (const e of unread()) expect(e.data).toMatchObject({ to: 'lead', unread: ['synthesiser'], cause: 'notice-undelivered', n: 1 });
-    expect(await waitFor(() => runner.texts('lead').filter((t) => t.includes('[watch] Document')).length === 3)).toBe(true);
+    // the notices are pending, not given up: 6.2 (f) says the watch is silent, so the lead heard nothing
+    expect(unread()).toEqual([]);
+    expect(runner.texts('lead').filter((t) => t.includes('[watch] Document'))).toEqual([]);
     // the committed notices were never lost: with delivery on again the consumer completes everything
     docs.notices!.setEnabledForTest(true);
     await docs.notices!.retry();

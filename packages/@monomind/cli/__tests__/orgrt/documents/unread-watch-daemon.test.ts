@@ -87,30 +87,52 @@ const publish = (tools: OrgToolDef[], extra: Record<string, unknown> = {}) =>
   callTool(tools, 'org_doc_publish', { type: 'findings', body: FINDINGS, evidence: SOURCE, ...extra });
 
 describe('P3.13: a published document nobody reads reaches the lead', () => {
-  it('the consumer is never woken (notices off): the lead gets exactly one notice, naming the document; the consumer read ends it', async () => {
+  it('the notice is pending (notices off): the watch stays silent however long, delivery later starts the clock, the read ends it', async () => {
     const raw = org(0.5);
     const { d, runner, docs, events } = await start(raw);
     docs.notices!.setEnabledForTest(false);
     const consumer = await runner.toolsOf(d, raw.name, CONSUMER);
     const researcher = await runner.toolsOf(d, raw.name, 'researcher');
     await publish(researcher);
+    expect(docs.notices!.pending().length).toBeGreaterThan(0);
+    await sleep(2200); // more than four intervals: still silent, 6.2 (f) "no pending notice"
+    expect(events()).toEqual([]);
+    expect(runner.watchTurns('boss')).toEqual([]);
+    // the consumer itself is told nothing by the watch
+    expect(runner.turns.get(CONSUMER)).toHaveLength(1); // only the human's hello
+    // delivery goes ahead: the clock runs from the delivery, and then it is the not-read case
+    docs.notices!.setEnabledForTest(true);
+    await docs.notices!.retry();
     expect(await waitFor(() => events().length === 1)).toBe(true);
+    expect(events()[0].data).toMatchObject({ cause: 'not-read', unread: [CONSUMER], n: 1 });
+    await callTool(consumer, 'org_doc_read', { id: 'findings-1', version: 1 });
+    await sleep(1800);
+    expect(events()).toHaveLength(1);
+  });
+
+  it('the runtime gave up delivering the notice: one lead event, cause notice-gave-up, naming the document; the read ends it', async () => {
+    const raw = org(0.5);
+    const { d, runner, docs, events } = await start(raw);
+    const consumer = await runner.toolsOf(d, raw.name, CONSUMER);
+    const researcher = await runner.toolsOf(d, raw.name, 'researcher');
+    // every delivery of the runtime fails from now on: the engine retries on each tick and gives up after its cap
+    docs.notices!.start({ deliver: async () => 'ERROR: mailbox closed' });
+    await publish(researcher);
+    expect(await waitFor(() => events().length === 1, 10_000)).toBe(true);
     const [e] = events();
     expect(e).toMatchObject({
       type: 'audit',
       from: 'org-docs',
       reason: 'doc-unread',
-      data: { doc: 'findings-1', version: 1, type: 'findings', producer: 'researcher', to: 'boss', unread: [CONSUMER], cause: 'notice-undelivered', n: 1 },
+      data: { doc: 'findings-1', version: 1, type: 'findings', producer: 'researcher', to: 'boss', unread: [CONSUMER], cause: 'notice-gave-up', n: 1 },
     });
     expect(e.data?.key).toBe('findings-1@v1>boss');
     expect(await waitFor(() => runner.watchTurns('boss').length === 1)).toBe(true);
     const text = runner.watchTurns('boss')[0];
     expect(text).toContain('[watch] Document "findings-1" v1 (findings, published by researcher) has gone unread for');
-    expect(text).toContain('dev-lead (the runtime has not been able to deliver its notice');
+    expect(text).toContain('dev-lead (the runtime gave up delivering its notice after 5 failed attempts)');
     expect(text).toContain('org_send to "dev-lead"');
-    // the consumer itself is told nothing by the watch
-    expect(runner.turns.get(CONSUMER)).toHaveLength(1); // only the human's hello
-    // the consumer's later read ends the episode: no second notice at the end of the backoff gap
+    expect(runner.turns.get(CONSUMER)).toHaveLength(1);
     expect(await callTool(consumer, 'org_doc_read', { id: 'findings-1', version: 1 })).toMatchObject({ ok: true });
     await sleep(1800);
     expect(events()).toHaveLength(1);
@@ -135,8 +157,7 @@ describe('P3.13: a published document nobody reads reaches the lead', () => {
 
   it('a superseding version replaces the episode: only the head is reported', async () => {
     const raw = org(0.5);
-    const { d, runner, docs, events } = await start(raw);
-    docs.notices!.setEnabledForTest(false);
+    const { d, runner, events } = await start(raw);
     await runner.toolsOf(d, raw.name, CONSUMER);
     const researcher = await runner.toolsOf(d, raw.name, 'researcher');
     await publish(researcher);
@@ -148,8 +169,7 @@ describe('P3.13: a published document nobody reads reaches the lead', () => {
 
   it('a decision ends it (the consumer decides without a separate read)', async () => {
     const raw = org(0.5);
-    const { d, runner, docs, events } = await start(raw);
-    docs.notices!.setEnabledForTest(false);
+    const { d, runner, events } = await start(raw);
     const consumer = await runner.toolsOf(d, raw.name, CONSUMER);
     const researcher = await runner.toolsOf(d, raw.name, 'researcher');
     await publish(researcher);
@@ -160,8 +180,7 @@ describe('P3.13: a published document nobody reads reaches the lead', () => {
 
   it('lead_watch: false turns it off', async () => {
     const raw = org(false);
-    const { d, runner, docs, events } = await start(raw);
-    docs.notices!.setEnabledForTest(false);
+    const { d, runner, events } = await start(raw);
     await runner.toolsOf(d, raw.name, CONSUMER);
     const researcher = await runner.toolsOf(d, raw.name, 'researcher');
     await publish(researcher);
@@ -172,7 +191,6 @@ describe('P3.13: a published document nobody reads reaches the lead', () => {
   it('resume: the bus history seeds the episode, so the count carries over and the cap holds', async () => {
     const raw = org(0.5);
     const first = await start(raw);
-    first.docs.notices!.setEnabledForTest(false);
     await first.runner.toolsOf(first.d, raw.name, CONSUMER);
     const researcher = await first.runner.toolsOf(first.d, raw.name, 'researcher');
     await publish(researcher);
