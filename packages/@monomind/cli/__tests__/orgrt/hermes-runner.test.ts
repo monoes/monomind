@@ -10,7 +10,7 @@
  * subprocess (real argv/exit-code/signal behavior), not a mocked
  * child_process module.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -22,6 +22,16 @@ import {
 } from '../../src/orgrt/agent-exec-errors.js';
 import { HERMES_MAX_QUERY_ARG_BYTES, HermesAgentRunner } from '../../src/orgrt/hermes-runner.js';
 import type { AgentMessage, AgentRunArgs } from '../../src/orgrt/agent-runner.js';
+
+// Storage policy is covered by runner-inputs-599.test.ts; these runner unit
+// fixtures deliberately use the test worker's isolated temporary HOME.
+vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
+});
 
 /** Write an executable fake-hermes script into a temp dir and return its
  *  path plus the invocation log file the script appends each invocation to.

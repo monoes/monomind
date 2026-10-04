@@ -16,7 +16,7 @@
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentRunArgs, AgentRunner } from '../../src/orgrt/agent-runner.js';
@@ -74,7 +74,11 @@ function stash(...keys: string[]) {
 beforeEach(() => {
   dumpDir = mkdtempSync(join(tmpdir(), 'o18-env-'));
   dumpFile = join(dumpDir, 'env.json');
-  stash('O18_DUMP_ENV_OUT');
+  stash('O18_DUMP_ENV_OUT', 'MONOMIND_HOME');
+  // Keep real storage validation while HOME may deliberately be /tmp or
+  // an unwritable sentinel. This private fixture is outside runner cwd and
+  // the sandbox-writable temporary roots, and never touches the real home.
+  process.env.MONOMIND_HOME = PROTECTED_INPUT_HOME;
   process.env.O18_DUMP_ENV_OUT = dumpFile;
 });
 
@@ -148,6 +152,9 @@ interface RunnerCase {
   setup?: () => void;
   teardown?: () => void;
 }
+
+const PROTECTED_INPUT_HOME = mkdtempSync(join(dirname(process.cwd()), '.o18-protected-inputs-'));
+afterAll(() => rmSync(PROTECTED_INPUT_HOME, { recursive: true, force: true }));
 
 const RUNNER_STATE = mkdtempSync(join(tmpdir(), 'o18-runner-state-'));
 afterAll(() => rmSync(RUNNER_STATE, { recursive: true, force: true }));

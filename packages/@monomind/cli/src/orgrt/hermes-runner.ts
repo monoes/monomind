@@ -119,7 +119,6 @@
  */
 import { execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { UNCLASSIFIED_MARKER } from './agent-exec-errors.js';
 import {
@@ -131,6 +130,7 @@ import {
 import { maskedCommand } from './authority-mask.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { omitAnthropicManagedKeys } from './provider.js';
+import { createRunnerInputDir, writeRunnerInput } from './runner-inputs.js';
 import {
   buildToolProtocol,
   formatToolResults,
@@ -253,7 +253,7 @@ export class HermesAgentRunner implements AgentRunner {
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const bin = this.hermesBin || process.env.HERMES_CLI_BIN || 'hermes';
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-hermes-'));
+    const tmpDir = createRunnerInputDir('hermes', args);
     const promptFile = path.join(tmpDir, 'prompt.txt');
 
     try {
@@ -269,7 +269,7 @@ export class HermesAgentRunner implements AgentRunner {
         // runToolRound ends this loop past the round cap (#326).
         for (let round = 0; ; round++) {
           const promptText = transcript.join('\n\n---\n\n');
-          if (mode === 'query-file') fs.writeFileSync(promptFile, promptText);
+          if (mode === 'query-file') writeRunnerInput(promptFile, promptText);
           else if (Buffer.byteLength(promptText) > HERMES_MAX_QUERY_ARG_BYTES) {
             throw new Error(
               `HermesAgentRunner: the round-${round} prompt is ${Buffer.byteLength(promptText)} bytes, over the ` +

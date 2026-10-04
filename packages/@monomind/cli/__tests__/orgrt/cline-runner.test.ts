@@ -27,7 +27,20 @@ import {
   successRow,
 } from './cline/fake-cline.js';
 
-vi.mock('node:child_process', () => ({ spawn: vi.fn(), execFile: vi.fn() }));
+// Storage policy is covered by runner-inputs-599.test.ts; these runner unit
+// fixtures deliberately use the test worker's isolated temporary HOME.
+vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `runner-fixture-${runner}-`)) };
+});
+
+vi.mock('node:child_process', async (importOriginal) => ({
+  execFileSync: (await importOriginal<typeof import('node:child_process')>()).execFileSync,
+  spawn: vi.fn(), execFile: vi.fn(),
+}));
 
 const SUCCESS = fixture('json-success.ndjson');
 const PROVIDER_ERROR = fixture('json-provider-error.ndjson');
