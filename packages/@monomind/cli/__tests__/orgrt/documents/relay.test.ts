@@ -140,7 +140,7 @@ describe('a rejection reaches the producer through the runtime', () => {
     expect(lead.body).not.toContain('x'.repeat(COPY_REASON_CAP + 1));
     expect(must(r.store.read({ role: 'researcher', id: 'brief-1', version: 1 })).decisions.writing.reason).toBe(long);
     // a surrogate pair split by the cut is dropped, never cut in half
-    expect(capReason(`${'a'.repeat(599)}\u{1F600}b`, 600).startsWith('a'.repeat(599) + '…')).toBe(true);
+    expect(capReason(`${'a'.repeat(599)}\u{1F600}b`, 600).startsWith(`${'a'.repeat(599)}…`)).toBe(true);
   });
 
   it('states the attempts used and left from the store counters, and when they are exhausted says the section lead must take over', async () => {

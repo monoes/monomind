@@ -6,7 +6,7 @@
 // cache. The first call of a session shows the prefix cache read vs write at
 // session start; the summary turns the log into per-role figures that the
 // eval compares across configurations.
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -53,7 +53,7 @@ describe('a session logs one record per model call', () => {
     const bus = new OrgBus('o', 'r', dir);
     const mailbox = new Mailbox();
     for (let i = 0; i < messages.length; i++) mailbox.push(`m${i}`);
-    let turn = 0;
+    let _turn = 0;
     const queryFn = ({ prompt }: any) =>
       (async function* () {
         const it = prompt[Symbol.asyncIterator]();
@@ -61,7 +61,7 @@ describe('a session logs one record per model call', () => {
           await it.next();
           for (const m of batch) yield m;
           yield { type: 'result', subtype: 'success', session_id: 'sdk', usage: { input_tokens: 0, output_tokens: 0 }, total_cost_usd: 0 };
-          turn++;
+          _turn++;
         }
         mailbox.close();
       })();

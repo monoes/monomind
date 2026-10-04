@@ -15,8 +15,19 @@ export const MAX_SCHEMA_DEPTH = 32;
 
 const SCHEMA_TYPES = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'];
 const VALIDATION = new Set([
-  'type', 'enum', 'const', 'properties', 'required', 'additionalProperties', 'items',
-  'minLength', 'maxLength', 'minimum', 'maximum', 'minItems', 'maxItems',
+  'type',
+  'enum',
+  'const',
+  'properties',
+  'required',
+  'additionalProperties',
+  'items',
+  'minLength',
+  'maxLength',
+  'minimum',
+  'maximum',
+  'minItems',
+  'maxItems',
 ]);
 const ANNOTATIONS = new Set(['$schema', 'title', 'description', 'examples']);
 
@@ -41,6 +52,7 @@ const REMEDY: Record<string, string> = {
   allOf: 'combinators are unsupported; merge the schemas',
   not: 'negation is unsupported',
   if: 'conditionals are unsupported',
+  // biome-ignore lint/suspicious/noThenProperty: `then` is a JSON Schema keyword refused by name
   then: 'conditionals are unsupported',
   else: 'conditionals are unsupported',
   patternProperties: 'declare each property under properties',
@@ -74,7 +86,10 @@ function walk(s: unknown, path: string, depth: number, out: DocProblem[]): void 
       code: 'SCHEMA_NOT_OBJECT',
       path,
       message: 'a schema must be an object',
-      remedy: typeof s === 'boolean' ? 'boolean schemas are unsupported; use {} or additionalProperties' : undefined,
+      remedy:
+        typeof s === 'boolean'
+          ? 'boolean schemas are unsupported; use {} or additionalProperties'
+          : undefined,
     });
     return;
   }
@@ -94,9 +109,19 @@ function walk(s: unknown, path: string, depth: number, out: DocProblem[]): void 
     switch (k) {
       case 'type':
         if (typeof v !== 'string')
-          bad('SCHEMA_INVALID_KEYWORD_VALUE', at, 'type must be one string', 'type lists are unsupported');
+          bad(
+            'SCHEMA_INVALID_KEYWORD_VALUE',
+            at,
+            'type must be one string',
+            'type lists are unsupported',
+          );
         else if (!SCHEMA_TYPES.includes(v))
-          bad('SCHEMA_UNKNOWN_TYPE', at, `unknown type "${v}"`, `one of ${SCHEMA_TYPES.join(', ')}`);
+          bad(
+            'SCHEMA_UNKNOWN_TYPE',
+            at,
+            `unknown type "${v}"`,
+            `one of ${SCHEMA_TYPES.join(', ')}`,
+          );
         break;
       case 'enum':
         if (!Array.isArray(v) || v.length === 0)
@@ -108,11 +133,13 @@ function walk(s: unknown, path: string, depth: number, out: DocProblem[]): void 
         break;
       case 'examples':
         if (!Array.isArray(v)) bad('SCHEMA_INVALID_KEYWORD_VALUE', at, 'examples must be a list');
-        else if (!isJsonValue(v)) bad('SCHEMA_NOT_JSON', at, 'examples holds a value that is not JSON');
+        else if (!isJsonValue(v))
+          bad('SCHEMA_NOT_JSON', at, 'examples holds a value that is not JSON');
         break;
       case 'properties':
         if (!isObj(v)) bad('SCHEMA_INVALID_KEYWORD_VALUE', at, 'properties must be an object');
-        else for (const [name, sub] of Object.entries(v)) walk(sub, member(at, name), depth + 1, out);
+        else
+          for (const [name, sub] of Object.entries(v)) walk(sub, member(at, name), depth + 1, out);
         break;
       case 'required':
         if (!Array.isArray(v) || v.some((r) => typeof r !== 'string'))
@@ -125,14 +152,20 @@ function walk(s: unknown, path: string, depth: number, out: DocProblem[]): void 
         break;
       case 'items':
         if (Array.isArray(v))
-          bad('SCHEMA_INVALID_KEYWORD_VALUE', at, 'items must be one schema', 'tuple form is unsupported');
+          bad(
+            'SCHEMA_INVALID_KEYWORD_VALUE',
+            at,
+            'items must be one schema',
+            'tuple form is unsupported',
+          );
         else walk(v, at, depth + 1, out);
         break;
       case 'minLength':
       case 'maxLength':
       case 'minItems':
       case 'maxItems':
-        if (!nonNegInt(v)) bad('SCHEMA_INVALID_KEYWORD_VALUE', at, `${k} must be a non-negative integer`);
+        if (!nonNegInt(v))
+          bad('SCHEMA_INVALID_KEYWORD_VALUE', at, `${k} must be a non-negative integer`);
         break;
       case 'minimum':
       case 'maximum':
@@ -141,7 +174,12 @@ function walk(s: unknown, path: string, depth: number, out: DocProblem[]): void 
         break;
       case '$schema':
         if (v !== JSON_SCHEMA_2020_12)
-          bad('SCHEMA_INVALID_KEYWORD_VALUE', at, `$schema must be ${JSON_SCHEMA_2020_12}`, 'the dialect has 2020-12 semantics');
+          bad(
+            'SCHEMA_INVALID_KEYWORD_VALUE',
+            at,
+            `$schema must be ${JSON_SCHEMA_2020_12}`,
+            'the dialect has 2020-12 semantics',
+          );
         break;
       default: // title, description
         if (typeof v !== 'string') bad('SCHEMA_INVALID_KEYWORD_VALUE', at, `${k} must be a string`);
@@ -156,15 +194,23 @@ export function validateSchema(schema: unknown): DocProblem[] {
   try {
     bytes = Buffer.byteLength(JSON.stringify(schema) ?? '', 'utf8');
   } catch {
-    return [{ code: 'SCHEMA_NOT_JSON', path: '$', message: 'the schema is not JSON data (cycle or too deep)' }];
+    return [
+      {
+        code: 'SCHEMA_NOT_JSON',
+        path: '$',
+        message: 'the schema is not JSON data (cycle or too deep)',
+      },
+    ];
   }
   if (bytes > MAX_SCHEMA_BYTES)
-    return [{
-      code: 'SCHEMA_TOO_LARGE',
-      path: '$',
-      message: `${bytes} bytes exceeds the ${MAX_SCHEMA_BYTES} byte limit`,
-      remedy: 'shorten the schema',
-    }];
+    return [
+      {
+        code: 'SCHEMA_TOO_LARGE',
+        path: '$',
+        message: `${bytes} bytes exceeds the ${MAX_SCHEMA_BYTES} byte limit`,
+        remedy: 'shorten the schema',
+      },
+    ];
   walk(schema, '$', 1, out);
   return out;
 }
@@ -174,7 +220,11 @@ export function assertSupportedSchema(schema: unknown): void {
   throwIfProblems(validateSchema(schema));
 }
 
-const vp = (code: ValueProblem['code'], path: string, message: string): ValueProblem => ({ code, path, message });
+const vp = (code: ValueProblem['code'], path: string, message: string): ValueProblem => ({
+  code,
+  path,
+  message,
+});
 const points = (s: string): number => {
   let n = 0;
   for (const _ of s) n++;
@@ -185,14 +235,21 @@ function check(schema: JsonObject, value: unknown, path: string, out: ValueProbl
   const t = schema.type as string | undefined;
   const actual = typeOf(value);
   if (t) {
-    const ok = t === 'integer' ? Number.isInteger(value) : t === 'number' ? actual === 'number' : t === actual;
+    const ok =
+      t === 'integer'
+        ? Number.isInteger(value)
+        : t === 'number'
+          ? actual === 'number'
+          : t === actual;
     if (!ok) {
       out.push(vp('VALUE_TYPE', path, `expected ${t}, got ${actual}`));
       return;
     }
   }
   if (Array.isArray(schema.enum) && !schema.enum.some((e) => deepEqual(e, value)))
-    out.push(vp('VALUE_ENUM', path, `not one of ${schema.enum.map((e) => JSON.stringify(e)).join(', ')}`));
+    out.push(
+      vp('VALUE_ENUM', path, `not one of ${schema.enum.map((e) => JSON.stringify(e)).join(', ')}`),
+    );
   if (Object.hasOwn(schema, 'const') && !deepEqual(schema.const, value))
     out.push(vp('VALUE_CONST', path, `not equal to ${JSON.stringify(schema.const)}`));
   if (typeof value === 'string') {
@@ -213,7 +270,8 @@ function check(schema: JsonObject, value: unknown, path: string, out: ValueProbl
       out.push(vp('VALUE_TOO_FEW_ITEMS', path, `fewer than ${schema.minItems} items`));
     if (typeof schema.maxItems === 'number' && value.length > schema.maxItems)
       out.push(vp('VALUE_TOO_MANY_ITEMS', path, `more than ${schema.maxItems} items`));
-    if (isObj(schema.items)) value.forEach((item, i) => check(schema.items as JsonObject, item, `${path}[${i}]`, out));
+    if (isObj(schema.items))
+      value.forEach((item, i) => check(schema.items as JsonObject, item, `${path}[${i}]`, out));
   }
   if (isObj(value)) {
     const props = isObj(schema.properties) ? schema.properties : {};
@@ -221,8 +279,10 @@ function check(schema: JsonObject, value: unknown, path: string, out: ValueProbl
       if (!Object.hasOwn(value, r)) out.push(vp('VALUE_REQUIRED', member(path, r), 'required'));
     for (const [k, v] of Object.entries(value)) {
       if (Object.hasOwn(props, k)) check(props[k] as JsonObject, v, member(path, k), out);
-      else if (schema.additionalProperties === false) out.push(vp('VALUE_NOT_ALLOWED', member(path, k), 'not allowed'));
-      else if (isObj(schema.additionalProperties)) check(schema.additionalProperties, v, member(path, k), out);
+      else if (schema.additionalProperties === false)
+        out.push(vp('VALUE_NOT_ALLOWED', member(path, k), 'not allowed'));
+      else if (isObj(schema.additionalProperties))
+        check(schema.additionalProperties, v, member(path, k), out);
     }
   }
 }

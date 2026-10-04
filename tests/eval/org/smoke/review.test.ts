@@ -169,7 +169,9 @@ describe('scrub: nothing in a bundle says which arm, run, role or path produced 
 
   it('replaces the trial path, any other path in the scratch or home areas, the org name and run ids', () => {
     const t = scrub(
-      'cd /var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t/workspace && ls /var/tmp/mm-pilot-p1/inputs/x ' + ctx.home + '/.monomind\n' +
+      'cd /var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t/workspace && ls /var/tmp/mm-pilot-p1/inputs/x ' +
+        ctx.home +
+        '/.monomind\n' +
         'org smoke-growth-like-phase2-p2t run run-20261002133341-b259 ended',
       ctx,
     );

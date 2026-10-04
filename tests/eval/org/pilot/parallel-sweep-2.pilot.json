@@ -26,27 +26,19 @@
     "sections": {
       "sweep-a": {
         "lead": "worker-1",
-        "members": [
-          "worker-2"
-        ]
+        "members": ["worker-2"]
       },
       "sweep-b": {
         "lead": "worker-3",
-        "members": [
-          "worker-4"
-        ]
+        "members": ["worker-4"]
       },
       "sweep-c": {
         "lead": "worker-5",
-        "members": [
-          "worker-6"
-        ]
+        "members": ["worker-6"]
       },
       "sweep-d": {
         "lead": "worker-7",
-        "members": [
-          "worker-8"
-        ]
+        "members": ["worker-8"]
       },
       "synthesis": {
         "lead": "synthesiser",
@@ -59,22 +51,15 @@
       "id": "module-sheets-w1",
       "title": "Answer sheets of worker-1's four modules (m1 to m4)",
       "producer": "worker-1",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-1"
-            ]
+            "enum": ["worker-1"]
           },
           "sheets": {
             "type": "array",
@@ -82,19 +67,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m1",
-                    "m2",
-                    "m3",
-                    "m4"
-                  ]
+                  "enum": ["m1", "m2", "m3", "m4"]
                 },
                 "answers": {
                   "type": "array",
@@ -102,11 +79,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -150,22 +123,15 @@
       "id": "module-sheets-w2",
       "title": "Answer sheets of worker-2's four modules (m5 to m8)",
       "producer": "worker-2",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-2"
-            ]
+            "enum": ["worker-2"]
           },
           "sheets": {
             "type": "array",
@@ -173,19 +139,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m5",
-                    "m6",
-                    "m7",
-                    "m8"
-                  ]
+                  "enum": ["m5", "m6", "m7", "m8"]
                 },
                 "answers": {
                   "type": "array",
@@ -193,11 +151,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -241,22 +195,15 @@
       "id": "module-sheets-w3",
       "title": "Answer sheets of worker-3's four modules (m9 to m12)",
       "producer": "worker-3",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-3"
-            ]
+            "enum": ["worker-3"]
           },
           "sheets": {
             "type": "array",
@@ -264,19 +211,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m9",
-                    "m10",
-                    "m11",
-                    "m12"
-                  ]
+                  "enum": ["m9", "m10", "m11", "m12"]
                 },
                 "answers": {
                   "type": "array",
@@ -284,11 +223,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -332,22 +267,15 @@
       "id": "module-sheets-w4",
       "title": "Answer sheets of worker-4's four modules (m13 to m16)",
       "producer": "worker-4",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-4"
-            ]
+            "enum": ["worker-4"]
           },
           "sheets": {
             "type": "array",
@@ -355,19 +283,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m13",
-                    "m14",
-                    "m15",
-                    "m16"
-                  ]
+                  "enum": ["m13", "m14", "m15", "m16"]
                 },
                 "answers": {
                   "type": "array",
@@ -375,11 +295,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -423,22 +339,15 @@
       "id": "module-sheets-w5",
       "title": "Answer sheets of worker-5's four modules (m17 to m20)",
       "producer": "worker-5",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-5"
-            ]
+            "enum": ["worker-5"]
           },
           "sheets": {
             "type": "array",
@@ -446,19 +355,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m17",
-                    "m18",
-                    "m19",
-                    "m20"
-                  ]
+                  "enum": ["m17", "m18", "m19", "m20"]
                 },
                 "answers": {
                   "type": "array",
@@ -466,11 +367,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -514,22 +411,15 @@
       "id": "module-sheets-w6",
       "title": "Answer sheets of worker-6's four modules (m21 to m24)",
       "producer": "worker-6",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-6"
-            ]
+            "enum": ["worker-6"]
           },
           "sheets": {
             "type": "array",
@@ -537,19 +427,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m21",
-                    "m22",
-                    "m23",
-                    "m24"
-                  ]
+                  "enum": ["m21", "m22", "m23", "m24"]
                 },
                 "answers": {
                   "type": "array",
@@ -557,11 +439,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -605,22 +483,15 @@
       "id": "module-sheets-w7",
       "title": "Answer sheets of worker-7's four modules (m25 to m28)",
       "producer": "worker-7",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-7"
-            ]
+            "enum": ["worker-7"]
           },
           "sheets": {
             "type": "array",
@@ -628,19 +499,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m25",
-                    "m26",
-                    "m27",
-                    "m28"
-                  ]
+                  "enum": ["m25", "m26", "m27", "m28"]
                 },
                 "answers": {
                   "type": "array",
@@ -648,11 +511,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -696,22 +555,15 @@
       "id": "module-sheets-w8",
       "title": "Answer sheets of worker-8's four modules (m29 to m32)",
       "producer": "worker-8",
-      "consumers": [
-        "synthesiser"
-      ],
+      "consumers": ["synthesiser"],
       "max_attempts": 3,
       "schema": {
         "type": "object",
-        "required": [
-          "worker",
-          "sheets"
-        ],
+        "required": ["worker", "sheets"],
         "additionalProperties": false,
         "properties": {
           "worker": {
-            "enum": [
-              "worker-8"
-            ]
+            "enum": ["worker-8"]
           },
           "sheets": {
             "type": "array",
@@ -719,19 +571,11 @@
             "maxItems": 4,
             "items": {
               "type": "object",
-              "required": [
-                "module",
-                "answers"
-              ],
+              "required": ["module", "answers"],
               "additionalProperties": false,
               "properties": {
                 "module": {
-                  "enum": [
-                    "m29",
-                    "m30",
-                    "m31",
-                    "m32"
-                  ]
+                  "enum": ["m29", "m30", "m31", "m32"]
                 },
                 "answers": {
                   "type": "array",
@@ -739,11 +583,7 @@
                   "maxItems": 12,
                   "items": {
                     "type": "object",
-                    "required": [
-                      "q",
-                      "value",
-                      "files"
-                    ],
+                    "required": ["q", "value", "files"],
                     "additionalProperties": false,
                     "properties": {
                       "q": {
@@ -851,10 +691,7 @@
     "thresholds": {
       "stop_at_or_above": 30,
       "auto_continue_at_or_below": 25,
-      "inconclusive_band": [
-        26,
-        29
-      ],
+      "inconclusive_band": [26, 29],
       "of": 33
     },
     "unit": "units accepted by the 600 s deadline, of 33 (primary metric); the stricter 12 of 12 per sheet is reported as a secondary accuracy metric",

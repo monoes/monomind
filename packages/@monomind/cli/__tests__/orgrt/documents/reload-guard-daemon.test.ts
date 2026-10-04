@@ -6,7 +6,7 @@ import { rmSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { sandboxAvailability } from '../../../src/orgrt/role-sandbox-restrictions.js';
 import { loopOrg } from '../support/loop-defs.js';
-import { budgetedOrg, CAPS, newOrgRoot, ROLES, type Started, startAll, waitUntil } from '../support/section-budget-org.js';
+import { budgetedOrg, CAPS, newOrgRoot, ROLES, type Started, waitUntil } from '../support/section-budget-org.js';
 import { eventsOf, harness, settle } from '../support/section-budget-run-org.js';
 
 type Raw = Record<string, any>;

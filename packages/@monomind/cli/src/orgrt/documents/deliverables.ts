@@ -6,7 +6,15 @@
 // that escapes it, a file that is not a regular file or is over the document size limit is a refusal, never a
 // read) and names the first field where a file and the document differ. Fields a compare list does not name
 // (document-only `evidence`, the file's own extra keys) are ignored on both sides.
-import { closeSync, constants, fstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { MAX_DOCUMENT_BYTES } from './contract.js';
 import { isObj, type JsonObject } from './json.js';

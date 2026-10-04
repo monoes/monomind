@@ -30,8 +30,8 @@ import {
   emptyState,
   headOf,
   ReplayError,
-  versionStatus,
   type VersionRecord,
+  versionStatus,
 } from './state.js';
 import {
   type Attempts,

@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const cp = require('child_process');
+const cp = require('node:child_process');
 
 const SL_PATH = path.resolve(__dirname, '../../.claude/helpers/statusline.cjs');
 const CACHE_UTIL = path.resolve(__dirname, '../../.claude/helpers/utils/statusline-cache.cjs');

@@ -23,10 +23,15 @@ const fail = (code: DocProblem['code'], message: string, remedy?: string): never
 
 /** Loads `ref` (a path under `projectRoot`), checks it against the dialect and returns the snapshot. */
 export function loadSchemaRef(projectRoot: string, ref: unknown): SchemaSnapshot {
-  if (typeof ref !== 'string' || !ref) return fail('SCHEMA_REF_INVALID', '$ref must be a path string');
+  if (typeof ref !== 'string' || !ref)
+    return fail('SCHEMA_REF_INVALID', '$ref must be a path string');
   if (ref.includes('\0')) return fail('SCHEMA_REF_INVALID', 'the path holds a NUL byte');
   if (ref.startsWith('#') || /^[a-z][a-z0-9+.-]*:/i.test(ref))
-    return fail('SCHEMA_REF_INVALID', `"${ref}" is not a project file path`, 'use a path like schemas/findings.json');
+    return fail(
+      'SCHEMA_REF_INVALID',
+      `"${ref}" is not a project file path`,
+      'use a path like schemas/findings.json',
+    );
   if (!ref.endsWith('.json')) return fail('SCHEMA_REF_INVALID', `"${ref}" is not a .json file`);
   let realRoot: string;
   let real: string;
@@ -42,7 +47,11 @@ export function loadSchemaRef(projectRoot: string, ref: unknown): SchemaSnapshot
   }
   const rel = relative(realRoot, real);
   if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel))
-    return fail('SCHEMA_REF_ESCAPE', `"${ref}" resolves outside the project`, 'keep schema files inside the project, symlinks included');
+    return fail(
+      'SCHEMA_REF_ESCAPE',
+      `"${ref}" resolves outside the project`,
+      'keep schema files inside the project, symlinks included',
+    );
   let text: string;
   let bytes = 0;
   let sha256 = '';
@@ -51,7 +60,10 @@ export function loadSchemaRef(projectRoot: string, ref: unknown): SchemaSnapshot
     const st = fstatSync(fd);
     if (!st.isFile()) return fail('SCHEMA_REF_UNREADABLE', `"${ref}" is not a regular file`);
     if (st.size > MAX_SCHEMA_BYTES)
-      return fail('SCHEMA_TOO_LARGE', `${st.size} bytes exceeds the ${MAX_SCHEMA_BYTES} byte limit`);
+      return fail(
+        'SCHEMA_TOO_LARGE',
+        `${st.size} bytes exceeds the ${MAX_SCHEMA_BYTES} byte limit`,
+      );
     const buf = Buffer.alloc(st.size);
     let n = 0;
     while (n < st.size) {
@@ -72,14 +84,21 @@ export function loadSchemaRef(projectRoot: string, ref: unknown): SchemaSnapshot
     return fail('SCHEMA_REF_NOT_JSON', `"${ref}" is not valid JSON`);
   }
   assertSupportedSchema(schema);
-  return { schema: schema as JsonObject, source: { path: rel.split(sep).join('/'), bytes, sha256 } };
+  return {
+    schema: schema as JsonObject,
+    source: { path: rel.split(sep).join('/'), bytes, sha256 },
+  };
 }
 
 /** An inline schema (checked against the dialect) or a `{ "$ref": "path.json" }` file load. */
 export function resolveSchemaSource(input: unknown, projectRoot: string): SchemaSnapshot {
   if (isObj(input) && Object.hasOwn(input, '$ref')) {
     if (Object.keys(input).length !== 1)
-      return fail('SCHEMA_REF_INVALID', 'a $ref schema holds no other keyword', 'put the keywords in the referenced file');
+      return fail(
+        'SCHEMA_REF_INVALID',
+        'a $ref schema holds no other keyword',
+        'put the keywords in the referenced file',
+      );
     return loadSchemaRef(projectRoot, input.$ref);
   }
   assertSupportedSchema(input);

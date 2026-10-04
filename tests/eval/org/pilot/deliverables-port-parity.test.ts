@@ -3,11 +3,10 @@
 // on the committed v2 contracts. Same files, same document, same mismatch list and the same message text.
 // Intended differences are listed in the last block. No model, no corpus build.
 // @ts-nocheck: plain .mjs modules and fixtures
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deliverableGuard } from '../../../../packages/@monomind/cli/src/orgrt/documents/deliverable-guards.js';
 import { deliverableMismatches as runtimeMismatches } from '../../../../packages/@monomind/cli/src/orgrt/documents/deliverables.js';
@@ -17,7 +16,10 @@ import { deliverableMismatches as protoMismatches } from './deliverables.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pilot = JSON.parse(readFileSync(join(here, 'parallel-sweep-3.pilot.json'), 'utf8'));
-const V2 = applyContractTemplate(pilot.contracts, pilot.variants.find((v) => v.id === 'v2').contract_template);
+const V2 = applyContractTemplate(
+  pilot.contracts,
+  pilot.variants.find((v) => v.id === 'v2').contract_template,
+);
 const c1 = V2[0];
 const mods = ['m1', 'm2', 'm3', 'm4'];
 
@@ -31,7 +33,14 @@ const fileSheet = (m) => ({
 });
 const withEvidence = (sheet) => ({
   ...sheet,
-  answers: sheet.answers.map((a) => ({ ...a, evidence: a.files.map((file, i) => ({ file, in: 7 + i, out: i === 0 ? a.value : 100 + 13 * i })) })),
+  answers: sheet.answers.map((a) => ({
+    ...a,
+    evidence: a.files.map((file, i) => ({
+      file,
+      in: 7 + i,
+      out: i === 0 ? a.value : 100 + 13 * i,
+    })),
+  })),
 });
 const docSheet = (m) => withEvidence(fileSheet(m));
 const doc = () => ({ worker: 'worker-1', sheets: mods.map(docSheet) });
@@ -56,13 +65,22 @@ const same = (body) => {
 describe('the runtime comparison gives the prototype answer on every sweep-3 v2 case', () => {
   it('the committed v2 contract declares four files compared on module, q, value and files', () => {
     expect(c1.deliverables.map((d) => d.file)).toEqual(mods.map((m) => `out/${m}/answers.json`));
-    expect(c1.deliverables[0].compare).toEqual(['module', 'answers[].q', 'answers[].value', 'answers[].files']);
+    expect(c1.deliverables[0].compare).toEqual([
+      'module',
+      'answers[].q',
+      'answers[].value',
+      'answers[].files',
+    ]);
   });
 
   it('a consistent document passes; evidence and the files extra keys are ignored', () => {
     resetFiles();
     expect(same(doc())).toEqual([]);
-    put('m1', { ...fileSheet('m1'), note: 'extra', answers: fileSheet('m1').answers.map((a) => ({ ...a, extra: 1 })) });
+    put('m1', {
+      ...fileSheet('m1'),
+      note: 'extra',
+      answers: fileSheet('m1').answers.map((a) => ({ ...a, extra: 1 })),
+    });
     expect(same(doc())).toEqual([]);
     const d = doc();
     d.sheets[0].answers[0].evidence[1].out += 5;
@@ -75,7 +93,9 @@ describe('the runtime comparison gives the prototype answer on every sweep-3 v2 
     d.sheets[2].answers[3].value += 1;
     const r = same(d);
     expect(r).toHaveLength(1);
-    expect(r[0].problem).toMatch(/out\/m3\/answers\.json differs from the document's sheets entry m3 at \$\.answers\[3\]\.value/);
+    expect(r[0].problem).toMatch(
+      /out\/m3\/answers\.json differs from the document's sheets entry m3 at \$\.answers\[3\]\.value/,
+    );
   });
 
   it('reversed files name $.answers[0].files[0]', () => {
@@ -108,7 +128,14 @@ describe('the guards give the harness flows: publish refusal then fix, cap then 
       run: 'r',
       bindings: [
         {
-          contract: { type: c1.id, schema: c1.schema, deliverable_files: c1.deliverables, max_publish_attempts: c1.max_attempts, max_consistency_refusals: c1.max_refusals, max_bytes: c1.max_chars },
+          contract: {
+            type: c1.id,
+            schema: c1.schema,
+            deliverable_files: c1.deliverables,
+            max_publish_attempts: c1.max_attempts,
+            max_consistency_refusals: c1.max_refusals,
+            max_bytes: c1.max_chars,
+          },
           section: 'sweep-1',
           producers: ['worker-1'],
           consumers: [{ id: 'synthesis', deciders: ['synthesiser'] }],
@@ -120,7 +147,8 @@ describe('the guards give the harness flows: publish refusal then fix, cap then 
   };
   const body = () => ({ worker: 'worker-1', sheets: mods.map(docSheet) });
   let k = 0;
-  const pub = (store, b) => store.publish({ role: 'worker-1', type: c1.id, body: b, idempotency_key: `k${++k}` });
+  const pub = (store, b) =>
+    store.publish({ role: 'worker-1', type: c1.id, body: b, idempotency_key: `k${++k}` });
 
   it('a refusal names the file, is not an attempt, and the corrected document commits', () => {
     resetFiles();
@@ -129,7 +157,9 @@ describe('the guards give the harness flows: publish refusal then fix, cap then 
     bad.sheets[2].answers[3].value += 1;
     const r = pub(store, bad);
     expect(r).toMatchObject({ ok: false, guard_code: 'DELIVERABLE_MISMATCH' });
-    expect(r.message).toMatch(/out\/m3\/answers\.json differs from the document's sheets entry m3 at \$\.answers\[3\]\.value/);
+    expect(r.message).toMatch(
+      /out\/m3\/answers\.json differs from the document's sheets entry m3 at \$\.answers\[3\]\.value/,
+    );
     expect(r.message).not.toMatch(/out\/m1\/|out\/m2\//);
     expect(store.attempts(c1.id)).toMatchObject({ used: 0, refusals_used: 1 });
     expect(pub(store, body())).toMatchObject({ ok: true, version: 1 });
@@ -152,14 +182,36 @@ describe('the guards give the harness flows: publish refusal then fix, cap then 
     const f = fileSheet('m3');
     f.answers[2].value += 1;
     put('m3', f);
-    const r = store.decide({ role: 'synthesiser', id: v1.id, version: 1, decision: 'accept', idempotency_key: 'd1' });
+    const r = store.decide({
+      role: 'synthesiser',
+      id: v1.id,
+      version: 1,
+      decision: 'accept',
+      idempotency_key: 'd1',
+    });
     expect(r).toMatchObject({ ok: false, guard_code: 'DELIVERABLE_CHANGED' });
-    expect(r.message).toMatch(/deliverable files changed after it was published.*out\/m3\/answers\.json differs/);
+    expect(r.message).toMatch(
+      /deliverable files changed after it was published.*out\/m3\/answers\.json differs/,
+    );
     const fixed = body();
     fixed.sheets[2] = withEvidence(f);
-    const rev = store.publish({ role: 'worker-1', type: c1.id, body: fixed, supersedes: `${v1.id}@v1`, idempotency_key: 'rev' });
+    const rev = store.publish({
+      role: 'worker-1',
+      type: c1.id,
+      body: fixed,
+      supersedes: `${v1.id}@v1`,
+      idempotency_key: 'rev',
+    });
     expect(rev).toMatchObject({ ok: true, version: 2 });
-    expect(store.decide({ role: 'synthesiser', id: v1.id, version: 2, decision: 'accept', idempotency_key: 'd2' })).toMatchObject({ ok: true, status: 'accepted' });
+    expect(
+      store.decide({
+        role: 'synthesiser',
+        id: v1.id,
+        version: 2,
+        decision: 'accept',
+        idempotency_key: 'd2',
+      }),
+    ).toMatchObject({ ok: true, status: 'accepted' });
   });
 });
 
@@ -170,8 +222,14 @@ describe('where the runtime intentionally differs from the harness', () => {
   it('the runtime refuses a path or link that leaves the workspace; the harness reads it', () => {
     const outside = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'p310-out-'));
     writeFileSync(join(outside, 'answers.json'), JSON.stringify(fileSheet('m1')));
-    const d = { file: '../' + outside.split('/').at(-1) + '/answers.json', select: c1.deliverables[0].select, compare: c1.deliverables[0].compare };
-    expect(runtimeMismatches(ws, [d], doc())[0].problem).toMatch(/not a path inside your workspace/);
+    const d = {
+      file: `../${outside.split('/').at(-1)}/answers.json`,
+      select: c1.deliverables[0].select,
+      compare: c1.deliverables[0].compare,
+    };
+    expect(runtimeMismatches(ws, [d], doc())[0].problem).toMatch(
+      /not a path inside your workspace/,
+    );
     rmSync(outside, { recursive: true, force: true });
   });
 });

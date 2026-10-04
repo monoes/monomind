@@ -58,7 +58,10 @@ export function leadFor(def: DefLike, role: string, boss: string): string {
 /** Errors and warnings of the lead rules for a definition on the sections surface. */
 export function leadRulesFindings(def: OrgDef, f: Findings): void {
   const rc = (def.run_config ?? {}) as Record<string, unknown>;
-  const cap = typeof rc.max_concurrent_agents === 'number' ? rc.max_concurrent_agents : DEFAULT_MAX_CONCURRENT_AGENTS;
+  const cap =
+    typeof rc.max_concurrent_agents === 'number'
+      ? rc.max_concurrent_agents
+      : DEFAULT_MAX_CONCURRENT_AGENTS;
   const agents = def.roles.filter((r) => r.kind !== 'endpoint').length;
   if (cap < agents)
     f.errors.push(

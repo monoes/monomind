@@ -4,10 +4,11 @@
 // 13.1.2 item 4): the body against the contract's org-schema-v1 schema, the `evidence` argument against the
 // contract's required kinds, and the `inputs` references. Every problem is returned at once, each with a path,
 // so a failed publish tells the producer everything that is wrong in one answer.
-import { type DocContract } from './types.js';
-import { validateValue } from './schema-dialect.js';
+
 import { isObj, type JsonObject } from './json.js';
+import { validateValue } from './schema-dialect.js';
 import type { ProblemView } from './store-types.js';
+import type { DocContract } from './types.js';
 
 export const EVIDENCE_KINDS = ['command', 'diff', 'document', 'source'] as const;
 export const MAX_INPUT_REFS = 256;

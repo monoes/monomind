@@ -18,10 +18,17 @@
 //  - Nothing is stored: the loops are read from the live definition at every call, so a reload that raises or lowers
 //    `max_rounds` thaws or freezes at once. The `inputs` of a version live only in its body file (not in the derived
 //    state), so `storeInputsOf` reads them through the store, once per version (they never change).
-import { applyEvent, emptyState, headOf, type DocState } from './state.js';
-import { declaredLoops, type InputsOf, lineageRounds, type LoopLineage, type LoopSpec } from './loops.js';
+
+import {
+  declaredLoops,
+  type InputsOf,
+  type LoopLineage,
+  type LoopSpec,
+  lineageRounds,
+} from './loops.js';
 import { KIND_LOOP_EXHAUSTED, type Notice } from './notice.js';
 import { COPY_REASON_CAP, capReason, REASON_CAP } from './relay.js';
+import { applyEvent, type DocState, emptyState, headOf } from './state.js';
 import type { PublishGuardContext, StoreEvent, StoreGuard } from './store-types.js';
 
 export const LOOP_EXHAUSTED = 'LOOP_EXHAUSTED';
@@ -70,7 +77,11 @@ export function storeInputsOf(store: {
 }
 
 /** Every lineage of every loop, each with whether it is frozen. A pure function of the state and the loops. */
-export function loopFacts(state: DocState, loops: readonly LoopSpec[], inputsOf?: InputsOf): LoopFact[] {
+export function loopFacts(
+  state: DocState,
+  loops: readonly LoopSpec[],
+  inputsOf?: InputsOf,
+): LoopFact[] {
   return loops.flatMap((loop) =>
     lineageRounds(state, loop, inputsOf).map((l) => ({
       ...l,
@@ -81,7 +92,8 @@ export function loopFacts(state: DocState, loops: readonly LoopSpec[], inputsOf?
   );
 }
 
-const loopName = (f: { loop: number; between: string[] }): string => `loops[${f.loop}] (${f.between.join(' and ')})`;
+const loopName = (f: { loop: number; between: string[] }): string =>
+  `loops[${f.loop}] (${f.between.join(' and ')})`;
 
 /** The consuming section of the loop the root decides for on `doc` version `version`: the one that rejected it,
  *  when it is the head of a frozen lineage. */
@@ -110,7 +122,8 @@ export interface LoopGuardOptions {
 function returnsInto(state: DocState, f: LoopFact, ctx: PublishGuardContext): boolean {
   if (f.origin !== ctx.section) return false;
   const members = new Set(f.versions);
-  const sectionOf = (ref: string): string | undefined => state.docs[REF.exec(ref)?.[1] ?? '']?.section;
+  const sectionOf = (ref: string): string | undefined =>
+    state.docs[REF.exec(ref)?.[1] ?? '']?.section;
   if ((ctx.inputs ?? []).some((r) => members.has(r) && sectionOf(r) !== ctx.section)) return true;
   if (ctx.doc === undefined || !members.has(`${ctx.doc}@v${ctx.version - 1}`)) return false;
   const prior = state.docs[ctx.doc]?.versions[ctx.version - 2];
@@ -121,10 +134,14 @@ function returnsInto(state: DocState, f: LoopFact, ctx: PublishGuardContext): bo
 export function loopGuard(o: LoopGuardOptions): StoreGuard {
   return {
     publish(ctx) {
-      const loops = o.loops().filter((l) => l.types.includes(ctx.type) && l.between.includes(ctx.section));
+      const loops = o
+        .loops()
+        .filter((l) => l.types.includes(ctx.type) && l.between.includes(ctx.section));
       if (loops.length === 0) return undefined;
       const state = o.state();
-      const f = loopFacts(state, loops, o.inputsOf).find((x) => x.exhausted && returnsInto(state, x, ctx));
+      const f = loopFacts(state, loops, o.inputsOf).find(
+        (x) => x.exhausted && returnsInto(state, x, ctx),
+      );
       if (!f) return undefined;
       const root = o.root ?? 'the root';
       return {
@@ -135,7 +152,13 @@ export function loopGuard(o: LoopGuardOptions): StoreGuard {
   };
 }
 
-function rootText(f: LoopFact, by: string, consumer: string, ref: string, reason: string): { subject: string; body: string } {
+function rootText(
+  f: LoopFact,
+  by: string,
+  consumer: string,
+  ref: string,
+  reason: string,
+): { subject: string; body: string } {
   return {
     subject: `loop exhausted: loops[${f.loop}] (${f.between.join(', ')})`,
     body: [
@@ -147,7 +170,13 @@ function rootText(f: LoopFact, by: string, consumer: string, ref: string, reason
   };
 }
 
-function leadText(f: LoopFact, by: string, consumer: string, ref: string, reason: string): { subject: string; body: string } {
+function leadText(
+  f: LoopFact,
+  by: string,
+  consumer: string,
+  ref: string,
+  reason: string,
+): { subject: string; body: string } {
   return {
     subject: `loop exhausted: loops[${f.loop}] (${f.between.join(', ')}) (copy)`,
     body: `The loop ${loopName(f)} is spent: ${f.rounds} returns, its max_rounds of ${f.max_rounds}. Last rejection (${ref}, ${by} for ${consumer}): ${capReason(reason, COPY_REASON_CAP)} The loop is frozen and the root decides; do not publish another round.`,
@@ -220,7 +249,12 @@ export class LoopRun {
   private loops = (): LoopSpec[] => declaredLoops(this.o.def);
 
   guard(): StoreGuard {
-    return loopGuard({ state: () => this.o.store.state, loops: this.loops, inputsOf: this.inputsOf, root: this.o.root });
+    return loopGuard({
+      state: () => this.o.store.state,
+      loops: this.loops,
+      inputsOf: this.inputsOf,
+      root: this.o.root,
+    });
   }
 
   escalation(): LoopEscalation {
@@ -228,7 +262,11 @@ export class LoopRun {
       loops: this.loops,
       inputsOf: this.inputsOf,
       root: this.o.root,
-      recipients: (f) => [...new Set([this.o.root, ...f.between.map((s) => this.o.leadOf(s))].filter((r): r is string => !!r))],
+      recipients: (f) => [
+        ...new Set(
+          [this.o.root, ...f.between.map((s) => this.o.leadOf(s))].filter((r): r is string => !!r),
+        ),
+      ],
       standing: (doc) => {
         const d = this.o.store.state.docs[doc];
         return !!d && this.mayDecide(doc, headOf(d).version) !== undefined;

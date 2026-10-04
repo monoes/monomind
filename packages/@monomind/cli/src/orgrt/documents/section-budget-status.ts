@@ -5,7 +5,7 @@
  * role's `usageUsd` and its slot's `retiredUsage.costUsd`). Nothing is persisted: the status is derived at
  * any moment, so a respawn or a resume neither resets nor double counts spend. Inert like the rest of P4.1.
  */
-import { partitionOf, resolveBudgetCaps, roundUsd, type BudgetDef } from './section-budget.js';
+import { type BudgetDef, partitionOf, resolveBudgetCaps, roundUsd } from './section-budget.js';
 
 /** Share of an allocation or cap at which the lead and the root are warned. The same value as
  *  `BUDGET_WARN_FRACTION` in budget-closure.ts (a test pins the two equal; that file is not imported so this
@@ -169,11 +169,11 @@ export function allocationStatus(def: BudgetDef, snapshot: SpendSnapshot): Alloc
   };
 
   let unattributed = 0;
-  let unattributedRetired = 0;
+  let _unattributedRetired = 0;
   for (const [roleId, s] of spend)
     if (!known.has(roleId)) {
       unattributed += s.usd + s.retiredUsd;
-      unattributedRetired += s.retiredUsd;
+      _unattributedRetired += s.retiredUsd;
     }
   let spent = 0;
   let retired = 0;
@@ -187,9 +187,7 @@ export function allocationStatus(def: BudgetDef, snapshot: SpendSnapshot): Alloc
     sections,
     reserve,
     unattributedUsd: roundUsd(unattributed),
-    unrecorded: def.roles
-      .filter((r) => known.has(r.id) && !spend.has(r.id))
-      .map((r) => r.id),
+    unrecorded: def.roles.filter((r) => known.has(r.id) && !spend.has(r.id)).map((r) => r.id),
     problems,
   };
 }

@@ -3,6 +3,7 @@
 import { wakeDueBlockRechecks } from './block-recheck.js';
 import type { OrgDaemon } from './daemon.js';
 import type { RunningOrg } from './daemon-types.js';
+import { startUnreadWatch } from './documents/unread-watch-run.js';
 import { hasActiveEndpointWait } from './endpoint-roles.js';
 import {
   advanceHold,
@@ -15,7 +16,6 @@ import {
   type WaitHold,
   writeIdleRecord,
 } from './idle-deadline.js';
-import { startUnreadWatch } from './documents/unread-watch-run.js';
 import { startLeadWatch } from './lead-watch.js';
 import { taskTag } from './loadouts.js';
 import * as questionOps from './questions.js';

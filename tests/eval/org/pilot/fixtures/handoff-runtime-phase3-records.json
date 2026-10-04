@@ -155,16 +155,12 @@
         "calls": 1,
         "refused": 0,
         "by_consumer": 1,
-        "docs_checked": [
-          "module-sheets-w1"
-        ],
+        "docs_checked": ["module-sheets-w1"],
         "flagged_answers": 1,
         "flagged_by_check": {
           "c1": 1
         },
-        "versions_flagged": [
-          "module-sheets-w1#1"
-        ],
+        "versions_flagged": ["module-sheets-w1#1"],
         "faults_flagged": null,
         "faults_checked_unflagged": null,
         "faults_never_checked": null
@@ -212,14 +208,10 @@
       }
     },
     "docs_read": {
-      "synthesiser": [
-        "module-sheets-w1"
-      ]
+      "synthesiser": ["module-sheets-w1"]
     },
     "docs_decided": {
-      "synthesiser": [
-        "module-sheets-w1"
-      ]
+      "synthesiser": ["module-sheets-w1"]
     },
     "republish_cycles": 1,
     "republished_after_reject": null,
@@ -229,10 +221,7 @@
         "final_accepted_version": 2,
         "final_accepted_correct": false,
         "final_accepted_corrupted": null,
-        "natural_errors": [
-          1,
-          2
-        ]
+        "natural_errors": [1, 2]
       }
     },
     "final_accepted_docs": 1,

@@ -124,7 +124,7 @@ describe('the sweep-3 flow: publish -> read -> reject -> republish -> accept', (
       expect(x.p).toMatchObject({ version: 1, status: 'pending' });
     }
     // the synthesiser reads each: the same content, the same version, the same status
-    for (const [i, id] of docs.entries()) {
+    for (const [_i, id] of docs.entries()) {
       const { p, r } = s.read('synthesiser', id);
       sameOutcome({ p, r });
       expect(r.body).toEqual(p.doc.content);

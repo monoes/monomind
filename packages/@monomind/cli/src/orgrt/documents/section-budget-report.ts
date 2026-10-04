@@ -11,8 +11,13 @@
  * Reporting only: a section over its allocation is `closed` in the table and nothing is closed (P4.6).
  */
 import type { RunningOrg } from '../daemon-types.js';
-import { type AllocationStatus, allocationStatus, type GroupStatus, type SpendSnapshot } from './section-budget-status.js';
-import { type BudgetDef } from './section-budget.js';
+import type { BudgetDef } from './section-budget.js';
+import {
+  type AllocationStatus,
+  allocationStatus,
+  type GroupStatus,
+  type SpendSnapshot,
+} from './section-budget-status.js';
 import { sectionBudgetsDeclared } from './section-budget-wire.js';
 import { sectionsSurface } from './surface.js';
 
@@ -23,7 +28,9 @@ export function sectionBudgetReportApplies(def: BudgetDef): boolean {
 }
 
 /** The live spend snapshot: one entry per role of the definition. A role with no live runtime has spent 0 now. */
-export function liveSpendSnapshot(running: Pick<RunningOrg, 'def' | 'agents' | 'roleSlots'>): SpendSnapshot {
+export function liveSpendSnapshot(
+  running: Pick<RunningOrg, 'def' | 'agents' | 'roleSlots'>,
+): SpendSnapshot {
   const out: SpendSnapshot = {};
   for (const r of running.def.roles)
     out[r.id] = {
@@ -36,14 +43,17 @@ export function liveSpendSnapshot(running: Pick<RunningOrg, 'def' | 'agents' | '
 /** The status of a running org, or undefined when section budgets do not apply to it. */
 export function liveSectionBudgetStatus(running: RunningOrg): AllocationStatus | undefined {
   const def = running.def as unknown as BudgetDef;
-  return sectionBudgetReportApplies(def) ? allocationStatus(def, liveSpendSnapshot(running)) : undefined;
+  return sectionBudgetReportApplies(def)
+    ? allocationStatus(def, liveSpendSnapshot(running))
+    : undefined;
 }
 
 const usd2 = (n: number | undefined): string => (n === undefined ? 'none' : `$${n.toFixed(2)}`);
 
 function row(label: string, g: GroupStatus): string {
   const pct = g.fraction === undefined ? '' : ` (${Math.round(g.fraction * 100)}%, ${g.state})`;
-  const retired = g.retiredUsd > 0 ? `, of which replaced incarnations $${g.retiredUsd.toFixed(4)}` : '';
+  const retired =
+    g.retiredUsd > 0 ? `, of which replaced incarnations $${g.retiredUsd.toFixed(4)}` : '';
   return `    ${label}: spent $${g.spentUsd.toFixed(4)} of ${usd2(g.allocationUsd)}${pct}; role caps ${usd2(g.roleCapSumUsd)}${retired}`;
 }
 
@@ -51,7 +61,8 @@ function row(label: string, g: GroupStatus): string {
  *  individual soft stop (spec 6.9): nothing here stops a role by itself. */
 export function sectionBudgetLines(status: AllocationStatus): string[] {
   const lines = ['  Section budgets (USD; individual soft stops):'];
-  for (const s of status.sections) if (s.allocationUsd !== undefined) lines.push(row(`section ${s.name}`, s));
+  for (const s of status.sections)
+    if (s.allocationUsd !== undefined) lines.push(row(`section ${s.name}`, s));
   if (status.reserve.allocationUsd !== undefined) lines.push(row('root reserve', status.reserve));
   lines.push(row('org', status.org));
   return lines;
@@ -64,6 +75,7 @@ export function sectionBudgetReportLines(
 ): string[] {
   if (!sectionBudgetReportApplies(def)) return [];
   const snapshot: SpendSnapshot = {};
-  for (const [id, r] of Object.entries(roles)) snapshot[id] = { usd: r.costUsd ?? 0, retiredUsd: 0 };
+  for (const [id, r] of Object.entries(roles))
+    snapshot[id] = { usd: r.costUsd ?? 0, retiredUsd: 0 };
   return sectionBudgetLines(allocationStatus(def, snapshot));
 }

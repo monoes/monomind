@@ -8,7 +8,7 @@
 export const moduleIds = (n = 8) => Array.from({ length: n }, (_, i) => `m${i + 1}`);
 export const MODULE_IDS = moduleIds(8);
 
-const WORDS = { 8: 'eight' };
+const _WORDS = { 8: 'eight' };
 const join = (l) => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l.at(-1)}`);
 /** The modules named in the q07 sum: every third module from m2 (m2, m5, m8 for N=8). */
 export const subsetFor = (n = 8) => moduleIds(n).filter((_, i) => i % 3 === 1);
@@ -56,9 +56,13 @@ export function deriveSynthesis(modules, { allowPartial = false, n = 8 } = {}) {
     return have || allowPartial ? f(list.filter((m) => modules[m])) : null;
   };
   const argBy = (list, score, dir) =>
-    list.reduce((best, m) => (best === null || dir * (score(m) - score(best)) > 0 ? m : best), null);
+    list.reduce(
+      (best, m) => (best === null || dir * (score(m) - score(best)) > 0 ? m : best),
+      null,
+    );
   const all = moduleIds(n);
-  const sum = (l, ...qs) => l.reduce((a, m) => a + qs.reduce((b, q) => b + value(modules, m, q), 0), 0);
+  const sum = (l, ...qs) =>
+    l.reduce((a, m) => a + qs.reduce((b, q) => b + value(modules, m, q), 0), 0);
   return {
     s1: need(all, (l) => argBy(l, (m) => value(modules, m, QS(3)), 1)),
     s2: need(subsetFor(n), (l) => sum(l, QS(7))),
@@ -86,7 +90,10 @@ export function isUnambiguous(modules, n = 8) {
   return (
     unique((m) => value(modules, m, QS(3)), 1) &&
     unique((m) => modules[m][QS(1)].files.length, 1) &&
-    unique((m) => value(modules, m, QS(1)) + value(modules, m, QS(2)) + value(modules, m, QS(3)), -1) &&
+    unique(
+      (m) => value(modules, m, QS(1)) + value(modules, m, QS(2)) + value(modules, m, QS(3)),
+      -1,
+    ) &&
     q12[0] !== q12[1] &&
     q12[1] !== q12[2] &&
     q12[2] !== q12[3]

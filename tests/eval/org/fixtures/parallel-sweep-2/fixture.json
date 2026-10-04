@@ -42,9 +42,7 @@
       {
         "id": "single",
         "description": "one role, the whole task, the Phase 2 configuration; no sections, no hand-off tools; the same 600 s deadline",
-        "roster": [
-          "solver"
-        ],
+        "roster": ["solver"],
         "responsibilities": {
           "solver": "Answers all 384 module questions and the 6 synthesis questions from the code and writes all 33 deliverables, in the shape given in the task text, within the deadline; each sheet as soon as its module is done."
         }
@@ -95,27 +93,19 @@
         "sections": {
           "sweep-a": {
             "lead": "worker-1",
-            "members": [
-              "worker-2"
-            ]
+            "members": ["worker-2"]
           },
           "sweep-b": {
             "lead": "worker-3",
-            "members": [
-              "worker-4"
-            ]
+            "members": ["worker-4"]
           },
           "sweep-c": {
             "lead": "worker-5",
-            "members": [
-              "worker-6"
-            ]
+            "members": ["worker-6"]
           },
           "sweep-d": {
             "lead": "worker-7",
-            "members": [
-              "worker-8"
-            ]
+            "members": ["worker-8"]
           },
           "synthesis": {
             "lead": "synthesiser",

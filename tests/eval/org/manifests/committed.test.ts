@@ -141,7 +141,7 @@ describe('committed scenario manifests', () => {
     expect(fixture.notice).toBeUndefined();
   });
 
-  it('parallel-sweep-3 (approved by the lead under the owner\'s standing instruction) keeps the 33 units, moves to the 720 s deadline and the $34 allocation, and records the hand-off decision design', () => {
+  it("parallel-sweep-3 (approved by the lead under the owner's standing instruction) keeps the 33 units, moves to the 720 s deadline and the $34 allocation, and records the hand-off decision design", () => {
     const m = JSON.parse(readFileSync(join(here, 'parallel-sweep-3.json'), 'utf8'));
     expect(m.units.map((u: { id: string; count: number }) => [u.id, u.count])).toEqual([
       ['module-sheet', 32],
@@ -175,7 +175,9 @@ describe('committed scenario manifests', () => {
       expect(c.approved_by).toMatch(/^lead, under the owner's standing instruction/);
       expect(c.earlier_result).toBeTruthy();
     }
-    expect(m.declared_changes[2].why).toMatch(/harness-injected, so this measures the decision path, not natural errors/);
+    expect(m.declared_changes[2].why).toMatch(
+      /harness-injected, so this measures the decision path, not natural errors/,
+    );
     expect(m.declared_changes[4].why).toMatch(/mechanism measurement, not a comparison/);
     expect(m.declared_changes[4].what).toMatch(/single arm is dropped/);
     const fixture = JSON.parse(

@@ -32,9 +32,13 @@ export function referenceDeliverables(truth, variant) {
 function main() {
   const args = process.argv.slice(2);
   const flag = (n) => args[args.indexOf(n) + 1];
-  const out = args.find((a, i) => !a.startsWith('--') && !['--truth', '--variant'].includes(args[i - 1]));
+  const out = args.find(
+    (a, i) => !a.startsWith('--') && !['--truth', '--variant'].includes(args[i - 1]),
+  );
   if (!out || args.indexOf('--truth') < 0 || args.indexOf('--variant') < 0)
-    throw new Error('usage: node write-answers.mjs <out dir> --truth <truth.json> --variant complete|partial|wrong');
+    throw new Error(
+      'usage: node write-answers.mjs <out dir> --truth <truth.json> --variant complete|partial|wrong',
+    );
   const truth = JSON.parse(readFileSync(flag('--truth'), 'utf8'));
   for (const [path, doc] of Object.entries(referenceDeliverables(truth, flag('--variant')))) {
     mkdirSync(dirname(join(out, path)), { recursive: true });

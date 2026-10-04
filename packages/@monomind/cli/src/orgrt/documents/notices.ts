@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { type RuntimeDeliver, sendRuntimeMessage } from './deliver.js';
 import type { DeliverableChange } from './deliverable-guards.js';
 import { EventLog, parseLog } from './events.js';
+import { deriveLoopNotices, type LoopEscalation } from './loop-run.js';
 import {
   deriveNotices,
   KIND_CHANGED,
@@ -32,9 +33,8 @@ import {
   type TypeInfo,
 } from './notice.js';
 import { NoticeJournal } from './notice-journal.js';
-import { deriveLoopNotices, type LoopEscalation } from './loop-run.js';
-import { deriveReworkNotices, frozenThreads, type ReworkEscalation } from './rework.js';
 import { type CopyTo, changedRelays, deriveRelays, type RelayFact, relayFacts } from './relay.js';
+import { deriveReworkNotices, frozenThreads, type ReworkEscalation } from './rework.js';
 import { versionStatus } from './state.js';
 import type { DocumentStore } from './store.js';
 import type { StoreEvent } from './store-types.js';
@@ -341,14 +341,22 @@ export class NoticeEngine {
         !!this.rework &&
         frozenThreads(this.opts.store.state, this.rework.caps(), n.doc).length > 0 &&
         !this.events.some(
-          (e) => (e.type === 'read' || e.type === 'decided') && e.by === n.to && e.doc === n.doc && e.seq > n.seq,
+          (e) =>
+            (e.type === 'read' || e.type === 'decided') &&
+            e.by === n.to &&
+            e.doc === n.doc &&
+            e.seq > n.seq,
         )
       );
     if (n.kind === KIND_LOOP_EXHAUSTED)
       return (
         !!this.loops?.standing(n.doc) &&
         !this.events.some(
-          (e) => (e.type === 'read' || e.type === 'decided') && e.by === n.to && e.doc === n.doc && e.seq > n.seq,
+          (e) =>
+            (e.type === 'read' || e.type === 'decided') &&
+            e.by === n.to &&
+            e.doc === n.doc &&
+            e.seq > n.seq,
         )
       );
     return false;

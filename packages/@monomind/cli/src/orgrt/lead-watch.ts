@@ -165,7 +165,8 @@ export class LeadWatch {
       const open = [...r.openTasks, ...(this.msgWork.get(r.id) ?? [])].filter(
         (t) => !this.settled.has(t.id),
       );
-      if (!r.lead || open.length === 0 || (r.started && (r.waiting || r.awaitingDocuments))) continue;
+      if (!r.lead || open.length === 0 || (r.started && (r.waiting || r.awaitingDocuments)))
+        continue;
       const first = Math.min(...open.map((t) => t.since));
       const kind: Notice['kind'] = r.started ? 'silent' : 'not-started';
       // A silent role is silent since its last event or since the work arrived.
@@ -254,7 +255,10 @@ function snapshot(
   const boss = running.bossRoleId;
   let facts: AwaitFacts | undefined; // built once per snapshot, and only when a started role asks
   const awaiting = (id: string): boolean =>
-    awaitingDocuments(id, (facts ??= awaitFacts(running.documents as NonNullable<typeof running.documents>)));
+    awaitingDocuments(
+      id,
+      (facts ??= awaitFacts(running.documents as NonNullable<typeof running.documents>)),
+    );
   return [...byRole].flatMap(([id, openTasks]) => {
     if (id === boss) return [];
     const parent = leadFor(running.def, id, boss);

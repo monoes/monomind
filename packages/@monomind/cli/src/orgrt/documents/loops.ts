@@ -14,8 +14,8 @@
 import type { Findings } from './definition-util.js';
 import { isObject } from './definition-util.js';
 
-export { capsFromDef, lineageRounds, reworkStatus, reworkThreads } from './loop-rounds.js';
 export type { InputsOf, LoopLineage, ReworkThread } from './loop-rounds.js';
+export { capsFromDef, lineageRounds, reworkStatus, reworkThreads } from './loop-rounds.js';
 
 /** The part of an org definition this file reads; an `OrgDef` fits it. */
 export interface LoopsInput {
@@ -105,7 +105,8 @@ export function sectionGraph(def: LoopsInput): SectionGraph {
   }
   const edges: SectionEdge[] = [];
   for (const [type, ps] of producers)
-    for (const from of ps) for (const to of consumers.get(type) ?? []) edges.push({ from, to, type });
+    for (const from of ps)
+      for (const to of consumers.get(type) ?? []) edges.push({ from, to, type });
   edges.sort((a, b) => byText(a.from, b.from) || byText(a.to, b.to) || byText(a.type, b.type));
   return { sections: names, edges };
 }
@@ -167,8 +168,13 @@ const shown = (v: unknown): string => {
 
 function parseLoops(def: LoopsInput, g: SectionGraph, out: LoopProblem[]): ParsedLoop[] {
   if (def.loops === undefined) return [];
-  const add = (code: LoopCode, severity: 'error' | 'warning', path: string, message: string, remedy: string) =>
-    out.push({ code, severity, path, message, remedy });
+  const add = (
+    code: LoopCode,
+    severity: 'error' | 'warning',
+    path: string,
+    message: string,
+    remedy: string,
+  ) => out.push({ code, severity, path, message, remedy });
   if (!Array.isArray(def.loops)) {
     add(
       'LOOPS_NOT_LIST',
@@ -188,45 +194,112 @@ function parseLoops(def: LoopsInput, g: SectionGraph, out: LoopProblem[]): Parse
     const at = `loops[${index}]`;
     const before = out.length;
     if (!isObject(raw)) {
-      add('LOOP_NOT_OBJECT', 'error', at, `must be an object — got ${shown(raw)}`, 'write {"between": [...], "types": [...], "max_rounds": N}');
+      add(
+        'LOOP_NOT_OBJECT',
+        'error',
+        at,
+        `must be an object — got ${shown(raw)}`,
+        'write {"between": [...], "types": [...], "max_rounds": N}',
+      );
       return { index, failed: true };
     }
     for (const k of Object.keys(raw))
       if (!FIELDS.includes(k))
-        add('LOOP_UNKNOWN_FIELD', 'error', `${at}.${k}`, `unknown loop field "${k}" — known fields: ${FIELDS.join(', ')}`, `remove "${k}" (a loop escalates to the root; there is nothing else to set)`);
+        add(
+          'LOOP_UNKNOWN_FIELD',
+          'error',
+          `${at}.${k}`,
+          `unknown loop field "${k}" — known fields: ${FIELDS.join(', ')}`,
+          `remove "${k}" (a loop escalates to the root; there is nothing else to set)`,
+        );
 
     // between: two or more distinct, existing sections.
     let between: string[] | undefined;
     const b = raw.between;
-    if (!Array.isArray(b) || b.length < 2 || b.some((x) => typeof x !== 'string' || x === '') || new Set(b).size !== b.length)
-      add('LOOP_BETWEEN_INVALID', 'error', `${at}.between`, `must list two or more distinct section names — got ${shown(b)}`, 'name the sections that hand documents back and forth, for example ["development", "qa"]');
+    if (
+      !Array.isArray(b) ||
+      b.length < 2 ||
+      b.some((x) => typeof x !== 'string' || x === '') ||
+      new Set(b).size !== b.length
+    )
+      add(
+        'LOOP_BETWEEN_INVALID',
+        'error',
+        `${at}.between`,
+        `must list two or more distinct section names — got ${shown(b)}`,
+        'name the sections that hand documents back and forth, for example ["development", "qa"]',
+      );
     else {
       const missing = (b as string[]).filter((s) => !known.has(s));
       for (const s of missing)
-        add('LOOP_SECTION_UNKNOWN', 'error', `${at}.between`, `section "${s}" does not exist (sections are: ${g.sections.join(', ') || 'none'})`, `use a section name from sections, or remove "${s}"`);
+        add(
+          'LOOP_SECTION_UNKNOWN',
+          'error',
+          `${at}.between`,
+          `section "${s}" does not exist (sections are: ${g.sections.join(', ') || 'none'})`,
+          `use a section name from sections, or remove "${s}"`,
+        );
       if (missing.length === 0) between = [...(b as string[])].sort(byText);
     }
 
     // types: existing document types that are edges between the loop's own sections.
     let types: string[] | undefined;
     const t = raw.types;
-    if (!Array.isArray(t) || t.length === 0 || t.some((x) => typeof x !== 'string' || x === '') || new Set(t).size !== t.length)
-      add('LOOP_TYPES_INVALID', 'error', `${at}.types`, `must list one or more distinct document types — got ${shown(t)}`, 'name the document types that travel around the loop, for example ["build", "test-report"]');
+    if (
+      !Array.isArray(t) ||
+      t.length === 0 ||
+      t.some((x) => typeof x !== 'string' || x === '') ||
+      new Set(t).size !== t.length
+    )
+      add(
+        'LOOP_TYPES_INVALID',
+        'error',
+        `${at}.types`,
+        `must list one or more distinct document types — got ${shown(t)}`,
+        'name the document types that travel around the loop, for example ["build", "test-report"]',
+      );
     else {
       types = [...(t as string[])];
       for (const ty of types) {
         if (!declaredTypes.has(ty))
-          add('LOOP_TYPE_UNKNOWN', 'error', `${at}.types`, `type "${ty}" is not a document type of this org`, `declare documents.${ty} and publish it from a section, or remove "${ty}"`);
-        else if (between && !g.edges.some((e) => e.type === ty && between.includes(e.from) && between.includes(e.to)))
-          add('LOOP_TYPE_OUTSIDE', 'error', `${at}.types`, `type "${ty}" is not handed from one of ${quote(between)} to another of them`, `remove "${ty}", or add it to the publishes of one of these sections and the consumes of another`);
+          add(
+            'LOOP_TYPE_UNKNOWN',
+            'error',
+            `${at}.types`,
+            `type "${ty}" is not a document type of this org`,
+            `declare documents.${ty} and publish it from a section, or remove "${ty}"`,
+          );
+        else if (
+          between &&
+          !g.edges.some((e) => e.type === ty && between.includes(e.from) && between.includes(e.to))
+        )
+          add(
+            'LOOP_TYPE_OUTSIDE',
+            'error',
+            `${at}.types`,
+            `type "${ty}" is not handed from one of ${quote(between)} to another of them`,
+            `remove "${ty}", or add it to the publishes of one of these sections and the consumes of another`,
+          );
       }
     }
 
     const r = raw.max_rounds;
     const roundsOk = typeof r === 'number' && Number.isInteger(r) && r > 0;
     if (!roundsOk)
-      add('LOOP_ROUNDS_INVALID', 'error', `${at}.max_rounds`, `must be a positive integer — got ${shown(r)}`, 'set max_rounds to the number of rounds the loop may run before the root decides, for example 4');
-    return { index, between, types, max_rounds: roundsOk ? (r as number) : undefined, failed: out.length > before };
+      add(
+        'LOOP_ROUNDS_INVALID',
+        'error',
+        `${at}.max_rounds`,
+        `must be a positive integer — got ${shown(r)}`,
+        'set max_rounds to the number of rounds the loop may run before the root decides, for example 4',
+      );
+    return {
+      index,
+      between,
+      types,
+      max_rounds: roundsOk ? (r as number) : undefined,
+      failed: out.length > before,
+    };
   });
 }
 
@@ -260,7 +333,7 @@ export function loopProblems(def: LoopsInput): LoopProblem[] {
         severity: 'error',
         path: `sections.${c.sections[0]}`,
         message: `section "${c.sections[0]}" consumes ${types}, which it publishes itself — a section cannot hand a document to itself`,
-        remedy: 'remove the type from this section\'s consumes or from its publishes',
+        remedy: "remove the type from this section's consumes or from its publishes",
       });
       continue;
     }
@@ -282,10 +355,15 @@ export function loopProblems(def: LoopsInput): LoopProblem[] {
         severity: 'warning',
         path: `loops[${p.index}]`,
         message: `${quote(p.between as string[])} do not form a cycle of document hand-offs, so this loop bounds nothing`,
-        remedy: 'remove the entry, or add the missing consumes or publishes edge that closes the cycle',
+        remedy:
+          'remove the entry, or add the missing consumes or publishes edge that closes the cycle',
       });
     else {
-      const inCycle = new Set(cycles(def).filter((c) => c.sections.every((s) => (p.between as string[]).includes(s))).flatMap((c) => c.sections));
+      const inCycle = new Set(
+        cycles(def)
+          .filter((c) => c.sections.every((s) => (p.between as string[]).includes(s)))
+          .flatMap((c) => c.sections),
+      );
       const extra = (p.between as string[]).filter((s) => !inCycle.has(s));
       if (extra.length > 0)
         out.push({
@@ -304,7 +382,8 @@ const render = (p: LoopProblem): string => `${p.path}: ${p.message} — ${p.reme
 /** `loopProblems` as the `{errors, warnings}` strings of the definition check (path, message, remedy). */
 export function loopFindings(def: LoopsInput, skip: readonly LoopCode[] = []): Findings {
   const f: Findings = { errors: [], warnings: [] };
-  for (const p of loopProblems(def).filter((x) => !skip.includes(x.code))) (p.severity === 'error' ? f.errors : f.warnings).push(render(p));
+  for (const p of loopProblems(def).filter((x) => !skip.includes(x.code)))
+    (p.severity === 'error' ? f.errors : f.warnings).push(render(p));
   return f;
 }
 
@@ -313,7 +392,12 @@ export function declaredLoops(def: LoopsInput): LoopSpec[] {
   const g = sectionGraph(def);
   return parseLoops(def, g, [])
     .filter((p) => !p.failed && p.between && p.types && p.max_rounds !== undefined)
-    .map((p) => ({ index: p.index, between: p.between as string[], types: p.types as string[], max_rounds: p.max_rounds as number }));
+    .map((p) => ({
+      index: p.index,
+      between: p.between as string[],
+      types: p.types as string[],
+      max_rounds: p.max_rounds as number,
+    }));
 }
 
 /** Each cycle with the declared loops that cover it: the classification the findings are made from. */
@@ -324,6 +408,8 @@ export function classifyCycles(def: LoopsInput): ClassifiedCycle[] {
     cycle,
     loops: cycle.selfEdge
       ? []
-      : usable.filter((p) => cycle.sections.every((s) => (p.between as string[]).includes(s))).map((p) => p.index),
+      : usable
+          .filter((p) => cycle.sections.every((s) => (p.between as string[]).includes(s)))
+          .map((p) => p.index),
   }));
 }

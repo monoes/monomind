@@ -143,27 +143,19 @@
         "sections": {
           "sweep-a": {
             "lead": "worker-1",
-            "members": [
-              "worker-2"
-            ]
+            "members": ["worker-2"]
           },
           "sweep-b": {
             "lead": "worker-3",
-            "members": [
-              "worker-4"
-            ]
+            "members": ["worker-4"]
           },
           "sweep-c": {
             "lead": "worker-5",
-            "members": [
-              "worker-6"
-            ]
+            "members": ["worker-6"]
           },
           "sweep-d": {
             "lead": "worker-7",
-            "members": [
-              "worker-8"
-            ]
+            "members": ["worker-8"]
           },
           "synthesis": {
             "lead": "synthesiser",

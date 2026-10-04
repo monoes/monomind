@@ -25,7 +25,8 @@ function render(s: unknown, depth: number): string {
       ? s.enum.map((v) => JSON.stringify(v)).join('|')
       : `one of ${s.enum.length} fixed values`;
   if ('const' in s) return JSON.stringify(s.const);
-  if (s.type === 'array') return depth <= 0 ? '[...]' : `[${render(s.items, depth - 1)}]${count(s)}`;
+  if (s.type === 'array')
+    return depth <= 0 ? '[...]' : `[${render(s.items, depth - 1)}]${count(s)}`;
   if (s.type === 'object') {
     const props = isObj(s.properties) ? s.properties : {};
     if (!Object.keys(props).length) return 'object';

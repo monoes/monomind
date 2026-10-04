@@ -76,14 +76,18 @@ const FIELD_CODE: Record<string, ReloadChangeCode> = {
 
 /** The `run_config` keys of the sections surface that are read once, at start; the completion policy is read
  *  through its accessor, so a legacy "boss" and an unset value are not a change. */
-const GUARDED_RUN_CONFIG: Array<{ code: 'completion' | 'experimental'; read: (rc: Record<string, unknown>) => unknown }> = [
+const GUARDED_RUN_CONFIG: Array<{
+  code: 'completion' | 'experimental';
+  read: (rc: Record<string, unknown>) => unknown;
+}> = [
   { code: 'completion', read: (rc) => completionPolicy(rc) },
   { code: 'experimental', read: (rc) => rc.experimental },
 ];
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
-const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+const isStrings = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 function canon(v: unknown): string {
   try {
@@ -106,9 +110,14 @@ function listDelta(a: unknown, b: unknown): string {
   if (!isStrings(a) || !isStrings(b)) return `from ${show(a)} to ${show(b)}`;
   const added = b.filter((x) => !a.includes(x));
   const removed = a.filter((x) => !b.includes(x));
-  return [added.length ? `added ${added.join(', ')}` : '', removed.length ? `removed ${removed.join(', ')}` : '']
-    .filter(Boolean)
-    .join('; ') || `from ${show(a)} to ${show(b)}`;
+  return (
+    [
+      added.length ? `added ${added.join(', ')}` : '',
+      removed.length ? `removed ${removed.join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('; ') || `from ${show(a)} to ${show(b)}`
+  );
 }
 
 function rootOf(def: ReloadGuardDef): string | undefined {
@@ -118,7 +127,11 @@ function rootOf(def: ReloadGuardDef): string | undefined {
   return typeof r?.id === 'string' ? r.id : undefined;
 }
 
-function sectionChanges(live: Record<string, unknown>, next: Record<string, unknown>, out: ReloadChange[]): void {
+function sectionChanges(
+  live: Record<string, unknown>,
+  next: Record<string, unknown>,
+  out: ReloadChange[],
+): void {
   for (const name of Object.keys(next))
     if (!(name in live))
       out.push({
@@ -139,7 +152,12 @@ function sectionChanges(live: Record<string, unknown>, next: Record<string, unkn
     const now = next[name];
     if (!isObject(was) || !isObject(now)) {
       if (name in next && !same(was, now))
-        out.push({ code: 'section-other', path: `sections.${name}`, message: `section "${name}" changed shape`, remedy: RELOAD_REMEDY });
+        out.push({
+          code: 'section-other',
+          path: `sections.${name}`,
+          message: `section "${name}" changed shape`,
+          remedy: RELOAD_REMEDY,
+        });
       continue;
     }
     for (const field of new Set([...Object.keys(was), ...Object.keys(now)])) {
@@ -153,7 +171,12 @@ function sectionChanges(live: Record<string, unknown>, next: Record<string, unkn
             : code === 'section-writes'
               ? `its writes changed (from ${show(was[field])} to ${show(now[field])}): the single-writer assignment is applied to each role's policy and sandbox when the role starts`
               : `${field} changed (from ${show(was[field])} to ${show(now[field])}): it is read at start`;
-      out.push({ code, path: `sections.${name}.${field}`, message: `section "${name}": ${detail}`, remedy: RELOAD_REMEDY });
+      out.push({
+        code,
+        path: `sections.${name}.${field}`,
+        message: `section "${name}": ${detail}`,
+        remedy: RELOAD_REMEDY,
+      });
     }
   }
 }
@@ -164,7 +187,8 @@ function documentChanges(live: unknown, next: unknown, out: ReloadChange[]): voi
     out.push({
       code: 'documents',
       path: 'documents',
-      message: 'the document contracts changed: contracts, types and edges are fixed when the org starts',
+      message:
+        'the document contracts changed: contracts, types and edges are fixed when the org starts',
       remedy: RELOAD_REMEDY,
     });
     return;
@@ -184,9 +208,19 @@ function loopChanges(live: unknown, next: unknown, out: ReloadChange[]): void {
   const b = Array.isArray(next) ? next : [];
   if (!Array.isArray(live) && !Array.isArray(next) && same(live, next)) return;
   for (let i = b.length; i < a.length; i++)
-    out.push({ code: 'loops-removed', path: `loops[${i}]`, message: `loop ${i} was removed: the declared loops are read at start`, remedy: RELOAD_REMEDY });
+    out.push({
+      code: 'loops-removed',
+      path: `loops[${i}]`,
+      message: `loop ${i} was removed: the declared loops are read at start`,
+      remedy: RELOAD_REMEDY,
+    });
   for (let i = a.length; i < b.length; i++)
-    out.push({ code: 'loops-added', path: `loops[${i}]`, message: `loop ${i} is new: the declared loops are read at start`, remedy: RELOAD_REMEDY });
+    out.push({
+      code: 'loops-added',
+      path: `loops[${i}]`,
+      message: `loop ${i} is new: the declared loops are read at start`,
+      remedy: RELOAD_REMEDY,
+    });
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
     const was = isObject(a[i]) ? a[i] : {};
     const now = isObject(b[i]) ? b[i] : {};
@@ -204,19 +238,44 @@ function loopChanges(live: unknown, next: unknown, out: ReloadChange[]): void {
 
 /** The changes in `next` against the running `live` definition that a hot reload cannot apply; empty when the
  *  reload is allowed, and always empty when neither definition is on the sections surface. */
-export function structuralReloadChanges(live: ReloadGuardDef, next: ReloadGuardDef): ReloadChange[] {
+export function structuralReloadChanges(
+  live: ReloadGuardDef,
+  next: ReloadGuardDef,
+): ReloadChange[] {
   const wasOn = sectionsSurface(live).enabled;
   const nowOn = sectionsSurface(next).enabled;
   if (!wasOn && !nowOn) return [];
   const out: ReloadChange[] = [];
   if (!wasOn)
-    out.push({ code: 'sections-enabled', path: 'sections', message: 'the running org is not a sections org: the document runtime is installed when the org starts', remedy: RELOAD_REMEDY });
+    out.push({
+      code: 'sections-enabled',
+      path: 'sections',
+      message:
+        'the running org is not a sections org: the document runtime is installed when the org starts',
+      remedy: RELOAD_REMEDY,
+    });
   else if (!nowOn)
-    out.push({ code: 'sections-disabled', path: 'sections', message: 'the definition no longer declares any section: the running org keeps its document runtime', remedy: RELOAD_REMEDY });
-  else sectionChanges(live.sections as Record<string, unknown>, next.sections as Record<string, unknown>, out);
+    out.push({
+      code: 'sections-disabled',
+      path: 'sections',
+      message:
+        'the definition no longer declares any section: the running org keeps its document runtime',
+      remedy: RELOAD_REMEDY,
+    });
+  else
+    sectionChanges(
+      live.sections as Record<string, unknown>,
+      next.sections as Record<string, unknown>,
+      out,
+    );
   documentChanges(live.documents, next.documents, out);
   if (!same(live.requires, next.requires))
-    out.push({ code: 'requires', path: 'requires', message: 'the capability contract changed: it is checked when the org starts', remedy: RELOAD_REMEDY });
+    out.push({
+      code: 'requires',
+      path: 'requires',
+      message: 'the capability contract changed: it is checked when the org starts',
+      remedy: RELOAD_REMEDY,
+    });
   const lrc = isObject(live.run_config) ? live.run_config : {};
   const nrc = isObject(next.run_config) ? next.run_config : {};
   for (const { code, read } of GUARDED_RUN_CONFIG) {

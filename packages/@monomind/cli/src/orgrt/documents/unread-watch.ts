@@ -116,7 +116,8 @@ export class UnreadWatch {
       if (!v.open) continue;
       const byLead = new Map<string, UnreadDecider[]>();
       for (const d of v.deciders)
-        if (!d.done && d.notice !== 'pending') byLead.set(d.lead ?? '', [...(byLead.get(d.lead ?? '') ?? []), d]);
+        if (!d.done && d.notice !== 'pending')
+          byLead.set(d.lead ?? '', [...(byLead.get(d.lead ?? '') ?? []), d]);
       for (const [lead, who] of byLead) {
         const key = `${v.doc}@v${v.version}>${lead}`;
         live.add(key);

@@ -28,12 +28,24 @@ export function decide({ pilot, arm, n, delivered, reads, checks, variant, env =
     return decideHandoffRead({ pilot, arm, n, reads, checks, variant, env });
   if (variant) {
     const v = resolveVariant(pilot, variant)?.variant;
-    if (!v) return { allowed: false, reason: `the pilot manifest does not list the variant "${variant}"` };
+    if (!v)
+      return {
+        allowed: false,
+        reason: `the pilot manifest does not list the variant "${variant}"`,
+      };
     if (arm !== v.arm || n !== 1)
       return { allowed: false, reason: `variant ${variant} is ${v.arm} x1 only, not ${arm} x${n}` };
     return phrasesOf(v).every((p) => String(env.PILOT_OWNER_DECISION ?? '').includes(p))
-      ? { allowed: true, reason: `declared variant ${variant} (${v.deadline_seconds} s, ${v.arm} x1): owner decision recorded: ${env.PILOT_OWNER_DECISION}` }
-      : { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming ${phrasesOf(v).map((p) => `"${p}"`).join(' and ')}; none is recorded` };
+      ? {
+          allowed: true,
+          reason: `declared variant ${variant} (${v.deadline_seconds} s, ${v.arm} x1): owner decision recorded: ${env.PILOT_OWNER_DECISION}`,
+        }
+      : {
+          allowed: false,
+          reason: `variant ${variant} needs PILOT_OWNER_DECISION naming ${phrasesOf(v)
+            .map((p) => `"${p}"`)
+            .join(' and ')}; none is recorded`,
+        };
   }
   const t = pilot.stop_rule.thresholds;
   const stage =
@@ -87,20 +99,33 @@ function decideHandoffRead({ pilot, arm, n, reads, checks, variant, env }) {
   if (variant) return decideHandoffVariant({ pilot, arm, n, reads, checks, variant, env });
   const need = pilot.stop_rule.thresholds.stage1_min_synthesiser_doc_reads;
   if (arm === 'treatment' && n === 1)
-    return { allowed: true, reason: 'stage 1 (treatment x1, the mechanism gate) always runs first' };
+    return {
+      allowed: true,
+      reason: 'stage 1 (treatment x1, the mechanism gate) always runs first',
+    };
   const stage2 = (arm === 'treatment' && n === 2) || (arm === 'baseline' && n === 1);
   if (!stage2)
     return env.PILOT_STAGE3_APPROVED === 'yes'
       ? { allowed: true, reason: 'stage 3, further owner approval given' }
-      : { allowed: false, reason: 'stage 3 needs a further owner approval (PILOT_STAGE3_APPROVED=yes); none is recorded' };
+      : {
+          allowed: false,
+          reason:
+            'stage 3 needs a further owner approval (PILOT_STAGE3_APPROVED=yes); none is recorded',
+        };
   if (reads === undefined)
-    return { allowed: false, reason: 'stage 2 needs the stage 1 treatment trial first (no finished trial p1t found)' };
+    return {
+      allowed: false,
+      reason: 'stage 2 needs the stage 1 treatment trial first (no finished trial p1t found)',
+    };
   if (reads < need)
     return {
       allowed: false,
       reason: `STOP: the synthesiser made ${reads} successful doc_read calls in the stage 1 treatment trial (the gate needs ${need}): the mechanism failed; report it and run no further trial`,
     };
-  return { allowed: true, reason: `stage 2: the synthesiser made ${reads} successful doc_read calls in the stage 1 treatment trial (gate: ${need})` };
+  return {
+    allowed: true,
+    reason: `stage 2: the synthesiser made ${reads} successful doc_read calls in the stage 1 treatment trial (gate: ${need})`,
+  };
 }
 
 /** A declared variant of a 'handoff-read' pilot (parallel-sweep-3's v2): treatment only, and only with PILOT_OWNER_DECISION
@@ -110,22 +135,47 @@ function decideHandoffRead({ pilot, arm, n, reads, checks, variant, env }) {
 function decideHandoffVariant({ pilot, arm, n, reads, checks, variant, env }) {
   const v = resolveVariant(pilot, variant)?.variant;
   if (!v) return { allowed: false, reason: `this pilot does not list the variant "${variant}"` };
-  if (arm !== v.arm) return { allowed: false, reason: `variant ${variant} is the ${v.arm} arm only, not ${arm}` };
+  if (arm !== v.arm)
+    return { allowed: false, reason: `variant ${variant} is the ${v.arm} arm only, not ${arm}` };
   if (!phrasesOf(v).every((p) => String(env.PILOT_OWNER_DECISION ?? '').includes(p)))
-    return { allowed: false, reason: `variant ${variant} needs PILOT_OWNER_DECISION naming ${phrasesOf(v).map((p) => `"${p}"`).join(' and ')}; none is recorded` };
+    return {
+      allowed: false,
+      reason: `variant ${variant} needs PILOT_OWNER_DECISION naming ${phrasesOf(v)
+        .map((p) => `"${p}"`)
+        .join(' and ')}; none is recorded`,
+    };
   const t = v.staged_plan.stage_1_thresholds;
-  if (n === 1) return { allowed: true, reason: `variant ${variant} stage 1 (${v.arm} x1, the mechanism gates: doc_read and doc_check): owner decision recorded: ${env.PILOT_OWNER_DECISION}` };
+  if (n === 1)
+    return {
+      allowed: true,
+      reason: `variant ${variant} stage 1 (${v.arm} x1, the mechanism gates: doc_read and doc_check): owner decision recorded: ${env.PILOT_OWNER_DECISION}`,
+    };
   if (n !== 2)
     return env.PILOT_STAGE3_APPROVED === 'yes'
       ? { allowed: true, reason: `variant ${variant} stage 3, further owner approval given` }
-      : { allowed: false, reason: `variant ${variant} x${n} needs a further owner approval (PILOT_STAGE3_APPROVED=yes); none is recorded` };
+      : {
+          allowed: false,
+          reason: `variant ${variant} x${n} needs a further owner approval (PILOT_STAGE3_APPROVED=yes); none is recorded`,
+        };
   if (reads === undefined)
-    return { allowed: false, reason: `variant ${variant} stage 2 needs the stage 1 variant trial first (no finished trial p1t-${variant} found)` };
+    return {
+      allowed: false,
+      reason: `variant ${variant} stage 2 needs the stage 1 variant trial first (no finished trial p1t-${variant} found)`,
+    };
   if (reads < t.min_synthesiser_doc_reads)
-    return { allowed: false, reason: `STOP: the synthesiser made ${reads} successful doc_read calls in the stage 1 variant trial (the gate needs ${t.min_synthesiser_doc_reads}): the mechanism failed; report it and run no further trial` };
+    return {
+      allowed: false,
+      reason: `STOP: the synthesiser made ${reads} successful doc_read calls in the stage 1 variant trial (the gate needs ${t.min_synthesiser_doc_reads}): the mechanism failed; report it and run no further trial`,
+    };
   if ((checks ?? 0) < t.min_synthesiser_doc_checks)
-    return { allowed: false, reason: `STOP: the synthesiser made ${checks ?? 0} successful doc_check calls in the stage 1 variant trial (the gate needs ${t.min_synthesiser_doc_checks}): the verification aid was not used; report it and run no further trial` };
-  return { allowed: true, reason: `variant ${variant} stage 2: the synthesiser made ${reads} doc_read and ${checks} doc_check calls in the stage 1 variant trial (gates: ${t.min_synthesiser_doc_reads} and ${t.min_synthesiser_doc_checks})` };
+    return {
+      allowed: false,
+      reason: `STOP: the synthesiser made ${checks ?? 0} successful doc_check calls in the stage 1 variant trial (the gate needs ${t.min_synthesiser_doc_checks}): the verification aid was not used; report it and run no further trial`,
+    };
+  return {
+    allowed: true,
+    reason: `variant ${variant} stage 2: the synthesiser made ${reads} doc_read and ${checks} doc_check calls in the stage 1 variant trial (gates: ${t.min_synthesiser_doc_reads} and ${t.min_synthesiser_doc_checks})`,
+  };
 }
 
 /** The synthesiser's successful doc_read calls in the stage 1 treatment trial of <base>/trials (the last of p1t, p1tr1, ...

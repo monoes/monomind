@@ -82,7 +82,7 @@ describe('canonicalJson (RFC 8785 over the dialect value space)', () => {
     const bad: [unknown, string][] = [
       [undefined, '$'], [Number.NaN, '$'], [Number.POSITIVE_INFINITY, '$'], [1n, '$'], [() => 1, '$'], [Symbol('s'), '$'],
       [new Date(0), '$'], [new Map(), '$'], [new (class A { x = 1 })(), '$'], [[1, undefined], '$[1]'],
-      [[, 1], '$[0]'], [{ a: { b: [Number.NaN] } }, '$.a.b[0]'], [cyc, '$.self.self.self'],
+      [[undefined, 1], '$[0]'], [{ a: { b: [Number.NaN] } }, '$.a.b[0]'], [cyc, '$.self.self.self'],
     ];
     for (const [v, pathStart] of bad) {
       try {

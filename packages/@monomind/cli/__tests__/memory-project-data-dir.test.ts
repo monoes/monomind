@@ -15,7 +15,7 @@ afterEach(() => {
 describe('projectDataDir', () => {
   it('is under ~/.monomind/projects by default', () => {
     delete process.env.MONOMIND_PROJECTS_DIR;
-    expect(projectDataDir().startsWith(join(homedir(), '.monomind', 'projects') + '/')).toBe(true);
+    expect(projectDataDir().startsWith(`${join(homedir(), '.monomind', 'projects')}/`)).toBe(true);
   });
 
   it('is under MONOMIND_PROJECTS_DIR when set, with the same <name>-<hash> leaf', () => {

@@ -44,11 +44,18 @@ async function both(seed: number | null) {
     run: 'parity',
   })!;
   const inj = plan ? faultInjector(plan) : undefined;
-  const call = async (tools, name, args) => JSON.parse((await tools.find((t) => t.name === name).handler(args)).text);
+  const call = async (tools, name, args) =>
+    JSON.parse((await tools.find((t) => t.name === name).handler(args)).text);
   for (const doc of DOCS) {
-    const p = await call(pilotTools(proto, worker(doc)), 'pilot__doc_publish', { doc_id: doc, content: honestDoc(doc) });
+    const p = await call(pilotTools(proto, worker(doc)), 'pilot__doc_publish', {
+      doc_id: doc,
+      content: honestDoc(doc),
+    });
     const body = inj?.apply(doc, honestDoc(doc))?.content ?? honestDoc(doc);
-    const r = await call(documentTools(rt.forRole(worker(doc))), 'org_doc_publish', { type: doc, body });
+    const r = await call(documentTools(rt.forRole(worker(doc))), 'org_doc_publish', {
+      type: doc,
+      body,
+    });
     expect([p.ok, r.ok]).toEqual([true, true]);
   }
   const results = {};
@@ -82,7 +89,9 @@ describe('doc_check and org_doc_check agree on the measured fault classes', () =
       for (const doc of DOCS) {
         const o = observed(results[doc]);
         expect(o.runtime, doc).toEqual(o.proto);
-        expect(results[doc].r.passed, doc).toBe(o.runtime.flagged.length === 0 && o.runtime.doc_level.length === 0);
+        expect(results[doc].r.passed, doc).toBe(
+          o.runtime.flagged.length === 0 && o.runtime.doc_level.length === 0,
+        );
         if (!results[doc].r.passed) flaggedDocs.push(doc);
       }
       expect(flaggedDocs.sort()).toEqual(plan.faults.map((f) => f.doc).sort());
@@ -90,7 +99,8 @@ describe('doc_check and org_doc_check agree on the measured fault classes', () =
         const checks = results[f.doc].r.flagged.flatMap((x) => x.failed.map((y) => y.check));
         const doc_level = results[f.doc].r.document_failures.map((x) => x.check);
         if (f.class.startsWith('wrong-value')) expect(checks).toEqual(['value_matches_chain']);
-        if (f.class === 'files-order') expect(new Set(checks)).toEqual(new Set(['files_match_evidence']));
+        if (f.class === 'files-order')
+          expect(new Set(checks)).toEqual(new Set(['files_match_evidence']));
         if (f.class === 'duplicate-sheet') expect(doc_level).toEqual(['unique_across_sheets']);
       }
     });
@@ -118,10 +128,18 @@ describe('doc_check and org_doc_check agree on the measured fault classes', () =
   it('refuse the same callers: a producer of another document is neither a reader nor a checker', async () => {
     const { proto, rt } = await both(null);
     const p = JSON.parse(
-      (await pilotTools(proto, 'worker-1').find((t) => t.name === 'pilot__doc_check').handler({ doc_id: DOCS[1] })).text,
+      (
+        await pilotTools(proto, 'worker-1')
+          .find((t) => t.name === 'pilot__doc_check')
+          .handler({ doc_id: DOCS[1] })
+      ).text,
     );
     const r = JSON.parse(
-      (await documentTools(rt.forRole('worker-1')).find((t) => t.name === 'org_doc_check').handler({ id: `${DOCS[1]}-1` })).text,
+      (
+        await documentTools(rt.forRole('worker-1'))
+          .find((t) => t.name === 'org_doc_check')
+          .handler({ id: `${DOCS[1]}-1` })
+      ).text,
     );
     expect([p.ok, r.ok]).toEqual([false, false]);
     expect(r.code).toBe('ACCESS_READ');

@@ -12,8 +12,8 @@
  */
 import { effectiveRoleRuntime } from '../runner-specs.js';
 import type { OrgDef, OrgRole } from '../types.js';
-import { budgetFindings, DEFERRED_KEYS, findingText } from './section-budget-findings.js';
 import { type BudgetDef, isPositiveUsd, resolveBudgetCaps } from './section-budget.js';
+import { budgetFindings, DEFERRED_KEYS, findingText } from './section-budget-findings.js';
 import { sectionsSurface } from './surface.js';
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -25,7 +25,10 @@ export const BUDGET_REFUSED_RUN_CONFIG_KEYS: readonly string[] = DEFERRED_KEYS;
 
 /** True when at least one section declares a `budget` (well formed or not). */
 export function sectionBudgetsDeclared(def: { sections?: unknown }): boolean {
-  return isObject(def.sections) && Object.values(def.sections).some((s) => isObject(s) && s.budget !== undefined);
+  return (
+    isObject(def.sections) &&
+    Object.values(def.sections).some((s) => isObject(s) && s.budget !== undefined)
+  );
 }
 
 /** True when section budgets apply: the sections surface is on and a section declares a budget. */
@@ -36,7 +39,8 @@ export const sectionBudgetsApply = (def: { sections?: unknown }): boolean =>
 export function sectionBudgetChecklist(def: OrgDef): { errors: string[]; warnings: string[] } {
   const raw = def as unknown as BudgetDef & { runtime?: string };
   const found = budgetFindings(raw, {
-    runtimeOf: (r) => effectiveRoleRuntime(r.runtime, raw.runtime, (r as unknown as OrgRole).provider?.kind),
+    runtimeOf: (r) =>
+      effectiveRoleRuntime(r.runtime, raw.runtime, (r as unknown as OrgRole).provider?.kind),
   });
   const errors = found.errors.map(findingText);
   // `run_config.budget_usd` alone (no section budget) is the org ceiling: it must still be a positive number.
@@ -56,7 +60,10 @@ export function sectionRoleCap(def: BudgetDef, roleId: string): number | undefin
 
 /** Copy each existing section's `budget` from the proposed definition into the running one; returns the
  *  `changed` entries. Only the budget moves: the rest of `sections` is not reloadable here. */
-export function syncSectionBudgets(live: { sections?: unknown }, next: { sections?: unknown }): string[] {
+export function syncSectionBudgets(
+  live: { sections?: unknown },
+  next: { sections?: unknown },
+): string[] {
   if (!sectionsSurface(live).enabled || !sectionsSurface(next).enabled) return [];
   const changed: string[] = [];
   const liveSections = live.sections as Record<string, unknown>;

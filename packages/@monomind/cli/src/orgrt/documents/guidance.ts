@@ -15,7 +15,7 @@ import { DocAccess, sectionRoster } from './access.js';
 import { effectiveContract } from './contract.js';
 import { phase4Guidance } from './guidance-phase4.js';
 import { schemaSummary } from './guidance-schema.js';
-import { rootRoleId, sectionOf, crossSectionRefusal } from './routing.js';
+import { crossSectionRefusal, rootRoleId, sectionOf } from './routing.js';
 import { bindingsFromDef } from './runtime.js';
 import { sectionsSurface } from './surface.js';
 import type { DocContract } from './types.js';
@@ -58,9 +58,14 @@ export function documentGuidance(def: OrgDef, roleId: string): string | undefine
   const root = rootRoleId(def);
   const isRoot = roleId === root;
   const section = sectionOf(def, roleId);
-  const sections = (isObject(def.sections) ? def.sections : {}) as Record<string, Record<string, unknown>>;
+  const sections = (isObject(def.sections) ? def.sections : {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
   const leadOf = (name: string): string =>
-    typeof sections[name]?.lead === 'string' ? (sections[name].lead as string) : sectionRoster(def, name)[0];
+    typeof sections[name]?.lead === 'string'
+      ? (sections[name].lead as string)
+      : sectionRoster(def, name)[0];
   const isManager = def.roles.some((r) => r.reports_to === roleId);
 
   const types = [...contracts.keys()];
@@ -108,7 +113,7 @@ export function documentGuidance(def: OrgDef, roleId: string): string | undefine
       `You decide for section "${section}" on:\n${listed(decides, (t) => `- ${t}, published by section ${bindingOf.get(t)?.section}`)}`,
     );
     out.push(
-      `A message from the runtime ("document ready: <id> v<n>") wakes you each time one is published, so do not poll: if nothing is published yet, end your turn. On a notice read that version (org_doc_read)${hasChecks ? ', run org_doc_check on it (a necessary check against the document\'s own evidence, not a sufficient one: spot-check what you rely on against the source)' : ''}, then decide with org_doc_decide: accept, or reject with a reason the producer can act on. A rejection reaches the producer directly: do not ask anyone to relay it. A decision is per version: a corrected version supersedes the old one and needs its own decision. A document counts as accepted only when every consuming section accepts it; start your final work from accepted versions only. A decision before you have read every part of that version is refused.`,
+      `A message from the runtime ("document ready: <id> v<n>") wakes you each time one is published, so do not poll: if nothing is published yet, end your turn. On a notice read that version (org_doc_read)${hasChecks ? ", run org_doc_check on it (a necessary check against the document's own evidence, not a sufficient one: spot-check what you rely on against the source)" : ''}, then decide with org_doc_decide: accept, or reject with a reason the producer can act on. A rejection reaches the producer directly: do not ask anyone to relay it. A decision is per version: a corrected version supersedes the old one and needs its own decision. A document counts as accepted only when every consuming section accepts it; start your final work from accepted versions only. A decision before you have read every part of that version is refused.`,
     );
   }
 

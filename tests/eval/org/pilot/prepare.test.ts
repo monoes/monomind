@@ -225,7 +225,12 @@ describe('parallel-sweep-2: the declared single-arm 480 s variant (owner-approve
   };
   it('leaves the default prepare output at 600 s in the record, the task and the org definition', async () => {
     await buildInputs({ scenario: 'parallel-sweep-2', base });
-    const root = await preparePilotTrial({ scenario: 'parallel-sweep-2', base, arm: 'single', n: 1 });
+    const root = await preparePilotTrial({
+      scenario: 'parallel-sweep-2',
+      base,
+      arm: 'single',
+      n: 1,
+    });
     const { t } = org(root);
     expect(t.name).toBe('smoke-parallel-sweep-2-single-p1s');
     expect(t.deadlineSeconds).toBe(600);
@@ -268,7 +273,13 @@ describe('parallel-sweep-2: the declared single-arm 480 s variant (owner-approve
       preparePilotTrial({ scenario: 'parallel-sweep-2', base, arm: 'single', n: 1, variant: 'x' }),
     ).rejects.toThrow(/does not list the variant "x"/);
     await expect(
-      preparePilotTrial({ scenario: 'dev-feature-qa', base, arm: 'baseline', n: 1, variant: 'd480' }),
+      preparePilotTrial({
+        scenario: 'dev-feature-qa',
+        base,
+        arm: 'baseline',
+        n: 1,
+        variant: 'd480',
+      }),
     ).rejects.toThrow(/does not list the variant/);
   });
 });

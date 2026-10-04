@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DocError } from '../../../src/orgrt/documents/errors.js';
+import type { DocError } from '../../../src/orgrt/documents/errors.js';
 import { loadSchemaRef, resolveSchemaSource } from '../../../src/orgrt/documents/schema-ref.js';
 
 let base: string;

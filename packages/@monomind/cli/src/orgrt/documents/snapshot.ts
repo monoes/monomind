@@ -6,10 +6,10 @@
 // (written for another run, an offset past the end or not on a line boundary, a hash that does not match the line
 // there) is rejected with a reason and the store replays the whole log instead.
 import { existsSync, readFileSync } from 'node:fs';
-import { lineBefore } from './events.js';
-import { type DocState } from './state.js';
-import { STORE_FORMAT } from './store-types.js';
 import { writeFileDurable } from './durable-fs.js';
+import { lineBefore } from './events.js';
+import type { DocState } from './state.js';
+import { STORE_FORMAT } from './store-types.js';
 
 export interface Snapshot {
   format: number;

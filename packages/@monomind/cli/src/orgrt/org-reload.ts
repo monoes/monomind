@@ -65,7 +65,10 @@ export function reloadOrgDef(
       type: 'audit',
       reason: 'hot-reload-refused',
       msg,
-      data: { reason: 'structural', changes: structural.map((c) => ({ code: c.code, path: c.path })) },
+      data: {
+        reason: 'structural',
+        changes: structural.map((c) => ({ code: c.code, path: c.path })),
+      },
     });
     throw new Error(msg);
   }

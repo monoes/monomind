@@ -17,18 +17,21 @@ const QUESTIONS_PER_MODULE = 12;
 const CHAIN_LENGTHS = [4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7];
 const DEFAULT_SEED = 20261003;
 
-const NOUNS = `ledger tariff quota margin rebate invoice batch cursor token bucket shard window ticket voucher
+const NOUNS =
+  `ledger tariff quota margin rebate invoice batch cursor token bucket shard window ticket voucher
 parcel depot lane gate relay signal buffer packet queue ration tally audit budget credit debit refund
 coupon bundle catalog roster shift dock cargo fleet route stage cycle metric sample probe filter policy
 limit digest anchor beacon cluster ledgerline pallet manifest lot slot tier grade level span offset`
-  .split(/\s+/)
-  .filter((n) => n !== 'ledgerline');
-const VERBS = `compute resolve derive apply adjust collect merge scale fold settle weigh convert assemble
+    .split(/\s+/)
+    .filter((n) => n !== 'ledgerline');
+const VERBS =
+  `compute resolve derive apply adjust collect merge scale fold settle weigh convert assemble
 reduce expand project rebase balance reconcile normalize stage price rank tune measure allocate carry
 forward shape trim`.split(/\s+/);
-const CONFIG_KEYS = `rate base step floor ceil scale bias shift margin pad gain drift slack quota tick weight`.split(
-  ' ',
-);
+const CONFIG_KEYS =
+  `rate base step floor ceil scale bias shift margin pad gain drift slack quota tick weight`.split(
+    ' ',
+  );
 const CONFIG_DECOY_KEYS = ['rateBase', 'base_rate', 'ratio', 'stepSize', 'scaleFactor', 'gainMax'];
 const PARAMS = ['n', 'x', 'v', 'amount', 'count', 'units'];
 const DOCS = [
@@ -213,15 +216,17 @@ function buildModule(g, mi, chainLengths) {
     }
     throw new Error('name space exhausted');
   };
-  const files = g
-    .sample(NOUNS, FILES_PER_MODULE)
-    .map((n) => ({ base: `${n}.mjs`, path: `${id}/${n}.mjs`, imports: new Map(), blocks: [], usesConfig: false }));
+  const files = g.sample(NOUNS, FILES_PER_MODULE).map((n) => ({
+    base: `${n}.mjs`,
+    path: `${id}/${n}.mjs`,
+    imports: new Map(),
+    blocks: [],
+    usesConfig: false,
+  }));
 
   // config: base values, site overrides applied last (so grepping one value finds a stale default), a legacy copy
   const base = Object.fromEntries(CONFIG_KEYS.map((k) => [k, g.int(2, 19)]));
-  const overrides = Object.fromEntries(
-    g.sample(CONFIG_KEYS, 8).map((k) => [k, g.int(20, 49)]),
-  );
+  const overrides = Object.fromEntries(g.sample(CONFIG_KEYS, 8).map((k) => [k, g.int(20, 49)]));
   const kv = (o) => Object.entries(o).map(([k, v]) => `  ${k}: ${v},`);
   const decoyKv = CONFIG_DECOY_KEYS.map((k) => `  ${k}: ${g.int(50, 99)},`);
   const configText = [
@@ -308,10 +313,7 @@ function buildModule(g, mi, chainLengths) {
   for (const f of files) {
     const target = g.int(62, 80);
     const render = () => {
-      const head = [
-        `// ${f.path}`,
-        `// ${g.pick(HEADERS)}`,
-      ];
+      const head = [`// ${f.path}`, `// ${g.pick(HEADERS)}`];
       const imports = [];
       if (f.usesConfig) imports.push("import { CONFIG } from './config.mjs';");
       for (const [src, specs] of [...f.imports.entries()].sort())
@@ -388,7 +390,7 @@ function attempt(out, seed, n) {
   // chain lengths: the same multiset in every module; q01 forced to 7 in one module and <= 6 elsewhere
   const longModule = g.int(1, ids.length);
   const mods = ids.map((_, i) => {
-    let lens = g.shuffle(CHAIN_LENGTHS);
+    const lens = g.shuffle(CHAIN_LENGTHS);
     const want = i + 1 === longModule ? 7 : g.pick([4, 5, 6]);
     const j = lens.indexOf(want);
     [lens[0], lens[j]] = [lens[j], lens[0]];
@@ -415,7 +417,7 @@ function attempt(out, seed, n) {
   return { mods, truthModules };
 }
 
-function metrics(out, mods, truthModules) {
+function metrics(_out, mods, truthModules) {
   const perModule = {};
   let totalFiles = 0;
   let totalLines = 0;
@@ -448,12 +450,17 @@ function metrics(out, mods, truthModules) {
 function main() {
   const args = process.argv.slice(2);
   const flag = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
-  const outArg = args.find((a, i) => !a.startsWith('--') && !['--truth', '--seed', '--modules'].includes(args[i - 1]));
+  const outArg = args.find(
+    (a, i) => !a.startsWith('--') && !['--truth', '--seed', '--modules'].includes(args[i - 1]),
+  );
   const truthPath = flag('--truth');
   if (!outArg || !truthPath)
-    throw new Error('usage: node build-corpus.mjs <empty out dir> --truth <truth.json path> [--seed N] [--modules N]');
+    throw new Error(
+      'usage: node build-corpus.mjs <empty out dir> --truth <truth.json path> [--seed N] [--modules N]',
+    );
   const n = Number(flag('--modules') ?? 8);
-  if (!Number.isInteger(n) || n < 4 || n > 99) throw new Error('--modules must be an integer from 4 to 99');
+  if (!Number.isInteger(n) || n < 4 || n > 99)
+    throw new Error('--modules must be an integer from 4 to 99');
   const out = resolve(outArg);
   if (existsSync(out) && readdirSync(out).length > 0) throw new Error(`${out} is not empty`);
   const truth = resolve(truthPath);

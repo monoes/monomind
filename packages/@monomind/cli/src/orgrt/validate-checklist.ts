@@ -133,13 +133,13 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
     // #1 file scopes must cover the files a role's duties name.
     for (const duty of r.responsibilities ?? []) {
       const paths = [...duty.matchAll(ABS_PATH)].map((m) => m[1]);
-      if (pol?.fileRead && pol.fileRead.length)
+      if (pol?.fileRead?.length)
         for (const p of paths)
           if (!covered(p, pol.fileRead))
             warnings.push(
               `#1 role "${r.id}": its duties name ${p}, outside its fileRead scope — add it, or the role cannot read it`,
             );
-      if (pol?.fileWrite && pol.fileWrite.length && WRITE_VERB.test(duty))
+      if (pol?.fileWrite?.length && WRITE_VERB.test(duty))
         for (const p of paths)
           if (!covered(p, pol.fileWrite))
             warnings.push(

@@ -13,7 +13,7 @@ import { declaredLoops } from './loops.js';
 import { rootRoleId, sectionOf } from './routing.js';
 import { isPositiveUsd } from './section-budget.js';
 import { usd } from './section-budget-text.js';
-import { standingOf, writingSections, type WriterDef } from './writer-overlay.js';
+import { standingOf, type WriterDef, writingSections } from './writer-overlay.js';
 
 const MAX_LISTED = 4;
 
@@ -25,7 +25,8 @@ export interface Phase4Context {
 }
 
 const more = (n: number): string => (n > MAX_LISTED ? ` and ${n - MAX_LISTED} more` : '');
-const shown = (xs: readonly string[]): string => xs.slice(0, MAX_LISTED).join(', ') + more(xs.length);
+const shown = (xs: readonly string[]): string =>
+  xs.slice(0, MAX_LISTED).join(', ') + more(xs.length);
 
 const sectionRaw = (def: OrgDef, name: string): Record<string, unknown> => {
   const s = isObject(def.sections) ? def.sections[name] : undefined;
@@ -65,7 +66,9 @@ function writerLines(def: OrgDef, roleId: string): string[] {
   if (standing === 'endpoint') return [];
   const globs = shown(writing[0].writes);
   if (standing.startsWith('writing-'))
-    return [`Your section "${writing[0].name}" owns writes to the workspace (${globs}): it is the only section that changes files there, and only inside those paths.`];
+    return [
+      `Your section "${writing[0].name}" owns writes to the workspace (${globs}): it is the only section that changes files there, and only inside those paths.`,
+    ];
   const route =
     standing === 'root'
       ? 'ask a role of that section to apply it'
@@ -75,7 +78,12 @@ function writerLines(def: OrgDef, roleId: string): string[] {
   ];
 }
 
-function budgetLines(def: OrgDef, roleId: string, section: string | undefined, isRoot: boolean): string[] {
+function budgetLines(
+  def: OrgDef,
+  roleId: string,
+  section: string | undefined,
+  isRoot: boolean,
+): string[] {
   const alloc = allocations(def);
   const out: string[] = [];
   const mine = alloc.find(([name]) => name === section);
@@ -84,18 +92,33 @@ function budgetLines(def: OrgDef, roleId: string, section: string | undefined, i
       `Your section "${mine[0]}" has a USD allocation of ${usd(mine[1])}. You and the root are told at 80 percent; at 100 percent the section closes (no new work, no new task assigned into it, open tasks held) until the allocation is raised and the org reloaded.`,
     );
   else if (mine)
-    out.push('Your section has a USD budget; a closed section pauses (no new work or tasks) until its allocation is raised and the org reloaded.');
+    out.push(
+      'Your section has a USD budget; a closed section pauses (no new work or tasks) until its allocation is raised and the org reloaded.',
+    );
   if (isRoot && alloc.length)
     out.push(
-      `Section allocations: ${alloc.slice(0, MAX_LISTED).map(([n, v]) => `${n} ${usd(v)}`).join(', ')}${more(alloc.length)}. You and the section lead are told at 80 percent; a closed section takes no new work until you raise its allocation and reload.`,
+      `Section allocations: ${alloc
+        .slice(0, MAX_LISTED)
+        .map(([n, v]) => `${n} ${usd(v)}`)
+        .join(
+          ', ',
+        )}${more(alloc.length)}. You and the section lead are told at 80 percent; a closed section takes no new work until you raise its allocation and reload.`,
     );
   const total = orgBudget(def);
   if (total !== undefined)
-    out.push(`The org has a USD budget of ${usd(total)}; when spent, every role pauses until it is raised and the org reloaded.`);
+    out.push(
+      `The org has a USD budget of ${usd(total)}; when spent, every role pauses until it is raised and the org reloaded.`,
+    );
   return out;
 }
 
-function reworkLines(def: OrgDef, roleId: string, section: string | undefined, isRoot: boolean, ctx: Phase4Context): string[] {
+function reworkLines(
+  def: OrgDef,
+  _roleId: string,
+  section: string | undefined,
+  isRoot: boolean,
+  ctx: Phase4Context,
+): string[] {
   const caps = capsFromDef(def);
   const out: string[] = [];
   const deciderCap = ctx.decides.length && section ? caps[section] : undefined;
@@ -108,18 +131,30 @@ function reworkLines(def: OrgDef, roleId: string, section: string | undefined, i
     for (const s of ctx.consumerSections(t)) if (caps[s] !== undefined) capped.set(s, caps[s]);
   if (capped.size)
     out.push(
-      `Rework cap: ${[...capped].slice(0, MAX_LISTED).map(([s, n]) => `section "${s}" rejects at most ${n} versions of a document`).join('; ')}${more(capped.size)}; at the cap the thread is frozen and a revision is refused (REWORK_EXHAUSTED): stop, tell your lead, wait for the root.`,
+      `Rework cap: ${[...capped]
+        .slice(0, MAX_LISTED)
+        .map(([s, n]) => `section "${s}" rejects at most ${n} versions of a document`)
+        .join(
+          '; ',
+        )}${more(capped.size)}; at the cap the thread is frozen and a revision is refused (REWORK_EXHAUSTED): stop, tell your lead, wait for the root.`,
     );
   const mySection = section;
   const loops = declaredLoops(def).filter(
-    (l) => mySection && l.between.includes(mySection) && [...ctx.produces, ...ctx.decides].some((t) => l.types.includes(t)),
+    (l) =>
+      mySection &&
+      l.between.includes(mySection) &&
+      [...ctx.produces, ...ctx.decides].some((t) => l.types.includes(t)),
   );
   for (const l of loops.slice(0, 2))
     out.push(
       `Loop with section ${shown(l.between.filter((s) => s !== mySection).map((s) => `"${s}"`))} (${shown(l.types)}): at most ${l.max_rounds} rounds. When spent, a further return is refused (LOOP_EXHAUSTED): stop and wait for the root.`,
     );
-  if (loops.length > 2) out.push(`${loops.length - 2} more loops are declared (org_doc_list shows the documents).`);
-  if (out.length && !isRoot) out.push('The root decides an exhausted thread or loop; its decision ends it. Do not publish it again.');
+  if (loops.length > 2)
+    out.push(`${loops.length - 2} more loops are declared (org_doc_list shows the documents).`);
+  if (out.length && !isRoot)
+    out.push(
+      'The root decides an exhausted thread or loop; its decision ends it. Do not publish it again.',
+    );
   if (isRoot && (Object.keys(caps).length || declaredLoops(def).length))
     out.push(
       'A spent rework cap or loop reaches you as a notice ("rework exhausted", "loop exhausted") and you decide: accept the document yourself with org_doc_decide, raise the cap in the definition and reload it, or reassign the work. Your decision ends it.',

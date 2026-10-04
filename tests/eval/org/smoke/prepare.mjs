@@ -62,19 +62,44 @@ export async function buildInputs({ scenario, base }) {
 
 /** A declared deadline variant: the kit's deadline replaced by `seconds`, in the wording the role reads too
  *  ("600 seconds (ten minutes)", "600 s"); refuses a text that still names the old deadline afterwards. */
-const MINUTE_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const MINUTE_WORDS = [
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+];
 function retime(text, from, to) {
   const min = to / 60;
   const words = Number.isInteger(min) ? (MINUTE_WORDS[min] ?? String(min)) : null;
   if (!words) throw new Error(`a deadline of ${to} s is not a whole number of minutes`);
   const out = text
-    .replace(new RegExp(`\\b${from} seconds \\(\\w+ minutes\\)`, 'g'), `${to} seconds (${words} minutes)`)
+    .replace(
+      new RegExp(`\\b${from} seconds \\(\\w+ minutes\\)`, 'g'),
+      `${to} seconds (${words} minutes)`,
+    )
     .replace(new RegExp(`\\b${from} s\\b`, 'g'), `${to} s`);
-  if (new RegExp(`\\b${from}\\b`).test(out)) throw new Error(`the text still names ${from} after the retime`);
+  if (new RegExp(`\\b${from}\\b`).test(out))
+    throw new Error(`the text still names ${from} after the retime`);
   return out;
 }
 
-export async function prepareTrial({ scenario, base, contender, trial = '1', profile = 'haiku', deadlineSeconds, arm, variant }) {
+export async function prepareTrial({
+  scenario,
+  base,
+  contender,
+  trial = '1',
+  profile = 'haiku',
+  deadlineSeconds,
+  arm,
+  variant,
+}) {
   const kit = await loadKit(scenario);
   base = resolve(base);
   const inputs = join(base, 'inputs', scenario);

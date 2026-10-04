@@ -20,9 +20,10 @@
  * The store keeps `inputs` in the version body file, not in the derived state, so the caller passes `inputsOf`.
  * Without it only `supersedes` links are seen.
  */
-import { headOf, versionStatus } from './state.js';
-import type { DocRecord, DocState, VersionRecord } from './state.js';
+
 import type { LoopSpec } from './loops.js';
+import type { DocRecord, DocState, VersionRecord } from './state.js';
+import { headOf, versionStatus } from './state.js';
 
 /** `id@vN` -> the `inputs` references that version was published with. */
 export type InputsOf = (ref: string) => readonly string[] | undefined;
@@ -92,10 +93,13 @@ export function lineageRounds(state: DocState, loop: LoopSpec, inputsOf?: Inputs
   const byRef = new Map(nodes.map((n) => [n.ref, n]));
   const groupOf = new Map<string, Group>();
   const rejectedByLoop = (p: Node, before: number): boolean =>
-    Object.entries(p.v.decisions).some(([c, x]) => x.decision === 'reject' && loop.between.includes(c) && x.seq < before);
+    Object.entries(p.v.decisions).some(
+      ([c, x]) => x.decision === 'reject' && loop.between.includes(c) && x.seq < before,
+    );
 
   for (const n of nodes) {
-    const pred = n.v.supersedes !== undefined ? byRef.get(`${n.doc.id}@v${n.v.supersedes}`) : undefined;
+    const pred =
+      n.v.supersedes !== undefined ? byRef.get(`${n.doc.id}@v${n.v.supersedes}`) : undefined;
     const fed = (inputsOf?.(n.ref) ?? [])
       .map((r) => byRef.get(r))
       .filter((p): p is Node => p !== undefined && p.v.seq < n.v.seq);
@@ -105,12 +109,17 @@ export function lineageRounds(state: DocState, loop: LoopSpec, inputsOf?: Inputs
     let g: Group;
     if (joined.length === 0) g = { origin: n.doc.section, first: n, rounds: 0, members: [] };
     else {
-      g = joined.reduce((best, x) => (x.rounds > best.rounds || (x.rounds === best.rounds && x.first.v.seq < best.first.v.seq) ? x : best));
+      g = joined.reduce((best, x) =>
+        x.rounds > best.rounds || (x.rounds === best.rounds && x.first.v.seq < best.first.v.seq)
+          ? x
+          : best,
+      );
       for (const o of joined)
         if (o !== g) {
           g.members.push(...o.members);
           for (const m of o.members) groupOf.set(m.ref, g);
-          if (o.exhaustedSeq !== undefined) g.exhaustedSeq = Math.min(g.exhaustedSeq ?? o.exhaustedSeq, o.exhaustedSeq);
+          if (o.exhaustedSeq !== undefined)
+            g.exhaustedSeq = Math.min(g.exhaustedSeq ?? o.exhaustedSeq, o.exhaustedSeq);
         }
       const feedback = fed.some((p) => p.doc.section !== n.doc.section);
       const reworked = pred !== undefined && rejectedByLoop(pred, n.v.seq);
@@ -144,9 +153,15 @@ export function lineageRounds(state: DocState, loop: LoopSpec, inputsOf?: Inputs
 /** The positive-integer `max_rework_rounds` of every section that sets one, keyed by section. Unset: no entry, no cap. */
 export function capsFromDef(def: { sections?: unknown }): Record<string, number> {
   const out: Record<string, number> = {};
-  const secs = typeof def.sections === 'object' && def.sections !== null ? (def.sections as Record<string, unknown>) : {};
+  const secs =
+    typeof def.sections === 'object' && def.sections !== null
+      ? (def.sections as Record<string, unknown>)
+      : {};
   for (const [name, sec] of Object.entries(secs)) {
-    const n = typeof sec === 'object' && sec !== null ? (sec as Record<string, unknown>).max_rework_rounds : undefined;
+    const n =
+      typeof sec === 'object' && sec !== null
+        ? (sec as Record<string, unknown>).max_rework_rounds
+        : undefined;
     if (typeof n === 'number' && Number.isInteger(n) && n > 0) out[name] = n;
   }
   return out;
@@ -156,7 +171,10 @@ export function capsFromDef(def: { sections?: unknown }): Record<string, number>
  * Every (document, consuming section) thread with at least one rejection whose consumer has a cap
  * (`caps[consumer]`; a section with no entry has no cap and no thread), ordered by document id then consumer.
  */
-export function reworkThreads(state: DocState, caps: Readonly<Record<string, number | undefined>>): ReworkThread[] {
+export function reworkThreads(
+  state: DocState,
+  caps: Readonly<Record<string, number | undefined>>,
+): ReworkThread[] {
   const out: ReworkThread[] = [];
   for (const d of Object.values(state.docs).sort((a, b) => (a.id < b.id ? -1 : 1)))
     for (const consumer of [...new Set(d.versions.flatMap((v) => v.consumers))].sort()) {
@@ -181,7 +199,10 @@ export function reworkThreads(state: DocState, caps: Readonly<Record<string, num
 }
 
 /** The exhausted threads, in the order they were exhausted (by commit sequence). */
-export function reworkStatus(state: DocState, caps: Readonly<Record<string, number | undefined>>): ReworkThread[] {
+export function reworkStatus(
+  state: DocState,
+  caps: Readonly<Record<string, number | undefined>>,
+): ReworkThread[] {
   return reworkThreads(state, caps)
     .filter((t) => t.exhausted)
     .sort((a, b) => (a.exhausted_seq as number) - (b.exhausted_seq as number));

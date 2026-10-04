@@ -14,8 +14,9 @@
 //    relay) are owed one message. The key names the thread, the cap and the event, so a replay derives the same
 //    key, and a thread that is exhausted again after the root accepted it is a new obligation.
 //  - `syncReworkCaps` carries a changed `max_rework_rounds` from a reloaded definition into the running one.
-import { capsFromDef, reworkThreads } from './loop-rounds.js';
+
 import type { ReworkThread } from './loop-rounds.js';
+import { capsFromDef, reworkThreads } from './loop-rounds.js';
 import { KIND_EXHAUSTED, type Notice } from './notice.js';
 import { COPY_REASON_CAP, capReason, REASON_CAP } from './relay.js';
 import { applyEvent, type DocState, emptyState, headOf, versionStatus } from './state.js';
@@ -61,7 +62,12 @@ export const rootMayDecide = (
   version: number,
 ): string | undefined => frozenThreads(state, caps, doc).find((f) => f.head === version)?.consumer;
 
-function rootText(t: ReworkThread, by: string, version: number, reason: string): { subject: string; body: string } {
+function rootText(
+  t: ReworkThread,
+  by: string,
+  version: number,
+  reason: string,
+): { subject: string; body: string } {
   return {
     subject: `rework exhausted: ${t.doc} (${t.consumer})`,
     body: [
@@ -73,7 +79,12 @@ function rootText(t: ReworkThread, by: string, version: number, reason: string):
   };
 }
 
-function leadText(t: ReworkThread, by: string, version: number, reason: string): { subject: string; body: string } {
+function leadText(
+  t: ReworkThread,
+  by: string,
+  version: number,
+  reason: string,
+): { subject: string; body: string } {
   return {
     subject: `rework exhausted: ${t.doc} (${t.consumer}) (copy)`,
     body: `The review cycle of document "${t.doc}" is spent: ${t.consumer} rejected ${t.rounds} versions, its cap of ${t.cap} rework rounds. Last rejection (version ${version}, ${by}): ${capReason(reason, COPY_REASON_CAP)} The thread is frozen and the root decides; the producer was told to wait. Do not publish or decide it again.`,
@@ -84,7 +95,10 @@ function leadText(t: ReworkThread, by: string, version: number, reason: string):
  * The exhaustion notices the committed log obliges under `esc.caps()`, in order: at each committed rejection that
  * brings a thread to its cap, one notice per recipient. Replays the log, so it is deterministic.
  */
-export function deriveReworkNotices(events: readonly StoreEvent[], esc: ReworkEscalation): Notice[] {
+export function deriveReworkNotices(
+  events: readonly StoreEvent[],
+  esc: ReworkEscalation,
+): Notice[] {
   const caps = esc.caps();
   if (Object.values(caps).every((c) => c === undefined)) return [];
   const state = emptyState();
@@ -121,12 +135,16 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 
 /** Copy each existing section's `max_rework_rounds` from the proposed definition into the running one; returns the
  *  `changed` entries. Only the cap moves: the rest of `sections` is not reloadable here. */
-export function syncReworkCaps(live: { sections?: unknown }, next: { sections?: unknown }): string[] {
+export function syncReworkCaps(
+  live: { sections?: unknown },
+  next: { sections?: unknown },
+): string[] {
   if (!isObject(live.sections) || !isObject(next.sections)) return [];
   const changed: string[] = [];
   for (const [name, sec] of Object.entries(next.sections)) {
     const target = live.sections[name];
-    if (!isObject(target) || !isObject(sec) || target.max_rework_rounds === sec.max_rework_rounds) continue;
+    if (!isObject(target) || !isObject(sec) || target.max_rework_rounds === sec.max_rework_rounds)
+      continue;
     if (sec.max_rework_rounds === undefined) delete target.max_rework_rounds;
     else target.max_rework_rounds = sec.max_rework_rounds;
     changed.push(`sections.${name}.max_rework_rounds`);
@@ -142,7 +160,11 @@ export interface ReworkHost {
 
 /** A reload: carry the changed caps into the running definition, install the enforcement if a cap now exists, and
  *  give the notice engine a pass (a lowered cap can owe a notice). Returns the `changed` entries. */
-export function reloadReworkCaps(live: { sections?: unknown }, next: { sections?: unknown }, docs: ReworkHost | undefined): string[] {
+export function reloadReworkCaps(
+  live: { sections?: unknown },
+  next: { sections?: unknown },
+  docs: ReworkHost | undefined,
+): string[] {
   const changed = syncReworkCaps(live, next);
   if (!docs || changed.length === 0) return changed;
   if (Object.keys(capsFromDef(live)).length > 0) docs.enableRework();

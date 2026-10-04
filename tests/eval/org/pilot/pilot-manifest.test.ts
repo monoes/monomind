@@ -15,9 +15,7 @@ const pilots = [
   'parallel-sweep',
   'parallel-sweep-2',
   'parallel-sweep-3',
-].map(
-  (id) => load(`${id}.pilot.json`),
-);
+].map((id) => load(`${id}.pilot.json`));
 
 describe('the committed pilot manifests', () => {
   it.each(pilots)(
@@ -137,7 +135,9 @@ describe('the committed pilot manifests', () => {
     expect(v480.earlier_result).toMatch(/600 s design is not changed/);
     expect(p.declared_changes[7]).toMatchObject({ date: '2026-10-04' });
     expect(p.declared_changes[7].what).toMatch(/600 s design/);
-    expect(p.declared_changes[7].earlier_result).toMatch(/thresholds and the 600 s design are unchanged/);
+    expect(p.declared_changes[7].earlier_result).toMatch(
+      /thresholds and the 600 s design are unchanged/,
+    );
     expect(p.declared_changes[8].what).toMatch(/MONOMIND_MAX_SDK_PROCS=40/);
     expect(p.declared_changes[8].why).toMatch(/3 processes per role/);
     expect(p.declared_changes[0].what).toMatch(/approved as proposed/);
@@ -154,17 +154,25 @@ describe('the committed pilot manifests', () => {
     expect(p.sections_serialized).toBe(false);
     expect(p.native_children).toBe('disabled');
     expect(p.profile).toBe('production');
-    expect([p.deadline_seconds, p.org_stop_usd, p.per_run_allocation_usd, p.trials_per_arm]).toEqual([720, 34, 34, 2]);
+    expect([
+      p.deadline_seconds,
+      p.org_stop_usd,
+      p.per_run_allocation_usd,
+      p.trials_per_arm,
+    ]).toEqual([720, 34, 34, 2]);
     expect(p.contracts.map((c: { id: string }) => c.id)).toEqual(
       [1, 2, 3, 4, 5, 6, 7, 8].map((k) => `module-sheets-w${k}`),
     );
-    for (const c of p.contracts) expect([c.max_attempts, c.consumers]).toEqual([4, ['synthesiser']]);
+    for (const c of p.contracts)
+      expect([c.max_attempts, c.consumers]).toEqual([4, ['synthesiser']]);
     expect(p.fault_injection).toEqual({
       seed_base: 20261003,
       seed_rule: 'seed_base plus the trial number',
       documents: 4,
       classes: ['wrong-value-q05', 'wrong-value-q07', 'files-order', 'duplicate-sheet'],
-      scope: expect.stringMatching(/treatment arm of this scenario only; each document is changed once/),
+      scope: expect.stringMatching(
+        /treatment arm of this scenario only; each document is changed once/,
+      ),
     });
     expect(p.status).toBeUndefined();
     expect(JSON.stringify(p)).not.toMatch(/PROPOSED/);
@@ -194,11 +202,19 @@ describe('the committed pilot manifests', () => {
     expect(s.stages[1].gate).toMatch(/at least one successful pilot__doc_read/);
     expect(s.stages[2].gate).toBe('PILOT_STAGE3_APPROVED=yes');
     expect(p.stop_rule.mechanism_gate).toMatch(/0 successful pilot__doc_read calls/);
-    expect(p.stop_rule.thresholds).toMatchObject({ stage1_min_synthesiser_doc_reads: 1, of_units: 33 });
+    expect(p.stop_rule.thresholds).toMatchObject({
+      stage1_min_synthesiser_doc_reads: 1,
+      of_units: 33,
+    });
     expect(p.stop_rule.predictions).toHaveLength(3);
     // cost estimate: low <= expected <= high everywhere, stages add up to the pilot, under the owner's 150 line
     const est = (x: any) => [x.low_usd, x.expected_usd, x.high_usd];
-    for (const x of [s.stages[0], s.stages[1], s.estimate_total_usd, s.estimate_cheapest_pilot_usd]) {
+    for (const x of [
+      s.stages[0],
+      s.stages[1],
+      s.estimate_total_usd,
+      s.estimate_cheapest_pilot_usd,
+    ]) {
       const [lo, mid, hi] = est(x);
       expect(lo).toBeLessThanOrEqual(mid);
       expect(mid).toBeLessThanOrEqual(hi);
@@ -209,7 +225,9 @@ describe('the committed pilot manifests', () => {
     expect(s.pilot_soft_cap_usd).toBeGreaterThanOrEqual(s.estimate_total_usd.high_usd);
     expect(s.stages[0].soft_cap_usd).toBeGreaterThanOrEqual(s.stages[0].high_usd);
     expect(s.stages[1].cumulative_soft_cap_usd).toBe(s.pilot_soft_cap_usd);
-    expect(s.estimate_cheapest_pilot_usd.expected_usd).toBeLessThan(s.estimate_total_usd.expected_usd);
+    expect(s.estimate_cheapest_pilot_usd.expected_usd).toBeLessThan(
+      s.estimate_total_usd.expected_usd,
+    );
     expect(p.stop_rule.thresholds.spend_flag_per_trial_usd).toBe(s.stages[0].high_usd);
     expect(JSON.stringify(s)).toMatch(/harness dollars/);
   });

@@ -12,15 +12,15 @@ import { join } from 'node:path';
 import type { OrgDef } from '../types.js';
 import { DocAccess, sectionRoster } from './access.js';
 import { CheckJournal } from './check-journal.js';
-import { PartJournal } from './part-journal.js';
 import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
-import { capsFromDef, reworkFacts, rootMayDecide, type ReworkFact } from './rework.js';
-import { reworkGuard } from './rework-guard.js';
-import { LoopRun, type LoopFact } from './loop-run.js';
-import { declaredLoops } from './loops.js';
 import { createHost, type DocumentToolHost } from './host.js';
+import { type LoopFact, LoopRun } from './loop-run.js';
+import { declaredLoops } from './loops.js';
 import { NoticeEngine } from './notices.js';
+import { PartJournal } from './part-journal.js';
+import { capsFromDef, type ReworkFact, reworkFacts, rootMayDecide } from './rework.js';
+import { reworkGuard } from './rework-guard.js';
 import { rootRoleId } from './routing.js';
 import { DocumentStore } from './store.js';
 import type { TypeBinding } from './store-types.js';
@@ -152,7 +152,12 @@ export class DocumentsRuntime {
   enableLoops(): void {
     if (this.loopRun) return;
     const root = rootRoleId(this.def);
-    this.loopRun = new LoopRun({ def: this.def, store: this.store, root, leadOf: (s) => leadOf(this.def, s) });
+    this.loopRun = new LoopRun({
+      def: this.def,
+      store: this.store,
+      root,
+      leadOf: (s) => leadOf(this.def, s),
+    });
     this.store.addGuard(this.loopRun.guard());
     this.notices?.useLoops(this.loopRun.escalation());
   }
@@ -182,8 +187,9 @@ export class DocumentsRuntime {
         checks: this.checks,
         reads: this.reads,
         rootMayDecide: (doc, version) =>
-          (this.reworkOn ? rootMayDecide(this.store.state, capsFromDef(this.def), doc, version) : undefined) ??
-          this.loopRun?.mayDecide(doc, version),
+          (this.reworkOn
+            ? rootMayDecide(this.store.state, capsFromDef(this.def), doc, version)
+            : undefined) ?? this.loopRun?.mayDecide(doc, version),
       },
       role,
     );

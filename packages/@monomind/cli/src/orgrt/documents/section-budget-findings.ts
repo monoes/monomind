@@ -56,7 +56,12 @@ export const findingText = (f: BudgetFinding): string => `${f.path}: ${f.message
 export const UNPRICED_RUNNERS: readonly string[] = ['codex', 'antigravity'];
 
 /** Settings of the budget machinery that stays deferred (Appendix D); configured, they fail validate. */
-export const DEFERRED_KEYS = ['max_turn_usd', 'allow_unbounded_turn', 'slice_cap', 'slice_floor'] as const;
+export const DEFERRED_KEYS = [
+  'max_turn_usd',
+  'allow_unbounded_turn',
+  'slice_cap',
+  'slice_floor',
+] as const;
 
 const usd = (n: number): string => `$${roundUsd(n)}`;
 const describe = (v: unknown): string => JSON.stringify(v) ?? 'nothing';
@@ -78,7 +83,13 @@ export function budgetFindings(def: BudgetDef, opts: BudgetFindingsOptions = {})
     message: string,
     remedy: string,
   ): void => {
-    out[severity === 'error' ? 'errors' : 'warnings'].push({ severity, code, path, message, remedy });
+    out[severity === 'error' ? 'errors' : 'warnings'].push({
+      severity,
+      code,
+      path,
+      message,
+      remedy,
+    });
   };
   const p = partitionOf(def);
   const rc = (def.run_config ?? {}) as Record<string, unknown>;
@@ -176,7 +187,10 @@ export function budgetFindings(def: BudgetDef, opts: BudgetFindingsOptions = {})
           `the role caps of section "${s.name}" (${s.roles.map((r) => `${r.id} ${usd(r.capUsd ?? 0)}`).join(', ')}) sum to ${usd(s.capSumUsd)}, above its allocation ${usd(s.allocationUsd)}`,
           'lower a role budget_usd or raise the allocation (explicit caps are never reduced for you)',
         );
-      else if (exceedsUsd(s.allocationUsd, s.capSumUsd) && s.roles.every((r) => r.capUsd !== undefined))
+      else if (
+        exceedsUsd(s.allocationUsd, s.capSumUsd) &&
+        s.roles.every((r) => r.capUsd !== undefined)
+      )
         add(
           'warning',
           'ALLOCATION_UNASSIGNED',
@@ -199,7 +213,13 @@ export function budgetFindings(def: BudgetDef, opts: BudgetFindingsOptions = {})
           `set roles.${r.id}.budget_usd`,
         );
       else if (!r.cap.ok)
-        add('error', r.cap.code, `roles.${r.id}.${r.cap.code === 'ROLE_CAP_CONFLICT' ? 'policy.maxUsd' : 'budget_usd'}`, r.cap.message, r.cap.remedy);
+        add(
+          'error',
+          r.cap.code,
+          `roles.${r.id}.${r.cap.code === 'ROLE_CAP_CONFLICT' ? 'policy.maxUsd' : 'budget_usd'}`,
+          r.cap.message,
+          r.cap.remedy,
+        );
     }
 
   // The org budget, the allocations and the root reserve.

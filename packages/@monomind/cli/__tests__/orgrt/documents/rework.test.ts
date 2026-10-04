@@ -26,7 +26,7 @@ const esc = (caps: Record<string, number | undefined>): ReworkEscalation => ({
 let n = 0;
 const reject = (s: ReturnType<typeof open>, role: string, id: string, version: number, reason = 'not good enough') =>
   must(s.decide({ role, id, version, decision: 'reject', reason, idempotency_key: `d${++n}` }));
-const accept = (s: ReturnType<typeof open>, role: string, id: string, version: number) =>
+const _accept = (s: ReturnType<typeof open>, role: string, id: string, version: number) =>
   must(s.decide({ role, id, version, decision: 'accept', idempotency_key: `d${++n}` }));
 
 /** brief-1 rejected by `writer` (writing) `rounds` times, each version superseding the last. */

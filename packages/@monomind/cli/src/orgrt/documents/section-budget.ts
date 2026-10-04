@@ -147,7 +147,9 @@ export function partitionOf(def: BudgetDef): Partition {
     if (!isObject(sec)) continue;
     const lead = typeof sec.lead === 'string' ? sec.lead : undefined;
     const ids = [
-      ...(Array.isArray(sec.members) ? sec.members.filter((m): m is string => typeof m === 'string') : []),
+      ...(Array.isArray(sec.members)
+        ? sec.members.filter((m): m is string => typeof m === 'string')
+        : []),
       ...(lead !== undefined ? [lead] : []),
     ];
     const members: BudgetRole[] = [];
@@ -223,7 +225,11 @@ export function resolveBudgetCaps(def: BudgetDef): ResolvedCaps {
   };
   const reserveUsd = p.reserve.usd === undefined ? undefined : Math.max(0, p.reserve.usd);
   const out: ResolvedCaps = { orgUsd: p.orgUsd, sections: {}, reserveUsd, roles: {} };
-  const place = (g: PartitionGroup, section: string | undefined, limit: number | undefined): void => {
+  const place = (
+    g: PartitionGroup,
+    section: string | undefined,
+    limit: number | undefined,
+  ): void => {
     for (const r of g.roles) {
       const effectiveUsd = r.capUsd === undefined ? undefined : under(r.capUsd, limit, p.orgUsd);
       out.roles[r.id] = {
@@ -242,4 +248,3 @@ export function resolveBudgetCaps(def: BudgetDef): ResolvedCaps {
   place(p.reserve, undefined, reserveUsd);
   return out;
 }
-

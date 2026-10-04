@@ -218,7 +218,7 @@ describe('npmGlobalRoot cache', () => {
   it('asks npm once on a miss and caches the answer for the next process', () => {
     const root = path.join(tmp, 'global');
     fs.mkdirSync(root, { recursive: true });
-    spawnSpy.mockReturnValue(root + '\n');
+    spawnSpy.mockReturnValue(`${root}\n`);
     expect(loadMod().npmGlobalRoot()).toBe(root);
     expect(spawnSpy).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fs.readFileSync(cacheFile, 'utf-8'))).toMatchObject({ root });
@@ -234,13 +234,13 @@ describe('npmGlobalRoot cache', () => {
     ],
     [
       'pointing at a removed directory',
-      (root) => ({ key: key(), root: root + '-gone', at: Date.now() }),
+      (root) => ({ key: key(), root: `${root}-gone`, at: Date.now() }),
     ],
   ])('asks npm again when the cached root is %s', (_label, rec) => {
     const root = path.join(tmp, 'global');
     fs.mkdirSync(root, { recursive: true });
     writeCache(rec(root));
-    spawnSpy.mockReturnValue(root + '\n');
+    spawnSpy.mockReturnValue(`${root}\n`);
     expect(loadMod().npmGlobalRoot()).toBe(root);
     expect(spawnSpy).toHaveBeenCalledTimes(1);
   });

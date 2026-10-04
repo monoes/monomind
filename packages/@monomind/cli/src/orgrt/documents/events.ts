@@ -20,7 +20,7 @@ import {
   writeSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { mkdirDurable, fsyncDir } from './durable-fs.js';
+import { fsyncDir, mkdirDurable } from './durable-fs.js';
 import type { StoreEvent } from './store-types.js';
 
 export const GENESIS_HASH = '0'.repeat(64);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { briefBinding, briefSchema, fresh, good, must, open, pub, refusal } from './store-support.js';
-import type { DecideReceipt, PublishReceipt } from '../../../src/orgrt/documents/store-types.js';
+import type { DecideReceipt, } from '../../../src/orgrt/documents/store-types.js';
 
 const dec = (store: ReturnType<typeof fresh>['store'], role: string, ref: string, decision: 'accept' | 'reject', reason?: string, extra = {}) => {
   const [id, v] = ref.split('@v');

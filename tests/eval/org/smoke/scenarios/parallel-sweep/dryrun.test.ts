@@ -133,7 +133,8 @@ describe.runIf(authorityMaskAvailability().available)(
           // (not a before/after listing of the whole home: the suite's isolated home is shared with tests running in
           // parallel, which add entries of their own; only the names this probe writes may not appear)
           const after = readdirSync(home);
-          for (const name of [`f7-${role}.sh`, `f7b-${role}.sh`, 'touched', 'dir']) expect(after).not.toContain(name);
+          for (const name of [`f7-${role}.sh`, `f7b-${role}.sh`, 'touched', 'dir'])
+            expect(after).not.toContain(name);
           // the permission gate with this role's policy
           const gate = (tool: string, input: object) =>
             o.canUseTool(tool, input, { toolUseID: 'x' });

@@ -14,8 +14,9 @@
 //     (its notice is pending or delivered; the unread-watch of P3.13 flags that one, not lead-watch), or a head
 //     it rejected (it waits for the producer's revision and the notice that announces it).
 // A role that decides nothing, or whose every needed type exists and is settled, is never awaiting.
-import type { DocumentsRuntime } from './runtime.js';
+
 import { deciders } from './notice.js';
+import type { DocumentsRuntime } from './runtime.js';
 
 export interface AwaitHead {
   doc: string;

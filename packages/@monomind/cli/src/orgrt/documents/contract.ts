@@ -14,7 +14,12 @@ import { CHECKS_DIALECT, validateChecks } from './checks.js';
 import { type DocProblem, throwIfProblems } from './errors.js';
 import { isObj } from './json.js';
 import { SCHEMA_DIALECT, validateSchema } from './schema-dialect.js';
-import type { DeliverableFile, DocContract, DocContractInput, EvidenceRequirement } from './types.js';
+import type {
+  DeliverableFile,
+  DocContract,
+  DocContractInput,
+  EvidenceRequirement,
+} from './types.js';
 
 export const TYPE_NAME = /^[a-z][a-z0-9-]{0,39}$/;
 export const RESERVED_TYPES = ['request', 'answer'];
@@ -23,8 +28,18 @@ export const DEFAULT_MAX_PUBLISH_ATTEMPTS = 3;
 export const DEFAULT_MAX_CONSISTENCY_REFUSALS = 5;
 
 const FIELDS = new Set([
-  'type', 'schema', 'evidence', 'checks', 'deliverable_files', 'acceptance', 'visibility', 'on_stale',
-  'gates', 'max_publish_attempts', 'max_consistency_refusals', 'max_bytes',
+  'type',
+  'schema',
+  'evidence',
+  'checks',
+  'deliverable_files',
+  'acceptance',
+  'visibility',
+  'on_stale',
+  'gates',
+  'max_publish_attempts',
+  'max_consistency_refusals',
+  'max_bytes',
 ]);
 const COMPARE_PATH = /^[A-Za-z0-9_-]+(\[\])?(\.[A-Za-z0-9_-]+(\[\])?)*$/;
 const KINDS = ['command', 'diff', 'document', 'source'];
@@ -34,7 +49,10 @@ const posInt = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number =>
   Number.isInteger(v) && (v as number) >= 1 && (v as number) <= max;
 
 function evidenceProblems(list: unknown, bad: (at: string, m: string, r?: string) => void): void {
-  if (!Array.isArray(list)) return bad('contract.evidence', 'must be a list');
+  if (!Array.isArray(list)) {
+    bad('contract.evidence', 'must be a list');
+    return;
+  }
   const seen = new Set<string>();
   list.forEach((e, i) => {
     const at = `contract.evidence[${i}]`;
@@ -42,42 +60,71 @@ function evidenceProblems(list: unknown, bad: (at: string, m: string, r?: string
     for (const k of Object.keys(e))
       if (!['kind', 'verify', 'min'].includes(k)) bad(at, `parameter "${k}" is not supported`);
     if (typeof e.kind !== 'string' || !KINDS.includes(e.kind))
-      return bad(at, `kind must be one of ${KINDS.join(', ')}`, 'opinion and human evidence are not yet supported');
+      return bad(
+        at,
+        `kind must be one of ${KINDS.join(', ')}`,
+        'opinion and human evidence are not yet supported',
+      );
     if (seen.has(e.kind)) bad(at, `kind "${e.kind}" is listed twice`);
     seen.add(e.kind);
     const want = VERIFY[e.kind];
     if (e.verify !== undefined && e.verify !== want)
-      bad(at, want ? `${e.kind} supports only verify: "${want}"` : `${e.kind} takes no verify`, 'rerun and fetch are not yet supported');
+      bad(
+        at,
+        want ? `${e.kind} supports only verify: "${want}"` : `${e.kind} takes no verify`,
+        'rerun and fetch are not yet supported',
+      );
     if (e.min !== undefined && !posInt(e.min)) bad(at, 'min must be a positive integer');
   });
 }
 
-function deliverableProblems(list: unknown, bad: (at: string, m: string, r?: string) => void): void {
-  if (!Array.isArray(list)) return bad('contract.deliverable_files', 'must be a list');
+function deliverableProblems(
+  list: unknown,
+  bad: (at: string, m: string, r?: string) => void,
+): void {
+  if (!Array.isArray(list)) {
+    bad('contract.deliverable_files', 'must be a list');
+    return;
+  }
   list.forEach((d, i) => {
     const at = `contract.deliverable_files[${i}]`;
     if (!isObj(d)) return bad(at, 'must be an object');
     for (const k of Object.keys(d))
       if (!['file', 'select', 'compare'].includes(k)) bad(at, `parameter "${k}" is not supported`);
     const f = d.file;
-    if (typeof f !== 'string' || !f || f.includes('\0') || f.startsWith('/') || f.split('/').includes('..'))
+    if (
+      typeof f !== 'string' ||
+      !f ||
+      f.includes('\0') ||
+      f.startsWith('/') ||
+      f.split('/').includes('..')
+    )
       bad(at, 'file must be a workspace-relative path that stays inside the workspace');
     const s = d.select;
     if (!isObj(s) || ![s.array, s.key, s.value].every((x) => typeof x === 'string' && x))
       bad(at, 'select needs array, key and value (strings)');
     else if (Object.keys(s).some((k) => !['array', 'key', 'value'].includes(k)))
       bad(at, 'select takes only array, key and value');
-    if (!Array.isArray(d.compare) || !d.compare.length || d.compare.some((c) => typeof c !== 'string' || !c))
+    if (
+      !Array.isArray(d.compare) ||
+      !d.compare.length ||
+      d.compare.some((c) => typeof c !== 'string' || !c)
+    )
       bad(at, 'compare needs at least one field path (strings)');
     else if (d.compare.some((c) => !COMPARE_PATH.test(c as string)))
-      bad(at, 'compare paths are dotted field names, with [] after a list field ("module", "answers[].q")');
+      bad(
+        at,
+        'compare paths are dotted field names, with [] after a list field ("module", "answers[].q")',
+      );
   });
 }
 
 /** Every reason the contract is invalid (all of them, with paths); empty when it is valid. */
 export function validateContract(raw: unknown): DocProblem[] {
   if (!isObj(raw))
-    return [{ code: 'CONTRACT_NOT_OBJECT', path: 'contract', message: 'a contract must be an object' }];
+    return [
+      { code: 'CONTRACT_NOT_OBJECT', path: 'contract', message: 'a contract must be an object' },
+    ];
   const out: DocProblem[] = [];
   const bad = (at: string, message: string, remedy?: string) =>
     out.push({ code: 'CONTRACT_INVALID_FIELD', path: at, message, remedy });
@@ -92,7 +139,8 @@ export function validateContract(raw: unknown): DocProblem[] {
     bad('contract.type', 'must match ^[a-z][a-z0-9-]{0,39}$');
   else if (RESERVED_TYPES.includes(raw.type))
     bad('contract.type', `"${raw.type}" is a reserved built-in type and cannot be redefined`);
-  for (const p of validateSchema(raw.schema)) out.push({ ...p, path: `contract.schema${p.path.slice(1)}` });
+  for (const p of validateSchema(raw.schema))
+    out.push({ ...p, path: `contract.schema${p.path.slice(1)}` });
   if (raw.evidence !== undefined) evidenceProblems(raw.evidence, bad);
   if (raw.checks !== undefined) out.push(...validateChecks(raw.checks, 'contract.checks'));
   if (raw.deliverable_files !== undefined) deliverableProblems(raw.deliverable_files, bad);
@@ -101,9 +149,17 @@ export function validateContract(raw: unknown): DocProblem[] {
   if (raw.visibility !== undefined && raw.visibility !== 'consumers' && raw.visibility !== 'org')
     bad('contract.visibility', 'must be "consumers" or "org"');
   if (raw.on_stale !== undefined && raw.on_stale !== 'hold')
-    bad('contract.on_stale', 'only "hold" is supported', 'keep and rebase-queued are not yet supported');
+    bad(
+      'contract.on_stale',
+      'only "hold" is supported',
+      'keep and rebase-queued are not yet supported',
+    );
   if (raw.gates !== undefined && !(Array.isArray(raw.gates) && raw.gates.length === 0))
-    bad('contract.gates', 'only an empty list is supported', 'cold-reviewer and human gates are not yet supported');
+    bad(
+      'contract.gates',
+      'only an empty list is supported',
+      'cold-reviewer and human gates are not yet supported',
+    );
   if (raw.max_publish_attempts !== undefined && !posInt(raw.max_publish_attempts))
     bad('contract.max_publish_attempts', 'must be a positive integer');
   if (raw.max_consistency_refusals !== undefined && !posInt(raw.max_consistency_refusals))
@@ -153,5 +209,9 @@ export function contractRevision(raw: unknown): ContractRevision {
     contract,
     dialect: SCHEMA_DIALECT,
   });
-  return { revision: createHash('sha256').update(canonical, 'utf8').digest('hex'), canonical, contract };
+  return {
+    revision: createHash('sha256').update(canonical, 'utf8').digest('hex'),
+    canonical,
+    contract,
+  };
 }

@@ -6,7 +6,7 @@
 // @ts-nocheck: the fixture scripts are plain .mjs modules without type declarations
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,13 +14,11 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { assertSupportedSchema, checkAgainstSchema } from '../../pilot/schema.js';
 import { referenceDeliverables } from './hidden/reference/write-answers.mjs';
 import { checkDeliverables, scoreModule, scoreSynthesis } from './score.mjs';
-import { MODULE_IDS, deriveSynthesis } from './synthesis.mjs';
+import { deriveSynthesis, MODULE_IDS } from './synthesis.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const record = JSON.parse(readFileSync(join(here, 'fixture.json'), 'utf8'));
-const pilot = JSON.parse(
-  readFileSync(join(here, '../../pilot/parallel-sweep.pilot.json'), 'utf8'),
-);
+const pilot = JSON.parse(readFileSync(join(here, '../../pilot/parallel-sweep.pilot.json'), 'utf8'));
 
 const walk = (dir: string, rel = ''): string[] =>
   readdirSync(join(dir, rel), { withFileTypes: true }).flatMap((e) =>
@@ -28,7 +26,10 @@ const walk = (dir: string, rel = ''): string[] =>
   );
 const hashOf = (dir: string) => {
   const h = createHash('sha256');
-  for (const f of walk(dir).sort()) h.update(`${f}\0`).update(readFileSync(join(dir, f))).update('\0');
+  for (const f of walk(dir).sort())
+    h.update(`${f}\0`)
+      .update(readFileSync(join(dir, f)))
+      .update('\0');
   return h.digest('hex');
 };
 const build = () => {
@@ -78,9 +79,13 @@ describe('the corpus builds reproducibly, without answers', () => {
 
   it('refuses a truth path inside the corpus directory', () => {
     const out = join(mkdtempSync(join(tmpdir(), 'sweep-bad-')), 'c');
-    const r = spawnSync('node', [join(here, 'build-corpus.mjs'), out, '--truth', join(out, 't.json')], {
-      encoding: 'utf8',
-    });
+    const r = spawnSync(
+      'node',
+      [join(here, 'build-corpus.mjs'), out, '--truth', join(out, 't.json')],
+      {
+        encoding: 'utf8',
+      },
+    );
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/outside the corpus/);
   });
@@ -174,7 +179,9 @@ describe('the truth is computed from the code, not asserted', () => {
     const near = [...m1.matchAll(/export function (\w+)/g)]
       .map((x) => x[1])
       .filter((n) => n !== entry && n.includes(entry));
-    expect(near.length + (m1.match(new RegExp(`Preferred over ${entry}|of ${entry}`, 'g')) ?? []).length).toBeGreaterThan(0);
+    expect(
+      near.length + (m1.match(new RegExp(`Preferred over ${entry}|of ${entry}`, 'g')) ?? []).length,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -219,7 +226,11 @@ describe('the scorer', () => {
   });
 
   it('accepts a sheet with 11 of 12 right and refuses 10 of 12; a right value with a wrong file order is wrong', () => {
-    const ok = scoreModule(sheet('m4', (a) => (a[0].value += 1)), truth(), 'm4');
+    const ok = scoreModule(
+      sheet('m4', (a) => (a[0].value += 1)),
+      truth(),
+      'm4',
+    );
     expect(ok).toMatchObject({ accepted: true, correct: 11 });
     expect(ok.failures).toEqual(['q01: wrong value']);
     const no = scoreModule(
@@ -238,7 +249,11 @@ describe('the scorer', () => {
     const wrong = scoreModule(sheet('m4'), truth(), 'm5');
     expect(wrong.accepted).toBe(false);
     expect(wrong.failures).toContain('m5: the sheet names module m4');
-    const short = scoreModule(sheet('m4', (a) => a.pop()), truth(), 'm4');
+    const short = scoreModule(
+      sheet('m4', (a) => a.pop()),
+      truth(),
+      'm4',
+    );
     expect(short).toMatchObject({ accepted: true, correct: 11 });
     expect(short.failures).toEqual(['q12: not answered']);
   });
@@ -278,7 +293,10 @@ describe('the scorer', () => {
     writeFileSync(join(dir, 'm3', 'answers.json'), '{not json');
     const r = checkDeliverables(dir, truth());
     const m3 = r.units.find((u) => u.module === 'm3');
-    expect(m3).toMatchObject({ accepted: false, evidence: { failures: ['m3: file is not valid JSON'] } });
+    expect(m3).toMatchObject({
+      accepted: false,
+      evidence: { failures: ['m3: file is not valid JSON'] },
+    });
   });
 });
 
@@ -286,7 +304,9 @@ describe('the module-sheet hand-off contracts (treatment arm)', () => {
   const contract = (m: string) => pilot.contracts.find((c: any) => c.id === `module-sheet-${m}`);
 
   it('are 8, one per module, each a worker producing for the synthesiser, in the fail-closed dialect', () => {
-    expect(pilot.contracts.map((c: any) => c.id)).toEqual(MODULE_IDS.map((m) => `module-sheet-${m}`));
+    expect(pilot.contracts.map((c: any) => c.id)).toEqual(
+      MODULE_IDS.map((m) => `module-sheet-${m}`),
+    );
     for (const c of pilot.contracts) {
       expect(c.consumers).toEqual(['synthesiser']);
       expect(c.producer).toMatch(/^worker-[1-4]$/);
@@ -311,10 +331,14 @@ describe('the module-sheet hand-off contracts (treatment arm)', () => {
     expect(checkAgainstSchema(schema, extra)).toEqual(['$.note: not allowed']);
     const extraInner = good();
     extraInner.answers[3].confidence = 0.9;
-    expect(checkAgainstSchema(schema, extraInner)).toEqual(['$.answers[3].confidence: not allowed']);
+    expect(checkAgainstSchema(schema, extraInner)).toEqual([
+      '$.answers[3].confidence: not allowed',
+    ]);
     const wrongType = good();
     wrongType.answers[2].value = '42';
-    expect(checkAgainstSchema(schema, wrongType)).toEqual(['$.answers[2].value: expected integer, got string']);
+    expect(checkAgainstSchema(schema, wrongType)).toEqual([
+      '$.answers[2].value: expected integer, got string',
+    ]);
     const wrongModule = good();
     wrongModule.module = 'm2';
     expect(checkAgainstSchema(schema, wrongModule)).toHaveLength(1);
@@ -326,22 +350,29 @@ describe('the module-sheet hand-off contracts (treatment arm)', () => {
 
 describe('the synthesis needs all eight modules', () => {
   const mods = () => a.truthDoc.modules;
-  const without = (m: string) => Object.fromEntries(Object.entries(mods()).filter(([k]) => k !== m));
+  const without = (m: string) =>
+    Object.fromEntries(Object.entries(mods()).filter(([k]) => k !== m));
 
   it('derives exactly the truth file from the module truths', () => {
     const d = deriveSynthesis(mods());
-    for (const [q, s] of Object.entries(a.truthDoc.synthesis)) expect(d[q]).toEqual((s as any).value);
+    for (const [q, s] of Object.entries(a.truthDoc.synthesis))
+      expect(d[q]).toEqual((s as any).value);
   });
 
-  it.each(MODULE_IDS)('without %s, an answer is unanswerable and another changes if computed over the rest', (m) => {
-    const full = deriveSynthesis(mods());
-    const strict = deriveSynthesis(without(m));
-    expect(Object.values(strict).some((v) => v === null)).toBe(true);
-    const partial = deriveSynthesis(without(m), { allowPartial: true });
-    const changed = Object.keys(full).filter((q) => JSON.stringify(partial[q]) !== JSON.stringify(full[q]));
-    expect(changed.length).toBeGreaterThan(0);
-    expect(changed).toContain('s5'); // the all-modules sum moves whichever module is dropped
-  });
+  it.each(MODULE_IDS)(
+    'without %s, an answer is unanswerable and another changes if computed over the rest',
+    (m) => {
+      const full = deriveSynthesis(mods());
+      const strict = deriveSynthesis(without(m));
+      expect(Object.values(strict).some((v) => v === null)).toBe(true);
+      const partial = deriveSynthesis(without(m), { allowPartial: true });
+      const changed = Object.keys(full).filter(
+        (q) => JSON.stringify(partial[q]) !== JSON.stringify(full[q]),
+      );
+      expect(changed.length).toBeGreaterThan(0);
+      expect(changed).toContain('s5'); // the all-modules sum moves whichever module is dropped
+    },
+  );
 });
 
 describe('the workload, computed by the generator, shows the parallelism', () => {
@@ -371,7 +402,9 @@ describe('the workload, computed by the generator, shows the parallelism', () =>
     for (const m of MODULE_IDS)
       for (const c of Object.values(a.truthDoc.modules[m]) as any[])
         expect(c.files.every((f: string) => f.startsWith(`${m}/`))).toBe(true);
-    const strict = deriveSynthesis(Object.fromEntries(Object.entries(a.truthDoc.modules).slice(0, 7)));
+    const strict = deriveSynthesis(
+      Object.fromEntries(Object.entries(a.truthDoc.modules).slice(0, 7)),
+    );
     expect(['s1', 's3', 's4', 's5', 's6'].every((q) => strict[q] === null)).toBe(true);
   });
 });
@@ -381,7 +414,9 @@ describe('the fixture record', () => {
     expect(record.status).toMatch(/^APPROVED 2026-10-03/);
     expect(record.fixture.status).toMatch(/^APPROVED 2026-10-03/);
     expect(record.notice).toBeUndefined();
-    expect(record.fixture.tasks.common).toMatch(/no node or other interpreter is available to any role/);
+    expect(record.fixture.tasks.common).toMatch(
+      /no node or other interpreter is available to any role/,
+    );
     expect(record.fixture.tasks.common).not.toMatch(/do not execute any file/);
     expect(record.fixture.sandbox.mechanism).toMatch(/denyExec/);
     const w = record.fixture.why_one_agent_cannot.weaknesses as string[];
@@ -397,7 +432,12 @@ describe('the fixture record', () => {
     expect(record.fixture.org_stop_usd).toBe(12);
     expect(record.fixture.arms.map((x: any) => x.id)).toEqual(['single', 'baseline', 'treatment']);
     expect(record.fixture.arms[1].roster).toEqual([
-      'lead', 'worker-1', 'worker-2', 'worker-3', 'worker-4', 'synthesiser',
+      'lead',
+      'worker-1',
+      'worker-2',
+      'worker-3',
+      'worker-4',
+      'synthesiser',
     ]);
     expect(record.fixture.tasks.single).toBeTruthy();
     expect(record.fixture.tasks.multi_role).toMatch(/lead coordinates and does not answer/);
