@@ -119,6 +119,8 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   // P4.8 loops wired: the dev and QA loop definition (`loops` set by the shared fixture) and the definition matrix that mutates it.
   [`${P}/support/loop-defs.ts`]: { loops: 1 },
   [`${P}/documents/loops-definition.test.ts`]: { loops: 2 },
+  // P4.11 role text: the synthetic orgs of the Phase 4 guidance tests (one patch per key set).
+  [`${P}/support/phase4-guidance-defs.ts`]: { loops: 1, max_rework_rounds: 4, writes: 3 },
 };
 
 describe('phase4 inert: fixture inventory', () => {

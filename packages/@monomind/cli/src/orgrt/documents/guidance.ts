@@ -13,6 +13,7 @@
 import type { OrgDef } from '../types.js';
 import { DocAccess, sectionRoster } from './access.js';
 import { effectiveContract } from './contract.js';
+import { phase4Guidance } from './guidance-phase4.js';
 import { schemaSummary } from './guidance-schema.js';
 import { rootRoleId, sectionOf, crossSectionRefusal } from './routing.js';
 import { bindingsFromDef } from './runtime.js';
@@ -133,5 +134,13 @@ export function documentGuidance(def: OrgDef, roleId: string): string | undefine
     );
     out.push(`As a lead: ${lead.join('; ')}.`);
   }
+  // P4.11: lines for the Phase 4 keys; none for an org that sets none of them, so its text is as P3.12 pinned it.
+  out.push(
+    ...phase4Guidance(def, roleId, {
+      produces,
+      decides,
+      consumerSections: (t) => (bindingOf.get(t)?.consumers ?? []).map((c) => c.id),
+    }),
+  );
   return out.join('\n');
 }
