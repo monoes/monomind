@@ -4,6 +4,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
+import { mailDirFor } from './documents/mail-isolation.js';
+import { sectionsSurface } from './documents/surface.js';
 import { clearEndpointWait } from './endpoint-roles.js';
 import { scanMessage } from './fence.js';
 import { parseTraceLine } from './tool-providers.js';
@@ -43,9 +45,14 @@ export function mailBody(
   header: string,
   body: string,
   id: string,
+  toRole?: string,
 ): string {
   if (body.length <= MAIL_BODY_MAX) return `${header}\n\n${body}`;
-  const mailDir = join(org?.workdir ?? join(root, ORG_DIR, orgName), '.mail');
+  // GA row R3: a sections org digests into the recipient's daemon-owned directory.
+  const mailDir =
+    toRole && org?.def && sectionsSurface(org.def).enabled
+      ? mailDirFor(join(root, ORG_DIR, orgName), toRole)
+      : join(org?.workdir ?? join(root, ORG_DIR, orgName), '.mail');
   const file = join(mailDir, `${id.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`);
   try {
     mkdirSync(mailDir, { recursive: true });
@@ -90,6 +97,7 @@ export async function pushMessage(
     `[message from ${from}] subject: ${subject}`,
     body,
     id,
+    toRole,
   );
   // A slot mid-replacement has no live mailbox to deliver into safely —
   // route into the slot's swap queue so the REPLACEMENT incarnation gets it
