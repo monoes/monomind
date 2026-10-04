@@ -10,6 +10,7 @@ import type { BrokerLease } from './broker.js';
 import type { OrgBus } from './bus.js';
 import * as checkpointOps from './checkpoint-ops.js';
 import * as crossOrg from './cross-org.js';
+import type { DaemonLockHandle } from './daemon-lock.js';
 import type { AgentRuntime, DaemonArgs, DaemonOpts, RunningOrg } from './daemon-types.js';
 import * as decisionOps from './decisions.js';
 import type { attachForwarder } from './forwarder.js';
@@ -49,6 +50,8 @@ export { resolveAutoAssignee } from './task-match.js';
 
 export class OrgDaemon {
   /** @internal */ orgs = new Map<string, RunningOrg>();
+  /** @internal GA row R1: the OS-held owner lock of each running sections org. */
+  daemonLocks = new Map<string, DaemonLockHandle>();
   /** @internal */ waking = new Set<string>();
   /** @internal */ globalSubscribers = new Set<(e: BusEvent) => void>();
   /** @internal */ leases = new Map<string, BrokerLease>();
@@ -175,6 +178,12 @@ export class OrgDaemon {
     if (ws === 'repo' || ws === 'isolated' || ws === 'worktree' || ws === 'worktree-per-role')
       return ws;
     return isAbsolute(ws) ? ws : join(this.root, ws);
+  }
+
+  /** @internal Frees the sections owner lock of `name`, if this daemon holds one. */
+  releaseDaemonLock(name: string): void {
+    this.daemonLocks.get(name)?.release();
+    this.daemonLocks.delete(name);
   }
 
   async startOrg(...args: DaemonArgs<typeof orgStart.startOrg>): Promise<RunningOrg> {

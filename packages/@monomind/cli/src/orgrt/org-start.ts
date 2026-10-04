@@ -77,6 +77,7 @@ export async function startOrg(
     // rejected with "already running", and nothing ever calling stopOrg.
     // Only this call can have registered the name (the reservation above
     // holds until `finally`), so anything in the map is ours to tear down.
+    if (!daemon.orgs.has(name)) daemon.releaseDaemonLock(name);
     if (daemon.orgs.has(name)) {
       // #302: tag the real cause so a run's history/report can never read
       // this as a boss-attributed outcome — nothing here asked the boss.
