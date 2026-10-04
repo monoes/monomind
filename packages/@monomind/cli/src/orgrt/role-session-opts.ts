@@ -102,6 +102,7 @@ export function buildRoleSessionOpts(
     taskProcesses: runtime.taskProcesses,
     cwd: roleCwd,
     def,
+    runTask: running.runTask,
     // Pass the org state directory so runners that persist per-role state
     // (VercelAgentRunner session files) write under .monomind/orgs/<name>
     // instead of polluting the workspace cwd.

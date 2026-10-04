@@ -131,6 +131,8 @@ export interface SessionOpts {
    *  denies every tool call until the gate is resolved. */
   hasPendingGate?: () => boolean;
   def?: OrgDef;
+  /** The run's task text (`org run --task`), carried in every role's system prompt (session-prompt.ts). */
+  runTask?: string;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
   /** Provider-agnostic runner. Takes precedence over queryFn. When unset,

@@ -205,6 +205,7 @@ async function startOrgInner(
 
   const running: RunningOrg = {
     def,
+    runTask: taskOverride,
     run,
     sessionLedger: new SessionLedger(join(dir, 'sessions.json')),
     gates: decisionOps.readGates(daemon.root, name),

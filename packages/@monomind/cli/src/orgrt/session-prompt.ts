@@ -83,11 +83,15 @@ export function buildRolePrompt(
   extraGuidance?: string,
   /** M2: one line per endpoint role (endpointBriefingLines) — boss only. */
   endpointBriefing?: string[],
+  /** The run's task text (`org run --task`), when it differs from the goal. Only the coordinator is sent it as a
+   *  message; every role gets it here, so a worker does not have to ask for it or dig it out of the bus. */
+  runTask?: string,
 ): string {
   const isCoordinator = role.reports_to == null;
   return [
     `You are agent "${role.id}" (${role.title || role.type}) in the org "${def.name}".`,
     `Org goal: ${def.goal}`,
+    runTask && runTask !== def.goal ? `Task for this run:\n${runTask}` : '',
     isCoordinator ? `You are the coordinator of this org.` : `You report to "${role.reports_to}".`,
     role.responsibilities?.length
       ? `Your responsibilities:\n- ${role.responsibilities.join('\n- ')}`
@@ -138,5 +142,6 @@ export function rolePromptFor(opts: SessionOpts): string {
       .filter(Boolean)
       .join('\n\n') || undefined,
     opts.onComplete ? endpointBriefingLines(opts.def) : undefined,
+    opts.runTask,
   );
 }

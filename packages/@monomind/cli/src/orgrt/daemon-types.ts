@@ -81,6 +81,8 @@ export interface AgentRuntime {
 
 export interface RunningOrg {
   def: OrgDef;
+  /** The task text this run was started with (`org run --task`), when one was given. */
+  runTask?: string;
   run: string;
   /** ADR-O001 D3: this run's model-session records (`<run>/sessions.json`),
    *  shared by every incarnation of every role so a replacement resumes too. */
