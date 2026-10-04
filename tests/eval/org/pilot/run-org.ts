@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadClaudeSdk } from '../../../../packages/@monomind/cli/src/orgrt/agent-runner-claude.js';
 import { OrgDaemon } from '../../../../packages/@monomind/cli/src/orgrt/daemon.js';
+import { evalGateFor } from '../../../../packages/@monomind/cli/src/orgrt/documents/eval-gate.js';
 import { startOrgServer } from '../../../../packages/@monomind/cli/src/orgrt/server.js';
 import { attachPilot, type PilotTrial } from './harness.js';
 
@@ -46,6 +47,15 @@ export interface RunOrgOptions {
   pollMs?: number;
 }
 
+/** The org's raw definition; the start gate (sections orgs only) reads `sections` from it. */
+function readOrgDef(root: string, name: string): { sections?: unknown } | undefined {
+  try {
+    return JSON.parse(readFileSync(join(root, '.monomind/orgs', `${name}.json`), 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
 export async function runOrg(o: RunOrgOptions): Promise<{ stoppedManually: boolean }> {
   const query = o.queryFn ?? ((await loadClaudeSdk()).query as NonNullable<QueryFn>);
   const daemon = new OrgDaemon(o.root, {
@@ -58,6 +68,7 @@ export async function runOrg(o: RunOrgOptions): Promise<{ stoppedManually: boole
   try {
     await daemon.startOrg(o.name, o.task || undefined, {
       resume: false,
+      ...evalGateFor(readOrgDef(o.root, o.name)),
       autoApprove: o.autoApprove ?? ['Bash', 'WebFetch', 'WebSearch', 'org_complete'],
     });
     const stopfile = join(o.root, '.monomind/orgs', o.name, 'stop');

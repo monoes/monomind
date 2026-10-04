@@ -6,6 +6,8 @@ import { holdTasksForBudget, spawnClosedDetail } from './budget-closure.js';
 import { pushMessage } from './cross-org.js';
 import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
 import { dispatchReadyTasks, queueDispatch } from './decisions.js';
+import { EVAL_BOSS_CRASH_CLOSED_BY } from './documents/eval-gate.js';
+import { sectionsSurface } from './documents/surface.js';
 import { isEndpointRole } from './endpoint-roles.js';
 import { newMessageId, peekInbox, queueMessage, takeQueued } from './inbox.js';
 import type { OrgRole } from './types.js';
@@ -97,6 +99,26 @@ export function autoWake(daemon: OrgDaemon, name: string): void {
  *  shut the run down for a human. */
 export function scheduleBossRestart(daemon: OrgDaemon, name: string): void {
   if (daemon.stopping.has(name) || daemon.restarting.has(name)) return;
+  // Sections spec 9.2: an eval-mode org gets no boss restart (a restart would
+  // start the trial again outside the harness). The crash ends the attempt as
+  // a failure; stopping it keeps `org run` from waiting on a dead boss.
+  const evalRun = daemon.orgs.get(name);
+  if (evalRun && sectionsSurface(evalRun.def).enabled) {
+    evalRun.bus.emit({
+      type: 'audit',
+      reason: EVAL_BOSS_CRASH_CLOSED_BY,
+      msg: 'boss crashed in eval mode — no auto-restart; the trial attempt ends as a failure',
+    });
+    daemon
+      .stopOrg(name, { closedBy: EVAL_BOSS_CRASH_CLOSED_BY })
+      .catch((err) =>
+        console.error(
+          `org ${name}: stop after eval-mode boss crash failed:`,
+          err instanceof Error ? err.message : err,
+        ),
+      );
+    return;
+  }
   const count = daemon.bossRestartCounts.get(name) ?? 0;
   const bus = daemon.orgs.get(name)?.bus;
   if (count >= OrgDaemon.MAX_BOSS_RESTARTS) {

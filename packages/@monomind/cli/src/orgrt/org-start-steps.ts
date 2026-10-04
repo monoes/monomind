@@ -20,6 +20,7 @@ import {
 import * as crossOrg from './cross-org.js';
 import type { OrgDaemon } from './daemon.js';
 import { activeRoleCount, type RunningOrg } from './daemon-types.js';
+import { assertEvalGate } from './documents/eval-gate.js';
 import {
   agentRoles,
   isEndpointRole,
@@ -46,7 +47,7 @@ import { ORG_DIR, type OrgDef, OrgDefSchema } from './types.js';
 export async function prepareOrgStart(
   daemon: OrgDaemon,
   name: string,
-  options?: { resume?: boolean; autoApprove?: string[] },
+  options?: { resume?: boolean; autoApprove?: string[]; evalGate?: boolean },
 ): Promise<{
   def: OrgDef;
   run: string;
@@ -90,6 +91,8 @@ export async function prepareOrgStart(
   // {{home}} / {{org_root}} in policy paths, before any root or sandbox sees them.
   const def = expandOrgPolicyPathVars(bp.def, promptVarsFor(daemon.root));
   pinInstructionDigests(def, digests);
+  // Sections spec 9.2: a sections org starts only through the eval harness.
+  assertEvalGate(def, name, options);
   // #502 review: the single enforcement point for unconfined roles (warn-only
   // until the operator decides whether to refuse them).
   enforceConfinement(def, name);

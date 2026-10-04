@@ -32,7 +32,7 @@ export async function startOrg(
   daemon: OrgDaemon,
   name: string,
   taskOverride?: string,
-  options?: { resume?: boolean; autoApprove?: string[] },
+  options?: { resume?: boolean; autoApprove?: string[]; evalGate?: boolean },
 ): Promise<RunningOrg> {
   // A restart-driven start (scheduleBossRestart) keeps its crash counter so the
   // cap holds; any other (explicit) start resets it so a manual re-run gets a
@@ -101,7 +101,7 @@ async function startOrgInner(
   daemon: OrgDaemon,
   name: string,
   taskOverride?: string,
-  options?: { resume?: boolean; autoApprove?: string[] },
+  options?: { resume?: boolean; autoApprove?: string[]; evalGate?: boolean },
 ): Promise<RunningOrg> {
   const { def, run, checkpoint, dir, cwd, worktreePath, checklistWarnings } =
     await startSteps.prepareOrgStart(daemon, name, options);

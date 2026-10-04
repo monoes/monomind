@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { approvalPendingNotice, parseAutoApproveFlag } from '../orgrt/approvals.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
+import { sectionsOrgRefusal } from '../orgrt/documents/eval-gate.js';
 import { readRunEvents } from '../orgrt/reporting.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR } from '../orgrt/types.js';
@@ -255,6 +256,12 @@ export const runAction = async (ctx: CommandContext): Promise<CommandResult> => 
   // org, but this process would already have reported the start as acknowledged.
   const unsigned = await ensureOrgSignedForRun(ctx, name);
   if (unsigned) return unsigned;
+  // Sections spec 9.2: refuse here, before a serve handoff would acknowledge it.
+  const sectionsRefusal = sectionsOrgRefusal(orgsDir, name);
+  if (sectionsRefusal) {
+    log(output.error(`Could not start org ${name}: ${sectionsRefusal}`));
+    return { success: false, message: 'sections org requires the eval harness' };
+  }
   // A live `org serve` daemon already owns this project's orgs. Starting our
   // own here would put two processes on one runtime.json and one broker lease,
   // so hand the request to the daemon via its runfile instead of racing it.
