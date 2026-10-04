@@ -14,6 +14,7 @@ import {
   honestDoc,
   worker,
 } from '../../../../packages/@monomind/cli/__tests__/orgrt/support/check-defs.js';
+import { authorityMaskAvailability } from '../../../../packages/@monomind/cli/src/orgrt/authority-mask.js';
 import { sectionsDefinitionFindings } from '../../../../packages/@monomind/cli/src/orgrt/documents/definition.js';
 import { setOrgSignatureEnforcement } from '../../../../packages/@monomind/cli/src/orgrt/org-signature-enforcement.js';
 import { OrgDefSchema } from '../../../../packages/@monomind/cli/src/orgrt/types.js';
@@ -224,174 +225,186 @@ describe('run-all.sh and the stage gate take the switch from the same commands a
 });
 
 describe("runOrg on the runtime switch: the kit's ten roles in the real daemon, scripted", () => {
-  it('starts through the eval gate with the runtime tools, runs the sweep loop with a scripted fault, and the trial reads as a runtime trial', async () => {
-    const root = await preparePilotTrial({
-      scenario: SCENARIO,
-      base,
-      arm: 'treatment',
-      n: 2,
-      variant: 'v2r',
-    });
-    const t = record(root);
-    const def = orgOf(root);
-    const ws = def.run_config.workspace;
-    const sheetFiles = (doc: string, body = honestDoc(doc)) => {
-      for (const s of body.sheets) {
-        mkdirSync(join(ws, 'out', s.module), { recursive: true });
-        writeFileSync(
-          join(ws, 'out', s.module, 'answers.json'),
-          JSON.stringify({
-            module: s.module,
-            answers: s.answers.map(({ q, value, files }) => ({ q, value, files })),
-          }),
-        );
-      }
-    };
-    const wrong = (doc: string) => {
-      const b = honestDoc(doc);
-      b.sheets[2].answers[4].value += 7; // the value no longer follows from its evidence
-      return b;
-    };
-    const accepted = new Set<string>();
-    const workers = DOCS.map(worker);
-    const sdk = scriptedSdk((role, turn, message) => {
-      const subject = /subject: (.*)/.exec(message)?.[1] ?? '';
-      if (role === 'lead')
-        return turn === 0
-          ? {
-              tools: workers.map((w) => ({
-                name: 'org_send',
-                args: { to: w, subject: 'work', message: 'produce your sheets' },
-              })),
-            }
-          : /synthesis done/.test(message)
-            ? { tools: [{ name: 'org_complete', args: { outcome: 'achieved', summary: 'done' } }] }
-            : {};
-      if (role.startsWith('worker-')) {
-        const doc = `module-sheets-w${role.at(-1)}`;
-        if (subject === 'work') {
-          const body = role === 'worker-1' ? wrong(doc) : honestDoc(doc);
-          sheetFiles(doc, body);
-          return { tools: [{ name: 'org_doc_publish', args: { type: doc, body } }] };
+  // the kit's roles run in the no-node bubblewrap layer (mode required), which a host without bubblewrap refuses
+  it.skipIf(!authorityMaskAvailability().available)(
+    'starts through the eval gate with the runtime tools, runs the sweep loop with a scripted fault, and the trial reads as a runtime trial',
+    async () => {
+      const root = await preparePilotTrial({
+        scenario: SCENARIO,
+        base,
+        arm: 'treatment',
+        n: 2,
+        variant: 'v2r',
+      });
+      const t = record(root);
+      const def = orgOf(root);
+      const ws = def.run_config.workspace;
+      const sheetFiles = (doc: string, body = honestDoc(doc)) => {
+        for (const s of body.sheets) {
+          mkdirSync(join(ws, 'out', s.module), { recursive: true });
+          writeFileSync(
+            join(ws, 'out', s.module, 'answers.json'),
+            JSON.stringify({
+              module: s.module,
+              answers: s.answers.map(({ q, value, files }) => ({ q, value, files })),
+            }),
+          );
         }
-        const m = /^document rejected: (\S+) v(\d+)$/.exec(subject);
-        if (m) {
-          sheetFiles(doc);
-          return {
-            tools: [
-              {
-                name: 'org_doc_publish',
-                args: { type: doc, body: honestDoc(doc), supersedes: `${m[1]}@v${m[2]}` },
+      };
+      const wrong = (doc: string) => {
+        const b = honestDoc(doc);
+        b.sheets[2].answers[4].value += 7; // the value no longer follows from its evidence
+        return b;
+      };
+      const accepted = new Set<string>();
+      const workers = DOCS.map(worker);
+      const sdk = scriptedSdk((role, turn, message) => {
+        const subject = /subject: (.*)/.exec(message)?.[1] ?? '';
+        if (role === 'lead')
+          return turn === 0
+            ? {
+                tools: workers.map((w) => ({
+                  name: 'org_send',
+                  args: { to: w, subject: 'work', message: 'produce your sheets' },
+                })),
+              }
+            : /synthesis done/.test(message)
+              ? {
+                  tools: [{ name: 'org_complete', args: { outcome: 'achieved', summary: 'done' } }],
+                }
+              : {};
+        if (role.startsWith('worker-')) {
+          const doc = `module-sheets-w${role.at(-1)}`;
+          if (subject === 'work') {
+            const body = role === 'worker-1' ? wrong(doc) : honestDoc(doc);
+            sheetFiles(doc, body);
+            return { tools: [{ name: 'org_doc_publish', args: { type: doc, body } }] };
+          }
+          const m = /^document rejected: (\S+) v(\d+)$/.exec(subject);
+          if (m) {
+            sheetFiles(doc);
+            return {
+              tools: [
+                {
+                  name: 'org_doc_publish',
+                  args: { type: doc, body: honestDoc(doc), supersedes: `${m[1]}@v${m[2]}` },
+                },
+              ],
+            };
+          }
+          return {};
+        }
+        if (role === 'synthesiser') {
+          const tools: { name: string; args: Record<string, unknown> }[] = [];
+          for (const m of message.matchAll(/document ready: (\S+) v(\d+)/g)) {
+            const [, id, v] = m;
+            const bad = id === 'module-sheets-w1-1' && v === '1';
+            // org_doc_decide needs every part read (P3.16b); a sheet is four parts, and a part past the last is refused harmlessly
+            tools.push({ name: 'org_doc_read', args: { id, version: Number(v) } });
+            for (let part = 2; part <= 6; part++)
+              tools.push({ name: 'org_doc_read', args: { id, version: Number(v), part } });
+            tools.push({ name: 'org_doc_check', args: { id, version: Number(v) } });
+            tools.push({
+              name: 'org_doc_decide',
+              args: {
+                id,
+                version: Number(v),
+                decision: bad ? 'reject' : 'accept',
+                ...(bad ? { reason: 'm3 q05: value_matches_chain' } : {}),
               },
-            ],
-          };
+            });
+            if (!bad) accepted.add(id);
+          }
+          if (accepted.size === 8) {
+            mkdirSync(join(ws, 'out'), { recursive: true });
+            writeFileSync(join(ws, 'out', 'synthesis.json'), '{}');
+            tools.push({
+              name: 'org_send',
+              args: { to: 'lead', subject: 'synthesis done', message: 'synthesis done' },
+            });
+            accepted.add('sent');
+          }
+          return { tools };
         }
         return {};
-      }
-      if (role === 'synthesiser') {
-        const tools: { name: string; args: Record<string, unknown> }[] = [];
-        for (const m of message.matchAll(/document ready: (\S+) v(\d+)/g)) {
-          const [, id, v] = m;
-          const bad = id === 'module-sheets-w1-1' && v === '1';
-          // org_doc_decide needs every part read (P3.16b); a sheet is four parts, and a part past the last is refused harmlessly
-          tools.push({ name: 'org_doc_read', args: { id, version: Number(v) } });
-          for (let part = 2; part <= 6; part++)
-            tools.push({ name: 'org_doc_read', args: { id, version: Number(v), part } });
-          tools.push({ name: 'org_doc_check', args: { id, version: Number(v) } });
-          tools.push({
-            name: 'org_doc_decide',
-            args: {
-              id,
-              version: Number(v),
-              decision: bad ? 'reject' : 'accept',
-              ...(bad ? { reason: 'm3 q05: value_matches_chain' } : {}),
-            },
-          });
-          if (!bad) accepted.add(id);
-        }
-        if (accepted.size === 8) {
-          mkdirSync(join(ws, 'out'), { recursive: true });
-          writeFileSync(join(ws, 'out', 'synthesis.json'), '{}');
-          tools.push({
-            name: 'org_send',
-            args: { to: 'lead', subject: 'synthesis done', message: 'synthesis done' },
-          });
-          accepted.add('sent');
-        }
-        return { tools };
-      }
-      return {};
-    });
-    // the run command's own path: the trial record decides what is attached (nothing), the eval gate is passed for a sections definition
-    await runOrg({
-      root,
-      name: t.name,
-      task: t.task,
-      pilot: pilotOfRecord(t),
-      queryFn: sdk.queryFn,
-      pollMs: 50,
-    });
-    const results = (name: string) => sdk.toolResults.filter((r) => r.name === name);
-    expect(results('org_doc_publish').map((r) => r.json.ok)).toEqual(
-      expect.arrayContaining([true]),
-    );
-    expect(results('org_doc_publish').filter((r) => r.json.ok)).toHaveLength(9); // eight documents and worker-1's republish
-    expect(results('org_doc_decide').filter((r) => r.json.ok)).toHaveLength(9);
-    expect(
-      results('org_doc_check').filter((r) => r.json.ok && r.json.flagged_count > 0),
-    ).toHaveLength(1); // the scripted fault was flagged
-    expect(sdk.turns.get('lead')).toBeGreaterThanOrEqual(2);
-    expect(
-      Object.keys(sdk.options.get('worker-1')[0].mcpServers.org.instance._registeredTools),
-    ).toEqual(
-      expect.arrayContaining(['org_doc_publish', 'org_doc_read', 'org_doc_list', 'org_doc_decide']),
-    );
-    // what the trial left, read as a runtime trial
-    const view = trialView(root);
-    expect(view.source).toBe('runtime');
-    expect(view.events.filter((e) => e.kind === 'publish' && e.ok)).toHaveLength(9);
-    expect(
-      Object.fromEntries(
-        Object.entries(view.state.versions).map(([d, vs]) => [d, vs.at(-1).status]),
-      ),
-    ).toEqual(Object.fromEntries(DOCS.map((d) => [d, 'accepted'])));
-    writeFileSync(join(root, 'result.json'), '{"seconds":1}');
-    const row = pilotRow(root);
-    expect(row).toMatchObject({
-      arm: 'treatment',
-      n: 2,
-      variant: 'v2r',
-      handoffLayer: 'runtime',
-      handoff: { publish: { ok: 9, refused: 0 }, decide: { ok: 9, refused: 0 }, relays: 2 },
-    });
-    expect(row.handoff.check.ok).toBe(9);
-    expect(row.handoffByRole.synthesiser.decide.ok).toBe(9);
-    const m = handoffMetrics({
-      root,
-      truth: {
-        modules: Object.fromEntries(
-          DOCS.flatMap((d) =>
-            honestDoc(d).sheets.map((s) => [
-              s.module,
-              Object.fromEntries(s.answers.map((a) => [a.q, { value: a.value, files: a.files }])),
-            ]),
-          ),
+      });
+      // the run command's own path: the trial record decides what is attached (nothing), the eval gate is passed for a sections definition
+      await runOrg({
+        root,
+        name: t.name,
+        task: t.task,
+        pilot: pilotOfRecord(t),
+        queryFn: sdk.queryFn,
+        pollMs: 50,
+      });
+      const results = (name: string) => sdk.toolResults.filter((r) => r.name === name);
+      expect(results('org_doc_publish').map((r) => r.json.ok)).toEqual(
+        expect.arrayContaining([true]),
+      );
+      expect(results('org_doc_publish').filter((r) => r.json.ok)).toHaveLength(9); // eight documents and worker-1's republish
+      expect(results('org_doc_decide').filter((r) => r.json.ok)).toHaveLength(9);
+      expect(
+        results('org_doc_check').filter((r) => r.json.ok && r.json.flagged_count > 0),
+      ).toHaveLength(1); // the scripted fault was flagged
+      expect(sdk.turns.get('lead')).toBeGreaterThanOrEqual(2);
+      expect(
+        Object.keys(sdk.options.get('worker-1')[0].mcpServers.org.instance._registeredTools),
+      ).toEqual(
+        expect.arrayContaining([
+          'org_doc_publish',
+          'org_doc_read',
+          'org_doc_list',
+          'org_doc_decide',
+        ]),
+      );
+      // what the trial left, read as a runtime trial
+      const view = trialView(root);
+      expect(view.source).toBe('runtime');
+      expect(view.events.filter((e) => e.kind === 'publish' && e.ok)).toHaveLength(9);
+      expect(
+        Object.fromEntries(
+          Object.entries(view.state.versions).map(([d, vs]) => [d, vs.at(-1).status]),
         ),
-      },
-    });
-    expect(m).toMatchObject({
-      present: true,
-      handoff_layer: 'runtime',
-      injected: null,
-      caught: null,
-      republish_cycles: 1,
-      final_accepted_docs: 8,
-      final_accepted_correct: 8,
-      rejects_of_natural_errors: 1,
-    });
-    expect(m.docs_decided.synthesiser).toHaveLength(8);
-    const rep = pilotReport([row]);
-    expect(rep.scenarios[0].pairs[0].treatmentV2r.name).toBe(t.name);
-    expect(rep.scenarios[0].pairs[0].reasons.join(' ')).toMatch(/a variant trial only \(v2r\)/);
-  }, 120000);
+      ).toEqual(Object.fromEntries(DOCS.map((d) => [d, 'accepted'])));
+      writeFileSync(join(root, 'result.json'), '{"seconds":1}');
+      const row = pilotRow(root);
+      expect(row).toMatchObject({
+        arm: 'treatment',
+        n: 2,
+        variant: 'v2r',
+        handoffLayer: 'runtime',
+        handoff: { publish: { ok: 9, refused: 0 }, decide: { ok: 9, refused: 0 }, relays: 2 },
+      });
+      expect(row.handoff.check.ok).toBe(9);
+      expect(row.handoffByRole.synthesiser.decide.ok).toBe(9);
+      const m = handoffMetrics({
+        root,
+        truth: {
+          modules: Object.fromEntries(
+            DOCS.flatMap((d) =>
+              honestDoc(d).sheets.map((s) => [
+                s.module,
+                Object.fromEntries(s.answers.map((a) => [a.q, { value: a.value, files: a.files }])),
+              ]),
+            ),
+          ),
+        },
+      });
+      expect(m).toMatchObject({
+        present: true,
+        handoff_layer: 'runtime',
+        injected: null,
+        caught: null,
+        republish_cycles: 1,
+        final_accepted_docs: 8,
+        final_accepted_correct: 8,
+        rejects_of_natural_errors: 1,
+      });
+      expect(m.docs_decided.synthesiser).toHaveLength(8);
+      const rep = pilotReport([row]);
+      expect(rep.scenarios[0].pairs[0].treatmentV2r.name).toBe(t.name);
+      expect(rep.scenarios[0].pairs[0].reasons.join(' ')).toMatch(/a variant trial only \(v2r\)/);
+    },
+    120000,
+  );
 });
