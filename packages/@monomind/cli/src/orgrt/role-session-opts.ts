@@ -231,7 +231,11 @@ export function buildRoleSessionOpts(
               return unwritten;
             }
             return resolveOrgComplete(bus, r, outcome, summary, blocker, blockerDetail, {
-              mode: def.run_config.completion ?? 'boss',
+              // P3.1: a sections org carries {mode, protocol}; P3.2 replaces this with the accessor.
+              mode:
+                typeof def.run_config.completion === 'object'
+                  ? def.run_config.completion.mode
+                  : (def.run_config.completion ?? 'boss'),
               maxBudgetFraction,
               pendingHumanWaits,
               // #564: the boss's own and every other role's blocking questions.

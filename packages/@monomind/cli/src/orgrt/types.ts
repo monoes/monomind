@@ -10,6 +10,13 @@ import {
   MAX_TOOL_ROUNDS_LIMIT,
   RoleSchema,
 } from './types-role.js';
+import {
+  DocumentsSchema,
+  ExperimentalSchema,
+  RequiresSchema,
+  SectionsCompletionSchema,
+  SectionsSchema,
+} from './types-sections.js';
 
 export { CostTiersSchema, DEFAULT_MAX_EVIDENCE_ATTEMPTS, LoadoutSchema } from './types-cost.js';
 export type { BusEvent, DecisionGate, DecisionKind, ToolResultEventData } from './types-events.js';
@@ -105,7 +112,10 @@ export const OrgDefSchema = z
          *  runnable work and nothing is time-blocked — opt-in because a run
          *  with no populated DAG (the common case today) gets no benefit
          *  from it, only a new refusal path. See completion-gate.ts. */
-        completion: z.enum(['boss', 'dag']).optional(),
+        completion: z.union([z.enum(['boss', 'dag']), SectionsCompletionSchema]).optional(),
+        /** Org sections spec 9.2 (P3.1): "eval" is required of a sections org and
+         *  refused otherwise; no default. See documents/definition.ts. */
+        experimental: ExperimentalSchema.optional(),
         /** ADR-O001 D5: gate `org_task_done` on machine-checkable evidence —
          *  acceptance commands with their real exit codes, pinned to the
          *  workspace's current commit sha. Adjacent FLAG rather than a third
@@ -287,6 +297,11 @@ export const OrgDefSchema = z
      *  Deliberative work that wants many one-off perspectives belongs in its
      *  own org (ADR-O001, "What this does NOT apply to"). See orgrt/loadouts.ts. */
     loadouts: z.record(z.string(), LoadoutSchema).optional(),
+    /** Org sections spec 13.1.3 (P3.1): the opt-in surface. `sections` is the
+     *  only switch (documents/surface.ts); none of the three has a default. */
+    requires: RequiresSchema.optional(),
+    sections: SectionsSchema.optional(),
+    documents: DocumentsSchema.optional(),
     roles: z.array(RoleSchema).min(1),
     /** Which agent runtime hosts this org's role sessions. When absent, the
      *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude

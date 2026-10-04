@@ -11,6 +11,8 @@
  * Each message names its checklist item (`#N`) and a remedy.
  */
 import { effectiveRoleRuntime } from './runner-specs.js';
+import { sectionsDefinitionFindings } from './documents/definition.js';
+import { sectionsSurface } from './documents/surface.js';
 import { type OrgDef, OrgDefSchema } from './types.js';
 
 type OrgRole = OrgDef['roles'][number];
@@ -28,6 +30,11 @@ const DEFERRED_RUN_CONFIG = ['budget_usd', 'budget_mode', 'experimental'];
  *  mono-agent's display copies, and `max_run`, which `org serve` reads. */
 const PASSTHROUGH_TOP_LEVEL = ['automations', 'autonomy'];
 const PASSTHROUGH_RUN_CONFIG = ['max_run'];
+/** The only deferred keys the sections surface relaxes (13.1.3, P3.1), and only
+ *  while `sectionsSurface(def).enabled`. `loops`, `budget_usd` and `budget_mode`
+ *  stay refused either way. */
+const RELAXED_TOP_LEVEL = ['sections', 'documents', 'requires'];
+const RELAXED_RUN_CONFIG = ['experimental'];
 
 /** Runtimes whose runners report tokens but no USD cost (spec A27, verified
  *  for these two), so `budget_usd` cannot close a role on them. */
@@ -83,11 +90,23 @@ export function checklistFindings(def: OrgDef): ChecklistFindings {
   const agents = def.roles.filter(isAgent);
 
   // Deferred features: never silently ignored.
+  const sectionsOn = sectionsSurface(raw).enabled;
   for (const k of DEFERRED_TOP_LEVEL)
-    if (k in raw)
+    if (k in raw && !(sectionsOn && RELAXED_TOP_LEVEL.includes(k)))
       errors.push(`"${k}" is not yet supported (org sections are designed, not built) — remove it`);
   for (const k of DEFERRED_RUN_CONFIG)
-    if (k in rc) errors.push(`run_config.${k} is not yet supported — remove it`);
+    if (k in rc && !(sectionsOn && RELAXED_RUN_CONFIG.includes(k)))
+      errors.push(`run_config.${k} is not yet supported — remove it`);
+  // A completion object ({mode, protocol}) belongs to a sections org alone.
+  if (typeof rc.completion === 'object' && rc.completion !== null && !sectionsOn)
+    errors.push(
+      'run_config.completion as an object is only supported with a top-level "sections" — use "boss" or "dag"',
+    );
+  if (sectionsOn) {
+    const found = sectionsDefinitionFindings(def);
+    errors.push(...found.errors);
+    warnings.push(...found.warnings);
+  }
   // Unknown keys are ignored by the runtime: a typo changes nothing, quietly.
   for (const k of Object.keys(raw))
     if (
