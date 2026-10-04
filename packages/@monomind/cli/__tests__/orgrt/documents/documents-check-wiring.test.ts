@@ -87,9 +87,11 @@ async function renderTools(o: SessionOpts): Promise<{ name: string; description:
 // Captured when P3.11 landed (c6703659...), re-pinned by P3.12: the sections-on list with the check tool. The
 // text changed on purpose: the descriptions of the five org_doc_* tools and the sentence appended to org_send
 // when a session has a documents host. Change it only for an intentional change to those tools.
-const SECTIONS_ON_CHECK_TOOLS_SHA = '469ba7477d3d41c66bad94fad04462bfb3dc956880c3041fe161a2c9f3d1c9cc';
+// P3.16b re-pin (was 469ba747...): org_doc_decide's description now says a decision needs every part read. Sections-ON text only.
+const SECTIONS_ON_CHECK_TOOLS_SHA = 'b729606538e2deea925ccf8bab609a292be53581ef84bf4d9885bea55d6b75eb';
 // The same four-tool list as SECTIONS_ON_TOOLS_SHA in documents-wiring.test.ts (P3.6; re-pinned by P3.12).
-const FOUR_TOOLS_SHA = '9354d469266c9616f8fb5db06cf26bbf4a4d086705a3d0222c499a7e4a612302';
+// P3.16b re-pin (was 9354d469...), the same change as SECTIONS_ON_TOOLS_SHA.
+const FOUR_TOOLS_SHA = 'b7fad955148d79f41c078ee4be07ee3a594a91b2ffdb8612f99fdc3098b584db';
 
 describe('org_doc_check registration', () => {
   it('a host that cannot check gives the four tools exactly as before (the P3.6 list, as re-pinned by P3.12)', async () => {

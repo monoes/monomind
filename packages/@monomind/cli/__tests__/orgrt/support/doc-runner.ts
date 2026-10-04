@@ -40,6 +40,18 @@ export class CaptureRunner implements AgentRunner {
 }
 
 /** Call one tool as the model would and parse its JSON text result. */
+/** org_doc_read of a version through `call`, every part fetched (org_doc_decide refuses until every part was read); returns page 1. */
+export async function readAllParts(
+  call: (name: string, args: Record<string, unknown>) => Promise<any>,
+  args: Record<string, unknown>,
+): Promise<any> {
+  const first = await call('org_doc_read', args);
+  if (first.ok && first.parts > 1)
+    for (let part = 2; part <= first.parts; part++)
+      await call('org_doc_read', { ...args, version: first.version, part });
+  return first;
+}
+
 export async function callTool(tools: OrgToolDef[], name: string, args: Record<string, unknown> = {}): Promise<any> {
   const t = tools.find((x) => x.name === name);
   if (!t) throw new Error(`no tool ${name}`);

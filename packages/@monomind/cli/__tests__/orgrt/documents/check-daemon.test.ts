@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OrgDaemon } from '../../../src/orgrt/daemon.js';
 import { DOCS, honestDoc, sweepChecksOrg, worker } from '../support/check-defs.js';
-import { CaptureRunner, callTool } from '../support/doc-runner.js';
+import { CaptureRunner, callTool, readAllParts } from '../support/doc-runner.js';
 import { findingsOrg, role } from '../support/doc-defs.js';
 
 let root: string;
@@ -80,7 +80,7 @@ describe('the consumer reads, checks, then decides', () => {
     const syn = await tools('synthesiser');
     const idOf = (d: string) => `${d}-1`;
     // read, then check, then decide
-    expect(await callTool(syn, 'org_doc_read', { id: idOf(flawed) })).toMatchObject({ ok: true, version: 1 });
+    expect(await readAllParts((n, a) => callTool(syn, n, a), { id: idOf(flawed) })).toMatchObject({ ok: true, version: 1 });
     const checked = await callTool(syn, 'org_doc_check', { id: idOf(flawed) });
     expect(checked).toMatchObject({ ok: true, passed: false, flagged_count: 1 });
     expect(checked.flagged[0]).toMatchObject({ q: 'q05' });
@@ -93,7 +93,7 @@ describe('the consumer reads, checks, then decides', () => {
     });
     expect(reject).toMatchObject({ ok: true, decision: 'reject', status: 'rejected' });
 
-    expect(await callTool(syn, 'org_doc_read', { id: idOf(clean) })).toMatchObject({ ok: true });
+    expect(await readAllParts((n, a) => callTool(syn, n, a), { id: idOf(clean) })).toMatchObject({ ok: true });
     expect(await callTool(syn, 'org_doc_check', { id: idOf(clean) })).toMatchObject({ ok: true, passed: true });
     expect(await callTool(syn, 'org_doc_decide', { id: idOf(clean), version: 1, decision: 'accept' })).toMatchObject({
       ok: true,

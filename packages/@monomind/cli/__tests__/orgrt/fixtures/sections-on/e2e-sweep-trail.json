@@ -193,6 +193,7 @@
     "contracts/module-sheets-w3@7a9352ee1bbf82a297e21b8e4feb7581408b9272e81e7b1df94ecc901a510dec.json",
     "events.jsonl",
     "notices.jsonl",
+    "part-reads.jsonl",
     "sweep-1/",
     "sweep-1/module-sheets-w1/",
     "sweep-1/module-sheets-w1/module-sheets-w1-1@v1.json",

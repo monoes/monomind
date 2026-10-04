@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { OrgDaemon } from '../../../src/orgrt/daemon.js';
 import { bindRoleWorkspaces } from '../../../src/orgrt/documents/deliverable-guards.js';
 import { sweepOrg } from '../support/doc-defs.js';
-import { CaptureRunner, callTool } from '../support/doc-runner.js';
+import { CaptureRunner, callTool, readAllParts } from '../support/doc-runner.js';
 
 const DOC = 'module-sheets-w1';
 const MODS = ['m1', 'm2', 'm3', 'm4'];
@@ -129,7 +129,10 @@ describe('the producer writes its files, then publishes (workspace repo: the run
 
 describe('the consumer decides', () => {
   const id = `${DOC}-1`;
-  const decide = (t: any, version: number, decision = 'accept') => callTool(t, 'org_doc_decide', { id, version, decision, ...(decision === 'reject' ? { reason: 'no' } : {}) });
+  const decide = async (t: any, version: number, decision = 'accept') => {
+    await readAllParts((n, a) => callTool(t, n, a), { id, version }); // org_doc_decide needs every part read (P3.16b)
+    return callTool(t, 'org_doc_decide', { id, version, decision, ...(decision === 'reject' ? { reason: 'no' } : {}) });
+  };
 
   it('an accept after a file changed is refused naming file and path; the republish supersedes and is accepted', async () => {
     const { tools } = await start(orgDef());

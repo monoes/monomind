@@ -100,7 +100,7 @@ describe('the sweep-3 v2 loop on the miniature org', () => {
     for (const t of runner.allTexts()) expect(noFaultRecord(t), t.slice(0, 200)).toBe(true);
     for (const f of ['events.jsonl', 'notices.jsonl', 'checks.jsonl'])
       for (const l of readFileSync(join(docs.dir, f), 'utf8').split('\n').filter(Boolean)) expect(noFaultRecord(l), `${f}: ${l.slice(0, 200)}`).toBe(true);
-    expect(readdirSync(docs.dir).sort()).toEqual(['checks.jsonl', 'contracts', 'events.jsonl', 'notices.jsonl', 'sweep-1', 'sweep-2', 'sweep-3']);
+    expect(readdirSync(docs.dir).sort()).toEqual(['checks.jsonl', 'contracts', 'events.jsonl', 'notices.jsonl', 'part-reads.jsonl', 'sweep-1', 'sweep-2', 'sweep-3']);
   });
 
   it('the full trail equals the pinned golden', async () => {

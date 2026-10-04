@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentMessage, AgentRunArgs, AgentRunner, OrgToolDef } from '../../../src/orgrt/agent-runner.js';
 import { OrgDaemon } from '../../../src/orgrt/daemon.js';
 import { FINDINGS, SOURCE, findingsOrg, sweepOrg } from '../support/doc-defs.js';
-import { callTool } from '../support/doc-runner.js';
+import { callTool, readAllParts } from '../support/doc-runner.js';
 
 const saved = { ...process.env };
 let root: string;
@@ -154,6 +154,7 @@ describe('reject -> relay -> republish -> accept, through a real daemon', () => 
     const researcher = await runner.toolsOf(d, name, 'researcher');
     const qa = await runner.toolsOf(d, name, 'qa-lead');
     await callTool(researcher, 'org_doc_publish', { type: 'findings', body: FINDINGS, evidence: SOURCE });
+    await readAllParts((n, a) => callTool(qa, n, a), { id: 'findings-1', version: 1 });
     await callTool(qa, 'org_doc_decide', { id: 'findings-1', version: 1, decision: 'reject', reason: 'no test plan can start from this' });
     expect(await waitFor(() => runner.subjects('researcher').some((s) => s.startsWith('document rejected')))).toBe(true);
     expect(runner.subjects('researcher')).toContain('document rejected: findings-1 v1 (qa)');
@@ -168,6 +169,7 @@ describe('reject -> relay -> republish -> accept, through a real daemon', () => 
     const researcher = await first.runner.toolsOf(first.d, raw.name, 'researcher');
     const lead = await first.runner.toolsOf(first.d, raw.name, 'dev-lead');
     await callTool(researcher, 'org_doc_publish', { type: 'findings', body: FINDINGS, evidence: SOURCE });
+    await readAllParts((n, a) => callTool(lead, n, a), { id: 'findings-1', version: 1 });
     expect(await callTool(lead, 'org_doc_decide', { id: 'findings-1', version: 1, decision: 'reject', reason: 'not specific enough' })).toMatchObject({ ok: true, status: 'rejected' });
     await first.d.stopOrg(raw.name);
     const runner = new ScriptRunner();
@@ -219,6 +221,7 @@ describe('a refused accept (the producer deliverable files changed) reaches the 
     for (const m of MODS) writeSheet(m);
     expect(await callTool(w1, 'org_doc_publish', { type: DOC, body: body() })).toMatchObject({ ok: true });
     writeSheet('m3', 9); // the producer's file moves after the publish
+    await readAllParts((n, a) => callTool(syn, n, a), { id: `${DOC}-1`, version: 1 });
     const refused = await callTool(syn, 'org_doc_decide', { id: `${DOC}-1`, version: 1, decision: 'accept' });
     expect(refused).toMatchObject({ ok: false, guard_code: 'DELIVERABLE_CHANGED' });
     expect(await waitFor(() => docs.store.list()[0].versions.length === 2)).toBe(true); // woken by the relay, it republished
@@ -231,6 +234,7 @@ describe('a refused accept (the producer deliverable files changed) reaches the 
     await docs.notices!.idle();
     expect(await waitFor(() => runner.subjects('lead').some((x) => x.endsWith('(copy)')))).toBe(true);
     expect(runner.subjects('lead')).toContain('document needs republishing: module-sheets-w1-1 v1 (copy)');
+    await readAllParts((n, a) => callTool(syn, n, a), { id: `${DOC}-1`, version: 2 });
     expect(await callTool(syn, 'org_doc_decide', { id: `${DOC}-1`, version: 2, decision: 'accept' })).toMatchObject({ ok: true, status: 'accepted' });
     // one relay for that refusal, and a repeat of the refused accept while still different would not be relayed again
     expect((runner.turns.get('worker-1') ?? []).filter((t) => t.includes('needs republishing'))).toHaveLength(1);

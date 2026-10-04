@@ -12,6 +12,7 @@ import { openDocumentsRuntime, type DocumentsRuntime } from '../../../src/orgrt/
 import { toolInputSchema } from '../../../src/orgrt/tool-fence.js';
 import { OrgDefSchema } from '../../../src/orgrt/types.js';
 import { FINDINGS, SOURCE, findingsOrg } from '../support/doc-defs.js';
+import { readAllParts } from '../support/doc-runner.js';
 
 const tmp = () => mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'doc-tools-'));
 const open = (raw = findingsOrg({ qa: true })): DocumentsRuntime =>
@@ -38,6 +39,11 @@ class Caller {
   read = (a: Record<string, unknown>) => this.call('org_doc_read', a);
   list = (a: Record<string, unknown> = {}) => this.call('org_doc_list', a);
   decide = (a: Record<string, unknown>) => this.call('org_doc_decide', a);
+  /** Read every part of the version, then decide: org_doc_decide refuses until the version was read (P3.16b). */
+  decideRead = async (a: Record<string, unknown>) => {
+    await readAllParts((n, x) => this.call(n, x), { id: a.id as string, version: a.version as number });
+    return this.decide(a);
+  };
 }
 const as = (rt: DocumentsRuntime, role: string) => new Caller(rt, role);
 
@@ -193,8 +199,8 @@ describe('read', () => {
     const explicit = await as(rt, 'coder').read({ id: p.id, version: 1 });
     expect(explicit).toMatchObject({ ok: false, code: 'ACCESS_READ' });
     expect(explicit.error).toMatch(/pending/);
-    await as(rt, 'dev-lead').decide({ id: p.id, version: 1, decision: 'accept' });
-    await as(rt, 'qa-lead').decide({ id: p.id, version: 1, decision: 'accept' });
+    await as(rt, 'dev-lead').decideRead({ id: p.id, version: 1, decision: 'accept' });
+    await as(rt, 'qa-lead').decideRead({ id: p.id, version: 1, decision: 'accept' });
     const ok = await as(rt, 'coder').read({ id: p.id });
     expect(ok).toMatchObject({ ok: true, status: 'accepted', body: FINDINGS });
     expect(rt.store.info().seq).toBeGreaterThan(0);
@@ -257,9 +263,9 @@ describe('decide', () => {
   it('accepts per consumer: accepted only once every consuming section accepted', async () => {
     const rt = open();
     const p = await as(rt, 'researcher').publish();
-    const a = await as(rt, 'dev-lead').decide({ id: p.id, version: 1, decision: 'accept' });
+    const a = await as(rt, 'dev-lead').decideRead({ id: p.id, version: 1, decision: 'accept' });
     expect(a).toMatchObject({ ok: true, consumer: 'development', status: 'pending', waiting_on: ['qa'] });
-    const b = await as(rt, 'qa-lead').decide({ id: p.id, version: 1, decision: 'accept' });
+    const b = await as(rt, 'qa-lead').decideRead({ id: p.id, version: 1, decision: 'accept' });
     expect(b).toMatchObject({ ok: true, consumer: 'qa', status: 'accepted', waiting_on: [] });
     expect(b.state_seq).toBeGreaterThan(a.state_seq);
   });
@@ -267,7 +273,7 @@ describe('decide', () => {
   it('one rejection rejects the version and needs a reason', async () => {
     const rt = open();
     const p = await as(rt, 'researcher').publish();
-    const noReason = await as(rt, 'dev-lead').decide({ id: p.id, version: 1, decision: 'reject' });
+    const noReason = await as(rt, 'dev-lead').decideRead({ id: p.id, version: 1, decision: 'reject' });
     expect(noReason).toMatchObject({ ok: false, code: 'REASON_REQUIRED' });
     const r = await as(rt, 'dev-lead').decide({ id: p.id, version: 1, decision: 'reject', reason: 'q3 is wrong' });
     expect(r).toMatchObject({ ok: true, status: 'rejected' });
@@ -290,6 +296,7 @@ describe('decide', () => {
     const rt = open();
     const p = await as(rt, 'researcher').publish();
     const lead = as(rt, 'dev-lead');
+    await lead.read({ id: p.id });
     const a = await lead.decide({ id: p.id, version: 1, decision: 'accept', idempotency_key: 'd-1' });
     const b = await lead.decide({ id: p.id, version: 1, decision: 'accept', idempotency_key: 'd-1' });
     expect(b).toMatchObject({ ok: true, replayed: true, seq: a.seq });
@@ -305,6 +312,7 @@ describe('decide', () => {
     const v1 = await w.publish();
     const v2 = await w.publish({ body: { summary: 'second' }, supersedes: v1.ref });
     const lead = as(rt, 'dev-lead');
+    await lead.read({ id: v1.id, version: 2 });
     expect(await lead.decide({ id: v1.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'SUPERSEDED' });
     const stale = await lead.decide({ id: v1.id, version: 2, decision: 'accept', expected_state_seq: v1.state_seq });
     expect(stale).toMatchObject({ ok: false, code: 'STATE_SEQ_CONFLICT' });
@@ -381,6 +389,103 @@ describe('list', () => {
     await w.publish({ body: { summary: 'a new finding that changes the listing' } });
     expect(await lead.list({ cursor: first.next_cursor })).toMatchObject({ ok: false, code: 'CURSOR_INVALID' });
     expect(await lead.list({ cursor: 'garbage' })).toMatchObject({ ok: false, code: 'CURSOR_INVALID' });
+  });
+});
+
+/** A findings org whose body pages into several parts (rows), for the read-all-parts rule of P3.16b. */
+function longOrg(): Record<string, any> {
+  const raw = findingsOrg({ qa: true });
+  raw.documents.findings.schema = {
+    type: 'object',
+    required: ['rows'],
+    properties: { rows: { type: 'array', items: { type: 'object' } } },
+  };
+  raw.documents.findings.evidence = [];
+  raw.documents.findings.max_bytes = 400_000;
+  return raw;
+}
+const longBody = (tag: string) => ({
+  rows: Array.from({ length: 400 }, (_, i) => ({ n: i, text: `${tag} row "${i}" with \\ quotes and some text to pad it out` })),
+});
+
+describe('decide needs every part of the version read (P3.16b)', () => {
+  it('a decider that read only part 1 of a paged version is refused, naming the unread parts; reading them lets it decide', async () => {
+    const rt = open(longOrg());
+    const p = await as(rt, 'researcher').publish({ body: longBody('a'), evidence: undefined });
+    const lead = as(rt, 'dev-lead');
+    const first = await lead.read({ id: p.id });
+    expect(first.parts).toBeGreaterThan(2);
+    for (const decision of ['accept', 'reject'])
+      expect(await lead.decide({ id: p.id, version: 1, decision, reason: 'because' })).toMatchObject({
+        ok: false,
+        code: 'UNREAD_PARTS',
+        remedy: errorRemedy('UNREAD_PARTS'),
+        parts: first.parts,
+        read_parts: [1],
+        unread_parts: Array.from({ length: first.parts - 1 }, (_, i) => i + 2),
+      });
+    expect(rt.store.list()[0].versions[0].status).toBe('pending');
+    for (let part = 2; part < first.parts; part++) await lead.read({ id: p.id, version: 1, part });
+    expect(await lead.decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNREAD_PARTS', unread_parts: [first.parts] });
+    await lead.read({ id: p.id, version: 1, part: first.parts });
+    expect(await lead.decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: true, decision: 'accept' });
+  });
+
+  it('only that role, that version and that document count: another role, an older version and another document do not', async () => {
+    const rt = open(longOrg());
+    const w = as(rt, 'researcher');
+    const v1 = await w.publish({ body: longBody('a'), evidence: undefined });
+    const lead = as(rt, 'dev-lead');
+    const qa = as(rt, 'qa-lead');
+    const n = (await lead.read({ id: v1.id })).parts as number;
+    for (let part = 2; part <= n; part++) await lead.read({ id: v1.id, version: 1, part });
+    expect(await qa.decide({ id: v1.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNREAD_PARTS', read_parts: [] });
+    const v2 = await w.publish({ body: longBody('b'), evidence: undefined, supersedes: v1.ref });
+    expect(v2.version).toBe(2);
+    expect(await lead.decide({ id: v1.id, version: 2, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNREAD_PARTS', read_parts: [] });
+    const other = await w.publish({ body: longBody('c'), evidence: undefined });
+    expect(other.id).not.toBe(v1.id);
+    expect(await lead.decide({ id: other.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNREAD_PARTS' });
+  });
+
+  it('a single-part document needs the one read, and no more', async () => {
+    const rt = open();
+    const p = await as(rt, 'researcher').publish();
+    const lead = as(rt, 'dev-lead');
+    const refused = await lead.decide({ id: p.id, version: 1, decision: 'accept' });
+    expect(refused).toMatchObject({ ok: false, code: 'UNREAD_PARTS', parts: 1, read_parts: [], unread_parts: [1] });
+    expect(refused.error).toContain('findings-1@v1');
+    await lead.read({ id: p.id });
+    expect(await lead.decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: true });
+  });
+
+  it('a refusal by this rule comes after the access and existence rules, and a superseded version keeps the store code', async () => {
+    const rt = open();
+    const p = await as(rt, 'researcher').publish();
+    await as(rt, 'researcher').publish({ body: { summary: 'second' }, supersedes: p.ref });
+    expect(await as(rt, 'dev-lead').decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'SUPERSEDED' });
+    expect(await as(rt, 'coder').decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'ACCESS_DECIDE' });
+    expect(await as(rt, 'dev-lead').decide({ id: p.id, version: 4, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNKNOWN_VERSION' });
+  });
+
+  it('the part reads survive a restart of the runtime (they are on disk, not in memory)', async () => {
+    const dir = tmp();
+    const def = OrgDefSchema.parse(longOrg());
+    const first = openDocumentsRuntime({ def, orgDir: dir, run: 'run-1' })!;
+    const p = await as(first, 'researcher').publish({ body: longBody('a'), evidence: undefined });
+    const lead = as(first, 'dev-lead');
+    const n = (await lead.read({ id: p.id })).parts as number;
+    for (let part = 2; part < n; part++) await lead.read({ id: p.id, version: 1, part });
+    const again = openDocumentsRuntime({ def, orgDir: dir, run: 'run-1' })!;
+    const lead2 = as(again, 'dev-lead');
+    expect(await lead2.decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNREAD_PARTS', unread_parts: [n] });
+    await lead2.read({ id: p.id, version: 1, part: n });
+    expect(await lead2.decide({ id: p.id, version: 1, decision: 'accept' })).toMatchObject({ ok: true });
+  });
+
+  it('the description says it', () => {
+    const t = documentTools(open().forRole('dev-lead')).find((x) => x.name === 'org_doc_decide')!;
+    expect(t.description).toContain('every part');
   });
 });
 

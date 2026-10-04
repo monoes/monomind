@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import type { OrgDef } from '../types.js';
 import { DocAccess, sectionRoster } from './access.js';
 import { CheckJournal } from './check-journal.js';
+import { PartJournal } from './part-journal.js';
 import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
 import { createHost, type DocumentToolHost } from './host.js';
@@ -83,6 +84,8 @@ export class DocumentsRuntime {
   notices?: NoticeEngine;
   /** The record of org_doc_check calls (P3.11): `<dir>/checks.jsonl`, created at the first call. */
   readonly checks: CheckJournal;
+  /** Which parts of each version each role has read (P3.16b): `<dir>/part-reads.jsonl`, created at the first read. */
+  readonly reads: PartJournal;
   private isClosed = false;
 
   constructor(
@@ -94,6 +97,7 @@ export class DocumentsRuntime {
   ) {
     this.access = new DocAccess(def, bindings);
     this.checks = new CheckJournal(join(dir, 'checks.jsonl'));
+    this.reads = new PartJournal(join(dir, 'part-reads.jsonl'));
     // Deliverable consistency (P3.10): only contracts that declare `deliverable_files` are ever checked.
     if (bindings.some((b) => b.contract.deliverable_files?.length))
       store.addGuard(
@@ -123,6 +127,7 @@ export class DocumentsRuntime {
         run: this.run,
         isClosed: () => this.isClosed,
         checks: this.checks,
+        reads: this.reads,
       },
       role,
     );

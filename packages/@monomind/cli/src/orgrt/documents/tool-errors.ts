@@ -10,6 +10,7 @@ export const TOOL_ERROR_CODES = [
   'ACCESS_PUBLISH',
   'ACCESS_READ',
   'ACCESS_DECIDE',
+  'UNREAD_PARTS',
   'NOT_ACCEPTED_YET',
   'PART_OUT_OF_RANGE',
   'PART_NEEDS_VERSION',
@@ -65,6 +66,8 @@ const REMEDIES: Record<DocErrorCode, string> = {
   ACCESS_READ:
     'Ask your lead; a section reads documents of a type it consumes, from the moment they are accepted.',
   ACCESS_DECIDE: 'Ask the consuming lead this result names to decide.',
+  UNREAD_PARTS:
+    'Read every part of this version with org_doc_read (page 1, then pass its version with part 2, 3 and so on), then decide.',
   NOT_ACCEPTED_YET: 'No version is accepted yet; ask again after the consuming leads have decided.',
   PART_OUT_OF_RANGE: 'Parts run from 1 to the parts value of the first page.',
   PART_NEEDS_VERSION: 'Read part 1 first, then pass its version together with part.',

@@ -167,15 +167,15 @@ describe('P3.13: a published document nobody reads reaches the lead', () => {
     expect(events().map((x) => `${x.data?.doc}@v${x.data?.version}`)).toEqual(['findings-1@v2']);
   });
 
-  it('a decision ends it (the consumer decides without a separate read)', async () => {
+  it('a decision refused for want of a read does not end it (P3.16b: a decision needs the read first)', async () => {
     const raw = org(0.5);
     const { d, runner, events } = await start(raw);
     const consumer = await runner.toolsOf(d, raw.name, CONSUMER);
     const researcher = await runner.toolsOf(d, raw.name, 'researcher');
     await publish(researcher);
-    expect(await callTool(consumer, 'org_doc_decide', { id: 'findings-1', version: 1, decision: 'accept' })).toMatchObject({ ok: true });
-    await sleep(1200);
-    expect(events()).toEqual([]);
+    expect(await callTool(consumer, 'org_doc_decide', { id: 'findings-1', version: 1, decision: 'accept' })).toMatchObject({ ok: false, code: 'UNREAD_PARTS' });
+    expect(await waitFor(() => events().length === 1)).toBe(true);
+    expect(events()[0].data).toMatchObject({ cause: 'not-read' });
   });
 
   it('lead_watch: false turns it off', async () => {

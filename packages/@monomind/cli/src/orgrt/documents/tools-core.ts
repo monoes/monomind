@@ -69,7 +69,7 @@ export function documentTools(host: DocumentToolHost): OrgToolDef[] {
     {
       name: 'org_doc_decide',
       description:
-        'Accept or reject a pending version of a document your section consumes (the consuming lead only). Accept means you rely on that exact version; reject needs a reason the producer can act on, and it reaches the producer directly. A decision is per version: a corrected version supersedes the old one and needs its own decision. A version is accepted when every consuming section accepts it. Read it first (and check it, when org_doc_check is available); expected_state_seq, when given, must match the document state_seq you read.',
+        'Accept or reject a pending version of a document your section consumes (the consuming lead only). Accept means you rely on that exact version; reject needs a reason the producer can act on, and it reaches the producer directly. A decision is per version: a corrected version supersedes the old one and needs its own decision. A version is accepted when every consuming section accepts it. Read it first, every part of it (a long document comes in parts; a decision before the last part is read is refused), and check it, when org_doc_check is available; expected_state_seq, when given, must match the document state_seq you read.',
       schema: {
         id: ref,
         version: z.number().int().positive(),

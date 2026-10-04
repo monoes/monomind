@@ -31,7 +31,8 @@ const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
 
 // Captured when P3.12 landed (the role text of guidance.ts). One per kind of role of the synthetic org below.
 const SECTIONS_ON_PRODUCER_PROMPT_SHA = '59e3661988c552a365109e7d57740de83644f00329ad335e23e2a3502916d69d';
-const SECTIONS_ON_CONSUMER_LEAD_PROMPT_SHA = 'aa89cd148a4f0b2017990f8b3cb9f7ea044b642a46eb7cfb670e41b02925d9c9';
+// P3.16b re-pin (was aa89cd14...): the consumer guidance line gains one sentence, a decision before every part is read is refused.
+const SECTIONS_ON_CONSUMER_LEAD_PROMPT_SHA = '0ae92334b81786e876153f3b8039ab1c9328e1c445529f6aaf87d0e84bfaeddf';
 const SECTIONS_ON_ROOT_PROMPT_SHA = '413bcc92ff9b931d5d2b0f87ddcdcc63a8fce9576dbaf899b737e93cd2d26601';
 const SECTIONS_ON_UNSECTIONED_PROMPT_SHA = '030cd4788cb0cf4245929a643f905bce4e58af159722866289abb91c0f5630e5';
 const PROMPT_SHAS: Record<string, string> = {

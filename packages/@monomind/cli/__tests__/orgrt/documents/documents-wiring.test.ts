@@ -94,7 +94,8 @@ async function renderTools(opts: SessionOpts): Promise<{ name: string; descripti
 // session has a documents host. The sections-off list is untouched (org-loadouts-default-off.test.ts and the
 // P3.0 goldens). The sections-ON list: the sections-off list plus the four org_doc_* tools.
 // Change it only for an intentional change to those tools; the text is also in fixtures/sections-on/.
-const SECTIONS_ON_TOOLS_SHA = '9354d469266c9616f8fb5db06cf26bbf4a4d086705a3d0222c499a7e4a612302';
+// P3.16b re-pin (was 9354d469...): org_doc_decide's description now says a decision needs every part read. Sections-ON text only.
+const SECTIONS_ON_TOOLS_SHA = 'b7fad955148d79f41c078ee4be07ee3a594a91b2ffdb8612f99fdc3098b584db';
 const DOC_TOOLS = ['org_doc_list', 'org_doc_read', 'org_doc_publish', 'org_doc_decide'];
 
 describe('org_doc_* registration', () => {

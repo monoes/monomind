@@ -13,6 +13,7 @@ import { documentTools } from '../../../src/orgrt/documents/tools-core.js';
 import { toolInputSchema } from '../../../src/orgrt/tool-fence.js';
 import { OrgDefSchema } from '../../../src/orgrt/types.js';
 import { FINDINGS, findingsOrg, role, SOURCE } from '../support/doc-defs.js';
+import { readAllParts } from '../support/doc-runner.js';
 import { DOCS, faulted, honestDoc, sweepChecksOrg, worker } from '../support/check-defs.js';
 
 const tmp = () => mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'doc-check-'));
@@ -36,6 +37,9 @@ class Caller {
   check = (a: Record<string, unknown>) => this.call('org_doc_check', a);
 }
 const as = (rt: DocumentsRuntime, r: string) => new Caller(rt, r);
+/** Every part of a version read: org_doc_decide refuses until then (P3.16b). */
+const readAll = (c: Caller, docId: string, version: number) =>
+  readAllParts((n, a) => c.call(n, a), { id: docId, version });
 const id = (doc: string) => `${doc}-1`;
 
 /** Publish every document (honest, or the harness-faulted body of a seed). */
@@ -186,6 +190,7 @@ describe('access: who may check a version is who may read it', () => {
     const analyst = as(rt, 'analyst');
     expect(await analyst.check({ id: id(DOCS[0]) })).toMatchObject({ ok: false, code: 'NOT_ACCEPTED_YET' });
     expect(await analyst.check({ id: id(DOCS[0]), version: 1 })).toMatchObject({ ok: false, code: 'ACCESS_READ' });
+    await readAll(as(rt, 'synthesiser'), id(DOCS[0]), 1);
     expect(
       await as(rt, 'synthesiser').call('org_doc_decide', { id: id(DOCS[0]), version: 1, decision: 'accept' }),
     ).toMatchObject({ ok: true, status: 'accepted' });
@@ -224,6 +229,7 @@ describe('version selection', () => {
     expect(await as(rt, worker(doc)).call('org_doc_publish', { type: doc, body: bad })).toMatchObject({ version: 1 });
     const syn = as(rt, 'synthesiser');
     expect(await syn.check({ id: id(doc) })).toMatchObject({ version: 1, passed: false });
+    await readAll(syn, id(doc), 1);
     expect(
       await syn.call('org_doc_decide', { id: id(doc), version: 1, decision: 'reject', reason: 'q05 differs from its evidence' }),
     ).toMatchObject({ ok: true, status: 'rejected' });
@@ -232,6 +238,7 @@ describe('version selection', () => {
     ).toMatchObject({ ok: true, version: 2 });
     expect(await syn.check({ id: id(doc) })).toMatchObject({ version: 2, passed: true });
     expect(await syn.check({ id: id(doc), version: 1 })).toMatchObject({ version: 1, passed: false });
+    await readAll(syn, id(doc), 2);
     await syn.call('org_doc_decide', { id: id(doc), version: 2, decision: 'accept' });
     expect(await syn.check({ id: id(doc) })).toMatchObject({ version: 2, status: 'accepted' });
     expect(await syn.check({ id: id(doc), version: 1 })).toMatchObject({ version: 1, status: 'rejected', passed: false });

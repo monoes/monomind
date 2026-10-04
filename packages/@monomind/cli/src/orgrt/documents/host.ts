@@ -11,7 +11,8 @@ import { canonicalJson } from './canonical.js';
 import type { CheckJournal } from './check-journal.js';
 import { type CheckArgs, createCheck } from './host-check.js';
 import { type ListArgs, listDocuments } from './host-list.js';
-import { shapeRead } from './host-read.js';
+import { partsOf, shapeRead } from './host-read.js';
+import type { PartJournal } from './part-journal.js';
 import { resolveReadable } from './host-resolve.js';
 import type { DocumentStore } from './store.js';
 import type { ReadPurpose } from './store-types.js';
@@ -61,6 +62,8 @@ export interface HostContext {
   isClosed(): boolean;
   /** Where org_doc_check calls are recorded (P3.11). */
   checks?: CheckJournal;
+  /** Which parts of each version a role has read (P3.16b): org_doc_decide needs every part. */
+  reads: PartJournal;
 }
 
 /** The idempotency key used when the role gives none: a digest of the call's own content, so repeating the
@@ -159,7 +162,33 @@ export function createHost(ctx: HostContext, role: string): DocumentToolHost {
         'PART_OUT_OF_RANGE',
         `${r.ref} has ${shaped.outOfRange} part${shaped.outOfRange === 1 ? '' : 's'}, not ${part}`,
       );
+    ctx.reads.record({
+      at: new Date().toISOString(),
+      by: role,
+      doc: r.id,
+      version: r.version,
+      part,
+      parts: shaped.parts as number,
+    });
     return shaped as DocResult;
+  }
+
+  /** P3.16b: a decider must have read every part of the version it decides (the one read of a single-part one). */
+  function unreadParts(id: string, version: number): DocResult | undefined {
+    const v = store.peek(id, version);
+    // an unknown version, and one already settled or superseded, get the store's own refusal
+    if (!v.ok || v.status !== 'pending') return undefined;
+    const parts = partsOf(v);
+    const read = ctx.reads.partsRead(role, id, version).filter((p) => p <= parts);
+    const missing = Array.from({ length: parts }, (_, i) => i + 1).filter((p) => !read.includes(p));
+    if (!missing.length) return undefined;
+    return failure(
+      'UNREAD_PARTS',
+      parts === 1
+        ? `you have not read ${v.ref} yet: read it before you decide`
+        : `you have read ${read.length ? `part${read.length === 1 ? '' : 's'} ${read.join(', ')}` : 'no part'} of the ${parts} parts of ${v.ref}; read part${missing.length === 1 ? '' : 's'} ${missing.join(', ')} before you decide (org_doc_read with version ${version} and part)`,
+      { ref: v.ref, parts, read_parts: read, unread_parts: missing },
+    );
   }
 
   function decide(a: DecideArgs): DocResult {
@@ -169,6 +198,8 @@ export function createHost(ctx: HostContext, role: string): DocumentToolHost {
     if (!d) return failure('UNKNOWN_DOCUMENT', `unknown document "${id}"`);
     const why = access.decideRefusal(role, d.type);
     if (why) return failure('ACCESS_DECIDE', why);
+    const unread = unreadParts(d.id, a.version);
+    if (unread) return unread;
     const key =
       a.idempotency_key ??
       derivedKey('decide', {

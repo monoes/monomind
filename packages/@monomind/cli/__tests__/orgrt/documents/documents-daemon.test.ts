@@ -83,6 +83,12 @@ describe('a sections org through the eval gate', () => {
       status: 'pending',
       waiting_on: ['qa'],
     });
+    // a decider that has not read the version is refused (P3.16b), then reads and decides
+    expect(await callTool(qaLead, 'org_doc_decide', { id: 'findings-1', version: 1, decision: 'accept' })).toMatchObject({
+      ok: false,
+      code: 'UNREAD_PARTS',
+    });
+    await callTool(qaLead, 'org_doc_read', { id: 'findings-1' });
     expect(await callTool(qaLead, 'org_doc_decide', { id: 'findings-1', version: 1, decision: 'accept' })).toMatchObject({
       ok: true,
       status: 'accepted',
@@ -93,8 +99,8 @@ describe('a sections org through the eval gate', () => {
       .trim()
       .split('\n')
       .map((l) => JSON.parse(l));
-    expect(events.map((e) => e.type)).toEqual(['published', 'read', 'decided', 'decided', 'read']);
-    expect(events.filter((e) => e.type === 'read').map((e) => e.by)).toEqual(['dev-lead', 'coder']);
+    expect(events.map((e) => e.type)).toEqual(['published', 'read', 'decided', 'read', 'decided', 'read']);
+    expect(events.filter((e) => e.type === 'read').map((e) => e.by)).toEqual(['dev-lead', 'qa-lead', 'coder']);
   });
 
   it('a sweep-3 shaped org: eight producers, the synthesiser reads and decides each of its eight documents', async () => {
