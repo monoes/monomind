@@ -136,6 +136,7 @@ describe('#360: no transitive escalation to --access full', () => {
         'crush',
         'grok',
         'kimicode',
+        'kilo',
         'opencode',
         'pi',
         'pi-rpc',
