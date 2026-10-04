@@ -19,9 +19,18 @@
 // miss the last items, so a delivered record alone is not proof the message is still there.
 import { join } from 'node:path';
 import { type RuntimeDeliver, sendRuntimeMessage } from './deliver.js';
+import type { DeliverableChange } from './deliverable-guards.js';
 import { EventLog, parseLog } from './events.js';
-import { deriveNotices, KIND_PUBLISHED, type Notice, type TypeInfo } from './notice.js';
+import {
+  deriveNotices,
+  KIND_CHANGED,
+  KIND_PUBLISHED,
+  KIND_REJECTED,
+  type Notice,
+  type TypeInfo,
+} from './notice.js';
 import { NoticeJournal } from './notice-journal.js';
+import { type CopyTo, changedRelays, deriveRelays, type RelayFact, relayFacts } from './relay.js';
 import type { DocumentStore } from './store.js';
 import type { StoreEvent } from './store-types.js';
 
@@ -41,7 +50,12 @@ export interface NoticeEngineOptions {
   store: DocumentStore;
   now?: () => Date;
   maxFailures?: number;
+  /** Producer relay (P3.9): who gets the short copy of a relay for a type produced by a section. */
+  copyTo?: CopyTo;
 }
+
+const labelOf = (n: Notice): 'notice' | 'relay' =>
+  n.kind === KIND_REJECTED || n.kind === KIND_CHANGED ? 'relay' : 'notice';
 
 export type NoticeState = 'pending' | 'delivered' | 'exhausted';
 
@@ -73,6 +87,7 @@ export class NoticeEngine {
   private closed = false;
   private chain: Promise<void> = Promise.resolve();
   private queuedPass: 'plain' | 'start' | undefined;
+  private readonly memoryOwed: Notice[] = [];
   private readonly unsubscribe: () => void;
 
   constructor(private readonly opts: NoticeEngineOptions) {
@@ -82,7 +97,7 @@ export class NoticeEngine {
     this.events = parseLog(EventLog.read(join(opts.dir, 'events.jsonl'))).events;
     this.unsubscribe = opts.store.onCommitted((e) => {
       this.events.push(e);
-      if (e.type !== 'published') return;
+      if (e.type !== 'published' && !(e.type === 'decided' && e.decision === 'reject')) return;
       this.derived = undefined;
       this.schedule('plain');
     });
@@ -123,10 +138,76 @@ export class NoticeEngine {
     }));
   }
 
-  /** Every notice the committed log obliges, in order. */
+  /** Every notice and relay the committed log (and the journalled refused accepts) oblige, in order. */
   notices(): Notice[] {
-    this.derived ??= deriveNotices(this.types(), this.events);
+    this.derived ??= this.derive();
     return this.derived;
+  }
+
+  private derive(): Notice[] {
+    const own = deriveNotices(this.types(), this.events);
+    const relays = deriveRelays(this.opts.store.contracts(), this.events, this.opts.copyTo);
+    const owed: Notice[] = this.journal.owed().map((o) => ({
+      key: o.key,
+      kind: o.kind as Notice['kind'],
+      audience: o.audience,
+      to: o.to,
+      seq: o.seq,
+      doc: o.doc,
+      version: o.version,
+      subject: o.subject,
+      body: o.body,
+    }));
+    // by the sequence of the committed event behind each; a stable sort keeps the derivation order within one
+    return [...own, ...relays, ...owed, ...this.memoryOwed]
+      .map((n, i) => ({ n, i }))
+      .sort((a, b) => a.n.seq - b.n.seq || a.i - b.i)
+      .map((x) => x.n);
+  }
+
+  /**
+   * A refused accept (deliverable files changed, P3.10) has no committed event, so its relay obligation is
+   * journalled whole the moment the guard refuses, before any delivery: a crash after this line still sends it
+   * at the next start, and a crash before it means the consumer never got the refusal either (it will retry).
+   * One relay per version and difference. If the journal write fails the obligation is kept in memory only (sent
+   * by this process, lost with it).
+   */
+  owe(c: DeliverableChange): void {
+    const t = this.opts.store.contracts().find((x) => x.type === c.type);
+    if (!t) return;
+    const seq = this.opts.store.info().seq;
+    for (const n of changedRelays(c, t, seq, this.opts.copyTo)) {
+      if (this.journal.owed().some((o) => o.key === n.key)) continue;
+      try {
+        this.journal.append({
+          t: 'owed',
+          key: n.key,
+          at: this.at(),
+          seq,
+          kind: n.kind,
+          audience: n.audience as 'producer' | 'lead',
+          to: n.to,
+          subject: n.subject,
+          body: n.body,
+          doc: n.doc,
+          version: n.version,
+        });
+      } catch {
+        this.memoryOwed.push(n);
+      }
+    }
+    this.derived = undefined;
+    this.schedule('plain');
+  }
+
+  /** Per producer relay: when it was delivered and whether and when the producer republished (P3.13). */
+  relayFacts(): RelayFact[] {
+    return relayFacts(
+      this.notices(),
+      this.events,
+      (n) => this.stateOf(n),
+      (n) => this.journal.state(n.key),
+    );
   }
 
   private stateOf(n: Notice): NoticeState {
@@ -206,6 +287,25 @@ export class NoticeEngine {
     return v;
   }
 
+  /** A delivered obligation worth sending again at a start: the recipient has not acted on it. A publish notice
+   *  stands until its decision maker reads or decides that version; a relay until the producer publishes again. */
+  private resendable(n: Notice): boolean {
+    if (n.kind === KIND_PUBLISHED) return n.version === this.headVersion(n.doc) && !this.acted(n);
+    if (n.kind === KIND_REJECTED || n.kind === KIND_CHANGED)
+      return n.audience === 'producer' && n.version === this.headVersion(n.doc);
+    return false;
+  }
+
+  /** The instruction to the producer is moot once it has replaced the version; the copy to the lead is an audit
+   *  record and is still sent. */
+  private moot(n: Notice): boolean {
+    return (
+      n.audience === 'producer' &&
+      (n.kind === KIND_REJECTED || n.kind === KIND_CHANGED) &&
+      this.headVersion(n.doc) > n.version
+    );
+  }
+
   private async pass(start: boolean): Promise<void> {
     const sink = this.sink;
     if (!sink || !this.enabled) return;
@@ -216,13 +316,20 @@ export class NoticeEngine {
       const s = this.journal.state(n.key);
       let again = false;
       if (s.deliveredAt) {
-        again =
-          start &&
-          n.kind === KIND_PUBLISHED &&
-          n.version === this.headVersion(n.doc) &&
-          !this.acted(n);
+        again = start && this.resendable(n);
         if (!again) continue;
       } else if (s.failures >= this.maxFailures) continue;
+      if (!s.deliveredAt && this.moot(n)) {
+        // a relay about a version the producer already replaced: nothing to say any more
+        this.record({
+          t: 'delivered',
+          key: n.key,
+          at: this.at(),
+          receipt: 'moot: version superseded',
+          adopted: true,
+        });
+        continue;
+      }
       if (sink.queued?.(n.to, n.subject)) {
         if (!s.deliveredAt)
           this.record({
@@ -245,8 +352,8 @@ export class NoticeEngine {
         });
         if (again)
           sink.emit?.({
-            reason: 'doc-notice-resent',
-            msg: `re-sent the notice "${n.subject}" to ${n.to}: delivered earlier, not yet read or decided`,
+            reason: `doc-${labelOf(n)}-resent`,
+            msg: `re-sent the ${labelOf(n)} "${n.subject}" to ${n.to}: delivered earlier, not yet acted on`,
             data: { key: n.key, to: n.to },
           });
         continue;
@@ -255,8 +362,8 @@ export class NoticeEngine {
       this.record({ t: 'failed', key: n.key, at: this.at(), error: out.error });
       const failures = this.journal.state(n.key).failures;
       sink.emit?.({
-        reason: failures >= this.maxFailures ? 'doc-notice-gave-up' : 'doc-notice-failed',
-        msg: `notice "${n.subject}" to ${n.to} was not delivered (${failures}/${this.maxFailures}): ${out.error}`,
+        reason: `doc-${labelOf(n)}-${failures >= this.maxFailures ? 'gave-up' : 'failed'}`,
+        msg: `${labelOf(n)} "${n.subject}" to ${n.to} was not delivered (${failures}/${this.maxFailures}): ${out.error}`,
         data: { key: n.key, to: n.to, failures, error: out.error },
       });
     }

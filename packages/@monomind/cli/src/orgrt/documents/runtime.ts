@@ -15,6 +15,7 @@ import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
 import { createHost, type DocumentToolHost } from './host.js';
 import { NoticeEngine } from './notices.js';
+import { rootRoleId } from './routing.js';
 import { DocumentStore } from './store.js';
 import type { TypeBinding } from './store-types.js';
 import { sectionsSurface } from './surface.js';
@@ -91,7 +92,12 @@ export class DocumentsRuntime {
     this.access = new DocAccess(def, bindings);
     // Deliverable consistency (P3.10): only contracts that declare `deliverable_files` are ever checked.
     if (bindings.some((b) => b.contract.deliverable_files?.length))
-      store.addGuard(deliverableGuard({ workspaceOf: (role) => this.workspaceOf?.(role) }));
+      store.addGuard(
+        deliverableGuard({
+          workspaceOf: (role) => this.workspaceOf?.(role),
+          onChanged: (c) => this.notices?.owe(c), // P3.9: the producer is told, through the journal
+        }),
+      );
   }
 
   /** Where a producing role's own files are; bound by the org start, which knows the workspace mode. */
@@ -149,6 +155,12 @@ export function openDocumentsRuntime(o: OpenOptions): DocumentsRuntime | undefin
   mkdirSync(dir, { recursive: true });
   const store = new DocumentStore({ dir, run: o.run, bindings, ...(o.now ? { now: o.now } : {}) });
   const runtime = new DocumentsRuntime(dir, o.run, store, bindings, o.def);
-  runtime.notices = new NoticeEngine({ dir, store, ...(o.now ? { now: o.now } : {}) });
+  const root = rootRoleId(o.def);
+  // P3.9: the short copy of a producer relay goes to the producing section's lead, else the root
+  const copyTo = (section: string, producer: string): string | undefined => {
+    const lead = leadOf(o.def, section);
+    return lead && lead !== producer ? lead : root !== producer ? root : undefined;
+  };
+  runtime.notices = new NoticeEngine({ dir, store, copyTo, ...(o.now ? { now: o.now } : {}) });
   return runtime;
 }

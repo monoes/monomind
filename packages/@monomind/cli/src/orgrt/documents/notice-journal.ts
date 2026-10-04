@@ -9,9 +9,27 @@ import { closeSync, existsSync, fsyncSync, openSync, readFileSync, writeSync } f
 import { dirname } from 'node:path';
 import { fsyncDir, mkdirDurable } from './durable-fs.js';
 
+/** An obligation with no committed event behind it (a refused accept, P3.9): the whole message is journalled, so
+ *  the obligation exists before the first delivery attempt and a restart can still send it. */
+export interface OwedRecord {
+  t: 'owed';
+  key: string;
+  at: string;
+  /** The store's event sequence when it was recorded (orders it among the derived obligations). */
+  seq: number;
+  kind: string;
+  audience: 'producer' | 'lead';
+  to: string;
+  subject: string;
+  body: string;
+  doc: string;
+  version: number;
+}
+
 export type JournalRecord =
   | { t: 'delivered'; key: string; at: string; receipt: string; again?: true; adopted?: true }
-  | { t: 'failed'; key: string; at: string; error: string };
+  | { t: 'failed'; key: string; at: string; error: string }
+  | OwedRecord;
 
 export interface KeyState {
   deliveredAt?: string;
@@ -23,6 +41,7 @@ export interface KeyState {
 
 export class NoticeJournal {
   private readonly states = new Map<string, KeyState>();
+  private readonly owedList: OwedRecord[] = [];
   private tornTail = false;
 
   constructor(readonly path: string) {
@@ -38,7 +57,11 @@ export class NoticeJournal {
       } catch {
         continue; // a damaged line only costs a repeat
       }
-      if (r && typeof r.key === 'string' && (r.t === 'delivered' || r.t === 'failed'))
+      if (
+        r &&
+        typeof r.key === 'string' &&
+        (r.t === 'delivered' || r.t === 'failed' || r.t === 'owed')
+      )
         this.apply(r as JournalRecord);
     }
   }
@@ -47,7 +70,16 @@ export class NoticeJournal {
     return this.states.get(key) ?? { failures: 0, redeliveries: 0 };
   }
 
+  /** The journalled obligations, in the order they were recorded. */
+  owed(): readonly OwedRecord[] {
+    return this.owedList;
+  }
+
   private apply(r: JournalRecord): void {
+    if (r.t === 'owed') {
+      if (!this.owedList.some((o) => o.key === r.key)) this.owedList.push(r);
+      return;
+    }
     const s = this.states.get(r.key) ?? { failures: 0, redeliveries: 0 };
     if (r.t === 'delivered') {
       s.deliveredAt = r.at;

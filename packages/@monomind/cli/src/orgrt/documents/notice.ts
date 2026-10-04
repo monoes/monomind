@@ -17,11 +17,21 @@ import type { StoreEvent, TypeBinding } from './store-types.js';
 
 export const KIND_PUBLISHED = 'published';
 export const KIND_ALL_AVAILABLE = 'all-available';
+/** The two producer-relay kinds (P3.9, relay.ts) travel the same machinery as the notices. */
+export const KIND_REJECTED = 'rejected';
+export const KIND_CHANGED = 'deliverable-changed';
+export type NoticeKind =
+  | typeof KIND_PUBLISHED
+  | typeof KIND_ALL_AVAILABLE
+  | typeof KIND_REJECTED
+  | typeof KIND_CHANGED;
 
 /** One thing a decision maker must be told. `key` is stable across restarts: it names the obligation. */
 export interface Notice {
   key: string;
-  kind: typeof KIND_PUBLISHED | typeof KIND_ALL_AVAILABLE;
+  kind: NoticeKind;
+  /** Relay kinds only: the producer itself, or the short copy to the lead (or root). */
+  audience?: 'producer' | 'lead';
   to: string;
   /** Sequence of the committed event that created the obligation (the publish that triggered it). */
   seq: number;
