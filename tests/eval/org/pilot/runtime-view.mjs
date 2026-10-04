@@ -5,6 +5,8 @@
 //            refusals: the real `orgrt/documents` tools, the runtime switch (`::v2r`, see runtime-switch.mjs)
 // `trialView(root)` returns {source, events, state, faultRecord}: `events` and `state.versions` have the shape of the
 // prototype's, so report.ts, handoff-metrics.mjs (and the v2 measures) and stage-gate.mjs read either unchanged.
+// P4.13: a runtime trial whose org used the Phase 4 keys also has `phase4` (counts, see phase4Of; absent when no such record
+// exists). An exhaustion notice (rework cap, loop) is an `escalation` event, not a `relay`: the relay counts do not move.
 // Plain .mjs: smoke/check.mjs runs it with node, not a TypeScript runner. Read-only; nothing here touches a role's view.
 //
 // What the runtime does not record, and so the view cannot show (every one is also a row of the parity table in
@@ -208,6 +210,17 @@ function runtimeView(root, dir) {
           ...err,
         }),
       });
+    } else if (parts[0] === 'x' || parts[0] === 'l') {
+      // P4.13: a spent rework cap (x) or loop (l) escalation, to the root and the leads involved: not a producer relay
+      events.push({
+        kind: 'escalation',
+        ...base,
+        detail: JSON.stringify({
+          kind: parts[0] === 'x' ? 'rework-exhausted' : 'loop-exhausted',
+          to: j.key.slice(j.key.lastIndexOf(':') + 1),
+          ...err,
+        }),
+      });
     } else {
       const o = owed.get(j.key);
       const dec = bySeq.get(Number(parts[1]));
@@ -234,21 +247,81 @@ function runtimeView(root, dir) {
         .filter((d) => d.startsWith('run-'))
         .sort()
     : [];
-  if (runs.length)
-    for (const b of lines(join(org, runs.at(-1), 'bus.jsonl')))
-      if (b.reason === 'cross-section-refused')
-        events.push({
-          kind: 'send-refused',
-          at: new Date(b.ts ?? 0).toISOString(),
-          ok: false,
-          role: b.from,
-          detail: `to ${b.to}`,
-        });
+  const bus = runs.length ? lines(join(org, runs.at(-1), 'bus.jsonl')) : [];
+  for (const b of bus)
+    if (b.reason === 'cross-section-refused')
+      events.push({
+        kind: 'send-refused',
+        at: new Date(b.ts ?? 0).toISOString(),
+        ok: false,
+        role: b.from,
+        detail: `to ${b.to}`,
+      });
 
   const faults = lines(join(root, 'pilot-state/faults.jsonl'));
   events.push(...faults);
   events.sort((a, b) => String(a.at).localeCompare(String(b.at))); // stable: ties keep the source order
-  return { source: 'runtime', events, state: { versions }, faultRecord: faults.length > 0 };
+  const phase4 = phase4Of(dir, journal, bus);
+  return {
+    source: 'runtime',
+    events,
+    state: { versions },
+    faultRecord: faults.length > 0,
+    ...(phase4 ? { phase4 } : {}),
+  };
+}
+
+/** P4.13: what the Phase 4 keys left, as counts: the section budget notice journal, the exhaustion notices in the delivery
+ *  journal, the part-read journal and the bus audit events of the single writer, the unread watch and lead-watch. A family is
+ *  present only when its records exist; with none of them there is no block at all (a Phase 3 trial reads as it always did). */
+function phase4Of(dir, journal, bus) {
+  const p = {};
+  const budget = lines(join(dir, 'budget-notices.jsonl'));
+  const owed = budget.filter((r) => r.t === 'owed');
+  const keysOf = (rows) => new Set(rows.map((r) => r.key));
+  const delivered = keysOf(budget.filter((r) => r.t === 'delivered'));
+  const failed = [...keysOf(budget.filter((r) => r.t === 'failed'))].filter(
+    (k) => !delivered.has(k),
+  );
+  if (owed.length || delivered.size || failed.length)
+    p.budget_notices = {
+      warnings: new Set(owed.filter((o) => o.kind === 'section-budget-warning').map((o) => o.doc))
+        .size,
+      closures: new Set(owed.filter((o) => o.kind === 'section-budget-closed').map((o) => o.doc))
+        .size,
+      delivered: delivered.size,
+      failed: failed.length,
+    };
+  const exhausted = (prefix) => {
+    const ks = [...keysOf(journal.filter((j) => j.key?.startsWith(`${prefix}:`)))];
+    return { ks, groups: new Set(ks.map((k) => k.slice(0, k.lastIndexOf(':')))).size };
+  };
+  const rework = exhausted('x');
+  if (rework.ks.length) p.rework_exhausted = { cycles: rework.groups, notices: rework.ks.length };
+  const loop = exhausted('l');
+  if (loop.ks.length) p.loop_exhausted = { loops: loop.groups, notices: loop.ks.length };
+  const parts = lines(join(dir, 'part-reads.jsonl')).filter(
+    (r) => typeof r.by === 'string' && typeof r.doc === 'string',
+  );
+  if (parts.length)
+    p.part_reads = { calls: parts.length, documents: new Set(parts.map((r) => r.doc)).size };
+  const audit = (reason) => bus.filter((b) => b.reason === reason);
+  const refused = audit('writer-refused');
+  if (refused.length) {
+    const by_role = {};
+    for (const b of refused) by_role[b.from] = (by_role[b.from] ?? 0) + 1;
+    p.writer_refused = { total: refused.length, by_role };
+  }
+  const unread = audit('doc-unread');
+  if (unread.length) p.doc_unread = unread.length;
+  const lead = audit('lead-watch');
+  if (lead.length)
+    p.lead_notices = {
+      total: lead.length,
+      silent: lead.filter((b) => b.data?.kind === 'silent').length,
+      not_started: lead.filter((b) => b.data?.kind === 'not-started').length,
+    };
+  return Object.keys(p).length ? p : undefined;
 }
 
 /** The hand-off records of a trial root, whichever layer ran. `{source: 'none'}` when it ran neither (a baseline trial). */

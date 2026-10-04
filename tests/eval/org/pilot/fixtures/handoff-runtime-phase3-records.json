@@ -1,0 +1,301 @@
+{
+  "view": {
+    "source": "runtime",
+    "events": [
+      {
+        "kind": "publish",
+        "at": "2026-10-04T10:00:01.000Z",
+        "ok": true,
+        "role": "worker-1",
+        "doc": "module-sheets-w1",
+        "version": 1
+      },
+      {
+        "kind": "notice",
+        "at": "2026-10-04T10:00:01.500Z",
+        "ok": true,
+        "role": "org-docs",
+        "doc": "module-sheets-w1",
+        "version": 1,
+        "detail": "{\"to\":\"synthesiser\",\"kind\":\"published\"}"
+      },
+      {
+        "kind": "read",
+        "at": "2026-10-04T10:00:02.000Z",
+        "ok": true,
+        "role": "synthesiser",
+        "doc": "module-sheets-w1",
+        "version": 1
+      },
+      {
+        "kind": "check",
+        "at": "2026-10-04T10:00:02.500Z",
+        "ok": true,
+        "role": "synthesiser",
+        "doc": "module-sheets-w1",
+        "version": 1,
+        "detail": "{\"answers\":4,\"flagged\":1,\"by_check\":{\"c1\":1}}"
+      },
+      {
+        "kind": "decide",
+        "at": "2026-10-04T10:00:03.000Z",
+        "ok": true,
+        "role": "synthesiser",
+        "doc": "module-sheets-w1",
+        "version": 1,
+        "detail": "reject"
+      },
+      {
+        "kind": "relay",
+        "at": "2026-10-04T10:00:03.500Z",
+        "ok": true,
+        "role": "org-docs",
+        "doc": "module-sheets-w1",
+        "version": 1,
+        "detail": "{\"to_kind\":\"producer\",\"reason\":\"rejected\",\"by\":\"synthesiser\"}"
+      },
+      {
+        "kind": "relay",
+        "at": "2026-10-04T10:00:03.600Z",
+        "ok": true,
+        "role": "org-docs",
+        "doc": "module-sheets-w1",
+        "version": 1,
+        "detail": "{\"to_kind\":\"lead\",\"reason\":\"rejected\",\"by\":\"synthesiser\"}"
+      },
+      {
+        "kind": "publish",
+        "at": "2026-10-04T10:00:04.000Z",
+        "ok": true,
+        "role": "worker-1",
+        "doc": "module-sheets-w1",
+        "version": 2
+      },
+      {
+        "kind": "notice",
+        "at": "2026-10-04T10:00:04.500Z",
+        "ok": true,
+        "role": "org-docs",
+        "doc": "module-sheets-w1",
+        "version": 2,
+        "detail": "{\"to\":\"synthesiser\",\"kind\":\"published\"}"
+      },
+      {
+        "kind": "read",
+        "at": "2026-10-04T10:00:05.000Z",
+        "ok": true,
+        "role": "synthesiser",
+        "doc": "module-sheets-w1",
+        "version": 2
+      },
+      {
+        "kind": "decide",
+        "at": "2026-10-04T10:00:06.000Z",
+        "ok": true,
+        "role": "synthesiser",
+        "doc": "module-sheets-w1",
+        "version": 2,
+        "detail": "accept"
+      }
+    ],
+    "state": {
+      "versions": {
+        "module-sheets-w1": [
+          {
+            "version": 1,
+            "at": "2026-10-04T10:00:01.000Z",
+            "by": "worker-1",
+            "content": {
+              "worker": "worker-1",
+              "sheets": []
+            },
+            "status": "rejected",
+            "decisions": {
+              "synthesiser": {
+                "decision": "reject",
+                "reason": "q05 is wrong",
+                "at": "2026-10-04T10:00:03.000Z"
+              }
+            }
+          },
+          {
+            "version": 2,
+            "at": "2026-10-04T10:00:04.000Z",
+            "by": "worker-1",
+            "content": {
+              "worker": "worker-1",
+              "sheets": []
+            },
+            "status": "accepted",
+            "decisions": {
+              "synthesiser": {
+                "decision": "accept",
+                "at": "2026-10-04T10:00:06.000Z"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "faultRecord": false
+  },
+  "metrics": {
+    "present": true,
+    "injected": null,
+    "caught": null,
+    "caught_plausible_reason": null,
+    "missed": null,
+    "undecided": null,
+    "false_rejects": 0,
+    "rejects_of_natural_errors": 1,
+    "accepted_natural_errors": 1,
+    "faults": [],
+    "v2": {
+      "doc_check": {
+        "calls": 1,
+        "refused": 0,
+        "by_consumer": 1,
+        "docs_checked": [
+          "module-sheets-w1"
+        ],
+        "flagged_answers": 1,
+        "flagged_by_check": {
+          "c1": 1
+        },
+        "versions_flagged": [
+          "module-sheets-w1#1"
+        ],
+        "faults_flagged": null,
+        "faults_checked_unflagged": null,
+        "faults_never_checked": null
+      },
+      "consistency_refusals_at_publish": {
+        "count": 0,
+        "files": []
+      },
+      "accepts_refused_changed_deliverable": {
+        "count": 0,
+        "files": []
+      },
+      "producer_relay": {
+        "sent_to_producer": 1,
+        "copies_to_lead": 1,
+        "failed": 0,
+        "by_reason": {
+          "rejected": 1
+        }
+      },
+      "consumer_notices": {
+        "sent": 2,
+        "failed": 0,
+        "published": 2,
+        "all_available": 0
+      },
+      "fault_flags": {}
+    },
+    "calls": {
+      "worker-1": {
+        "publish": {
+          "ok": 2,
+          "refused": 0
+        }
+      },
+      "synthesiser": {
+        "read": {
+          "ok": 2,
+          "refused": 0
+        },
+        "decide": {
+          "ok": 2,
+          "refused": 0
+        }
+      }
+    },
+    "docs_read": {
+      "synthesiser": [
+        "module-sheets-w1"
+      ]
+    },
+    "docs_decided": {
+      "synthesiser": [
+        "module-sheets-w1"
+      ]
+    },
+    "republish_cycles": 1,
+    "republished_after_reject": null,
+    "docs": {
+      "module-sheets-w1": {
+        "versions": 2,
+        "final_accepted_version": 2,
+        "final_accepted_correct": false,
+        "final_accepted_corrupted": null,
+        "natural_errors": [
+          1,
+          2
+        ]
+      }
+    },
+    "final_accepted_docs": 1,
+    "final_accepted_correct": 0,
+    "final_accepted_corrupted": null,
+    "synthesis_written": false,
+    "synthesis_exact": false,
+    "synthesis_used_corrupted": null,
+    "synthesis_used_rejected": null,
+    "docs_without_accept_at_synthesis": null,
+    "seconds": {
+      "first_read": 1791108001,
+      "first_decide": 1791108002,
+      "last_decide": 1791108005,
+      "last_publish": 1791108003,
+      "synthesis_file": null
+    },
+    "cost_usd": {
+      "workers": 0.5,
+      "lead": 0,
+      "synthesiser": 0.25,
+      "total": 0.75
+    },
+    "handoff_layer": "runtime",
+    "fault_record": "n/a: the runtime has no fault injector"
+  },
+  "handoff": {
+    "publish": {
+      "ok": 2,
+      "refused": 0
+    },
+    "read": {
+      "ok": 2,
+      "refused": 0
+    },
+    "decide": {
+      "ok": 2,
+      "refused": 0
+    },
+    "sendRefused": 0,
+    "total": 6,
+    "check": {
+      "ok": 1,
+      "refused": 0
+    },
+    "relays": 2
+  },
+  "handoffByRole": {
+    "worker-1": {
+      "publish": {
+        "ok": 2,
+        "refused": 0
+      }
+    },
+    "synthesiser": {
+      "read": {
+        "ok": 2,
+        "refused": 0
+      },
+      "decide": {
+        "ok": 2,
+        "refused": 0
+      }
+    }
+  }
+}

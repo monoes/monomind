@@ -23,6 +23,19 @@ export interface HandoffCounts {
   check?: { ok: number; refused: number };
   /** Messages the producer relay sent (to the producer and the lead's copy; variant v2 only). */
   relays?: number;
+  /** P4.13: counts from the records the Phase 4 keys leave (runtime trials only; each family appears only when its records
+   *  exist, and the whole block only when one does). The harness has no Phase 4 behaviour, so it never has them. */
+  phase4?: Phase4Counts;
+}
+
+export interface Phase4Counts {
+  budget_notices?: { warnings: number; closures: number; delivered: number; failed: number };
+  rework_exhausted?: { cycles: number; notices: number };
+  loop_exhausted?: { loops: number; notices: number };
+  part_reads?: { calls: number; documents: number };
+  writer_refused?: { total: number; by_role: Record<string, number> };
+  doc_unread?: number;
+  lead_notices?: { total: number; silent: number; not_started: number };
 }
 
 export interface PilotRow extends TrialRow {
@@ -136,6 +149,7 @@ export function pilotRow(root: string): PilotRow {
       (handoff.check ??= { ok: 0, refused: 0 })[e.ok ? 'ok' : 'refused']++;
     } else if (e.kind === 'relay' && e.ok) handoff.relays = (handoff.relays ?? 0) + 1;
   }
+  if (view.phase4) handoff.phase4 = view.phase4;
   const unitsFile = join(root, 'units.json');
   const decisions = existsSync(unitsFile)
     ? JSON.parse(readFileSync(unitsFile, 'utf8')).handoff

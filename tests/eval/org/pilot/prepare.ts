@@ -100,7 +100,11 @@ export async function preparePilotTrial(o: {
     const def = JSON.parse(readFileSync(orgFile, 'utf8'));
     const out = runtime
       ? // the run's store lives in the org directory: no role may read or write it (what hiding pilot-state/ was for the harness store)
-        runtimeOrgDef(def, pilot, { hide: [join(root, '.monomind/orgs', trial.name, 'docs')] })
+        runtimeOrgDef(def, pilot, {
+          hide: [join(root, '.monomind/orgs', trial.name, 'docs')],
+          // P4.13: the Phase 4 keys a variant declares (none of the committed manifests does), runtime only
+          ...(variant?.phase4 ? { phase4: variant.phase4 } : {}),
+        })
       : pilotOrgDef(def, pilot);
     writeFileSync(orgFile, `${JSON.stringify(out, null, 2)}\n`);
     if (runtime) trial.task = runtimeText(trial.task);
@@ -116,6 +120,7 @@ export async function preparePilotTrial(o: {
             declaredChange: variant.declared_change,
             ownerApproved: true,
             ...(runtime ? { handoff: 'runtime', base: variant.base } : {}),
+            ...(runtime && variant.phase4 ? { phase4: variant.phase4 } : {}),
           },
         }
       : {}),

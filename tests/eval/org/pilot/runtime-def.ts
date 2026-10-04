@@ -22,6 +22,23 @@ import type { DocContract } from './store.js';
 
 type Def = { roles: Record<string, any>[]; run_config?: Record<string, any> } & Record<string, any>;
 
+/** P4.13, the Phase 4 keys a pilot variant may carry when it runs on the runtime (optional, default OFF): per section
+ *  `writes`, `budget` ({usd}) and `max_rework_rounds`, the org's `loops` and its `budget_usd`. They are copied into the
+ *  generated sections definition exactly as given; the runtime's own definition checks decide whether they are valid. A trial
+ *  that does not declare any gets the definition it always got. The harness has no Phase 4 behaviour, so this only exists on
+ *  the runtime path (Phase 4 is runtime-only; see the migration notes). */
+export interface Phase4Section {
+  writes?: string[];
+  budget?: { usd: number };
+  max_rework_rounds?: number;
+}
+export interface Phase4Input {
+  sections?: Record<string, Phase4Section>;
+  loops?: Array<{ between: [string, string]; types: string[]; max_rounds: number }>;
+  budget_usd?: number;
+}
+const SECTION_KEYS = ['writes', 'budget', 'max_rework_rounds'] as const;
+
 /** The runtime's own sender for notices and relays (the harness's was `pilot-relay`). */
 export const RUNTIME_SENDER = 'org-docs';
 
@@ -38,6 +55,13 @@ export function runtimeText(s: string): string {
 
 const unique = (xs: string[]) => [...new Set(xs)];
 
+/** The Phase 4 keys one section declares, and only those it declares. */
+function phase4SectionKeys(p?: Phase4Section) {
+  return Object.fromEntries(
+    SECTION_KEYS.filter((k) => p?.[k] !== undefined).map((k) => [k, structuredClone(p?.[k])]),
+  );
+}
+
 function documentOf(c: DocContract): Record<string, unknown> {
   return {
     schema: structuredClone(c.schema),
@@ -51,8 +75,21 @@ function documentOf(c: DocContract): Record<string, unknown> {
 }
 
 /** Why the trial cannot be translated: every reason, so a manifest author fixes them in one pass. */
-function problemsOf(def: Def, trial: Pick<PilotTrial, 'routing' | 'contracts'>): string[] {
+function problemsOf(
+  def: Def,
+  trial: Pick<PilotTrial, 'routing' | 'contracts'>,
+  phase4?: Phase4Input,
+): string[] {
   const out: string[] = [];
+  for (const name of Object.keys(phase4?.sections ?? {}))
+    if (!trial.routing.sections[name])
+      out.push(`phase4.sections.${name}: the routing map has no such section`);
+  if (phase4?.loops?.length && 'loops' in def)
+    out.push('the definition already has "loops": phase4.loops would replace it');
+  if (phase4?.budget_usd !== undefined && def.run_config?.budget_usd !== undefined)
+    out.push(
+      'the definition already has run_config.budget_usd: phase4.budget_usd would replace it',
+    );
   for (const k of ['sections', 'documents', 'requires'])
     if (k in def)
       out.push(`the definition already has "${k}": a pilot definition is Phase 2 without sections`);
@@ -87,9 +124,9 @@ function problemsOf(def: Def, trial: Pick<PilotTrial, 'routing' | 'contracts'>):
 export function runtimeOrgDef<D extends Def>(
   def: D,
   trial: Pick<PilotTrial, 'routing' | 'contracts'>,
-  o: { hide?: string[] } = {},
+  o: { hide?: string[]; phase4?: Phase4Input } = {},
 ): D {
-  const problems = problemsOf(def, trial);
+  const problems = problemsOf(def, trial, o.phase4);
   if (problems.length) throw new RuntimeDefError(problems);
   const sections: Record<string, Record<string, unknown>> = {};
   for (const [name, s] of Object.entries(trial.routing.sections)) {
@@ -101,6 +138,7 @@ export function runtimeOrgDef<D extends Def>(
       members: roster,
       ...(publishes.length ? { publishes } : {}),
       ...(consumes.length ? { consumes } : {}),
+      ...phase4SectionKeys(o.phase4?.sections?.[name]),
     };
   }
   const documents = Object.fromEntries(trial.contracts.map((c) => [c.id, documentOf(c)]));
@@ -123,9 +161,11 @@ export function runtimeOrgDef<D extends Def>(
     requires: { sections: 1 },
     run_config: {
       ...(def.run_config ?? {}),
+      ...(o.phase4?.budget_usd !== undefined ? { budget_usd: o.phase4.budget_usd } : {}),
       experimental: 'eval',
       completion: { mode, protocol: 'sections-v1' },
     },
+    ...(o.phase4?.loops?.length ? { loops: structuredClone(o.phase4.loops) } : {}),
     sections,
     documents,
     roles,

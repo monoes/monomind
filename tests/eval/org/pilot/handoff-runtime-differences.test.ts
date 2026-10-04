@@ -13,7 +13,7 @@ import {
 import { faultInjector, planFaults } from './fault-injection.js';
 import { pilotOrgDef, RELAY_SENDER } from './harness.js';
 import { crossSectionRefusal } from './routing.js';
-import { RUNTIME_SENDER } from './runtime-def.js';
+import { RUNTIME_SENDER, runtimeOrgDef } from './runtime-def.js';
 import {
   bumped,
   HarnessWorld,
@@ -143,6 +143,15 @@ export const DIFFERENCES = [
       'cross-section send: "REFUSED: ... org_doc_publish, or raise it with the root, who can reach any section"; audited on the bus as cross-section-refused',
     reason:
       'tool names, and the root sentence: the harness keeps the measured text that points at a lead-to-lead path, the runtime text no longer does (open item 25, P4.9); the allow/refuse decisions are equal (parity test)',
+  },
+  {
+    id: 'phase4-keys',
+    harness:
+      'none of the Phase 4 keys exist: no single writer, no section budget, no rework cap, no loop, no lead rights; a harness trial has no budget, escalation or writer records',
+    runtime:
+      'writes, budget, max_rework_rounds and loops act in the real daemon; a variant may carry them (a phase4 block, default off) only on the r switch, and the trial reads with a phase4 block of counts when their records exist',
+    reason:
+      'Phase 4 is runtime-only (spec 13.2): building the keys into the prototype would measure a different thing, and no committed manifest declares them (runtime-def-phase4.test.ts, handoff-runtime-phase4.test.ts)',
   },
 ];
 
@@ -375,10 +384,31 @@ describe('differences that need their own small scenario', () => {
     ).text;
     const hText = crossSectionRefusal(miniRouting(), 'worker-1', 'worker-3');
     expect(hText).toMatch(/^Refused: .*pilot__doc_publish/);
-    expect(text).toMatch(/^REFUSED: .*org_doc_publish.*raise it with the root, who can reach any section/);
+    expect(text).toMatch(
+      /^REFUSED: .*org_doc_publish.*raise it with the root, who can reach any section/,
+    );
     expect(running.busEvents().filter((e) => e.reason === 'cross-section-refused')).toHaveLength(1);
     prove('refusal-text');
   }, 60000);
+
+  it('the Phase 4 keys exist on the runtime definition only: the harness definition has none of them', () => {
+    const rtDef = runtimeMiniDef('/x');
+    const harnessDef = pilotOrgDef(
+      { name: 'x', roles: rtDef.roles.map((x) => ({ id: x.id, responsibilities: [] })) },
+      miniTrial('harness'),
+    );
+    for (const k of ['sections', 'loops', 'requires']) expect(harnessDef[k]).toBeUndefined();
+    expect(harnessDef.run_config?.budget_usd).toBeUndefined();
+    const withKeys = runtimeOrgDef(
+      { name: 'x', roles: rtDef.roles.map((x) => ({ id: x.id, responsibilities: [] })) },
+      miniTrial('runtime'),
+      { phase4: { sections: { synthesis: { max_rework_rounds: 2 } }, budget_usd: 50 } },
+    );
+    expect(withKeys.sections.synthesis.max_rework_rounds).toBe(2);
+    expect(withKeys.run_config.budget_usd).toBe(50);
+    expect(trialView(tmp('p413-none')).phase4).toBeUndefined();
+    prove('phase4-keys');
+  });
 
   it('every row of the table was proved by a check above', () => {
     expect([...proved].sort()).toEqual(DIFFERENCES.map((x) => x.id).sort());

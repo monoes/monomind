@@ -244,6 +244,8 @@ export function handoffMetrics({ root, truth }) {
     accepted_natural_errors: acceptedNatural,
     faults,
     v2: v2Metrics(events, faultEvents, CONSUMER),
+    // P4.13: the counts the Phase 4 keys' records give, present only when the runtime left such records
+    ...(view.phase4 ? { phase4: view.phase4 } : {}),
     calls,
     docs_read: Object.fromEntries(Object.entries(docsRead).map(([r, s]) => [r, [...s].sort()])),
     docs_decided: Object.fromEntries(
