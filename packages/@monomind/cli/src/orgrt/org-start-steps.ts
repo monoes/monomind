@@ -19,11 +19,13 @@ import {
 } from './checkpoint.js';
 import * as crossOrg from './cross-org.js';
 import type { OrgDaemon } from './daemon.js';
+import { acquireDaemonLock } from './daemon-lock.js';
 import { activeRoleCount, type RunningOrg } from './daemon-types.js';
 import { RUNTIME_SENDER } from './documents/deliver.js';
 import { assertEvalGate } from './documents/eval-gate.js';
 import { type DocumentsRuntime, openDocumentsRuntime } from './documents/runtime.js';
 import { bindSectionBudget } from './documents/section-budget-run.js';
+import { sectionsSurface } from './documents/surface.js';
 import {
   agentRoles,
   isEndpointRole,
@@ -98,6 +100,12 @@ export async function prepareOrgStart(
   pinInstructionDigests(def, digests);
   // Sections spec 9.2: a sections org starts only through the eval harness.
   assertEvalGate(def, name, options);
+  // GA row R1: a sections org has one OS-held owner per root. Held until the org
+  // stops (stopOrg) or this start fails (startOrg); the OS drops it on a crash.
+  if (sectionsSurface(def).enabled) {
+    daemon.releaseDaemonLock(name);
+    daemon.daemonLocks.set(name, await acquireDaemonLock(daemon.root, name));
+  }
   // #502 review: the single enforcement point for unconfined roles (warn-only
   // until the operator decides whether to refuse them).
   enforceConfinement(def, name);

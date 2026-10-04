@@ -43,6 +43,7 @@ export async function stopOrg(
     await p;
   } finally {
     daemon.stopping.delete(name);
+    daemon.releaseDaemonLock(name);
   }
 }
 
