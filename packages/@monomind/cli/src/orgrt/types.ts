@@ -95,6 +95,10 @@ export const OrgDefSchema = z
             z.object({
               not_started_s: z.number().positive().optional(),
               silent_s: z.number().positive().optional(),
+              /** A sections org only (documents/unread-watch.ts): seconds a published document may
+               *  sit unread, or its publication notice undelivered, before the lead is told.
+               *  Fractions allowed. No schema default; 120 applies when a documents runtime exists. */
+              unread_s: z.number().positive().optional(),
             }),
           ])
           .optional(),

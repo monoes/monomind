@@ -15,6 +15,7 @@ import {
   type WaitHold,
   writeIdleRecord,
 } from './idle-deadline.js';
+import { startUnreadWatch } from './documents/unread-watch-run.js';
 import { startLeadWatch } from './lead-watch.js';
 import { taskTag } from './loadouts.js';
 import * as questionOps from './questions.js';
@@ -81,7 +82,15 @@ export function startIdleWatchdog(
     bus.subscribe((e) => ledger.observe(e));
   }
   const stopLeadWatch = startLeadWatch(daemon, name, running, roleActivity);
-  if (stopLeadWatch) daemon.leadWatches.set(name, stopLeadWatch);
+  const stopUnreadWatch = startUnreadWatch(daemon, name, running); // sections orgs only (P3.13)
+  const stopWatches =
+    stopLeadWatch && stopUnreadWatch
+      ? () => {
+          stopLeadWatch();
+          stopUnreadWatch();
+        }
+      : (stopLeadWatch ?? stopUnreadWatch);
+  if (stopWatches) daemon.leadWatches.set(name, stopWatches);
   // Idle watchdog: a hung tool call (or a run that quietly finished without
   // org_complete) produces no bus events, and every agent just waits. After
   // idle_minutes of silence, nudge the boss to complete or reassign; if the
