@@ -20,17 +20,20 @@ export const KIND_ALL_AVAILABLE = 'all-available';
 /** The two producer-relay kinds (P3.9, relay.ts) travel the same machinery as the notices. */
 export const KIND_REJECTED = 'rejected';
 export const KIND_CHANGED = 'deliverable-changed';
+/** A review cycle that reached its max_rework_rounds (P4.7, rework.ts): to the root and the leads involved. */
+export const KIND_EXHAUSTED = 'rework-exhausted';
 export type NoticeKind =
   | typeof KIND_PUBLISHED
   | typeof KIND_ALL_AVAILABLE
   | typeof KIND_REJECTED
-  | typeof KIND_CHANGED;
+  | typeof KIND_CHANGED
+  | typeof KIND_EXHAUSTED;
 
 /** One thing a decision maker must be told. `key` is stable across restarts: it names the obligation. */
 export interface Notice {
   key: string;
   kind: NoticeKind;
-  /** Relay kinds only: the producer itself, or the short copy to the lead (or root). */
+  /** Relay kinds, and the copies of an exhaustion notice: the producer itself, or the short copy to the lead (or root). */
   audience?: 'producer' | 'lead';
   to: string;
   /** Sequence of the committed event that created the obligation (the publish that triggered it). */

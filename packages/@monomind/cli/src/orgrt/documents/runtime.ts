@@ -15,6 +15,8 @@ import { CheckJournal } from './check-journal.js';
 import { PartJournal } from './part-journal.js';
 import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
+import { capsFromDef, reworkFacts, rootMayDecide, type ReworkFact } from './rework.js';
+import { reworkGuard } from './rework-guard.js';
 import { createHost, type DocumentToolHost } from './host.js';
 import { NoticeEngine } from './notices.js';
 import { rootRoleId } from './routing.js';
@@ -87,6 +89,8 @@ export class DocumentsRuntime {
   /** Which parts of each version each role has read (P3.16b): `<dir>/part-reads.jsonl`, created at the first read. */
   readonly reads: PartJournal;
   private isClosed = false;
+  private reworkOn = false;
+  private readonly def: OrgDef;
 
   constructor(
     readonly dir: string,
@@ -95,6 +99,7 @@ export class DocumentsRuntime {
     readonly bindings: readonly TypeBinding[],
     def: OrgDef,
   ) {
+    this.def = def;
     this.access = new DocAccess(def, bindings);
     this.checks = new CheckJournal(join(dir, 'checks.jsonl'));
     this.reads = new PartJournal(join(dir, 'part-reads.jsonl'));
@@ -114,6 +119,34 @@ export class DocumentsRuntime {
     this.workspaceOf = f;
   }
 
+  /**
+   * `max_rework_rounds` enforcement (P4.7), installed once and only when some section declares a cap (at open, or
+   * at a reload that adds the first): the freeze guard on the store and the exhaustion notice. The caps are read
+   * from the live definition every time, so a reload that raises or lowers one thaws or freezes a thread.
+   */
+  enableRework(): void {
+    if (this.reworkOn) return;
+    this.reworkOn = true;
+    const root = rootRoleId(this.def);
+    const caps = () => capsFromDef(this.def);
+    this.store.addGuard(reworkGuard({ state: () => this.store.state, caps, root }));
+    this.notices?.useRework({
+      caps,
+      root,
+      recipients: (t) => {
+        const d = this.store.state.docs[t.doc];
+        const told = d?.versions[(t.rejected_versions.at(-1) ?? 1) - 1]?.by; // the producer has its own relay
+        const to = [root, leadOf(this.def, t.producer_section), leadOf(this.def, t.consumer)];
+        return [...new Set(to.filter((r): r is string => !!r && r !== told))];
+      },
+    });
+  }
+
+  /** The review threads and whether each is frozen (a pure function of the store and the live caps). */
+  reworkReport(): ReworkFact[] {
+    return this.reworkOn ? reworkFacts(this.store.state, capsFromDef(this.def)) : [];
+  }
+
   get closed(): boolean {
     return this.isClosed;
   }
@@ -128,6 +161,8 @@ export class DocumentsRuntime {
         isClosed: () => this.isClosed,
         checks: this.checks,
         reads: this.reads,
+        rootMayDecide: (doc, version) =>
+          this.reworkOn ? rootMayDecide(this.store.state, capsFromDef(this.def), doc, version) : undefined,
       },
       role,
     );
@@ -177,5 +212,6 @@ export function openDocumentsRuntime(o: OpenOptions): DocumentsRuntime | undefin
     return lead && lead !== producer ? lead : root !== producer ? root : undefined;
   };
   runtime.notices = new NoticeEngine({ dir, store, copyTo, ...(o.now ? { now: o.now } : {}) });
+  if (Object.keys(capsFromDef(o.def)).length > 0) runtime.enableRework(); // P4.7: only when a section sets a cap
   return runtime;
 }

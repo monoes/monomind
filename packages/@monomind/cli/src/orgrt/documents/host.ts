@@ -64,6 +64,8 @@ export interface HostContext {
   checks?: CheckJournal;
   /** Which parts of each version a role has read (P3.16b): org_doc_decide needs every part. */
   reads: PartJournal;
+  /** The consuming section whose spent review cycle makes `doc` version `version` the root's to decide (P4.7). */
+  rootMayDecide?(doc: string, version: number): string | undefined;
 }
 
 /** The idempotency key used when the role gives none: a digest of the call's own content, so repeating the
@@ -196,7 +198,8 @@ export function createHost(ctx: HostContext, role: string): DocumentToolHost {
     const id = String(a.id);
     const d = store.list({ id })[0];
     if (!d) return failure('UNKNOWN_DOCUMENT', `unknown document "${id}"`);
-    const why = access.decideRefusal(role, d.type);
+    const over = role === access.root ? ctx.rootMayDecide?.(d.id, a.version) : undefined;
+    const why = access.decideRefusal(role, d.type, over !== undefined);
     if (why) return failure('ACCESS_DECIDE', why);
     const unread = unreadParts(d.id, a.version);
     if (unread) return unread;
@@ -208,15 +211,19 @@ export function createHost(ctx: HostContext, role: string): DocumentToolHost {
         decision: a.decision,
         reason: a.reason ?? null,
       });
-    const r = store.decide({
-      role,
-      id,
-      version: a.version,
-      decision: a.decision,
-      idempotency_key: key,
-      ...(a.reason !== undefined ? { reason: a.reason } : {}),
-      ...(a.expected_state_seq !== undefined ? { expected_state_seq: a.expected_state_seq } : {}),
-    });
+    const r = store.decide(
+      {
+        role,
+        id,
+        version: a.version,
+        decision: a.decision,
+        idempotency_key: key,
+        ...(a.reason !== undefined ? { reason: a.reason } : {}),
+        ...(a.expected_state_seq !== undefined ? { expected_state_seq: a.expected_state_seq } : {}),
+        ...(over !== undefined ? { consumer: over } : {}),
+      },
+      over,
+    );
     if (!r.ok) return fromRefusal(r);
     return {
       ok: true,

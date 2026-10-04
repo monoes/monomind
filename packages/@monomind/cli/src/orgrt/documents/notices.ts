@@ -24,12 +24,14 @@ import { EventLog, parseLog } from './events.js';
 import {
   deriveNotices,
   KIND_CHANGED,
+  KIND_EXHAUSTED,
   KIND_PUBLISHED,
   KIND_REJECTED,
   type Notice,
   type TypeInfo,
 } from './notice.js';
 import { NoticeJournal } from './notice-journal.js';
+import { deriveReworkNotices, frozenThreads, type ReworkEscalation } from './rework.js';
 import { type CopyTo, changedRelays, deriveRelays, type RelayFact, relayFacts } from './relay.js';
 import type { DocumentStore } from './store.js';
 import type { StoreEvent } from './store-types.js';
@@ -82,6 +84,8 @@ export class NoticeEngine {
   private readonly maxFailures: number;
   private readonly now: () => Date;
   private derived: Notice[] | undefined;
+  private rework: ReworkEscalation | undefined;
+  private capsKey = '';
   private sink: NoticeSink | undefined;
   private enabled = true;
   private closed = false;
@@ -101,6 +105,13 @@ export class NoticeEngine {
       this.derived = undefined;
       this.schedule('plain');
     });
+  }
+
+  /** Turn on the max_rework_rounds enforcement (P4.7): the relay says the round, and a spent thread owes the
+   *  root and the leads one notice. The caps are read at every derivation, so a reload moves them. */
+  useRework(esc: ReworkEscalation): void {
+    this.rework = esc;
+    this.derived = undefined;
   }
 
   /** Test-only switch: with notices off nothing is sent and the obligations stay pending (the deadlock regression). */
@@ -140,13 +151,24 @@ export class NoticeEngine {
 
   /** Every notice and relay the committed log (and the journalled refused accepts) oblige, in order. */
   notices(): Notice[] {
+    const key = this.rework ? JSON.stringify(this.rework.caps()) : '';
+    if (key !== this.capsKey) {
+      this.capsKey = key;
+      this.derived = undefined;
+    }
     this.derived ??= this.derive();
     return this.derived;
   }
 
   private derive(): Notice[] {
     const own = deriveNotices(this.types(), this.events);
-    const relays = deriveRelays(this.opts.store.contracts(), this.events, this.opts.copyTo);
+    const relays = deriveRelays(
+      this.opts.store.contracts(),
+      this.events,
+      this.opts.copyTo,
+      this.rework?.caps(),
+    );
+    const spent = this.rework ? deriveReworkNotices(this.events, this.rework) : [];
     const owed: Notice[] = this.journal.owed().map((o) => ({
       key: o.key,
       kind: o.kind as Notice['kind'],
@@ -159,7 +181,7 @@ export class NoticeEngine {
       body: o.body,
     }));
     // by the sequence of the committed event behind each; a stable sort keeps the derivation order within one
-    return [...own, ...relays, ...owed, ...this.memoryOwed]
+    return [...own, ...relays, ...spent, ...owed, ...this.memoryOwed]
       .map((n, i) => ({ n, i }))
       .sort((a, b) => a.n.seq - b.n.seq || a.i - b.i)
       .map((x) => x.n);
@@ -293,6 +315,16 @@ export class NoticeEngine {
     if (n.kind === KIND_PUBLISHED) return n.version === this.headVersion(n.doc) && !this.acted(n);
     if (n.kind === KIND_REJECTED || n.kind === KIND_CHANGED)
       return n.audience === 'producer' && n.version === this.headVersion(n.doc);
+    // a spent thread stands until it is decided or its cap is raised; a recipient that has since read or decided
+    // the document has seen it
+    if (n.kind === KIND_EXHAUSTED)
+      return (
+        !!this.rework &&
+        frozenThreads(this.opts.store.state, this.rework.caps(), n.doc).length > 0 &&
+        !this.events.some(
+          (e) => (e.type === 'read' || e.type === 'decided') && e.by === n.to && e.doc === n.doc && e.seq > n.seq,
+        )
+      );
     return false;
   }
 

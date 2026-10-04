@@ -450,8 +450,9 @@ export class DocumentStore implements StoreCtx {
     return this.guarded(() => doPublish(this, req));
   }
 
-  decide(req: DecideRequest): DecideReceipt | Refusal {
-    return this.guarded(() => doDecide(this, req));
+  /** `override`: the consuming section the root decides for on a thread whose rework cap is spent (P4.7). */
+  decide(req: DecideRequest, override?: string): DecideReceipt | Refusal {
+    return this.guarded(() => doDecide(this, req, override));
   }
 
   /** Read a version and record the read (`read` event: who, which version, why). */

@@ -73,6 +73,8 @@ export function deriveRelays(
   types: readonly RelayType[],
   events: readonly StoreEvent[],
   copyTo?: CopyTo,
+  /** `max_rework_rounds` per consuming section (P4.7). Without an entry the text is the one of P3.9. */
+  caps: Readonly<Record<string, number | undefined>> = {},
 ): Notice[] {
   const byType = new Map(types.map((t) => [t.type, t]));
   const out: Notice[] = [];
@@ -98,6 +100,8 @@ export function deriveRelays(
       const files = t.contract.deliverable_files.map((d) => d.file);
       const base = { kind: KIND_REJECTED, seq: e.seq, doc: e.doc, version: e.version } as const;
       const rounds = rework.get(rk) ?? 1;
+      const cap = caps[e.consumer];
+      const spent = cap !== undefined && rounds >= cap;
       const reason = e.reason ?? '';
       out.push(
         build(
@@ -109,9 +113,13 @@ export function deriveRelays(
           [
             `${e.by} (${e.consumer}) rejected version ${e.version} of document "${e.doc}" (contract: ${t.type} ${rev(e.contract_revision)}).`,
             `Reason given: ${capReason(reason, REASON_CAP)}`,
-            `Rework rounds so far for this document from ${e.consumer}: ${rounds}.`,
+            cap === undefined
+              ? `Rework rounds so far for this document from ${e.consumer}: ${rounds}.`
+              : `This is rework round ${rounds} of ${cap} for this document from ${e.consumer}.`,
             line,
-            `What to do: check the underlying deliverable${files.length ? ` (${files.join(', ')})` : ''} against the code and fix it if the reason holds, then publish a corrected version with org_doc_publish (supersedes: "${e.doc}@v${e.version}"); it replaces the rejected one. If you are sure the reason is wrong, publish the same content again with a short note (the note argument of org_doc_publish) saying why.`,
+            spent
+              ? `The cap of ${cap} rework rounds is spent, so this document is frozen: org_doc_publish will refuse a revision of it. Do not publish it again; wait for the root or your section lead to decide it (both have been told).`
+              : `What to do: check the underlying deliverable${files.length ? ` (${files.join(', ')})` : ''} against the code and fix it if the reason holds, then publish a corrected version with org_doc_publish (supersedes: "${e.doc}@v${e.version}"); it replaces the rejected one. If you are sure the reason is wrong, publish the same content again with a short note (the note argument of org_doc_publish) saying why.`,
           ].join(' '),
         ),
       );
@@ -124,7 +132,7 @@ export function deriveRelays(
             lead,
             'lead',
             `${subject} (copy)`,
-            `${e.by} rejected ${e.doc} v${e.version}: ${capReason(reason, COPY_REASON_CAP)} (${p.by} was notified directly, no relay needed; publish attempts left ${left}${left === 0 ? ', the section lead must take over' : ''}).`,
+            `${e.by} rejected ${e.doc} v${e.version}: ${capReason(reason, COPY_REASON_CAP)} (${p.by} was notified directly, no relay needed; publish attempts left ${left}${left === 0 ? ', the section lead must take over' : ''}${cap === undefined ? '' : `; rework round ${rounds} of ${cap}${spent ? ', the cap is spent and the root decides' : ''}`}).`,
           ),
         );
     }

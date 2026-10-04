@@ -107,6 +107,11 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/writer-daemon.test.ts`]: { writes: 2 },
   [`${P}/documents/writer-definition.test.ts`]: { writes: 8 },
   [`${P}/documents/writer-effective-policy.test.ts`]: { writes: 2 },
+  // P4.7 rework cap enforced: definitions that set `max_rework_rounds` on a section to test the thread facts, the freeze guard,
+  // the notice and the daemon path. P4.8 does not re-pin these.
+  [`${P}/documents/rework-daemon.test.ts`]: { max_rework_rounds: 1 },
+  [`${P}/documents/rework-guard.test.ts`]: { max_rework_rounds: 4 },
+  [`${P}/documents/rework.test.ts`]: { max_rework_rounds: 11 },
 };
 
 describe('phase4 inert: fixture inventory', () => {

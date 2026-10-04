@@ -179,7 +179,12 @@ export function applyEvent(s: DocState, e: StoreEvent): void {
         v.consumers.includes(e.consumer),
         `${e.consumer} is not a consumer of ${e.doc} v${e.version}`,
       );
-      need(e, !v.decisions[e.consumer], `${e.consumer} already decided ${e.doc} v${e.version}`);
+      const standing = v.decisions[e.consumer];
+      if (e.override) {
+        // the root replacing the consumer's rejection of a spent review cycle (P4.7): a rejection becomes an accept
+        need(e, standing?.decision === 'reject' && e.decision === 'accept', `${e.doc} v${e.version} has no rejection to override`);
+        d.rework[e.consumer] = Math.max((d.rework[e.consumer] ?? 1) - 1, 0);
+      } else need(e, !standing, `${e.consumer} already decided ${e.doc} v${e.version}`);
       v.decisions[e.consumer] = {
         decision: e.decision,
         ...(e.reason !== undefined ? { reason: e.reason } : {}),

@@ -26,10 +26,16 @@ describe('the loops core is inert (P4.3)', () => {
     const own = new Set(MODULES.map((m) => join(documents, `${m}.ts`)));
     const bad = walk(src)
       .filter((f) => !own.has(f))
+      .filter((f) => f !== join(documents, 'rework.ts')) // EDITED BY P4.7: the rework cap uses loop-rounds.ts; P4.8 wires loops.ts
       .filter((f) => importsOf(f).some((t) => targets.includes(t)))
       .map((f) => relative(src, f));
     expect(bad).toEqual([]);
     expect(readFileSync(join(documents, 'index.ts'), 'utf8')).not.toMatch(/loops|loop-rounds/);
+  });
+
+  it('the one user of the core, rework.ts (P4.7), takes the round rules only and not the loops key', () => {
+    const text = readFileSync(join(documents, 'rework.ts'), 'utf8');
+    expect([...new Set([...text.matchAll(/from\s+['"](\.\/loop[^'"]*)['"]/g)].map((x) => x[1]))]).toEqual(['./loop-rounds.js']);
   });
 
   it('the two files are pure: they import only each other, the definition helpers, the state reducer and nothing from node', () => {

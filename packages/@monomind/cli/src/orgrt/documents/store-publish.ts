@@ -110,6 +110,10 @@ export function doPublish(ctx: StoreCtx, req: PublishRequest): PublishReceipt | 
     if (bad)
       return fail(bad, `the head ${req.supersedes} has a committed event but no usable body`);
     supersedes = doc.versions.length;
+    for (const g of ctx.guards) {
+      const r = g.revise?.({ type, role: req.role, doc: doc.id, version: doc.versions.length + 1 });
+      if (r) return fail('GUARD_REFUSED', r.message, { guard_code: r.code });
+    }
   }
   const id = doc ? doc.id : `${type}-${(own(ctx.state.types, type)?.docs ?? 0) + 1}`;
   const version = doc ? doc.versions.length + 1 : 1;

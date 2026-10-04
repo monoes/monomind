@@ -108,7 +108,9 @@ export class DocAccess {
     return `${role} may read only accepted versions of "${type}", and version ${version} is ${status}: the producing section, the consuming lead and the root read versions that are not accepted yet`;
   }
 
-  decideRefusal(role: string, type: string): string | undefined {
+  /** `rootOverride`: the root decides a document whose rework cap is spent (P4.7; the host establishes it). */
+  decideRefusal(role: string, type: string, rootOverride = false): string | undefined {
+    if (rootOverride && role === this.root) return undefined;
     const b = this.byType.get(type);
     if (!b || b.consumers.some((c) => c.deciders.includes(role))) return undefined;
     const who = b.consumers.flatMap((c) => c.deciders.map((d) => `${d} (lead of ${c.id})`));

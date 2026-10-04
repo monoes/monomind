@@ -17,6 +17,7 @@ export const TOOL_ERROR_CODES = [
   'CURSOR_INVALID',
   'RUNTIME_CLOSED',
   'NO_CHECKS',
+  'REWORK_EXHAUSTED',
 ] as const;
 export type ToolErrorCode = (typeof TOOL_ERROR_CODES)[number];
 export type DocErrorCode = StoreErrorCode | ToolErrorCode;
@@ -73,6 +74,8 @@ const REMEDIES: Record<DocErrorCode, string> = {
   PART_NEEDS_VERSION: 'Read part 1 first, then pass its version together with part.',
   CURSOR_INVALID: 'Call org_doc_list again without a cursor.',
   RUNTIME_CLOSED: 'The run is stopping or has stopped; end your turn.',
+  REWORK_EXHAUSTED:
+    'This document is frozen because its review cycle reached max_rework_rounds: do not publish a revision of it. Tell your section lead and wait for the root, who decides it (accepts it, raises the cap and reloads, or leaves it closed).',
   NO_CHECKS:
     'This type declares no checks: read the document with org_doc_read and verify what you rely on yourself.',
 };
@@ -99,5 +102,7 @@ export function failure(
 /** A store refusal as a tool result: the store's own message, the remedy for its code, its details. */
 export function fromRefusal(r: Refusal): DocFailure {
   const { ok: _ok, code, message, ...rest } = r;
+  // a frozen thread (P4.7) is named by its own code, with the guard code kept for tools that read it
+  if (rest.guard_code === 'REWORK_EXHAUSTED') return failure('REWORK_EXHAUSTED', message, rest);
   return failure(code, message, rest);
 }

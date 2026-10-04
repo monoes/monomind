@@ -19,7 +19,14 @@ import {
 } from './store-common.js';
 import type { DecideReceipt, DecideRequest, Refusal } from './store-types.js';
 
-export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Refusal {
+/** `override`: the consuming section the root decides for on a thread whose rework cap is spent (P4.7). The caller
+ *  (the host) has established that the thread is frozen; the store then accepts the root as that section's decider
+ *  and lets an accept replace the consumer's standing rejection of the head. */
+export function doDecide(
+  ctx: StoreCtx,
+  req: DecideRequest,
+  override?: string,
+): DecideReceipt | Refusal {
   if (!validRole(req.role)) return ROLE_REFUSAL();
   if (!validKey(req.idempotency_key)) return KEY_REFUSAL();
   const d = own(ctx.state.docs, String(req.id));
@@ -29,7 +36,7 @@ export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Ref
   const x = ctx.bound.get(d.type);
   if (!x) return fail('UNKNOWN_TYPE', `document type "${d.type}" is not declared in this run`);
   const mine = x.binding.consumers.filter(
-    (c) => c.deciders.includes(req.role) && v.consumers.includes(c.id),
+    (c) => (c.id === override || c.deciders.includes(req.role)) && v.consumers.includes(c.id),
   );
   const pick = req.consumer === undefined ? mine : mine.filter((c) => c.id === req.consumer);
   if (!pick.length)
@@ -79,6 +86,12 @@ export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Ref
   if (req.decision !== 'accept' && req.decision !== 'reject')
     return fail('DECISION_INVALID', 'decision must be accept or reject');
   const standing = v.decisions[consumer];
+  // the root's accept of a spent thread replaces the consumer's rejection of the head (P4.7)
+  const replaces =
+    override !== undefined &&
+    standing?.decision === 'reject' &&
+    req.decision === 'accept' &&
+    v === headOf(d);
   if (standing) {
     if (standing.decision === req.decision)
       return {
@@ -88,18 +101,19 @@ export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Ref
         seq: standing.seq,
         noop: true,
       };
-    return fail(
-      'REVERSAL_REFUSED',
-      `${consumer} already ${standing.decision}ed version ${v.version}; publish a revision instead`,
-    );
+    if (!replaces)
+      return fail(
+        'REVERSAL_REFUSED',
+        `${consumer} already ${standing.decision}ed version ${v.version}; publish a revision instead`,
+      );
   }
   const status = versionStatus(d, v);
-  if (status === 'superseded')
+  if (!replaces && status === 'superseded')
     return fail(
       'SUPERSEDED',
       `version ${v.version} is superseded by version ${headOf(d).version}; decide on version ${headOf(d).version}`,
     );
-  if (status !== 'pending')
+  if (!replaces && status !== 'pending')
     return fail('VERSION_CLOSED', `version ${v.version} is already ${status}`);
   if (req.decision === 'reject' && !reason)
     return fail('REASON_REQUIRED', 'a rejection needs a reason');
@@ -144,7 +158,7 @@ export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Ref
   }
   const others = v.consumers.filter((c) => c !== consumer);
   const after =
-    req.decision === 'reject'
+    req.decision === 'reject' || others.some((c) => v.decisions[c]?.decision === 'reject')
       ? 'rejected'
       : others.every((c) => v.decisions[c]?.decision === 'accept')
         ? 'accepted'
@@ -163,6 +177,7 @@ export function doDecide(ctx: StoreCtx, req: DecideRequest): DecideReceipt | Ref
     contract_revision: v.contract_revision,
     status_after: after,
     waiting_on: waiting,
+    ...(replaces ? { override: true as const } : {}),
   });
   return { ...base, status: after, waiting_on: waiting, seq: ev.seq };
 }

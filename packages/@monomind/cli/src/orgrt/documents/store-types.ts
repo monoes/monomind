@@ -257,6 +257,8 @@ export interface DecidedEvent extends EventHead {
   contract_revision: string;
   status_after: VersionStatus;
   waiting_on: string[];
+  /** The root replaced the consumer's standing rejection of a version whose rework cap is spent (P4.7). */
+  override?: true;
 }
 
 export interface ReadEvent extends EventHead {
@@ -304,8 +306,19 @@ export interface DecideGuardContext {
   body: unknown;
 }
 
+/** What a `revise` guard sees: a publish that supersedes the head of an existing document. */
+export interface ReviseGuardContext {
+  type: string;
+  role: string;
+  doc: string;
+  /** The version the publish would create. */
+  version: number;
+}
+
 /** Checks that run after the store's own, before the commit; a refusal commits nothing. Plan P3.10 hangs here. */
 export interface StoreGuard {
+  /** Runs as soon as the superseded head is resolved, before the size and content checks; a refusal is never counted (P4.7). */
+  revise?(ctx: ReviseGuardContext): GuardRefusal | undefined;
   publish?(ctx: PublishGuardContext): GuardRefusal | undefined;
   decide?(ctx: DecideGuardContext): GuardRefusal | undefined;
 }
