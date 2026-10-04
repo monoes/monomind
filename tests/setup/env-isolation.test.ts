@@ -6,7 +6,7 @@
  */
 import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, dirname, join, sep } from 'node:path';
+import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   ORG_ROLE_ENV_KEYS,
@@ -26,10 +26,13 @@ describe('the running test process is isolated (#544)', () => {
   const home = process.env.HOME!;
   const realHome = process.env.MONOMIND_TEST_REAL_HOME;
 
-  it('runs off the real home', () => {
+  it('runs in a throwaway home under the configured temporary directory', () => {
     expect(realHome).toBeTruthy();
     expect(home).not.toBe(realHome);
-    expect(under(home, realHome!)).toBe(false);
+    // TMPDIR may intentionally live under the real HOME (#591). Isolation
+    // means a fresh test home, not that its ancestors exclude the real HOME.
+    expect(under(home, tmpdir())).toBe(true);
+    expect(relative(tmpdir(), home).split(sep)[0]).toMatch(/^mm-test-run-home-.+/);
   });
 
   it('points each XDG base dir under the temp home', () => {
