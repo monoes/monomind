@@ -6,10 +6,13 @@ import type { OrgDaemon } from '../../../src/orgrt/daemon.js';
 
 export class CaptureRunner implements AgentRunner {
   readonly tools = new Map<string, OrgToolDef[]>();
+  /** The system prompt each role session was started with (P3.12). */
+  readonly systemPrompts = new Map<string, string>();
   private readonly waiters = new Map<string, Array<() => void>>();
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const role = args.env.MONOMIND_ORG_ROLE;
     this.tools.set(role, args.tools);
+    this.systemPrompts.set(role, args.systemPrompt);
     for (const w of this.waiters.get(role) ?? []) w();
     for await (const _ of args.prompt as AsyncIterable<unknown>) {
       yield { type: 'assistant', text: 'ok', session_id: 's' } as AgentMessage;

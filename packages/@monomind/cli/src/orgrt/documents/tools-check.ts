@@ -4,7 +4,8 @@
 // session's host can check, that is when at least one document contract of the org declares `checks` (the host
 // carries `check` then, host.ts); an org with no declared checks, and every sections-off org, has no such tool.
 // Same arguments as org_doc_read, same access (who may check a version may read it), same result bound and
-// paging. The description is minimal on purpose: the tool text for roles is plan piece P3.12.
+// paging. The description (plan P3.12) says what the tool is not: a pass shows the document is consistent
+// with its own evidence, nothing more.
 import { z } from 'zod';
 import type { OrgToolDef } from '../agent-runner.js';
 import type { DocumentToolHost } from './host.js';
@@ -19,7 +20,7 @@ export function checkTools(
     {
       name: 'org_doc_check',
       description:
-        'Run the checks the contract declares over a version of a document you may read (default: the latest accepted version, else the latest): per answer, the failing check is named. Nothing is run. A pass is necessary, not sufficient. A long result comes in parts: pass version with part to read the rest.',
+        'Run the checks the contract declares over a version of a document you may read (default: the latest accepted version, else the latest): per answer, the failing check is named. The checks look at the document alone: nothing is executed and no file is read, so a pass shows it is consistent with its own evidence, not that it is true. A pass is necessary, not sufficient: spot-check what you rely on against the source before you accept. A long result comes in parts: pass version with part to read the rest.',
       schema: {
         id: z.string().min(1).max(120),
         version: z.number().int().positive().optional(),

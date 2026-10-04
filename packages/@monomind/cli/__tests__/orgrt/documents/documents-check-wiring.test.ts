@@ -84,13 +84,15 @@ async function renderTools(o: SessionOpts): Promise<{ name: string; description:
   return tools.map((t: any) => ({ name: t.name, description: t.description, schema: t.inputSchema }));
 }
 
-// Captured when P3.11 landed: the sections-on list with the check tool. Change it only for an intentional change
-// to the five org_doc_* tools (P3.12 owns their description text).
-const SECTIONS_ON_CHECK_TOOLS_SHA = 'c6703659abfddd0db24304544402907bec9238bb1477796d7b9e87ef76561793';
-const FOUR_TOOLS_SHA = '3f54c580d6b89e004a7a2bd28c09f34fa408110bb873b1bbe409fa3d3e8d643a';
+// Captured when P3.11 landed (c6703659...), re-pinned by P3.12: the sections-on list with the check tool. The
+// text changed on purpose: the descriptions of the five org_doc_* tools and the sentence appended to org_send
+// when a session has a documents host. Change it only for an intentional change to those tools.
+const SECTIONS_ON_CHECK_TOOLS_SHA = '469ba7477d3d41c66bad94fad04462bfb3dc956880c3041fe161a2c9f3d1c9cc';
+// The same four-tool list as SECTIONS_ON_TOOLS_SHA in documents-wiring.test.ts (P3.6; re-pinned by P3.12).
+const FOUR_TOOLS_SHA = '9354d469266c9616f8fb5db06cf26bbf4a4d086705a3d0222c499a7e4a612302';
 
 describe('org_doc_check registration', () => {
-  it('a host that cannot check gives the four tools exactly as before (the P3.6 sha is untouched)', async () => {
+  it('a host that cannot check gives the four tools exactly as before (the P3.6 list, as re-pinned by P3.12)', async () => {
     expect(sha(JSON.stringify(await renderTools(opts(four))))).toBe(FOUR_TOOLS_SHA);
   });
 

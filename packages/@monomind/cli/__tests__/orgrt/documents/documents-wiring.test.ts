@@ -89,9 +89,12 @@ async function renderTools(opts: SessionOpts): Promise<{ name: string; descripti
   return tools.map((t: any) => ({ name: t.name, description: t.description, schema: t.inputSchema }));
 }
 
-// Captured when P3.6 landed. The sections-ON tool list: the sections-off list plus the four org_doc_* tools.
-// Change it only for an intentional change to those four tools (P3.12 owns their description text).
-const SECTIONS_ON_TOOLS_SHA = '3f54c580d6b89e004a7a2bd28c09f34fa408110bb873b1bbe409fa3d3e8d643a';
+// Captured when P3.6 landed, re-pinned by P3.12 (3f54c580...): the tool text a role reads changed on purpose, namely
+// the descriptions of the four org_doc_* tools and one appended sentence on org_send's description when a
+// session has a documents host. The sections-off list is untouched (org-loadouts-default-off.test.ts and the
+// P3.0 goldens). The sections-ON list: the sections-off list plus the four org_doc_* tools.
+// Change it only for an intentional change to those tools; the text is also in fixtures/sections-on/.
+const SECTIONS_ON_TOOLS_SHA = '9354d469266c9616f8fb5db06cf26bbf4a4d086705a3d0222c499a7e4a612302';
 const DOC_TOOLS = ['org_doc_list', 'org_doc_read', 'org_doc_publish', 'org_doc_decide'];
 
 describe('org_doc_* registration', () => {
@@ -111,10 +114,15 @@ describe('org_doc_* registration', () => {
     for (const t of buildOrgTools(allToolOpts(dev, host))) expect(t.strict, t.name).toBeDefined();
   });
 
-  it('the existing tools render byte-for-byte the same with and without the host', async () => {
+  it('the existing tools render byte-for-byte the same with and without the host, but for org_send (P3.12 appends one sentence)', async () => {
     const off = await renderTools(allToolOpts(dev));
     const on = await renderTools(allToolOpts(dev, host));
-    expect(on.slice(0, off.length)).toEqual(off);
+    const rest = (l: typeof off) => l.filter((t) => t.name !== 'org_send');
+    expect(rest(on.slice(0, off.length))).toEqual(rest(off));
+    const send = (l: typeof off) => l.find((t) => t.name === 'org_send') as (typeof off)[number];
+    expect(send(on).schema).toEqual(send(off).schema);
+    expect(send(on).description.startsWith(send(off).description)).toBe(true);
+    expect(send(on).description.length).toBeGreaterThan(send(off).description.length);
     expect(on).toHaveLength(off.length + 4);
   });
 

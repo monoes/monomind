@@ -1,5 +1,6 @@
 // packages/@monomind/cli/src/orgrt/session-prompt.ts
 // Extracted from session.ts — a role session's system prompt and model.
+import { documentGuidance } from './documents/guidance.js';
 import { endpointBriefingLines } from './endpoint-roles.js';
 import { readVerifiedInstructions } from './instructions-file.js';
 import { expandRolePromptVars, promptVarsFor } from './prompt-vars.js';
@@ -128,7 +129,12 @@ export function rolePromptFor(opts: SessionOpts): string {
     opts.glossary,
     // D7: the loadout's text follows the role's own guidance. With no
     // loadout this is exactly resolveRoleExtraGuidance(role), as before.
-    [resolveRoleExtraGuidance(opts.role, opts.orgRoot ?? opts.cwd), opts.loadout?.guidance]
+    [
+      resolveRoleExtraGuidance(opts.role, opts.orgRoot ?? opts.cwd),
+      opts.loadout?.guidance,
+      // Org sections (plan P3.12): only a run with a documents runtime (the role was given a documents host).
+      opts.documents && opts.def ? documentGuidance(opts.def, opts.role.id) : undefined,
+    ]
       .filter(Boolean)
       .join('\n\n') || undefined,
     opts.onComplete ? endpointBriefingLines(opts.def) : undefined,

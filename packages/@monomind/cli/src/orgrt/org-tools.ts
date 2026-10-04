@@ -424,6 +424,10 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       // tool list (prefix position 0) is unchanged.
       (opts.def?.roles.some((r) => resolveSessionScope(r, opts.def) === 'task')
         ? " When a message is about a task, start its subject with [task:<id>] so a task-scoped recipient reads it in that task's session."
+        : '') +
+      // Org sections (plan P3.12): only a session with a documents host, so every other tool list is unchanged.
+      (opts.documents
+        ? ' In an org with sections, a message to a role in another section is refused: hand work over with org_doc_publish, or go through your section lead or the root.'
         : ''),
     schema: { to: z.string(), subject: z.string(), message: z.string() },
     handler: async (args) => {
