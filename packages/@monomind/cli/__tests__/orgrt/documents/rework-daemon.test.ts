@@ -218,4 +218,56 @@ describe('stop and resume', () => {
     const j = readFileSync(join(last.docs.dir, 'notices.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
     expect(j.filter((x) => x.t === 'delivered' && String(x.key).startsWith('x:'))).toHaveLength(3);
   });
+  /** Spend the cap through the real tools: two rejections of findings-1, the second by the consuming lead. */
+  async function spendCap(t: Awaited<ReturnType<typeof start>>, raw: Record<string, any>, whenRelayed: () => Promise<void>) {
+    const researcher = await t.runner.toolsOf(t.d, raw.name, 'researcher');
+    const lead = await t.runner.toolsOf(t.d, raw.name, 'dev-lead');
+    await callTool(researcher, 'org_doc_publish', { type: 'findings', body: FINDINGS, evidence: SOURCE });
+    for (let v = 1; v <= 2; v++) {
+      await readAllParts((n, a) => callTool(lead, n, a), { id: 'findings-1', version: v });
+      await callTool(lead, 'org_doc_decide', { id: 'findings-1', version: v, decision: 'reject', reason: `no ${v}` });
+      if (v === 1) await callTool(researcher, 'org_doc_publish', { type: 'findings', body: { summary: 'second try' }, evidence: SOURCE, supersedes: 'findings-1@v1' });
+    }
+    await whenRelayed();
+  }
+  const rootAccepts = async (t: Awaited<ReturnType<typeof start>>, raw: Record<string, any>) => {
+    const boss = await t.runner.toolsOf(t.d, raw.name, 'boss');
+    await readAllParts((n, a) => callTool(boss, n, a), { id: 'findings-1', version: 2 });
+    expect(await callTool(boss, 'org_doc_decide', { id: 'findings-1', version: 2, decision: 'accept' })).toMatchObject({ ok: true, status: 'accepted' });
+  };
+
+  it('once the root has accepted the frozen version, the producer is not told to wait for it again at the next start', async () => {
+    const raw = capped(2);
+    const first = await start(raw);
+    await spendCap(first, raw, async () => {
+      expect(await waitFor(() => first.runner.subjects('researcher').includes('document rejected: findings-1 v2'))).toBe(true); // the relay of the spent round was delivered
+    });
+    await rootAccepts(first, raw);
+    await first.d.stopOrg(raw.name);
+
+    const runner = new ScriptRunner();
+    const again = await start(raw, runner, true);
+    await runner.toolsOf(again.d, raw.name, 'researcher');
+    await again.docs.notices!.idle();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(runner.count('researcher', 'document rejected')).toBe(0); // the head is accepted: "wait for the root" is stale
+    const j = readFileSync(join(again.docs.dir, 'notices.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    expect(j.filter((x) => x.again && x.key.endsWith(':producer'))).toEqual([]);
+  });
+
+  it('a relay still owed to the producer when the root accepts the version is dropped, not sent after the resume', async () => {
+    const raw = capped(2);
+    const first = await start(raw);
+    first.docs.notices!.setEnabledForTest(false); // the relays are committed, never delivered
+    await spendCap(first, raw, async () => undefined);
+    await rootAccepts(first, raw);
+    await first.d.stopOrg(raw.name);
+
+    const runner = new ScriptRunner();
+    const again = await start(raw, runner, true);
+    await runner.toolsOf(again.d, raw.name, 'researcher');
+    await again.docs.notices!.idle();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(runner.count('researcher', 'document rejected')).toBe(0);
+  });
 });

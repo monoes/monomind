@@ -35,6 +35,7 @@ import { NoticeJournal } from './notice-journal.js';
 import { deriveLoopNotices, type LoopEscalation } from './loop-run.js';
 import { deriveReworkNotices, frozenThreads, type ReworkEscalation } from './rework.js';
 import { type CopyTo, changedRelays, deriveRelays, type RelayFact, relayFacts } from './relay.js';
+import { versionStatus } from './state.js';
 import type { DocumentStore } from './store.js';
 import type { StoreEvent } from './store-types.js';
 
@@ -328,7 +329,11 @@ export class NoticeEngine {
   private resendable(n: Notice): boolean {
     if (n.kind === KIND_PUBLISHED) return n.version === this.headVersion(n.doc) && !this.acted(n);
     if (n.kind === KIND_REJECTED || n.kind === KIND_CHANGED)
-      return n.audience === 'producer' && n.version === this.headVersion(n.doc);
+      return (
+        n.audience === 'producer' &&
+        n.version === this.headVersion(n.doc) &&
+        !this.accepted(n.doc, n.version)
+      );
     // a spent thread stands until it is decided or its cap is raised; a recipient that has since read or decided
     // the document has seen it
     if (n.kind === KIND_EXHAUSTED)
@@ -349,14 +354,21 @@ export class NoticeEngine {
     return false;
   }
 
-  /** The instruction to the producer is moot once it has replaced the version; the copy to the lead is an audit
-   *  record and is still sent. */
-  private moot(n: Notice): boolean {
-    return (
-      n.audience === 'producer' &&
-      (n.kind === KIND_REJECTED || n.kind === KIND_CHANGED) &&
-      this.headVersion(n.doc) > n.version
-    );
+  /** The root has accepted this version (the override of a spent rework cap or loop): an instruction to revise or
+   *  to wait for the root is stale. */
+  private accepted(doc: string, version: number): boolean {
+    const d = this.opts.store.state.docs[doc];
+    const v = d?.versions[version - 1];
+    return d !== undefined && v !== undefined && versionStatus(d, v) === 'accepted';
+  }
+
+  /** The instruction to the producer is moot once it has replaced the version or the root has accepted it; the
+   *  copy to the lead is an audit record and is still sent. */
+  private moot(n: Notice): string | undefined {
+    if (n.audience !== 'producer' || (n.kind !== KIND_REJECTED && n.kind !== KIND_CHANGED))
+      return undefined;
+    if (this.headVersion(n.doc) > n.version) return 'version superseded';
+    return this.accepted(n.doc, n.version) ? 'version accepted by the root' : undefined;
   }
 
   private async pass(start: boolean): Promise<void> {
@@ -372,13 +384,14 @@ export class NoticeEngine {
         again = start && this.resendable(n);
         if (!again) continue;
       } else if (s.failures >= this.maxFailures) continue;
-      if (!s.deliveredAt && this.moot(n)) {
-        // a relay about a version the producer already replaced: nothing to say any more
+      const moot = s.deliveredAt ? undefined : this.moot(n);
+      if (moot) {
+        // a relay about a version the producer already replaced, or the root accepted: nothing to say any more
         this.record({
           t: 'delivered',
           key: n.key,
           at: this.at(),
-          receipt: 'moot: version superseded',
+          receipt: `moot: ${moot}`,
           adopted: true,
         });
         continue;
