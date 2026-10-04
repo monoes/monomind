@@ -289,13 +289,24 @@ describe('ClineAgentRunner — resume over ACP', () => {
     ]);
   });
 
-  it('fails with the fix named when no key reaches ACP', async () => {
-    const host = fakeHost({ histories: [[before]] });
-    await expect(
-      collect(new ClineAgentRunner('cline', host).run(args({ resume: SID }))),
-    ).rejects.toThrow(/export OPENROUTER_API_KEY \(or CLINE_API_KEY\)/);
-    expect(spawned()).toHaveLength(0);
-  });
+  it.each(['OPENROUTER_API_KEY', 'CLINE_API_KEY'])(
+    'names the missing key when the caller clears inherited %s (#610)',
+    async (ambientKey) => {
+      vi.stubEnv(ambientKey, PLACEHOLDER);
+      try {
+        const host = fakeHost({ histories: [[before]] });
+        await expect(
+          collect(new ClineAgentRunner('cline', host).run(args({
+            resume: SID,
+            env: { OPENROUTER_API_KEY: '', CLINE_API_KEY: '' },
+          }))),
+        ).rejects.toThrow(/export OPENROUTER_API_KEY \(or CLINE_API_KEY\)/);
+        expect(spawned()).toHaveLength(0);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 
   it('reports a session cline cannot load', async () => {
     const lines = [
