@@ -1,0 +1,697 @@
+{
+  "1-boot": {
+    "boss": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "msg": "session starting"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "boss",
+        "reason": "git-sandbox-off",
+        "msg": "policy.sandbox.mode 'off': policy.git 'read' runs without the OS sandbox — git hooks, withheld credentials and file-tool deny rules only",
+        "data": {
+          "level": "read",
+          "protectedGitDirs": []
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "state-change",
+        "msg": "idle → completed",
+        "data": {
+          "from": "idle",
+          "to": "completed"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "chat",
+        "from": "boss",
+        "msg": "echo: Org \"alpha\" started (run <RUN>).\nGoal: g\nCoordinate your team via org_send. Only when the FULL goal above is achieved (or clearly can't be) — not merely \"this batch of dispatched tasks finished\" — record it with org_complete, then end your turn. If a batch finishes but the goal has more scope left, dispatch the next batch instead of ending the run."
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "state-change",
+        "msg": "completed → idle",
+        "data": {
+          "from": "completed",
+          "to": "idle"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "usage",
+        "from": "boss",
+        "data": {
+          "tokens": 2,
+          "cost_usd": null,
+          "subtype": "success",
+          "tokens_in": 1,
+          "tokens_out": 1,
+          "cache_read": 0,
+          "cache_creation": 0
+        }
+      }
+    ],
+    "system": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#10 role \"coder\": no explicit model — it runs on whatever the default is; pin one"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#10 role \"idle\": no explicit model — it runs on whatever the default is; pin one"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#3 run_config.max_concurrent_agents is 2 but the org has 3 roles; roles past the cap wait for a slot (a finished worker keeps its slot) — raise it to 3"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); coder (Bash, WebFetch, WebSearch); idle (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "checklist-warning",
+        "msg": "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "msg": "org started (3 agents)",
+        "data": {
+          "goal": "g"
+        }
+      }
+    ]
+  },
+  "2-dispatch": {
+    "boss": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "task-created",
+        "msg": "task task-1 created: \"do it\" → coder",
+        "data": {
+          "taskId": "task-1",
+          "assignee": "coder",
+          "deps": [],
+          "status": "ready"
+        }
+      }
+    ],
+    "coder": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "msg": "session starting"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "coder",
+        "reason": "git-sandbox-off",
+        "msg": "policy.sandbox.mode 'off': policy.git 'read' runs without the OS sandbox — git hooks, withheld credentials and file-tool deny rules only",
+        "data": {
+          "level": "read",
+          "protectedGitDirs": []
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "state-change",
+        "msg": "idle → working",
+        "data": {
+          "from": "idle",
+          "to": "working"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "chat",
+        "from": "coder",
+        "msg": "echo: [task:task-1] do it\n\nthe brief"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "state-change",
+        "msg": "working → idle",
+        "data": {
+          "from": "working",
+          "to": "idle"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "usage",
+        "from": "coder",
+        "data": {
+          "tokens": 2,
+          "cost_usd": null,
+          "subtype": "success",
+          "tokens_in": 1,
+          "tokens_out": 1,
+          "cache_read": 0,
+          "cache_creation": 0
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "coder",
+        "reason": "task-open-at-turn-end",
+        "msg": "\"coder\" ended its turn with task task-1 still open — nudging it to close or block it",
+        "data": {
+          "taskId": "task-1",
+          "assignee": "coder",
+          "title": "do it"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "state-change",
+        "msg": "idle → working",
+        "data": {
+          "from": "idle",
+          "to": "working"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "chat",
+        "from": "coder",
+        "msg": "echo: [task:task-1] STILL OPEN — your turn ended and \"do it\" is still assigned to you and not closed. Reporting the work in a message does not close it: call org_task_done with taskId \"task-1\". If it genuinely cannot finish yet, call org_task_block with the time it can resume instead of leaving it open."
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "state-change",
+        "msg": "working → idle",
+        "data": {
+          "from": "working",
+          "to": "idle"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "usage",
+        "from": "coder",
+        "data": {
+          "tokens": 2,
+          "cost_usd": null,
+          "subtype": "success",
+          "tokens_in": 1,
+          "tokens_out": 1,
+          "cache_read": 0,
+          "cache_creation": 0
+        }
+      }
+    ],
+    "dag": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "dag",
+        "reason": "task-dispatched",
+        "msg": "task task-1 dispatched to coder",
+        "data": {
+          "taskId": "task-1",
+          "assignee": "coder"
+        }
+      }
+    ]
+  },
+  "3-done": {
+    "boss": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "state-change",
+        "msg": "idle → completed",
+        "data": {
+          "from": "idle",
+          "to": "completed"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "chat",
+        "from": "boss",
+        "msg": "echo: [task:task-1] DONE — \"do it\" was completed by \"coder\". Result: done it"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "state-change",
+        "msg": "completed → idle",
+        "data": {
+          "from": "completed",
+          "to": "idle"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "usage",
+        "from": "boss",
+        "data": {
+          "tokens": 2,
+          "cost_usd": null,
+          "subtype": "success",
+          "tokens_in": 1,
+          "tokens_out": 1,
+          "cache_read": 0,
+          "cache_creation": 0
+        }
+      }
+    ],
+    "coder": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "task-done",
+        "msg": "task task-1 completed",
+        "data": {
+          "taskId": "task-1",
+          "promoted": []
+        }
+      }
+    ]
+  },
+  "4-send": {
+    "boss": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "boss",
+        "to": "nobody",
+        "msg": "undeliverable: s",
+        "reason": "unknown recipient"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "message",
+        "from": "boss",
+        "to": "coder",
+        "subject": "s",
+        "msg": "b",
+        "data": {
+          "messageId": "<MSG>"
+        }
+      }
+    ],
+    "coder": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "state-change",
+        "msg": "idle → working",
+        "data": {
+          "from": "idle",
+          "to": "working"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "chat",
+        "from": "coder",
+        "msg": "echo: [message from boss] subject: s\n\nb",
+        "parentId": "<ID>"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "reason": "state-change",
+        "msg": "working → idle",
+        "data": {
+          "from": "working",
+          "to": "idle"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "usage",
+        "from": "coder",
+        "data": {
+          "tokens": 2,
+          "cost_usd": null,
+          "subtype": "success",
+          "tokens_in": 1,
+          "tokens_out": 1,
+          "cache_read": 0,
+          "cache_creation": 0
+        }
+      }
+    ]
+  },
+  "5-lead-watch": {
+    "boss": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "task-created",
+        "msg": "task task-2 created: \"held\" → idle",
+        "data": {
+          "taskId": "task-2",
+          "assignee": "idle",
+          "deps": [],
+          "status": "ready"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "state-change",
+        "msg": "idle → working",
+        "data": {
+          "from": "idle",
+          "to": "working"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "chat",
+        "from": "boss",
+        "msg": "echo: [watch] Role \"idle\" has not started: it was assigned task-2 (\"held\") 0s ago and has no running session (queued or deferred by the resource governor, or it crashed at start). Options: (1) wait; (2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); (3) acknowledge: org_send to \"idle\" and you will not be reminded again about this work. If nothing changes you get one more reminder after a longer gap.",
+        "parentId": "<ID>"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "reason": "state-change",
+        "msg": "working → idle",
+        "data": {
+          "from": "working",
+          "to": "idle"
+        }
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "usage",
+        "from": "boss",
+        "data": {
+          "tokens": 2,
+          "cost_usd": null,
+          "subtype": "success",
+          "tokens_in": 1,
+          "tokens_out": 1,
+          "cache_read": 0,
+          "cache_creation": 0
+        }
+      }
+    ],
+    "idle": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "idle",
+        "reason": "concurrency-limit",
+        "msg": "deferring lazy spawn of \"idle\" for task task-2: org is at its max_concurrent_agents ceiling (2)",
+        "data": {
+          "taskId": "task-2",
+          "assignee": "idle"
+        }
+      }
+    ],
+    "system": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "reason": "lead-watch",
+        "msg": "told \"boss\": role \"idle\" never started with open work task-2",
+        "data": {
+          "role": "idle",
+          "kind": "not-started",
+          "taskIds": [
+            "task-2"
+          ]
+        }
+      }
+    ]
+  },
+  "6-stop": {
+    "boss": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "boss",
+        "msg": "session ended"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "boss",
+        "reason": "session-run",
+        "msg": "session started fresh (fresh-no-record) for _role",
+        "data": {
+          "role": "boss",
+          "runtime": "claude",
+          "taskKey": "_role",
+          "reason": "fresh-no-record",
+          "startedAt": "<STARTEDAT>",
+          "endedAt": 1767225600500,
+          "resumed": false
+        }
+      }
+    ],
+    "coder": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "from": "coder",
+        "msg": "session ended"
+      },
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "audit",
+        "from": "coder",
+        "reason": "session-run",
+        "msg": "session started fresh (fresh-no-record) for _role",
+        "data": {
+          "role": "coder",
+          "runtime": "claude",
+          "taskKey": "_role",
+          "reason": "fresh-no-record",
+          "startedAt": "<STARTEDAT>",
+          "endedAt": 1767225600500,
+          "resumed": false
+        }
+      }
+    ],
+    "system": [
+      {
+        "id": "<ID>",
+        "ts": "<TS>",
+        "org": "alpha",
+        "run": "<RUN>",
+        "type": "status",
+        "reason": "org-stopped",
+        "msg": "org stopped",
+        "data": {
+          "runnableTasks": 1,
+          "idleWatchdog": {
+            "idle_minutes": 0,
+            "next_nudge_at": null,
+            "idle_stop_at": null,
+            "hold": {
+              "reason": "disabled",
+              "until": null
+            }
+          }
+        }
+      }
+    ]
+  }
+}

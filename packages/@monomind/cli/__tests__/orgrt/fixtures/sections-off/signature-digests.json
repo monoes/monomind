@@ -1,0 +1,18 @@
+{
+  "plain": "5bc09379cd292ebd895523c12e306dcd29383a6d6442b9b2d9cb990e4e1dee27",
+  "task-scoped": "30d9b644f1d4e1cf353e77f6cda0e0169f6f1360b9c29e0e873859ae4fb82ec5",
+  "loadouts": "9774799dcbecefb51dfcf67ea4f7f2fd4fe54794389112d61240a36b77ce605a",
+  "context-require-brief": "bb094f85460b3f73224edbf8237a6f0a269081e0780dc181378ddc61bf0e50df",
+  "context-notes": "7dd991bedecf5fa7072e6f413aa61b28b171214a1702995e632ba89d1eaf0897",
+  "context-session-cap": "2a72f4c28aad7f35c5d2cd9fbb6c6314581e05b137c56508ca8dd9935512ae2f",
+  "endpoint-role": "eadca348806aff73591b79235b3034f1d0e5d39905e3073f2a802e536f5886b2",
+  "tool-providers": "dffe8999de7ff383d7d06b0f8df37d32e6d0580d3dff23f57ef792f9c009e556",
+  "respawn-enabled": "b90340806eb36c7c1a9b555a3f2cacdd15e861f3115d382e50ccd21fd285c05c",
+  "artifact-reviewer": "c89b3cfc5528819188e864f7dbea255d452164d45d588d0d0621a42fa7b7c6e4",
+  "completion-dag": "00def0670197decadc28c608986b4fc617b77eceeeb066e68de2b59d23a06336",
+  "completion-evidence": "89494852e703d4bb0f590aee529b846c182e0ec31f5e2ea65c572942d82f3f65",
+  "verify-writes-off": "ba2a8c43fccabd751117dfa5ff7ad965751bcfcdaf6104aec77ec94397c74258",
+  "lead-watch-off": "faf36651ba5ca28823deb572780d6156e7fc9b48be30e0ef818c65ca9c580b92",
+  "everything-sections-off": "cb2c61007cf0fa5616f453e6bc52959e61b8fee431d8644d227a25c7225e8b8d",
+  "minimal": "594459a61baf715a2ae63347652dd5d82f8cd61c53287333e52ae74918ecfab9"
+}

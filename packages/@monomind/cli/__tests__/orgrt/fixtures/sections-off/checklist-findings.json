@@ -1,0 +1,250 @@
+{
+  "variants": {
+    "plain": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "task-scoped": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "loadouts": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "context-require-brief": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "context-notes": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "context-session-cap": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "endpoint-role": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "tool-providers": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "respawn-enabled": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "artifact-reviewer": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"rev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch); rev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "completion-dag": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "completion-evidence": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "verify-writes-off": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "lead-watch-off": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "everything-sections-off": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "minimal": {
+      "errors": [],
+      "warnings": [
+        "#10 role \"a\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: a (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"a\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    }
+  },
+  "deferred": {
+    "sections": {
+      "errors": [
+        "\"sections\" is not yet supported (org sections are designed, not built) — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "documents": {
+      "errors": [
+        "\"documents\" is not yet supported (org sections are designed, not built) — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "loops": {
+      "errors": [
+        "\"loops\" is not yet supported (org sections are designed, not built) — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "requires": {
+      "errors": [
+        "\"requires\" is not yet supported (org sections are designed, not built) — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "run_config.budget_usd": {
+      "errors": [
+        "run_config.budget_usd is not yet supported — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "run_config.budget_mode": {
+      "errors": [
+        "run_config.budget_mode is not yet supported — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    },
+    "run_config.experimental": {
+      "errors": [
+        "run_config.experimental is not yet supported — remove it"
+      ],
+      "warnings": [
+        "#10 role \"boss\": no explicit model — it runs on whatever the default is; pin one",
+        "#10 role \"dev\": no explicit model — it runs on whatever the default is; pin one",
+        "#4 no role has a USD ceiling (budget_usd); budget_tokens defaults to 1M on the uncached basis, which under-reports real spend — prefer budget_usd on priced roles",
+        "#5 these roles wait for a human approval on each distinct command and nothing resolves them unattended: boss (Bash, WebFetch, WebSearch); dev (Bash, WebFetch, WebSearch) — list safe classes in autoApproveTools, deny the tool, or set an autonomy decider",
+        "#8 boss role \"boss\": its prompt does not require self-contained task briefs; workers resumed from a task session know nothing else"
+      ]
+    }
+  }
+}

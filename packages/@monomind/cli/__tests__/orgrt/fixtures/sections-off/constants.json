@@ -1,0 +1,47 @@
+{
+  "CHECKPOINT_VERSION": 2,
+  "ORG_WORK_DIRS": [
+    "work",
+    "reports",
+    "runs",
+    "scratch",
+    "workspace",
+    ".mail"
+  ],
+  "DECISION_FILES": [
+    "gates.json",
+    "approvals.json",
+    "questions.json",
+    "inbox.jsonl"
+  ],
+  "ORG_STATE_FILES": [
+    "runtime.json",
+    "decisions.jsonl",
+    "history.jsonl",
+    "idle-watchdog.json",
+    "liveness.jsonl"
+  ],
+  "CONTROL_FILES": [
+    "run",
+    "stop",
+    "pause",
+    "reload"
+  ],
+  "RUN_STATE_FILES": [
+    "bus.jsonl",
+    "sessions.json"
+  ],
+  "GIT_GUARD_DIR": "git-guard",
+  "MAX_TASK_BRIEF": 4000,
+  "leadWatchDefault": {
+    "notStartedMs": 90000,
+    "silentMs": 180000
+  },
+  "leadWatchOff": null,
+  "MAX_NOTICES": 3,
+  "contextSurfaceOff": {
+    "enabled": false,
+    "requireBrief": false,
+    "notes": false
+  }
+}

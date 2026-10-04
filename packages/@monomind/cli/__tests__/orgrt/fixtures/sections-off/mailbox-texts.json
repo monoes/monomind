@@ -1,0 +1,33 @@
+{
+  "received": {
+    "boss": [
+      "Org \"alpha\" started (run <RUN>).\nGoal: g\nCoordinate your team via org_send. Only when the FULL goal above is achieved (or clearly can't be) — not merely \"this batch of dispatched tasks finished\" — record it with org_complete, then end your turn. If a batch finishes but the goal has more scope left, dispatch the next batch instead of ending the run.",
+      "[task:task-1] DONE — \"do it\" was completed by \"coder\". Result: done it",
+      "[watch] Role \"idle\" has not started: it was assigned task-2 (\"held\") 0s ago and has no running session (queued or deferred by the resource governor, or it crashed at start). Options: (1) wait; (2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); (3) acknowledge: org_send to \"idle\" and you will not be reminded again about this work. If nothing changes you get one more reminder after a longer gap."
+    ],
+    "coder": [
+      "[task:task-1] do it\n\nthe brief",
+      "[task:task-1] STILL OPEN — your turn ended and \"do it\" is still assigned to you and not closed. Reporting the work in a message does not close it: call org_task_done with taskId \"task-1\". If it genuinely cannot finish yet, call org_task_block with the time it can resume instead of leaving it open.",
+      "[message from boss] subject: s\n\nb"
+    ]
+  },
+  "receipts": {
+    "unknownRecipient": "ERROR: unknown recipient \"nobody\" (known: boss, coder)",
+    "toCoder": "delivered to coder"
+  },
+  "eviction": {
+    "kept": 500,
+    "first": "m5",
+    "last": "m504"
+  },
+  "leadWatchNotices": {
+    "notStarted": [
+      "[watch] Role \"worker\" has not started: it was assigned task-9 (\"answer m9\") 91s ago and has no running session (queued or deferred by the resource governor, or it crashed at start). Options: (1) wait; (2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); (3) acknowledge: org_send to \"worker\" and you will not be reminded again about this work. If nothing changes you get one more reminder after a longer gap."
+    ],
+    "silent": [
+      "[watch] Role \"worker\" has gone silent: it holds task-9 (\"answer m9\") and has produced no activity for 3m. Options: (1) wait; (2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); (3) acknowledge: org_send to \"worker\" and you will not be reminded again about this work. If nothing changes you get one more reminder after a longer gap.",
+      "[watch] Role \"worker\" has gone silent: it holds task-9 (\"answer m9\") and has produced no activity for 9m. Options: (1) wait; (2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); (3) acknowledge: org_send to \"worker\" and you will not be reminded again about this work. If nothing changes you get one more reminder after a longer gap.",
+      "[watch] Role \"worker\" has gone silent: it holds task-9 (\"answer m9\") and has produced no activity for 21m. Options: (1) wait; (2) reassign its unfinished work to an idle role: create the task for that role with org_task, then org_task_cancel the old one(s); (3) acknowledge: org_send to \"worker\" and you will not be reminded again about this work. This is the last notice for this episode."
+    ]
+  }
+}

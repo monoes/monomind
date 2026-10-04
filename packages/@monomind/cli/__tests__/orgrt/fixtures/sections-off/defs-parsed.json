@@ -1,0 +1,1183 @@
+{
+  "plain": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "task-scoped": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "session_scope": "task"
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "loadouts": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "loadouts": {
+      "impl": {
+        "description": "implementation work",
+        "prompt": "Write small, tested changes."
+      },
+      "review": {
+        "description": "review work",
+        "prompt": "Read the diff before commenting."
+      }
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "context-require-brief": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "context": {
+        "require_brief": true
+      }
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "context-notes": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "context": {
+        "notes": true
+      }
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "context-session-cap": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "context": {
+        "session_cap": {
+          "tasks": 10
+        }
+      }
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "endpoint-role": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "hook",
+        "title": "Publisher",
+        "type": "automation",
+        "reports_to": "boss",
+        "responsibilities": [],
+        "kind": "endpoint",
+        "endpoint": {
+          "url": "http://127.0.0.1:1/org-endpoint/ep_golden",
+          "input_hint": "Send the text."
+        }
+      }
+    ]
+  },
+  "tool-providers": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        },
+        "tool_providers": [
+          {
+            "kind": "mcp-stdio",
+            "name": "fake-provider",
+            "command": "node",
+            "args": [
+              "-e",
+              ""
+            ],
+            "env": {},
+            "timeout_ms": 660000,
+            "idle_ms": 300000
+          }
+        ]
+      }
+    ]
+  },
+  "respawn-enabled": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 1,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "artifact-reviewer": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "rev",
+        "title": "Reviewer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        },
+        "review_input": "artifact-only"
+      }
+    ]
+  },
+  "completion-dag": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "dag",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "completion-evidence": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": true,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "verify-writes-off": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "verify_writes": false
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "lead-watch-off": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "lead_watch": false
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "everything-sections-off": {
+    "name": "acme",
+    "goal": "ship the widget",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "dag",
+      "completion_evidence": true,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000,
+      "idle_minutes": 0,
+      "verify_writes": false,
+      "lead_watch": {
+        "not_started_s": 30,
+        "silent_s": 60
+      },
+      "session_scope": "task",
+      "context": {
+        "require_brief": true,
+        "notes": true,
+        "session_cap": {
+          "tasks": 5
+        }
+      },
+      "notify_task_creator": true
+    },
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Boss",
+        "type": "coordinator",
+        "reports_to": null,
+        "responsibilities": [
+          "plan"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      },
+      {
+        "id": "dev",
+        "title": "Developer",
+        "type": "specialist",
+        "reports_to": "boss",
+        "responsibilities": [
+          "write code",
+          "write tests"
+        ],
+        "policy": {
+          "denyTools": [],
+          "fileWrite": [
+            "**"
+          ],
+          "fileRead": [
+            "**"
+          ],
+          "git": "read",
+          "sandbox": {
+            "mode": "off"
+          },
+          "access": "scoped"
+        }
+      }
+    ]
+  },
+  "minimal": {
+    "name": "tiny",
+    "goal": "",
+    "status": "stopped",
+    "schedule": null,
+    "run_config": {
+      "max_concurrent_agents": 4,
+      "budget_tokens": 1000000,
+      "budget_tokens_basis": "uncached",
+      "max_turns_per_message": 100000,
+      "workspace": "repo",
+      "stale_base_threshold": 0,
+      "max_role_respawns": 0,
+      "completion": "boss",
+      "completion_evidence": false,
+      "max_evidence_attempts": 3,
+      "respawn_drain_timeout_ms": 30000,
+      "respawn_force_stop_timeout_ms": 5000,
+      "respawn_start_timeout_ms": 60000
+    },
+    "roles": [
+      {
+        "id": "a",
+        "title": "",
+        "type": "specialist",
+        "reports_to": null,
+        "responsibilities": []
+      }
+    ]
+  }
+}

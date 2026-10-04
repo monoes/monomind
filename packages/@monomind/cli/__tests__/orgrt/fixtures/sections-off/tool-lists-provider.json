@@ -1,0 +1,32 @@
+{
+  "boss": {
+    "names": [
+      "org_send",
+      "ask_human",
+      "fake_provider__echo",
+      "fake_provider__ping"
+    ],
+    "toolShas": {
+      "org_send": "bc24f70319c5e463ad27ee4313938402a564a76388d84bb91be9015b8d17cbde",
+      "ask_human": "ee121de9321dbb562d3772b31594a02686024269a951655c06b1b500ce906e20",
+      "fake_provider__echo": "34f98050775485bcb6ba8aac51817124fd36d59167edcc6470c30759f6a9c1a8",
+      "fake_provider__ping": "f7b3cdab145514173de67c38d1803218d470c5db6990d0240eecbd87ace5d414"
+    },
+    "sha": "a4fafb3d12921d2bbcbc94edd266de175eaa3048ab06e7ca1d8020e63e6b55af"
+  },
+  "dev": {
+    "names": [
+      "org_send",
+      "ask_human",
+      "fake_provider__echo",
+      "fake_provider__ping"
+    ],
+    "toolShas": {
+      "org_send": "bc24f70319c5e463ad27ee4313938402a564a76388d84bb91be9015b8d17cbde",
+      "ask_human": "ee121de9321dbb562d3772b31594a02686024269a951655c06b1b500ce906e20",
+      "fake_provider__echo": "34f98050775485bcb6ba8aac51817124fd36d59167edcc6470c30759f6a9c1a8",
+      "fake_provider__ping": "f7b3cdab145514173de67c38d1803218d470c5db6990d0240eecbd87ace5d414"
+    },
+    "sha": "a4fafb3d12921d2bbcbc94edd266de175eaa3048ab06e7ca1d8020e63e6b55af"
+  }
+}
