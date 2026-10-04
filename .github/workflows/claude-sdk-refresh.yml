@@ -31,6 +31,8 @@ jobs:
         run: pnpm install --lockfile-only --ignore-scripts
       - name: Install test tools without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build workspace dependencies used by pin verification
+        run: pnpm --filter "@monoes/monomindcli^..." run build
       - name: Format regenerated pin data
         run: pnpm exec biome format --write packages/@monomind/cli/src/utils/optional-deps-locks.ts
       - name: Verify dependency lock and executable pin consistency

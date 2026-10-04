@@ -45,7 +45,10 @@ export const modelsCommand: Command = {
       return { success: false, exitCode };
     }
     if (!result.supported) {
-      output.writeln(`${runtime} has no model-listing command — pass a model id its CLI accepts.`);
+      output.writeln(
+        result.reason ??
+          `${runtime} has no model-listing command — pass a model id its CLI accepts.`,
+      );
       return { success: true, data: result };
     }
     output.printTable({

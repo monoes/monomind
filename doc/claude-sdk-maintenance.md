@@ -23,4 +23,4 @@ Both publish entry points check SDK freshness before publishing. The default war
 node scripts/claude-sdk-maintenance.mjs --max-behind 5 --strict
 ```
 
-Review upstream release notes, regenerated integrity data, executable hashes, and the model discovery behavior before merging an update PR. A pin bump should also follow the repository's package version and changelog release rules.
+Review upstream release notes, regenerated integrity data, executable hashes, and the model discovery behavior before merging an update PR. The default GitHub Actions token does not trigger other PR workflows for its own bot commits; a reviewer should push the package version/changelog update (or reopen the PR with their own credentials) to trigger full CI. A pin bump should also follow the repository's package version and changelog release rules.

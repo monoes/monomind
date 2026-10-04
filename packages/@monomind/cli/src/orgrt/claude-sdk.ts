@@ -9,7 +9,8 @@
  * binary.
  *
  * Where to look, in order (nothing is run to find it):
- *   1. $MONOMIND_CLAUDE_PATH. Set to `bundled`, it turns detection off.
+ *   1. --claude-path > $MONOMIND_CLAUDE_PATH > home config claude.path.
+ *      Set to `bundled`, the operator choice turns detection off.
  *   2. `claude` on PATH;
  *   3. ~/.local/bin/claude;
  *   4. ~/.claude/local/claude.
@@ -27,7 +28,7 @@
  *     (~/.local/share/claude, mise, nvm, Homebrew); see #527. Running as
  *     root, roles are root too, so ownership proves nothing: no binary is
  *     picked up on its own then.
- *   - $MONOMIND_CLAUDE_PATH is the operator's own choice and may point
+ *   - An explicit flag, env or home-config path is the operator's choice and may point
  *     anywhere. The file only has to be owned by this user or root and not
  *     writable by group or others (not checked on Windows). When it is not a
  *     system install, a warning says so, and org roles get it read-only:

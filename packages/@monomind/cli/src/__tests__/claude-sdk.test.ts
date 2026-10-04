@@ -461,7 +461,7 @@ it('reports a newer skipped compatible Claude only once per process', async () =
     const info = {
       used: 'bundled',
       version: SDK_BUNDLED_CLAUDE_VERSION,
-      skipped: [{ path: '/home/op/claude', version: '2.999.0', reason: 'operator owned' }],
+      skipped: [{ path: `${HOME}/claude`, version: '2.999.0', reason: 'operator owned' }],
     };
     reportClaudeSkip(info);
     reportClaudeSkip(info);
@@ -469,5 +469,24 @@ it('reports a newer skipped compatible Claude only once per process', async () =
     expect(stderr.mock.calls[0][0]).toContain('2.999.0');
   } finally {
     stderr.mockRestore();
+  }
+});
+it('attributes refused config paths and never falls through to an automatic candidate', async () => {
+  const { setOperatorClaudePath } = await import('../orgrt/claude-selection.js');
+  const h = mkdtempSync(join(tmpdir(), 'claude-config-refusal-'));
+  try {
+    setOperatorClaudePath('/chosen/claude', h);
+    const { probe, version, log } = fakeProbe({
+      '/chosen/claude': { ...userBin(), head: '#!' },
+      '/usr/bin/claude': rootBin(),
+    });
+    probe.home = h;
+    const result = await findInstalledClaude(probe);
+    expect(result.path).toBeUndefined();
+    expect(result.claude_code.used).toBe('bundled');
+    expect(log.mock.calls[0][0]).toContain('config claude.path=/chosen/claude is not used');
+    expect(version).not.toHaveBeenCalled();
+  } finally {
+    rmSync(h, { recursive: true, force: true });
   }
 });
