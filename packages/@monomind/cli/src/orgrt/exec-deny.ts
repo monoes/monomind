@@ -188,6 +188,10 @@ export function roleExecMask(args: {
   authorityMask: string[] | undefined;
   denyExec?: string[];
   denyRead?: string[];
+  /** Directories the daemon itself wants unreadable (GA row R3: other roles' mail digests). Unlike
+   *  `denyRead`, bubblewrap being unavailable does not refuse the role: the audit
+   *  `mail-mask-unavailable` is raised and the file-tool and SDK-sandbox layers still apply. */
+  bestEffortDenyRead?: string[];
   /** `policy.sandbox.homeWriteAllow`: set (even empty) to make the real home unwritable apart from these. */
   homeWriteAllow?: string[];
   /** Paths that must stay writable if they are under the home (cwd, org root, allowWrite, tmp). */
@@ -198,7 +202,21 @@ export function roleExecMask(args: {
   homeAvailability?: { available: boolean; reason?: string };
 }): string[] | undefined {
   const homeWrite = args.homeWriteAllow !== undefined;
-  if (!args.denyExec?.length && !args.denyRead?.length && !homeWrite) return args.authorityMask;
+  const bestEffort = args.bestEffortDenyRead ?? [];
+  if (!args.denyExec?.length && !args.denyRead?.length && !homeWrite) {
+    if (!bestEffort.length) return args.authorityMask;
+    const avail = args.availability ?? authorityMaskAvailability();
+    if (avail.available)
+      return [...(args.authorityMask ?? ['--dev-bind', '/', '/']), ...maskTail([], bestEffort)];
+    args.bus.emit({
+      type: 'audit',
+      from: args.roleId,
+      reason: 'mail-mask-unavailable',
+      msg: `bubblewrap cannot mask other roles' mail digests for ${args.roleId} (${avail.reason}); the file-tool and SDK-sandbox denials still apply`,
+      data: {},
+    });
+    return args.authorityMask;
+  }
   const availability = args.availability ?? authorityMaskAvailability();
   const refuse = (key: string, reason: string | undefined, listed: string[]): never => {
     const msg = `policy.sandbox.${key} is set for role ${args.roleId} but bubblewrap cannot do it (${reason}): refusing to start it with ${listed.join(', ')} reachable`;
@@ -239,7 +257,7 @@ export function roleExecMask(args: {
     head = [...head.slice(0, 3), ...layer, ...head.slice(3)];
   }
   const paths = resolveDenyExec(args.denyExec ?? [], { home: args.home, env: args.env });
-  return [...head, ...maskTail(paths, args.denyRead)];
+  return [...head, ...maskTail(paths, [...(args.denyRead ?? []), ...bestEffort])];
 }
 
 // ---- the command check ----------------------------------------------------

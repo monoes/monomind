@@ -3,7 +3,7 @@
 // body is digested into a daemon-owned per-recipient directory, and every other
 // role is denied reading it at the file-tool, SDK-sandbox and authority-mask
 // layers. An org without sections keeps today's `<workdir>/.mail` layout.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -14,6 +14,8 @@ import {
   mailDirFor,
   otherMailDirs,
 } from '../../../src/orgrt/documents/mail-isolation.js';
+import { OrgBus } from '../../../src/orgrt/bus.js';
+import { roleExecMask } from '../../../src/orgrt/exec-deny.js';
 import { prepareGitGuard } from '../../../src/orgrt/git-guard.js';
 import { buildClaudeRestrictions } from '../../../src/orgrt/role-sandbox.js';
 import { sectionsRaw } from '../support/sections-defs.js';
@@ -131,5 +133,37 @@ describe('a sections org session (real daemon)', () => {
     } finally {
       await d.stopAll().catch(() => {});
     }
+  });
+});
+
+describe('the authority-mask layer of the denial', () => {
+  let dirs: string[] = [];
+  const mk = (available: boolean) => {
+    dirs = ['boss', 'researcher'].map((r) => join(base, 'mail', r));
+    for (const d of dirs) mkdirSync(d, { recursive: true });
+    const bus = new OrgBus('o', 'r', join(base, 'bus'));
+    const events: any[] = [];
+    bus.subscribe((e) => events.push(e));
+    const mask = roleExecMask({
+      bus,
+      roleId: 'coder',
+      authorityMask: ['--dev-bind', '/', '/'],
+      bestEffortDenyRead: dirs,
+      home: join(base, 'home'),
+      env: {},
+      availability: { available, reason: available ? undefined : 'no bwrap here' },
+    } as any);
+    return { mask, events };
+  };
+
+  it('masks the directories when bubblewrap is available', () => {
+    const { mask } = mk(true);
+    for (const d of dirs) expect(mask).toEqual(expect.arrayContaining(['--tmpfs', realpathSync(d)]));
+  });
+
+  it('keeps the role starting, with an audit, when bubblewrap is unavailable (the other layers still apply)', () => {
+    const { mask, events } = mk(false);
+    expect(mask).toEqual(['--dev-bind', '/', '/']);
+    expect(events.some((e) => e.type === 'audit' && e.reason === 'mail-mask-unavailable')).toBe(true);
   });
 });

@@ -233,7 +233,8 @@ export async function runOneSession(
             bus,
             roleId: role.id,
             denyExec: role.policy?.sandbox?.denyExec,
-            denyRead: [...(role.policy?.sandbox?.denyRead ?? []), ...mailDeny],
+            denyRead: role.policy?.sandbox?.denyRead,
+            bestEffortDenyRead: mailDeny,
             homeWriteAllow: role.policy?.sandbox?.homeWriteAllow,
             writableRoots: [
               cwd,
