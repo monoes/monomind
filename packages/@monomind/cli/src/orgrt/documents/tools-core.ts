@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { OrgToolDef } from '../agent-runner.js';
 import type { DocumentToolHost } from './host.js';
 import { failure } from './tool-errors.js';
+import { checkTools } from './tools-check.js';
 
 const KEY = z.string().min(1).max(200).optional();
 const ref = z.string().min(1).max(120);
@@ -80,5 +81,6 @@ export function documentTools(host: DocumentToolHost): OrgToolDef[] {
       handler: (a) =>
         run(() => host.decide(a as unknown as Parameters<DocumentToolHost['decide']>[0])),
     },
+    ...checkTools(host, run),
   ];
 }

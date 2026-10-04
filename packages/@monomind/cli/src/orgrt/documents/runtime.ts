@@ -11,6 +11,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OrgDef } from '../types.js';
 import { DocAccess, sectionRoster } from './access.js';
+import { CheckJournal } from './check-journal.js';
 import { contractRevision } from './contract.js';
 import { deliverableGuard } from './deliverable-guards.js';
 import { createHost, type DocumentToolHost } from './host.js';
@@ -80,6 +81,8 @@ export class DocumentsRuntime {
   readonly access: DocAccess;
   /** Publication notices (P3.8); attached to the daemon's deliver path at org start. */
   notices?: NoticeEngine;
+  /** The record of org_doc_check calls (P3.11): `<dir>/checks.jsonl`, created at the first call. */
+  readonly checks: CheckJournal;
   private isClosed = false;
 
   constructor(
@@ -90,6 +93,7 @@ export class DocumentsRuntime {
     def: OrgDef,
   ) {
     this.access = new DocAccess(def, bindings);
+    this.checks = new CheckJournal(join(dir, 'checks.jsonl'));
     // Deliverable consistency (P3.10): only contracts that declare `deliverable_files` are ever checked.
     if (bindings.some((b) => b.contract.deliverable_files?.length))
       store.addGuard(
@@ -113,7 +117,13 @@ export class DocumentsRuntime {
   /** The tool host of `role`: every call is made as that role, whatever the arguments say. */
   forRole(role: string): DocumentToolHost {
     return createHost(
-      { store: this.store, access: this.access, run: this.run, isClosed: () => this.isClosed },
+      {
+        store: this.store,
+        access: this.access,
+        run: this.run,
+        isClosed: () => this.isClosed,
+        checks: this.checks,
+      },
       role,
     );
   }

@@ -15,6 +15,7 @@ export const TOOL_ERROR_CODES = [
   'PART_NEEDS_VERSION',
   'CURSOR_INVALID',
   'RUNTIME_CLOSED',
+  'NO_CHECKS',
 ] as const;
 export type ToolErrorCode = (typeof TOOL_ERROR_CODES)[number];
 export type DocErrorCode = StoreErrorCode | ToolErrorCode;
@@ -69,6 +70,8 @@ const REMEDIES: Record<DocErrorCode, string> = {
   PART_NEEDS_VERSION: 'Read part 1 first, then pass its version together with part.',
   CURSOR_INVALID: 'Call org_doc_list again without a cursor.',
   RUNTIME_CLOSED: 'The run is stopping or has stopped; end your turn.',
+  NO_CHECKS:
+    'This type declares no checks: read the document with org_doc_read and verify what you rely on yourself.',
 };
 
 export const errorRemedy = (code: string): string =>

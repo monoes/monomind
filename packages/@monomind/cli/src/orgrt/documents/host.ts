@@ -8,8 +8,11 @@
 import { createHash } from 'node:crypto';
 import type { DocAccess } from './access.js';
 import { canonicalJson } from './canonical.js';
+import type { CheckJournal } from './check-journal.js';
+import { type CheckArgs, createCheck } from './host-check.js';
 import { type ListArgs, listDocuments } from './host-list.js';
 import { shapeRead } from './host-read.js';
+import { resolveReadable } from './host-resolve.js';
 import type { DocumentStore } from './store.js';
 import type { ReadPurpose } from './store-types.js';
 import { failure, fromRefusal } from './tool-errors.js';
@@ -46,6 +49,8 @@ export interface DocumentToolHost {
   read(a: ReadArgs): DocResult;
   publish(a: PublishArgs): DocResult;
   decide(a: DecideArgs): DocResult;
+  /** Present only when some contract declares checks (P3.11); the org_doc_check tool exists exactly then. */
+  check?(a: CheckArgs): DocResult;
 }
 
 /** What a host needs of its runtime. */
@@ -54,6 +59,8 @@ export interface HostContext {
   access: DocAccess;
   run: string;
   isClosed(): boolean;
+  /** Where org_doc_check calls are recorded (P3.11). */
+  checks?: CheckJournal;
 }
 
 /** The idempotency key used when the role gives none: a digest of the call's own content, so repeating the
@@ -136,28 +143,10 @@ export function createHost(ctx: HostContext, role: string): DocumentToolHost {
   function read(a: ReadArgs): DocResult {
     if (ctx.isClosed()) return closed();
     const id = String(a.id);
-    const d = store.list({ id })[0];
-    if (!d) return failure('UNKNOWN_DOCUMENT', `unknown document "${id}"`);
-    const level = access.readLevel(role, d.type);
-    if (!level) return failure('ACCESS_READ', access.readRefusal(role, d.type) as string);
     const part = a.part ?? 1;
-    if (part > 1 && a.version === undefined)
-      return failure(
-        'PART_NEEDS_VERSION',
-        'part > 1 needs an explicit version, taken from part 1 of the same read',
-      );
-    let version = a.version;
-    const accepted = [...d.versions].reverse().find((v) => v.status === 'accepted');
-    if (version === undefined) {
-      if (level === 'accepted' && !accepted)
-        return failure('NOT_ACCEPTED_YET', `no version of "${id}" has been accepted yet`);
-      version = accepted ? accepted.version : d.head.version;
-    } else {
-      const v = d.versions[version - 1];
-      if (!v) return failure('UNKNOWN_VERSION', `no version ${version} of "${id}"`);
-      if (level === 'accepted' && v.status !== 'accepted')
-        return failure('ACCESS_READ', access.acceptedOnlyRefusal(role, d.type, version, v.status));
-    }
+    const got = resolveReadable(store, access, role, id, a.version, part);
+    if (!got.ok) return got;
+    const { doc: d, version } = got;
     const how = access.roleFor(role, d.type) as string;
     const r =
       part === 1
@@ -220,5 +209,8 @@ export function createHost(ctx: HostContext, role: string): DocumentToolHost {
     read,
     publish,
     decide,
+    ...(store.contracts().some((c) => c.contract.checks.length)
+      ? { check: createCheck(ctx, role) }
+      : {}),
   };
 }

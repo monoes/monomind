@@ -1,6 +1,8 @@
 // packages/@monomind/cli/src/orgrt/documents/index.ts
 // The document tool surface of a run (plan P3.6): the runtime, the host a session gets, and the tools.
+
 export { DocAccess, type ReadLevel, type TypeRole } from './access.js';
+export { type CheckCounts, CheckJournal, type CheckRecord } from './check-journal.js';
 export { RUNTIME_SENDER, type RuntimeDeliver, sendRuntimeMessage } from './deliver.js';
 export type { DocumentToolHost } from './host.js';
 export { type DocFact, NoticeEngine, type NoticeSink } from './notices.js';
