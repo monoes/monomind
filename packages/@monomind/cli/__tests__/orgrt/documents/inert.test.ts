@@ -12,18 +12,23 @@ const walk = (dir: string): string[] =>
     e.isDirectory() ? walk(join(dir, e.name)) : /\.(ts|mts|mjs|js|tsx)$/.test(e.name) ? [join(dir, e.name)] : [],
   );
 
-describe('orgrt/documents is inert (P3.4): nothing outside it imports it yet', () => {
-  it('no file under src/orgrt outside documents/ refers to the documents directory', () => {
-    const offenders = walk(orgrt)
+describe('orgrt/documents is inert (P3.4): the dialect modules are not imported outside it yet', () => {
+  it('only the P3.1 surface files refer to the documents directory, and none imports a P3.4 dialect module', () => {
+    const p31 = new Set(['orgrt/validate-checklist.ts', 'orgrt/types-sections.ts', 'orgrt/types.ts']);
+    const p34 = ['errors', 'json', 'schema-dialect', 'schema-ref', 'checks', 'canonical', 'contract', 'types'].map((n) =>
+      join(documents, n),
+    );
+    const refs = walk(orgrt)
       .filter((f) => !f.startsWith(documents + sep))
-      .filter((f) =>
-        [...readFileSync(f, 'utf8').matchAll(/['"](\.[^'"]*\/documents(?:\/[^'"]*)?)['"]/g)].some((m) => {
-          const target = resolve(dirname(f), m[1]);
-          return target === documents || target.startsWith(documents + sep);
-        }),
+      .flatMap((f) =>
+        [...readFileSync(f, 'utf8').matchAll(/['"](\.[^'"]*\/documents(?:\/[^'"]*)?)['"]/g)].map((m) => ({
+          file: relative(src, f),
+          target: resolve(dirname(f), m[1]).replace(/\.(js|ts)$/, ''),
+        })),
       )
-      .map((f) => relative(src, f));
-    expect(offenders).toEqual([]);
+      .filter((r) => r.target === documents || r.target.startsWith(documents + sep));
+    expect(refs.filter((r) => !p31.has(r.file)).map((r) => r.file)).toEqual([]);
+    expect(refs.filter((r) => p34.includes(r.target)).map((r) => `${r.file} -> ${r.target}`)).toEqual([]);
   });
 
   it('the P3.4 modules import nothing from the rest of orgrt or the CLI (pure, self-contained)', () => {
