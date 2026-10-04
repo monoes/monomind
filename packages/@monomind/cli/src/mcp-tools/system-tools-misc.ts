@@ -5,61 +5,23 @@ import { getMonomindDataRoot, type MCPTool } from './types.js';
 
 export const mcpStatusTool: MCPTool = {
   name: 'mcp_status',
-  description: 'Get MCP server status, including stdio mode detection',
+  description: 'Get MCP server status from its runtime state and recorded PID',
   category: 'system',
   inputSchema: {
     type: 'object',
     properties: {},
   },
   handler: async () => {
-    // Detect if we are running inside an MCP stdio session.
-    // When Claude Code launches us via `claude mcp add`, stdin is piped (not a TTY)
-    // and the process IS the MCP server, so it is running.
-    const isStdio = !process.stdin.isTTY;
-    const transport = process.env.MONOMIND_MCP_TRANSPORT || (isStdio ? 'stdio' : 'http');
-    const port = parseInt(process.env.MONOMIND_MCP_PORT || '3000', 10);
-
-    if (transport === 'stdio' || isStdio) {
-      // In stdio mode the MCP server is this process itself
-      return {
-        running: true,
-        pid: process.pid,
-        transport: 'stdio',
-        port: null,
-        host: null,
-      };
-    }
-
-    // For HTTP/WebSocket, try to check if the server is listening
-    const host = process.env.MONOMIND_MCP_HOST || 'localhost';
-    try {
-      const { createConnection } = await import('node:net');
-      const connected = await new Promise<boolean>((resolve) => {
-        const socket = createConnection({ host, port }, () => {
-          socket.destroy();
-          resolve(true);
-        });
-        socket.on('error', () => resolve(false));
-        socket.setTimeout(2000, () => {
-          socket.destroy();
-          resolve(false);
-        });
-      });
-
-      return {
-        running: connected,
-        transport,
-        port,
-        host,
-      };
-    } catch {
-      return {
-        running: false,
-        transport,
-        port,
-        host,
-      };
-    }
+    // The tool is also called locally by `monomind status`, where piped
+    // stdin says nothing about whether an MCP server has started.
+    const { getMCPServerStatus } = await import('../mcp-server.js');
+    const status = await getMCPServerStatus();
+    return {
+      ...status,
+      transport: status.transport ?? process.env.MONOMIND_MCP_TRANSPORT ?? 'stdio',
+      port: status.transport === 'stdio' ? null : (status.port ?? null),
+      host: status.transport === 'stdio' ? null : (status.host ?? null),
+    };
   },
 };
 
