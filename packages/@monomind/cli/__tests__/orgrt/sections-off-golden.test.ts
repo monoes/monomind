@@ -236,13 +236,19 @@ describe('sections-off golden: a scripted run', () => {
     expect(run.checkpointVersion).toBe(2);
     expect(run.files.some((f) => f.includes('docs'))).toBe(false);
     expectGolden('run-bus', run.bus);
-    expectGolden('run-files', {
-      files: run.files,
-      runtimeKeys: run.runtimeKeys,
-      checkpointKeys: run.checkpointKeys,
-      checkpointVersion: run.checkpointVersion,
-      sessionsKeys: run.sessionsKeys,
-    });
+    // the role directories the bubblewrap mask creates up front are absent on a host without bubblewrap
+    const maskDirs = /^alpha\/(\.mail|reports|runs|scratch|work|workspace)\/$/;
+    expectGolden(
+      'run-files',
+      {
+        files: run.files,
+        runtimeKeys: run.runtimeKeys,
+        checkpointKeys: run.checkpointKeys,
+        checkpointVersion: run.checkpointVersion,
+        sessionsKeys: run.sessionsKeys,
+      },
+      (v) => ({ ...v, files: v.files.filter((f: string) => !maskDirs.test(f)) }),
+    );
   });
 
   it('sections-off golden: mailbox texts and receipts', () => {

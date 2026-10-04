@@ -34,7 +34,13 @@ export function recapturePiece(env: NodeJS.ProcessEnv = process.env): string | u
 
 const pretty = (v: unknown): string => `${JSON.stringify(v, null, 2)}\n`;
 
-export function expectGolden(name: string, actual: unknown): void {
+/** `hostNeutral` is applied to both sides before comparing (never when recapturing): it drops what a host
+ *  without bubblewrap does not create, so the golden reads the same with and without it. */
+export function expectGolden(
+  name: string,
+  actual: unknown,
+  hostNeutral: (v: any) => unknown = (v) => v,
+): void {
   const file = join(GOLDEN_DIR, `${name}.json`);
   // round-trip so undefined and class instances compare as the file will
   const got = JSON.parse(JSON.stringify(actual)) as unknown;
@@ -46,7 +52,7 @@ export function expectGolden(name: string, actual: unknown): void {
   if (!existsSync(file))
     throw new Error(`sections-off golden "${name}" is missing; fixtures are committed, never created by a test run`);
   try {
-    expect(got).toEqual(JSON.parse(readFileSync(file, 'utf8')));
+    expect(hostNeutral(got)).toEqual(hostNeutral(JSON.parse(readFileSync(file, 'utf8'))));
   } catch (err) {
     // the actual value, for diffing against the fixture
     const dir = join(process.env.TMPDIR ?? '/var/tmp', 'sections-off-golden-actual');

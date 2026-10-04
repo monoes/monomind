@@ -189,16 +189,21 @@ describe.runIf(authorityMaskAvailability().available && homeLayerAvailability().
     const h = fakeHome();
     const work = join(h, 'work/cwd');
     mkdirSync(work, { recursive: true });
-    const mask = roleExecMask({
-      bus: bus(),
-      roleId: 'w',
-      authorityMask: undefined,
-      denyExec: ['node'],
-      homeWriteAllow: ALLOW,
-      writableRoots: [work],
-      home: h,
-      env: { PATH: process.env.PATH ?? '' },
-    }) as string[];
+    // describe bodies run even when runIf is false, and roleExecMask refuses without bubblewrap
+    const mask = (
+      authorityMaskAvailability().available && homeLayerAvailability().available
+        ? roleExecMask({
+            bus: bus(),
+            roleId: 'w',
+            authorityMask: undefined,
+            denyExec: ['node'],
+            homeWriteAllow: ALLOW,
+            writableRoots: [work],
+            home: h,
+            env: { PATH: process.env.PATH ?? '' },
+          })
+        : []
+    ) as string[];
     const run = (cmd: string, nested = false) => {
       const script = nested
         ? // the SDK's Bash sandbox: read-only root, the home among the writable roots
@@ -336,15 +341,20 @@ describe.runIf(
   claudeBin && authorityMaskAvailability().available && homeLayerAvailability().available,
 )('the real claude CLI in the layer (no model call)', () => {
   const h = fakeHome();
-  const mask = roleExecMask({
-    bus: bus(),
-    roleId: 'w',
-    authorityMask: undefined,
-    denyExec: ['node'],
-    homeWriteAllow: ALLOW,
-    home: h,
-    env: { PATH: process.env.PATH ?? '' },
-  }) as string[];
+  // describe bodies run even when runIf is false, and roleExecMask refuses without bubblewrap
+  const mask = (
+    authorityMaskAvailability().available && homeLayerAvailability().available
+      ? roleExecMask({
+          bus: bus(),
+          roleId: 'w',
+          authorityMask: undefined,
+          denyExec: ['node'],
+          homeWriteAllow: ALLOW,
+          home: h,
+          env: { PATH: process.env.PATH ?? '' },
+        })
+      : []
+  ) as string[];
   const claude = (...a: string[]) => {
     const [bin, args] = maskedCommand(mask, claudeBin, a);
     return spawnSync(bin, args, {

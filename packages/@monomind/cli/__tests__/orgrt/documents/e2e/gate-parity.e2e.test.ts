@@ -81,8 +81,9 @@ describe('sections-off parity on the same roster', () => {
     expect(await waitFor(() => off.runner.subjects('synthesiser').includes('s'))).toBe(true);
     for (const t of off.runner.allTexts()) expect(t).not.toContain('[message from org-docs]');
     // no bus reason beyond the P3.0 sections-off golden's, and none of the documents' or the gate's
-    // (the scripted AgentRunner is not the Claude runtime, so the git sandbox audit it triggers is not in that golden)
-    const golden = new Set<string>(['git-sandbox-unsupported-runtime']);
+    // (the scripted AgentRunner is not the Claude runtime, so the git sandbox audit it triggers is not in that golden;
+    // a host without bubblewrap also audits authority-mask-unavailable)
+    const golden = new Set<string>(['git-sandbox-unsupported-runtime', 'authority-mask-unavailable']);
     const walk = (x: unknown): void => {
       if (Array.isArray(x)) x.forEach(walk);
       else if (x && typeof x === 'object') {

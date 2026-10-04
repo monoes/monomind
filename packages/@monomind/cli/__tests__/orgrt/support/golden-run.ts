@@ -86,7 +86,10 @@ export async function runScripted(tmp: string): Promise<ScriptedRun> {
     const running = await d.startOrg('alpha');
     // run memory is stored through a bridge whose outcome depends on the machine
     // (known environmental failure of daemon.test.ts), so its events are left out
-    const events = (): BusEvent[] => running.busEvents().filter((e) => !e.reason?.startsWith('org-memory-'));
+    const events = (): BusEvent[] => running
+        .busEvents()
+        // a host without bubblewrap audits authority-mask-unavailable; the golden is host-independent
+        .filter((e) => !e.reason?.startsWith('org-memory-') && e.reason !== 'authority-mask-unavailable');
     const seen = (reason: string, from?: string): boolean =>
       events().some((e) => e.reason === reason && (from === undefined || e.from === from));
     const turns = (role: string): number => events().filter((e) => e.type === 'usage' && e.from === role).length;
