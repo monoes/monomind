@@ -13,10 +13,16 @@ const BASE = check(loopOrg(null, (r) => { r.sections.qa.publishes = []; r.sectio
 const TOP = '"loops" is not yet supported (org sections are designed, not built) — remove it';
 
 describe('loops on the sections surface', () => {
-  it('a declared dev and QA loop validates with no error and no warning', () => {
+  it('a declared dev and QA loop validates with no error and no warning but the generic ones and #21 (the fixture declares no checks)', () => {
     const f = check(loopOrg(4));
+    const no21 = (ws: string[]) => ws.filter((w) => !w.startsWith('#21 '));
     expect(f.errors).toEqual([]);
-    expect(f.warnings).toEqual(BASE);
+    expect(no21(f.warnings)).toEqual(no21(BASE));
+    expect(f.warnings.filter((w) => w.startsWith('#21 ')).map((w) => w.split(':')[0])).toEqual([
+      '#21 documents.build',
+      '#21 documents.report',
+      '#21 documents.memo',
+    ]);
   });
 
   it('an undeclared cycle is an error naming both sections, the types and the way out', () => {

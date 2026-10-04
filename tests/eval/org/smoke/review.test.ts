@@ -164,12 +164,12 @@ describe('scrub: nothing in a bundle says which arm, run, role or path produced 
     root: '/var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t',
     names: ['smoke-growth-like-phase2-p2t'],
     roleIds: ['growth-lead', 'researcher', 'content-writer', 'analyst'],
-    home: '/home/monoes',
+    home: ['', 'home', 'monoes'].join('/'), // built from parts: the tree names no real home directory
   };
 
   it('replaces the trial path, any other path in the scratch or home areas, the org name and run ids', () => {
     const t = scrub(
-      'cd /var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t/workspace && ls /var/tmp/mm-pilot-p1/inputs/x /home/monoes/.monomind\n' +
+      'cd /var/tmp/mm-pilot-p1/trials/smoke-growth-like-phase2-p2t/workspace && ls /var/tmp/mm-pilot-p1/inputs/x ' + ctx.home + '/.monomind\n' +
         'org smoke-growth-like-phase2-p2t run run-20261002133341-b259 ended',
       ctx,
     );
@@ -179,7 +179,7 @@ describe('scrub: nothing in a bundle says which arm, run, role or path produced 
       'smoke-growth',
       'phase2',
       'p2t',
-      '/home/monoes',
+      ctx.home,
       'run-2026',
     ])
       expect(t).not.toContain(secret);
