@@ -31,6 +31,7 @@
  */
 import type { OrgDaemon } from './daemon.js';
 import type { RunningOrg } from './daemon-types.js';
+import { type AwaitFacts, awaitFacts, awaitingDocuments } from './documents/awaiting.js';
 import * as questionOps from './questions.js';
 import { isTerminalStatus } from './task-dag.js';
 import type { BusEvent } from './types.js';
@@ -76,6 +77,8 @@ export interface RoleSnapshot {
   lastActivity: number;
   /** Legitimately waiting (pending approval/gate/blocking question). */
   waiting: boolean;
+  /** Sections orgs (P3.16c): a consumer whose only open work is waiting for documents; never silent. Absent otherwise. */
+  awaitingDocuments?: boolean;
   openTasks: WatchedTask[];
 }
 
@@ -161,7 +164,7 @@ export class LeadWatch {
       const open = [...r.openTasks, ...(this.msgWork.get(r.id) ?? [])].filter(
         (t) => !this.settled.has(t.id),
       );
-      if (!r.lead || open.length === 0 || (r.started && r.waiting)) continue;
+      if (!r.lead || open.length === 0 || (r.started && (r.waiting || r.awaitingDocuments))) continue;
       const first = Math.min(...open.map((t) => t.since));
       const kind: Notice['kind'] = r.started ? 'silent' : 'not-started';
       // A silent role is silent since its last event or since the work arrived.
@@ -248,6 +251,9 @@ function snapshot(
     (daemon.approvals.get(name) ?? []).some((a) => a.approved === null) ||
     questionOps.pendingBlockingQuestions(daemon.root, name).length > 0;
   const boss = running.bossRoleId;
+  let facts: AwaitFacts | undefined; // built once per snapshot, and only when a started role asks
+  const awaiting = (id: string): boolean =>
+    awaitingDocuments(id, (facts ??= awaitFacts(running.documents as NonNullable<typeof running.documents>)));
   return [...byRole].flatMap(([id, openTasks]) => {
     if (id === boss) return [];
     const parent = running.def.roles.find((r) => r.id === id)?.reports_to ?? boss;
@@ -260,6 +266,7 @@ function snapshot(
         started: isStarted(id),
         lastActivity: roleActivity.get(id) ?? 0,
         waiting: waitingHuman,
+        ...(running.documents && isStarted(id) ? { awaitingDocuments: awaiting(id) } : {}),
         openTasks,
       },
     ];
