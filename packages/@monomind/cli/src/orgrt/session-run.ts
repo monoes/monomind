@@ -467,7 +467,7 @@ export async function runOneSession(
               mailbox.close();
             }
           }
-        } else if (m.subtype === 'success' && opts.circuitBreaker) {
+        } else if (m.subtype === 'success' && !m.is_error && opts.circuitBreaker) {
           opts.circuitBreaker.state.failures = 0;
         }
         if (policy.overBudget || m.subtype === BUDGET_STOP_SUBTYPE) {
@@ -481,6 +481,22 @@ export async function runOneSession(
           // recoverable (raise the budget, resume) — the idle watchdog reads
           // this to stop reporting it as generic "unreachable" (crash-like).
           mailbox.close('token-budget');
+        }
+        // A turn the API ended with an error ("API Error: Server error
+        // mid-response") arrives as subtype 'success' with is_error. The Claude
+        // CLI can outlive it for the API timeout (600 s observed, run
+        // run-20261004195437-tzfx) and the SDK throws only when it exits, so
+        // the role sat idle that long before its restart. End the session now:
+        // the daemon's restart path takes it from here.
+        if (m.subtype === 'success' && m.is_error === true) {
+          const text = m.text ?? 'no error text';
+          bus.emit({
+            type: 'audit',
+            from: role.id,
+            reason: 'session-result-error',
+            msg: `turn ended with an error result - ending the session: ${text}`,
+          });
+          throw new Error(`Claude Code returned an error result: ${text}`);
         }
         // ORG-7: parallel USD-budget enforcement, same pattern as the token check above.
         if (m.subtype === USD_STOP_SUBTYPE) usdStopped = true;

@@ -21,7 +21,8 @@
  *   - it was taken before the machine last booted;
  *   - its pid is not running (checked only from the pid namespace it was
  *     recorded in; an org role's sandbox has its own and cannot see it);
- *   - its org run ended: runtime.json still names that run, not 'running';
+ *   - its org run ended: runtime.json still names that run, not 'running', or the
+ *     run's own bus.jsonl records org-stopped (runtime.json is replaced by the next run);
  *   - its heartbeat (the run's bus.jsonl) has not changed for
  *     --heartbeat-minutes (default 30; the org stops itself after 15 idle).
  * Takeover is serialized by a second `mkdir` (`<lock>.break`), so two
@@ -157,6 +158,7 @@ function staleReason(info, lockDir, opts) {
     const rt = readJson(info.runtimeFile);
     if (rt && rt.run === info.run && rt.status !== 'running') return `its run ended: ${rt.status}`;
   }
+  if (info.heartbeat && endedInBus(info.heartbeat)) return 'its run ended: org-stopped';
   if (info.heartbeat) {
     const limit = Number(opts['heartbeat-minutes'] ?? 30);
     const m = mtimeMs(info.heartbeat);
@@ -167,6 +169,23 @@ function staleReason(info, lockDir, opts) {
         : `no activity in ${info.heartbeat} for ${quiet} min`;
   }
   return undefined;
+}
+
+/**
+ * True when the run's own bus log ends with an org-stopped event. runtime.json
+ * is per org, so a later run replaces it and the holder's end state is lost;
+ * the bus log is per run and says how that run ended.
+ */
+function endedInBus(file) {
+  try {
+    const tail = readFileSync(file, 'utf8').slice(-65536);
+    return tail
+      .split('\n')
+      .reverse()
+      .some((l) => l.includes('"reason":"org-stopped"'));
+  } catch {
+    return false;
+  }
 }
 
 const describe = (info) =>

@@ -473,6 +473,11 @@ export class ClaudeAgentRunner implements AgentRunner {
             session_id,
             subtype: afterInterrupt ? INTERRUPTED_SUBTYPE : m.subtype,
             is_error: m.is_error,
+            // The SDK's error text ("API Error: ..."), so the session can end
+            // an is_error turn itself instead of waiting for the CLI to exit.
+            ...(m.is_error && typeof (m as { result?: unknown }).result === 'string'
+              ? { text: (m as { result: string }).result }
+              : {}),
             input_tokens: m.usage?.input_tokens ?? 0,
             output_tokens: m.usage?.output_tokens ?? 0,
             cache_read_input_tokens: m.usage?.cache_read_input_tokens ?? undefined,
