@@ -1,0 +1,209 @@
+{
+  "store": {
+    "module-sheets-w1-1": [
+      "published v1 by worker-1",
+      "read v1 by synthesiser (review)",
+      "decided v1 reject by synthesiser -> rejected: m3/q05: value_matches_chain (1 flagged answers, 0 document failures)",
+      "published v2 by worker-1 (supersedes v1)",
+      "read v2 by synthesiser (review)",
+      "decided v2 reject by synthesiser -> rejected: m1/q01: files_match_evidence; m1/q02: files_match_evidence (2 flagged answers, 0 document failures)",
+      "published v3 by worker-1 (supersedes v2)",
+      "read v3 by synthesiser (review)",
+      "decided v3 accept by synthesiser -> accepted",
+      "read v3 by synthesiser (review)"
+    ],
+    "module-sheets-w2-1": [
+      "refused publish DELIVERABLE_MISMATCH by worker-2 (counts consistency)",
+      "published v1 by worker-2",
+      "read v1 by synthesiser (review)",
+      "decided v1 reject by synthesiser -> rejected: document: unique_across_sheets; m6/q01: files_in_module; m6/q02: files_in_module; m6/q03: files_in_module (12 flagged answers, 1 document failures)",
+      "published v2 by worker-2 (supersedes v1)",
+      "read v2 by synthesiser (review)",
+      "decided v2 accept by synthesiser -> accepted",
+      "read v2 by synthesiser (review)"
+    ],
+    "module-sheets-w3-1": [
+      "published v1 by worker-3",
+      "read v1 by synthesiser (review)",
+      "decided v1 accept by synthesiser -> accepted",
+      "read v1 by synthesiser (review)"
+    ]
+  },
+  "heads": {
+    "module-sheets-w1-1": [
+      "v1:rejected",
+      "v2:rejected",
+      "v3:accepted"
+    ],
+    "module-sheets-w2-1": [
+      "v1:rejected",
+      "v2:accepted"
+    ],
+    "module-sheets-w3-1": [
+      "v1:accepted"
+    ]
+  },
+  "attempts": {
+    "module-sheets-w1": {
+      "used": 0,
+      "left": 4,
+      "refusals_used": 0,
+      "refusals_left": 5
+    },
+    "module-sheets-w2": {
+      "used": 0,
+      "left": 4,
+      "refusals_used": 1,
+      "refusals_left": 4
+    },
+    "module-sheets-w3": {
+      "used": 0,
+      "left": 4,
+      "refusals_used": 0,
+      "refusals_left": 5
+    }
+  },
+  "notices": {
+    "delivered": {
+      "publish-notice": 6,
+      "all-available": 1,
+      "relay": 6
+    },
+    "failed": 0,
+    "again": 0
+  },
+  "relays": [
+    "rejected module-sheets-w1-1 v1 to worker-1: delivered, republished v2, copies lead:delivered",
+    "rejected module-sheets-w1-1 v2 to worker-1: delivered, republished v3, copies lead:delivered",
+    "rejected module-sheets-w2-1 v1 to worker-2: delivered, republished v2, copies lead:delivered"
+  ],
+  "checks": {
+    "module-sheets-w1-1@v1": [
+      "ok=true flagged=1 doc_failures=0 per_check={\"value_type\":0,\"files_match_evidence\":0,\"value_matches_chain\":1,\"files_in_module\":0,\"unique_across_sheets\":0}"
+    ],
+    "module-sheets-w2-1@v1": [
+      "ok=true flagged=12 doc_failures=1 per_check={\"value_type\":0,\"files_match_evidence\":0,\"value_matches_chain\":0,\"files_in_module\":12,\"unique_across_sheets\":1}"
+    ],
+    "module-sheets-w3-1@v1": [
+      "ok=true flagged=0 doc_failures=0 per_check={\"value_type\":0,\"files_match_evidence\":0,\"value_matches_chain\":0,\"files_in_module\":0,\"unique_across_sheets\":0}"
+    ],
+    "module-sheets-w1-1@v2": [
+      "ok=true flagged=2 doc_failures=0 per_check={\"value_type\":0,\"files_match_evidence\":2,\"value_matches_chain\":0,\"files_in_module\":0,\"unique_across_sheets\":0}"
+    ],
+    "module-sheets-w2-1@v2": [
+      "ok=true flagged=0 doc_failures=0 per_check={\"value_type\":0,\"files_match_evidence\":0,\"value_matches_chain\":0,\"files_in_module\":0,\"unique_across_sheets\":0}"
+    ],
+    "module-sheets-w1-1@v3": [
+      "ok=true flagged=0 doc_failures=0 per_check={\"value_type\":0,\"files_match_evidence\":0,\"value_matches_chain\":0,\"files_in_module\":0,\"unique_across_sheets\":0}"
+    ]
+  },
+  "checkCounts": {
+    "calls": 6,
+    "ran": 6,
+    "refused": 0,
+    "calls_flagging": 3,
+    "flagged_answers": 15,
+    "document_failures": 1,
+    "by_ref": {
+      "module-sheets-w1-1@v1": {
+        "calls": 1,
+        "flagged": 1,
+        "doc_failures": 0
+      },
+      "module-sheets-w2-1@v1": {
+        "calls": 1,
+        "flagged": 12,
+        "doc_failures": 1
+      },
+      "module-sheets-w3-1@v1": {
+        "calls": 1,
+        "flagged": 0,
+        "doc_failures": 0
+      },
+      "module-sheets-w1-1@v2": {
+        "calls": 1,
+        "flagged": 2,
+        "doc_failures": 0
+      },
+      "module-sheets-w2-1@v2": {
+        "calls": 1,
+        "flagged": 0,
+        "doc_failures": 0
+      },
+      "module-sheets-w1-1@v3": {
+        "calls": 1,
+        "flagged": 0,
+        "doc_failures": 0
+      }
+    }
+  },
+  "told": {
+    "lead": [
+      "Org \"mini-sweep\" started (run ",
+      "document rejected: module-sheets-w1-1 v1 (copy)",
+      "document rejected: module-sheets-w1-1 v2 (copy)",
+      "document rejected: module-sheets-w2-1 v1 (copy)"
+    ],
+    "synthesiser": [
+      "all documents are available",
+      "brief: sheets will come, process each when it is published",
+      "document ready: module-sheets-w1-1 v1",
+      "document ready: module-sheets-w1-1 v2",
+      "document ready: module-sheets-w1-1 v3",
+      "document ready: module-sheets-w2-1 v1",
+      "document ready: module-sheets-w2-1 v2",
+      "document ready: module-sheets-w3-1 v1"
+    ],
+    "worker-1": [
+      "document rejected: module-sheets-w1-1 v1",
+      "document rejected: module-sheets-w1-1 v2",
+      "work"
+    ],
+    "worker-2": [
+      "document rejected: module-sheets-w2-1 v1",
+      "work"
+    ],
+    "worker-3": [
+      "work"
+    ]
+  },
+  "busDocReasons": {},
+  "synthesis": {
+    "inputs": {
+      "module-sheets-w1-1": {
+        "version": 3,
+        "status": "accepted"
+      },
+      "module-sheets-w2-1": {
+        "version": 2,
+        "status": "accepted"
+      },
+      "module-sheets-w3-1": {
+        "version": 1,
+        "status": "accepted"
+      }
+    },
+    "sum_q05": 24558
+  },
+  "files": [
+    "checks.jsonl",
+    "contracts/",
+    "contracts/module-sheets-w1@6ca3ddab5344988a40ac62ca7a7c2c2429beb47549ac882e8808aa155b5ec77b.json",
+    "contracts/module-sheets-w2@ab4e6c7f40931162b872feb44830f8ac28124236a7a9b29bc080a8069c70e7d7.json",
+    "contracts/module-sheets-w3@7a9352ee1bbf82a297e21b8e4feb7581408b9272e81e7b1df94ecc901a510dec.json",
+    "events.jsonl",
+    "notices.jsonl",
+    "sweep-1/",
+    "sweep-1/module-sheets-w1/",
+    "sweep-1/module-sheets-w1/module-sheets-w1-1@v1.json",
+    "sweep-1/module-sheets-w1/module-sheets-w1-1@v2.json",
+    "sweep-1/module-sheets-w1/module-sheets-w1-1@v3.json",
+    "sweep-2/",
+    "sweep-2/module-sheets-w2/",
+    "sweep-2/module-sheets-w2/module-sheets-w2-1@v1.json",
+    "sweep-2/module-sheets-w2/module-sheets-w2-1@v2.json",
+    "sweep-3/",
+    "sweep-3/module-sheets-w3/",
+    "sweep-3/module-sheets-w3/module-sheets-w3-1@v1.json"
+  ]
+}
