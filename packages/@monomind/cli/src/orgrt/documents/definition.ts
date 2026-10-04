@@ -11,6 +11,7 @@ import { completionFindings } from './completion-accessor.js';
 import { checkDocuments } from './definition-documents.js';
 import type { Findings } from './definition-util.js';
 import { isObject, NAME_RE, RESERVED_TYPES } from './definition-util.js';
+import { writerDefinitionFindings } from './definition-writes.js';
 import { leadRulesFindings } from './lead-rules.js';
 import { sectionBudgetChecklist } from './section-budget-wire.js';
 
@@ -272,5 +273,6 @@ export function sectionsDefinitionFindings(def: OrgDef): Findings {
   const budget = sectionBudgetChecklist(def); // P4.5: shape, partition and org budget
   f.errors.push(...budget.errors);
   f.warnings.push(...budget.warnings);
+  writerDefinitionFindings(def, f);
   return f;
 }

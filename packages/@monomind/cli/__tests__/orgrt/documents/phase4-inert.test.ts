@@ -17,7 +17,7 @@
 // HOW A DELIBERATE CHANGE IS MADE. A failing expectation here means a piece changed what the checklist says.
 // If the piece is the one that gives that key effect, it edits ONLY its own block below (named in the comment
 // "EDITED BY") and lists the edit in its report. Any other failure means the piece is wrong, not this file.
-//   P4.4  writes (one writing section; worktree-per-role with writes; the more-than-one-writer text stays)
+//   P4.4  writes (one writing section; worktree-per-role with writes; the more-than-one-writer text stays) -- DONE, see the EDITED BY P4.4 blocks
 //   P4.5  run_config.budget_usd, run_config.budget_mode, sections.<s>.budget, the deferred run_config keys
 //   P4.7  max_rework_rounds
 //   P4.8  loops, an undeclared cycle between sections
@@ -209,20 +209,44 @@ describe('phase4 inert: on-surface refusals of the Phase 4 keys are unchanged to
 });
 
 describe('phase4 inert: keys accepted today that Phase 4 gives effect or findings to', () => {
-  // EDITED BY P4.4: writes has an effect (the writer preflight and the policy overlay); a valid single writer stays accepted.
-  it('one writing section is accepted, with the warnings of the baseline', () => {
-    const f = on((r) => (r.sections.research.writes = ['src/**']));
+  // EDITED BY P4.4: `writes` has an effect (the writer preflight and the policy overlay). A valid single writer is still
+  // accepted, but the baseline roles are now checked: the section's lead must not also be a writer (so it is read-only here),
+  // and every role outside the writing section gets the read-only overlay, which replaces a sandbox mode of "off" (a warning).
+  const READ_ONLY = { denyTools: ['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Bash'], sandbox: { mode: 'off' } };
+  const OVERRIDDEN = (role: string) =>
+    `roles.${role}.policy.sandbox.mode: "off" is replaced by "required" for a read-only role — set "required" or remove it`;
+  const writing = (r: Raw) => {
+    r.sections.research.writes = ['src/**'];
+    r.roles.find((x: Raw) => x.id === 'research-lead').policy = READ_ONLY;
+  };
+  it('one writing section is accepted, with the warnings of the baseline plus the sandbox-mode notes of the read-only roles', () => {
+    const f = on(writing);
     expect(f.errors).toEqual([]);
-    expect(f.warnings).toEqual(baseline.warnings);
+    // The section findings come first; the generic ones follow unchanged, except the #5 line, which no longer lists the lead's Bash.
+    expect(f.warnings.slice(0, 3)).toEqual([OVERRIDDEN('boss'), OVERRIDDEN('dev-lead'), OVERRIDDEN('coder')]);
+    const generic = (ws: string[]) => ws.filter((w) => !w.startsWith('#5 '));
+    expect(generic(f.warnings.slice(3))).toEqual(generic(baseline.warnings));
+  });
+
+  it('one writing section whose lead can also write is refused: two roles can change the workspace', () => {
+    const f = on((r) => (r.sections.research.writes = ['src/**']));
+    expect(f.errors).toHaveLength(1);
+    expect(f.errors[0]).toMatch(/^workspace repo: 2 roles can change it, at most one may — research-lead \(/);
   });
 
   // EDITED BY P4.4: refused with writes (separate trees mean separate writers).
-  it('workspace worktree-per-role together with writes is accepted today', () => {
+  it('workspace worktree-per-role together with writes is refused', () => {
     const f = on((r) => {
-      r.sections.research.writes = ['src/**'];
+      writing(r);
       r.run_config.workspace = 'worktree-per-role';
     });
-    expect(f.errors).toEqual([]);
+    expect(f.errors).toEqual([
+      'run_config.workspace: "worktree-per-role" cannot be combined with sections.<s>.writes — separate trees mean separate writers (not yet supported), and a failed worktree silently shares the project directory; use "repo", "isolated" or a path',
+    ]);
+  });
+
+  it('workspace worktree-per-role without writes is accepted as before', () => {
+    expect(on((r) => (r.run_config.workspace = 'worktree-per-role')).errors).toEqual([]);
   });
 
   // EDITED BY P4.7: max_rework_rounds has an effect; a valid cap stays accepted.

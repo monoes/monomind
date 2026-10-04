@@ -8,6 +8,7 @@ import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
+import { effectiveRole } from './effective-role-policy.js';
 import { roleExecMask } from './exec-deny.js';
 import type { StreamOptions } from './mailbox.js';
 import { ensureOperatorProtectedPaths } from './operator-protected-paths.js';
@@ -37,6 +38,7 @@ import {
 import { StateDetector } from './state-detector.js';
 import { linkAbort } from './task-cancel.js';
 import type { ToolResultEventData } from './types.js';
+import { assertWriterBoundary } from './writer-boundary.js';
 
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
 
@@ -54,7 +56,9 @@ export async function runOneSession(
   faultWatch?: ReturnType<FaultRestarts['watch']>,
   cancelled?: AbortSignal,
 ): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
-  const { org, role, bus, policy, mailbox, cwd } = opts;
+  const { org, bus, policy, mailbox, cwd } = opts;
+  // Spec 6.12: the same effective policy the role's engine runs on (effective-role-policy.ts).
+  const role = effectiveRole(opts.def, opts.role, { orgRoot: opts.orgRoot, workdir: cwd });
   // Each call starts a new runner process, whose cumulative totals may or may
   // not continue the previous one's (cumulative-meter.ts).
   costTotals?.newProcess();
@@ -208,6 +212,15 @@ export async function runOneSession(
           });
     // What this session really got, not what the config asked for (policy-git.ts).
     policy.setOsSandboxed(!!gitEnforcement.claudeRestrictions?.sandbox);
+    assertWriterBoundary({
+      def: opts.def,
+      role,
+      cwd,
+      orgRoot: opts.orgRoot,
+      bus,
+      restrictions: gitEnforcement.claudeRestrictions,
+      claudeRuntime: runner instanceof ClaudeAgentRunner && resolvedAccess.access !== 'full',
+    });
     const authorityMask =
       resolvedAccess.access === 'full'
         ? undefined

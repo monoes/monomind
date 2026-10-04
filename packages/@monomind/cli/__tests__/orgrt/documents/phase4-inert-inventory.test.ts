@@ -102,6 +102,11 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/writer-policy.test.ts`]: { parallelism: 1, writes: 14 },
   [`${P}/documents/writer-property.test.ts`]: { writes: 4 },
   [`${P}/support/writer-defs.ts`]: { writes: 1 },
+  // P4.4 single writer wired: definitions that declare `writes` to test the findings, the effective policy, the boundary check and the daemon path.
+  [`${P}/documents/writer-boundary.test.ts`]: { writes: 1 },
+  [`${P}/documents/writer-daemon.test.ts`]: { writes: 2 },
+  [`${P}/documents/writer-definition.test.ts`]: { writes: 8 },
+  [`${P}/documents/writer-effective-policy.test.ts`]: { writes: 2 },
 };
 
 describe('phase4 inert: fixture inventory', () => {

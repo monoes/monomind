@@ -6,6 +6,7 @@ import { resolveOrgDefBlueprints } from '../catalog/blueprints.js';
 import { reopenBudgetClosedRoles, rolesOnDefTokenCaps } from './budget-closure.js';
 import type { OrgDaemon } from './daemon.js';
 import { sectionRoleCap, syncSectionBudgets } from './documents/section-budget-wire.js';
+import { effectiveRolePolicy } from './effective-role-policy.js';
 import { isEndpointRole } from './endpoint-roles.js';
 import {
   assertOrgDefSigned,
@@ -108,7 +109,13 @@ export function reloadOrgDef(
         if (nextRec[field] === undefined) delete t[field];
         else t[field] = nextRec[field];
       }
-      if (field === 'policy') running.agents.get(next.id)?.policy.updatePolicy(next.policy ?? {});
+      if (field === 'policy')
+        running.agents.get(next.id)?.policy.updatePolicy(
+          effectiveRolePolicy(newDef, next, {
+            orgRoot: daemon.root,
+            workdir: running.agents.get(next.id)?.worktreePath ?? running.workdir,
+          }) ?? {},
+        );
       if (field === 'budget_usd' || field === 'budget_tokens')
         running.agents.get(next.id)?.policy.setBudgetCaps({
           maxTokens: live.policy?.maxTokens ?? computeReplacementBudget(running.def, next.id),

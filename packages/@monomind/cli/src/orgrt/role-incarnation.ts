@@ -9,6 +9,7 @@ import { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import { ScrollbackBuffer } from './daemon-types.js';
 import { sectionRoleCap } from './documents/section-budget-wire.js';
+import { effectiveRolePolicy } from './effective-role-policy.js';
 import { fileToolRoots } from './file-roots.js';
 import { resolveLoadout, sessionLoadoutFor } from './loadouts.js';
 import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
@@ -20,6 +21,7 @@ import { effectiveToolProviders } from './skill-library.js';
 import { TaskProcesses } from './task-cancel.js';
 import { roleProviderPrefixes } from './tool-providers.js';
 import { ORG_DIR, type OrgRole } from './types.js';
+import { WriterPolicyEngine } from './writer-engine.js';
 
 /** Build one role incarnation: mailbox, policy, AgentRuntime, sessionOpts,
  *  and the supervised crash-retry loop. Used by BOTH the startup lazy-spawn
@@ -97,7 +99,10 @@ export function spawnRoleIncarnation(
     mailbox.close(roleCheckpoint.mailboxCloseReason);
   }
   const sectionCap = sectionRoleCap(def, role.id); // P4.5: the one resolver, only with section budgets
-  const policy = new PolicyEngine(
+  // Spec 6.12: the policy the engine and the sandbox layer share (effective-role-policy.ts); it is
+  // `role.policy` itself unless the org has a single writer.
+  const rolePolicy = effectiveRolePolicy(def, role, { orgRoot: daemon.root, workdir: roleCwd });
+  const engineArgs = [
     role.id,
     {
       maxTokens: role.budget_tokens ?? perRoleBudget,
@@ -107,7 +112,7 @@ export function spawnRoleIncarnation(
       // including the schema's 1M default — roughly 100x early.
       maxTokensBasis: def.run_config.budget_tokens_basis ?? 'uncached',
       maxUsd: role.budget_usd,
-      ...(role.policy ?? {}),
+      ...(rolePolicy ?? {}),
       ...(sectionCap !== undefined ? { maxUsd: sectionCap } : {}),
     },
     bus,
@@ -116,9 +121,13 @@ export function spawnRoleIncarnation(
     // roots the Bash sandbox already treats as writable (role-sandbox.ts) —
     // $TMPDIR, the org root, and any policy.sandbox.allowWrite entries.
     // $HOME is deliberately excluded; see file-roots.ts.
-    fileToolRoots({ cwd: roleCwd, orgRoot: daemon.root }, role.policy?.sandbox),
+    fileToolRoots({ cwd: roleCwd, orgRoot: daemon.root }, rolePolicy?.sandbox),
     daemon.root,
-  );
+  ] as const;
+  const policy =
+    rolePolicy === role.policy
+      ? new PolicyEngine(...engineArgs)
+      : new WriterPolicyEngine(...engineArgs, def);
   policy.setToolContext({
     providerPrefixes: () =>
       roleProviderPrefixes({ tool_providers: effectiveToolProviders(role, daemon.root) }),
