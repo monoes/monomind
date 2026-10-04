@@ -4,6 +4,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.23.0] — 2026-10-04
+
 ### Added
 
 - **Session cap with rotation digests.** With `run_config.context.session_cap` set to `{tasks, tokens}`, a role's SDK session ends between turns once it has been given that many distinct tasks or has used that many tokens (a native child's responses are not counted; a response split across messages counts once). The turn that crosses the cap finishes; the next message starts a fresh generation, and the loop checks on every path: a tagged task session, the role session, an untagged message, and at session start (a resumed session at the cap starts fresh, its resume dropped). The new generation's first message opens with a rotation digest: what the last generation did, the role's open tasks, the budget used, and a warning after two rotations in a row without a finished task; the digest is within 4,000 characters, and what is dropped is named, never cut. Counters persist in the run's `session-counters.json`, a `session-rotated` audit event records each rotation with its overshoot, and `session-cap-usage-missing` flags a runner that reports no usage. `packets.jsonl` generation records carry the rotation generation and the digest hash. An org with no `session_cap` is unchanged and writes no counters.
