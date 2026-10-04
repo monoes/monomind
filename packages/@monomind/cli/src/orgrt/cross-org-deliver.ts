@@ -5,6 +5,7 @@ import { clearDeferredSpawn, isDeferredSpawn, markDeferredSpawn } from './cross-
 import { pushMessage, resolveAddress } from './cross-org-mail.js';
 import { deliverRemote } from './cross-org-remote.js';
 import { activeRoleCount, type OrgDaemon } from './daemon.js';
+import { crossSectionRefusal } from './documents/routing.js';
 import { deliverToEndpoint, findEndpointRole } from './endpoint-roles.js';
 import { newMessageId, queueMessage } from './inbox.js';
 
@@ -42,6 +43,21 @@ export async function deliver(
       data: { messageId },
     });
   };
+  // Org sections spec 6.6 (P3.7): no direct chat across sections. Only a local send inside an org on
+  // the sections surface is checked; every other org falls straight through (crossSectionRefusal).
+  const sectionRefusal = !cross && src ? crossSectionRefusal(src.def, fromRole, targetRole) : undefined;
+  if (sectionRefusal) {
+    src?.bus.emit({
+      type: 'audit',
+      from: fromRole,
+      to: targetRole,
+      subject,
+      msg: sectionRefusal,
+      reason: 'cross-section-refused',
+      data: { messageId },
+    });
+    return sectionRefusal;
+  }
   // ADR-O001 D6: an artifact-only reviewer takes runtime-built packets only.
   // Another agent's mail is exactly the doer's framing D6 keeps out, so it is
   // refused with the way to get a review instead. The human is not an agent.
