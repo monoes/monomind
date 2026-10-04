@@ -138,12 +138,21 @@ export function resolveAccess(
 ): { access: AccessMode; abort: boolean } {
   const access = opts.access ?? 'scoped';
   const spec = runnerSpec(opts.runtime);
+  const unavailable = spec?.executionUnsupportedReason
+    ? { code: 'unsupported' as const, message: spec.executionUnsupportedReason }
+    : spec && 'scopedAccess' in spec && spec.scopedAccess === false && access === 'scoped'
+      ? {
+          code: 'unsupported' as const,
+          message: `runtime "${opts.runtime}" has no verified scoped access; use --access full --settings user,project,local (see agent scan --json access_modes)`,
+        }
+      : null;
   const accessErr =
-    access === 'scoped'
+    unavailable ??
+    (access === 'scoped'
       ? null
       : access === 'read'
         ? checkReadAccess(opts.runtime, spec)
-        : checkFullAccessGuards({ runtime: opts.runtime, cwd: opts.cwd, spec });
+        : checkFullAccessGuards({ runtime: opts.runtime, cwd: opts.cwd, spec }));
   const err =
     accessErr ?? (opts.hasCallerTools ? checkCallerTools(opts.runtime, access, spec) : null);
   if (!err) return { access, abort: false };

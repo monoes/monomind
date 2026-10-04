@@ -129,7 +129,7 @@ describe('listRuntimeModels', () => {
         throw new Error('must not spawn a CLI for claude');
       },
     });
-    expect(r).toEqual({
+    expect(r).toMatchObject({
       v: 1,
       runtime: 'claude',
       supported: true,
@@ -191,5 +191,58 @@ describe('listRuntimeModels', () => {
       },
     });
     expect(r.error).toEqual({ code: 'list-failed', message: 'boom' });
+  });
+});
+
+// Kilo's models command prints plain provider/model lines, regardless of its JSON run protocol.
+it('Kilo model listing honors the same override as discovery', async () => {
+  let called: string[] = [];
+  const result = await listRuntimeModels('kilo', {
+    env: { PATH: '', KILO_CLI_BIN: process.execPath },
+    runCli: async (bin, args) => {
+      if (args[0] === '--version') return '7.8.3\n';
+      called = [bin, ...args];
+      return 'anthropic/claude-sonnet-5\nnoise line\nopenai/gpt-6\n';
+    },
+  });
+  expect(called).toEqual([process.execPath, 'models']);
+  expect(result.models.map((m) => m.id)).toEqual(['anthropic/claude-sonnet-5', 'openai/gpt-6']);
+});
+it('Freebuff explains why model discovery is unavailable', async () => {
+  const result = await listRuntimeModels('freebuff');
+  expect(result.supported).toBe(false);
+  expect(result.reason).toMatch(/interactive/i);
+});
+
+it.each(['7.8.2', '', 'unknown'])(
+  'Kilo model discovery refuses unverified version %j before requesting models',
+  async (version) => {
+    const calls: string[][] = [];
+    const result = await listRuntimeModels('kilo', {
+      env: { PATH: '', KILO_CLI_BIN: process.execPath },
+      runCli: async (bin, args) => {
+        calls.push([bin, ...args]);
+        return version;
+      },
+    });
+    expect(calls).toEqual([[process.execPath, '--version']]);
+    expect(result).toMatchObject({
+      supported: false,
+      models: [],
+      reason: expect.stringContaining('7.8.3'),
+    });
+  },
+);
+it('Kilo model discovery reports a failed version probe as an unsupported version', async () => {
+  const result = await listRuntimeModels('kilo', {
+    env: { PATH: '', KILO_CLI_BIN: process.execPath },
+    runCli: async () => {
+      throw new Error('version probe failed');
+    },
+  });
+  expect(result).toMatchObject({
+    supported: false,
+    models: [],
+    reason: expect.stringContaining('unverified'),
   });
 });

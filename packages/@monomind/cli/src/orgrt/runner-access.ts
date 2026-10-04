@@ -33,6 +33,8 @@
 import type { RuntimeKind } from './daemon.js';
 
 export interface RunnerAccess {
+  /** Explicit false when even default scoped execution cannot be confined. */
+  scopedAccess?: boolean;
   /** `agent exec --access read` is implemented for this runtime. */
   readAccess: boolean;
   /** `--tools stdio` caller tools reach the model on this runtime. */
@@ -43,6 +45,8 @@ const NO_READ: RunnerAccess = { readAccess: false, callerTools: true };
 const READ: RunnerAccess = { readAccess: true, callerTools: true };
 
 export const RUNNER_ACCESS: Record<RuntimeKind, RunnerAccess> = {
+  freebuff: { readAccess: false, callerTools: false },
+  kilo: { scopedAccess: false, readAccess: false, callerTools: false },
   claude: READ,
   codex: READ,
   pi: READ,
@@ -66,9 +70,12 @@ export const RUNNER_ACCESS: Record<RuntimeKind, RunnerAccess> = {
 export function accessModes(spec: {
   readAccess: boolean;
   supportsFullAccess: boolean;
+  executionUnsupportedReason?: string;
+  scopedAccess?: boolean;
 }): Array<'scoped' | 'read' | 'full'> {
+  if (spec.executionUnsupportedReason) return [];
   return [
-    'scoped',
+    ...(spec.scopedAccess === false ? [] : (['scoped'] as const)),
     ...(spec.readAccess ? (['read'] as const) : []),
     ...(spec.supportsFullAccess ? (['full'] as const) : []),
   ];

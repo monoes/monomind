@@ -114,6 +114,8 @@ describe('runner registry', () => {
       'cline',
       'aider',
       'dsh',
+      'freebuff',
+      'kilo',
     ]) {
       expect(isKnownRuntime(id), id).toBe(true);
     }
@@ -142,6 +144,7 @@ describe('runner registry', () => {
         'cline',
         'aider',
         'dsh',
+        'kilo',
       ].sort(),
     );
   });
@@ -206,6 +209,7 @@ describe('runner registry', () => {
       cline: 'full true true true true',
       aider: 'full true true true true',
       dsh: 'full true true true false',
+      kilo: 'full true false false true',
     });
   });
 
@@ -408,4 +412,27 @@ describe('scanInstalled (§6)', () => {
       else process.env[probeKeyEnv] = saved;
     }
   }, 10_000);
+});
+it('binary-presence-only scans omit Claude selection metadata without probing the runtime', async () => {
+  const result = await scanInstalled({
+    env: { PATH: '/nonexistent', MONOMIND_CLAUDE_PATH: '/not-a-runtime/claude' },
+    skipVersionProbe: true,
+  });
+  expect(result.agents.find((entry) => entry.id === 'claude')).not.toHaveProperty('claude_code');
+});
+
+it('an installed Kilo with an unprobed version advertises no executable access', async () => {
+  const { binDir } = stubBin('kilo', 'echo 7.8.3');
+  const result = await scanInstalled({ env: { PATH: binDir }, skipVersionProbe: true });
+  expect(result.agents.find((a) => a.id === 'kilo')).toMatchObject({
+    installed: true,
+    version: null,
+    execution_supported: false,
+    execution_unsupported_reason: expect.stringContaining('unverified'),
+    full_access: false,
+    access_modes: [],
+    sandbox_modes: [],
+    resume: false,
+    reports_cost: false,
+  });
 });

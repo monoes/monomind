@@ -10,7 +10,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { claudeCodeInfo, type ClaudeCodeInfo } from '../orgrt/claude-sdk.js';
+import { type ClaudeCodeInfo, claudeCodeInfo } from '../orgrt/claude-sdk.js';
 import { output } from '../output.js';
 import { getConsentState } from '../services/crash-reporter.js';
 
@@ -413,6 +413,10 @@ export async function installClaudeCode(): Promise<boolean> {
 
 export async function checkClaudeRuntime(): Promise<HealthCheck> {
   const info = await claudeCodeInfo();
-  return { name: 'Claude runtime', status: info.skipped.length ? 'info' : 'pass', claude_code: info,
-    message: `Using ${info.used} (${info.version})${info.skipped.length ? `; skipped ${info.skipped.map((s) => `${s.path}: ${s.reason}`).join('; ')}` : ''}` };
+  return {
+    name: 'Claude runtime',
+    status: info.skipped.length ? 'info' : 'pass',
+    claude_code: info,
+    message: `Using ${info.used} (${info.version})${info.skipped.length ? `; skipped ${info.skipped.map((s) => `${s.path}: ${s.reason}`).join('; ')}` : ''}`,
+  };
 }

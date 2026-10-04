@@ -12,8 +12,8 @@
 
 import * as fs from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { claudeCodeInfo, type ClaudeCodeInfo } from './claude-sdk.js';
 import type { AgentRunner } from './agent-runner.js';
+import { type ClaudeCodeInfo, claudeCodeInfo } from './claude-sdk.js';
 import { type RuntimeKind, resolveRunner } from './daemon.js';
 import { accessModes, callerToolsWithFullAccess, RUNNER_ACCESS } from './runner-access.js';
 import { RUNNER_FEATURES, type RunnerFeatures } from './runner-features.js';
@@ -71,6 +71,9 @@ export interface ScanEntry {
   claude_code?: ClaudeCodeInfo;
   id: string;
   installed: boolean;
+  /** Presence is independent from availability of a supported execution transport. */
+  execution_supported: boolean;
+  execution_unsupported_reason: string | null;
   binary: string | null;
   version: string | null;
   /** Where `version` came from; null when not installed (rev 11, #337). */
@@ -179,10 +182,18 @@ export async function scanInstalled(opts: ScanOptions = {}): Promise<{
           : opts.skipVersionProbe
             ? { version: null, source: 'not-probed' as const }
             : await detectVersion(spec.id, binPath, opts);
+      const unavailableReason =
+        spec.executionUnsupportedReason ??
+        (binPath ? spec.executionPrerequisite?.(detected?.version ?? null) : undefined);
+      const supported = !unavailableReason;
       return {
-        ...(spec.id === 'claude' && !opts.skipVersionProbe ? { claude_code: await claudeCodeInfo(env) } : {}),
+        ...(spec.id === 'claude' && !opts.skipVersionProbe
+          ? { claude_code: await claudeCodeInfo(env) }
+          : {}),
         id: spec.id,
         installed: binPath !== null,
+        execution_supported: supported,
+        execution_unsupported_reason: unavailableReason ?? null,
         binary: binPath,
         version: detected?.version ?? null,
         version_source: detected?.source ?? null,
@@ -190,18 +201,18 @@ export async function scanInstalled(opts: ScanOptions = {}): Promise<{
         install: installRecipe(spec.installHint),
         login_hint: spec.loginHint ?? null,
         streams_incrementally: spec.streamsIncrementally,
-        full_access: spec.supportsFullAccess,
-        access_modes: accessModes(spec),
-        caller_tools: spec.callerTools,
-        caller_tools_with_full_access: callerToolsWithFullAccess(spec),
+        full_access: supported && spec.supportsFullAccess,
+        access_modes: accessModes({ ...spec, executionUnsupportedReason: unavailableReason }),
+        caller_tools: supported && spec.callerTools,
+        caller_tools_with_full_access: supported && callerToolsWithFullAccess(spec),
         ...sandboxReport(spec.id, { access: 'scoped' }),
-        sandbox_modes: [...sandboxModes(spec.id)],
-        sandbox_mode_reports: sandboxModeReports(spec.id),
-        tool_activity_fidelity: spec.toolActivityFidelity,
-        resume: spec.resume,
-        effort: spec.effort,
-        max_turns: spec.maxTurns,
-        reports_cost: spec.reportsCost,
+        sandbox_modes: supported ? [...sandboxModes(spec.id)] : [],
+        sandbox_mode_reports: supported ? sandboxModeReports(spec.id) : {},
+        tool_activity_fidelity: supported ? spec.toolActivityFidelity : 'none',
+        resume: supported && spec.resume,
+        effort: supported && spec.effort,
+        max_turns: supported && spec.maxTurns,
+        reports_cost: supported && spec.reportsCost,
         init_target: spec.initTarget,
       };
     }),

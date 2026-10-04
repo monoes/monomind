@@ -133,6 +133,8 @@ export const RoleSchema = z
         'cline',
         'aider',
         'dsh',
+        'freebuff',
+        'kilo',
       ])
       .optional(),
     /** Per-role override of run_config.max_turns_per_message — roles that legitimately

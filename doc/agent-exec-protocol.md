@@ -1394,6 +1394,72 @@ obtain them. `doctor -c claude-runtime --json` reports the same selection withou
 installing the SDK. Human scan/models commands report a skipped newer native
 install once per process, even when the SDK is already installed.
 
+### Freebuff and Kilo transport readiness (#600, #601)
+
+`agent scan --json` distinguishes binary installation from usable automation
+with `execution_supported` and `execution_unsupported_reason`. Freebuff reports
+false, empty access/sandbox modes, no init target and no full-access capability.
+Kilo reports true when its installed version is verified as 7.8.3, with **full access only**: `access_modes: ["full"]`, resume,
+reported cost and complete native tool activity. Its init target remains absent;
+scoped/read access, caller tools, abstract effort and native max-turn limits are
+unsupported. `monomind doctor -c agent-runtimes` (also a default doctor check)
+reports installed but unavailable transports without running their binaries.
+
+Freebuff discovery honors `FREEBUFF_CLI_BIN`, exposes the `freebuff` npm recipe
+and `freebuff login` hint. Its [published parser](https://github.com/CodebuffAI/freebuff/blob/eaf90999faed783fd1ba3d2e8544d853bf2282fc/cli/src/cli-args.ts)
+has no headless prompt or JSON output option (also checked against main on
+2026-10-05). Execution refuses with `unsupported` before spawning. A supported
+upstream transport is required; Codebuff authentication/SDK and terminal
+scraping are not substitutes.
+
+Kilo discovery honors `KILO_CLI_BIN`, exposes the pinned `@kilocode/cli@7.8.3` npm recipe and
+`kilo auth login` hint. Execution accepts **7.8.3**; other versions refuse with an
+actionable prerequisite. A live smoke test on 2026-10-05 used a separate install
+prefix, fresh HOME/XDG/config/cache/temp/work directories and an existing
+OpenRouter environment key, without copying credentials or changing login.
+The selected `qwen/qwen3.8-27b:free` model appeared in both Kilo's actual listing
+and [OpenRouter's current provider metadata](https://openrouter.ai/api/v1/models)
+with zero prices and tool support. Native write/read, same-session resume,
+completed JSON text, zero-cost usage, and user/project/local instruction files
+all succeeded. Verify current model availability and pricing before another
+live call; Kilo supports paid providers too.
+
+An explicit full-access turn loads all Kilo settings together:
+
+```bash
+KILO_CLI_BIN=/absolute/path/to/kilo monomind agent exec --runtime kilo \
+  --access full --cwd /absolute/path/to/workspace \
+  --settings user,project,local --tools none \
+  --model openrouter/qwen/qwen3.8-27b:free \
+  --prompt-file /absolute/path/to/prompt.txt --timeout 2m --json
+```
+
+`--tools none` here disables caller tools; explicitly requested full access still
+permits native tools. The transport refuses scoped/read access, caller tools,
+sandbox confinement, hard token/USD budgets and partial/isolated settings
+before spawning. Broad user/project/MCP permissions cannot escalate a scoped
+turn because that turn never starts. A caller requesting constrained native
+execution must use another runtime.
+
+The dedicated implementation sends prompt text on stdin and closes stdin;
+prompts are absent from argv. It preserves session ids for `--session`, forwards
+`--model provider/model`, deduplicates completed text parts, maps completed
+native tool parts to matched start/end events and sums `step_finish` metrics
+without inventing absent values or discarding reported zero cost. Text events
+are completed parts, not incremental token deltas. Plain `kilo models` emits
+provider/model lines; `--verbose` adds formatted metadata per model, rather
+than one JSON document. Verified source interfaces:
+[run](https://github.com/Kilo-Org/kilocode/blob/76bcfd40be616a72f4697b3041565f322245b462/packages/opencode/src/cli/cmd/run.ts),
+[models](https://github.com/Kilo-Org/kilocode/blob/76bcfd40be616a72f4697b3041565f322245b462/packages/opencode/src/cli/cmd/models.ts).
+
+Each execution has an independent two-hour timeout and process-group
+cancellation. `KILO_NO_DAEMON=1` is enforced after caller environment overrides:
+the runner uses an embedded server and cannot attach to an existing broader
+user daemon. No `--attach` argument is supplied, and monomind never terminates
+an existing user daemon. Abstract effort remains unsupported until per-model
+variant selection is verified; init integration and constrained tool execution
+remain unavailable.
+
 Operator Claude selection (#596): `--claude-path <absolute-file|bundled>` is
 accepted by agent models, scan, exec, test, and org run/serve. Selection precedence
 is flag, `MONOMIND_CLAUDE_PATH`, `claude.path` in `~/.monomind/config.json`, then
