@@ -40,6 +40,22 @@ those, never values remembered from an earlier run.
   folder (`.monomind/orgs/release/reports/<VERSION>-<timestamp>/evidence/`) and
   cite that path in the issue.
 
+## Claude runtime prerequisite
+- PREFLIGHT (6) checks both `claude auth status` and, with the Environment
+  prefix above, `MONOMIND_NO_AUTO_INSTALL=1 monomind agent models --runtime claude --json`.
+  Require exit 0, `supported: true`, a nonempty `models` list and no `error`.
+  This loads and verifies the pinned SDK and starts its Claude executable to
+  list models; it sends no prompt and installs nothing. A directory or package
+  manifest existing is not enough to prove the SDK is usable (issue #592).
+- A missing or unusable SDK is a PREFLIGHT blocker. Include its exact error
+  and the remedy `monomind deps install` in the captain's single `ask_human`
+  request. The operator runs it in their own terminal, outside any org role,
+  before the captain retries the whole PREFLIGHT. Org roles must not install
+  into the read-only dependency cache, including by clearing role markers.
+- Never continue to SETUP until this prerequisite passes. Never accept a SKIP for the mandatory live Claude trials
+  because the SDK is missing: the `none`, `stdio` and timeout checks remain
+  mandatory in RUNTIME QA. The preflight model list does not replace them.
+
 ## Evidence
 - Evidence comes ONLY from this run's `$GATE/logs`: check file mtimes against the
   run start and the SHA inside the log. Ignore anything older. `org logs` times
