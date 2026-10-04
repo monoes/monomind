@@ -1,0 +1,261 @@
+{
+  "engines": {
+    "boss": {
+      "engine": "WriterPolicyEngine",
+      "fileWrite": [],
+      "maxUsd": 30
+    },
+    "dev-lead": {
+      "engine": "WriterPolicyEngine",
+      "fileWrite": [
+        "src/**",
+        "docs/**"
+      ],
+      "maxUsd": 10
+    },
+    "coder": {
+      "engine": "WriterPolicyEngine",
+      "fileWrite": [
+        "src/**",
+        "docs/**"
+      ],
+      "maxUsd": 20
+    },
+    "qa-lead": {
+      "engine": "WriterPolicyEngine",
+      "fileWrite": [],
+      "maxUsd": 20
+    },
+    "observer": {
+      "engine": "WriterPolicyEngine",
+      "fileWrite": [],
+      "maxUsd": 20
+    }
+  },
+  "store": {
+    "build-1": [
+      "published v1 by coder",
+      "read v1 by qa-lead (review)",
+      "decided v1 reject by qa-lead -> rejected: no tests",
+      "published v2 by coder (supersedes v1)",
+      "read v2 by qa-lead (review)",
+      "decided v2 reject by qa-lead -> rejected: still no tests",
+      "read v2 by boss (audit)",
+      "decided v2 accept by boss -> accepted (override)"
+    ],
+    "report-1": [
+      "published v1 by qa-lead",
+      "read v1 by dev-lead (review)",
+      "decided v1 accept by dev-lead -> accepted"
+    ],
+    "build-2": [
+      "published v1 by coder",
+      "read v1 by qa-lead (review)",
+      "decided v1 reject by qa-lead -> rejected: the fix breaks the parser",
+      "read v1 by boss (audit)",
+      "decided v1 accept by boss -> accepted (override)"
+    ],
+    "report-2": [
+      "published v1 by qa-lead",
+      "read v1 by dev-lead (review)",
+      "decided v1 accept by dev-lead -> accepted"
+    ]
+  },
+  "heads": {
+    "build-1": [
+      "v1:rejected",
+      "v2:accepted"
+    ],
+    "report-1": [
+      "v1:accepted"
+    ],
+    "build-2": [
+      "v1:accepted"
+    ],
+    "report-2": [
+      "v1:accepted"
+    ]
+  },
+  "attempts": {
+    "build": {
+      "used": 0,
+      "left": 3,
+      "refusals_used": 0,
+      "refusals_left": 5
+    },
+    "report": {
+      "used": 0,
+      "left": 3,
+      "refusals_used": 0,
+      "refusals_left": 5
+    }
+  },
+  "refusals": [
+    {
+      "step": "republish a spent thread",
+      "code": "REWORK_EXHAUSTED",
+      "guard_code": "REWORK_EXHAUSTED"
+    },
+    {
+      "step": "a third return of the loop",
+      "code": "LOOP_EXHAUSTED",
+      "guard_code": "LOOP_EXHAUSTED"
+    }
+  ],
+  "notices": {
+    "delivered": {
+      "publish-notice": 5,
+      "relay": 6,
+      "rework-exhausted": 3,
+      "all-available": 1,
+      "loop-exhausted": 3
+    },
+    "failed": 0,
+    "again": 0
+  },
+  "budget": {
+    "records": [
+      "section-budget-closed boss delivered",
+      "section-budget-closed dev-lead delivered",
+      "section-budget-warning boss delivered",
+      "section-budget-warning dev-lead delivered"
+    ],
+    "closed": [],
+    "mailboxes": {
+      "boss": "open",
+      "dev-lead": "open",
+      "coder": "closed:usd-budget",
+      "qa-lead": "open",
+      "observer": "open"
+    },
+    "spent": {
+      "boss": null,
+      "dev-lead": 8,
+      "coder": 22,
+      "qa-lead": null,
+      "observer": null
+    }
+  },
+  "rework": [
+    {
+      "doc": "build-1",
+      "type": "build",
+      "producer_section": "development",
+      "consumer": "qa",
+      "rounds": 1,
+      "cap": 2,
+      "exhausted": false,
+      "rejected_versions": [
+        1
+      ],
+      "head": 2,
+      "frozen": false
+    }
+  ],
+  "loops": [
+    {
+      "loop": 0,
+      "origin": "development",
+      "first": "build-1@v1",
+      "versions": [
+        "build-1@v1",
+        "build-1@v2",
+        "report-1@v1",
+        "build-2@v1",
+        "report-2@v1"
+      ],
+      "rounds": 2,
+      "max_rounds": 2,
+      "exhausted": true,
+      "exhausted_seq": 12,
+      "settled": true,
+      "escalate": {
+        "to": "root",
+        "copy_leads_of": [
+          "development",
+          "qa"
+        ]
+      },
+      "between": [
+        "development",
+        "qa"
+      ],
+      "types": [
+        "build",
+        "report"
+      ],
+      "frozen": false
+    }
+  ],
+  "told": {
+    "boss": [
+      "Org \"p4-combined\" started (run",
+      "[budget] \"coder\" has spent $17",
+      "[budget] \"coder\" was closed: b",
+      "[budget] \"dev-lead\" has spent ",
+      "budget: section \"development\" at 80 percent of its USD allocation",
+      "budget: section \"development\" is closed at its USD allocation",
+      "loop exhausted: loops[0] (development, qa)",
+      "rework exhausted: build-1 (qa)"
+    ],
+    "dev-lead": [
+      "[budget] \"coder\" has spent $17",
+      "all documents are available",
+      "brief",
+      "budget: section \"development\" at 80 percent of its USD allocation",
+      "document ready: report-1 v1",
+      "document ready: report-2 v1",
+      "document rejected: build-1 v1 (copy)",
+      "document rejected: build-1 v2 (copy)",
+      "document rejected: build-2 v1 (copy)",
+      "loop exhausted: loops[0] (development, qa) (copy)",
+      "rework exhausted: build-1 (qa) (copy)",
+      "work cost=1",
+      "work cost=7"
+    ],
+    "coder": [
+      "brief",
+      "document rejected: build-1 v1",
+      "document rejected: build-1 v2",
+      "document rejected: build-2 v1",
+      "work cost=17",
+      "work cost=5"
+    ],
+    "qa-lead": [
+      "brief",
+      "document ready: build-1 v1",
+      "document ready: build-1 v2",
+      "document ready: build-2 v1",
+      "loop exhausted: loops[0] (development, qa) (copy)",
+      "rework exhausted: build-1 (qa) (copy)"
+    ],
+    "observer": [
+      "brief"
+    ]
+  },
+  "busReasons": {
+    "section-budget-warning": 1,
+    "section-budget-closed": 1,
+    "section-budget-reopened": 1,
+    "hot-reload": 1
+  },
+  "files": [
+    "budget-notices.jsonl",
+    "contracts/",
+    "contracts/build@1aba2f8dc08cfe661cc843744032808dfa94b7031ea32cdbbf3aaee47ca5dd69.json",
+    "contracts/memo@4b8de3e096a3c09876931596176a964bc13283ab3028f120dfb5a19be91198c7.json",
+    "contracts/report@364363f8ac90923a70598acb8aa87d5e407902ce83fb28e16e4ed30c9305e8f7.json",
+    "development/",
+    "development/build/",
+    "development/build/build-1@v1.json",
+    "development/build/build-1@v2.json",
+    "development/build/build-2@v1.json",
+    "events.jsonl",
+    "notices.jsonl",
+    "part-reads.jsonl",
+    "qa/",
+    "qa/report/",
+    "qa/report/report-1@v1.json",
+    "qa/report/report-2@v1.json"
+  ]
+}

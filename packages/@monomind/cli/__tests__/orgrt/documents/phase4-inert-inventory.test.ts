@@ -121,6 +121,15 @@ const EXPECTED_TEXT: Record<string, Record<string, number>> = {
   [`${P}/documents/loops-definition.test.ts`]: { loops: 2 },
   // P4.11 role text: the synthetic orgs of the Phase 4 guidance tests (one patch per key set).
   [`${P}/support/phase4-guidance-defs.ts`]: { loops: 1, max_rework_rounds: 4, writes: 3 },
+  // P4.12 end-to-end scenarios (documents/e2e-phase4): the orgs come from the shared fixtures above; these files set the keys
+  // themselves only to change a value (a cap, a scope, a refused edit), name them in the acceptance checklist, or mutate a
+  // definition for a reload or a start that must be refused.
+  [`${P}/documents/e2e-phase4/index.e2e.test.ts`]: { loops: 2 },
+  [`${P}/documents/e2e-phase4/lead-rights.e2e.test.ts`]: { max_rework_rounds: 1 },
+  [`${P}/documents/e2e-phase4/parity.e2e.test.ts`]: { loops: 1, max_rework_rounds: 1, parallelism: 1, writes: 1 },
+  [`${P}/documents/e2e-phase4/reload-guard.e2e.test.ts`]: { max_rework_rounds: 2, writes: 2 },
+  [`${P}/documents/e2e-phase4/rework.e2e.test.ts`]: { max_rework_rounds: 1 },
+  [`${P}/documents/e2e-phase4/writer.e2e.test.ts`]: { writes: 4 },
 };
 
 describe('phase4 inert: fixture inventory', () => {
