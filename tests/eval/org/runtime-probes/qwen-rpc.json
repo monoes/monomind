@@ -1,0 +1,39 @@
+{
+  "runtime": "qwen-rpc",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "private-home",
+  "envVarsThatRedirect": [
+    "HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME"
+  ],
+  "authFilesToStage": [],
+  "nativeDirs": [],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "Follows the base `qwen` CLI, which is not installed here. Runner source only; nothing executed."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/qwen-rpc-runner.ts",
+      "finding": "Spawns one persistent `qwen --input-format stream-json --output-format stream-json --yolo [-m model]` per session with env = process.env (minus ambient ANTHROPIC_* keys) + args.env, cwd = args.cwd. The long-lived subprocess belongs to the one session (killed on abort), not to a pool shared across roles."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/qwen-rpc-runner-helpers.ts",
+      "finding": "defaultSpawnQwenRpc passes cwd and env through unchanged; no config dir variable is set."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "Same state directory as the base qwen CLI, so it takes the same strategy as `qwen`; one private home per role covers both variants.",
+    "Mark unverified; the session subprocess is long-lived, so the role's private directory must outlive each turn (not be cleaned per message)."
+  ]
+}

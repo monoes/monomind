@@ -1,0 +1,40 @@
+{
+  "runtime": "dsh",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "private-home",
+  "envVarsThatRedirect": [
+    "HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME"
+  ],
+  "authFilesToStage": [],
+  "nativeDirs": [],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "CLI not installed (`command -v dsh` finds nothing). Runner source only; nothing executed. The runner header records that dsh 0.1.7-rc.2 was previously exercised in a scratch HOME and that `dsh --version` writes no file."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/dsh-runner-stream.ts",
+      "finding": "Spawns `dsh --profile headless [--patch <file>] --json [--session-id <id>]` with the task on stdin, env = process.env (minus ambient ANTHROPIC_* keys) + args.env + DSH_PERMISSION_MODE, cwd = args.cwd. No config dir variable is set by the runner."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/dsh-runner.ts",
+      "finding": "The model/effort patch is written to fs.mkdtempSync(join(os.tmpdir(), 'monomind-dsh-')) (mode 0600), i.e. the host process's tmpdir, not the role's private TMPDIR; no hard-coded absolute path. Header evidence: scratch-HOME runs worked and a DeepSeek key is read from the environment (DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL for a mock)."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "The runner's own captures were made in a scratch HOME, which is the strongest in-repo hint that HOME alone relocates dsh state; still unverified here.",
+    "The model patch file lands in os.tmpdir() of the host process; with sections the patch path should be created under the role's private TMPDIR to stay in the role's tree (runner change, not part of this probe).",
+    "Credentials come from provider key environment variables, so no auth file staging is known; confirm on a host with dsh installed."
+  ]
+}

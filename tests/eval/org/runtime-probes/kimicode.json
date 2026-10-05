@@ -1,0 +1,36 @@
+{
+  "runtime": "kimicode",
+  "cliVersion": null,
+  "installed": false,
+  "probed": false,
+  "status": "unprobed",
+  "strategyRecommended": "config-env",
+  "envVarsThatRedirect": ["KIMI_CODE_HOME"],
+  "authFilesToStage": [],
+  "nativeDirs": [
+    ".kimi-code (default) or $KIMI_CODE_HOME: sessions/<wd-hash>/<session-id>/agents/main/wire.jsonl"
+  ],
+  "nativeFilesObserved": [],
+  "contained": {
+    "value": null,
+    "evidence": "CLI not installed (`command -v kimi kimicode kimi-cli` finds nothing). Runner source only; nothing executed."
+  },
+  "costUsd": 0,
+  "verified": "2026-10-05",
+  "runnerEvidence": [
+    {
+      "file": "packages/@monomind/cli/src/orgrt/kimicode-runner-stream.ts",
+      "finding": "Spawns `kimi --print --output-format stream-json [--skills-dir <dir>] [--session <id> | --agent-file <f>] [--model m]` with env = process.env (minus ambient ANTHROPIC_* keys) + args.env + KIMI_CODE_EXPERIMENTAL_FLAG; the runner sets neither HOME nor any config dir, cwd = args.cwd."
+    },
+    {
+      "file": "packages/@monomind/cli/src/orgrt/kimicode-runner-stream.ts",
+      "finding": "readUsageDelta() reads the usage wire file from `env.KIMI_CODE_HOME || process.env.KIMI_CODE_HOME || os.homedir()/.kimi-code` + /sessions. So the runner already treats KIMI_CODE_HOME as the data dir and honours it when passed in args.env; with a private HOME alone the runner process (whose os.homedir() is the real home) would read the wrong place, so KIMI_CODE_HOME must be set explicitly."
+    }
+  ],
+  "hardCodedAbsolutePath": false,
+  "notes": [
+    "No hard-coded absolute path in the runner; the only fallback is the host process's own homedir()/.kimi-code.",
+    "Transcripts, wire logs and session state live under $KIMI_CODE_HOME/sessions per the runner's own header comment; auth location unknown without the CLI (not recorded by the runner).",
+    "Registry entry should be marked unverified until a host with kimi installed runs probe.mjs."
+  ]
+}

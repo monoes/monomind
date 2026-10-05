@@ -1,0 +1,132 @@
+{
+  "runtime": "copilot",
+  "cliVersion": "GitHub Copilot CLI 1.0.89",
+  "installed": true,
+  "probed": true,
+  "strategyRecommended": "private-home",
+  "envVarsThatRedirect": [
+    "COPILOT_HOME (state: config.json, logs, session-state, session-store.db)",
+    "XDG_CACHE_HOME (package cache + user cache)",
+    "XDG_STATE_HOME (gh device-id)",
+    "HOME (cache/Microsoft device id)"
+  ],
+  "authFilesToStage": [
+    ".config/gh/hosts.yml (GitHub CLI login; copilot calls `gh`, which must be on PATH)",
+    "alternative with no file: the GitHub credential environment variable documented by `copilot help environment`"
+  ],
+  "nativeDirs": [
+    ".copilot (default) or $COPILOT_HOME",
+    ".cache/copilot (pkg/ self-extracted CLI package ~175 MB, copilot-user-cache.json, managed-settings/)",
+    ".cache/Microsoft/DeveloperTools",
+    ".local/state/gh"
+  ],
+  "nativeFilesObserved": [
+    ".copilot/config.json",
+    ".copilot/logs/.copilot-log.lock",
+    ".copilot/logs/process-<ts>-<pid>.log",
+    ".copilot/session-state/.session-operation-locks/<id>.lock",
+    ".copilot/session-state/<id>/.workspace-fork.lock",
+    ".copilot/session-state/<id>/checkpoints/index.md",
+    ".copilot/session-state/<id>/events.jsonl",
+    ".copilot/session-state/<id>/rewind-file-snapshots/tracking.json",
+    ".copilot/session-state/<id>/workspace.yaml",
+    ".copilot/session-store.db",
+    ".copilot/session-store.db-shm",
+    ".copilot/session-store.db-wal",
+    ".cache/Microsoft/DeveloperTools/deviceid",
+    ".cache/copilot/copilot-user-cache.json",
+    ".cache/copilot/copilot-user-cache.json.lock",
+    ".cache/copilot/managed-settings/<sha256>.json",
+    ".local/state/gh/device-id",
+    "tmp/node-compile-cache/<v>/<hash>"
+  ],
+  "contained": {
+    "value": true,
+    "evidence": "Private HOME + XDG_*: 235 files created, 100% under the temp HOME (plus TMPDIR node-compile-cache); 0 under cwd, 0 touched in real ~/.copilot, ~/.cache/copilot, ~/.config/gh; no processes left running. COPILOT_HOME alone moves only the state (config.json, logs, session-state/<id>/{events.jsonl,checkpoints,workspace.yaml,rewind-file-snapshots}, session-store.db) while ~175 MB of cache and device ids still land under XDG_CACHE_HOME/XDG_STATE_HOME, so config-env alone would write to the real home."
+  },
+  "costUsd": 0.32,
+  "notes": [
+    "Turn: `copilot -p \"reply with OK\" --model auto --auto-tier efficiency -s --no-auto-update` (gpt-5-mini was rejected as not available for this account; auto/efficiency routed to mai-code-1.1-flash). Each successful turn is 1 premium request; 8 successful turns were run over the iterations, about $0.32 at the $0.04 list price (quota, not billed per call; copilot reports no USD).",
+    "Auth fails (exit 1, \"No authentication information found\") with only a temp HOME and no credentials, and also with hosts.yml staged but `gh` absent from PATH; it works with hosts.yml symlinked into XDG_CONFIG_HOME/gh AND the gh binary directory on PATH. The staged hosts.yml is a symlink to the real file (hash unchanged after the run).",
+    "First use in a fresh home self-extracts the CLI package into XDG_CACHE_HOME/copilot/pkg (~175 MB, 220 files); pass --no-auto-update (or COPILOT_AUTO_UPDATE=false) so a role never downloads updates.",
+    "The runner (copilot-runner.ts) sets no env and honours COPILOT_CLI_BIN only."
+  ],
+  "probeVariants": [
+    {
+      "variant": "home-only",
+      "command": "copilot -p \"reply with OK\" --model auto --auto-tier efficiency -s --no-auto-update",
+      "env": {
+        "HOME": "<T>/home",
+        "XDG_CONFIG_HOME": "<T>/home/.config",
+        "XDG_DATA_HOME": "<T>/home/.local/share",
+        "XDG_STATE_HOME": "<T>/home/.local/state",
+        "XDG_CACHE_HOME": "<T>/home/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [
+        {
+          "link": "home/.config/gh/hosts.yml",
+          "target": "~/.config/gh/hosts.yml",
+          "targetUnchanged": true,
+          "stillSymlink": true
+        }
+      ],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 9857,
+      "filesCreatedCount": 235,
+      "filesCreatedBytes": 185193010,
+      "filesCreatedByTopDir": {
+        "home": 234,
+        "tmp": 1
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": [],
+      "stdoutTail": "OK"
+    },
+    {
+      "variant": "copilot-home",
+      "command": "copilot -p \"reply with OK\" --model auto --auto-tier efficiency -s --no-auto-update",
+      "env": {
+        "HOME": "<T>/home",
+        "XDG_CONFIG_HOME": "<T>/home/.config",
+        "XDG_DATA_HOME": "<T>/home/.local/share",
+        "XDG_STATE_HOME": "<T>/home/.local/state",
+        "XDG_CACHE_HOME": "<T>/home/.cache",
+        "XDG_RUNTIME_DIR": "<T>/run",
+        "TMPDIR": "<T>/tmp",
+        "COPILOT_HOME": "<T>/copilot-home",
+        "passedThrough": ["OPENROUTER_API_KEY"]
+      },
+      "stagedAuthSymlinks": [
+        {
+          "link": "home/.config/gh/hosts.yml",
+          "target": "~/.config/gh/hosts.yml",
+          "targetUnchanged": true,
+          "stillSymlink": true
+        }
+      ],
+      "exitCode": 0,
+      "worked": true,
+      "durationMs": 7181,
+      "filesCreatedCount": 235,
+      "filesCreatedBytes": 185193066,
+      "filesCreatedByTopDir": {
+        "copilot-home": 12,
+        "home": 222,
+        "tmp": 1
+      },
+      "filesModifiedPreexisting": [],
+      "createdUnderCwd": [],
+      "realNativeDirsTouched": [],
+      "processesLeftRunning": [],
+      "stdoutTail": "OK"
+    }
+  ],
+  "verified": "2026-10-05",
+  "probe": "node tests/eval/org/runtime-probes/probe.mjs copilot"
+}
