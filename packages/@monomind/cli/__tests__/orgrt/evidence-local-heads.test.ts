@@ -1,7 +1,8 @@
 // localHeads(): the facts the completion evidence gate is fed — every
 // worktree's HEAD and every local branch tip of the workspace's repository.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

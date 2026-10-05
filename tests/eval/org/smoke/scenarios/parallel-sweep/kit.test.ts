@@ -9,7 +9,6 @@ import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -20,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mkdtempSync } from '../../../../../../packages/@monomind/cli/src/__tests__/tmp-track.js';
 import {
   authorityMaskAvailability,
   maskedCommand,

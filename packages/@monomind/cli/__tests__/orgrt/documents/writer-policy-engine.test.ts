@@ -3,7 +3,8 @@
 // `fileWrite: []` is refused on every file-mutation tool call (inside the workspace, outside it, with no path),
 // while its reads and a writer with a scoped list are unaffected. If this ever stops holding, the overlay must
 // use `denyTools` for the file tools instead (13.2 P4.2).
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

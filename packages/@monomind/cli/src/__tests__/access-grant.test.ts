@@ -1,6 +1,6 @@
 // #365: resolveRoleAccess is the runtime's single source of truth for
 // whether a role actually gets full access this session.
-import { mkdtempSync } from 'node:fs';
+
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -8,6 +8,7 @@ import { computeAccessAckHash } from '../orgrt/access-ack.js';
 import { isUnattendedRun, resolveRoleAccess } from '../orgrt/access-grant.js';
 import { ensureFullAccessGrantKey, signAccessAck } from '../orgrt/access-grant-key.js';
 import { type OrgDef, OrgDefSchema, type OrgRole } from '../orgrt/types.js';
+import { mkdtempSync } from './tmp-track.js';
 
 let keyDir: string;
 

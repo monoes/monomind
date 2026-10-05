@@ -16,4 +16,6 @@ if (mode === 'graceful')
     }, 50);
   });
 console.log('ready');
+// "exit": the run ends on its own (the process exits normally, as `org run` does when the org is done).
+if (mode === 'exit') process.exit(0);
 setInterval(() => {}, 1000);

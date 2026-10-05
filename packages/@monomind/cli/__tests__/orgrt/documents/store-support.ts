@@ -1,7 +1,7 @@
 // Shared fixtures for the document store tests (P3.5): a clock that ticks one second per call, temp directories
 // under TMPDIR, and the bindings the tests use (one producing section, one consuming section with a decider, a
 // second consuming section for per-consumer acceptance).
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DocumentStore, type StoreOptions } from '../../../src/orgrt/documents/store.js';

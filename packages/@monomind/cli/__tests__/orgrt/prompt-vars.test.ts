@@ -2,7 +2,8 @@
 // S3: tracked org configs must not publish the owner's machine layout, so role
 // responsibilities reference {{org_root}} / {{home}} and the runtime expands
 // them when the role prompt is built.
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

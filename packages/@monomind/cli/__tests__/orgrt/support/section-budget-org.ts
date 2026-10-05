@@ -1,7 +1,8 @@
 // packages/@monomind/cli/__tests__/orgrt/support/section-budget-org.ts
 // Shared by the P4.5 tests: a valid sections org with section budgets, and a scripted runner that reports a USD
 // cost for every message it is given (`cost=<usd>` in the text), so a real OrgDaemon records usage without a model.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from '../../../src/orgrt/agent-runner.js';

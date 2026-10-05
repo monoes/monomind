@@ -6,6 +6,8 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
+- **`monomind security defend` no longer crashes when a threat is detected (#641).** The per-severity colour was picked by pulling `output.error`/`warning`/`info`/`dim` out as bare function references, which lost the `this` binding, so the first detected threat threw `TypeError: Cannot read properties of undefined (reading 'color')`. The formatter is now invoked on `output`.
+- **The full-mode MCP tool count in the docs is derived from the registry, not typed (#642).** `doc/concepts/mcp-server.md`, `opencode.md` and `antigravity.md` said `MONOMIND_MCP_FULL=1` advertises 219 tools; `tools/list` over stdio returns 198 (the default roster is 20). The two counts are now `doc-count` markers (`mcp-tools-full`, `mcp-tools-default`) that `scripts/generate-doc-counts.mjs` reads from the built CLI's registry, so `--check` fails when a doc states another number.
 - **`org sign` from an org role now refuses plainly instead of appearing to write to the operator directory (#643).** The operator-credential directory (`~/.monomind/orgrt-operator`) is hidden from every role sandbox on purpose, so a role never signs or reads the key. Where the sandbox mounts an empty tmpfs over it, `org sign` seemed to succeed and the signature vanished, so `org run` then failed. `org sign` now checks first and refuses before writing, saying the directory is protected from org roles and only the operator signs, and `org run` explains a missing signature the same way. Documented in `doc/commands/org.md`. The protection is unchanged.
 
 ## [2.24.1] — 2026-10-05

@@ -2,7 +2,8 @@
 // Scripted (no model): a role whose Write was refused and that then reports
 // the task done is refused with the path named; a retry that lands, a file
 // that exists, an honest blocked report and a healthy flow are all accepted.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';

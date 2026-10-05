@@ -38,6 +38,7 @@ import {
   countHooksSubcommands,
   countInstalledAgents,
   countMastermindCommands,
+  countMcpTools,
   countNamedFiles,
   countOrgSkills,
   countOrgSubcommands,
@@ -55,6 +56,7 @@ import {
 
 const SHIPPED_AGENTS = countShippedAgents();
 const SHIPPED_INDEX = countShippedIndex();
+const MCP_TOOLS = await countMcpTools();
 
 const COUNTS = {
   workers: countWorkers(),
@@ -71,6 +73,8 @@ const COUNTS = {
   'pickable-skills': SHIPPED_INDEX.skills,
   'slash-commands': SHIPPED_INDEX.commands,
   'org-skills': countOrgSkills(),
+  'mcp-tools-default': MCP_TOOLS.core,
+  'mcp-tools-full': MCP_TOOLS.full,
 };
 
 /**
@@ -141,6 +145,10 @@ const DOC_FILES = [
   'doc/concepts/hooks.md',
   'doc/concepts/statusline.md',
   'doc/concepts/memory.md',
+  'doc/concepts/mcp-server.md',
+  'doc/concepts/opencode.md',
+  'doc/concepts/antigravity.md',
+  'doc/commands/mcp.md',
   // Shipped slash commands: the root tree, the npm package copy and the kimi
   // conversions all carry the same markers (scripts/sync-claude-trees.mjs).
   '.claude/commands/agents/agent-types.md',
