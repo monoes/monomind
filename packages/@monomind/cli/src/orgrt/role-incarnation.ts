@@ -8,6 +8,7 @@ import { type RoleCheckpoint, restoredRoleStatus, restoreMailboxQueue } from './
 import { OrgDaemon } from './daemon.js';
 import type { AgentRuntime, RunningOrg } from './daemon-types.js';
 import { ScrollbackBuffer } from './daemon-types.js';
+import { hostPreflight } from './documents/preflight.js';
 import { sectionRoleCap } from './documents/section-budget-wire.js';
 import { effectiveRolePolicy } from './effective-role-policy.js';
 import { fileToolRoots } from './file-roots.js';
@@ -368,6 +369,20 @@ export function spawnRoleIncarnation(
             return;
           }
           if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) {
+            crash();
+            return;
+          }
+          // GA row R6: a restart is a replacement; on a host that fails the sections
+          // probes nothing is launched and the role's work stays held.
+          const pf = hostPreflight(running.def);
+          if (!pf.ok) {
+            bus.emit({
+              type: 'audit',
+              from: role.id,
+              reason: 'replacement-refused',
+              msg: `agent "${role.id}" was not restarted: ${pf.refusals.join('; ')}`,
+              data: { agentId: role.id },
+            });
             crash();
             return;
           }
