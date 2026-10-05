@@ -27,12 +27,14 @@ const installCommand: Command = {
     }
     try {
       // An explicit request: MONOMIND_NO_AUTO_INSTALL only stops automatic installs.
-      await loadClaudeSdk(undefined, { requested: true });
+      await loadClaudeSdk(undefined, { requested: true, intoCache: true });
     } catch (e) {
       output.printError(e instanceof Error ? e.message : String(e));
       return { success: false, exitCode: 1 };
     }
-    output.printSuccess(`${SDK}@${OPTIONAL_DEPENDENCIES[SDK].version} is installed and verified.`);
+    output.printSuccess(
+      `${SDK}@${OPTIONAL_DEPENDENCIES[SDK].version} is installed and verified in ${depsRoot()}.`,
+    );
     return { success: true };
   },
 };
