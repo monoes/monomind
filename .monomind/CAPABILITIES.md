@@ -18,6 +18,7 @@
 
 Monomind is a domain-driven design architecture for multi-agent AI coordination with:
 
+- **Agent Orgs** - `monomind org run` runs role-based agent orgs under the Org Runtime
 - **ANN Vector Search** - indexed pattern retrieval via SQLite (better-sqlite3, sql.js WASM fallback)
 - **Keyword Routing** - deterministic task→agent routing with outcome measurement
 - **MCP Server Integration** - Model Context Protocol support
