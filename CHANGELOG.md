@@ -2,6 +2,12 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **`monomind security defend` no longer crashes when a threat is detected (#641).** The per-severity colour was picked by pulling `output.error`/`warning`/`info`/`dim` out as bare function references, which lost the `this` binding, so the first detected threat threw `TypeError: Cannot read properties of undefined (reading 'color')`. The formatter is now invoked on `output`.
+
 ## [2.24.1] — 2026-10-05
 
 ### Fixed
