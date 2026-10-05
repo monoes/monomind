@@ -3,7 +3,7 @@
 // to look like it worked (bubblewrap mounts an empty tmpfs over the dir, so
 // the write "succeeds" and vanishes). It must refuse first, with a plain
 // message, and `org run` must say why the signature is missing.
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +16,7 @@ import {
 import { setOrgSignatureEnforcement } from '../orgrt/org-signature.js';
 import { ORG_DIR } from '../orgrt/types.js';
 import type { CommandContext } from '../types.js';
+import { mkdtempSync } from './tmp-track.js';
 
 let cwd: string;
 let opDir: string;
