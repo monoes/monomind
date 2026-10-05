@@ -117,6 +117,14 @@ export async function prepareTrial({
     spec.def = { ...spec.def, goal: retime(spec.def.goal, from, deadlineSeconds) };
     spec.deadlineSeconds = deadlineSeconds;
   }
+  // Declared change deadline-seconds-in-trials: the run's own deadline goes into the definition, so the runtime caps
+  // a role's Bash call to a fraction of the time left (run_config.deadline_seconds). Set on the base definition, so
+  // every contender and the 'current-best' comparison copy carry the same value and effectiveDiff is unchanged.
+  if (spec.deadlineSeconds)
+    spec.def = {
+      ...spec.def,
+      run_config: { ...(spec.def.run_config ?? {}), deadline_seconds: spec.deadlineSeconds },
+    };
   const plan = resolvePlan(scenario, profile);
   let def = applyContender(spec.def, contender, { sessionCap: spec.sessionCap });
   def = applyModel(def, plan);

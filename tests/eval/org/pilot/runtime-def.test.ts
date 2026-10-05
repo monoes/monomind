@@ -62,6 +62,14 @@ const problemsOf = (fn) => {
 describe('runtimeOrgDef: the sweep-3 v2 pilot definition', () => {
   const out = runtimeOrgDef(baseDef(), trial());
 
+  it('keeps run_config.deadline_seconds of the prepared definition (the runtime caps Bash to the time left), and still validates', () => {
+    const base = baseDef();
+    base.run_config = { ...base.run_config, deadline_seconds: 720 };
+    const out = runtimeOrgDef(base, trial());
+    expect(out.run_config.deadline_seconds).toBe(720);
+    expect(checklistFindings(OrgDefSchema.parse(out)).errors).toEqual([]);
+  });
+
   it('equals the committed golden', () => {
     if (process.env.PILOT_RECAPTURE_GOLDEN === '1')
       writeFileSync(GOLDEN, `${JSON.stringify(out, null, 2)}\n`);
