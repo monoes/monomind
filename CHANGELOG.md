@@ -2,6 +2,16 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Fixed
+
+- **The `monofence-ai` first-use pin follows the published 2.24.0 package.** The 2.24.0 release bumped the workspace `monofence-ai` to 2.24.0 but left the first-use install pinned at 1.0.7 (lock entry and per-file code hashes included), so `main`'s CI failed the "pin equals workspace version" and fail-closed scanner tests, and the 2.24.0 CLI installs the older monofence from the registry. The pin, lock entry (URL and integrity, verified against the registry tarball) and version now match 2.24.0; the 16 `dist/*.js` hashes are unchanged because 2.24.0 differs from 1.0.7 only in its version number.
+
+### Notes
+
+- **Sub-package versions jumped to 2.24.0 (#636).** The 2.24.0 release published `@monoes/monobrowse` (was 1.0.30), `@monoes/monodesign` (1.2.25), `@monoes/hooks` (1.0.13), `@monoes/mcp` (1.0.7), `@monoes/memory` (1.0.23), `@monoes/monograph` (1.6.15), `@monoes/routing` (1.1.1) and `monofence-ai` (1.0.7) at 2.24.0 instead of on their own semver lines. None of them has a breaking change in this release: the number is a version bump only, it cannot be unpublished, and their lines continue from 2.24.0. Only `monomind` and `@monoes/monomindcli` track the release number.
+
 ## [2.24.0] — 2026-10-05
 
 ### Added

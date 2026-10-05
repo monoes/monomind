@@ -95,7 +95,7 @@ export const OPTIONAL_DEPENDENCIES = {
     feature: 'The Chrome download for `monomind browse`',
   },
   'monofence-ai': {
-    version: '1.0.7',
+    version: '2.24.0',
     size: 'under 1 MB',
     feature: 'MonoFence (the monofence_* MCP tools, `security defend`, org role fences)',
   },
