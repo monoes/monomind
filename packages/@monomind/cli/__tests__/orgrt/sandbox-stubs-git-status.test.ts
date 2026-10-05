@@ -1,11 +1,12 @@
 // packages/@monomind/cli/__tests__/orgrt/sandbox-stubs-git-status.test.ts
 // An org run with workspace: repo holds mount-point stubs in the repo root (.bashrc, .gitconfig, .claude/hooks, …)
-// for the whole run, so `git status` lists them while the run is alive. When the run ends they must be gone:
+// for the whole run, kept out of `git status` by a managed block in info/exclude (sandbox-stubs-exclude.ts). When the run ends the stubs and the block must be gone:
 // the release runs of 2.23.0 to 2.24.1 were reported to leave them behind. Real processes and a real git repo in a
 // temp dir (never the real HOME), no model. Covers the process ending by itself and a SIGKILL'd one whose stubs the
 // next runtime reclaims.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,7 +60,8 @@ describe('a run that held stubs in the repo root leaves git status clean', () =>
     const r = repo();
     const c = run(r, 'plain');
     await ready(c);
-    expect(r.status()).toMatch(/\.bashrc/); // held for the whole run, by design
+    expect(existsSync(join(r.cwd, '.bashrc'))).toBe(true); // held for the whole run, by design
+    expect(r.status()).toBe(''); // but kept out of git status (sandbox-stubs-exclude.ts)
     const done = exited(c);
     c.kill('SIGTERM');
     await done;
@@ -76,8 +78,10 @@ describe('a run that held stubs in the repo root leaves git status clean', () =>
     const done = exited(c);
     c.kill('SIGKILL');
     await done;
-    expect(r.status()).toMatch(/\.bashrc/); // nothing could clean up
+    expect(existsSync(join(r.cwd, '.bashrc'))).toBe(true); // nothing could clean up
     new SandboxStubs(r.ledger).hold('next-run', []); // the next runtime's first hold reclaims the ledger
+    expect(existsSync(join(r.cwd, '.bashrc'))).toBe(false);
     expect(r.status()).toBe('');
+    expect(readFileSync(join(r.cwd, '.git', 'info', 'exclude'), 'utf8')).not.toMatch(/monomind sandbox stubs/);
   }, 40_000);
 });
