@@ -1,0 +1,126 @@
+{
+  "generatedBy": "group1/probe.sh, run by hand under bubblewrap (real HOME replaced by an overlay in the temp tree, so the real home could not change)",
+  "date": "2026-10-05",
+  "probeSpendUsd": {
+    "total": "< 0.05",
+    "note": "codex (ChatGPT subscription), agy (Google account) and every OpenRouter run (free models) are not metered per call; token counts below. No paid API key was used."
+  },
+  "runtimes": [
+    {
+      "runtime": "codex",
+      "cliVersion": "codex-cli 0.159.3",
+      "strategy": "config-env",
+      "envVar": "CODEX_HOME",
+      "authFilesStaged": [".codex/auth.json (symlink to the real file, at $CODEX_HOME/auth.json)"],
+      "command": "CODEX_HOME=<T>/codex-private codex exec --json --skip-git-repo-check -m gpt-6-luna -s read-only 'Reply with the single word ok.'",
+      "result": "exit 0, answer ok, 13515 input / 5 output tokens (subscription, unmetered). gpt-6.1-mini is rejected on a ChatGPT account; gpt-6-luna is the cheapest listed model.",
+      "filesCreated": [
+        "cache/codex_apps_server_info, cache/codex_apps_tools",
+        "sessions/<year>/..., shell_snapshots/",
+        "state_5.sqlite, logs_2.sqlite, thread_history_1.sqlite, memories_1.sqlite, queue_1.sqlite, goals_1.sqlite (+ -shm/-wal)",
+        "models_cache.json, installation_id, .sandbox_migration, thread-writer-locks/",
+        "plugins/cache/** (~465 files), skills/.system/** (~70 files), tmp/"
+      ],
+      "contained": "all of it under CODEX_HOME; nothing under HOME or the cwd. Only the bind mountpoints of the probe sandbox appeared in the real-home overlay. The HOME-only variant (no CODEX_HOME) lands the same tree under HOME/.codex.",
+      "caveats": [
+        "codex exec does not start the app-server daemon whose control files sit in the real ~/.codex (app-server-daemon, app-server-control); none was started.",
+        "A refresh of the ChatGPT token writes through the symlink into the real auth.json, as when the operator uses codex."
+      ]
+    },
+    {
+      "runtime": "antigravity",
+      "binary": "agy",
+      "cliVersion": "agy 1.2.14",
+      "strategy": "private-home",
+      "envVar": "HOME (and XDG_*), no CLI variable exists",
+      "authFilesStaged": [],
+      "command": "HOME=<T>/home agy -p 'Reply with the single word ok.' --output-format stream-json --model gemini-3.8-flash-low --dangerously-skip-permissions",
+      "result": "exit 0, answer ok, 12318 input / 26 output tokens. agy models also probed.",
+      "filesCreated": [
+        ".gemini/antigravity-cli/{conversations/<id>.db, annotations/<id>.pbtxt, brain/, implicit/*.pb, presence/<id>.lock, cache/*, log/cli-*.log, conversation_summaries.db(+shm/wal), jetski_state.pbtxt, jetbox_summaries_proto.pb, installation_id, builtin/**, bin/webm_encoder}",
+        ".gemini/config/{mcp_config.json, projects/default-cli-project.json, .migrated}"
+      ],
+      "contained": "all under HOME/.gemini; nothing under the cwd or elsewhere in HOME.",
+      "caveats": [
+        "Login is not a file: the same run with DBUS_SESSION_BUS_ADDRESS=disabled: fails with \"authentication failed or timed out\" (exit 1). The credential is in the desktop keyring (secret service over the session bus), so there is nothing to stage and the bus variable must be inherited.",
+        "The keyring daemon is one process for every role; it holds credentials only, no transcripts. Its own file (~/.local/share/keyrings) is written by that daemon, not by agy."
+      ]
+    },
+    {
+      "runtime": "opencode",
+      "cliVersion": "opencode 1.18.32",
+      "strategy": "private-home",
+      "envVar": "HOME and XDG_* (no CLI variable); TMPDIR is separate",
+      "authFilesStaged": [
+        ".config/opencode/opencode.json (symlink; the provider key itself comes from OPENROUTER_API_KEY in the environment)"
+      ],
+      "command": "HOME/XDG_*=<T>/home TMPDIR=<T>/tmp opencode run -m openrouter/poolside/laguna-s-2.1:free --format json 'Reply with the single word ok.'",
+      "result": "exit 0, answer ok, 5387 input / 2 output tokens, cost 0 (free model). A first run with TMPDIR on a read-only path crashed with EROFS on mkdir <TMPDIR>/opencode: opencode writes there.",
+      "filesCreated": [
+        ".local/share/opencode/{opencode.db(+shm/wal), log/, repos/}",
+        ".local/state/opencode/locks/*",
+        ".cache/opencode/{models.json, bin/}",
+        ".config/opencode/.gitignore",
+        ".npm/_cacache/tmp/*",
+        "<TMPDIR>/opencode, <TMPDIR>/.*.so"
+      ],
+      "contained": "all under HOME/XDG and TMPDIR; nothing under the cwd.",
+      "caveats": [
+        "OPENCODE_URL attaches the runner to one shared opencode server (opencode-runner.ts); the registry refuses opencode while it is set.",
+        "The runner starts its own ephemeral `opencode serve`, which is a child of the role's process and writes the same directories as `opencode run`."
+      ]
+    },
+    {
+      "runtime": "pi",
+      "cliVersion": "pi 0.87.1",
+      "strategy": "config-env",
+      "envVar": "PI_CODING_AGENT_DIR",
+      "authFilesStaged": [
+        ".pi/agent/auth.json",
+        ".pi/agent/settings.json (symlinks, at $PI_CODING_AGENT_DIR/)"
+      ],
+      "command": "PI_CODING_AGENT_DIR=<T>/home/pi-private PI_OFFLINE=1 pi --mode json -p --model openrouter/poolside/laguna-s-2.1:free -- 'Reply with the single word ok.'",
+      "result": "exit 0, answer ok, cost 0 (free model). Without the variable the same files land in HOME/.pi/agent.",
+      "filesCreated": [
+        "<dir>/auth.json (created empty when none was staged)",
+        "<dir>/models-store.json",
+        "<dir>/sessions/--<cwd-encoded>--/<timestamp>_<id>.jsonl"
+      ],
+      "contained": "all under PI_CODING_AGENT_DIR; nothing under HOME or the cwd.",
+      "caveats": [
+        "The provider key comes from the environment; an OAuth login in auth.json is staged when it exists."
+      ]
+    },
+    {
+      "runtime": "pi-rpc",
+      "cliVersion": "pi 0.87.1",
+      "strategy": "config-env",
+      "envVar": "PI_CODING_AGENT_DIR",
+      "authFilesStaged": [".pi/agent/auth.json", ".pi/agent/settings.json"],
+      "command": "PI_CODING_AGENT_DIR=<T>/home/pi-private PI_OFFLINE=1 pi --mode rpc --model openrouter/poolside/laguna-s-2.1:free   (one {\"type\":\"prompt\"} command on stdin, group1/pirpc-inner.sh)",
+      "result": "exit 0, prompt accepted and the turn ran, cost 0.",
+      "filesCreated": [
+        "<dir>/auth.json",
+        "<dir>/models-store.json",
+        "<dir>/sessions/--<cwd-encoded>--/<timestamp>_<id>.jsonl"
+      ],
+      "contained": "identical to pi --mode json: all under PI_CODING_AGENT_DIR."
+    },
+    {
+      "runtime": "crush",
+      "cliVersion": "crush v0.96.1",
+      "strategy": "private-home",
+      "envVar": "HOME and XDG_*; the project data dir only by --data-dir (no environment variable: CRUSH_DATA_DIR was tried and has no effect)",
+      "authFilesStaged": [
+        ".config/crush/crush.json (symlink; the key comes from OPENROUTER_API_KEY)"
+      ],
+      "command": "HOME/XDG_*=<T>/home crush --data-dir <T>/home/crush-data run --model openrouter/poolside/laguna-s-2.1:free 'Reply with the single word ok.'",
+      "result": "exit 0, answer ok, cost 0 (free model).",
+      "filesCreated": [
+        "<data-dir>/{crush.db, logs/crush.log, .gitignore}   (without --data-dir: <cwd>/.crush/ with the same files)",
+        ".local/share/crush/projects.json"
+      ],
+      "contained": "with --data-dir everything is under the temp HOME. Without it crush writes crush.db (the transcripts) and logs into <cwd>/.crush, the workspace that every role of a section shares, so the runner now passes --data-dir from MONOMIND_RUNNER_DATA_DIR."
+    }
+  ]
+}

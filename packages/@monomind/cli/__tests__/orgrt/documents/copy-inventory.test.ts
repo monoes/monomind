@@ -15,6 +15,7 @@ import {
   copyInventoryFindings,
   nativeBinds,
   privateRunnerRoot,
+  runtimeDirFor,
 } from '../../../src/orgrt/documents/copy-inventory.js';
 import { authorityMaskAvailability } from '../../../src/orgrt/authority-mask.js';
 import { roleExecMask } from '../../../src/orgrt/exec-deny.js';
@@ -59,10 +60,19 @@ describe('nativeBinds', () => {
     ]);
     expect(nativeBinds(def(), '/o', 'boss', 'claude', '/h', {})[0].src).not.toBe(binds[0].src);
   });
-  it('gives nothing for an org without sections or a runtime without an entry', () => {
+  it('gives nothing for an org without sections or a runtime without a private directory', () => {
     const legacy = { name: 'l', goal: 'g', roles: def().roles };
     expect(nativeBinds(legacy as any, '/o', 'coder', 'claude', '/h', {})).toEqual([]);
-    expect(nativeBinds(def(), '/o', 'coder', 'codex', '/h', {})).toEqual([]);
+    expect(nativeBinds(legacy as any, '/o', 'coder', 'codex', '/h', {})).toEqual([]);
+    expect(nativeBinds(def(), '/o', 'coder', 'no-such-runtime', '/h', {})).toEqual([]);
+  });
+  it('binds the private directory of a codex, pi or antigravity role over itself, one per role', () => {
+    for (const rt of ['codex', 'pi', 'pi-rpc', 'antigravity', 'opencode', 'crush']) {
+      const own = runtimeDirFor('/o', 'coder', rt);
+      expect(nativeBinds(def(), '/o', 'coder', rt, '/h', {})).toEqual([{ src: own, dest: own }]);
+      expect(runtimeDirFor('/o', 'boss', rt)).not.toBe(own);
+    }
+    expect(runtimeDirFor('/o', 'coder', 'codex')).toBe(join(privateRunnerRoot('/o', 'coder'), 'rt-codex'));
   });
 });
 
@@ -77,13 +87,33 @@ describe('copyInventoryFindings', () => {
     expect(copyInventoryFindings(sectionsRaw() as any)).toEqual({ errors: [], warnings: [] });
   });
   it('warns, naming role and runtime, for an unlisted runtime in an eval org', () => {
-    const f = copyInventoryFindings(withRuntime('codex', true));
+    const f = copyInventoryFindings(withRuntime('no-such-runtime', true));
     expect(f.errors).toEqual([]);
-    expect(f.warnings.join()).toMatch(/coder.*codex.*native copies/);
+    expect(f.warnings.join()).toMatch(/coder.*no-such-runtime.*native copies/);
   });
   it('refuses an unlisted runtime outside the eval harness', () => {
-    const f = copyInventoryFindings(withRuntime('codex', false));
-    expect(f.errors.join()).toMatch(/coder.*codex.*no copy-inventory entry/);
+    const f = copyInventoryFindings(withRuntime('no-such-runtime', false));
+    expect(f.errors.join()).toMatch(/coder.*no-such-runtime.*no copy-inventory entry/);
+  });
+  it('accepts every verified runtime silently, in and outside the eval harness', () => {
+    for (const rt of ['claude', 'codex', 'antigravity', 'opencode', 'pi', 'pi-rpc', 'crush', 'grok', 'copilot', 'hermes'])
+      for (const evalMode of [true, false])
+        expect(copyInventoryFindings(withRuntime(rt, evalMode)), `${rt} ${evalMode}`).toEqual({ errors: [], warnings: [] });
+  });
+  it('accepts an unverified runtime with a warning, never an error', () => {
+    for (const rt of ['qwen', 'qwen-rpc', 'kimicode', 'cline', 'aider', 'dsh', 'vercel']) {
+      const f = copyInventoryFindings(withRuntime(rt, false));
+      expect(f.errors, rt).toEqual([]);
+      expect(f.warnings.join(), rt).toMatch(new RegExp(`coder.*${rt}.*not probed`));
+    }
+  });
+  it('refuses a refused runtime outside the eval harness and warns inside it, naming the reason', () => {
+    const env = { OPENCODE_URL: 'http://127.0.0.1:4096' };
+    const out = copyInventoryFindings(withRuntime('opencode', false), env);
+    expect(out.errors.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
+    const inEval = copyInventoryFindings(withRuntime('opencode', true), env);
+    expect(inEval.errors).toEqual([]);
+    expect(inEval.warnings.join()).toMatch(/coder.*opencode.*refused.*OPENCODE_URL/);
   });
   it('an endpoint role is exempt (it runs no agent)', () => {
     const d = sectionsRaw() as any;

@@ -82,6 +82,7 @@ import {
   killOnAbort,
 } from './agent-runner.js';
 import { maskedCommand } from './authority-mask.js';
+import { RUNNER_DATA_DIR_ENV } from './documents/runtime-isolation.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { spawnRunnerProcess } from './process-group-spawn.js';
 import { omitAnthropicManagedKeys } from './provider.js';
@@ -310,6 +311,11 @@ export class CrushAgentRunner implements AgentRunner {
     // Full access needs nothing more for the same reason, and crush
     // isolates none of the user's config (so `--settings` needs nothing).
     const cliArgs: string[] = ['run', prompt];
+    // Sections orgs: crush keeps its database and logs in <cwd>/.crush, the
+    // workspace every role of a section shares. There is no environment variable
+    // for it, so the role's private directory goes in as --data-dir.
+    const dataDir = args.env?.[RUNNER_DATA_DIR_ENV];
+    if (dataDir) cliArgs.push('--data-dir', dataDir);
     if (args.model) cliArgs.push('--model', args.model);
     if (continueSession) cliArgs.push('--continue');
 

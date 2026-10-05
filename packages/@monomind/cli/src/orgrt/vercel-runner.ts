@@ -25,6 +25,7 @@
  * is set, like the other runners.
  */
 import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import { RUNNER_DATA_DIR_ENV } from './documents/runtime-isolation.js';
 import { toolInputSchema } from './tool-fence.js';
 import { loadVercelProvider, VERCEL_PROVIDERS } from './vercel-providers.js';
 import { VercelSessionStore } from './vercel-session-store.js';
@@ -78,7 +79,9 @@ export class VercelAgentRunner implements AgentRunner {
     }
 
     // Session store for resume — org dir is set by session.ts via env
-    const orgDir = args.env.MONOMIND_ORG_DIR ?? args.cwd;
+    // Sections orgs: the session store goes to the role's private directory, not the
+    // org's shared sessions directory.
+    const orgDir = args.env[RUNNER_DATA_DIR_ENV] ?? args.env.MONOMIND_ORG_DIR ?? args.cwd;
     const roleId = args.env.MONOMIND_ROLE_ID ?? 'default';
     const store = new VercelSessionStore(orgDir, roleId, args.resume);
     const messages = await store.load();
