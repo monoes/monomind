@@ -1,6 +1,7 @@
 // packages/@monomind/cli/src/orgrt/session-run.ts
 // Extracted from session.ts — one bounded runner session for a role (runOneSession).
 
+import { mkdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import type { AgentRunner } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
@@ -8,6 +9,7 @@ import { ensureAuthorityDirs } from './authority-mask.js';
 import { appendContextCall } from './context-log.js';
 import { resolveRoleCostTier } from './cost-tier.js';
 import type { CumulativeMeter } from './cumulative-meter.js';
+import { ensureNativeSources, nativeBinds, runnerRootFor } from './documents/copy-inventory.js';
 import { envelopeDirFor, loadEnvelopeKey } from './documents/envelope.js';
 import { ensureMailDirs, mailRootFor, otherMailDirs } from './documents/mail-isolation.js';
 import { sectionsSurface } from './documents/surface.js';
@@ -190,7 +192,9 @@ export async function runOneSession(
     // GA row R2: the envelope key is unreadable and unwritable to every role.
     const envelopeDir =
       opts.orgDir && sectionsSurface(opts.def).enabled
-        ? (loadEnvelopeKey(opts.orgDir), [envelopeDirFor(opts.orgDir)])
+        ? (loadEnvelopeKey(opts.orgDir),
+          mkdirSync(runnerRootFor(opts.orgDir), { recursive: true }),
+          [envelopeDirFor(opts.orgDir), runnerRootFor(opts.orgDir)])
         : [];
     const mailDeny = opts.orgDir
       ? [...otherMailDirs(opts.def, opts.orgDir, role.id), ...envelopeDir]
@@ -248,6 +252,12 @@ export async function runOneSession(
             denyRead: role.policy?.sandbox?.denyRead,
             bestEffortDenyRead: mailDeny,
             bestEffortReadOnly: mailRoot,
+            // GA row R5: this role's runner writes its native copies into a private directory.
+            bestEffortBinds: opts.orgDir
+              ? ensureNativeSources(
+                  nativeBinds(opts.def, opts.orgDir, role.id, runtimeKey, homedir(), process.env),
+                )
+              : [],
             homeWriteAllow: role.policy?.sandbox?.homeWriteAllow,
             writableRoots: [
               cwd,

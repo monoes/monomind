@@ -27,7 +27,7 @@
  * shell itself, which stays available: bash, sed and awk can still be
  * scripted by a role that writes its own evaluator.
  */
-import { lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, delimiter, join } from 'node:path';
 import { authorityMaskAvailability } from './authority-mask.js';
 import type { OrgBus } from './bus.js';
@@ -194,6 +194,8 @@ export function roleExecMask(args: {
   bestEffortDenyRead?: string[];
   /** Directories to bind read-only for every role (GA row R4: the mail root). Best-effort like `bestEffortDenyRead`. */
   bestEffortReadOnly?: string[];
+  /** Private host directories to bind over the runner's native copy directories (GA row R5). Best-effort and audited like the lists above; a destination that does not exist is skipped. */
+  bestEffortBinds?: { src: string; dest: string }[];
   /** `policy.sandbox.homeWriteAllow`: set (even empty) to make the real home unwritable apart from these. */
   homeWriteAllow?: string[];
   /** Paths that must stay writable if they are under the home (cwd, org root, allowWrite, tmp). */
@@ -209,22 +211,39 @@ export function roleExecMask(args: {
     const r = real(d);
     return r ? ['--ro-bind', r, r] : [];
   });
+  const nativeBinds = (args.bestEffortBinds ?? []).flatMap((b) => {
+    const src = real(b.src);
+    const dest = real(b.dest);
+    return src && dest && existsSync(dest) ? ['--bind', src, dest] : [];
+  });
   if (!args.denyExec?.length && !args.denyRead?.length && !homeWrite) {
-    if (!bestEffort.length && !args.bestEffortReadOnly?.length) return args.authorityMask;
+    const mailWanted = bestEffort.length > 0 || !!args.bestEffortReadOnly?.length;
+    const nativeWanted = (args.bestEffortBinds ?? []).length > 0;
+    if (!mailWanted && !nativeWanted) return args.authorityMask;
     const avail = args.availability ?? authorityMaskAvailability();
     if (avail.available)
       return [
         ...(args.authorityMask ?? ['--dev-bind', '/', '/']),
         ...roBinds,
+        ...nativeBinds,
         ...maskTail([], bestEffort),
       ];
-    args.bus.emit({
-      type: 'audit',
-      from: args.roleId,
-      reason: 'mail-mask-unavailable',
-      msg: `bubblewrap cannot mask other roles' mail digests for ${args.roleId} (${avail.reason}); the file-tool and SDK-sandbox denials still apply`,
-      data: {},
-    });
+    if (mailWanted)
+      args.bus.emit({
+        type: 'audit',
+        from: args.roleId,
+        reason: 'mail-mask-unavailable',
+        msg: `bubblewrap cannot mask other roles' mail digests for ${args.roleId} (${avail.reason}); the file-tool and SDK-sandbox denials still apply`,
+        data: {},
+      });
+    if (nativeWanted)
+      args.bus.emit({
+        type: 'audit',
+        from: args.roleId,
+        reason: 'native-copies-unprotected',
+        msg: `bubblewrap cannot give ${args.roleId} private runner copy directories (${avail.reason}); its native transcripts are shared with the other roles`,
+        data: {},
+      });
     return args.authorityMask;
   }
   const availability = args.availability ?? authorityMaskAvailability();
@@ -267,7 +286,12 @@ export function roleExecMask(args: {
     head = [...head.slice(0, 3), ...layer, ...head.slice(3)];
   }
   const paths = resolveDenyExec(args.denyExec ?? [], { home: args.home, env: args.env });
-  return [...head, ...roBinds, ...maskTail(paths, [...(args.denyRead ?? []), ...bestEffort])];
+  return [
+    ...head,
+    ...roBinds,
+    ...nativeBinds,
+    ...maskTail(paths, [...(args.denyRead ?? []), ...bestEffort]),
+  ];
 }
 
 // ---- the command check ----------------------------------------------------
