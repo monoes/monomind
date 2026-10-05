@@ -22,7 +22,7 @@ Defined in `packages/@monomind/cli/src/commands/mcp.ts` ([packages/@monomind/cli
 | `status` | `monomind mcp status` | Display server running status, PID, port, active connections, and transport type. |
 | `health` | `monomind mcp health` | Run health checks across core protocol handlers and tool registries. |
 | `restart` | `monomind mcp restart` | Restart active background MCP server process. |
-| `tools` | `monomind mcp tools [--category <cat>]` | List the advertised MCP tools: the 20-tool default roster, or every registered tool with `MONOMIND_MCP_FULL=1` (see [Default Advertised Roster](../concepts/mcp-server.md#default-advertised-roster)). Hidden tools stay callable through `exec`. |
+| `tools` | `monomind mcp tools [--category <cat>]` | List the advertised MCP tools: the <!-- doc-count:mcp-tools-default -->20<!-- /doc-count:mcp-tools-default -->-tool default roster, or every registered tool with `MONOMIND_MCP_FULL=1` (see [Default Advertised Roster](../concepts/mcp-server.md#default-advertised-roster)). Hidden tools stay callable through `exec`. |
 | `toggle` | `monomind mcp toggle <tool_name>` | Enable or disable a specific tool dynamically in the server registry. |
 | `exec` | `monomind mcp exec <tool_name> [args_json]` | Direct execution endpoint for testing MCP tool calls locally. |
 | `logs` | `monomind mcp logs [--lines <n>]` | Tail background MCP server daemon log outputs (`~/.monomind/logs/mcp-server.log`). |

@@ -51,7 +51,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 
 ### Default Advertised Roster
 
-`tools/list` advertises a lean core of 20 tools by default ([`mcp-client-roster.ts`](packages/@monomind/cli/src/mcp-client-roster.ts), `CORE_ADVERTISED_TOOLS`), about 14.6 KB of schema instead of 34.7 KB:
+`tools/list` advertises a lean core of <!-- doc-count:mcp-tools-default -->20<!-- /doc-count:mcp-tools-default --> tools by default ([`mcp-client-roster.ts`](packages/@monomind/cli/src/mcp-client-roster.ts), `CORE_ADVERTISED_TOOLS`), about 14.6 KB of schema instead of 34.7 KB:
 
 - **Monograph:** `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors`
 - **Picking and discovery:** `pick`, `org_skill_show`, `monomind_tool_search`
@@ -59,7 +59,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 - **Monodesign:** `monodesign_detect`, `monodesign_fix`, `monodesign_palette`
 - **Memory:** `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search`, `memory_kg_stats`. The generated CLAUDE.md, GEMINI.md and AGENTS.md and the session-end KG nudge name these directly.
 
-Every other tool, including the `agent_*`, `task_*`, `session_*`, `config_*`, `system_*`, `guidance_*` and `hooks_*` state-file tools and `mcp_status`, is still registered and callable by name. `monomind_tool_search` finds it and returns its schema. Set `MONOMIND_MCP_FULL=1` on the server to advertise the whole registry (219 tools, about 95 KB).
+Every other tool, including the `agent_*`, `task_*`, `session_*`, `config_*`, `system_*`, `guidance_*` and `hooks_*` state-file tools and `mcp_status`, is still registered and callable by name. `monomind_tool_search` finds it and returns its schema. Set `MONOMIND_MCP_FULL=1` on the server to advertise the whole registry (<!-- doc-count:mcp-tools-full -->198<!-- /doc-count:mcp-tools-full --> tools, about 95 KB).
 
 ---
 
