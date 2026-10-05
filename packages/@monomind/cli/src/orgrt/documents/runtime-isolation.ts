@@ -101,7 +101,7 @@ export const RUNTIME_ISOLATION: Record<RuntimeKind, RuntimeIsolation> = {
   },
   antigravity: {
     strategy: 'private-home',
-    authFiles: [],
+    authFiles: [GIT_CONFIG],
     nativeDirs: ['.gemini/antigravity-cli', '.gemini/config/projects'],
     probe: PROBE(
       'HOME=<tmp> agy -p ok --output-format stream-json --model gemini-3.8-flash-low',
