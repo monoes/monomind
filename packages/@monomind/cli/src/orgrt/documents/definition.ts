@@ -69,9 +69,11 @@ function checkSurfaceKeys(def: OrgDef, f: Findings): void {
       `run_config.experimental: must be "eval" or absent — got ${describe(rc.experimental)}`,
     );
   f.errors.push(...completionFindings(rc, describe));
-  if (def.schedule !== null && def.schedule !== undefined)
+  // A recurring run needs no carry-forward: each start is a fresh run with its own document store. An
+  // eval-mode org starts only through the eval harness, which no schedule can pass.
+  if (def.schedule !== null && def.schedule !== undefined && rc.experimental === 'eval')
     f.errors.push(
-      'schedule: not yet supported: recurring section orgs need document carry-forward — remove schedule (a section org runs once, or is resumed by hand)',
+      'schedule: an eval-mode sections org (run_config.experimental: "eval") starts only through the eval harness, which a schedule cannot pass — remove schedule, or remove run_config.experimental to run it on a schedule',
     );
 }
 

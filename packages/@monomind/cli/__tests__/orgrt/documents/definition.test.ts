@@ -18,6 +18,11 @@ describe('a valid sections definition', () => {
     expect(findings((r) => delete r.run_config.experimental)).toEqual({ errors: [], warnings: [] });
   });
 
+  it('accepts a schedule on a general-availability sections org (every start is a fresh run with its own store)', () => {
+    for (const schedule of ['2h', 60, '15m'])
+      expect(findings((r) => { delete r.run_config.experimental; r.schedule = schedule; })).toEqual({ errors: [], warnings: [] });
+  });
+
   it('accepts a one-member section that leads itself', () => {
     const f = findings((r) => {
       r.sections.development = { members: ['coder'], consumes: ['findings'] };
@@ -45,7 +50,7 @@ const surfaceCases: Case[] = [
   ['completion with another protocol', (r) => (r.run_config.completion.protocol = 'sections-v2'), 'run_config.completion.protocol: must be "sections-v1"'],
   ['documents missing', (r) => delete r.documents, 'documents: a sections org must declare a documents map'],
   ['documents is empty', (r) => (r.documents = {}), 'type "findings" is not declared — add documents.findings'],
-  ['schedule set', (r) => (r.schedule = '0 * * * *'), 'schedule: not yet supported: recurring section orgs'],
+  ['schedule on an eval-mode org', (r) => (r.schedule = '2h'), 'schedule: an eval-mode sections org'],
   [
     'a full-access role',
     (r) => (r.roles[4].policy = { ...r.roles[4].policy, access: 'full' }),

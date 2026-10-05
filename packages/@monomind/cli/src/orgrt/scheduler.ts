@@ -25,7 +25,11 @@ export class OrgScheduler {
    *  A Set, so N missed ticks coalesce into one catch-up run, never a backlog. */
   private pending = new Set<string>();
 
-  constructor(private runFn: (name: string, intervalMs: number) => Promise<void>) {}
+  /** @param onDeferred called when a tick lands mid-run and is held for a catch-up (so it can be audited). */
+  constructor(
+    private runFn: (name: string, intervalMs: number) => Promise<void>,
+    private onDeferred?: (name: string) => void,
+  ) {}
 
   /** @param runNow fire one iteration immediately instead of waiting a full
    *  interval. Callers pass true only when the org is actually due (never run,
@@ -40,6 +44,7 @@ export class OrgScheduler {
     const fire = async (): Promise<void> => {
       if (this.running.has(name)) {
         this.pending.add(name);
+        this.onDeferred?.(name);
         return;
       } // catch up when it ends
       this.running.add(name);

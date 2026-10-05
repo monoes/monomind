@@ -291,101 +291,58 @@ export const serveAction = async (ctx: CommandContext): Promise<CommandResult> =
 
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
   const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
-  const sched = new OrgScheduler(async (name, intervalMs) => {
-    if (isOrgPaused(ctx.cwd, name)) return;
-    // Run precondition checks before starting a scheduled run
-    try {
-      const defPath = join(ctx.cwd, ORG_DIR, `${name}.json`);
-      if (existsSync(defPath)) {
-        const rawDef = JSON.parse(readFileSync(defPath, 'utf8'));
-        // #502: prechecks are shell commands from the definition, run by
-        // this daemon as the operator — verify the operator's signature on
-        // these same bytes before running any of them (startOrg checks too).
-        const signed = orgSignatureEnforced()
-          ? verifyOrgDef(ctx.cwd, name, rawDef)
-          : ({ ok: true } as const);
-        if (!signed.ok) {
-          log(output.warning(`${signed.message} — skipping scheduled run`));
-          return;
-        }
-        const checks = rawDef?.run_config?.prechecks;
-        if (Array.isArray(checks) && checks.length > 0) {
-          const { runPrechecks } = await import('../orgrt/prechecks.js');
-          const { ok, results } = await runPrechecks(checks, ctx.cwd);
-          if (!ok) {
-            const failed = results.find((r) => !r.passed);
-            log(
-              output.warning(
-                `org ${name}: precheck "${failed?.name}" failed — skipping scheduled run`,
-              ),
-            );
-            if (failed?.output) log(output.warning(`  ${failed.output.slice(0, 200)}`));
+  const { auditScheduledTick, runScheduledIteration } = await import('../orgrt/scheduled-run.js');
+  const sched = new OrgScheduler(
+    async (name, intervalMs) => {
+      if (isOrgPaused(ctx.cwd, name)) return;
+      // Run precondition checks before starting a scheduled run
+      try {
+        const defPath = join(ctx.cwd, ORG_DIR, `${name}.json`);
+        if (existsSync(defPath)) {
+          const rawDef = JSON.parse(readFileSync(defPath, 'utf8'));
+          // #502: prechecks are shell commands from the definition, run by
+          // this daemon as the operator — verify the operator's signature on
+          // these same bytes before running any of them (startOrg checks too).
+          const signed = orgSignatureEnforced()
+            ? verifyOrgDef(ctx.cwd, name, rawDef)
+            : ({ ok: true } as const);
+          if (!signed.ok) {
+            log(output.warning(`${signed.message} — skipping scheduled run`));
             return;
           }
+          const checks = rawDef?.run_config?.prechecks;
+          if (Array.isArray(checks) && checks.length > 0) {
+            const { runPrechecks } = await import('../orgrt/prechecks.js');
+            const { ok, results } = await runPrechecks(checks, ctx.cwd);
+            if (!ok) {
+              const failed = results.find((r) => !r.passed);
+              log(
+                output.warning(
+                  `org ${name}: precheck "${failed?.name}" failed — skipping scheduled run`,
+                ),
+              );
+              if (failed?.output) log(output.warning(`  ${failed.output.slice(0, 200)}`));
+              return;
+            }
+          }
         }
+      } catch (err) {
+        log(
+          output.warning(
+            `org ${name}: precheck evaluation error — ${err instanceof Error ? err.message : 'unknown'}`,
+          ),
+        );
       }
-    } catch (err) {
-      log(
-        output.warning(
-          `org ${name}: precheck evaluation error — ${err instanceof Error ? err.message : 'unknown'}`,
-        ),
-      );
-    }
-    // Only ever stop a run THIS tick started. The runfile poll can start an org
-    // out-of-band, and the scheduler has no visibility into that — so a tick
-    // landing on an already-running org threw "already running", fell into the
-    // finally, and stopped a healthy run that had nothing to do with it. The
-    // tick's job in that case is simply to yield.
-    let startedHere = false;
-    try {
-      await daemon.startOrg(name);
-      startedHere = true;
-      // Scheduled iterations are time-bounded: agents' `done` promises only
-      // resolve after stopOrg closes the mailboxes, so waiting on them alone
-      // deadlocks. Race against a max-run timeout, then ALWAYS stopOrg
-      // (idempotent — it resolves `done` and flushes).
-      const org = daemon.getOrg(name);
-      const allDone = org
-        ? Promise.allSettled([...org.agents.values()].map((a) => a.done))
-        : Promise.resolve([]);
-      const maxRun = (org?.def as { run_config?: { max_run?: string | number } } | undefined)
-        ?.run_config?.max_run;
-      // Default to the full interval. The old `min(interval, 10min)` clamp
-      // silently guillotined every org that didn't set max_run: real cycles
-      // here run 75-93 minutes, so a 2h-scheduled org was being force-stopped
-      // a twelfth of the way in, every time, with nothing saying so. Ten
-      // minutes was never a considered bound for agent work — it only looked
-      // safe because overrunning the interval used to cost a whole idle
-      // period. Now that a missed tick catches up the moment a run ends
-      // (OrgScheduler.pending), a run may safely use its whole interval.
-      // Set run_config.max_run to bound it tighter — or looser.
-      const maxMs = parseSchedule(maxRun) ?? intervalMs;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([
-        allDone,
-        new Promise<void>((r) => {
-          timer = setTimeout(r, maxMs);
-          timer.unref?.();
-        }),
-      ]);
-      if (timer) clearTimeout(timer);
-    } catch (err) {
-      console.error(`org ${name}: scheduled run failed:`, err);
-    } finally {
-      // A deadline stop still lands on agents mid-tool-call. The 15s abort
-      // bound threw that work away; a minute is enough to finish an edit or a
-      // test run and flush, and still well inside any sane interval.
-      if (startedHere) {
-        // #302: tag the real cause — a scheduled run hitting its own
-        // deadline is the same shape as an idle-stop (a timeout ending the
-        // run with possible backlog, not boss consent) and must not be
-        // rendered as a clean, boss-attributed outcome.
-        await daemon
-          .stopOrg(name, { drainMs: 60_000, closedBy: 'scheduled-deadline' })
-          .catch((err) => console.error(`org ${name}: stop failed:`, err));
-      }
-    }
-  });
+      await runScheduledIteration(daemon, name, intervalMs);
+    },
+    (name) =>
+      auditScheduledTick(
+        daemon,
+        name,
+        'scheduled-tick-deferred',
+        `a tick landed while "${name}" was still running — held for one catch-up run`,
+      ),
+  );
   // #264: before anything here can start an org — and so before the stop and
   // reload polls below get their first pass — drop control files a previous
   // daemon left behind, which this one would otherwise act on immediately.

@@ -89,9 +89,13 @@ describe('surface on: the four keys are accepted, nothing else is relaxed', () =
     ['completion', (r: Record<string, any>) => (r.run_config.completion = 'boss'), 'run_config.completion: a sections org must set'],
     ['documents', (r: Record<string, any>) => delete r.documents, 'documents: a sections org must declare a documents map'],
     ['an undeclared type', (r: Record<string, any>) => r.sections.development.consumes.push('plans'), 'type "plans" is not declared'],
-    ['schedule', (r: Record<string, any>) => (r.schedule = 60), 'schedule: not yet supported'],
+    ['schedule on an eval-mode org', (r: Record<string, any>) => (r.schedule = 60), 'schedule: an eval-mode sections org'],
   ])('a missing or wrong %s is a clear finding', (_n, patch, expected) => {
     expect(on(patch).errors.some((e) => e.includes(expected))).toBe(true);
+  });
+
+  it('a general-availability org may declare a schedule, the checklist included', () => {
+    expect(on((r) => { delete r.run_config.experimental; r.schedule = '2h'; }).errors).toEqual([]);
   });
 
   it('definition warnings are reported as warnings', () => {
