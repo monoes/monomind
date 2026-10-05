@@ -17,6 +17,7 @@ import {
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { CLI_PKG, counts, REPO_ROOT, read } from './doc-counts-shared.mjs';
 
 /** The WORKER_CONFIGS object body in worker-manager-types.ts, key positions included. */
@@ -264,4 +265,25 @@ export function countPackages() {
     n++;
   } catch {}
   return n;
+}
+
+/**
+ * MCP tool counts, read from the BUILT CLI (the same source lint-tool-refs.mjs
+ * uses): `full` is every tool the registry can load, which is what `tools/list`
+ * returns under MONOMIND_MCP_FULL=1; `core` is the default advertised roster,
+ * CORE_ADVERTISED_TOOLS limited to tools that are registered. Build the CLI first.
+ */
+export async function countMcpTools() {
+  const dist = join(REPO_ROOT, CLI_PKG, 'dist/src');
+  if (!existsSync(join(dist, 'mcp-client-registry.js'))) {
+    throw new Error(`${CLI_PKG}/dist/src/mcp-client-registry.js is missing: build the CLI first`);
+  }
+  const registry = await import(pathToFileURL(join(dist, 'mcp-client-registry.js')).href);
+  const roster = await import(pathToFileURL(join(dist, 'mcp-client-roster.js')).href);
+  await registry.ensureAllLoaded();
+  const names = new Set(registry.TOOL_REGISTRY.keys());
+  return {
+    full: names.size,
+    core: [...roster.CORE_ADVERTISED_TOOLS].filter((n) => names.has(n)).length,
+  };
 }
