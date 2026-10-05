@@ -1,5 +1,5 @@
 // #365: the machine-local HMAC signing key for access_ack grants.
-import { mkdtempSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -10,6 +10,7 @@ import {
   signAccessAck,
   verifyAccessAckSignature,
 } from '../orgrt/access-grant-key.js';
+import { mkdtempSync } from './tmp-track.js';
 
 function dir(): string {
   return mkdtempSync(join(tmpdir(), 'access-grant-key-'));

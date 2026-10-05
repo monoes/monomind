@@ -2,7 +2,8 @@
 // P3.2: the dashboard reads run_config.completion through the shared accessor.
 // A legacy string shows exactly as before; a sections-v1 object shows its mode
 // and survives a Config-tab save with its protocol; null is refused for it.
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';

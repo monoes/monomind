@@ -4,7 +4,8 @@
 // chosen, a dispatch that suggests skills records them, and a role loading a
 // suggested skill is recorded against the task — all on the task row (so it
 // rides the checkpoint) and on the bus as audit events.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';

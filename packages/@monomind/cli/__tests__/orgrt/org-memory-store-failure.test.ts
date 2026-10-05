@@ -14,7 +14,7 @@
 // AND emits an `audit` bus event, without throwing (the run itself succeeded —
 // failing it over post-run bookkeeping would be a worse outcome than a loud
 // warning).
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

@@ -6,6 +6,7 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ### Fixed
 
+- **`monomind security defend` no longer crashes when a threat is detected (#641).** The per-severity colour was picked by pulling `output.error`/`warning`/`info`/`dim` out as bare function references, which lost the `this` binding, so the first detected threat threw `TypeError: Cannot read properties of undefined (reading 'color')`. The formatter is now invoked on `output`.
 - **The full-mode MCP tool count in the docs is derived from the registry, not typed (#642).** `doc/concepts/mcp-server.md`, `opencode.md` and `antigravity.md` said `MONOMIND_MCP_FULL=1` advertises 219 tools; `tools/list` over stdio returns 198 (the default roster is 20). The two counts are now `doc-count` markers (`mcp-tools-full`, `mcp-tools-default`) that `scripts/generate-doc-counts.mjs` reads from the built CLI's registry, so `--check` fails when a doc states another number.
 
 ## [2.24.1] — 2026-10-05

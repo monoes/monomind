@@ -8,7 +8,7 @@
  * envelope/singleton shapes, and the org events NDJSON tail (§7.3).
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +20,7 @@ import {
   reportAction,
 } from '../commands/org-observe.js';
 import type { CommandContext, ParsedFlags } from '../types.js';
+import { mkdtempSync } from './tmp-track.js';
 
 let root: string;
 let captured: string[];

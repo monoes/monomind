@@ -85,6 +85,10 @@ export const ORG_ROLE_ENV_KEYS = [
 const KEYS = [
   'HOME',
   'USERPROFILE',
+  'TMPDIR',
+  'MONOMIND_TEST_OUTER_TMP',
+  'TMP',
+  'TEMP',
   'MONOMIND_GLOBAL_BRAIN_DIR',
   'MONOMIND_TEST_REAL_HOME',
   'npm_config_cache',
@@ -124,6 +128,13 @@ export function useTestHome(home: string): void {
   for (const key of ORG_ROLE_ENV_KEYS) delete process.env[key];
 }
 
+/** Points the temp dir at `tmp` (a sibling of the home, not inside it: suites
+ *  that sandbox a process deny writes under HOME). */
+export function useTestTmp(tmp: string): void {
+  process.env.TMPDIR = tmp;
+  if (process.platform === 'win32') process.env.TMP = process.env.TEMP = tmp;
+}
+
 export default function setup(): () => void {
   const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
   const realHome =
@@ -140,12 +151,19 @@ export default function setup(): () => void {
   const snapshot = realHome ? snapshotHome(realHome) : null;
   const home = mkdtempSync(join(tmpdir(), 'mm-test-run-home-'));
   useTestHome(home);
+  // One temp root for the run, removed with it: nothing a test leaves reaches /tmp.
+  // (A forked file makes its own dir next to it, under the outer temp dir: a shorter
+  // path, which suites that start Chrome need for its socket paths.)
+  process.env.MONOMIND_TEST_OUTER_TMP = tmpdir();
+  const tmp = mkdtempSync(join(tmpdir(), 't-'));
+  useTestTmp(tmp);
   return () => {
     for (const k of KEYS) {
       if (saved[k] === undefined) delete process.env[k];
       else process.env[k] = saved[k];
     }
     rmSync(home, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true });
     if (realHome && snapshot) checkHome(realHome, snapshot);
   };
 }

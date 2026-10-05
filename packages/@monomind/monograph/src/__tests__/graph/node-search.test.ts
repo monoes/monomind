@@ -1,10 +1,10 @@
-import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { searchNodesByProperty, searchNodesInMemory } from '../../graph/node-search.js';
 import { openDb } from '../../storage/db.js';
 import type { MonographNode } from '../../types.js';
+import { mkdtempSync } from '../tmp-track.js';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-node-search-test-'));

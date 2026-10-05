@@ -1,5 +1,6 @@
 /** Shared catalog fixtures: real packages with real digests plus a state entry. */
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { packageDigest, packagesDir } from '../../src/catalog/digest.js';
@@ -61,6 +62,7 @@ export function writeEntry(root: string, spec: EntrySpec): CatalogEntry & { dir:
     writeFileSync(join(tmp, rel), body);
   }
   const sha256 = packageDigest(tmp);
+  rmSync(tmp, { recursive: true, force: true });
   const dir = join(packagesDir(root), spec.name, sha256.slice(0, 12));
   for (const [rel, body] of Object.entries(files)) {
     mkdirSync(join(dir, rel, '..'), { recursive: true });
