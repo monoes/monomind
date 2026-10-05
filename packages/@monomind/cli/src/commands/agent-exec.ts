@@ -1,3 +1,4 @@
+import { applyClaudePathFlag, claudePathOption } from '../orgrt/claude-selection.js';
 // packages/@monomind/cli/src/commands/agent-exec.ts
 /**
  * `monomind agent exec|scan|test` — the Agent Exec Protocol CLI surface
@@ -14,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runAgentExec, type ToolSpec } from '../orgrt/agent-exec.js';
 import { parseSettingsFlag } from '../orgrt/agent-exec-settings.js';
+import { reportClaudeSkip } from '../orgrt/claude-sdk.js';
 import { ORG_EFFORT_LEVELS, type OrgEffortLevel } from '../orgrt/cost-tier.js';
 import { scanInstalled } from '../orgrt/runner-registry.js';
 import { SANDBOX_FALLBACKS, SANDBOX_MODES, type SandboxMode } from '../orgrt/runner-sandbox.js';
@@ -140,6 +142,7 @@ export async function runExec(
   ctx: CommandContext,
   overrides: Partial<Parameters<typeof runAgentExec>[0]>,
 ): Promise<number> {
+  applyClaudePathFlag(ctx.flags);
   const runtime = String(ctx.flags.runtime ?? '');
   const promptFlag = ctx.flags.prompt as string | undefined;
   const promptFile = ctx.flags['prompt-file'] as string | undefined;
@@ -289,6 +292,7 @@ export const execCommand: Command = {
   name: 'exec',
   description: 'Run one agent turn via a local runner (Agent Exec Protocol — NDJSON on stdout)',
   options: [
+    claudePathOption,
     {
       name: 'runtime',
       short: 'r',
@@ -411,6 +415,7 @@ export const scanCommand: Command = {
   name: 'scan',
   description: 'Detect locally installed agent runtimes (exit 0 always)',
   options: [
+    claudePathOption,
     {
       name: 'json',
       description: 'Emit the protocol JSON shape (see agent-exec-protocol.md §6)',
@@ -433,6 +438,7 @@ export const scanCommand: Command = {
     { command: 'monomind agent scan --installed --json', description: 'Installed-only view' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
+    applyClaudePathFlag(ctx.flags);
     const result = await scanInstalled({ probe: Boolean(ctx.flags.probe) });
     const agents = ctx.flags.installed ? result.agents.filter((a) => a.installed) : result.agents;
     const payload = { v: 1, agents };
@@ -443,6 +449,8 @@ export const scanCommand: Command = {
     }
 
     output.writeln();
+    const claude = agents.find((a) => a.id === 'claude')?.claude_code;
+    if (claude) reportClaudeSkip(claude);
     output.writeln(output.bold('Agent Runtimes'));
     output.writeln();
     output.printTable({
@@ -472,7 +480,10 @@ export const scanCommand: Command = {
 export const testCommand: Command = {
   name: 'test',
   description: 'Smoke-test a runtime with one tiny turn (also verifies auth)',
-  options: [{ name: 'timeout', description: 'Overall timeout (default 90s)', type: 'string' }],
+  options: [
+    claudePathOption,
+    { name: 'timeout', description: 'Overall timeout (default 90s)', type: 'string' },
+  ],
   examples: [
     {
       command: 'monomind agent test codex',

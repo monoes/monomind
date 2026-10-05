@@ -18,6 +18,7 @@ import { execAllowedToolNames } from '../orgrt/agent-exec-gate.js';
 import type { AgentMessage, AgentRunArgs, AgentRunner } from '../orgrt/agent-runner.js';
 import { copilotPermissionArgs } from '../orgrt/copilot-runner-stream.js';
 import { piCliArgs } from '../orgrt/pi-runner-state.js';
+import { runnerSpec } from '../orgrt/runner-registry.js';
 import {
   RUNNER_SANDBOX_MODES,
   resolveSandbox,
@@ -172,10 +173,24 @@ describe('#482 --sandbox-fallback in agent exec', () => {
     }
   });
 
-  it('strictest on every runtime: a turn, never fatal; a notice iff the mode changed', async () => {
+  it('strictest starts supported modes and refuses unavailable scoped transports before execution', async () => {
     for (const [runtime, modes] of Object.entries(RUNNER_SANDBOX_MODES)) {
       for (const requested of SANDBOX_MODES) {
         const r = await turn(runtime, { sandbox: requested, sandboxFallback: 'strictest' });
+        const spec = runnerSpec(runtime)!;
+        if (
+          spec.executionUnsupportedReason ||
+          ('scopedAccess' in spec && spec.scopedAccess === false)
+        ) {
+          expect(r.code, runtime).toBe(2);
+          expect(r.seen, runtime).toBeUndefined();
+          expect(r.start, runtime).toBeUndefined();
+          expect(r.events).toEqual([
+            expect.objectContaining({ type: 'error', code: 'unsupported', fatal: true }),
+            { v: 1, type: 'done', exit_code: 2 },
+          ]);
+          continue;
+        }
         const applied = strictestFallback(requested, modes);
         expect(r.code, `${runtime} ${requested}`).toBe(0);
         expect(r.seen?.sandbox).toBe(applied);

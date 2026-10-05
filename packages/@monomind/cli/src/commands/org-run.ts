@@ -1,3 +1,4 @@
+import { applyClaudePathFlag } from '../orgrt/claude-selection.js';
 // packages/@monomind/cli/src/commands/org-run.ts
 //
 // `monomind org run` — start an org as a foreground daemon.
@@ -230,6 +231,7 @@ async function printDashboardUrl(cwd: string): Promise<void> {
 }
 
 export const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  applyClaudePathFlag(ctx.flags);
   // Org runs skip local embeddings entirely — on some machines
   // @huggingface/transformers' native ONNX runtime crashes the whole
   // process (a libc++abi terminate, not a catchable JS error) the moment
@@ -266,6 +268,13 @@ export const runAction = async (ctx: CommandContext): Promise<CommandResult> => 
   // own here would put two processes on one runtime.json and one broker lease,
   // so hand the request to the daemon via its runfile instead of racing it.
   const serveOwner = liveServeDaemonPid(ctx.cwd);
+  if (serveOwner != null && ctx.flags['claude-path'] !== undefined)
+    return {
+      success: false,
+      message:
+        '--claude-path cannot change a running org serve daemon; pass it when starting org serve',
+      exitCode: 2,
+    };
   if (serveOwner != null)
     return handOffToServeDaemon(orgsDir, name, serveOwner, taskFlag, autoApprove);
 

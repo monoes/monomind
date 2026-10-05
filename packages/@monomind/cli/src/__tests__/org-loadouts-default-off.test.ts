@@ -1,3 +1,6 @@
+// #594: SDK 0.3.289 restores existing Zod limits and field descriptions omitted
+// by 0.3.226: brief/context max4000, arrays min1, safe integer evidence exits,
+// recheck bounds and org_review.base help. Only tool hashes change; prompts stay frozen.
 /**
  * ADR-O001 D7 — "everything defaults OFF".
  *
@@ -192,4 +195,4 @@ const SESSION_PROMPT_SHA = '0c97dc446650c37c3a943c7de1a0411f4dc13172d6d372769f10
 // same hash before and after that change; this one does not.
 // Recaptured when org_task_done and org_complete said that a completion after a
 // failed write whose file is not on disk is refused (write-ledger.ts).
-const TOOLS_SHA = '7cae1840bb9bc40401d47eed463209325c9a94b0fe33fa93a36ec25d7ca63aa9';
+const TOOLS_SHA = '8939953914849c7a5a10cba1db401b2b36dd9a1a46167e62630ce00a4b2022b0';

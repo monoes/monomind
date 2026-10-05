@@ -1,3 +1,6 @@
+// #594: SDK 0.3.289 restores existing Zod limits and field descriptions omitted
+// by 0.3.226: brief/context max4000, arrays min1, safe integer evidence exits,
+// recheck bounds and org_review.base help. Only tool hashes change; prompts stay frozen.
 // packages/@monomind/cli/__tests__/orgrt/frozen-sha-tripwire.test.ts
 //
 // Org sections P3.0 (spec 13.1.3): the tripwire. The four SHAs below are a
@@ -113,7 +116,7 @@ const FROZEN = {
   COORDINATOR_PROMPT_SHA: '2dca5a246daf468b94661266050615aeff68656e6520c8f965ed002b993b60bd',
   WORKER_PROMPT_SHA: '69aaf97fabf2bd5cb8f45c989e6bf6c249e733fb860286bb8c923a44320d2159',
   SESSION_PROMPT_SHA: '0c97dc446650c37c3a943c7de1a0411f4dc13172d6d372769f10e9358553c567',
-  TOOLS_SHA: '7cae1840bb9bc40401d47eed463209325c9a94b0fe33fa93a36ec25d7ca63aa9',
+  TOOLS_SHA: '8939953914849c7a5a10cba1db401b2b36dd9a1a46167e62630ce00a4b2022b0',
 };
 
 describe('sections-off golden: frozen SHA tripwire', () => {

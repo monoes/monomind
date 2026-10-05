@@ -1,6 +1,8 @@
 // packages/@monomind/cli/src/orgrt/agent-exec-errors.ts
+
 import { classifyStderr } from './kimicode-runner-parse.js';
 import { parseRetryAfterMs, vendorRetriesOf } from './provider-limit.js';
+import { RunnerTransportError } from './runner-transport-error.js';
 
 // ─── errors (§3.4 taxonomy) ─────────────────────────────────────────────────
 
@@ -64,6 +66,7 @@ export function execErrorCode(
   err: unknown,
   fullMessage: string,
 ): { code: ExecErrorCode; rateLimit?: RateLimitHit } {
+  if (err instanceof RunnerTransportError && err.code !== 'rate-limited') return { code: err.code };
   const message = classifiedText(fullMessage);
   if (MISSING_KEY_RE.test(message)) return { code: 'auth' };
   const cls = classifyStderr(message);

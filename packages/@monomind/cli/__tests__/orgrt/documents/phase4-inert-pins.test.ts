@@ -1,3 +1,8 @@
+// Document schemas also restore their existing ID/string/array bounds and
+// positive safe-integer part/version/state-sequence rules; no fields are removed.
+// #594: SDK 0.3.289 restores existing Zod limits and field descriptions omitted
+// by 0.3.226: brief/context max4000, arrays min1, safe integer evidence exits,
+// recheck bounds and org_review.base help. Only tool hashes change; prompts stay frozen.
 // packages/@monomind/cli/__tests__/orgrt/documents/phase4-inert-pins.test.ts
 //
 // Org sections P4.0 (spec 13.2.3, invariant 2), part 2 of 3. A Phase 3 sections-on org that sets none of the
@@ -49,8 +54,8 @@ const fileSha = (path: string): string => sha(readFileSync(path, 'utf8'));
 // 1. The second copy of the P3.12 pins (values as of P3.16b; originals in documents-wiring.test.ts,
 //    documents-check-wiring.test.ts and sections-on-fingerprints.test.ts).
 // ---------------------------------------------------------------------------------------------------------------
-const SECTIONS_ON_TOOLS_SHA = 'b7fad955148d79f41c078ee4be07ee3a594a91b2ffdb8612f99fdc3098b584db';
-const SECTIONS_ON_CHECK_TOOLS_SHA = 'b729606538e2deea925ccf8bab609a292be53581ef84bf4d9885bea55d6b75eb';
+const SECTIONS_ON_TOOLS_SHA = 'e7404523101d8aa6bc6c244f9139e62309aaa5c1848d479612bcc4ea2275a3fa';
+const SECTIONS_ON_CHECK_TOOLS_SHA = '9e00b75c68db75fae1d89c42465718bb059c924184439621d5908ec977263351';
 const PROMPT_SHAS: Record<string, string> = {
   researcher: '59e3661988c552a365109e7d57740de83644f00329ad335e23e2a3502916d69d',
   'dev-lead': '0ae92334b81786e876153f3b8039ab1c9328e1c445529f6aaf87d0e84bfaeddf',

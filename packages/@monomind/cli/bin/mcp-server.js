@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { registerStandaloneStdioServer } from '../dist/src/mcp-server.js';
 import { listMCPTools, callMCPTool, hasTool } from '../dist/src/mcp-client.js';
 
 const VERSION = '3.0.0';
@@ -71,6 +72,8 @@ process.stdin.on('data', async (chunk) => {
     }
   }
 });
+
+registerStandaloneStdioServer();
 
 process.stdin.on('end', () => {
   console.error(

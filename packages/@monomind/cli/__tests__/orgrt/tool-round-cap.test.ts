@@ -21,6 +21,16 @@ import { MAX_TOOL_ROUNDS, roundCapResult, runToolRound } from '../../src/orgrt/t
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 import type { CommandContext } from '../../src/types.js';
 
+// Storage confinement is exercised by runner-inputs-599 and env-boundary;
+// this suite varies only the tool-round cap while retaining real input writes.
+vi.mock('../../src/orgrt/runner-inputs.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/orgrt/runner-inputs.js')>();
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return { ...actual, createRunnerInputDir: (runner: string) => fs.mkdtempSync(path.join(os.tmpdir(), `round-cap-input-${runner}-`)) };
+});
+
 const tmpDirs: string[] = [];
 afterEach(() => {
   for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });

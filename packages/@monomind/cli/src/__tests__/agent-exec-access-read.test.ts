@@ -228,7 +228,11 @@ describe('#388 access_modes and unsupported runtimes', () => {
     const withRead = agents.filter((a) => a.access_modes.includes('read')).map((a) => a.id);
     expect(withRead.sort()).toEqual(['claude', 'codex', 'pi', 'pi-rpc']);
     for (const a of agents) {
-      expect(a.access_modes[0]).toBe('scoped');
+      if (!a.execution_supported) {
+        expect(a.access_modes, a.id).toEqual([]);
+        expect(a.execution_unsupported_reason, a.id).toEqual(expect.any(String));
+      } else if (a.id === 'kilo') expect(a.access_modes).toEqual(['full']);
+      else expect(a.access_modes[0]).toBe('scoped');
       expect(a.access_modes.includes('full')).toBe(a.full_access);
     }
     expect(agents.find((a) => a.id === 'opencode')!.access_modes).toEqual(['scoped', 'full']);

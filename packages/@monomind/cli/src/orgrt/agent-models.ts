@@ -16,7 +16,12 @@
  */
 
 import { spawn } from 'node:child_process';
-import { loadClaudeSdk } from './claude-sdk.js';
+import {
+  type ClaudeCodeInfo,
+  claudeCodeInfo,
+  defaultClaudeProbe,
+  loadClaudeSdk,
+} from './claude-sdk.js';
 import { DSH_MODELS } from './dsh-runner-models.js';
 import { locateBinary, resolveBinary, runnerSpec } from './runner-registry.js';
 
@@ -48,11 +53,13 @@ export interface ModelsResult {
   /** true: a static list monomind ships for a runtime with no listing
    *  command (dsh), not one the runtime printed. */
   curated?: boolean;
+  claude_code?: ClaudeCodeInfo;
   models: AgentModel[];
+  reason?: string;
   error?: { code: 'unknown-runtime' | 'missing-binary' | 'list-failed'; message: string };
 }
 
-const LISTABLE = new Set(['claude', 'codex', 'antigravity', 'opencode']);
+const LISTABLE = new Set(['claude', 'codex', 'antigravity', 'opencode', 'kilo']);
 
 // ─── parsers (pure) ──────────────────────────────────────────────────────────
 
@@ -177,9 +184,12 @@ const runCli: CliRunner = (bin, args, timeoutMs) =>
 
 /** The SDK spawns Claude Code and answers from its init handshake — no
  *  prompt is ever sent (the prompt iterable never yields). */
-const listClaudeViaSdk: ClaudeLister = async (timeoutMs) => {
+const listClaudeViaSdk = async (
+  timeoutMs: number,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<SdkModelInfo[]> => {
   // Installed on first use (#428); a failure lands in listRuntimeModels' catch.
-  const { query } = await loadClaudeSdk();
+  const { query } = await loadClaudeSdk(defaultClaudeProbe(env));
   const abortController = new AbortController();
   async function* never(): AsyncGenerator<never> {
     await new Promise<void>((resolve) =>
@@ -229,12 +239,28 @@ export async function listRuntimeModels(
   if (runtime === 'dsh') {
     return { ...base, supported: true, curated: true, models: DSH_MODELS.map((m) => ({ ...m })) };
   }
-  if (!LISTABLE.has(runtime)) return { ...base, supported: false, models: [] };
+  if (!LISTABLE.has(runtime))
+    return {
+      ...base,
+      supported: false,
+      models: [],
+      ...(spec.executionUnsupportedReason ? { reason: spec.executionUnsupportedReason } : {}),
+    };
 
   try {
     if (runtime === 'claude') {
-      const list = await (opts.listClaude ?? listClaudeViaSdk)(timeoutMs);
-      return { ...base, supported: true, models: parseClaudeModels(list) };
+      const list = await (opts.listClaude
+        ? opts.listClaude(timeoutMs)
+        : listClaudeViaSdk(timeoutMs, env));
+      return {
+        ...base,
+        supported: true,
+        models: parseClaudeModels(list),
+        claude_code: opts.listClaude
+          ? await claudeCodeInfo(env)
+          : ((await loadClaudeSdk(defaultClaudeProbe(env))).claude_code ??
+            (await claudeCodeInfo(env))),
+      };
     }
     const bin = resolveBinary(spec, env);
     const binPath = bin ? locateBinary(bin, env) : null;
@@ -247,6 +273,16 @@ export async function listRuntimeModels(
       };
     }
     const run = opts.runCli ?? runCli;
+    if (spec.executionPrerequisite) {
+      let version: string | null;
+      try {
+        version = await run(binPath, ['--version'], timeoutMs);
+      } catch {
+        version = null;
+      }
+      const reason = spec.executionPrerequisite(version);
+      if (reason) return { ...base, supported: false, models: [], reason };
+    }
     if (runtime === 'codex') {
       return {
         ...base,

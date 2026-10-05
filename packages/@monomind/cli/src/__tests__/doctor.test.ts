@@ -163,14 +163,17 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (27, including #502 review's org-skills, planted-config and MCP-approval and i-055 doctor follow-up's crash-reporting
+    // alwaysOnChecks (29, including #502 review's org-skills, planted-config and MCP-approval and i-055 doctor follow-up's crash-reporting
     // check, o-16's Project Root disclosure check and the hook-settings
     // check) + codeOnlyChecks (10,
     // including platform adapters, the native-binding probe, i-066's
     // monoes token-exposure check, #328's hook graph rebuild check and the
     // running MCP server version check) — no
     // fingerprint present, so isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(37 + JEV_ROW);
+    expect(data.results.length).toBe(39 + JEV_ROW);
+    expect(data.results.map((r) => r.name)).toEqual(
+      expect.arrayContaining(['Claude runtime', 'Agent runtime readiness']),
+    );
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for
@@ -186,6 +189,8 @@ describe('doctorCommand', () => {
     }
     // Spot-check a few checks that must be present in a code-project run.
     const names = data.results.map((c) => c.name);
+    expect(names).toContain('Claude runtime');
+    expect(names).toContain('Agent runtime readiness');
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Git Repository');
     expect(names).toContain('Config File');
@@ -227,11 +232,13 @@ describe('doctorCommand', () => {
     expect(names).not.toContain('TypeScript');
     expect(names).not.toContain('Gitignore Coverage');
     expect(names).not.toContain('monoes Token Exposure');
+    expect(names).toContain('Claude runtime');
+    expect(names).toContain('Agent runtime readiness');
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Config File');
     expect(names).toContain('Crash Reporting');
     expect(names).toContain('Memory Project Root');
-    expect(data.results.length).toBe(27 + JEV_ROW);
+    expect(data.results.length).toBe(29 + JEV_ROW);
   }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {

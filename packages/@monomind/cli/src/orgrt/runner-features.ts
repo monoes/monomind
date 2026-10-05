@@ -46,6 +46,8 @@ export interface RunnerFeatures {
 }
 
 export const RUNNER_FEATURES: Record<RuntimeKind, RunnerFeatures> = {
+  freebuff: { resume: false, effort: false, maxTurns: false, reportsCost: false, initTarget: null },
+  kilo: { resume: true, effort: false, maxTurns: false, reportsCost: true, initTarget: null },
   claude: { resume: true, effort: true, maxTurns: true, reportsCost: true, initTarget: 'claude' },
   // effort: codex `-c model_reasoning_effort`, opencode model variant, agy
   // `--effort`, grok/copilot `--reasoning-effort` (each runner's own mapping).
