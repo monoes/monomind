@@ -276,3 +276,44 @@ describe('orgStopUsdOf', () => {
       expect(() => orgStopUsdOf({ orgStopUsd: v })).toThrow(/orgStopUsd/);
   });
 });
+
+describe('the trial deadline reaches the org definition (declared change deadline-seconds-in-trials)', () => {
+  // The runtime caps a role's Bash call to a fraction of the time left once run_config.deadline_seconds is set
+  // (a hung shell cost the hardened parallel-sweep-3 trial most of its 720 s). The harness's own deadline kills
+  // the run from outside, so the trial definition now tells the runtime the same number, for every contender.
+  const org = (root: string, name: string) =>
+    JSON.parse(readFileSync(join(root, '.monomind/orgs', `${name}.json`), 'utf8'));
+
+  it("sets run_config.deadline_seconds to the trial's deadline, the same for both contenders, without a difference between them", async () => {
+    const base = mkdtempSync(join(tmpdir(), 'smoke-dl-'));
+    await buildInputs({ scenario: '_selftest', base });
+    const cb = await prepareTrial({
+      scenario: '_selftest',
+      base,
+      contender: 'current-best',
+      trial: '1',
+    });
+    const p2 = await prepareTrial({ scenario: '_selftest', base, contender: 'phase2', trial: '1' });
+    expect(org(cb, 'smoke-_selftest-current-best-1').run_config.deadline_seconds).toBe(600);
+    expect(org(p2, 'smoke-_selftest-phase2-1').run_config.deadline_seconds).toBe(600);
+    expect(
+      JSON.parse(readFileSync(join(p2, 'trial.json'), 'utf8')).effectiveDiffFromCurrentBest,
+    ).toEqual(['run_config.context']);
+  });
+
+  it('follows a retimed deadline (a variant such as d480), and the definition still validates', async () => {
+    const base = mkdtempSync(join(tmpdir(), 'smoke-dl-'));
+    await buildInputs({ scenario: '_selftest', base });
+    const root = await prepareTrial({
+      scenario: '_selftest',
+      base,
+      contender: 'phase2',
+      trial: '2',
+      deadlineSeconds: 480,
+    });
+    const def = org(root, 'smoke-_selftest-phase2-2');
+    expect(def.run_config.deadline_seconds).toBe(480);
+    expect(JSON.parse(readFileSync(join(root, 'trial.json'), 'utf8')).deadlineSeconds).toBe(480);
+    expect(checklistFindings(OrgDefSchema.parse(def)).errors).toEqual([]);
+  });
+});
