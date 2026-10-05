@@ -232,7 +232,7 @@ describe.runIf(authorityMaskAvailability().available)('inside the real mask', ()
         `mv ${base}/a ${base}/a-aside 2>/dev/null && echo RENAMED-A; ` +
           `mv ${base}/a/b ${base}/a/b-aside 2>/dev/null && echo RENAMED-B; ` +
           `mv ${mm} ${base}/a/b/mm-aside 2>/dev/null && echo RENAMED-MM; ` +
-          `mkdir ${mm}/deps/@anthropic-ai+claude-agent-sdk@0.3.226 2>/dev/null && echo PLANTED; ` +
+          `mkdir ${mm}/deps/@anthropic-ai+claude-agent-sdk@0.3.289 2>/dev/null && echo PLANTED; ` +
           `echo ok > ${base}/work.txt && echo WROTE; true`,
       ],
     );

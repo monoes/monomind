@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -136,5 +137,30 @@ describe('verified SDK refresh', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  describe('a registry failure', () => {
+    const offline =
+      "data:text/javascript,globalThis.fetch=()=>Promise.reject(new Error('offline'))";
+    const run = (...flags) =>
+      spawnSync(
+        process.execPath,
+        [
+          '--import',
+          offline,
+          join(import.meta.dirname, '../../scripts/claude-sdk-maintenance.mjs'),
+          ...flags,
+        ],
+        { encoding: 'utf8' },
+      );
+    it('fails the check by default', () => {
+      expect(run().status).toBe(1);
+    });
+    it('only warns with --warn-only, so a registry blip cannot block a publish', () => {
+      const result = run('--warn-only');
+      expect(result.status).toBe(0);
+      expect(result.stderr).toMatch(/offline/);
+      expect(result.stderr).toMatch(/warning/i);
+    });
   });
 });

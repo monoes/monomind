@@ -79,7 +79,7 @@ export function launchCline(
         writeRunnerInput(promptFile, opts.stdinPrompt);
         // The child sees this directory read-only inside its authority mask.
         // FIFO I/O works on a read-only mount, but creating the inode does not.
-        execFileSync('/usr/bin/mkfifo', ['-m', '600', `${promptFile}.fifo`]);
+        execFileSync('mkfifo', ['-m', '600', `${promptFile}.fifo`]);
       } catch (error) {
         rmSync(promptDir, { recursive: true, force: true });
         throw error;

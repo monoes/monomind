@@ -101,8 +101,22 @@ const RUNTIMES = {
   kilo: {
     bin: () => (process.env.KILO_CLI_BIN ? realpathSync(process.env.KILO_CLI_BIN) : which('kilo')),
     versionArgs: ['--version'],
-    nativeRealDirs: ['.local/share/kilo', '.config/kilo', '.local/state/kilo', '.cache/kilo', '.kilocode'],
-    args: ['run', '--format', 'json', '--dangerously-skip-permissions', '--model', FREE_KILO_MODEL, PROMPT],
+    nativeRealDirs: [
+      '.local/share/kilo',
+      '.config/kilo',
+      '.local/state/kilo',
+      '.cache/kilo',
+      '.kilocode',
+    ],
+    args: [
+      'run',
+      '--format',
+      'json',
+      '--dangerously-skip-permissions',
+      '--model',
+      FREE_KILO_MODEL,
+      PROMPT,
+    ],
     variants: {
       'home-only': { env: { KILO_NO_DAEMON: '1' }, pathTools: ['node'], stage: [] },
     },

@@ -62,9 +62,7 @@
         "XDG_RUNTIME_DIR": "<T>/run",
         "TMPDIR": "<T>/tmp",
         "KILO_NO_DAEMON": "1",
-        "passedThrough": [
-          "OPENROUTER_API_KEY"
-        ]
+        "passedThrough": ["OPENROUTER_API_KEY"]
       },
       "stagedAuthSymlinks": [],
       "exitCode": 0,

@@ -66,3 +66,26 @@ it('rejects a writable config directory even if the file itself is private', asy
   expect(() => selectClaudePath({}, h)).toThrow('directory');
   expect(() => setOperatorClaudePath('/other/claude', h)).toThrow('directory');
 });
+it('an untrusted home or config directory without a claude.path is no operator choice, not a failure', async () => {
+  const { chmodSync } = await import('node:fs');
+  // e.g. HOME=/tmp: group/other-writable, and no ~/.monomind at all
+  const open = home();
+  chmodSync(open, 0o777);
+  expect(selectClaudePath({}, open)).toBeUndefined();
+  // a writable ~/.monomind whose config names no claude.path
+  const noPath = home();
+  mkdirSync(join(noPath, '.monomind'));
+  writeFileSync(join(noPath, '.monomind', 'config.json'), JSON.stringify({ other: 1 }));
+  chmodSync(join(noPath, '.monomind'), 0o777);
+  expect(selectClaudePath({}, noPath)).toBeUndefined();
+  // an untrusted config that DOES name a path is never silently ignored
+  const named = home();
+  setOperatorClaudePath('/safe/claude', named);
+  chmodSync(join(named, '.monomind'), 0o777);
+  expect(() => selectClaudePath({}, named)).toThrow('directory');
+  // and a flag or the environment still wins without touching the config
+  expect(selectClaudePath({ MONOMIND_CLAUDE_PATH: '/env/claude' }, open)).toEqual({
+    path: '/env/claude',
+    source: 'MONOMIND_CLAUDE_PATH',
+  });
+});

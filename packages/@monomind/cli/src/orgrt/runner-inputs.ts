@@ -1,6 +1,13 @@
 /** #599: trusted CLI input must not live in another turn's writable TMPDIR.
  * The authority mask keeps non-allowlisted ~/.monomind entries read-only,
- * while the unsandboxed parent can create and clean up each run's inputs. */
+ * while the unsandboxed parent can create and clean up each run's inputs.
+ *
+ * Refused (the error says "Move HOME or MONOMIND_HOME"): a monomind home inside the
+ * workspace (cwd), or inside any writable temporary root (tmpdir, /tmp, /var/tmp, TMPDIR,
+ * TMP, TEMP), because a role could then rewrite its own or another turn's input. That
+ * includes HOME under /tmp (a throwaway or container HOME) and a cwd that contains the
+ * home. Also refused: a symlink anywhere on the path, and a directory not owned by the
+ * current user or writable by others. */
 import { createHash } from 'node:crypto';
 import {
   closeSync,

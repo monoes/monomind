@@ -195,7 +195,11 @@ async function main() {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    console.error(`Claude SDK maintenance failed: ${error.message}`);
-    process.exitCode = 1;
+    // --warn-only (prepublishOnly): a registry or network failure must not block a publish.
+    const warnOnly = process.argv.includes('--warn-only');
+    console.error(
+      `${warnOnly ? '::warning::' : ''}Claude SDK maintenance failed: ${error.message}`,
+    );
+    process.exitCode = warnOnly ? 0 : 1;
   });
 }

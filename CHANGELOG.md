@@ -4,6 +4,17 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Added
+
+- **A verified Kilo runtime and a Freebuff discovery stub (#600, #601).** `kilo` (CLI 7.8.3, explicit full access only, resume, reported cost, native tool activity) runs through `agent exec` and the Org Runtime; `freebuff` is discovered but refuses before spawning (its CLI has no headless transport). Neither can run in a sections org: the isolation registry marks both `refused` (Kilo is full-access only and a sections org refuses full access; Freebuff cannot execute). `agent scan` and `doctor -c agent-runtimes` report `execution_supported` and the reason.
+- **Operator Claude selection (#596).** `--claude-path <absolute-file|bundled>`, `MONOMIND_CLAUDE_PATH` or `monomind config set claude.path`; an untrusted home or config directory that names no `claude.path` is no choice (one warning), not a failure.
+
+### Fixed
+
+- **Claude SDK pinned to 0.3.289, with a reviewed weekly refresh (#594).** The refresh workflow computes the new pins in a read-only job (the downloaded binary runs there) and opens the PR from a second job; actions are pinned to commits. The publish-time freshness check only warns when the registry is unreachable. The `org_*` tool schemas the SDK emits changed with the bump (the sections-off fixtures were regenerated for it).
+- **Trusted runner inputs no longer sit in a writable temp root (#599).** The hermes, cline and kimi prompt files live under `<monomind home>/runner-inputs`, in one directory per org role that the sections role protection hides from every other role.
+- **Also in this batch:** #591, #592, #593, #595, #597, #610.
+
 ### Changed
 
 - **Org sections are generally available.** A sections org no longer needs `run_config.experimental: "eval"`, and `org run`, `org serve`, resume and role restarts start it like any org. An org that still declares `experimental: "eval"` keeps the eval-harness-only start and the no-restart rule. The release build behind this: an OS-held single-daemon lock per org root (a network filesystem is refused), per-recipient mail digests that are immutable, hash-journalled and unreadable to other roles, authenticated task-routing envelopes, per-role private copies of Claude's native transcripts, a host preflight (authority mask, SDK sandbox, copy inventory) on every start, resume and role replacement, and an adversarial probe suite with a mutation check. Only Claude roles have a copy-inventory entry; other runtimes are refused in a non-eval sections org until they get one.

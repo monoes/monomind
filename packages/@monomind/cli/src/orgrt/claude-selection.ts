@@ -64,8 +64,35 @@ function readOperatorConfig(home: string): Record<string, unknown> {
     throw new Error('Operator Claude config must be an object');
   return config as Record<string, unknown>;
 }
+/** Whether an untrusted config file names a claude.path; only read, never trusted. */
+function namesClaudePath(home: string): boolean {
+  try {
+    const claude = (JSON.parse(readFileSync(configFile(home), 'utf8')) as Record<string, unknown>)
+      ?.claude;
+    return !!claude && typeof claude === 'object' && 'path' in claude;
+  } catch {
+    return existsSync(configFile(home)); // unreadable or invalid: cannot tell, so refuse
+  }
+}
+let warnedUntrusted = false;
+/** Reading never breaks Claude for an operator who set nothing: an untrusted home or config
+ *  that names no claude.path is "no operator choice" with one warning; one that names a path is refused. */
+function readOperatorConfigForSelection(home: string): Record<string, unknown> {
+  try {
+    return readOperatorConfig(home);
+  } catch (error) {
+    if (namesClaudePath(home)) throw error;
+    if (!warnedUntrusted) {
+      warnedUntrusted = true;
+      process.stderr.write(
+        `monomind: ignoring operator Claude config (${(error as Error).message}); no claude.path is set\n`,
+      );
+    }
+    return {};
+  }
+}
 export function operatorClaudePath(home = homedir()): string | undefined {
-  const config = readOperatorConfig(home);
+  const config = readOperatorConfigForSelection(home);
   const claude = config.claude;
   if (!claude || typeof claude !== 'object') return undefined;
   const path = (claude as Record<string, unknown>).path;
