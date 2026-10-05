@@ -6,7 +6,8 @@
  * file inside `…/growth/site` was denied while the deny message told the role
  * it "may use …/growth/site".
  */
-import { mkdirSync, mkdtempSync, realpathSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

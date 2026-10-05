@@ -6,7 +6,8 @@
  * policy.git level, push included — and never from non-Claude runtimes.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';

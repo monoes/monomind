@@ -5,7 +5,8 @@
  * org defines, and a deferral that gave up left the role's tasks 'ready' with
  * no owner.
  */
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

@@ -10,7 +10,7 @@
 // starts fresh with a runtime-built digest. Counters persist across resumes
 // and process cycles.
 import { createHash } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

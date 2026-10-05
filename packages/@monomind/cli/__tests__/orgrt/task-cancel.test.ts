@@ -6,7 +6,7 @@
  * assignee is told, its task-scoped process for that task is ended, and a
  * close of the cancelled task is refused as cancelled.
  */
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

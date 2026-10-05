@@ -6,7 +6,8 @@
 // this role may use"), so the role had to rerun its command. A role may read the persisted tool
 // output of ITS OWN sessions, and only that: not another role's session, not the transcript or
 // any other file of its own session directory, and never a write.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

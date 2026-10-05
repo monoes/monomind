@@ -6,7 +6,8 @@
 // cache. The first call of a session shows the prefix cache read vs write at
 // session start; the summary turns the log into per-role figures that the
 // eval compares across configurations.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../src/__tests__/tmp-track.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';

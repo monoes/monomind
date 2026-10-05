@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/__tests__/org-cost-tier.test.ts
 //
 // ADR-O001 D8 — provider-agnostic cost tiers (model AND reasoning effort).
-import { mkdtempSync } from 'node:fs';
+
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +18,7 @@ import { PolicyEngine } from '../orgrt/policy.js';
 import { runAgentSession } from '../orgrt/session.js';
 import { type OrgDef, OrgDefSchema, type OrgRole } from '../orgrt/types.js';
 import { DEFAULT_CLAUDE_MODEL } from '../orgrt/vercel-providers.js';
+import { mkdtempSync } from './tmp-track.js';
 
 const dir = () => mkdtempSync(join(tmpdir(), 'cost-tier-'));
 

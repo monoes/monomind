@@ -15,7 +15,6 @@
 
 import * as cp from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -37,6 +36,7 @@ import {
   runFullAccessToolTurn,
 } from './caller-tool-turn.js';
 import { fakeClaudeQuery } from './fake-claude-cli.js';
+import { mkdtempSync } from './tmp-track.js';
 
 vi.mock('node:child_process', async (orig) => ({
   ...(await orig<typeof import('node:child_process')>()),

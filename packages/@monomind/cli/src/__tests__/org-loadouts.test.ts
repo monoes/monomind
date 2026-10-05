@@ -10,7 +10,7 @@
  *    differs from the one its role's session was built with is recorded as a
  *    `loadout-mismatch`, not applied.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -38,6 +38,7 @@ import { PolicyEngine } from '../orgrt/policy.js';
 import { buildOrgTools, runAgentSession, type SessionOpts } from '../orgrt/session.js';
 import { TaskDag } from '../orgrt/task-dag.js';
 import { type BusEvent, ORG_DIR, type OrgDef, OrgDefSchema, type OrgRole } from '../orgrt/types.js';
+import { mkdtempSync } from './tmp-track.js';
 
 const settleDispatch = (): Promise<void> =>
   new Promise((r) => setTimeout(r, DISPATCH_COALESCE_MS + 50));
