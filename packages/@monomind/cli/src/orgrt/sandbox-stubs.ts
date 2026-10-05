@@ -65,6 +65,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { basename, dirname, sep } from 'node:path';
+import { repoRootOf, syncStubExcludes } from './sandbox-stubs-exclude.js';
 import {
   alive,
   defaultIdentity,
@@ -141,6 +142,7 @@ export class SandboxStubs {
       }
     }
     if (created.length) {
+      this.syncExcludes(created);
       this.updateLedger((entries) => [...entries, ...created.map((p) => this.entry(p, owner))]);
       if (!this.exitHook) {
         this.exitHook = true;
@@ -237,8 +239,19 @@ export class SandboxStubs {
         }
       } else if (removeIfUnchanged(p, stub)) removed.push(p);
     }
+    if (removed.length) this.syncExcludes(removed);
     this.updateLedger((all) => [...all.filter((e) => !dead.includes(e)), ...adopted], entries);
     return removed;
+  }
+
+  /** Keeps `git status` free of the stubs in each repo root `paths` lie in (sandbox-stubs-exclude.ts). */
+  private syncExcludes(paths: string[]): void {
+    const roots = new Set<string>();
+    for (const p of paths) {
+      const root = repoRootOf(dirname(p));
+      if (root) roots.add(root);
+    }
+    for (const root of roots) syncStubExcludes(root);
   }
 
   private entry(p: string, runId: string): LedgerEntry {
@@ -317,6 +330,7 @@ export class SandboxStubs {
       if (removeIfUnchanged(p, stub)) removed.push(p);
     }
     if (entries.length) {
+      this.syncExcludes(entries.map(([p]) => p));
       const gone = new Set(entries.map(([p]) => p));
       const ourNs = this.identity.pidNamespace();
       const ourBootId = this.identity.bootId();
